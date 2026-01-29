@@ -1,0 +1,2 @@
+vendor/stockfish/stockfish-18-single.wasm filter=lfs diff=lfs merge=lfs -text
+vendor/stockfish/stockfish-18.wasm filter=lfs diff=lfs merge=lfs -text
