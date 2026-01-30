@@ -1,0 +1,6 @@
+# local clone of upstream stockfish.js repo
+stockfish.js/
+
+# misc
+.DS_Store
+node_modules/

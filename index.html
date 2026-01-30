@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vulcan Analysis — Stockfish.js Deep Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="vendor/chess.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand">
+        <h1>Vulcan Analysis Lab</h1>
+        <p>Full-fidelity Stockfish.js workstation — maximize throughput, expose every UCI switch, and run deep analysis directly in the browser.</p>
+      </div>
+      <div class="status-row">
+        <div class="status-pill">Engine: <strong id="engine-name">Offline</strong></div>
+        <div class="status-pill">Variant: <strong id="engine-variant">—</strong></div>
+        <div class="status-pill">Threads: <strong id="engine-threads">—</strong></div>
+        <div class="status-pill">Hash: <strong id="engine-hash">—</strong></div>
+        <div class="status-pill">Speed: <strong id="engine-nps">—</strong></div>
+      </div>
+    </header>
+
+    <main>
+      <section class="panel board-panel">
+        <h2>Board + Position</h2>
+        <div class="board-wrap">
+          <div id="board" class="board" aria-label="Chess board"></div>
+          <div class="board-meta">
+            <div class="eval-bar" aria-label="Evaluation bar">
+              <div id="eval-fill" class="eval-fill"></div>
+            </div>
+            <div class="eval-label" id="eval-label">0.00</div>
+            <div class="kpi">
+              <div>Depth: <span id="kpi-depth">0</span></div>
+              <div>SelDepth: <span id="kpi-seldepth">0</span></div>
+              <div>Nodes: <span id="kpi-nodes">0</span></div>
+              <div>NPS: <span id="kpi-nps">0</span></div>
+              <div>Time: <span id="kpi-time">0</span></div>
+              <div>TB Hits: <span id="kpi-tbhits">0</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">Position Tools</div>
+          <div class="controls">
+            <button id="btn-new">New Game</button>
+            <button class="secondary" id="btn-flip">Flip Board</button>
+            <button class="secondary" id="btn-undo">Undo</button>
+            <button class="secondary" id="btn-redo">Redo</button>
+          </div>
+          <div class="grid-two">
+            <div class="section">
+              <div class="label">FEN</div>
+              <textarea id="fen-input" spellcheck="false"></textarea>
+              <div class="controls">
+                <button class="secondary" id="btn-load-fen">Load FEN</button>
+                <button class="ghost" id="btn-copy-fen">Copy FEN</button>
+              </div>
+            </div>
+            <div class="section">
+              <div class="label">PGN</div>
+              <textarea id="pgn-input" spellcheck="false"></textarea>
+              <div class="controls">
+                <button class="secondary" id="btn-load-pgn">Load PGN</button>
+                <button class="ghost" id="btn-copy-pgn">Copy PGN</button>
+              </div>
+            </div>
+          </div>
+          <div class="section">
+            <div class="label">Moves (UCI)</div>
+            <input id="uci-moves" type="text" placeholder="e2e4 e7e5 g1f3" />
+            <div class="controls">
+              <button class="secondary" id="btn-apply-moves">Apply Moves</button>
+              <button class="ghost" id="btn-clear-moves">Clear Moves</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">MultiPV Lines</div>
+          <div id="pv-lines" class="pv-table"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Engine Control + UCI</h2>
+        <div class="section">
+          <div class="label">Engine Variant</div>
+          <div class="grid-two">
+            <select id="engine-select">
+              <option value="auto">Auto (fastest available)</option>
+              <option value="standard">Standard (multi-threaded)</option>
+              <option value="standard-single">Standard (single-threaded)</option>
+              <option value="lite">Lite (multi-threaded)</option>
+              <option value="lite-single">Lite (single-threaded)</option>
+              <option value="asm">ASM.js fallback</option>
+            </select>
+            <button id="btn-engine-load">Load Engine</button>
+          </div>
+          <div class="notice" id="engine-warning">Waiting for engine init.</div>
+        </div>
+
+        <div class="section">
+          <div class="label">Search Controls</div>
+          <div class="controls">
+            <button id="btn-analyze">Go Infinite</button>
+            <button class="secondary" id="btn-stop">Stop</button>
+            <button class="secondary" id="btn-isready">IsReady</button>
+            <button class="secondary" id="btn-ucinewgame">New Search</button>
+          </div>
+          <div class="grid-two">
+            <div class="section">
+              <div class="label">Depth</div>
+              <input id="depth-input" type="number" min="1" max="99" value="18" />
+              <button class="secondary" id="btn-go-depth">Go Depth</button>
+            </div>
+            <div class="section">
+              <div class="label">Move Time (ms)</div>
+              <input id="movetime-input" type="number" min="1" value="2500" />
+              <button class="secondary" id="btn-go-time">Go Time</button>
+            </div>
+            <div class="section">
+              <div class="label">Nodes</div>
+              <input id="nodes-input" type="number" min="1" value="1000000" />
+              <button class="secondary" id="btn-go-nodes">Go Nodes</button>
+            </div>
+            <div class="section">
+              <div class="label">Mate</div>
+              <input id="mate-input" type="number" min="1" value="4" />
+              <button class="secondary" id="btn-go-mate">Go Mate</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">Diagnostics / Extensions</div>
+          <div class="controls">
+            <button class="secondary" id="btn-eval">Eval Trace</button>
+            <button class="secondary" id="btn-display">Display (d)</button>
+            <button class="secondary" id="btn-compiler">Compiler Info</button>
+            <button class="secondary" id="btn-perft">Perft</button>
+            <button class="secondary" id="btn-flip-engine">Flip (engine)</button>
+          </div>
+          <div class="grid-two">
+            <div class="section">
+              <div class="label">Perft Depth</div>
+              <input id="perft-input" type="number" min="1" value="4" />
+            </div>
+            <div class="section">
+              <div class="label">Searchmoves (optional)</div>
+              <input id="searchmoves-input" type="text" placeholder="e2e4 g1f3" />
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">UCI Options</div>
+          <div class="controls">
+            <button class="secondary" id="btn-refresh-options">Refresh Options</button>
+            <button class="secondary" id="btn-max-perf">Maximize Performance</button>
+          </div>
+          <div id="options" class="option-grid"></div>
+        </div>
+
+        <div class="section">
+          <div class="label">Raw UCI Console</div>
+          <div id="console" class="console"></div>
+          <div class="grid-two">
+            <input id="uci-input" type="text" placeholder="Type UCI command…" />
+            <button id="btn-send-uci">Send</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      Stockfish.js 17.1 is embedded locally under <span class="badge">vendor/stockfish</span>. Multi-threaded engines require cross-origin isolation (COOP/COEP). This UI falls back automatically when unavailable.
+    </footer>
+  </div>
+
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
