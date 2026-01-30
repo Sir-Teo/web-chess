@@ -533,7 +533,7 @@ function onSquareClick(square) {
   if (selectedSquare && legalTargets.has(square)) {
     const selectedMoves = game.moves({ square: selectedSquare, verbose: true });
     const promotionMove = selectedMoves.find((m) => m.to === square && m.promotion);
-    const promotion = promotionMove ? promotionMove.promotion : undefined;
+    const promotion = promotionMove ? promotionMove.promotion : "q";
     const move = game.move({ from: selectedSquare, to: square, promotion });
     if (move) {
       undoStack.push(move);
