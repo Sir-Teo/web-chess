@@ -11,45 +11,48 @@
   <script src="vendor/chess.min.js"></script>
 </head>
 <body>
-  <div class="app">
-    <header>
+  <div class="shell">
+    <header class="topbar">
       <div class="brand">
-        <h1>Vulcan Analysis Lab</h1>
-        <p>Full-fidelity Stockfish.js workstation — maximize throughput, expose every UCI switch, and run deep analysis directly in the browser.</p>
+        <h1>Vulcan Analysis</h1>
+        <p>One-board analysis station with collapsible panels and full Stockfish.js control.</p>
       </div>
-      <div class="status-row">
-        <div class="status-pill">Engine: <strong id="engine-name">Offline</strong></div>
-        <div class="status-pill">Variant: <strong id="engine-variant">—</strong></div>
-        <div class="status-pill">Threads: <strong id="engine-threads">—</strong></div>
-        <div class="status-pill">Hash: <strong id="engine-hash">—</strong></div>
-        <div class="status-pill">Speed: <strong id="engine-nps">—</strong></div>
-        <div class="status-pill">Best: <strong id="engine-bestmove">—</strong></div>
+      <div class="panel-toggles" role="group" aria-label="Panel visibility">
+        <button class="toggle-btn" data-panel-toggle="top" data-label="Top">Top: On</button>
+        <button class="toggle-btn" data-panel-toggle="left" data-label="Left">Left: On</button>
+        <button class="toggle-btn" data-panel-toggle="right" data-label="Right">Right: On</button>
+        <button class="toggle-btn" data-panel-toggle="bottom" data-label="Bottom">Bottom: On</button>
       </div>
     </header>
 
-    <main>
-      <section class="panel board-panel">
-        <h2>Board + Position</h2>
-        <div class="board-wrap">
-          <div id="board" class="board" aria-label="Chess board"></div>
-          <div class="board-meta">
-            <div class="eval-bar" aria-label="Evaluation bar">
-              <div id="eval-fill" class="eval-fill"></div>
-            </div>
-            <div class="eval-label" id="eval-label">0.00</div>
-            <div class="kpi">
-              <div>Depth: <span id="kpi-depth">0</span></div>
-              <div>SelDepth: <span id="kpi-seldepth">0</span></div>
-              <div>Nodes: <span id="kpi-nodes">0</span></div>
-              <div>NPS: <span id="kpi-nps">0</span></div>
-              <div>Time: <span id="kpi-time">0</span></div>
-              <div>TB Hits: <span id="kpi-tbhits">0</span></div>
-              <div>WDL: <span id="kpi-wdl">—</span></div>
-              <div>Hash%: <span id="kpi-hashfull">0</span></div>
-            </div>
-          </div>
+    <div class="workspace">
+      <section class="panel panel-top" data-panel="top" id="panel-top">
+        <div class="panel-head">
+          <h2>Session</h2>
+          <div class="notice" id="engine-warning">Waiting for engine init.</div>
         </div>
+        <div class="status-row">
+          <div class="status-pill">Engine: <strong id="engine-name">Offline</strong></div>
+          <div class="status-pill">Variant: <strong id="engine-variant">—</strong></div>
+          <div class="status-pill">Threads: <strong id="engine-threads">—</strong></div>
+          <div class="status-pill">Hash: <strong id="engine-hash">—</strong></div>
+          <div class="status-pill">Speed: <strong id="engine-nps">—</strong></div>
+          <div class="status-pill">Best: <strong id="engine-bestmove">—</strong></div>
+        </div>
+        <div class="controls">
+          <button id="btn-analyze">Go Infinite</button>
+          <button class="secondary" id="btn-stop">Stop</button>
+          <button class="secondary" id="btn-isready">IsReady</button>
+          <button class="secondary" id="btn-ucinewgame">New Search</button>
+          <button class="secondary" id="btn-ponderhit">Ponder Hit</button>
+          <button class="secondary" id="btn-clear-hash">Clear Hash</button>
+          <button class="secondary" id="btn-play-best">Play Best Move</button>
+          <button class="ghost" id="btn-auto-play">Auto Play: Off</button>
+        </div>
+      </section>
 
+      <aside class="panel panel-left" data-panel="left" id="panel-left">
+        <h2>Position</h2>
         <div class="section">
           <div class="label">Position Tools</div>
           <div class="controls">
@@ -85,72 +88,38 @@
             </div>
           </div>
         </div>
+      </aside>
 
-        <div class="section">
-          <div class="label">MultiPV Lines</div>
-          <div id="pv-lines" class="pv-table"></div>
-          <div class="controls">
-            <button class="secondary" id="btn-pv-play">Play PV</button>
-            <button class="secondary" id="btn-pv-pause">Pause PV</button>
-            <button class="secondary" id="btn-pv-prev">Step Back</button>
-            <button class="secondary" id="btn-pv-next">Step Forward</button>
-            <button class="ghost" id="btn-pv-stop">Stop PV</button>
-            <input id="pv-speed" type="number" min="100" value="600" placeholder="ms" />
+      <section class="center">
+        <div class="panel board-card">
+          <div class="panel-head">
+            <h2>Board</h2>
+            <div class="chip">One board / live eval</div>
           </div>
-        </div>
-
-        <div class="section">
-          <div class="label">Move List</div>
-          <div id="move-list" class="list"></div>
-        </div>
-
-        <div class="section">
-          <div class="label">Analysis Timeline</div>
-          <canvas id="eval-chart" class="chart" width="640" height="160"></canvas>
-        </div>
-
-        <div class="section">
-          <div class="label">Display Overlays</div>
-          <div class="controls">
-            <label class="toggle"><input id="toggle-best" type="checkbox" checked /> Best Move</label>
-            <label class="toggle"><input id="toggle-last" type="checkbox" checked /> Last Move</label>
-            <label class="toggle"><input id="toggle-pv" type="checkbox" checked /> PV Preview</label>
-          </div>
-          <div class="controls">
-            <span class="legend best">Best Move</span>
-            <span class="legend last">Last Move</span>
-            <span class="legend pv">PV Preview</span>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="label">Blunder Detector</div>
-          <div class="grid-two">
-            <div class="section">
-              <div class="label">Inaccuracy (cp)</div>
-              <input id="th-inaccuracy" type="number" min="10" value="30" />
+          <div class="board-wrap">
+            <div id="board" class="board" aria-label="Chess board"></div>
+            <div class="board-meta">
+              <div class="eval-bar" aria-label="Evaluation bar">
+                <div id="eval-fill" class="eval-fill"></div>
+              </div>
+              <div class="eval-label" id="eval-label">0.00</div>
+              <div class="kpi">
+                <div>Depth: <span id="kpi-depth">0</span></div>
+                <div>SelDepth: <span id="kpi-seldepth">0</span></div>
+                <div>Nodes: <span id="kpi-nodes">0</span></div>
+                <div>NPS: <span id="kpi-nps">0</span></div>
+                <div>Time: <span id="kpi-time">0</span></div>
+                <div>TB Hits: <span id="kpi-tbhits">0</span></div>
+                <div>WDL: <span id="kpi-wdl">—</span></div>
+                <div>Hash%: <span id="kpi-hashfull">0</span></div>
+              </div>
             </div>
-            <div class="section">
-              <div class="label">Mistake (cp)</div>
-              <input id="th-mistake" type="number" min="30" value="80" />
-            </div>
-            <div class="section">
-              <div class="label">Blunder (cp)</div>
-              <input id="th-blunder" type="number" min="80" value="150" />
-            </div>
-            <div class="section">
-              <div class="label">Brilliant (cp)</div>
-              <input id="th-brilliant" type="number" min="50" value="80" />
-            </div>
-          </div>
-          <div class="controls">
-            <button class="secondary" id="btn-apply-thresholds">Apply Thresholds</button>
           </div>
         </div>
       </section>
 
-      <section class="panel">
-        <h2>Engine Control + UCI</h2>
+      <aside class="panel panel-right" data-panel="right" id="panel-right">
+        <h2>Engine</h2>
         <div class="section">
           <div class="label">Engine Variant</div>
           <div class="grid-two">
@@ -167,21 +136,10 @@
           <div class="controls">
             <button class="secondary" id="btn-preload-engine">Preload Engine Assets</button>
           </div>
-          <div class="notice" id="engine-warning">Waiting for engine init.</div>
         </div>
 
         <div class="section">
           <div class="label">Search Controls</div>
-          <div class="controls">
-            <button id="btn-analyze">Go Infinite</button>
-            <button class="secondary" id="btn-stop">Stop</button>
-            <button class="secondary" id="btn-isready">IsReady</button>
-            <button class="secondary" id="btn-ucinewgame">New Search</button>
-            <button class="secondary" id="btn-ponderhit">Ponder Hit</button>
-            <button class="secondary" id="btn-clear-hash">Clear Hash</button>
-            <button class="secondary" id="btn-play-best">Play Best Move</button>
-            <button class="ghost" id="btn-auto-play">Auto Play: Off</button>
-          </div>
           <div class="grid-two">
             <div class="section">
               <div class="label">Depth</div>
@@ -383,6 +341,71 @@
             <button class="secondary" id="btn-download-report">Download Report</button>
           </div>
         </div>
+      </aside>
+
+      <section class="panel panel-bottom" data-panel="bottom" id="panel-bottom">
+        <h2>Analysis</h2>
+        <div class="section">
+          <div class="label">MultiPV Lines</div>
+          <div id="pv-lines" class="pv-table"></div>
+          <div class="controls">
+            <button class="secondary" id="btn-pv-play">Play PV</button>
+            <button class="secondary" id="btn-pv-pause">Pause PV</button>
+            <button class="secondary" id="btn-pv-prev">Step Back</button>
+            <button class="secondary" id="btn-pv-next">Step Forward</button>
+            <button class="ghost" id="btn-pv-stop">Stop PV</button>
+            <input id="pv-speed" type="number" min="100" value="600" placeholder="ms" />
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">Move List</div>
+          <div id="move-list" class="list"></div>
+        </div>
+
+        <div class="section">
+          <div class="label">Analysis Timeline</div>
+          <canvas id="eval-chart" class="chart" width="640" height="160"></canvas>
+        </div>
+
+        <div class="section">
+          <div class="label">Display Overlays</div>
+          <div class="controls">
+            <label class="toggle"><input id="toggle-best" type="checkbox" checked /> Best Move</label>
+            <label class="toggle"><input id="toggle-last" type="checkbox" checked /> Last Move</label>
+            <label class="toggle"><input id="toggle-pv" type="checkbox" checked /> PV Preview</label>
+          </div>
+          <div class="controls">
+            <span class="legend best">Best Move</span>
+            <span class="legend last">Last Move</span>
+            <span class="legend pv">PV Preview</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">Blunder Detector</div>
+          <div class="grid-two">
+            <div class="section">
+              <div class="label">Inaccuracy (cp)</div>
+              <input id="th-inaccuracy" type="number" min="10" value="30" />
+            </div>
+            <div class="section">
+              <div class="label">Mistake (cp)</div>
+              <input id="th-mistake" type="number" min="30" value="80" />
+            </div>
+            <div class="section">
+              <div class="label">Blunder (cp)</div>
+              <input id="th-blunder" type="number" min="80" value="150" />
+            </div>
+            <div class="section">
+              <div class="label">Brilliant (cp)</div>
+              <input id="th-brilliant" type="number" min="50" value="80" />
+            </div>
+          </div>
+          <div class="controls">
+            <button class="secondary" id="btn-apply-thresholds">Apply Thresholds</button>
+          </div>
+        </div>
 
         <div class="section">
           <div class="label">Batch Analysis Queue</div>
@@ -414,7 +437,7 @@
           </div>
         </div>
       </section>
-    </main>
+    </div>
 
     <footer>
       Stockfish.js 17.1 is embedded locally under <span class="badge">vendor/stockfish</span>. Multi-threaded engines require cross-origin isolation (COOP/COEP). This UI falls back automatically when unavailable.

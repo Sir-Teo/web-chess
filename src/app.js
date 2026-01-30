@@ -174,6 +174,53 @@ const ENGINE_RECOVERY_LIMIT = 2;
 let performanceMode = "max";
 let engineRecoveryAttempt = 0;
 
+function initPanelToggles() {
+  const buttons = document.querySelectorAll("[data-panel-toggle]");
+  const saved = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("vulcan-panels") || "{}");
+    } catch (err) {
+      return {};
+    }
+  })();
+
+  const applyState = (key, collapsed) => {
+    const className = `collapsed-${key}`;
+    document.body.classList.toggle(className, collapsed);
+  };
+
+  const saveState = () => {
+    const state = {};
+    buttons.forEach((btn) => {
+      const key = btn.dataset.panelToggle;
+      state[key] = document.body.classList.contains(`collapsed-${key}`);
+    });
+    localStorage.setItem("vulcan-panels", JSON.stringify(state));
+  };
+
+  Object.entries(saved).forEach(([key, collapsed]) => {
+    applyState(key, collapsed);
+  });
+
+  buttons.forEach((btn) => {
+    const key = btn.dataset.panelToggle;
+    const label = btn.dataset.label || key;
+    const className = `collapsed-${key}`;
+    const update = () => {
+      const collapsed = document.body.classList.contains(className);
+      btn.textContent = `${label}: ${collapsed ? "Off" : "On"}`;
+      btn.classList.toggle("is-off", collapsed);
+      btn.setAttribute("aria-pressed", collapsed ? "true" : "false");
+    };
+    btn.addEventListener("click", () => {
+      document.body.classList.toggle(className);
+      update();
+      saveState();
+    });
+    update();
+  });
+}
+
 function logLine(line, kind = "out") {
   const prefix = kind === "in" ? ">>" : "<<";
   const entry = `${prefix} ${line}`;
@@ -1662,6 +1709,7 @@ function initBoard() {
   highlightLastMove();
 }
 
+initPanelToggles();
 initBoard();
 updateEngineWarning();
 optionState.clear();
