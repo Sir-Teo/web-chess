@@ -1,5 +1,5 @@
-const CORE_CACHE = "vulcan-core-v1";
-const RUNTIME_CACHE = "vulcan-runtime-v1";
+const CORE_CACHE = "vulcan-core-v2";
+const RUNTIME_CACHE = "vulcan-runtime-v2";
 
 const CORE_ASSETS = [
   "./",

@@ -170,6 +170,9 @@ let overlayState = {
   last: true,
   pv: true,
 };
+const ENGINE_RECOVERY_LIMIT = 2;
+let performanceMode = "max";
+let engineRecoveryAttempt = 0;
 
 function logLine(line, kind = "out") {
   const prefix = kind === "in" ? ">>" : "<<";
@@ -551,6 +554,30 @@ function updateEngineWarning() {
   }
 }
 
+function clampOptionValue(option, value) {
+  if (!option) return value;
+  const min = typeof option.min === "number" ? option.min : value;
+  const max = typeof option.max === "number" ? option.max : value;
+  return Math.min(max, Math.max(min, value));
+}
+
+function computeThreadTarget(deviceGB, cores, mode) {
+  const safeCap = deviceGB <= 4 ? 2 : deviceGB <= 8 ? 4 : 6;
+  const maxCap = deviceGB <= 4 ? 4 : deviceGB <= 8 ? 6 : deviceGB <= 16 ? 10 : 12;
+  const cap = mode === "safe" ? safeCap : maxCap;
+  return Math.max(1, Math.min(cores, cap));
+}
+
+function computeHashTarget(deviceGB, maxHash, minHash, mode) {
+  let target;
+  if (mode === "safe") {
+    target = deviceGB <= 4 ? 64 : deviceGB <= 8 ? 128 : 256;
+  } else {
+    target = deviceGB <= 4 ? 128 : deviceGB <= 8 ? 256 : deviceGB <= 16 ? 384 : 512;
+  }
+  return Math.min(maxHash, Math.max(minHash, target));
+}
+
 function currentFen() {
   if (game) return game.fen();
   return "startpos";
@@ -584,22 +611,72 @@ function stopAnalysis() {
 }
 
 function applyPerformanceProfile() {
-  const threads = Math.max(1, navigator.hardwareConcurrency || 4);
+  const deviceGB = navigator.deviceMemory || 4;
+  const cores = navigator.hardwareConcurrency || 4;
+  const threadsOpt = engine.options.get("Threads");
   const hashOpt = engine.options.get("Hash");
   const maxHash = hashOpt?.max ?? 256;
-  const deviceGB = navigator.deviceMemory || 4;
-  const targetHash = Math.max(128, Math.floor(deviceGB * 1024 * 0.25));
-  const hash = Math.min(maxHash, targetHash);
-  if (engine.options.has("Threads")) sendOption("Threads", threads);
-  if (engine.options.has("Hash")) sendOption("Hash", hash);
-  if (engine.options.has("MultiPV")) sendOption("MultiPV", 3);
+  const minHash = hashOpt?.min ?? 1;
+  const threads = computeThreadTarget(deviceGB, cores, performanceMode);
+  const hash = computeHashTarget(deviceGB, maxHash, minHash, performanceMode);
+  const multiPvOpt = engine.options.get("MultiPV");
+  const multiPv = performanceMode === "safe" ? 2 : 3;
+  if (threadsOpt) sendOption("Threads", clampOptionValue(threadsOpt, threads));
+  if (hashOpt) sendOption("Hash", clampOptionValue(hashOpt, hash));
+  if (multiPvOpt) sendOption("MultiPV", clampOptionValue(multiPvOpt, multiPv));
   if (engine.options.has("UCI_ShowWDL")) sendOption("UCI_ShowWDL", "true");
   if (engine.options.has("Ponder")) sendOption("Ponder", "false");
   if (engine.options.has("UCI_LimitStrength")) sendOption("UCI_LimitStrength", "false");
   if (engine.options.has("Minimum Thinking Time")) sendOption("Minimum Thinking Time", 0);
   if (engine.options.has("Move Overhead")) sendOption("Move Overhead", 0);
-  engineWarning.textContent = "Performance profile applied.";
+  engineWarning.textContent = performanceMode === "safe"
+    ? "Safe profile applied to prevent engine crashes."
+    : "Performance profile applied.";
   refreshQuickOptions();
+}
+
+function isMemoryError(message) {
+  const text = String(message || "").toLowerCase();
+  return (
+    text.includes("memory access out of bounds") ||
+    text.includes("out of memory") ||
+    text.includes("cannot enlarge memory") ||
+    (text.includes("abort") && text.includes("memory"))
+  );
+}
+
+function pickRecoveryVariant(currentKey) {
+  switch (currentKey) {
+    case "standard":
+      return "standard-single";
+    case "standard-single":
+      return "lite-single";
+    case "lite":
+      return "lite-single";
+    case "lite-single":
+      return "asm";
+    default:
+      return "standard-single";
+  }
+}
+
+function recoverFromEngineError(message) {
+  if (!isMemoryError(message)) return false;
+  if (engineRecoveryAttempt >= ENGINE_RECOVERY_LIMIT) return false;
+  engineRecoveryAttempt += 1;
+  performanceMode = "safe";
+  stopAnalysis();
+  const currentKey = engineSelect.value || "auto";
+  const fallbackKey = pickRecoveryVariant(currentKey);
+  engineWarning.textContent = "Engine ran out of memory. Reloading with safe settings...";
+  engineSelect.value = fallbackKey;
+  optionState.clear();
+  engine.load(fallbackKey);
+  const spec = engine.resolveSpec(fallbackKey);
+  engineVariant.textContent = spec.label;
+  engineThreads.textContent = spec.threads ? "auto" : "1";
+  engineHash.textContent = "—";
+  return true;
 }
 
 engine.on("line", (line) => logLine(line));
@@ -664,7 +741,11 @@ engine.on("bestmove", (move) => {
   }
 });
 engine.on("error", (err) => {
-  engineWarning.textContent = `Engine error: ${err.message || err}`;
+  const message = err?.message || err;
+  logLine(`engine error: ${message}`, "out");
+  if (!recoverFromEngineError(message)) {
+    engineWarning.textContent = `Engine error: ${message}`;
+  }
 });
 
 btnEngineLoad.addEventListener("click", () => {
@@ -850,6 +931,8 @@ optionsFilter.addEventListener("input", () => {
 });
 
 btnMaxPerf.addEventListener("click", () => {
+  performanceMode = "max";
+  engineRecoveryAttempt = 0;
   applyPerformanceProfile();
 });
 
