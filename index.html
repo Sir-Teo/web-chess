@@ -11,448 +11,481 @@
   <script src="vendor/chess.min.js"></script>
 </head>
 <body>
-  <div class="shell">
-    <header class="topbar">
-      <div class="brand">
-        <h1>Vulcan Analysis</h1>
-        <p>One-board analysis station with collapsible panels and full Stockfish.js control.</p>
+  <div class="app-root ui-root font-sans">
+    <header class="topbar ui-bar ui-bar-height ui-bar-pad panel-top" data-panel="top" id="panel-top">
+      <div class="topbar-left">
+        <div class="brand">
+          <div class="brand-title">Vulcan Analysis</div>
+          <div class="brand-sub">Stockfish.js Deep Lab</div>
+        </div>
+        <div class="engine-pill" id="engine-warning">Waiting for engine init.</div>
       </div>
-      <div class="panel-toggles" role="group" aria-label="Panel visibility">
-        <button class="toggle-btn" data-panel-toggle="top" data-label="Top">Top: On</button>
-        <button class="toggle-btn" data-panel-toggle="left" data-label="Left">Left: On</button>
-        <button class="toggle-btn" data-panel-toggle="right" data-label="Right">Right: On</button>
-        <button class="toggle-btn" data-panel-toggle="bottom" data-label="Bottom">Bottom: On</button>
+      <div class="topbar-right">
+        <div class="panel-toggles" role="group" aria-label="Panel visibility">
+          <button class="toggle-btn" data-panel-toggle="top" data-label="Top">Top: On</button>
+          <button class="toggle-btn" data-panel-toggle="left" data-label="Left">Left: On</button>
+          <button class="toggle-btn" data-panel-toggle="right" data-label="Right">Right: On</button>
+          <button class="toggle-btn" data-panel-toggle="bottom" data-label="Bottom">Bottom: On</button>
+        </div>
       </div>
     </header>
 
-    <div class="workspace">
-      <section class="panel panel-top" data-panel="top" id="panel-top">
-        <div class="panel-head">
-          <h2>Session</h2>
-          <div class="panel-head-actions">
-            <div class="notice" id="engine-warning">Waiting for engine init.</div>
-            <button class="panel-collapse" data-panel-toggle="top" data-compact="true" data-label-on="Hide" data-label-off="Show" aria-label="Toggle top panel">Hide</button>
-          </div>
-        </div>
-        <div class="status-row">
-          <div class="status-pill">Engine: <strong id="engine-name">Offline</strong></div>
-          <div class="status-pill">Variant: <strong id="engine-variant">—</strong></div>
-          <div class="status-pill">Threads: <strong id="engine-threads">—</strong></div>
-          <div class="status-pill">Hash: <strong id="engine-hash">—</strong></div>
-          <div class="status-pill">Speed: <strong id="engine-nps">—</strong></div>
-          <div class="status-pill">Best: <strong id="engine-bestmove">—</strong></div>
-        </div>
-        <div class="controls">
-          <button id="btn-analyze">Go Infinite</button>
-          <button class="secondary" id="btn-stop">Stop</button>
-          <button class="secondary" id="btn-isready">IsReady</button>
-          <button class="secondary" id="btn-ucinewgame">New Search</button>
-          <button class="secondary" id="btn-ponderhit">Ponder Hit</button>
-          <button class="secondary" id="btn-clear-hash">Clear Hash</button>
-          <button class="secondary" id="btn-play-best">Play Best Move</button>
-          <button class="ghost" id="btn-auto-play">Auto Play: Off</button>
-        </div>
-      </section>
-
-      <aside class="panel panel-left" data-panel="left" id="panel-left">
-        <div class="panel-head">
-          <h2>Position</h2>
-          <button class="panel-collapse" data-panel-toggle="left" data-compact="true" data-label-on="Hide" data-label-off="Show" aria-label="Toggle left panel">Hide</button>
-        </div>
-        <div class="section">
-          <div class="label">Position Tools</div>
-          <div class="controls">
-            <button id="btn-new">New Game</button>
-            <button class="secondary" id="btn-flip">Flip Board</button>
-            <button class="secondary" id="btn-undo">Undo</button>
-            <button class="secondary" id="btn-redo">Redo</button>
-          </div>
-          <div class="grid-two">
-            <div class="section">
-              <div class="label">FEN</div>
-              <textarea id="fen-input" spellcheck="false"></textarea>
-              <div class="controls">
-                <button class="secondary" id="btn-load-fen">Load FEN</button>
-                <button class="ghost" id="btn-copy-fen">Copy FEN</button>
+    <div class="main-layout">
+      <aside class="side-panel panel-left ui-panel" data-panel="left" id="panel-left">
+        <div class="panel-scroll">
+          <div class="panel-section">
+            <div class="panel-section-header">
+              <button class="panel-section-title" type="button">Position</button>
+              <div class="panel-section-actions">
+                <button class="panel-collapse" data-panel-toggle="left" data-compact="true" data-label-on="Hide" data-label-off="Show" aria-label="Toggle left panel">Hide</button>
               </div>
             </div>
-            <div class="section">
-              <div class="label">PGN</div>
-              <textarea id="pgn-input" spellcheck="false"></textarea>
-              <div class="controls">
-                <button class="secondary" id="btn-load-pgn">Load PGN</button>
-                <button class="ghost" id="btn-copy-pgn">Copy PGN</button>
+            <div class="panel-section-content">
+              <div class="section">
+                <div class="label">Position Tools</div>
+                <div class="controls">
+                  <button id="btn-new">New Game</button>
+                  <button class="secondary" id="btn-flip">Flip Board</button>
+                  <button class="secondary" id="btn-undo">Undo</button>
+                  <button class="secondary" id="btn-redo">Redo</button>
+                </div>
+                <div class="grid-two">
+                  <div class="section">
+                    <div class="label">FEN</div>
+                    <textarea id="fen-input" spellcheck="false"></textarea>
+                    <div class="controls">
+                      <button class="secondary" id="btn-load-fen">Load FEN</button>
+                      <button class="ghost" id="btn-copy-fen">Copy FEN</button>
+                    </div>
+                  </div>
+                  <div class="section">
+                    <div class="label">PGN</div>
+                    <textarea id="pgn-input" spellcheck="false"></textarea>
+                    <div class="controls">
+                      <button class="secondary" id="btn-load-pgn">Load PGN</button>
+                      <button class="ghost" id="btn-copy-pgn">Copy PGN</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="label">Moves (UCI)</div>
+                  <input id="uci-moves" type="text" placeholder="e2e4 e7e5 g1f3" />
+                  <div class="controls">
+                    <button class="secondary" id="btn-apply-moves">Apply Moves</button>
+                    <button class="ghost" id="btn-clear-moves">Clear Moves</button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          <div class="section">
-            <div class="label">Moves (UCI)</div>
-            <input id="uci-moves" type="text" placeholder="e2e4 e7e5 g1f3" />
-            <div class="controls">
-              <button class="secondary" id="btn-apply-moves">Apply Moves</button>
-              <button class="ghost" id="btn-clear-moves">Clear Moves</button>
             </div>
           </div>
         </div>
       </aside>
 
-      <section class="center">
-        <div class="panel board-card">
-          <div class="panel-head">
-            <h2>Board</h2>
-            <div class="chip">One board / live eval</div>
-          </div>
-          <div class="board-wrap">
-            <div id="board" class="board" aria-label="Chess board"></div>
-            <div class="board-meta">
-              <div class="eval-bar" aria-label="Evaluation bar">
-                <div id="eval-fill" class="eval-fill"></div>
-              </div>
-              <div class="eval-label" id="eval-label">0.00</div>
-              <div class="kpi">
-                <div>Depth: <span id="kpi-depth">0</span></div>
-                <div>SelDepth: <span id="kpi-seldepth">0</span></div>
-                <div>Nodes: <span id="kpi-nodes">0</span></div>
-                <div>NPS: <span id="kpi-nps">0</span></div>
-                <div>Time: <span id="kpi-time">0</span></div>
-                <div>TB Hits: <span id="kpi-tbhits">0</span></div>
-                <div>WDL: <span id="kpi-wdl">—</span></div>
-                <div>Hash%: <span id="kpi-hashfull">0</span></div>
+      <section class="center-panel">
+        <div class="board-area ui-bg">
+          <div class="board-card ui-panel">
+            <div class="panel-section-header">
+              <div class="panel-section-title">Board</div>
+              <div class="chip">One board / live eval</div>
+            </div>
+            <div class="board-wrap">
+              <div id="board" class="board" aria-label="Chess board"></div>
+              <div class="board-meta">
+                <div class="eval-bar" aria-label="Evaluation bar">
+                  <div id="eval-fill" class="eval-fill"></div>
+                </div>
+                <div class="eval-label" id="eval-label">0.00</div>
+                <div class="kpi">
+                  <div>Depth: <span id="kpi-depth">0</span></div>
+                  <div>SelDepth: <span id="kpi-seldepth">0</span></div>
+                  <div>Nodes: <span id="kpi-nodes">0</span></div>
+                  <div>NPS: <span id="kpi-nps">0</span></div>
+                  <div>Time: <span id="kpi-time">0</span></div>
+                  <div>TB Hits: <span id="kpi-tbhits">0</span></div>
+                  <div>WDL: <span id="kpi-wdl">—</span></div>
+                  <div>Hash%: <span id="kpi-hashfull">0</span></div>
+                </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div class="bottom-bar ui-bar ui-bar-height ui-bar-pad">
+          <div class="controls">
+            <button id="btn-analyze">Go Infinite</button>
+            <button class="secondary" id="btn-stop">Stop</button>
+            <button class="secondary" id="btn-isready">IsReady</button>
+            <button class="secondary" id="btn-ucinewgame">New Search</button>
+            <button class="secondary" id="btn-ponderhit">Ponder Hit</button>
+            <button class="secondary" id="btn-clear-hash">Clear Hash</button>
+            <button class="secondary" id="btn-play-best">Play Best Move</button>
+            <button class="ghost" id="btn-auto-play">Auto Play: Off</button>
           </div>
         </div>
       </section>
 
-      <aside class="panel panel-right" data-panel="right" id="panel-right">
-        <div class="panel-head">
-          <h2>Engine</h2>
-          <button class="panel-collapse" data-panel-toggle="right" data-compact="true" data-label-on="Hide" data-label-off="Show" aria-label="Toggle right panel">Hide</button>
-        </div>
-        <div class="section">
-          <div class="label">Engine Variant</div>
-          <div class="grid-two">
-            <select id="engine-select">
-              <option value="auto">Auto (fastest available)</option>
-              <option value="standard">Standard (multi-threaded)</option>
-              <option value="standard-single">Standard (single-threaded)</option>
-              <option value="lite">Lite (multi-threaded)</option>
-              <option value="lite-single">Lite (single-threaded)</option>
-              <option value="asm">ASM.js fallback</option>
-            </select>
-            <button id="btn-engine-load">Load Engine</button>
+      <aside class="side-panel panel-right ui-panel" data-panel="right" id="panel-right">
+        <div class="panel-scroll">
+          <div class="panel-section">
+            <div class="panel-section-header">
+              <button class="panel-section-title" type="button">Session</button>
+              <div class="panel-section-actions">
+                <button class="panel-collapse" data-panel-toggle="right" data-compact="true" data-label-on="Hide" data-label-off="Show" aria-label="Toggle right panel">Hide</button>
+              </div>
+            </div>
+            <div class="panel-section-content">
+              <div class="status-row">
+                <div class="status-pill">Engine: <strong id="engine-name">Offline</strong></div>
+                <div class="status-pill">Variant: <strong id="engine-variant">—</strong></div>
+                <div class="status-pill">Threads: <strong id="engine-threads">—</strong></div>
+                <div class="status-pill">Hash: <strong id="engine-hash">—</strong></div>
+                <div class="status-pill">Speed: <strong id="engine-nps">—</strong></div>
+                <div class="status-pill">Best: <strong id="engine-bestmove">—</strong></div>
+              </div>
+            </div>
           </div>
-          <div class="controls">
-            <button class="secondary" id="btn-preload-engine">Preload Engine Assets</button>
-          </div>
-        </div>
 
-        <div class="section">
-          <div class="label">Search Controls</div>
-          <div class="grid-two">
-            <div class="section">
-              <div class="label">Depth</div>
-              <input id="depth-input" type="number" min="1" max="99" value="18" />
-              <button class="secondary" id="btn-go-depth">Go Depth</button>
+          <div class="panel-section">
+            <div class="panel-section-header">
+              <button class="panel-section-title" type="button">Engine</button>
             </div>
-            <div class="section">
-              <div class="label">Move Time (ms)</div>
-              <input id="movetime-input" type="number" min="1" value="2500" />
-              <button class="secondary" id="btn-go-time">Go Time</button>
-            </div>
-            <div class="section">
-              <div class="label">Nodes</div>
-              <input id="nodes-input" type="number" min="1" value="1000000" />
-              <button class="secondary" id="btn-go-nodes">Go Nodes</button>
-            </div>
-            <div class="section">
-              <div class="label">Mate</div>
-              <input id="mate-input" type="number" min="1" value="4" />
-              <button class="secondary" id="btn-go-mate">Go Mate</button>
-            </div>
-          </div>
-        </div>
+            <div class="panel-section-content">
+              <div class="section">
+                <div class="label">Engine Variant</div>
+                <div class="grid-two">
+                  <select id="engine-select">
+                    <option value="auto">Auto (fastest available)</option>
+                    <option value="standard">Standard (multi-threaded)</option>
+                    <option value="standard-single">Standard (single-threaded)</option>
+                    <option value="lite">Lite (multi-threaded)</option>
+                    <option value="lite-single">Lite (single-threaded)</option>
+                    <option value="asm">ASM.js fallback</option>
+                  </select>
+                  <button id="btn-engine-load">Load Engine</button>
+                </div>
+                <div class="controls">
+                  <button class="secondary" id="btn-preload-engine">Preload Engine Assets</button>
+                </div>
+              </div>
 
-        <div class="section">
-          <div class="label">Auto Play Settings</div>
-          <div class="grid-two">
-            <div class="section">
-              <div class="label">Auto Move Time (ms)</div>
-              <input id="auto-movetime" type="number" min="100" value="1500" />
-            </div>
-            <div class="section">
-              <div class="label">Auto Depth</div>
-              <input id="auto-depth" type="number" min="1" max="99" value="12" />
-            </div>
-          </div>
-        </div>
+              <div class="section">
+                <div class="label">Search Controls</div>
+                <div class="grid-two">
+                  <div class="section">
+                    <div class="label">Depth</div>
+                    <input id="depth-input" type="number" min="1" max="99" value="18" />
+                    <button class="secondary" id="btn-go-depth">Go Depth</button>
+                  </div>
+                  <div class="section">
+                    <div class="label">Move Time (ms)</div>
+                    <input id="movetime-input" type="number" min="1" value="2500" />
+                    <button class="secondary" id="btn-go-time">Go Time</button>
+                  </div>
+                  <div class="section">
+                    <div class="label">Nodes</div>
+                    <input id="nodes-input" type="number" min="1" value="1000000" />
+                    <button class="secondary" id="btn-go-nodes">Go Nodes</button>
+                  </div>
+                  <div class="section">
+                    <div class="label">Mate</div>
+                    <input id="mate-input" type="number" min="1" value="4" />
+                    <button class="secondary" id="btn-go-mate">Go Mate</button>
+                  </div>
+                </div>
+              </div>
 
-        <div class="section">
-          <div class="label">Clock / Time Controls</div>
-          <div class="grid-two">
-            <div class="section">
-              <div class="label">White Time (ms)</div>
-              <input id="wtime-input" type="number" min="1" value="300000" />
-            </div>
-            <div class="section">
-              <div class="label">Black Time (ms)</div>
-              <input id="btime-input" type="number" min="1" value="300000" />
-            </div>
-            <div class="section">
-              <div class="label">White Increment (ms)</div>
-              <input id="winc-input" type="number" min="0" value="2000" />
-            </div>
-            <div class="section">
-              <div class="label">Black Increment (ms)</div>
-              <input id="binc-input" type="number" min="0" value="2000" />
-            </div>
-            <div class="section">
-              <div class="label">Moves To Go</div>
-              <input id="movestogo-input" type="number" min="0" value="0" />
-            </div>
-            <div class="section">
-              <div class="label">Ponder</div>
-              <select id="ponder-select">
-                <option value="false">Off</option>
-                <option value="true">On</option>
-              </select>
-            </div>
-          </div>
-          <div class="controls">
-            <button class="secondary" id="btn-go-clock">Go Clock</button>
-          </div>
-        </div>
+              <div class="section">
+                <div class="label">Auto Play Settings</div>
+                <div class="grid-two">
+                  <div class="section">
+                    <div class="label">Auto Move Time (ms)</div>
+                    <input id="auto-movetime" type="number" min="100" value="1500" />
+                  </div>
+                  <div class="section">
+                    <div class="label">Auto Depth</div>
+                    <input id="auto-depth" type="number" min="1" max="99" value="12" />
+                  </div>
+                </div>
+              </div>
 
-        <div class="section">
-          <div class="label">Quick Options</div>
-          <div class="grid-two">
-            <div class="section">
-              <div class="label">Threads</div>
-              <input id="quick-threads" type="number" min="1" />
-              <button class="secondary" id="btn-quick-threads">Apply Threads</button>
-            </div>
-            <div class="section">
-              <div class="label">Hash (MB)</div>
-              <input id="quick-hash" type="number" min="1" />
-              <button class="secondary" id="btn-quick-hash">Apply Hash</button>
-            </div>
-            <div class="section">
-              <div class="label">MultiPV</div>
-              <input id="quick-multipv" type="number" min="1" />
-              <button class="secondary" id="btn-quick-multipv">Apply MultiPV</button>
-            </div>
-            <div class="section">
-              <div class="label">NNUE</div>
-              <select id="quick-nnue">
-                <option value="true">On</option>
-                <option value="false">Off</option>
-              </select>
-              <button class="secondary" id="btn-quick-nnue">Apply NNUE</button>
-            </div>
-          </div>
-          <div class="controls">
-            <button class="secondary" id="btn-skill-boost">Max Strength</button>
-            <button class="ghost" id="btn-skill-limit">Limit Strength</button>
-          </div>
-        </div>
+              <div class="section">
+                <div class="label">Clock / Time Controls</div>
+                <div class="grid-two">
+                  <div class="section">
+                    <div class="label">White Time (ms)</div>
+                    <input id="wtime-input" type="number" min="1" value="300000" />
+                  </div>
+                  <div class="section">
+                    <div class="label">Black Time (ms)</div>
+                    <input id="btime-input" type="number" min="1" value="300000" />
+                  </div>
+                  <div class="section">
+                    <div class="label">White Increment (ms)</div>
+                    <input id="winc-input" type="number" min="0" value="2000" />
+                  </div>
+                  <div class="section">
+                    <div class="label">Black Increment (ms)</div>
+                    <input id="binc-input" type="number" min="0" value="2000" />
+                  </div>
+                  <div class="section">
+                    <div class="label">Moves To Go</div>
+                    <input id="movestogo-input" type="number" min="0" value="0" />
+                  </div>
+                  <div class="section">
+                    <div class="label">Ponder</div>
+                    <select id="ponder-select">
+                      <option value="false">Off</option>
+                      <option value="true">On</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="controls">
+                  <button class="secondary" id="btn-go-clock">Go Clock</button>
+                </div>
+              </div>
 
-        <div class="section">
-          <div class="label">Strength / Elo</div>
-          <div class="grid-two">
-            <div class="section">
-              <div class="label">Skill Level</div>
-              <input id="skill-input" type="number" min="0" max="20" value="20" />
-            </div>
-            <div class="section">
-              <div class="label">Target Elo</div>
-              <input id="elo-input" type="number" min="800" max="3500" value="2500" />
-            </div>
-          </div>
-          <div class="controls">
-            <button class="secondary" id="btn-apply-strength">Apply Strength Settings</button>
-          </div>
-        </div>
+              <div class="section">
+                <div class="label">Quick Options</div>
+                <div class="grid-two">
+                  <div class="section">
+                    <div class="label">Threads</div>
+                    <input id="quick-threads" type="number" min="1" />
+                    <button class="secondary" id="btn-quick-threads">Apply Threads</button>
+                  </div>
+                  <div class="section">
+                    <div class="label">Hash (MB)</div>
+                    <input id="quick-hash" type="number" min="1" />
+                    <button class="secondary" id="btn-quick-hash">Apply Hash</button>
+                  </div>
+                  <div class="section">
+                    <div class="label">MultiPV</div>
+                    <input id="quick-multipv" type="number" min="1" />
+                    <button class="secondary" id="btn-quick-multipv">Apply MultiPV</button>
+                  </div>
+                  <div class="section">
+                    <div class="label">NNUE</div>
+                    <select id="quick-nnue">
+                      <option value="true">On</option>
+                      <option value="false">Off</option>
+                    </select>
+                    <button class="secondary" id="btn-quick-nnue">Apply NNUE</button>
+                  </div>
+                </div>
+                <div class="controls">
+                  <button class="secondary" id="btn-skill-boost">Max Strength</button>
+                  <button class="ghost" id="btn-skill-limit">Limit Strength</button>
+                </div>
+              </div>
 
-        <div class="section">
-          <div class="label">Syzygy Tablebases</div>
-          <div class="grid-two">
-            <div class="section">
-              <div class="label">Syzygy Path / URL</div>
-              <input id="syzygy-path" type="text" placeholder="/tablebases or https://..." />
-            </div>
-            <div class="section">
-              <div class="label">Probe Depth</div>
-              <input id="syzygy-depth" type="number" min="0" value="0" />
-            </div>
-            <div class="section">
-              <div class="label">50-move Rule</div>
-              <select id="syzygy-50move">
-                <option value="true">On</option>
-                <option value="false">Off</option>
-              </select>
-            </div>
-          </div>
-          <div class="controls">
-            <button class="secondary" id="btn-apply-syzygy">Apply Tablebases</button>
-          </div>
-        </div>
+              <div class="section">
+                <div class="label">Strength / Elo</div>
+                <div class="grid-two">
+                  <div class="section">
+                    <div class="label">Skill Level</div>
+                    <input id="skill-input" type="number" min="0" max="20" value="20" />
+                  </div>
+                  <div class="section">
+                    <div class="label">Target Elo</div>
+                    <input id="elo-input" type="number" min="800" max="3500" value="2500" />
+                  </div>
+                </div>
+                <div class="controls">
+                  <button class="secondary" id="btn-apply-strength">Apply Strength Settings</button>
+                </div>
+              </div>
 
-        <div class="section">
-          <div class="label">Variant Settings</div>
-          <div class="controls">
-            <button class="secondary" id="btn-chess960">Toggle Chess960</button>
-            <button class="ghost" id="btn-show-wdl">Toggle WDL</button>
-          </div>
-          <div class="notice">Chess960 is engine-side only; load a Chess960 FEN manually for board accuracy.</div>
-        </div>
+              <div class="section">
+                <div class="label">Syzygy Tablebases</div>
+                <div class="grid-two">
+                  <div class="section">
+                    <div class="label">Syzygy Path / URL</div>
+                    <input id="syzygy-path" type="text" placeholder="/tablebases or https://..." />
+                  </div>
+                  <div class="section">
+                    <div class="label">Probe Depth</div>
+                    <input id="syzygy-depth" type="number" min="0" value="0" />
+                  </div>
+                  <div class="section">
+                    <div class="label">50-move Rule</div>
+                    <select id="syzygy-50move">
+                      <option value="true">On</option>
+                      <option value="false">Off</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="controls">
+                  <button class="secondary" id="btn-apply-syzygy">Apply Tablebases</button>
+                </div>
+              </div>
 
-        <div class="section">
-          <div class="label">Diagnostics / Extensions</div>
-          <div class="controls">
-            <button class="secondary" id="btn-eval">Eval Trace</button>
-            <button class="secondary" id="btn-display">Display (d)</button>
-            <button class="secondary" id="btn-compiler">Compiler Info</button>
-            <button class="secondary" id="btn-perft">Perft</button>
-            <button class="secondary" id="btn-flip-engine">Flip (engine)</button>
-          </div>
-          <div class="grid-two">
-            <div class="section">
-              <div class="label">Perft Depth</div>
-              <input id="perft-input" type="number" min="1" value="4" />
+              <div class="section">
+                <div class="label">Variant Settings</div>
+                <div class="controls">
+                  <button class="secondary" id="btn-chess960">Toggle Chess960</button>
+                  <button class="ghost" id="btn-show-wdl">Toggle WDL</button>
+                </div>
+                <div class="notice">Chess960 is engine-side only; load a Chess960 FEN manually for board accuracy.</div>
+              </div>
+
+              <div class="section">
+                <div class="label">Diagnostics / Extensions</div>
+                <div class="controls">
+                  <button class="secondary" id="btn-eval">Eval Trace</button>
+                  <button class="secondary" id="btn-display">Display (d)</button>
+                  <button class="secondary" id="btn-compiler">Compiler Info</button>
+                  <button class="secondary" id="btn-perft">Perft</button>
+                  <button class="secondary" id="btn-flip-engine">Flip (engine)</button>
+                </div>
+                <div class="grid-two">
+                  <div class="section">
+                    <div class="label">Perft Depth</div>
+                    <input id="perft-input" type="number" min="1" value="4" />
+                  </div>
+                  <div class="section">
+                    <div class="label">Searchmoves (optional)</div>
+                    <input id="searchmoves-input" type="text" placeholder="e2e4 g1f3" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="section">
+                <div class="label">UCI Options</div>
+                <div class="controls">
+                  <button class="secondary" id="btn-refresh-options">Refresh Options</button>
+                  <button class="secondary" id="btn-max-perf">Maximize Performance</button>
+                </div>
+                <input id="options-filter" type="text" placeholder="Filter options..." />
+                <div id="options" class="option-grid"></div>
+              </div>
+
+              <div class="section">
+                <div class="label">Raw UCI Console</div>
+                <div id="console" class="console"></div>
+                <div class="grid-two">
+                  <input id="uci-input" type="text" placeholder="Type UCI command…" />
+                  <button id="btn-send-uci">Send</button>
+                </div>
+                <div class="controls">
+                  <button class="secondary" id="btn-copy-console">Copy Console</button>
+                  <button class="ghost" id="btn-clear-console">Clear Console</button>
+                  <button class="secondary" id="btn-download-report">Download Report</button>
+                </div>
+              </div>
             </div>
-            <div class="section">
-              <div class="label">Searchmoves (optional)</div>
-              <input id="searchmoves-input" type="text" placeholder="e2e4 g1f3" />
+          </div>
+
+          <div class="panel-section panel-bottom" data-panel="bottom" id="panel-bottom">
+            <div class="panel-section-header">
+              <button class="panel-section-title" type="button">Analysis</button>
+              <div class="panel-section-actions">
+                <button class="panel-collapse" data-panel-toggle="bottom" data-compact="true" data-label-on="Hide" data-label-off="Show" aria-label="Toggle analysis panel">Hide</button>
+              </div>
             </div>
-          </div>
-        </div>
+            <div class="panel-section-content">
+              <div class="section">
+                <div class="label">MultiPV Lines</div>
+                <div id="pv-lines" class="pv-table"></div>
+                <div class="controls">
+                  <button class="secondary" id="btn-pv-play">Play PV</button>
+                  <button class="secondary" id="btn-pv-pause">Pause PV</button>
+                  <button class="secondary" id="btn-pv-prev">Step Back</button>
+                  <button class="secondary" id="btn-pv-next">Step Forward</button>
+                  <button class="ghost" id="btn-pv-stop">Stop PV</button>
+                  <input id="pv-speed" type="number" min="100" value="600" placeholder="ms" />
+                </div>
+              </div>
 
-        <div class="section">
-          <div class="label">UCI Options</div>
-          <div class="controls">
-            <button class="secondary" id="btn-refresh-options">Refresh Options</button>
-            <button class="secondary" id="btn-max-perf">Maximize Performance</button>
-          </div>
-          <input id="options-filter" type="text" placeholder="Filter options..." />
-          <div id="options" class="option-grid"></div>
-        </div>
+              <div class="section">
+                <div class="label">Move List</div>
+                <div id="move-list" class="list"></div>
+              </div>
 
-        <div class="section">
-          <div class="label">Raw UCI Console</div>
-          <div id="console" class="console"></div>
-          <div class="grid-two">
-            <input id="uci-input" type="text" placeholder="Type UCI command…" />
-            <button id="btn-send-uci">Send</button>
-          </div>
-          <div class="controls">
-            <button class="secondary" id="btn-copy-console">Copy Console</button>
-            <button class="ghost" id="btn-clear-console">Clear Console</button>
-            <button class="secondary" id="btn-download-report">Download Report</button>
+              <div class="section">
+                <div class="label">Analysis Timeline</div>
+                <canvas id="eval-chart" class="chart" width="640" height="160"></canvas>
+              </div>
+
+              <div class="section">
+                <div class="label">Display Overlays</div>
+                <div class="controls">
+                  <label class="toggle"><input id="toggle-best" type="checkbox" checked /> Best Move</label>
+                  <label class="toggle"><input id="toggle-last" type="checkbox" checked /> Last Move</label>
+                  <label class="toggle"><input id="toggle-pv" type="checkbox" checked /> PV Preview</label>
+                </div>
+                <div class="controls">
+                  <span class="legend best">Best Move</span>
+                  <span class="legend last">Last Move</span>
+                  <span class="legend pv">PV Preview</span>
+                </div>
+              </div>
+
+              <div class="section">
+                <div class="label">Blunder Detector</div>
+                <div class="grid-two">
+                  <div class="section">
+                    <div class="label">Inaccuracy (cp)</div>
+                    <input id="th-inaccuracy" type="number" min="10" value="30" />
+                  </div>
+                  <div class="section">
+                    <div class="label">Mistake (cp)</div>
+                    <input id="th-mistake" type="number" min="30" value="80" />
+                  </div>
+                  <div class="section">
+                    <div class="label">Blunder (cp)</div>
+                    <input id="th-blunder" type="number" min="80" value="150" />
+                  </div>
+                  <div class="section">
+                    <div class="label">Brilliant (cp)</div>
+                    <input id="th-brilliant" type="number" min="50" value="80" />
+                  </div>
+                </div>
+                <div class="controls">
+                  <button class="secondary" id="btn-apply-thresholds">Apply Thresholds</button>
+                </div>
+              </div>
+
+              <div class="section">
+                <div class="label">Batch Analysis Queue</div>
+                <textarea id="batch-input" placeholder="Paste FENs (one per line)"></textarea>
+                <div class="controls">
+                  <button class="secondary" id="btn-batch-add-current">Add Current FEN</button>
+                  <button class="secondary" id="btn-batch-run">Run Batch</button>
+                  <button class="ghost" id="btn-batch-clear">Clear Queue</button>
+                </div>
+                <div class="grid-two">
+                  <div class="section">
+                    <div class="label">Batch Depth</div>
+                    <input id="batch-depth" type="number" min="1" value="14" />
+                  </div>
+                  <div class="section">
+                    <div class="label">Batch Move Time (ms)</div>
+                    <input id="batch-movetime" type="number" min="0" value="0" />
+                  </div>
+                </div>
+                <div class="list" id="batch-list"></div>
+                <div class="section">
+                  <div class="label">Batch Progress</div>
+                  <div id="batch-status" class="notice">No batch running.</div>
+                  <canvas id="batch-chart" class="chart" width="640" height="120"></canvas>
+                </div>
+                <div class="controls">
+                  <button class="secondary" id="btn-batch-export">Export Batch Report</button>
+                  <button class="ghost" id="btn-batch-export-csv">Export CSV</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </aside>
-
-      <section class="panel panel-bottom" data-panel="bottom" id="panel-bottom">
-        <div class="panel-head">
-          <h2>Analysis</h2>
-          <button class="panel-collapse" data-panel-toggle="bottom" data-compact="true" data-label-on="Hide" data-label-off="Show" aria-label="Toggle bottom panel">Hide</button>
-        </div>
-        <div class="section">
-          <div class="label">MultiPV Lines</div>
-          <div id="pv-lines" class="pv-table"></div>
-          <div class="controls">
-            <button class="secondary" id="btn-pv-play">Play PV</button>
-            <button class="secondary" id="btn-pv-pause">Pause PV</button>
-            <button class="secondary" id="btn-pv-prev">Step Back</button>
-            <button class="secondary" id="btn-pv-next">Step Forward</button>
-            <button class="ghost" id="btn-pv-stop">Stop PV</button>
-            <input id="pv-speed" type="number" min="100" value="600" placeholder="ms" />
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="label">Move List</div>
-          <div id="move-list" class="list"></div>
-        </div>
-
-        <div class="section">
-          <div class="label">Analysis Timeline</div>
-          <canvas id="eval-chart" class="chart" width="640" height="160"></canvas>
-        </div>
-
-        <div class="section">
-          <div class="label">Display Overlays</div>
-          <div class="controls">
-            <label class="toggle"><input id="toggle-best" type="checkbox" checked /> Best Move</label>
-            <label class="toggle"><input id="toggle-last" type="checkbox" checked /> Last Move</label>
-            <label class="toggle"><input id="toggle-pv" type="checkbox" checked /> PV Preview</label>
-          </div>
-          <div class="controls">
-            <span class="legend best">Best Move</span>
-            <span class="legend last">Last Move</span>
-            <span class="legend pv">PV Preview</span>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="label">Blunder Detector</div>
-          <div class="grid-two">
-            <div class="section">
-              <div class="label">Inaccuracy (cp)</div>
-              <input id="th-inaccuracy" type="number" min="10" value="30" />
-            </div>
-            <div class="section">
-              <div class="label">Mistake (cp)</div>
-              <input id="th-mistake" type="number" min="30" value="80" />
-            </div>
-            <div class="section">
-              <div class="label">Blunder (cp)</div>
-              <input id="th-blunder" type="number" min="80" value="150" />
-            </div>
-            <div class="section">
-              <div class="label">Brilliant (cp)</div>
-              <input id="th-brilliant" type="number" min="50" value="80" />
-            </div>
-          </div>
-          <div class="controls">
-            <button class="secondary" id="btn-apply-thresholds">Apply Thresholds</button>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="label">Batch Analysis Queue</div>
-          <textarea id="batch-input" placeholder="Paste FENs (one per line)"></textarea>
-          <div class="controls">
-            <button class="secondary" id="btn-batch-add-current">Add Current FEN</button>
-            <button class="secondary" id="btn-batch-run">Run Batch</button>
-            <button class="ghost" id="btn-batch-clear">Clear Queue</button>
-          </div>
-          <div class="grid-two">
-            <div class="section">
-              <div class="label">Batch Depth</div>
-              <input id="batch-depth" type="number" min="1" value="14" />
-            </div>
-            <div class="section">
-              <div class="label">Batch Move Time (ms)</div>
-              <input id="batch-movetime" type="number" min="0" value="0" />
-            </div>
-          </div>
-          <div class="list" id="batch-list"></div>
-          <div class="section">
-            <div class="label">Batch Progress</div>
-            <div id="batch-status" class="notice">No batch running.</div>
-            <canvas id="batch-chart" class="chart" width="640" height="120"></canvas>
-          </div>
-          <div class="controls">
-            <button class="secondary" id="btn-batch-export">Export Batch Report</button>
-            <button class="ghost" id="btn-batch-export-csv">Export CSV</button>
-          </div>
-        </div>
-      </section>
     </div>
 
-    <footer>
-      Stockfish.js 17.1 is embedded locally under <span class="badge">vendor/stockfish</span>. Multi-threaded engines require cross-origin isolation (COOP/COEP). This UI falls back automatically when unavailable.
+    <footer class="status-bar">
+      <div class="status-bar-left">
+        Stockfish.js 17.1 is embedded locally under <span class="badge">vendor/stockfish</span>.
+      </div>
+      <div class="status-bar-right">
+        Multi-threaded engines require cross-origin isolation (COOP/COEP). This UI falls back automatically when unavailable.
+      </div>
     </footer>
   </div>
 
