@@ -520,6 +520,31 @@ textarea {
   accent-color: var(--accent-2);
 }
 
+.legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.legend.best {
+  color: var(--accent-3);
+}
+
+.legend.last {
+  color: var(--accent);
+}
+
+.legend.pv {
+  color: var(--accent-2);
+}
+
 footer {
   color: var(--soft);
   font-size: 0.8rem;

@@ -91,8 +91,11 @@
           <div id="pv-lines" class="pv-table"></div>
           <div class="controls">
             <button class="secondary" id="btn-pv-play">Play PV</button>
+            <button class="secondary" id="btn-pv-pause">Pause PV</button>
+            <button class="secondary" id="btn-pv-prev">Step Back</button>
+            <button class="secondary" id="btn-pv-next">Step Forward</button>
             <button class="ghost" id="btn-pv-stop">Stop PV</button>
-            <input id="pv-speed" type="number" min="100" value="600" />
+            <input id="pv-speed" type="number" min="100" value="600" placeholder="ms" />
           </div>
         </div>
 
@@ -112,6 +115,11 @@
             <label class="toggle"><input id="toggle-best" type="checkbox" checked /> Best Move</label>
             <label class="toggle"><input id="toggle-last" type="checkbox" checked /> Last Move</label>
             <label class="toggle"><input id="toggle-pv" type="checkbox" checked /> PV Preview</label>
+          </div>
+          <div class="controls">
+            <span class="legend best">Best Move</span>
+            <span class="legend last">Last Move</span>
+            <span class="legend pv">PV Preview</span>
           </div>
         </div>
 
@@ -395,6 +403,11 @@
             </div>
           </div>
           <div class="list" id="batch-list"></div>
+          <div class="section">
+            <div class="label">Batch Progress</div>
+            <div id="batch-status" class="notice">No batch running.</div>
+            <canvas id="batch-chart" class="chart" width="640" height="120"></canvas>
+          </div>
           <div class="controls">
             <button class="secondary" id="btn-batch-export">Export Batch Report</button>
             <button class="ghost" id="btn-batch-export-csv">Export CSV</button>

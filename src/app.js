@@ -16,6 +16,9 @@ const pvLinesEl = $("pv-lines");
 const moveListEl = $("move-list");
 const evalChart = $("eval-chart");
 const btnPvPlay = $("btn-pv-play");
+const btnPvPause = $("btn-pv-pause");
+const btnPvPrev = $("btn-pv-prev");
+const btnPvNext = $("btn-pv-next");
 const btnPvStop = $("btn-pv-stop");
 const pvSpeedInput = $("pv-speed");
 const toggleBest = $("toggle-best");
@@ -23,6 +26,8 @@ const toggleLast = $("toggle-last");
 const togglePv = $("toggle-pv");
 const batchInput = $("batch-input");
 const batchList = $("batch-list");
+const batchStatus = $("batch-status");
+const batchChart = $("batch-chart");
 const btnBatchAddCurrent = $("btn-batch-add-current");
 const btnBatchRun = $("btn-batch-run");
 const btnBatchClear = $("btn-batch-clear");
@@ -158,6 +163,8 @@ let thresholds = {
   brilliant: 80,
 };
 let pvPlaybackTimer = null;
+let pvPlaybackMoves = [];
+let pvPlaybackIndex = 0;
 let overlayState = {
   best: true,
   last: true,
@@ -712,6 +719,18 @@ btnPvPlay.addEventListener("click", () => {
   playPvPreview();
 });
 
+btnPvPause.addEventListener("click", () => {
+  pausePvPlayback();
+});
+
+btnPvPrev.addEventListener("click", () => {
+  stepPv(-1);
+});
+
+btnPvNext.addEventListener("click", () => {
+  stepPv(1);
+});
+
 btnPvStop.addEventListener("click", () => {
   stopPvPlayback();
 });
@@ -980,6 +999,31 @@ function renderBatchList() {
     row.innerHTML = `<strong>#${index + 1}</strong> ${item.fen} <span class="move-tag">${status}</span>`;
     batchList.appendChild(row);
   });
+  renderBatchChart();
+}
+
+function renderBatchChart() {
+  if (!batchChart || !batchStatus) return;
+  const total = batchQueue.length;
+  const done = batchQueue.filter((item) => item.status === "done").length;
+  const running = batchQueue.filter((item) => item.status === "running").length;
+  const queued = total - done - running;
+  batchStatus.textContent = total
+    ? `Completed ${done}/${total} • Running ${running} • Queued ${queued}`
+    : "No batch running.";
+  const ctx = batchChart.getContext("2d");
+  if (!ctx) return;
+  const { width, height } = batchChart;
+  ctx.clearRect(0, 0, width, height);
+  if (!total) return;
+  const doneW = (done / total) * width;
+  const runW = (running / total) * width;
+  ctx.fillStyle = "rgba(89, 200, 165, 0.9)";
+  ctx.fillRect(0, 0, doneW, height);
+  ctx.fillStyle = "rgba(241, 196, 83, 0.85)";
+  ctx.fillRect(doneW, 0, runW, height);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+  ctx.fillRect(doneW + runW, 0, width - doneW - runW, height);
 }
 
 function parseBatchInput() {
@@ -999,6 +1043,7 @@ btnBatchClear.addEventListener("click", () => {
   batchQueue = [];
   batchResults = [];
   renderBatchList();
+  renderBatchChart();
 });
 
 btnBatchRun.addEventListener("click", async () => {
@@ -1011,6 +1056,7 @@ btnBatchRun.addEventListener("click", async () => {
   stopAnalysis();
   autoPlay = false;
   btnAutoPlay.textContent = "Auto Play: Off";
+  renderBatchChart();
   for (const item of batchQueue) {
     item.status = "running";
     renderBatchList();
@@ -1020,6 +1066,7 @@ btnBatchRun.addEventListener("click", async () => {
     renderBatchList();
   }
   batchRunning = false;
+  renderBatchChart();
 });
 
 btnBatchExport.addEventListener("click", () => {
@@ -1286,6 +1333,8 @@ function stopPvPlayback() {
     clearInterval(pvPlaybackTimer);
     pvPlaybackTimer = null;
   }
+  pvPlaybackMoves = [];
+  pvPlaybackIndex = 0;
   clearPvHighlights();
   restoreHighlights();
 }
@@ -1294,28 +1343,44 @@ function playPvPreview() {
   if (!overlayState.pv) return;
   const line = pvLines.get(1);
   if (!line || !line.pv) return;
-  const moves = line.pv.split(/\s+/).filter((m) => m.length >= 4);
-  if (!moves.length) return;
-  stopPvPlayback();
-  let step = 0;
+  pvPlaybackMoves = line.pv.split(/\s+/).filter((m) => m.length >= 4);
+  if (!pvPlaybackMoves.length) return;
+  pvPlaybackIndex = 0;
   const interval = Math.max(120, Number(pvSpeedInput.value) || 600);
   pvPlaybackTimer = setInterval(() => {
-    clearPvHighlights();
-    const move = moves[step];
-    const from = move.slice(0, 2);
-    const to = move.slice(2, 4);
-    const fromEl = document.querySelector(`.square[data-square='${from}']`);
-    const toEl = document.querySelector(`.square[data-square='${to}']`);
-    if (fromEl) {
-      fromEl.classList.add("pv-from");
-      fromEl.style.setProperty("--pv-step", step);
-    }
-    if (toEl) {
-      toEl.classList.add("pv-to");
-      toEl.style.setProperty("--pv-step", step);
-    }
-    step = (step + 1) % moves.length;
+    stepPv(1);
   }, interval);
+}
+
+function pausePvPlayback() {
+  if (pvPlaybackTimer) {
+    clearInterval(pvPlaybackTimer);
+    pvPlaybackTimer = null;
+  }
+}
+
+function stepPv(direction) {
+  if (!pvPlaybackMoves.length) {
+    const line = pvLines.get(1);
+    if (!line || !line.pv) return;
+    pvPlaybackMoves = line.pv.split(/\s+/).filter((m) => m.length >= 4);
+  }
+  if (!pvPlaybackMoves.length) return;
+  pvPlaybackIndex = (pvPlaybackIndex + direction + pvPlaybackMoves.length) % pvPlaybackMoves.length;
+  clearPvHighlights();
+  const move = pvPlaybackMoves[pvPlaybackIndex];
+  const from = move.slice(0, 2);
+  const to = move.slice(2, 4);
+  const fromEl = document.querySelector(`.square[data-square='${from}']`);
+  const toEl = document.querySelector(`.square[data-square='${to}']`);
+  if (fromEl) {
+    fromEl.classList.add("pv-from");
+    fromEl.style.setProperty("--pv-step", pvPlaybackIndex);
+  }
+  if (toEl) {
+    toEl.classList.add("pv-to");
+    toEl.style.setProperty("--pv-step", pvPlaybackIndex);
+  }
 }
 
 function jumpToPly(ply) {
