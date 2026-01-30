@@ -1163,7 +1163,7 @@ function updateBoardPieces() {
     if (piece) {
       const img = document.createElement("img");
       img.alt = `${piece.color}${piece.type}`;
-      img.src = `assets/pieces/${piece.color}${piece.type.toUpperCase()}.png`;
+      img.src = new URL(`../assets/pieces/${piece.color}${piece.type.toUpperCase()}.png`, import.meta.url).toString();
       squareEl.appendChild(img);
     }
   });
