@@ -183,6 +183,7 @@ function initPanelToggles() {
       return {};
     }
   })();
+  const groups = new Map();
 
   const applyState = (key, collapsed) => {
     const className = `collapsed-${key}`;
@@ -198,27 +199,45 @@ function initPanelToggles() {
     localStorage.setItem("vulcan-panels", JSON.stringify(state));
   };
 
+  const updateButton = (btn, collapsed) => {
+    const label = btn.dataset.label || btn.dataset.panelToggle;
+    const compact = btn.dataset.compact === "true";
+    if (compact) {
+      const onLabel = btn.dataset.labelOn || "Hide";
+      const offLabel = btn.dataset.labelOff || "Show";
+      btn.textContent = collapsed ? offLabel : onLabel;
+    } else {
+      btn.textContent = `${label}: ${collapsed ? "Off" : "On"}`;
+    }
+    btn.classList.toggle("is-off", collapsed);
+    btn.setAttribute("aria-pressed", collapsed ? "true" : "false");
+  };
+
+  const updateGroup = (key) => {
+    const collapsed = document.body.classList.contains(`collapsed-${key}`);
+    (groups.get(key) || []).forEach((btn) => updateButton(btn, collapsed));
+  };
+
+  buttons.forEach((btn) => {
+    const key = btn.dataset.panelToggle;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(btn);
+  });
+
   Object.entries(saved).forEach(([key, collapsed]) => {
     applyState(key, collapsed);
   });
 
   buttons.forEach((btn) => {
     const key = btn.dataset.panelToggle;
-    const label = btn.dataset.label || key;
-    const className = `collapsed-${key}`;
-    const update = () => {
-      const collapsed = document.body.classList.contains(className);
-      btn.textContent = `${label}: ${collapsed ? "Off" : "On"}`;
-      btn.classList.toggle("is-off", collapsed);
-      btn.setAttribute("aria-pressed", collapsed ? "true" : "false");
-    };
     btn.addEventListener("click", () => {
-      document.body.classList.toggle(className);
-      update();
+      document.body.classList.toggle(`collapsed-${key}`);
+      updateGroup(key);
       saveState();
     });
-    update();
   });
+
+  groups.forEach((_, key) => updateGroup(key));
 }
 
 function logLine(line, kind = "out") {

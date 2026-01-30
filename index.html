@@ -29,7 +29,10 @@
       <section class="panel panel-top" data-panel="top" id="panel-top">
         <div class="panel-head">
           <h2>Session</h2>
-          <div class="notice" id="engine-warning">Waiting for engine init.</div>
+          <div class="panel-head-actions">
+            <div class="notice" id="engine-warning">Waiting for engine init.</div>
+            <button class="panel-collapse" data-panel-toggle="top" data-compact="true" data-label-on="Hide" data-label-off="Show" aria-label="Toggle top panel">Hide</button>
+          </div>
         </div>
         <div class="status-row">
           <div class="status-pill">Engine: <strong id="engine-name">Offline</strong></div>
@@ -52,7 +55,10 @@
       </section>
 
       <aside class="panel panel-left" data-panel="left" id="panel-left">
-        <h2>Position</h2>
+        <div class="panel-head">
+          <h2>Position</h2>
+          <button class="panel-collapse" data-panel-toggle="left" data-compact="true" data-label-on="Hide" data-label-off="Show" aria-label="Toggle left panel">Hide</button>
+        </div>
         <div class="section">
           <div class="label">Position Tools</div>
           <div class="controls">
@@ -119,7 +125,10 @@
       </section>
 
       <aside class="panel panel-right" data-panel="right" id="panel-right">
-        <h2>Engine</h2>
+        <div class="panel-head">
+          <h2>Engine</h2>
+          <button class="panel-collapse" data-panel-toggle="right" data-compact="true" data-label-on="Hide" data-label-off="Show" aria-label="Toggle right panel">Hide</button>
+        </div>
         <div class="section">
           <div class="label">Engine Variant</div>
           <div class="grid-two">
@@ -344,7 +353,10 @@
       </aside>
 
       <section class="panel panel-bottom" data-panel="bottom" id="panel-bottom">
-        <h2>Analysis</h2>
+        <div class="panel-head">
+          <h2>Analysis</h2>
+          <button class="panel-collapse" data-panel-toggle="bottom" data-compact="true" data-label-on="Hide" data-label-off="Show" aria-label="Toggle bottom panel">Hide</button>
+        </div>
         <div class="section">
           <div class="label">MultiPV Lines</div>
           <div id="pv-lines" class="pv-table"></div>
