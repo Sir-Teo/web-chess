@@ -15,6 +15,14 @@ const optionsEl = $("options");
 const pvLinesEl = $("pv-lines");
 const moveListEl = $("move-list");
 const evalChart = $("eval-chart");
+const batchInput = $("batch-input");
+const batchList = $("batch-list");
+const btnBatchAddCurrent = $("btn-batch-add-current");
+const btnBatchRun = $("btn-batch-run");
+const btnBatchClear = $("btn-batch-clear");
+const btnBatchExport = $("btn-batch-export");
+const batchDepthInput = $("batch-depth");
+const batchMoveTimeInput = $("batch-movetime");
 
 const fenInput = $("fen-input");
 const pgnInput = $("pgn-input");
@@ -52,6 +60,11 @@ const btnPlayBest = $("btn-play-best");
 const btnAutoPlay = $("btn-auto-play");
 const autoMoveTimeInput = $("auto-movetime");
 const autoDepthInput = $("auto-depth");
+const thInaccuracy = $("th-inaccuracy");
+const thMistake = $("th-mistake");
+const thBlunder = $("th-blunder");
+const thBrilliant = $("th-brilliant");
+const btnApplyThresholds = $("btn-apply-thresholds");
 const quickThreads = $("quick-threads");
 const quickHash = $("quick-hash");
 const quickMultiPv = $("quick-multipv");
@@ -125,6 +138,18 @@ let awaitingBestMoveApply = false;
 let evalHistory = [];
 let analysisStart = performance.now();
 let moveMeta = [];
+let batchQueue = [];
+let batchResults = [];
+let batchRunning = false;
+let batchAwaiting = false;
+let batchResolver = null;
+let batchCurrent = null;
+let thresholds = {
+  inaccuracy: 30,
+  mistake: 80,
+  blunder: 150,
+  brilliant: 80,
+};
 
 function logLine(line, kind = "out") {
   const prefix = kind === "in" ? ">>" : "<<";
@@ -200,8 +225,8 @@ function renderPvLines() {
     row.appendChild(moves);
     row.appendChild(san);
     if (line.pv) {
-      row.addEventListener("mouseenter", () => highlightPvMove(line.pv));
-      row.addEventListener("mouseleave", () => highlightBestMove(lastBestMove));
+      row.addEventListener("mouseenter", () => highlightPvLine(line.pv));
+      row.addEventListener("mouseleave", () => restoreHighlights());
     }
     pvLinesEl.appendChild(row);
   });
@@ -248,10 +273,10 @@ function formatDelta(delta) {
 
 function deltaClass(delta) {
   if (!Number.isFinite(delta)) return "";
-  if (delta <= -150) return "blunder";
-  if (delta <= -80) return "mistake";
-  if (delta <= -30) return "inaccuracy";
-  if (delta >= 80) return "brilliant";
+  if (delta <= -thresholds.blunder) return "blunder";
+  if (delta <= -thresholds.mistake) return "mistake";
+  if (delta <= -thresholds.inaccuracy) return "inaccuracy";
+  if (delta >= thresholds.brilliant) return "brilliant";
   return "neutral";
 }
 
@@ -266,7 +291,9 @@ function updateMoveMetaFromInfo() {
   const prevCp = prevMeta?.cp ?? 0;
   const mover = lastMove?.color || "w";
   const delta = (cp - prevCp) * (mover === "w" ? 1 : -1);
-  moveMeta[ply - 1] = { cp, delta, time: latestInfo.time || 0 };
+  const labelClass = deltaClass(delta);
+  const label = labelClass && labelClass !== "neutral" ? labelClass : "";
+  moveMeta[ply - 1] = { cp, delta, time: latestInfo.time || 0, label };
   renderMoveList();
 }
 
@@ -577,6 +604,12 @@ engine.on("info", (info) => {
     addEvalSample(info);
     updateMoveMetaFromInfo();
   }
+  if (batchAwaiting && batchCurrent) {
+    batchCurrent.info = { ...batchCurrent.info, ...info };
+    if (info.pv && (!info.multipv || info.multipv === 1)) {
+      batchCurrent.pv = info.pv;
+    }
+  }
   if (info.multipv) {
     pvLines.set(info.multipv, { ...pvLines.get(info.multipv), ...info });
   } else {
@@ -591,6 +624,17 @@ engine.on("bestmove", (move) => {
   engineBestmove.textContent = move.bestmove || "—";
   lastBestMove = move.bestmove;
   highlightBestMove(move.bestmove);
+  if (batchAwaiting && batchCurrent) {
+    batchAwaiting = false;
+    batchCurrent.bestmove = move.bestmove;
+    batchCurrent.completed = Date.now();
+    const result = { ...batchCurrent };
+    batchCurrent = null;
+    if (batchResolver) {
+      batchResolver(result);
+      batchResolver = null;
+    }
+  }
   if (awaitingBestMoveApply && move.bestmove) {
     awaitingBestMoveApply = false;
     applyUciMove(move.bestmove);
@@ -877,6 +921,102 @@ btnDownloadReport.addEventListener("click", () => {
   URL.revokeObjectURL(url);
 });
 
+btnApplyThresholds.addEventListener("click", () => {
+  thresholds = {
+    inaccuracy: Number(thInaccuracy.value) || thresholds.inaccuracy,
+    mistake: Number(thMistake.value) || thresholds.mistake,
+    blunder: Number(thBlunder.value) || thresholds.blunder,
+    brilliant: Number(thBrilliant.value) || thresholds.brilliant,
+  };
+  renderMoveList();
+});
+
+function renderBatchList() {
+  if (!batchList) return;
+  batchList.innerHTML = "";
+  batchQueue.forEach((item, index) => {
+    const row = document.createElement("div");
+    row.className = "list-item";
+    const status = item.status || "queued";
+    row.innerHTML = `<strong>#${index + 1}</strong> ${item.fen} <span class="move-tag">${status}</span>`;
+    batchList.appendChild(row);
+  });
+}
+
+function parseBatchInput() {
+  const lines = batchInput.value.split(/\n/).map((line) => line.trim()).filter(Boolean);
+  lines.forEach((fen) => batchQueue.push({ fen, status: "queued" }));
+  batchInput.value = "";
+  renderBatchList();
+}
+
+btnBatchAddCurrent.addEventListener("click", () => {
+  if (!game) return;
+  batchQueue.push({ fen: game.fen(), status: "queued" });
+  renderBatchList();
+});
+
+btnBatchClear.addEventListener("click", () => {
+  batchQueue = [];
+  batchResults = [];
+  renderBatchList();
+});
+
+btnBatchRun.addEventListener("click", async () => {
+  if (batchRunning) return;
+  parseBatchInput();
+  if (!batchQueue.length) return;
+  batchRunning = true;
+  batchResults = [];
+  analysisActive = false;
+  stopAnalysis();
+  autoPlay = false;
+  btnAutoPlay.textContent = "Auto Play: Off";
+  for (const item of batchQueue) {
+    item.status = "running";
+    renderBatchList();
+    const result = await analyzeFen(item.fen);
+    item.status = "done";
+    batchResults.push(result);
+    renderBatchList();
+  }
+  batchRunning = false;
+});
+
+btnBatchExport.addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(batchResults, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `vulcan-batch-${Date.now()}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+});
+
+async function analyzeFen(fen) {
+  return new Promise((resolve) => {
+    const depth = Number(batchDepthInput.value) || 12;
+    const movetime = Number(batchMoveTimeInput.value) || 0;
+    batchAwaiting = true;
+    batchCurrent = {
+      fen,
+      bestmove: null,
+      info: {},
+      pv: "",
+      started: Date.now(),
+    };
+    batchResolver = resolve;
+    engine.send(`position fen ${fen}`);
+    if (movetime > 0) {
+      engine.send(`go movetime ${movetime}`);
+    } else {
+      engine.send(`go depth ${depth}`);
+    }
+  });
+}
+
 function renderBoardSquares() {
   const boardEl = $("board");
   if (!boardEl || !game) return;
@@ -1010,7 +1150,10 @@ function renderMoveList() {
     const meta = moveMeta[index];
     const delta = meta?.delta;
     const deltaText = Number.isFinite(delta) ? formatDelta(delta) : "";
-    item.innerHTML = `<strong>${prefix}</strong> ${move} ${deltaText ? `<span class=\"delta ${deltaClass(delta)}\">${deltaText}</span>` : ""}`;
+    const tag = deltaText ? `<span class=\"delta ${deltaClass(delta)}\">${deltaText}</span>` : "";
+    const label = meta?.label ? `<span class=\"move-tag\">${meta.label}</span>` : "";
+    item.innerHTML = `<strong>${prefix}</strong> ${move} ${tag} ${label}`;
+    item.addEventListener("click", () => jumpToPly(index + 1));
     moveListEl.appendChild(item);
   });
 }
@@ -1036,6 +1179,57 @@ function highlightBestMove(uci) {
   const toEl = document.querySelector(`.square[data-square='${to}']`);
   if (fromEl) fromEl.classList.add("best-from");
   if (toEl) toEl.classList.add("best-to");
+}
+
+function highlightPvLine(pv) {
+  clearPvHighlights();
+  if (!pv) return;
+  const moves = pv.split(/\s+/).slice(0, 6);
+  moves.forEach((move, idx) => {
+    if (move.length < 4) return;
+    const from = move.slice(0, 2);
+    const to = move.slice(2, 4);
+    const fromEl = document.querySelector(`.square[data-square='${from}']`);
+    const toEl = document.querySelector(`.square[data-square='${to}']`);
+    if (fromEl) {
+      fromEl.classList.add("pv-from");
+      fromEl.dataset.pvStep = idx;
+      fromEl.style.setProperty("--pv-step", idx);
+    }
+    if (toEl) {
+      toEl.classList.add("pv-to");
+      toEl.dataset.pvStep = idx;
+      toEl.style.setProperty("--pv-step", idx);
+    }
+  });
+}
+
+function clearPvHighlights() {
+  document.querySelectorAll(".square.pv-from, .square.pv-to").forEach((sq) => {
+    sq.classList.remove("pv-from", "pv-to");
+    sq.removeAttribute("data-pv-step");
+    sq.style.removeProperty("--pv-step");
+  });
+}
+
+function restoreHighlights() {
+  highlightLastMove();
+  highlightBestMove(lastBestMove);
+}
+
+function jumpToPly(ply) {
+  if (!game) return;
+  const history = game.history({ verbose: true });
+  game.reset();
+  moveMeta = moveMeta.slice(0, ply);
+  for (let i = 0; i < ply; i += 1) {
+    const move = history[i];
+    if (!move) break;
+    game.move({ from: move.from, to: move.to, promotion: move.promotion });
+  }
+  undoStack.length = 0;
+  redoStack.length = 0;
+  afterPositionChange();
 }
 
 function applyUciMove(uci) {

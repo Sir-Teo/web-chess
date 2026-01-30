@@ -100,6 +100,31 @@
           <div class="label">Analysis Timeline</div>
           <canvas id="eval-chart" class="chart" width="640" height="160"></canvas>
         </div>
+
+        <div class="section">
+          <div class="label">Blunder Detector</div>
+          <div class="grid-two">
+            <div class="section">
+              <div class="label">Inaccuracy (cp)</div>
+              <input id="th-inaccuracy" type="number" min="10" value="30" />
+            </div>
+            <div class="section">
+              <div class="label">Mistake (cp)</div>
+              <input id="th-mistake" type="number" min="30" value="80" />
+            </div>
+            <div class="section">
+              <div class="label">Blunder (cp)</div>
+              <input id="th-blunder" type="number" min="80" value="150" />
+            </div>
+            <div class="section">
+              <div class="label">Brilliant (cp)</div>
+              <input id="th-brilliant" type="number" min="50" value="80" />
+            </div>
+          </div>
+          <div class="controls">
+            <button class="secondary" id="btn-apply-thresholds">Apply Thresholds</button>
+          </div>
+        </div>
       </section>
 
       <section class="panel">
@@ -334,6 +359,30 @@
             <button class="secondary" id="btn-copy-console">Copy Console</button>
             <button class="ghost" id="btn-clear-console">Clear Console</button>
             <button class="secondary" id="btn-download-report">Download Report</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">Batch Analysis Queue</div>
+          <textarea id="batch-input" placeholder="Paste FENs (one per line)"></textarea>
+          <div class="controls">
+            <button class="secondary" id="btn-batch-add-current">Add Current FEN</button>
+            <button class="secondary" id="btn-batch-run">Run Batch</button>
+            <button class="ghost" id="btn-batch-clear">Clear Queue</button>
+          </div>
+          <div class="grid-two">
+            <div class="section">
+              <div class="label">Batch Depth</div>
+              <input id="batch-depth" type="number" min="1" value="14" />
+            </div>
+            <div class="section">
+              <div class="label">Batch Move Time (ms)</div>
+              <input id="batch-movetime" type="number" min="0" value="0" />
+            </div>
+          </div>
+          <div class="list" id="batch-list"></div>
+          <div class="controls">
+            <button class="secondary" id="btn-batch-export">Export Batch Report</button>
           </div>
         </div>
       </section>
