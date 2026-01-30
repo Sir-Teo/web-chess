@@ -44,6 +44,7 @@ const btnSendUci = $("btn-send-uci");
 const uciInput = $("uci-input");
 const btnCopyConsole = $("btn-copy-console");
 const btnClearConsole = $("btn-clear-console");
+const btnDownloadReport = $("btn-download-report");
 const quickThreads = $("quick-threads");
 const quickHash = $("quick-hash");
 const quickMultiPv = $("quick-multipv");
@@ -671,6 +672,32 @@ btnCopyConsole.addEventListener("click", () => {
 
 btnClearConsole.addEventListener("click", () => {
   consoleEl.textContent = "";
+});
+
+btnDownloadReport.addEventListener("click", () => {
+  const report = {
+    timestamp: new Date().toISOString(),
+    fen: game ? game.fen() : "",
+    pgn: game ? game.pgn() : "",
+    info: latestInfo,
+    pv: [...pvLines.values()],
+    bestmove: lastBestMove,
+    engine: {
+      name: engineName.textContent,
+      variant: engineVariant.textContent,
+      threads: engineThreads.textContent,
+      hash: engineHash.textContent,
+    },
+  };
+  const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `vulcan-report-${Date.now()}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 });
 
 function renderBoardSquares() {
