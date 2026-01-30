@@ -1,4 +1,4 @@
-import { EngineController, threadsAvailable } from "./engine.js";
+import { EngineController, threadsAvailable, preloadEngineAssets } from "./engine.js";
 import { formatScore, scoreToPercent } from "./uci.js";
 
 const $ = (id) => document.getElementById(id);
@@ -33,6 +33,7 @@ const kpiHashfull = $("kpi-hashfull");
 
 const engineSelect = $("engine-select");
 const btnEngineLoad = $("btn-engine-load");
+const btnPreloadEngine = $("btn-preload-engine");
 const btnAnalyze = $("btn-analyze");
 const btnStop = $("btn-stop");
 const btnIsReady = $("btn-isready");
@@ -46,6 +47,7 @@ const uciInput = $("uci-input");
 const btnCopyConsole = $("btn-copy-console");
 const btnClearConsole = $("btn-clear-console");
 const btnDownloadReport = $("btn-download-report");
+const optionsFilter = $("options-filter");
 const btnPlayBest = $("btn-play-best");
 const btnAutoPlay = $("btn-auto-play");
 const autoMoveTimeInput = $("auto-movetime");
@@ -308,7 +310,8 @@ function renderEvalChart() {
 
 function buildOptions() {
   optionsEl.innerHTML = "";
-  const options = [...engine.options.values()];
+  const filter = optionsFilter?.value?.trim().toLowerCase() || "";
+  const options = [...engine.options.values()].filter((opt) => !filter || opt.name.toLowerCase().includes(filter));
   options.sort((a, b) => a.name.localeCompare(b.name));
   options.forEach((opt) => {
     const card = document.createElement("div");
@@ -563,6 +566,7 @@ engine.on("uciok", () => {
   buildOptions();
   applyPerformanceProfile();
   engine.send("isready");
+  if (optionsFilter) optionsFilter.value = "";
 });
 engine.on("readyok", () => {
   engineWarning.textContent = "Engine ready for commands.";
@@ -608,6 +612,15 @@ btnEngineLoad.addEventListener("click", () => {
   engineThreads.textContent = spec.threads ? "auto" : "1";
   engineHash.textContent = "—";
   updateEngineWarning();
+});
+
+btnPreloadEngine.addEventListener("click", async () => {
+  const key = engineSelect.value;
+  btnPreloadEngine.disabled = true;
+  engineWarning.textContent = "Preloading engine assets...";
+  await preloadEngineAssets(key);
+  engineWarning.textContent = "Engine assets cached.";
+  btnPreloadEngine.disabled = false;
 });
 
 btnAnalyze.addEventListener("click", () => {
@@ -729,6 +742,10 @@ btnFlipEngine.addEventListener("click", () => {
 btnRefreshOptions.addEventListener("click", () => {
   engine.send("uci");
   logLine("uci", "in");
+});
+
+optionsFilter.addEventListener("input", () => {
+  buildOptions();
 });
 
 btnMaxPerf.addEventListener("click", () => {

@@ -430,6 +430,10 @@ textarea {
   gap: 6px;
 }
 
+#options-filter {
+  margin-top: 8px;
+}
+
 .option-card .label {
   margin-bottom: 4px;
 }
