@@ -365,10 +365,41 @@ textarea {
   border: 1px solid rgba(255, 255, 255, 0.05);
   font-family: var(--mono);
   font-size: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
 }
 
 .list-item strong {
   color: var(--accent-2);
+}
+
+.delta {
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.delta.neutral {
+  color: var(--muted);
+}
+
+.delta.inaccuracy {
+  color: var(--accent-2);
+}
+
+.delta.mistake {
+  color: var(--accent);
+}
+
+.delta.blunder {
+  color: #ff3b3b;
+}
+
+.delta.brilliant {
+  color: var(--accent-3);
 }
 
 .console {

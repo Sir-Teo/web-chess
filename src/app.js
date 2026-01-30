@@ -122,6 +122,7 @@ let autoPlay = false;
 let awaitingBestMoveApply = false;
 let evalHistory = [];
 let analysisStart = performance.now();
+let moveMeta = [];
 
 function logLine(line, kind = "out") {
   const prefix = kind === "in" ? ">>" : "<<";
@@ -196,6 +197,10 @@ function renderPvLines() {
     row.appendChild(head);
     row.appendChild(moves);
     row.appendChild(san);
+    if (line.pv) {
+      row.addEventListener("mouseenter", () => highlightPvMove(line.pv));
+      row.addEventListener("mouseleave", () => highlightBestMove(lastBestMove));
+    }
     pvLinesEl.appendChild(row);
   });
 }
@@ -226,6 +231,47 @@ function addEvalSample(info) {
   if (evalHistory.length > 240) {
     evalHistory = evalHistory.slice(-240);
   }
+}
+
+function scoreToCp(score) {
+  if (!score) return null;
+  if (score.type === "mate") return score.value > 0 ? 10000 : -10000;
+  return score.value;
+}
+
+function formatDelta(delta) {
+  const sign = delta > 0 ? "+" : "";
+  return `${sign}${(delta / 100).toFixed(2)}`;
+}
+
+function deltaClass(delta) {
+  if (!Number.isFinite(delta)) return "";
+  if (delta <= -150) return "blunder";
+  if (delta <= -80) return "mistake";
+  if (delta <= -30) return "inaccuracy";
+  if (delta >= 80) return "brilliant";
+  return "neutral";
+}
+
+function updateMoveMetaFromInfo() {
+  const ply = game ? game.history({ verbose: true }).length : 0;
+  if (!ply) return;
+  const cp = scoreToCp(latestInfo.score);
+  if (!Number.isFinite(cp)) return;
+  const moves = game.history({ verbose: true });
+  const lastMove = moves[moves.length - 1];
+  const prevMeta = moveMeta[ply - 2];
+  const prevCp = prevMeta?.cp ?? 0;
+  const mover = lastMove?.color || "w";
+  const delta = (cp - prevCp) * (mover === "w" ? 1 : -1);
+  moveMeta[ply - 1] = { cp, delta, time: latestInfo.time || 0 };
+  renderMoveList();
+}
+
+function highlightPvMove(pv) {
+  if (!pv) return;
+  const first = pv.split(/\s+/)[0];
+  highlightBestMove(first);
 }
 
 function renderEvalChart() {
@@ -525,6 +571,7 @@ engine.on("info", (info) => {
   latestInfo = { ...latestInfo, ...info };
   if (info.score) {
     addEvalSample(info);
+    updateMoveMetaFromInfo();
   }
   if (info.multipv) {
     pvLines.set(info.multipv, { ...pvLines.get(info.multipv), ...info });
@@ -793,6 +840,7 @@ btnDownloadReport.addEventListener("click", () => {
     info: latestInfo,
     pv: [...pvLines.values()],
     evalHistory,
+    moveMeta,
     bestmove: lastBestMove,
     engine: {
       name: engineName.textContent,
@@ -942,7 +990,10 @@ function renderMoveList() {
     item.className = "list-item";
     const moveNumber = Math.floor(index / 2) + 1;
     const prefix = index % 2 === 0 ? `${moveNumber}.` : "...";
-    item.textContent = `${prefix} ${move}`;
+    const meta = moveMeta[index];
+    const delta = meta?.delta;
+    const deltaText = Number.isFinite(delta) ? formatDelta(delta) : "";
+    item.innerHTML = `<strong>${prefix}</strong> ${move} ${deltaText ? `<span class=\"delta ${deltaClass(delta)}\">${deltaText}</span>` : ""}`;
     moveListEl.appendChild(item);
   });
 }
@@ -1021,6 +1072,12 @@ function afterPositionChange() {
   highlightLastMove();
   selectedSquare = null;
   legalTargets.clear();
+  if (game) {
+    const ply = game.history().length;
+    if (moveMeta.length > ply) {
+      moveMeta = moveMeta.slice(0, ply);
+    }
+  }
   if (autoPlay && !awaitingBestMoveApply) {
     setTimeout(() => requestAutoMove(), 60);
   }
@@ -1037,6 +1094,7 @@ function loadFen(fen) {
     engineWarning.textContent = "Invalid FEN.";
     return;
   }
+  moveMeta = [];
   undoStack.length = 0;
   redoStack.length = 0;
   afterPositionChange();
@@ -1049,6 +1107,7 @@ function loadPgn(pgn) {
     engineWarning.textContent = "Invalid PGN.";
     return;
   }
+  moveMeta = [];
   undoStack.length = 0;
   redoStack.length = 0;
   afterPositionChange();
@@ -1057,6 +1116,7 @@ function loadPgn(pgn) {
 btnNew.addEventListener("click", () => {
   if (!game) return;
   game.reset();
+  moveMeta = [];
   undoStack.length = 0;
   redoStack.length = 0;
   afterPositionChange();
@@ -1078,6 +1138,7 @@ btnUndo.addEventListener("click", () => {
   const move = game.undo();
   if (move) {
     redoStack.push(move);
+    if (moveMeta.length) moveMeta.pop();
     afterPositionChange();
   }
 });
@@ -1087,6 +1148,7 @@ btnRedo.addEventListener("click", () => {
   const move = redoStack.pop();
   if (!move) return;
   game.move(move);
+  moveMeta.push({});
   afterPositionChange();
 });
 
@@ -1110,6 +1172,7 @@ btnApplyMoves.addEventListener("click", () => {
   if (!game) return;
   const moves = uciMovesInput.value.trim().split(/\s+/).filter(Boolean);
   game.reset();
+  moveMeta = [];
   moves.forEach((move) => {
     const from = move.slice(0, 2);
     const to = move.slice(2, 4);
@@ -1124,6 +1187,7 @@ btnApplyMoves.addEventListener("click", () => {
 btnClearMoves.addEventListener("click", () => {
   if (!game) return;
   game.reset();
+  moveMeta = [];
   undoStack.length = 0;
   redoStack.length = 0;
   afterPositionChange();
