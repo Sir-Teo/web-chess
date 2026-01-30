@@ -1,4 +1,4 @@
-import { EngineController, getEngineSpecs, threadsAvailable } from "./engine.js";
+import { EngineController, threadsAvailable } from "./engine.js";
 import { formatScore, scoreToPercent } from "./uci.js";
 
 const $ = (id) => document.getElementById(id);
@@ -47,11 +47,35 @@ const nodesInput = $("nodes-input");
 const mateInput = $("mate-input");
 const searchmovesInput = $("searchmoves-input");
 
+const btnEval = $("btn-eval");
+const btnDisplay = $("btn-display");
+const btnCompiler = $("btn-compiler");
+const btnPerft = $("btn-perft");
+const btnFlipEngine = $("btn-flip-engine");
+const perftInput = $("perft-input");
+
+const btnNew = $("btn-new");
+const btnFlip = $("btn-flip");
+const btnUndo = $("btn-undo");
+const btnRedo = $("btn-redo");
+const btnLoadFen = $("btn-load-fen");
+const btnCopyFen = $("btn-copy-fen");
+const btnLoadPgn = $("btn-load-pgn");
+const btnCopyPgn = $("btn-copy-pgn");
+const btnApplyMoves = $("btn-apply-moves");
+const btnClearMoves = $("btn-clear-moves");
+
 const engine = new EngineController();
 const pvLines = new Map();
+const undoStack = [];
+const redoStack = [];
 let game = typeof Chess !== "undefined" ? new Chess() : null;
 let latestInfo = {};
 let pendingFrame = false;
+let analysisActive = false;
+let boardFlipped = false;
+let selectedSquare = null;
+let legalTargets = new Set();
 
 function logLine(line, kind = "out") {
   const prefix = kind === "in" ? ">>" : "<<";
@@ -215,15 +239,45 @@ function sendPosition() {
   }
 }
 
+function startAnalysis(mode = "infinite") {
+  sendPosition();
+  const searchmoves = searchmovesInput.value.trim();
+  const suffix = searchmoves ? ` searchmoves ${searchmoves}` : "";
+  engine.send(`go ${mode}${suffix}`);
+  logLine(`go ${mode}${suffix}`.trim(), "in");
+  analysisActive = mode === "infinite";
+}
+
+function stopAnalysis() {
+  engine.send("stop");
+  logLine("stop", "in");
+  analysisActive = false;
+}
+
+function applyPerformanceProfile() {
+  const threads = Math.max(1, (navigator.hardwareConcurrency || 4) - 1);
+  const hashOpt = engine.options.get("Hash");
+  const maxHash = hashOpt?.max ?? 256;
+  const hash = Math.min(maxHash, 256);
+  if (engine.options.has("Threads")) sendOption("Threads", threads);
+  if (engine.options.has("Hash")) sendOption("Hash", hash);
+  if (engine.options.has("MultiPV")) sendOption("MultiPV", 3);
+  if (engine.options.has("UCI_ShowWDL")) sendOption("UCI_ShowWDL", "true");
+  if (engine.options.has("Ponder")) sendOption("Ponder", "false");
+  if (engine.options.has("UCI_LimitStrength")) sendOption("UCI_LimitStrength", "false");
+  engineWarning.textContent = "Performance profile applied.";
+}
+
 engine.on("line", (line) => logLine(line));
 engine.on("id", ({ type, value }) => {
   if (type === "name") engineName.textContent = value;
 });
 engine.on("option", () => {
-  // no-op; rebuild on uciok
+  // defer rendering until uciok
 });
 engine.on("uciok", () => {
   buildOptions();
+  applyPerformanceProfile();
   engine.send("isready");
 });
 engine.on("readyok", () => {
@@ -238,11 +292,11 @@ engine.on("info", (info) => {
   }
   scheduleUI();
 });
-engine.on("bestmove", (move) => {
-  logLine(`bestmove ${move.bestmove}${move.ponder ? ` ponder ${move.ponder}` : ""}`);
+engine.on("bestmove", () => {
+  // console already receives raw output
 });
-engine.on("infoString", (text) => {
-  logLine(`info string ${text}`);
+engine.on("infoString", () => {
+  // console already receives raw output
 });
 engine.on("error", (err) => {
   engineWarning.textContent = `Engine error: ${err.message || err}`;
@@ -250,25 +304,20 @@ engine.on("error", (err) => {
 
 btnEngineLoad.addEventListener("click", () => {
   const key = engineSelect.value;
+  engine.load(key);
   const spec = engine.resolveSpec(key);
   engineVariant.textContent = spec.label;
   engineThreads.textContent = spec.threads ? "auto" : "1";
   engineHash.textContent = "—";
-  engine.load(key);
   updateEngineWarning();
 });
 
 btnAnalyze.addEventListener("click", () => {
-  sendPosition();
-  const searchmoves = searchmovesInput.value.trim();
-  const suffix = searchmoves ? ` searchmoves ${searchmoves}` : "";
-  engine.send(`go infinite${suffix}`);
-  logLine("go infinite", "in");
+  startAnalysis("infinite");
 });
 
 btnStop.addEventListener("click", () => {
-  engine.send("stop");
-  logLine("stop", "in");
+  stopAnalysis();
 });
 
 btnIsReady.addEventListener("click", () => {
@@ -282,31 +331,52 @@ btnUciNew.addEventListener("click", () => {
 });
 
 btnGoDepth.addEventListener("click", () => {
-  sendPosition();
   const depth = Number(depthInput.value) || 18;
-  engine.send(`go depth ${depth}`);
-  logLine(`go depth ${depth}`, "in");
+  startAnalysis(`depth ${depth}`);
 });
 
 btnGoTime.addEventListener("click", () => {
-  sendPosition();
   const time = Number(movetimeInput.value) || 1000;
-  engine.send(`go movetime ${time}`);
-  logLine(`go movetime ${time}`, "in");
+  startAnalysis(`movetime ${time}`);
 });
 
 btnGoNodes.addEventListener("click", () => {
-  sendPosition();
   const nodes = Number(nodesInput.value) || 100000;
-  engine.send(`go nodes ${nodes}`);
-  logLine(`go nodes ${nodes}`, "in");
+  startAnalysis(`nodes ${nodes}`);
 });
 
 btnGoMate.addEventListener("click", () => {
-  sendPosition();
   const mate = Number(mateInput.value) || 4;
-  engine.send(`go mate ${mate}`);
-  logLine(`go mate ${mate}`, "in");
+  startAnalysis(`mate ${mate}`);
+});
+
+btnEval.addEventListener("click", () => {
+  sendPosition();
+  engine.send("eval");
+  logLine("eval", "in");
+});
+
+btnDisplay.addEventListener("click", () => {
+  sendPosition();
+  engine.send("d");
+  logLine("d", "in");
+});
+
+btnCompiler.addEventListener("click", () => {
+  engine.send("compiler");
+  logLine("compiler", "in");
+});
+
+btnPerft.addEventListener("click", () => {
+  const depth = Number(perftInput.value) || 4;
+  sendPosition();
+  engine.send(`go perft ${depth}`);
+  logLine(`go perft ${depth}`, "in");
+});
+
+btnFlipEngine.addEventListener("click", () => {
+  engine.send("flip");
+  logLine("flip", "in");
 });
 
 btnRefreshOptions.addEventListener("click", () => {
@@ -315,17 +385,7 @@ btnRefreshOptions.addEventListener("click", () => {
 });
 
 btnMaxPerf.addEventListener("click", () => {
-  const threads = Math.max(1, (navigator.hardwareConcurrency || 4) - 1);
-  const hashOpt = engine.options.get("Hash");
-  const maxHash = hashOpt?.max ?? 256;
-  const hash = Math.min(maxHash, 256);
-  if (engine.options.has("Threads")) sendOption("Threads", threads);
-  if (engine.options.has("Hash")) sendOption("Hash", hash);
-  if (engine.options.has("MultiPV")) sendOption("MultiPV", 3);
-  if (engine.options.has("UCI_ShowWDL")) sendOption("UCI_ShowWDL", "true");
-  if (engine.options.has("Ponder")) sendOption("Ponder", "false");
-  if (engine.options.has("UCI_LimitStrength")) sendOption("UCI_LimitStrength", "false");
-  engineWarning.textContent = "Performance profile applied.";
+  applyPerformanceProfile();
 });
 
 btnSendUci.addEventListener("click", () => {
@@ -342,21 +402,26 @@ uciInput.addEventListener("keydown", (event) => {
   }
 });
 
-function renderBoard() {
+function renderBoardSquares() {
   const boardEl = $("board");
   if (!boardEl || !game) return;
-  if (boardEl.children.length) return;
+  boardEl.innerHTML = "";
 
-  const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
-  for (let rank = 8; rank >= 1; rank -= 1) {
-    for (let file = 0; file < files.length; file += 1) {
-      const square = `${files[file]}${rank}`;
+  const files = boardFlipped ? ["h", "g", "f", "e", "d", "c", "b", "a"] : ["a", "b", "c", "d", "e", "f", "g", "h"];
+  const ranks = boardFlipped ? [1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1];
+
+  ranks.forEach((rank) => {
+    files.forEach((file) => {
+      const square = `${file}${rank}`;
       const div = document.createElement("div");
-      div.className = `square ${((rank + file) % 2 === 0) ? "light" : "dark"}`;
+      const fileIndex = "abcdefgh".indexOf(file) + 1;
+      const light = (rank + fileIndex) % 2 === 0;
+      div.className = `square ${light ? "light" : "dark"}`;
       div.dataset.square = square;
+      div.addEventListener("click", () => onSquareClick(square));
       boardEl.appendChild(div);
-    }
-  }
+    });
+  });
 }
 
 function updateBoardPieces() {
@@ -381,17 +446,186 @@ function updateBoardPieces() {
   });
 }
 
+function clearHighlights() {
+  document.querySelectorAll(".square").forEach((sq) => {
+    sq.classList.remove("selected", "legal", "capture");
+  });
+}
+
+function highlightMoves(moves) {
+  clearHighlights();
+  if (!moves.length) return;
+  const from = moves[0].from;
+  const fromEl = document.querySelector(`.square[data-square='${from}']`);
+  if (fromEl) fromEl.classList.add("selected");
+  legalTargets.clear();
+
+  moves.forEach((move) => {
+    legalTargets.add(move.to);
+    const targetEl = document.querySelector(`.square[data-square='${move.to}']`);
+    if (!targetEl) return;
+    if (move.captured) {
+      targetEl.classList.add("capture");
+    } else {
+      targetEl.classList.add("legal");
+    }
+  });
+}
+
+function onSquareClick(square) {
+  if (!game) return;
+  const moves = game.moves({ square, verbose: true });
+
+  if (selectedSquare && legalTargets.has(square)) {
+    const selectedMoves = game.moves({ square: selectedSquare, verbose: true });
+    const promotionMove = selectedMoves.find((m) => m.to === square && m.promotion);
+    const promotion = promotionMove ? promotionMove.promotion : undefined;
+    const move = game.move({ from: selectedSquare, to: square, promotion });
+    if (move) {
+      undoStack.push(move);
+      redoStack.length = 0;
+      afterPositionChange();
+    }
+    selectedSquare = null;
+    legalTargets.clear();
+    clearHighlights();
+    return;
+  }
+
+  if (moves.length) {
+    selectedSquare = square;
+    highlightMoves(moves);
+  } else {
+    selectedSquare = null;
+    legalTargets.clear();
+    clearHighlights();
+  }
+}
+
 function syncFenPgn() {
   if (!game) return;
   fenInput.value = game.fen();
   pgnInput.value = game.pgn();
+  uciMovesInput.value = game.history({ verbose: true })
+    .map((move) => `${move.from}${move.to}${move.promotion || ""}`)
+    .join(" ");
 }
 
+function afterPositionChange() {
+  updateBoardPieces();
+  syncFenPgn();
+  clearHighlights();
+  selectedSquare = null;
+  legalTargets.clear();
+  if (analysisActive) {
+    startAnalysis("infinite");
+  }
+}
+
+function loadFen(fen) {
+  if (!game) return;
+  const ok = game.load(fen);
+  if (!ok) {
+    engineWarning.textContent = "Invalid FEN.";
+    return;
+  }
+  undoStack.length = 0;
+  redoStack.length = 0;
+  afterPositionChange();
+}
+
+function loadPgn(pgn) {
+  if (!game) return;
+  const ok = game.load_pgn(pgn);
+  if (!ok) {
+    engineWarning.textContent = "Invalid PGN.";
+    return;
+  }
+  undoStack.length = 0;
+  redoStack.length = 0;
+  afterPositionChange();
+}
+
+btnNew.addEventListener("click", () => {
+  if (!game) return;
+  game.reset();
+  undoStack.length = 0;
+  redoStack.length = 0;
+  afterPositionChange();
+});
+
+btnFlip.addEventListener("click", () => {
+  boardFlipped = !boardFlipped;
+  renderBoardSquares();
+  updateBoardPieces();
+  clearHighlights();
+  selectedSquare = null;
+  legalTargets.clear();
+});
+
+btnUndo.addEventListener("click", () => {
+  if (!game) return;
+  const move = game.undo();
+  if (move) {
+    redoStack.push(move);
+    afterPositionChange();
+  }
+});
+
+btnRedo.addEventListener("click", () => {
+  if (!game || !redoStack.length) return;
+  const move = redoStack.pop();
+  if (!move) return;
+  game.move(move);
+  afterPositionChange();
+});
+
+btnLoadFen.addEventListener("click", () => {
+  loadFen(fenInput.value.trim());
+});
+
+btnCopyFen.addEventListener("click", () => {
+  navigator.clipboard.writeText(fenInput.value).catch(() => {});
+});
+
+btnLoadPgn.addEventListener("click", () => {
+  loadPgn(pgnInput.value.trim());
+});
+
+btnCopyPgn.addEventListener("click", () => {
+  navigator.clipboard.writeText(pgnInput.value).catch(() => {});
+});
+
+btnApplyMoves.addEventListener("click", () => {
+  if (!game) return;
+  const moves = uciMovesInput.value.trim().split(/\s+/).filter(Boolean);
+  game.reset();
+  moves.forEach((move) => {
+    const from = move.slice(0, 2);
+    const to = move.slice(2, 4);
+    const promotion = move[4];
+    game.move({ from, to, promotion });
+  });
+  undoStack.length = 0;
+  redoStack.length = 0;
+  afterPositionChange();
+});
+
+btnClearMoves.addEventListener("click", () => {
+  if (!game) return;
+  game.reset();
+  undoStack.length = 0;
+  redoStack.length = 0;
+  afterPositionChange();
+});
+
 function initBoard() {
-  renderBoard();
+  renderBoardSquares();
   updateBoardPieces();
   syncFenPgn();
 }
 
 initBoard();
 updateEngineWarning();
+engine.load("auto");
+engineVariant.textContent = engine.resolveSpec("auto").label;
