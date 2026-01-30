@@ -26,6 +26,7 @@ const kpiNodes = $("kpi-nodes");
 const kpiNps = $("kpi-nps");
 const kpiTime = $("kpi-time");
 const kpiTbHits = $("kpi-tbhits");
+const kpiWdl = $("kpi-wdl");
 
 const engineSelect = $("engine-select");
 const btnEngineLoad = $("btn-engine-load");
@@ -120,6 +121,11 @@ function updateKpis() {
   kpiNps.textContent = latestInfo.nps ?? 0;
   kpiTime.textContent = latestInfo.time ?? 0;
   kpiTbHits.textContent = latestInfo.tbhits ?? 0;
+  if (latestInfo.wdl) {
+    kpiWdl.textContent = `${latestInfo.wdl.w} / ${latestInfo.wdl.d} / ${latestInfo.wdl.l}`;
+  } else {
+    kpiWdl.textContent = "—";
+  }
   engineNps.textContent = latestInfo.nps ? `${latestInfo.nps.toLocaleString()} nps` : "—";
 }
 
