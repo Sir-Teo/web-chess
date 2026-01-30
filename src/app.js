@@ -14,6 +14,7 @@ const consoleEl = $("console");
 const optionsEl = $("options");
 const pvLinesEl = $("pv-lines");
 const moveListEl = $("move-list");
+const evalChart = $("eval-chart");
 
 const fenInput = $("fen-input");
 const pgnInput = $("pgn-input");
@@ -45,6 +46,10 @@ const uciInput = $("uci-input");
 const btnCopyConsole = $("btn-copy-console");
 const btnClearConsole = $("btn-clear-console");
 const btnDownloadReport = $("btn-download-report");
+const btnPlayBest = $("btn-play-best");
+const btnAutoPlay = $("btn-auto-play");
+const autoMoveTimeInput = $("auto-movetime");
+const autoDepthInput = $("auto-depth");
 const quickThreads = $("quick-threads");
 const quickHash = $("quick-hash");
 const quickMultiPv = $("quick-multipv");
@@ -113,6 +118,10 @@ let boardFlipped = false;
 let selectedSquare = null;
 let legalTargets = new Set();
 let lastBestMove = null;
+let autoPlay = false;
+let awaitingBestMoveApply = false;
+let evalHistory = [];
+let analysisStart = performance.now();
 
 function logLine(line, kind = "out") {
   const prefix = kind === "in" ? ">>" : "<<";
@@ -135,6 +144,7 @@ function scheduleUI() {
     updateKpis();
     updateEvalBar();
     renderPvLines();
+    renderEvalChart();
   });
 }
 
@@ -175,10 +185,79 @@ function renderPvLines() {
     const moves = document.createElement("div");
     moves.className = "pv-moves";
     moves.textContent = line.pv || "";
+    const san = document.createElement("div");
+    san.className = "pv-san";
+    san.textContent = line.pv ? uciLineToSan(line.pv) : "";
+    san.addEventListener("click", () => {
+      if (line.pv) {
+        navigator.clipboard.writeText(line.pv).catch(() => {});
+      }
+    });
     row.appendChild(head);
     row.appendChild(moves);
+    row.appendChild(san);
     pvLinesEl.appendChild(row);
   });
+}
+
+function uciLineToSan(pv) {
+  if (!game || !pv) return "";
+  const temp = new Chess(game.fen());
+  const moves = pv.split(/\s+/);
+  const sanMoves = [];
+  for (const move of moves) {
+    if (!move || move.length < 4) continue;
+    const from = move.slice(0, 2);
+    const to = move.slice(2, 4);
+    const promotion = move[4];
+    const result = temp.move({ from, to, promotion });
+    if (!result) break;
+    sanMoves.push(result.san);
+    if (sanMoves.length >= 12) break;
+  }
+  return sanMoves.join(" ");
+}
+
+function addEvalSample(info) {
+  if (!info.score) return;
+  const cp = info.score.type === "mate" ? (info.score.value > 0 ? 10000 : -10000) : info.score.value;
+  const time = typeof info.time === "number" ? info.time : Math.round(performance.now() - analysisStart);
+  evalHistory.push({ time, cp, depth: info.depth || 0 });
+  if (evalHistory.length > 240) {
+    evalHistory = evalHistory.slice(-240);
+  }
+}
+
+function renderEvalChart() {
+  if (!evalChart) return;
+  const ctx = evalChart.getContext("2d");
+  if (!ctx) return;
+  const { width, height } = evalChart;
+  ctx.clearRect(0, 0, width, height);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, height / 2);
+  ctx.lineTo(width, height / 2);
+  ctx.stroke();
+
+  if (!evalHistory.length) return;
+  const minTime = evalHistory[0].time;
+  const maxTime = evalHistory[evalHistory.length - 1].time;
+  const span = Math.max(1, maxTime - minTime);
+
+  ctx.strokeStyle = "rgba(240, 90, 79, 0.85)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  evalHistory.forEach((sample, index) => {
+    const clamped = Math.max(-1000, Math.min(1000, sample.cp));
+    const x = ((sample.time - minTime) / span) * width;
+    const y = height / 2 - (clamped / 1000) * (height * 0.45);
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
 }
 
 function buildOptions() {
@@ -393,6 +472,8 @@ function sendPosition() {
 function startAnalysis(mode = "infinite") {
   sendPosition();
   pvLines.clear();
+  evalHistory = [];
+  analysisStart = performance.now();
   const searchmoves = searchmovesInput.value.trim();
   const suffix = searchmoves ? ` searchmoves ${searchmoves}` : "";
   engine.send(`go ${mode}${suffix}`);
@@ -442,6 +523,9 @@ engine.on("readyok", () => {
 });
 engine.on("info", (info) => {
   latestInfo = { ...latestInfo, ...info };
+  if (info.score) {
+    addEvalSample(info);
+  }
   if (info.multipv) {
     pvLines.set(info.multipv, { ...pvLines.get(info.multipv), ...info });
   } else {
@@ -456,6 +540,13 @@ engine.on("bestmove", (move) => {
   engineBestmove.textContent = move.bestmove || "—";
   lastBestMove = move.bestmove;
   highlightBestMove(move.bestmove);
+  if (awaitingBestMoveApply && move.bestmove) {
+    awaitingBestMoveApply = false;
+    applyUciMove(move.bestmove);
+    if (autoPlay) {
+      setTimeout(() => requestAutoMove(), 80);
+    }
+  }
 });
 engine.on("error", (err) => {
   engineWarning.textContent = `Engine error: ${err.message || err}`;
@@ -478,6 +569,26 @@ btnAnalyze.addEventListener("click", () => {
 
 btnStop.addEventListener("click", () => {
   stopAnalysis();
+});
+
+btnPlayBest.addEventListener("click", () => {
+  if (lastBestMove && lastBestMove !== "(none)") {
+    applyUciMove(lastBestMove);
+    return;
+  }
+  requestAutoMove();
+});
+
+btnAutoPlay.addEventListener("click", () => {
+  autoPlay = !autoPlay;
+  btnAutoPlay.textContent = `Auto Play: ${autoPlay ? "On" : "Off"}`;
+  if (autoPlay) {
+    analysisActive = false;
+    stopAnalysis();
+    requestAutoMove();
+  } else {
+    awaitingBestMoveApply = false;
+  }
 });
 
 btnIsReady.addEventListener("click", () => {
@@ -681,6 +792,7 @@ btnDownloadReport.addEventListener("click", () => {
     pgn: game ? game.pgn() : "",
     info: latestInfo,
     pv: [...pvLines.values()],
+    evalHistory,
     bestmove: lastBestMove,
     engine: {
       name: engineName.textContent,
@@ -858,6 +970,49 @@ function highlightBestMove(uci) {
   if (toEl) toEl.classList.add("best-to");
 }
 
+function applyUciMove(uci) {
+  if (!game || !uci || uci === "(none)" || uci.length < 4) return false;
+  const from = uci.slice(0, 2);
+  const to = uci.slice(2, 4);
+  const promotion = uci[4];
+  const move = game.move({ from, to, promotion });
+  if (!move) return false;
+  undoStack.push(move);
+  redoStack.length = 0;
+  afterPositionChange();
+  return true;
+}
+
+function requestAutoMove() {
+  if (!autoPlay && !awaitingBestMoveApply) {
+    const moveTime = Number(autoMoveTimeInput.value) || 1200;
+    const depth = Number(autoDepthInput.value) || 12;
+    sendPosition();
+    if (moveTime > 0) {
+      engine.send(`go movetime ${moveTime}`);
+      logLine(`go movetime ${moveTime}`, "in");
+    } else {
+      engine.send(`go depth ${depth}`);
+      logLine(`go depth ${depth}`, "in");
+    }
+    awaitingBestMoveApply = true;
+    return;
+  }
+  if (autoPlay) {
+    const moveTime = Number(autoMoveTimeInput.value) || 1200;
+    const depth = Number(autoDepthInput.value) || 12;
+    sendPosition();
+    if (moveTime > 0) {
+      engine.send(`go movetime ${moveTime}`);
+      logLine(`go movetime ${moveTime}`, "in");
+    } else {
+      engine.send(`go depth ${depth}`);
+      logLine(`go depth ${depth}`, "in");
+    }
+    awaitingBestMoveApply = true;
+  }
+}
+
 function afterPositionChange() {
   updateBoardPieces();
   syncFenPgn();
@@ -866,6 +1021,9 @@ function afterPositionChange() {
   highlightLastMove();
   selectedSquare = null;
   legalTargets.clear();
+  if (autoPlay && !awaitingBestMoveApply) {
+    setTimeout(() => requestAutoMove(), 60);
+  }
   if (analysisActive) {
     stopAnalysis();
     setTimeout(() => startAnalysis("infinite"), 30);

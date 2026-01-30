@@ -95,6 +95,11 @@
           <div class="label">Move List</div>
           <div id="move-list" class="list"></div>
         </div>
+
+        <div class="section">
+          <div class="label">Analysis Timeline</div>
+          <canvas id="eval-chart" class="chart" width="640" height="160"></canvas>
+        </div>
       </section>
 
       <section class="panel">
@@ -124,6 +129,8 @@
             <button class="secondary" id="btn-ucinewgame">New Search</button>
             <button class="secondary" id="btn-ponderhit">Ponder Hit</button>
             <button class="secondary" id="btn-clear-hash">Clear Hash</button>
+            <button class="secondary" id="btn-play-best">Play Best Move</button>
+            <button class="ghost" id="btn-auto-play">Auto Play: Off</button>
           </div>
           <div class="grid-two">
             <div class="section">
@@ -145,6 +152,20 @@
               <div class="label">Mate</div>
               <input id="mate-input" type="number" min="1" value="4" />
               <button class="secondary" id="btn-go-mate">Go Mate</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">Auto Play Settings</div>
+          <div class="grid-two">
+            <div class="section">
+              <div class="label">Auto Move Time (ms)</div>
+              <input id="auto-movetime" type="number" min="100" value="1500" />
+            </div>
+            <div class="section">
+              <div class="label">Auto Depth</div>
+              <input id="auto-depth" type="number" min="1" max="99" value="12" />
             </div>
           </div>
         </div>

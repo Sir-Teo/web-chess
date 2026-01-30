@@ -429,6 +429,20 @@ textarea {
   font-size: 0.85rem;
 }
 
+.pv-line .pv-san {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--soft);
+}
+
+.chart {
+  width: 100%;
+  height: 180px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 footer {
   color: var(--soft);
   font-size: 0.8rem;
