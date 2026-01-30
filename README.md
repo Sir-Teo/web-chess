@@ -21,7 +21,12 @@ GitHub Pages cannot set COOP/COEP headers, so the app will automatically fall ba
 - Multi‑threaded and single‑threaded Stockfish.js 17.1 variants
 - Full UCI option surface + raw console
 - Deep analysis (infinite, depth, time, nodes, mate)
+- Time‑control search (wtime/btime/winc/binc/movestogo/ponder)
 - Perft, eval trace, position dump, compiler info
 - Tablebase (Syzygy) configuration controls
 - Strength limiting (Skill Level, Elo)
-- Move list, PV lines, best‑move highlighting, eval bar, WDL stats
+- Auto‑play / play best move
+- PV lines with SAN preview and hover highlights
+- Move list with blunder/inaccuracy detection
+- Eval timeline chart + WDL/hash KPIs
+- Exportable JSON analysis reports
