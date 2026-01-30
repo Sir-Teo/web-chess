@@ -119,6 +119,8 @@ main {
   border-radius: var(--radius);
   padding: 18px;
   box-shadow: 0 24px 60px var(--shadow);
+  backdrop-filter: blur(14px);
+  animation: rise 0.6s ease both;
 }
 
 .panel h2 {
@@ -160,6 +162,7 @@ main {
   position: relative;
   cursor: pointer;
   user-select: none;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .square.light {
@@ -173,6 +176,7 @@ main {
 .square.selected {
   outline: 3px solid var(--accent);
   outline-offset: -3px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3);
 }
 
 .square.legal::after {
@@ -278,6 +282,10 @@ button.ghost {
   background: transparent;
   border: 1px dashed rgba(255, 255, 255, 0.2);
   box-shadow: none;
+}
+
+button:hover {
+  transform: translateY(-1px);
 }
 
 button:active {
@@ -429,5 +437,16 @@ footer {
   .eval-bar {
     height: 120px;
     width: 100%;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

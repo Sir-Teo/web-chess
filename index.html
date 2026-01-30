@@ -23,6 +23,7 @@
         <div class="status-pill">Threads: <strong id="engine-threads">—</strong></div>
         <div class="status-pill">Hash: <strong id="engine-hash">—</strong></div>
         <div class="status-pill">Speed: <strong id="engine-nps">—</strong></div>
+        <div class="status-pill">Best: <strong id="engine-bestmove">—</strong></div>
       </div>
     </header>
 
@@ -114,6 +115,8 @@
             <button class="secondary" id="btn-stop">Stop</button>
             <button class="secondary" id="btn-isready">IsReady</button>
             <button class="secondary" id="btn-ucinewgame">New Search</button>
+            <button class="secondary" id="btn-ponderhit">Ponder Hit</button>
+            <button class="secondary" id="btn-clear-hash">Clear Hash</button>
           </div>
           <div class="grid-two">
             <div class="section">
@@ -136,6 +139,42 @@
               <input id="mate-input" type="number" min="1" value="4" />
               <button class="secondary" id="btn-go-mate">Go Mate</button>
             </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">Clock / Time Controls</div>
+          <div class="grid-two">
+            <div class="section">
+              <div class="label">White Time (ms)</div>
+              <input id="wtime-input" type="number" min="1" value="300000" />
+            </div>
+            <div class="section">
+              <div class="label">Black Time (ms)</div>
+              <input id="btime-input" type="number" min="1" value="300000" />
+            </div>
+            <div class="section">
+              <div class="label">White Increment (ms)</div>
+              <input id="winc-input" type="number" min="0" value="2000" />
+            </div>
+            <div class="section">
+              <div class="label">Black Increment (ms)</div>
+              <input id="binc-input" type="number" min="0" value="2000" />
+            </div>
+            <div class="section">
+              <div class="label">Moves To Go</div>
+              <input id="movestogo-input" type="number" min="0" value="0" />
+            </div>
+            <div class="section">
+              <div class="label">Ponder</div>
+              <select id="ponder-select">
+                <option value="false">Off</option>
+                <option value="true">On</option>
+              </select>
+            </div>
+          </div>
+          <div class="controls">
+            <button class="secondary" id="btn-go-clock">Go Clock</button>
           </div>
         </div>
 
@@ -175,6 +214,10 @@
           <div class="grid-two">
             <input id="uci-input" type="text" placeholder="Type UCI command…" />
             <button id="btn-send-uci">Send</button>
+          </div>
+          <div class="controls">
+            <button class="secondary" id="btn-copy-console">Copy Console</button>
+            <button class="ghost" id="btn-clear-console">Clear Console</button>
           </div>
         </div>
       </section>

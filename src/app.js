@@ -9,6 +9,7 @@ const engineThreads = $("engine-threads");
 const engineHash = $("engine-hash");
 const engineNps = $("engine-nps");
 const engineWarning = $("engine-warning");
+const engineBestmove = $("engine-bestmove");
 const consoleEl = $("console");
 const optionsEl = $("options");
 const pvLinesEl = $("pv-lines");
@@ -32,10 +33,14 @@ const btnAnalyze = $("btn-analyze");
 const btnStop = $("btn-stop");
 const btnIsReady = $("btn-isready");
 const btnUciNew = $("btn-ucinewgame");
+const btnPonderHit = $("btn-ponderhit");
+const btnClearHash = $("btn-clear-hash");
 const btnRefreshOptions = $("btn-refresh-options");
 const btnMaxPerf = $("btn-max-perf");
 const btnSendUci = $("btn-send-uci");
 const uciInput = $("uci-input");
+const btnCopyConsole = $("btn-copy-console");
+const btnClearConsole = $("btn-clear-console");
 
 const btnGoDepth = $("btn-go-depth");
 const btnGoTime = $("btn-go-time");
@@ -46,6 +51,13 @@ const movetimeInput = $("movetime-input");
 const nodesInput = $("nodes-input");
 const mateInput = $("mate-input");
 const searchmovesInput = $("searchmoves-input");
+const wtimeInput = $("wtime-input");
+const btimeInput = $("btime-input");
+const wincInput = $("winc-input");
+const bincInput = $("binc-input");
+const movestogoInput = $("movestogo-input");
+const ponderSelect = $("ponder-select");
+const btnGoClock = $("btn-go-clock");
 
 const btnEval = $("btn-eval");
 const btnDisplay = $("btn-display");
@@ -241,6 +253,7 @@ function sendPosition() {
 
 function startAnalysis(mode = "infinite") {
   sendPosition();
+  pvLines.clear();
   const searchmoves = searchmovesInput.value.trim();
   const suffix = searchmoves ? ` searchmoves ${searchmoves}` : "";
   engine.send(`go ${mode}${suffix}`);
@@ -255,16 +268,20 @@ function stopAnalysis() {
 }
 
 function applyPerformanceProfile() {
-  const threads = Math.max(1, (navigator.hardwareConcurrency || 4) - 1);
+  const threads = Math.max(1, navigator.hardwareConcurrency || 4);
   const hashOpt = engine.options.get("Hash");
   const maxHash = hashOpt?.max ?? 256;
-  const hash = Math.min(maxHash, 256);
+  const deviceGB = navigator.deviceMemory || 4;
+  const targetHash = Math.max(128, Math.floor(deviceGB * 1024 * 0.25));
+  const hash = Math.min(maxHash, targetHash);
   if (engine.options.has("Threads")) sendOption("Threads", threads);
   if (engine.options.has("Hash")) sendOption("Hash", hash);
   if (engine.options.has("MultiPV")) sendOption("MultiPV", 3);
   if (engine.options.has("UCI_ShowWDL")) sendOption("UCI_ShowWDL", "true");
   if (engine.options.has("Ponder")) sendOption("Ponder", "false");
   if (engine.options.has("UCI_LimitStrength")) sendOption("UCI_LimitStrength", "false");
+  if (engine.options.has("Minimum Thinking Time")) sendOption("Minimum Thinking Time", 0);
+  if (engine.options.has("Move Overhead")) sendOption("Move Overhead", 0);
   engineWarning.textContent = "Performance profile applied.";
 }
 
@@ -292,11 +309,11 @@ engine.on("info", (info) => {
   }
   scheduleUI();
 });
-engine.on("bestmove", () => {
-  // console already receives raw output
-});
 engine.on("infoString", () => {
   // console already receives raw output
+});
+engine.on("bestmove", (move) => {
+  engineBestmove.textContent = move.bestmove || "—";
 });
 engine.on("error", (err) => {
   engineWarning.textContent = `Engine error: ${err.message || err}`;
@@ -330,6 +347,16 @@ btnUciNew.addEventListener("click", () => {
   logLine("ucinewgame", "in");
 });
 
+btnPonderHit.addEventListener("click", () => {
+  engine.send("ponderhit");
+  logLine("ponderhit", "in");
+});
+
+btnClearHash.addEventListener("click", () => {
+  engine.send("setoption name Clear Hash value true");
+  logLine("setoption name Clear Hash value true", "in");
+});
+
 btnGoDepth.addEventListener("click", () => {
   const depth = Number(depthInput.value) || 18;
   startAnalysis(`depth ${depth}`);
@@ -348,6 +375,25 @@ btnGoNodes.addEventListener("click", () => {
 btnGoMate.addEventListener("click", () => {
   const mate = Number(mateInput.value) || 4;
   startAnalysis(`mate ${mate}`);
+});
+
+btnGoClock.addEventListener("click", () => {
+  const wtime = Number(wtimeInput.value) || 0;
+  const btime = Number(btimeInput.value) || 0;
+  const winc = Number(wincInput.value) || 0;
+  const binc = Number(bincInput.value) || 0;
+  const movestogo = Number(movestogoInput.value) || 0;
+  const ponder = ponderSelect.value === "true" ? "ponder" : "";
+  const cmdParts = [
+    "go",
+    `wtime ${wtime}`,
+    `btime ${btime}`,
+    `winc ${winc}`,
+    `binc ${binc}`,
+  ];
+  if (movestogo > 0) cmdParts.push(`movestogo ${movestogo}`);
+  if (ponder) cmdParts.push(ponder);
+  startAnalysis(cmdParts.slice(1).join(" "));
 });
 
 btnEval.addEventListener("click", () => {
@@ -402,6 +448,14 @@ uciInput.addEventListener("keydown", (event) => {
   }
 });
 
+btnCopyConsole.addEventListener("click", () => {
+  navigator.clipboard.writeText(consoleEl.textContent).catch(() => {});
+});
+
+btnClearConsole.addEventListener("click", () => {
+  consoleEl.textContent = "";
+});
+
 function renderBoardSquares() {
   const boardEl = $("board");
   if (!boardEl || !game) return;
@@ -415,7 +469,7 @@ function renderBoardSquares() {
       const square = `${file}${rank}`;
       const div = document.createElement("div");
       const fileIndex = "abcdefgh".indexOf(file) + 1;
-      const light = (rank + fileIndex) % 2 === 0;
+      const light = (rank + fileIndex) % 2 !== 0;
       div.className = `square ${light ? "light" : "dark"}`;
       div.dataset.square = square;
       div.addEventListener("click", () => onSquareClick(square));
@@ -518,7 +572,8 @@ function afterPositionChange() {
   selectedSquare = null;
   legalTargets.clear();
   if (analysisActive) {
-    startAnalysis("infinite");
+    stopAnalysis();
+    setTimeout(() => startAnalysis("infinite"), 30);
   }
 }
 
@@ -629,3 +684,9 @@ initBoard();
 updateEngineWarning();
 engine.load("auto");
 engineVariant.textContent = engine.resolveSpec("auto").label;
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  });
+}
