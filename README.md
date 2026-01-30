@@ -19,7 +19,8 @@ GitHub Pages cannot set COOP/COEP headers, so the app will automatically fall ba
 ## Features
 
 - Multi‑threaded and single‑threaded Stockfish.js 17.1 variants
-- Full UCI option surface + raw console
+- Full UCI option surface + raw console (with filter)
+- Engine asset preloading for faster start
 - Deep analysis (infinite, depth, time, nodes, mate)
 - Time‑control search (wtime/btime/winc/binc/movestogo/ponder)
 - Perft, eval trace, position dump, compiler info
