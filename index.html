@@ -89,6 +89,11 @@
         <div class="section">
           <div class="label">MultiPV Lines</div>
           <div id="pv-lines" class="pv-table"></div>
+          <div class="controls">
+            <button class="secondary" id="btn-pv-play">Play PV</button>
+            <button class="ghost" id="btn-pv-stop">Stop PV</button>
+            <input id="pv-speed" type="number" min="100" value="600" />
+          </div>
         </div>
 
         <div class="section">
@@ -99,6 +104,15 @@
         <div class="section">
           <div class="label">Analysis Timeline</div>
           <canvas id="eval-chart" class="chart" width="640" height="160"></canvas>
+        </div>
+
+        <div class="section">
+          <div class="label">Display Overlays</div>
+          <div class="controls">
+            <label class="toggle"><input id="toggle-best" type="checkbox" checked /> Best Move</label>
+            <label class="toggle"><input id="toggle-last" type="checkbox" checked /> Last Move</label>
+            <label class="toggle"><input id="toggle-pv" type="checkbox" checked /> PV Preview</label>
+          </div>
         </div>
 
         <div class="section">
@@ -383,6 +397,7 @@
           <div class="list" id="batch-list"></div>
           <div class="controls">
             <button class="secondary" id="btn-batch-export">Export Batch Report</button>
+            <button class="ghost" id="btn-batch-export-csv">Export CSV</button>
           </div>
         </div>
       </section>

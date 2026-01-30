@@ -15,12 +15,19 @@ const optionsEl = $("options");
 const pvLinesEl = $("pv-lines");
 const moveListEl = $("move-list");
 const evalChart = $("eval-chart");
+const btnPvPlay = $("btn-pv-play");
+const btnPvStop = $("btn-pv-stop");
+const pvSpeedInput = $("pv-speed");
+const toggleBest = $("toggle-best");
+const toggleLast = $("toggle-last");
+const togglePv = $("toggle-pv");
 const batchInput = $("batch-input");
 const batchList = $("batch-list");
 const btnBatchAddCurrent = $("btn-batch-add-current");
 const btnBatchRun = $("btn-batch-run");
 const btnBatchClear = $("btn-batch-clear");
 const btnBatchExport = $("btn-batch-export");
+const btnBatchExportCsv = $("btn-batch-export-csv");
 const batchDepthInput = $("batch-depth");
 const batchMoveTimeInput = $("batch-movetime");
 
@@ -149,6 +156,12 @@ let thresholds = {
   mistake: 80,
   blunder: 150,
   brilliant: 80,
+};
+let pvPlaybackTimer = null;
+let overlayState = {
+  best: true,
+  last: true,
+  pv: true,
 };
 
 function logLine(line, kind = "out") {
@@ -695,6 +708,31 @@ btnAutoPlay.addEventListener("click", () => {
   }
 });
 
+btnPvPlay.addEventListener("click", () => {
+  playPvPreview();
+});
+
+btnPvStop.addEventListener("click", () => {
+  stopPvPlayback();
+});
+
+toggleBest.addEventListener("change", () => {
+  overlayState.best = toggleBest.checked;
+  restoreHighlights();
+});
+
+toggleLast.addEventListener("change", () => {
+  overlayState.last = toggleLast.checked;
+  restoreHighlights();
+});
+
+togglePv.addEventListener("change", () => {
+  overlayState.pv = togglePv.checked;
+  if (!overlayState.pv) {
+    stopPvPlayback();
+  }
+});
+
 btnIsReady.addEventListener("click", () => {
   engine.send("isready");
   logLine("isready", "in");
@@ -902,6 +940,7 @@ btnDownloadReport.addEventListener("click", () => {
     pv: [...pvLines.values()],
     evalHistory,
     moveMeta,
+    thresholds,
     bestmove: lastBestMove,
     engine: {
       name: engineName.textContent,
@@ -989,6 +1028,28 @@ btnBatchExport.addEventListener("click", () => {
   const link = document.createElement("a");
   link.href = url;
   link.download = `vulcan-batch-${Date.now()}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+});
+
+btnBatchExportCsv.addEventListener("click", () => {
+  if (!batchResults.length) return;
+  const headers = ["fen", "bestmove", "score", "depth", "time", "pv"];
+  const rows = batchResults.map((result) => {
+    const score = result.info?.score ? (result.info.score.type === "mate" ? `mate ${result.info.score.value}` : result.info.score.value) : "";
+    const depth = result.info?.depth ?? "";
+    const time = result.info?.time ?? "";
+    const pv = result.pv ?? "";
+    return [result.fen, result.bestmove, score, depth, time, pv].map((val) => `"${String(val ?? "").replace(/\"/g, '""')}"`).join(",");
+  });
+  const csv = [headers.join(","), ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `vulcan-batch-${Date.now()}.csv`;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -1160,6 +1221,7 @@ function renderMoveList() {
 
 function highlightLastMove() {
   clearLastMoveHighlights();
+  if (!overlayState.last) return;
   if (!game) return;
   const history = game.history({ verbose: true });
   const last = history[history.length - 1];
@@ -1172,6 +1234,7 @@ function highlightLastMove() {
 
 function highlightBestMove(uci) {
   clearBestMoveHighlights();
+  if (!overlayState.best) return;
   if (!uci || uci === "(none)" || uci.length < 4) return;
   const from = uci.slice(0, 2);
   const to = uci.slice(2, 4);
@@ -1183,6 +1246,7 @@ function highlightBestMove(uci) {
 
 function highlightPvLine(pv) {
   clearPvHighlights();
+  if (!overlayState.pv) return;
   if (!pv) return;
   const moves = pv.split(/\s+/).slice(0, 6);
   moves.forEach((move, idx) => {
@@ -1215,6 +1279,43 @@ function clearPvHighlights() {
 function restoreHighlights() {
   highlightLastMove();
   highlightBestMove(lastBestMove);
+}
+
+function stopPvPlayback() {
+  if (pvPlaybackTimer) {
+    clearInterval(pvPlaybackTimer);
+    pvPlaybackTimer = null;
+  }
+  clearPvHighlights();
+  restoreHighlights();
+}
+
+function playPvPreview() {
+  if (!overlayState.pv) return;
+  const line = pvLines.get(1);
+  if (!line || !line.pv) return;
+  const moves = line.pv.split(/\s+/).filter((m) => m.length >= 4);
+  if (!moves.length) return;
+  stopPvPlayback();
+  let step = 0;
+  const interval = Math.max(120, Number(pvSpeedInput.value) || 600);
+  pvPlaybackTimer = setInterval(() => {
+    clearPvHighlights();
+    const move = moves[step];
+    const from = move.slice(0, 2);
+    const to = move.slice(2, 4);
+    const fromEl = document.querySelector(`.square[data-square='${from}']`);
+    const toEl = document.querySelector(`.square[data-square='${to}']`);
+    if (fromEl) {
+      fromEl.classList.add("pv-from");
+      fromEl.style.setProperty("--pv-step", step);
+    }
+    if (toEl) {
+      toEl.classList.add("pv-to");
+      toEl.style.setProperty("--pv-step", step);
+    }
+    step = (step + 1) % moves.length;
+  }, interval);
 }
 
 function jumpToPly(ply) {
@@ -1280,6 +1381,7 @@ function afterPositionChange() {
   syncFenPgn();
   renderMoveList();
   clearSelectionHighlights();
+  clearPvHighlights();
   highlightLastMove();
   selectedSquare = null;
   legalTargets.clear();
@@ -1417,6 +1519,11 @@ updateEngineWarning();
 optionState.clear();
 engine.load("auto");
 engineVariant.textContent = engine.resolveSpec("auto").label;
+overlayState = {
+  best: toggleBest.checked,
+  last: toggleLast.checked,
+  pv: togglePv.checked,
+};
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

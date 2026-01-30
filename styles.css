@@ -503,6 +503,23 @@ textarea {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.toggle input {
+  accent-color: var(--accent-2);
+}
+
 footer {
   color: var(--soft);
   font-size: 0.8rem;
