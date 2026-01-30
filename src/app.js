@@ -1345,7 +1345,7 @@ function playPvPreview() {
   if (!line || !line.pv) return;
   pvPlaybackMoves = line.pv.split(/\s+/).filter((m) => m.length >= 4);
   if (!pvPlaybackMoves.length) return;
-  pvPlaybackIndex = 0;
+  pvPlaybackIndex = -1;
   const interval = Math.max(120, Number(pvSpeedInput.value) || 600);
   pvPlaybackTimer = setInterval(() => {
     stepPv(1);

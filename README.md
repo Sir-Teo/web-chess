@@ -27,8 +27,8 @@ GitHub Pages cannot set COOP/COEP headers, so the app will automatically fall ba
 - Tablebase (Syzygy) configuration controls
 - Strength limiting (Skill Level, Elo)
 - Auto‑play / play best move
-- PV lines with SAN preview, hover board highlights, and playback
+- PV lines with SAN preview, hover board highlights, and playback controls
 - Move list with blunder/inaccuracy detection + thresholds
 - Eval timeline chart + WDL/hash KPIs
-- Batch analysis queue with JSON/CSV export
+- Batch analysis queue with JSON/CSV export + progress chart
 - Exportable JSON analysis reports
