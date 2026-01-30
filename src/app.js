@@ -13,6 +13,7 @@ const engineBestmove = $("engine-bestmove");
 const consoleEl = $("console");
 const optionsEl = $("options");
 const pvLinesEl = $("pv-lines");
+const moveListEl = $("move-list");
 
 const fenInput = $("fen-input");
 const pgnInput = $("pgn-input");
@@ -42,6 +43,25 @@ const btnSendUci = $("btn-send-uci");
 const uciInput = $("uci-input");
 const btnCopyConsole = $("btn-copy-console");
 const btnClearConsole = $("btn-clear-console");
+const quickThreads = $("quick-threads");
+const quickHash = $("quick-hash");
+const quickMultiPv = $("quick-multipv");
+const quickNnue = $("quick-nnue");
+const btnQuickThreads = $("btn-quick-threads");
+const btnQuickHash = $("btn-quick-hash");
+const btnQuickMultiPv = $("btn-quick-multipv");
+const btnQuickNnue = $("btn-quick-nnue");
+const btnSkillBoost = $("btn-skill-boost");
+const btnSkillLimit = $("btn-skill-limit");
+const skillInput = $("skill-input");
+const eloInput = $("elo-input");
+const btnApplyStrength = $("btn-apply-strength");
+const syzygyPath = $("syzygy-path");
+const syzygyDepth = $("syzygy-depth");
+const syzygy50move = $("syzygy-50move");
+const btnApplySyzygy = $("btn-apply-syzygy");
+const btnChess960 = $("btn-chess960");
+const btnShowWdl = $("btn-show-wdl");
 
 const btnGoDepth = $("btn-go-depth");
 const btnGoTime = $("btn-go-time");
@@ -80,6 +100,7 @@ const btnClearMoves = $("btn-clear-moves");
 
 const engine = new EngineController();
 const pvLines = new Map();
+const optionState = new Map();
 const undoStack = [];
 const redoStack = [];
 let game = typeof Chess !== "undefined" ? new Chess() : null;
@@ -89,6 +110,7 @@ let analysisActive = false;
 let boardFlipped = false;
 let selectedSquare = null;
 let legalTargets = new Set();
+let lastBestMove = null;
 
 function logLine(line, kind = "out") {
   const prefix = kind === "in" ? ">>" : "<<";
@@ -220,6 +242,8 @@ function buildOptions() {
 
     optionsEl.appendChild(card);
   });
+
+  refreshQuickOptions();
 }
 
 function sendOption(name, value) {
@@ -228,8 +252,114 @@ function sendOption(name, value) {
     return;
   }
   engine.send(`setoption name ${name} value ${value}`);
+  optionState.set(name, String(value));
   if (name === "Threads") engineThreads.textContent = value;
   if (name === "Hash") engineHash.textContent = `${value} MB`;
+}
+
+const OPTION_KEYS = {
+  threads: ["Threads"],
+  hash: ["Hash"],
+  multipv: ["MultiPV"],
+  nnue: ["Use NNUE", "Use NNUE", "Use NNUE"],
+  skill: ["Skill Level"],
+  elo: ["UCI_Elo"],
+  limitStrength: ["UCI_LimitStrength"],
+  chess960: ["UCI_Chess960"],
+  showWdl: ["UCI_ShowWDL"],
+  syzygyPath: ["SyzygyPath"],
+  syzygyDepth: ["SyzygyProbeDepth"],
+  syzygy50: ["Syzygy50MoveRule"],
+  minThinking: ["Minimum Thinking Time"],
+  moveOverhead: ["Move Overhead"],
+};
+
+function findOption(names) {
+  for (const name of names) {
+    if (engine.options.has(name)) return name;
+  }
+  return null;
+}
+
+function getOptionValue(name) {
+  if (optionState.has(name)) return optionState.get(name);
+  const opt = engine.options.get(name);
+  return opt?.default ?? "";
+}
+
+function refreshQuickOptions() {
+  const threadsKey = findOption(OPTION_KEYS.threads);
+  if (threadsKey) {
+    quickThreads.value = getOptionValue(threadsKey);
+    quickThreads.disabled = false;
+    btnQuickThreads.disabled = false;
+  } else {
+    quickThreads.disabled = true;
+    btnQuickThreads.disabled = true;
+  }
+  const hashKey = findOption(OPTION_KEYS.hash);
+  if (hashKey) {
+    quickHash.value = getOptionValue(hashKey);
+    quickHash.disabled = false;
+    btnQuickHash.disabled = false;
+  } else {
+    quickHash.disabled = true;
+    btnQuickHash.disabled = true;
+  }
+  const mpvKey = findOption(OPTION_KEYS.multipv);
+  if (mpvKey) {
+    quickMultiPv.value = getOptionValue(mpvKey);
+    quickMultiPv.disabled = false;
+    btnQuickMultiPv.disabled = false;
+  } else {
+    quickMultiPv.disabled = true;
+    btnQuickMultiPv.disabled = true;
+  }
+  const nnueKey = findOption(OPTION_KEYS.nnue);
+  if (nnueKey) {
+    quickNnue.value = getOptionValue(nnueKey) || "true";
+    quickNnue.disabled = false;
+    btnQuickNnue.disabled = false;
+  } else {
+    quickNnue.value = "true";
+    quickNnue.disabled = true;
+    btnQuickNnue.disabled = true;
+  }
+  const skillKey = findOption(OPTION_KEYS.skill);
+  if (skillKey) {
+    skillInput.value = getOptionValue(skillKey) || "20";
+    skillInput.disabled = false;
+  } else {
+    skillInput.disabled = true;
+  }
+  const eloKey = findOption(OPTION_KEYS.elo);
+  if (eloKey) {
+    eloInput.value = getOptionValue(eloKey) || "2500";
+    eloInput.disabled = false;
+  } else {
+    eloInput.disabled = true;
+  }
+  const syzygyPathKey = findOption(OPTION_KEYS.syzygyPath);
+  if (syzygyPathKey) {
+    syzygyPath.value = getOptionValue(syzygyPathKey);
+    syzygyPath.disabled = false;
+  } else {
+    syzygyPath.disabled = true;
+  }
+  const syzygyDepthKey = findOption(OPTION_KEYS.syzygyDepth);
+  if (syzygyDepthKey) {
+    syzygyDepth.value = getOptionValue(syzygyDepthKey) || "0";
+    syzygyDepth.disabled = false;
+  } else {
+    syzygyDepth.disabled = true;
+  }
+  const syzygy50Key = findOption(OPTION_KEYS.syzygy50);
+  if (syzygy50Key) {
+    syzygy50move.value = getOptionValue(syzygy50Key) || "true";
+    syzygy50move.disabled = false;
+  } else {
+    syzygy50move.disabled = true;
+  }
 }
 
 function updateEngineWarning() {
@@ -289,6 +419,7 @@ function applyPerformanceProfile() {
   if (engine.options.has("Minimum Thinking Time")) sendOption("Minimum Thinking Time", 0);
   if (engine.options.has("Move Overhead")) sendOption("Move Overhead", 0);
   engineWarning.textContent = "Performance profile applied.";
+  refreshQuickOptions();
 }
 
 engine.on("line", (line) => logLine(line));
@@ -320,6 +451,8 @@ engine.on("infoString", () => {
 });
 engine.on("bestmove", (move) => {
   engineBestmove.textContent = move.bestmove || "—";
+  lastBestMove = move.bestmove;
+  highlightBestMove(move.bestmove);
 });
 engine.on("error", (err) => {
   engineWarning.textContent = `Engine error: ${err.message || err}`;
@@ -327,6 +460,7 @@ engine.on("error", (err) => {
 
 btnEngineLoad.addEventListener("click", () => {
   const key = engineSelect.value;
+  optionState.clear();
   engine.load(key);
   const spec = engine.resolveSpec(key);
   engineVariant.textContent = spec.label;
@@ -440,6 +574,81 @@ btnMaxPerf.addEventListener("click", () => {
   applyPerformanceProfile();
 });
 
+btnQuickThreads.addEventListener("click", () => {
+  const key = findOption(OPTION_KEYS.threads);
+  if (!key) return;
+  const value = Number(quickThreads.value) || 1;
+  sendOption(key, value);
+});
+
+btnQuickHash.addEventListener("click", () => {
+  const key = findOption(OPTION_KEYS.hash);
+  if (!key) return;
+  const value = Number(quickHash.value) || 64;
+  sendOption(key, value);
+});
+
+btnQuickMultiPv.addEventListener("click", () => {
+  const key = findOption(OPTION_KEYS.multipv);
+  if (!key) return;
+  const value = Number(quickMultiPv.value) || 1;
+  sendOption(key, value);
+});
+
+btnQuickNnue.addEventListener("click", () => {
+  const key = findOption(OPTION_KEYS.nnue);
+  if (!key) return;
+  sendOption(key, quickNnue.value);
+});
+
+btnSkillBoost.addEventListener("click", () => {
+  const limitKey = findOption(OPTION_KEYS.limitStrength);
+  if (limitKey) sendOption(limitKey, "false");
+  const skillKey = findOption(OPTION_KEYS.skill);
+  if (skillKey) sendOption(skillKey, 20);
+  const eloKey = findOption(OPTION_KEYS.elo);
+  if (eloKey) sendOption(eloKey, 3000);
+});
+
+btnSkillLimit.addEventListener("click", () => {
+  const limitKey = findOption(OPTION_KEYS.limitStrength);
+  if (limitKey) sendOption(limitKey, "true");
+});
+
+btnApplyStrength.addEventListener("click", () => {
+  const skillKey = findOption(OPTION_KEYS.skill);
+  if (skillKey) sendOption(skillKey, Number(skillInput.value) || 20);
+  const limitKey = findOption(OPTION_KEYS.limitStrength);
+  if (limitKey) sendOption(limitKey, "true");
+  const eloKey = findOption(OPTION_KEYS.elo);
+  if (eloKey) sendOption(eloKey, Number(eloInput.value) || 2500);
+});
+
+btnApplySyzygy.addEventListener("click", () => {
+  const pathKey = findOption(OPTION_KEYS.syzygyPath);
+  if (pathKey) sendOption(pathKey, syzygyPath.value.trim() || "<empty>");
+  const depthKey = findOption(OPTION_KEYS.syzygyDepth);
+  if (depthKey) sendOption(depthKey, Number(syzygyDepth.value) || 0);
+  const ruleKey = findOption(OPTION_KEYS.syzygy50);
+  if (ruleKey) sendOption(ruleKey, syzygy50move.value);
+});
+
+btnChess960.addEventListener("click", () => {
+  const key = findOption(OPTION_KEYS.chess960);
+  if (!key) return;
+  const current = getOptionValue(key) || "false";
+  const next = current === "true" ? "false" : "true";
+  sendOption(key, next);
+});
+
+btnShowWdl.addEventListener("click", () => {
+  const key = findOption(OPTION_KEYS.showWdl);
+  if (!key) return;
+  const current = getOptionValue(key) || "false";
+  const next = current === "true" ? "false" : "true";
+  sendOption(key, next);
+});
+
 btnSendUci.addEventListener("click", () => {
   const cmd = uciInput.value.trim();
   if (!cmd) return;
@@ -506,14 +715,26 @@ function updateBoardPieces() {
   });
 }
 
-function clearHighlights() {
+function clearSelectionHighlights() {
   document.querySelectorAll(".square").forEach((sq) => {
     sq.classList.remove("selected", "legal", "capture");
   });
 }
 
+function clearBestMoveHighlights() {
+  document.querySelectorAll(".square").forEach((sq) => {
+    sq.classList.remove("best-from", "best-to");
+  });
+}
+
+function clearLastMoveHighlights() {
+  document.querySelectorAll(".square").forEach((sq) => {
+    sq.classList.remove("last-from", "last-to");
+  });
+}
+
 function highlightMoves(moves) {
-  clearHighlights();
+  clearSelectionHighlights();
   if (!moves.length) return;
   const from = moves[0].from;
   const fromEl = document.querySelector(`.square[data-square='${from}']`);
@@ -548,7 +769,7 @@ function onSquareClick(square) {
     }
     selectedSquare = null;
     legalTargets.clear();
-    clearHighlights();
+    clearSelectionHighlights();
     return;
   }
 
@@ -558,7 +779,7 @@ function onSquareClick(square) {
   } else {
     selectedSquare = null;
     legalTargets.clear();
-    clearHighlights();
+    clearSelectionHighlights();
   }
 }
 
@@ -571,10 +792,49 @@ function syncFenPgn() {
     .join(" ");
 }
 
+function renderMoveList() {
+  if (!game || !moveListEl) return;
+  const history = game.history();
+  moveListEl.innerHTML = "";
+  history.forEach((move, index) => {
+    const item = document.createElement("div");
+    item.className = "list-item";
+    const moveNumber = Math.floor(index / 2) + 1;
+    const prefix = index % 2 === 0 ? `${moveNumber}.` : "...";
+    item.textContent = `${prefix} ${move}`;
+    moveListEl.appendChild(item);
+  });
+}
+
+function highlightLastMove() {
+  clearLastMoveHighlights();
+  if (!game) return;
+  const history = game.history({ verbose: true });
+  const last = history[history.length - 1];
+  if (!last) return;
+  const fromEl = document.querySelector(`.square[data-square='${last.from}']`);
+  const toEl = document.querySelector(`.square[data-square='${last.to}']`);
+  if (fromEl) fromEl.classList.add("last-from");
+  if (toEl) toEl.classList.add("last-to");
+}
+
+function highlightBestMove(uci) {
+  clearBestMoveHighlights();
+  if (!uci || uci === "(none)" || uci.length < 4) return;
+  const from = uci.slice(0, 2);
+  const to = uci.slice(2, 4);
+  const fromEl = document.querySelector(`.square[data-square='${from}']`);
+  const toEl = document.querySelector(`.square[data-square='${to}']`);
+  if (fromEl) fromEl.classList.add("best-from");
+  if (toEl) toEl.classList.add("best-to");
+}
+
 function afterPositionChange() {
   updateBoardPieces();
   syncFenPgn();
-  clearHighlights();
+  renderMoveList();
+  clearSelectionHighlights();
+  highlightLastMove();
   selectedSquare = null;
   legalTargets.clear();
   if (analysisActive) {
@@ -619,7 +879,9 @@ btnFlip.addEventListener("click", () => {
   boardFlipped = !boardFlipped;
   renderBoardSquares();
   updateBoardPieces();
-  clearHighlights();
+  clearSelectionHighlights();
+  highlightLastMove();
+  highlightBestMove(lastBestMove);
   selectedSquare = null;
   legalTargets.clear();
 });
@@ -684,10 +946,13 @@ function initBoard() {
   renderBoardSquares();
   updateBoardPieces();
   syncFenPgn();
+  renderMoveList();
+  highlightLastMove();
 }
 
 initBoard();
 updateEngineWarning();
+optionState.clear();
 engine.load("auto");
 engineVariant.textContent = engine.resolveSpec("auto").label;
 

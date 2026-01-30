@@ -89,6 +89,11 @@
           <div class="label">MultiPV Lines</div>
           <div id="pv-lines" class="pv-table"></div>
         </div>
+
+        <div class="section">
+          <div class="label">Move List</div>
+          <div id="move-list" class="list"></div>
+        </div>
       </section>
 
       <section class="panel">
@@ -177,6 +182,89 @@
           <div class="controls">
             <button class="secondary" id="btn-go-clock">Go Clock</button>
           </div>
+        </div>
+
+        <div class="section">
+          <div class="label">Quick Options</div>
+          <div class="grid-two">
+            <div class="section">
+              <div class="label">Threads</div>
+              <input id="quick-threads" type="number" min="1" />
+              <button class="secondary" id="btn-quick-threads">Apply Threads</button>
+            </div>
+            <div class="section">
+              <div class="label">Hash (MB)</div>
+              <input id="quick-hash" type="number" min="1" />
+              <button class="secondary" id="btn-quick-hash">Apply Hash</button>
+            </div>
+            <div class="section">
+              <div class="label">MultiPV</div>
+              <input id="quick-multipv" type="number" min="1" />
+              <button class="secondary" id="btn-quick-multipv">Apply MultiPV</button>
+            </div>
+            <div class="section">
+              <div class="label">NNUE</div>
+              <select id="quick-nnue">
+                <option value="true">On</option>
+                <option value="false">Off</option>
+              </select>
+              <button class="secondary" id="btn-quick-nnue">Apply NNUE</button>
+            </div>
+          </div>
+          <div class="controls">
+            <button class="secondary" id="btn-skill-boost">Max Strength</button>
+            <button class="ghost" id="btn-skill-limit">Limit Strength</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">Strength / Elo</div>
+          <div class="grid-two">
+            <div class="section">
+              <div class="label">Skill Level</div>
+              <input id="skill-input" type="number" min="0" max="20" value="20" />
+            </div>
+            <div class="section">
+              <div class="label">Target Elo</div>
+              <input id="elo-input" type="number" min="800" max="3500" value="2500" />
+            </div>
+          </div>
+          <div class="controls">
+            <button class="secondary" id="btn-apply-strength">Apply Strength Settings</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">Syzygy Tablebases</div>
+          <div class="grid-two">
+            <div class="section">
+              <div class="label">Syzygy Path / URL</div>
+              <input id="syzygy-path" type="text" placeholder="/tablebases or https://..." />
+            </div>
+            <div class="section">
+              <div class="label">Probe Depth</div>
+              <input id="syzygy-depth" type="number" min="0" value="0" />
+            </div>
+            <div class="section">
+              <div class="label">50-move Rule</div>
+              <select id="syzygy-50move">
+                <option value="true">On</option>
+                <option value="false">Off</option>
+              </select>
+            </div>
+          </div>
+          <div class="controls">
+            <button class="secondary" id="btn-apply-syzygy">Apply Tablebases</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">Variant Settings</div>
+          <div class="controls">
+            <button class="secondary" id="btn-chess960">Toggle Chess960</button>
+            <button class="ghost" id="btn-show-wdl">Toggle WDL</button>
+          </div>
+          <div class="notice">Chess960 is engine-side only; load a Chess960 FEN manually for board accuracy.</div>
         </div>
 
         <div class="section">

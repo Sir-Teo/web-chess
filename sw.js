@@ -5,6 +5,7 @@ const CORE_ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
+  "./sw.js",
   "./src/app.js",
   "./src/engine.js",
   "./src/uci.js",
