@@ -56,12 +56,11 @@ a {
 .shell {
   position: relative;
   min-height: 100vh;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 20px clamp(16px, 3vw, 40px) 32px;
-  max-width: 1600px;
-  margin: 0 auto;
+  padding: 20px clamp(16px, 3vw, 40px) 24px;
 }
 
 .topbar {
@@ -143,7 +142,8 @@ a {
     "left center right"
     "bottom bottom bottom";
   gap: 16px;
-  min-height: 60vh;
+  flex: 1;
+  min-height: 0;
 }
 
 .panel {
