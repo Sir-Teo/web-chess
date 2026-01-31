@@ -167,6 +167,7 @@ textarea:focus {
   gap: 12px;
   border-bottom: 1px solid var(--ui-border);
   user-select: none;
+  flex-wrap: wrap;
 }
 
 .topbar-left {
@@ -174,6 +175,7 @@ textarea:focus {
   align-items: center;
   gap: 14px;
   min-width: 0;
+  flex-wrap: wrap;
 }
 
 .topbar-actions {
@@ -295,6 +297,9 @@ textarea:focus {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .engine-pill::before {
@@ -312,6 +317,12 @@ textarea:focus {
   border-radius: 8px;
   padding: 0;
   font-size: 12px;
+  color: var(--ui-text-muted);
+}
+
+.icon-button:hover {
+  background: var(--ui-surface-2);
+  color: #ffffff;
 }
 
 .panel-toggles {
@@ -364,6 +375,8 @@ textarea:focus {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+  background: var(--ui-panel);
+  border: none;
 }
 
 .panel-left {
@@ -387,6 +400,7 @@ textarea:focus {
   overflow: auto;
   display: flex;
   flex-direction: column;
+  overscroll-behavior: contain;
 }
 
 .panel-scroll::-webkit-scrollbar {
@@ -420,6 +434,7 @@ textarea:focus {
   justify-content: center;
   padding: 16px;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 @media (min-width: 1280px) {
@@ -505,7 +520,7 @@ textarea:focus {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 4px 6px;
   min-height: 34px;
   padding: 6px 8px;
   flex-shrink: 0;
@@ -651,7 +666,7 @@ textarea:focus {
 .controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 button {
@@ -803,12 +818,12 @@ textarea {
 .grid-two {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--ui-gap);
 }
 
 .section {
   display: grid;
-  gap: 10px;
+  gap: var(--ui-gap);
 }
 
 .label {
