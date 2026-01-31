@@ -454,6 +454,92 @@ textarea:focus {
   border-bottom: 0;
 }
 
+.panel-right-tabs {
+  border-bottom: 1px solid var(--ui-border);
+  flex-shrink: 0;
+}
+
+.panel-tab-strip {
+  background: var(--ui-surface-2);
+  border-bottom: 1px solid var(--ui-border);
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.panel-tab {
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ui-text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: color 0.15s ease, background 0.15s ease;
+  display: inline-flex;
+}
+
+.panel-tab:hover {
+  color: var(--ui-text);
+  background: var(--ui-surface);
+}
+
+.panel-tab.active {
+  color: var(--ui-accent);
+  background: var(--ui-panel);
+  border-bottom-color: var(--ui-accent);
+}
+
+.panel-toolbar {
+  background: var(--ui-surface-2);
+  border-bottom: 1px solid var(--ui-border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 8px;
+  flex-shrink: 0;
+}
+
+.panel-action-button {
+  border: 1px solid var(--ui-border);
+  color: var(--ui-text-muted);
+  background: transparent;
+  border-radius: 4px;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  display: inline-flex;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.panel-action-button:hover {
+  color: var(--ui-text);
+  background: var(--ui-surface-2);
+}
+
+.panel-action-button.danger {
+  color: var(--ui-danger);
+  border-color: var(--ui-danger);
+}
+
+.panel-toolbar-status {
+  margin-left: auto;
+  color: var(--ui-text-muted);
+  font-size: 11px;
+}
+
 .panel-section-header {
   display: flex;
   align-items: center;
@@ -614,6 +700,80 @@ button.primary {
 
 button.primary:hover {
   filter: brightness(1.05);
+}
+
+button.panel-tab {
+  border: none;
+  background: transparent;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ui-text-muted);
+}
+
+button.panel-tab:hover {
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+
+button.panel-tab.active {
+  background: var(--ui-panel);
+  border-bottom: 2px solid var(--ui-accent);
+  color: var(--ui-accent);
+}
+
+button.panel-action-button {
+  border: 1px solid var(--ui-border);
+  color: var(--ui-text-muted);
+  background: transparent;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+button.panel-action-button:hover {
+  background: var(--ui-surface-2);
+  color: var(--ui-text);
+}
+
+button.panel-action-button.danger {
+  color: var(--ui-danger);
+  border-color: var(--ui-danger);
+}
+
+button.icon-button {
+  padding: 0;
+  border-radius: 8px;
+  font-size: 12px;
+  width: var(--ui-control-size);
+  height: var(--ui-control-size);
+}
+
+button.toggle-btn {
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ui-text-muted);
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+}
+
+button.topbar-pill {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  border: 1px solid var(--ui-border);
+}
+
+button.topbar-pill.accent {
+  background: var(--ui-accent-soft);
+  border-color: var(--ui-accent);
+  color: var(--ui-accent);
 }
 
 button:disabled {
