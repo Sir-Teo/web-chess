@@ -403,6 +403,7 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   overscroll-behavior: contain;
+  min-height: 0;
 }
 
 .panel-scroll::-webkit-scrollbar {
@@ -553,6 +554,17 @@ textarea:focus {
 .panel-action-button.danger {
   color: var(--ui-danger);
   border-color: var(--ui-danger);
+}
+
+.panel-action-button.active {
+  color: var(--ui-text);
+  background: var(--ui-surface-2);
+  border-color: var(--ui-border-strong);
+}
+
+.panel-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .panel-toolbar-status {
