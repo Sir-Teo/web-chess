@@ -174,7 +174,7 @@ textarea:focus {
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
   min-width: 0;
   flex-wrap: wrap;
 }
@@ -195,7 +195,7 @@ textarea:focus {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -267,25 +267,6 @@ textarea:focus {
   display: inline-block;
 }
 
-.brand {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.1;
-}
-
-.brand-title {
-  font-size: 0.85rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  font-weight: 600;
-}
-
-.brand-sub {
-  font-size: 0.62rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--ui-text-muted);
-}
 
 .engine-pill {
   padding: 4px 10px;
