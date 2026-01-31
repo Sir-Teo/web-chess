@@ -166,6 +166,7 @@ textarea:focus {
   align-items: center;
   gap: 12px;
   border-bottom: 1px solid var(--ui-border);
+  user-select: none;
 }
 
 .topbar-left {
@@ -462,9 +463,11 @@ textarea:focus {
 .panel-tab-strip {
   background: var(--ui-surface-2);
   border-bottom: 1px solid var(--ui-border);
+  flex: 1;
   display: flex;
   align-items: stretch;
   gap: 0;
+  user-select: none;
 }
 
 .panel-tab {
@@ -506,6 +509,7 @@ textarea:focus {
   min-height: 34px;
   padding: 6px 8px;
   flex-shrink: 0;
+  user-select: none;
 }
 
 .panel-action-button {
