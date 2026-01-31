@@ -14,6 +14,14 @@
   <div class="app-root ui-root font-sans">
     <header class="topbar ui-bar ui-bar-height ui-bar-pad panel-top" data-panel="top" id="panel-top">
       <div class="topbar-left">
+        <div class="topbar-actions">
+          <button type="button" class="icon-button ui-control" title="Menu">☰</button>
+          <button type="button" class="icon-button ui-control" title="New Game" id="btn-new">＋</button>
+          <button type="button" class="icon-button ui-control" title="Flip Board" id="btn-flip">⟳</button>
+          <button type="button" class="icon-button ui-control" title="Undo" id="btn-undo">↶</button>
+          <button type="button" class="icon-button ui-control" title="Redo" id="btn-redo">↷</button>
+        </div>
+        <div class="topbar-divider"></div>
         <div class="brand">
           <div class="brand-title">Vulcan Analysis</div>
           <div class="brand-sub">Stockfish.js Deep Lab</div>
@@ -21,6 +29,16 @@
         <div class="engine-pill" id="engine-warning">Waiting for engine init.</div>
       </div>
       <div class="topbar-right">
+        <div class="topbar-badges">
+          <div class="metric-pill success">Win 50.0%</div>
+          <div class="metric-pill warning">Score +0.3</div>
+          <div class="metric-pill danger">Δ 0.1</div>
+        </div>
+        <div class="topbar-tools">
+          <button type="button" class="topbar-pill">View ▾</button>
+          <button type="button" class="topbar-pill accent"><span class="dot"></span>Analyze</button>
+          <button type="button" class="topbar-pill">Actions ▾</button>
+        </div>
         <div class="panel-toggles" role="group" aria-label="Panel visibility">
           <button class="toggle-btn" data-panel-toggle="top" data-label="Top">Top: On</button>
           <button class="toggle-btn" data-panel-toggle="left" data-label="Left">Left: On</button>
@@ -42,13 +60,7 @@
             </div>
             <div class="panel-section-content">
               <div class="section">
-                <div class="label">Position Tools</div>
-                <div class="controls">
-                  <button id="btn-new">New Game</button>
-                  <button class="secondary" id="btn-flip">Flip Board</button>
-                  <button class="secondary" id="btn-undo">Undo</button>
-                  <button class="secondary" id="btn-redo">Redo</button>
-                </div>
+                <div class="label">Position</div>
                 <div class="grid-two">
                   <div class="section">
                     <div class="label">FEN</div>
@@ -112,7 +124,7 @@
 
         <div class="bottom-bar ui-bar ui-bar-height ui-bar-pad">
           <div class="controls">
-            <button id="btn-analyze">Go Infinite</button>
+            <button id="btn-analyze" class="primary">Go Infinite</button>
             <button class="secondary" id="btn-stop">Stop</button>
             <button class="secondary" id="btn-isready">IsReady</button>
             <button class="secondary" id="btn-ucinewgame">New Search</button>
@@ -161,7 +173,7 @@
                     <option value="lite-single">Lite (single-threaded)</option>
                     <option value="asm">ASM.js fallback</option>
                   </select>
-                  <button id="btn-engine-load">Load Engine</button>
+                  <button id="btn-engine-load" class="primary">Load Engine</button>
                 </div>
                 <div class="controls">
                   <button class="secondary" id="btn-preload-engine">Preload Engine Assets</button>
