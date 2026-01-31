@@ -120,6 +120,7 @@ textarea:focus {
 }
 
 .ui-bar-height {
+  height: var(--ui-bar-height);
   min-height: var(--ui-bar-height);
 }
 
@@ -129,7 +130,7 @@ textarea:focus {
 
 .ui-panel {
   background: var(--ui-panel);
-  border: 1px solid var(--ui-border);
+  border-color: var(--ui-border);
 }
 
 .ui-panel-pad {
@@ -318,6 +319,7 @@ textarea:focus {
   padding: 0;
   font-size: 12px;
   color: var(--ui-text-muted);
+  border: none;
 }
 
 .icon-button:hover {
@@ -335,11 +337,11 @@ textarea:focus {
   border: 1px solid var(--ui-border);
   background: var(--ui-surface);
   color: var(--ui-text-muted);
-  padding: 5px 10px;
-  border-radius: 999px;
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -612,6 +614,23 @@ textarea:focus {
 
 .panel-section-content > .section + .section {
   margin-top: 10px;
+}
+
+.panel-section-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.panel-section-content::-webkit-scrollbar-track {
+  background: var(--ui-surface-2);
+}
+
+.panel-section-content::-webkit-scrollbar-thumb {
+  background: var(--ui-border-strong);
+  border-radius: 4px;
+}
+
+.panel-section-content::-webkit-scrollbar-thumb:hover {
+  background: var(--ui-border);
 }
 
 .panel-collapse {
@@ -1208,10 +1227,6 @@ body.collapsed-bottom .panel-bottom {
     border-top: 1px solid var(--ui-border);
   }
 
-  .topbar-badges {
-    display: none;
-  }
-
   .board-wrap {
     grid-template-columns: 1fr;
   }
@@ -1233,6 +1248,30 @@ body.collapsed-bottom .panel-bottom {
   }
 }
 
+@media (max-width: 1279px) {
+  .topbar-badges {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .engine-pill {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .menu-btn {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .newgame-btn {
+    display: none;
+  }
+}
+
 @media (max-width: 1024px) {
   .status-bar {
     display: none;
@@ -1247,5 +1286,43 @@ body.collapsed-bottom .panel-bottom {
 
   .topbar-right {
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --ui-font-size: 14px;
+    --ui-bar-height: 50px;
+    --ui-bar-pad-x: 10px;
+    --ui-bar-pad-y: 6px;
+    --ui-control-size: 34px;
+    --ui-panel-pad: 10px;
+    --ui-gap: 6px;
+  }
+
+  .panel-section-header {
+    padding: 10px 12px;
+  }
+
+  .panel-section-content {
+    padding: 8px 10px;
+  }
+
+  .panel-section-title {
+    font-size: 11px;
+  }
+
+  .panel-tab {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .panel-toolbar {
+    gap: 4px;
+  }
+
+  .panel-action-button {
+    padding: 2px 6px;
+    font-size: 10px;
   }
 }
