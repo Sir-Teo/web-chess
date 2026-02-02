@@ -1230,6 +1230,18 @@ body.collapsed-bottom .panel-bottom {
     border-top: 1px solid var(--ui-border);
   }
 
+  .panel-left {
+    order: 2;
+  }
+
+  .center-panel {
+    order: 1;
+  }
+
+  .panel-right {
+    order: 3;
+  }
+
   .board-wrap {
     grid-template-columns: 1fr;
   }
@@ -1248,6 +1260,14 @@ body.collapsed-bottom .panel-bottom {
 @media (max-width: 900px) {
   .topbar-tools {
     display: none;
+  }
+
+  .grid-two {
+    grid-template-columns: 1fr;
+  }
+
+  .board-wrap {
+    gap: 12px;
   }
 }
 
@@ -1301,6 +1321,7 @@ body.collapsed-bottom .panel-bottom {
     --ui-control-size: 34px;
     --ui-panel-pad: 10px;
     --ui-gap: 6px;
+    --square: clamp(32px, 11vw, 54px);
   }
 
   .panel-section-header {
@@ -1327,5 +1348,13 @@ body.collapsed-bottom .panel-bottom {
   .panel-action-button {
     padding: 2px 6px;
     font-size: 10px;
+  }
+
+  .board-area {
+    padding: 10px;
+  }
+
+  .chart {
+    height: 150px;
   }
 }
