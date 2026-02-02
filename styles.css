@@ -1055,6 +1055,10 @@ textarea {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.chart.chart-compact {
+  height: 140px;
+}
+
 .toggle {
   display: inline-flex;
   align-items: center;

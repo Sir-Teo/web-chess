@@ -16,6 +16,7 @@ const pvLinesEl = $("pv-lines");
 const moveListEl = $("move-list");
 const evalChart = $("eval-chart");
 const winrateChart = $("winrate-chart");
+const winrateChartLeft = $("winrate-chart-left");
 const btnPvPlay = $("btn-pv-play");
 const btnPvPause = $("btn-pv-pause");
 const btnPvPrev = $("btn-pv-prev");
@@ -605,11 +606,11 @@ function renderEvalChart() {
   ctx.stroke();
 }
 
-function renderWinrateChart() {
-  if (!winrateChart) return;
-  const ctx = winrateChart.getContext("2d");
+function renderWinrateChartTo(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
   if (!ctx) return;
-  const { width, height } = winrateChart;
+  const { width, height } = canvas;
   ctx.clearRect(0, 0, width, height);
 
   ctx.strokeStyle = "rgba(255,255,255,0.12)";
@@ -636,6 +637,11 @@ function renderWinrateChart() {
     else ctx.lineTo(x, y);
   });
   ctx.stroke();
+}
+
+function renderWinrateChart() {
+  renderWinrateChartTo(winrateChart);
+  renderWinrateChartTo(winrateChartLeft);
 }
 
 function buildOptions() {
