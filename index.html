@@ -208,55 +208,59 @@
                 </div>
               </div>
 
-              <div class="section">
-                <div class="label">Auto Play Settings</div>
-                <div class="grid-two">
-                  <div class="section">
-                    <div class="label">Auto Move Time (ms)</div>
-                    <input id="auto-movetime" type="number" min="100" value="1500" />
-                  </div>
-                  <div class="section">
-                    <div class="label">Auto Depth</div>
-                    <input id="auto-depth" type="number" min="1" max="99" value="12" />
+              <details class="section">
+                <summary class="section-summary">Auto Play Settings</summary>
+                <div class="section-body">
+                  <div class="grid-two">
+                    <div class="section">
+                      <div class="label">Auto Move Time (ms)</div>
+                      <input id="auto-movetime" type="number" min="100" value="1500" />
+                    </div>
+                    <div class="section">
+                      <div class="label">Auto Depth</div>
+                      <input id="auto-depth" type="number" min="1" max="99" value="12" />
+                    </div>
                   </div>
                 </div>
-              </div>
+              </details>
 
-              <div class="section">
-                <div class="label">Clock / Time Controls</div>
-                <div class="grid-two">
-                  <div class="section">
-                    <div class="label">White Time (ms)</div>
-                    <input id="wtime-input" type="number" min="1" value="300000" />
+              <details class="section">
+                <summary class="section-summary">Clock / Time Controls</summary>
+                <div class="section-body">
+                  <div class="grid-two">
+                    <div class="section">
+                      <div class="label">White Time (ms)</div>
+                      <input id="wtime-input" type="number" min="1" value="300000" />
+                    </div>
+                    <div class="section">
+                      <div class="label">Black Time (ms)</div>
+                      <input id="btime-input" type="number" min="1" value="300000" />
+                    </div>
+                    <div class="section">
+                      <div class="label">White Increment (ms)</div>
+                      <input id="winc-input" type="number" min="0" value="2000" />
+                    </div>
+                    <div class="section">
+                      <div class="label">Black Increment (ms)</div>
+                      <input id="binc-input" type="number" min="0" value="2000" />
+                    </div>
+                    <div class="section">
+                      <div class="label">Moves To Go</div>
+                      <input id="movestogo-input" type="number" min="0" value="0" />
+                    </div>
+                    <div class="section">
+                      <div class="label">Ponder</div>
+                      <select id="ponder-select">
+                        <option value="false">Off</option>
+                        <option value="true">On</option>
+                      </select>
+                    </div>
                   </div>
-                  <div class="section">
-                    <div class="label">Black Time (ms)</div>
-                    <input id="btime-input" type="number" min="1" value="300000" />
-                  </div>
-                  <div class="section">
-                    <div class="label">White Increment (ms)</div>
-                    <input id="winc-input" type="number" min="0" value="2000" />
-                  </div>
-                  <div class="section">
-                    <div class="label">Black Increment (ms)</div>
-                    <input id="binc-input" type="number" min="0" value="2000" />
-                  </div>
-                  <div class="section">
-                    <div class="label">Moves To Go</div>
-                    <input id="movestogo-input" type="number" min="0" value="0" />
-                  </div>
-                  <div class="section">
-                    <div class="label">Ponder</div>
-                    <select id="ponder-select">
-                      <option value="false">Off</option>
-                      <option value="true">On</option>
-                    </select>
+                  <div class="controls">
+                    <button class="secondary" id="btn-go-clock">Go Clock</button>
                   </div>
                 </div>
-                <div class="controls">
-                  <button class="secondary" id="btn-go-clock">Go Clock</button>
-                </div>
-              </div>
+              </details>
 
               <div class="section">
                 <div class="label">Quick Options</div>
@@ -291,100 +295,112 @@
                 </div>
               </div>
 
-              <div class="section">
-                <div class="label">Strength / Elo</div>
-                <div class="grid-two">
-                  <div class="section">
-                    <div class="label">Skill Level</div>
-                    <input id="skill-input" type="number" min="0" max="20" value="20" />
+              <details class="section">
+                <summary class="section-summary">Strength / Elo</summary>
+                <div class="section-body">
+                  <div class="grid-two">
+                    <div class="section">
+                      <div class="label">Skill Level</div>
+                      <input id="skill-input" type="number" min="0" max="20" value="20" />
+                    </div>
+                    <div class="section">
+                      <div class="label">Target Elo</div>
+                      <input id="elo-input" type="number" min="800" max="3500" value="2500" />
+                    </div>
                   </div>
-                  <div class="section">
-                    <div class="label">Target Elo</div>
-                    <input id="elo-input" type="number" min="800" max="3500" value="2500" />
+                  <div class="controls">
+                    <button class="secondary" id="btn-apply-strength">Apply Strength Settings</button>
                   </div>
                 </div>
-                <div class="controls">
-                  <button class="secondary" id="btn-apply-strength">Apply Strength Settings</button>
-                </div>
-              </div>
+              </details>
 
-              <div class="section">
-                <div class="label">Syzygy Tablebases</div>
-                <div class="grid-two">
-                  <div class="section">
-                    <div class="label">Syzygy Path / URL</div>
-                    <input id="syzygy-path" type="text" placeholder="/tablebases or https://..." />
+              <details class="section">
+                <summary class="section-summary">Syzygy Tablebases</summary>
+                <div class="section-body">
+                  <div class="grid-two">
+                    <div class="section">
+                      <div class="label">Syzygy Path / URL</div>
+                      <input id="syzygy-path" type="text" placeholder="/tablebases or https://..." />
+                    </div>
+                    <div class="section">
+                      <div class="label">Probe Depth</div>
+                      <input id="syzygy-depth" type="number" min="0" value="0" />
+                    </div>
+                    <div class="section">
+                      <div class="label">50-move Rule</div>
+                      <select id="syzygy-50move">
+                        <option value="true">On</option>
+                        <option value="false">Off</option>
+                      </select>
+                    </div>
                   </div>
-                  <div class="section">
-                    <div class="label">Probe Depth</div>
-                    <input id="syzygy-depth" type="number" min="0" value="0" />
-                  </div>
-                  <div class="section">
-                    <div class="label">50-move Rule</div>
-                    <select id="syzygy-50move">
-                      <option value="true">On</option>
-                      <option value="false">Off</option>
-                    </select>
+                  <div class="controls">
+                    <button class="secondary" id="btn-apply-syzygy">Apply Tablebases</button>
                   </div>
                 </div>
-                <div class="controls">
-                  <button class="secondary" id="btn-apply-syzygy">Apply Tablebases</button>
-                </div>
-              </div>
+              </details>
 
-              <div class="section">
-                <div class="label">Variant Settings</div>
-                <div class="controls">
-                  <button class="secondary" id="btn-chess960">Toggle Chess960</button>
-                  <button class="ghost" id="btn-show-wdl">Toggle WDL</button>
-                </div>
-                <div class="notice">Chess960 is engine-side only; load a Chess960 FEN manually for board accuracy.</div>
-              </div>
-
-              <div class="section">
-                <div class="label">Diagnostics / Extensions</div>
-                <div class="controls">
-                  <button class="secondary" id="btn-eval">Eval Trace</button>
-                  <button class="secondary" id="btn-display">Display (d)</button>
-                  <button class="secondary" id="btn-compiler">Compiler Info</button>
-                  <button class="secondary" id="btn-perft">Perft</button>
-                  <button class="secondary" id="btn-flip-engine">Flip (engine)</button>
-                </div>
-                <div class="grid-two">
-                  <div class="section">
-                    <div class="label">Perft Depth</div>
-                    <input id="perft-input" type="number" min="1" value="4" />
+              <details class="section">
+                <summary class="section-summary">Variant Settings</summary>
+                <div class="section-body">
+                  <div class="controls">
+                    <button class="secondary" id="btn-chess960">Toggle Chess960</button>
+                    <button class="ghost" id="btn-show-wdl">Toggle WDL</button>
                   </div>
-                  <div class="section">
-                    <div class="label">Searchmoves (optional)</div>
-                    <input id="searchmoves-input" type="text" placeholder="e2e4 g1f3" />
+                  <div class="notice">Chess960 is engine-side only; load a Chess960 FEN manually for board accuracy.</div>
+                </div>
+              </details>
+
+              <details class="section">
+                <summary class="section-summary">Diagnostics / Extensions</summary>
+                <div class="section-body">
+                  <div class="controls">
+                    <button class="secondary" id="btn-eval">Eval Trace</button>
+                    <button class="secondary" id="btn-display">Display (d)</button>
+                    <button class="secondary" id="btn-compiler">Compiler Info</button>
+                    <button class="secondary" id="btn-perft">Perft</button>
+                    <button class="secondary" id="btn-flip-engine">Flip (engine)</button>
+                  </div>
+                  <div class="grid-two">
+                    <div class="section">
+                      <div class="label">Perft Depth</div>
+                      <input id="perft-input" type="number" min="1" value="4" />
+                    </div>
+                    <div class="section">
+                      <div class="label">Searchmoves (optional)</div>
+                      <input id="searchmoves-input" type="text" placeholder="e2e4 g1f3" />
+                    </div>
                   </div>
                 </div>
-              </div>
+              </details>
 
-              <div class="section">
-                <div class="label">UCI Options</div>
-                <div class="controls">
-                  <button class="secondary" id="btn-refresh-options">Refresh Options</button>
-                  <button class="secondary" id="btn-max-perf">Maximize Performance</button>
+              <details class="section">
+                <summary class="section-summary">UCI Options</summary>
+                <div class="section-body">
+                  <div class="controls">
+                    <button class="secondary" id="btn-refresh-options">Refresh Options</button>
+                    <button class="secondary" id="btn-max-perf">Maximize Performance</button>
+                  </div>
+                  <input id="options-filter" type="text" placeholder="Filter options..." />
+                  <div id="options" class="option-grid"></div>
                 </div>
-                <input id="options-filter" type="text" placeholder="Filter options..." />
-                <div id="options" class="option-grid"></div>
-              </div>
+              </details>
 
-              <div class="section">
-                <div class="label">Raw UCI Console</div>
-                <div id="console" class="console"></div>
-                <div class="grid-two">
-                  <input id="uci-input" type="text" placeholder="Type UCI command…" />
-                  <button id="btn-send-uci">Send</button>
+              <details class="section">
+                <summary class="section-summary">Raw UCI Console</summary>
+                <div class="section-body">
+                  <div id="console" class="console"></div>
+                  <div class="grid-two">
+                    <input id="uci-input" type="text" placeholder="Type UCI command…" />
+                    <button id="btn-send-uci">Send</button>
+                  </div>
+                  <div class="controls">
+                    <button class="secondary" id="btn-copy-console">Copy Console</button>
+                    <button class="ghost" id="btn-clear-console">Clear Console</button>
+                    <button class="secondary" id="btn-download-report">Download Report</button>
+                  </div>
                 </div>
-                <div class="controls">
-                  <button class="secondary" id="btn-copy-console">Copy Console</button>
-                  <button class="ghost" id="btn-clear-console">Clear Console</button>
-                  <button class="secondary" id="btn-download-report">Download Report</button>
-                </div>
-              </div>
+              </details>
             </div>
           </div>
 
@@ -424,74 +440,80 @@
                 <canvas id="winrate-chart" class="chart" width="640" height="160"></canvas>
               </div>
 
-              <div class="section">
-                <div class="label">Display Overlays</div>
-                <div class="controls">
-                  <label class="toggle"><input id="toggle-best" type="checkbox" checked /> Best Move</label>
-                  <label class="toggle"><input id="toggle-last" type="checkbox" checked /> Last Move</label>
-                  <label class="toggle"><input id="toggle-pv" type="checkbox" checked /> PV Preview</label>
+              <details class="section">
+                <summary class="section-summary">Display Overlays</summary>
+                <div class="section-body">
+                  <div class="controls">
+                    <label class="toggle"><input id="toggle-best" type="checkbox" checked /> Best Move</label>
+                    <label class="toggle"><input id="toggle-last" type="checkbox" checked /> Last Move</label>
+                    <label class="toggle"><input id="toggle-pv" type="checkbox" checked /> PV Preview</label>
+                  </div>
+                  <div class="controls">
+                    <span class="legend best">Best Move</span>
+                    <span class="legend last">Last Move</span>
+                    <span class="legend pv">PV Preview</span>
+                  </div>
                 </div>
-                <div class="controls">
-                  <span class="legend best">Best Move</span>
-                  <span class="legend last">Last Move</span>
-                  <span class="legend pv">PV Preview</span>
-                </div>
-              </div>
+              </details>
 
-              <div class="section">
-                <div class="label">Blunder Detector</div>
-                <div class="grid-two">
-                  <div class="section">
-                    <div class="label">Inaccuracy (cp)</div>
-                    <input id="th-inaccuracy" type="number" min="10" value="30" />
+              <details class="section">
+                <summary class="section-summary">Blunder Detector</summary>
+                <div class="section-body">
+                  <div class="grid-two">
+                    <div class="section">
+                      <div class="label">Inaccuracy (cp)</div>
+                      <input id="th-inaccuracy" type="number" min="10" value="30" />
+                    </div>
+                    <div class="section">
+                      <div class="label">Mistake (cp)</div>
+                      <input id="th-mistake" type="number" min="30" value="80" />
+                    </div>
+                    <div class="section">
+                      <div class="label">Blunder (cp)</div>
+                      <input id="th-blunder" type="number" min="80" value="150" />
+                    </div>
+                    <div class="section">
+                      <div class="label">Brilliant (cp)</div>
+                      <input id="th-brilliant" type="number" min="50" value="80" />
+                    </div>
                   </div>
-                  <div class="section">
-                    <div class="label">Mistake (cp)</div>
-                    <input id="th-mistake" type="number" min="30" value="80" />
-                  </div>
-                  <div class="section">
-                    <div class="label">Blunder (cp)</div>
-                    <input id="th-blunder" type="number" min="80" value="150" />
-                  </div>
-                  <div class="section">
-                    <div class="label">Brilliant (cp)</div>
-                    <input id="th-brilliant" type="number" min="50" value="80" />
+                  <div class="controls">
+                    <button class="secondary" id="btn-apply-thresholds">Apply Thresholds</button>
                   </div>
                 </div>
-                <div class="controls">
-                  <button class="secondary" id="btn-apply-thresholds">Apply Thresholds</button>
-                </div>
-              </div>
+              </details>
 
-              <div class="section">
-                <div class="label">Batch Analysis Queue</div>
-                <textarea id="batch-input" placeholder="Paste FENs (one per line)"></textarea>
-                <div class="controls">
-                  <button class="secondary" id="btn-batch-add-current">Add Current FEN</button>
-                  <button class="secondary" id="btn-batch-run">Run Batch</button>
-                  <button class="ghost" id="btn-batch-clear">Clear Queue</button>
-                </div>
-                <div class="grid-two">
-                  <div class="section">
-                    <div class="label">Batch Depth</div>
-                    <input id="batch-depth" type="number" min="1" value="14" />
+              <details class="section">
+                <summary class="section-summary">Batch Analysis Queue</summary>
+                <div class="section-body">
+                  <textarea id="batch-input" placeholder="Paste FENs (one per line)"></textarea>
+                  <div class="controls">
+                    <button class="secondary" id="btn-batch-add-current">Add Current FEN</button>
+                    <button class="secondary" id="btn-batch-run">Run Batch</button>
+                    <button class="ghost" id="btn-batch-clear">Clear Queue</button>
                   </div>
+                  <div class="grid-two">
+                    <div class="section">
+                      <div class="label">Batch Depth</div>
+                      <input id="batch-depth" type="number" min="1" value="14" />
+                    </div>
+                    <div class="section">
+                      <div class="label">Batch Move Time (ms)</div>
+                      <input id="batch-movetime" type="number" min="0" value="0" />
+                    </div>
+                  </div>
+                  <div class="list" id="batch-list"></div>
                   <div class="section">
-                    <div class="label">Batch Move Time (ms)</div>
-                    <input id="batch-movetime" type="number" min="0" value="0" />
+                    <div class="label">Batch Progress</div>
+                    <div id="batch-status" class="notice">No batch running.</div>
+                    <canvas id="batch-chart" class="chart" width="640" height="120"></canvas>
+                  </div>
+                  <div class="controls">
+                    <button class="secondary" id="btn-batch-export">Export Batch Report</button>
+                    <button class="ghost" id="btn-batch-export-csv">Export CSV</button>
                   </div>
                 </div>
-                <div class="list" id="batch-list"></div>
-                <div class="section">
-                  <div class="label">Batch Progress</div>
-                  <div id="batch-status" class="notice">No batch running.</div>
-                  <canvas id="batch-chart" class="chart" width="640" height="120"></canvas>
-                </div>
-                <div class="controls">
-                  <button class="secondary" id="btn-batch-export">Export Batch Report</button>
-                  <button class="ghost" id="btn-batch-export-csv">Export CSV</button>
-                </div>
-              </div>
+              </details>
             </div>
           </div>
         </div>
