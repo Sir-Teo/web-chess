@@ -609,14 +609,21 @@ textarea:focus {
 }
 
 .panel-section-content {
-  padding: 10px 12px;
+  padding: 12px 14px;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  gap: 12px;
+}
+
+.panel-section-content > .section {
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .panel-section-content > .section + .section {
-  margin-top: 10px;
+  margin-top: 0;
 }
 
 .panel-section-content::-webkit-scrollbar {
@@ -688,7 +695,8 @@ textarea:focus {
 .controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  gap: 8px 10px;
 }
 
 button {
@@ -839,13 +847,13 @@ textarea {
 
 .grid-two {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--ui-gap);
 }
 
 .section {
   display: grid;
-  gap: var(--ui-gap);
+  gap: 10px;
 }
 
 .label {
