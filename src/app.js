@@ -1899,6 +1899,18 @@ function handleGlobalHotkeys(event) {
     return;
   }
 
+  if (ctrl && shift && keyLower === "l") {
+    event.preventDefault();
+    triggerButton(btnEngineLoad);
+    return;
+  }
+
+  if (ctrl && shift && keyLower === "p") {
+    event.preventDefault();
+    triggerButton(btnPreloadEngine);
+    return;
+  }
+
   if (key === "Escape") {
     event.preventDefault();
     stopAnalysis();
