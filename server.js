@@ -46,12 +46,15 @@ const server = http.createServer((req, res) => {
       }
 
       const ext = path.extname(filePath).toLowerCase();
+      const cacheControl = safePath.startsWith("/vendor/stockfish/")
+        ? "public, max-age=31536000, immutable"
+        : "no-cache";
       const headers = {
         "Content-Type": mime[ext] || "application/octet-stream",
         "Cross-Origin-Opener-Policy": "same-origin",
         "Cross-Origin-Embedder-Policy": "require-corp",
         "Cross-Origin-Resource-Policy": "same-origin",
-        "Cache-Control": "no-cache",
+        "Cache-Control": cacheControl,
       };
       send(res, 200, headers, data);
     });
