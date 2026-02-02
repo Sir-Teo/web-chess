@@ -15,6 +15,7 @@ const optionsEl = $("options");
 const pvLinesEl = $("pv-lines");
 const moveListEl = $("move-list");
 const evalChart = $("eval-chart");
+const winrateChart = $("winrate-chart");
 const btnPvPlay = $("btn-pv-play");
 const btnPvPause = $("btn-pv-pause");
 const btnPvPrev = $("btn-pv-prev");
@@ -155,6 +156,8 @@ let pvRenderVersion = 0;
 let pvRenderedVersion = -1;
 let evalRenderVersion = 0;
 let evalRenderedVersion = -1;
+let winrateRenderVersion = 0;
+let winrateRenderedVersion = -1;
 let moveListDirty = false;
 let consoleDirty = false;
 let analysisActive = false;
@@ -353,6 +356,10 @@ function scheduleUI() {
       evalRenderedVersion = evalRenderVersion;
       renderEvalChart();
     }
+    if (winrateRenderedVersion !== winrateRenderVersion) {
+      winrateRenderedVersion = winrateRenderVersion;
+      renderWinrateChart();
+    }
   });
 }
 
@@ -487,17 +494,46 @@ function addEvalSample(info) {
   if (!info.score) return;
   const cp = info.score.type === "mate" ? (info.score.value > 0 ? 10000 : -10000) : info.score.value;
   const time = typeof info.time === "number" ? info.time : Math.round(performance.now() - analysisStart);
-  evalHistory.push({ time, cp, depth: info.depth || 0 });
+  const side = getSideToMove();
+  const wdl = info.wdl || latestInfo.wdl;
+  const winrate = wdlToWinrate(wdl, side) ?? scoreToWinrate(info.score, side);
+  evalHistory.push({ time, cp, depth: info.depth || 0, win: winrate });
   if (evalHistory.length > 240) {
     evalHistory = evalHistory.slice(-240);
   }
   evalRenderVersion += 1;
+  winrateRenderVersion += 1;
 }
 
 function scoreToCp(score) {
   if (!score) return null;
   if (score.type === "mate") return score.value > 0 ? 10000 : -10000;
   return score.value;
+}
+
+function getSideToMove() {
+  if (game && typeof game.turn === "function") return game.turn();
+  const fen = currentFen();
+  if (!fen || fen === "startpos") return "w";
+  const parts = fen.split(/\s+/);
+  return parts[1] === "b" ? "b" : "w";
+}
+
+function wdlToWinrate(wdl, side) {
+  if (!wdl) return null;
+  const w = Number(wdl.w);
+  const d = Number(wdl.d);
+  const l = Number(wdl.l);
+  const total = w + d + l;
+  if (!Number.isFinite(total) || total <= 0) return null;
+  const stmWin = ((w + d * 0.5) / total) * 100;
+  return side === "w" ? stmWin : 100 - stmWin;
+}
+
+function scoreToWinrate(score, side) {
+  if (!score) return null;
+  const percent = scoreToPercent(score);
+  return side === "w" ? percent : 100 - percent;
 }
 
 function formatDelta(delta) {
@@ -563,6 +599,39 @@ function renderEvalChart() {
     const clamped = Math.max(-1000, Math.min(1000, sample.cp));
     const x = ((sample.time - minTime) / span) * width;
     const y = height / 2 - (clamped / 1000) * (height * 0.45);
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+}
+
+function renderWinrateChart() {
+  if (!winrateChart) return;
+  const ctx = winrateChart.getContext("2d");
+  if (!ctx) return;
+  const { width, height } = winrateChart;
+  ctx.clearRect(0, 0, width, height);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, height / 2);
+  ctx.lineTo(width, height / 2);
+  ctx.stroke();
+
+  if (!evalHistory.length) return;
+  const minTime = evalHistory[0].time;
+  const maxTime = evalHistory[evalHistory.length - 1].time;
+  const span = Math.max(1, maxTime - minTime);
+
+  ctx.strokeStyle = "rgba(97, 215, 255, 0.85)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  evalHistory.forEach((sample, index) => {
+    const value = Number.isFinite(sample.win) ? sample.win : 50;
+    const clamped = Math.max(0, Math.min(100, value));
+    const x = ((sample.time - minTime) / span) * width;
+    const y = height * (0.95 - (clamped / 100) * 0.9);
     if (index === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   });
@@ -813,6 +882,9 @@ function startAnalysis(mode = "infinite") {
   sendPosition();
   pvLines.clear();
   evalHistory = [];
+  pvRenderVersion += 1;
+  evalRenderVersion += 1;
+  winrateRenderVersion += 1;
   analysisStart = performance.now();
   const searchmoves = searchmovesInput.value.trim();
   const suffix = searchmoves ? ` searchmoves ${searchmoves}` : "";
