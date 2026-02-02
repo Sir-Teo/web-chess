@@ -720,6 +720,60 @@ function stopAnalysis() {
   setAnalyzePillState(false);
 }
 
+function stopAutoPlay() {
+  autoPlay = false;
+  awaitingBestMoveApply = false;
+  btnAutoPlay.textContent = "Auto Play: Off";
+}
+
+function jumpBack(count) {
+  if (!game) return;
+  let moved = false;
+  for (let i = 0; i < count; i += 1) {
+    const move = game.undo();
+    if (!move) break;
+    redoStack.push(move);
+    if (moveMeta.length) moveMeta.pop();
+    moved = true;
+  }
+  if (moved) afterPositionChange();
+}
+
+function jumpForward(count) {
+  if (!game) return;
+  let moved = false;
+  for (let i = 0; i < count; i += 1) {
+    const move = redoStack.pop();
+    if (!move) break;
+    game.move(move);
+    moveMeta.push({});
+    moved = true;
+  }
+  if (moved) afterPositionChange();
+}
+
+function navigateStart() {
+  if (!game) return;
+  while (game.history().length) {
+    const move = game.undo();
+    if (!move) break;
+    redoStack.push(move);
+    if (moveMeta.length) moveMeta.pop();
+  }
+  afterPositionChange();
+}
+
+function navigateEnd() {
+  if (!game) return;
+  while (redoStack.length) {
+    const move = redoStack.pop();
+    if (!move) break;
+    game.move(move);
+    moveMeta.push({});
+  }
+  afterPositionChange();
+}
+
 function applyPerformanceProfile() {
   const deviceGB = navigator.deviceMemory || 4;
   const cores = navigator.hardwareConcurrency || 4;
@@ -920,9 +974,7 @@ if (btnPanelAi) {
 if (btnPanelResign) {
   btnPanelResign.addEventListener("click", () => {
     stopAnalysis();
-    autoPlay = false;
-    awaitingBestMoveApply = false;
-    btnAutoPlay.textContent = "Auto Play: Off";
+    stopAutoPlay();
   });
 }
 
@@ -1820,6 +1872,205 @@ btnClearMoves.addEventListener("click", () => {
   redoStack.length = 0;
   afterPositionChange();
 });
+
+function handleGlobalHotkeys(event) {
+  if (isTypingTarget(event.target)) return;
+  const key = event.key;
+  const keyLower = key.toLowerCase();
+  const ctrl = event.ctrlKey || event.metaKey;
+  const shift = event.shiftKey;
+
+  if (ctrl && keyLower === "n") {
+    event.preventDefault();
+    triggerButton(btnNew);
+    return;
+  }
+
+  if (ctrl && keyLower === "z") {
+    event.preventDefault();
+    if (shift) triggerButton(btnRedo);
+    else triggerButton(btnUndo);
+    return;
+  }
+
+  if (ctrl && keyLower === "y") {
+    event.preventDefault();
+    triggerButton(btnRedo);
+    return;
+  }
+
+  if (key === "Escape") {
+    event.preventDefault();
+    stopAnalysis();
+    stopAutoPlay();
+    clearSelectionHighlights();
+    clearPvHighlights();
+    restoreHighlights();
+    return;
+  }
+
+  if (key === " " || key === "Spacebar") {
+    event.preventDefault();
+    if (analysisActive) stopAnalysis();
+    else startAnalysis("infinite");
+    return;
+  }
+
+  if (key === "ArrowLeft") {
+    event.preventDefault();
+    if (shift) jumpBack(10);
+    else triggerButton(btnUndo);
+    return;
+  }
+
+  if (key === "ArrowRight") {
+    event.preventDefault();
+    if (shift) jumpForward(10);
+    else triggerButton(btnRedo);
+    return;
+  }
+
+  if (key === "Home") {
+    event.preventDefault();
+    navigateStart();
+    return;
+  }
+
+  if (key === "End") {
+    event.preventDefault();
+    navigateEnd();
+    return;
+  }
+
+  if (key === "Enter") {
+    event.preventDefault();
+    if (shift) triggerButton(btnAutoPlay);
+    else triggerButton(btnPlayBest);
+    return;
+  }
+
+  if (keyLower === "f") {
+    event.preventDefault();
+    triggerButton(btnFlip);
+    return;
+  }
+
+  if (keyLower === "a") {
+    event.preventDefault();
+    triggerButton(btnAutoPlay);
+    return;
+  }
+
+  if (keyLower === "b") {
+    event.preventDefault();
+    toggleCheckbox(toggleBest);
+    return;
+  }
+
+  if (keyLower === "l") {
+    event.preventDefault();
+    toggleCheckbox(toggleLast);
+    return;
+  }
+
+  if (keyLower === "v") {
+    event.preventDefault();
+    toggleCheckbox(togglePv);
+    return;
+  }
+
+  if (keyLower === "i") {
+    event.preventDefault();
+    triggerButton(btnIsReady);
+    return;
+  }
+
+  if (keyLower === "u") {
+    event.preventDefault();
+    triggerButton(btnUciNew);
+    return;
+  }
+
+  if (keyLower === "p") {
+    event.preventDefault();
+    triggerButton(btnPonderHit);
+    return;
+  }
+
+  if (keyLower === "h") {
+    event.preventDefault();
+    triggerButton(btnClearHash);
+    return;
+  }
+
+  if (keyLower === "g") {
+    event.preventDefault();
+    triggerButton(btnGoDepth);
+    return;
+  }
+
+  if (keyLower === "t") {
+    event.preventDefault();
+    triggerButton(btnGoTime);
+    return;
+  }
+
+  if (keyLower === "n") {
+    event.preventDefault();
+    triggerButton(btnGoNodes);
+    return;
+  }
+
+  if (keyLower === "m") {
+    event.preventDefault();
+    triggerButton(btnGoMate);
+    return;
+  }
+
+  if (keyLower === "c") {
+    event.preventDefault();
+    triggerButton(btnGoClock);
+    return;
+  }
+
+  if (key === "[") {
+    event.preventDefault();
+    triggerButton(btnPvPrev);
+    return;
+  }
+
+  if (key === "]") {
+    event.preventDefault();
+    triggerButton(btnPvNext);
+    return;
+  }
+
+  if (keyLower === "r") {
+    event.preventDefault();
+    triggerButton(btnRefreshOptions);
+    return;
+  }
+
+  if (keyLower === "e") {
+    event.preventDefault();
+    triggerButton(btnEval);
+    return;
+  }
+
+  if (keyLower === "d") {
+    event.preventDefault();
+    triggerButton(btnDisplay);
+    return;
+  }
+
+  if (keyLower === "x") {
+    event.preventDefault();
+    triggerButton(btnStop);
+    return;
+  }
+}
+
+window.addEventListener("keydown", handleGlobalHotkeys);
 
 function initBoard() {
   renderBoardSquares();
