@@ -15,7 +15,7 @@
     <header class="topbar ui-bar ui-bar-height ui-bar-pad panel-top" data-panel="top" id="panel-top">
       <div class="topbar-left">
         <div class="topbar-actions">
-          <button type="button" class="icon-button ui-control menu-btn" title="Menu">☰</button>
+          <button type="button" class="icon-button ui-control menu-btn" id="btn-menu" title="Menu">☰</button>
           <button type="button" class="icon-button ui-control newgame-btn" title="New Game" id="btn-new">＋</button>
           <button type="button" class="icon-button ui-control flip-btn" title="Flip Board" id="btn-flip">⟳</button>
           <button type="button" class="icon-button ui-control undo-btn" title="Undo" id="btn-undo">↶</button>
@@ -31,9 +31,9 @@
           <div class="metric-pill danger">Δ 0.1</div>
         </div>
         <div class="topbar-tools">
-          <button type="button" class="topbar-pill">View ▾</button>
-          <button type="button" class="topbar-pill accent"><span class="dot"></span>Analyze</button>
-          <button type="button" class="topbar-pill">Actions ▾</button>
+          <button type="button" class="topbar-pill" id="btn-view">View ▾</button>
+          <button type="button" class="topbar-pill accent" id="btn-analyze-pill" aria-pressed="false"><span class="dot"></span><span class="label">Analyze</span></button>
+          <button type="button" class="topbar-pill" id="btn-actions">Actions ▾</button>
         </div>
         <div class="panel-toggles" role="group" aria-label="Panel visibility">
           <button class="toggle-btn" data-panel-toggle="top" data-label="Top">Top: On</button>
@@ -129,14 +129,14 @@
       <aside class="side-panel panel-right ui-panel" data-panel="right" id="panel-right">
         <div class="panel-right-tabs ui-bar ui-bar-height ui-bar-pad">
           <div class="panel-tab-strip">
-            <button type="button" class="panel-tab active">Play</button>
-            <button type="button" class="panel-tab">Analysis</button>
+            <button type="button" class="panel-tab active" id="btn-panel-play">Play</button>
+            <button type="button" class="panel-tab" id="btn-panel-analysis">Analysis</button>
           </div>
         </div>
         <div class="panel-toolbar">
-          <button type="button" class="panel-action-button">Undo</button>
-          <button type="button" class="panel-action-button danger">Resign</button>
-          <button type="button" class="panel-action-button">AI Move</button>
+          <button type="button" class="panel-action-button" id="btn-panel-undo">Undo</button>
+          <button type="button" class="panel-action-button danger" id="btn-panel-resign">Resign</button>
+          <button type="button" class="panel-action-button" id="btn-panel-ai">AI Move</button>
           <div class="panel-toolbar-status">Clock 05:00</div>
         </div>
         <div class="panel-scroll">

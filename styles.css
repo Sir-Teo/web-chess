@@ -259,6 +259,16 @@ textarea:focus {
   color: var(--ui-accent);
 }
 
+.topbar-pill.is-active {
+  background: var(--ui-danger-soft);
+  border-color: var(--ui-danger);
+  color: var(--ui-danger);
+}
+
+.topbar-pill.is-active .dot {
+  background: var(--ui-danger);
+}
+
 .topbar-pill.accent .dot {
   width: 8px;
   height: 8px;

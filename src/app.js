@@ -121,6 +121,16 @@ const btnPerft = $("btn-perft");
 const btnFlipEngine = $("btn-flip-engine");
 const perftInput = $("perft-input");
 
+const btnMenu = $("btn-menu");
+const btnView = $("btn-view");
+const btnAnalyzePill = $("btn-analyze-pill");
+const btnActions = $("btn-actions");
+const btnPanelPlay = $("btn-panel-play");
+const btnPanelAnalysis = $("btn-panel-analysis");
+const btnPanelUndo = $("btn-panel-undo");
+const btnPanelResign = $("btn-panel-resign");
+const btnPanelAi = $("btn-panel-ai");
+
 const btnNew = $("btn-new");
 const btnFlip = $("btn-flip");
 const btnUndo = $("btn-undo");
@@ -173,6 +183,38 @@ let overlayState = {
 const ENGINE_RECOVERY_LIMIT = 2;
 let performanceMode = "max";
 let engineRecoveryAttempt = 0;
+
+const isTypingTarget = (target) => {
+  if (!target) return false;
+  const tag = target.tagName;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    target.isContentEditable
+  );
+};
+
+const triggerButton = (button) => {
+  if (!button || button.disabled) return false;
+  button.click();
+  return true;
+};
+
+const toggleCheckbox = (checkbox) => {
+  if (!checkbox) return false;
+  checkbox.checked = !checkbox.checked;
+  checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+  return true;
+};
+
+const setAnalyzePillState = (active) => {
+  if (!btnAnalyzePill) return;
+  btnAnalyzePill.classList.toggle("is-active", active);
+  btnAnalyzePill.setAttribute("aria-pressed", active ? "true" : "false");
+  const label = btnAnalyzePill.querySelector(".label");
+  if (label) label.textContent = active ? "Stop" : "Analyze";
+};
 
 function initPanelToggles() {
   const buttons = document.querySelectorAll("[data-panel-toggle]");
@@ -668,12 +710,14 @@ function startAnalysis(mode = "infinite") {
   engine.send(`go ${mode}${suffix}`);
   logLine(`go ${mode}${suffix}`.trim(), "in");
   analysisActive = mode === "infinite";
+  setAnalyzePillState(analysisActive);
 }
 
 function stopAnalysis() {
   engine.send("stop");
   logLine("stop", "in");
   analysisActive = false;
+  setAnalyzePillState(false);
 }
 
 function applyPerformanceProfile() {
@@ -833,6 +877,63 @@ btnPreloadEngine.addEventListener("click", async () => {
   engineWarning.textContent = "Engine assets cached.";
   btnPreloadEngine.disabled = false;
 });
+
+if (btnMenu) {
+  btnMenu.addEventListener("click", () => {
+    const toggle = document.querySelector("[data-panel-toggle='left']");
+    if (toggle instanceof HTMLElement) toggle.click();
+  });
+}
+
+if (btnView) {
+  btnView.addEventListener("click", () => {
+    const toggle = document.querySelector("[data-panel-toggle='bottom']");
+    if (toggle instanceof HTMLElement) toggle.click();
+  });
+}
+
+if (btnAnalyzePill) {
+  btnAnalyzePill.addEventListener("click", () => {
+    if (analysisActive) stopAnalysis();
+    else startAnalysis("infinite");
+  });
+}
+
+if (btnActions) {
+  btnActions.addEventListener("click", () => {
+    triggerButton(btnPlayBest);
+  });
+}
+
+if (btnPanelUndo) {
+  btnPanelUndo.addEventListener("click", () => {
+    triggerButton(btnUndo);
+  });
+}
+
+if (btnPanelAi) {
+  btnPanelAi.addEventListener("click", () => {
+    triggerButton(btnPlayBest);
+  });
+}
+
+if (btnPanelResign) {
+  btnPanelResign.addEventListener("click", () => {
+    stopAnalysis();
+    autoPlay = false;
+    awaitingBestMoveApply = false;
+    btnAutoPlay.textContent = "Auto Play: Off";
+  });
+}
+
+if (btnPanelPlay && btnPanelAnalysis) {
+  const setPanelMode = (mode) => {
+    btnPanelPlay.classList.toggle("active", mode === "play");
+    btnPanelAnalysis.classList.toggle("active", mode === "analysis");
+  };
+  btnPanelPlay.addEventListener("click", () => setPanelMode("play"));
+  btnPanelAnalysis.addEventListener("click", () => setPanelMode("analysis"));
+}
 
 btnAnalyze.addEventListener("click", () => {
   startAnalysis("infinite");
@@ -1739,6 +1840,7 @@ overlayState = {
   last: toggleLast.checked,
   pv: togglePv.checked,
 };
+setAnalyzePillState(false);
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
