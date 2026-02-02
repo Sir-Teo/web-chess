@@ -145,6 +145,7 @@ const btnClearMoves = $("btn-clear-moves");
 const engine = new EngineController();
 const pvLines = new Map();
 const optionState = new Map();
+const textCache = new WeakMap();
 const undoStack = [];
 const redoStack = [];
 let game = null;
@@ -155,6 +156,7 @@ let pvRenderedVersion = -1;
 let evalRenderVersion = 0;
 let evalRenderedVersion = -1;
 let moveListDirty = false;
+let consoleDirty = false;
 let analysisActive = false;
 let boardFlipped = false;
 let selectedSquare = null;
@@ -185,7 +187,9 @@ let overlayState = {
   last: true,
   pv: true,
 };
+const consoleLines = [];
 const pvSanCache = new Map();
+const pvNodeMap = new Map();
 const ENGINE_RECOVERY_LIMIT = 2;
 let performanceMode = "max";
 let engineRecoveryAttempt = 0;
@@ -317,13 +321,12 @@ function logLine(line, kind = "out") {
   const prefix = kind === "in" ? ">>" : "<<";
   const entry = `${prefix} ${line}`;
   const maxLines = 500;
-  const lines = consoleEl.textContent.split("\n").filter(Boolean);
-  lines.push(entry);
-  if (lines.length > maxLines) {
-    lines.splice(0, lines.length - maxLines);
+  consoleLines.push(entry);
+  if (consoleLines.length > maxLines) {
+    consoleLines.splice(0, consoleLines.length - maxLines);
   }
-  consoleEl.textContent = lines.join("\n");
-  consoleEl.scrollTop = consoleEl.scrollHeight;
+  consoleDirty = true;
+  scheduleUI();
 }
 
 function scheduleUI() {
@@ -333,6 +336,11 @@ function scheduleUI() {
     pendingFrame = false;
     updateKpis();
     updateEvalBar();
+    if (consoleDirty) {
+      consoleDirty = false;
+      consoleEl.textContent = consoleLines.join("\n");
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
     if (moveListDirty) {
       moveListDirty = false;
       renderMoveList();
@@ -348,48 +356,90 @@ function scheduleUI() {
   });
 }
 
-function updateKpis() {
-  kpiDepth.textContent = latestInfo.depth ?? 0;
-  kpiSelDepth.textContent = latestInfo.seldepth ?? 0;
-  kpiNodes.textContent = latestInfo.nodes ?? 0;
-  kpiNps.textContent = latestInfo.nps ?? 0;
-  kpiTime.textContent = latestInfo.time ?? 0;
-  kpiTbHits.textContent = latestInfo.tbhits ?? 0;
-  kpiHashfull.textContent = latestInfo.hashfull ?? 0;
-  if (latestInfo.wdl) {
-    kpiWdl.textContent = `${latestInfo.wdl.w} / ${latestInfo.wdl.d} / ${latestInfo.wdl.l}`;
-  } else {
-    kpiWdl.textContent = "—";
+function setText(el, value) {
+  if (!el) return;
+  const text = value === null || value === undefined ? "" : String(value);
+  if (textCache.get(el) !== text) {
+    textCache.set(el, text);
+    el.textContent = text;
   }
-  engineNps.textContent = latestInfo.nps ? `${latestInfo.nps.toLocaleString()} nps` : "—";
+}
+
+function updateKpis() {
+  setText(kpiDepth, latestInfo.depth ?? 0);
+  setText(kpiSelDepth, latestInfo.seldepth ?? 0);
+  setText(kpiNodes, latestInfo.nodes ?? 0);
+  setText(kpiNps, latestInfo.nps ?? 0);
+  setText(kpiTime, latestInfo.time ?? 0);
+  setText(kpiTbHits, latestInfo.tbhits ?? 0);
+  setText(kpiHashfull, latestInfo.hashfull ?? 0);
+  if (latestInfo.wdl) {
+    setText(kpiWdl, `${latestInfo.wdl.w} / ${latestInfo.wdl.d} / ${latestInfo.wdl.l}`);
+  } else {
+    setText(kpiWdl, "—");
+  }
+  setText(engineNps, latestInfo.nps ? `${latestInfo.nps.toLocaleString()} nps` : "—");
 }
 
 function updateEvalBar() {
   const score = latestInfo.score;
   const label = formatScore(score);
-  evalLabel.textContent = label;
+  setText(evalLabel, label);
   const percent = scoreToPercent(score);
-  evalFill.style.height = `${percent}%`;
+  const height = `${percent}%`;
+  if (evalFill.dataset.height !== height) {
+    evalFill.dataset.height = height;
+    evalFill.style.height = height;
+  }
 }
 
 function renderPvLines() {
-  pvLinesEl.innerHTML = "";
   const sorted = [...pvLines.values()].sort((a, b) => (a.multipv || 1) - (b.multipv || 1));
   const fragment = document.createDocumentFragment();
   const baseFen = currentFen();
   const cachePrefix = `${baseFen}::`;
+  const seen = new Set();
   sorted.forEach((line) => {
-    const row = document.createElement("div");
-    row.className = "pv-line";
-    const head = document.createElement("div");
-    head.className = "pv-head";
+    const key = line.multipv || 1;
+    let node = pvNodeMap.get(key);
+    if (!node) {
+      const row = document.createElement("div");
+      row.className = "pv-line";
+      const head = document.createElement("div");
+      head.className = "pv-head";
+      const headLeft = document.createElement("span");
+      const headRight = document.createElement("span");
+      head.appendChild(headLeft);
+      head.appendChild(headRight);
+      const moves = document.createElement("div");
+      moves.className = "pv-moves";
+      const san = document.createElement("div");
+      san.className = "pv-san";
+      node = {
+        row,
+        headLeft,
+        headRight,
+        moves,
+        san,
+        pv: "",
+      };
+      san.addEventListener("click", () => {
+        if (node.pv) {
+          navigator.clipboard.writeText(node.pv).catch(() => {});
+        }
+      });
+      row.addEventListener("mouseenter", () => highlightPvLine(node.pv));
+      row.addEventListener("mouseleave", () => restoreHighlights());
+      row.appendChild(head);
+      row.appendChild(moves);
+      row.appendChild(san);
+      pvNodeMap.set(key, node);
+    }
     const scoreText = formatScore(line.score);
-    head.innerHTML = `<span>PV ${line.multipv || 1} • Depth ${line.depth ?? "?"}</span><span>${scoreText}</span>`;
-    const moves = document.createElement("div");
-    moves.className = "pv-moves";
-    moves.textContent = line.pv || "";
-    const san = document.createElement("div");
-    san.className = "pv-san";
+    node.headLeft.textContent = `PV ${key} • Depth ${line.depth ?? "?"}`;
+    node.headRight.textContent = scoreText;
+    node.moves.textContent = line.pv || "";
+    node.pv = line.pv || "";
     if (line.pv) {
       const cacheKey = `${cachePrefix}${line.pv}`;
       let cachedSan = pvSanCache.get(cacheKey);
@@ -397,25 +447,20 @@ function renderPvLines() {
         cachedSan = uciLineToSan(line.pv, baseFen);
         pvSanCache.set(cacheKey, cachedSan);
       }
-      san.textContent = cachedSan;
+      node.san.textContent = cachedSan;
     } else {
-      san.textContent = "";
+      node.san.textContent = "";
     }
-    san.addEventListener("click", () => {
-      if (line.pv) {
-        navigator.clipboard.writeText(line.pv).catch(() => {});
-      }
-    });
-    row.appendChild(head);
-    row.appendChild(moves);
-    row.appendChild(san);
-    if (line.pv) {
-      row.addEventListener("mouseenter", () => highlightPvLine(line.pv));
-      row.addEventListener("mouseleave", () => restoreHighlights());
-    }
-    fragment.appendChild(row);
+    fragment.appendChild(node.row);
+    seen.add(key);
   });
+  pvLinesEl.innerHTML = "";
   pvLinesEl.appendChild(fragment);
+  for (const key of pvNodeMap.keys()) {
+    if (!seen.has(key)) {
+      pvNodeMap.delete(key);
+    }
+  }
 }
 
 function uciLineToSan(pv, baseFen = "") {
@@ -1620,7 +1665,7 @@ function syncFenPgn() {
 function renderMoveList() {
   if (!game || !moveListEl) return;
   const history = game.history();
-  moveListEl.innerHTML = "";
+  const fragment = document.createDocumentFragment();
   history.forEach((move, index) => {
     const item = document.createElement("div");
     item.className = "list-item";
@@ -1633,8 +1678,10 @@ function renderMoveList() {
     const label = meta?.label ? `<span class=\"move-tag\">${meta.label}</span>` : "";
     item.innerHTML = `<strong>${prefix}</strong> ${move} ${tag} ${label}`;
     item.addEventListener("click", () => jumpToPly(index + 1));
-    moveListEl.appendChild(item);
+    fragment.appendChild(item);
   });
+  moveListEl.innerHTML = "";
+  moveListEl.appendChild(fragment);
 }
 
 function highlightLastMove() {
