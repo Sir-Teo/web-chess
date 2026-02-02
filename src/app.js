@@ -147,7 +147,7 @@ const pvLines = new Map();
 const optionState = new Map();
 const undoStack = [];
 const redoStack = [];
-let game = typeof Chess !== "undefined" ? new Chess() : null;
+let game = null;
 let latestInfo = {};
 let pendingFrame = false;
 let analysisActive = false;
@@ -205,6 +205,31 @@ const toggleCheckbox = (checkbox) => {
   if (!checkbox) return false;
   checkbox.checked = !checkbox.checked;
   checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+  return true;
+};
+
+const ensureChessReady = () => {
+  if (globalThis.Chess) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const existing = document.querySelector("script[data-chess-lib]");
+    if (existing) {
+      existing.addEventListener("load", () => resolve(true), { once: true });
+      existing.addEventListener("error", () => resolve(false), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "vendor/chess.min.js";
+    script.dataset.chessLib = "true";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.head.appendChild(script);
+  });
+};
+
+const initGame = () => {
+  if (!globalThis.Chess) return false;
+  if (!game) game = new globalThis.Chess();
+  initBoard();
   return true;
 };
 
@@ -2093,7 +2118,13 @@ function initBoard() {
 }
 
 initPanelToggles();
-initBoard();
+ensureChessReady().then((ready) => {
+  if (ready) {
+    initGame();
+  } else {
+    engineWarning.textContent = "Chess library failed to load.";
+  }
+});
 updateEngineWarning();
 optionState.clear();
 engine.load("auto");
