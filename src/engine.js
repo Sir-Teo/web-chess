@@ -3,39 +3,46 @@ import { parseUciOption, parseInfo, parseBestmove } from "./uci.js";
 const ENGINE_SPECS = {
   standard: {
     label: "Standard (multi-threaded)",
-    js: "../vendor/stockfish/stockfish-17.1-8e4d048.js",
-    wasm: "../vendor/stockfish/stockfish-17.1-8e4d048.wasm",
+    js: "vendor/stockfish/stockfish-17.1-8e4d048.js",
+    wasm: "vendor/stockfish/stockfish-17.1-8e4d048.wasm",
     threads: true,
     parts: 6,
   },
   "standard-single": {
     label: "Standard (single-threaded)",
-    js: "../vendor/stockfish/stockfish-17.1-single-a496a04.js",
-    wasm: "../vendor/stockfish/stockfish-17.1-single-a496a04.wasm",
+    js: "vendor/stockfish/stockfish-17.1-single-a496a04.js",
+    wasm: "vendor/stockfish/stockfish-17.1-single-a496a04.wasm",
     threads: false,
     parts: 6,
   },
   lite: {
     label: "Lite (multi-threaded)",
-    js: "../vendor/stockfish/stockfish-17.1-lite-51f59da.js",
-    wasm: "../vendor/stockfish/stockfish-17.1-lite-51f59da.wasm",
+    js: "vendor/stockfish/stockfish-17.1-lite-51f59da.js",
+    wasm: "vendor/stockfish/stockfish-17.1-lite-51f59da.wasm",
     threads: true,
     parts: 0,
   },
   "lite-single": {
     label: "Lite (single-threaded)",
-    js: "../vendor/stockfish/stockfish-17.1-lite-single-03e3232.js",
-    wasm: "../vendor/stockfish/stockfish-17.1-lite-single-03e3232.wasm",
+    js: "vendor/stockfish/stockfish-17.1-lite-single-03e3232.js",
+    wasm: "vendor/stockfish/stockfish-17.1-lite-single-03e3232.wasm",
     threads: false,
     parts: 0,
   },
   asm: {
     label: "ASM.js fallback",
-    js: "../vendor/stockfish/stockfish-17.1-asm-341ff22.js",
+    js: "vendor/stockfish/stockfish-17.1-asm-341ff22.js",
     wasm: null,
     threads: false,
     parts: 0,
   },
+};
+
+const resolveAssetUrl = (assetPath) => {
+  if (typeof window !== "undefined" && window.location) {
+    return new URL(assetPath, window.location.href);
+  }
+  return new URL(assetPath, import.meta.url);
 };
 
 function canUseThreads() {
@@ -84,11 +91,11 @@ export class EngineController {
     this.variant = spec;
     this.supportsThreads = spec.threads && canUseThreads();
 
-    const jsUrl = new URL(spec.js, import.meta.url);
+    const jsUrl = resolveAssetUrl(spec.js);
     let workerUrl = new URL(jsUrl);
 
     if (spec.wasm) {
-      const wasmUrl = new URL(spec.wasm, import.meta.url);
+      const wasmUrl = resolveAssetUrl(spec.wasm);
       workerUrl.hash = wasmUrl.toString();
     }
 
@@ -198,6 +205,6 @@ export function preloadEngineAssets(variantKey = "auto") {
     }
   }
   return Promise.all(
-    urls.map((url) => fetch(new URL(url, import.meta.url)).catch(() => null))
+    urls.map((url) => fetch(resolveAssetUrl(url)).catch(() => null))
   );
 }
