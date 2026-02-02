@@ -678,10 +678,16 @@ function refreshQuickOptions() {
 
 function updateEngineWarning() {
   const usingThreads = engine.supportsThreads;
+  const secureContext = typeof window !== "undefined"
+    && typeof window.isSecureContext === "boolean"
+    ? window.isSecureContext
+    : true;
   if (usingThreads) {
     engineWarning.textContent = "Cross-origin isolation active. Multi-threaded engine unlocked.";
   } else if (threadsAvailable()) {
     engineWarning.textContent = "Threads available, but current engine is single-threaded.";
+  } else if (!secureContext) {
+    engineWarning.textContent = "Threads require HTTPS/localhost + COOP/COEP. Falling back to single-threaded engines.";
   } else {
     engineWarning.textContent = "Cross-origin isolation is unavailable. Falling back to single-threaded engines.";
   }
@@ -1476,21 +1482,17 @@ function renderBoardSquares() {
 
 function updateBoardPieces() {
   if (!game) return;
-  const board = game.board();
-  const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
   const boardEl = $("board");
   if (!boardEl) return;
 
   boardEl.querySelectorAll(".square").forEach((squareEl) => {
     squareEl.innerHTML = "";
     const square = squareEl.dataset.square;
-    const file = files.indexOf(square[0]);
-    const rank = 8 - Number(square[1]);
-    const piece = board[rank][file];
+    const piece = game.get(square);
     if (piece) {
       const img = document.createElement("img");
       img.alt = `${piece.color}${piece.type}`;
-      img.src = `assets/pieces/${piece.color}${piece.type.toUpperCase()}.png`;
+      img.src = `./assets/pieces/${piece.color}${piece.type.toUpperCase()}.png`;
       squareEl.appendChild(img);
     }
   });

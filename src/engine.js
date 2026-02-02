@@ -38,6 +38,11 @@ const ENGINE_SPECS = {
   },
 };
 
+const THREADS_FALLBACK = {
+  standard: "standard-single",
+  lite: "lite-single",
+};
+
 const resolveAssetUrl = (assetPath) => {
   if (typeof window !== "undefined" && window.location) {
     return new URL(assetPath, window.location.href);
@@ -45,8 +50,62 @@ const resolveAssetUrl = (assetPath) => {
   return new URL(assetPath, import.meta.url);
 };
 
+function supportsWasm() {
+  return typeof WebAssembly === "object" && typeof WebAssembly.instantiate === "function";
+}
+
+function getHardwareInfo() {
+  if (typeof navigator === "undefined") {
+    return { memory: null, cores: null };
+  }
+  const memory = typeof navigator.deviceMemory === "number" ? navigator.deviceMemory : null;
+  const cores = typeof navigator.hardwareConcurrency === "number" ? navigator.hardwareConcurrency : null;
+  return { memory, cores };
+}
+
+function getDeviceTier() {
+  const { memory, cores } = getHardwareInfo();
+  if (memory === null && cores === null) return "low";
+  const lowMemory = memory !== null && memory <= 4;
+  const lowCores = cores !== null && cores <= 4;
+  if (lowMemory || lowCores) return "low";
+  const midMemory = memory !== null && memory <= 8;
+  const midCores = cores !== null && cores <= 8;
+  if (midMemory || midCores) return "mid";
+  return "high";
+}
+
+function isCrossOriginIsolated() {
+  return typeof self !== "undefined" && self.crossOriginIsolated === true;
+}
+
 function canUseThreads() {
-  return typeof SharedArrayBuffer !== "undefined" && self.crossOriginIsolated === true;
+  return supportsWasm() && typeof SharedArrayBuffer !== "undefined" && isCrossOriginIsolated();
+}
+
+function pickAutoSpecKey() {
+  if (!supportsWasm()) return "asm";
+  const tier = getDeviceTier();
+  const preferLite = tier === "low";
+  if (canUseThreads()) {
+    return preferLite ? "lite" : "standard";
+  }
+  return preferLite ? "lite-single" : "standard-single";
+}
+
+function resolveEngineSpecKey(key) {
+  if (key === "auto") {
+    return pickAutoSpecKey();
+  }
+  if (!ENGINE_SPECS[key]) {
+    return supportsWasm() ? "standard-single" : "asm";
+  }
+  const spec = ENGINE_SPECS[key];
+  if (spec.wasm && !supportsWasm()) return "asm";
+  if (spec.threads && !canUseThreads()) {
+    return THREADS_FALLBACK[key] || "standard-single";
+  }
+  return key;
 }
 
 export class EngineController {
@@ -73,13 +132,8 @@ export class EngineController {
   }
 
   resolveSpec(key) {
-    if (key === "auto") {
-      if (canUseThreads()) {
-        return ENGINE_SPECS.standard;
-      }
-      return ENGINE_SPECS["standard-single"];
-    }
-    return ENGINE_SPECS[key] || ENGINE_SPECS["standard-single"];
+    const resolvedKey = resolveEngineSpecKey(key);
+    return ENGINE_SPECS[resolvedKey] || ENGINE_SPECS["standard-single"];
   }
 
   async load(variantKey = "auto") {
@@ -192,7 +246,8 @@ export function threadsAvailable() {
 }
 
 export function preloadEngineAssets(variantKey = "auto") {
-  const spec = ENGINE_SPECS[variantKey] || ENGINE_SPECS["standard-single"];
+  const resolvedKey = resolveEngineSpecKey(variantKey);
+  const spec = ENGINE_SPECS[resolvedKey] || ENGINE_SPECS["standard-single"];
   const urls = [spec.js];
   if (spec.wasm) {
     if (spec.parts && spec.parts > 0) {
