@@ -2297,8 +2297,9 @@ ensureChessReady().then((ready) => {
 });
 updateEngineWarning();
 optionState.clear();
-engine.load("auto");
-engineVariant.textContent = engine.resolveSpec("auto").label;
+engineSelect.value = "lite";
+engine.load("lite");
+engineVariant.textContent = engine.resolveSpec("lite").label;
 overlayState = {
   best: toggleBest.checked,
   last: toggleLast.checked,
