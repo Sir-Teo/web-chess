@@ -23,7 +23,13 @@ function send(res, status, headers, body) {
 }
 
 const server = http.createServer((req, res) => {
-  const urlPath = decodeURIComponent(req.url.split("?")[0]);
+  const rawUrl = typeof req.url === "string" ? req.url : "/";
+  let urlPath;
+  try {
+    urlPath = decodeURIComponent(rawUrl.split("?")[0]);
+  } catch (err) {
+    return send(res, 400, { "Content-Type": "text/plain" }, "Bad Request");
+  }
   const safePath = path.normalize(urlPath).replace(/^\.\.(?=\/|$)/, "");
   let filePath = path.join(root, safePath);
 

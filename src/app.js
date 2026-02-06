@@ -180,6 +180,7 @@ let batchRunning = false;
 let batchAwaiting = false;
 let batchResolver = null;
 let batchCurrent = null;
+let batchTimeoutId = null;
 let thresholds = {
   inaccuracy: 30,
   mistake: 80,
@@ -198,9 +199,29 @@ const consoleLines = [];
 const pvSanCache = new Map();
 const pvNodeMap = new Map();
 const ENGINE_RECOVERY_LIMIT = 2;
+const BATCH_ANALYSIS_TIMEOUT_MS = 20000;
 let performanceMode = "max";
 let engineRecoveryAttempt = 0;
 let engineLoadRequest = 0;
+
+function resolveBatchAnalysis(patch = {}) {
+  if (!batchResolver || !batchCurrent) return false;
+  if (batchTimeoutId) {
+    clearTimeout(batchTimeoutId);
+    batchTimeoutId = null;
+  }
+  const resolve = batchResolver;
+  const result = {
+    ...batchCurrent,
+    ...patch,
+    completed: patch.completed || Date.now(),
+  };
+  batchAwaiting = false;
+  batchCurrent = null;
+  batchResolver = null;
+  resolve(result);
+  return true;
+}
 
 const isTypingTarget = (target) => {
   if (!target) return false;
@@ -1271,15 +1292,10 @@ engine.on("bestmove", (move) => {
   lastBestMove = move.bestmove;
   highlightBestMove(move.bestmove);
   if (batchAwaiting && batchCurrent) {
-    batchAwaiting = false;
-    batchCurrent.bestmove = move.bestmove;
-    batchCurrent.completed = Date.now();
-    const result = { ...batchCurrent };
-    batchCurrent = null;
-    if (batchResolver) {
-      batchResolver(result);
-      batchResolver = null;
-    }
+    resolveBatchAnalysis({
+      bestmove: move.bestmove,
+      status: "done",
+    });
   }
   if (awaitingBestMoveApply && move.bestmove) {
     awaitingBestMoveApply = false;
@@ -1292,6 +1308,13 @@ engine.on("bestmove", (move) => {
 engine.on("error", (err) => {
   const message = err?.message || err;
   logLine(`engine error: ${message}`, "out");
+  if (batchAwaiting && batchCurrent) {
+    resolveBatchAnalysis({
+      bestmove: null,
+      error: String(message || "engine error"),
+      status: "error",
+    });
+  }
   if (!recoverFromEngineError(message)) {
     engineWarning.textContent = `Engine error: ${message}`;
   }
@@ -1650,7 +1673,15 @@ function renderBatchList() {
     const row = document.createElement("div");
     row.className = "list-item";
     const status = item.status || "queued";
-    row.innerHTML = `<strong>#${index + 1}</strong> ${item.fen} <span class="move-tag">${status}</span>`;
+    const idx = document.createElement("strong");
+    idx.textContent = `#${index + 1}`;
+    const fenText = document.createTextNode(` ${item.fen} `);
+    const statusTag = document.createElement("span");
+    statusTag.className = "move-tag";
+    statusTag.textContent = status;
+    row.appendChild(idx);
+    row.appendChild(fenText);
+    row.appendChild(statusTag);
     batchList.appendChild(row);
   });
   renderBatchChart();
@@ -1715,7 +1746,7 @@ btnBatchRun.addEventListener("click", async () => {
     item.status = "running";
     renderBatchList();
     const result = await analyzeFen(item.fen);
-    item.status = "done";
+    item.status = result.error ? "failed" : "done";
     batchResults.push(result);
     renderBatchList();
   }
@@ -1761,15 +1792,37 @@ async function analyzeFen(fen) {
   return new Promise((resolve) => {
     const depth = Number(batchDepthInput.value) || 12;
     const movetime = Number(batchMoveTimeInput.value) || 0;
+    const started = Date.now();
+    if (!engine.worker) {
+      resolve({
+        fen,
+        bestmove: null,
+        info: {},
+        pv: "",
+        started,
+        completed: Date.now(),
+        error: "engine not loaded",
+        status: "error",
+      });
+      return;
+    }
     batchAwaiting = true;
     batchCurrent = {
       fen,
       bestmove: null,
       info: {},
       pv: "",
-      started: Date.now(),
+      started,
+      status: "running",
     };
     batchResolver = resolve;
+    batchTimeoutId = setTimeout(() => {
+      resolveBatchAnalysis({
+        bestmove: null,
+        error: `timeout after ${BATCH_ANALYSIS_TIMEOUT_MS}ms`,
+        status: "timeout",
+      });
+    }, BATCH_ANALYSIS_TIMEOUT_MS);
     engine.send(`position fen ${fen}`);
     if (movetime > 0) {
       engine.send(`go movetime ${movetime}`);
