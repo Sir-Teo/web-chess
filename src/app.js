@@ -174,6 +174,8 @@ let awaitingBestMoveApply = false;
 let evalHistory = [];
 let analysisStart = performance.now();
 let moveMeta = [];
+let historyVerboseCache = [];
+let historyPlyCache = 0;
 let batchQueue = [];
 let batchResults = [];
 let batchRunning = false;
@@ -200,9 +202,15 @@ const pvSanCache = new Map();
 const pvNodeMap = new Map();
 const ENGINE_RECOVERY_LIMIT = 2;
 const BATCH_ANALYSIS_TIMEOUT_MS = 20000;
+const EVAL_SAMPLE_INTERVAL_MS = 80;
+const MOVE_META_UPDATE_INTERVAL_MS = 220;
 let performanceMode = "max";
 let engineRecoveryAttempt = 0;
 let engineLoadRequest = 0;
+let lastEvalSampleTime = Number.NEGATIVE_INFINITY;
+let lastEvalSampleDepth = -1;
+let lastMoveMetaUpdateTime = Number.NEGATIVE_INFINITY;
+let lastMoveMetaDepth = -1;
 
 function resolveBatchAnalysis(patch = {}) {
   if (!batchResolver || !batchCurrent) return false;
@@ -221,6 +229,77 @@ function resolveBatchAnalysis(patch = {}) {
   batchResolver = null;
   resolve(result);
   return true;
+}
+
+function mergeObjectShallow(target, patch) {
+  let changed = false;
+  for (const [key, value] of Object.entries(patch)) {
+    if (target[key] !== value) {
+      target[key] = value;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+function isPrimaryPvInfo(info) {
+  return !info.multipv || info.multipv === 1;
+}
+
+function infoClockMs(info) {
+  if (typeof info.time === "number" && Number.isFinite(info.time)) return info.time;
+  return Math.max(0, Math.round(performance.now() - analysisStart));
+}
+
+function resetInfoSamplingState() {
+  lastEvalSampleTime = Number.NEGATIVE_INFINITY;
+  lastEvalSampleDepth = -1;
+  lastMoveMetaUpdateTime = Number.NEGATIVE_INFINITY;
+  lastMoveMetaDepth = -1;
+}
+
+function shouldRecordEvalSample(info) {
+  if (!info.score || !isPrimaryPvInfo(info)) return false;
+  const time = infoClockMs(info);
+  const depth = Number(info.depth) || 0;
+  if (depth > lastEvalSampleDepth) {
+    lastEvalSampleDepth = depth;
+    lastEvalSampleTime = time;
+    return true;
+  }
+  if (time - lastEvalSampleTime >= EVAL_SAMPLE_INTERVAL_MS) {
+    lastEvalSampleTime = time;
+    lastEvalSampleDepth = Math.max(lastEvalSampleDepth, depth);
+    return true;
+  }
+  return false;
+}
+
+function shouldUpdateMoveMeta(info) {
+  if (!info.score || !isPrimaryPvInfo(info) || !historyPlyCache) return false;
+  const time = infoClockMs(info);
+  const depth = Number(info.depth) || 0;
+  if (depth > lastMoveMetaDepth) {
+    lastMoveMetaDepth = depth;
+    lastMoveMetaUpdateTime = time;
+    return true;
+  }
+  if (time - lastMoveMetaUpdateTime >= MOVE_META_UPDATE_INTERVAL_MS) {
+    lastMoveMetaUpdateTime = time;
+    lastMoveMetaDepth = Math.max(lastMoveMetaDepth, depth);
+    return true;
+  }
+  return false;
+}
+
+function refreshHistoryCache() {
+  if (!game) {
+    historyVerboseCache = [];
+    historyPlyCache = 0;
+    return;
+  }
+  historyVerboseCache = game.history({ verbose: true });
+  historyPlyCache = historyVerboseCache.length;
 }
 
 const isTypingTarget = (target) => {
@@ -700,14 +779,17 @@ function addEvalSample(info) {
   if (!info.score) return;
   const cp = info.score.type === "mate" ? (info.score.value > 0 ? 10000 : -10000) : info.score.value;
   const previousTime = evalHistory.length ? evalHistory[evalHistory.length - 1].time : 0;
-  const rawTime = typeof info.time === "number" ? info.time : Math.round(performance.now() - analysisStart);
+  const rawTime = infoClockMs(info);
   const time = Math.max(previousTime + 1, rawTime);
+  const depth = info.depth || 0;
   const side = getSideToMove();
   const winrate = scoreToWinrate(info.score, side);
-  evalHistory.push({ time, cp, depth: info.depth || 0, win: winrate });
-  if (evalHistory.length > 240) {
-    evalHistory = evalHistory.slice(-240);
+  const prev = evalHistory[evalHistory.length - 1];
+  if (prev && prev.time === time && prev.cp === cp && prev.depth === depth) return;
+  if (evalHistory.length >= 240) {
+    evalHistory.shift();
   }
+  evalHistory.push({ time, cp, depth, win: winrate });
   evalRenderVersion += 1;
   winrateRenderVersion += 1;
 }
@@ -746,20 +828,31 @@ function deltaClass(delta) {
   return "neutral";
 }
 
-function updateMoveMetaFromInfo() {
-  const ply = game ? game.history({ verbose: true }).length : 0;
+function updateMoveMetaFromInfo(info = latestInfo) {
+  const ply = historyPlyCache;
   if (!ply) return;
-  const cp = scoreToCp(latestInfo.score);
+  const cp = scoreToCp(info.score);
   if (!Number.isFinite(cp)) return;
-  const moves = game.history({ verbose: true });
-  const lastMove = moves[moves.length - 1];
+  const lastMove = historyVerboseCache[ply - 1];
+  if (!lastMove) return;
   const prevMeta = moveMeta[ply - 2];
   const prevCp = prevMeta?.cp ?? 0;
   const mover = lastMove?.color || "w";
   const delta = (cp - prevCp) * (mover === "w" ? 1 : -1);
   const labelClass = deltaClass(delta);
   const label = labelClass && labelClass !== "neutral" ? labelClass : "";
-  moveMeta[ply - 1] = { cp, delta, time: latestInfo.time || 0, label };
+  const next = { cp, delta, time: info.time || 0, label };
+  const prev = moveMeta[ply - 1];
+  if (
+    prev &&
+    prev.cp === next.cp &&
+    prev.delta === next.delta &&
+    prev.time === next.time &&
+    prev.label === next.label
+  ) {
+    return;
+  }
+  moveMeta[ply - 1] = next;
   moveListDirty = true;
 }
 
@@ -1108,6 +1201,7 @@ function startAnalysis(mode = "infinite") {
   evalRenderVersion += 1;
   winrateRenderVersion += 1;
   analysisStart = performance.now();
+  resetInfoSamplingState();
   const searchmoves = searchmovesInput.value.trim();
   const suffix = searchmoves ? ` searchmoves ${searchmoves}` : "";
   engine.send(`go ${mode}${suffix}`);
@@ -1257,22 +1351,20 @@ engine.on("readyok", () => {
   engineWarning.textContent = "Engine ready for commands.";
 });
 engine.on("info", (info) => {
-  latestInfo = { ...latestInfo, ...info };
-  if (info.score) {
+  mergeObjectShallow(latestInfo, info);
+  if (shouldRecordEvalSample(info)) {
     addEvalSample(info);
-    updateMoveMetaFromInfo();
+  }
+  if (shouldUpdateMoveMeta(info)) {
+    updateMoveMetaFromInfo(info);
   }
   if (batchAwaiting && batchCurrent) {
-    batchCurrent.info = { ...batchCurrent.info, ...info };
-    if (info.pv && (!info.multipv || info.multipv === 1)) {
+    mergeObjectShallow(batchCurrent.info, info);
+    if (info.pv && isPrimaryPvInfo(info)) {
       batchCurrent.pv = info.pv;
     }
   }
-  if (info.multipv) {
-    pvLines.set(info.multipv, { ...pvLines.get(info.multipv), ...info });
-  } else {
-    pvLines.set(1, { ...pvLines.get(1), ...info, multipv: 1 });
-  }
+  let pvChanged = false;
   if (
     info.pv ||
     info.multipv ||
@@ -1280,6 +1372,22 @@ engine.on("info", (info) => {
     typeof info.seldepth === "number" ||
     info.score
   ) {
+    const pvKey = info.multipv || 1;
+    let line = pvLines.get(pvKey);
+    if (!line) {
+      line = { multipv: pvKey };
+      pvLines.set(pvKey, line);
+      pvChanged = true;
+    }
+    if (mergeObjectShallow(line, info)) {
+      pvChanged = true;
+    }
+    if (line.multipv !== pvKey) {
+      line.multipv = pvKey;
+      pvChanged = true;
+    }
+  }
+  if (pvChanged) {
     pvRenderVersion += 1;
   }
   scheduleUI();
@@ -2155,6 +2263,7 @@ function requestAutoMove() {
 function afterPositionChange() {
   updateBoardPieces();
   syncFenPgn();
+  refreshHistoryCache();
   renderMoveList();
   clearSelectionHighlights();
   clearPvHighlights();
@@ -2492,6 +2601,7 @@ function initBoard() {
   renderBoardSquares();
   updateBoardPieces();
   syncFenPgn();
+  refreshHistoryCache();
   renderMoveList();
   highlightLastMove();
 }
