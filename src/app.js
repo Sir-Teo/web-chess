@@ -2061,11 +2061,29 @@ function syncFenPgn() {
 
 function renderMoveList() {
   if (!game || !moveListEl) return;
+  if (!moveListEl.dataset.boundClick) {
+    moveListEl.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const row = target.closest(".list-item[data-ply]");
+      if (!row || !moveListEl.contains(row)) return;
+      const ply = Number(row.dataset.ply);
+      if (Number.isFinite(ply) && ply > 0) {
+        jumpToPly(ply);
+      }
+    });
+    moveListEl.dataset.boundClick = "true";
+  }
   const history = game.history();
-  const fragment = document.createDocumentFragment();
-  history.forEach((move, index) => {
-    const item = document.createElement("div");
-    item.className = "list-item";
+  const targetLength = history.length;
+  for (let index = 0; index < targetLength; index += 1) {
+    const move = history[index];
+    let item = moveListEl.children[index];
+    if (!item) {
+      item = document.createElement("div");
+      item.className = "list-item";
+      moveListEl.appendChild(item);
+    }
     const moveNumber = Math.floor(index / 2) + 1;
     const prefix = index % 2 === 0 ? `${moveNumber}.` : "...";
     const meta = moveMeta[index];
@@ -2073,12 +2091,18 @@ function renderMoveList() {
     const deltaText = Number.isFinite(delta) ? formatDelta(delta) : "";
     const tag = deltaText ? `<span class=\"delta ${deltaClass(delta)}\">${deltaText}</span>` : "";
     const label = meta?.label ? `<span class=\"move-tag\">${meta.label}</span>` : "";
-    item.innerHTML = `<strong>${prefix}</strong> ${move} ${tag} ${label}`;
-    item.addEventListener("click", () => jumpToPly(index + 1));
-    fragment.appendChild(item);
-  });
-  moveListEl.innerHTML = "";
-  moveListEl.appendChild(fragment);
+    const renderKey = `${prefix}|${move}|${deltaText}|${meta?.label || ""}`;
+    const ply = String(index + 1);
+    if (item.dataset.ply !== ply) item.dataset.ply = ply;
+    if (item.dataset.renderKey !== renderKey) {
+      item.dataset.renderKey = renderKey;
+      item.innerHTML = `<strong>${prefix}</strong> ${move} ${tag} ${label}`;
+    }
+  }
+  for (let index = moveListEl.children.length - 1; index >= targetLength; index -= 1) {
+    const node = moveListEl.children[index];
+    if (node) node.remove();
+  }
 }
 
 function highlightLastMove() {
