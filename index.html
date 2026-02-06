@@ -65,6 +65,29 @@
                   <button type="button" class="menu-item" data-menu-action="panel-analysis">Analysis</button>
                 </div>
               </div>
+
+              <div class="menu-section">
+                <div class="menu-title">Position I/O</div>
+                <div class="menu-grid">
+                  <button type="button" class="menu-item" data-menu-action="load-fen">Load FEN</button>
+                  <button type="button" class="menu-item" data-menu-action="copy-fen">Copy FEN</button>
+                  <button type="button" class="menu-item" data-menu-action="load-pgn">Load PGN</button>
+                  <button type="button" class="menu-item" data-menu-action="copy-pgn">Copy PGN</button>
+                  <button type="button" class="menu-item" data-menu-action="apply-moves">Apply Moves</button>
+                  <button type="button" class="menu-item" data-menu-action="clear-moves">Clear Moves</button>
+                </div>
+              </div>
+
+              <div class="menu-section">
+                <div class="menu-title">PV Controls</div>
+                <div class="menu-grid">
+                  <button type="button" class="menu-item" data-menu-action="pv-play">Play PV</button>
+                  <button type="button" class="menu-item" data-menu-action="pv-pause">Pause PV</button>
+                  <button type="button" class="menu-item" data-menu-action="pv-prev">Step Back</button>
+                  <button type="button" class="menu-item" data-menu-action="pv-next">Step Forward</button>
+                  <button type="button" class="menu-item" data-menu-action="pv-stop">Stop PV</button>
+                </div>
+              </div>
             </div>
           </div>
           <button type="button" class="topbar-pill accent" id="btn-analyze-pill" aria-pressed="false"><span class="dot"></span><span class="label">Analyze</span></button>
@@ -132,6 +155,28 @@
                   <button type="button" class="menu-item" data-menu-action="apply-syzygy">Apply Tablebases</button>
                   <button type="button" class="menu-item" data-menu-action="toggle-chess960">Toggle Chess960</button>
                   <button type="button" class="menu-item" data-menu-action="toggle-wdl">Toggle WDL</button>
+                </div>
+              </div>
+
+              <div class="menu-section">
+                <div class="menu-title">Batch Queue</div>
+                <div class="menu-grid">
+                  <button type="button" class="menu-item" data-menu-action="batch-add-current">Add Current FEN</button>
+                  <button type="button" class="menu-item" data-menu-action="batch-run">Run Batch</button>
+                  <button type="button" class="menu-item" data-menu-action="batch-clear">Clear Queue</button>
+                  <button type="button" class="menu-item" data-menu-action="batch-export-json">Export JSON</button>
+                  <button type="button" class="menu-item" data-menu-action="batch-export-csv">Export CSV</button>
+                </div>
+              </div>
+
+              <div class="menu-section">
+                <div class="menu-title">Reports / Console</div>
+                <div class="menu-grid">
+                  <button type="button" class="menu-item" data-menu-action="apply-thresholds">Apply Thresholds</button>
+                  <button type="button" class="menu-item" data-menu-action="copy-console">Copy Console</button>
+                  <button type="button" class="menu-item" data-menu-action="clear-console">Clear Console</button>
+                  <button type="button" class="menu-item" data-menu-action="download-report">Download Report</button>
+                  <button type="button" class="menu-item" data-menu-action="panel-resign">Resign / Stop</button>
                 </div>
               </div>
             </div>
