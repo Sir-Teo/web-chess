@@ -168,6 +168,12 @@ let analysisActive = false;
 let boardFlipped = false;
 let selectedSquare = null;
 let legalTargets = new Set();
+const boardSquareMap = new Map();
+const boardPieceMap = new Map();
+let selectionHighlightSquares = new Set();
+let bestHighlightSquares = new Set();
+let lastHighlightSquares = new Set();
+let pvHighlightSquares = new Set();
 let lastBestMove = null;
 let autoPlay = false;
 let awaitingBestMoveApply = false;
@@ -1946,6 +1952,12 @@ function renderBoardSquares() {
   const boardEl = $("board");
   if (!boardEl || !game) return;
   boardEl.innerHTML = "";
+  boardSquareMap.clear();
+  boardPieceMap.clear();
+  selectionHighlightSquares = new Set();
+  bestHighlightSquares = new Set();
+  lastHighlightSquares = new Set();
+  pvHighlightSquares = new Set();
 
   const files = boardFlipped ? ["h", "g", "f", "e", "d", "c", "b", "a"] : ["a", "b", "c", "d", "e", "f", "g", "h"];
   const ranks = boardFlipped ? [1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1];
@@ -1960,63 +1972,69 @@ function renderBoardSquares() {
       div.dataset.square = square;
       div.addEventListener("click", () => onSquareClick(square));
       boardEl.appendChild(div);
+      boardSquareMap.set(square, div);
     });
   });
 }
 
 function updateBoardPieces() {
   if (!game) return;
-  const boardEl = $("board");
-  if (!boardEl) return;
-
-  boardEl.querySelectorAll(".square").forEach((squareEl) => {
-    squareEl.innerHTML = "";
-    const square = squareEl.dataset.square;
+  boardSquareMap.forEach((squareEl, square) => {
     const piece = game.get(square);
-    if (piece) {
-      const img = document.createElement("img");
-      img.alt = `${piece.color}${piece.type}`;
-      img.src = `./assets/pieces/${piece.color}${piece.type.toUpperCase()}.png`;
-      squareEl.appendChild(img);
-    }
+    const pieceKey = piece ? `${piece.color}${piece.type.toUpperCase()}` : "";
+    if (boardPieceMap.get(square) === pieceKey) return;
+    boardPieceMap.set(square, pieceKey);
+    squareEl.textContent = "";
+    if (!pieceKey) return;
+    const img = document.createElement("img");
+    img.alt = pieceKey;
+    img.src = `./assets/pieces/${pieceKey}.png`;
+    squareEl.appendChild(img);
   });
 }
 
 function clearSelectionHighlights() {
-  document.querySelectorAll(".square").forEach((sq) => {
+  selectionHighlightSquares.forEach((sq) => {
     sq.classList.remove("selected", "legal", "capture");
   });
+  selectionHighlightSquares.clear();
 }
 
 function clearBestMoveHighlights() {
-  document.querySelectorAll(".square").forEach((sq) => {
+  bestHighlightSquares.forEach((sq) => {
     sq.classList.remove("best-from", "best-to");
   });
+  bestHighlightSquares.clear();
 }
 
 function clearLastMoveHighlights() {
-  document.querySelectorAll(".square").forEach((sq) => {
+  lastHighlightSquares.forEach((sq) => {
     sq.classList.remove("last-from", "last-to");
   });
+  lastHighlightSquares.clear();
 }
 
 function highlightMoves(moves) {
   clearSelectionHighlights();
   if (!moves.length) return;
   const from = moves[0].from;
-  const fromEl = document.querySelector(`.square[data-square='${from}']`);
-  if (fromEl) fromEl.classList.add("selected");
+  const fromEl = boardSquareMap.get(from);
+  if (fromEl) {
+    fromEl.classList.add("selected");
+    selectionHighlightSquares.add(fromEl);
+  }
   legalTargets.clear();
 
   moves.forEach((move) => {
     legalTargets.add(move.to);
-    const targetEl = document.querySelector(`.square[data-square='${move.to}']`);
+    const targetEl = boardSquareMap.get(move.to);
     if (!targetEl) return;
     if (move.captured) {
       targetEl.classList.add("capture");
     } else {
       targetEl.classList.add("legal");
     }
+    selectionHighlightSquares.add(targetEl);
   });
 }
 
@@ -2108,14 +2126,18 @@ function renderMoveList() {
 function highlightLastMove() {
   clearLastMoveHighlights();
   if (!overlayState.last) return;
-  if (!game) return;
-  const history = game.history({ verbose: true });
-  const last = history[history.length - 1];
+  const last = historyVerboseCache[historyPlyCache - 1];
   if (!last) return;
-  const fromEl = document.querySelector(`.square[data-square='${last.from}']`);
-  const toEl = document.querySelector(`.square[data-square='${last.to}']`);
-  if (fromEl) fromEl.classList.add("last-from");
-  if (toEl) toEl.classList.add("last-to");
+  const fromEl = boardSquareMap.get(last.from);
+  const toEl = boardSquareMap.get(last.to);
+  if (fromEl) {
+    fromEl.classList.add("last-from");
+    lastHighlightSquares.add(fromEl);
+  }
+  if (toEl) {
+    toEl.classList.add("last-to");
+    lastHighlightSquares.add(toEl);
+  }
 }
 
 function highlightBestMove(uci) {
@@ -2124,10 +2146,16 @@ function highlightBestMove(uci) {
   if (!uci || uci === "(none)" || uci.length < 4) return;
   const from = uci.slice(0, 2);
   const to = uci.slice(2, 4);
-  const fromEl = document.querySelector(`.square[data-square='${from}']`);
-  const toEl = document.querySelector(`.square[data-square='${to}']`);
-  if (fromEl) fromEl.classList.add("best-from");
-  if (toEl) toEl.classList.add("best-to");
+  const fromEl = boardSquareMap.get(from);
+  const toEl = boardSquareMap.get(to);
+  if (fromEl) {
+    fromEl.classList.add("best-from");
+    bestHighlightSquares.add(fromEl);
+  }
+  if (toEl) {
+    toEl.classList.add("best-to");
+    bestHighlightSquares.add(toEl);
+  }
 }
 
 function highlightPvLine(pv) {
@@ -2139,27 +2167,30 @@ function highlightPvLine(pv) {
     if (move.length < 4) return;
     const from = move.slice(0, 2);
     const to = move.slice(2, 4);
-    const fromEl = document.querySelector(`.square[data-square='${from}']`);
-    const toEl = document.querySelector(`.square[data-square='${to}']`);
+    const fromEl = boardSquareMap.get(from);
+    const toEl = boardSquareMap.get(to);
     if (fromEl) {
       fromEl.classList.add("pv-from");
       fromEl.dataset.pvStep = idx;
       fromEl.style.setProperty("--pv-step", idx);
+      pvHighlightSquares.add(fromEl);
     }
     if (toEl) {
       toEl.classList.add("pv-to");
       toEl.dataset.pvStep = idx;
       toEl.style.setProperty("--pv-step", idx);
+      pvHighlightSquares.add(toEl);
     }
   });
 }
 
 function clearPvHighlights() {
-  document.querySelectorAll(".square.pv-from, .square.pv-to").forEach((sq) => {
+  pvHighlightSquares.forEach((sq) => {
     sq.classList.remove("pv-from", "pv-to");
     sq.removeAttribute("data-pv-step");
     sq.style.removeProperty("--pv-step");
   });
+  pvHighlightSquares.clear();
 }
 
 function restoreHighlights() {
@@ -2214,15 +2245,17 @@ function stepPv(direction) {
   const move = pvPlaybackMoves[pvPlaybackIndex];
   const from = move.slice(0, 2);
   const to = move.slice(2, 4);
-  const fromEl = document.querySelector(`.square[data-square='${from}']`);
-  const toEl = document.querySelector(`.square[data-square='${to}']`);
+  const fromEl = boardSquareMap.get(from);
+  const toEl = boardSquareMap.get(to);
   if (fromEl) {
     fromEl.classList.add("pv-from");
     fromEl.style.setProperty("--pv-step", pvPlaybackIndex);
+    pvHighlightSquares.add(fromEl);
   }
   if (toEl) {
     toEl.classList.add("pv-to");
     toEl.style.setProperty("--pv-step", pvPlaybackIndex);
+    pvHighlightSquares.add(toEl);
   }
 }
 
