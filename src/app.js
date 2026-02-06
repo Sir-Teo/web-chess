@@ -1624,7 +1624,9 @@ btnCopyConsole.addEventListener("click", () => {
 });
 
 btnClearConsole.addEventListener("click", () => {
-  consoleEl.textContent = "";
+  consoleLines.length = 0;
+  consoleDirty = true;
+  scheduleUI();
 });
 
 btnDownloadReport.addEventListener("click", () => {
@@ -2048,6 +2050,10 @@ function playPvPreview() {
   if (!overlayState.pv) return;
   const line = pvLines.get(1);
   if (!line || !line.pv) return;
+  if (pvPlaybackTimer) {
+    clearInterval(pvPlaybackTimer);
+    pvPlaybackTimer = null;
+  }
   pvPlaybackMoves = line.pv.split(/\s+/).filter((m) => m.length >= 4);
   if (!pvPlaybackMoves.length) return;
   pvPlaybackIndex = -1;
