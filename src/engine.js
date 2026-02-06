@@ -42,6 +42,7 @@ const THREADS_FALLBACK = {
   standard: "standard-single",
   lite: "lite-single",
 };
+const preloadPromises = new Map();
 
 const resolveAssetUrl = (assetPath) => {
   if (typeof window !== "undefined" && window.location) {
@@ -245,9 +246,7 @@ export function threadsAvailable() {
   return canUseThreads();
 }
 
-export function preloadEngineAssets(variantKey = "auto") {
-  const resolvedKey = resolveEngineSpecKey(variantKey);
-  const spec = ENGINE_SPECS[resolvedKey] || ENGINE_SPECS["standard-single"];
+function collectSpecAssetUrls(spec) {
   const urls = [spec.js];
   if (spec.wasm) {
     if (spec.parts && spec.parts > 0) {
@@ -259,7 +258,31 @@ export function preloadEngineAssets(variantKey = "auto") {
       urls.push(spec.wasm);
     }
   }
-  return Promise.all(
-    urls.map((url) => fetch(resolveAssetUrl(url)).catch(() => null))
+  return urls;
+}
+
+export function preloadEngineAssets(variantKey = "auto", options = {}) {
+  const resolvedKey = resolveEngineSpecKey(variantKey);
+  if (preloadPromises.has(resolvedKey)) {
+    return preloadPromises.get(resolvedKey);
+  }
+  const spec = ENGINE_SPECS[resolvedKey] || ENGINE_SPECS["standard-single"];
+  const urls = collectSpecAssetUrls(spec);
+  const fetchOptions = options.background
+    ? { credentials: "same-origin", cache: "force-cache", priority: "low" }
+    : { credentials: "same-origin", cache: "default" };
+  const preloadPromise = Promise.all(
+    urls.map((url) => fetch(resolveAssetUrl(url), fetchOptions).catch(() => null))
   );
+  preloadPromises.set(resolvedKey, preloadPromise);
+  return preloadPromise;
+}
+
+export function queueEngineAssetPreload(variantKey = "auto") {
+  const schedule = typeof self !== "undefined" && typeof self.requestIdleCallback === "function"
+    ? self.requestIdleCallback.bind(self)
+    : (callback) => setTimeout(callback, 0);
+  schedule(() => {
+    preloadEngineAssets(variantKey, { background: true }).catch(() => {});
+  });
 }

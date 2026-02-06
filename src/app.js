@@ -1,4 +1,4 @@
-import { EngineController, threadsAvailable, preloadEngineAssets } from "./engine.js";
+import { EngineController, threadsAvailable, queueEngineAssetPreload } from "./engine.js";
 import { formatScore, scoreToPercent } from "./uci.js";
 
 const $ = (id) => document.getElementById(id);
@@ -212,7 +212,6 @@ const EVAL_SAMPLE_INTERVAL_MS = 80;
 const MOVE_META_UPDATE_INTERVAL_MS = 220;
 let performanceMode = "max";
 let engineRecoveryAttempt = 0;
-let engineLoadRequest = 0;
 let lastEvalSampleTime = Number.NEGATIVE_INFINITY;
 let lastEvalSampleDepth = -1;
 let lastMoveMetaUpdateTime = Number.NEGATIVE_INFINITY;
@@ -1140,8 +1139,7 @@ function updateEngineWarning() {
   }
 }
 
-async function loadSelectedEngine(key = engineSelect?.value || "auto") {
-  const requestId = ++engineLoadRequest;
+function loadSelectedEngine(key = engineSelect?.value || "auto") {
   if (engineSelect && engineSelect.value !== key) {
     engineSelect.value = key;
   }
@@ -1150,15 +1148,11 @@ async function loadSelectedEngine(key = engineSelect?.value || "auto") {
   engineThreads.textContent = spec.threads ? "auto" : "1";
   engineHash.textContent = "—";
   optionState.clear();
-  engineWarning.textContent = `Loading ${spec.label} assets...`;
-  try {
-    await preloadEngineAssets(key);
-  } catch (err) {
-    // Best-effort preload only; engine load should still continue.
-  }
-  if (requestId !== engineLoadRequest) return;
-  engine.load(key);
+  engineWarning.textContent = `Loading ${spec.label}...`;
+  queueEngineAssetPreload(key);
+  const loadPromise = engine.load(key);
   updateEngineWarning();
+  return loadPromise;
 }
 
 function clampOptionValue(option, value) {
