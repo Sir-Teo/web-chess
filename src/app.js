@@ -126,7 +126,12 @@ const perftInput = $("perft-input");
 const btnMenu = $("btn-menu");
 const btnView = $("btn-view");
 const btnAnalyzePill = $("btn-analyze-pill");
-const btnActions = $("btn-actions");
+const btnSettings = $("btn-settings");
+const menuView = $("menu-view");
+const menuSettings = $("menu-settings");
+const menuToggleBest = $("menu-toggle-best");
+const menuToggleLast = $("menu-toggle-last");
+const menuTogglePv = $("menu-toggle-pv");
 const btnPanelPlay = $("btn-panel-play");
 const btnPanelAnalysis = $("btn-panel-analysis");
 const btnPanelUndo = $("btn-panel-undo");
@@ -255,6 +260,167 @@ const setAnalyzePillState = (active) => {
   if (label) label.textContent = active ? "Stop" : "Analyze";
 };
 
+const setPanelMode = (mode) => {
+  if (!btnPanelPlay || !btnPanelAnalysis) return;
+  btnPanelPlay.classList.toggle("active", mode === "play");
+  btnPanelAnalysis.classList.toggle("active", mode === "analysis");
+};
+
+let activeMenuName = "";
+
+const closeHeaderMenus = () => {
+  activeMenuName = "";
+  const items = [
+    [btnView, menuView],
+    [btnSettings, menuSettings],
+  ];
+  items.forEach(([button, menu]) => {
+    if (button) {
+      button.classList.remove("is-open");
+      button.setAttribute("aria-expanded", "false");
+    }
+    if (menu) menu.classList.remove("is-open");
+  });
+};
+
+const openHeaderMenu = (name) => {
+  closeHeaderMenus();
+  if (name === "view" && btnView && menuView) {
+    btnView.classList.add("is-open");
+    btnView.setAttribute("aria-expanded", "true");
+    menuView.classList.add("is-open");
+    activeMenuName = name;
+    return;
+  }
+  if (name === "settings" && btnSettings && menuSettings) {
+    btnSettings.classList.add("is-open");
+    btnSettings.setAttribute("aria-expanded", "true");
+    menuSettings.classList.add("is-open");
+    activeMenuName = name;
+  }
+};
+
+const toggleHeaderMenu = (name) => {
+  if (activeMenuName === name) {
+    closeHeaderMenus();
+    return;
+  }
+  openHeaderMenu(name);
+};
+
+const syncMenuToggle = (menuInput, baseInput) => {
+  if (!menuInput || !baseInput) return;
+  menuInput.checked = baseInput.checked;
+  menuInput.addEventListener("change", () => {
+    if (menuInput.checked === baseInput.checked) return;
+    baseInput.checked = menuInput.checked;
+    baseInput.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  baseInput.addEventListener("change", () => {
+    if (menuInput.checked !== baseInput.checked) {
+      menuInput.checked = baseInput.checked;
+    }
+  });
+};
+
+const menuActionTargets = {
+  "new-game": btnNew,
+  "flip-board": btnFlip,
+  undo: btnUndo,
+  redo: btnRedo,
+  "load-engine": btnEngineLoad,
+  "preload-engine": btnPreloadEngine,
+  "is-ready": btnIsReady,
+  "new-search": btnUciNew,
+  "ponder-hit": btnPonderHit,
+  "clear-hash": btnClearHash,
+  "go-infinite": btnAnalyze,
+  "stop-search": btnStop,
+  "go-depth": btnGoDepth,
+  "go-time": btnGoTime,
+  "go-nodes": btnGoNodes,
+  "go-mate": btnGoMate,
+  "go-clock": btnGoClock,
+  "play-best": btnPlayBest,
+  "toggle-autoplay": btnAutoPlay,
+  "panel-undo": btnPanelUndo,
+  "panel-ai": btnPanelAi,
+  "eval-trace": btnEval,
+  "display-board": btnDisplay,
+  "compiler-info": btnCompiler,
+  "run-perft": btnPerft,
+  "flip-engine": btnFlipEngine,
+  "refresh-options": btnRefreshOptions,
+  "max-performance": btnMaxPerf,
+  "apply-threads": btnQuickThreads,
+  "apply-hash": btnQuickHash,
+  "apply-multipv": btnQuickMultiPv,
+  "apply-nnue": btnQuickNnue,
+  "max-strength": btnSkillBoost,
+  "limit-strength": btnSkillLimit,
+  "apply-strength": btnApplyStrength,
+  "apply-syzygy": btnApplySyzygy,
+  "toggle-chess960": btnChess960,
+  "toggle-wdl": btnShowWdl,
+};
+
+function initHeaderMenus() {
+  if (btnView) {
+    btnView.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleHeaderMenu("view");
+    });
+  }
+
+  if (btnSettings) {
+    btnSettings.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleHeaderMenu("settings");
+    });
+  }
+
+  document.querySelectorAll("[data-menu-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const action = button.dataset.menuAction;
+      if (!action) return;
+      if (action === "panel-play") {
+        setPanelMode("play");
+        closeHeaderMenus();
+        return;
+      }
+      if (action === "panel-analysis") {
+        setPanelMode("analysis");
+        closeHeaderMenus();
+        return;
+      }
+      const target = menuActionTargets[action];
+      if (target) triggerButton(target);
+      closeHeaderMenus();
+    });
+  });
+
+  document.querySelectorAll(".topbar-menu [data-panel-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      closeHeaderMenus();
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (target.closest(".menu-wrap")) return;
+    closeHeaderMenus();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeHeaderMenus();
+  });
+
+  syncMenuToggle(menuToggleBest, toggleBest);
+  syncMenuToggle(menuToggleLast, toggleLast);
+  syncMenuToggle(menuTogglePv, togglePv);
+}
+
 function initPanelToggles() {
   const buttons = document.querySelectorAll("[data-panel-toggle]");
   const saved = (() => {
@@ -306,7 +472,7 @@ function initPanelToggles() {
   });
 
   Object.entries(saved).forEach(([key, collapsed]) => {
-    applyState(key, collapsed);
+    if (groups.has(key)) applyState(key, collapsed);
   });
 
   buttons.forEach((btn) => {
@@ -1135,23 +1301,10 @@ if (btnMenu) {
   });
 }
 
-if (btnView) {
-  btnView.addEventListener("click", () => {
-    const toggle = document.querySelector("[data-panel-toggle='bottom']");
-    if (toggle instanceof HTMLElement) toggle.click();
-  });
-}
-
 if (btnAnalyzePill) {
   btnAnalyzePill.addEventListener("click", () => {
     if (analysisActive) stopAnalysis();
     else startAnalysis("infinite");
-  });
-}
-
-if (btnActions) {
-  btnActions.addEventListener("click", () => {
-    triggerButton(btnPlayBest);
   });
 }
 
@@ -1175,10 +1328,6 @@ if (btnPanelResign) {
 }
 
 if (btnPanelPlay && btnPanelAnalysis) {
-  const setPanelMode = (mode) => {
-    btnPanelPlay.classList.toggle("active", mode === "play");
-    btnPanelAnalysis.classList.toggle("active", mode === "analysis");
-  };
   btnPanelPlay.addEventListener("click", () => setPanelMode("play"));
   btnPanelAnalysis.addEventListener("click", () => setPanelMode("analysis"));
 }
@@ -2288,6 +2437,8 @@ function initBoard() {
 }
 
 initPanelToggles();
+initHeaderMenus();
+setPanelMode("play");
 ensureChessReady().then((ready) => {
   if (ready) {
     initGame();

@@ -237,6 +237,7 @@ textarea:focus {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .topbar-pill {
@@ -251,6 +252,12 @@ textarea:focus {
 .topbar-pill:hover {
   background: var(--ui-surface-2);
   color: var(--ui-text);
+}
+
+.topbar-pill.is-open {
+  background: var(--ui-surface-2);
+  color: var(--ui-text);
+  border-color: var(--ui-border-strong);
 }
 
 .topbar-pill.accent {
@@ -275,6 +282,97 @@ textarea:focus {
   border-radius: 999px;
   background: var(--ui-accent);
   display: inline-block;
+}
+
+.menu-wrap {
+  position: relative;
+}
+
+.topbar-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(360px, 88vw);
+  max-height: min(68vh, 620px);
+  overflow: auto;
+  display: none;
+  z-index: 30;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--ui-border-strong);
+  background: linear-gradient(180deg, rgba(20, 31, 54, 0.98), rgba(14, 23, 40, 0.98));
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.45);
+}
+
+.topbar-menu.is-open {
+  display: grid;
+  gap: 10px;
+}
+
+.menu-section {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.menu-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.menu-title {
+  color: var(--ui-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.menu-grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.topbar-menu .menu-item {
+  width: 100%;
+  border-radius: 7px;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  padding: 7px 9px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.topbar-menu .menu-item:hover {
+  color: var(--ui-text);
+  background: var(--ui-surface-2);
+}
+
+.topbar-menu .menu-item.is-off {
+  opacity: 0.62;
+  border-color: var(--ui-border-strong);
+}
+
+.menu-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.menu-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
 }
 
 
@@ -1325,7 +1423,7 @@ body.collapsed-bottom .panel-bottom {
 
 @media (max-width: 900px) {
   .topbar-tools {
-    display: none;
+    width: 100%;
   }
 
   .grid-two {
@@ -1422,5 +1520,13 @@ body.collapsed-bottom .panel-bottom {
 
   .chart {
     height: 150px;
+  }
+
+  .topbar-menu {
+    width: min(340px, 92vw);
+  }
+
+  .menu-grid {
+    grid-template-columns: 1fr;
   }
 }

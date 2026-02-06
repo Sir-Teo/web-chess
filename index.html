@@ -31,15 +31,111 @@
           <div class="metric-pill danger">Δ 0.1</div>
         </div>
         <div class="topbar-tools">
-          <button type="button" class="topbar-pill" id="btn-view">View ▾</button>
+          <div class="menu-wrap">
+            <button type="button" class="topbar-pill" id="btn-view" aria-haspopup="menu" aria-expanded="false" aria-controls="menu-view">View ▾</button>
+            <div class="topbar-menu" id="menu-view" role="menu" aria-label="View menu">
+              <div class="menu-section">
+                <div class="menu-title">Panels</div>
+                <button type="button" class="menu-item" data-panel-toggle="left" data-label="Left Panel">Left Panel: On</button>
+                <button type="button" class="menu-item" data-panel-toggle="right" data-label="Right Panel">Right Panel: On</button>
+                <button type="button" class="menu-item" data-panel-toggle="bottom" data-label="Analysis Panel">Analysis Panel: On</button>
+              </div>
+
+              <div class="menu-section">
+                <div class="menu-title">Board</div>
+                <div class="menu-grid">
+                  <button type="button" class="menu-item" data-menu-action="new-game">New Game</button>
+                  <button type="button" class="menu-item" data-menu-action="flip-board">Flip Board</button>
+                  <button type="button" class="menu-item" data-menu-action="undo">Undo Move</button>
+                  <button type="button" class="menu-item" data-menu-action="redo">Redo Move</button>
+                </div>
+              </div>
+
+              <div class="menu-section">
+                <div class="menu-title">Overlays</div>
+                <label class="menu-check"><input id="menu-toggle-best" type="checkbox" checked /> Best Move</label>
+                <label class="menu-check"><input id="menu-toggle-last" type="checkbox" checked /> Last Move</label>
+                <label class="menu-check"><input id="menu-toggle-pv" type="checkbox" checked /> PV Preview</label>
+              </div>
+
+              <div class="menu-section">
+                <div class="menu-title">Right Panel Mode</div>
+                <div class="menu-grid">
+                  <button type="button" class="menu-item" data-menu-action="panel-play">Play</button>
+                  <button type="button" class="menu-item" data-menu-action="panel-analysis">Analysis</button>
+                </div>
+              </div>
+            </div>
+          </div>
           <button type="button" class="topbar-pill accent" id="btn-analyze-pill" aria-pressed="false"><span class="dot"></span><span class="label">Analyze</span></button>
-          <button type="button" class="topbar-pill" id="btn-actions">Actions ▾</button>
-        </div>
-        <div class="panel-toggles" role="group" aria-label="Panel visibility">
-          <button class="toggle-btn" data-panel-toggle="top" data-label="Top">Top: On</button>
-          <button class="toggle-btn" data-panel-toggle="left" data-label="Left">Left: On</button>
-          <button class="toggle-btn" data-panel-toggle="right" data-label="Right">Right: On</button>
-          <button class="toggle-btn" data-panel-toggle="bottom" data-label="Bottom">Bottom: On</button>
+          <div class="menu-wrap">
+            <button type="button" class="topbar-pill" id="btn-settings" aria-haspopup="menu" aria-expanded="false" aria-controls="menu-settings">Settings ▾</button>
+            <div class="topbar-menu" id="menu-settings" role="menu" aria-label="Settings menu">
+              <div class="menu-section">
+                <div class="menu-title">Engine</div>
+                <div class="menu-grid">
+                  <button type="button" class="menu-item" data-menu-action="load-engine">Load Engine</button>
+                  <button type="button" class="menu-item" data-menu-action="preload-engine">Preload Assets</button>
+                  <button type="button" class="menu-item" data-menu-action="is-ready">Is Ready</button>
+                  <button type="button" class="menu-item" data-menu-action="new-search">New Search</button>
+                  <button type="button" class="menu-item" data-menu-action="ponder-hit">Ponder Hit</button>
+                  <button type="button" class="menu-item" data-menu-action="clear-hash">Clear Hash</button>
+                </div>
+              </div>
+
+              <div class="menu-section">
+                <div class="menu-title">Search</div>
+                <div class="menu-grid">
+                  <button type="button" class="menu-item" data-menu-action="go-infinite">Go Infinite</button>
+                  <button type="button" class="menu-item" data-menu-action="stop-search">Stop</button>
+                  <button type="button" class="menu-item" data-menu-action="go-depth">Go Depth</button>
+                  <button type="button" class="menu-item" data-menu-action="go-time">Go Time</button>
+                  <button type="button" class="menu-item" data-menu-action="go-nodes">Go Nodes</button>
+                  <button type="button" class="menu-item" data-menu-action="go-mate">Go Mate</button>
+                  <button type="button" class="menu-item" data-menu-action="go-clock">Go Clock</button>
+                </div>
+              </div>
+
+              <div class="menu-section">
+                <div class="menu-title">Play</div>
+                <div class="menu-grid">
+                  <button type="button" class="menu-item" data-menu-action="play-best">Play Best Move</button>
+                  <button type="button" class="menu-item" data-menu-action="toggle-autoplay">Auto Play On/Off</button>
+                  <button type="button" class="menu-item" data-menu-action="panel-undo">Panel Undo</button>
+                  <button type="button" class="menu-item" data-menu-action="panel-ai">Panel AI Move</button>
+                </div>
+              </div>
+
+              <div class="menu-section">
+                <div class="menu-title">Diagnostics</div>
+                <div class="menu-grid">
+                  <button type="button" class="menu-item" data-menu-action="eval-trace">Eval Trace</button>
+                  <button type="button" class="menu-item" data-menu-action="display-board">Display</button>
+                  <button type="button" class="menu-item" data-menu-action="compiler-info">Compiler</button>
+                  <button type="button" class="menu-item" data-menu-action="run-perft">Perft</button>
+                  <button type="button" class="menu-item" data-menu-action="flip-engine">Flip Engine</button>
+                  <button type="button" class="menu-item" data-menu-action="refresh-options">Refresh UCI</button>
+                </div>
+              </div>
+
+              <div class="menu-section">
+                <div class="menu-title">Tuning</div>
+                <div class="menu-grid">
+                  <button type="button" class="menu-item" data-menu-action="max-performance">Max Performance</button>
+                  <button type="button" class="menu-item" data-menu-action="apply-threads">Apply Threads</button>
+                  <button type="button" class="menu-item" data-menu-action="apply-hash">Apply Hash</button>
+                  <button type="button" class="menu-item" data-menu-action="apply-multipv">Apply MultiPV</button>
+                  <button type="button" class="menu-item" data-menu-action="apply-nnue">Apply NNUE</button>
+                  <button type="button" class="menu-item" data-menu-action="max-strength">Max Strength</button>
+                  <button type="button" class="menu-item" data-menu-action="limit-strength">Limit Strength</button>
+                  <button type="button" class="menu-item" data-menu-action="apply-strength">Apply Strength</button>
+                  <button type="button" class="menu-item" data-menu-action="apply-syzygy">Apply Tablebases</button>
+                  <button type="button" class="menu-item" data-menu-action="toggle-chess960">Toggle Chess960</button>
+                  <button type="button" class="menu-item" data-menu-action="toggle-wdl">Toggle WDL</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </header>
