@@ -97,8 +97,6 @@
               <div class="menu-section">
                 <div class="menu-title">Engine</div>
                 <div class="menu-grid">
-                  <button type="button" class="menu-item" data-menu-action="load-engine">Load Engine</button>
-                  <button type="button" class="menu-item" data-menu-action="preload-engine">Preload Assets</button>
                   <button type="button" class="menu-item" data-menu-action="is-ready">Is Ready</button>
                   <button type="button" class="menu-item" data-menu-action="new-search">New Search</button>
                   <button type="button" class="menu-item" data-menu-action="ponder-hit">Ponder Hit</button>
@@ -319,20 +317,15 @@
             <div class="panel-section-content">
               <div class="section">
                 <div class="label">Engine Variant</div>
-                <div class="grid-two">
-                  <select id="engine-select">
-                    <option value="auto">Auto (fastest available)</option>
-                    <option value="standard">Standard (multi-threaded)</option>
-                    <option value="standard-single">Standard (single-threaded)</option>
-                    <option value="lite">Lite (multi-threaded)</option>
-                    <option value="lite-single">Lite (single-threaded)</option>
-                    <option value="asm">ASM.js fallback</option>
-                  </select>
-                  <button id="btn-engine-load" class="primary">Load Engine</button>
-                </div>
-                <div class="controls">
-                  <button class="secondary" id="btn-preload-engine">Preload Engine Assets</button>
-                </div>
+                <select id="engine-select">
+                  <option value="auto">Auto (fastest available)</option>
+                  <option value="standard">Standard (multi-threaded)</option>
+                  <option value="standard-single">Standard (single-threaded)</option>
+                  <option value="lite">Lite (multi-threaded)</option>
+                  <option value="lite-single">Lite (single-threaded)</option>
+                  <option value="asm">ASM.js fallback</option>
+                </select>
+                <div class="notice">Engine assets now preload and load automatically when you change variant.</div>
               </div>
 
               <div class="section">

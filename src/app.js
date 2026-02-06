@@ -54,8 +54,6 @@ const kpiWdl = $("kpi-wdl");
 const kpiHashfull = $("kpi-hashfull");
 
 const engineSelect = $("engine-select");
-const btnEngineLoad = $("btn-engine-load");
-const btnPreloadEngine = $("btn-preload-engine");
 const btnAnalyze = $("btn-analyze");
 const btnStop = $("btn-stop");
 const btnIsReady = $("btn-isready");
@@ -202,6 +200,7 @@ const pvNodeMap = new Map();
 const ENGINE_RECOVERY_LIMIT = 2;
 let performanceMode = "max";
 let engineRecoveryAttempt = 0;
+let engineLoadRequest = 0;
 
 const isTypingTarget = (target) => {
   if (!target) return false;
@@ -339,8 +338,6 @@ const menuActionTargets = {
   "pv-prev": btnPvPrev,
   "pv-next": btnPvNext,
   "pv-stop": btnPvStop,
-  "load-engine": btnEngineLoad,
-  "preload-engine": btnPreloadEngine,
   "is-ready": btnIsReady,
   "new-search": btnUciNew,
   "ponder-hit": btnPonderHit,
@@ -681,10 +678,11 @@ function uciLineToSan(pv, baseFen = "") {
 function addEvalSample(info) {
   if (!info.score) return;
   const cp = info.score.type === "mate" ? (info.score.value > 0 ? 10000 : -10000) : info.score.value;
-  const time = typeof info.time === "number" ? info.time : Math.round(performance.now() - analysisStart);
+  const previousTime = evalHistory.length ? evalHistory[evalHistory.length - 1].time : 0;
+  const rawTime = typeof info.time === "number" ? info.time : Math.round(performance.now() - analysisStart);
+  const time = Math.max(previousTime + 1, rawTime);
   const side = getSideToMove();
-  const wdl = info.wdl || latestInfo.wdl;
-  const winrate = wdlToWinrate(wdl, side) ?? scoreToWinrate(info.score, side);
+  const winrate = scoreToWinrate(info.score, side);
   evalHistory.push({ time, cp, depth: info.depth || 0, win: winrate });
   if (evalHistory.length > 240) {
     evalHistory = evalHistory.slice(-240);
@@ -705,17 +703,6 @@ function getSideToMove() {
   if (!fen || fen === "startpos") return "w";
   const parts = fen.split(/\s+/);
   return parts[1] === "b" ? "b" : "w";
-}
-
-function wdlToWinrate(wdl, side) {
-  if (!wdl) return null;
-  const w = Number(wdl.w);
-  const d = Number(wdl.d);
-  const l = Number(wdl.l);
-  const total = w + d + l;
-  if (!Number.isFinite(total) || total <= 0) return null;
-  const stmWin = ((w + d * 0.5) / total) * 100;
-  return side === "w" ? stmWin : 100 - stmWin;
 }
 
 function scoreToWinrate(score, side) {
@@ -1033,6 +1020,27 @@ function updateEngineWarning() {
   }
 }
 
+async function loadSelectedEngine(key = engineSelect?.value || "auto") {
+  const requestId = ++engineLoadRequest;
+  if (engineSelect && engineSelect.value !== key) {
+    engineSelect.value = key;
+  }
+  const spec = engine.resolveSpec(key);
+  engineVariant.textContent = spec.label;
+  engineThreads.textContent = spec.threads ? "auto" : "1";
+  engineHash.textContent = "—";
+  optionState.clear();
+  engineWarning.textContent = `Loading ${spec.label} assets...`;
+  try {
+    await preloadEngineAssets(key);
+  } catch (err) {
+    // Best-effort preload only; engine load should still continue.
+  }
+  if (requestId !== engineLoadRequest) return;
+  engine.load(key);
+  updateEngineWarning();
+}
+
 function clampOptionValue(option, value) {
   if (!option) return value;
   const min = typeof option.min === "number" ? option.min : value;
@@ -1207,13 +1215,7 @@ function recoverFromEngineError(message) {
   const currentKey = engineSelect.value || "auto";
   const fallbackKey = pickRecoveryVariant(currentKey);
   engineWarning.textContent = "Engine ran out of memory. Reloading with safe settings...";
-  engineSelect.value = fallbackKey;
-  optionState.clear();
-  engine.load(fallbackKey);
-  const spec = engine.resolveSpec(fallbackKey);
-  engineVariant.textContent = spec.label;
-  engineThreads.textContent = spec.threads ? "auto" : "1";
-  engineHash.textContent = "—";
+  loadSelectedEngine(fallbackKey).catch(() => {});
   return true;
 }
 
@@ -1295,24 +1297,8 @@ engine.on("error", (err) => {
   }
 });
 
-btnEngineLoad.addEventListener("click", () => {
-  const key = engineSelect.value;
-  optionState.clear();
-  engine.load(key);
-  const spec = engine.resolveSpec(key);
-  engineVariant.textContent = spec.label;
-  engineThreads.textContent = spec.threads ? "auto" : "1";
-  engineHash.textContent = "—";
-  updateEngineWarning();
-});
-
-btnPreloadEngine.addEventListener("click", async () => {
-  const key = engineSelect.value;
-  btnPreloadEngine.disabled = true;
-  engineWarning.textContent = "Preloading engine assets...";
-  await preloadEngineAssets(key);
-  engineWarning.textContent = "Engine assets cached.";
-  btnPreloadEngine.disabled = false;
+engineSelect.addEventListener("change", () => {
+  loadSelectedEngine(engineSelect.value).catch(() => {});
 });
 
 if (btnMenu) {
@@ -2266,13 +2252,7 @@ function handleGlobalHotkeys(event) {
 
   if (ctrl && shift && keyLower === "l") {
     event.preventDefault();
-    triggerButton(btnEngineLoad);
-    return;
-  }
-
-  if (ctrl && shift && keyLower === "p") {
-    event.preventDefault();
-    triggerButton(btnPreloadEngine);
+    loadSelectedEngine(engineSelect.value || "auto").catch(() => {});
     return;
   }
 
@@ -2470,8 +2450,9 @@ ensureChessReady().then((ready) => {
 updateEngineWarning();
 optionState.clear();
 engineSelect.value = "lite";
-engine.load("lite");
-engineVariant.textContent = engine.resolveSpec("lite").label;
+loadSelectedEngine("lite").catch(() => {
+  engineWarning.textContent = "Engine failed to auto-load.";
+});
 overlayState = {
   best: toggleBest.checked,
   last: toggleLast.checked,
