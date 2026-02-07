@@ -213,6 +213,7 @@ const EVAL_SAMPLE_INTERVAL_MS = 80;
 const MOVE_META_UPDATE_INTERVAL_MS = 220;
 const CONSOLE_MAX_LINES = 500;
 const CONSOLE_FLUSH_INTERVAL_MS = 250;
+const OPTIONS_FILTER_DEBOUNCE_MS = 120;
 let performanceMode = "max";
 let engineRecoveryAttempt = 0;
 let lastEvalSampleTime = Number.NEGATIVE_INFINITY;
@@ -222,6 +223,7 @@ let lastMoveMetaDepth = -1;
 let consoleFlushTimer = null;
 let consoleNeedsFullRender = true;
 let consoleRenderedLineCount = 0;
+let optionsFilterTimer = null;
 
 function resolveBatchAnalysis(patch = {}) {
   if (!batchResolver || !batchCurrent) return false;
@@ -984,14 +986,23 @@ function renderWinrateChart() {
   renderWinrateChartTo(winrateChartLeft);
 }
 
+function applyOptionsFilter() {
+  const filter = optionsFilter?.value?.trim().toLowerCase() || "";
+  if (!optionsEl) return;
+  optionsEl.querySelectorAll(".option-card").forEach((card) => {
+    const name = card.dataset.optionName || "";
+    card.hidden = Boolean(filter) && !name.includes(filter);
+  });
+}
+
 function buildOptions() {
   optionsEl.innerHTML = "";
-  const filter = optionsFilter?.value?.trim().toLowerCase() || "";
-  const options = [...engine.options.values()].filter((opt) => !filter || opt.name.toLowerCase().includes(filter));
+  const options = [...engine.options.values()];
   options.sort((a, b) => a.name.localeCompare(b.name));
   options.forEach((opt) => {
     const card = document.createElement("div");
     card.className = "option-card";
+    card.dataset.optionName = opt.name.toLowerCase();
     const label = document.createElement("div");
     label.className = "label";
     label.textContent = opt.name;
@@ -1050,6 +1061,7 @@ function buildOptions() {
     optionsEl.appendChild(card);
   });
 
+  applyOptionsFilter();
   refreshQuickOptions();
 }
 
@@ -1390,10 +1402,10 @@ engine.on("option", () => {
   // defer rendering until uciok
 });
 engine.on("uciok", () => {
+  if (optionsFilter) optionsFilter.value = "";
   buildOptions();
   applyPerformanceProfile();
   engine.send("isready");
-  if (optionsFilter) optionsFilter.value = "";
 });
 engine.on("readyok", () => {
   engineWarning.textContent = "Engine ready for commands.";
@@ -1677,7 +1689,13 @@ btnRefreshOptions.addEventListener("click", () => {
 });
 
 optionsFilter.addEventListener("input", () => {
-  buildOptions();
+  if (optionsFilterTimer) {
+    clearTimeout(optionsFilterTimer);
+  }
+  optionsFilterTimer = setTimeout(() => {
+    optionsFilterTimer = null;
+    applyOptionsFilter();
+  }, OPTIONS_FILTER_DEBOUNCE_MS);
 });
 
 btnMaxPerf.addEventListener("click", () => {
