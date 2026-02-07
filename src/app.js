@@ -725,11 +725,10 @@ function updateEvalBar() {
 
 function renderPvLines() {
   const sorted = [...pvLines.values()].sort((a, b) => (a.multipv || 1) - (b.multipv || 1));
-  const fragment = document.createDocumentFragment();
   const baseFen = currentFen();
   const cachePrefix = `${baseFen}::`;
   const seen = new Set();
-  sorted.forEach((line) => {
+  sorted.forEach((line, index) => {
     const key = line.multipv || 1;
     let node = pvNodeMap.get(key);
     if (!node) {
@@ -781,13 +780,15 @@ function renderPvLines() {
     } else {
       node.san.textContent = "";
     }
-    fragment.appendChild(node.row);
+    const anchor = pvLinesEl.children[index] || null;
+    if (node.row !== anchor) {
+      pvLinesEl.insertBefore(node.row, anchor);
+    }
     seen.add(key);
   });
-  pvLinesEl.innerHTML = "";
-  pvLinesEl.appendChild(fragment);
-  for (const key of pvNodeMap.keys()) {
+  for (const [key, node] of pvNodeMap.entries()) {
     if (!seen.has(key)) {
+      node.row.remove();
       pvNodeMap.delete(key);
     }
   }
