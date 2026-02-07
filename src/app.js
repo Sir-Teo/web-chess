@@ -250,6 +250,8 @@ let pgnDirty = true;
 let pgnSyncTimer = null;
 let batchRowId = 0;
 const batchNodeMap = new Map();
+let engineLoadPromise = null;
+let deferredEngineKey = "auto";
 
 function resolveBatchAnalysis(patch = {}) {
   if (!batchResolver || !batchCurrent) return false;
@@ -1372,6 +1374,11 @@ function refreshQuickOptions() {
 }
 
 function updateEngineWarning() {
+  if (!engine.worker) {
+    const selected = engineVariant?.textContent || "selected variant";
+    engineWarning.textContent = `Engine idle. ${selected} will load on first command.`;
+    return;
+  }
   const usingThreads = engine.supportsThreads;
   const secureContext = typeof window !== "undefined"
     && typeof window.isSecureContext === "boolean"
@@ -1389,6 +1396,7 @@ function updateEngineWarning() {
 }
 
 function loadSelectedEngine(key = engineSelect?.value || "auto") {
+  deferredEngineKey = key;
   if (engineSelect && engineSelect.value !== key) {
     engineSelect.value = key;
   }
@@ -1402,6 +1410,28 @@ function loadSelectedEngine(key = engineSelect?.value || "auto") {
   const loadPromise = engine.load(key);
   updateEngineWarning();
   return loadPromise;
+}
+
+function loadEngineAndTrack(key = engineSelect?.value || deferredEngineKey || "auto") {
+  const pending = loadSelectedEngine(key)
+    .then(() => true)
+    .catch(() => {
+      engineWarning.textContent = "Engine failed to load.";
+      return false;
+    });
+  engineLoadPromise = pending;
+  pending.finally(() => {
+    if (engineLoadPromise === pending) {
+      engineLoadPromise = null;
+    }
+  });
+  return pending;
+}
+
+function ensureEngineReady(key = engineSelect?.value || deferredEngineKey || "auto") {
+  if (engine.worker) return Promise.resolve(true);
+  if (engineLoadPromise) return engineLoadPromise;
+  return loadEngineAndTrack(key);
 }
 
 function clampOptionValue(option, value) {
@@ -1434,16 +1464,30 @@ function currentFen() {
 }
 
 function sendPosition() {
+  if (!engine.worker) return false;
   const fen = currentFen();
   if (fen === "startpos") {
     engine.send("position startpos");
-  } else {
-    engine.send(`position fen ${fen}`);
+    return true;
   }
+  engine.send(`position fen ${fen}`);
+  return true;
 }
 
-function startAnalysis(mode = "infinite") {
-  sendPosition();
+async function sendEngineCommand(cmd, options = {}) {
+  const { log = true, includePosition = false } = options;
+  const ready = await ensureEngineReady();
+  if (!ready) return false;
+  if (includePosition && !sendPosition()) return false;
+  engine.send(cmd);
+  if (log) logLine(cmd, "in");
+  return true;
+}
+
+async function startAnalysis(mode = "infinite") {
+  const ready = await ensureEngineReady();
+  if (!ready) return;
+  if (!sendPosition()) return;
   pvLines.clear();
   evalHistory = [];
   pvRenderVersion += 1;
@@ -1461,6 +1505,12 @@ function startAnalysis(mode = "infinite") {
 }
 
 function stopAnalysis() {
+  if (!engine.worker) {
+    analysisActive = false;
+    setAnalyzePillState(false);
+    scheduleUI();
+    return;
+  }
   engine.send("stop");
   logLine("stop", "in");
   analysisActive = false;
@@ -1693,7 +1743,18 @@ engine.on("error", (err) => {
 });
 
 engineSelect.addEventListener("change", () => {
-  loadSelectedEngine(engineSelect.value).catch(() => {});
+  deferredEngineKey = engineSelect.value || "auto";
+  if (engine.worker || engineLoadPromise) {
+    loadEngineAndTrack(deferredEngineKey).catch(() => {});
+    return;
+  }
+  const spec = engine.resolveSpec(deferredEngineKey);
+  engineVariant.textContent = spec.label;
+  engineThreads.textContent = spec.threads ? "auto" : "1";
+  engineHash.textContent = "—";
+  optionState.clear();
+  queueEngineAssetPreload(deferredEngineKey);
+  updateEngineWarning();
 });
 
 if (btnMenu) {
@@ -1809,23 +1870,19 @@ togglePv.addEventListener("change", () => {
 });
 
 btnIsReady.addEventListener("click", () => {
-  engine.send("isready");
-  logLine("isready", "in");
+  sendEngineCommand("isready");
 });
 
 btnUciNew.addEventListener("click", () => {
-  engine.send("ucinewgame");
-  logLine("ucinewgame", "in");
+  sendEngineCommand("ucinewgame");
 });
 
 btnPonderHit.addEventListener("click", () => {
-  engine.send("ponderhit");
-  logLine("ponderhit", "in");
+  sendEngineCommand("ponderhit");
 });
 
 btnClearHash.addEventListener("click", () => {
-  engine.send("setoption name Clear Hash value true");
-  logLine("setoption name Clear Hash value true", "in");
+  sendEngineCommand("setoption name Clear Hash value true");
 });
 
 btnGoDepth.addEventListener("click", () => {
@@ -1868,37 +1925,28 @@ btnGoClock.addEventListener("click", () => {
 });
 
 btnEval.addEventListener("click", () => {
-  sendPosition();
-  engine.send("eval");
-  logLine("eval", "in");
+  sendEngineCommand("eval", { includePosition: true });
 });
 
 btnDisplay.addEventListener("click", () => {
-  sendPosition();
-  engine.send("d");
-  logLine("d", "in");
+  sendEngineCommand("d", { includePosition: true });
 });
 
 btnCompiler.addEventListener("click", () => {
-  engine.send("compiler");
-  logLine("compiler", "in");
+  sendEngineCommand("compiler");
 });
 
 btnPerft.addEventListener("click", () => {
   const depth = Number(perftInput.value) || 4;
-  sendPosition();
-  engine.send(`go perft ${depth}`);
-  logLine(`go perft ${depth}`, "in");
+  sendEngineCommand(`go perft ${depth}`, { includePosition: true });
 });
 
 btnFlipEngine.addEventListener("click", () => {
-  engine.send("flip");
-  logLine("flip", "in");
+  sendEngineCommand("flip");
 });
 
 btnRefreshOptions.addEventListener("click", () => {
-  engine.send("uci");
-  logLine("uci", "in");
+  sendEngineCommand("uci");
 });
 
 optionsFilter.addEventListener("input", () => {
@@ -1995,9 +2043,11 @@ btnShowWdl.addEventListener("click", () => {
 btnSendUci.addEventListener("click", () => {
   const cmd = uciInput.value.trim();
   if (!cmd) return;
-  engine.send(cmd);
-  logLine(cmd, "in");
-  uciInput.value = "";
+  sendEngineCommand(cmd).then((sent) => {
+    if (sent) {
+      uciInput.value = "";
+    }
+  });
 });
 
 uciInput.addEventListener("keydown", (event) => {
@@ -2148,6 +2198,8 @@ btnBatchRun.addEventListener("click", async () => {
   if (batchRunning) return;
   parseBatchInput();
   if (!batchQueue.length) return;
+  const ready = await ensureEngineReady();
+  if (!ready) return;
   batchRunning = true;
   batchResults = [];
   stopAnalysis();
@@ -2758,11 +2810,13 @@ function applyUciMove(uci) {
   return true;
 }
 
-function requestAutoMove() {
+async function requestAutoMove() {
   if (!autoPlay && !awaitingBestMoveApply) {
+    const ready = await ensureEngineReady();
+    if (!ready) return;
     const moveTime = Number(autoMoveTimeInput.value) || 1200;
     const depth = Number(autoDepthInput.value) || 12;
-    sendPosition();
+    if (!sendPosition()) return;
     if (moveTime > 0) {
       engine.send(`go movetime ${moveTime}`);
       logLine(`go movetime ${moveTime}`, "in");
@@ -2775,9 +2829,11 @@ function requestAutoMove() {
     return;
   }
   if (autoPlay) {
+    const ready = await ensureEngineReady();
+    if (!ready) return;
     const moveTime = Number(autoMoveTimeInput.value) || 1200;
     const depth = Number(autoDepthInput.value) || 12;
-    sendPosition();
+    if (!sendPosition()) return;
     if (moveTime > 0) {
       engine.send(`go movetime ${moveTime}`);
       logLine(`go movetime ${moveTime}`, "in");
@@ -3194,10 +3250,16 @@ ensureChessReady().then((ready) => {
 });
 updateEngineWarning();
 optionState.clear();
-engineSelect.value = "lite";
-loadSelectedEngine("lite").catch(() => {
-  engineWarning.textContent = "Engine failed to auto-load.";
-});
+engineSelect.value = "auto";
+deferredEngineKey = "auto";
+const initialSpec = engine.resolveSpec(deferredEngineKey);
+engineVariant.textContent = initialSpec.label;
+engineThreads.textContent = initialSpec.threads ? "auto" : "1";
+engineHash.textContent = "—";
+queueEngineAssetPreload(deferredEngineKey);
+queueEngineAssetPreload("lite-single");
+queueEngineAssetPreload("asm");
+updateEngineWarning();
 overlayState = {
   best: toggleBest.checked,
   last: toggleLast.checked,
