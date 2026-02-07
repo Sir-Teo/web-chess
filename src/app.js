@@ -221,6 +221,7 @@ const BATCH_ANALYSIS_TIMEOUT_MS = 20000;
 const EVAL_SAMPLE_INTERVAL_MS = 80;
 const MOVE_META_UPDATE_INTERVAL_MS = 220;
 const PV_SAN_CACHE_LIMIT = 320;
+const PV_SAN_DEBOUNCE_MS = 140;
 const CONSOLE_MAX_LINES = 500;
 const CONSOLE_FLUSH_INTERVAL_MS = 250;
 const OPTIONS_FILTER_DEBOUNCE_MS = 120;
@@ -242,6 +243,8 @@ let consoleFlushTimer = null;
 let consoleNeedsFullRender = true;
 let consoleRenderedLineCount = 0;
 let optionsFilterTimer = null;
+let pvSanComputeTimer = null;
+let pvSanPending = null;
 
 function resolveBatchAnalysis(patch = {}) {
   if (!batchResolver || !batchCurrent) return false;
@@ -766,8 +769,16 @@ function setText(el, value) {
 
 function setMetricTone(metricEl, tone) {
   if (!metricEl) return;
-  metricEl.classList.remove("success", "warning", "danger", "neutral");
-  metricEl.classList.add(tone || "neutral");
+  const nextTone = tone || "neutral";
+  if (metricEl.dataset.tone === nextTone) return;
+  const prevTone = metricEl.dataset.tone;
+  if (prevTone) {
+    metricEl.classList.remove(prevTone);
+  } else {
+    metricEl.classList.remove("success", "warning", "danger", "neutral");
+  }
+  metricEl.classList.add(nextTone);
+  metricEl.dataset.tone = nextTone;
 }
 
 function formatClock(ms) {
@@ -862,6 +873,43 @@ function updateEvalBar() {
   }
 }
 
+function rememberPvSan(cacheKey, san) {
+  pvSanCache.set(cacheKey, san);
+  while (pvSanCache.size > PV_SAN_CACHE_LIMIT) {
+    const oldest = pvSanCache.keys().next().value;
+    if (oldest === undefined) break;
+    pvSanCache.delete(oldest);
+  }
+}
+
+function processPendingPvSan() {
+  if (!pvSanPending) return;
+  const job = pvSanPending;
+  pvSanPending = null;
+  if (pvSanCache.has(job.cacheKey)) return;
+  const san = uciLineToSan(job.pv, job.baseFen);
+  rememberPvSan(job.cacheKey, san);
+  pvRenderVersion += 1;
+  scheduleUI();
+}
+
+function schedulePvSanConversion(cacheKey, pv, baseFen) {
+  if (!pv || pvSanCache.has(cacheKey)) return;
+  pvSanPending = { cacheKey, pv, baseFen };
+  if (pvSanComputeTimer) return;
+  pvSanComputeTimer = setTimeout(() => {
+    pvSanComputeTimer = null;
+    processPendingPvSan();
+    if (pvSanPending) {
+      schedulePvSanConversion(
+        pvSanPending.cacheKey,
+        pvSanPending.pv,
+        pvSanPending.baseFen
+      );
+    }
+  }, PV_SAN_DEBOUNCE_MS);
+}
+
 function renderPvLines() {
   const sorted = [...pvLines.values()].sort((a, b) => (a.multipv || 1) - (b.multipv || 1));
   const baseFen = currentFen();
@@ -910,17 +958,13 @@ function renderPvLines() {
     node.pv = line.pv || "";
     if (line.pv && key === 1) {
       const cacheKey = `${cachePrefix}${line.pv}`;
-      let cachedSan = pvSanCache.get(cacheKey);
+      const cachedSan = pvSanCache.get(cacheKey);
       if (cachedSan === undefined) {
-        cachedSan = uciLineToSan(line.pv, baseFen);
-        pvSanCache.set(cacheKey, cachedSan);
-        while (pvSanCache.size > PV_SAN_CACHE_LIMIT) {
-          const oldest = pvSanCache.keys().next().value;
-          if (oldest === undefined) break;
-          pvSanCache.delete(oldest);
-        }
+        node.san.textContent = "…";
+        schedulePvSanConversion(cacheKey, line.pv, baseFen);
+      } else {
+        node.san.textContent = cachedSan;
       }
-      node.san.textContent = cachedSan;
     } else {
       node.san.textContent = "";
     }
@@ -1122,7 +1166,9 @@ function renderWinrateChartTo(canvas) {
 
 function renderWinrateChart() {
   renderWinrateChartTo(winrateChart);
-  renderWinrateChartTo(winrateChartLeft);
+  if (winrateChartLeft && winrateChartLeft.offsetParent !== null) {
+    renderWinrateChartTo(winrateChartLeft);
+  }
 }
 
 function applyOptionsFilter() {
@@ -2723,6 +2769,11 @@ function afterPositionChange(options = {}) {
   selectedSquare = null;
   legalTargets.clear();
   pvSanCache.clear();
+  if (pvSanComputeTimer) {
+    clearTimeout(pvSanComputeTimer);
+    pvSanComputeTimer = null;
+  }
+  pvSanPending = null;
   if (moveMeta.length > historyPlyCache) {
     moveMeta = moveMeta.slice(0, historyPlyCache);
   }
