@@ -215,6 +215,12 @@ textarea:focus {
   font-weight: 500;
 }
 
+.metric-pill.neutral {
+  background: var(--ui-panel);
+  border-color: var(--ui-border);
+  color: var(--ui-text-muted);
+}
+
 .metric-pill.success {
   background: var(--ui-success-soft);
   border-color: var(--ui-success);
@@ -373,6 +379,18 @@ textarea:focus {
   width: 16px;
   height: 16px;
   margin: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 
@@ -1264,6 +1282,18 @@ textarea {
   cursor: pointer;
   user-select: none;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+}
+
+.square:focus-visible {
+  outline: 3px solid #f8fafc;
+  outline-offset: -3px;
 }
 
 .square.light {
@@ -1382,6 +1412,14 @@ body.collapsed-bottom .panel-bottom {
   display: none;
 }
 
+body.panel-mode-play [data-panel-mode~="analysis"] {
+  display: none;
+}
+
+body.panel-mode-analysis [data-panel-mode~="play"] {
+  display: none;
+}
+
 @media (max-width: 1100px) {
   .main-layout {
     flex-direction: column;
@@ -1437,13 +1475,9 @@ body.collapsed-bottom .panel-bottom {
 
 @media (max-width: 1279px) {
   .topbar-badges {
-    display: none;
-  }
-}
-
-@media (max-width: 1023px) {
-  .engine-pill {
-    display: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
   }
 }
 
@@ -1460,8 +1494,16 @@ body.collapsed-bottom .panel-bottom {
 }
 
 @media (max-width: 1024px) {
+  .engine-pill {
+    max-width: 52vw;
+    font-size: 0.68rem;
+    padding: 3px 8px;
+  }
+
   .status-bar {
-    display: none;
+    display: flex;
+    font-size: 10px;
+    padding: 6px 10px;
   }
 }
 

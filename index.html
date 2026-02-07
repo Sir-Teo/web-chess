@@ -26,9 +26,9 @@
       <div class="topbar-right">
         <div class="engine-pill" id="engine-warning">Waiting for engine init.</div>
         <div class="topbar-badges">
-          <div class="metric-pill success">Win 50.0%</div>
-          <div class="metric-pill warning">Score +0.3</div>
-          <div class="metric-pill danger">Δ 0.1</div>
+          <div class="metric-pill neutral" id="metric-winrate">Win 50.0%</div>
+          <div class="metric-pill neutral" id="metric-score">Score —</div>
+          <div class="metric-pill neutral" id="metric-delta">Δ —</div>
         </div>
         <div class="topbar-tools">
           <div class="menu-wrap">
@@ -243,7 +243,7 @@
       <section class="center-panel">
         <div class="board-area ui-bg">
           <div class="board-wrap">
-            <div id="board" class="board" aria-label="Chess board"></div>
+            <div id="board" class="board" role="grid" aria-label="Chess board" aria-describedby="board-kbd-help"></div>
             <div class="board-meta">
               <div class="eval-bar" aria-label="Evaluation bar">
                 <div id="eval-fill" class="eval-fill"></div>
@@ -260,6 +260,9 @@
                 <div>Hash%: <span id="kpi-hashfull">0</span></div>
               </div>
             </div>
+            <p id="board-kbd-help" class="sr-only">
+              Use arrow keys to move focus across the board and press Enter or Space to select squares.
+            </p>
           </div>
         </div>
 
@@ -279,19 +282,19 @@
 
       <aside class="side-panel panel-right ui-panel" data-panel="right" id="panel-right">
         <div class="panel-right-tabs ui-bar ui-bar-height ui-bar-pad">
-          <div class="panel-tab-strip">
-            <button type="button" class="panel-tab active" id="btn-panel-play">Play</button>
-            <button type="button" class="panel-tab" id="btn-panel-analysis">Analysis</button>
+          <div class="panel-tab-strip" role="tablist" aria-label="Right panel mode">
+            <button type="button" class="panel-tab active" id="btn-panel-play" role="tab" tabindex="0" aria-selected="true" aria-controls="panel-right">Play</button>
+            <button type="button" class="panel-tab" id="btn-panel-analysis" role="tab" tabindex="-1" aria-selected="false" aria-controls="panel-bottom">Analysis</button>
           </div>
         </div>
         <div class="panel-toolbar">
           <button type="button" class="panel-action-button" id="btn-panel-undo">Undo</button>
           <button type="button" class="panel-action-button danger" id="btn-panel-resign">Resign</button>
           <button type="button" class="panel-action-button" id="btn-panel-ai">AI Move</button>
-          <div class="panel-toolbar-status">Clock 05:00</div>
+          <div class="panel-toolbar-status" id="panel-toolbar-status">Idle</div>
         </div>
         <div class="panel-scroll">
-          <div class="panel-section">
+          <div class="panel-section" data-panel-mode="analysis">
             <div class="panel-section-header">
               <button class="panel-section-title" type="button">Session</button>
               <div class="panel-section-actions">
@@ -550,7 +553,7 @@
             </div>
           </div>
 
-          <div class="panel-section panel-bottom" data-panel="bottom" id="panel-bottom">
+          <div class="panel-section panel-bottom" data-panel="bottom" data-panel-mode="analysis" id="panel-bottom">
             <div class="panel-section-header">
               <button class="panel-section-title" type="button">Analysis</button>
               <div class="panel-section-actions">
