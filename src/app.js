@@ -769,7 +769,7 @@ function renderPvLines() {
     node.headRight.textContent = scoreText;
     node.moves.textContent = line.pv || "";
     node.pv = line.pv || "";
-    if (line.pv) {
+    if (line.pv && key === 1) {
       const cacheKey = `${cachePrefix}${line.pv}`;
       let cachedSan = pvSanCache.get(cacheKey);
       if (cachedSan === undefined) {
