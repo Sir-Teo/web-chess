@@ -180,6 +180,7 @@ let awaitingBestMoveApply = false;
 let evalHistory = [];
 let analysisStart = performance.now();
 let moveMeta = [];
+let historySanCache = [];
 let historyVerboseCache = [];
 let historyPlyCache = 0;
 let batchQueue = [];
@@ -304,12 +305,14 @@ function shouldUpdateMoveMeta(info) {
 
 function refreshHistoryCache() {
   if (!game) {
+    historySanCache = [];
     historyVerboseCache = [];
     historyPlyCache = 0;
     return;
   }
+  historySanCache = game.history();
   historyVerboseCache = game.history({ verbose: true });
-  historyPlyCache = historyVerboseCache.length;
+  historyPlyCache = historySanCache.length;
 }
 
 const isTypingTarget = (target) => {
@@ -1285,7 +1288,8 @@ function jumpForward(count) {
 
 function navigateStart() {
   if (!game) return;
-  while (game.history().length) {
+  const totalMoves = historyPlyCache || game.history().length;
+  for (let i = 0; i < totalMoves; i += 1) {
     const move = game.undo();
     if (!move) break;
     redoStack.push(move);
@@ -2106,7 +2110,7 @@ function syncFenPgn() {
   if (!game) return;
   fenInput.value = game.fen();
   pgnInput.value = game.pgn();
-  uciMovesInput.value = game.history({ verbose: true })
+  uciMovesInput.value = historyVerboseCache
     .map((move) => `${move.from}${move.to}${move.promotion || ""}`)
     .join(" ");
 }
@@ -2295,7 +2299,7 @@ function stepPv(direction) {
 
 function jumpToPly(ply) {
   if (!game) return;
-  const history = game.history({ verbose: true });
+  const history = historyVerboseCache.slice();
   game.reset();
   moveMeta = moveMeta.slice(0, ply);
   for (let i = 0; i < ply; i += 1) {
@@ -2353,8 +2357,8 @@ function requestAutoMove() {
 
 function afterPositionChange() {
   updateBoardPieces();
-  syncFenPgn();
   refreshHistoryCache();
+  syncFenPgn();
   renderMoveList();
   clearSelectionHighlights();
   clearPvHighlights();
@@ -2362,11 +2366,8 @@ function afterPositionChange() {
   selectedSquare = null;
   legalTargets.clear();
   pvSanCache.clear();
-  if (game) {
-    const ply = game.history().length;
-    if (moveMeta.length > ply) {
-      moveMeta = moveMeta.slice(0, ply);
-    }
+  if (moveMeta.length > historyPlyCache) {
+    moveMeta = moveMeta.slice(0, historyPlyCache);
   }
   if (autoPlay && !awaitingBestMoveApply) {
     setTimeout(() => requestAutoMove(), 60);
@@ -2691,8 +2692,8 @@ window.addEventListener("keydown", handleGlobalHotkeys);
 function initBoard() {
   renderBoardSquares();
   updateBoardPieces();
-  syncFenPgn();
   refreshHistoryCache();
+  syncFenPgn();
   renderMoveList();
   highlightLastMove();
 }
