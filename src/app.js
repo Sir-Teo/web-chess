@@ -895,7 +895,17 @@ function updateMoveMetaFromInfo(info = latestInfo) {
     return;
   }
   moveMeta[ply - 1] = next;
-  moveListDirty = true;
+  const rowIndex = ply - 1;
+  if (
+    moveListEl &&
+    rowIndex >= 0 &&
+    rowIndex < historySanCache.length &&
+    moveListEl.children.length > rowIndex
+  ) {
+    renderMoveRow(rowIndex, historySanCache[rowIndex]);
+  } else {
+    moveListDirty = true;
+  }
 }
 
 function highlightPvMove(pv) {
@@ -2115,8 +2125,8 @@ function syncFenPgn() {
     .join(" ");
 }
 
-function renderMoveList() {
-  if (!game || !moveListEl) return;
+function ensureMoveListClickBinding() {
+  if (!moveListEl) return;
   if (!moveListEl.dataset.boundClick) {
     moveListEl.addEventListener("click", (event) => {
       const target = event.target;
@@ -2130,30 +2140,38 @@ function renderMoveList() {
     });
     moveListEl.dataset.boundClick = "true";
   }
-  const history = game.history();
-  const targetLength = history.length;
+}
+
+function renderMoveRow(index, move) {
+  if (!moveListEl || !move) return;
+  let item = moveListEl.children[index];
+  if (!item) {
+    item = document.createElement("div");
+    item.className = "list-item";
+    moveListEl.appendChild(item);
+  }
+  const moveNumber = Math.floor(index / 2) + 1;
+  const prefix = index % 2 === 0 ? `${moveNumber}.` : "...";
+  const meta = moveMeta[index];
+  const delta = meta?.delta;
+  const deltaText = Number.isFinite(delta) ? formatDelta(delta) : "";
+  const tag = deltaText ? `<span class=\"delta ${deltaClass(delta)}\">${deltaText}</span>` : "";
+  const label = meta?.label ? `<span class=\"move-tag\">${meta.label}</span>` : "";
+  const renderKey = `${prefix}|${move}|${deltaText}|${meta?.label || ""}`;
+  const ply = String(index + 1);
+  if (item.dataset.ply !== ply) item.dataset.ply = ply;
+  if (item.dataset.renderKey !== renderKey) {
+    item.dataset.renderKey = renderKey;
+    item.innerHTML = `<strong>${prefix}</strong> ${move} ${tag} ${label}`;
+  }
+}
+
+function renderMoveList() {
+  if (!game || !moveListEl) return;
+  ensureMoveListClickBinding();
+  const targetLength = historySanCache.length;
   for (let index = 0; index < targetLength; index += 1) {
-    const move = history[index];
-    let item = moveListEl.children[index];
-    if (!item) {
-      item = document.createElement("div");
-      item.className = "list-item";
-      moveListEl.appendChild(item);
-    }
-    const moveNumber = Math.floor(index / 2) + 1;
-    const prefix = index % 2 === 0 ? `${moveNumber}.` : "...";
-    const meta = moveMeta[index];
-    const delta = meta?.delta;
-    const deltaText = Number.isFinite(delta) ? formatDelta(delta) : "";
-    const tag = deltaText ? `<span class=\"delta ${deltaClass(delta)}\">${deltaText}</span>` : "";
-    const label = meta?.label ? `<span class=\"move-tag\">${meta.label}</span>` : "";
-    const renderKey = `${prefix}|${move}|${deltaText}|${meta?.label || ""}`;
-    const ply = String(index + 1);
-    if (item.dataset.ply !== ply) item.dataset.ply = ply;
-    if (item.dataset.renderKey !== renderKey) {
-      item.dataset.renderKey = renderKey;
-      item.innerHTML = `<strong>${prefix}</strong> ${move} ${tag} ${label}`;
-    }
+    renderMoveRow(index, historySanCache[index]);
   }
   for (let index = moveListEl.children.length - 1; index >= targetLength; index -= 1) {
     const node = moveListEl.children[index];
