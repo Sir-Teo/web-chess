@@ -456,8 +456,19 @@ const setPanelMode = (mode) => {
 
 let activeMenuName = "";
 
+const resetMenuAdvancedState = () => {
+  document.querySelectorAll(".topbar-menu").forEach((menu) => {
+    menu.classList.remove("show-advanced");
+  });
+  document.querySelectorAll("[data-menu-advanced-toggle]").forEach((button) => {
+    button.textContent = "Show Advanced";
+    button.setAttribute("aria-expanded", "false");
+  });
+};
+
 const closeHeaderMenus = () => {
   activeMenuName = "";
+  resetMenuAdvancedState();
   const items = [
     [btnView, menuView],
     [btnSettings, menuSettings],
@@ -603,6 +614,17 @@ function initHeaderMenus() {
       const target = menuActionTargets[action];
       if (target) triggerButton(target);
       closeHeaderMenus();
+    });
+  });
+
+  document.querySelectorAll("[data-menu-advanced-toggle]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const menu = button.closest(".topbar-menu");
+      if (!menu) return;
+      const expanded = menu.classList.toggle("show-advanced");
+      button.textContent = expanded ? "Hide Advanced" : "Show Advanced";
+      button.setAttribute("aria-expanded", expanded ? "true" : "false");
     });
   });
 

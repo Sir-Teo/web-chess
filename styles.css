@@ -327,6 +327,14 @@ textarea:focus {
   padding-bottom: 0;
 }
 
+.topbar-menu .menu-section[data-menu-advanced="true"] {
+  display: none;
+}
+
+.topbar-menu.show-advanced .menu-section[data-menu-advanced="true"] {
+  display: grid;
+}
+
 .menu-title {
   color: var(--ui-text-faint);
   text-transform: uppercase;
@@ -379,6 +387,24 @@ textarea:focus {
   width: 16px;
   height: 16px;
   margin: 0;
+}
+
+.menu-advanced-toggle {
+  width: 100%;
+  margin-top: 2px;
+  border-radius: 7px;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  padding: 8px 9px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.menu-advanced-toggle:hover {
+  color: var(--ui-text);
+  background: var(--ui-surface-2);
 }
 
 .sr-only {
