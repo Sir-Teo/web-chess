@@ -5,7 +5,7 @@
   --ui-bar-height: 56px;
   --ui-bar-pad-x: 12px;
   --ui-bar-pad-y: 8px;
-  --ui-control-size: 38px;
+  --ui-control-size: 40px;
   --ui-panel-pad: 12px;
   --ui-gap: 8px;
   --ui-bg: #0b0f16;
@@ -247,9 +247,9 @@ textarea:focus {
 }
 
 .topbar-pill {
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 13px;
   border: 1px solid var(--ui-border);
   background: var(--ui-surface);
   color: var(--ui-text-muted);
@@ -449,15 +449,20 @@ textarea:focus {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  padding: 0;
+  padding: 0 10px;
   font-size: 12px;
   color: var(--ui-text-muted);
   border: none;
+  min-width: var(--ui-control-size);
 }
 
 .icon-button:hover {
   background: var(--ui-surface-2);
   color: #ffffff;
+}
+
+.topbar-actions .icon-button {
+  width: auto;
 }
 
 .panel-toggles {
@@ -899,11 +904,12 @@ button {
   border: 1px solid var(--ui-border);
   color: var(--ui-text-muted);
   background: transparent;
-  border-radius: 4px;
-  padding: 3px 8px;
-  font-size: 11px;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
   font-weight: 500;
-  line-height: 1;
+  line-height: 1.2;
+  min-height: 34px;
   cursor: pointer;
   transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
   display: inline-flex;
@@ -971,9 +977,9 @@ button.panel-action-button {
   border: 1px solid var(--ui-border);
   color: var(--ui-text-muted);
   background: transparent;
-  border-radius: 4px;
-  padding: 3px 8px;
-  font-size: 11px;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -988,11 +994,12 @@ button.panel-action-button.danger {
 }
 
 button.icon-button {
-  padding: 0;
+  padding: 0 10px;
   border-radius: 8px;
   font-size: 12px;
   width: var(--ui-control-size);
   height: var(--ui-control-size);
+  min-width: var(--ui-control-size);
 }
 
 button.toggle-btn {
@@ -1270,7 +1277,7 @@ textarea {
   gap: 12px;
   min-height: 28px;
   padding: 6px 12px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--ui-text-muted);
 }
 
@@ -1472,11 +1479,13 @@ body.panel-mode-analysis [data-panel-mode~="play"] {
 
   .board-wrap {
     grid-template-columns: 1fr;
+    justify-items: center;
   }
 
   .eval-bar {
     height: 120px;
     width: 100%;
+    max-width: 380px;
   }
 
   .status-bar {
@@ -1553,7 +1562,7 @@ body.panel-mode-analysis [data-panel-mode~="play"] {
     --ui-control-size: 34px;
     --ui-panel-pad: 10px;
     --ui-gap: 6px;
-    --square: clamp(32px, 11vw, 54px);
+    --square: clamp(38px, 12vw, 62px);
   }
 
   .panel-section-header {
@@ -1578,12 +1587,12 @@ body.panel-mode-analysis [data-panel-mode~="play"] {
   }
 
   .panel-action-button {
-    padding: 2px 6px;
-    font-size: 10px;
+    padding: 5px 8px;
+    font-size: 11px;
   }
 
   .board-area {
-    padding: 10px;
+    padding: 6px;
   }
 
   .chart {
