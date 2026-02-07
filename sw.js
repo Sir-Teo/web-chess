@@ -1,5 +1,6 @@
-const CORE_CACHE = "vulcan-core-v6";
-const RUNTIME_CACHE = "vulcan-runtime-v6";
+const CORE_CACHE = "vulcan-core-v7";
+const RUNTIME_CACHE = "vulcan-runtime-v7";
+const MAX_RUNTIME_CACHE_ENTRIES = 24;
 
 const CORE_ASSETS = [
   "./",
@@ -23,22 +24,46 @@ const CORE_ASSETS = [
   "./assets/pieces/bQ.png",
   "./assets/pieces/bK.png",
 ];
+const CORE_PATHS = new Set(
+  CORE_ASSETS.map((asset) => new URL(asset, self.location.origin).pathname)
+);
+
+function isHtmlNavigation(request) {
+  if (request.mode === "navigate") return true;
+  const accept = request.headers.get("accept") || "";
+  return accept.includes("text/html");
+}
+
+async function trimRuntimeCache(cache) {
+  const keys = await cache.keys();
+  if (keys.length <= MAX_RUNTIME_CACHE_ENTRIES) return;
+  const stale = keys.slice(0, keys.length - MAX_RUNTIME_CACHE_ENTRIES);
+  await Promise.all(stale.map((key) => cache.delete(key)));
+}
+
+async function putIfOk(cache, request, response) {
+  if (!response || !response.ok) return;
+  await cache.put(request, response.clone());
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CORE_CACHE).then((cache) => cache.addAll(CORE_ASSETS))
   );
+  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
         keys
           .filter((key) => ![CORE_CACHE, RUNTIME_CACHE].includes(key))
           .map((key) => caches.delete(key))
-      )
-    )
+      );
+      await self.clients.claim();
+    })()
   );
 });
 
@@ -48,16 +73,50 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   const isSameOrigin = url.origin === self.location.origin;
+  if (!isSameOrigin) return;
 
-  if (isSameOrigin && url.pathname.includes("/vendor/stockfish/")) {
+  if (url.pathname.includes("/vendor/stockfish/")) {
     event.respondWith(
-      caches.open(RUNTIME_CACHE).then(async (cache) => {
+      (async () => {
+        const cache = await caches.open(RUNTIME_CACHE);
         const cached = await cache.match(request);
-        if (cached) return cached;
-        const response = await fetch(request);
-        cache.put(request, response.clone());
-        return response;
-      })
+        const networkPromise = fetch(request)
+          .then(async (response) => {
+            await putIfOk(cache, request, response);
+            await trimRuntimeCache(cache);
+            return response;
+          })
+          .catch(() => null);
+        if (cached) {
+          event.waitUntil(networkPromise);
+          return cached;
+        }
+        const network = await networkPromise;
+        return network || cached || Response.error();
+      })()
+    );
+    return;
+  }
+
+  const isCoreAsset = CORE_PATHS.has(url.pathname) || isHtmlNavigation(request);
+  if (isCoreAsset) {
+    event.respondWith(
+      (async () => {
+        const coreCache = await caches.open(CORE_CACHE);
+        try {
+          const network = await fetch(request);
+          await putIfOk(coreCache, request, network);
+          return network;
+        } catch (err) {
+          const fallback = await coreCache.match(request);
+          if (fallback) return fallback;
+          if (isHtmlNavigation(request)) {
+            const htmlFallback = await coreCache.match("./index.html");
+            if (htmlFallback) return htmlFallback;
+          }
+          return Response.error();
+        }
+      })()
     );
     return;
   }

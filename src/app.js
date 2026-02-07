@@ -10,6 +10,10 @@ const engineHash = $("engine-hash");
 const engineNps = $("engine-nps");
 const engineWarning = $("engine-warning");
 const engineBestmove = $("engine-bestmove");
+const metricWinrate = $("metric-winrate");
+const metricScore = $("metric-score");
+const metricDelta = $("metric-delta");
+const panelToolbarStatus = $("panel-toolbar-status");
 const consoleEl = $("console");
 const optionsEl = $("options");
 const pvLinesEl = $("pv-lines");
@@ -135,6 +139,8 @@ const btnPanelAnalysis = $("btn-panel-analysis");
 const btnPanelUndo = $("btn-panel-undo");
 const btnPanelResign = $("btn-panel-resign");
 const btnPanelAi = $("btn-panel-ai");
+const panelRight = $("panel-right");
+const panelBottom = $("panel-bottom");
 
 const btnNew = $("btn-new");
 const btnFlip = $("btn-flip");
@@ -167,6 +173,7 @@ let consoleDirty = false;
 let analysisActive = false;
 let boardFlipped = false;
 let selectedSquare = null;
+let focusedSquare = "e2";
 let legalTargets = new Set();
 const boardSquareMap = new Map();
 const boardPieceMap = new Map();
@@ -183,6 +190,8 @@ let moveMeta = [];
 let historySanCache = [];
 let historyVerboseCache = [];
 let historyPlyCache = 0;
+let historyUciCache = [];
+let historyUciJoined = "";
 let batchQueue = [];
 let batchResults = [];
 let batchRunning = false;
@@ -211,9 +220,18 @@ const ENGINE_RECOVERY_LIMIT = 2;
 const BATCH_ANALYSIS_TIMEOUT_MS = 20000;
 const EVAL_SAMPLE_INTERVAL_MS = 80;
 const MOVE_META_UPDATE_INTERVAL_MS = 220;
+const PV_SAN_CACHE_LIMIT = 320;
 const CONSOLE_MAX_LINES = 500;
 const CONSOLE_FLUSH_INTERVAL_MS = 250;
 const OPTIONS_FILTER_DEBOUNCE_MS = 120;
+const PIECE_NAMES = {
+  P: "pawn",
+  N: "knight",
+  B: "bishop",
+  R: "rook",
+  Q: "queen",
+  K: "king",
+};
 let performanceMode = "max";
 let engineRecoveryAttempt = 0;
 let lastEvalSampleTime = Number.NEGATIVE_INFINITY;
@@ -305,16 +323,51 @@ function shouldUpdateMoveMeta(info) {
   return false;
 }
 
-function refreshHistoryCache() {
+function moveToUci(move) {
+  if (!move) return "";
+  return `${move.from || ""}${move.to || ""}${move.promotion || ""}`;
+}
+
+function rebuildHistoryCache() {
   if (!game) {
     historySanCache = [];
     historyVerboseCache = [];
     historyPlyCache = 0;
+    historyUciCache = [];
+    historyUciJoined = "";
     return;
   }
   historySanCache = game.history();
   historyVerboseCache = game.history({ verbose: true });
   historyPlyCache = historySanCache.length;
+  historyUciCache = historyVerboseCache.map((move) => moveToUci(move));
+  historyUciJoined = historyUciCache.join(" ");
+}
+
+function appendHistoryMove(move) {
+  if (!move) return;
+  const san = move.san || "";
+  historySanCache.push(san);
+  historyVerboseCache.push({
+    from: move.from,
+    to: move.to,
+    promotion: move.promotion,
+    color: move.color,
+    san,
+  });
+  const uci = moveToUci(move);
+  historyUciCache.push(uci);
+  historyUciJoined = historyUciJoined ? `${historyUciJoined} ${uci}` : uci;
+  historyPlyCache = historySanCache.length;
+}
+
+function popHistoryMove() {
+  if (!historyPlyCache) return;
+  historySanCache.pop();
+  historyVerboseCache.pop();
+  historyUciCache.pop();
+  historyPlyCache = historySanCache.length;
+  historyUciJoined = historyUciCache.join(" ");
 }
 
 const isTypingTarget = (target) => {
@@ -323,6 +376,7 @@ const isTypingTarget = (target) => {
   return (
     tag === "INPUT" ||
     tag === "TEXTAREA" ||
+    tag === "BUTTON" ||
     tag === "SELECT" ||
     target.isContentEditable
   );
@@ -376,8 +430,18 @@ const setAnalyzePillState = (active) => {
 
 const setPanelMode = (mode) => {
   if (!btnPanelPlay || !btnPanelAnalysis) return;
-  btnPanelPlay.classList.toggle("active", mode === "play");
-  btnPanelAnalysis.classList.toggle("active", mode === "analysis");
+  const isPlay = mode === "play";
+  btnPanelPlay.classList.toggle("active", isPlay);
+  btnPanelAnalysis.classList.toggle("active", !isPlay);
+  btnPanelPlay.setAttribute("aria-selected", isPlay ? "true" : "false");
+  btnPanelAnalysis.setAttribute("aria-selected", isPlay ? "false" : "true");
+  btnPanelPlay.tabIndex = isPlay ? 0 : -1;
+  btnPanelAnalysis.tabIndex = isPlay ? -1 : 0;
+  document.body.classList.toggle("panel-mode-play", isPlay);
+  document.body.classList.toggle("panel-mode-analysis", !isPlay);
+  if (panelRight) panelRight.setAttribute("aria-hidden", "false");
+  if (panelBottom) panelBottom.setAttribute("aria-hidden", isPlay ? "true" : "false");
+  scheduleUI();
 };
 
 let activeMenuName = "";
@@ -700,6 +764,74 @@ function setText(el, value) {
   }
 }
 
+function setMetricTone(metricEl, tone) {
+  if (!metricEl) return;
+  metricEl.classList.remove("success", "warning", "danger", "neutral");
+  metricEl.classList.add(tone || "neutral");
+}
+
+function formatClock(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return "00:00";
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
+function updateTopMetrics() {
+  const score = latestInfo.score;
+  const cp = scoreToCp(score);
+  const win = scoreToWinrate(score, getSideToMove());
+  const scoreText = Number.isFinite(cp)
+    ? `${cp >= 0 ? "+" : ""}${(cp / 100).toFixed(2)}`
+    : null;
+  setText(metricWinrate, Number.isFinite(win) ? `Win ${win.toFixed(1)}%` : "Win —");
+  setText(metricScore, scoreText ? `Score ${scoreText}` : "Score —");
+  const prevSample = evalHistory.length > 1 ? evalHistory[evalHistory.length - 2] : null;
+  const lastSample = evalHistory.length ? evalHistory[evalHistory.length - 1] : null;
+  const delta = prevSample && lastSample ? lastSample.cp - prevSample.cp : null;
+  setText(metricDelta, Number.isFinite(delta) ? `Δ ${(delta / 100).toFixed(2)}` : "Δ —");
+
+  if (Number.isFinite(win)) {
+    setMetricTone(metricWinrate, win >= 55 ? "success" : win <= 45 ? "danger" : "warning");
+  } else {
+    setMetricTone(metricWinrate, "neutral");
+  }
+  if (Number.isFinite(cp)) {
+    setMetricTone(metricScore, cp >= 20 ? "success" : cp <= -20 ? "danger" : "warning");
+  } else {
+    setMetricTone(metricScore, "neutral");
+  }
+  if (Number.isFinite(delta)) {
+    setMetricTone(metricDelta, delta >= 15 ? "success" : delta <= -15 ? "danger" : "neutral");
+  } else {
+    setMetricTone(metricDelta, "neutral");
+  }
+}
+
+function updateSessionStatus() {
+  if (!panelToolbarStatus) return;
+  if (batchRunning) {
+    const total = batchQueue.length;
+    const done = batchQueue.filter((item) => item.status === "done").length;
+    setText(panelToolbarStatus, total ? `Batch ${done}/${total}` : "Batch");
+    return;
+  }
+  if (analysisActive) {
+    setText(panelToolbarStatus, `Analyzing ${formatClock(infoClockMs(latestInfo))}`);
+    return;
+  }
+  if (awaitingBestMoveApply) {
+    setText(panelToolbarStatus, "Awaiting engine");
+    return;
+  }
+  if (autoPlay) {
+    setText(panelToolbarStatus, "Auto play");
+    return;
+  }
+  setText(panelToolbarStatus, "Idle");
+}
+
 function updateKpis() {
   setText(kpiDepth, latestInfo.depth ?? 0);
   setText(kpiSelDepth, latestInfo.seldepth ?? 0);
@@ -714,6 +846,8 @@ function updateKpis() {
     setText(kpiWdl, "—");
   }
   setText(engineNps, latestInfo.nps ? `${latestInfo.nps.toLocaleString()} nps` : "—");
+  updateTopMetrics();
+  updateSessionStatus();
 }
 
 function updateEvalBar() {
@@ -780,6 +914,11 @@ function renderPvLines() {
       if (cachedSan === undefined) {
         cachedSan = uciLineToSan(line.pv, baseFen);
         pvSanCache.set(cacheKey, cachedSan);
+        while (pvSanCache.size > PV_SAN_CACHE_LIMIT) {
+          const oldest = pvSanCache.keys().next().value;
+          if (oldest === undefined) break;
+          pvSanCache.delete(oldest);
+        }
       }
       node.san.textContent = cachedSan;
     } else {
@@ -1267,6 +1406,7 @@ function startAnalysis(mode = "infinite") {
   logLine(`go ${mode}${suffix}`.trim(), "in");
   analysisActive = mode === "infinite";
   setAnalyzePillState(analysisActive);
+  scheduleUI();
 }
 
 function stopAnalysis() {
@@ -1274,61 +1414,73 @@ function stopAnalysis() {
   logLine("stop", "in");
   analysisActive = false;
   setAnalyzePillState(false);
+  scheduleUI();
 }
 
 function stopAutoPlay() {
   autoPlay = false;
   awaitingBestMoveApply = false;
   btnAutoPlay.textContent = "Auto Play: Off";
+  scheduleUI();
 }
 
 function jumpBack(count) {
   if (!game) return;
+  const previousPly = historyPlyCache;
   let moved = false;
   for (let i = 0; i < count; i += 1) {
     const move = game.undo();
     if (!move) break;
     redoStack.push(move);
+    popHistoryMove();
     if (moveMeta.length) moveMeta.pop();
     moved = true;
   }
-  if (moved) afterPositionChange();
+  if (moved) afterPositionChange({ previousPly });
 }
 
 function jumpForward(count) {
   if (!game) return;
+  const previousPly = historyPlyCache;
   let moved = false;
   for (let i = 0; i < count; i += 1) {
     const move = redoStack.pop();
     if (!move) break;
-    game.move(move);
+    const replayed = game.move(move);
+    if (!replayed) break;
+    appendHistoryMove(replayed);
     moveMeta.push({});
     moved = true;
   }
-  if (moved) afterPositionChange();
+  if (moved) afterPositionChange({ previousPly });
 }
 
 function navigateStart() {
   if (!game) return;
-  const totalMoves = historyPlyCache || game.history().length;
+  const previousPly = historyPlyCache;
+  const totalMoves = historyPlyCache;
   for (let i = 0; i < totalMoves; i += 1) {
     const move = game.undo();
     if (!move) break;
     redoStack.push(move);
+    popHistoryMove();
     if (moveMeta.length) moveMeta.pop();
   }
-  afterPositionChange();
+  afterPositionChange({ previousPly });
 }
 
 function navigateEnd() {
   if (!game) return;
+  const previousPly = historyPlyCache;
   while (redoStack.length) {
     const move = redoStack.pop();
     if (!move) break;
-    game.move(move);
+    const replayed = game.move(move);
+    if (!replayed) break;
+    appendHistoryMove(replayed);
     moveMeta.push({});
   }
-  afterPositionChange();
+  afterPositionChange({ previousPly });
 }
 
 function applyPerformanceProfile() {
@@ -1472,6 +1624,7 @@ engine.on("bestmove", (move) => {
       setTimeout(() => requestAutoMove(), 80);
     }
   }
+  scheduleUI();
 });
 engine.on("error", (err) => {
   const message = err?.message || err;
@@ -1528,6 +1681,14 @@ if (btnPanelResign) {
 if (btnPanelPlay && btnPanelAnalysis) {
   btnPanelPlay.addEventListener("click", () => setPanelMode("play"));
   btnPanelAnalysis.addEventListener("click", () => setPanelMode("analysis"));
+  [btnPanelPlay, btnPanelAnalysis].forEach((tab) => {
+    tab.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      setPanelMode(tab === btnPanelPlay ? "analysis" : "play");
+      (tab === btnPanelPlay ? btnPanelAnalysis : btnPanelPlay).focus();
+    });
+  });
 }
 
 btnAnalyze.addEventListener("click", () => {
@@ -1556,6 +1717,7 @@ btnAutoPlay.addEventListener("click", () => {
   } else {
     awaitingBestMoveApply = false;
   }
+  scheduleUI();
 });
 
 btnPvPlay.addEventListener("click", () => {
@@ -1911,6 +2073,7 @@ btnBatchClear.addEventListener("click", () => {
   batchResults = [];
   renderBatchList();
   renderBatchChart();
+  scheduleUI();
 });
 
 btnBatchRun.addEventListener("click", async () => {
@@ -1919,10 +2082,11 @@ btnBatchRun.addEventListener("click", async () => {
   if (!batchQueue.length) return;
   batchRunning = true;
   batchResults = [];
-  analysisActive = false;
   stopAnalysis();
   autoPlay = false;
+  awaitingBestMoveApply = false;
   btnAutoPlay.textContent = "Auto Play: Off";
+  scheduleUI();
   renderBatchChart();
   for (const item of batchQueue) {
     item.status = "running";
@@ -1934,6 +2098,7 @@ btnBatchRun.addEventListener("click", async () => {
   }
   batchRunning = false;
   renderBatchChart();
+  scheduleUI();
 });
 
 btnBatchExport.addEventListener("click", () => {
@@ -2014,6 +2179,95 @@ async function analyzeFen(fen) {
   });
 }
 
+function squareToScreen(square) {
+  if (!square || square.length < 2) return null;
+  const file = square.charCodeAt(0) - 97;
+  const rank = Number(square[1]);
+  if (file < 0 || file > 7 || rank < 1 || rank > 8) return null;
+  if (boardFlipped) {
+    return { x: 7 - file, y: rank - 1 };
+  }
+  return { x: file, y: 8 - rank };
+}
+
+function screenToSquare(x, y) {
+  if (x < 0 || x > 7 || y < 0 || y > 7) return null;
+  if (boardFlipped) {
+    const file = String.fromCharCode(97 + (7 - x));
+    return `${file}${y + 1}`;
+  }
+  const file = String.fromCharCode(97 + x);
+  return `${file}${8 - y}`;
+}
+
+function setFocusedSquare(square, options = {}) {
+  if (!boardSquareMap.size) return;
+  if (!boardSquareMap.has(square)) {
+    square = boardSquareMap.keys().next().value;
+  }
+  if (!square) return;
+  focusedSquare = square;
+  boardSquareMap.forEach((el, key) => {
+    el.tabIndex = key === focusedSquare ? 0 : -1;
+  });
+  if (options.focus) {
+    const el = boardSquareMap.get(focusedSquare);
+    if (el) el.focus();
+  }
+}
+
+function moveBoardFocus(dx, dy) {
+  const base = focusedSquare && boardSquareMap.has(focusedSquare)
+    ? focusedSquare
+    : boardSquareMap.keys().next().value;
+  const pos = squareToScreen(base);
+  if (!pos) return false;
+  const nextSquare = screenToSquare(pos.x + dx, pos.y + dy);
+  if (!nextSquare || !boardSquareMap.has(nextSquare)) return false;
+  setFocusedSquare(nextSquare, { focus: true });
+  return true;
+}
+
+function ensureBoardKeyboardBinding() {
+  const boardEl = $("board");
+  if (!boardEl || boardEl.dataset.boundKeyboard) return;
+  boardEl.addEventListener("keydown", (event) => {
+    const target = event.target;
+    const squareEl = target instanceof Element ? target.closest(".square[data-square]") : null;
+    if (squareEl && squareEl.dataset.square) {
+      setFocusedSquare(squareEl.dataset.square);
+    }
+    switch (event.key) {
+      case "ArrowLeft":
+        event.preventDefault();
+        moveBoardFocus(-1, 0);
+        break;
+      case "ArrowRight":
+        event.preventDefault();
+        moveBoardFocus(1, 0);
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        moveBoardFocus(0, -1);
+        break;
+      case "ArrowDown":
+        event.preventDefault();
+        moveBoardFocus(0, 1);
+        break;
+      case "Enter":
+      case " ":
+      case "Spacebar":
+        if (!focusedSquare) return;
+        event.preventDefault();
+        onSquareClick(focusedSquare);
+        break;
+      default:
+        break;
+    }
+  });
+  boardEl.dataset.boundKeyboard = "true";
+}
+
 function renderBoardSquares() {
   const boardEl = $("board");
   if (!boardEl || !game) return;
@@ -2031,16 +2285,29 @@ function renderBoardSquares() {
   ranks.forEach((rank) => {
     files.forEach((file) => {
       const square = `${file}${rank}`;
-      const div = document.createElement("div");
+      const button = document.createElement("button");
+      button.type = "button";
       const fileIndex = "abcdefgh".indexOf(file) + 1;
       const light = (rank + fileIndex) % 2 !== 0;
-      div.className = `square ${light ? "light" : "dark"}`;
-      div.dataset.square = square;
-      div.addEventListener("click", () => onSquareClick(square));
-      boardEl.appendChild(div);
-      boardSquareMap.set(square, div);
+      button.className = `square ${light ? "light" : "dark"}`;
+      button.dataset.square = square;
+      button.setAttribute("role", "gridcell");
+      button.setAttribute("aria-label", `${square}, empty`);
+      button.setAttribute("aria-selected", "false");
+      button.tabIndex = -1;
+      button.addEventListener("click", () => {
+        setFocusedSquare(square);
+        onSquareClick(square);
+      });
+      boardEl.appendChild(button);
+      boardSquareMap.set(square, button);
     });
   });
+
+  if (!boardSquareMap.has(focusedSquare)) {
+    focusedSquare = boardFlipped ? "e7" : "e2";
+  }
+  setFocusedSquare(focusedSquare);
 }
 
 function updateBoardPieces() {
@@ -2048,12 +2315,15 @@ function updateBoardPieces() {
   boardSquareMap.forEach((squareEl, square) => {
     const piece = game.get(square);
     const pieceKey = piece ? `${piece.color}${piece.type.toUpperCase()}` : "";
+    const color = piece?.color === "w" ? "white" : "black";
+    const type = piece ? PIECE_NAMES[piece.type.toUpperCase()] || "piece" : "empty";
+    squareEl.setAttribute("aria-label", piece ? `${square}, ${color} ${type}` : `${square}, empty`);
     if (boardPieceMap.get(square) === pieceKey) return;
     boardPieceMap.set(square, pieceKey);
     squareEl.textContent = "";
     if (!pieceKey) return;
     const img = document.createElement("img");
-    img.alt = pieceKey;
+    img.alt = `${color} ${type}`;
     img.src = `./assets/pieces/${pieceKey}.png`;
     squareEl.appendChild(img);
   });
@@ -2062,6 +2332,7 @@ function updateBoardPieces() {
 function clearSelectionHighlights() {
   selectionHighlightSquares.forEach((sq) => {
     sq.classList.remove("selected", "legal", "capture");
+    sq.setAttribute("aria-selected", "false");
   });
   selectionHighlightSquares.clear();
 }
@@ -2087,6 +2358,7 @@ function highlightMoves(moves) {
   const fromEl = boardSquareMap.get(from);
   if (fromEl) {
     fromEl.classList.add("selected");
+    fromEl.setAttribute("aria-selected", "true");
     selectionHighlightSquares.add(fromEl);
   }
   legalTargets.clear();
@@ -2106,9 +2378,11 @@ function highlightMoves(moves) {
 
 function onSquareClick(square) {
   if (!game) return;
+  setFocusedSquare(square);
   const moves = game.moves({ square, verbose: true });
 
   if (selectedSquare && legalTargets.has(square)) {
+    const previousPly = historyPlyCache;
     const selectedMoves = game.moves({ square: selectedSquare, verbose: true });
     const promotionMove = selectedMoves.find((m) => m.to === square && m.promotion);
     const promotion = promotionMove ? promotionMove.promotion : "q";
@@ -2116,7 +2390,8 @@ function onSquareClick(square) {
     if (move) {
       undoStack.push(move);
       redoStack.length = 0;
-      afterPositionChange();
+      appendHistoryMove(move);
+      afterPositionChange({ previousPly });
     }
     selectedSquare = null;
     legalTargets.clear();
@@ -2134,13 +2409,18 @@ function onSquareClick(square) {
   }
 }
 
-function syncFenPgn() {
+function syncFenPgn(options = {}) {
   if (!game) return;
-  fenInput.value = game.fen();
-  pgnInput.value = game.pgn();
-  uciMovesInput.value = historyVerboseCache
-    .map((move) => `${move.from}${move.to}${move.promotion || ""}`)
-    .join(" ");
+  const { syncPgn = true } = options;
+  const fen = game.fen();
+  if (fenInput.value !== fen) fenInput.value = fen;
+  if (syncPgn) {
+    const pgn = game.pgn();
+    if (pgnInput.value !== pgn) pgnInput.value = pgn;
+  }
+  if (uciMovesInput.value !== historyUciJoined) {
+    uciMovesInput.value = historyUciJoined;
+  }
 }
 
 function ensureMoveListClickBinding() {
@@ -2194,6 +2474,30 @@ function renderMoveList() {
   for (let index = moveListEl.children.length - 1; index >= targetLength; index -= 1) {
     const node = moveListEl.children[index];
     if (node) node.remove();
+  }
+}
+
+function renderMoveListIncremental(previousPly = historyPlyCache) {
+  if (!game || !moveListEl) return;
+  ensureMoveListClickBinding();
+  const targetLength = historySanCache.length;
+  const delta = targetLength - previousPly;
+  if (Math.abs(delta) > 4) {
+    renderMoveList();
+    return;
+  }
+  if (delta > 0) {
+    for (let index = previousPly; index < targetLength; index += 1) {
+      renderMoveRow(index, historySanCache[index]);
+    }
+  } else if (delta < 0) {
+    for (let index = moveListEl.children.length - 1; index >= targetLength; index -= 1) {
+      const node = moveListEl.children[index];
+      if (node) node.remove();
+    }
+  }
+  if (targetLength > 0) {
+    renderMoveRow(targetLength - 1, historySanCache[targetLength - 1]);
   }
 }
 
@@ -2335,21 +2639,19 @@ function stepPv(direction) {
 
 function jumpToPly(ply) {
   if (!game) return;
-  const history = historyVerboseCache.slice();
-  game.reset();
-  moveMeta = moveMeta.slice(0, ply);
-  for (let i = 0; i < ply; i += 1) {
-    const move = history[i];
-    if (!move) break;
-    game.move({ from: move.from, to: move.to, promotion: move.promotion });
+  const maxPly = historyPlyCache + redoStack.length;
+  const target = Math.max(0, Math.min(maxPly, Number(ply) || 0));
+  if (target === historyPlyCache) return;
+  if (target < historyPlyCache) {
+    jumpBack(historyPlyCache - target);
+  } else {
+    jumpForward(target - historyPlyCache);
   }
-  undoStack.length = 0;
-  redoStack.length = 0;
-  afterPositionChange();
 }
 
 function applyUciMove(uci) {
   if (!game || !uci || uci === "(none)" || uci.length < 4) return false;
+  const previousPly = historyPlyCache;
   const from = uci.slice(0, 2);
   const to = uci.slice(2, 4);
   const promotion = uci[4];
@@ -2357,7 +2659,9 @@ function applyUciMove(uci) {
   if (!move) return false;
   undoStack.push(move);
   redoStack.length = 0;
-  afterPositionChange();
+  appendHistoryMove(move);
+  setFocusedSquare(to);
+  afterPositionChange({ previousPly });
   return true;
 }
 
@@ -2374,6 +2678,7 @@ function requestAutoMove() {
       logLine(`go depth ${depth}`, "in");
     }
     awaitingBestMoveApply = true;
+    scheduleUI();
     return;
   }
   if (autoPlay) {
@@ -2388,14 +2693,30 @@ function requestAutoMove() {
       logLine(`go depth ${depth}`, "in");
     }
     awaitingBestMoveApply = true;
+    scheduleUI();
   }
 }
 
-function afterPositionChange() {
+function afterPositionChange(options = {}) {
+  const {
+    previousPly = historyPlyCache,
+    rebuildHistory = false,
+    forceMoveListRender = false,
+    syncPgn = null,
+  } = options;
+  if (rebuildHistory) {
+    rebuildHistoryCache();
+  }
   updateBoardPieces();
-  refreshHistoryCache();
-  syncFenPgn();
-  renderMoveList();
+  const shouldSyncPgn = typeof syncPgn === "boolean"
+    ? syncPgn
+    : !document.body.classList.contains("collapsed-left") && document.activeElement !== pgnInput;
+  syncFenPgn({ syncPgn: shouldSyncPgn });
+  if (forceMoveListRender || rebuildHistory) {
+    renderMoveList();
+  } else {
+    renderMoveListIncremental(previousPly);
+  }
   clearSelectionHighlights();
   clearPvHighlights();
   highlightLastMove();
@@ -2412,10 +2733,12 @@ function afterPositionChange() {
     stopAnalysis();
     setTimeout(() => startAnalysis("infinite"), 30);
   }
+  scheduleUI();
 }
 
 function loadFen(fen) {
   if (!game) return;
+  const previousPly = historyPlyCache;
   const ok = game.load(fen);
   if (!ok) {
     engineWarning.textContent = "Invalid FEN.";
@@ -2424,11 +2747,17 @@ function loadFen(fen) {
   moveMeta = [];
   undoStack.length = 0;
   redoStack.length = 0;
-  afterPositionChange();
+  afterPositionChange({
+    previousPly,
+    rebuildHistory: true,
+    forceMoveListRender: true,
+    syncPgn: true,
+  });
 }
 
 function loadPgn(pgn) {
   if (!game) return;
+  const previousPly = historyPlyCache;
   const ok = game.load_pgn(pgn);
   if (!ok) {
     engineWarning.textContent = "Invalid PGN.";
@@ -2437,16 +2766,27 @@ function loadPgn(pgn) {
   moveMeta = [];
   undoStack.length = 0;
   redoStack.length = 0;
-  afterPositionChange();
+  afterPositionChange({
+    previousPly,
+    rebuildHistory: true,
+    forceMoveListRender: true,
+    syncPgn: true,
+  });
 }
 
 btnNew.addEventListener("click", () => {
   if (!game) return;
+  const previousPly = historyPlyCache;
   game.reset();
   moveMeta = [];
   undoStack.length = 0;
   redoStack.length = 0;
-  afterPositionChange();
+  afterPositionChange({
+    previousPly,
+    rebuildHistory: true,
+    forceMoveListRender: true,
+    syncPgn: true,
+  });
 });
 
 btnFlip.addEventListener("click", () => {
@@ -2458,25 +2798,15 @@ btnFlip.addEventListener("click", () => {
   highlightBestMove(lastBestMove);
   selectedSquare = null;
   legalTargets.clear();
+  setFocusedSquare(focusedSquare, { focus: true });
 });
 
 btnUndo.addEventListener("click", () => {
-  if (!game) return;
-  const move = game.undo();
-  if (move) {
-    redoStack.push(move);
-    if (moveMeta.length) moveMeta.pop();
-    afterPositionChange();
-  }
+  jumpBack(1);
 });
 
 btnRedo.addEventListener("click", () => {
-  if (!game || !redoStack.length) return;
-  const move = redoStack.pop();
-  if (!move) return;
-  game.move(move);
-  moveMeta.push({});
-  afterPositionChange();
+  jumpForward(1);
 });
 
 btnLoadFen.addEventListener("click", () => {
@@ -2497,6 +2827,7 @@ btnCopyPgn.addEventListener("click", () => {
 
 btnApplyMoves.addEventListener("click", () => {
   if (!game) return;
+  const previousPly = historyPlyCache;
   const moves = uciMovesInput.value.trim().split(/\s+/).filter(Boolean);
   game.reset();
   moveMeta = [];
@@ -2508,16 +2839,27 @@ btnApplyMoves.addEventListener("click", () => {
   });
   undoStack.length = 0;
   redoStack.length = 0;
-  afterPositionChange();
+  afterPositionChange({
+    previousPly,
+    rebuildHistory: true,
+    forceMoveListRender: true,
+    syncPgn: true,
+  });
 });
 
 btnClearMoves.addEventListener("click", () => {
   if (!game) return;
+  const previousPly = historyPlyCache;
   game.reset();
   moveMeta = [];
   undoStack.length = 0;
   redoStack.length = 0;
-  afterPositionChange();
+  afterPositionChange({
+    previousPly,
+    rebuildHistory: true,
+    forceMoveListRender: true,
+    syncPgn: true,
+  });
 });
 
 function handleGlobalHotkeys(event) {
@@ -2727,11 +3069,14 @@ window.addEventListener("keydown", handleGlobalHotkeys);
 
 function initBoard() {
   renderBoardSquares();
+  ensureBoardKeyboardBinding();
   updateBoardPieces();
-  refreshHistoryCache();
-  syncFenPgn();
+  rebuildHistoryCache();
+  syncFenPgn({ syncPgn: true });
   renderMoveList();
   highlightLastMove();
+  setFocusedSquare(focusedSquare);
+  scheduleUI();
 }
 
 initPanelToggles();
