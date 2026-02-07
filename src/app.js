@@ -210,12 +210,17 @@ const ENGINE_RECOVERY_LIMIT = 2;
 const BATCH_ANALYSIS_TIMEOUT_MS = 20000;
 const EVAL_SAMPLE_INTERVAL_MS = 80;
 const MOVE_META_UPDATE_INTERVAL_MS = 220;
+const CONSOLE_MAX_LINES = 500;
+const CONSOLE_FLUSH_INTERVAL_MS = 250;
 let performanceMode = "max";
 let engineRecoveryAttempt = 0;
 let lastEvalSampleTime = Number.NEGATIVE_INFINITY;
 let lastEvalSampleDepth = -1;
 let lastMoveMetaUpdateTime = Number.NEGATIVE_INFINITY;
 let lastMoveMetaDepth = -1;
+let consoleFlushTimer = null;
+let consoleNeedsFullRender = true;
+let consoleRenderedLineCount = 0;
 
 function resolveBatchAnalysis(patch = {}) {
   if (!batchResolver || !batchCurrent) return false;
@@ -611,15 +616,48 @@ function initPanelToggles() {
 }
 
 function logLine(line, kind = "out") {
+  if (kind === "out" && line.startsWith("info ")) {
+    return;
+  }
   const prefix = kind === "in" ? ">>" : "<<";
   const entry = `${prefix} ${line}`;
-  const maxLines = 500;
   consoleLines.push(entry);
-  if (consoleLines.length > maxLines) {
-    consoleLines.splice(0, consoleLines.length - maxLines);
+  if (consoleLines.length > CONSOLE_MAX_LINES) {
+    consoleLines.splice(0, consoleLines.length - CONSOLE_MAX_LINES);
+    consoleNeedsFullRender = true;
+    consoleRenderedLineCount = Math.min(consoleRenderedLineCount, consoleLines.length);
   }
   consoleDirty = true;
-  scheduleUI();
+  scheduleConsoleFlush();
+}
+
+function flushConsole() {
+  if (!consoleEl || !consoleDirty) return;
+  consoleDirty = false;
+  if (consoleNeedsFullRender || consoleRenderedLineCount > consoleLines.length) {
+    consoleEl.textContent = consoleLines.join("\n");
+    consoleRenderedLineCount = consoleLines.length;
+    consoleNeedsFullRender = false;
+  } else if (consoleRenderedLineCount < consoleLines.length) {
+    const appended = consoleLines.slice(consoleRenderedLineCount).join("\n");
+    if (appended) {
+      if (consoleEl.textContent) {
+        consoleEl.textContent += `\n${appended}`;
+      } else {
+        consoleEl.textContent = appended;
+      }
+    }
+    consoleRenderedLineCount = consoleLines.length;
+  }
+  consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+function scheduleConsoleFlush() {
+  if (consoleFlushTimer) return;
+  consoleFlushTimer = setTimeout(() => {
+    consoleFlushTimer = null;
+    flushConsole();
+  }, CONSOLE_FLUSH_INTERVAL_MS);
 }
 
 function scheduleUI() {
@@ -629,11 +667,6 @@ function scheduleUI() {
     pendingFrame = false;
     updateKpis();
     updateEvalBar();
-    if (consoleDirty) {
-      consoleDirty = false;
-      consoleEl.textContent = consoleLines.join("\n");
-      consoleEl.scrollTop = consoleEl.scrollHeight;
-    }
     if (moveListDirty) {
       moveListDirty = false;
       renderMoveList();
@@ -1732,9 +1765,15 @@ btnCopyConsole.addEventListener("click", () => {
 });
 
 btnClearConsole.addEventListener("click", () => {
+  if (consoleFlushTimer) {
+    clearTimeout(consoleFlushTimer);
+    consoleFlushTimer = null;
+  }
   consoleLines.length = 0;
   consoleDirty = true;
-  scheduleUI();
+  consoleNeedsFullRender = true;
+  consoleRenderedLineCount = 0;
+  flushConsole();
 });
 
 btnDownloadReport.addEventListener("click", () => {
