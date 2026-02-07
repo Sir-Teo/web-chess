@@ -225,6 +225,7 @@ const PV_SAN_DEBOUNCE_MS = 140;
 const CONSOLE_MAX_LINES = 500;
 const CONSOLE_FLUSH_INTERVAL_MS = 250;
 const OPTIONS_FILTER_DEBOUNCE_MS = 120;
+const PGN_SYNC_DEBOUNCE_MS = 180;
 const PIECE_NAMES = {
   P: "pawn",
   N: "knight",
@@ -245,6 +246,8 @@ let consoleRenderedLineCount = 0;
 let optionsFilterTimer = null;
 let pvSanComputeTimer = null;
 let pvSanPending = null;
+let pgnDirty = true;
+let pgnSyncTimer = null;
 
 function resolveBatchAnalysis(patch = {}) {
   if (!batchResolver || !batchCurrent) return false;
@@ -2457,16 +2460,41 @@ function onSquareClick(square) {
 
 function syncFenPgn(options = {}) {
   if (!game) return;
-  const { syncPgn = true } = options;
+  const { syncPgn = true, forcePgn = false } = options;
   const fen = game.fen();
   if (fenInput.value !== fen) fenInput.value = fen;
   if (syncPgn) {
-    const pgn = game.pgn();
-    if (pgnInput.value !== pgn) pgnInput.value = pgn;
+    if (forcePgn) {
+      if (pgnSyncTimer) {
+        clearTimeout(pgnSyncTimer);
+        pgnSyncTimer = null;
+      }
+      flushPgnSync();
+    } else {
+      schedulePgnSync();
+    }
+  } else if (pgnSyncTimer) {
+    clearTimeout(pgnSyncTimer);
+    pgnSyncTimer = null;
   }
   if (uciMovesInput.value !== historyUciJoined) {
     uciMovesInput.value = historyUciJoined;
   }
+}
+
+function flushPgnSync() {
+  if (!game || !pgnInput || !pgnDirty) return;
+  const pgn = game.pgn();
+  if (pgnInput.value !== pgn) pgnInput.value = pgn;
+  pgnDirty = false;
+}
+
+function schedulePgnSync() {
+  if (!pgnDirty || pgnSyncTimer) return;
+  pgnSyncTimer = setTimeout(() => {
+    pgnSyncTimer = null;
+    flushPgnSync();
+  }, PGN_SYNC_DEBOUNCE_MS);
 }
 
 function ensureMoveListClickBinding() {
@@ -2753,11 +2781,15 @@ function afterPositionChange(options = {}) {
   if (rebuildHistory) {
     rebuildHistoryCache();
   }
+  pgnDirty = true;
   updateBoardPieces();
   const shouldSyncPgn = typeof syncPgn === "boolean"
     ? syncPgn
     : !document.body.classList.contains("collapsed-left") && document.activeElement !== pgnInput;
-  syncFenPgn({ syncPgn: shouldSyncPgn });
+  syncFenPgn({
+    syncPgn: shouldSyncPgn,
+    forcePgn: rebuildHistory || forceMoveListRender,
+  });
   if (forceMoveListRender || rebuildHistory) {
     renderMoveList();
   } else {
@@ -2873,6 +2905,7 @@ btnLoadPgn.addEventListener("click", () => {
 });
 
 btnCopyPgn.addEventListener("click", () => {
+  flushPgnSync();
   navigator.clipboard.writeText(pgnInput.value).catch(() => {});
 });
 
@@ -3123,7 +3156,7 @@ function initBoard() {
   ensureBoardKeyboardBinding();
   updateBoardPieces();
   rebuildHistoryCache();
-  syncFenPgn({ syncPgn: true });
+  syncFenPgn({ syncPgn: true, forcePgn: true });
   renderMoveList();
   highlightLastMove();
   setFocusedSquare(focusedSquare);
