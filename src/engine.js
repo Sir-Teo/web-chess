@@ -278,11 +278,17 @@ export function preloadEngineAssets(variantKey = "auto", options = {}) {
   return preloadPromise;
 }
 
-export function queueEngineAssetPreload(variantKey = "auto") {
+export function queueEngineAssetPreload(variantKey = "auto", options = {}) {
+  const resolvedKey = resolveEngineSpecKey(variantKey);
+  const spec = ENGINE_SPECS[resolvedKey] || ENGINE_SPECS["standard-single"];
+  const isHeavySplitWasm = Boolean(spec.wasm && spec.parts && spec.parts > 0);
+  if (isHeavySplitWasm && !options.force) {
+    return;
+  }
   const schedule = typeof self !== "undefined" && typeof self.requestIdleCallback === "function"
     ? self.requestIdleCallback.bind(self)
     : (callback) => setTimeout(callback, 0);
   schedule(() => {
-    preloadEngineAssets(variantKey, { background: true }).catch(() => {});
+    preloadEngineAssets(resolvedKey, { background: true }).catch(() => {});
   });
 }

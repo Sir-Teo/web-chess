@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { EngineController, getEngineSpecs, threadsAvailable } from "../src/engine.js";
+import {
+  EngineController,
+  getEngineSpecs,
+  queueEngineAssetPreload,
+  threadsAvailable,
+} from "../src/engine.js";
 
 test("getEngineSpecs exposes expected variants", () => {
   const specs = getEngineSpecs();
@@ -76,4 +81,36 @@ test("EngineController.handleLine emits parsed UCI events", () => {
   assert.equal(events[4][1].pv, "e2e4 e7e5");
   assert.deepEqual(events[5], ["bestmove", { bestmove: "e2e4", ponder: "e7e5" }]);
   assert.deepEqual(events[6], ["misc", "unknown output line"]);
+});
+
+test("queueEngineAssetPreload skips heavy split wasm variants by default", async () => {
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return new Response("");
+  };
+  try {
+    queueEngineAssetPreload("standard-single");
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    assert.equal(fetchCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("queueEngineAssetPreload can force heavy split wasm preload", async () => {
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return new Response("");
+  };
+  try {
+    queueEngineAssetPreload("standard-single", { force: true });
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    assert.ok(fetchCalls > 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
