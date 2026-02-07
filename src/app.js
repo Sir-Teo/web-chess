@@ -248,6 +248,8 @@ let pvSanComputeTimer = null;
 let pvSanPending = null;
 let pgnDirty = true;
 let pgnSyncTimer = null;
+let batchRowId = 0;
+const batchNodeMap = new Map();
 
 function resolveBatchAnalysis(patch = {}) {
   if (!batchResolver || !batchCurrent) return false;
@@ -2061,22 +2063,39 @@ btnApplyThresholds.addEventListener("click", () => {
 
 function renderBatchList() {
   if (!batchList) return;
-  batchList.innerHTML = "";
+  const seen = new Set();
   batchQueue.forEach((item, index) => {
-    const row = document.createElement("div");
-    row.className = "list-item";
+    if (!item.id) item.id = `batch-${++batchRowId}`;
+    let node = batchNodeMap.get(item.id);
+    if (!node) {
+      const row = document.createElement("div");
+      row.className = "list-item";
+      const idx = document.createElement("strong");
+      const fen = document.createElement("span");
+      fen.className = "batch-fen";
+      const statusTag = document.createElement("span");
+      statusTag.className = "move-tag";
+      row.appendChild(idx);
+      row.appendChild(fen);
+      row.appendChild(statusTag);
+      node = { row, idx, fen, statusTag };
+      batchNodeMap.set(item.id, node);
+    }
     const status = item.status || "queued";
-    const idx = document.createElement("strong");
-    idx.textContent = `#${index + 1}`;
-    const fenText = document.createTextNode(` ${item.fen} `);
-    const statusTag = document.createElement("span");
-    statusTag.className = "move-tag";
-    statusTag.textContent = status;
-    row.appendChild(idx);
-    row.appendChild(fenText);
-    row.appendChild(statusTag);
-    batchList.appendChild(row);
+    node.idx.textContent = `#${index + 1}`;
+    node.fen.textContent = item.fen;
+    node.statusTag.textContent = status;
+    const anchor = batchList.children[index] || null;
+    if (node.row !== anchor) {
+      batchList.insertBefore(node.row, anchor);
+    }
+    seen.add(item.id);
   });
+  for (const [id, node] of batchNodeMap.entries()) {
+    if (seen.has(id)) continue;
+    node.row.remove();
+    batchNodeMap.delete(id);
+  }
   renderBatchChart();
 }
 
@@ -2106,14 +2125,14 @@ function renderBatchChart() {
 
 function parseBatchInput() {
   const lines = batchInput.value.split(/\n/).map((line) => line.trim()).filter(Boolean);
-  lines.forEach((fen) => batchQueue.push({ fen, status: "queued" }));
+  lines.forEach((fen) => batchQueue.push({ id: `batch-${++batchRowId}`, fen, status: "queued" }));
   batchInput.value = "";
   renderBatchList();
 }
 
 btnBatchAddCurrent.addEventListener("click", () => {
   if (!game) return;
-  batchQueue.push({ fen: game.fen(), status: "queued" });
+  batchQueue.push({ id: `batch-${++batchRowId}`, fen: game.fen(), status: "queued" });
   renderBatchList();
 });
 
