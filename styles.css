@@ -122,8 +122,8 @@ textarea:focus {
 }
 
 .ui-bar-height {
-  height: var(--ui-bar-height);
   min-height: var(--ui-bar-height);
+  height: auto;
 }
 
 .ui-bar-pad {
