@@ -1,5 +1,5 @@
-const CORE_CACHE = "vulcan-core-v7";
-const RUNTIME_CACHE = "vulcan-runtime-v7";
+const CORE_CACHE = "vulcan-core-v8";
+const RUNTIME_CACHE = "vulcan-runtime-v8";
 const MAX_RUNTIME_CACHE_ENTRIES = 24;
 
 const CORE_ASSETS = [
