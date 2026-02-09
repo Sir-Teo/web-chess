@@ -84,6 +84,12 @@ function canUseThreads() {
   return supportsWasm() && typeof SharedArrayBuffer !== "undefined" && isCrossOriginIsolated();
 }
 
+function mergeInfo(target, patch) {
+  for (const [key, value] of Object.entries(patch)) {
+    target[key] = value;
+  }
+}
+
 function pickAutoSpecKey() {
   if (!supportsWasm()) return "asm";
   const tier = getDeviceTier();
@@ -218,7 +224,7 @@ export class EngineController {
     if (line.startsWith("info ")) {
       const info = parseInfo(line);
       if (info) {
-        this.info = { ...this.info, ...info };
+        mergeInfo(this.info, info);
         this.emit("info", info);
       }
       return;
