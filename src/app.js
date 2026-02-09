@@ -266,6 +266,8 @@ let engineLoadPromise = null;
 let deferredEngineKey = "auto";
 let engineUiState = "idle";
 let engineFailureMessage = "";
+let analysisRestartTimer = null;
+let analysisRestartQueued = false;
 
 function resolveBatchAnalysis(patch = {}) {
   if (!batchResolver || !batchCurrent) return false;
@@ -1646,7 +1648,30 @@ async function sendEngineCommand(cmd, options = {}) {
   return true;
 }
 
+function clearPendingAnalysisRestart() {
+  if (analysisRestartTimer) {
+    clearTimeout(analysisRestartTimer);
+    analysisRestartTimer = null;
+  }
+  analysisRestartQueued = false;
+}
+
+function scheduleAnalysisRestart(delayMs = 40) {
+  const delay = Math.max(0, Math.ceil(delayMs));
+  analysisRestartQueued = true;
+  if (analysisRestartTimer) {
+    clearTimeout(analysisRestartTimer);
+  }
+  analysisRestartTimer = setTimeout(() => {
+    analysisRestartTimer = null;
+    if (!analysisRestartQueued) return;
+    analysisRestartQueued = false;
+    startAnalysis("infinite").catch(() => {});
+  }, delay);
+}
+
 async function startAnalysis(mode = "infinite") {
+  clearPendingAnalysisRestart();
   const ready = await ensureEngineReady();
   if (!ready) return;
   if (!sendPosition()) return;
@@ -1666,7 +1691,11 @@ async function startAnalysis(mode = "infinite") {
   scheduleUI();
 }
 
-function stopAnalysis() {
+function stopAnalysis(options = {}) {
+  const { keepRestartQueue = false } = options;
+  if (!keepRestartQueue) {
+    clearPendingAnalysisRestart();
+  }
   if (!engine.worker) {
     analysisActive = false;
     setAnalyzePillState(false);
@@ -3053,9 +3082,11 @@ function afterPositionChange(options = {}) {
   if (autoPlay && !awaitingBestMoveApply) {
     setTimeout(() => requestAutoMove(), 60);
   }
-  if (analysisActive) {
-    stopAnalysis();
-    setTimeout(() => startAnalysis("infinite"), 30);
+  if (analysisActive || analysisRestartQueued) {
+    if (analysisActive) {
+      stopAnalysis({ keepRestartQueue: true });
+    }
+    scheduleAnalysisRestart(45);
   }
   scheduleUI();
 }
