@@ -66,6 +66,8 @@ body {
   color: var(--ui-text);
   background: var(--ui-bg);
   font-size: var(--ui-font-size);
+  min-height: 100svh;
+  min-height: 100dvh;
   overflow: hidden;
 }
 
@@ -154,8 +156,10 @@ textarea:focus {
 }
 
 .app-root {
-  min-height: 100vh;
-  height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+  height: 100svh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
