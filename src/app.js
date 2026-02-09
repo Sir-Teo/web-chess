@@ -228,6 +228,9 @@ const CONSOLE_FLUSH_INTERVAL_MS = 250;
 const CHART_RENDER_INTERVAL_MS = 140;
 const OPTIONS_FILTER_DEBOUNCE_MS = 120;
 const PGN_SYNC_DEBOUNCE_MS = 180;
+const MOBILE_UI_MAX_WIDTH = 900;
+const MOBILE_UI_FRAME_INTERVAL_MS = 66;
+const LOW_END_MOBILE_UI_FRAME_INTERVAL_MS = 90;
 const UI_MODE_STORAGE_KEY = "vulcan-ui-mode";
 const PIECE_NAMES = {
   P: "pawn",
@@ -247,6 +250,8 @@ let consoleFlushTimer = null;
 let consoleNeedsFullRender = true;
 let consoleRenderedLineCount = 0;
 let uiRescheduleTimer = null;
+let uiRescheduleDueAt = Number.POSITIVE_INFINITY;
+let lastUiRenderAt = Number.NEGATIVE_INFINITY;
 let lastEvalChartRenderAt = Number.NEGATIVE_INFINITY;
 let lastWinrateChartRenderAt = Number.NEGATIVE_INFINITY;
 let optionsFilterTimer = null;
@@ -800,6 +805,39 @@ function scheduleConsoleFlush() {
   }, CONSOLE_FLUSH_INTERVAL_MS);
 }
 
+function scheduleUiResync(delayMs) {
+  const delay = Math.max(0, Math.ceil(delayMs));
+  const dueAt = performance.now() + delay;
+  if (uiRescheduleTimer && dueAt >= uiRescheduleDueAt - 1) return;
+  if (uiRescheduleTimer) {
+    clearTimeout(uiRescheduleTimer);
+    uiRescheduleTimer = null;
+  }
+  uiRescheduleDueAt = dueAt;
+  uiRescheduleTimer = setTimeout(() => {
+    uiRescheduleTimer = null;
+    uiRescheduleDueAt = Number.POSITIVE_INFINITY;
+    scheduleUI();
+  }, delay);
+}
+
+function getAdaptiveUiFrameIntervalMs() {
+  if (typeof window === "undefined") return 0;
+  if (window.innerWidth > MOBILE_UI_MAX_WIDTH) return 0;
+  const deviceMemory =
+    typeof navigator !== "undefined" && typeof navigator.deviceMemory === "number"
+      ? navigator.deviceMemory
+      : null;
+  const hardwareConcurrency =
+    typeof navigator !== "undefined" && typeof navigator.hardwareConcurrency === "number"
+      ? navigator.hardwareConcurrency
+      : null;
+  const lowEnd =
+    (deviceMemory !== null && deviceMemory <= 4) ||
+    (hardwareConcurrency !== null && hardwareConcurrency <= 4);
+  return lowEnd ? LOW_END_MOBILE_UI_FRAME_INTERVAL_MS : MOBILE_UI_FRAME_INTERVAL_MS;
+}
+
 function scheduleUI() {
   if (pendingFrame) return;
   pendingFrame = true;
@@ -807,46 +845,54 @@ function scheduleUI() {
     pendingFrame = false;
     const now = performance.now();
     let deferredDelay = Number.POSITIVE_INFINITY;
-    updateKpis();
-    updateEvalBar();
-    if (moveListDirty) {
-      moveListDirty = false;
-      renderMoveList();
-    }
-    if (pvRenderedVersion !== pvRenderVersion) {
-      pvRenderedVersion = pvRenderVersion;
-      renderPvLines();
-    }
-    if (evalRenderedVersion !== evalRenderVersion) {
-      const elapsed = now - lastEvalChartRenderAt;
-      if (elapsed >= CHART_RENDER_INTERVAL_MS) {
-        evalRenderedVersion = evalRenderVersion;
-        renderEvalChart();
-        lastEvalChartRenderAt = now;
-      } else {
-        deferredDelay = Math.min(deferredDelay, CHART_RENDER_INTERVAL_MS - elapsed);
+    const uiFrameInterval = getAdaptiveUiFrameIntervalMs();
+    const cadenceDelay =
+      uiFrameInterval > 0 && Number.isFinite(lastUiRenderAt)
+        ? uiFrameInterval - (now - lastUiRenderAt)
+        : 0;
+
+    if (cadenceDelay > 0) {
+      deferredDelay = Math.min(deferredDelay, cadenceDelay);
+    } else {
+      lastUiRenderAt = now;
+      updateKpis();
+      updateEvalBar();
+      if (moveListDirty) {
+        moveListDirty = false;
+        renderMoveList();
+      }
+      if (pvRenderedVersion !== pvRenderVersion) {
+        pvRenderedVersion = pvRenderVersion;
+        renderPvLines();
+      }
+      if (evalRenderedVersion !== evalRenderVersion) {
+        const elapsed = now - lastEvalChartRenderAt;
+        if (elapsed >= CHART_RENDER_INTERVAL_MS) {
+          evalRenderedVersion = evalRenderVersion;
+          renderEvalChart();
+          lastEvalChartRenderAt = now;
+        } else {
+          deferredDelay = Math.min(deferredDelay, CHART_RENDER_INTERVAL_MS - elapsed);
+        }
+      }
+      if (winrateRenderedVersion !== winrateRenderVersion) {
+        const elapsed = now - lastWinrateChartRenderAt;
+        if (elapsed >= CHART_RENDER_INTERVAL_MS) {
+          winrateRenderedVersion = winrateRenderVersion;
+          renderWinrateChart();
+          lastWinrateChartRenderAt = now;
+        } else {
+          deferredDelay = Math.min(deferredDelay, CHART_RENDER_INTERVAL_MS - elapsed);
+        }
       }
     }
-    if (winrateRenderedVersion !== winrateRenderVersion) {
-      const elapsed = now - lastWinrateChartRenderAt;
-      if (elapsed >= CHART_RENDER_INTERVAL_MS) {
-        winrateRenderedVersion = winrateRenderVersion;
-        renderWinrateChart();
-        lastWinrateChartRenderAt = now;
-      } else {
-        deferredDelay = Math.min(deferredDelay, CHART_RENDER_INTERVAL_MS - elapsed);
-      }
-    }
+
     if (Number.isFinite(deferredDelay)) {
-      if (!uiRescheduleTimer) {
-        uiRescheduleTimer = setTimeout(() => {
-          uiRescheduleTimer = null;
-          scheduleUI();
-        }, Math.max(0, Math.ceil(deferredDelay)));
-      }
+      scheduleUiResync(deferredDelay);
     } else if (uiRescheduleTimer) {
       clearTimeout(uiRescheduleTimer);
       uiRescheduleTimer = null;
+      uiRescheduleDueAt = Number.POSITIVE_INFINITY;
     }
   });
 }

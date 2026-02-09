@@ -1518,6 +1518,22 @@ body:not(.ui-advanced) [data-ui-mode~="advanced"] {
   .board-wrap {
     gap: 12px;
   }
+
+  .board {
+    box-shadow: none;
+  }
+
+  .square {
+    transition: none;
+  }
+
+  .square img {
+    filter: none;
+  }
+
+  .eval-fill {
+    transition: none;
+  }
 }
 
 @media (max-width: 1279px) {
