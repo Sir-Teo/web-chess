@@ -231,6 +231,7 @@ const PGN_SYNC_DEBOUNCE_MS = 180;
 const MOBILE_UI_MAX_WIDTH = 900;
 const MOBILE_UI_FRAME_INTERVAL_MS = 66;
 const LOW_END_MOBILE_UI_FRAME_INTERVAL_MS = 90;
+const ENGINE_PREWARM_IDLE_TIMEOUT_MS = 1200;
 const UI_MODE_STORAGE_KEY = "vulcan-ui-mode";
 const PIECE_NAMES = {
   P: "pawn",
@@ -1564,6 +1565,21 @@ function ensureEngineReady(key = engineSelect?.value || deferredEngineKey || "au
   if (engine.worker) return Promise.resolve(true);
   if (engineLoadPromise) return engineLoadPromise;
   return loadEngineAndTrack(key);
+}
+
+function scheduleIdleTask(callback, timeoutMs = ENGINE_PREWARM_IDLE_TIMEOUT_MS) {
+  if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(callback, { timeout: timeoutMs });
+    return;
+  }
+  setTimeout(callback, Math.min(400, timeoutMs));
+}
+
+function queueInitialEnginePrewarm() {
+  scheduleIdleTask(() => {
+    if (engine.worker || engineLoadPromise) return;
+    loadEngineAndTrack(deferredEngineKey || "auto").catch(() => {});
+  });
 }
 
 function clampOptionValue(option, value) {
@@ -3390,6 +3406,7 @@ engineVariant.textContent = initialSpec.label;
 engineThreads.textContent = initialSpec.threads ? "auto" : "1";
 engineHash.textContent = "—";
 queueEngineAssetPreload(deferredEngineKey);
+queueInitialEnginePrewarm();
 updateEngineWarning();
 overlayState = {
   best: toggleBest.checked,
