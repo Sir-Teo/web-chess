@@ -1,6 +1,6 @@
 :root {
-  --ui-font: "Manrope", "Segoe UI", sans-serif;
-  --ui-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ui-font: "Avenir Next", "Avenir", "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --ui-font-mono: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   --ui-font-size: 15px;
   --ui-bar-height: 56px;
   --ui-bar-pad-x: 12px;
@@ -66,6 +66,9 @@ body {
   color: var(--ui-text);
   background: var(--ui-bg);
   font-size: var(--ui-font-size);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   min-height: 100svh;
   min-height: 100dvh;
   overflow: hidden;
