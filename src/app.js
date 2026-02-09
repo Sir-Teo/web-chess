@@ -264,6 +264,8 @@ let batchRowId = 0;
 const batchNodeMap = new Map();
 let engineLoadPromise = null;
 let deferredEngineKey = "auto";
+let engineUiState = "idle";
+let engineFailureMessage = "";
 
 function resolveBatchAnalysis(patch = {}) {
   if (!batchResolver || !batchCurrent) return false;
@@ -1507,6 +1509,15 @@ function refreshQuickOptions() {
 }
 
 function updateEngineWarning() {
+  if (engineUiState === "loading") {
+    const selected = engineVariant?.textContent || "engine";
+    engineWarning.textContent = `Loading ${selected}...`;
+    return;
+  }
+  if (engineUiState === "error") {
+    engineWarning.textContent = engineFailureMessage || "Engine failed to load.";
+    return;
+  }
   if (!engine.worker) {
     const selected = engineVariant?.textContent || "selected variant";
     engineWarning.textContent = `Engine idle. ${selected} will load on first command.`;
@@ -1518,13 +1529,13 @@ function updateEngineWarning() {
     ? window.isSecureContext
     : true;
   if (usingThreads) {
-    engineWarning.textContent = "Cross-origin isolation active. Multi-threaded engine unlocked.";
+    engineWarning.textContent = "Engine ready. Cross-origin isolation active; multi-threaded mode unlocked.";
   } else if (threadsAvailable()) {
-    engineWarning.textContent = "Threads available, but current engine is single-threaded.";
+    engineWarning.textContent = "Engine ready. Threads are available, but current variant is single-threaded.";
   } else if (!secureContext) {
-    engineWarning.textContent = "Threads require HTTPS/localhost + COOP/COEP. Falling back to single-threaded engines.";
+    engineWarning.textContent = "Engine ready. Threads require HTTPS/localhost + COOP/COEP, so single-threaded mode is active.";
   } else {
-    engineWarning.textContent = "Cross-origin isolation is unavailable. Falling back to single-threaded engines.";
+    engineWarning.textContent = "Engine ready. Cross-origin isolation is unavailable, so single-threaded mode is active.";
   }
 }
 
@@ -1538,10 +1549,11 @@ function loadSelectedEngine(key = engineSelect?.value || "auto") {
   engineThreads.textContent = spec.threads ? "auto" : "1";
   engineHash.textContent = "—";
   optionState.clear();
-  engineWarning.textContent = `Loading ${spec.label}...`;
+  engineUiState = "loading";
+  engineFailureMessage = "";
+  updateEngineWarning();
   queueEngineAssetPreload(key);
   const loadPromise = engine.load(key);
-  updateEngineWarning();
   return loadPromise;
 }
 
@@ -1549,7 +1561,9 @@ function loadEngineAndTrack(key = engineSelect?.value || deferredEngineKey || "a
   const pending = loadSelectedEngine(key)
     .then(() => true)
     .catch(() => {
-      engineWarning.textContent = "Engine failed to load.";
+      engineUiState = "error";
+      engineFailureMessage = "Engine failed to load.";
+      updateEngineWarning();
       return false;
     });
   engineLoadPromise = pending;
@@ -1809,7 +1823,9 @@ engine.on("uciok", () => {
   engine.send("isready");
 });
 engine.on("readyok", () => {
-  engineWarning.textContent = "Engine ready for commands.";
+  engineUiState = "ready";
+  engineFailureMessage = "";
+  updateEngineWarning();
 });
 engine.on("info", (info) => {
   mergeObjectShallow(latestInfo, info);
@@ -1886,7 +1902,9 @@ engine.on("error", (err) => {
     });
   }
   if (!recoverFromEngineError(message)) {
-    engineWarning.textContent = `Engine error: ${message}`;
+    engineUiState = "error";
+    engineFailureMessage = `Engine error: ${message}`;
+    updateEngineWarning();
   }
 });
 
