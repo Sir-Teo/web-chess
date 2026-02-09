@@ -1,5 +1,7 @@
 import { parseUciOption, parseInfo, parseBestmove } from "./uci.js";
 
+const ENGINE_ASSET_VERSION = "20260209c";
+
 const ENGINE_SPECS = {
   standard: {
     label: "Standard (multi-threaded)",
@@ -45,10 +47,14 @@ const THREADS_FALLBACK = {
 const preloadPromises = new Map();
 
 const resolveAssetUrl = (assetPath) => {
-  if (typeof window !== "undefined" && window.location) {
-    return new URL(assetPath, window.location.href);
+  const url =
+    typeof window !== "undefined" && window.location
+      ? new URL(assetPath, window.location.href)
+      : new URL(assetPath, import.meta.url);
+  if (assetPath.startsWith("vendor/stockfish/")) {
+    url.searchParams.set("v", ENGINE_ASSET_VERSION);
   }
-  return new URL(assetPath, import.meta.url);
+  return url;
 };
 
 function supportsWasm() {

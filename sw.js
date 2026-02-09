@@ -1,5 +1,5 @@
-const CORE_CACHE = "vulcan-core-v8";
-const RUNTIME_CACHE = "vulcan-runtime-v8";
+const CORE_CACHE = "vulcan-core-v9";
+const RUNTIME_CACHE = "vulcan-runtime-v9";
 const MAX_RUNTIME_CACHE_ENTRIES = 24;
 
 const CORE_ASSETS = [
@@ -80,6 +80,19 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       (async () => {
         const cache = await caches.open(RUNTIME_CACHE);
+        const isJsWorkerScript = url.pathname.endsWith(".js");
+        if (isJsWorkerScript) {
+          try {
+            const network = await fetch(request);
+            await putIfOk(cache, request, network);
+            await trimRuntimeCache(cache);
+            return network;
+          } catch (err) {
+            const fallback = await cache.match(request);
+            return fallback || Response.error();
+          }
+        }
+
         const cached = await cache.match(request);
         const networkPromise = fetch(request)
           .then(async (response) => {
