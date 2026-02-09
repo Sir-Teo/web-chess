@@ -128,6 +128,7 @@ const perftInput = $("perft-input");
 const btnMenu = $("btn-menu");
 const btnView = $("btn-view");
 const btnAnalyzePill = $("btn-analyze-pill");
+const btnUiMode = $("btn-ui-mode");
 const btnSettings = $("btn-settings");
 const menuView = $("menu-view");
 const menuSettings = $("menu-settings");
@@ -227,6 +228,7 @@ const CONSOLE_FLUSH_INTERVAL_MS = 250;
 const CHART_RENDER_INTERVAL_MS = 140;
 const OPTIONS_FILTER_DEBOUNCE_MS = 120;
 const PGN_SYNC_DEBOUNCE_MS = 180;
+const UI_MODE_STORAGE_KEY = "vulcan-ui-mode";
 const PIECE_NAMES = {
   P: "pawn",
   N: "knight",
@@ -459,6 +461,39 @@ const setPanelMode = (mode) => {
 };
 
 let activeMenuName = "";
+
+function setUiMode(mode, options = {}) {
+  const { persist = true } = options;
+  const advanced = mode === "advanced";
+  document.body.classList.toggle("ui-advanced", advanced);
+  if (btnUiMode) {
+    btnUiMode.textContent = advanced ? "Mode: Advanced" : "Mode: Basic";
+    btnUiMode.setAttribute("aria-pressed", advanced ? "true" : "false");
+  }
+  if (!persist) return;
+  try {
+    localStorage.setItem(UI_MODE_STORAGE_KEY, advanced ? "advanced" : "basic");
+  } catch (err) {
+    // ignore storage failures
+  }
+}
+
+function initUiMode() {
+  let mode = "basic";
+  try {
+    const saved = localStorage.getItem(UI_MODE_STORAGE_KEY);
+    if (saved === "advanced") mode = "advanced";
+  } catch (err) {
+    // ignore storage failures
+  }
+  setUiMode(mode, { persist: false });
+  if (btnUiMode) {
+    btnUiMode.addEventListener("click", () => {
+      const isAdvanced = document.body.classList.contains("ui-advanced");
+      setUiMode(isAdvanced ? "basic" : "advanced");
+    });
+  }
+}
 
 const resetMenuAdvancedState = () => {
   document.querySelectorAll(".topbar-menu").forEach((menu) => {
@@ -3289,6 +3324,7 @@ function initBoard() {
   scheduleUI();
 }
 
+initUiMode();
 initPanelToggles();
 initHeaderMenus();
 setPanelMode("play");

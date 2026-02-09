@@ -88,12 +88,13 @@
                   <button type="button" class="menu-item" data-menu-action="pv-stop">Stop PV</button>
                 </div>
               </div>
-              <button type="button" class="menu-advanced-toggle" data-menu-advanced-toggle aria-expanded="false">
+              <button type="button" class="menu-advanced-toggle" data-menu-advanced-toggle data-ui-mode="advanced" aria-expanded="false">
                 Show Advanced
               </button>
             </div>
           </div>
           <button type="button" class="topbar-pill accent" id="btn-analyze-pill" aria-pressed="false"><span class="dot"></span><span class="label">Analyze</span></button>
+          <button type="button" class="topbar-pill" id="btn-ui-mode" aria-pressed="false">Mode: Basic</button>
           <div class="menu-wrap">
             <button type="button" class="topbar-pill" id="btn-settings" aria-haspopup="menu" aria-expanded="false" aria-controls="menu-settings">Settings ▾</button>
             <div class="topbar-menu" id="menu-settings" role="menu" aria-label="Settings menu">
@@ -130,7 +131,7 @@
                 </div>
               </div>
 
-              <div class="menu-section" data-menu-advanced="true">
+              <div class="menu-section" data-menu-advanced="true" data-ui-mode="advanced">
                 <div class="menu-title">Diagnostics</div>
                 <div class="menu-grid">
                   <button type="button" class="menu-item" data-menu-action="eval-trace">Eval Trace</button>
@@ -142,7 +143,7 @@
                 </div>
               </div>
 
-              <div class="menu-section" data-menu-advanced="true">
+              <div class="menu-section" data-menu-advanced="true" data-ui-mode="advanced">
                 <div class="menu-title">Tuning</div>
                 <div class="menu-grid">
                   <button type="button" class="menu-item" data-menu-action="max-performance">Max Performance</button>
@@ -159,7 +160,7 @@
                 </div>
               </div>
 
-              <div class="menu-section" data-menu-advanced="true">
+              <div class="menu-section" data-menu-advanced="true" data-ui-mode="advanced">
                 <div class="menu-title">Batch Queue</div>
                 <div class="menu-grid">
                   <button type="button" class="menu-item" data-menu-action="batch-add-current">Add Current FEN</button>
@@ -170,7 +171,7 @@
                 </div>
               </div>
 
-              <div class="menu-section" data-menu-advanced="true">
+              <div class="menu-section" data-menu-advanced="true" data-ui-mode="advanced">
                 <div class="menu-title">Reports / Console</div>
                 <div class="menu-grid">
                   <button type="button" class="menu-item" data-menu-action="apply-thresholds">Apply Thresholds</button>
@@ -180,7 +181,7 @@
                   <button type="button" class="menu-item" data-menu-action="panel-resign">Resign / Stop</button>
                 </div>
               </div>
-              <button type="button" class="menu-advanced-toggle" data-menu-advanced-toggle aria-expanded="false">
+              <button type="button" class="menu-advanced-toggle" data-menu-advanced-toggle data-ui-mode="advanced" aria-expanded="false">
                 Show Advanced
               </button>
             </div>
@@ -265,10 +266,10 @@
           <div class="controls">
             <button id="btn-analyze" class="primary">Go Infinite</button>
             <button class="secondary" id="btn-stop">Stop</button>
-            <button class="secondary" id="btn-isready">IsReady</button>
-            <button class="secondary" id="btn-ucinewgame">New Search</button>
-            <button class="secondary" id="btn-ponderhit">Ponder Hit</button>
-            <button class="secondary" id="btn-clear-hash">Clear Hash</button>
+            <button class="secondary" id="btn-isready" data-ui-mode="advanced">IsReady</button>
+            <button class="secondary" id="btn-ucinewgame" data-ui-mode="advanced">New Search</button>
+            <button class="secondary" id="btn-ponderhit" data-ui-mode="advanced">Ponder Hit</button>
+            <button class="secondary" id="btn-clear-hash" data-ui-mode="advanced">Clear Hash</button>
             <button class="secondary" id="btn-play-best">Play Best Move</button>
             <button class="ghost" id="btn-auto-play">Auto Play: Off</button>
           </div>
@@ -368,7 +369,7 @@
                 </div>
               </details>
 
-              <details class="section">
+              <details class="section" data-ui-mode="advanced">
                 <summary class="section-summary">Clock / Time Controls</summary>
                 <div class="section-body">
                   <div class="grid-two">
@@ -439,7 +440,7 @@
                 </div>
               </div>
 
-              <details class="section">
+              <details class="section" data-ui-mode="advanced">
                 <summary class="section-summary">Strength / Elo</summary>
                 <div class="section-body">
                   <div class="grid-two">
@@ -458,7 +459,7 @@
                 </div>
               </details>
 
-              <details class="section">
+              <details class="section" data-ui-mode="advanced">
                 <summary class="section-summary">Syzygy Tablebases</summary>
                 <div class="section-body">
                   <div class="grid-two">
@@ -484,7 +485,7 @@
                 </div>
               </details>
 
-              <details class="section">
+              <details class="section" data-ui-mode="advanced">
                 <summary class="section-summary">Variant Settings</summary>
                 <div class="section-body">
                   <div class="controls">
@@ -495,7 +496,7 @@
                 </div>
               </details>
 
-              <details class="section">
+              <details class="section" data-ui-mode="advanced">
                 <summary class="section-summary">Diagnostics / Extensions</summary>
                 <div class="section-body">
                   <div class="controls">
@@ -518,7 +519,7 @@
                 </div>
               </details>
 
-              <details class="section">
+              <details class="section" data-ui-mode="advanced">
                 <summary class="section-summary">UCI Options</summary>
                 <div class="section-body">
                   <div class="controls">
@@ -530,7 +531,7 @@
                 </div>
               </details>
 
-              <details class="section">
+              <details class="section" data-ui-mode="advanced">
                 <summary class="section-summary">Raw UCI Console</summary>
                 <div class="section-body">
                   <div id="console" class="console"></div>
@@ -600,7 +601,7 @@
                 </div>
               </details>
 
-              <details class="section">
+              <details class="section" data-ui-mode="advanced">
                 <summary class="section-summary">Blunder Detector</summary>
                 <div class="section-body">
                   <div class="grid-two">
@@ -627,7 +628,7 @@
                 </div>
               </details>
 
-              <details class="section">
+              <details class="section" data-ui-mode="advanced">
                 <summary class="section-summary">Batch Analysis Queue</summary>
                 <div class="section-body">
                   <textarea id="batch-input" placeholder="Paste FENs (one per line)"></textarea>
