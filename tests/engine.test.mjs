@@ -60,6 +60,7 @@ test("EngineController.handleLine emits parsed UCI events", () => {
   controller.on("uciok", (payload) => events.push(["uciok", payload]));
   controller.on("readyok", (payload) => events.push(["readyok", payload]));
   controller.on("info", (payload) => events.push(["info", payload]));
+  controller.on("infoString", (payload) => events.push(["infoString", payload]));
   controller.on("bestmove", (payload) => events.push(["bestmove", payload]));
   controller.on("misc", (payload) => events.push(["misc", payload]));
 
@@ -67,6 +68,7 @@ test("EngineController.handleLine emits parsed UCI events", () => {
   controller.handleLine("option name Hash type spin default 16 min 1 max 1024");
   controller.handleLine("uciok");
   controller.handleLine("readyok");
+  controller.handleLine("info string benchmark");
   controller.handleLine("info depth 10 score cp 20 pv e2e4 e7e5");
   controller.handleLine("bestmove e2e4 ponder e7e5");
   controller.handleLine("unknown output line");
@@ -76,11 +78,12 @@ test("EngineController.handleLine emits parsed UCI events", () => {
   assert.equal(events[1][1].name, "Hash");
   assert.deepEqual(events[2], ["uciok", true]);
   assert.deepEqual(events[3], ["readyok", true]);
-  assert.equal(events[4][0], "info");
-  assert.equal(events[4][1].depth, 10);
-  assert.equal(events[4][1].pv, "e2e4 e7e5");
-  assert.deepEqual(events[5], ["bestmove", { bestmove: "e2e4", ponder: "e7e5" }]);
-  assert.deepEqual(events[6], ["misc", "unknown output line"]);
+  assert.deepEqual(events[4], ["infoString", "benchmark"]);
+  assert.equal(events[5][0], "info");
+  assert.equal(events[5][1].depth, 10);
+  assert.equal(events[5][1].pv, "e2e4 e7e5");
+  assert.deepEqual(events[6], ["bestmove", { bestmove: "e2e4", ponder: "e7e5" }]);
+  assert.deepEqual(events[7], ["misc", "unknown output line"]);
 });
 
 test("queueEngineAssetPreload skips heavy split wasm variants by default", async () => {

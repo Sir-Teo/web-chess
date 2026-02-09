@@ -44,38 +44,48 @@ export function parseUciOption(line) {
 export function parseInfo(line) {
   const tokens = line.trim().split(/\s+/);
   const info = {};
+  let parsedFields = 0;
 
   for (let i = 1; i < tokens.length; i += 1) {
     const token = tokens[i];
     switch (token) {
       case "depth":
         info.depth = Number(tokens[++i]);
+        parsedFields += 1;
         break;
       case "seldepth":
         info.seldepth = Number(tokens[++i]);
+        parsedFields += 1;
         break;
       case "multipv":
         info.multipv = Number(tokens[++i]);
+        parsedFields += 1;
         break;
       case "nodes":
         info.nodes = Number(tokens[++i]);
+        parsedFields += 1;
         break;
       case "nps":
         info.nps = Number(tokens[++i]);
+        parsedFields += 1;
         break;
       case "tbhits":
         info.tbhits = Number(tokens[++i]);
+        parsedFields += 1;
         break;
       case "hashfull":
         info.hashfull = Number(tokens[++i]);
+        parsedFields += 1;
         break;
       case "time":
         info.time = Number(tokens[++i]);
+        parsedFields += 1;
         break;
       case "score": {
         const type = tokens[++i];
         const value = Number(tokens[++i]);
         info.score = { type, value };
+        parsedFields += 1;
         if (tokens[i + 1] === "lowerbound" || tokens[i + 1] === "upperbound") {
           info.score.bound = tokens[++i];
         }
@@ -86,14 +96,17 @@ export function parseInfo(line) {
         const d = Number(tokens[++i]);
         const l = Number(tokens[++i]);
         info.wdl = { w, d, l };
+        parsedFields += 1;
         break;
       }
       case "pv":
         info.pv = tokens.slice(i + 1).join(" ");
+        parsedFields += 1;
         i = tokens.length;
         break;
       case "string":
         info.string = tokens.slice(i + 1).join(" ");
+        parsedFields += 1;
         i = tokens.length;
         break;
       default:
@@ -101,7 +114,7 @@ export function parseInfo(line) {
     }
   }
 
-  return info;
+  return parsedFields > 0 ? info : null;
 }
 
 export function parseBestmove(line) {

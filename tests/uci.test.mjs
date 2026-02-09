@@ -42,6 +42,10 @@ test("parseInfo parses score, bound, and pv", () => {
   assert.equal(info.pv, "e2e4 e7e5");
 });
 
+test("parseInfo returns null when no known fields are present", () => {
+  assert.equal(parseInfo("info currmove e2e4"), null);
+});
+
 test("parseBestmove parses bestmove and ponder", () => {
   assert.deepEqual(parseBestmove("bestmove e2e4 ponder e7e5"), {
     bestmove: "e2e4",

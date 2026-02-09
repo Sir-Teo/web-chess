@@ -221,6 +221,10 @@ export class EngineController {
       this.emit("readyok", true);
       return;
     }
+    if (line.startsWith("info string")) {
+      this.emit("infoString", line.replace("info string", "").trim());
+      return;
+    }
     if (line.startsWith("info ")) {
       const info = parseInfo(line);
       if (info) {
@@ -234,10 +238,6 @@ export class EngineController {
       if (move) {
         this.emit("bestmove", move);
       }
-      return;
-    }
-    if (line.startsWith("info string")) {
-      this.emit("infoString", line.replace("info string", "").trim());
       return;
     }
     this.emit("misc", line);
