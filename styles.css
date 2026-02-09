@@ -605,6 +605,8 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  content-visibility: auto;
+  contain-intrinsic-size: 480px;
 }
 
 .panel-scroll > .panel-section:last-child {
@@ -818,6 +820,8 @@ details.section[open] > .section-summary::after {
 }
 
 .section-body {
+  content-visibility: auto;
+  contain-intrinsic-size: 360px;
   padding: 10px;
   display: grid;
   gap: 10px;
