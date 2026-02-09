@@ -268,6 +268,48 @@ let engineUiState = "idle";
 let engineFailureMessage = "";
 let analysisRestartTimer = null;
 let analysisRestartQueued = false;
+const batchStatusStats = {
+  total: 0,
+  queued: 0,
+  running: 0,
+  done: 0,
+  failed: 0,
+};
+
+function normalizeBatchStatus(status) {
+  if (status === "running" || status === "done" || status === "failed") {
+    return status;
+  }
+  return "queued";
+}
+
+function resetBatchStatusStats() {
+  batchStatusStats.total = 0;
+  batchStatusStats.queued = 0;
+  batchStatusStats.running = 0;
+  batchStatusStats.done = 0;
+  batchStatusStats.failed = 0;
+}
+
+function updateBatchItemStatus(item, nextStatus) {
+  if (!item) return;
+  const prev = normalizeBatchStatus(item.status);
+  const next = normalizeBatchStatus(nextStatus);
+  if (prev === next) return;
+  if (batchStatusStats[prev] > 0) {
+    batchStatusStats[prev] -= 1;
+  }
+  batchStatusStats[next] += 1;
+  item.status = next;
+}
+
+function addBatchQueueItem(fen) {
+  const item = { id: `batch-${++batchRowId}`, fen, status: "queued" };
+  batchQueue.push(item);
+  batchStatusStats.total += 1;
+  batchStatusStats.queued += 1;
+  return item;
+}
 
 function resolveBatchAnalysis(patch = {}) {
   if (!batchResolver || !batchCurrent) return false;
@@ -967,8 +1009,8 @@ function updateTopMetrics() {
 function updateSessionStatus() {
   if (!panelToolbarStatus) return;
   if (batchRunning) {
-    const total = batchQueue.length;
-    const done = batchQueue.filter((item) => item.status === "done").length;
+    const total = batchStatusStats.total;
+    const done = batchStatusStats.done;
     setText(panelToolbarStatus, total ? `Batch ${done}/${total}` : "Batch");
     return;
   }
@@ -2326,7 +2368,8 @@ function renderBatchList() {
       node = { row, idx, fen, statusTag };
       batchNodeMap.set(item.id, node);
     }
-    const status = item.status || "queued";
+    const status = normalizeBatchStatus(item.status);
+    item.status = status;
     node.idx.textContent = `#${index + 1}`;
     node.fen.textContent = item.fen;
     node.statusTag.textContent = status;
@@ -2346,10 +2389,10 @@ function renderBatchList() {
 
 function renderBatchChart() {
   if (!batchChart || !batchStatus) return;
-  const total = batchQueue.length;
-  const done = batchQueue.filter((item) => item.status === "done").length;
-  const running = batchQueue.filter((item) => item.status === "running").length;
-  const queued = total - done - running;
+  const total = batchStatusStats.total;
+  const done = batchStatusStats.done;
+  const running = batchStatusStats.running;
+  const queued = batchStatusStats.queued;
   batchStatus.textContent = total
     ? `Completed ${done}/${total} • Running ${running} • Queued ${queued}`
     : "No batch running.";
@@ -2370,20 +2413,21 @@ function renderBatchChart() {
 
 function parseBatchInput() {
   const lines = batchInput.value.split(/\n/).map((line) => line.trim()).filter(Boolean);
-  lines.forEach((fen) => batchQueue.push({ id: `batch-${++batchRowId}`, fen, status: "queued" }));
+  lines.forEach((fen) => addBatchQueueItem(fen));
   batchInput.value = "";
   renderBatchList();
 }
 
 btnBatchAddCurrent.addEventListener("click", () => {
   if (!game) return;
-  batchQueue.push({ id: `batch-${++batchRowId}`, fen: game.fen(), status: "queued" });
+  addBatchQueueItem(game.fen());
   renderBatchList();
 });
 
 btnBatchClear.addEventListener("click", () => {
   batchQueue = [];
   batchResults = [];
+  resetBatchStatusStats();
   renderBatchList();
   renderBatchChart();
   scheduleUI();
@@ -2404,10 +2448,10 @@ btnBatchRun.addEventListener("click", async () => {
   scheduleUI();
   renderBatchChart();
   for (const item of batchQueue) {
-    item.status = "running";
+    updateBatchItemStatus(item, "running");
     renderBatchList();
     const result = await analyzeFen(item.fen);
-    item.status = result.error ? "failed" : "done";
+    updateBatchItemStatus(item, result.error ? "failed" : "done");
     batchResults.push(result);
     renderBatchList();
   }
