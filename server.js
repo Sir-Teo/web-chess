@@ -21,7 +21,7 @@ const mime = {
   ".wasm": "application/wasm",
   ".json": "application/json",
 };
-const compressibleExt = new Set([".html", ".js", ".mjs", ".css", ".json", ".svg", ".txt"]);
+const compressibleExt = new Set([".html", ".js", ".mjs", ".css", ".json", ".svg", ".txt", ".wasm"]);
 
 function send(res, status, headers, body) {
   res.writeHead(status, headers);
@@ -86,6 +86,34 @@ function pickCompression(req, ext, size) {
   const accepted = String(req.headers["accept-encoding"] || "");
   if (accepted.includes("br")) return "br";
   if (accepted.includes("gzip")) return "gzip";
+  return null;
+}
+
+async function pickPrecompressedVariant(req, filePath, ext) {
+  if (req.method !== "GET") return null;
+  if (ext !== ".wasm") return null;
+  if (req.headers.range) return null;
+  const accepted = String(req.headers["accept-encoding"] || "");
+  if (!accepted) return null;
+
+  const candidates = [];
+  if (accepted.includes("br")) {
+    candidates.push({ encoding: "br", path: `${filePath}.br` });
+  }
+  if (accepted.includes("gzip")) {
+    candidates.push({ encoding: "gzip", path: `${filePath}.gz` });
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const stats = await fsp.stat(candidate.path);
+      if (stats.isFile()) {
+        return { ...candidate, stats };
+      }
+    } catch (err) {
+      // ignore missing precompressed variant
+    }
+  }
   return null;
 }
 
@@ -171,17 +199,19 @@ const server = http.createServer(async (req, res) => {
   const hasVersionQuery = Boolean(searchParams && searchParams.has("v"));
   const hasFingerprintName = /-[0-9a-f]{7,}\.(?:js|mjs|css|wasm)$/i.test(path.basename(filePath));
   const immutableAsset = pathname.startsWith("/vendor/stockfish/") || hasVersionQuery || hasFingerprintName;
+  const precompressed = await pickPrecompressedVariant(req, filePath, ext);
+  const responseStats = precompressed ? precompressed.stats : stats;
   const cacheControl = immutableAsset ? "public, max-age=31536000, immutable" : "no-cache";
-  const headers = buildBaseHeaders(ext, cacheControl, stats);
+  const headers = buildBaseHeaders(ext, cacheControl, responseStats);
   const etag = headers.ETag;
 
-  if (!req.headers.range && isFresh(req, etag, stats.mtimeMs)) {
+  if (!req.headers.range && isFresh(req, etag, responseStats.mtimeMs)) {
     res.writeHead(304, headers);
     res.end();
     return;
   }
 
-  const range = parseRange(req.headers.range, stats.size);
+  const range = precompressed ? null : parseRange(req.headers.range, stats.size);
   if (range && range.invalid) {
     res.writeHead(416, {
       ...headers,
@@ -192,7 +222,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   const isRanged = Boolean(range);
-  const compression = isRanged ? null : pickCompression(req, ext, stats.size);
+  const compression = precompressed ? null : isRanged ? null : pickCompression(req, ext, stats.size);
   const status = isRanged ? 206 : 200;
   const responseHeaders = { ...headers, Vary: "Accept-Encoding" };
 
@@ -202,6 +232,9 @@ const server = http.createServer(async (req, res) => {
     responseHeaders["Content-Length"] = String(length);
   } else if (compression) {
     responseHeaders["Content-Encoding"] = compression;
+  } else if (precompressed) {
+    responseHeaders["Content-Encoding"] = precompressed.encoding;
+    responseHeaders["Content-Length"] = String(precompressed.stats.size);
   } else {
     responseHeaders["Content-Length"] = String(stats.size);
   }
@@ -212,7 +245,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  streamResponse(res, filePath, range, compression);
+  streamResponse(res, precompressed ? precompressed.path : filePath, range, compression);
 });
 
 server.listen(port, () => {
