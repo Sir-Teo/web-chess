@@ -153,6 +153,29 @@ const btnLoadPgn = $("btn-load-pgn");
 const btnCopyPgn = $("btn-copy-pgn");
 const btnApplyMoves = $("btn-apply-moves");
 const btnClearMoves = $("btn-clear-moves");
+const engineCommandButtons = [
+  btnAnalyze,
+  btnStop,
+  btnIsReady,
+  btnUciNew,
+  btnPonderHit,
+  btnClearHash,
+  btnPlayBest,
+  btnAutoPlay,
+  btnGoDepth,
+  btnGoTime,
+  btnGoNodes,
+  btnGoMate,
+  btnGoClock,
+  btnEval,
+  btnDisplay,
+  btnCompiler,
+  btnPerft,
+  btnFlipEngine,
+  btnSendUci,
+  btnPanelAi,
+];
+const MAX_QUEUED_ENGINE_ACTIONS = 8;
 
 const engine = new EngineController();
 const pvLines = new Map();
@@ -266,6 +289,10 @@ let engineLoadPromise = null;
 let deferredEngineKey = "auto";
 let engineUiState = "idle";
 let engineFailureMessage = "";
+let engineReady = false;
+let engineReadyPromise = null;
+let resolveEngineReadyPromise = null;
+const queuedEngineActions = [];
 let analysisRestartTimer = null;
 let analysisRestartQueued = false;
 const batchStatusStats = {
@@ -1014,6 +1041,11 @@ function updateSessionStatus() {
     setText(panelToolbarStatus, total ? `Batch ${done}/${total}` : "Batch");
     return;
   }
+  if (engineUiState === "loading" || (!engineReady && engine.worker)) {
+    const queued = queuedEngineActions.length;
+    setText(panelToolbarStatus, queued ? `Engine starting • queued ${queued}` : "Engine starting");
+    return;
+  }
   if (analysisActive) {
     setText(panelToolbarStatus, `Analyzing ${formatClock(infoClockMs(latestInfo))}`);
     return;
@@ -1552,10 +1584,80 @@ function refreshQuickOptions() {
   }
 }
 
+function updateCommandAvailability() {
+  const disableEngineCommands = batchRunning || engineUiState === "loading";
+  engineCommandButtons.forEach((button) => {
+    if (!button) return;
+    button.disabled = disableEngineCommands;
+  });
+  if (engineSelect) {
+    engineSelect.disabled = batchRunning;
+  }
+  if (btnBatchRun) {
+    btnBatchRun.disabled = batchRunning || engineUiState === "loading";
+  }
+}
+
+function resolveEngineReady(ready) {
+  if (resolveEngineReadyPromise) {
+    resolveEngineReadyPromise(Boolean(ready));
+  }
+  resolveEngineReadyPromise = null;
+  engineReadyPromise = null;
+}
+
+function createEngineReadyPromise() {
+  resolveEngineReady(false);
+  engineReadyPromise = new Promise((resolve) => {
+    resolveEngineReadyPromise = resolve;
+  });
+}
+
+function queueEngineAction(action) {
+  if (!action || typeof action.run !== "function") return;
+  if (engineReady) {
+    action.run();
+    return;
+  }
+  const key = action.key || "";
+  if (key) {
+    const existing = queuedEngineActions.findIndex((item) => item.key === key);
+    if (existing >= 0) {
+      queuedEngineActions[existing] = { ...action, key };
+    } else {
+      queuedEngineActions.push({ ...action, key });
+    }
+  } else {
+    queuedEngineActions.push({ ...action, key: "" });
+  }
+  if (queuedEngineActions.length > MAX_QUEUED_ENGINE_ACTIONS) {
+    queuedEngineActions.splice(0, queuedEngineActions.length - MAX_QUEUED_ENGINE_ACTIONS);
+  }
+  updateEngineWarning();
+  scheduleUI();
+  ensureEngineReady().catch(() => {});
+}
+
+function flushQueuedEngineActions() {
+  if (!queuedEngineActions.length || !engineReady) return;
+  const pending = queuedEngineActions.splice(0);
+  updateEngineWarning();
+  pending.forEach((action) => {
+    try {
+      action.run();
+    } catch (err) {
+      // ignore queued action failures
+    }
+  });
+}
+
 function updateEngineWarning() {
+  updateCommandAvailability();
+  const queuedCount = queuedEngineActions.length;
+  const queuedSuffix = queuedCount ? ` ${queuedCount} action${queuedCount === 1 ? "" : "s"} queued.` : "";
   if (engineUiState === "loading") {
     const selected = engineVariant?.textContent || "engine";
-    engineWarning.textContent = `Loading ${selected}...`;
+    engineWarning.textContent = `Loading ${selected}...${queuedSuffix}`;
     return;
   }
   if (engineUiState === "error") {
@@ -1565,6 +1667,10 @@ function updateEngineWarning() {
   if (!engine.worker) {
     const selected = engineVariant?.textContent || "selected variant";
     engineWarning.textContent = `Engine idle. ${selected} will load on first command.`;
+    return;
+  }
+  if (!engineReady) {
+    engineWarning.textContent = `Engine starting...${queuedSuffix}`;
     return;
   }
   const usingThreads = engine.supportsThreads;
@@ -1593,8 +1699,10 @@ function loadSelectedEngine(key = engineSelect?.value || "auto") {
   engineThreads.textContent = spec.threads ? "auto" : "1";
   engineHash.textContent = "—";
   optionState.clear();
+  engineReady = false;
   engineUiState = "loading";
   engineFailureMessage = "";
+  createEngineReadyPromise();
   updateEngineWarning();
   queueEngineAssetPreload(key);
   const loadPromise = engine.load(key);
@@ -1603,8 +1711,11 @@ function loadSelectedEngine(key = engineSelect?.value || "auto") {
 
 function loadEngineAndTrack(key = engineSelect?.value || deferredEngineKey || "auto") {
   const pending = loadSelectedEngine(key)
-    .then(() => true)
+    .then(() => (engineReadyPromise ? engineReadyPromise : Promise.resolve(false)))
+    .then((ready) => Boolean(ready))
     .catch(() => {
+      engineReady = false;
+      resolveEngineReady(false);
       engineUiState = "error";
       engineFailureMessage = "Engine failed to load.";
       updateEngineWarning();
@@ -1620,8 +1731,9 @@ function loadEngineAndTrack(key = engineSelect?.value || deferredEngineKey || "a
 }
 
 function ensureEngineReady(key = engineSelect?.value || deferredEngineKey || "auto") {
-  if (engine.worker) return Promise.resolve(true);
+  if (engineReady) return Promise.resolve(true);
   if (engineLoadPromise) return engineLoadPromise;
+  if (engine.worker && engineReadyPromise) return engineReadyPromise;
   return loadEngineAndTrack(key);
 }
 
@@ -1681,9 +1793,21 @@ function sendPosition() {
 }
 
 async function sendEngineCommand(cmd, options = {}) {
-  const { log = true, includePosition = false } = options;
-  const ready = await ensureEngineReady();
-  if (!ready) return false;
+  const { log = true, includePosition = false, queueIfLoading = true } = options;
+  if (!engineReady) {
+    if (queueIfLoading) {
+      queueEngineAction({
+        key: `cmd:${cmd}`,
+        label: cmd,
+        run: () => {
+          sendEngineCommand(cmd, { ...options, queueIfLoading: false }).catch(() => {});
+        },
+      });
+      return true;
+    }
+    const ready = await ensureEngineReady();
+    if (!ready) return false;
+  }
   if (includePosition && !sendPosition()) return false;
   engine.send(cmd);
   if (log) logLine(cmd, "in");
@@ -1712,10 +1836,30 @@ function scheduleAnalysisRestart(delayMs = 40) {
   }, delay);
 }
 
-async function startAnalysis(mode = "infinite") {
+async function startAnalysis(mode = "infinite", options = {}) {
+  const { queueIfLoading = true, searchmoves: queuedSearchmoves = null } = options;
   clearPendingAnalysisRestart();
-  const ready = await ensureEngineReady();
-  if (!ready) return;
+  const searchmoves = typeof queuedSearchmoves === "string"
+    ? queuedSearchmoves
+    : searchmovesInput.value.trim();
+  if (!engineReady) {
+    if (queueIfLoading) {
+      queueEngineAction({
+        key: "analysis:start",
+        label: `go ${mode}`,
+        run: () => {
+          startAnalysis(mode, {
+            ...options,
+            queueIfLoading: false,
+            searchmoves,
+          }).catch(() => {});
+        },
+      });
+      return;
+    }
+    const ready = await ensureEngineReady();
+    if (!ready) return;
+  }
   if (!sendPosition()) return;
   pvLines.clear();
   evalHistory = [];
@@ -1724,7 +1868,6 @@ async function startAnalysis(mode = "infinite") {
   winrateRenderVersion += 1;
   analysisStart = performance.now();
   resetInfoSamplingState();
-  const searchmoves = searchmovesInput.value.trim();
   const suffix = searchmoves ? ` searchmoves ${searchmoves}` : "";
   engine.send(`go ${mode}${suffix}`);
   logLine(`go ${mode}${suffix}`.trim(), "in");
@@ -1894,9 +2037,12 @@ engine.on("uciok", () => {
   engine.send("isready");
 });
 engine.on("readyok", () => {
+  engineReady = true;
+  resolveEngineReady(true);
   engineUiState = "ready";
   engineFailureMessage = "";
   updateEngineWarning();
+  flushQueuedEngineActions();
 });
 engine.on("info", (info) => {
   mergeObjectShallow(latestInfo, info);
@@ -1973,6 +2119,8 @@ engine.on("error", (err) => {
     });
   }
   if (!recoverFromEngineError(message)) {
+    engineReady = false;
+    resolveEngineReady(false);
     engineUiState = "error";
     engineFailureMessage = `Engine error: ${message}`;
     updateEngineWarning();
@@ -2440,6 +2588,7 @@ btnBatchRun.addEventListener("click", async () => {
   const ready = await ensureEngineReady();
   if (!ready) return;
   batchRunning = true;
+  updateCommandAvailability();
   batchResults = [];
   stopAnalysis();
   autoPlay = false;
@@ -2456,6 +2605,7 @@ btnBatchRun.addEventListener("click", async () => {
     renderBatchList();
   }
   batchRunning = false;
+  updateCommandAvailability();
   renderBatchChart();
   scheduleUI();
 });
@@ -3049,10 +3199,23 @@ function applyUciMove(uci) {
   return true;
 }
 
-async function requestAutoMove() {
-  if (!autoPlay && !awaitingBestMoveApply) {
+async function requestAutoMove(options = {}) {
+  const { queueIfLoading = true } = options;
+  if (!engineReady) {
+    if (queueIfLoading) {
+      queueEngineAction({
+        key: "auto-move",
+        label: "auto move",
+        run: () => {
+          requestAutoMove({ ...options, queueIfLoading: false }).catch(() => {});
+        },
+      });
+      return;
+    }
     const ready = await ensureEngineReady();
     if (!ready) return;
+  }
+  if (!autoPlay && !awaitingBestMoveApply) {
     const moveTime = Number(autoMoveTimeInput.value) || 1200;
     const depth = Number(autoDepthInput.value) || 12;
     if (!sendPosition()) return;
@@ -3068,8 +3231,6 @@ async function requestAutoMove() {
     return;
   }
   if (autoPlay) {
-    const ready = await ensureEngineReady();
-    if (!ready) return;
     const moveTime = Number(autoMoveTimeInput.value) || 1200;
     const depth = Number(autoDepthInput.value) || 12;
     if (!sendPosition()) return;
