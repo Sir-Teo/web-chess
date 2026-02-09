@@ -1,17 +1,18 @@
-const CORE_CACHE = "vulcan-core-v9";
-const RUNTIME_CACHE = "vulcan-runtime-v9";
+const ASSET_VERSION = "20260209e";
+const CORE_CACHE = "vulcan-core-v10";
+const RUNTIME_CACHE = "vulcan-runtime-v10";
 const MAX_RUNTIME_CACHE_ENTRIES = 24;
 
 const CORE_ASSETS = [
   "./",
   "./index.html",
   "./favicon.ico",
-  "./styles.css",
+  `./styles.css?v=${ASSET_VERSION}`,
   "./sw.js",
-  "./src/app.js",
-  "./src/engine.js",
-  "./src/uci.js",
-  "./vendor/chess.min.js",
+  `./src/app.js?v=${ASSET_VERSION}`,
+  `./src/engine.js?v=${ASSET_VERSION}`,
+  `./src/uci.js?v=${ASSET_VERSION}`,
+  `./vendor/chess.min.js?v=${ASSET_VERSION}`,
   "./assets/pieces/wP.png",
   "./assets/pieces/wN.png",
   "./assets/pieces/wB.png",
@@ -33,6 +34,11 @@ function isHtmlNavigation(request) {
   if (request.mode === "navigate") return true;
   const accept = request.headers.get("accept") || "";
   return accept.includes("text/html");
+}
+
+function isImmutableVersionedAsset(url) {
+  if (url.searchParams.has("v")) return true;
+  return /-[0-9a-f]{7,}\.(?:js|mjs|css|wasm)$/i.test(url.pathname);
 }
 
 async function trimRuntimeCache(cache) {
@@ -112,24 +118,48 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (isImmutableVersionedAsset(url) && !isHtmlNavigation(request)) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(RUNTIME_CACHE);
+        const cached = await cache.match(request);
+        if (cached) return cached;
+        try {
+          const network = await fetch(request);
+          await putIfOk(cache, request, network);
+          await trimRuntimeCache(cache);
+          return network;
+        } catch (err) {
+          return cached || Response.error();
+        }
+      })()
+    );
+    return;
+  }
+
   const isCoreAsset = CORE_PATHS.has(url.pathname) || isHtmlNavigation(request);
   if (isCoreAsset) {
     event.respondWith(
       (async () => {
         const coreCache = await caches.open(CORE_CACHE);
-        try {
-          const network = await fetch(request);
-          await putIfOk(coreCache, request, network);
-          return network;
-        } catch (err) {
-          const fallback = await coreCache.match(request);
-          if (fallback) return fallback;
-          if (isHtmlNavigation(request)) {
-            const htmlFallback = await coreCache.match("./index.html");
-            if (htmlFallback) return htmlFallback;
-          }
-          return Response.error();
+        const cached = await coreCache.match(request, { ignoreSearch: true });
+        const networkPromise = fetch(request)
+          .then(async (response) => {
+            await putIfOk(coreCache, request, response);
+            return response;
+          })
+          .catch(() => null);
+        if (cached) {
+          event.waitUntil(networkPromise);
+          return cached;
         }
+        const network = await networkPromise;
+        if (network) return network;
+        if (isHtmlNavigation(request)) {
+          const htmlFallback = await coreCache.match("./index.html");
+          if (htmlFallback) return htmlFallback;
+        }
+        return Response.error();
       })()
     );
     return;

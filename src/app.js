@@ -1,5 +1,5 @@
-import { EngineController, threadsAvailable, queueEngineAssetPreload } from "./engine.js";
-import { formatScore, scoreToPercent } from "./uci.js";
+import { EngineController, threadsAvailable, queueEngineAssetPreload } from "./engine.js?v=20260209e";
+import { formatScore, scoreToPercent } from "./uci.js?v=20260209e";
 
 const $ = (id) => document.getElementById(id);
 
@@ -473,7 +473,7 @@ const ensureChessReady = () => {
       return;
     }
     const script = document.createElement("script");
-    script.src = "vendor/chess.min.js";
+    script.src = "vendor/chess.min.js?v=20260209e";
     script.dataset.chessLib = "true";
     script.onload = () => resolve(true);
     script.onerror = () => resolve(false);

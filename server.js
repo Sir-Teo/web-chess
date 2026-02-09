@@ -134,8 +134,11 @@ const server = http.createServer(async (req, res) => {
 
   const rawUrl = typeof req.url === "string" ? req.url : "/";
   let pathname;
+  let searchParams;
   try {
-    pathname = decodeURIComponent(rawUrl.split("?")[0] || "/");
+    const parsedUrl = new URL(rawUrl, "http://localhost");
+    pathname = decodeURIComponent(parsedUrl.pathname || "/");
+    searchParams = parsedUrl.searchParams;
   } catch (err) {
     send(res, 400, { "Content-Type": "text/plain" }, "Bad Request");
     return;
@@ -165,9 +168,10 @@ const server = http.createServer(async (req, res) => {
   }
 
   const ext = path.extname(filePath).toLowerCase();
-  const cacheControl = pathname.startsWith("/vendor/stockfish/")
-    ? "public, max-age=31536000, immutable"
-    : "no-cache";
+  const hasVersionQuery = Boolean(searchParams && searchParams.has("v"));
+  const hasFingerprintName = /-[0-9a-f]{7,}\.(?:js|mjs|css|wasm)$/i.test(path.basename(filePath));
+  const immutableAsset = pathname.startsWith("/vendor/stockfish/") || hasVersionQuery || hasFingerprintName;
+  const cacheControl = immutableAsset ? "public, max-age=31536000, immutable" : "no-cache";
   const headers = buildBaseHeaders(ext, cacheControl, stats);
   const etag = headers.ETag;
 
