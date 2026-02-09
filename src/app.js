@@ -224,6 +224,7 @@ const PV_SAN_CACHE_LIMIT = 320;
 const PV_SAN_DEBOUNCE_MS = 140;
 const CONSOLE_MAX_LINES = 500;
 const CONSOLE_FLUSH_INTERVAL_MS = 250;
+const CHART_RENDER_INTERVAL_MS = 140;
 const OPTIONS_FILTER_DEBOUNCE_MS = 120;
 const PGN_SYNC_DEBOUNCE_MS = 180;
 const PIECE_NAMES = {
@@ -243,6 +244,9 @@ let lastMoveMetaDepth = -1;
 let consoleFlushTimer = null;
 let consoleNeedsFullRender = true;
 let consoleRenderedLineCount = 0;
+let uiRescheduleTimer = null;
+let lastEvalChartRenderAt = Number.NEGATIVE_INFINITY;
+let lastWinrateChartRenderAt = Number.NEGATIVE_INFINITY;
 let optionsFilterTimer = null;
 let pvSanComputeTimer = null;
 let pvSanPending = null;
@@ -766,6 +770,8 @@ function scheduleUI() {
   pendingFrame = true;
   requestAnimationFrame(() => {
     pendingFrame = false;
+    const now = performance.now();
+    let deferredDelay = Number.POSITIVE_INFINITY;
     updateKpis();
     updateEvalBar();
     if (moveListDirty) {
@@ -777,12 +783,35 @@ function scheduleUI() {
       renderPvLines();
     }
     if (evalRenderedVersion !== evalRenderVersion) {
-      evalRenderedVersion = evalRenderVersion;
-      renderEvalChart();
+      const elapsed = now - lastEvalChartRenderAt;
+      if (elapsed >= CHART_RENDER_INTERVAL_MS) {
+        evalRenderedVersion = evalRenderVersion;
+        renderEvalChart();
+        lastEvalChartRenderAt = now;
+      } else {
+        deferredDelay = Math.min(deferredDelay, CHART_RENDER_INTERVAL_MS - elapsed);
+      }
     }
     if (winrateRenderedVersion !== winrateRenderVersion) {
-      winrateRenderedVersion = winrateRenderVersion;
-      renderWinrateChart();
+      const elapsed = now - lastWinrateChartRenderAt;
+      if (elapsed >= CHART_RENDER_INTERVAL_MS) {
+        winrateRenderedVersion = winrateRenderVersion;
+        renderWinrateChart();
+        lastWinrateChartRenderAt = now;
+      } else {
+        deferredDelay = Math.min(deferredDelay, CHART_RENDER_INTERVAL_MS - elapsed);
+      }
+    }
+    if (Number.isFinite(deferredDelay)) {
+      if (!uiRescheduleTimer) {
+        uiRescheduleTimer = setTimeout(() => {
+          uiRescheduleTimer = null;
+          scheduleUI();
+        }, Math.max(0, Math.ceil(deferredDelay)));
+      }
+    } else if (uiRescheduleTimer) {
+      clearTimeout(uiRescheduleTimer);
+      uiRescheduleTimer = null;
     }
   });
 }
