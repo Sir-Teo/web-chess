@@ -193,7 +193,8 @@ export class EngineController {
 
   send(cmd) {
     if (!this.worker) return;
-    this.worker.postMessage(cmd);
+    const message = typeof cmd === "string" ? cmd : String(cmd ?? "");
+    this.worker.postMessage(message);
   }
 
   handleLine(line) {

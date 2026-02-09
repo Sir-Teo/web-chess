@@ -5,6 +5,7 @@ const MAX_RUNTIME_CACHE_ENTRIES = 24;
 const CORE_ASSETS = [
   "./",
   "./index.html",
+  "./favicon.ico",
   "./styles.css",
   "./sw.js",
   "./src/app.js",
