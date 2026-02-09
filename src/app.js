@@ -3279,8 +3279,6 @@ engineVariant.textContent = initialSpec.label;
 engineThreads.textContent = initialSpec.threads ? "auto" : "1";
 engineHash.textContent = "—";
 queueEngineAssetPreload(deferredEngineKey);
-queueEngineAssetPreload("lite-single");
-queueEngineAssetPreload("asm");
 updateEngineWarning();
 overlayState = {
   best: toggleBest.checked,
