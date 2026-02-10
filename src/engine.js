@@ -274,6 +274,27 @@ function collectSpecAssetUrls(spec) {
   return urls;
 }
 
+function shouldPreloadHeavyWasm(options = {}) {
+  if (options.force) return true;
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (connection) {
+    if (connection.saveData) return false;
+    const effectiveType = String(connection.effectiveType || "").toLowerCase();
+    if (effectiveType.includes("2g")) return false;
+  }
+
+  const deviceMemory =
+    typeof navigator.deviceMemory === "number" ? navigator.deviceMemory : null;
+  const cores =
+    typeof navigator.hardwareConcurrency === "number" ? navigator.hardwareConcurrency : null;
+
+  if (deviceMemory !== null && deviceMemory <= 3) return false;
+  if (cores !== null && cores <= 2) return false;
+  return true;
+}
+
 export function preloadEngineAssets(variantKey = "auto", options = {}) {
   const resolvedKey = resolveEngineSpecKey(variantKey);
   if (preloadPromises.has(resolvedKey)) {
@@ -295,7 +316,7 @@ export function queueEngineAssetPreload(variantKey = "auto", options = {}) {
   const resolvedKey = resolveEngineSpecKey(variantKey);
   const spec = ENGINE_SPECS[resolvedKey] || ENGINE_SPECS["standard-single"];
   const isHeavySplitWasm = Boolean(spec.wasm && spec.parts && spec.parts > 0);
-  if (isHeavySplitWasm && !options.force) {
+  if (isHeavySplitWasm && !shouldPreloadHeavyWasm(options)) {
     return;
   }
   const schedule = typeof self !== "undefined" && typeof self.requestIdleCallback === "function"
@@ -304,4 +325,8 @@ export function queueEngineAssetPreload(variantKey = "auto", options = {}) {
   schedule(() => {
     preloadEngineAssets(resolvedKey, { background: true }).catch(() => {});
   });
+}
+
+export function __resetPreloadCacheForTests() {
+  preloadPromises.clear();
 }

@@ -2,11 +2,30 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  __resetPreloadCacheForTests,
   EngineController,
   getEngineSpecs,
   queueEngineAssetPreload,
   threadsAvailable,
 } from "../src/engine.js";
+
+function withMockNavigator(mock, run) {
+  const original = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    writable: true,
+    value: mock,
+  });
+  return Promise.resolve()
+    .then(run)
+    .finally(() => {
+      if (original) {
+        Object.defineProperty(globalThis, "navigator", original);
+      } else {
+        delete globalThis.navigator;
+      }
+    });
+}
 
 test("getEngineSpecs exposes expected variants", () => {
   const specs = getEngineSpecs();
@@ -87,6 +106,7 @@ test("EngineController.handleLine emits parsed UCI events", () => {
 });
 
 test("queueEngineAssetPreload skips heavy split wasm variants by default", async () => {
+  __resetPreloadCacheForTests();
   let fetchCalls = 0;
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => {
@@ -98,11 +118,43 @@ test("queueEngineAssetPreload skips heavy split wasm variants by default", async
     await new Promise((resolve) => setTimeout(resolve, 25));
     assert.equal(fetchCalls, 0);
   } finally {
+    __resetPreloadCacheForTests();
     globalThis.fetch = originalFetch;
   }
 });
 
+test("queueEngineAssetPreload preloads heavy split wasm on capable devices", async () => {
+  __resetPreloadCacheForTests();
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return new Response("");
+  };
+  const originalWindow = globalThis.window;
+  globalThis.window = {};
+  try {
+    await withMockNavigator(
+      {
+        deviceMemory: 8,
+        hardwareConcurrency: 8,
+        connection: { saveData: false, effectiveType: "4g" },
+      },
+      async () => {
+        queueEngineAssetPreload("standard-single");
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+    );
+    assert.ok(fetchCalls > 0);
+  } finally {
+    __resetPreloadCacheForTests();
+    globalThis.fetch = originalFetch;
+    globalThis.window = originalWindow;
+  }
+});
+
 test("queueEngineAssetPreload can force heavy split wasm preload", async () => {
+  __resetPreloadCacheForTests();
   let fetchCalls = 0;
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => {
@@ -114,6 +166,7 @@ test("queueEngineAssetPreload can force heavy split wasm preload", async () => {
     await new Promise((resolve) => setTimeout(resolve, 25));
     assert.ok(fetchCalls > 0);
   } finally {
+    __resetPreloadCacheForTests();
     globalThis.fetch = originalFetch;
   }
 });
