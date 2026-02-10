@@ -246,6 +246,7 @@ const EVAL_SAMPLE_INTERVAL_MS = 80;
 const MOVE_META_UPDATE_INTERVAL_MS = 220;
 const PV_SAN_CACHE_LIMIT = 320;
 const PV_SAN_DEBOUNCE_MS = 140;
+const ENGINE_INFO_FLUSH_INTERVAL_MS = 40;
 const CONSOLE_MAX_LINES = 500;
 const CONSOLE_FLUSH_INTERVAL_MS = 250;
 const CHART_RENDER_INTERVAL_MS = 140;
@@ -281,6 +282,9 @@ let lastWinrateChartRenderAt = Number.NEGATIVE_INFINITY;
 let optionsFilterTimer = null;
 let pvSanComputeTimer = null;
 let pvSanPending = null;
+let infoFlushTimer = null;
+let pendingInfoPatch = null;
+const pendingPvInfoMap = new Map();
 let pgnDirty = true;
 let pgnSyncTimer = null;
 let batchRowId = 0;
@@ -416,6 +420,110 @@ function shouldUpdateMoveMeta(info) {
     return true;
   }
   return false;
+}
+
+function flushPendingInfo() {
+  const info = pendingInfoPatch;
+  const pendingPvEntries =
+    pendingPvInfoMap.size > 0 ? [...pendingPvInfoMap.entries()] : [];
+  pendingInfoPatch = null;
+  pendingPvInfoMap.clear();
+
+  if (!info && pendingPvEntries.length === 0) return;
+
+  let shouldRenderUi = false;
+
+  if (info) {
+    if (mergeObjectShallow(latestInfo, info)) {
+      shouldRenderUi = true;
+    }
+    if (shouldRecordEvalSample(info)) {
+      addEvalSample(info);
+      shouldRenderUi = true;
+    }
+    if (shouldUpdateMoveMeta(info)) {
+      updateMoveMetaFromInfo(info);
+      shouldRenderUi = true;
+    }
+    if (batchAwaiting && batchCurrent) {
+      mergeObjectShallow(batchCurrent.info, info);
+      if (info.pv && isPrimaryPvInfo(info)) {
+        batchCurrent.pv = info.pv;
+      }
+    }
+  }
+
+  let pvChanged = false;
+  for (const [pvKey, patch] of pendingPvEntries) {
+    let line = pvLines.get(pvKey);
+    if (!line) {
+      line = { multipv: pvKey };
+      pvLines.set(pvKey, line);
+      pvChanged = true;
+    }
+    if (mergeObjectShallow(line, patch)) {
+      pvChanged = true;
+    }
+    if (line.multipv !== pvKey) {
+      line.multipv = pvKey;
+      pvChanged = true;
+    }
+  }
+
+  if (pvChanged) {
+    pvRenderVersion += 1;
+    shouldRenderUi = true;
+  }
+
+  if (shouldRenderUi) {
+    scheduleUI();
+  }
+}
+
+function scheduleInfoFlush() {
+  if (infoFlushTimer) return;
+  infoFlushTimer = setTimeout(() => {
+    infoFlushTimer = null;
+    flushPendingInfo();
+  }, ENGINE_INFO_FLUSH_INTERVAL_MS);
+}
+
+function clearPendingInfoQueue() {
+  if (infoFlushTimer) {
+    clearTimeout(infoFlushTimer);
+    infoFlushTimer = null;
+  }
+  pendingInfoPatch = null;
+  pendingPvInfoMap.clear();
+}
+
+function queueIncomingInfo(info) {
+  if (!info) return;
+  if (!pendingInfoPatch) {
+    pendingInfoPatch = {};
+  }
+  mergeObjectShallow(pendingInfoPatch, info);
+
+  if (
+    info.pv ||
+    info.multipv ||
+    typeof info.depth === "number" ||
+    typeof info.seldepth === "number" ||
+    info.score
+  ) {
+    const pvKey = info.multipv || 1;
+    let patch = pendingPvInfoMap.get(pvKey);
+    if (!patch) {
+      patch = { multipv: pvKey };
+      pendingPvInfoMap.set(pvKey, patch);
+    }
+    mergeObjectShallow(patch, info);
+    if (patch.multipv !== pvKey) {
+      patch.multipv = pvKey;
+    }
+  }
+
+  scheduleInfoFlush();
 }
 
 function moveToUci(move) {
@@ -1839,6 +1947,7 @@ function scheduleAnalysisRestart(delayMs = 40) {
 async function startAnalysis(mode = "infinite", options = {}) {
   const { queueIfLoading = true, searchmoves: queuedSearchmoves = null } = options;
   clearPendingAnalysisRestart();
+  clearPendingInfoQueue();
   const searchmoves = typeof queuedSearchmoves === "string"
     ? queuedSearchmoves
     : searchmovesInput.value.trim();
@@ -2045,51 +2154,13 @@ engine.on("readyok", () => {
   flushQueuedEngineActions();
 });
 engine.on("info", (info) => {
-  mergeObjectShallow(latestInfo, info);
-  if (shouldRecordEvalSample(info)) {
-    addEvalSample(info);
-  }
-  if (shouldUpdateMoveMeta(info)) {
-    updateMoveMetaFromInfo(info);
-  }
-  if (batchAwaiting && batchCurrent) {
-    mergeObjectShallow(batchCurrent.info, info);
-    if (info.pv && isPrimaryPvInfo(info)) {
-      batchCurrent.pv = info.pv;
-    }
-  }
-  let pvChanged = false;
-  if (
-    info.pv ||
-    info.multipv ||
-    typeof info.depth === "number" ||
-    typeof info.seldepth === "number" ||
-    info.score
-  ) {
-    const pvKey = info.multipv || 1;
-    let line = pvLines.get(pvKey);
-    if (!line) {
-      line = { multipv: pvKey };
-      pvLines.set(pvKey, line);
-      pvChanged = true;
-    }
-    if (mergeObjectShallow(line, info)) {
-      pvChanged = true;
-    }
-    if (line.multipv !== pvKey) {
-      line.multipv = pvKey;
-      pvChanged = true;
-    }
-  }
-  if (pvChanged) {
-    pvRenderVersion += 1;
-  }
-  scheduleUI();
+  queueIncomingInfo(info);
 });
 engine.on("infoString", () => {
   // console already receives raw output
 });
 engine.on("bestmove", (move) => {
+  flushPendingInfo();
   engineBestmove.textContent = move.bestmove || "—";
   lastBestMove = move.bestmove;
   highlightBestMove(move.bestmove);
@@ -2109,6 +2180,7 @@ engine.on("bestmove", (move) => {
   scheduleUI();
 });
 engine.on("error", (err) => {
+  flushPendingInfo();
   const message = err?.message || err;
   logLine(`engine error: ${message}`, "out");
   if (batchAwaiting && batchCurrent) {
