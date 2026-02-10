@@ -1989,7 +1989,27 @@ function scheduleIdleTask(callback, timeoutMs = ENGINE_PREWARM_IDLE_TIMEOUT_MS) 
   setTimeout(callback, Math.min(400, timeoutMs));
 }
 
+function shouldPrewarmEngine() {
+  if (typeof navigator === "undefined") return true;
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (connection) {
+    if (connection.saveData) return false;
+    const effectiveType = String(connection.effectiveType || "").toLowerCase();
+    if (effectiveType.includes("2g") || effectiveType.includes("3g")) {
+      return false;
+    }
+  }
+  const deviceMemory =
+    typeof navigator.deviceMemory === "number" ? navigator.deviceMemory : null;
+  const cores =
+    typeof navigator.hardwareConcurrency === "number" ? navigator.hardwareConcurrency : null;
+  if (deviceMemory !== null && deviceMemory <= 4) return false;
+  if (cores !== null && cores <= 4) return false;
+  return true;
+}
+
 function queueInitialEnginePrewarm() {
+  if (!shouldPrewarmEngine()) return;
   scheduleIdleTask(() => {
     if (engine.worker || engineLoadPromise) return;
     loadEngineAndTrack(deferredEngineKey || "auto").catch(() => {});
