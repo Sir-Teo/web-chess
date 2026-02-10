@@ -576,6 +576,43 @@ function popHistoryMove() {
   historyUciJoined = historyUciCache.join(" ");
 }
 
+function collectChangedSquaresFromMove(move, into = new Set()) {
+  if (!move) return into;
+  if (move.from) into.add(move.from);
+  if (move.to) into.add(move.to);
+  const flags = String(move.flags || "");
+  const color = move.color === "b" ? "b" : "w";
+
+  if (flags.includes("e") && move.to && move.to.length === 2) {
+    const file = move.to[0];
+    const rank = Number(move.to[1]);
+    const captureRank = color === "w" ? rank - 1 : rank + 1;
+    if (Number.isFinite(captureRank) && captureRank >= 1 && captureRank <= 8) {
+      into.add(`${file}${captureRank}`);
+    }
+  }
+
+  if (flags.includes("k")) {
+    if (color === "w") {
+      into.add("h1");
+      into.add("f1");
+    } else {
+      into.add("h8");
+      into.add("f8");
+    }
+  } else if (flags.includes("q")) {
+    if (color === "w") {
+      into.add("a1");
+      into.add("d1");
+    } else {
+      into.add("a8");
+      into.add("d8");
+    }
+  }
+
+  return into;
+}
+
 const isTypingTarget = (target) => {
   if (!target) return false;
   const tag = target.tagName;
@@ -2085,32 +2122,36 @@ function stopAutoPlay() {
 function jumpBack(count) {
   if (!game) return;
   const previousPly = historyPlyCache;
+  const changedSquares = new Set();
   let moved = false;
   for (let i = 0; i < count; i += 1) {
     const move = game.undo();
     if (!move) break;
+    collectChangedSquaresFromMove(move, changedSquares);
     redoStack.push(move);
     popHistoryMove();
     if (moveMeta.length) moveMeta.pop();
     moved = true;
   }
-  if (moved) afterPositionChange({ previousPly });
+  if (moved) afterPositionChange({ previousPly, changedSquares });
 }
 
 function jumpForward(count) {
   if (!game) return;
   const previousPly = historyPlyCache;
+  const changedSquares = new Set();
   let moved = false;
   for (let i = 0; i < count; i += 1) {
     const move = redoStack.pop();
     if (!move) break;
     const replayed = game.move(move);
     if (!replayed) break;
+    collectChangedSquaresFromMove(replayed, changedSquares);
     appendHistoryMove(replayed);
     moveMeta.push({});
     moved = true;
   }
-  if (moved) afterPositionChange({ previousPly });
+  if (moved) afterPositionChange({ previousPly, changedSquares });
 }
 
 function navigateStart() {
@@ -2965,22 +3006,33 @@ function renderBoardSquares() {
   setFocusedSquare(focusedSquare);
 }
 
-function updateBoardPieces() {
+function updateBoardSquare(square) {
   if (!game) return;
-  boardSquareMap.forEach((squareEl, square) => {
-    const piece = game.get(square);
-    const pieceKey = piece ? `${piece.color}${piece.type.toUpperCase()}` : "";
-    const color = piece?.color === "w" ? "white" : "black";
-    const type = piece ? PIECE_NAMES[piece.type.toUpperCase()] || "piece" : "empty";
-    squareEl.setAttribute("aria-label", piece ? `${square}, ${color} ${type}` : `${square}, empty`);
-    if (boardPieceMap.get(square) === pieceKey) return;
-    boardPieceMap.set(square, pieceKey);
-    squareEl.textContent = "";
-    if (!pieceKey) return;
-    const img = document.createElement("img");
-    img.alt = `${color} ${type}`;
-    img.src = `./assets/pieces/${pieceKey}.png`;
-    squareEl.appendChild(img);
+  const squareEl = boardSquareMap.get(square);
+  if (!squareEl) return;
+  const piece = game.get(square);
+  const pieceKey = piece ? `${piece.color}${piece.type.toUpperCase()}` : "";
+  const color = piece?.color === "w" ? "white" : "black";
+  const type = piece ? PIECE_NAMES[piece.type.toUpperCase()] || "piece" : "empty";
+  squareEl.setAttribute("aria-label", piece ? `${square}, ${color} ${type}` : `${square}, empty`);
+  if (boardPieceMap.get(square) === pieceKey) return;
+  boardPieceMap.set(square, pieceKey);
+  squareEl.textContent = "";
+  if (!pieceKey) return;
+  const img = document.createElement("img");
+  img.alt = `${color} ${type}`;
+  img.src = `./assets/pieces/${pieceKey}.png`;
+  squareEl.appendChild(img);
+}
+
+function updateBoardPieces(changedSquares = null) {
+  if (!game) return;
+  if (changedSquares && changedSquares.size) {
+    changedSquares.forEach((square) => updateBoardSquare(square));
+    return;
+  }
+  boardSquareMap.forEach((_, square) => {
+    updateBoardSquare(square);
   });
 }
 
@@ -3046,7 +3098,10 @@ function onSquareClick(square) {
       undoStack.push(move);
       redoStack.length = 0;
       appendHistoryMove(move);
-      afterPositionChange({ previousPly });
+      afterPositionChange({
+        previousPly,
+        changedSquares: collectChangedSquaresFromMove(move),
+      });
     }
     selectedSquare = null;
     legalTargets.clear();
@@ -3393,7 +3448,10 @@ function applyUciMove(uci) {
   redoStack.length = 0;
   appendHistoryMove(move);
   setFocusedSquare(to);
-  afterPositionChange({ previousPly });
+  afterPositionChange({
+    previousPly,
+    changedSquares: collectChangedSquaresFromMove(move),
+  });
   return true;
 }
 
@@ -3450,12 +3508,13 @@ function afterPositionChange(options = {}) {
     rebuildHistory = false,
     forceMoveListRender = false,
     syncPgn = null,
+    changedSquares = null,
   } = options;
   if (rebuildHistory) {
     rebuildHistoryCache();
   }
   pgnDirty = true;
-  updateBoardPieces();
+  updateBoardPieces(changedSquares);
   const shouldSyncPgn = typeof syncPgn === "boolean"
     ? syncPgn
     : !document.body.classList.contains("collapsed-left") && document.activeElement !== pgnInput;
