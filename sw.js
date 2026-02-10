@@ -88,6 +88,21 @@ self.addEventListener("fetch", (event) => {
         const cache = await caches.open(RUNTIME_CACHE);
         const isJsWorkerScript = url.pathname.endsWith(".js");
         if (isJsWorkerScript) {
+          const cached = await cache.match(request);
+          if (cached) {
+            if (isImmutableVersionedAsset(url)) {
+              return cached;
+            }
+            const networkRefresh = fetch(request)
+              .then(async (response) => {
+                await putIfOk(cache, request, response);
+                await trimRuntimeCache(cache);
+                return response;
+              })
+              .catch(() => null);
+            event.waitUntil(networkRefresh);
+            return cached;
+          }
           try {
             const network = await fetch(request);
             await putIfOk(cache, request, network);
