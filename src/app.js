@@ -285,6 +285,8 @@ let pvSanPending = null;
 let infoFlushTimer = null;
 let pendingInfoPatch = null;
 const pendingPvInfoMap = new Map();
+let chartResizeObserver = null;
+let chartResizeFrame = null;
 let pgnDirty = true;
 let pgnSyncTimer = null;
 let batchRowId = 0;
@@ -1425,11 +1427,78 @@ function highlightPvMove(pv) {
   highlightBestMove(first);
 }
 
+function getCanvasPixelRatio() {
+  if (typeof window === "undefined") return 1;
+  const ratio = Number(window.devicePixelRatio) || 1;
+  return Math.max(1, Math.min(2, ratio));
+}
+
+function resizeCanvasForDisplay(canvas) {
+  if (!canvas) return false;
+  const ratio = getCanvasPixelRatio();
+  const cssWidth = canvas.clientWidth || Number(canvas.getAttribute("width")) || canvas.width || 1;
+  const cssHeight = canvas.clientHeight || Number(canvas.getAttribute("height")) || canvas.height || 1;
+  const width = Math.max(1, Math.round(cssWidth * ratio));
+  const height = Math.max(1, Math.round(cssHeight * ratio));
+  if (canvas.width === width && canvas.height === height) return false;
+  canvas.width = width;
+  canvas.height = height;
+  canvas.dataset.pixelRatio = String(ratio);
+  return true;
+}
+
+function getCanvasDrawSize(canvas) {
+  const ratio = Number(canvas.dataset.pixelRatio) || 1;
+  return {
+    ratio,
+    width: Math.max(1, canvas.width / ratio),
+    height: Math.max(1, canvas.height / ratio),
+  };
+}
+
+function refreshChartCanvasSizes() {
+  let changed = false;
+  [evalChart, winrateChart, winrateChartLeft, batchChart].forEach((canvas) => {
+    if (resizeCanvasForDisplay(canvas)) {
+      changed = true;
+    }
+  });
+  return changed;
+}
+
+function scheduleChartResizeRefresh() {
+  if (chartResizeFrame || typeof window === "undefined") return;
+  chartResizeFrame = window.requestAnimationFrame(() => {
+    chartResizeFrame = null;
+    if (!refreshChartCanvasSizes()) return;
+    evalRenderedVersion = -1;
+    winrateRenderedVersion = -1;
+    renderBatchChart();
+    scheduleUI();
+  });
+}
+
+function initChartCanvasSizing() {
+  refreshChartCanvasSizes();
+  if (typeof window === "undefined") return;
+  window.addEventListener("resize", scheduleChartResizeRefresh, { passive: true });
+  if (typeof window.ResizeObserver === "function") {
+    chartResizeObserver = new window.ResizeObserver(() => {
+      scheduleChartResizeRefresh();
+    });
+    [evalChart, winrateChart, winrateChartLeft, batchChart].forEach((canvas) => {
+      if (canvas) chartResizeObserver.observe(canvas);
+    });
+  }
+}
+
 function renderEvalChart() {
   if (!evalChart) return;
+  resizeCanvasForDisplay(evalChart);
   const ctx = evalChart.getContext("2d");
   if (!ctx) return;
-  const { width, height } = evalChart;
+  const { width, height, ratio } = getCanvasDrawSize(evalChart);
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, width, height);
 
   ctx.strokeStyle = "rgba(255,255,255,0.12)";
@@ -1459,9 +1528,11 @@ function renderEvalChart() {
 
 function renderWinrateChartTo(canvas) {
   if (!canvas) return;
+  resizeCanvasForDisplay(canvas);
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
-  const { width, height } = canvas;
+  const { width, height, ratio } = getCanvasDrawSize(canvas);
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, width, height);
 
   ctx.strokeStyle = "rgba(255,255,255,0.12)";
@@ -2616,9 +2687,11 @@ function renderBatchChart() {
   batchStatus.textContent = total
     ? `Completed ${done}/${total} • Running ${running} • Queued ${queued}`
     : "No batch running.";
+  resizeCanvasForDisplay(batchChart);
   const ctx = batchChart.getContext("2d");
   if (!ctx) return;
-  const { width, height } = batchChart;
+  const { width, height, ratio } = getCanvasDrawSize(batchChart);
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, width, height);
   if (!total) return;
   const doneW = (done / total) * width;
@@ -3715,6 +3788,7 @@ function initBoard() {
 initUiMode();
 initPanelToggles();
 initHeaderMenus();
+initChartCanvasSizing();
 setPanelMode("play");
 ensureChessReady().then((ready) => {
   if (ready) {
