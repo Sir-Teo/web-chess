@@ -240,6 +240,7 @@ let overlayState = {
 const consoleLines = [];
 const pvSanCache = new Map();
 const pvNodeMap = new Map();
+const moveRowNodeMap = new WeakMap();
 const ENGINE_RECOVERY_LIMIT = 2;
 const BATCH_ANALYSIS_TIMEOUT_MS = 20000;
 const EVAL_SAMPLE_INTERVAL_MS = 80;
@@ -3119,6 +3120,37 @@ function ensureMoveListClickBinding() {
   }
 }
 
+function ensureMoveRowNodes(item) {
+  let nodes = moveRowNodeMap.get(item);
+  if (nodes) return nodes;
+
+  item.textContent = "";
+  const main = document.createElement("span");
+  main.className = "move-main";
+  const prefix = document.createElement("strong");
+  const move = document.createElement("span");
+  move.className = "move-san";
+  main.appendChild(prefix);
+  main.appendChild(move);
+
+  const meta = document.createElement("span");
+  meta.className = "move-meta";
+  const delta = document.createElement("span");
+  delta.className = "delta neutral";
+  delta.hidden = true;
+  const label = document.createElement("span");
+  label.className = "move-tag";
+  label.hidden = true;
+  meta.appendChild(delta);
+  meta.appendChild(label);
+
+  item.appendChild(main);
+  item.appendChild(meta);
+  nodes = { prefix, move, meta, delta, label };
+  moveRowNodeMap.set(item, nodes);
+  return nodes;
+}
+
 function renderMoveRow(index, move) {
   if (!moveListEl || !move) return;
   let item = moveListEl.children[index];
@@ -3127,20 +3159,41 @@ function renderMoveRow(index, move) {
     item.className = "list-item";
     moveListEl.appendChild(item);
   }
+  const nodes = ensureMoveRowNodes(item);
   const moveNumber = Math.floor(index / 2) + 1;
   const prefix = index % 2 === 0 ? `${moveNumber}.` : "...";
   const meta = moveMeta[index];
   const delta = meta?.delta;
   const deltaText = Number.isFinite(delta) ? formatDelta(delta) : "";
-  const tag = deltaText ? `<span class=\"delta ${deltaClass(delta)}\">${deltaText}</span>` : "";
-  const label = meta?.label ? `<span class=\"move-tag\">${meta.label}</span>` : "";
   const renderKey = `${prefix}|${move}|${deltaText}|${meta?.label || ""}`;
   const ply = String(index + 1);
   if (item.dataset.ply !== ply) item.dataset.ply = ply;
-  if (item.dataset.renderKey !== renderKey) {
-    item.dataset.renderKey = renderKey;
-    item.innerHTML = `<strong>${prefix}</strong> ${move} ${tag} ${label}`;
+  if (item.dataset.renderKey === renderKey) return;
+
+  item.dataset.renderKey = renderKey;
+  setText(nodes.prefix, prefix);
+  setText(nodes.move, move);
+
+  if (deltaText) {
+    setText(nodes.delta, deltaText);
+    const tone = deltaClass(delta) || "neutral";
+    if (nodes.delta.dataset.tone !== tone) {
+      nodes.delta.classList.remove("neutral", "inaccuracy", "mistake", "blunder", "brilliant");
+      nodes.delta.classList.add(tone);
+      nodes.delta.dataset.tone = tone;
+    }
+    nodes.delta.hidden = false;
+  } else {
+    nodes.delta.hidden = true;
   }
+
+  if (meta?.label) {
+    setText(nodes.label, meta.label);
+    nodes.label.hidden = false;
+  } else {
+    nodes.label.hidden = true;
+  }
+  nodes.meta.hidden = nodes.delta.hidden && nodes.label.hidden;
 }
 
 function renderMoveList() {

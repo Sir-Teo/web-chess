@@ -1098,6 +1098,24 @@ textarea {
   gap: 10px;
 }
 
+.list-item .move-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.list-item .move-meta {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.list-item .move-san {
+  color: var(--ui-text);
+}
+
 .list-item strong {
   color: var(--accent-2);
 }
