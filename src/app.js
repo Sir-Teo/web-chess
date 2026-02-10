@@ -263,6 +263,8 @@ const MOBILE_UI_FRAME_INTERVAL_MS = 66;
 const LOW_END_MOBILE_UI_FRAME_INTERVAL_MS = 90;
 const ENGINE_PREWARM_IDLE_TIMEOUT_MS = 1200;
 const UI_MODE_STORAGE_KEY = "vulcan-ui-mode";
+const SESSION_STORAGE_KEY = "vulcan-session";
+const SESSION_SAVE_DEBOUNCE_MS = 220;
 const PIECE_NAMES = {
   P: "pawn",
   N: "knight",
@@ -295,6 +297,7 @@ let chartResizeObserver = null;
 let chartResizeFrame = null;
 let pgnDirty = true;
 let pgnSyncTimer = null;
+let sessionSaveTimer = null;
 let batchRowId = 0;
 const batchNodeMap = new Map();
 let engineLoadPromise = null;
@@ -666,6 +669,13 @@ const ensureChessReady = () => {
 const initGame = () => {
   if (!globalThis.Chess) return false;
   if (!game) game = new globalThis.Chess();
+  const restoredFen = typeof sessionState.fen === "string" ? sessionState.fen.trim() : "";
+  if (restoredFen) {
+    const loaded = game.load(restoredFen);
+    if (!loaded) {
+      game.reset();
+    }
+  }
   initBoard();
   return true;
 };
@@ -691,10 +701,62 @@ const setPanelMode = (mode) => {
   document.body.classList.toggle("panel-mode-analysis", !isPlay);
   if (panelRight) panelRight.setAttribute("aria-hidden", "false");
   if (panelBottom) panelBottom.setAttribute("aria-hidden", isPlay ? "true" : "false");
+  scheduleSessionSave();
   scheduleUI();
 };
 
 let activeMenuName = "";
+let sessionState = readStoredSessionState();
+
+function readStoredSessionState() {
+  if (typeof localStorage === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (err) {
+    return {};
+  }
+}
+
+function normalizeStoredPanelMode(value) {
+  return value === "analysis" ? "analysis" : "play";
+}
+
+function normalizeStoredEngineVariant(value) {
+  if (typeof value !== "string" || !engineSelect) return "auto";
+  const option = [...engineSelect.options].find((entry) => entry.value === value);
+  return option ? value : "auto";
+}
+
+function persistSessionState() {
+  const next = {
+    ...sessionState,
+    panelMode: normalizeStoredPanelMode(
+      document.body.classList.contains("panel-mode-analysis") ? "analysis" : "play"
+    ),
+    engineVariant: normalizeStoredEngineVariant(deferredEngineKey || engineSelect?.value || "auto"),
+    boardFlipped: Boolean(boardFlipped),
+  };
+  if (game) {
+    next.fen = game.fen();
+  }
+  sessionState = next;
+  try {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
+  } catch (err) {
+    // ignore storage failures
+  }
+}
+
+function scheduleSessionSave() {
+  if (sessionSaveTimer) return;
+  sessionSaveTimer = setTimeout(() => {
+    sessionSaveTimer = null;
+    persistSessionState();
+  }, SESSION_SAVE_DEBOUNCE_MS);
+}
 
 function setUiMode(mode, options = {}) {
   const { persist = true } = options;
@@ -1923,6 +1985,7 @@ function updateEngineWarning() {
 async function loadSelectedEngine(key = engineSelect?.value || "auto") {
   const loadToken = ++engineLoadToken;
   deferredEngineKey = key;
+  scheduleSessionSave();
   if (engineSelect && engineSelect.value !== key) {
     engineSelect.value = key;
   }
@@ -2363,6 +2426,7 @@ engine.on("error", (err) => {
 
 engineSelect.addEventListener("change", () => {
   deferredEngineKey = engineSelect.value || "auto";
+  scheduleSessionSave();
   if (engine.worker || engineLoadPromise) {
     loadEngineAndTrack(deferredEngineKey).catch(() => {});
     return;
@@ -3599,6 +3663,7 @@ function afterPositionChange(options = {}) {
     }
     scheduleAnalysisRestart(45);
   }
+  scheduleSessionSave();
   scheduleUI();
 }
 
@@ -3665,6 +3730,7 @@ btnFlip.addEventListener("click", () => {
   selectedSquare = null;
   legalTargets.clear();
   setFocusedSquare(focusedSquare, { focus: true });
+  scheduleSessionSave();
 });
 
 btnUndo.addEventListener("click", () => {
@@ -3946,11 +4012,12 @@ function initBoard() {
   scheduleUI();
 }
 
+boardFlipped = Boolean(sessionState.boardFlipped);
 initUiMode();
 initPanelToggles();
 initHeaderMenus();
 initChartCanvasSizing();
-setPanelMode("play");
+setPanelMode(normalizeStoredPanelMode(sessionState.panelMode));
 ensureChessReady().then((ready) => {
   if (ready) {
     initGame();
@@ -3960,8 +4027,9 @@ ensureChessReady().then((ready) => {
 });
 updateEngineWarning();
 optionState.clear();
-engineSelect.value = "auto";
-deferredEngineKey = "auto";
+const storedEngineVariant = normalizeStoredEngineVariant(sessionState.engineVariant);
+engineSelect.value = storedEngineVariant;
+deferredEngineKey = storedEngineVariant;
 const initialSpec = engine.resolveSpec(deferredEngineKey);
 engineVariant.textContent = initialSpec.label;
 engineThreads.textContent = initialSpec.threads ? "auto" : "1";
