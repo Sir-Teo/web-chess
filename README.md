@@ -12,6 +12,20 @@ node server.js
 
 Then open `http://localhost:4173`. You can change the port with `PORT=...`.
 
+## Generate precompressed engine sidecars
+
+The server can serve `.wasm.br` / `.wasm.gz` files when present. Generate or refresh them before deployment:
+
+```bash
+node scripts/precompress-wasm.mjs
+```
+
+Use `--force` to recompress everything:
+
+```bash
+node scripts/precompress-wasm.mjs --force
+```
+
 ## GitHub Pages note
 
 GitHub Pages cannot set COOP/COEP headers, so the app will automatically fall back to single‑threaded engines there. For maximum speed, host with COOP/COEP support (Cloudflare Pages, Netlify, or your own server).
