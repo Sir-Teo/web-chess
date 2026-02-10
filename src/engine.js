@@ -297,16 +297,49 @@ function shouldPreloadHeavyWasm(options = {}) {
 
 export function preloadEngineAssets(variantKey = "auto", options = {}) {
   const resolvedKey = resolveEngineSpecKey(variantKey);
-  if (preloadPromises.has(resolvedKey)) {
-    return preloadPromises.get(resolvedKey);
-  }
   const spec = ENGINE_SPECS[resolvedKey] || ENGINE_SPECS["standard-single"];
   const urls = collectSpecAssetUrls(spec);
+  const onProgress = typeof options.onProgress === "function" ? options.onProgress : null;
+
+  if (preloadPromises.has(resolvedKey)) {
+    const existing = preloadPromises.get(resolvedKey);
+    if (onProgress) {
+      existing
+        .then(() => {
+          onProgress({ loaded: urls.length, total: urls.length, resolvedKey, done: true, cached: true });
+        })
+        .catch(() => {
+          onProgress({ loaded: urls.length, total: urls.length, resolvedKey, done: true, cached: true });
+        });
+    }
+    return existing;
+  }
   const fetchOptions = options.background
     ? { credentials: "same-origin", cache: "force-cache", priority: "low" }
     : { credentials: "same-origin", cache: "default" };
+  if (onProgress) {
+    onProgress({ loaded: 0, total: urls.length, resolvedKey, done: false });
+  }
+  let loaded = 0;
   const preloadPromise = Promise.all(
-    urls.map((url) => fetch(resolveAssetUrl(url), fetchOptions).catch(() => null))
+    urls.map((url) =>
+      fetch(resolveAssetUrl(url), fetchOptions)
+        .catch(() => null)
+        .then((response) => {
+          loaded += 1;
+          if (onProgress) {
+            onProgress({
+              loaded,
+              total: urls.length,
+              resolvedKey,
+              done: loaded >= urls.length,
+              url,
+              ok: Boolean(response && response.ok),
+            });
+          }
+          return response;
+        })
+    )
   );
   preloadPromises.set(resolvedKey, preloadPromise);
   return preloadPromise;

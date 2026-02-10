@@ -1,4 +1,9 @@
-import { EngineController, threadsAvailable, queueEngineAssetPreload } from "./engine.js?v=20260209e";
+import {
+  EngineController,
+  preloadEngineAssets,
+  queueEngineAssetPreload,
+  threadsAvailable,
+} from "./engine.js?v=20260209e";
 import { formatScore, scoreToPercent } from "./uci.js?v=20260209e";
 
 const $ = (id) => document.getElementById(id);
@@ -293,6 +298,8 @@ let pgnSyncTimer = null;
 let batchRowId = 0;
 const batchNodeMap = new Map();
 let engineLoadPromise = null;
+let engineLoadToken = 0;
+let engineLoadProgress = { loaded: 0, total: 0 };
 let deferredEngineKey = "auto";
 let engineUiState = "idle";
 let engineFailureMessage = "";
@@ -1874,7 +1881,14 @@ function updateEngineWarning() {
   const queuedSuffix = queuedCount ? ` ${queuedCount} action${queuedCount === 1 ? "" : "s"} queued.` : "";
   if (engineUiState === "loading") {
     const selected = engineVariant?.textContent || "engine";
-    engineWarning.textContent = `Loading ${selected}...${queuedSuffix}`;
+    const { loaded, total } = engineLoadProgress;
+    if (total > 0) {
+      const safeLoaded = Math.max(0, Math.min(total, loaded));
+      const percent = Math.round((safeLoaded / total) * 100);
+      engineWarning.textContent = `Loading ${selected}... ${safeLoaded}/${total} assets (${percent}%).${queuedSuffix}`;
+    } else {
+      engineWarning.textContent = `Loading ${selected}...${queuedSuffix}`;
+    }
     return;
   }
   if (engineUiState === "error") {
@@ -1906,7 +1920,8 @@ function updateEngineWarning() {
   }
 }
 
-function loadSelectedEngine(key = engineSelect?.value || "auto") {
+async function loadSelectedEngine(key = engineSelect?.value || "auto") {
+  const loadToken = ++engineLoadToken;
   deferredEngineKey = key;
   if (engineSelect && engineSelect.value !== key) {
     engineSelect.value = key;
@@ -1919,11 +1934,22 @@ function loadSelectedEngine(key = engineSelect?.value || "auto") {
   engineReady = false;
   engineUiState = "loading";
   engineFailureMessage = "";
+  engineLoadProgress = { loaded: 0, total: 0 };
   createEngineReadyPromise();
   updateEngineWarning();
   queueEngineAssetPreload(key);
-  const loadPromise = engine.load(key);
-  return loadPromise;
+  await preloadEngineAssets(key, {
+    background: false,
+    onProgress: (progress) => {
+      if (loadToken !== engineLoadToken || engineUiState !== "loading") return;
+      const loaded = Number(progress?.loaded) || 0;
+      const total = Number(progress?.total) || 0;
+      engineLoadProgress = { loaded, total };
+      updateEngineWarning();
+    },
+  }).catch(() => {});
+  if (loadToken !== engineLoadToken) return;
+  await engine.load(key);
 }
 
 function loadEngineAndTrack(key = engineSelect?.value || deferredEngineKey || "auto") {
@@ -1935,6 +1961,7 @@ function loadEngineAndTrack(key = engineSelect?.value || deferredEngineKey || "a
       resolveEngineReady(false);
       engineUiState = "error";
       engineFailureMessage = "Engine failed to load.";
+      engineLoadProgress = { loaded: 0, total: 0 };
       updateEngineWarning();
       return false;
     });
@@ -2263,6 +2290,7 @@ engine.on("readyok", () => {
   resolveEngineReady(true);
   engineUiState = "ready";
   engineFailureMessage = "";
+  engineLoadProgress = { loaded: 0, total: 0 };
   updateEngineWarning();
   flushQueuedEngineActions();
 });
@@ -2308,6 +2336,7 @@ engine.on("error", (err) => {
     resolveEngineReady(false);
     engineUiState = "error";
     engineFailureMessage = `Engine error: ${message}`;
+    engineLoadProgress = { loaded: 0, total: 0 };
     updateEngineWarning();
   }
 });
