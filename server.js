@@ -117,6 +117,37 @@ async function pickPrecompressedVariant(req, filePath, ext) {
   return null;
 }
 
+async function fileExists(filePath) {
+  try {
+    const stats = await fsp.stat(filePath);
+    return stats.isFile();
+  } catch (err) {
+    return false;
+  }
+}
+
+async function auditWasmSidecars() {
+  const stockfishDir = path.join(rootResolved, "vendor", "stockfish");
+  let entries = [];
+  try {
+    entries = await fsp.readdir(stockfishDir, { withFileTypes: true });
+  } catch (err) {
+    return { checked: 0, missing: [] };
+  }
+  const wasmFiles = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".wasm"))
+    .map((entry) => path.join(stockfishDir, entry.name));
+  const missing = [];
+  for (const wasmFile of wasmFiles) {
+    const hasBr = await fileExists(`${wasmFile}.br`);
+    const hasGz = await fileExists(`${wasmFile}.gz`);
+    if (!hasBr && !hasGz) {
+      missing.push(path.basename(wasmFile));
+    }
+  }
+  return { checked: wasmFiles.length, missing };
+}
+
 function buildBaseHeaders(ext, cacheControl, stats) {
   return {
     "Content-Type": mime[ext] || "application/octet-stream",
@@ -251,4 +282,19 @@ const server = http.createServer(async (req, res) => {
 server.listen(port, () => {
   console.log(`Vulcan server running at http://localhost:${port}`);
   console.log("COOP/COEP headers enabled for multi-threaded Stockfish.");
+  auditWasmSidecars()
+    .then(({ checked, missing }) => {
+      if (!checked) return;
+      if (!missing.length) {
+        console.log(
+          `Precompressed sidecars detected for ${checked} wasm file${checked === 1 ? "" : "s"}.`
+        );
+        return;
+      }
+      console.warn(
+        `${missing.length}/${checked} wasm files are missing precompressed sidecars (.br/.gz).`
+      );
+      console.warn("Run `node scripts/precompress-wasm.mjs` for maximum engine startup speed.");
+    })
+    .catch(() => {});
 });
