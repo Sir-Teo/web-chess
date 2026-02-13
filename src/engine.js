@@ -140,6 +140,7 @@ export class EngineController {
     this.info = {};
     this.variant = null;
     this.supportsThreads = false;
+    this.searching = false;
     this.infoThrottleMs = 0;
     this.lastInfoByPv = new Map();
   }
@@ -149,6 +150,17 @@ export class EngineController {
       this.listeners.set(event, []);
     }
     this.listeners.get(event).push(handler);
+  }
+
+  off(event, handler) {
+    const handlers = this.listeners.get(event);
+    if (!handlers || !handlers.length) return;
+    const next = handlers.filter((entry) => entry !== handler);
+    if (next.length) {
+      this.listeners.set(event, next);
+    } else {
+      this.listeners.delete(event);
+    }
   }
 
   emit(event, payload) {
@@ -221,6 +233,7 @@ export class EngineController {
     };
 
     worker.onerror = (err) => {
+      this.searching = false;
       this.emit("error", err);
       if (spec.threads && !canUseThreads()) {
         this.load("standard-single");
@@ -240,12 +253,19 @@ export class EngineController {
       // ignore
     }
     this.worker = null;
+    this.searching = false;
     this.resetInfoThrottle();
   }
 
   send(cmd) {
     if (!this.worker) return;
     const message = typeof cmd === "string" ? cmd : String(cmd ?? "");
+    const trimmed = message.trim();
+    if (/^go\s/i.test(trimmed)) {
+      this.searching = true;
+    } else if (trimmed === "stop" || trimmed === "quit") {
+      this.searching = false;
+    }
     this.worker.postMessage(message);
   }
 
@@ -290,6 +310,7 @@ export class EngineController {
       return;
     }
     if (line.startsWith("bestmove")) {
+      this.searching = false;
       const move = parseBestmove(line);
       if (move) {
         this.emit("bestmove", move);

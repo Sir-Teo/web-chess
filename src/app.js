@@ -304,6 +304,7 @@ const STARTPOS_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 const UI_MODE_STORAGE_KEY = "vulcan-ui-mode";
 const SESSION_STORAGE_KEY = "vulcan-session";
 const SESSION_SAVE_DEBOUNCE_MS = 220;
+const OPTION_IDLE_STOP_RESTART_DELAY_MS = 70;
 const PIECE_NAMES = {
   P: "pawn",
   N: "knight",
@@ -354,6 +355,10 @@ let initialPrewarmQueued = false;
 let advancedControlsBound = false;
 let optionsUiDirty = true;
 const queuedEngineActions = [];
+const pendingOptionCommands = new Map();
+let optionApplyInFlight = false;
+let optionStopRequested = false;
+let optionFlushTimer = null;
 let analysisRestartTimer = null;
 let analysisRestartQueued = false;
 const batchStatusStats = {
@@ -1861,15 +1866,48 @@ function buildOptions() {
   refreshQuickOptions();
 }
 
-function sendOption(name, value) {
-  if (value === null) {
-    engine.send(`setoption name ${name}`);
+function scheduleOptionFlush() {
+  if (optionFlushTimer) return;
+  optionFlushTimer = setTimeout(() => {
+    optionFlushTimer = null;
+    flushQueuedOptionCommands();
+  }, 0);
+}
+
+function flushQueuedOptionCommands() {
+  if (!pendingOptionCommands.size || optionApplyInFlight || !engine.worker) return;
+  if (engine.searching) {
+    if (analysisActive && !optionStopRequested) {
+      optionStopRequested = true;
+      engine.send("stop");
+      logLine("stop", "in");
+      scheduleAnalysisRestart(OPTION_IDLE_STOP_RESTART_DELAY_MS);
+    }
     return;
   }
-  engine.send(`setoption name ${name} value ${value}`);
-  optionState.set(name, String(value));
-  if (name === "Threads") engineThreads.textContent = value;
-  if (name === "Hash") engineHash.textContent = `${value} MB`;
+  optionStopRequested = false;
+  optionApplyInFlight = true;
+  const queued = [...pendingOptionCommands.values()];
+  pendingOptionCommands.clear();
+  queued.forEach(({ name, value }) => {
+    if (value === null) {
+      engine.send(`setoption name ${name}`);
+      return;
+    }
+    engine.send(`setoption name ${name} value ${value}`);
+  });
+  engine.send("isready");
+}
+
+function sendOption(name, value) {
+  const normalizedValue = value === null ? null : String(value);
+  pendingOptionCommands.set(name, { name, value: normalizedValue });
+  if (normalizedValue !== null) {
+    optionState.set(name, normalizedValue);
+    if (name === "Threads") engineThreads.textContent = normalizedValue;
+    if (name === "Hash") engineHash.textContent = `${normalizedValue} MB`;
+  }
+  scheduleOptionFlush();
 }
 
 const OPTION_KEYS = {
@@ -2091,6 +2129,13 @@ function updateEngineWarning() {
 
 async function loadSelectedEngine(key = engineSelect?.value || "auto") {
   const loadToken = ++engineLoadToken;
+  pendingOptionCommands.clear();
+  optionApplyInFlight = false;
+  optionStopRequested = false;
+  if (optionFlushTimer) {
+    clearTimeout(optionFlushTimer);
+    optionFlushTimer = null;
+  }
   deferredEngineKey = key;
   scheduleSessionSave();
   if (engineSelect && engineSelect.value !== key) {
@@ -2543,13 +2588,19 @@ engine.on("uciok", () => {
   engine.send("isready");
 });
 engine.on("readyok", () => {
+  if (optionApplyInFlight) {
+    optionApplyInFlight = false;
+  }
   engineReady = true;
   resolveEngineReady(true);
   engineUiState = "ready";
   engineFailureMessage = "";
   engineLoadProgress = { loaded: 0, total: 0 };
   updateEngineWarning();
-  flushQueuedEngineActions();
+  flushQueuedOptionCommands();
+  if (!optionApplyInFlight) {
+    flushQueuedEngineActions();
+  }
 });
 engine.on("info", (info) => {
   queueIncomingInfo(info);
@@ -2559,6 +2610,7 @@ engine.on("infoString", () => {
 });
 engine.on("bestmove", (move) => {
   flushPendingInfo();
+  optionStopRequested = false;
   engineBestmove.textContent = move.bestmove || "—";
   lastBestMove = move.bestmove;
   highlightBestMove(move.bestmove);
@@ -2575,10 +2627,13 @@ engine.on("bestmove", (move) => {
       setTimeout(() => requestAutoMove(), 80);
     }
   }
+  flushQueuedOptionCommands();
   scheduleUI();
 });
 engine.on("error", (err) => {
   flushPendingInfo();
+  optionApplyInFlight = false;
+  optionStopRequested = false;
   const message = err?.message || err;
   logLine(`engine error: ${message}`, "out");
   if (batchAwaiting && batchCurrent) {
