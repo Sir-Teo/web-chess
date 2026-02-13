@@ -26,6 +26,12 @@ Use `--force` to recompress everything:
 node scripts/precompress-wasm.mjs --force
 ```
 
+Validate in CI/release pipelines that sidecars are present and up to date:
+
+```bash
+node scripts/precompress-wasm.mjs --check
+```
+
 ## GitHub Pages note
 
 GitHub Pages cannot set COOP/COEP headers, so the app will automatically fall back to single‑threaded engines there. For maximum speed, host with COOP/COEP support (Cloudflare Pages, Netlify, or your own server).

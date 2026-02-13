@@ -6,6 +6,7 @@ import { brotliCompressSync, constants as zlibConstants, gzipSync } from "node:z
 
 const args = new Set(process.argv.slice(2));
 const force = args.has("--force");
+const check = args.has("--check");
 const root = process.cwd();
 const stockfishDir = path.join(root, "vendor", "stockfish");
 
@@ -59,10 +60,15 @@ async function precompressFile(filePath) {
   ];
 
   let writtenAny = false;
+  const staleTargets = [];
   for (const target of targets) {
     const outPath = `${filePath}${target.ext}`;
     const outStats = await statOrNull(outPath);
     if (!shouldWrite(sourceStats, outStats, force)) {
+      continue;
+    }
+    staleTargets.push(path.basename(outPath));
+    if (check) {
       continue;
     }
     const compressed = target.compress();
@@ -74,7 +80,7 @@ async function precompressFile(filePath) {
     );
     writtenAny = true;
   }
-  return writtenAny;
+  return { writtenAny, staleTargets };
 }
 
 async function main() {
@@ -90,9 +96,30 @@ async function main() {
   }
 
   let updated = 0;
+  const stale = [];
   for (const filePath of wasmFiles) {
-    const changed = await precompressFile(filePath);
-    if (changed) updated += 1;
+    const { writtenAny, staleTargets } = await precompressFile(filePath);
+    if (writtenAny) updated += 1;
+    if (staleTargets.length) {
+      stale.push({
+        source: path.basename(filePath),
+        targets: staleTargets,
+      });
+    }
+  }
+
+  if (check) {
+    if (!stale.length) {
+      console.log("All wasm precompressed sidecars are present and up to date.");
+      return;
+    }
+    console.log("Missing or stale wasm sidecars detected:");
+    stale.forEach(({ source, targets }) => {
+      console.log(`- ${source}: ${targets.join(", ")}`);
+    });
+    console.log("Run `node scripts/precompress-wasm.mjs` to regenerate sidecars.");
+    process.exitCode = 1;
+    return;
   }
 
   if (!updated) {
