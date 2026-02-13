@@ -2461,9 +2461,9 @@ function clampOptionValue(option, value) {
 
 function computeThreadTarget(deviceGB, cores, mode) {
   const safeCap = deviceGB <= 4 ? 2 : deviceGB <= 8 ? 4 : 6;
-  const maxCap = deviceGB <= 4 ? 4 : deviceGB <= 8 ? 6 : deviceGB <= 16 ? 10 : 12;
+  const maxCap = deviceGB <= 4 ? 4 : deviceGB <= 8 ? 8 : deviceGB <= 16 ? 16 : 24;
   const cap = mode === "safe" ? safeCap : maxCap;
-  const reserve = mode === "safe" ? 2 : 1;
+  const reserve = mode === "safe" ? 2 : deviceGB <= 4 || cores <= 4 ? 1 : 0;
   const usableCores = Math.max(1, cores - reserve);
   return Math.max(1, Math.min(usableCores, cap));
 }
