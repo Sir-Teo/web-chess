@@ -122,6 +122,39 @@ test("EngineController throttles redundant info lines while preserving depth jum
   assert.deepEqual(depths, [8, 9, 8]);
 });
 
+test("EngineController.off removes listeners", () => {
+  const controller = new EngineController();
+  let count = 0;
+  const handler = () => {
+    count += 1;
+  };
+  controller.on("misc", handler);
+  controller.off("misc", handler);
+  controller.emit("misc", "noop");
+  assert.equal(count, 0);
+});
+
+test("EngineController tracks searching state through go/stop/bestmove", () => {
+  const sent = [];
+  const controller = new EngineController();
+  controller.worker = {
+    postMessage(cmd) {
+      sent.push(cmd);
+    },
+  };
+
+  controller.send("go depth 10");
+  assert.equal(controller.searching, true);
+  controller.handleLine("bestmove e2e4");
+  assert.equal(controller.searching, false);
+
+  controller.send("go movetime 100");
+  assert.equal(controller.searching, true);
+  controller.send("stop");
+  assert.equal(controller.searching, false);
+  assert.deepEqual(sent, ["go depth 10", "go movetime 100", "stop"]);
+});
+
 test("queueEngineAssetPreload skips heavy split wasm variants by default", async () => {
   __resetPreloadCacheForTests();
   let fetchCalls = 0;

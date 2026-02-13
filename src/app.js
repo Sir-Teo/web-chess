@@ -307,6 +307,11 @@ const UI_MODE_STORAGE_KEY = "vulcan-ui-mode";
 const SESSION_STORAGE_KEY = "vulcan-session";
 const SESSION_SAVE_DEBOUNCE_MS = 220;
 const OPTION_IDLE_STOP_RESTART_DELAY_MS = 70;
+const THREAD_BENCH_STORAGE_KEY = "vulcan-thread-bench-v1";
+const THREAD_BENCH_IDLE_DELAY_MS = 900;
+const THREAD_BENCH_MOVETIME_MS = 220;
+const THREAD_BENCH_READY_TIMEOUT_MS = 4000;
+const THREAD_BENCH_SEARCH_TIMEOUT_MS = 5000;
 const PIECE_NAMES = {
   P: "pawn",
   N: "knight",
@@ -362,6 +367,9 @@ const pendingOptionCommands = new Map();
 let optionApplyInFlight = false;
 let optionStopRequested = false;
 let optionFlushTimer = null;
+let threadBenchData = readThreadBenchData();
+let threadBenchTimer = null;
+let threadBenchRunning = false;
 let analysisRestartTimer = null;
 let analysisRestartQueued = false;
 const batchStatusStats = {
@@ -815,6 +823,49 @@ function readStoredSessionState() {
   } catch (err) {
     return {};
   }
+}
+
+function readThreadBenchData() {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(THREAD_BENCH_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    const threads = Number(parsed.threads);
+    const cores = Number(parsed.cores);
+    if (!Number.isFinite(threads) || !Number.isFinite(cores)) return null;
+    return {
+      threads: Math.max(1, Math.round(threads)),
+      cores: Math.max(1, Math.round(cores)),
+      measuredAt: Number(parsed.measuredAt) || 0,
+    };
+  } catch (err) {
+    return null;
+  }
+}
+
+function storeThreadBenchData(data) {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(THREAD_BENCH_STORAGE_KEY, JSON.stringify(data));
+  } catch (err) {
+    // ignore storage failures
+  }
+}
+
+function currentCoreCount() {
+  if (typeof navigator === "undefined") return null;
+  const cores = Number(navigator.hardwareConcurrency);
+  if (!Number.isFinite(cores) || cores < 1) return null;
+  return Math.round(cores);
+}
+
+function getBenchThreadTarget(option) {
+  if (!option || !threadBenchData) return null;
+  const cores = currentCoreCount();
+  if (!cores || threadBenchData.cores !== cores) return null;
+  return clampOptionValue(option, threadBenchData.threads);
 }
 
 function normalizeStoredPanelMode(value) {
@@ -2086,6 +2137,133 @@ function flushQueuedEngineActions() {
   });
 }
 
+function waitForEngineEvent(eventName, timeoutMs = 3000) {
+  return new Promise((resolve) => {
+    let settled = false;
+    let timer = null;
+    const done = (payload) => {
+      if (settled) return;
+      settled = true;
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      engine.off(eventName, onEvent);
+      resolve(payload);
+    };
+    const onEvent = (payload) => {
+      done(payload ?? true);
+    };
+    engine.on(eventName, onEvent);
+    timer = setTimeout(() => {
+      done(null);
+    }, Math.max(100, Number(timeoutMs) || 0));
+  });
+}
+
+async function setOptionAndWaitReady(name, value) {
+  if (!engine.worker) return false;
+  const readyPromise = waitForEngineEvent("readyok", THREAD_BENCH_READY_TIMEOUT_MS);
+  sendOption(name, value);
+  const ready = await readyPromise;
+  return Boolean(ready);
+}
+
+async function runThreadProbe() {
+  if (!engine.worker || !sendPosition()) return 0;
+  let peakNps = 0;
+  const onInfo = (info) => {
+    if (!isPrimaryPvInfo(info)) return;
+    const nps = Number(info?.nps);
+    if (Number.isFinite(nps) && nps > peakNps) {
+      peakNps = nps;
+    }
+  };
+  engine.on("info", onInfo);
+  const bestmovePromise = waitForEngineEvent("bestmove", THREAD_BENCH_SEARCH_TIMEOUT_MS);
+  engine.send(`go movetime ${THREAD_BENCH_MOVETIME_MS}`);
+  const bestmove = await bestmovePromise;
+  engine.off("info", onInfo);
+  if (!bestmove && engine.searching) {
+    engine.send("stop");
+    await waitForEngineEvent("bestmove", 1000);
+  }
+  return peakNps;
+}
+
+async function runThreadBenchmarkIfNeeded() {
+  if (
+    threadBenchRunning ||
+    !engineReady ||
+    !engine.supportsThreads ||
+    analysisActive ||
+    batchRunning ||
+    autoPlay ||
+    awaitingBestMoveApply
+  ) {
+    return;
+  }
+  const threadsKey = findOption(OPTION_KEYS.threads);
+  if (!threadsKey) return;
+  const threadsOpt = engine.options.get(threadsKey);
+  if (!threadsOpt) return;
+  const storedTarget = getBenchThreadTarget(threadsOpt);
+  if (storedTarget !== null) {
+    if (Number(getOptionValue(threadsKey)) !== Number(storedTarget)) {
+      sendOption(threadsKey, storedTarget);
+      refreshQuickOptions();
+    }
+    return;
+  }
+  const cores = currentCoreCount();
+  if (!cores || cores <= 2) return;
+  const optMax = Number.isFinite(threadsOpt.max) ? Number(threadsOpt.max) : cores;
+  const preferred = Math.max(1, Math.min(optMax, cores - 1));
+  const fallback = Math.max(1, Math.min(optMax, preferred - 1));
+  const candidates = [...new Set([preferred, fallback])];
+  if (candidates.length < 2) return;
+
+  threadBenchRunning = true;
+  let best = { threads: Number(getOptionValue(threadsKey)) || candidates[0], nps: -1 };
+  try {
+    for (const candidate of candidates) {
+      if (
+        !engine.worker ||
+        analysisActive ||
+        batchRunning ||
+        autoPlay ||
+        awaitingBestMoveApply
+      ) {
+        break;
+      }
+      const ready = await setOptionAndWaitReady(threadsKey, candidate);
+      if (!ready) continue;
+      const nps = await runThreadProbe();
+      if (nps > best.nps) {
+        best = { threads: candidate, nps };
+      }
+    }
+    await setOptionAndWaitReady(threadsKey, best.threads);
+    threadBenchData = {
+      threads: best.threads,
+      cores,
+      measuredAt: Date.now(),
+    };
+    storeThreadBenchData(threadBenchData);
+    refreshQuickOptions();
+  } finally {
+    threadBenchRunning = false;
+  }
+}
+
+function scheduleThreadBenchmarkIfNeeded() {
+  if (threadBenchTimer || threadBenchRunning) return;
+  threadBenchTimer = setTimeout(() => {
+    threadBenchTimer = null;
+    runThreadBenchmarkIfNeeded().catch(() => {});
+  }, THREAD_BENCH_IDLE_DELAY_MS);
+}
+
 function updateEngineWarning() {
   updateCommandAvailability();
   const queuedCount = queuedEngineActions.length;
@@ -2140,6 +2318,11 @@ async function loadSelectedEngine(key = engineSelect?.value || "auto") {
     clearTimeout(optionFlushTimer);
     optionFlushTimer = null;
   }
+  if (threadBenchTimer) {
+    clearTimeout(threadBenchTimer);
+    threadBenchTimer = null;
+  }
+  threadBenchRunning = false;
   deferredEngineKey = key;
   scheduleSessionSave();
   if (engineSelect && engineSelect.value !== key) {
@@ -2559,7 +2742,9 @@ function applyPerformanceProfile() {
   const hashOpt = engine.options.get("Hash");
   const maxHash = hashOpt?.max ?? 256;
   const minHash = hashOpt?.min ?? 1;
-  const threads = computeThreadTarget(deviceGB, cores, performanceMode);
+  const computedThreads = computeThreadTarget(deviceGB, cores, performanceMode);
+  const benchThreads = threadsOpt ? getBenchThreadTarget(threadsOpt) : null;
+  const threads = benchThreads ?? computedThreads;
   const hash = computeHashTarget(deviceGB, maxHash, minHash, performanceMode);
   lastHashAutoTuneAt = Number.NEGATIVE_INFINITY;
   const multiPvOpt = engine.options.get("MultiPV");
@@ -2647,6 +2832,7 @@ engine.on("readyok", () => {
   flushQueuedOptionCommands();
   if (!optionApplyInFlight) {
     flushQueuedEngineActions();
+    scheduleThreadBenchmarkIfNeeded();
   }
 });
 engine.on("info", (info) => {
@@ -2675,6 +2861,9 @@ engine.on("bestmove", (move) => {
     }
   }
   flushQueuedOptionCommands();
+  if (!analysisActive && !batchRunning) {
+    scheduleThreadBenchmarkIfNeeded();
+  }
   scheduleUI();
 });
 engine.on("error", (err) => {
