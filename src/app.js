@@ -2218,9 +2218,10 @@ async function runThreadBenchmarkIfNeeded() {
   const cores = currentCoreCount();
   if (!cores || cores <= 2) return;
   const optMax = Number.isFinite(threadsOpt.max) ? Number(threadsOpt.max) : cores;
-  const preferred = Math.max(1, Math.min(optMax, cores - 1));
-  const fallback = Math.max(1, Math.min(optMax, preferred - 1));
-  const candidates = [...new Set([preferred, fallback])];
+  const full = Math.max(1, Math.min(optMax, cores));
+  const nearFull = Math.max(1, Math.min(optMax, cores - 1));
+  const conservative = Math.max(1, Math.min(optMax, cores - 2));
+  const candidates = [...new Set([full, nearFull, conservative])];
   if (candidates.length < 2) return;
 
   threadBenchRunning = true;
