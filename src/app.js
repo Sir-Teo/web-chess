@@ -3,8 +3,8 @@ import {
   preloadEngineAssets,
   queueEngineAssetPreload,
   threadsAvailable,
-} from "./engine.js?v=20260209e";
-import { formatScore, scoreToPercent } from "./uci.js?v=20260209e";
+} from "./engine.js?v=20260213a";
+import { formatScore, scoreToPercent } from "./uci.js?v=20260213a";
 
 const $ = (id) => document.getElementById(id);
 
@@ -762,7 +762,7 @@ const ensureChessReady = () => {
       return;
     }
     const script = document.createElement("script");
-    script.src = "vendor/chess.min.js?v=20260209e";
+    script.src = "vendor/chess.min.js?v=20260213a";
     script.dataset.chessLib = "true";
     script.onload = () => resolve(true);
     script.onerror = () => resolve(false);

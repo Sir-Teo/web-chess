@@ -1,39 +1,41 @@
 import { parseUciOption, parseInfo, parseBestmove } from "./uci.js";
 
-const ENGINE_ASSET_VERSION = "20260209c";
+const ENGINE_ASSET_VERSION = "20260213a";
 
 const ENGINE_SPECS = {
   standard: {
     label: "Standard (multi-threaded)",
-    js: "vendor/stockfish/stockfish-17.1-8e4d048.js",
-    wasm: "vendor/stockfish/stockfish-17.1-8e4d048.wasm",
+    js: "vendor/stockfish/stockfish-18-parted.js",
+    wasm: "vendor/stockfish/stockfish-18.wasm",
     threads: true,
     parts: 6,
+    heavy: true,
   },
   "standard-single": {
     label: "Standard (single-threaded)",
-    js: "vendor/stockfish/stockfish-17.1-single-a496a04.js",
-    wasm: "vendor/stockfish/stockfish-17.1-single-a496a04.wasm",
+    js: "vendor/stockfish/stockfish-18-single-parted.js",
+    wasm: "vendor/stockfish/stockfish-18-single.wasm",
     threads: false,
     parts: 6,
+    heavy: true,
   },
   lite: {
     label: "Lite (multi-threaded)",
-    js: "vendor/stockfish/stockfish-17.1-lite-51f59da.js",
-    wasm: "vendor/stockfish/stockfish-17.1-lite-51f59da.wasm",
+    js: "vendor/stockfish/stockfish-18-lite.js",
+    wasm: "vendor/stockfish/stockfish-18-lite.wasm",
     threads: true,
     parts: 0,
   },
   "lite-single": {
     label: "Lite (single-threaded)",
-    js: "vendor/stockfish/stockfish-17.1-lite-single-03e3232.js",
-    wasm: "vendor/stockfish/stockfish-17.1-lite-single-03e3232.wasm",
+    js: "vendor/stockfish/stockfish-18-lite-single.js",
+    wasm: "vendor/stockfish/stockfish-18-lite-single.wasm",
     threads: false,
     parts: 0,
   },
   asm: {
     label: "ASM.js fallback",
-    js: "vendor/stockfish/stockfish-17.1-asm-341ff22.js",
+    js: "vendor/stockfish/stockfish-18-asm.js",
     wasm: null,
     threads: false,
     parts: 0,
@@ -455,8 +457,10 @@ export function preloadEngineAssets(variantKey = "auto", options = {}) {
 export function queueEngineAssetPreload(variantKey = "auto", options = {}) {
   const resolvedKey = resolveEngineSpecKey(variantKey);
   const spec = ENGINE_SPECS[resolvedKey] || ENGINE_SPECS["standard-single"];
-  const isHeavySplitWasm = Boolean(spec.wasm && spec.parts && spec.parts > 0);
-  if (isHeavySplitWasm && !shouldPreloadHeavyWasm(options)) {
+  const isHeavyWasm = Boolean(
+    spec.wasm && ((spec.parts && spec.parts > 0) || spec.heavy)
+  );
+  if (isHeavyWasm && !shouldPreloadHeavyWasm(options)) {
     return;
   }
   const schedule = typeof self !== "undefined" && typeof self.requestIdleCallback === "function"

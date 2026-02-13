@@ -38,7 +38,7 @@ GitHub Pages cannot set COOP/COEP headers, so the app will automatically fall ba
 
 ## Features
 
-- Multi‑threaded and single‑threaded Stockfish.js 17.1 variants
+- Multi‑threaded and single‑threaded Stockfish.js 18.0.5 variants
 - Full UCI option surface + raw console (with filter)
 - Engine asset preloading for faster start
 - Optional precompressed `.wasm.br` / `.wasm.gz` sidecar serving for faster engine downloads
