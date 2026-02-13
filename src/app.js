@@ -2755,6 +2755,7 @@ function applyPerformanceProfile() {
   if (engine.options.has("UCI_ShowWDL")) sendOption("UCI_ShowWDL", "false");
   if (engine.options.has("Ponder")) sendOption("Ponder", "false");
   if (engine.options.has("UCI_LimitStrength")) sendOption("UCI_LimitStrength", "false");
+  if (engine.options.has("Skill Level")) sendOption("Skill Level", 20);
   if (engine.options.has("Minimum Thinking Time")) sendOption("Minimum Thinking Time", 0);
   if (engine.options.has("Move Overhead")) sendOption("Move Overhead", 0);
   engineWarning.textContent = performanceMode === "safe"
