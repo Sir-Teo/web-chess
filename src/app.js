@@ -283,6 +283,12 @@ const MOVE_META_UPDATE_INTERVAL_MS = 220;
 const PV_SAN_CACHE_LIMIT = 320;
 const PV_SAN_DEBOUNCE_MS = 140;
 const ENGINE_INFO_FLUSH_INTERVAL_MS = 40;
+const ANALYSIS_INFO_THROTTLE_SHORT_MS = 50;
+const ANALYSIS_INFO_THROTTLE_LONG_MS = 100;
+const ANALYSIS_INFO_THROTTLE_EXTENDED_MS = 160;
+const ANALYSIS_THROTTLE_LONG_AFTER_MS = 25000;
+const ANALYSIS_THROTTLE_EXTENDED_AFTER_MS = 120000;
+const INFO_THROTTLE_RETUNE_INTERVAL_MS = 1000;
 const CONSOLE_MAX_LINES = 500;
 const CONSOLE_FLUSH_INTERVAL_MS = 250;
 const CHART_RENDER_INTERVAL_MS = 140;
@@ -318,6 +324,8 @@ let uiRescheduleDueAt = Number.POSITIVE_INFINITY;
 let lastUiRenderAt = Number.NEGATIVE_INFINITY;
 let lastEvalChartRenderAt = Number.NEGATIVE_INFINITY;
 let lastWinrateChartRenderAt = Number.NEGATIVE_INFINITY;
+let activeInfoThrottleMs = -1;
+let lastInfoThrottleTuneAt = Number.NEGATIVE_INFINITY;
 let optionsFilterTimer = null;
 let pvSanComputeTimer = null;
 let pvSanPending = null;
@@ -435,6 +443,45 @@ function resetInfoSamplingState() {
   lastMoveMetaDepth = -1;
 }
 
+function isLowEndDevice() {
+  if (typeof navigator === "undefined") return false;
+  const deviceMemory = typeof navigator.deviceMemory === "number" ? navigator.deviceMemory : null;
+  const cores =
+    typeof navigator.hardwareConcurrency === "number" ? navigator.hardwareConcurrency : null;
+  return (deviceMemory !== null && deviceMemory <= 4) || (cores !== null && cores <= 4);
+}
+
+function getInfoThrottleTargetMs() {
+  if (!analysisActive) return 0;
+  const elapsed = infoClockMs(latestInfo);
+  if (elapsed >= ANALYSIS_THROTTLE_EXTENDED_AFTER_MS) {
+    return isLowEndDevice()
+      ? ANALYSIS_INFO_THROTTLE_EXTENDED_MS + 50
+      : ANALYSIS_INFO_THROTTLE_EXTENDED_MS;
+  }
+  if (elapsed >= ANALYSIS_THROTTLE_LONG_AFTER_MS) {
+    return isLowEndDevice() ? ANALYSIS_INFO_THROTTLE_LONG_MS + 30 : ANALYSIS_INFO_THROTTLE_LONG_MS;
+  }
+  return isLowEndDevice() ? ANALYSIS_INFO_THROTTLE_SHORT_MS + 20 : ANALYSIS_INFO_THROTTLE_SHORT_MS;
+}
+
+function applyInfoThrottle(force = false) {
+  const target = getInfoThrottleTargetMs();
+  if (!force && target === activeInfoThrottleMs) return;
+  activeInfoThrottleMs = target;
+  engine.setInfoThrottle(target);
+}
+
+function maybeRetuneInfoThrottle(force = false) {
+  const now =
+    typeof performance !== "undefined" && typeof performance.now === "function"
+      ? performance.now()
+      : Date.now();
+  if (!force && now - lastInfoThrottleTuneAt < INFO_THROTTLE_RETUNE_INTERVAL_MS) return;
+  lastInfoThrottleTuneAt = now;
+  applyInfoThrottle(force);
+}
+
 function shouldRecordEvalSample(info) {
   if (!info.score || !isPrimaryPvInfo(info)) return false;
   const time = infoClockMs(info);
@@ -525,6 +572,7 @@ function flushPendingInfo() {
   if (shouldRenderUi) {
     scheduleUI();
   }
+  maybeRetuneInfoThrottle();
 }
 
 function scheduleInfoFlush() {
@@ -2179,7 +2227,9 @@ function computeThreadTarget(deviceGB, cores, mode) {
   const safeCap = deviceGB <= 4 ? 2 : deviceGB <= 8 ? 4 : 6;
   const maxCap = deviceGB <= 4 ? 4 : deviceGB <= 8 ? 6 : deviceGB <= 16 ? 10 : 12;
   const cap = mode === "safe" ? safeCap : maxCap;
-  return Math.max(1, Math.min(cores, cap));
+  const reserve = mode === "safe" ? 2 : 1;
+  const usableCores = Math.max(1, cores - reserve);
+  return Math.max(1, Math.min(usableCores, cap));
 }
 
 function computeHashTarget(deviceGB, maxHash, minHash, mode) {
@@ -2285,11 +2335,13 @@ async function startAnalysis(mode = "infinite", options = {}) {
   winrateRenderVersion += 1;
   analysisStart = performance.now();
   resetInfoSamplingState();
+  analysisActive = mode === "infinite";
+  setAnalyzePillState(analysisActive);
+  engine.resetInfoThrottle();
+  maybeRetuneInfoThrottle(true);
   const suffix = searchmoves ? ` searchmoves ${searchmoves}` : "";
   engine.send(`go ${mode}${suffix}`);
   logLine(`go ${mode}${suffix}`.trim(), "in");
-  analysisActive = mode === "infinite";
-  setAnalyzePillState(analysisActive);
   scheduleUI();
 }
 
@@ -2301,6 +2353,7 @@ function stopAnalysis(options = {}) {
   if (!engine.worker) {
     analysisActive = false;
     setAnalyzePillState(false);
+    maybeRetuneInfoThrottle(true);
     scheduleUI();
     return;
   }
@@ -2308,6 +2361,7 @@ function stopAnalysis(options = {}) {
   logLine("stop", "in");
   analysisActive = false;
   setAnalyzePillState(false);
+  maybeRetuneInfoThrottle(true);
   scheduleUI();
 }
 
@@ -2391,11 +2445,11 @@ function applyPerformanceProfile() {
   const threads = computeThreadTarget(deviceGB, cores, performanceMode);
   const hash = computeHashTarget(deviceGB, maxHash, minHash, performanceMode);
   const multiPvOpt = engine.options.get("MultiPV");
-  const multiPv = performanceMode === "safe" ? 2 : 3;
+  const multiPv = 1;
   if (threadsOpt) sendOption("Threads", clampOptionValue(threadsOpt, threads));
   if (hashOpt) sendOption("Hash", clampOptionValue(hashOpt, hash));
   if (multiPvOpt) sendOption("MultiPV", clampOptionValue(multiPvOpt, multiPv));
-  if (engine.options.has("UCI_ShowWDL")) sendOption("UCI_ShowWDL", "true");
+  if (engine.options.has("UCI_ShowWDL")) sendOption("UCI_ShowWDL", "false");
   if (engine.options.has("Ponder")) sendOption("Ponder", "false");
   if (engine.options.has("UCI_LimitStrength")) sendOption("UCI_LimitStrength", "false");
   if (engine.options.has("Minimum Thinking Time")) sendOption("Minimum Thinking Time", 0);

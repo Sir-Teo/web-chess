@@ -105,6 +105,23 @@ test("EngineController.handleLine emits parsed UCI events", () => {
   assert.deepEqual(events[7], ["misc", "unknown output line"]);
 });
 
+test("EngineController throttles redundant info lines while preserving depth jumps", () => {
+  const controller = new EngineController();
+  const depths = [];
+  controller.on("info", (payload) => depths.push(payload.depth));
+  controller.setInfoThrottle(10000);
+
+  controller.handleLine("info depth 8 score cp 14 pv e2e4 e7e5");
+  controller.handleLine("info depth 8 score cp 20 pv e2e4 e7e5");
+  controller.handleLine("info depth 9 score cp 25 pv e2e4 e7e5");
+
+  assert.deepEqual(depths, [8, 9]);
+
+  controller.resetInfoThrottle();
+  controller.handleLine("info depth 8 score cp 13 pv e2e4 e7e5");
+  assert.deepEqual(depths, [8, 9, 8]);
+});
+
 test("queueEngineAssetPreload skips heavy split wasm variants by default", async () => {
   __resetPreloadCacheForTests();
   let fetchCalls = 0;

@@ -47,6 +47,8 @@ const THREADS_FALLBACK = {
 const preloadPromises = new Map();
 const PRELOAD_SCOPE_ALL = "all";
 const PRELOAD_SCOPE_SCRIPT = "script";
+const INFO_DEPTH_RE = /\bdepth\s+(\d+)\b/;
+const INFO_MULTIPV_RE = /\bmultipv\s+(\d+)\b/;
 
 const resolveAssetUrl = (assetPath) => {
   const url =
@@ -98,6 +100,13 @@ function mergeInfo(target, patch) {
   }
 }
 
+function nowMs() {
+  if (typeof performance !== "undefined" && typeof performance.now === "function") {
+    return performance.now();
+  }
+  return Date.now();
+}
+
 function pickAutoSpecKey() {
   if (!supportsWasm()) return "asm";
   const tier = getDeviceTier();
@@ -131,6 +140,8 @@ export class EngineController {
     this.info = {};
     this.variant = null;
     this.supportsThreads = false;
+    this.infoThrottleMs = 0;
+    this.lastInfoByPv = new Map();
   }
 
   on(event, handler) {
@@ -146,6 +157,37 @@ export class EngineController {
     handlers.forEach((handler) => handler(payload));
   }
 
+  setInfoThrottle(ms = 0) {
+    const next = Number.isFinite(ms) ? Math.max(0, Math.round(ms)) : 0;
+    if (next === this.infoThrottleMs) return;
+    this.infoThrottleMs = next;
+    this.resetInfoThrottle();
+  }
+
+  resetInfoThrottle() {
+    this.lastInfoByPv.clear();
+  }
+
+  shouldThrottleInfo(line) {
+    if (!(this.infoThrottleMs > 0)) return false;
+    const now = nowMs();
+    const multipvMatch = line.match(INFO_MULTIPV_RE);
+    const depthMatch = line.match(INFO_DEPTH_RE);
+    const pvKey = multipvMatch ? Number(multipvMatch[1]) || 1 : 1;
+    const depth = depthMatch ? Number(depthMatch[1]) : Number.NaN;
+    const previous =
+      this.lastInfoByPv.get(pvKey) || { at: Number.NEGATIVE_INFINITY, depth: -1 };
+    const depthAdvanced = Number.isFinite(depth) && depth > previous.depth;
+    if (!depthAdvanced && now - previous.at < this.infoThrottleMs) {
+      return true;
+    }
+    this.lastInfoByPv.set(pvKey, {
+      at: now,
+      depth: Number.isFinite(depth) ? Math.max(previous.depth, depth) : previous.depth,
+    });
+    return false;
+  }
+
   resolveSpec(key) {
     const resolvedKey = resolveEngineSpecKey(key);
     return ENGINE_SPECS[resolvedKey] || ENGINE_SPECS["standard-single"];
@@ -155,6 +197,7 @@ export class EngineController {
     this.dispose();
     this.options.clear();
     this.info = {};
+    this.resetInfoThrottle();
 
     const spec = this.resolveSpec(variantKey);
     this.variant = spec;
@@ -197,6 +240,7 @@ export class EngineController {
       // ignore
     }
     this.worker = null;
+    this.resetInfoThrottle();
   }
 
   send(cmd) {
@@ -235,6 +279,9 @@ export class EngineController {
       return;
     }
     if (line.startsWith("info ")) {
+      if (this.shouldThrottleInfo(line)) {
+        return;
+      }
       const info = parseInfo(line);
       if (info) {
         mergeInfo(this.info, info);
