@@ -231,6 +231,7 @@ let consoleDirty = false;
 let analysisActive = false;
 let boardFlipped = false;
 let selectedSquare = null;
+let selectedSquareMoves = [];
 let focusedSquare = "e2";
 let legalTargets = new Set();
 const boardSquareMap = new Map();
@@ -1210,9 +1211,10 @@ function scheduleUI() {
       if (evalRenderedVersion !== evalRenderVersion) {
         const elapsed = now - lastEvalChartRenderAt;
         if (elapsed >= CHART_RENDER_INTERVAL_MS) {
-          evalRenderedVersion = evalRenderVersion;
-          renderEvalChart();
-          lastEvalChartRenderAt = now;
+          if (renderEvalChart()) {
+            evalRenderedVersion = evalRenderVersion;
+            lastEvalChartRenderAt = now;
+          }
         } else {
           deferredDelay = Math.min(deferredDelay, CHART_RENDER_INTERVAL_MS - elapsed);
         }
@@ -1220,9 +1222,10 @@ function scheduleUI() {
       if (winrateRenderedVersion !== winrateRenderVersion) {
         const elapsed = now - lastWinrateChartRenderAt;
         if (elapsed >= CHART_RENDER_INTERVAL_MS) {
-          winrateRenderedVersion = winrateRenderVersion;
-          renderWinrateChart();
-          lastWinrateChartRenderAt = now;
+          if (renderWinrateChart()) {
+            winrateRenderedVersion = winrateRenderVersion;
+            lastWinrateChartRenderAt = now;
+          }
         } else {
           deferredDelay = Math.min(deferredDelay, CHART_RENDER_INTERVAL_MS - elapsed);
         }
@@ -1651,10 +1654,10 @@ function initChartCanvasSizing() {
 }
 
 function renderEvalChart() {
-  if (!evalChart) return;
+  if (!evalChart || evalChart.offsetParent === null) return false;
   resizeCanvasForDisplay(evalChart);
   const ctx = evalChart.getContext("2d");
-  if (!ctx) return;
+  if (!ctx) return false;
   const { width, height, ratio } = getCanvasDrawSize(evalChart);
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, width, height);
@@ -1666,7 +1669,7 @@ function renderEvalChart() {
   ctx.lineTo(width, height / 2);
   ctx.stroke();
 
-  if (!evalHistory.length) return;
+  if (!evalHistory.length) return true;
   const minTime = evalHistory[0].time;
   const maxTime = evalHistory[evalHistory.length - 1].time;
   const span = Math.max(1, maxTime - minTime);
@@ -1682,13 +1685,14 @@ function renderEvalChart() {
     else ctx.lineTo(x, y);
   });
   ctx.stroke();
+  return true;
 }
 
 function renderWinrateChartTo(canvas) {
-  if (!canvas) return;
+  if (!canvas || canvas.offsetParent === null) return false;
   resizeCanvasForDisplay(canvas);
   const ctx = canvas.getContext("2d");
-  if (!ctx) return;
+  if (!ctx) return false;
   const { width, height, ratio } = getCanvasDrawSize(canvas);
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, width, height);
@@ -1700,7 +1704,7 @@ function renderWinrateChartTo(canvas) {
   ctx.lineTo(width, height / 2);
   ctx.stroke();
 
-  if (!evalHistory.length) return;
+  if (!evalHistory.length) return true;
   const minTime = evalHistory[0].time;
   const maxTime = evalHistory[evalHistory.length - 1].time;
   const span = Math.max(1, maxTime - minTime);
@@ -1717,13 +1721,13 @@ function renderWinrateChartTo(canvas) {
     else ctx.lineTo(x, y);
   });
   ctx.stroke();
+  return true;
 }
 
 function renderWinrateChart() {
-  renderWinrateChartTo(winrateChart);
-  if (winrateChartLeft && winrateChartLeft.offsetParent !== null) {
-    renderWinrateChartTo(winrateChartLeft);
-  }
+  const renderedPrimary = renderWinrateChartTo(winrateChart);
+  const renderedSecondary = renderWinrateChartTo(winrateChartLeft);
+  return renderedPrimary || renderedSecondary;
 }
 
 function applyOptionsFilter() {
@@ -3328,12 +3332,14 @@ function highlightMoves(moves) {
 function onSquareClick(square) {
   if (!game) return;
   setFocusedSquare(square);
-  const moves = game.moves({ square, verbose: true });
+  const moves =
+    selectedSquare === square && selectedSquareMoves.length
+      ? selectedSquareMoves
+      : game.moves({ square, verbose: true });
 
   if (selectedSquare && legalTargets.has(square)) {
     const previousPly = historyPlyCache;
-    const selectedMoves = game.moves({ square: selectedSquare, verbose: true });
-    const promotionMove = selectedMoves.find((m) => m.to === square && m.promotion);
+    const promotionMove = selectedSquareMoves.find((m) => m.to === square && m.promotion);
     const promotion = promotionMove ? promotionMove.promotion : "q";
     const move = game.move({ from: selectedSquare, to: square, promotion });
     if (move) {
@@ -3346,6 +3352,7 @@ function onSquareClick(square) {
       });
     }
     selectedSquare = null;
+    selectedSquareMoves = [];
     legalTargets.clear();
     clearSelectionHighlights();
     return;
@@ -3353,9 +3360,11 @@ function onSquareClick(square) {
 
   if (moves.length) {
     selectedSquare = square;
+    selectedSquareMoves = moves;
     highlightMoves(moves);
   } else {
     selectedSquare = null;
+    selectedSquareMoves = [];
     legalTargets.clear();
     clearSelectionHighlights();
   }
@@ -3773,6 +3782,7 @@ function afterPositionChange(options = {}) {
   clearPvHighlights();
   highlightLastMove();
   selectedSquare = null;
+  selectedSquareMoves = [];
   legalTargets.clear();
   pvSanCache.clear();
   if (pvSanComputeTimer) {
@@ -3857,6 +3867,7 @@ btnFlip.addEventListener("click", () => {
   highlightLastMove();
   highlightBestMove(lastBestMove);
   selectedSquare = null;
+  selectedSquareMoves = [];
   legalTargets.clear();
   setFocusedSquare(focusedSquare, { focus: true });
   scheduleSessionSave();
