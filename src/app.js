@@ -251,6 +251,7 @@ let historyVerboseCache = [];
 let historyPlyCache = 0;
 let historyUciCache = [];
 let historyUciJoined = "";
+let positionRootFen = "startpos";
 let batchQueue = [];
 let batchResults = [];
 let batchRunning = false;
@@ -299,6 +300,7 @@ const MOBILE_UI_FRAME_INTERVAL_MS = 66;
 const LOW_END_MOBILE_UI_FRAME_INTERVAL_MS = 90;
 const ENGINE_PREWARM_IDLE_TIMEOUT_MS = 1200;
 const ENGINE_PRELOAD_SCOPE_SCRIPT = "script";
+const STARTPOS_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 const UI_MODE_STORAGE_KEY = "vulcan-ui-mode";
 const SESSION_STORAGE_KEY = "vulcan-session";
 const SESSION_SAVE_DEBOUNCE_MS = 220;
@@ -761,6 +763,7 @@ const initGame = () => {
       game.reset();
     }
   }
+  positionRootFen = normalizeRootFen(game.fen());
   initBoard();
   return true;
 };
@@ -2247,14 +2250,37 @@ function currentFen() {
   return "startpos";
 }
 
+function normalizeRootFen(fen) {
+  const value = String(fen || "").trim();
+  if (!value || value === "startpos" || value === STARTPOS_FEN) {
+    return "startpos";
+  }
+  return value;
+}
+
+function extractInitialFenFromPgn(pgn) {
+  const match = String(pgn || "").match(/(?:^|\n)\s*\[FEN\s+"([^"]+)"\s*\]/i);
+  if (!match) return "startpos";
+  return normalizeRootFen(match[1]);
+}
+
 function sendPosition() {
   if (!engine.worker) return false;
-  const fen = currentFen();
-  if (fen === "startpos") {
-    engine.send("position startpos");
+  const rootFen = normalizeRootFen(positionRootFen);
+  const moves = historyUciJoined;
+  if (rootFen === "startpos") {
+    if (moves) {
+      engine.send(`position startpos moves ${moves}`);
+    } else {
+      engine.send("position startpos");
+    }
     return true;
   }
-  engine.send(`position fen ${fen}`);
+  if (moves) {
+    engine.send(`position fen ${rootFen} moves ${moves}`);
+  } else {
+    engine.send(`position fen ${rootFen}`);
+  }
   return true;
 }
 
@@ -3873,6 +3899,7 @@ function loadFen(fen) {
     engineWarning.textContent = "Invalid FEN.";
     return;
   }
+  positionRootFen = normalizeRootFen(game.fen());
   moveMeta = [];
   undoStack.length = 0;
   redoStack.length = 0;
@@ -3892,6 +3919,7 @@ function loadPgn(pgn) {
     engineWarning.textContent = "Invalid PGN.";
     return;
   }
+  positionRootFen = extractInitialFenFromPgn(pgn);
   moveMeta = [];
   undoStack.length = 0;
   redoStack.length = 0;
@@ -3907,6 +3935,7 @@ btnNew.addEventListener("click", () => {
   if (!game) return;
   const previousPly = historyPlyCache;
   game.reset();
+  positionRootFen = "startpos";
   moveMeta = [];
   undoStack.length = 0;
   redoStack.length = 0;
@@ -3962,6 +3991,7 @@ btnApplyMoves.addEventListener("click", () => {
   const previousPly = historyPlyCache;
   const moves = uciMovesInput.value.trim().split(/\s+/).filter(Boolean);
   game.reset();
+  positionRootFen = "startpos";
   moveMeta = [];
   moves.forEach((move) => {
     const from = move.slice(0, 2);
@@ -3983,6 +4013,7 @@ btnClearMoves.addEventListener("click", () => {
   if (!game) return;
   const previousPly = historyPlyCache;
   game.reset();
+  positionRootFen = "startpos";
   moveMeta = [];
   undoStack.length = 0;
   redoStack.length = 0;
