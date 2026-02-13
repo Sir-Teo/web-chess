@@ -1942,7 +1942,11 @@ function flushQueuedOptionCommands() {
   }
   optionStopRequested = false;
   optionApplyInFlight = true;
-  const queued = [...pendingOptionCommands.values()];
+  const queued = [...pendingOptionCommands.values()].sort((a, b) => {
+    const priorityDelta = optionApplyPriority(a.name) - optionApplyPriority(b.name);
+    if (priorityDelta !== 0) return priorityDelta;
+    return a.name.localeCompare(b.name);
+  });
   pendingOptionCommands.clear();
   queued.forEach(({ name, value }) => {
     if (value === null) {
@@ -1981,12 +1985,22 @@ const OPTION_KEYS = {
   minThinking: ["Minimum Thinking Time"],
   moveOverhead: ["Move Overhead"],
 };
+const OPTION_APPLY_PRIORITY = new Map([
+  ["Threads", 0],
+  ["Hash", 1],
+  ["MultiPV", 2],
+]);
 
 function findOption(names) {
   for (const name of names) {
     if (engine.options.has(name)) return name;
   }
   return null;
+}
+
+function optionApplyPriority(name) {
+  const known = OPTION_APPLY_PRIORITY.get(name);
+  return typeof known === "number" ? known : 100;
 }
 
 function getOptionValue(name) {
