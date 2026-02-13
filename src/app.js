@@ -292,6 +292,7 @@ const MOBILE_UI_MAX_WIDTH = 900;
 const MOBILE_UI_FRAME_INTERVAL_MS = 66;
 const LOW_END_MOBILE_UI_FRAME_INTERVAL_MS = 90;
 const ENGINE_PREWARM_IDLE_TIMEOUT_MS = 1200;
+const ENGINE_PRELOAD_SCOPE_SCRIPT = "script";
 const UI_MODE_STORAGE_KEY = "vulcan-ui-mode";
 const SESSION_STORAGE_KEY = "vulcan-session";
 const SESSION_SAVE_DEBOUNCE_MS = 220;
@@ -2057,7 +2058,7 @@ async function loadSelectedEngine(key = engineSelect?.value || "auto") {
   updateEngineWarning();
   await preloadEngineAssets(key, {
     background: false,
-    scope: "script",
+    scope: ENGINE_PRELOAD_SCOPE_SCRIPT,
     onProgress: (progress) => {
       if (loadToken !== engineLoadToken || engineUiState !== "loading") return;
       const loaded = Number(progress?.loaded) || 0;
@@ -2132,7 +2133,9 @@ function queueInitialEnginePrewarm() {
   initialPrewarmQueued = true;
   scheduleIdleTask(() => {
     if (engine.worker || engineLoadPromise) return;
-    loadEngineAndTrack(deferredEngineKey || "auto").catch(() => {});
+    queueEngineAssetPreload(deferredEngineKey || "auto", {
+      scope: ENGINE_PRELOAD_SCOPE_SCRIPT,
+    });
   });
 }
 
@@ -2527,7 +2530,9 @@ engineSelect.addEventListener("change", () => {
   engineThreads.textContent = spec.threads ? "auto" : "1";
   engineHash.textContent = "—";
   optionState.clear();
-  queueEngineAssetPreload(deferredEngineKey);
+  queueEngineAssetPreload(deferredEngineKey, {
+    scope: ENGINE_PRELOAD_SCOPE_SCRIPT,
+  });
   updateEngineWarning();
 });
 
@@ -4174,7 +4179,9 @@ const initialSpec = engine.resolveSpec(deferredEngineKey);
 engineVariant.textContent = initialSpec.label;
 engineThreads.textContent = initialSpec.threads ? "auto" : "1";
 engineHash.textContent = "—";
-queueEngineAssetPreload(deferredEngineKey);
+queueEngineAssetPreload(deferredEngineKey, {
+  scope: ENGINE_PRELOAD_SCOPE_SCRIPT,
+});
 armInitialEnginePrewarm();
 updateEngineWarning();
 overlayState = {
