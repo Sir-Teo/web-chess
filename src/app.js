@@ -289,6 +289,8 @@ const ANALYSIS_INFO_THROTTLE_LONG_MS = 100;
 const ANALYSIS_INFO_THROTTLE_EXTENDED_MS = 160;
 const ANALYSIS_THROTTLE_LONG_AFTER_MS = 25000;
 const ANALYSIS_THROTTLE_EXTENDED_AFTER_MS = 120000;
+const HASHFULL_AUTOTUNE_THRESHOLD = 300;
+const HASH_AUTOTUNE_INTERVAL_MS = 12000;
 const INFO_THROTTLE_RETUNE_INTERVAL_MS = 1000;
 const CONSOLE_MAX_LINES = 500;
 const CONSOLE_FLUSH_INTERVAL_MS = 250;
@@ -329,6 +331,7 @@ let lastEvalChartRenderAt = Number.NEGATIVE_INFINITY;
 let lastWinrateChartRenderAt = Number.NEGATIVE_INFINITY;
 let activeInfoThrottleMs = -1;
 let lastInfoThrottleTuneAt = Number.NEGATIVE_INFINITY;
+let lastHashAutoTuneAt = Number.NEGATIVE_INFINITY;
 let optionsFilterTimer = null;
 let pvSanComputeTimer = null;
 let pvSanPending = null;
@@ -538,6 +541,7 @@ function flushPendingInfo() {
     if (mergeObjectShallow(latestInfo, info)) {
       shouldRenderUi = true;
     }
+    maybeAutoTuneHash(info);
     if (shouldRecordEvalSample(info)) {
       addEvalSample(info);
       shouldRenderUi = true;
@@ -2290,6 +2294,47 @@ function computeHashTarget(deviceGB, maxHash, minHash, mode) {
   return Math.min(maxHash, Math.max(minHash, target));
 }
 
+function hashAutoTuneCap(maxHash) {
+  const deviceGB =
+    typeof navigator !== "undefined" && typeof navigator.deviceMemory === "number"
+      ? navigator.deviceMemory
+      : null;
+  if (deviceGB === null) return Math.min(maxHash, 1024);
+  const cap = deviceGB <= 4 ? 256 : deviceGB <= 8 ? 512 : deviceGB <= 16 ? 1024 : 2048;
+  return Math.min(maxHash, cap);
+}
+
+function hashAutoTuneStep(currentHash) {
+  if (currentHash < 256) return 64;
+  if (currentHash < 512) return 128;
+  return 256;
+}
+
+function maybeAutoTuneHash(info = latestInfo) {
+  if (!analysisActive || performanceMode !== "max" || batchRunning) return;
+  const hashfull = Number(info?.hashfull);
+  if (!Number.isFinite(hashfull) || hashfull < HASHFULL_AUTOTUNE_THRESHOLD) return;
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  if (now - lastHashAutoTuneAt < HASH_AUTOTUNE_INTERVAL_MS) return;
+  const hashKey = findOption(OPTION_KEYS.hash);
+  if (!hashKey) return;
+  const hashOpt = engine.options.get(hashKey);
+  if (!hashOpt) return;
+  const currentHash = Number(getOptionValue(hashKey));
+  if (!Number.isFinite(currentHash)) return;
+  const maxHash = typeof hashOpt.max === "number" ? hashOpt.max : currentHash;
+  const upperBound = hashAutoTuneCap(maxHash);
+  if (currentHash >= upperBound) return;
+  const nextHash = clampOptionValue(
+    hashOpt,
+    Math.min(upperBound, currentHash + hashAutoTuneStep(currentHash))
+  );
+  if (!(nextHash > currentHash)) return;
+  lastHashAutoTuneAt = now;
+  sendOption(hashKey, nextHash);
+  refreshQuickOptions();
+}
+
 function currentFen() {
   if (game) return game.fen();
   return "startpos";
@@ -2405,6 +2450,7 @@ async function startAnalysis(mode = "infinite", options = {}) {
   evalRenderVersion += 1;
   winrateRenderVersion += 1;
   analysisStart = performance.now();
+  lastHashAutoTuneAt = Number.NEGATIVE_INFINITY;
   resetInfoSamplingState();
   analysisActive = mode === "infinite";
   setAnalyzePillState(analysisActive);
@@ -2515,6 +2561,7 @@ function applyPerformanceProfile() {
   const minHash = hashOpt?.min ?? 1;
   const threads = computeThreadTarget(deviceGB, cores, performanceMode);
   const hash = computeHashTarget(deviceGB, maxHash, minHash, performanceMode);
+  lastHashAutoTuneAt = Number.NEGATIVE_INFINITY;
   const multiPvOpt = engine.options.get("MultiPV");
   const multiPv = 1;
   if (threadsOpt) sendOption("Threads", clampOptionValue(threadsOpt, threads));
