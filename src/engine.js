@@ -45,6 +45,8 @@ const THREADS_FALLBACK = {
   lite: "lite-single",
 };
 const preloadPromises = new Map();
+const PRELOAD_SCOPE_ALL = "all";
+const PRELOAD_SCOPE_SCRIPT = "script";
 
 const resolveAssetUrl = (assetPath) => {
   const url =
@@ -298,18 +300,35 @@ function shouldPreloadHeavyWasm(options = {}) {
 export function preloadEngineAssets(variantKey = "auto", options = {}) {
   const resolvedKey = resolveEngineSpecKey(variantKey);
   const spec = ENGINE_SPECS[resolvedKey] || ENGINE_SPECS["standard-single"];
-  const urls = collectSpecAssetUrls(spec);
+  const scope = options.scope === PRELOAD_SCOPE_SCRIPT ? PRELOAD_SCOPE_SCRIPT : PRELOAD_SCOPE_ALL;
+  const urls =
+    scope === PRELOAD_SCOPE_SCRIPT ? [spec.js] : collectSpecAssetUrls(spec);
   const onProgress = typeof options.onProgress === "function" ? options.onProgress : null;
+  const cacheKey = `${resolvedKey}:${scope}`;
 
-  if (preloadPromises.has(resolvedKey)) {
-    const existing = preloadPromises.get(resolvedKey);
+  if (preloadPromises.has(cacheKey)) {
+    const existing = preloadPromises.get(cacheKey);
     if (onProgress) {
       existing
         .then(() => {
-          onProgress({ loaded: urls.length, total: urls.length, resolvedKey, done: true, cached: true });
+          onProgress({
+            loaded: urls.length,
+            total: urls.length,
+            resolvedKey,
+            done: true,
+            cached: true,
+            scope,
+          });
         })
         .catch(() => {
-          onProgress({ loaded: urls.length, total: urls.length, resolvedKey, done: true, cached: true });
+          onProgress({
+            loaded: urls.length,
+            total: urls.length,
+            resolvedKey,
+            done: true,
+            cached: true,
+            scope,
+          });
         });
     }
     return existing;
@@ -317,31 +336,51 @@ export function preloadEngineAssets(variantKey = "auto", options = {}) {
   const fetchOptions = options.background
     ? { credentials: "same-origin", cache: "force-cache", priority: "low" }
     : { credentials: "same-origin", cache: "default" };
+  const maxConcurrency = Math.max(
+    1,
+    Number(options.maxConcurrency) || (options.background ? 2 : 4)
+  );
   if (onProgress) {
-    onProgress({ loaded: 0, total: urls.length, resolvedKey, done: false });
+    onProgress({ loaded: 0, total: urls.length, resolvedKey, done: false, scope });
+  }
+  if (!urls.length) {
+    const empty = Promise.resolve([]);
+    preloadPromises.set(cacheKey, empty);
+    return empty;
   }
   let loaded = 0;
+  let nextIndex = 0;
+  const fetchNext = async () => {
+    while (nextIndex < urls.length) {
+      const url = urls[nextIndex];
+      nextIndex += 1;
+      let response = null;
+      try {
+        response = await fetch(resolveAssetUrl(url), fetchOptions);
+      } catch (err) {
+        response = null;
+      }
+      loaded += 1;
+      if (onProgress) {
+        onProgress({
+          loaded,
+          total: urls.length,
+          resolvedKey,
+          done: loaded >= urls.length,
+          url,
+          ok: Boolean(response && response.ok),
+          scope,
+        });
+      }
+    }
+  };
   const preloadPromise = Promise.all(
-    urls.map((url) =>
-      fetch(resolveAssetUrl(url), fetchOptions)
-        .catch(() => null)
-        .then((response) => {
-          loaded += 1;
-          if (onProgress) {
-            onProgress({
-              loaded,
-              total: urls.length,
-              resolvedKey,
-              done: loaded >= urls.length,
-              url,
-              ok: Boolean(response && response.ok),
-            });
-          }
-          return response;
-        })
+    Array.from(
+      { length: Math.min(maxConcurrency, urls.length) },
+      () => fetchNext()
     )
   );
-  preloadPromises.set(resolvedKey, preloadPromise);
+  preloadPromises.set(cacheKey, preloadPromise);
   return preloadPromise;
 }
 

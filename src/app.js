@@ -309,6 +309,7 @@ let engineFailureMessage = "";
 let engineReady = false;
 let engineReadyPromise = null;
 let resolveEngineReadyPromise = null;
+let initialPrewarmQueued = false;
 const queuedEngineActions = [];
 let analysisRestartTimer = null;
 let analysisRestartQueued = false;
@@ -2000,9 +2001,9 @@ async function loadSelectedEngine(key = engineSelect?.value || "auto") {
   engineLoadProgress = { loaded: 0, total: 0 };
   createEngineReadyPromise();
   updateEngineWarning();
-  queueEngineAssetPreload(key);
   await preloadEngineAssets(key, {
     background: false,
+    scope: "script",
     onProgress: (progress) => {
       if (loadToken !== engineLoadToken || engineUiState !== "loading") return;
       const loaded = Number(progress?.loaded) || 0;
@@ -2013,6 +2014,7 @@ async function loadSelectedEngine(key = engineSelect?.value || "auto") {
   }).catch(() => {});
   if (loadToken !== engineLoadToken) return;
   await engine.load(key);
+  queueEngineAssetPreload(key);
 }
 
 function loadEngineAndTrack(key = engineSelect?.value || deferredEngineKey || "auto") {
@@ -2072,11 +2074,41 @@ function shouldPrewarmEngine() {
 }
 
 function queueInitialEnginePrewarm() {
-  if (!shouldPrewarmEngine()) return;
+  if (initialPrewarmQueued || !shouldPrewarmEngine()) return;
+  initialPrewarmQueued = true;
   scheduleIdleTask(() => {
     if (engine.worker || engineLoadPromise) return;
     loadEngineAndTrack(deferredEngineKey || "auto").catch(() => {});
   });
+}
+
+function armInitialEnginePrewarm() {
+  if (!shouldPrewarmEngine()) return;
+  if (typeof window === "undefined") {
+    queueInitialEnginePrewarm();
+    return;
+  }
+  if (typeof window.AbortController === "function") {
+    const controller = new window.AbortController();
+    const options = { passive: true, signal: controller.signal };
+    const onFirstInput = () => {
+      controller.abort();
+      queueInitialEnginePrewarm();
+    };
+    window.addEventListener("pointerdown", onFirstInput, options);
+    window.addEventListener("keydown", onFirstInput, options);
+    window.addEventListener("touchstart", onFirstInput, options);
+    return;
+  }
+  const onFirstInput = () => {
+    window.removeEventListener("pointerdown", onFirstInput);
+    window.removeEventListener("keydown", onFirstInput);
+    window.removeEventListener("touchstart", onFirstInput);
+    queueInitialEnginePrewarm();
+  };
+  window.addEventListener("pointerdown", onFirstInput, { passive: true });
+  window.addEventListener("keydown", onFirstInput);
+  window.addEventListener("touchstart", onFirstInput, { passive: true });
 }
 
 function clampOptionValue(option, value) {
@@ -4035,7 +4067,7 @@ engineVariant.textContent = initialSpec.label;
 engineThreads.textContent = initialSpec.threads ? "auto" : "1";
 engineHash.textContent = "—";
 queueEngineAssetPreload(deferredEngineKey);
-queueInitialEnginePrewarm();
+armInitialEnginePrewarm();
 updateEngineWarning();
 overlayState = {
   best: toggleBest.checked,
