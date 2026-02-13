@@ -180,6 +180,35 @@ const engineCommandButtons = [
   btnSendUci,
   btnPanelAi,
 ];
+const advancedActionButtons = new Set(
+  [
+    btnIsReady,
+    btnUciNew,
+    btnPonderHit,
+    btnClearHash,
+    btnEval,
+    btnDisplay,
+    btnCompiler,
+    btnPerft,
+    btnFlipEngine,
+    btnRefreshOptions,
+    btnMaxPerf,
+    btnApplyStrength,
+    btnApplySyzygy,
+    btnChess960,
+    btnShowWdl,
+    btnSendUci,
+    btnCopyConsole,
+    btnClearConsole,
+    btnDownloadReport,
+    btnApplyThresholds,
+    btnBatchAddCurrent,
+    btnBatchRun,
+    btnBatchClear,
+    btnBatchExport,
+    btnBatchExportCsv,
+  ].filter(Boolean)
+);
 const MAX_QUEUED_ENGINE_ACTIONS = 8;
 
 const engine = new EngineController();
@@ -310,6 +339,8 @@ let engineReady = false;
 let engineReadyPromise = null;
 let resolveEngineReadyPromise = null;
 let initialPrewarmQueued = false;
+let advancedControlsBound = false;
+let optionsUiDirty = true;
 const queuedEngineActions = [];
 let analysisRestartTimer = null;
 let analysisRestartQueued = false;
@@ -638,6 +669,9 @@ const isTypingTarget = (target) => {
 
 const triggerButton = (button) => {
   if (!button || button.disabled) return false;
+  if (advancedActionButtons.has(button)) {
+    ensureAdvancedControlsBound();
+  }
   button.click();
   return true;
 };
@@ -763,6 +797,9 @@ function setUiMode(mode, options = {}) {
   const { persist = true } = options;
   const advanced = mode === "advanced";
   document.body.classList.toggle("ui-advanced", advanced);
+  if (advanced) {
+    ensureAdvancedControlsBound();
+  }
   if (btnUiMode) {
     btnUiMode.textContent = advanced ? "Mode: Advanced" : "Mode: Basic";
     btnUiMode.setAttribute("aria-pressed", advanced ? "true" : "false");
@@ -959,6 +996,7 @@ function initHeaderMenus() {
       const menu = button.closest(".topbar-menu");
       if (!menu) return;
       const expanded = menu.classList.toggle("show-advanced");
+      if (expanded) ensureAdvancedControlsBound();
       button.textContent = expanded ? "Hide Advanced" : "Show Advanced";
       button.setAttribute("aria-expanded", expanded ? "true" : "false");
     });
@@ -984,6 +1022,18 @@ function initHeaderMenus() {
   syncMenuToggle(menuToggleBest, toggleBest);
   syncMenuToggle(menuToggleLast, toggleLast);
   syncMenuToggle(menuTogglePv, togglePv);
+}
+
+function ensureAdvancedControlsBound() {
+  if (!advancedControlsBound) {
+    bindAdvancedEngineListeners();
+    bindAdvancedBatchListeners();
+    advancedControlsBound = true;
+  }
+  if (optionsUiDirty && engine.options.size) {
+    buildOptions();
+    optionsUiDirty = false;
+  }
 }
 
 function initPanelToggles() {
@@ -2396,7 +2446,12 @@ engine.on("option", () => {
 });
 engine.on("uciok", () => {
   if (optionsFilter) optionsFilter.value = "";
-  buildOptions();
+  if (advancedControlsBound || document.body.classList.contains("ui-advanced")) {
+    buildOptions();
+    optionsUiDirty = false;
+  } else {
+    optionsUiDirty = true;
+  }
   applyPerformanceProfile();
   engine.send("isready");
 });
@@ -2584,21 +2639,193 @@ togglePv.addEventListener("change", () => {
   }
 });
 
-btnIsReady.addEventListener("click", () => {
-  sendEngineCommand("isready");
-});
-
-btnUciNew.addEventListener("click", () => {
-  sendEngineCommand("ucinewgame");
-});
-
-btnPonderHit.addEventListener("click", () => {
-  sendEngineCommand("ponderhit");
-});
-
-btnClearHash.addEventListener("click", () => {
-  sendEngineCommand("setoption name Clear Hash value true");
-});
+function bindAdvancedEngineListeners() {
+  if (btnIsReady) {
+    btnIsReady.addEventListener("click", () => {
+      sendEngineCommand("isready");
+    });
+  }
+  if (btnUciNew) {
+    btnUciNew.addEventListener("click", () => {
+      sendEngineCommand("ucinewgame");
+    });
+  }
+  if (btnPonderHit) {
+    btnPonderHit.addEventListener("click", () => {
+      sendEngineCommand("ponderhit");
+    });
+  }
+  if (btnClearHash) {
+    btnClearHash.addEventListener("click", () => {
+      sendEngineCommand("setoption name Clear Hash value true");
+    });
+  }
+  if (btnEval) {
+    btnEval.addEventListener("click", () => {
+      sendEngineCommand("eval", { includePosition: true });
+    });
+  }
+  if (btnDisplay) {
+    btnDisplay.addEventListener("click", () => {
+      sendEngineCommand("d", { includePosition: true });
+    });
+  }
+  if (btnCompiler) {
+    btnCompiler.addEventListener("click", () => {
+      sendEngineCommand("compiler");
+    });
+  }
+  if (btnPerft) {
+    btnPerft.addEventListener("click", () => {
+      const depth = Number(perftInput.value) || 4;
+      sendEngineCommand(`go perft ${depth}`, { includePosition: true });
+    });
+  }
+  if (btnFlipEngine) {
+    btnFlipEngine.addEventListener("click", () => {
+      sendEngineCommand("flip");
+    });
+  }
+  if (btnRefreshOptions) {
+    btnRefreshOptions.addEventListener("click", () => {
+      optionsUiDirty = true;
+      sendEngineCommand("uci");
+    });
+  }
+  if (optionsFilter) {
+    optionsFilter.addEventListener("input", () => {
+      if (optionsFilterTimer) {
+        clearTimeout(optionsFilterTimer);
+      }
+      optionsFilterTimer = setTimeout(() => {
+        optionsFilterTimer = null;
+        applyOptionsFilter();
+      }, OPTIONS_FILTER_DEBOUNCE_MS);
+    });
+  }
+  if (btnMaxPerf) {
+    btnMaxPerf.addEventListener("click", () => {
+      performanceMode = "max";
+      engineRecoveryAttempt = 0;
+      applyPerformanceProfile();
+    });
+  }
+  if (btnApplyStrength) {
+    btnApplyStrength.addEventListener("click", () => {
+      const skillKey = findOption(OPTION_KEYS.skill);
+      if (skillKey) sendOption(skillKey, Number(skillInput.value) || 20);
+      const limitKey = findOption(OPTION_KEYS.limitStrength);
+      if (limitKey) sendOption(limitKey, "true");
+      const eloKey = findOption(OPTION_KEYS.elo);
+      if (eloKey) sendOption(eloKey, Number(eloInput.value) || 2500);
+    });
+  }
+  if (btnApplySyzygy) {
+    btnApplySyzygy.addEventListener("click", () => {
+      const pathKey = findOption(OPTION_KEYS.syzygyPath);
+      if (pathKey) sendOption(pathKey, syzygyPath.value.trim() || "<empty>");
+      const depthKey = findOption(OPTION_KEYS.syzygyDepth);
+      if (depthKey) sendOption(depthKey, Number(syzygyDepth.value) || 0);
+      const ruleKey = findOption(OPTION_KEYS.syzygy50);
+      if (ruleKey) sendOption(ruleKey, syzygy50move.value);
+    });
+  }
+  if (btnChess960) {
+    btnChess960.addEventListener("click", () => {
+      const key = findOption(OPTION_KEYS.chess960);
+      if (!key) return;
+      const current = getOptionValue(key) || "false";
+      const next = current === "true" ? "false" : "true";
+      sendOption(key, next);
+    });
+  }
+  if (btnShowWdl) {
+    btnShowWdl.addEventListener("click", () => {
+      const key = findOption(OPTION_KEYS.showWdl);
+      if (!key) return;
+      const current = getOptionValue(key) || "false";
+      const next = current === "true" ? "false" : "true";
+      sendOption(key, next);
+    });
+  }
+  if (btnSendUci) {
+    btnSendUci.addEventListener("click", () => {
+      const cmd = uciInput.value.trim();
+      if (!cmd) return;
+      sendEngineCommand(cmd).then((sent) => {
+        if (sent) {
+          uciInput.value = "";
+        }
+      });
+    });
+  }
+  if (uciInput) {
+    uciInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        btnSendUci.click();
+      }
+    });
+  }
+  if (btnCopyConsole) {
+    btnCopyConsole.addEventListener("click", () => {
+      navigator.clipboard.writeText(consoleEl.textContent).catch(() => {});
+    });
+  }
+  if (btnClearConsole) {
+    btnClearConsole.addEventListener("click", () => {
+      if (consoleFlushTimer) {
+        clearTimeout(consoleFlushTimer);
+        consoleFlushTimer = null;
+      }
+      consoleLines.length = 0;
+      consoleDirty = true;
+      consoleNeedsFullRender = true;
+      consoleRenderedLineCount = 0;
+      flushConsole();
+    });
+  }
+  if (btnDownloadReport) {
+    btnDownloadReport.addEventListener("click", () => {
+      const report = {
+        timestamp: new Date().toISOString(),
+        fen: game ? game.fen() : "",
+        pgn: game ? game.pgn() : "",
+        info: latestInfo,
+        pv: [...pvLines.values()],
+        evalHistory,
+        moveMeta,
+        thresholds,
+        bestmove: lastBestMove,
+        engine: {
+          name: engineName.textContent,
+          variant: engineVariant.textContent,
+          threads: engineThreads.textContent,
+          hash: engineHash.textContent,
+        },
+      };
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `vulcan-report-${Date.now()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    });
+  }
+  if (btnApplyThresholds) {
+    btnApplyThresholds.addEventListener("click", () => {
+      thresholds = {
+        inaccuracy: Number(thInaccuracy.value) || thresholds.inaccuracy,
+        mistake: Number(thMistake.value) || thresholds.mistake,
+        blunder: Number(thBlunder.value) || thresholds.blunder,
+        brilliant: Number(thBrilliant.value) || thresholds.brilliant,
+      };
+      renderMoveList();
+    });
+  }
+}
 
 btnGoDepth.addEventListener("click", () => {
   const depth = Number(depthInput.value) || 18;
@@ -2637,47 +2864,6 @@ btnGoClock.addEventListener("click", () => {
   if (movestogo > 0) cmdParts.push(`movestogo ${movestogo}`);
   if (ponder) cmdParts.push(ponder);
   startAnalysis(cmdParts.slice(1).join(" "));
-});
-
-btnEval.addEventListener("click", () => {
-  sendEngineCommand("eval", { includePosition: true });
-});
-
-btnDisplay.addEventListener("click", () => {
-  sendEngineCommand("d", { includePosition: true });
-});
-
-btnCompiler.addEventListener("click", () => {
-  sendEngineCommand("compiler");
-});
-
-btnPerft.addEventListener("click", () => {
-  const depth = Number(perftInput.value) || 4;
-  sendEngineCommand(`go perft ${depth}`, { includePosition: true });
-});
-
-btnFlipEngine.addEventListener("click", () => {
-  sendEngineCommand("flip");
-});
-
-btnRefreshOptions.addEventListener("click", () => {
-  sendEngineCommand("uci");
-});
-
-optionsFilter.addEventListener("input", () => {
-  if (optionsFilterTimer) {
-    clearTimeout(optionsFilterTimer);
-  }
-  optionsFilterTimer = setTimeout(() => {
-    optionsFilterTimer = null;
-    applyOptionsFilter();
-  }, OPTIONS_FILTER_DEBOUNCE_MS);
-});
-
-btnMaxPerf.addEventListener("click", () => {
-  performanceMode = "max";
-  engineRecoveryAttempt = 0;
-  applyPerformanceProfile();
 });
 
 btnQuickThreads.addEventListener("click", () => {
@@ -2719,111 +2905,6 @@ btnSkillBoost.addEventListener("click", () => {
 btnSkillLimit.addEventListener("click", () => {
   const limitKey = findOption(OPTION_KEYS.limitStrength);
   if (limitKey) sendOption(limitKey, "true");
-});
-
-btnApplyStrength.addEventListener("click", () => {
-  const skillKey = findOption(OPTION_KEYS.skill);
-  if (skillKey) sendOption(skillKey, Number(skillInput.value) || 20);
-  const limitKey = findOption(OPTION_KEYS.limitStrength);
-  if (limitKey) sendOption(limitKey, "true");
-  const eloKey = findOption(OPTION_KEYS.elo);
-  if (eloKey) sendOption(eloKey, Number(eloInput.value) || 2500);
-});
-
-btnApplySyzygy.addEventListener("click", () => {
-  const pathKey = findOption(OPTION_KEYS.syzygyPath);
-  if (pathKey) sendOption(pathKey, syzygyPath.value.trim() || "<empty>");
-  const depthKey = findOption(OPTION_KEYS.syzygyDepth);
-  if (depthKey) sendOption(depthKey, Number(syzygyDepth.value) || 0);
-  const ruleKey = findOption(OPTION_KEYS.syzygy50);
-  if (ruleKey) sendOption(ruleKey, syzygy50move.value);
-});
-
-btnChess960.addEventListener("click", () => {
-  const key = findOption(OPTION_KEYS.chess960);
-  if (!key) return;
-  const current = getOptionValue(key) || "false";
-  const next = current === "true" ? "false" : "true";
-  sendOption(key, next);
-});
-
-btnShowWdl.addEventListener("click", () => {
-  const key = findOption(OPTION_KEYS.showWdl);
-  if (!key) return;
-  const current = getOptionValue(key) || "false";
-  const next = current === "true" ? "false" : "true";
-  sendOption(key, next);
-});
-
-btnSendUci.addEventListener("click", () => {
-  const cmd = uciInput.value.trim();
-  if (!cmd) return;
-  sendEngineCommand(cmd).then((sent) => {
-    if (sent) {
-      uciInput.value = "";
-    }
-  });
-});
-
-uciInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    btnSendUci.click();
-  }
-});
-
-btnCopyConsole.addEventListener("click", () => {
-  navigator.clipboard.writeText(consoleEl.textContent).catch(() => {});
-});
-
-btnClearConsole.addEventListener("click", () => {
-  if (consoleFlushTimer) {
-    clearTimeout(consoleFlushTimer);
-    consoleFlushTimer = null;
-  }
-  consoleLines.length = 0;
-  consoleDirty = true;
-  consoleNeedsFullRender = true;
-  consoleRenderedLineCount = 0;
-  flushConsole();
-});
-
-btnDownloadReport.addEventListener("click", () => {
-  const report = {
-    timestamp: new Date().toISOString(),
-    fen: game ? game.fen() : "",
-    pgn: game ? game.pgn() : "",
-    info: latestInfo,
-    pv: [...pvLines.values()],
-    evalHistory,
-    moveMeta,
-    thresholds,
-    bestmove: lastBestMove,
-    engine: {
-      name: engineName.textContent,
-      variant: engineVariant.textContent,
-      threads: engineThreads.textContent,
-      hash: engineHash.textContent,
-    },
-  };
-  const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `vulcan-report-${Date.now()}.json`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-});
-
-btnApplyThresholds.addEventListener("click", () => {
-  thresholds = {
-    inaccuracy: Number(thInaccuracy.value) || thresholds.inaccuracy,
-    mistake: Number(thMistake.value) || thresholds.mistake,
-    blunder: Number(thBlunder.value) || thresholds.blunder,
-    brilliant: Number(thBrilliant.value) || thresholds.brilliant,
-  };
-  renderMoveList();
 });
 
 function renderBatchList() {
@@ -2898,83 +2979,99 @@ function parseBatchInput() {
   renderBatchList();
 }
 
-btnBatchAddCurrent.addEventListener("click", () => {
-  if (!game) return;
-  addBatchQueueItem(game.fen());
-  renderBatchList();
-});
-
-btnBatchClear.addEventListener("click", () => {
-  batchQueue = [];
-  batchResults = [];
-  resetBatchStatusStats();
-  renderBatchList();
-  renderBatchChart();
-  scheduleUI();
-});
-
-btnBatchRun.addEventListener("click", async () => {
-  if (batchRunning) return;
-  parseBatchInput();
-  if (!batchQueue.length) return;
-  const ready = await ensureEngineReady();
-  if (!ready) return;
-  batchRunning = true;
-  updateCommandAvailability();
-  batchResults = [];
-  stopAnalysis();
-  autoPlay = false;
-  awaitingBestMoveApply = false;
-  btnAutoPlay.textContent = "Auto Play: Off";
-  scheduleUI();
-  renderBatchChart();
-  for (const item of batchQueue) {
-    updateBatchItemStatus(item, "running");
-    renderBatchList();
-    const result = await analyzeFen(item.fen);
-    updateBatchItemStatus(item, result.error ? "failed" : "done");
-    batchResults.push(result);
-    renderBatchList();
+function bindAdvancedBatchListeners() {
+  if (btnBatchAddCurrent) {
+    btnBatchAddCurrent.addEventListener("click", () => {
+      if (!game) return;
+      addBatchQueueItem(game.fen());
+      renderBatchList();
+    });
   }
-  batchRunning = false;
-  updateCommandAvailability();
-  renderBatchChart();
-  scheduleUI();
-});
-
-btnBatchExport.addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify(batchResults, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `vulcan-batch-${Date.now()}.json`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-});
-
-btnBatchExportCsv.addEventListener("click", () => {
-  if (!batchResults.length) return;
-  const headers = ["fen", "bestmove", "score", "depth", "time", "pv"];
-  const rows = batchResults.map((result) => {
-    const score = result.info?.score ? (result.info.score.type === "mate" ? `mate ${result.info.score.value}` : result.info.score.value) : "";
-    const depth = result.info?.depth ?? "";
-    const time = result.info?.time ?? "";
-    const pv = result.pv ?? "";
-    return [result.fen, result.bestmove, score, depth, time, pv].map((val) => `"${String(val ?? "").replace(/\"/g, '""')}"`).join(",");
-  });
-  const csv = [headers.join(","), ...rows].join("\n");
-  const blob = new Blob([csv], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `vulcan-batch-${Date.now()}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-});
+  if (btnBatchClear) {
+    btnBatchClear.addEventListener("click", () => {
+      batchQueue = [];
+      batchResults = [];
+      resetBatchStatusStats();
+      renderBatchList();
+      renderBatchChart();
+      scheduleUI();
+    });
+  }
+  if (btnBatchRun) {
+    btnBatchRun.addEventListener("click", async () => {
+      if (batchRunning) return;
+      parseBatchInput();
+      if (!batchQueue.length) return;
+      const ready = await ensureEngineReady();
+      if (!ready) return;
+      batchRunning = true;
+      updateCommandAvailability();
+      batchResults = [];
+      stopAnalysis();
+      autoPlay = false;
+      awaitingBestMoveApply = false;
+      btnAutoPlay.textContent = "Auto Play: Off";
+      scheduleUI();
+      renderBatchChart();
+      for (const item of batchQueue) {
+        updateBatchItemStatus(item, "running");
+        renderBatchList();
+        const result = await analyzeFen(item.fen);
+        updateBatchItemStatus(item, result.error ? "failed" : "done");
+        batchResults.push(result);
+        renderBatchList();
+      }
+      batchRunning = false;
+      updateCommandAvailability();
+      renderBatchChart();
+      scheduleUI();
+    });
+  }
+  if (btnBatchExport) {
+    btnBatchExport.addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(batchResults, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `vulcan-batch-${Date.now()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    });
+  }
+  if (btnBatchExportCsv) {
+    btnBatchExportCsv.addEventListener("click", () => {
+      if (!batchResults.length) return;
+      const headers = ["fen", "bestmove", "score", "depth", "time", "pv"];
+      const rows = batchResults.map((result) => {
+        const score = result.info?.score
+          ? result.info.score.type === "mate"
+            ? `mate ${result.info.score.value}`
+            : result.info.score.value
+          : "";
+        const depth = result.info?.depth ?? "";
+        const time = result.info?.time ?? "";
+        const pv = result.pv ?? "";
+        return [result.fen, result.bestmove, score, depth, time, pv]
+          .map((val) => `"${String(val ?? "").replace(/\"/g, '""')}"`)
+          .join(",");
+      });
+      const csv = [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `vulcan-batch-${Date.now()}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    });
+  }
+}
 
 async function analyzeFen(fen) {
   return new Promise((resolve) => {
