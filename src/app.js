@@ -3299,6 +3299,7 @@ async function analyzeFen(fen) {
         status: "timeout",
       });
     }, BATCH_ANALYSIS_TIMEOUT_MS);
+    engine.send("ucinewgame");
     engine.send(`position fen ${fen}`);
     if (movetime > 0) {
       engine.send(`go movetime ${movetime}`);
