@@ -3,8 +3,8 @@ import {
   preloadEngineAssets,
   queueEngineAssetPreload,
   threadsAvailable,
-} from "./engine.js?v=20260214c";
-import { formatScore, scoreToPercent } from "./uci.js?v=20260214c";
+} from "./engine.js?v=20260214d";
+import { formatScore, scoreToPercent } from "./uci.js?v=20260214d";
 
 const $ = (id) => document.getElementById(id);
 
@@ -23,9 +23,7 @@ const consoleEl = $("console");
 const optionsEl = $("options");
 const pvLinesEl = $("pv-lines");
 const moveListEl = $("move-list");
-const evalChart = $("eval-chart");
 const winrateChart = $("winrate-chart");
-const winrateChartLeft = $("winrate-chart-left");
 const btnPvPlay = $("btn-pv-play");
 const btnPvPause = $("btn-pv-pause");
 const btnPvPrev = $("btn-pv-prev");
@@ -222,8 +220,6 @@ let latestInfo = {};
 let pendingFrame = false;
 let pvRenderVersion = 0;
 let pvRenderedVersion = -1;
-let evalRenderVersion = 0;
-let evalRenderedVersion = -1;
 let winrateRenderVersion = 0;
 let winrateRenderedVersion = -1;
 let moveListDirty = false;
@@ -335,7 +331,6 @@ let consoleRenderedLineCount = 0;
 let uiRescheduleTimer = null;
 let uiRescheduleDueAt = Number.POSITIVE_INFINITY;
 let lastUiRenderAt = Number.NEGATIVE_INFINITY;
-let lastEvalChartRenderAt = Number.NEGATIVE_INFINITY;
 let lastWinrateChartRenderAt = Number.NEGATIVE_INFINITY;
 let activeInfoThrottleMs = -1;
 let lastInfoThrottleTuneAt = Number.NEGATIVE_INFINITY;
@@ -765,7 +760,7 @@ const ensureChessReady = () => {
       return;
     }
     const script = document.createElement("script");
-    script.src = "vendor/chess.min.js?v=20260214c";
+    script.src = "vendor/chess.min.js?v=20260214d";
     script.dataset.chessLib = "true";
     script.onload = () => resolve(true);
     script.onerror = () => resolve(false);
@@ -1323,17 +1318,6 @@ function scheduleUI() {
         pvRenderedVersion = pvRenderVersion;
         renderPvLines();
       }
-      if (evalRenderedVersion !== evalRenderVersion) {
-        const elapsed = now - lastEvalChartRenderAt;
-        if (elapsed >= CHART_RENDER_INTERVAL_MS) {
-          if (renderEvalChart()) {
-            evalRenderedVersion = evalRenderVersion;
-            lastEvalChartRenderAt = now;
-          }
-        } else {
-          deferredDelay = Math.min(deferredDelay, CHART_RENDER_INTERVAL_MS - elapsed);
-        }
-      }
       if (winrateRenderedVersion !== winrateRenderVersion) {
         const elapsed = now - lastWinrateChartRenderAt;
         if (elapsed >= CHART_RENDER_INTERVAL_MS) {
@@ -1621,7 +1605,6 @@ function addEvalSample(info) {
     evalHistory.shift();
   }
   evalHistory.push({ time, cp, depth, win: winrate });
-  evalRenderVersion += 1;
   winrateRenderVersion += 1;
 }
 
@@ -1734,7 +1717,7 @@ function getCanvasDrawSize(canvas) {
 
 function refreshChartCanvasSizes() {
   let changed = false;
-  [evalChart, winrateChart, winrateChartLeft, batchChart].forEach((canvas) => {
+  [winrateChart, batchChart].forEach((canvas) => {
     if (resizeCanvasForDisplay(canvas)) {
       changed = true;
     }
@@ -1747,7 +1730,6 @@ function scheduleChartResizeRefresh() {
   chartResizeFrame = window.requestAnimationFrame(() => {
     chartResizeFrame = null;
     if (!refreshChartCanvasSizes()) return;
-    evalRenderedVersion = -1;
     winrateRenderedVersion = -1;
     renderBatchChart();
     scheduleUI();
@@ -1762,45 +1744,18 @@ function initChartCanvasSizing() {
     chartResizeObserver = new window.ResizeObserver(() => {
       scheduleChartResizeRefresh();
     });
-    [evalChart, winrateChart, winrateChartLeft, batchChart].forEach((canvas) => {
+    [winrateChart, batchChart].forEach((canvas) => {
       if (canvas) chartResizeObserver.observe(canvas);
     });
   }
 }
 
-function renderEvalChart() {
-  if (!evalChart || evalChart.offsetParent === null) return false;
-  resizeCanvasForDisplay(evalChart);
-  const ctx = evalChart.getContext("2d");
-  if (!ctx) return false;
-  const { width, height, ratio } = getCanvasDrawSize(evalChart);
-  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-  ctx.clearRect(0, 0, width, height);
-
-  ctx.strokeStyle = "rgba(255,255,255,0.12)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(0, height / 2);
-  ctx.lineTo(width, height / 2);
-  ctx.stroke();
-
-  if (!evalHistory.length) return true;
-  const minTime = evalHistory[0].time;
-  const maxTime = evalHistory[evalHistory.length - 1].time;
-  const span = Math.max(1, maxTime - minTime);
-
-  ctx.strokeStyle = "rgba(240, 90, 79, 0.85)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  evalHistory.forEach((sample, index) => {
-    const clamped = Math.max(-1000, Math.min(1000, sample.cp));
-    const x = ((sample.time - minTime) / span) * width;
-    const y = height / 2 - (clamped / 1000) * (height * 0.45);
-    if (index === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  });
-  ctx.stroke();
-  return true;
+function formatElapsedLabel(ms) {
+  const seconds = Math.max(0, Math.round((Number(ms) || 0) / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${minutes}:${String(remainder).padStart(2, "0")}`;
 }
 
 function renderWinrateChartTo(canvas) {
@@ -1812,37 +1767,149 @@ function renderWinrateChartTo(canvas) {
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, width, height);
 
-  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  const padding = { top: 14, right: 16, bottom: 24, left: 44 };
+  const plotWidth = Math.max(1, width - padding.left - padding.right);
+  const plotHeight = Math.max(1, height - padding.top - padding.bottom);
+  const yForValue = (value) =>
+    padding.top + ((100 - value) / 100) * plotHeight;
+  const yMid = yForValue(50);
+
+  ctx.fillStyle = "rgba(34, 197, 94, 0.06)";
+  ctx.fillRect(padding.left, padding.top, plotWidth, yMid - padding.top);
+  ctx.fillStyle = "rgba(239, 68, 68, 0.06)";
+  ctx.fillRect(padding.left, yMid, plotWidth, padding.top + plotHeight - yMid);
+
+  const yTicks = [100, 75, 50, 25, 0];
+  ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  yTicks.forEach((tick) => {
+    const y = yForValue(tick);
+    ctx.strokeStyle =
+      tick === 50 ? "rgba(255,255,255,0.34)" : "rgba(255,255,255,0.12)";
+    ctx.lineWidth = tick === 50 ? 1.3 : 1;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(padding.left + plotWidth, y);
+    ctx.stroke();
+    ctx.fillStyle = tick === 50 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.68)";
+    ctx.fillText(`${tick}%`, padding.left - 6, y);
+  });
+
+  ctx.strokeStyle = "rgba(255,255,255,0.25)";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(0, height / 2);
-  ctx.lineTo(width, height / 2);
+  ctx.moveTo(padding.left, padding.top);
+  ctx.lineTo(padding.left, padding.top + plotHeight);
+  ctx.lineTo(padding.left + plotWidth, padding.top + plotHeight);
   ctx.stroke();
 
   if (!evalHistory.length) return true;
   const minTime = evalHistory[0].time;
   const maxTime = evalHistory[evalHistory.length - 1].time;
   const span = Math.max(1, maxTime - minTime);
+  const xForTime = (time) => padding.left + ((time - minTime) / span) * plotWidth;
+  const clampWin = (value) => Math.max(0, Math.min(100, value));
 
-  ctx.strokeStyle = "rgba(97, 215, 255, 0.85)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  evalHistory.forEach((sample, index) => {
-    const value = Number.isFinite(sample.win) ? sample.win : 50;
-    const clamped = Math.max(0, Math.min(100, value));
-    const x = ((sample.time - minTime) / span) * width;
-    const y = height * (0.95 - (clamped / 100) * 0.9);
-    if (index === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+  const xTicks = [minTime, minTime + span / 2, maxTime];
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "rgba(255,255,255,0.68)";
+  xTicks.forEach((tick, index) => {
+    const x = xForTime(tick);
+    ctx.strokeStyle = index === 1 ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.12)";
+    ctx.beginPath();
+    ctx.moveTo(x, padding.top);
+    ctx.lineTo(x, padding.top + plotHeight);
+    ctx.stroke();
+    ctx.fillText(formatElapsedLabel(tick - minTime), x, padding.top + plotHeight + 5);
   });
-  ctx.stroke();
+
+  let latest = null;
+  let maxSample = null;
+  let minSample = null;
+  const points = [];
+  evalHistory.forEach((sample) => {
+    const value = Number.isFinite(sample.win) ? clampWin(sample.win) : 50;
+    const point = { x: xForTime(sample.time), y: yForValue(value), value };
+    points.push(point);
+    latest = point;
+    if (!maxSample || point.value > maxSample.value) maxSample = point;
+    if (!minSample || point.value < minSample.value) minSample = point;
+  });
+
+  if (points.length) {
+    const area = new Path2D();
+    area.moveTo(points[0].x, yMid);
+    points.forEach((point) => area.lineTo(point.x, point.y));
+    area.lineTo(points[points.length - 1].x, yMid);
+    area.closePath();
+    ctx.fillStyle = "rgba(97, 215, 255, 0.14)";
+    ctx.fill(area);
+
+    const lineGradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + plotHeight);
+    lineGradient.addColorStop(0, "rgba(34, 197, 94, 0.95)");
+    lineGradient.addColorStop(0.5, "rgba(97, 215, 255, 0.92)");
+    lineGradient.addColorStop(1, "rgba(239, 68, 68, 0.95)");
+    ctx.strokeStyle = lineGradient;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    points.forEach((point, index) => {
+      if (index === 0) ctx.moveTo(point.x, point.y);
+      else ctx.lineTo(point.x, point.y);
+    });
+    ctx.stroke();
+  }
+
+  const drawMarker = (point, color, label) => {
+    if (!point) return;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 3.6, 0, Math.PI * 2);
+    ctx.fill();
+    if (!label) return;
+    ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    const labelX = Math.min(width - 56, point.x + 6);
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillText(label, labelX, point.y);
+  };
+
+  drawMarker(maxSample, "rgba(34,197,94,0.95)", "max");
+  drawMarker(minSample, "rgba(239,68,68,0.95)", "min");
+  if (latest) {
+    ctx.fillStyle = "rgba(255,255,255,0.98)";
+    ctx.beginPath();
+    ctx.arc(latest.x, latest.y, 4.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(17, 24, 39, 0.75)";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    const latestLabel = `Now ${latest.value.toFixed(1)}%`;
+    ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+    ctx.textAlign = latest.x > width * 0.7 ? "right" : "left";
+    ctx.textBaseline = "bottom";
+    const labelX = latest.x > width * 0.7 ? latest.x - 8 : latest.x + 8;
+    const labelY = Math.max(padding.top + 11, latest.y - 8);
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fillText(latestLabel, labelX, labelY);
+  }
+
+  ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "rgba(34,197,94,0.8)";
+  ctx.fillText("White better", padding.left + 6, padding.top + 4);
+  ctx.fillStyle = "rgba(239,68,68,0.8)";
+  ctx.fillText("Black better", padding.left + 6, padding.top + plotHeight - 14);
+
   return true;
 }
 
 function renderWinrateChart() {
-  const renderedPrimary = renderWinrateChartTo(winrateChart);
-  const renderedSecondary = renderWinrateChartTo(winrateChartLeft);
-  return renderedPrimary || renderedSecondary;
+  return renderWinrateChartTo(winrateChart);
 }
 
 function applyOptionsFilter() {
@@ -2648,7 +2715,6 @@ async function startAnalysis(mode = "infinite", options = {}) {
   pvLines.clear();
   evalHistory = [];
   pvRenderVersion += 1;
-  evalRenderVersion += 1;
   winrateRenderVersion += 1;
   analysisStart = performance.now();
   lastHashAutoTuneAt = Number.NEGATIVE_INFINITY;
