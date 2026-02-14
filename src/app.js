@@ -3,8 +3,8 @@ import {
   preloadEngineAssets,
   queueEngineAssetPreload,
   threadsAvailable,
-} from "./engine.js?v=20260214b";
-import { formatScore, scoreToPercent } from "./uci.js?v=20260214b";
+} from "./engine.js?v=20260214c";
+import { formatScore, scoreToPercent } from "./uci.js?v=20260214c";
 
 const $ = (id) => document.getElementById(id);
 
@@ -240,6 +240,8 @@ let selectionHighlightSquares = new Set();
 let bestHighlightSquares = new Set();
 let lastHighlightSquares = new Set();
 let pvHighlightSquares = new Set();
+let bestMoveArrowLayer = null;
+let bestMoveArrowLine = null;
 let lastBestMove = null;
 let autoPlay = false;
 let awaitingBestMoveApply = false;
@@ -277,6 +279,7 @@ const consoleLines = [];
 const pvSanCache = new Map();
 const pvNodeMap = new Map();
 const moveRowNodeMap = new WeakMap();
+const SVG_NS = "http://www.w3.org/2000/svg";
 const ENGINE_RECOVERY_LIMIT = 2;
 const BATCH_ANALYSIS_TIMEOUT_MS = 20000;
 const EVAL_SAMPLE_INTERVAL_MS = 80;
@@ -762,7 +765,7 @@ const ensureChessReady = () => {
       return;
     }
     const script = document.createElement("script");
-    script.src = "vendor/chess.min.js?v=20260214b";
+    script.src = "vendor/chess.min.js?v=20260214c";
     script.dataset.chessLib = "true";
     script.onload = () => resolve(true);
     script.onerror = () => resolve(false);
@@ -2860,7 +2863,7 @@ engine.on("infoString", () => {
 engine.on("bestmove", (move) => {
   flushPendingInfo();
   optionStopRequested = false;
-  engineBestmove.textContent = move.bestmove || "—";
+  engineBestmove.textContent = formatBestMoveDisplay(move.bestmove);
   lastBestMove = move.bestmove;
   highlightBestMove(move.bestmove);
   if (batchAwaiting && batchCurrent) {
@@ -3607,6 +3610,8 @@ function renderBoardSquares() {
   const boardEl = $("board");
   if (!boardEl || !game) return;
   boardEl.innerHTML = "";
+  bestMoveArrowLayer = null;
+  bestMoveArrowLine = null;
   boardSquareMap.clear();
   boardPieceMap.clear();
   selectionHighlightSquares = new Set();
@@ -3643,6 +3648,7 @@ function renderBoardSquares() {
     focusedSquare = boardFlipped ? "e7" : "e2";
   }
   setFocusedSquare(focusedSquare);
+  ensureBestMoveArrowLayer();
 }
 
 function updateBoardSquare(square) {
@@ -3688,6 +3694,7 @@ function clearBestMoveHighlights() {
     sq.classList.remove("best-from", "best-to");
   });
   bestHighlightSquares.clear();
+  clearBestMoveArrow();
 }
 
 function clearLastMoveHighlights() {
@@ -3695,6 +3702,116 @@ function clearLastMoveHighlights() {
     sq.classList.remove("last-from", "last-to");
   });
   lastHighlightSquares.clear();
+}
+
+function ensureBestMoveArrowLayer() {
+  const boardEl = $("board");
+  if (!boardEl) return null;
+  if (
+    bestMoveArrowLayer &&
+    bestMoveArrowLine &&
+    bestMoveArrowLayer.isConnected &&
+    bestMoveArrowLayer.parentElement === boardEl
+  ) {
+    return { boardEl, layer: bestMoveArrowLayer, line: bestMoveArrowLine };
+  }
+
+  const layer = document.createElementNS(SVG_NS, "svg");
+  layer.classList.add("bestmove-arrow-layer");
+  layer.setAttribute("aria-hidden", "true");
+  layer.setAttribute("focusable", "false");
+
+  const defs = document.createElementNS(SVG_NS, "defs");
+  const marker = document.createElementNS(SVG_NS, "marker");
+  marker.setAttribute("id", "bestmove-arrow-head");
+  marker.setAttribute("viewBox", "0 0 8 7");
+  marker.setAttribute("refX", "7.5");
+  marker.setAttribute("refY", "3.5");
+  marker.setAttribute("markerWidth", "10");
+  marker.setAttribute("markerHeight", "10");
+  marker.setAttribute("orient", "auto");
+  marker.setAttribute("markerUnits", "strokeWidth");
+
+  const markerShape = document.createElementNS(SVG_NS, "path");
+  markerShape.setAttribute("d", "M0,0 L8,3.5 L0,7 z");
+  markerShape.classList.add("bestmove-arrow-head");
+  marker.appendChild(markerShape);
+  defs.appendChild(marker);
+  layer.appendChild(defs);
+
+  const line = document.createElementNS(SVG_NS, "line");
+  line.classList.add("bestmove-arrow-line");
+  line.setAttribute("marker-end", "url(#bestmove-arrow-head)");
+  layer.appendChild(line);
+
+  boardEl.appendChild(layer);
+  bestMoveArrowLayer = layer;
+  bestMoveArrowLine = line;
+  return { boardEl, layer, line };
+}
+
+function clearBestMoveArrow() {
+  if (!bestMoveArrowLayer || !bestMoveArrowLine) return;
+  bestMoveArrowLayer.classList.remove("visible");
+  bestMoveArrowLine.removeAttribute("x1");
+  bestMoveArrowLine.removeAttribute("y1");
+  bestMoveArrowLine.removeAttribute("x2");
+  bestMoveArrowLine.removeAttribute("y2");
+}
+
+function drawBestMoveArrow(fromEl, toEl) {
+  if (!fromEl || !toEl || fromEl === toEl) {
+    clearBestMoveArrow();
+    return;
+  }
+  const arrow = ensureBestMoveArrowLayer();
+  if (!arrow) return;
+  const { boardEl, layer, line } = arrow;
+  const boardRect = boardEl.getBoundingClientRect();
+  const fromRect = fromEl.getBoundingClientRect();
+  const toRect = toEl.getBoundingClientRect();
+  const boardWidth = Math.max(1, boardRect.width);
+  const boardHeight = Math.max(1, boardRect.height);
+  layer.setAttribute("viewBox", `0 0 ${boardWidth} ${boardHeight}`);
+
+  const rawStartX = fromRect.left - boardRect.left + fromRect.width / 2;
+  const rawStartY = fromRect.top - boardRect.top + fromRect.height / 2;
+  const rawEndX = toRect.left - boardRect.left + toRect.width / 2;
+  const rawEndY = toRect.top - boardRect.top + toRect.height / 2;
+  const dx = rawEndX - rawStartX;
+  const dy = rawEndY - rawStartY;
+  const distance = Math.hypot(dx, dy);
+  if (!(distance > 0.1)) {
+    clearBestMoveArrow();
+    return;
+  }
+
+  const squareSize = Math.max(
+    1,
+    Math.min(fromRect.width, fromRect.height, toRect.width, toRect.height)
+  );
+  const startPad = Math.min(distance * 0.35, squareSize * 0.22);
+  const endPad = Math.min(distance * 0.45, squareSize * 0.3);
+  const ux = dx / distance;
+  const uy = dy / distance;
+  const startX = rawStartX + ux * startPad;
+  const startY = rawStartY + uy * startPad;
+  const endX = rawEndX - ux * endPad;
+  const endY = rawEndY - uy * endPad;
+
+  line.setAttribute("x1", startX.toFixed(2));
+  line.setAttribute("y1", startY.toFixed(2));
+  line.setAttribute("x2", endX.toFixed(2));
+  line.setAttribute("y2", endY.toFixed(2));
+  layer.classList.add("visible");
+}
+
+function formatBestMoveDisplay(uci) {
+  if (!uci || uci === "(none)" || uci.length < 4) return "—";
+  const from = uci.slice(0, 2);
+  const to = uci.slice(2, 4);
+  const promotion = uci.length > 4 ? `=${uci.slice(4, 5).toUpperCase()}` : "";
+  return `${from} -> ${to}${promotion}`;
 }
 
 function highlightMoves(moves) {
@@ -3965,6 +4082,7 @@ function highlightBestMove(uci) {
     toEl.classList.add("best-to");
     bestHighlightSquares.add(toEl);
   }
+  drawBestMoveArrow(fromEl, toEl);
 }
 
 function highlightPvLine(pv) {

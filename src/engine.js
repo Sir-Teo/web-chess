@@ -1,6 +1,6 @@
 import { parseUciOption, parseInfo, parseBestmove } from "./uci.js";
 
-const ENGINE_ASSET_VERSION = "20260214b";
+const ENGINE_ASSET_VERSION = "20260214c";
 
 const ENGINE_SPECS = {
   standard: {

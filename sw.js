@@ -1,6 +1,6 @@
-const ASSET_VERSION = "20260214b";
-const CORE_CACHE = "vulcan-core-v13";
-const RUNTIME_CACHE = "vulcan-runtime-v13";
+const ASSET_VERSION = "20260214c";
+const CORE_CACHE = "vulcan-core-v14";
+const RUNTIME_CACHE = "vulcan-runtime-v14";
 const MAX_RUNTIME_CACHE_ENTRIES = 64;
 
 const CORE_ASSETS = [

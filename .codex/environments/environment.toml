@@ -8,4 +8,4 @@ script = ""
 [[actions]]
 name = "Run"
 icon = "run"
-command = "node server.js"
+command = "PORT=5050 node server.js"
