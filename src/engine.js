@@ -1,22 +1,22 @@
 import { parseUciOption, parseInfo, parseBestmove } from "./uci.js";
 
-const ENGINE_ASSET_VERSION = "20260213a";
+const ENGINE_ASSET_VERSION = "20260214b";
 
 const ENGINE_SPECS = {
   standard: {
     label: "Standard (multi-threaded)",
-    js: "vendor/stockfish/stockfish-18-parted.js",
+    js: "vendor/stockfish/stockfish-18.js",
     wasm: "vendor/stockfish/stockfish-18.wasm",
     threads: true,
-    parts: 6,
+    parts: 0,
     heavy: true,
   },
   "standard-single": {
     label: "Standard (single-threaded)",
-    js: "vendor/stockfish/stockfish-18-single-parted.js",
+    js: "vendor/stockfish/stockfish-18-single.js",
     wasm: "vendor/stockfish/stockfish-18-single.wasm",
     threads: false,
-    parts: 6,
+    parts: 0,
     heavy: true,
   },
   lite: {
@@ -88,6 +88,29 @@ function getDeviceTier() {
   return "high";
 }
 
+function shouldPreferLiteForStartup() {
+  if (typeof navigator === "undefined") return false;
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (!connection) {
+    // Unknown network conditions: bias for fast initial startup.
+    return true;
+  }
+  if (connection.saveData) return true;
+  const effectiveType = String(connection.effectiveType || "").toLowerCase();
+  if (effectiveType.includes("2g") || effectiveType.includes("3g")) {
+    return true;
+  }
+  const downlink = Number(connection.downlink);
+  if (Number.isFinite(downlink) && downlink > 0 && downlink < 20) {
+    return true;
+  }
+  const rtt = Number(connection.rtt);
+  if (Number.isFinite(rtt) && rtt > 120) {
+    return true;
+  }
+  return false;
+}
+
 function isCrossOriginIsolated() {
   return typeof self !== "undefined" && self.crossOriginIsolated === true;
 }
@@ -112,11 +135,12 @@ function nowMs() {
 function pickAutoSpecKey() {
   if (!supportsWasm()) return "asm";
   const tier = getDeviceTier();
-  const preferLite = tier === "low";
+  const preferLite = tier === "low" || shouldPreferLiteForStartup();
   if (canUseThreads()) {
     return preferLite ? "lite" : "standard";
   }
-  return preferLite ? "lite-single" : "standard-single";
+  // Single-threaded standard wasm is much heavier; prefer lite unless device/network is excellent.
+  return preferLite || tier !== "high" ? "lite-single" : "standard-single";
 }
 
 function resolveEngineSpecKey(key) {

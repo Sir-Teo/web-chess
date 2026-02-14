@@ -36,6 +36,17 @@ function sanitizePathname(pathname) {
   return absolutePath;
 }
 
+function resolveLegacyStockfishWasmPath(pathname) {
+  const match = /^\/vendor\/stockfish\/(stockfish-[^/]+?)-parted(?:-part-(\d+))?\.wasm$/i.exec(
+    pathname
+  );
+  if (!match) return null;
+  const baseName = match[1];
+  const partIndex = match[2];
+  const suffix = typeof partIndex === "string" ? `-part-${partIndex}` : "";
+  return `/vendor/stockfish/${baseName}${suffix}.wasm`;
+}
+
 function createEtag(stats) {
   return `W/"${stats.size.toString(16)}-${Math.floor(stats.mtimeMs).toString(16)}"`;
 }
@@ -219,11 +230,31 @@ const server = http.createServer(async (req, res) => {
     }
   } catch (err) {
     if (err && err.code === "ENOENT") {
-      send(res, 404, { "Content-Type": "text/plain" }, "Not Found");
+      const legacyStockfishPathname = resolveLegacyStockfishWasmPath(pathname);
+      if (!legacyStockfishPathname) {
+        send(res, 404, { "Content-Type": "text/plain" }, "Not Found");
+        return;
+      }
+      const legacyResolved = sanitizePathname(legacyStockfishPathname);
+      if (!legacyResolved) {
+        send(res, 403, { "Content-Type": "text/plain" }, "Forbidden");
+        return;
+      }
+      try {
+        filePath = legacyResolved;
+        stats = await fsp.stat(filePath);
+        if (!stats.isFile()) {
+          send(res, 404, { "Content-Type": "text/plain" }, "Not Found");
+          return;
+        }
+      } catch (legacyErr) {
+        send(res, 404, { "Content-Type": "text/plain" }, "Not Found");
+        return;
+      }
+    } else {
+      send(res, 500, { "Content-Type": "text/plain" }, "Error");
       return;
     }
-    send(res, 500, { "Content-Type": "text/plain" }, "Error");
-    return;
   }
 
   const ext = path.extname(filePath).toLowerCase();
