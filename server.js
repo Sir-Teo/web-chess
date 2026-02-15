@@ -36,11 +36,11 @@ function sanitizePathname(pathname) {
   return absolutePath;
 }
 
-function resolveLegacyStockfishWasmPath(pathname) {
+function normalizeStockfishWasmPathname(pathname) {
   const match = /^\/vendor\/stockfish\/(stockfish-[^/]+?)-parted(?:-part-(\d+))?\.wasm$/i.exec(
     pathname
   );
-  if (!match) return null;
+  if (!match) return pathname;
   const baseName = match[1];
   const partIndex = match[2];
   const suffix = typeof partIndex === "string" ? `-part-${partIndex}` : "";
@@ -214,7 +214,8 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const sanitized = sanitizePathname(pathname);
+  const normalizedPathname = normalizeStockfishWasmPathname(pathname);
+  const sanitized = sanitizePathname(normalizedPathname);
   if (!sanitized) {
     send(res, 403, { "Content-Type": "text/plain" }, "Forbidden");
     return;
@@ -230,27 +231,8 @@ const server = http.createServer(async (req, res) => {
     }
   } catch (err) {
     if (err && err.code === "ENOENT") {
-      const legacyStockfishPathname = resolveLegacyStockfishWasmPath(pathname);
-      if (!legacyStockfishPathname) {
-        send(res, 404, { "Content-Type": "text/plain" }, "Not Found");
-        return;
-      }
-      const legacyResolved = sanitizePathname(legacyStockfishPathname);
-      if (!legacyResolved) {
-        send(res, 403, { "Content-Type": "text/plain" }, "Forbidden");
-        return;
-      }
-      try {
-        filePath = legacyResolved;
-        stats = await fsp.stat(filePath);
-        if (!stats.isFile()) {
-          send(res, 404, { "Content-Type": "text/plain" }, "Not Found");
-          return;
-        }
-      } catch (legacyErr) {
-        send(res, 404, { "Content-Type": "text/plain" }, "Not Found");
-        return;
-      }
+      send(res, 404, { "Content-Type": "text/plain" }, "Not Found");
+      return;
     } else {
       send(res, 500, { "Content-Type": "text/plain" }, "Error");
       return;
@@ -260,7 +242,8 @@ const server = http.createServer(async (req, res) => {
   const ext = path.extname(filePath).toLowerCase();
   const hasVersionQuery = Boolean(searchParams && searchParams.has("v"));
   const hasFingerprintName = /-[0-9a-f]{7,}\.(?:js|mjs|css|wasm)$/i.test(path.basename(filePath));
-  const immutableAsset = pathname.startsWith("/vendor/stockfish/") || hasVersionQuery || hasFingerprintName;
+  const immutableAsset =
+    normalizedPathname.startsWith("/vendor/stockfish/") || hasVersionQuery || hasFingerprintName;
   const precompressed = await pickPrecompressedVariant(req, filePath, ext);
   const responseStats = precompressed ? precompressed.stats : stats;
   const cacheControl = immutableAsset ? "public, max-age=31536000, immutable" : "no-cache";
