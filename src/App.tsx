@@ -118,8 +118,10 @@ function App() {
     return true
   }
 
+  const leftW = leftPanelOpen ? 280 : 0
+  const rightW = rightPanelOpen ? 320 : 0
   const boardWidth = Math.min(
-    viewport.width < 900 ? viewport.width - 32 : viewport.width - (rightPanelOpen ? 420 : 80) - (leftPanelOpen ? 220 : 0),
+    viewport.width - leftW - rightW - 32,
     viewport.height - (bottomPanelOpen ? 120 : 50) - (topPanelOpen ? 50 : 30),
     760,
   )
@@ -178,11 +180,16 @@ function App() {
       </section>
 
       <aside className={`panel right ${rightPanelOpen ? '' : 'hidden'}`}>
+        <button
+          type="button"
+          className="sidebar-tab sidebar-tab-left"
+          onClick={() => setRightPanelOpen((v) => !v)}
+          aria-label={rightPanelOpen ? 'Close analysis panel' : 'Open analysis panel'}
+        >
+          {rightPanelOpen ? '›' : '‹'}
+        </button>
         <header className="panel-header">
           <h2>Analysis</h2>
-          <button type="button" className="panel-toggle" onClick={() => setRightPanelOpen(false)}>
-            Hide
-          </button>
         </header>
         <div className="panel-content">
           <p className="panel-copy">
@@ -335,18 +342,19 @@ function App() {
         </div>
       </aside>
 
-      {!rightPanelOpen && (
-        <button type="button" className="floating-toggle right-toggle" onClick={() => setRightPanelOpen(true)}>
-          Analysis
-        </button>
-      )}
+
 
       <section className={`panel left ${leftPanelOpen ? '' : 'hidden'}`}>
+        <button
+          type="button"
+          className="sidebar-tab sidebar-tab-right"
+          onClick={() => setLeftPanelOpen((v) => !v)}
+          aria-label={leftPanelOpen ? 'Close graph panel' : 'Open graph panel'}
+        >
+          {leftPanelOpen ? '‹' : '›'}
+        </button>
         <header className="panel-header">
           <h2>Winrate Graph</h2>
-          <button type="button" className="panel-toggle" onClick={() => setLeftPanelOpen(false)}>
-            Hide
-          </button>
         </header>
         <div className="panel-content">
           <WinrateGraph points={winratePoints} />
@@ -359,11 +367,7 @@ function App() {
         </div>
       </section>
 
-      {!leftPanelOpen && (
-        <button type="button" className="floating-toggle left-toggle" onClick={() => setLeftPanelOpen(true)}>
-          Show graph
-        </button>
-      )}
+
 
       <section className={`panel bottom ${bottomPanelOpen ? '' : 'hidden'}`}>
         <header className="panel-header">

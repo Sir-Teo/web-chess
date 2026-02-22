@@ -124,8 +124,8 @@
   background: rgba(251, 248, 243, 0.9);
 }
 
-.settings-menu > summary,
-.advanced-settings > summary {
+.settings-menu>summary,
+.advanced-settings>summary {
   cursor: pointer;
   padding: 0.6rem 0.7rem;
   font-size: 0.82rem;
@@ -134,8 +134,8 @@
   list-style: none;
 }
 
-.settings-menu > summary::-webkit-details-marker,
-.advanced-settings > summary::-webkit-details-marker {
+.settings-menu>summary::-webkit-details-marker,
+.advanced-settings>summary::-webkit-details-marker {
   display: none;
 }
 
@@ -364,19 +364,47 @@
 }
 
 .left {
-  top: 3.2rem;
-  left: 0.9rem;
-  width: min(340px, calc(100vw - 1.8rem));
-  max-height: calc(100vh - 15rem);
-  overflow: auto;
+  top: 2.6rem;
+  bottom: 2.2rem;
+  left: 0;
+  width: 280px;
+  border-radius: 0;
+  border-left: none;
+  border-top: none;
+  border-bottom: none;
+  box-shadow: 2px 0 16px rgba(32, 29, 24, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 3;
+}
+
+.left .panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
 }
 
 .right {
-  top: 3.2rem;
-  right: 0.9rem;
-  width: min(340px, calc(100vw - 1.8rem));
-  max-height: calc(100vh - 7rem);
-  overflow: auto;
+  top: 2.6rem;
+  bottom: 2.2rem;
+  right: 0;
+  width: 320px;
+  border-radius: 0;
+  border-right: none;
+  border-top: none;
+  border-bottom: none;
+  box-shadow: -2px 0 16px rgba(32, 29, 24, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 3;
+}
+
+.right .panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
 }
 
 .bottom {
@@ -441,15 +469,22 @@
 }
 
 .left.hidden {
-  transform: translateX(-116%);
+  transform: translateX(-100%);
   opacity: 0;
   pointer-events: none;
 }
 
 .right.hidden {
-  transform: translateX(116%);
+  transform: translateX(100%);
   opacity: 0;
   pointer-events: none;
+}
+
+/* Always show the collapse tab even when panel is hidden */
+.left.hidden .sidebar-tab,
+.right.hidden .sidebar-tab {
+  opacity: 1;
+  pointer-events: all;
 }
 
 .moves-list {
@@ -533,23 +568,54 @@
   border-top: none;
 }
 
-.left-toggle {
-  left: 0.9rem;
-  top: 5rem;
-}
-
-.right-toggle {
-  right: 0.9rem;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
 .bottom-toggle {
   left: 50%;
   transform: translateX(-50%);
   bottom: 0;
   border-radius: 10px 10px 0 0;
   border-bottom: none;
+}
+
+/* Sidebar collapse tabs */
+.sidebar-tab {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 8px 8px 0;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(38, 35, 30, 0.14);
+  box-shadow: 2px 2px 8px rgba(32, 29, 24, 0.12);
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: #5a4f42;
+  padding: 0;
+  z-index: 10;
+  transition: background 160ms ease, color 160ms ease;
+  line-height: 1;
+}
+
+.sidebar-tab:hover {
+  background: #f0ebe3;
+  color: #2a241e;
+}
+
+/* Tab on the right edge of .left panel */
+.sidebar-tab-right {
+  right: -20px;
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+}
+
+/* Tab on the left edge of .right panel */
+.sidebar-tab-left {
+  left: -20px;
+  border-right: none;
+  border-radius: 8px 0 0 8px;
 }
 
 .graph-wrap {
@@ -603,38 +669,17 @@
   }
 
   .left {
-    left: 0.9rem;
-    top: auto;
-    bottom: 10.2rem;
-    width: min(400px, calc(100vw - 1.8rem));
-    max-height: 36vh;
-  }
-
-  .left.hidden {
-    transform: translateY(115%);
+    top: 2.6rem;
+    bottom: 2.2rem;
+    left: 0;
+    width: 260px;
   }
 
   .right {
-    top: auto;
-    right: 0.9rem;
-    bottom: 4.4rem;
-    max-height: 45vh;
-    width: min(400px, calc(100vw - 1.8rem));
-  }
-
-  .right.hidden {
-    transform: translateY(115%);
-  }
-
-  .right-toggle {
-    top: auto;
-    bottom: 4.4rem;
-    transform: none;
-  }
-
-  .left-toggle {
-    top: auto;
-    bottom: 10.2rem;
+    top: 2.6rem;
+    bottom: 2.2rem;
+    right: 0;
+    width: 260px;
   }
 
   .bottom {
