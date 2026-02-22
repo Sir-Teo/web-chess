@@ -346,6 +346,11 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto') {
     send('uci')
 
     return () => {
+      try {
+        worker.postMessage('quit')
+      } catch {
+        // Ignore shutdown errors from workers that are already gone.
+      }
       worker.terminate()
       workerRef.current = null
       isReadyRef.current = false
