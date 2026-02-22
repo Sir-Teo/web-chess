@@ -1,6 +1,7 @@
 import { Chess, type Square } from 'chess.js'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
+import { useStockfishEngine } from './hooks/useStockfishEngine'
 import './App.css'
 
 type Orientation = 'white' | 'black'
@@ -16,8 +17,30 @@ function App() {
   const [searchDepth, setSearchDepth] = useState(16)
   const [multiPv, setMultiPv] = useState(2)
   const [hashMb, setHashMb] = useState(64)
+  const [showWdl, setShowWdl] = useState(true)
+  const [autoAnalyze, setAutoAnalyze] = useState(true)
+  const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight })
+
+  const { status, engineName, options, lines, lastBestMove, analyzePosition, stop, setOption } = useStockfishEngine()
 
   const moveHistory = game.history({ verbose: true })
+
+  useEffect(() => {
+    const onResize = () => setViewport({ width: window.innerWidth, height: window.innerHeight })
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  useEffect(() => {
+    if (!autoAnalyze) return
+    analyzePosition({
+      fen,
+      depth: searchDepth,
+      multiPv,
+      hashMb,
+      showWdl,
+    })
+  }, [analyzePosition, autoAnalyze, fen, hashMb, multiPv, searchDepth, showWdl])
 
   const undoMove = () => {
     game.undo()
@@ -48,8 +71,8 @@ function App() {
   }
 
   const boardWidth = Math.min(
-    window.innerWidth < 900 ? window.innerWidth - 32 : window.innerWidth - (rightPanelOpen ? 420 : 80),
-    window.innerHeight - (bottomPanelOpen ? 230 : 70),
+    viewport.width < 900 ? viewport.width - 32 : viewport.width - (rightPanelOpen ? 420 : 80),
+    viewport.height - (bottomPanelOpen ? 230 : 70),
     760,
   )
 
@@ -118,6 +141,29 @@ function App() {
             Beginner mode is active. You can analyze right away, then open advanced controls when needed.
           </p>
 
+          <div className="status-strip">
+            <span>{engineName}</span>
+            <strong className={`status ${status}`}>{status}</strong>
+          </div>
+
+          <div className="inline-actions">
+            <button type="button" onClick={() => analyzePosition({ fen, depth: searchDepth, multiPv, hashMb, showWdl })}>
+              Analyze now
+            </button>
+            <button type="button" onClick={stop}>
+              Stop
+            </button>
+          </div>
+
+          <label className="switch-control">
+            <input
+              type="checkbox"
+              checked={autoAnalyze}
+              onChange={(event) => setAutoAnalyze(event.target.checked)}
+            />
+            <span>Auto-analyze after every move</span>
+          </label>
+
           <label className="control">
             <span>Search depth</span>
             <input
@@ -162,11 +208,37 @@ function App() {
                 />
                 <strong>{hashMb} MB</strong>
               </label>
+              <label className="switch-control">
+                <input type="checkbox" checked={showWdl} onChange={(event) => setShowWdl(event.target.checked)} />
+                <span>Show WDL values</span>
+              </label>
+              <div className="engine-options">
+                <h3>Engine options</h3>
+                {options.map((option) => (
+                  <EngineOptionControl key={option.name} option={option} onSetOption={setOption} />
+                ))}
+              </div>
               <p className="panel-copy small">
-                Full Stockfish options will be wired in the next step via the engine worker.
+                Options are discovered from Stockfish UCI output and applied live through setoption.
               </p>
             </div>
           )}
+
+          <div className="pv-list">
+            <h3>Lines</h3>
+            {lines.length === 0 && <p className="panel-copy small">No line yet. Start analysis to populate principal variations.</p>}
+            {lines.map((line) => (
+              <article key={`${line.multipv}-${line.depth}-${line.pv[0] ?? 'pv'}`}>
+                <header>
+                  <strong>#{line.multipv}</strong>
+                  <span>D{line.depth}</span>
+                  <span>{formatEvaluation(line.cp, line.mate)}</span>
+                </header>
+                <p>{line.pv.slice(0, 8).join(' ')}</p>
+              </article>
+            ))}
+            {lastBestMove && <p className="best-move">Best move: {lastBestMove}</p>}
+          </div>
         </div>
       </aside>
 
@@ -209,3 +281,80 @@ function App() {
 }
 
 export default App
+
+type EngineOptionControlProps = {
+  option: {
+    name: string
+    type: 'check' | 'spin' | 'string' | 'button'
+    defaultValue?: string
+    min?: number
+    max?: number
+  }
+  onSetOption: (name: string, value?: string | number | boolean) => void
+}
+
+function EngineOptionControl({ option, onSetOption }: EngineOptionControlProps) {
+  const [value, setValue] = useState(option.defaultValue ?? '')
+
+  if (option.type === 'button') {
+    return (
+      <div className="engine-option-row">
+        <button type="button" onClick={() => onSetOption(option.name)}>
+          {option.name}
+        </button>
+      </div>
+    )
+  }
+
+  if (option.type === 'check') {
+    const checked = value === 'true'
+    return (
+      <label className="switch-control">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => {
+            const nextValue = event.target.checked ? 'true' : 'false'
+            setValue(nextValue)
+            onSetOption(option.name, event.target.checked)
+          }}
+        />
+        <span>{option.name}</span>
+      </label>
+    )
+  }
+
+  if (option.type === 'spin') {
+    return (
+      <label className="engine-option-row">
+        <span>{option.name}</span>
+        <input
+          type="number"
+          min={option.min}
+          max={option.max}
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          onBlur={() => onSetOption(option.name, Number(value))}
+        />
+      </label>
+    )
+  }
+
+  return (
+    <label className="engine-option-row">
+      <span>{option.name}</span>
+      <input
+        type="text"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        onBlur={() => onSetOption(option.name, value)}
+      />
+    </label>
+  )
+}
+
+function formatEvaluation(cp?: number, mate?: number): string {
+  if (typeof mate === 'number') return `#${mate}`
+  if (typeof cp === 'number') return `${cp > 0 ? '+' : ''}${(cp / 100).toFixed(2)}`
+  return '...'
+}

@@ -117,6 +117,134 @@
   border-top: 1px solid rgba(44, 38, 30, 0.1);
 }
 
+.status-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  margin-bottom: 0.7rem;
+  border: 1px solid rgba(55, 48, 39, 0.1);
+  border-radius: 9px;
+  background: rgba(252, 249, 244, 0.8);
+  font-size: 0.8rem;
+  color: #5d5245;
+}
+
+.status {
+  text-transform: capitalize;
+}
+
+.status.loading {
+  color: #9c6b16;
+}
+
+.status.ready {
+  color: #286740;
+}
+
+.status.analyzing {
+  color: #005a87;
+}
+
+.status.error {
+  color: #b23232;
+}
+
+.inline-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  margin-bottom: 0.7rem;
+}
+
+.switch-control {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.82rem;
+  color: #504537;
+}
+
+.switch-control input {
+  accent-color: #5f7f72;
+}
+
+.engine-options h3,
+.pv-list h3 {
+  margin: 0.35rem 0 0.55rem;
+  font-size: 0.83rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6a5d4d;
+}
+
+.engine-options {
+  max-height: 230px;
+  overflow: auto;
+  border: 1px solid rgba(40, 34, 26, 0.11);
+  border-radius: 10px;
+  padding: 0.45rem;
+  background: rgba(248, 243, 236, 0.85);
+}
+
+.engine-option-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.engine-option-row span {
+  font-size: 0.79rem;
+  color: #554938;
+}
+
+.engine-option-row input {
+  width: 88px;
+  padding: 0.3rem 0.4rem;
+  border-radius: 7px;
+  border: 1px solid rgba(50, 44, 36, 0.2);
+  background: #fff;
+  color: #2f2922;
+  font-size: 0.78rem;
+}
+
+.pv-list {
+  margin-top: 0.75rem;
+}
+
+.pv-list article {
+  border: 1px solid rgba(38, 33, 27, 0.11);
+  border-radius: 9px;
+  padding: 0.45rem 0.5rem;
+  margin-bottom: 0.45rem;
+  background: rgba(251, 248, 244, 0.88);
+}
+
+.pv-list article header {
+  display: flex;
+  gap: 0.55rem;
+  align-items: baseline;
+  font-size: 0.76rem;
+  color: #5a4f42;
+}
+
+.pv-list article p {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: #342e27;
+  overflow-wrap: anywhere;
+}
+
+.best-move {
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+  color: #2a6548;
+}
+
 .top-left {
   top: 0.9rem;
   left: 0.9rem;
