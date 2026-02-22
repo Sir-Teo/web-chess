@@ -193,6 +193,7 @@ export function useGameTree(startFen?: string) {
         const tree = treeRef.current
         const node = tree.nodes.get(id)
         if (!node) return
+        if (node.quality === quality) return   // ← break the cascade
         node.quality = quality
         bump()
     }, [bump])

@@ -16,7 +16,7 @@ import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
 import { useGameTree } from './hooks/useGameTree'
 import { NewGameDialog, type GameMode, type PlayerColor } from './components/NewGameDialog'
-import { GameControls } from './components/GameControls'
+import { WatchControls, AI_SPEED_MS, type AiSpeed } from './components/WatchControls'
 import { MoveListTree } from './components/MoveListTree'
 import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert } from './components/icons'
 import './App.css'
@@ -55,6 +55,17 @@ function App() {
   const [isAiThinking, setIsAiThinking] = useState(false)
   const aiMoveScheduledRef = useRef(false)
 
+  // ── AI speed (throttle delay between AI moves) ───────
+  const [aiSpeed, setAiSpeed] = useState<AiSpeed>('normal')
+  const aiSpeedRef = useRef<AiSpeed>('normal')
+  const stepPendingRef = useRef(false) // for Step mode: advance one move on demand
+
+  const handleSpeedChange = useCallback((s: AiSpeed) => {
+    aiSpeed // suppress lint
+    setAiSpeed(s)
+    aiSpeedRef.current = s
+  }, [aiSpeed])
+
   // ── Pause state ──────────────────────────────────────
   const [paused, setPaused] = useState(false)
   const pausedRef = useRef(false)
@@ -62,26 +73,72 @@ function App() {
   const pause = useCallback(() => {
     pausedRef.current = true
     setPaused(true)
+    setIsAiThinking(false)
   }, [])
 
   const resume = useCallback(() => {
     pausedRef.current = false
     setPaused(false)
-    // Nudge the AI loop by clearing the scheduled flag so it retries
     aiMoveScheduledRef.current = false
-    setFen(f => f) // trigger re-render to restart AI effect
+    setFen(f => f) // nudge AI effect
   }, [])
 
   // ── Game tree ────────────────────────────────────────
   const gameTree = useGameTree()
 
-  // Called whenever we need to sync chess game state from a tree navigation
   const syncGameToNode = useCallback((chess: Chess) => {
-    // Reconstruct our shared `game` from the given chess instance
     game.load(chess.fen())
     setFen(chess.fen())
     aiMoveScheduledRef.current = false
   }, [game])
+
+  // Navigate tree + stay paused so user can explore
+  const navigateAndPause = useCallback((chess: Chess | null) => {
+    if (!chess) return
+    syncGameToNode(chess)
+    // Don't force-pause when human vs human — navigation is just browsing
+    if (gameMode !== 'human-vs-human') {
+      pausedRef.current = true
+      setPaused(true)
+    }
+  }, [gameMode, syncGameToNode])
+
+  // ── Playback helpers for WatchControls ───────────────
+  const currentPathNodes = gameTree.currentPath()
+  const canGoBack = currentPathNodes.length > 1
+  const canGoForward = gameTree.current.children.length > 0
+
+  const goFirst = useCallback(() => {
+    const root = gameTree.root
+    navigateAndPause(gameTree.navigateTo(root.id))
+  }, [gameTree, navigateAndPause])
+
+  const goPrev = useCallback(() => {
+    navigateAndPause(gameTree.goBack())
+  }, [gameTree, navigateAndPause])
+
+  const goNext = useCallback(() => {
+    navigateAndPause(gameTree.goForward())
+  }, [gameTree, navigateAndPause])
+
+  const goLast = useCallback(() => {
+    // Walk first-child chain to tip
+    const nodes = gameTree.mainLine()
+    const tip = nodes[nodes.length - 1]
+    if (tip) navigateAndPause(gameTree.navigateTo(tip.id))
+  }, [gameTree, navigateAndPause])
+
+  // Keyboard shortcuts (← →)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
+      if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev() }
+      if (e.key === 'ArrowRight') { e.preventDefault(); goNext() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [goPrev, goNext])
 
   // ── Engine ───────────────────────────────────────────
   const {
@@ -104,14 +161,12 @@ function App() {
   useEffect(() => {
     const cp = scoreToCp(primaryLine?.cp, primaryLine?.mate)
     if (typeof cp !== 'number') return
-    queueMicrotask(() => {
-      setEvaluationsByFen(prev => {
-        const cur = prev.get(fen)
-        if (cur?.cp === cp) return prev
-        const next = new Map(prev)
-        next.set(fen, { cp })
-        return next
-      })
+    setEvaluationsByFen(prev => {
+      const cur = prev.get(fen)
+      if (cur?.cp === cp) return prev
+      const next = new Map(prev)
+      next.set(fen, { cp })
+      return next
     })
   }, [fen, primaryLine?.cp, primaryLine?.mate])
 
@@ -129,18 +184,13 @@ function App() {
   }, [analyzePosition, autoAnalyze, fen, hashMb, multiPv, searchDepth, showWdl])
 
   // ── Derived move data ─────────────────────────────────
-  // mainLine: full first-child chain root→tip — used for review quality annotation
   const mainLineNodes = gameTree.mainLine()
   const mainLineMoves = mainLineNodes.slice(1).map(n => n.move!).filter(Boolean)
-
-  // currentPath: root → currently-viewed node — used for the winrate graph
-  // This re-derives on every tree navigation so the graph updates immediately.
-  const currentPathNodes = gameTree.currentPath()
 
   const reviewRows = useMemo(() => buildReviewRows(mainLineMoves, evaluationsByFen), [evaluationsByFen, mainLineMoves])
   const reviewSummary = useMemo(() => summarizeReview(reviewRows), [reviewRows])
 
-  // Graph uses the active path (updates when navigating the tree)
+  // Graph uses active path so it updates on tree navigation
   const winratePoints = useMemo(
     () => {
       const moves = currentPathNodes.slice(1).map(n => n.move!).filter(Boolean)
@@ -161,8 +211,7 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewRows])
 
-
-  // ── AI move loop ──────────────────────────────────────
+  // ── AI move loop (with speed throttle) ───────────────
   useEffect(() => {
     if (game.isGameOver()) return
     if (aiPlayer.status !== 'ready') return
@@ -176,36 +225,47 @@ function App() {
 
     if (!isAiTurn) return
 
+    // In Step mode wait for user to request a move
+    if (aiSpeedRef.current === 'step' && !stepPendingRef.current) return
+    stepPendingRef.current = false
+
     aiMoveScheduledRef.current = true
     setIsAiThinking(true)
 
-    aiPlayer.requestMove(fen, aiDifficulty).then(uciMove => {
-      aiMoveScheduledRef.current = false
-      setIsAiThinking(false)
+    const delayMs = AI_SPEED_MS[aiSpeedRef.current]
 
-      if (!uciMove || game.isGameOver() || pausedRef.current) return
+    const doMove = () => {
+      aiPlayer.requestMove(fen, aiDifficulty).then(uciMove => {
+        aiMoveScheduledRef.current = false
+        setIsAiThinking(false)
 
-      const from = uciMove.slice(0, 2) as Square
-      const to = uciMove.slice(2, 4) as Square
-      const promoChar = uciMove[4]
-      const promotion = promoChar ? promoChar as 'q' | 'r' | 'b' | 'n' : undefined
+        if (!uciMove || game.isGameOver() || pausedRef.current) return
 
-      const move = game.move({ from, to, promotion })
-      if (move) {
-        const newFen = game.fen()
-        setFen(newFen)
-        gameTree.addMove(move, newFen)
-      }
-    })
+        const from = uciMove.slice(0, 2) as Square
+        const to = uciMove.slice(2, 4) as Square
+        const promo = uciMove[4] as 'q' | 'r' | 'b' | 'n' | undefined
+
+        const move = game.move({ from, to, promotion: promo })
+        if (move) {
+          const newFen = game.fen()
+          setFen(newFen)
+          gameTree.addMove(move, newFen)
+        }
+      })
+    }
+
+    if (delayMs > 0) {
+      const t = setTimeout(doMove, delayMs)
+      return () => clearTimeout(t)
+    } else {
+      doMove()
+    }
   }, [fen, gameMode, playerColor, aiDifficulty, aiPlayer, aiPlayer.status, game, gameTree, paused])
 
   // ── Human move ────────────────────────────────────────
   const onPieceDrop = (sourceSquare: Square, targetSquare: Square, pieceType: string) => {
     if (gameMode === 'human-vs-ai' && isAiThinking) return false
-    if (gameMode === 'human-vs-ai' && game.turn() !== playerColor[0]) return false
-    if (paused && gameMode !== 'human-vs-human') {
-      // In paused AI mode only allow moves if we're manually analyzing
-    }
+    if (gameMode === 'human-vs-ai' && !paused && game.turn() !== playerColor[0]) return false
 
     const promotion = pieceType.toLowerCase().endsWith('p') && ['1', '8'].includes(targetSquare[1]) ? 'q' : undefined
     const move = game.move({ from: sourceSquare, to: targetSquare, promotion })
@@ -215,16 +275,6 @@ function App() {
     setFen(newFen)
     gameTree.addMove(move, newFen)
     return true
-  }
-
-  // ── Undo ──────────────────────────────────────────────
-  const undoMove = () => {
-    const chess = gameTree.goBack()
-    if (chess) {
-      game.load(chess.fen())
-      setFen(chess.fen())
-      aiMoveScheduledRef.current = false
-    }
   }
 
   // ── New game ──────────────────────────────────────────
@@ -253,20 +303,34 @@ function App() {
     [aiPlayer, game, gameTree],
   )
 
-  // ── Mode switch mid-game (preserves board, changes who controls) ──────────
+  // ── Mode switch mid-game ──────────────────────────────
   const handleModeChange = useCallback((mode: GameMode) => {
     setGameMode(mode)
     aiMoveScheduledRef.current = false
-    // If resuming from pause after mode switch, auto-resume
     if (pausedRef.current && mode === 'human-vs-human') {
       pausedRef.current = false
       setPaused(false)
     }
-    // Kick the AI loop
     setFen(f => f)
   }, [])
 
-  // ── Flip / controls ───────────────────────────────────
+  // ── Step: advance one AI move ─────────────────────────
+  const handleStep = useCallback(() => {
+    stepPendingRef.current = true
+    pausedRef.current = false
+    setPaused(false)
+    aiMoveScheduledRef.current = false
+    setFen(f => f) // nudge loop
+    // Re-pause after one move fires (the loop resets stepPendingRef)
+    // The loop sets aiMoveScheduledRef = true synchronously, so after the move
+    // we re-pause via the game-over guard path
+    setTimeout(() => {
+      pausedRef.current = true
+      setPaused(true)
+    }, AI_SPEED_MS.fast + 200)
+  }, [])
+
+  // ── Flip ──────────────────────────────────────────────
   const flipBoard = () => setOrientation(v => v === 'white' ? 'black' : 'white')
 
   // ── Resize ────────────────────────────────────────────
@@ -330,12 +394,28 @@ function App() {
             <button type="button" onClick={openNewGameDialog}>
               <span className="btn-icon">⟳</span> New game
             </button>
-            <button type="button" onClick={undoMove}>
-              <span className="btn-icon">↩</span> Undo
-            </button>
             <button type="button" onClick={flipBoard}>
               <span className="btn-icon">⇅</span> Flip
             </button>
+
+            {/* Mode switcher lives in top bar */}
+            <span className="toolbar-divider" />
+            <div className="top-mode-pills">
+              {([
+                { id: 'human-vs-human', label: '👥 H vs H' },
+                { id: 'human-vs-ai', label: '🤖 H vs AI' },
+                { id: 'ai-vs-ai', label: '⚡ AI vs AI' },
+              ] as const).map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={`gc-pill ${gameMode === id ? 'gc-pill-active' : ''}`}
+                  onClick={() => id !== gameMode && handleModeChange(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
 
             <span className="toolbar-divider" />
 
@@ -423,7 +503,7 @@ function App() {
                 if (!targetSquare) return false
                 return onPieceDrop(sourceSquare as Square, targetSquare as Square, piece.pieceType)
               },
-              allowDragging: !isAiThinking && !(gameMode === 'human-vs-ai' && game.turn() !== playerColor[0]),
+              allowDragging: !isAiThinking && !(gameMode === 'human-vs-ai' && !paused && game.turn() !== playerColor[0]),
               darkSquareStyle: { backgroundColor: '#b58863' },
               lightSquareStyle: { backgroundColor: '#f0d9b5' },
               boardStyle: {
@@ -440,14 +520,6 @@ function App() {
                 <IconBot style={{ marginRight: '4px', fontSize: '1.1em', transform: 'translateY(1px)' }} />
                 AI thinking
                 <div className="thinking-dots"><span /><span /><span /></div>
-              </div>
-            </div>
-          )}
-          {/* Paused badge */}
-          {paused && gameMode !== 'human-vs-human' && (
-            <div className="paused-overlay">
-              <div className="paused-badge">
-                <span>⏸</span> Analysis Mode
               </div>
             </div>
           )}
@@ -488,7 +560,7 @@ function App() {
               <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
               <MoveListTree
                 tree={gameTree}
-                onNavigate={chess => syncGameToNode(chess)}
+                onNavigate={chess => navigateAndPause(chess)}
               />
             </div>
 
@@ -562,14 +634,23 @@ function App() {
         <div className="panel-inner">
           <div className={`analyzing-bar ${status === 'analyzing' ? 'active' : ''}`} />
           <div className="panel-content">
-            {/* Game controls — pause + mode switch */}
-            <GameControls
+            {/* Watch controls — playback nav + pause + speed */}
+            <WatchControls
+              canGoBack={canGoBack}
+              canGoForward={canGoForward}
+              onFirst={goFirst}
+              onPrev={goPrev}
+              onNext={goNext}
+              onLast={goLast}
               gameMode={gameMode}
               paused={paused}
               isGameOver={game.isGameOver()}
+              stepMode={aiSpeed === 'step'}
               onPause={pause}
               onResume={resume}
-              onModeChange={handleModeChange}
+              onStep={handleStep}
+              aiSpeed={aiSpeed}
+              onSpeedChange={handleSpeedChange}
             />
 
             <div className="bottom-status-row">
@@ -577,7 +658,7 @@ function App() {
                 {engineName} · <strong className={`status ${status}`}>{status}</strong>
               </span>
 
-              {/* Game-over status */}
+              {/* Game-over badges */}
               {game.isCheckmate() && <span className="game-over-badge">♟ Checkmate!</span>}
               {game.isStalemate() && <span className="game-over-badge draw">½ Stalemate</span>}
               {game.isDraw() && !game.isStalemate() && <span className="game-over-badge draw">½ Draw</span>}
@@ -586,7 +667,7 @@ function App() {
               )}
 
               {lastBestMove && !game.isGameOver() && (
-                <p className="best-move">Best move: {lastBestMove}</p>
+                <p className="best-move">Best: {lastBestMove}</p>
               )}
             </div>
           </div>
