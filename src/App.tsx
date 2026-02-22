@@ -285,14 +285,16 @@ function App() {
           <div className="pv-list">
             <h3>Lines</h3>
             {lines.length === 0 && <p className="panel-copy small">No line yet. Start analysis to populate principal variations.</p>}
-            {lines.map((line) => (
+            {lines
+              .filter((line) => !line.fen || line.fen === fen)
+              .map((line) => (
               <article key={`${line.multipv}-${line.depth}-${line.pv[0] ?? 'pv'}`}>
                 <header>
                   <strong>#{line.multipv}</strong>
                   <span>D{line.depth}</span>
                   <span>{formatEvaluation(line.cp, line.mate)}</span>
                 </header>
-                <p>{pvToSan(fen, line) || line.pv.slice(0, 8).join(' ')}</p>
+                <p>{pvToSan(line.fen ?? fen, line) || line.pv.slice(0, 8).join(' ')}</p>
                 <p className="pv-uci">{line.pv.slice(0, 8).join(' ')}</p>
               </article>
             ))}

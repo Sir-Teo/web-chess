@@ -38,12 +38,21 @@ export function pvToSan(fen: string, line: EngineLine, maxMoves = 8): string {
 
   for (let index = 0; index < moves.length; index += 1) {
     const uci = moves[index]
+    if (uci.length < 4) break
+
     const from = uci.slice(0, 2)
     const to = uci.slice(2, 4)
     const promotion = uci[4]
     const moveNumber = replay.moveNumber()
     const sideToMove = replay.turn()
-    const move = replay.move({ from, to, promotion })
+
+    let move: Move | undefined
+    try {
+      move = replay.move({ from, to, promotion })
+    } catch {
+      break
+    }
+
     if (!move) break
 
     const prefix = sideToMove === 'w' ? `${moveNumber}.` : `${moveNumber}...`

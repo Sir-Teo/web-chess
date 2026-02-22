@@ -10,6 +10,7 @@ import {
 type EngineStatus = 'loading' | 'ready' | 'analyzing' | 'error'
 
 type EngineLine = {
+  fen?: string
   multipv: number
   depth: number
   cp?: number
@@ -146,6 +147,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto') {
   const workerRef = useRef<Worker | null>(null)
   const isReadyRef = useRef(false)
   const queuedAnalyzeRef = useRef<AnalyzeParams | null>(null)
+  const currentAnalysisFenRef = useRef<string>('')
   const bootSessionRef = useRef(0)
   const capabilities = useMemo<EngineCapabilities>(() => detectEngineCapabilities(), [])
   const [fallbackOverride, setFallbackOverride] = useState<{
@@ -196,6 +198,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto') {
       setStatus('analyzing')
       setLinesMap(new Map())
       setLastBestMove(null)
+      currentAnalysisFenRef.current = params.fen
 
       send('stop')
       setOption('Hash', params.hashMb)
@@ -315,7 +318,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto') {
 
         setLinesMap((previous) => {
           const next = new Map(previous)
-          next.set(parsed.multipv, parsed)
+          next.set(parsed.multipv, { ...parsed, fen: currentAnalysisFenRef.current })
           return next
         })
       }
