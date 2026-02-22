@@ -133,7 +133,7 @@ function App() {
             Hide
           </button>
         </header>
-        <div className="panel-content compact-grid">
+        <div className="panel-content top-bar-controls">
           <button type="button" onClick={resetBoard}>
             New game
           </button>
@@ -184,7 +184,7 @@ function App() {
             Hide
           </button>
         </header>
-        <div className="panel-content">
+        <div className="panel-content status-bar-content">
           <p className="panel-copy">
             Beginner mode is active. You can analyze right away, then open advanced controls when needed.
           </p>
