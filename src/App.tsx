@@ -124,6 +124,7 @@ function App() {
 
   const startLeftResize = (e: React.MouseEvent) => {
     e.preventDefault()
+    document.body.classList.add('resizing')
     const startX = e.clientX
     const startW = leftWidth
     const onMove = (mv: MouseEvent) => {
@@ -131,7 +132,7 @@ function App() {
       setLeftWidth(w < MIN_WIDTH ? 0 : Math.min(w, 600))
     }
     const onUp = () => {
-      if (leftWidth < MIN_WIDTH) setLeftWidth(0)
+      document.body.classList.remove('resizing')
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup', onUp)
     }
@@ -141,6 +142,7 @@ function App() {
 
   const startRightResize = (e: React.MouseEvent) => {
     e.preventDefault()
+    document.body.classList.add('resizing')
     const startX = e.clientX
     const startW = rightWidth
     const onMove = (mv: MouseEvent) => {
@@ -148,7 +150,7 @@ function App() {
       setRightWidth(w < MIN_WIDTH ? 0 : Math.min(w, 600))
     }
     const onUp = () => {
-      if (rightWidth < MIN_WIDTH) setRightWidth(0)
+      document.body.classList.remove('resizing')
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup', onUp)
     }
@@ -168,20 +170,17 @@ function App() {
         <div className="panel-inner">
           <div className="panel-content compact-grid">
             <button type="button" onClick={resetBoard}>
-              New game
+              <span className="btn-icon">⟳</span> New game
             </button>
             <button type="button" onClick={undoMove}>
-              Undo
+              <span className="btn-icon">↩</span> Undo
             </button>
             <button type="button" onClick={flipBoard}>
-              Flip board
-            </button>
-            <button type="button" onClick={() => setBottomPanelOpen((value) => !value)}>
-              {bottomPanelOpen ? 'Hide status' : 'Show status'}
+              <span className="btn-icon">⇅</span> Flip
             </button>
 
             <details className="settings-menu">
-              <summary>Settings</summary>
+              <summary><span className="btn-icon">⚙</span> Settings</summary>
               <div className="settings-body">
                 <label className="switch-control">
                   <input
@@ -310,7 +309,10 @@ function App() {
         >
           <span className="resize-pill" />
         </div>
-        <div className="panel-inner">
+        <div className="panel-inner" style={{ opacity: rightWidth === 0 ? 0 : 1 }}>
+          <header className="panel-header">
+            <h2>Analysis</h2>
+          </header>
           <div className="panel-content">
             <p className="panel-copy">
               Beginner mode is active. You can analyze right away, then open advanced controls when needed.
@@ -395,10 +397,8 @@ function App() {
         >
           <span className="resize-pill" />
         </div>
-        <div className="panel-inner">
-          <header className="panel-header">
-            <h2>Winrate Graph</h2>
-          </header>
+        <div className="panel-inner" style={{ opacity: leftWidth === 0 ? 0 : 1 }}>
+
           <div className="panel-content">
             <WinrateGraph points={winratePoints} />
             {winratePoints.length > 0 && (
@@ -441,11 +441,6 @@ function App() {
         </div>
       </section>
 
-      {!bottomPanelOpen && (
-        <button type="button" className="floating-toggle bottom-toggle" onClick={() => setBottomPanelOpen(true)}>
-          Show graph
-        </button>
-      )}
     </main>
   )
 }
