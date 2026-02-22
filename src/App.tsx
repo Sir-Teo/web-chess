@@ -129,13 +129,26 @@ function App() {
   }, [analyzePosition, autoAnalyze, fen, hashMb, multiPv, searchDepth, showWdl])
 
   // ── Derived move data ─────────────────────────────────
-  // Use main-line nodes for review/graph (matches old game.history() approach)
+  // mainLine: full first-child chain root→tip — used for review quality annotation
   const mainLineNodes = gameTree.mainLine()
   const mainLineMoves = mainLineNodes.slice(1).map(n => n.move!).filter(Boolean)
 
+  // currentPath: root → currently-viewed node — used for the winrate graph
+  // This re-derives on every tree navigation so the graph updates immediately.
+  const currentPathNodes = gameTree.currentPath()
+
   const reviewRows = useMemo(() => buildReviewRows(mainLineMoves, evaluationsByFen), [evaluationsByFen, mainLineMoves])
   const reviewSummary = useMemo(() => summarizeReview(reviewRows), [reviewRows])
-  const winratePoints = useMemo(() => buildWinrateSeries(mainLineMoves, evaluationsByFen), [evaluationsByFen, mainLineMoves])
+
+  // Graph uses the active path (updates when navigating the tree)
+  const winratePoints = useMemo(
+    () => {
+      const moves = currentPathNodes.slice(1).map(n => n.move!).filter(Boolean)
+      return buildWinrateSeries(moves, evaluationsByFen)
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [evaluationsByFen, gameTree.current.id],
+  )
 
   // ── Move quality → annotate tree nodes ───────────────
   useEffect(() => {
@@ -147,6 +160,7 @@ function App() {
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewRows])
+
 
   // ── AI move loop ──────────────────────────────────────
   useEffect(() => {
