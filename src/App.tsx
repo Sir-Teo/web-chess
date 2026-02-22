@@ -42,7 +42,6 @@ function App() {
     lastBestMove,
     capabilities,
     activeProfile,
-    profileMessage,
     analyzePosition,
     stop,
     setOption,
@@ -169,6 +168,10 @@ function App() {
       <section className={`panel top ${topPanelOpen ? '' : 'hidden'}`}>
         <div className="panel-inner">
           <div className="panel-content compact-grid">
+            <div className="app-brand">
+              <span className="app-brand-icon">♔</span>
+              <span className="app-brand-text">Web Chess</span>
+            </div>
             <button type="button" onClick={resetBoard}>
               <span className="btn-icon">⟳</span> New game
             </button>
@@ -178,6 +181,8 @@ function App() {
             <button type="button" onClick={flipBoard}>
               <span className="btn-icon">⇅</span> Flip
             </button>
+
+            <span className="toolbar-divider" />
 
             <details className="settings-menu">
               <summary><span className="btn-icon">⚙</span> Settings</summary>
@@ -314,24 +319,23 @@ function App() {
             <h2>Analysis</h2>
           </header>
           <div className="panel-content">
-            <p className="panel-copy">
-              Beginner mode is active. You can analyze right away, then open advanced controls when needed.
-            </p>
-
             <div className="inline-actions">
-              <button type="button" onClick={() => analyzePosition({ fen, depth: searchDepth, multiPv, hashMb, showWdl })}>
-                Analyze now
+              <button type="button" className="btn-primary" onClick={() => analyzePosition({ fen, depth: searchDepth, multiPv, hashMb, showWdl })}>
+                ▶ Analyze
               </button>
               <button type="button" onClick={stop}>
-                Stop
+                ■ Stop
               </button>
             </div>
 
-
-
             <div className="right-section">
-              <h3>Moves</h3>
-              {reviewRows.length === 0 && <p className="panel-copy small">Moves will appear here as you play.</p>}
+              <h3><span className="section-icon">♟</span> Moves</h3>
+              {reviewRows.length === 0 && (
+                <div className="empty-state">
+                  <span className="empty-state-icon">♟</span>
+                  <p>Play some moves and they'll appear here with analysis.</p>
+                </div>
+              )}
               {reviewRows.length > 0 && (
                 <ol className="moves-list">
                   {reviewRows.map((row) => (
@@ -350,20 +354,25 @@ function App() {
             </div>
 
             <div className="review-scaffold">
-              <h3>Review Snapshot</h3>
+              <h3><span className="section-icon">📊</span> Review</h3>
               <div className="review-chips">
-                <span>Best {reviewSummary.best}</span>
-                <span>Good {reviewSummary.good}</span>
-                <span>Inaccuracy {reviewSummary.inaccuracy}</span>
-                <span>Mistake {reviewSummary.mistake}</span>
-                <span>Blunder {reviewSummary.blunder}</span>
-                <span>Pending {reviewSummary.pending}</span>
+                <span className="chip-best">Best {reviewSummary.best}</span>
+                <span className="chip-good">Good {reviewSummary.good}</span>
+                <span className="chip-inaccuracy">Inaccuracy {reviewSummary.inaccuracy}</span>
+                <span className="chip-mistake">Mistake {reviewSummary.mistake}</span>
+                <span className="chip-blunder">Blunder {reviewSummary.blunder}</span>
+                <span className="chip-pending">Pending {reviewSummary.pending}</span>
               </div>
             </div>
 
             <div className="pv-list">
-              <h3>Lines</h3>
-              {lines.length === 0 && <p className="panel-copy small">No line yet. Start analysis to populate principal variations.</p>}
+              <h3><span className="section-icon">🔍</span> Lines</h3>
+              {lines.length === 0 && (
+                <div className="empty-state">
+                  <span className="empty-state-icon">🔍</span>
+                  <p>Start analysis to see principal variation lines here.</p>
+                </div>
+              )}
               {lines
                 .filter((line) => !line.fen || line.fen === fen)
                 .map((line) => (
@@ -422,21 +431,13 @@ function App() {
           <span className="resize-pill horizontal" />
         </div>
         <div className="panel-inner">
+          <div className={`analyzing-bar ${status === 'analyzing' ? 'active' : ''}`} />
           <div className="panel-content">
             <div className="status-strip">
               <span>{engineName} ({activeProfile.name})</span>
               <strong className={`status ${status}`}>{status}</strong>
             </div>
-            <p className="panel-copy small">{profileMessage}</p>
             {lastBestMove && <p className="best-move">Best move: {lastBestMove}</p>}
-            <div className="review-chips">
-              <span>Best {reviewSummary.best}</span>
-              <span>Good {reviewSummary.good}</span>
-              <span>Inaccuracy {reviewSummary.inaccuracy}</span>
-              <span>Mistake {reviewSummary.mistake}</span>
-              <span>Blunder {reviewSummary.blunder}</span>
-              <span>Pending {reviewSummary.pending}</span>
-            </div>
           </div>
         </div>
       </section>
@@ -524,7 +525,12 @@ type WinrateGraphProps = {
 
 function WinrateGraph({ points }: WinrateGraphProps) {
   if (points.length < 2) {
-    return <p className="panel-copy">Play and analyze more moves to build the live winrate graph.</p>
+    return (
+      <div className="empty-state">
+        <span className="empty-state-icon">📈</span>
+        <p>Play and analyze moves to build the live winrate graph.</p>
+      </div>
+    )
   }
 
   const width = 980
@@ -547,6 +553,12 @@ function WinrateGraph({ points }: WinrateGraphProps) {
   return (
     <div className="graph-wrap" aria-label="Real-time white winrate graph">
       <svg className="winrate-graph" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="graph-gradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(74, 124, 104, 0.25)" />
+            <stop offset="100%" stopColor="rgba(74, 124, 104, 0.02)" />
+          </linearGradient>
+        </defs>
         {markers.map((value) => {
           const y = toY(value)
           return (
