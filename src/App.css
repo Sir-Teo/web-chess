@@ -23,15 +23,21 @@
 
 .panel {
   position: absolute;
+  transition: width 180ms ease;
+  z-index: 4;
+  overflow: visible;
+}
+
+.panel-inner {
+  width: 100%;
+  height: 100%;
   border: 1px solid rgba(38, 35, 30, 0.12);
-  border-radius: 14px;
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 16px 40px rgba(32, 29, 24, 0.14);
   backdrop-filter: blur(8px);
-  transition:
-    transform 220ms ease,
-    opacity 220ms ease;
-  z-index: 4;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .panel-header {
@@ -367,40 +373,33 @@
   top: 2.6rem;
   bottom: 2.2rem;
   left: 0;
-  width: 280px;
   border-radius: 0;
+}
+
+.left .panel-inner {
   border-left: none;
   border-top: none;
   border-bottom: none;
+  border-radius: 0;
   box-shadow: 2px 0 16px rgba(32, 29, 24, 0.1);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  z-index: 3;
-}
-
-.left .panel-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0.75rem;
 }
 
 .right {
   top: 2.6rem;
   bottom: 2.2rem;
   right: 0;
-  width: 320px;
   border-radius: 0;
+}
+
+.right .panel-inner {
   border-right: none;
   border-top: none;
   border-bottom: none;
+  border-radius: 0;
   box-shadow: -2px 0 16px rgba(32, 29, 24, 0.1);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  z-index: 3;
 }
 
+.left .panel-content,
 .right .panel-content {
   flex: 1;
   overflow-y: auto;
@@ -468,23 +467,10 @@
   pointer-events: none;
 }
 
-.left.hidden {
-  transform: translateX(-100%);
-  opacity: 0;
-  pointer-events: none;
-}
-
+.left.hidden,
 .right.hidden {
-  transform: translateX(100%);
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* Always show the collapse tab even when panel is hidden */
-.left.hidden .sidebar-tab,
-.right.hidden .sidebar-tab {
+  transform: none;
   opacity: 1;
-  pointer-events: all;
 }
 
 .moves-list {
@@ -576,46 +562,41 @@
   border-bottom: none;
 }
 
-/* Sidebar collapse tabs */
-.sidebar-tab {
+/* Resize handle – always visible on inner edge of each sidebar */
+.resize-handle {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 20px;
-  height: 52px;
+  top: 0;
+  bottom: 0;
+  width: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0 8px 8px 0;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(38, 35, 30, 0.14);
-  box-shadow: 2px 2px 8px rgba(32, 29, 24, 0.12);
-  cursor: pointer;
-  font-size: 0.95rem;
-  color: #5a4f42;
-  padding: 0;
-  z-index: 10;
-  transition: background 160ms ease, color 160ms ease;
-  line-height: 1;
+  cursor: col-resize;
+  z-index: 20;
+  user-select: none;
 }
 
-.sidebar-tab:hover {
-  background: #f0ebe3;
-  color: #2a241e;
+.resize-handle-right {
+  right: -7px;
 }
 
-/* Tab on the right edge of .left panel */
-.sidebar-tab-right {
-  right: -20px;
-  border-left: none;
-  border-radius: 0 8px 8px 0;
+.resize-handle-left {
+  left: -7px;
 }
 
-/* Tab on the left edge of .right panel */
-.sidebar-tab-left {
-  left: -20px;
-  border-right: none;
-  border-radius: 8px 0 0 8px;
+.resize-pill {
+  display: block;
+  width: 4px;
+  height: 36px;
+  border-radius: 3px;
+  background: rgba(110, 135, 124, 0.35);
+  transition: background 150ms ease, height 150ms ease, width 150ms ease;
+}
+
+.resize-handle:hover .resize-pill {
+  background: rgba(110, 135, 124, 0.75);
+  height: 52px;
+  width: 5px;
 }
 
 .graph-wrap {

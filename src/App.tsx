@@ -22,8 +22,8 @@ function App() {
   const [fen, setFen] = useState(game.fen())
   const [orientation, setOrientation] = useState<Orientation>('white')
   const [topPanelOpen, setTopPanelOpen] = useState(true)
-  const [leftPanelOpen, setLeftPanelOpen] = useState(true)
-  const [rightPanelOpen, setRightPanelOpen] = useState(true)
+  const [leftWidth, setLeftWidth] = useState(280)
+  const [rightWidth, setRightWidth] = useState(320)
   const [bottomPanelOpen, setBottomPanelOpen] = useState(true)
   const [searchDepth, setSearchDepth] = useState(16)
   const [multiPv, setMultiPv] = useState(2)
@@ -118,10 +118,46 @@ function App() {
     return true
   }
 
-  const leftW = leftPanelOpen ? 280 : 0
-  const rightW = rightPanelOpen ? 320 : 0
+  const MIN_WIDTH = 60
+  const DEFAULT_LEFT = 280
+  const DEFAULT_RIGHT = 320
+
+  const startLeftResize = (e: React.MouseEvent) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = leftWidth
+    const onMove = (mv: MouseEvent) => {
+      const w = startW + mv.clientX - startX
+      setLeftWidth(w < MIN_WIDTH ? 0 : Math.min(w, 600))
+    }
+    const onUp = () => {
+      if (leftWidth < MIN_WIDTH) setLeftWidth(0)
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
+  const startRightResize = (e: React.MouseEvent) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = rightWidth
+    const onMove = (mv: MouseEvent) => {
+      const w = startW - (mv.clientX - startX)
+      setRightWidth(w < MIN_WIDTH ? 0 : Math.min(w, 600))
+    }
+    const onUp = () => {
+      if (rightWidth < MIN_WIDTH) setRightWidth(0)
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
   const boardWidth = Math.min(
-    viewport.width - leftW - rightW - 32,
+    viewport.width - leftWidth - rightWidth - 32,
     viewport.height - (bottomPanelOpen ? 120 : 50) - (topPanelOpen ? 50 : 30),
     760,
   )
@@ -179,191 +215,198 @@ function App() {
         </div>
       </section>
 
-      <aside className={`panel right ${rightPanelOpen ? '' : 'hidden'}`}>
-        <button
-          type="button"
-          className="sidebar-tab sidebar-tab-left"
-          onClick={() => setRightPanelOpen((v) => !v)}
-          aria-label={rightPanelOpen ? 'Close analysis panel' : 'Open analysis panel'}
+      <aside
+        className="panel right"
+        style={{ width: rightWidth }}
+      >
+        <div
+          className="resize-handle resize-handle-left"
+          onMouseDown={startRightResize}
+          onClick={() => { if (rightWidth === 0) setRightWidth(DEFAULT_RIGHT) }}
+          title="Drag to resize · click to expand"
         >
-          {rightPanelOpen ? '›' : '‹'}
-        </button>
-        <header className="panel-header">
-          <h2>Analysis</h2>
-        </header>
-        <div className="panel-content">
-          <p className="panel-copy">
-            Beginner mode is active. You can analyze right away, then open advanced controls when needed.
-          </p>
+          <span className="resize-pill" />
+        </div>
+        <div className="panel-inner">
+          <div className="panel-content">
+            <p className="panel-copy">
+              Beginner mode is active. You can analyze right away, then open advanced controls when needed.
+            </p>
 
-          <div className="inline-actions">
-            <button type="button" onClick={() => analyzePosition({ fen, depth: searchDepth, multiPv, hashMb, showWdl })}>
-              Analyze now
-            </button>
-            <button type="button" onClick={stop}>
-              Stop
-            </button>
-          </div>
+            <div className="inline-actions">
+              <button type="button" onClick={() => analyzePosition({ fen, depth: searchDepth, multiPv, hashMb, showWdl })}>
+                Analyze now
+              </button>
+              <button type="button" onClick={stop}>
+                Stop
+              </button>
+            </div>
 
-          <details className="settings-menu">
-            <summary>Settings</summary>
-            <div className="settings-body">
-              <label className="switch-control">
-                <input
-                  type="checkbox"
-                  checked={autoAnalyze}
-                  onChange={(event) => setAutoAnalyze(event.target.checked)}
-                />
-                <span>Auto-analyze after every move</span>
-              </label>
-              <label className="control">
-                <span>Search depth</span>
-                <input
-                  type="range"
-                  min={8}
-                  max={30}
-                  step={1}
-                  value={searchDepth}
-                  onChange={(event) => setSearchDepth(Number(event.target.value))}
-                />
-                <strong>{searchDepth}</strong>
-              </label>
-              <label className="control">
-                <span>MultiPV</span>
-                <input
-                  type="range"
-                  min={1}
-                  max={5}
-                  step={1}
-                  value={multiPv}
-                  onChange={(event) => setMultiPv(Number(event.target.value))}
-                />
-                <strong>{multiPv} lines</strong>
-              </label>
+            <details className="settings-menu">
+              <summary>Settings</summary>
+              <div className="settings-body">
+                <label className="switch-control">
+                  <input
+                    type="checkbox"
+                    checked={autoAnalyze}
+                    onChange={(event) => setAutoAnalyze(event.target.checked)}
+                  />
+                  <span>Auto-analyze after every move</span>
+                </label>
+                <label className="control">
+                  <span>Search depth</span>
+                  <input
+                    type="range"
+                    min={8}
+                    max={30}
+                    step={1}
+                    value={searchDepth}
+                    onChange={(event) => setSearchDepth(Number(event.target.value))}
+                  />
+                  <strong>{searchDepth}</strong>
+                </label>
+                <label className="control">
+                  <span>MultiPV</span>
+                  <input
+                    type="range"
+                    min={1}
+                    max={5}
+                    step={1}
+                    value={multiPv}
+                    onChange={(event) => setMultiPv(Number(event.target.value))}
+                  />
+                  <strong>{multiPv} lines</strong>
+                </label>
 
-              <details className="advanced-settings">
-                <summary>Advanced engine options</summary>
-                <div className="advanced-section">
-                  <label className="control">
-                    <span>Hash</span>
-                    <input
-                      type="range"
-                      min={16}
-                      max={512}
-                      step={16}
-                      value={hashMb}
-                      onChange={(event) => setHashMb(Number(event.target.value))}
-                    />
-                    <strong>{hashMb} MB</strong>
-                  </label>
-                  <label className="switch-control">
-                    <input type="checkbox" checked={showWdl} onChange={(event) => setShowWdl(event.target.checked)} />
-                    <span>Show WDL values</span>
-                  </label>
-                  <label className="engine-option-row profile-picker">
-                    <span>Engine profile</span>
-                    <select value={engineProfile} onChange={(event) => setEngineProfile(event.target.value as EngineProfileId)}>
-                      <option value="auto">Auto (recommended)</option>
-                      {engineProfiles.map((profile) => (
-                        <option key={profile.id} value={profile.id}>
-                          {profile.name}
-                        </option>
+                <details className="advanced-settings">
+                  <summary>Advanced engine options</summary>
+                  <div className="advanced-section">
+                    <label className="control">
+                      <span>Hash</span>
+                      <input
+                        type="range"
+                        min={16}
+                        max={512}
+                        step={16}
+                        value={hashMb}
+                        onChange={(event) => setHashMb(Number(event.target.value))}
+                      />
+                      <strong>{hashMb} MB</strong>
+                    </label>
+                    <label className="switch-control">
+                      <input type="checkbox" checked={showWdl} onChange={(event) => setShowWdl(event.target.checked)} />
+                      <span>Show WDL values</span>
+                    </label>
+                    <label className="engine-option-row profile-picker">
+                      <span>Engine profile</span>
+                      <select value={engineProfile} onChange={(event) => setEngineProfile(event.target.value as EngineProfileId)}>
+                        <option value="auto">Auto (recommended)</option>
+                        {engineProfiles.map((profile) => (
+                          <option key={profile.id} value={profile.id}>
+                            {profile.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <p className="panel-copy small">
+                      Isolation: {capabilities.crossOriginIsolated ? 'yes' : 'no'} / SharedArrayBuffer:{' '}
+                      {capabilities.sharedArrayBuffer ? 'yes' : 'no'} / Cores: {capabilities.hardwareConcurrency}
+                    </p>
+                    <div className="engine-options">
+                      <h3>Engine options</h3>
+                      {options.map((option) => (
+                        <EngineOptionControl key={option.name} option={option} onSetOption={setOption} />
                       ))}
-                    </select>
-                  </label>
-                  <p className="panel-copy small">
-                    Isolation: {capabilities.crossOriginIsolated ? 'yes' : 'no'} / SharedArrayBuffer:{' '}
-                    {capabilities.sharedArrayBuffer ? 'yes' : 'no'} / Cores: {capabilities.hardwareConcurrency}
-                  </p>
-                  <div className="engine-options">
-                    <h3>Engine options</h3>
-                    {options.map((option) => (
-                      <EngineOptionControl key={option.name} option={option} onSetOption={setOption} />
-                    ))}
+                    </div>
+                    <p className="panel-copy small">
+                      Options are discovered from Stockfish UCI output and applied live through setoption.
+                    </p>
                   </div>
-                  <p className="panel-copy small">
-                    Options are discovered from Stockfish UCI output and applied live through setoption.
-                  </p>
-                </div>
-              </details>
-            </div>
-          </details>
+                </details>
+              </div>
+            </details>
 
-          <div className="right-section">
-            <h3>Moves</h3>
-            {reviewRows.length === 0 && <p className="panel-copy small">Moves will appear here as you play.</p>}
-            {reviewRows.length > 0 && (
-              <ol className="moves-list">
-                {reviewRows.map((row) => (
-                  <li key={`${row.uci}-${row.ply}`} className={`quality-${row.quality}`}>
-                    <span className="move-index">{row.moveNumber}.</span>
-                    <strong>{row.san}</strong>
-                    <span className="move-uci">{row.uci}</span>
-                    <span className="move-quality">
-                      {row.quality}
-                      {typeof row.deltaCp === 'number' ? ` (${row.deltaCp > 0 ? '+' : ''}${row.deltaCp})` : ''}
-                    </span>
-                  </li>
+            <div className="right-section">
+              <h3>Moves</h3>
+              {reviewRows.length === 0 && <p className="panel-copy small">Moves will appear here as you play.</p>}
+              {reviewRows.length > 0 && (
+                <ol className="moves-list">
+                  {reviewRows.map((row) => (
+                    <li key={`${row.uci}-${row.ply}`} className={`quality-${row.quality}`}>
+                      <span className="move-index">{row.moveNumber}.</span>
+                      <strong>{row.san}</strong>
+                      <span className="move-uci">{row.uci}</span>
+                      <span className="move-quality">
+                        {row.quality}
+                        {typeof row.deltaCp === 'number' ? ` (${row.deltaCp > 0 ? '+' : ''}${row.deltaCp})` : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+
+            <div className="review-scaffold">
+              <h3>Review Snapshot</h3>
+              <div className="review-chips">
+                <span>Best {reviewSummary.best}</span>
+                <span>Good {reviewSummary.good}</span>
+                <span>Inaccuracy {reviewSummary.inaccuracy}</span>
+                <span>Mistake {reviewSummary.mistake}</span>
+                <span>Blunder {reviewSummary.blunder}</span>
+                <span>Pending {reviewSummary.pending}</span>
+              </div>
+            </div>
+
+            <div className="pv-list">
+              <h3>Lines</h3>
+              {lines.length === 0 && <p className="panel-copy small">No line yet. Start analysis to populate principal variations.</p>}
+              {lines
+                .filter((line) => !line.fen || line.fen === fen)
+                .map((line) => (
+                  <article key={`${line.multipv}-${line.depth}-${line.pv[0] ?? 'pv'}`}>
+                    <header>
+                      <strong>#{line.multipv}</strong>
+                      <span>D{line.depth}</span>
+                      <span>{formatEvaluation(line.cp, line.mate)}</span>
+                    </header>
+                    <p>{pvToSan(line.fen ?? fen, line) || line.pv.slice(0, 8).join(' ')}</p>
+                    <p className="pv-uci">{line.pv.slice(0, 8).join(' ')}</p>
+                  </article>
                 ))}
-              </ol>
-            )}
-          </div>
-
-          <div className="review-scaffold">
-            <h3>Review Snapshot</h3>
-            <div className="review-chips">
-              <span>Best {reviewSummary.best}</span>
-              <span>Good {reviewSummary.good}</span>
-              <span>Inaccuracy {reviewSummary.inaccuracy}</span>
-              <span>Mistake {reviewSummary.mistake}</span>
-              <span>Blunder {reviewSummary.blunder}</span>
-              <span>Pending {reviewSummary.pending}</span>
+              {lastBestMove && <p className="best-move">Best move: {lastBestMove}</p>}
             </div>
-          </div>
-
-          <div className="pv-list">
-            <h3>Lines</h3>
-            {lines.length === 0 && <p className="panel-copy small">No line yet. Start analysis to populate principal variations.</p>}
-            {lines
-              .filter((line) => !line.fen || line.fen === fen)
-              .map((line) => (
-                <article key={`${line.multipv}-${line.depth}-${line.pv[0] ?? 'pv'}`}>
-                  <header>
-                    <strong>#{line.multipv}</strong>
-                    <span>D{line.depth}</span>
-                    <span>{formatEvaluation(line.cp, line.mate)}</span>
-                  </header>
-                  <p>{pvToSan(line.fen ?? fen, line) || line.pv.slice(0, 8).join(' ')}</p>
-                  <p className="pv-uci">{line.pv.slice(0, 8).join(' ')}</p>
-                </article>
-              ))}
-            {lastBestMove && <p className="best-move">Best move: {lastBestMove}</p>}
           </div>
         </div>
       </aside>
 
 
 
-      <section className={`panel left ${leftPanelOpen ? '' : 'hidden'}`}>
-        <button
-          type="button"
-          className="sidebar-tab sidebar-tab-right"
-          onClick={() => setLeftPanelOpen((v) => !v)}
-          aria-label={leftPanelOpen ? 'Close graph panel' : 'Open graph panel'}
+      <section
+        className="panel left"
+        style={{ width: leftWidth }}
+      >
+        <div
+          className="resize-handle resize-handle-right"
+          onMouseDown={startLeftResize}
+          onClick={() => { if (leftWidth === 0) setLeftWidth(DEFAULT_LEFT) }}
+          title="Drag to resize · click to expand"
         >
-          {leftPanelOpen ? '‹' : '›'}
-        </button>
-        <header className="panel-header">
-          <h2>Winrate Graph</h2>
-        </header>
-        <div className="panel-content">
-          <WinrateGraph points={winratePoints} />
-          {winratePoints.length > 0 && (
-            <div className="graph-legend">
-              <span>White win chance</span>
-              <strong>{winratePoints[winratePoints.length - 1]!.whiteWinrate.toFixed(1)}%</strong>
-            </div>
-          )}
+          <span className="resize-pill" />
+        </div>
+        <div className="panel-inner">
+          <header className="panel-header">
+            <h2>Winrate Graph</h2>
+          </header>
+          <div className="panel-content">
+            <WinrateGraph points={winratePoints} />
+            {winratePoints.length > 0 && (
+              <div className="graph-legend">
+                <span>White win chance</span>
+                <strong>{winratePoints[winratePoints.length - 1]!.whiteWinrate.toFixed(1)}%</strong>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
