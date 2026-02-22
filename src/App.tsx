@@ -22,6 +22,7 @@ function App() {
   const [fen, setFen] = useState(game.fen())
   const [orientation, setOrientation] = useState<Orientation>('white')
   const [topPanelOpen, setTopPanelOpen] = useState(true)
+  const [leftPanelOpen, setLeftPanelOpen] = useState(true)
   const [rightPanelOpen, setRightPanelOpen] = useState(true)
   const [bottomPanelOpen, setBottomPanelOpen] = useState(true)
   const [searchDepth, setSearchDepth] = useState(16)
@@ -118,14 +119,14 @@ function App() {
   }
 
   const boardWidth = Math.min(
-    viewport.width < 900 ? viewport.width - 32 : viewport.width - (rightPanelOpen ? 420 : 80),
+    viewport.width < 900 ? viewport.width - 32 : viewport.width - (rightPanelOpen ? 420 : 80) - (leftPanelOpen ? 220 : 0),
     viewport.height - (bottomPanelOpen ? 230 : 70),
     760,
   )
 
   return (
     <main className="app-shell">
-      <section className={`panel top-left ${topPanelOpen ? '' : 'hidden'}`}>
+      <section className={`panel top ${topPanelOpen ? '' : 'hidden'}`}>
         <header className="panel-header">
           <h2>Quick Controls</h2>
           <button type="button" className="panel-toggle" onClick={() => setTopPanelOpen(false)}>
@@ -143,13 +144,13 @@ function App() {
             Flip board
           </button>
           <button type="button" onClick={() => setBottomPanelOpen((value) => !value)}>
-            {bottomPanelOpen ? 'Hide graph' : 'Show graph'}
+            {bottomPanelOpen ? 'Hide status' : 'Show status'}
           </button>
         </div>
       </section>
 
       {!topPanelOpen && (
-        <button type="button" className="floating-toggle top-left-toggle" onClick={() => setTopPanelOpen(true)}>
+        <button type="button" className="floating-toggle top-toggle" onClick={() => setTopPanelOpen(true)}>
           Show controls
         </button>
       )}
@@ -187,12 +188,6 @@ function App() {
           <p className="panel-copy">
             Beginner mode is active. You can analyze right away, then open advanced controls when needed.
           </p>
-
-          <div className="status-strip">
-            <span>{engineName} ({activeProfile.name})</span>
-            <strong className={`status ${status}`}>{status}</strong>
-          </div>
-          <p className="panel-copy small">{profileMessage}</p>
 
           <div className="inline-actions">
             <button type="button" onClick={() => analyzePosition({ fen, depth: searchDepth, multiPv, hashMb, showWdl })}>
@@ -346,10 +341,10 @@ function App() {
         </button>
       )}
 
-      <section className={`panel bottom ${bottomPanelOpen ? '' : 'hidden'}`}>
+      <section className={`panel left ${leftPanelOpen ? '' : 'hidden'}`}>
         <header className="panel-header">
           <h2>Winrate Graph</h2>
-          <button type="button" className="panel-toggle" onClick={() => setBottomPanelOpen(false)}>
+          <button type="button" className="panel-toggle" onClick={() => setLeftPanelOpen(false)}>
             Hide
           </button>
         </header>
@@ -361,6 +356,37 @@ function App() {
               <strong>{winratePoints[winratePoints.length - 1]!.whiteWinrate.toFixed(1)}%</strong>
             </div>
           )}
+        </div>
+      </section>
+
+      {!leftPanelOpen && (
+        <button type="button" className="floating-toggle left-toggle" onClick={() => setLeftPanelOpen(true)}>
+          Show graph
+        </button>
+      )}
+
+      <section className={`panel bottom ${bottomPanelOpen ? '' : 'hidden'}`}>
+        <header className="panel-header">
+          <h2>Status</h2>
+          <button type="button" className="panel-toggle" onClick={() => setBottomPanelOpen(false)}>
+            Hide
+          </button>
+        </header>
+        <div className="panel-content">
+          <div className="status-strip">
+            <span>{engineName} ({activeProfile.name})</span>
+            <strong className={`status ${status}`}>{status}</strong>
+          </div>
+          <p className="panel-copy small">{profileMessage}</p>
+          {lastBestMove && <p className="best-move">Best move: {lastBestMove}</p>}
+          <div className="review-chips">
+            <span>Best {reviewSummary.best}</span>
+            <span>Good {reviewSummary.good}</span>
+            <span>Inaccuracy {reviewSummary.inaccuracy}</span>
+            <span>Mistake {reviewSummary.mistake}</span>
+            <span>Blunder {reviewSummary.blunder}</span>
+            <span>Pending {reviewSummary.pending}</span>
+          </div>
         </div>
       </section>
 
