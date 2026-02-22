@@ -14,30 +14,40 @@ import {
 import { engineProfiles, type EngineProfileId } from './engine/profiles'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
+import { useGameTree } from './hooks/useGameTree'
 import { NewGameDialog, type GameMode, type PlayerColor } from './components/NewGameDialog'
-import { IconUsers, IconBot, IconZap, IconBarChart, IconSearch, IconSwords, IconAlert } from './components/icons'
+import { GameControls } from './components/GameControls'
+import { MoveListTree } from './components/MoveListTree'
+import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert } from './components/icons'
 import './App.css'
 
 type Orientation = 'white' | 'black'
 
 function App() {
+  // ── Chess game instance ──────────────────────────────
   const game = useMemo(() => new Chess(), [])
   const [fen, setFen] = useState(game.fen())
   const [orientation, setOrientation] = useState<Orientation>('white')
+
+  // ── Layout ───────────────────────────────────────────
   const [topPanelOpen, setTopPanelOpen] = useState(true)
   const [leftWidth, setLeftWidth] = useState(280)
   const [rightWidth, setRightWidth] = useState(320)
   const [bottomPanelOpen, setBottomPanelOpen] = useState(true)
+  const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight })
+
+  // ── Engine settings ──────────────────────────────────
   const [searchDepth, setSearchDepth] = useState(16)
   const [multiPv, setMultiPv] = useState(2)
   const [hashMb, setHashMb] = useState(64)
   const [showWdl, setShowWdl] = useState(true)
   const [autoAnalyze, setAutoAnalyze] = useState(true)
   const [engineProfile, setEngineProfile] = useState<EngineProfileId>('auto')
-  const [evaluationsByFen, setEvaluationsByFen] = useState<Map<string, EvalSnapshot>>(new Map())
-  const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight })
 
-  // ── Game mode state ───────────────────────────────
+  // ── Evaluations ──────────────────────────────────────
+  const [evaluationsByFen, setEvaluationsByFen] = useState<Map<string, EvalSnapshot>>(new Map())
+
+  // ── Game mode ────────────────────────────────────────
   const [showNewGameDialog, setShowNewGameDialog] = useState(false)
   const [gameMode, setGameMode] = useState<GameMode>('human-vs-human')
   const [playerColor, setPlayerColor] = useState<PlayerColor>('white')
@@ -45,6 +55,35 @@ function App() {
   const [isAiThinking, setIsAiThinking] = useState(false)
   const aiMoveScheduledRef = useRef(false)
 
+  // ── Pause state ──────────────────────────────────────
+  const [paused, setPaused] = useState(false)
+  const pausedRef = useRef(false)
+
+  const pause = useCallback(() => {
+    pausedRef.current = true
+    setPaused(true)
+  }, [])
+
+  const resume = useCallback(() => {
+    pausedRef.current = false
+    setPaused(false)
+    // Nudge the AI loop by clearing the scheduled flag so it retries
+    aiMoveScheduledRef.current = false
+    setFen(f => f) // trigger re-render to restart AI effect
+  }, [])
+
+  // ── Game tree ────────────────────────────────────────
+  const gameTree = useGameTree()
+
+  // Called whenever we need to sync chess game state from a tree navigation
+  const syncGameToNode = useCallback((chess: Chess) => {
+    // Reconstruct our shared `game` from the given chess instance
+    game.load(chess.fen())
+    setFen(chess.fen())
+    aiMoveScheduledRef.current = false
+  }, [game])
+
+  // ── Engine ───────────────────────────────────────────
   const {
     status,
     engineName,
@@ -52,7 +91,6 @@ function App() {
     lines,
     lastBestMove,
     capabilities,
-    activeProfile,
     analyzePosition,
     stop,
     setOption,
@@ -60,63 +98,122 @@ function App() {
 
   const aiPlayer = useAiPlayer()
 
-  const moveHistory = game.history({ verbose: true })
-  const primaryLine = lines.find((line) => line.multipv === 1) ?? lines[0]
+  const primaryLine = lines.find(l => l.multipv === 1) ?? lines[0]
 
+  // ── Capture evaluations ──────────────────────────────
   useEffect(() => {
     const cp = scoreToCp(primaryLine?.cp, primaryLine?.mate)
     if (typeof cp !== 'number') return
-
     queueMicrotask(() => {
-      setEvaluationsByFen((previous) => {
-        const current = previous.get(fen)
-        if (current?.cp === cp) return previous
-        const next = new Map(previous)
+      setEvaluationsByFen(prev => {
+        const cur = prev.get(fen)
+        if (cur?.cp === cp) return prev
+        const next = new Map(prev)
         next.set(fen, { cp })
         return next
       })
     })
   }, [fen, primaryLine?.cp, primaryLine?.mate])
 
+  // ── Viewport ─────────────────────────────────────────
   useEffect(() => {
     const onResize = () => setViewport({ width: window.innerWidth, height: window.innerHeight })
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
+  // ── Auto-analyze ─────────────────────────────────────
   useEffect(() => {
     if (!autoAnalyze) return
-    analyzePosition({
-      fen,
-      depth: searchDepth,
-      multiPv,
-      hashMb,
-      showWdl,
-    })
+    analyzePosition({ fen, depth: searchDepth, multiPv, hashMb, showWdl })
   }, [analyzePosition, autoAnalyze, fen, hashMb, multiPv, searchDepth, showWdl])
 
-  const reviewRows = useMemo(() => buildReviewRows(moveHistory, evaluationsByFen), [evaluationsByFen, moveHistory])
+  // ── Derived move data ─────────────────────────────────
+  // Use main-line nodes for review/graph (matches old game.history() approach)
+  const mainLineNodes = gameTree.mainLine()
+  const mainLineMoves = mainLineNodes.slice(1).map(n => n.move!).filter(Boolean)
+
+  const reviewRows = useMemo(() => buildReviewRows(mainLineMoves, evaluationsByFen), [evaluationsByFen, mainLineMoves])
   const reviewSummary = useMemo(() => summarizeReview(reviewRows), [reviewRows])
-  const winratePoints = useMemo(
-    () => buildWinrateSeries(moveHistory, evaluationsByFen),
-    [evaluationsByFen, moveHistory],
-  )
+  const winratePoints = useMemo(() => buildWinrateSeries(mainLineMoves, evaluationsByFen), [evaluationsByFen, mainLineMoves])
 
-  const undoMove = () => {
-    // Undo the last two moves in AI mode (AI + human)
-    if (gameMode !== 'human-vs-human') {
-      game.undo() // undo AI move
+  // ── Move quality → annotate tree nodes ───────────────
+  useEffect(() => {
+    reviewRows.forEach((row, idx) => {
+      const node = mainLineNodes[idx + 1]
+      if (node && row.quality && row.quality !== 'pending') {
+        gameTree.setNodeQuality(node.id, row.quality)
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewRows])
+
+  // ── AI move loop ──────────────────────────────────────
+  useEffect(() => {
+    if (game.isGameOver()) return
+    if (aiPlayer.status !== 'ready') return
+    if (aiMoveScheduledRef.current) return
+    if (pausedRef.current) return
+
+    const currentTurn = game.turn()
+    const isAiTurn =
+      gameMode === 'ai-vs-ai' ||
+      (gameMode === 'human-vs-ai' && currentTurn !== playerColor[0])
+
+    if (!isAiTurn) return
+
+    aiMoveScheduledRef.current = true
+    setIsAiThinking(true)
+
+    aiPlayer.requestMove(fen, aiDifficulty).then(uciMove => {
+      aiMoveScheduledRef.current = false
+      setIsAiThinking(false)
+
+      if (!uciMove || game.isGameOver() || pausedRef.current) return
+
+      const from = uciMove.slice(0, 2) as Square
+      const to = uciMove.slice(2, 4) as Square
+      const promoChar = uciMove[4]
+      const promotion = promoChar ? promoChar as 'q' | 'r' | 'b' | 'n' : undefined
+
+      const move = game.move({ from, to, promotion })
+      if (move) {
+        const newFen = game.fen()
+        setFen(newFen)
+        gameTree.addMove(move, newFen)
+      }
+    })
+  }, [fen, gameMode, playerColor, aiDifficulty, aiPlayer, aiPlayer.status, game, gameTree, paused])
+
+  // ── Human move ────────────────────────────────────────
+  const onPieceDrop = (sourceSquare: Square, targetSquare: Square, pieceType: string) => {
+    if (gameMode === 'human-vs-ai' && isAiThinking) return false
+    if (gameMode === 'human-vs-ai' && game.turn() !== playerColor[0]) return false
+    if (paused && gameMode !== 'human-vs-human') {
+      // In paused AI mode only allow moves if we're manually analyzing
     }
-    game.undo() // undo human move
-    setFen(game.fen())
-    aiMoveScheduledRef.current = false
+
+    const promotion = pieceType.toLowerCase().endsWith('p') && ['1', '8'].includes(targetSquare[1]) ? 'q' : undefined
+    const move = game.move({ from: sourceSquare, to: targetSquare, promotion })
+    if (!move) return false
+
+    const newFen = game.fen()
+    setFen(newFen)
+    gameTree.addMove(move, newFen)
+    return true
   }
 
-
-  const flipBoard = () => {
-    setOrientation((value) => (value === 'white' ? 'black' : 'white'))
+  // ── Undo ──────────────────────────────────────────────
+  const undoMove = () => {
+    const chess = gameTree.goBack()
+    if (chess) {
+      game.load(chess.fen())
+      setFen(chess.fen())
+      aiMoveScheduledRef.current = false
+    }
   }
 
+  // ── New game ──────────────────────────────────────────
   const openNewGameDialog = () => setShowNewGameDialog(true)
 
   const handleNewGameStart = useCallback(
@@ -127,73 +224,38 @@ function App() {
       setAiDifficulty(difficulty)
       aiPlayer.setDifficulty(difficulty)
 
-      // Reset the board
       game.reset()
-      setFen(game.fen())
+      const startFen = game.fen()
+      setFen(startFen)
       setIsAiThinking(false)
       aiMoveScheduledRef.current = false
       setEvaluationsByFen(new Map())
+      pausedRef.current = false
+      setPaused(false)
+      gameTree.reset()
 
-      // Orient board toward human player
-      if (mode === 'human-vs-ai') {
-        setOrientation(color)
-      } else {
-        setOrientation('white')
-      }
+      setOrientation(mode === 'human-vs-ai' ? color : 'white')
     },
-    [aiPlayer, game],
+    [aiPlayer, game, gameTree],
   )
 
-  const onPieceDrop = (sourceSquare: Square, targetSquare: Square, pieceType: string) => {
-    // In AI mode, only allow moves on the human's turn
-    if (gameMode === 'human-vs-ai' && isAiThinking) return false
-    if (gameMode === 'human-vs-ai' && game.turn() !== playerColor[0]) return false
+  // ── Mode switch mid-game (preserves board, changes who controls) ──────────
+  const handleModeChange = useCallback((mode: GameMode) => {
+    setGameMode(mode)
+    aiMoveScheduledRef.current = false
+    // If resuming from pause after mode switch, auto-resume
+    if (pausedRef.current && mode === 'human-vs-human') {
+      pausedRef.current = false
+      setPaused(false)
+    }
+    // Kick the AI loop
+    setFen(f => f)
+  }, [])
 
-    const promotion = pieceType.toLowerCase().endsWith('p') && ['1', '8'].includes(targetSquare[1]) ? 'q' : undefined
-    const move = game.move({
-      from: sourceSquare,
-      to: targetSquare,
-      promotion,
-    })
+  // ── Flip / controls ───────────────────────────────────
+  const flipBoard = () => setOrientation(v => v === 'white' ? 'black' : 'white')
 
-    if (!move) return false
-
-    setFen(game.fen())
-    return true
-  }
-
-  // ── AI move loop ─────────────────────────────────
-  useEffect(() => {
-    if (game.isGameOver()) return
-    if (aiPlayer.status !== 'ready') return
-    if (aiMoveScheduledRef.current) return
-
-    const currentTurn = game.turn() // 'w' | 'b'
-    const isAiTurn =
-      gameMode === 'ai-vs-ai' ||
-      (gameMode === 'human-vs-ai' && currentTurn !== playerColor[0])
-
-    if (!isAiTurn) return
-
-    aiMoveScheduledRef.current = true
-    setIsAiThinking(true)
-
-    aiPlayer.requestMove(fen, aiDifficulty).then((uciMove) => {
-      aiMoveScheduledRef.current = false
-      setIsAiThinking(false)
-
-      if (!uciMove || game.isGameOver()) return
-
-      const from = uciMove.slice(0, 2) as Square
-      const to = uciMove.slice(2, 4) as Square
-      const promoChar = uciMove[4]
-      const promotion = promoChar ? promoChar as 'q' | 'r' | 'b' | 'n' : undefined
-
-      const move = game.move({ from, to, promotion })
-      if (move) setFen(game.fen())
-    })
-  }, [fen, gameMode, playerColor, aiDifficulty, aiPlayer, aiPlayer.status, game])
-
+  // ── Resize ────────────────────────────────────────────
   const MIN_WIDTH = 60
   const DEFAULT_LEFT = 280
   const DEFAULT_RIGHT = 320
@@ -240,8 +302,10 @@ function App() {
     760,
   )
 
+  // ─────────────────────────────────────────────────────
   return (
     <main className="app-shell">
+      {/* ── Top bar ── */}
       <section className={`panel top ${topPanelOpen ? '' : 'hidden'}`}>
         <div className="panel-inner">
           <div className="panel-content compact-grid">
@@ -268,32 +332,20 @@ function App() {
                   <input
                     type="checkbox"
                     checked={autoAnalyze}
-                    onChange={(event) => setAutoAnalyze(event.target.checked)}
+                    onChange={e => setAutoAnalyze(e.target.checked)}
                   />
                   <span>Auto-analyze after every move</span>
                 </label>
                 <label className="control">
                   <span>Search depth</span>
-                  <input
-                    type="range"
-                    min={8}
-                    max={30}
-                    step={1}
-                    value={searchDepth}
-                    onChange={(event) => setSearchDepth(Number(event.target.value))}
-                  />
+                  <input type="range" min={8} max={30} step={1} value={searchDepth}
+                    onChange={e => setSearchDepth(Number(e.target.value))} />
                   <strong>{searchDepth}</strong>
                 </label>
                 <label className="control">
                   <span>MultiPV</span>
-                  <input
-                    type="range"
-                    min={1}
-                    max={5}
-                    step={1}
-                    value={multiPv}
-                    onChange={(event) => setMultiPv(Number(event.target.value))}
-                  />
+                  <input type="range" min={1} max={5} step={1} value={multiPv}
+                    onChange={e => setMultiPv(Number(e.target.value))} />
                   <strong>{multiPv} lines</strong>
                 </label>
 
@@ -302,28 +354,22 @@ function App() {
                   <div className="advanced-section">
                     <label className="control">
                       <span>Hash</span>
-                      <input
-                        type="range"
-                        min={16}
-                        max={512}
-                        step={16}
-                        value={hashMb}
-                        onChange={(event) => setHashMb(Number(event.target.value))}
-                      />
+                      <input type="range" min={16} max={512} step={16} value={hashMb}
+                        onChange={e => setHashMb(Number(e.target.value))} />
                       <strong>{hashMb} MB</strong>
                     </label>
                     <label className="switch-control">
-                      <input type="checkbox" checked={showWdl} onChange={(event) => setShowWdl(event.target.checked)} />
+                      <input type="checkbox" checked={showWdl}
+                        onChange={e => setShowWdl(e.target.checked)} />
                       <span>Show WDL values</span>
                     </label>
                     <label className="engine-option-row profile-picker">
                       <span>Engine profile</span>
-                      <select value={engineProfile} onChange={(event) => setEngineProfile(event.target.value as EngineProfileId)}>
+                      <select value={engineProfile}
+                        onChange={e => setEngineProfile(e.target.value as EngineProfileId)}>
                         <option value="auto">Auto (recommended)</option>
-                        {engineProfiles.map((profile) => (
-                          <option key={profile.id} value={profile.id}>
-                            {profile.name}
-                          </option>
+                        {engineProfiles.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
                         ))}
                       </select>
                     </label>
@@ -333,12 +379,12 @@ function App() {
                     </p>
                     <div className="engine-options">
                       <h3>Engine options</h3>
-                      {options.map((option) => (
+                      {options.map(option => (
                         <EngineOptionControl key={option.name} option={option} onSetOption={setOption} />
                       ))}
                     </div>
                     <p className="panel-copy small">
-                      Options are discovered from Stockfish UCI output and applied live through setoption.
+                      Options discovered from Stockfish UCI output and applied live.
                     </p>
                   </div>
                 </details>
@@ -346,17 +392,13 @@ function App() {
             </details>
           </div>
         </div>
-        <div
-          className="resize-handle resize-handle-bottom"
-          onClick={() => setTopPanelOpen(!topPanelOpen)}
-          title="Toggle top bar"
-        >
+        <div className="resize-handle resize-handle-bottom"
+          onClick={() => setTopPanelOpen(!topPanelOpen)} title="Toggle top bar">
           <span className="resize-pill horizontal" />
         </div>
       </section>
 
-
-
+      {/* ── Board ── */}
       <section className="board-stage" aria-label="Chessboard">
         <div className="board-wrap" style={{ position: 'relative' }}>
           <Chessboard
@@ -377,35 +419,39 @@ function App() {
               },
             }}
           />
+          {/* AI thinking badge */}
           {isAiThinking && (
             <div className="ai-thinking-overlay">
               <div className="ai-thinking-badge">
-                <IconBot style={{ marginRight: '6px', fontSize: '1.2em', transform: 'translateY(2px)' }} /> AI thinking
-                <div className="thinking-dots">
-                  <span /><span /><span />
-                </div>
+                <IconBot style={{ marginRight: '4px', fontSize: '1.1em', transform: 'translateY(1px)' }} />
+                AI thinking
+                <div className="thinking-dots"><span /><span /><span /></div>
+              </div>
+            </div>
+          )}
+          {/* Paused badge */}
+          {paused && gameMode !== 'human-vs-human' && (
+            <div className="paused-overlay">
+              <div className="paused-badge">
+                <span>⏸</span> Analysis Mode
               </div>
             </div>
           )}
         </div>
       </section>
 
+      {/* ── New Game Dialog ── */}
       <NewGameDialog
         open={showNewGameDialog}
         onStart={handleNewGameStart}
         onCancel={() => setShowNewGameDialog(false)}
       />
 
-      <aside
-        className="panel right"
-        style={{ width: rightWidth }}
-      >
-        <div
-          className="resize-handle resize-handle-left"
-          onMouseDown={startRightResize}
+      {/* ── Right panel ── */}
+      <aside className="panel right" style={{ width: rightWidth }}>
+        <div className="resize-handle resize-handle-left" onMouseDown={startRightResize}
           onClick={() => { if (rightWidth === 0) setRightWidth(DEFAULT_RIGHT) }}
-          title="Drag to resize · click to expand"
-        >
+          title="Drag to resize · click to expand">
           <span className="resize-pill" />
         </div>
         <div className="panel-inner" style={{ opacity: rightWidth === 0 ? 0 : 1 }}>
@@ -414,7 +460,8 @@ function App() {
           </header>
           <div className="panel-content">
             <div className="inline-actions">
-              <button type="button" className="btn-primary" onClick={() => analyzePosition({ fen, depth: searchDepth, multiPv, hashMb, showWdl })}>
+              <button type="button" className="btn-primary"
+                onClick={() => analyzePosition({ fen, depth: searchDepth, multiPv, hashMb, showWdl })}>
                 ▶ Analyze
               </button>
               <button type="button" onClick={stop}>
@@ -422,33 +469,18 @@ function App() {
               </button>
             </div>
 
+            {/* Move list (tree) */}
             <div className="right-section">
-              <h3><span className="section-icon" style={{ transform: 'translateY(2px)' }}><IconSwords /></span> Moves</h3>
-              {reviewRows.length === 0 && (
-                <div className="empty-state">
-                  <span className="empty-state-icon"><IconSwords /></span>
-                  <p>Play some moves and they'll appear here with analysis.</p>
-                </div>
-              )}
-              {reviewRows.length > 0 && (
-                <ol className="moves-list">
-                  {reviewRows.map((row) => (
-                    <li key={`${row.uci}-${row.ply}`} className={`quality-${row.quality}`}>
-                      <span className="move-index">{row.moveNumber}.</span>
-                      <strong>{row.san}</strong>
-                      <span className="move-uci">{row.uci}</span>
-                      <span className="move-quality">
-                        {row.quality}
-                        {typeof row.deltaCp === 'number' ? ` (${row.deltaCp > 0 ? '+' : ''}${row.deltaCp})` : ''}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              )}
+              <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
+              <MoveListTree
+                tree={gameTree}
+                onNavigate={chess => syncGameToNode(chess)}
+              />
             </div>
 
+            {/* Review summary */}
             <div className="review-scaffold">
-              <h3><span className="section-icon" style={{ transform: 'translateY(2px)' }}><IconBarChart /></span> Review</h3>
+              <h3><span className="section-icon"><IconBarChart /></span> Review</h3>
               <div className="review-chips">
                 <span className="chip-best">Best {reviewSummary.best}</span>
                 <span className="chip-good">Good {reviewSummary.good}</span>
@@ -459,8 +491,9 @@ function App() {
               </div>
             </div>
 
+            {/* Engine lines */}
             <div className="pv-list">
-              <h3><span className="section-icon" style={{ transform: 'translateY(2px)' }}><IconSearch /></span> Lines</h3>
+              <h3><span className="section-icon"><IconSearch /></span> Lines</h3>
               {lines.length === 0 && (
                 <div className="empty-state">
                   <span className="empty-state-icon"><IconSearch /></span>
@@ -468,8 +501,8 @@ function App() {
                 </div>
               )}
               {lines
-                .filter((line) => !line.fen || line.fen === fen)
-                .map((line) => (
+                .filter(l => !l.fen || l.fen === fen)
+                .map(line => (
                   <article key={`${line.multipv}-${line.depth}-${line.pv[0] ?? 'pv'}`}>
                     <header>
                       <strong>#{line.multipv}</strong>
@@ -486,22 +519,14 @@ function App() {
         </div>
       </aside>
 
-
-
-      <section
-        className="panel left"
-        style={{ width: leftWidth }}
-      >
-        <div
-          className="resize-handle resize-handle-right"
-          onMouseDown={startLeftResize}
+      {/* ── Left panel (winrate graph) ── */}
+      <section className="panel left" style={{ width: leftWidth }}>
+        <div className="resize-handle resize-handle-right" onMouseDown={startLeftResize}
           onClick={() => { if (leftWidth === 0) setLeftWidth(DEFAULT_LEFT) }}
-          title="Drag to resize · click to expand"
-        >
+          title="Drag to resize · click to expand">
           <span className="resize-pill" />
         </div>
         <div className="panel-inner" style={{ opacity: leftWidth === 0 ? 0 : 1 }}>
-
           <div className="panel-content">
             <WinrateGraph points={winratePoints} />
             {winratePoints.length > 0 && (
@@ -514,46 +539,52 @@ function App() {
         </div>
       </section>
 
-
-
+      {/* ── Bottom bar ── */}
       <section className={`panel bottom ${bottomPanelOpen ? '' : 'hidden'}`}>
-        <div
-          className="resize-handle resize-handle-top"
-          onClick={() => setBottomPanelOpen(!bottomPanelOpen)}
-          title="Toggle bottom bar"
-        >
+        <div className="resize-handle resize-handle-top"
+          onClick={() => setBottomPanelOpen(!bottomPanelOpen)} title="Toggle bottom bar">
           <span className="resize-pill horizontal" />
         </div>
         <div className="panel-inner">
           <div className={`analyzing-bar ${status === 'analyzing' ? 'active' : ''}`} />
           <div className="panel-content">
-            <div className="status-strip">
-              <span>{engineName} ({activeProfile.name})</span>
-              <strong className={`status ${status}`}>{status}</strong>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {/* Game mode badge */}
-              <span className="game-mode-badge" style={{ gap: '4px' }}>
-                {gameMode === 'human-vs-human' && <><IconUsers style={{ fontSize: '1.1em', transform: 'translateY(1px)' }} /> Human vs Human</>}
-                {gameMode === 'human-vs-ai' && <><IconBot style={{ fontSize: '1.1em', transform: 'translateY(1px)' }} /> vs AI · {playerColor === 'white' ? '♔ White' : '♚ Black'}</>}
-                {gameMode === 'ai-vs-ai' && <><IconZap style={{ fontSize: '1.1em', transform: 'translateY(1px)' }} /> AI vs AI</>}
+            {/* Game controls — pause + mode switch */}
+            <GameControls
+              gameMode={gameMode}
+              paused={paused}
+              isGameOver={game.isGameOver()}
+              onPause={pause}
+              onResume={resume}
+              onModeChange={handleModeChange}
+            />
+
+            <div className="bottom-status-row">
+              <span className="bottom-engine-info">
+                {engineName} · <strong className={`status ${status}`}>{status}</strong>
               </span>
+
               {/* Game-over status */}
-              {game.isCheckmate() && <span className="game-over-badge"><IconSwords style={{ marginRight: '4px', transform: 'translateY(1px)' }} />Checkmate!</span>}
+              {game.isCheckmate() && <span className="game-over-badge">♟ Checkmate!</span>}
               {game.isStalemate() && <span className="game-over-badge draw">½ Stalemate</span>}
               {game.isDraw() && !game.isStalemate() && <span className="game-over-badge draw">½ Draw</span>}
-              {game.isCheck() && !game.isCheckmate() && <span className="game-over-badge check"><IconAlert style={{ marginRight: '4px', transform: 'translateY(1px)' }} />Check!</span>}
-              {lastBestMove && !game.isGameOver() && <p className="best-move">Best move: {lastBestMove}</p>}
+              {game.isCheck() && !game.isCheckmate() && (
+                <span className="game-over-badge check"><IconAlert style={{ marginRight: '3px' }} />Check!</span>
+              )}
+
+              {lastBestMove && !game.isGameOver() && (
+                <p className="best-move">Best move: {lastBestMove}</p>
+              )}
             </div>
           </div>
         </div>
       </section>
-
     </main>
   )
 }
 
 export default App
+
+// ── Engine option control ──────────────────────────────────────────────────────
 
 type EngineOptionControlProps = {
   option: {
@@ -583,15 +614,12 @@ function EngineOptionControl({ option, onSetOption }: EngineOptionControlProps) 
     const checked = value === 'true'
     return (
       <label className="switch-control">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={(event) => {
-            const nextValue = event.target.checked ? 'true' : 'false'
-            setValue(nextValue)
-            onSetOption(option.name, event.target.checked)
-          }}
-        />
+        <input type="checkbox" checked={checked}
+          onChange={e => {
+            const nv = e.target.checked ? 'true' : 'false'
+            setValue(nv)
+            onSetOption(option.name, e.target.checked)
+          }} />
         <span>{option.name}</span>
       </label>
     )
@@ -601,14 +629,9 @@ function EngineOptionControl({ option, onSetOption }: EngineOptionControlProps) 
     return (
       <label className="engine-option-row">
         <span>{option.name}</span>
-        <input
-          type="number"
-          min={option.min}
-          max={option.max}
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          onBlur={() => onSetOption(option.name, Number(value))}
-        />
+        <input type="number" min={option.min} max={option.max} value={value}
+          onChange={e => setValue(e.target.value)}
+          onBlur={() => onSetOption(option.name, Number(value))} />
       </label>
     )
   }
@@ -616,19 +639,16 @@ function EngineOptionControl({ option, onSetOption }: EngineOptionControlProps) 
   return (
     <label className="engine-option-row">
       <span>{option.name}</span>
-      <input
-        type="text"
-        value={value}
-        onChange={(event) => setValue(event.target.value)}
-        onBlur={() => onSetOption(option.name, value)}
-      />
+      <input type="text" value={value}
+        onChange={e => setValue(e.target.value)}
+        onBlur={() => onSetOption(option.name, value)} />
     </label>
   )
 }
 
-type WinrateGraphProps = {
-  points: WinratePoint[]
-}
+// ── Winrate graph ──────────────────────────────────────────────────────────────
+
+type WinrateGraphProps = { points: WinratePoint[] }
 
 function WinrateGraph({ points }: WinrateGraphProps) {
   if (points.length < 2) {
@@ -647,18 +667,18 @@ function WinrateGraph({ points }: WinrateGraphProps) {
   const innerHeight = height - pad * 2
   const lastIndex = points.length - 1
 
-  const toX = (index: number) => pad + (index / lastIndex) * innerWidth
-  const toY = (whiteWinrate: number) => pad + ((100 - whiteWinrate) / 100) * innerHeight
+  const toX = (i: number) => pad + (i / lastIndex) * innerWidth
+  const toY = (wr: number) => pad + ((100 - wr) / 100) * innerHeight
 
   const path = points
-    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${toX(point.index).toFixed(2)} ${toY(point.whiteWinrate).toFixed(2)}`)
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(p.index).toFixed(2)} ${toY(p.whiteWinrate).toFixed(2)}`)
     .join(' ')
 
   const area = `${path} L ${toX(points[lastIndex]!.index).toFixed(2)} ${(height - pad).toFixed(2)} L ${toX(points[0]!.index).toFixed(2)} ${(height - pad).toFixed(2)} Z`
   const markers = [0, 25, 50, 75, 100]
 
   return (
-    <div className="graph-wrap" aria-label="Real-time white winrate graph">
+    <div className="graph-wrap" aria-label="White winrate graph">
       <svg className="winrate-graph" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
         <defs>
           <linearGradient id="graph-gradient" x1="0" y1="0" x2="0" y2="1">
@@ -666,14 +686,12 @@ function WinrateGraph({ points }: WinrateGraphProps) {
             <stop offset="100%" stopColor="rgba(63, 185, 80, 0.02)" />
           </linearGradient>
         </defs>
-        {markers.map((value) => {
-          const y = toY(value)
+        {markers.map(v => {
+          const y = toY(v)
           return (
-            <g key={value}>
+            <g key={v}>
               <line x1={pad} x2={width - pad} y1={y} y2={y} className="graph-grid-line" />
-              <text x={pad + 4} y={y - 2} className="graph-grid-text">
-                {value}%
-              </text>
+              <text x={pad + 4} y={y - 2} className="graph-grid-text">{v}%</text>
             </g>
           )
         })}

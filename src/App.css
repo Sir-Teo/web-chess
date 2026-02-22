@@ -1325,3 +1325,295 @@
     gap: 0.28rem;
   }
 }
+
+/* ═══════════════════════════════════════════════════
+   Responsive
+   ═══════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .left {
+    width: 220px;
+  }
+
+  .right {
+    width: 220px;
+  }
+
+  .app-brand-text {
+    display: none;
+  }
+
+  .bottom .panel-content {
+    flex-wrap: wrap;
+    gap: 0.28rem;
+  }
+
+  .game-controls {
+    flex-wrap: wrap;
+    gap: 0.28rem;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   Game Controls (pause + mode-switch pills)
+   ═══════════════════════════════════════════════════ */
+.game-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.gc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0.65rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 140ms ease;
+  white-space: nowrap;
+}
+
+.gc-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
+}
+
+.gc-btn-pause:hover {
+  border-color: rgba(210, 153, 34, 0.40);
+  color: var(--warning);
+  background: var(--warning-subtle);
+}
+
+.gc-btn-resume {
+  border-color: var(--border-accent);
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.gc-btn-resume:hover {
+  background: rgba(63, 185, 80, 0.20);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.gc-icon {
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+/* Mode pills */
+.gc-mode-pills {
+  display: flex;
+  gap: 0.2rem;
+  align-items: center;
+  padding: 0.15rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+}
+
+.gc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 130ms ease;
+  white-space: nowrap;
+}
+
+.gc-pill:hover {
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+}
+
+.gc-pill-active {
+  background: var(--accent-subtle) !important;
+  border-color: var(--border-accent) !important;
+  color: var(--accent) !important;
+}
+
+.gc-pill-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+  opacity: 0.8;
+}
+
+/* Bottom status row */
+.bottom-status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.bottom-engine-info {
+  font-size: 0.71rem;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* ═══════════════════════════════════════════════════
+   Paused overlay (above board)
+   ═══════════════════════════════════════════════════ */
+.paused-overlay {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 8;
+}
+
+.paused-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: var(--radius-pill);
+  background: rgba(13, 17, 23, 0.88);
+  border: 1px solid var(--warning-subtle);
+  color: var(--warning);
+  font-size: 0.73rem;
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-md);
+  animation: badge-pop 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ═══════════════════════════════════════════════════
+   Move List Tree
+   ═══════════════════════════════════════════════════ */
+.mtree-scroll {
+  max-height: 260px;
+  overflow-y: auto;
+  outline: none;
+  padding: 0.1rem 0;
+}
+
+/* A row = move number + white half + black half */
+.mtree-row {
+  display: grid;
+  grid-template-columns: 2rem 1fr 1fr;
+  align-items: center;
+  gap: 0.15rem;
+  margin-bottom: 0.12rem;
+}
+
+.mtree-num {
+  font-size: 0.67rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  font-family: 'JetBrains Mono', monospace;
+  padding-left: 0.1rem;
+  user-select: none;
+}
+
+.mtree-spacer {
+  display: block;
+}
+
+/* A clickable move chip */
+.mtree-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.22rem 0.4rem;
+  border-radius: var(--radius-xs);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 100ms ease, color 100ms ease, border-color 100ms ease;
+}
+
+.mtree-chip:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+
+/* Currently viewed node */
+.mtree-chip-active {
+  background: var(--accent-subtle) !important;
+  border-color: var(--border-accent) !important;
+  color: var(--accent) !important;
+  font-weight: 700 !important;
+}
+
+/* Quality dot on chip */
+.mtree-quality-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* Inherit dot color from quality classes */
+.quality-best .mtree-quality-dot {
+  background: var(--quality-best);
+}
+
+.quality-good .mtree-quality-dot {
+  background: var(--quality-good);
+}
+
+.quality-inaccuracy .mtree-quality-dot {
+  background: var(--quality-inaccuracy);
+}
+
+.quality-mistake .mtree-quality-dot {
+  background: var(--quality-mistake);
+}
+
+.quality-blunder .mtree-quality-dot {
+  background: var(--quality-blunder);
+}
+
+/* Variation branch row */
+.mtree-variation {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.06rem 0 0.06rem 2rem;
+  border-left: 2px solid var(--border-subtle);
+  margin: 0.1rem 0 0.1rem 0.9rem;
+  flex-wrap: wrap;
+}
+
+.mtree-var-marker {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-right: 0.15rem;
+  flex-shrink: 0;
+}
+
+.mtree-chip-compact {
+  padding: 0.15rem 0.35rem;
+  font-size: 0.71rem;
+  width: auto;
+}
