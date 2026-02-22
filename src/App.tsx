@@ -386,11 +386,15 @@ function App() {
     document.addEventListener('mouseup', onUp)
   }
 
-  const boardWidth = Math.min(
-    viewport.width - leftWidth - rightWidth - 32,
-    viewport.height - (bottomPanelOpen ? 120 : 50) - (topPanelOpen ? 50 : 30),
-    760,
-  )
+  const isMobile = viewport.width <= 900
+
+  const boardWidth = isMobile
+    ? Math.min(viewport.width - 32, viewport.height - (bottomPanelOpen ? 150 : 80) - (topPanelOpen ? 60 : 30))
+    : Math.min(
+      viewport.width - leftWidth - rightWidth - 32,
+      viewport.height - (bottomPanelOpen ? 120 : 50) - (topPanelOpen ? 50 : 30),
+      760,
+    )
 
   // ─────────────────────────────────────────────────────
   return (
@@ -552,7 +556,7 @@ function App() {
           title="Drag to resize · click to expand">
           <span className="resize-pill" />
         </div>
-        <div className="panel-inner" style={{ opacity: rightWidth === 0 ? 0 : 1 }}>
+        <div className="panel-inner" style={{ opacity: (!isMobile && rightWidth === 0) ? 0 : 1 }}>
           <header className="panel-header">
             <h2>Analysis</h2>
           </header>
@@ -624,7 +628,7 @@ function App() {
           title="Drag to resize · click to expand">
           <span className="resize-pill" />
         </div>
-        <div className="panel-inner" style={{ opacity: leftWidth === 0 ? 0 : 1 }}>
+        <div className="panel-inner" style={{ opacity: (!isMobile && leftWidth === 0) ? 0 : 1 }}>
           <div className="panel-content">
             <WinrateGraph points={winratePoints} />
             {winratePoints.length > 0 && (
