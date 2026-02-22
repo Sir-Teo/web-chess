@@ -38,6 +38,31 @@ type AnalyzeParams = {
   showWdl: boolean
 }
 
+function isRemoteWorkerPath(path: string): boolean {
+  return /^https?:\/\//i.test(path)
+}
+
+function deriveWasmPath(workerPath: string): string {
+  return workerPath.replace(/\.js($|\?)/, '.wasm$1')
+}
+
+function createEngineWorker(profile: EngineProfile): { worker: Worker; blobUrl?: string } {
+  if (!isRemoteWorkerPath(profile.workerPath)) {
+    return { worker: new Worker(profile.workerPath) }
+  }
+
+  // Browser Worker constructor requires same-origin script URLs.
+  // For remote profiles, bootstrap a same-origin blob worker and import remote Stockfish from inside it.
+  const wasmPath = deriveWasmPath(profile.workerPath)
+  const bootstrap = `self.window = self; importScripts(${JSON.stringify(profile.workerPath)});`
+  const blobUrl = URL.createObjectURL(new Blob([bootstrap], { type: 'application/javascript' }))
+
+  return {
+    worker: new Worker(`${blobUrl}#${encodeURIComponent(wasmPath)},worker`),
+    blobUrl,
+  }
+}
+
 function parseInfoLine(line: string): EngineLine | null {
   const parts = line.trim().split(/\s+/)
   if (parts[0] !== 'info') return null
@@ -178,7 +203,45 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto') {
     bootSessionRef.current += 1
     const currentSession = bootSessionRef.current
     const profile = resolvedProfile
-    const worker = new Worker(profile.workerPath)
+    let worker: Worker | null = null
+    let workerBlobUrl: string | undefined
+
+    const applyFallback = (reason: string) => {
+      if (profile.id !== 'lite-single-local') {
+        const fallback = resolveProfile('lite-single-local', capabilities)
+        setFallbackOverride({
+          selected: selectedProfile,
+          profile: 'lite-single-local',
+        })
+        setProfileMessage(`${reason} Falling back to ${fallback.name}.`)
+      } else {
+        setProfileMessage(reason)
+      }
+    }
+
+    try {
+      const created = createEngineWorker(profile)
+      worker = created.worker
+      workerBlobUrl = created.blobUrl
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : `Unknown worker boot error while loading ${profile.name}.`
+      queueMicrotask(() => {
+        if (currentSession !== bootSessionRef.current) return
+        setStatus('error')
+        applyFallback(`Failed to start ${profile.name}: ${message}.`)
+      })
+      return () => {
+        if (workerBlobUrl) URL.revokeObjectURL(workerBlobUrl)
+      }
+    }
+
+    if (!worker) {
+      return () => {
+        if (workerBlobUrl) URL.revokeObjectURL(workerBlobUrl)
+      }
+    }
+
     workerRef.current = worker
     isReadyRef.current = false
 
@@ -265,6 +328,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto') {
       worker.terminate()
       workerRef.current = null
       isReadyRef.current = false
+      if (workerBlobUrl) URL.revokeObjectURL(workerBlobUrl)
     }
   }, [analyzePosition, capabilities, resolvedProfile, selectedProfile, send])
 
