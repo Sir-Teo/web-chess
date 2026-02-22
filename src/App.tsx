@@ -1,6 +1,7 @@
 import { Chess, type Square } from 'chess.js'
 import { useEffect, useMemo, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
+import { engineProfiles, type EngineProfileId } from './engine/profiles'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import './App.css'
 
@@ -19,9 +20,22 @@ function App() {
   const [hashMb, setHashMb] = useState(64)
   const [showWdl, setShowWdl] = useState(true)
   const [autoAnalyze, setAutoAnalyze] = useState(true)
+  const [engineProfile, setEngineProfile] = useState<EngineProfileId>('auto')
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight })
 
-  const { status, engineName, options, lines, lastBestMove, analyzePosition, stop, setOption } = useStockfishEngine()
+  const {
+    status,
+    engineName,
+    options,
+    lines,
+    lastBestMove,
+    capabilities,
+    activeProfile,
+    profileMessage,
+    analyzePosition,
+    stop,
+    setOption,
+  } = useStockfishEngine(engineProfile)
 
   const moveHistory = game.history({ verbose: true })
 
@@ -142,9 +156,10 @@ function App() {
           </p>
 
           <div className="status-strip">
-            <span>{engineName}</span>
+            <span>{engineName} ({activeProfile.name})</span>
             <strong className={`status ${status}`}>{status}</strong>
           </div>
+          <p className="panel-copy small">{profileMessage}</p>
 
           <div className="inline-actions">
             <button type="button" onClick={() => analyzePosition({ fen, depth: searchDepth, multiPv, hashMb, showWdl })}>
@@ -212,6 +227,21 @@ function App() {
                 <input type="checkbox" checked={showWdl} onChange={(event) => setShowWdl(event.target.checked)} />
                 <span>Show WDL values</span>
               </label>
+              <label className="engine-option-row profile-picker">
+                <span>Engine profile</span>
+                <select value={engineProfile} onChange={(event) => setEngineProfile(event.target.value as EngineProfileId)}>
+                  <option value="auto">Auto (recommended)</option>
+                  {engineProfiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="panel-copy small">
+                Isolation: {capabilities.crossOriginIsolated ? 'yes' : 'no'} / SharedArrayBuffer:{' '}
+                {capabilities.sharedArrayBuffer ? 'yes' : 'no'} / Cores: {capabilities.hardwareConcurrency}
+              </p>
               <div className="engine-options">
                 <h3>Engine options</h3>
                 {options.map((option) => (

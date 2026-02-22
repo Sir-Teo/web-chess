@@ -1,4 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  detectEngineCapabilities,
+  resolveProfile,
+  type EngineCapabilities,
+  type EngineProfile,
+  type EngineProfileId,
+} from '../engine/profiles'
 
 type EngineStatus = 'loading' | 'ready' | 'analyzing' | 'error'
 
@@ -30,8 +37,6 @@ type AnalyzeParams = {
   hashMb: number
   showWdl: boolean
 }
-
-const ENGINE_WORKER_PATH = `${import.meta.env.BASE_URL}engine/stockfish-18-lite-single.js`
 
 function parseInfoLine(line: string): EngineLine | null {
   const parts = line.trim().split(/\s+/)
@@ -99,16 +104,33 @@ function withUciValue(value: string | number | boolean): string {
   return String(value)
 }
 
-export function useStockfishEngine() {
+export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto') {
   const workerRef = useRef<Worker | null>(null)
   const isReadyRef = useRef(false)
   const queuedAnalyzeRef = useRef<AnalyzeParams | null>(null)
+  const bootSessionRef = useRef(0)
+  const capabilities = useMemo<EngineCapabilities>(() => detectEngineCapabilities(), [])
+  const [fallbackOverride, setFallbackOverride] = useState<{
+    selected: EngineProfileId
+    profile: Exclude<EngineProfileId, 'auto'>
+  } | null>(null)
 
   const [status, setStatus] = useState<EngineStatus>('loading')
   const [engineName, setEngineName] = useState('Stockfish')
   const [lastBestMove, setLastBestMove] = useState<string | null>(null)
   const [linesMap, setLinesMap] = useState<Map<number, EngineLine>>(new Map())
   const [options, setOptions] = useState<EngineOption[]>([])
+  const [activeProfile, setActiveProfile] = useState<EngineProfile>(() => resolveProfile(selectedProfile, capabilities))
+  const [profileMessage, setProfileMessage] = useState<string>('')
+
+  const resolvedProfile = useMemo(
+    () =>
+      resolveProfile(
+        fallbackOverride?.selected === selectedProfile ? fallbackOverride.profile : selectedProfile,
+        capabilities,
+      ),
+    [capabilities, fallbackOverride, selectedProfile],
+  )
 
   const send = useCallback((command: string) => {
     workerRef.current?.postMessage(command)
@@ -153,10 +175,25 @@ export function useStockfishEngine() {
   }, [send])
 
   useEffect(() => {
-    const worker = new Worker(ENGINE_WORKER_PATH)
+    bootSessionRef.current += 1
+    const currentSession = bootSessionRef.current
+    const profile = resolvedProfile
+    const worker = new Worker(profile.workerPath)
     workerRef.current = worker
+    isReadyRef.current = false
+
+    queueMicrotask(() => {
+      if (currentSession !== bootSessionRef.current) return
+      setStatus('loading')
+      setLinesMap(new Map())
+      setOptions([])
+      setEngineName('Stockfish')
+      setActiveProfile(profile)
+      setProfileMessage(profile.description)
+    })
 
     worker.onmessage = (event: MessageEvent<string>) => {
+      if (currentSession !== bootSessionRef.current) return
       const line = event.data
 
       if (line.startsWith('id name ')) {
@@ -207,7 +244,19 @@ export function useStockfishEngine() {
     }
 
     worker.onerror = () => {
+      if (currentSession !== bootSessionRef.current) return
       setStatus('error')
+
+      if (profile.id !== 'lite-single-local') {
+        const fallback = resolveProfile('lite-single-local', capabilities)
+        setFallbackOverride({
+          selected: selectedProfile,
+          profile: 'lite-single-local',
+        })
+        setProfileMessage(`Failed to load ${profile.name}; fell back to ${fallback.name}.`)
+      } else {
+        setProfileMessage(`Failed to load ${profile.name}.`)
+      }
     }
 
     send('uci')
@@ -217,7 +266,7 @@ export function useStockfishEngine() {
       workerRef.current = null
       isReadyRef.current = false
     }
-  }, [analyzePosition, send])
+  }, [analyzePosition, capabilities, resolvedProfile, selectedProfile, send])
 
   const lines = useMemo(
     () =>
@@ -234,6 +283,9 @@ export function useStockfishEngine() {
     options,
     lines,
     lastBestMove,
+    capabilities,
+    activeProfile,
+    profileMessage,
     analyzePosition,
     stop,
     setOption,

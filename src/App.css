@@ -212,6 +212,20 @@
   font-size: 0.78rem;
 }
 
+.engine-option-row select {
+  width: 164px;
+  padding: 0.35rem 0.4rem;
+  border-radius: 7px;
+  border: 1px solid rgba(50, 44, 36, 0.2);
+  background: #fff;
+  color: #2f2922;
+  font-size: 0.78rem;
+}
+
+.profile-picker {
+  margin-bottom: 0.35rem;
+}
+
 .pv-list {
   margin-top: 0.75rem;
 }
