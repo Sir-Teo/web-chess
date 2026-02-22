@@ -1,42 +1,235 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+.app-shell {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(229, 194, 142, 0.15), transparent 30%),
+    radial-gradient(circle at 85% 85%, rgba(118, 143, 136, 0.15), transparent 28%),
+    #f4efe6;
+  overflow: hidden;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.board-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
+.board-wrap {
+  border-radius: 18px;
+}
+
+.panel {
+  position: absolute;
+  border: 1px solid rgba(38, 35, 30, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 16px 40px rgba(32, 29, 24, 0.14);
+  backdrop-filter: blur(8px);
+  transition:
+    transform 220ms ease,
+    opacity 220ms ease;
+  z-index: 4;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem 0.9rem;
+  border-bottom: 1px solid rgba(26, 24, 20, 0.08);
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  color: #2a241e;
+}
+
+.panel-content {
+  padding: 0.9rem;
+}
+
+.panel-copy {
+  margin: 0 0 0.8rem;
+  color: #51483d;
+  font-size: 0.88rem;
+}
+
+.panel-copy.small {
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+}
+
+.panel-toggle,
+.advanced-toggle,
+.floating-toggle,
+.panel button {
+  border-radius: 10px;
+  border: 1px solid rgba(50, 45, 38, 0.2);
+  background: #fff;
+  color: #2f2924;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.panel-toggle,
+.advanced-toggle {
+  padding: 0.4rem 0.65rem;
+}
+
+.compact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.compact-grid button {
+  padding: 0.65rem 0.5rem;
+}
+
+.control {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.7rem;
+}
+
+.control span {
+  font-size: 0.8rem;
+  color: #655948;
+}
+
+.control strong {
+  font-size: 0.82rem;
+  color: #2b261f;
+}
+
+.control input[type='range'] {
+  accent-color: #6e877c;
+}
+
+.advanced-section {
+  padding-top: 0.35rem;
+  border-top: 1px solid rgba(44, 38, 30, 0.1);
+}
+
+.top-left {
+  top: 0.9rem;
+  left: 0.9rem;
+  width: min(330px, calc(100vw - 1.8rem));
+}
+
+.right {
+  top: 0.9rem;
+  right: 0.9rem;
+  width: min(340px, calc(100vw - 1.8rem));
+  max-height: calc(100vh - 7rem);
+  overflow: auto;
+}
+
+.bottom {
+  left: 50%;
+  bottom: 0.9rem;
+  transform: translateX(-50%);
+  width: min(950px, calc(100vw - 1.8rem));
+}
+
+.bottom.hidden {
+  transform: translate(-50%, 145%);
+}
+
+.top-left.hidden {
+  transform: translateY(-122%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.right.hidden {
+  transform: translateX(116%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.move-list ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+  gap: 0.4rem;
+}
+
+.move-list li {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.45rem;
+  border-radius: 8px;
+  border: 1px solid rgba(44, 38, 30, 0.1);
+  background: rgba(250, 247, 242, 0.8);
+}
+
+.move-list li span {
+  font-size: 0.75rem;
+  color: #5f5446;
+}
+
+.move-list li strong {
+  font-size: 0.9rem;
+  color: #28231d;
+}
+
+.floating-toggle {
+  position: absolute;
+  z-index: 5;
+  padding: 0.5rem 0.75rem;
+  background: #fff;
+}
+
+.top-left-toggle {
+  top: 0.9rem;
+  left: 0.9rem;
+}
+
+.right-toggle {
+  right: 0.9rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.bottom-toggle {
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .top-left {
+    width: calc(100vw - 1.8rem);
   }
-  to {
-    transform: rotate(360deg);
+
+  .right {
+    top: auto;
+    right: 0.9rem;
+    bottom: 4.4rem;
+    max-height: 45vh;
+    width: min(400px, calc(100vw - 1.8rem));
   }
-}
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
+  .right.hidden {
+    transform: translateY(115%);
   }
-}
 
-.card {
-  padding: 2em;
-}
+  .right-toggle {
+    top: auto;
+    bottom: 4.4rem;
+    transform: none;
+  }
 
-.read-the-docs {
-  color: #888;
+  .bottom {
+    width: calc(100vw - 1.8rem);
+  }
 }
