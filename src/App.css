@@ -348,6 +348,7 @@
   border-right: none;
   border-top: none;
   box-shadow: 0 2px 12px rgba(32, 29, 24, 0.08);
+  overflow: visible;
 }
 
 .top .panel-header {
@@ -416,6 +417,7 @@
   border-right: none;
   border-bottom: none;
   box-shadow: 0 -2px 12px rgba(32, 29, 24, 0.08);
+  overflow: visible;
 }
 
 .bottom .panel-header {
@@ -562,18 +564,23 @@
   border-bottom: none;
 }
 
-/* Resize handle – always visible on inner edge of each sidebar */
+/* Resize handle shared base */
 .resize-handle {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: col-resize;
   z-index: 20;
   user-select: none;
+}
+
+/* Vertical handles (Left/Right panels) */
+.resize-handle-left,
+.resize-handle-right {
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  cursor: col-resize;
 }
 
 .resize-handle-right {
@@ -582,6 +589,23 @@
 
 .resize-handle-left {
   left: -7px;
+}
+
+/* Horizontal handles (Top/Bottom panels) */
+.resize-handle-top,
+.resize-handle-bottom {
+  left: 0;
+  right: 0;
+  height: 14px;
+  cursor: pointer;
+}
+
+.resize-handle-top {
+  top: -7px;
+}
+
+.resize-handle-bottom {
+  bottom: -7px;
 }
 
 .resize-pill {
@@ -593,10 +617,25 @@
   transition: background 150ms ease, height 150ms ease, width 150ms ease;
 }
 
+.resize-pill.horizontal {
+  width: 36px;
+  height: 4px;
+}
+
 .resize-handle:hover .resize-pill {
   background: rgba(110, 135, 124, 0.75);
+}
+
+.resize-handle-left:hover .resize-pill,
+.resize-handle-right:hover .resize-pill {
   height: 52px;
   width: 5px;
+}
+
+.resize-handle-top:hover .resize-pill,
+.resize-handle-bottom:hover .resize-pill {
+  width: 52px;
+  height: 5px;
 }
 
 .graph-wrap {

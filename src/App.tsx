@@ -165,82 +165,20 @@ function App() {
   return (
     <main className="app-shell">
       <section className={`panel top ${topPanelOpen ? '' : 'hidden'}`}>
-        <header className="panel-header">
-          <h2>Quick Controls</h2>
-          <button type="button" className="panel-toggle" onClick={() => setTopPanelOpen(false)}>
-            Hide
-          </button>
-        </header>
-        <div className="panel-content compact-grid">
-          <button type="button" onClick={resetBoard}>
-            New game
-          </button>
-          <button type="button" onClick={undoMove}>
-            Undo
-          </button>
-          <button type="button" onClick={flipBoard}>
-            Flip board
-          </button>
-          <button type="button" onClick={() => setBottomPanelOpen((value) => !value)}>
-            {bottomPanelOpen ? 'Hide status' : 'Show status'}
-          </button>
-        </div>
-      </section>
-
-      {!topPanelOpen && (
-        <button type="button" className="floating-toggle top-toggle" onClick={() => setTopPanelOpen(true)}>
-          Show controls
-        </button>
-      )}
-
-      <section className="board-stage" aria-label="Chessboard">
-        <div className="board-wrap">
-          <Chessboard
-            options={{
-              position: fen,
-              boardOrientation: orientation,
-              onPieceDrop: ({ sourceSquare, targetSquare, piece }) => {
-                if (!targetSquare) return false
-                return onPieceDrop(sourceSquare as Square, targetSquare as Square, piece.pieceType)
-              },
-              darkSquareStyle: { backgroundColor: '#6f695f' },
-              lightSquareStyle: { backgroundColor: '#e7dbc9' },
-              boardStyle: {
-                width: `${Math.max(260, boardWidth)}px`,
-                borderRadius: 14,
-                boxShadow: '0 24px 60px rgba(0, 0, 0, 0.25)',
-              },
-            }}
-          />
-        </div>
-      </section>
-
-      <aside
-        className="panel right"
-        style={{ width: rightWidth }}
-      >
-        <div
-          className="resize-handle resize-handle-left"
-          onMouseDown={startRightResize}
-          onClick={() => { if (rightWidth === 0) setRightWidth(DEFAULT_RIGHT) }}
-          title="Drag to resize · click to expand"
-        >
-          <span className="resize-pill" />
-        </div>
         <div className="panel-inner">
-          <div className="panel-content">
-            <p className="panel-copy">
-              Beginner mode is active. You can analyze right away, then open advanced controls when needed.
-            </p>
-
-            <div className="inline-actions">
-              <button type="button" onClick={() => analyzePosition({ fen, depth: searchDepth, multiPv, hashMb, showWdl })}>
-                Analyze now
-              </button>
-              <button type="button" onClick={stop}>
-                Stop
-              </button>
-            </div>
+          <div className="panel-content compact-grid">
+            <button type="button" onClick={resetBoard}>
+              New game
+            </button>
+            <button type="button" onClick={undoMove}>
+              Undo
+            </button>
+            <button type="button" onClick={flipBoard}>
+              Flip board
+            </button>
+            <button type="button" onClick={() => setBottomPanelOpen((value) => !value)}>
+              {bottomPanelOpen ? 'Hide status' : 'Show status'}
+            </button>
 
             <details className="settings-menu">
               <summary>Settings</summary>
@@ -325,6 +263,69 @@ function App() {
                 </details>
               </div>
             </details>
+          </div>
+        </div>
+        <div
+          className="resize-handle resize-handle-bottom"
+          onClick={() => setTopPanelOpen(!topPanelOpen)}
+          title="Toggle top bar"
+        >
+          <span className="resize-pill horizontal" />
+        </div>
+      </section>
+
+
+
+      <section className="board-stage" aria-label="Chessboard">
+        <div className="board-wrap">
+          <Chessboard
+            options={{
+              position: fen,
+              boardOrientation: orientation,
+              onPieceDrop: ({ sourceSquare, targetSquare, piece }) => {
+                if (!targetSquare) return false
+                return onPieceDrop(sourceSquare as Square, targetSquare as Square, piece.pieceType)
+              },
+              darkSquareStyle: { backgroundColor: '#6f695f' },
+              lightSquareStyle: { backgroundColor: '#e7dbc9' },
+              boardStyle: {
+                width: `${Math.max(260, boardWidth)}px`,
+                borderRadius: 14,
+                boxShadow: '0 24px 60px rgba(0, 0, 0, 0.25)',
+              },
+            }}
+          />
+        </div>
+      </section>
+
+      <aside
+        className="panel right"
+        style={{ width: rightWidth }}
+      >
+        <div
+          className="resize-handle resize-handle-left"
+          onMouseDown={startRightResize}
+          onClick={() => { if (rightWidth === 0) setRightWidth(DEFAULT_RIGHT) }}
+          title="Drag to resize · click to expand"
+        >
+          <span className="resize-pill" />
+        </div>
+        <div className="panel-inner">
+          <div className="panel-content">
+            <p className="panel-copy">
+              Beginner mode is active. You can analyze right away, then open advanced controls when needed.
+            </p>
+
+            <div className="inline-actions">
+              <button type="button" onClick={() => analyzePosition({ fen, depth: searchDepth, multiPv, hashMb, showWdl })}>
+                Analyze now
+              </button>
+              <button type="button" onClick={stop}>
+                Stop
+              </button>
+            </div>
+
+
 
             <div className="right-section">
               <h3>Moves</h3>
@@ -413,26 +414,29 @@ function App() {
 
 
       <section className={`panel bottom ${bottomPanelOpen ? '' : 'hidden'}`}>
-        <header className="panel-header">
-          <h2>Status</h2>
-          <button type="button" className="panel-toggle" onClick={() => setBottomPanelOpen(false)}>
-            Hide
-          </button>
-        </header>
-        <div className="panel-content">
-          <div className="status-strip">
-            <span>{engineName} ({activeProfile.name})</span>
-            <strong className={`status ${status}`}>{status}</strong>
-          </div>
-          <p className="panel-copy small">{profileMessage}</p>
-          {lastBestMove && <p className="best-move">Best move: {lastBestMove}</p>}
-          <div className="review-chips">
-            <span>Best {reviewSummary.best}</span>
-            <span>Good {reviewSummary.good}</span>
-            <span>Inaccuracy {reviewSummary.inaccuracy}</span>
-            <span>Mistake {reviewSummary.mistake}</span>
-            <span>Blunder {reviewSummary.blunder}</span>
-            <span>Pending {reviewSummary.pending}</span>
+        <div
+          className="resize-handle resize-handle-top"
+          onClick={() => setBottomPanelOpen(!bottomPanelOpen)}
+          title="Toggle bottom bar"
+        >
+          <span className="resize-pill horizontal" />
+        </div>
+        <div className="panel-inner">
+          <div className="panel-content">
+            <div className="status-strip">
+              <span>{engineName} ({activeProfile.name})</span>
+              <strong className={`status ${status}`}>{status}</strong>
+            </div>
+            <p className="panel-copy small">{profileMessage}</p>
+            {lastBestMove && <p className="best-move">Best move: {lastBestMove}</p>}
+            <div className="review-chips">
+              <span>Best {reviewSummary.best}</span>
+              <span>Good {reviewSummary.good}</span>
+              <span>Inaccuracy {reviewSummary.inaccuracy}</span>
+              <span>Mistake {reviewSummary.mistake}</span>
+              <span>Blunder {reviewSummary.blunder}</span>
+              <span>Pending {reviewSummary.pending}</span>
+            </div>
           </div>
         </div>
       </section>
