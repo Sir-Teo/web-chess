@@ -120,7 +120,7 @@ function App() {
 
   const boardWidth = Math.min(
     viewport.width < 900 ? viewport.width - 32 : viewport.width - (rightPanelOpen ? 420 : 80) - (leftPanelOpen ? 220 : 0),
-    viewport.height - (bottomPanelOpen ? 230 : 70),
+    viewport.height - (bottomPanelOpen ? 120 : 50) - (topPanelOpen ? 50 : 30),
     760,
   )
 
@@ -133,7 +133,7 @@ function App() {
             Hide
           </button>
         </header>
-        <div className="panel-content top-bar-controls">
+        <div className="panel-content compact-grid">
           <button type="button" onClick={resetBoard}>
             New game
           </button>
@@ -184,7 +184,7 @@ function App() {
             Hide
           </button>
         </header>
-        <div className="panel-content status-bar-content">
+        <div className="panel-content">
           <p className="panel-copy">
             Beginner mode is active. You can analyze right away, then open advanced controls when needed.
           </p>
