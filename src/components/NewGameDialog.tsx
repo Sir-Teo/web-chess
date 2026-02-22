@@ -16,6 +16,7 @@ type Props = {
 }
 
 import { useState } from 'react'
+import { IconUsers, IconBot, IconZap, IconSwords } from './icons'
 import './NewGameDialog.css'
 
 const DIFFICULTY_DESCRIPTIONS: Record<AiDifficulty, string> = {
@@ -29,10 +30,12 @@ const DIFFICULTY_DESCRIPTIONS: Record<AiDifficulty, string> = {
     8: 'Maximum engine strength',
 }
 
-const MODE_OPTIONS: { value: GameMode; icon: string; label: string; description: string }[] = [
-    { value: 'human-vs-human', icon: '👥', label: 'Human vs Human', description: 'Pass & play on the same device' },
-    { value: 'human-vs-ai', icon: '🤖', label: 'Human vs AI', description: 'Challenge Stockfish 18' },
-    { value: 'ai-vs-ai', icon: '⚡', label: 'AI vs AI', description: 'Watch engines battle it out' },
+import * as React from 'react'
+
+const MODE_OPTIONS: { value: GameMode; icon: React.ReactNode; label: string; description: string }[] = [
+    { value: 'human-vs-human', icon: <IconUsers />, label: 'Human vs Human', description: 'Pass & play on the same device' },
+    { value: 'human-vs-ai', icon: <IconBot />, label: 'Human vs AI', description: 'Challenge Stockfish 18' },
+    { value: 'ai-vs-ai', icon: <IconZap />, label: 'AI vs AI', description: 'Watch engines battle it out' },
 ]
 
 export function NewGameDialog({ open, onStart, onCancel }: Props) {
@@ -53,7 +56,7 @@ export function NewGameDialog({ open, onStart, onCancel }: Props) {
         <div className="dialog-backdrop" onClick={onCancel}>
             <div className="dialog-panel" onClick={(e) => e.stopPropagation()}>
                 <header className="dialog-header">
-                    <span className="dialog-icon">♟</span>
+                    <span className="dialog-icon"><IconSwords /></span>
                     <h2>New Game</h2>
                 </header>
 

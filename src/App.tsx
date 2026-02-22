@@ -15,6 +15,7 @@ import { engineProfiles, type EngineProfileId } from './engine/profiles'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
 import { NewGameDialog, type GameMode, type PlayerColor } from './components/NewGameDialog'
+import { IconUsers, IconBot, IconZap, IconBarChart, IconSearch, IconSwords, IconAlert } from './components/icons'
 import './App.css'
 
 type Orientation = 'white' | 'black'
@@ -379,7 +380,7 @@ function App() {
           {isAiThinking && (
             <div className="ai-thinking-overlay">
               <div className="ai-thinking-badge">
-                🤖 AI thinking
+                <IconBot style={{ marginRight: '6px', fontSize: '1.2em', transform: 'translateY(2px)' }} /> AI thinking
                 <div className="thinking-dots">
                   <span /><span /><span />
                 </div>
@@ -422,10 +423,10 @@ function App() {
             </div>
 
             <div className="right-section">
-              <h3><span className="section-icon">♟</span> Moves</h3>
+              <h3><span className="section-icon" style={{ transform: 'translateY(2px)' }}><IconSwords /></span> Moves</h3>
               {reviewRows.length === 0 && (
                 <div className="empty-state">
-                  <span className="empty-state-icon">♟</span>
+                  <span className="empty-state-icon"><IconSwords /></span>
                   <p>Play some moves and they'll appear here with analysis.</p>
                 </div>
               )}
@@ -447,7 +448,7 @@ function App() {
             </div>
 
             <div className="review-scaffold">
-              <h3><span className="section-icon">📊</span> Review</h3>
+              <h3><span className="section-icon" style={{ transform: 'translateY(2px)' }}><IconBarChart /></span> Review</h3>
               <div className="review-chips">
                 <span className="chip-best">Best {reviewSummary.best}</span>
                 <span className="chip-good">Good {reviewSummary.good}</span>
@@ -459,10 +460,10 @@ function App() {
             </div>
 
             <div className="pv-list">
-              <h3><span className="section-icon">🔍</span> Lines</h3>
+              <h3><span className="section-icon" style={{ transform: 'translateY(2px)' }}><IconSearch /></span> Lines</h3>
               {lines.length === 0 && (
                 <div className="empty-state">
-                  <span className="empty-state-icon">🔍</span>
+                  <span className="empty-state-icon"><IconSearch /></span>
                   <p>Start analysis to see principal variation lines here.</p>
                 </div>
               )}
@@ -532,16 +533,16 @@ function App() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               {/* Game mode badge */}
-              <span className="game-mode-badge">
-                {gameMode === 'human-vs-human' && '👥 Human vs Human'}
-                {gameMode === 'human-vs-ai' && `🤖 vs AI · ${playerColor === 'white' ? '♔ White' : '♚ Black'}`}
-                {gameMode === 'ai-vs-ai' && '⚡ AI vs AI'}
+              <span className="game-mode-badge" style={{ gap: '4px' }}>
+                {gameMode === 'human-vs-human' && <><IconUsers style={{ fontSize: '1.1em', transform: 'translateY(1px)' }} /> Human vs Human</>}
+                {gameMode === 'human-vs-ai' && <><IconBot style={{ fontSize: '1.1em', transform: 'translateY(1px)' }} /> vs AI · {playerColor === 'white' ? '♔ White' : '♚ Black'}</>}
+                {gameMode === 'ai-vs-ai' && <><IconZap style={{ fontSize: '1.1em', transform: 'translateY(1px)' }} /> AI vs AI</>}
               </span>
               {/* Game-over status */}
-              {game.isCheckmate() && <span className="game-over-badge">♛ Checkmate!</span>}
+              {game.isCheckmate() && <span className="game-over-badge"><IconSwords style={{ marginRight: '4px', transform: 'translateY(1px)' }} />Checkmate!</span>}
               {game.isStalemate() && <span className="game-over-badge draw">½ Stalemate</span>}
               {game.isDraw() && !game.isStalemate() && <span className="game-over-badge draw">½ Draw</span>}
-              {game.isCheck() && !game.isCheckmate() && <span className="game-over-badge check">⚠ Check!</span>}
+              {game.isCheck() && !game.isCheckmate() && <span className="game-over-badge check"><IconAlert style={{ marginRight: '4px', transform: 'translateY(1px)' }} />Check!</span>}
               {lastBestMove && !game.isGameOver() && <p className="best-move">Best move: {lastBestMove}</p>}
             </div>
           </div>
