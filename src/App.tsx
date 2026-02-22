@@ -2,12 +2,14 @@ import { Chess, type Square } from 'chess.js'
 import { useEffect, useMemo, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
 import {
+  buildWinrateSeries,
   buildReviewRows,
   formatEvaluation,
   pvToSan,
   scoreToCp,
   summarizeReview,
   type EvalSnapshot,
+  type WinratePoint,
 } from './engine/analysis'
 import { engineProfiles, type EngineProfileId } from './engine/profiles'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
@@ -22,7 +24,6 @@ function App() {
   const [topPanelOpen, setTopPanelOpen] = useState(true)
   const [rightPanelOpen, setRightPanelOpen] = useState(true)
   const [bottomPanelOpen, setBottomPanelOpen] = useState(true)
-  const [showAdvanced, setShowAdvanced] = useState(false)
   const [searchDepth, setSearchDepth] = useState(16)
   const [multiPv, setMultiPv] = useState(2)
   const [hashMb, setHashMb] = useState(64)
@@ -83,6 +84,10 @@ function App() {
 
   const reviewRows = useMemo(() => buildReviewRows(moveHistory, evaluationsByFen), [evaluationsByFen, moveHistory])
   const reviewSummary = useMemo(() => summarizeReview(reviewRows), [reviewRows])
+  const winratePoints = useMemo(
+    () => buildWinrateSeries(moveHistory, evaluationsByFen),
+    [evaluationsByFen, moveHistory],
+  )
 
   const undoMove = () => {
     game.undo()
@@ -138,7 +143,7 @@ function App() {
             Flip board
           </button>
           <button type="button" onClick={() => setBottomPanelOpen((value) => !value)}>
-            {bottomPanelOpen ? 'Hide moves' : 'Show moves'}
+            {bottomPanelOpen ? 'Hide graph' : 'Show graph'}
           </button>
         </div>
       </section>
@@ -198,111 +203,112 @@ function App() {
             </button>
           </div>
 
-          <label className="switch-control">
-            <input
-              type="checkbox"
-              checked={autoAnalyze}
-              onChange={(event) => setAutoAnalyze(event.target.checked)}
-            />
-            <span>Auto-analyze after every move</span>
-          </label>
-
-          <label className="control">
-            <span>Search depth</span>
-            <input
-              type="range"
-              min={8}
-              max={30}
-              step={1}
-              value={searchDepth}
-              onChange={(event) => setSearchDepth(Number(event.target.value))}
-            />
-            <strong>{searchDepth}</strong>
-          </label>
-
-          <label className="control">
-            <span>MultiPV</span>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              step={1}
-              value={multiPv}
-              onChange={(event) => setMultiPv(Number(event.target.value))}
-            />
-            <strong>{multiPv} lines</strong>
-          </label>
-
-          <button type="button" className="advanced-toggle" onClick={() => setShowAdvanced((value) => !value)}>
-            {showAdvanced ? 'Hide advanced settings' : 'Show advanced settings'}
-          </button>
-
-          {showAdvanced && (
-            <div className="advanced-section">
+          <details className="settings-menu">
+            <summary>Settings</summary>
+            <div className="settings-body">
+              <label className="switch-control">
+                <input
+                  type="checkbox"
+                  checked={autoAnalyze}
+                  onChange={(event) => setAutoAnalyze(event.target.checked)}
+                />
+                <span>Auto-analyze after every move</span>
+              </label>
               <label className="control">
-                <span>Hash</span>
+                <span>Search depth</span>
                 <input
                   type="range"
-                  min={16}
-                  max={512}
-                  step={16}
-                  value={hashMb}
-                  onChange={(event) => setHashMb(Number(event.target.value))}
+                  min={8}
+                  max={30}
+                  step={1}
+                  value={searchDepth}
+                  onChange={(event) => setSearchDepth(Number(event.target.value))}
                 />
-                <strong>{hashMb} MB</strong>
+                <strong>{searchDepth}</strong>
               </label>
-              <label className="switch-control">
-                <input type="checkbox" checked={showWdl} onChange={(event) => setShowWdl(event.target.checked)} />
-                <span>Show WDL values</span>
+              <label className="control">
+                <span>MultiPV</span>
+                <input
+                  type="range"
+                  min={1}
+                  max={5}
+                  step={1}
+                  value={multiPv}
+                  onChange={(event) => setMultiPv(Number(event.target.value))}
+                />
+                <strong>{multiPv} lines</strong>
               </label>
-              <label className="engine-option-row profile-picker">
-                <span>Engine profile</span>
-                <select value={engineProfile} onChange={(event) => setEngineProfile(event.target.value as EngineProfileId)}>
-                  <option value="auto">Auto (recommended)</option>
-                  {engineProfiles.map((profile) => (
-                    <option key={profile.id} value={profile.id}>
-                      {profile.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <p className="panel-copy small">
-                Isolation: {capabilities.crossOriginIsolated ? 'yes' : 'no'} / SharedArrayBuffer:{' '}
-                {capabilities.sharedArrayBuffer ? 'yes' : 'no'} / Cores: {capabilities.hardwareConcurrency}
-              </p>
-              <div className="engine-options">
-                <h3>Engine options</h3>
-                {options.map((option) => (
-                  <EngineOptionControl key={option.name} option={option} onSetOption={setOption} />
-                ))}
-              </div>
-              <p className="panel-copy small">
-                Options are discovered from Stockfish UCI output and applied live through setoption.
-              </p>
-            </div>
-          )}
 
-          <div className="pv-list">
-            <h3>Lines</h3>
-            {lines.length === 0 && <p className="panel-copy small">No line yet. Start analysis to populate principal variations.</p>}
-            {lines
-              .filter((line) => !line.fen || line.fen === fen)
-              .map((line) => (
-              <article key={`${line.multipv}-${line.depth}-${line.pv[0] ?? 'pv'}`}>
-                <header>
-                  <strong>#{line.multipv}</strong>
-                  <span>D{line.depth}</span>
-                  <span>{formatEvaluation(line.cp, line.mate)}</span>
-                </header>
-                <p>{pvToSan(line.fen ?? fen, line) || line.pv.slice(0, 8).join(' ')}</p>
-                <p className="pv-uci">{line.pv.slice(0, 8).join(' ')}</p>
-              </article>
-            ))}
-            {lastBestMove && <p className="best-move">Best move: {lastBestMove}</p>}
+              <details className="advanced-settings">
+                <summary>Advanced engine options</summary>
+                <div className="advanced-section">
+                  <label className="control">
+                    <span>Hash</span>
+                    <input
+                      type="range"
+                      min={16}
+                      max={512}
+                      step={16}
+                      value={hashMb}
+                      onChange={(event) => setHashMb(Number(event.target.value))}
+                    />
+                    <strong>{hashMb} MB</strong>
+                  </label>
+                  <label className="switch-control">
+                    <input type="checkbox" checked={showWdl} onChange={(event) => setShowWdl(event.target.checked)} />
+                    <span>Show WDL values</span>
+                  </label>
+                  <label className="engine-option-row profile-picker">
+                    <span>Engine profile</span>
+                    <select value={engineProfile} onChange={(event) => setEngineProfile(event.target.value as EngineProfileId)}>
+                      <option value="auto">Auto (recommended)</option>
+                      {engineProfiles.map((profile) => (
+                        <option key={profile.id} value={profile.id}>
+                          {profile.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="panel-copy small">
+                    Isolation: {capabilities.crossOriginIsolated ? 'yes' : 'no'} / SharedArrayBuffer:{' '}
+                    {capabilities.sharedArrayBuffer ? 'yes' : 'no'} / Cores: {capabilities.hardwareConcurrency}
+                  </p>
+                  <div className="engine-options">
+                    <h3>Engine options</h3>
+                    {options.map((option) => (
+                      <EngineOptionControl key={option.name} option={option} onSetOption={setOption} />
+                    ))}
+                  </div>
+                  <p className="panel-copy small">
+                    Options are discovered from Stockfish UCI output and applied live through setoption.
+                  </p>
+                </div>
+              </details>
+            </div>
+          </details>
+
+          <div className="right-section">
+            <h3>Moves</h3>
+            {reviewRows.length === 0 && <p className="panel-copy small">Moves will appear here as you play.</p>}
+            {reviewRows.length > 0 && (
+              <ol className="moves-list">
+                {reviewRows.map((row) => (
+                  <li key={`${row.uci}-${row.ply}`} className={`quality-${row.quality}`}>
+                    <span className="move-index">{row.moveNumber}.</span>
+                    <strong>{row.san}</strong>
+                    <span className="move-uci">{row.uci}</span>
+                    <span className="move-quality">
+                      {row.quality}
+                      {typeof row.deltaCp === 'number' ? ` (${row.deltaCp > 0 ? '+' : ''}${row.deltaCp})` : ''}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
 
           <div className="review-scaffold">
-            <h3>Review Scaffold</h3>
+            <h3>Review Snapshot</h3>
             <div className="review-chips">
               <span>Best {reviewSummary.best}</span>
               <span>Good {reviewSummary.good}</span>
@@ -311,6 +317,25 @@ function App() {
               <span>Blunder {reviewSummary.blunder}</span>
               <span>Pending {reviewSummary.pending}</span>
             </div>
+          </div>
+
+          <div className="pv-list">
+            <h3>Lines</h3>
+            {lines.length === 0 && <p className="panel-copy small">No line yet. Start analysis to populate principal variations.</p>}
+            {lines
+              .filter((line) => !line.fen || line.fen === fen)
+              .map((line) => (
+                <article key={`${line.multipv}-${line.depth}-${line.pv[0] ?? 'pv'}`}>
+                  <header>
+                    <strong>#{line.multipv}</strong>
+                    <span>D{line.depth}</span>
+                    <span>{formatEvaluation(line.cp, line.mate)}</span>
+                  </header>
+                  <p>{pvToSan(line.fen ?? fen, line) || line.pv.slice(0, 8).join(' ')}</p>
+                  <p className="pv-uci">{line.pv.slice(0, 8).join(' ')}</p>
+                </article>
+              ))}
+            {lastBestMove && <p className="best-move">Best move: {lastBestMove}</p>}
           </div>
         </div>
       </aside>
@@ -323,34 +348,25 @@ function App() {
 
       <section className={`panel bottom ${bottomPanelOpen ? '' : 'hidden'}`}>
         <header className="panel-header">
-          <h2>Moves</h2>
+          <h2>Winrate Graph</h2>
           <button type="button" className="panel-toggle" onClick={() => setBottomPanelOpen(false)}>
             Hide
           </button>
         </header>
-        <div className="panel-content move-list">
-          {moveHistory.length === 0 && <p className="panel-copy">Make a move on the board to start the move list.</p>}
-          {moveHistory.length > 0 && (
-            <ol>
-              {reviewRows.map((row) => (
-                <li key={`${row.uci}-${row.ply}`} className={`quality-${row.quality}`}>
-                  <span>{row.moveNumber}.</span>
-                  <strong>{row.san}</strong>
-                  <span>{row.uci}</span>
-                  <span className="move-quality">
-                    {row.quality}
-                    {typeof row.deltaCp === 'number' ? ` (${row.deltaCp > 0 ? '+' : ''}${row.deltaCp})` : ''}
-                  </span>
-                </li>
-              ))}
-            </ol>
+        <div className="panel-content">
+          <WinrateGraph points={winratePoints} />
+          {winratePoints.length > 0 && (
+            <div className="graph-legend">
+              <span>White win chance</span>
+              <strong>{winratePoints[winratePoints.length - 1]!.whiteWinrate.toFixed(1)}%</strong>
+            </div>
           )}
         </div>
       </section>
 
       {!bottomPanelOpen && (
         <button type="button" className="floating-toggle bottom-toggle" onClick={() => setBottomPanelOpen(true)}>
-          Show moves
+          Show graph
         </button>
       )}
     </main>
@@ -427,5 +443,52 @@ function EngineOptionControl({ option, onSetOption }: EngineOptionControlProps) 
         onBlur={() => onSetOption(option.name, value)}
       />
     </label>
+  )
+}
+
+type WinrateGraphProps = {
+  points: WinratePoint[]
+}
+
+function WinrateGraph({ points }: WinrateGraphProps) {
+  if (points.length < 2) {
+    return <p className="panel-copy">Play and analyze more moves to build the live winrate graph.</p>
+  }
+
+  const width = 980
+  const height = 180
+  const pad = 18
+  const innerWidth = width - pad * 2
+  const innerHeight = height - pad * 2
+  const lastIndex = points.length - 1
+
+  const toX = (index: number) => pad + (index / lastIndex) * innerWidth
+  const toY = (whiteWinrate: number) => pad + ((100 - whiteWinrate) / 100) * innerHeight
+
+  const path = points
+    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${toX(point.index).toFixed(2)} ${toY(point.whiteWinrate).toFixed(2)}`)
+    .join(' ')
+
+  const area = `${path} L ${toX(points[lastIndex]!.index).toFixed(2)} ${(height - pad).toFixed(2)} L ${toX(points[0]!.index).toFixed(2)} ${(height - pad).toFixed(2)} Z`
+  const markers = [0, 25, 50, 75, 100]
+
+  return (
+    <div className="graph-wrap" aria-label="Real-time white winrate graph">
+      <svg className="winrate-graph" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+        {markers.map((value) => {
+          const y = toY(value)
+          return (
+            <g key={value}>
+              <line x1={pad} x2={width - pad} y1={y} y2={y} className="graph-grid-line" />
+              <text x={pad + 4} y={y - 2} className="graph-grid-text">
+                {value}%
+              </text>
+            </g>
+          )
+        })}
+        <path d={area} className="graph-area" />
+        <path d={path} className="graph-line" />
+      </svg>
+    </div>
   )
 }

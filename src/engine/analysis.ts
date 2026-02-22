@@ -16,6 +16,12 @@ export type ReviewRow = {
   deltaCp?: number
 }
 
+export type WinratePoint = {
+  index: number
+  label: string
+  whiteWinrate: number
+}
+
 export function scoreToCp(cp?: number, mate?: number): number | undefined {
   if (typeof mate === 'number') {
     if (mate > 0) return 10000
@@ -116,4 +122,47 @@ export function summarizeReview(rows: ReviewRow[]): Record<ReviewLabel, number> 
     },
     { best: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0, pending: 0 },
   )
+}
+
+function normalizeWhitePovCp(fen: string, cp: number): number {
+  const turn = fen.split(' ')[1]
+  return turn === 'w' ? cp : -cp
+}
+
+function cpToWhiteWinrate(cp: number): number {
+  const limited = Math.max(-2000, Math.min(2000, cp))
+  const raw = 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * limited)) - 1)
+  return Math.max(0, Math.min(100, raw))
+}
+
+export function buildWinrateSeries(history: Move[], evaluationsByFen: Map<string, EvalSnapshot>): WinratePoint[] {
+  const replay = new Chess()
+  const series: WinratePoint[] = []
+
+  const startFen = replay.fen()
+  const startCp = evaluationsByFen.get(startFen)?.cp
+  if (typeof startCp === 'number') {
+    series.push({
+      index: 0,
+      label: 'Start',
+      whiteWinrate: cpToWhiteWinrate(normalizeWhitePovCp(startFen, startCp)),
+    })
+  }
+
+  history.forEach((move, index) => {
+    replay.move({ from: move.from, to: move.to, promotion: move.promotion })
+    const fen = replay.fen()
+    const cp = evaluationsByFen.get(fen)?.cp
+    if (typeof cp !== 'number') return
+
+    const moveNumber = Math.floor(index / 2) + 1
+    const prefix = index % 2 === 0 ? `${moveNumber}.` : `${moveNumber}...`
+    series.push({
+      index: index + 1,
+      label: `${prefix} ${move.san}`,
+      whiteWinrate: cpToWhiteWinrate(normalizeWhitePovCp(fen, cp)),
+    })
+  })
+
+  return series
 }
