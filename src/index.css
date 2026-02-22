@@ -1,61 +1,75 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  /* ── Color tokens ─────────────────────────────── */
-  --bg-base: #f4efe6;
-  --bg-panel: rgba(255, 255, 255, 0.88);
-  --bg-panel-alt: rgba(245, 240, 233, 0.92);
-  --bg-card: rgba(252, 249, 244, 0.9);
-  --bg-card-hover: rgba(245, 240, 233, 0.95);
+  /* ── Base surfaces ─────────────────────────────── */
+  --bg-base: #0d1117;
+  --bg-surface: #161b22;
+  --bg-elevated: #1c2128;
+  --bg-panel: rgba(22, 27, 34, 0.95);
+  --bg-card: rgba(28, 33, 40, 0.90);
+  --bg-card-hover: rgba(33, 38, 45, 0.95);
+  --bg-input: rgba(13, 17, 23, 0.70);
 
-  --border-subtle: rgba(38, 35, 30, 0.08);
-  --border-default: rgba(38, 35, 30, 0.12);
-  --border-strong: rgba(50, 45, 38, 0.18);
+  /* ── Borders ───────────────────────────────────── */
+  --border-subtle: rgba(240, 246, 252, 0.06);
+  --border-default: rgba(240, 246, 252, 0.10);
+  --border-strong: rgba(240, 246, 252, 0.18);
+  --border-accent: rgba(63, 185, 80, 0.35);
 
-  --text-primary: #241f18;
-  --text-secondary: #615850;
-  --text-tertiary: #8a7e72;
-  --text-heading: #443b31;
-  --text-muted: #a09488;
+  /* ── Text ──────────────────────────────────────── */
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-tertiary: #6e7681;
+  --text-heading: #f0f6fc;
+  --text-muted: #4d5566;
 
-  --accent: #4a7c68;
-  --accent-hover: #3d6a58;
-  --accent-subtle: rgba(74, 124, 104, 0.10);
-  --accent-glow: rgba(74, 124, 104, 0.25);
+  /* ── Accent (green) ────────────────────────────── */
+  --accent: #3fb950;
+  --accent-hover: #52c96a;
+  --accent-muted: #196c2e;
+  --accent-subtle: rgba(63, 185, 80, 0.12);
+  --accent-glow: rgba(63, 185, 80, 0.22);
 
-  --danger: #b23232;
-  --warning: #c08b20;
-  --success: #286740;
-  --info: #005a87;
+  /* ── Semantic ──────────────────────────────────── */
+  --danger: #f85149;
+  --danger-subtle: rgba(248, 81, 73, 0.12);
+  --warning: #d29922;
+  --warning-subtle: rgba(210, 153, 34, 0.12);
+  --success: #3fb950;
+  --success-subtle: rgba(63, 185, 80, 0.12);
+  --info: #58a6ff;
+  --info-subtle: rgba(88, 166, 255, 0.12);
 
-  /* Quality colors */
-  --quality-best: #2a8a56;
-  --quality-good: #4a8a46;
-  --quality-inaccuracy: #b89830;
-  --quality-mistake: #c07828;
-  --quality-blunder: #c04040;
-  --quality-pending: #8a7e72;
+  /* ── Quality ───────────────────────────────────── */
+  --quality-best: #3fb950;
+  --quality-good: #7ee787;
+  --quality-inaccuracy: #e3b341;
+  --quality-mistake: #f0883e;
+  --quality-blunder: #f85149;
+  --quality-pending: #6e7681;
 
-  /* ── Spacing ──────────────────────────────────── */
+  /* ── Spacing ───────────────────────────────────── */
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
   --space-md: 0.75rem;
   --space-lg: 1rem;
   --space-xl: 1.5rem;
 
-  /* ── Radii ────────────────────────────────────── */
+  /* ── Radii ─────────────────────────────────────── */
+  --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
+  --radius-xl: 20px;
   --radius-pill: 999px;
 
-  /* ── Shadows ──────────────────────────────────── */
-  --shadow-sm: 0 1px 3px rgba(32, 29, 24, 0.06);
-  --shadow-md: 0 4px 16px rgba(32, 29, 24, 0.08);
-  --shadow-lg: 0 12px 40px rgba(32, 29, 24, 0.14);
+  /* ── Shadows ───────────────────────────────────── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.30);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.40);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.55);
   --shadow-glow: 0 0 20px var(--accent-glow);
 
-  /* ── Typography ───────────────────────────────── */
+  /* ── Typography ────────────────────────────────── */
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -73,6 +87,7 @@
 body {
   margin: 0;
   min-width: 320px;
+  background: var(--bg-base);
   scroll-behavior: smooth;
 }
 
@@ -80,10 +95,10 @@ body {
   width: 100%;
 }
 
-/* ── Scrollbar polish ───────────────────────────── */
+/* ── Scrollbar ──────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -91,10 +106,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(110, 135, 124, 0.25);
+  background: rgba(110, 118, 129, 0.24);
   border-radius: var(--radius-pill);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(110, 135, 124, 0.45);
+  background: rgba(110, 118, 129, 0.44);
 }

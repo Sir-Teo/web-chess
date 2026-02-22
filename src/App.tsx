@@ -368,12 +368,12 @@ function App() {
                 return onPieceDrop(sourceSquare as Square, targetSquare as Square, piece.pieceType)
               },
               allowDragging: !isAiThinking && !(gameMode === 'human-vs-ai' && game.turn() !== playerColor[0]),
-              darkSquareStyle: { backgroundColor: '#6f695f' },
-              lightSquareStyle: { backgroundColor: '#e7dbc9' },
+              darkSquareStyle: { backgroundColor: '#b58863' },
+              lightSquareStyle: { backgroundColor: '#f0d9b5' },
               boardStyle: {
                 width: `${Math.max(260, boardWidth)}px`,
-                borderRadius: 14,
-                boxShadow: '0 24px 60px rgba(0, 0, 0, 0.25)',
+                borderRadius: 12,
+                boxShadow: '0 8px 40px rgba(0, 0, 0, 0.60), 0 2px 8px rgba(0, 0, 0, 0.40)',
               },
             }}
           />
@@ -662,8 +662,8 @@ function WinrateGraph({ points }: WinrateGraphProps) {
       <svg className="winrate-graph" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
         <defs>
           <linearGradient id="graph-gradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(74, 124, 104, 0.25)" />
-            <stop offset="100%" stopColor="rgba(74, 124, 104, 0.02)" />
+            <stop offset="0%" stopColor="rgba(63, 185, 80, 0.24)" />
+            <stop offset="100%" stopColor="rgba(63, 185, 80, 0.02)" />
           </linearGradient>
         </defs>
         {markers.map((value) => {
