@@ -85,6 +85,10 @@ function App() {
 
   // ── Game tree ────────────────────────────────────────
   const gameTree = useGameTree()
+  // Stable ref so the AI-loop effect can call addMove without
+  // including the (ever-changing) gameTree object in its dep array.
+  const gameTreeRef = useRef(gameTree)
+  gameTreeRef.current = gameTree
 
   const syncGameToNode = useCallback((chess: Chess) => {
     game.load(chess.fen())
@@ -249,18 +253,26 @@ function App() {
         if (move) {
           const newFen = game.fen()
           setFen(newFen)
-          gameTree.addMove(move, newFen)
+          gameTreeRef.current.addMove(move, newFen)
         }
       })
     }
 
     if (delayMs > 0) {
       const t = setTimeout(doMove, delayMs)
-      return () => clearTimeout(t)
+      return () => {
+        clearTimeout(t)
+        // Reset so the next effect run can schedule a new move
+        aiMoveScheduledRef.current = false
+        setIsAiThinking(false)
+      }
     } else {
       doMove()
     }
-  }, [fen, gameMode, playerColor, aiDifficulty, aiPlayer, aiPlayer.status, game, gameTree, paused])
+    // NOTE: gameTree intentionally omitted — accessed via gameTreeRef to keep
+    // this ref stable. aiPlayer (object) omitted too; only aiPlayer.status matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fen, gameMode, playerColor, aiDifficulty, aiPlayer.status, game, paused])
 
   // ── Human move ────────────────────────────────────────
   const onPieceDrop = (sourceSquare: Square, targetSquare: Square, pieceType: string) => {
