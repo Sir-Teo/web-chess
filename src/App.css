@@ -253,10 +253,37 @@
   overflow-wrap: anywhere;
 }
 
+.pv-list article p.pv-uci {
+  margin-top: 0.3rem;
+  font-size: 0.73rem;
+  color: #706456;
+}
+
 .best-move {
   margin: 0.45rem 0 0;
   font-size: 0.8rem;
   color: #2a6548;
+}
+
+.review-scaffold {
+  margin-top: 0.75rem;
+  border-top: 1px solid rgba(38, 33, 27, 0.1);
+  padding-top: 0.65rem;
+}
+
+.review-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.review-chips span {
+  padding: 0.22rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(39, 34, 28, 0.13);
+  font-size: 0.72rem;
+  color: #574c3f;
+  background: rgba(251, 247, 241, 0.9);
 }
 
 .top-left {
@@ -322,6 +349,30 @@
 .move-list li strong {
   font-size: 0.9rem;
   color: #28231d;
+}
+
+.move-quality {
+  text-transform: capitalize;
+}
+
+.quality-best {
+  border-color: rgba(35, 99, 66, 0.25) !important;
+}
+
+.quality-good {
+  border-color: rgba(72, 109, 69, 0.22) !important;
+}
+
+.quality-inaccuracy {
+  border-color: rgba(171, 133, 40, 0.28) !important;
+}
+
+.quality-mistake {
+  border-color: rgba(174, 101, 37, 0.3) !important;
+}
+
+.quality-blunder {
+  border-color: rgba(182, 57, 57, 0.32) !important;
 }
 
 .floating-toggle {

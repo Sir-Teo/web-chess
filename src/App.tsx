@@ -1,6 +1,14 @@
 import { Chess, type Square } from 'chess.js'
 import { useEffect, useMemo, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
+import {
+  buildReviewRows,
+  formatEvaluation,
+  pvToSan,
+  scoreToCp,
+  summarizeReview,
+  type EvalSnapshot,
+} from './engine/analysis'
 import { engineProfiles, type EngineProfileId } from './engine/profiles'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import './App.css'
@@ -21,6 +29,7 @@ function App() {
   const [showWdl, setShowWdl] = useState(true)
   const [autoAnalyze, setAutoAnalyze] = useState(true)
   const [engineProfile, setEngineProfile] = useState<EngineProfileId>('auto')
+  const [evaluationsByFen, setEvaluationsByFen] = useState<Map<string, EvalSnapshot>>(new Map())
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight })
 
   const {
@@ -38,6 +47,22 @@ function App() {
   } = useStockfishEngine(engineProfile)
 
   const moveHistory = game.history({ verbose: true })
+  const primaryLine = lines.find((line) => line.multipv === 1) ?? lines[0]
+
+  useEffect(() => {
+    const cp = scoreToCp(primaryLine?.cp, primaryLine?.mate)
+    if (typeof cp !== 'number') return
+
+    queueMicrotask(() => {
+      setEvaluationsByFen((previous) => {
+        const current = previous.get(fen)
+        if (current?.cp === cp) return previous
+        const next = new Map(previous)
+        next.set(fen, { cp })
+        return next
+      })
+    })
+  }, [fen, primaryLine?.cp, primaryLine?.mate])
 
   useEffect(() => {
     const onResize = () => setViewport({ width: window.innerWidth, height: window.innerHeight })
@@ -55,6 +80,9 @@ function App() {
       showWdl,
     })
   }, [analyzePosition, autoAnalyze, fen, hashMb, multiPv, searchDepth, showWdl])
+
+  const reviewRows = useMemo(() => buildReviewRows(moveHistory, evaluationsByFen), [evaluationsByFen, moveHistory])
+  const reviewSummary = useMemo(() => summarizeReview(reviewRows), [reviewRows])
 
   const undoMove = () => {
     game.undo()
@@ -264,10 +292,23 @@ function App() {
                   <span>D{line.depth}</span>
                   <span>{formatEvaluation(line.cp, line.mate)}</span>
                 </header>
-                <p>{line.pv.slice(0, 8).join(' ')}</p>
+                <p>{pvToSan(fen, line) || line.pv.slice(0, 8).join(' ')}</p>
+                <p className="pv-uci">{line.pv.slice(0, 8).join(' ')}</p>
               </article>
             ))}
             {lastBestMove && <p className="best-move">Best move: {lastBestMove}</p>}
+          </div>
+
+          <div className="review-scaffold">
+            <h3>Review Scaffold</h3>
+            <div className="review-chips">
+              <span>Best {reviewSummary.best}</span>
+              <span>Good {reviewSummary.good}</span>
+              <span>Inaccuracy {reviewSummary.inaccuracy}</span>
+              <span>Mistake {reviewSummary.mistake}</span>
+              <span>Blunder {reviewSummary.blunder}</span>
+              <span>Pending {reviewSummary.pending}</span>
+            </div>
           </div>
         </div>
       </aside>
@@ -289,11 +330,15 @@ function App() {
           {moveHistory.length === 0 && <p className="panel-copy">Make a move on the board to start the move list.</p>}
           {moveHistory.length > 0 && (
             <ol>
-              {moveHistory.map((move, index) => (
-                <li key={`${move.san}-${index}`}>
-                  <span>{Math.floor(index / 2) + 1}.</span>
-                  <strong>{move.san}</strong>
-                  <span>{move.from}-{move.to}</span>
+              {reviewRows.map((row) => (
+                <li key={`${row.uci}-${row.ply}`} className={`quality-${row.quality}`}>
+                  <span>{row.moveNumber}.</span>
+                  <strong>{row.san}</strong>
+                  <span>{row.uci}</span>
+                  <span className="move-quality">
+                    {row.quality}
+                    {typeof row.deltaCp === 'number' ? ` (${row.deltaCp > 0 ? '+' : ''}${row.deltaCp})` : ''}
+                  </span>
                 </li>
               ))}
             </ol>
@@ -381,10 +426,4 @@ function EngineOptionControl({ option, onSetOption }: EngineOptionControlProps) 
       />
     </label>
   )
-}
-
-function formatEvaluation(cp?: number, mate?: number): string {
-  if (typeof mate === 'number') return `#${mate}`
-  if (typeof cp === 'number') return `${cp > 0 ? '+' : ''}${(cp / 100).toFixed(2)}`
-  return '...'
 }
