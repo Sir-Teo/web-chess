@@ -79,11 +79,8 @@ export function detectEngineCapabilities(): EngineCapabilities {
 
 export function pickAutoProfile(capabilities: EngineCapabilities): EngineProfile {
   const canUseThreads = capabilities.sharedArrayBuffer && capabilities.crossOriginIsolated
-  const goodDevice = (capabilities.deviceMemoryGb ?? 4) >= 8 && capabilities.hardwareConcurrency >= 8
 
-  if (canUseThreads && goodDevice && !capabilities.isMobile) return profileById('full-multi-cdn')
   if (canUseThreads) return profileById('lite-multi-local')
-  if (goodDevice && !capabilities.isMobile) return profileById('full-single-cdn')
   return profileById('lite-single-local')
 }
 

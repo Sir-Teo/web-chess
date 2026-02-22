@@ -54,7 +54,20 @@ function createEngineWorker(profile: EngineProfile): { worker: Worker; blobUrl?:
   // Browser Worker constructor requires same-origin script URLs.
   // For remote profiles, bootstrap a same-origin blob worker and import remote Stockfish from inside it.
   const wasmPath = deriveWasmPath(profile.workerPath)
-  const bootstrap = `self.window = self; importScripts(${JSON.stringify(profile.workerPath)});`
+  const bootstrap = `
+self.window = self;
+self.addEventListener('error', function (event) {
+  try {
+    self.postMessage('__BOOT_ERROR__:' + (event && event.message ? event.message : 'Unknown worker bootstrap error'));
+  } catch (_) {}
+  event.preventDefault();
+});
+try {
+  importScripts(${JSON.stringify(profile.workerPath)});
+} catch (error) {
+  self.postMessage('__BOOT_ERROR__:' + (error && error.message ? error.message : String(error)));
+}
+`
   const blobUrl = URL.createObjectURL(new Blob([bootstrap], { type: 'application/javascript' }))
 
   return {
@@ -258,6 +271,14 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto') {
     worker.onmessage = (event: MessageEvent<string>) => {
       if (currentSession !== bootSessionRef.current) return
       const line = event.data
+
+      if (line.startsWith('__BOOT_ERROR__:')) {
+        setStatus('error')
+        applyFallback(`Failed to load ${profile.name}: ${line.replace('__BOOT_ERROR__:', '').trim()}.`)
+        worker.terminate()
+        workerRef.current = null
+        return
+      }
 
       if (line.startsWith('id name ')) {
         setEngineName(line.replace('id name ', '').trim())
