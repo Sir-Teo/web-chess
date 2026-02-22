@@ -1,5 +1,5 @@
 import { Chess, type Square } from 'chess.js'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
 import {
   buildWinrateSeries,
@@ -13,6 +13,8 @@ import {
 } from './engine/analysis'
 import { engineProfiles, type EngineProfileId } from './engine/profiles'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
+import { useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
+import { NewGameDialog, type GameMode, type PlayerColor } from './components/NewGameDialog'
 import './App.css'
 
 type Orientation = 'white' | 'black'
@@ -34,6 +36,14 @@ function App() {
   const [evaluationsByFen, setEvaluationsByFen] = useState<Map<string, EvalSnapshot>>(new Map())
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight })
 
+  // ── Game mode state ───────────────────────────────
+  const [showNewGameDialog, setShowNewGameDialog] = useState(false)
+  const [gameMode, setGameMode] = useState<GameMode>('human-vs-human')
+  const [playerColor, setPlayerColor] = useState<PlayerColor>('white')
+  const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>(4)
+  const [isAiThinking, setIsAiThinking] = useState(false)
+  const aiMoveScheduledRef = useRef(false)
+
   const {
     status,
     engineName,
@@ -46,6 +56,8 @@ function App() {
     stop,
     setOption,
   } = useStockfishEngine(engineProfile)
+
+  const aiPlayer = useAiPlayer()
 
   const moveHistory = game.history({ verbose: true })
   const primaryLine = lines.find((line) => line.multipv === 1) ?? lines[0]
@@ -90,20 +102,52 @@ function App() {
   )
 
   const undoMove = () => {
-    game.undo()
+    // Undo the last two moves in AI mode (AI + human)
+    if (gameMode !== 'human-vs-human') {
+      game.undo() // undo AI move
+    }
+    game.undo() // undo human move
     setFen(game.fen())
+    aiMoveScheduledRef.current = false
   }
 
-  const resetBoard = () => {
-    game.reset()
-    setFen(game.fen())
-  }
 
   const flipBoard = () => {
     setOrientation((value) => (value === 'white' ? 'black' : 'white'))
   }
 
+  const openNewGameDialog = () => setShowNewGameDialog(true)
+
+  const handleNewGameStart = useCallback(
+    ({ mode, playerColor: color, difficulty }: { mode: GameMode; playerColor: PlayerColor; difficulty: AiDifficulty }) => {
+      setShowNewGameDialog(false)
+      setGameMode(mode)
+      setPlayerColor(color)
+      setAiDifficulty(difficulty)
+      aiPlayer.setDifficulty(difficulty)
+
+      // Reset the board
+      game.reset()
+      setFen(game.fen())
+      setIsAiThinking(false)
+      aiMoveScheduledRef.current = false
+      setEvaluationsByFen(new Map())
+
+      // Orient board toward human player
+      if (mode === 'human-vs-ai') {
+        setOrientation(color)
+      } else {
+        setOrientation('white')
+      }
+    },
+    [aiPlayer, game],
+  )
+
   const onPieceDrop = (sourceSquare: Square, targetSquare: Square, pieceType: string) => {
+    // In AI mode, only allow moves on the human's turn
+    if (gameMode === 'human-vs-ai' && isAiThinking) return false
+    if (gameMode === 'human-vs-ai' && game.turn() !== playerColor[0]) return false
+
     const promotion = pieceType.toLowerCase().endsWith('p') && ['1', '8'].includes(targetSquare[1]) ? 'q' : undefined
     const move = game.move({
       from: sourceSquare,
@@ -116,6 +160,38 @@ function App() {
     setFen(game.fen())
     return true
   }
+
+  // ── AI move loop ─────────────────────────────────
+  useEffect(() => {
+    if (game.isGameOver()) return
+    if (aiPlayer.status !== 'ready') return
+    if (aiMoveScheduledRef.current) return
+
+    const currentTurn = game.turn() // 'w' | 'b'
+    const isAiTurn =
+      gameMode === 'ai-vs-ai' ||
+      (gameMode === 'human-vs-ai' && currentTurn !== playerColor[0])
+
+    if (!isAiTurn) return
+
+    aiMoveScheduledRef.current = true
+    setIsAiThinking(true)
+
+    aiPlayer.requestMove(fen, aiDifficulty).then((uciMove) => {
+      aiMoveScheduledRef.current = false
+      setIsAiThinking(false)
+
+      if (!uciMove || game.isGameOver()) return
+
+      const from = uciMove.slice(0, 2) as Square
+      const to = uciMove.slice(2, 4) as Square
+      const promoChar = uciMove[4]
+      const promotion = promoChar ? promoChar as 'q' | 'r' | 'b' | 'n' : undefined
+
+      const move = game.move({ from, to, promotion })
+      if (move) setFen(game.fen())
+    })
+  }, [fen, gameMode, playerColor, aiDifficulty, aiPlayer, aiPlayer.status, game])
 
   const MIN_WIDTH = 60
   const DEFAULT_LEFT = 280
@@ -172,7 +248,7 @@ function App() {
               <span className="app-brand-icon">♔</span>
               <span className="app-brand-text">Web Chess</span>
             </div>
-            <button type="button" onClick={resetBoard}>
+            <button type="button" onClick={openNewGameDialog}>
               <span className="btn-icon">⟳</span> New game
             </button>
             <button type="button" onClick={undoMove}>
@@ -281,7 +357,7 @@ function App() {
 
 
       <section className="board-stage" aria-label="Chessboard">
-        <div className="board-wrap">
+        <div className="board-wrap" style={{ position: 'relative' }}>
           <Chessboard
             options={{
               position: fen,
@@ -290,6 +366,7 @@ function App() {
                 if (!targetSquare) return false
                 return onPieceDrop(sourceSquare as Square, targetSquare as Square, piece.pieceType)
               },
+              allowDragging: !isAiThinking && !(gameMode === 'human-vs-ai' && game.turn() !== playerColor[0]),
               darkSquareStyle: { backgroundColor: '#6f695f' },
               lightSquareStyle: { backgroundColor: '#e7dbc9' },
               boardStyle: {
@@ -299,8 +376,24 @@ function App() {
               },
             }}
           />
+          {isAiThinking && (
+            <div className="ai-thinking-overlay">
+              <div className="ai-thinking-badge">
+                🤖 AI thinking
+                <div className="thinking-dots">
+                  <span /><span /><span />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </section>
+
+      <NewGameDialog
+        open={showNewGameDialog}
+        onStart={handleNewGameStart}
+        onCancel={() => setShowNewGameDialog(false)}
+      />
 
       <aside
         className="panel right"
@@ -437,7 +530,20 @@ function App() {
               <span>{engineName} ({activeProfile.name})</span>
               <strong className={`status ${status}`}>{status}</strong>
             </div>
-            {lastBestMove && <p className="best-move">Best move: {lastBestMove}</p>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {/* Game mode badge */}
+              <span className="game-mode-badge">
+                {gameMode === 'human-vs-human' && '👥 Human vs Human'}
+                {gameMode === 'human-vs-ai' && `🤖 vs AI · ${playerColor === 'white' ? '♔ White' : '♚ Black'}`}
+                {gameMode === 'ai-vs-ai' && '⚡ AI vs AI'}
+              </span>
+              {/* Game-over status */}
+              {game.isCheckmate() && <span className="game-over-badge">♛ Checkmate!</span>}
+              {game.isStalemate() && <span className="game-over-badge draw">½ Stalemate</span>}
+              {game.isDraw() && !game.isStalemate() && <span className="game-over-badge draw">½ Draw</span>}
+              {game.isCheck() && !game.isCheckmate() && <span className="game-over-badge check">⚠ Check!</span>}
+              {lastBestMove && !game.isGameOver() && <p className="best-move">Best move: {lastBestMove}</p>}
+            </div>
           </div>
         </div>
       </section>
