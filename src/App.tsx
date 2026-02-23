@@ -30,12 +30,173 @@ import './App.css'
 
 type Orientation = 'white' | 'black'
 type AnalysisTab = 'analyze' | 'review' | 'engine-lab'
+type AnalyzePresetId = 'blunder-check' | 'game-review' | 'deep-candidate' | 'mate-hunt'
+
+const ANALYSIS_SETTINGS_STORAGE_KEY = 'webchess:analysis-settings:v1'
+const ANALYZE_MODE_IDS: AnalyzeMode[] = ['quick', 'deep', 'infinite', 'mate', 'review']
+const ANALYSIS_TAB_IDS: AnalysisTab[] = ['analyze', 'review', 'engine-lab']
+
+const analyzePresets: Array<{ id: AnalyzePresetId; label: string; summary: string }> = [
+  { id: 'blunder-check', label: 'Fast Blunder Check', summary: 'Quick scan after each move.' },
+  { id: 'game-review', label: 'Game Review', summary: 'Balanced depth across the line.' },
+  { id: 'deep-candidate', label: 'Deep Candidate Search', summary: 'Higher depth and wider MultiPV.' },
+  { id: 'mate-hunt', label: 'Mate Hunt', summary: 'Prioritize forced mating lines.' },
+]
+
+type PersistedAppSettings = {
+  autoAnalyze: boolean
+  engineProfile: EngineProfileId
+  analysisTab: AnalysisTab
+  activePreset: AnalyzePresetId | null
+  analyzeMode: AnalyzeMode
+  showAdvancedAnalyze: boolean
+  searchDepth: number
+  quickMovetimeMs: number
+  mateTarget: number
+  multiPv: number
+  hashMb: number
+  showWdl: boolean
+  limitNodes: number | null
+  searchMovesInput: string
+  useClockLimits: boolean
+  whiteTimeMs: number
+  blackTimeMs: number
+  whiteIncMs: number
+  blackIncMs: number
+  movesToGo: number | null
+  expertModeEnabled: boolean
+  labCommandHistory: string[]
+}
+
+const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
+  autoAnalyze: true,
+  engineProfile: 'auto',
+  analysisTab: 'analyze',
+  activePreset: 'game-review',
+  analyzeMode: 'deep',
+  showAdvancedAnalyze: false,
+  searchDepth: 16,
+  quickMovetimeMs: 500,
+  mateTarget: 4,
+  multiPv: 2,
+  hashMb: 64,
+  showWdl: true,
+  limitNodes: null,
+  searchMovesInput: '',
+  useClockLimits: false,
+  whiteTimeMs: 120_000,
+  blackTimeMs: 120_000,
+  whiteIncMs: 1_000,
+  blackIncMs: 1_000,
+  movesToGo: null,
+  expertModeEnabled: false,
+  labCommandHistory: [],
+}
+
+function isAnalyzePresetId(value: unknown): value is AnalyzePresetId {
+  return typeof value === 'string' && analyzePresets.some(preset => preset.id === value)
+}
+
+function isAnalyzeMode(value: unknown): value is AnalyzeMode {
+  return typeof value === 'string' && ANALYZE_MODE_IDS.includes(value as AnalyzeMode)
+}
+
+function isAnalysisTab(value: unknown): value is AnalysisTab {
+  return typeof value === 'string' && ANALYSIS_TAB_IDS.includes(value as AnalysisTab)
+}
+
+function isEngineProfileId(value: unknown): value is EngineProfileId {
+  if (value === 'auto') return true
+  return typeof value === 'string' && engineProfiles.some(profile => profile.id === value)
+}
+
+function normalizeInteger(value: unknown, minimum: number, maximum: number, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
+  const rounded = Math.round(value)
+  if (rounded < minimum || rounded > maximum) return fallback
+  return rounded
+}
+
+function normalizeOptionalPositiveInteger(value: unknown, maximum: number): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  const rounded = Math.round(value)
+  if (rounded <= 0 || rounded > maximum) return null
+  return rounded
+}
+
+function loadPersistedSettings(): PersistedAppSettings {
+  if (typeof window === 'undefined') return DEFAULT_PERSISTED_SETTINGS
+
+  try {
+    const raw = window.localStorage.getItem(ANALYSIS_SETTINGS_STORAGE_KEY)
+    if (!raw) return DEFAULT_PERSISTED_SETTINGS
+
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const labCommandHistory = Array.isArray(parsed.labCommandHistory)
+      ? parsed.labCommandHistory
+          .filter((value): value is string => typeof value === 'string')
+          .map(item => item.trim())
+          .filter(Boolean)
+          .slice(0, 20)
+      : DEFAULT_PERSISTED_SETTINGS.labCommandHistory
+
+    return {
+      autoAnalyze: typeof parsed.autoAnalyze === 'boolean' ? parsed.autoAnalyze : DEFAULT_PERSISTED_SETTINGS.autoAnalyze,
+      engineProfile: isEngineProfileId(parsed.engineProfile) ? parsed.engineProfile : DEFAULT_PERSISTED_SETTINGS.engineProfile,
+      analysisTab: isAnalysisTab(parsed.analysisTab) ? parsed.analysisTab : DEFAULT_PERSISTED_SETTINGS.analysisTab,
+      activePreset: parsed.activePreset === null ? null : (isAnalyzePresetId(parsed.activePreset) ? parsed.activePreset : DEFAULT_PERSISTED_SETTINGS.activePreset),
+      analyzeMode: isAnalyzeMode(parsed.analyzeMode) ? parsed.analyzeMode : DEFAULT_PERSISTED_SETTINGS.analyzeMode,
+      showAdvancedAnalyze: typeof parsed.showAdvancedAnalyze === 'boolean'
+        ? parsed.showAdvancedAnalyze
+        : DEFAULT_PERSISTED_SETTINGS.showAdvancedAnalyze,
+      searchDepth: normalizeInteger(parsed.searchDepth, 6, 32, DEFAULT_PERSISTED_SETTINGS.searchDepth),
+      quickMovetimeMs: normalizeInteger(parsed.quickMovetimeMs, 50, 30_000, DEFAULT_PERSISTED_SETTINGS.quickMovetimeMs),
+      mateTarget: normalizeInteger(parsed.mateTarget, 1, 30, DEFAULT_PERSISTED_SETTINGS.mateTarget),
+      multiPv: normalizeInteger(parsed.multiPv, 1, 5, DEFAULT_PERSISTED_SETTINGS.multiPv),
+      hashMb: normalizeInteger(parsed.hashMb, 16, 512, DEFAULT_PERSISTED_SETTINGS.hashMb),
+      showWdl: typeof parsed.showWdl === 'boolean' ? parsed.showWdl : DEFAULT_PERSISTED_SETTINGS.showWdl,
+      limitNodes: normalizeOptionalPositiveInteger(parsed.limitNodes, 1_000_000_000),
+      searchMovesInput: typeof parsed.searchMovesInput === 'string' ? parsed.searchMovesInput : DEFAULT_PERSISTED_SETTINGS.searchMovesInput,
+      useClockLimits: typeof parsed.useClockLimits === 'boolean' ? parsed.useClockLimits : DEFAULT_PERSISTED_SETTINGS.useClockLimits,
+      whiteTimeMs: normalizeInteger(parsed.whiteTimeMs, 0, 86_400_000, DEFAULT_PERSISTED_SETTINGS.whiteTimeMs),
+      blackTimeMs: normalizeInteger(parsed.blackTimeMs, 0, 86_400_000, DEFAULT_PERSISTED_SETTINGS.blackTimeMs),
+      whiteIncMs: normalizeInteger(parsed.whiteIncMs, 0, 60_000, DEFAULT_PERSISTED_SETTINGS.whiteIncMs),
+      blackIncMs: normalizeInteger(parsed.blackIncMs, 0, 60_000, DEFAULT_PERSISTED_SETTINGS.blackIncMs),
+      movesToGo: normalizeOptionalPositiveInteger(parsed.movesToGo, 500),
+      expertModeEnabled: typeof parsed.expertModeEnabled === 'boolean'
+        ? parsed.expertModeEnabled
+        : DEFAULT_PERSISTED_SETTINGS.expertModeEnabled,
+      labCommandHistory,
+    }
+  } catch {
+    return DEFAULT_PERSISTED_SETTINGS
+  }
+}
+
+function persistSettings(settings: PersistedAppSettings) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(ANALYSIS_SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+  } catch {
+    // Ignore localStorage failures (private mode / quota).
+  }
+}
+
+function isHeavyCommand(command: string): boolean {
+  const normalized = command.trim().toLowerCase()
+  if (!normalized) return false
+  if (normalized === 'bench') return true
+  if (normalized.startsWith('perft')) return true
+  if (normalized.startsWith('go infinite')) return true
+  return false
+}
 
 function App() {
   // ── Chess game instance ──────────────────────────────
   const game = useMemo(() => new Chess(), [])
   const [fen, setFen] = useState(game.fen())
   const [orientation, setOrientation] = useState<Orientation>('white')
+  const persistedSettings = useMemo(loadPersistedSettings, [])
 
   // ── Layout ───────────────────────────────────────────
   const [topPanelOpen, setTopPanelOpen] = useState(true)
@@ -45,28 +206,32 @@ function App() {
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight })
 
   // ── Engine settings ──────────────────────────────────
-  const [searchDepth, setSearchDepth] = useState(16)
-  const [multiPv, setMultiPv] = useState(2)
-  const [hashMb, setHashMb] = useState(64)
-  const [showWdl, setShowWdl] = useState(true)
-  const [autoAnalyze, setAutoAnalyze] = useState(true)
-  const [engineProfile, setEngineProfile] = useState<EngineProfileId>('auto')
-  const [analysisTab, setAnalysisTab] = useState<AnalysisTab>('analyze')
-  const [analyzeMode, setAnalyzeMode] = useState<AnalyzeMode>('deep')
-  const [showAdvancedAnalyze, setShowAdvancedAnalyze] = useState(false)
-  const [quickMovetimeMs, setQuickMovetimeMs] = useState(500)
-  const [mateTarget, setMateTarget] = useState(4)
-  const [limitNodes, setLimitNodes] = useState<number | ''>('')
-  const [searchMovesInput, setSearchMovesInput] = useState('')
-  const [useClockLimits, setUseClockLimits] = useState(false)
-  const [whiteTimeMs, setWhiteTimeMs] = useState(120_000)
-  const [blackTimeMs, setBlackTimeMs] = useState(120_000)
-  const [whiteIncMs, setWhiteIncMs] = useState(1_000)
-  const [blackIncMs, setBlackIncMs] = useState(1_000)
-  const [movesToGo, setMovesToGo] = useState<number | ''>('')
+  const [searchDepth, setSearchDepth] = useState(persistedSettings.searchDepth)
+  const [multiPv, setMultiPv] = useState(persistedSettings.multiPv)
+  const [hashMb, setHashMb] = useState(persistedSettings.hashMb)
+  const [showWdl, setShowWdl] = useState(persistedSettings.showWdl)
+  const [autoAnalyze, setAutoAnalyze] = useState(persistedSettings.autoAnalyze)
+  const [engineProfile, setEngineProfile] = useState<EngineProfileId>(persistedSettings.engineProfile)
+  const [analysisTab, setAnalysisTab] = useState<AnalysisTab>(persistedSettings.analysisTab)
+  const [activePreset, setActivePreset] = useState<AnalyzePresetId | null>(persistedSettings.activePreset)
+  const [analyzeMode, setAnalyzeMode] = useState<AnalyzeMode>(persistedSettings.analyzeMode)
+  const [showAdvancedAnalyze, setShowAdvancedAnalyze] = useState(persistedSettings.showAdvancedAnalyze)
+  const [quickMovetimeMs, setQuickMovetimeMs] = useState(persistedSettings.quickMovetimeMs)
+  const [mateTarget, setMateTarget] = useState(persistedSettings.mateTarget)
+  const [limitNodes, setLimitNodes] = useState<number | ''>(persistedSettings.limitNodes ?? '')
+  const [searchMovesInput, setSearchMovesInput] = useState(persistedSettings.searchMovesInput)
+  const [useClockLimits, setUseClockLimits] = useState(persistedSettings.useClockLimits)
+  const [whiteTimeMs, setWhiteTimeMs] = useState(persistedSettings.whiteTimeMs)
+  const [blackTimeMs, setBlackTimeMs] = useState(persistedSettings.blackTimeMs)
+  const [whiteIncMs, setWhiteIncMs] = useState(persistedSettings.whiteIncMs)
+  const [blackIncMs, setBlackIncMs] = useState(persistedSettings.blackIncMs)
+  const [movesToGo, setMovesToGo] = useState<number | ''>(persistedSettings.movesToGo ?? '')
   const [engineLabCommand, setEngineLabCommand] = useState('')
   const [engineLabError, setEngineLabError] = useState<string | null>(null)
   const [rawLogOffset, setRawLogOffset] = useState(0)
+  const [expertModeEnabled, setExpertModeEnabled] = useState(persistedSettings.expertModeEnabled)
+  const [labCommandHistory, setLabCommandHistory] = useState<string[]>(persistedSettings.labCommandHistory)
+  const [lastLabRun, setLastLabRun] = useState<{ command: string; durationMs: number } | null>(null)
 
   // ── Evaluations ──────────────────────────────────────
   const [evaluationsByFen, setEvaluationsByFen] = useState<Map<string, EvalSnapshot>>(new Map())
@@ -133,6 +298,11 @@ function App() {
 
   // ── Playback helpers for WatchControls ───────────────
   const currentPathNodes = gameTree.currentPath()
+  const currentPathMoves = useMemo(
+    () => currentPathNodes.slice(1).map(node => node.uci).filter(Boolean),
+    [currentPathNodes],
+  )
+  const currentPathMovesKey = currentPathMoves.join(' ')
   const opening = useOpening(currentPathNodes.map(n => n.fen))
   const canGoBack = currentPathNodes.length > 1
   const canGoForward = gameTree.current.children.length > 0
@@ -212,7 +382,6 @@ function App() {
     rawLines,
     capabilities,
     analyze,
-    analyzePosition,
     sendCommand,
     newGame,
     stop,
@@ -250,8 +419,16 @@ function App() {
   // ── Auto-analyze ─────────────────────────────────────
   useEffect(() => {
     if (!autoAnalyze) return
-    analyzePosition({ fen, depth: searchDepth, multiPv, hashMb, showWdl })
-  }, [analyzePosition, autoAnalyze, fen, hashMb, multiPv, searchDepth, showWdl])
+    analyze({
+      fen,
+      mode: 'custom',
+      limits: { depth: searchDepth },
+      multiPv,
+      hashMb,
+      showWdl,
+      historyMoves: currentPathMovesKey ? currentPathMovesKey.split(' ') : [],
+    })
+  }, [analyze, autoAnalyze, currentPathMovesKey, fen, hashMb, multiPv, searchDepth, showWdl])
 
   const parsedSearchMoves = useMemo(
     () =>
@@ -261,6 +438,75 @@ function App() {
         .filter(Boolean),
     [searchMovesInput],
   )
+
+  const resetSavedWorkspace = useCallback(() => {
+    try {
+      window.localStorage.removeItem(ANALYSIS_SETTINGS_STORAGE_KEY)
+    } catch {
+      // Ignore localStorage failures (private mode / quota).
+    }
+
+    setSearchDepth(DEFAULT_PERSISTED_SETTINGS.searchDepth)
+    setMultiPv(DEFAULT_PERSISTED_SETTINGS.multiPv)
+    setHashMb(DEFAULT_PERSISTED_SETTINGS.hashMb)
+    setShowWdl(DEFAULT_PERSISTED_SETTINGS.showWdl)
+    setAutoAnalyze(DEFAULT_PERSISTED_SETTINGS.autoAnalyze)
+    setEngineProfile(DEFAULT_PERSISTED_SETTINGS.engineProfile)
+    setAnalysisTab(DEFAULT_PERSISTED_SETTINGS.analysisTab)
+    setActivePreset(DEFAULT_PERSISTED_SETTINGS.activePreset)
+    setAnalyzeMode(DEFAULT_PERSISTED_SETTINGS.analyzeMode)
+    setShowAdvancedAnalyze(DEFAULT_PERSISTED_SETTINGS.showAdvancedAnalyze)
+    setQuickMovetimeMs(DEFAULT_PERSISTED_SETTINGS.quickMovetimeMs)
+    setMateTarget(DEFAULT_PERSISTED_SETTINGS.mateTarget)
+    setLimitNodes(DEFAULT_PERSISTED_SETTINGS.limitNodes ?? '')
+    setSearchMovesInput(DEFAULT_PERSISTED_SETTINGS.searchMovesInput)
+    setUseClockLimits(DEFAULT_PERSISTED_SETTINGS.useClockLimits)
+    setWhiteTimeMs(DEFAULT_PERSISTED_SETTINGS.whiteTimeMs)
+    setBlackTimeMs(DEFAULT_PERSISTED_SETTINGS.blackTimeMs)
+    setWhiteIncMs(DEFAULT_PERSISTED_SETTINGS.whiteIncMs)
+    setBlackIncMs(DEFAULT_PERSISTED_SETTINGS.blackIncMs)
+    setMovesToGo(DEFAULT_PERSISTED_SETTINGS.movesToGo ?? '')
+    setExpertModeEnabled(DEFAULT_PERSISTED_SETTINGS.expertModeEnabled)
+    setLabCommandHistory(DEFAULT_PERSISTED_SETTINGS.labCommandHistory)
+    setEngineLabError(null)
+  }, [])
+
+  const applyPreset = useCallback((presetId: AnalyzePresetId) => {
+    setActivePreset(presetId)
+    setShowAdvancedAnalyze(false)
+    setUseClockLimits(false)
+    setLimitNodes('')
+    setSearchMovesInput('')
+    setMovesToGo('')
+
+    if (presetId === 'blunder-check') {
+      setAnalyzeMode('quick')
+      setQuickMovetimeMs(350)
+      setSearchDepth(12)
+      setMultiPv(1)
+      return
+    }
+
+    if (presetId === 'game-review') {
+      setAnalyzeMode('review')
+      setSearchDepth(16)
+      setMultiPv(2)
+      return
+    }
+
+    if (presetId === 'deep-candidate') {
+      setAnalyzeMode('deep')
+      setSearchDepth(24)
+      setMultiPv(4)
+      setShowAdvancedAnalyze(true)
+      setLimitNodes(2_000_000)
+      return
+    }
+
+    setAnalyzeMode('mate')
+    setMateTarget(6)
+    setMultiPv(1)
+  }, [])
 
   const runAnalyze = useCallback(() => {
     const limits: UciGoLimits = {}
@@ -288,6 +534,7 @@ function App() {
       hashMb,
       showWdl,
       searchMoves: showAdvancedAnalyze ? parsedSearchMoves : [],
+      historyMoves: currentPathMovesKey ? currentPathMovesKey.split(' ') : [],
     })
   }, [
     analyze,
@@ -308,6 +555,7 @@ function App() {
     useClockLimits,
     whiteIncMs,
     whiteTimeMs,
+    currentPathMovesKey,
   ])
 
   const runLabCommand = useCallback(
@@ -315,19 +563,91 @@ function App() {
       const trimmed = command.trim()
       if (!trimmed) return
       setEngineLabError(null)
+      if (!expertModeEnabled && isHeavyCommand(trimmed)) {
+        setEngineLabError('Enable expert mode before running heavy commands (bench/perft/go infinite).')
+        return
+      }
+
+      setLabCommandHistory(previous => [trimmed, ...previous.filter(item => item !== trimmed)].slice(0, 20))
+      const startTime = performance.now()
       try {
         await sendCommand(trimmed)
+        setLastLabRun({ command: trimmed, durationMs: Math.round(performance.now() - startTime) })
+        setEngineLabCommand('')
       } catch (error) {
+        setLastLabRun({ command: trimmed, durationMs: Math.round(performance.now() - startTime) })
         setEngineLabError(error instanceof Error ? error.message : String(error))
       }
     },
-    [sendCommand],
+    [expertModeEnabled, sendCommand],
   )
 
   const clearRawConsole = useCallback(() => {
     setRawLogOffset(rawLines.length)
     setEngineLabError(null)
   }, [rawLines.length])
+
+  const visibleRawLines = useMemo(() => rawLines.slice(rawLogOffset).slice(-300), [rawLines, rawLogOffset])
+
+  const copyRawConsole = useCallback(async () => {
+    try {
+      if (!visibleRawLines.length) return
+      await navigator.clipboard.writeText(visibleRawLines.join('\n'))
+      setEngineLabError(null)
+    } catch (error) {
+      setEngineLabError(error instanceof Error ? error.message : 'Failed to copy console output.')
+    }
+  }, [visibleRawLines])
+
+  useEffect(() => {
+    persistSettings({
+      autoAnalyze,
+      engineProfile,
+      analysisTab,
+      activePreset,
+      analyzeMode,
+      showAdvancedAnalyze,
+      searchDepth,
+      quickMovetimeMs,
+      mateTarget,
+      multiPv,
+      hashMb,
+      showWdl,
+      limitNodes: typeof limitNodes === 'number' ? limitNodes : null,
+      searchMovesInput,
+      useClockLimits,
+      whiteTimeMs,
+      blackTimeMs,
+      whiteIncMs,
+      blackIncMs,
+      movesToGo: typeof movesToGo === 'number' ? movesToGo : null,
+      expertModeEnabled,
+      labCommandHistory,
+    })
+  }, [
+    activePreset,
+    analysisTab,
+    analyzeMode,
+    autoAnalyze,
+    blackIncMs,
+    blackTimeMs,
+    engineProfile,
+    expertModeEnabled,
+    hashMb,
+    labCommandHistory,
+    limitNodes,
+    mateTarget,
+    movesToGo,
+    multiPv,
+    quickMovetimeMs,
+    searchDepth,
+    searchMovesInput,
+    showAdvancedAnalyze,
+    showWdl,
+    useClockLimits,
+    whiteIncMs,
+    whiteTimeMs,
+  ])
 
   // ── Derived move data ─────────────────────────────────
   const mainLineNodes = gameTree.mainLine()
@@ -720,6 +1040,12 @@ function App() {
                     <p className="panel-copy small">
                       Options discovered from Stockfish UCI output and applied live.
                     </p>
+                    <button type="button" onClick={resetSavedWorkspace}>
+                      Reset saved workspace
+                    </button>
+                    <p className="panel-copy small">
+                      Clears persisted analyze/lab controls for this browser.
+                    </p>
                   </div>
                 </details>
               </div>
@@ -829,6 +1155,19 @@ function App() {
                     <IconStop /> Stop
                   </button>
                 </div>
+                <div className="preset-grid">
+                  {analyzePresets.map(preset => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      className={`preset-card ${activePreset === preset.id ? 'active' : ''}`}
+                      onClick={() => applyPreset(preset.id)}
+                    >
+                      <strong>{preset.label}</strong>
+                      <span>{preset.summary}</span>
+                    </button>
+                  ))}
+                </div>
                 <div className="analysis-mode-pills">
                   {([
                     { id: 'quick', label: 'Quick' },
@@ -841,7 +1180,10 @@ function App() {
                       key={mode.id}
                       type="button"
                       className={`mode-pill ${analyzeMode === mode.id ? 'active' : ''}`}
-                      onClick={() => setAnalyzeMode(mode.id)}
+                      onClick={() => {
+                        setActivePreset(null)
+                        setAnalyzeMode(mode.id)
+                      }}
                     >
                       {mode.label}
                     </button>
@@ -860,7 +1202,10 @@ function App() {
                       max={32}
                       step={1}
                       value={searchDepth}
-                      onChange={e => setSearchDepth(Number(e.target.value))}
+                      onChange={e => {
+                        setActivePreset(null)
+                        setSearchDepth(Number(e.target.value))
+                      }}
                     />
                     <strong>{searchDepth}</strong>
                   </label>
@@ -874,7 +1219,10 @@ function App() {
                       max={30000}
                       step={50}
                       value={quickMovetimeMs}
-                      onChange={e => setQuickMovetimeMs(Number(e.target.value))}
+                      onChange={e => {
+                        setActivePreset(null)
+                        setQuickMovetimeMs(Number(e.target.value))
+                      }}
                     />
                   </label>
                 )}
@@ -887,21 +1235,30 @@ function App() {
                       max={30}
                       step={1}
                       value={mateTarget}
-                      onChange={e => setMateTarget(Number(e.target.value))}
+                      onChange={e => {
+                        setActivePreset(null)
+                        setMateTarget(Number(e.target.value))
+                      }}
                     />
                   </label>
                 )}
                 <label className="control">
                   <span>MultiPV</span>
                   <input type="range" min={1} max={5} step={1} value={multiPv}
-                    onChange={e => setMultiPv(Number(e.target.value))} />
+                    onChange={e => {
+                      setActivePreset(null)
+                      setMultiPv(Number(e.target.value))
+                    }} />
                   <strong>{multiPv} lines</strong>
                 </label>
                 <label className="switch-control">
                   <input
                     type="checkbox"
                     checked={showAdvancedAnalyze}
-                    onChange={e => setShowAdvancedAnalyze(e.target.checked)}
+                    onChange={e => {
+                      setActivePreset(null)
+                      setShowAdvancedAnalyze(e.target.checked)
+                    }}
                   />
                   <span>Advanced search limits</span>
                 </label>
@@ -1058,6 +1415,19 @@ function App() {
                   <p className="panel-copy small command-summary">
                     Active: {activeGoCommand || 'none'}
                   </p>
+                  <label className="switch-control expert-toggle">
+                    <input
+                      type="checkbox"
+                      checked={expertModeEnabled}
+                      onChange={e => setExpertModeEnabled(e.target.checked)}
+                    />
+                    <span>Enable expert commands (bench/perft/infinite)</span>
+                  </label>
+                  {!expertModeEnabled && (
+                    <p className="panel-copy small warning-copy">
+                      Heavy diagnostics are locked to keep the UI responsive.
+                    </p>
+                  )}
                 </div>
 
                 <div className="engine-lab-card">
@@ -1076,17 +1446,49 @@ function App() {
                       placeholder="go depth 16"
                     />
                     <button type="submit">Send</button>
+                    <button type="button" onClick={() => void copyRawConsole()}>Copy</button>
                     <button type="button" onClick={clearRawConsole}>Clear</button>
                   </form>
+                  {lastLabRun && (
+                    <p className="panel-copy small command-summary">
+                      Last run: <strong>{lastLabRun.command}</strong> ({lastLabRun.durationMs} ms)
+                    </p>
+                  )}
                   <div className="inline-actions diagnostics-actions">
                     <button type="button" onClick={() => void runLabCommand('d')}>d</button>
                     <button type="button" onClick={() => void runLabCommand('eval')}>eval</button>
-                    <button type="button" onClick={() => void runLabCommand('bench')}>bench</button>
-                    <button type="button" onClick={() => void runLabCommand('perft 3')}>perft 3</button>
+                    <button
+                      type="button"
+                      className="danger-lite"
+                      disabled={!expertModeEnabled}
+                      onClick={() => void runLabCommand('bench')}
+                    >
+                      bench
+                    </button>
+                    <button
+                      type="button"
+                      className="danger-lite"
+                      disabled={!expertModeEnabled}
+                      onClick={() => void runLabCommand('perft 3')}
+                    >
+                      perft 3
+                    </button>
                   </div>
+                  {labCommandHistory.length > 0 && (
+                    <div className="lab-history">
+                      <h4>History</h4>
+                      <div className="lab-history-list">
+                        {labCommandHistory.map(item => (
+                          <button key={item} type="button" onClick={() => setEngineLabCommand(item)}>
+                            {item}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {engineLabError && <p className="panel-copy small error-copy">{engineLabError}</p>}
                   <pre className="engine-lab-output">
-                    {(rawLines.slice(rawLogOffset).slice(-300).join('\n')) || 'No engine output yet.'}
+                    {(visibleRawLines.join('\n')) || 'No engine output yet.'}
                   </pre>
                 </div>
 

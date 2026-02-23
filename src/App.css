@@ -938,6 +938,39 @@
   margin-bottom: 0.5rem;
 }
 
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.38rem;
+  margin-bottom: 0.55rem;
+}
+
+.preset-card {
+  text-align: left;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.48rem;
+  color: var(--text-secondary);
+  display: grid;
+  gap: 0.16rem;
+}
+
+.preset-card strong {
+  font-size: 0.68rem;
+  color: var(--text-primary);
+}
+
+.preset-card span {
+  font-size: 0.63rem;
+  color: var(--text-muted);
+}
+
+.preset-card.active {
+  border-color: var(--accent-muted);
+  background: rgba(88, 166, 255, 0.12);
+}
+
 .mode-pill {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-pill);
@@ -995,7 +1028,7 @@
 
 .engine-lab-console {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   gap: 0.35rem;
   margin-bottom: 0.5rem;
 }
@@ -1009,6 +1042,51 @@
 .diagnostics-actions {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: 0.45rem;
+}
+
+.expert-toggle {
+  margin-top: 0.2rem;
+}
+
+.warning-copy {
+  color: var(--warning);
+}
+
+.danger-lite {
+  border-color: rgba(248, 81, 73, 0.35) !important;
+  color: #ff9b95 !important;
+}
+
+.danger-lite:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.lab-history {
+  margin-bottom: 0.45rem;
+}
+
+.lab-history h4 {
+  margin: 0 0 0.3rem;
+  font-size: 0.61rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.lab-history-list {
+  display: flex;
+  gap: 0.28rem;
+  flex-wrap: wrap;
+}
+
+.lab-history-list button {
+  font-size: 0.64rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-secondary);
 }
 
 .engine-lab-output {
