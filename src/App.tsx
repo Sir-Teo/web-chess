@@ -631,7 +631,7 @@ function App() {
 
       {/* ── Board ── */}
       <section className="board-stage" aria-label="Chessboard">
-        <div className="board-wrap" style={{ position: 'relative' }}>
+        <div className="board-wrap">
           {showWdl && <WdlBar fen={fen} evaluation={evaluationsByFen.get(fen)} orientation={orientation} />}
           {opening && (
             <div className="board-opening-label fade-in-slide">

@@ -299,6 +299,7 @@
   display: grid;
   place-items: center;
   padding: var(--space-lg);
+  z-index: 1;
 }
 
 .board-opening-label {
@@ -375,6 +376,8 @@
 }
 
 .board-wrap {
+  position: relative;
+  z-index: 2;
   border-radius: 14px;
   transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
 }
