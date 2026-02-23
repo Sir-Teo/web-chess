@@ -49,6 +49,17 @@ export function useAiPlayer() {
     const [status, setStatus] = useState<AiStatus>('loading')
     const difficultyRef = useRef<AiDifficulty>(4)
 
+    const applyDifficulty = useCallback((worker: Worker, difficulty: AiDifficulty) => {
+        const elo = DIFFICULTY_ELO[difficulty]
+        // Per Stockfish.js docs (stockfishjs-research-2026-02-22.md):
+        // UCI_LimitStrength (check) + UCI_Elo (spin, 1320-3190)
+        worker.postMessage('setoption name UCI_LimitStrength value true')
+        worker.postMessage(`setoption name UCI_Elo value ${elo}`)
+        // Also set Skill Level for redundancy on lite builds that may use it
+        const skillLevel = Math.round(((difficulty - 1) / 7) * 20)
+        worker.postMessage(`setoption name Skill Level value ${skillLevel}`)
+    }, [])
+
     // Boot a fresh lite-single worker for the AI player
     useEffect(() => {
         const capabilities = {
@@ -64,14 +75,15 @@ export function useAiPlayer() {
         try {
             worker = new Worker(profile.workerPath)
         } catch {
-            setStatus('error')
+            queueMicrotask(() => setStatus('error'))
             return
         }
 
         workerRef.current = worker
         isReadyRef.current = false
 
-        worker.onmessage = (event: MessageEvent<string>) => {
+        worker.onmessage = (event: MessageEvent<unknown>) => {
+            if (typeof event.data !== 'string') return
             const line = event.data
 
             if (line === 'uciok') {
@@ -95,6 +107,7 @@ export function useAiPlayer() {
 
         worker.onerror = () => {
             setStatus('error')
+            isReadyRef.current = false
             resolveRef.current?.(null)
             resolveRef.current = null
         }
@@ -109,39 +122,27 @@ export function useAiPlayer() {
             resolveRef.current?.(null)
             resolveRef.current = null
         }
-    }, [])
-
-    const applyDifficulty = (worker: Worker, difficulty: AiDifficulty) => {
-        const elo = DIFFICULTY_ELO[difficulty]
-        // Per Stockfish.js docs (stockfishjs-research-2026-02-22.md):
-        // UCI_LimitStrength (check) + UCI_Elo (spin, 1320-3190)
-        worker.postMessage('setoption name UCI_LimitStrength value true')
-        worker.postMessage(`setoption name UCI_Elo value ${elo}`)
-        // Also set Skill Level for redundancy on lite builds that may use it
-        const skillLevel = Math.round(((difficulty - 1) / 7) * 20)
-        worker.postMessage(`setoption name Skill Level value ${skillLevel}`)
-    }
+    }, [applyDifficulty])
 
     const setDifficulty = useCallback((difficulty: AiDifficulty) => {
         difficultyRef.current = difficulty
         if (workerRef.current && isReadyRef.current) {
             applyDifficulty(workerRef.current, difficulty)
         }
-    }, [])
+    }, [applyDifficulty])
 
     /** Request the engine to pick a move for the given position.
      *  Returns a promise resolving to a UCI move string (e.g. "e2e4") or null. */
     const requestMove = useCallback(
         (fen: string, difficulty: AiDifficulty): Promise<string | null> => {
             const worker = workerRef.current
-            if (!worker || !isReadyRef.current) return Promise.resolve(null)
+            if (!worker || !isReadyRef.current || resolveRef.current) return Promise.resolve(null)
 
             return new Promise((resolve) => {
                 resolveRef.current = resolve
                 setStatus('thinking')
 
                 const movetime = DIFFICULTY_MOVETIME[difficulty]
-                worker.postMessage('stop')
                 worker.postMessage(`position fen ${fen}`)
                 // Per docs: "go movetime N" is the clean way to get a single best move
                 worker.postMessage(`go movetime ${movetime}`)

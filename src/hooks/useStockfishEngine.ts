@@ -149,7 +149,9 @@ function withUciValue(value: string | number | boolean): string {
 export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto') {
   const workerRef = useRef<Worker | null>(null)
   const isReadyRef = useRef(false)
-  const queuedAnalyzeRef = useRef<AnalyzeParams | null>(null)
+  const pendingAnalyzeRef = useRef<AnalyzeParams | null>(null)
+  const isSearchingRef = useRef(false)
+  const stopRequestedRef = useRef(false)
   const currentAnalysisFenRef = useRef<string>('')
   const bootSessionRef = useRef(0)
   const capabilities = useMemo<EngineCapabilities>(() => detectEngineCapabilities(), [])
@@ -191,30 +193,57 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto') {
     [send],
   )
 
-  const analyzePosition = useCallback(
+  const startAnalysis = useCallback(
     (params: AnalyzeParams) => {
-      if (!isReadyRef.current) {
-        queuedAnalyzeRef.current = params
-        return
-      }
+      pendingAnalyzeRef.current = null
 
       setStatus('analyzing')
       setLinesMap(new Map())
       setLastBestMove(null)
       currentAnalysisFenRef.current = params.fen
 
-      send('stop')
       setOption('Hash', params.hashMb)
       setOption('MultiPV', params.multiPv)
       setOption('UCI_ShowWDL', params.showWdl)
       send(`position fen ${params.fen}`)
       send(`go depth ${params.depth}`)
+      isSearchingRef.current = true
+      stopRequestedRef.current = false
     },
     [send, setOption],
   )
 
+  const flushPendingAnalyze = useCallback(() => {
+    if (!isReadyRef.current) return
+
+    const pending = pendingAnalyzeRef.current
+    if (!pending) return
+
+    if (isSearchingRef.current) {
+      if (!stopRequestedRef.current) {
+        send('stop')
+        stopRequestedRef.current = true
+      }
+      return
+    }
+
+    startAnalysis(pending)
+  }, [send, startAnalysis])
+
+  const analyzePosition = useCallback(
+    (params: AnalyzeParams) => {
+      pendingAnalyzeRef.current = params
+      flushPendingAnalyze()
+    },
+    [flushPendingAnalyze],
+  )
+
   const stop = useCallback(() => {
-    send('stop')
+    pendingAnalyzeRef.current = null
+    if (isSearchingRef.current && !stopRequestedRef.current) {
+      send('stop')
+      stopRequestedRef.current = true
+    }
     setStatus((value) => (value === 'error' ? value : 'ready'))
   }, [send])
 
@@ -263,6 +292,9 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto') {
 
     workerRef.current = worker
     isReadyRef.current = false
+    isSearchingRef.current = false
+    stopRequestedRef.current = false
+    pendingAnalyzeRef.current = null
 
     queueMicrotask(() => {
       if (currentSession !== bootSessionRef.current) return
@@ -274,8 +306,9 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto') {
       setProfileMessage(profile.description)
     })
 
-    worker.onmessage = (event: MessageEvent<string>) => {
+    worker.onmessage = (event: MessageEvent<unknown>) => {
       if (currentSession !== bootSessionRef.current) return
+      if (typeof event.data !== 'string') return
       const line = event.data
 
       if (line.startsWith('__BOOT_ERROR__:')) {
@@ -307,12 +340,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto') {
       if (line === 'readyok') {
         isReadyRef.current = true
         setStatus((value) => (value === 'error' ? value : 'ready'))
-
-        const queued = queuedAnalyzeRef.current
-        queuedAnalyzeRef.current = null
-        if (queued) {
-          analyzePosition(queued)
-        }
+        flushPendingAnalyze()
       }
 
       if (line.startsWith('info ')) {
@@ -329,6 +357,14 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto') {
       if (line.startsWith('bestmove ')) {
         const bestMove = line.split(' ')[1] ?? null
         setLastBestMove(bestMove)
+        isSearchingRef.current = false
+        stopRequestedRef.current = false
+
+        if (pendingAnalyzeRef.current) {
+          flushPendingAnalyze()
+          return
+        }
+
         setStatus((value) => (value === 'error' ? value : 'ready'))
       }
     }
@@ -360,9 +396,12 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto') {
       worker.terminate()
       workerRef.current = null
       isReadyRef.current = false
+      isSearchingRef.current = false
+      stopRequestedRef.current = false
+      pendingAnalyzeRef.current = null
       if (workerBlobUrl) URL.revokeObjectURL(workerBlobUrl)
     }
-  }, [analyzePosition, capabilities, resolvedProfile, selectedProfile, send])
+  }, [capabilities, flushPendingAnalyze, resolvedProfile, selectedProfile, send])
 
   const lines = useMemo(
     () =>
