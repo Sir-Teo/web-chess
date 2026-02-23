@@ -1,73 +1,58 @@
-# React + TypeScript + Vite
+# ♞ Web Chess
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, highly polished, and feature-rich chess application built with React, TypeScript, and Vite. It offers a stunning user interface, powerful AI capabilities driven by Stockfish, and advanced game analysis tools.
 
-Currently, two official plugins are available:
+## ✨ Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **🤖 Play against AI**: Challenge the powerful Stockfish engine directly in your browser with adjustable difficulty levels to match your skill.
+- **👁️ AI Watch Mode**: Automate AI vs. AI matches with full playback controls (pause/resume, speed adjustment, step mode) for deep analysis and learning.
+- **📊 Advanced Game Analysis**: 
+  - **Winrate Graph**: Interactive, clickable game evaluation graph with vertical markers indicating the current position.
+  - **Engine Lines & WDL**: View detailed engine analysis, full lines, and Win/Draw/Loss probability breakdowns.
+  - **Visual Board Indicators**: Intuitive SVG board arrows indicating the played move (orange), best engine move (green), and alternative lines (blue).
+- **📖 Opening Explorer**: Automatic opening names lookup and identification as you play.
+- **🎮 Premium UI/UX**: Keyboard navigation support (left/right arrows), a clickable "Move Navigator" transcript, high-quality SVG iconography, and a fast, responsive design tailored for performance.
+- **📁 Batch Game Review**: Effortlessly load, review, and analyze multiple games seamlessly.
 
-## React Compiler
+## 🛠️ Technology Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Framework**: [React 19](https://react.dev) + [TypeScript](https://www.typescriptlang.org/)
+- **Build Tool**: [Vite](https://vitejs.dev)
+- **Chess Logic**: [`chess.js`](https://github.com/jhlywa/chess.js) for move generation, validation, and game state administration.
+- **Chess Engine**: [`stockfish.js`](https://github.com/nmrugg/stockfish.js) for localized, WASM-powered browser-based move analysis.
+- **UI Components**: [`react-chessboard`](https://github.com/Clariity/react-chessboard) for interactive drag-and-drop board rendering, and [`lucide-react`](https://lucide.dev/) for crisp, scalable icons.
 
-## Expanding the ESLint configuration
+## 🚀 Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Follow these instructions to get a local copy of the project up and running.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Prerequisites
+Make sure you have Node.js and a package manager (`npm`, `yarn`, or `pnpm`) installed on your system.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Installation
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/yourusername/web-chess.git
+   cd web-chess
+   ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+3. **Start the development server:**
+   ```bash
+   npm run dev
+   ```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+4. **Launch:** Open your browser and navigate to `http://localhost:5173` (or the local port provided by Vite in your terminal).
+
+## 🌍 Continuous Deployment
+
+This project includes an automated GitHub Actions workflow (`.github/workflows/deploy.yml`) designed to seamlessly build and deploy the application to **GitHub Pages** whenever code is pushed to the `main` branch. 
+
+## 📜 License
+
+Distributed under the MIT License.
