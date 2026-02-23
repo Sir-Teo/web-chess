@@ -303,27 +303,75 @@
 
 .board-opening-label {
   position: absolute;
-  top: -36px;
+  top: -46px;
   left: 0;
   right: 0;
-  text-align: center;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
   pointer-events: none;
   z-index: 10;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 6px;
 }
 
-.board-opening-label strong {
+.opening-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(13, 17, 23, 0.85);
+  border: 1px solid var(--border-default);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.opening-pill strong {
   color: var(--text-primary);
-  background: var(--bg-elevated);
-  padding: 2px 6px;
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
   font-size: 0.8rem;
+  letter-spacing: 0.5px;
+}
+
+.fade-in-slide {
+  animation: slideDownFade 300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes slideDownFade {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.batch-review-btn {
+  min-width: 140px;
+}
+
+.pulsing.btn-primary {
+  animation: bgPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes bgPulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 0 0 6px rgba(63, 185, 80, 0);
+  }
 }
 
 .board-wrap {

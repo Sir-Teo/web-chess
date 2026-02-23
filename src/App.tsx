@@ -20,6 +20,7 @@ import { NewGameDialog, type GameMode, type PlayerColor } from './components/New
 import { PgnDialog } from './components/PgnDialog'
 import { WatchControls, AI_SPEED_MS, type AiSpeed } from './components/WatchControls'
 import { WdlBar } from './components/WdlBar'
+import { HorizontalWdlBar } from './components/HorizontalWdlBar'
 import { MoveListTree } from './components/MoveListTree'
 import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlip, IconDownload, IconUsers, IconZap, IconSettings, IconPlay, IconStop } from './components/icons'
 import './App.css'
@@ -164,7 +165,7 @@ function App() {
   useEffect(() => {
     if (!isBatchReviewing) return
 
-    // Auto-advance every 500ms to allow engine analysis time
+    // Auto-advance every 500ms for exact timing per requirement
     const timer = setTimeout(() => {
       const nodes = gameTreeRef.current.mainLine()
       const nextIdx = batchReviewIdxRef.current + 1
@@ -174,7 +175,7 @@ function App() {
       } else {
         setIsBatchReviewing(false)
       }
-    }, 600) // Slightly over 500ms to guarantee solid Engine eval
+    }, 500)
 
     return () => clearTimeout(timer)
   }, [isBatchReviewing, fen, navigateAndPause])
@@ -202,12 +203,16 @@ function App() {
     if (typeof cp !== 'number') return
     setEvaluationsByFen(prev => {
       const cur = prev.get(fen)
-      if (cur?.cp === cp) return prev
+      // Check if cp and wdl are exactly the same
+      const sameCp = cur?.cp === cp
+      const sameWdl = cur?.wdl?.w === primaryLine?.wdl?.w && cur?.wdl?.d === primaryLine?.wdl?.d
+      if (sameCp && sameWdl) return prev
+
       const next = new Map(prev)
-      next.set(fen, { cp })
+      next.set(fen, { cp, wdl: primaryLine?.wdl })
       return next
     })
-  }, [fen, primaryLine?.cp, primaryLine?.mate])
+  }, [fen, primaryLine?.cp, primaryLine?.mate, primaryLine?.wdl])
 
   // ── Viewport ─────────────────────────────────────────
   useEffect(() => {
@@ -604,9 +609,11 @@ function App() {
         <div className="board-wrap" style={{ position: 'relative' }}>
           {showWdl && <WdlBar fen={fen} evaluation={evaluationsByFen.get(fen)} orientation={orientation} />}
           {opening && (
-            <div className="board-opening-label">
-              <strong>{opening.eco}</strong>
-              <span>{opening.name}</span>
+            <div className="board-opening-label fade-in-slide">
+              <div className="opening-pill">
+                <strong>{opening.eco}</strong>
+                <span>{opening.name}</span>
+              </div>
             </div>
           )}
           <Chessboard
@@ -678,10 +685,14 @@ function App() {
               </button>
               <button
                 type="button"
-                className={isBatchReviewing ? 'btn-primary' : ''}
+                className={`batch-review-btn ${isBatchReviewing ? 'btn-primary pulsing' : ''}`}
                 onClick={isBatchReviewing ? () => setIsBatchReviewing(false) : startBatchReview}
               >
-                {isBatchReviewing ? <><IconStop /> Stop Review</> : <><IconSearch /> Review Game</>}
+                {isBatchReviewing ? (
+                  <><IconStop /> Reviewing ({batchReviewIdxRef.current}/{mainLineNodes.length - 1})</>
+                ) : (
+                  <><IconSearch /> Review Game</>
+                )}
               </button>
             </div>
 
@@ -727,6 +738,9 @@ function App() {
                     </header>
                     <p>{pvToSan(line.fen ?? fen, line) || line.pv.slice(0, 8).join(' ')}</p>
                     <p className="pv-uci">{line.pv.slice(0, 8).join(' ')}</p>
+                    {showWdl && line.wdl && (
+                      <HorizontalWdlBar wdl={line.wdl} orientation={orientation} />
+                    )}
                   </article>
                 ))}
               {lastBestMove && <p className="best-move">Best move: {lastBestMove}</p>}
