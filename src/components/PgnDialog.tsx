@@ -28,12 +28,11 @@ export function PgnDialog({ open, onClose, onImport, mainLineNodes, evaluations 
     const exportText = tab === 'export' ? exportAnnotatedPgn(mainLineNodes, evaluations) : ''
 
     return (
-        <div className="dialog-overlay" onClick={onClose}>
-            <div className="dialog-content pgn-dialog" onClick={e => e.stopPropagation()}>
+        <div className="dialog-backdrop" onClick={onClose}>
+            <div className="dialog-panel pgn-dialog" onClick={e => e.stopPropagation()}>
                 <header className="dialog-header">
                     <span className="dialog-icon">📥</span>
                     <h2>PGN Import & Export</h2>
-                    <button className="close-btn" onClick={onClose}>×</button>
                 </header>
 
                 <div className="dialog-body">
