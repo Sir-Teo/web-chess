@@ -3,6 +3,7 @@ import type { EngineLine } from '../hooks/useStockfishEngine'
 
 export type EvalSnapshot = {
   cp: number
+  wdl?: { w: number; d: number; l: number }
 }
 
 export type ReviewLabel = 'best' | 'good' | 'inaccuracy' | 'mistake' | 'blunder' | 'pending'

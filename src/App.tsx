@@ -15,8 +15,11 @@ import { engineProfiles, type EngineProfileId } from './engine/profiles'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
 import { useGameTree } from './hooks/useGameTree'
+import { useOpening } from './hooks/useOpening'
 import { NewGameDialog, type GameMode, type PlayerColor } from './components/NewGameDialog'
+import { PgnDialog } from './components/PgnDialog'
 import { WatchControls, AI_SPEED_MS, type AiSpeed } from './components/WatchControls'
+import { WdlBar } from './components/WdlBar'
 import { MoveListTree } from './components/MoveListTree'
 import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert } from './components/icons'
 import './App.css'
@@ -49,6 +52,7 @@ function App() {
 
   // ── Game mode ────────────────────────────────────────
   const [showNewGameDialog, setShowNewGameDialog] = useState(false)
+  const [showPgnDialog, setShowPgnDialog] = useState(false)
   const [gameMode, setGameMode] = useState<GameMode>('human-vs-human')
   const [playerColor, setPlayerColor] = useState<PlayerColor>('white')
   const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>(4)
@@ -109,6 +113,7 @@ function App() {
 
   // ── Playback helpers for WatchControls ───────────────
   const currentPathNodes = gameTree.currentPath()
+  const opening = useOpening(currentPathNodes.map(n => n.fen))
   const canGoBack = currentPathNodes.length > 1
   const canGoForward = gameTree.current.children.length > 0
 
@@ -143,6 +148,36 @@ function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [goPrev, goNext])
+
+  // ── Batch Review ─────────────────────────────────────
+  const [isBatchReviewing, setIsBatchReviewing] = useState(false)
+  const batchReviewIdxRef = useRef<number>(0)
+
+  const startBatchReview = useCallback(() => {
+    const nodes = gameTreeRef.current.mainLine()
+    if (nodes.length <= 1) return
+    setIsBatchReviewing(true)
+    batchReviewIdxRef.current = 1
+    navigateAndPause(gameTreeRef.current.navigateTo(nodes[1]!.id))
+  }, [navigateAndPause])
+
+  useEffect(() => {
+    if (!isBatchReviewing) return
+
+    // Auto-advance every 500ms to allow engine analysis time
+    const timer = setTimeout(() => {
+      const nodes = gameTreeRef.current.mainLine()
+      const nextIdx = batchReviewIdxRef.current + 1
+      if (nextIdx < nodes.length) {
+        batchReviewIdxRef.current = nextIdx
+        navigateAndPause(gameTreeRef.current.navigateTo(nodes[nextIdx]!.id))
+      } else {
+        setIsBatchReviewing(false)
+      }
+    }, 600) // Slightly over 500ms to guarantee solid Engine eval
+
+    return () => clearTimeout(timer)
+  }, [isBatchReviewing, fen, navigateAndPause])
 
   // ── Engine ───────────────────────────────────────────
   const {
@@ -214,6 +249,31 @@ function App() {
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewRows])
+
+  // ── Engine arrows ────────────────────────────────────
+  const arrows = useMemo(() => {
+    const list: Array<{ startSquare: string; endSquare: string; color: string }> = []
+
+    const currentMove = gameTree.current.move
+    if (currentMove) {
+      list.push({ startSquare: currentMove.from, endSquare: currentMove.to, color: 'rgba(255, 170, 0, 0.8)' })
+    }
+
+    const currentLines = lines.filter(l => !l.fen || l.fen === fen)
+    const bestLine = currentLines.find(l => l.multipv === 1)
+    if (bestLine) {
+      const uci = bestLine.pv[0]
+      if (uci) {
+        list.push({
+          startSquare: uci.slice(0, 2),
+          endSquare: uci.slice(2, 4),
+          color: 'rgba(63, 185, 80, 0.8)', // Green for best
+        })
+      }
+    }
+
+    return list
+  }, [gameTree.current.move, lines, fen])
 
   // ── AI move loop (with speed throttle) ───────────────
   useEffect(() => {
@@ -291,6 +351,33 @@ function App() {
 
   // ── New game ──────────────────────────────────────────
   const openNewGameDialog = () => setShowNewGameDialog(true)
+  const openPgnDialog = () => setShowPgnDialog(true)
+
+  const handlePgnImport = useCallback((pgnText: string) => {
+    try {
+      const loader = new Chess()
+      loader.loadPgn(pgnText)
+      game.reset()
+      gameTree.reset()
+      setFen(game.fen())
+      setEvaluationsByFen(new Map())
+
+      const moves = loader.history({ verbose: true })
+      for (const m of moves) {
+        game.move(m)
+        const nextFen = game.fen()
+        gameTree.addMove(m, nextFen)
+      }
+      setFen(game.fen())
+
+      setPaused(true)
+      pausedRef.current = true
+      setIsAiThinking(false)
+      aiMoveScheduledRef.current = false
+    } catch (err) {
+      alert("Failed to parse PGN.")
+    }
+  }, [game, gameTree])
 
   const handleNewGameStart = useCallback(
     ({ mode, playerColor: color, difficulty }: { mode: GameMode; playerColor: PlayerColor; difficulty: AiDifficulty }) => {
@@ -413,6 +500,9 @@ function App() {
             <button type="button" onClick={flipBoard}>
               <span className="btn-icon">⇅</span> Flip
             </button>
+            <button type="button" onClick={openPgnDialog}>
+              <span className="btn-icon">📥</span> PGN
+            </button>
 
             {/* Mode switcher lives in top bar */}
             <span className="toolbar-divider" />
@@ -511,6 +601,13 @@ function App() {
       {/* ── Board ── */}
       <section className="board-stage" aria-label="Chessboard">
         <div className="board-wrap" style={{ position: 'relative' }}>
+          {showWdl && <WdlBar fen={fen} evaluation={evaluationsByFen.get(fen)} orientation={orientation} />}
+          {opening && (
+            <div className="board-opening-label">
+              <strong>{opening.eco}</strong>
+              <span>{opening.name}</span>
+            </div>
+          )}
           <Chessboard
             options={{
               position: fen,
@@ -519,6 +616,7 @@ function App() {
                 if (!targetSquare) return false
                 return onPieceDrop(sourceSquare as Square, targetSquare as Square, piece.pieceType)
               },
+              arrows,
               allowDragging: !isAiThinking && !(gameMode === 'human-vs-ai' && !paused && game.turn() !== playerColor[0]),
               darkSquareStyle: { backgroundColor: '#b58863' },
               lightSquareStyle: { backgroundColor: '#f0d9b5' },
@@ -549,6 +647,14 @@ function App() {
         onCancel={() => setShowNewGameDialog(false)}
       />
 
+      <PgnDialog
+        open={showPgnDialog}
+        onClose={() => setShowPgnDialog(false)}
+        onImport={handlePgnImport}
+        mainLineNodes={mainLineNodes}
+        evaluations={evaluationsByFen}
+      />
+
       {/* ── Right panel ── */}
       <aside className="panel right" style={{ width: rightWidth }}>
         <div className="resize-handle resize-handle-left" onMouseDown={startRightResize}
@@ -568,6 +674,13 @@ function App() {
               </button>
               <button type="button" onClick={stop}>
                 ■ Stop
+              </button>
+              <button
+                type="button"
+                className={isBatchReviewing ? 'btn-primary' : ''}
+                onClick={isBatchReviewing ? () => setIsBatchReviewing(false) : startBatchReview}
+              >
+                {isBatchReviewing ? '⏹ Stop Review' : '🔎 Review Game'}
               </button>
             </div>
 

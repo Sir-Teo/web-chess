@@ -15,6 +15,7 @@ type EngineLine = {
   depth: number
   cp?: number
   mate?: number
+  wdl?: { w: number; d: number; l: number }
   pv: string[]
   nodes?: number
   nps?: number
@@ -85,6 +86,7 @@ function parseInfoLine(line: string): EngineLine | null {
   let multipv = 1
   let cp: number | undefined
   let mate: number | undefined
+  let wdl: { w: number; d: number; l: number } | undefined
   let nodes: number | undefined
   let nps: number | undefined
   let time: number | undefined
@@ -100,6 +102,7 @@ function parseInfoLine(line: string): EngineLine | null {
     if (part === 'time') time = Number(parts[i + 1])
     if (part === 'score' && parts[i + 1] === 'cp') cp = Number(parts[i + 2])
     if (part === 'score' && parts[i + 1] === 'mate') mate = Number(parts[i + 2])
+    if (part === 'wdl') wdl = { w: Number(parts[i + 1]), d: Number(parts[i + 2]), l: Number(parts[i + 3]) }
     if (part === 'pv') {
       pv = parts.slice(i + 1)
       break
@@ -108,7 +111,7 @@ function parseInfoLine(line: string): EngineLine | null {
 
   if (!pv.length) return null
 
-  return { multipv, depth, cp, mate, pv, nodes, nps, time }
+  return { multipv, depth, cp, mate, wdl, pv, nodes, nps, time }
 }
 
 function parseOptionLine(line: string): EngineOption | null {

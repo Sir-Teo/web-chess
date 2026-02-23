@@ -12,29 +12,12 @@ type Props = {
  * Variation nodes are shown as indented continuation rows.
  */
 export function MoveListTree({ tree, onNavigate }: Props) {
-    const { current, mainLine, nodesSnapshot, navigateTo, goBack, goForward } = tree
+    const { current, mainLine, nodesSnapshot, navigateTo } = tree
     const scrollRef = useRef<HTMLDivElement>(null)
 
     const line = mainLine()
 
-    // Keyboard navigation on the container
-    useEffect(() => {
-        const el = scrollRef.current
-        if (!el) return
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'ArrowLeft') {
-                e.preventDefault()
-                const chess = goBack()
-                if (chess) onNavigate(chess)
-            } else if (e.key === 'ArrowRight') {
-                e.preventDefault()
-                const chess = goForward()
-                if (chess) onNavigate(chess)
-            }
-        }
-        window.addEventListener('keydown', onKey)
-        return () => window.removeEventListener('keydown', onKey)
-    }, [goBack, goForward, onNavigate])
+    // Keyboard navigation on the container is already handled globally in App.tsx
 
     // Auto-scroll current node into view
     useEffect(() => {

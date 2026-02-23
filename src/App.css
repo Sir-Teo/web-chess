@@ -301,6 +301,31 @@
   padding: var(--space-lg);
 }
 
+.board-opening-label {
+  position: absolute;
+  top: -36px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  pointer-events: none;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
+
+.board-opening-label strong {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+  font-size: 0.8rem;
+}
+
 .board-wrap {
   border-radius: 14px;
   transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
