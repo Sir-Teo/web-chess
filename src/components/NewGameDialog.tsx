@@ -16,7 +16,7 @@ type Props = {
 }
 
 import { useState } from 'react'
-import { IconUsers, IconBot, IconZap, IconSwords } from './icons'
+import { IconUsers, IconBot, IconZap, IconSwords, IconKing, IconPlay } from './icons'
 import './NewGameDialog.css'
 
 const DIFFICULTY_DESCRIPTIONS: Record<AiDifficulty, string> = {
@@ -89,7 +89,7 @@ export function NewGameDialog({ open, onStart, onCancel }: Props) {
                                 className={`color-btn ${playerColor === 'white' ? 'selected' : ''}`}
                                 onClick={() => setPlayerColor('white')}
                             >
-                                <span className="color-piece">♔</span>
+                                <span className="color-piece"><IconKing /></span>
                                 White
                             </button>
                             <button
@@ -97,7 +97,7 @@ export function NewGameDialog({ open, onStart, onCancel }: Props) {
                                 className={`color-btn ${playerColor === 'black' ? 'selected' : ''}`}
                                 onClick={() => setPlayerColor('black')}
                             >
-                                <span className="color-piece dark">♚</span>
+                                <span className="color-piece dark"><IconKing /></span>
                                 Black
                             </button>
                         </div>
@@ -139,7 +139,7 @@ export function NewGameDialog({ open, onStart, onCancel }: Props) {
                         Cancel
                     </button>
                     <button type="button" className="btn-start" onClick={handleStart}>
-                        ▶ Start Game
+                        <IconPlay /> Start Game
                     </button>
                 </div>
             </div>

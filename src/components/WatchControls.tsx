@@ -1,4 +1,5 @@
 import type { GameMode } from './NewGameDialog'
+import { IconSkipBack, IconChevronLeft, IconChevronRight, IconSkipForward, IconStepForward, IconPlay, IconPause } from './icons'
 
 export type AiSpeed = 'slow' | 'normal' | 'fast' | 'step'
 
@@ -61,16 +62,16 @@ export function WatchControls({
             {/* ── Navigation ── */}
             <div className="wc-nav">
                 <button type="button" className="wc-btn" onClick={onFirst} disabled={!canGoBack} title="First position (⏮)">
-                    ⏮
+                    <IconSkipBack />
                 </button>
                 <button type="button" className="wc-btn" onClick={onPrev} disabled={!canGoBack} title="Previous move (←)">
-                    ‹
+                    <IconChevronLeft />
                 </button>
                 <button type="button" className="wc-btn" onClick={onNext} disabled={!canGoForward} title="Next move (→)">
-                    ›
+                    <IconChevronRight />
                 </button>
                 <button type="button" className="wc-btn" onClick={onLast} disabled={!canGoForward} title="Last position (⏭)">
-                    ⏭
+                    <IconSkipForward />
                 </button>
             </div>
 
@@ -79,15 +80,15 @@ export function WatchControls({
                 <div className="wc-play">
                     {stepMode && paused ? (
                         <button type="button" className="wc-btn wc-btn-step" onClick={onStep} title="Advance one AI move">
-                            ► Step
+                            <IconStepForward /> Step
                         </button>
                     ) : paused ? (
                         <button type="button" className="wc-btn wc-btn-resume" onClick={onResume} title="Resume AI">
-                            ▶ Resume
+                            <IconPlay /> Resume
                         </button>
                     ) : (
                         <button type="button" className="wc-btn wc-btn-pause" onClick={onPause} title="Pause & analyze">
-                            ⏸ Pause
+                            <IconPause /> Pause
                         </button>
                     )}
                 </div>
@@ -112,7 +113,7 @@ export function WatchControls({
 
             {/* ── Paused indicator ── */}
             {paused && aiActive && (
-                <span className="wc-paused-label">⏸ Analyzing</span>
+                <span className="wc-paused-label"><IconPause /> Analyzing</span>
             )}
         </div>
     )

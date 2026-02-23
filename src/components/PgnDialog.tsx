@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { GameNode } from '../hooks/useGameTree'
 import type { EvalSnapshot } from '../engine/analysis'
 import { exportAnnotatedPgn } from '../engine/pgn'
+import { IconDownload, IconClipboard, IconUpload } from './icons'
 
 // Using existing styles from NewGameDialog to maintain design consistency
 import './NewGameDialog.css'
@@ -31,7 +32,7 @@ export function PgnDialog({ open, onClose, onImport, mainLineNodes, evaluations 
         <div className="dialog-backdrop" onClick={onClose}>
             <div className="dialog-panel pgn-dialog" onClick={e => e.stopPropagation()}>
                 <header className="dialog-header">
-                    <span className="dialog-icon">📥</span>
+                    <span className="dialog-icon"><IconDownload /></span>
                     <h2>PGN Import & Export</h2>
                 </header>
 
@@ -43,7 +44,7 @@ export function PgnDialog({ open, onClose, onImport, mainLineNodes, evaluations 
                                 className={`mode-card ${tab === 'import' ? 'selected' : ''}`}
                                 onClick={() => setTab('import')}
                             >
-                                <span className="mode-icon">📋</span>
+                                <span className="mode-icon"><IconClipboard /></span>
                                 <strong>Import</strong>
                             </button>
                             <button
@@ -51,7 +52,7 @@ export function PgnDialog({ open, onClose, onImport, mainLineNodes, evaluations 
                                 className={`mode-card ${tab === 'export' ? 'selected' : ''}`}
                                 onClick={() => setTab('export')}
                             >
-                                <span className="mode-icon">📤</span>
+                                <span className="mode-icon"><IconUpload /></span>
                                 <strong>Export</strong>
                             </button>
                         </div>

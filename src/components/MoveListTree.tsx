@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 import type { GameTreeHandle, GameNode } from '../hooks/useGameTree'
+import { IconPawn, IconBranch } from './icons'
 
 type Props = {
     tree: GameTreeHandle
@@ -28,7 +29,7 @@ export function MoveListTree({ tree, onNavigate }: Props) {
     if (line.length <= 1) {
         return (
             <div className="empty-state">
-                <span className="empty-state-icon">♟</span>
+                <span className="empty-state-icon"><IconPawn /></span>
                 <p>Play some moves — they'll appear here with analysis.</p>
             </div>
         )
@@ -81,7 +82,7 @@ export function MoveListTree({ tree, onNavigate }: Props) {
                     const varLine = buildVariationLine(varId, nodesSnapshot)
                     rows.push(
                         <div key={`var-${varId}`} className="mtree-variation">
-                            <span className="mtree-var-marker">╰</span>
+                            <span className="mtree-var-marker"><IconBranch /></span>
                             {varLine.map(vn => (
                                 <MoveChip
                                     key={vn.id}

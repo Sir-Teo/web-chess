@@ -1,5 +1,5 @@
 import type { GameMode } from './NewGameDialog'
-import { IconUsers, IconBot, IconZap } from './icons'
+import { IconUsers, IconBot, IconZap, IconPlay, IconPause } from './icons'
 
 type Props = {
     gameMode: GameMode
@@ -30,8 +30,8 @@ export function GameControls({ gameMode, paused, isGameOver, onPause, onResume, 
                     title={paused ? 'Resume AI' : 'Pause & analyze'}
                 >
                     {paused
-                        ? <><span className="gc-icon">▶</span> Resume</>
-                        : <><span className="gc-icon">⏸</span> Pause</>
+                        ? <><IconPlay className="gc-icon" /> Resume</>
+                        : <><IconPause className="gc-icon" /> Pause</>
                     }
                 </button>
             )}

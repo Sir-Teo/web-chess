@@ -21,7 +21,7 @@ import { PgnDialog } from './components/PgnDialog'
 import { WatchControls, AI_SPEED_MS, type AiSpeed } from './components/WatchControls'
 import { WdlBar } from './components/WdlBar'
 import { MoveListTree } from './components/MoveListTree'
-import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert } from './components/icons'
+import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlip, IconDownload, IconUsers, IconZap, IconSettings, IconPlay, IconStop } from './components/icons'
 import './App.css'
 
 type Orientation = 'white' | 'black'
@@ -491,33 +491,34 @@ function App() {
         <div className="panel-inner">
           <div className="panel-content compact-grid">
             <div className="app-brand">
-              <span className="app-brand-icon">♔</span>
+              <span className="app-brand-icon"><IconKing /></span>
               <span className="app-brand-text">Web Chess</span>
             </div>
             <button type="button" onClick={openNewGameDialog}>
-              <span className="btn-icon">⟳</span> New game
+              <span className="btn-icon"><IconRefresh /></span> New game
             </button>
             <button type="button" onClick={flipBoard}>
-              <span className="btn-icon">⇅</span> Flip
+              <span className="btn-icon"><IconFlip /></span> Flip
             </button>
             <button type="button" onClick={openPgnDialog}>
-              <span className="btn-icon">📥</span> PGN
+              <span className="btn-icon"><IconDownload /></span> PGN
             </button>
 
             {/* Mode switcher lives in top bar */}
             <span className="toolbar-divider" />
             <div className="top-mode-pills">
               {([
-                { id: 'human-vs-human', label: '👥 H vs H' },
-                { id: 'human-vs-ai', label: '🤖 H vs AI' },
-                { id: 'ai-vs-ai', label: '⚡ AI vs AI' },
-              ] as const).map(({ id, label }) => (
+                { id: 'human-vs-human', label: 'H vs H', icon: <IconUsers /> },
+                { id: 'human-vs-ai', label: 'H vs AI', icon: <IconBot /> },
+                { id: 'ai-vs-ai', label: 'AI vs AI', icon: <IconZap /> },
+              ] as const).map(({ id, label, icon }) => (
                 <button
                   key={id}
                   type="button"
                   className={`gc-pill ${gameMode === id ? 'gc-pill-active' : ''}`}
                   onClick={() => id !== gameMode && handleModeChange(id)}
                 >
+                  <span className="gc-pill-icon">{icon}</span>
                   {label}
                 </button>
               ))}
@@ -526,7 +527,7 @@ function App() {
             <span className="toolbar-divider" />
 
             <details className="settings-menu">
-              <summary><span className="btn-icon">⚙</span> Settings</summary>
+              <summary><span className="btn-icon"><IconSettings /></span> Settings</summary>
               <div className="settings-body">
                 <label className="switch-control">
                   <input
@@ -670,17 +671,17 @@ function App() {
             <div className="inline-actions">
               <button type="button" className="btn-primary"
                 onClick={() => analyzePosition({ fen, depth: searchDepth, multiPv, hashMb, showWdl })}>
-                ▶ Analyze
+                <IconPlay /> Analyze
               </button>
               <button type="button" onClick={stop}>
-                ■ Stop
+                <IconStop /> Stop
               </button>
               <button
                 type="button"
                 className={isBatchReviewing ? 'btn-primary' : ''}
                 onClick={isBatchReviewing ? () => setIsBatchReviewing(false) : startBatchReview}
               >
-                {isBatchReviewing ? '⏹ Stop Review' : '🔎 Review Game'}
+                {isBatchReviewing ? <><IconStop /> Stop Review</> : <><IconSearch /> Review Game</>}
               </button>
             </div>
 
