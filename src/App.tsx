@@ -2,6 +2,7 @@ import { Chess, type Square } from 'chess.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
 import {
+  buildWdlSeries,
   buildWinrateSeries,
   buildReviewRows,
   formatEvaluation,
@@ -9,6 +10,7 @@ import {
   scoreToCp,
   summarizeReview,
   type EvalSnapshot,
+  type WdlPoint,
   type WinratePoint,
 } from './engine/analysis'
 import { engineProfiles, type EngineProfileId } from './engine/profiles'
@@ -35,7 +37,7 @@ function App() {
 
   // ── Layout ───────────────────────────────────────────
   const [topPanelOpen, setTopPanelOpen] = useState(true)
-  const [leftWidth, setLeftWidth] = useState(280)
+  const [leftWidth, setLeftWidth] = useState(320)
   const [rightWidth, setRightWidth] = useState(320)
   const [bottomPanelOpen, setBottomPanelOpen] = useState(true)
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight })
@@ -258,6 +260,15 @@ function App() {
     [evaluationsByFen, currentLineNodes.length, currentLineNodes[currentLineNodes.length - 1]?.id],
   )
 
+  const wdlPoints = useMemo(
+    () => {
+      const moves = currentLineNodes.slice(1).map(n => n.move!).filter(Boolean)
+      return buildWdlSeries(moves, evaluationsByFen)
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [evaluationsByFen, currentLineNodes.length, currentLineNodes[currentLineNodes.length - 1]?.id],
+  )
+
   // ── Move quality → annotate tree nodes ───────────────
   useEffect(() => {
     reviewRows.forEach((row, idx) => {
@@ -453,7 +464,7 @@ function App() {
 
   // ── Resize ────────────────────────────────────────────
   const MIN_WIDTH = 60
-  const DEFAULT_LEFT = 280
+  const DEFAULT_LEFT = 320
   const DEFAULT_RIGHT = 320
 
   const startLeftResize = (e: React.MouseEvent) => {
@@ -786,6 +797,21 @@ function App() {
                 <strong>{winratePoints[winratePoints.length - 1]!.whiteWinrate.toFixed(1)}%</strong>
               </div>
             )}
+            <WdlProgressGraph
+              points={wdlPoints}
+              currentIndex={currentPathNodes.length - 1}
+              onNavigate={(idx) => {
+                const targetNode = currentLineNodes[idx] || currentLineNodes[currentLineNodes.length - 1]
+                if (targetNode) navigateAndPause(gameTree.navigateTo(targetNode.id))
+              }}
+            />
+            {wdlPoints.length > 0 && (
+              <div className="graph-legend wdl">
+                <span className="wdl-white-label">White {wdlPoints[wdlPoints.length - 1]!.white.toFixed(1)}%</span>
+                <span className="wdl-draw-label">Draw {wdlPoints[wdlPoints.length - 1]!.draw.toFixed(1)}%</span>
+                <span className="wdl-black-label">Black {wdlPoints[wdlPoints.length - 1]!.black.toFixed(1)}%</span>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -908,6 +934,29 @@ function EngineOptionControl({ option, onSetOption }: EngineOptionControlProps) 
 
 // ── Winrate graph ──────────────────────────────────────────────────────────────
 
+const GRAPH_HEIGHT = 220
+const GRAPH_PAD_LEFT = 52
+const GRAPH_PAD_RIGHT = 20
+const GRAPH_PAD_TOP = 16
+const GRAPH_PAD_BOTTOM = 34
+const GRAPH_BASE_WIDTH = 440
+const GRAPH_PX_PER_PLY = 16
+
+function graphWidthForIndex(maxIndex: number): number {
+  return Math.max(GRAPH_BASE_WIDTH, GRAPH_PAD_LEFT + GRAPH_PAD_RIGHT + (maxIndex * GRAPH_PX_PER_PLY))
+}
+
+function graphTickStep(maxIndex: number): number {
+  if (maxIndex <= 20) return 4
+  const roughStep = Math.max(4, Math.round(maxIndex / 10))
+  return roughStep % 2 === 0 ? roughStep : roughStep + 1
+}
+
+function formatMoveAxisLabel(index: number): string {
+  const moveNumber = index / 2
+  return Number.isInteger(moveNumber) ? String(moveNumber) : moveNumber.toFixed(1)
+}
+
 type WinrateGraphProps = {
   points: WinratePoint[]
   currentIndex?: number
@@ -924,15 +973,15 @@ function WinrateGraph({ points, currentIndex, onNavigate }: WinrateGraphProps) {
     )
   }
 
-  const width = 980
-  const height = 180
-  const padLeft = 40
-  const padRight = 18
-  const padTop = 18
-  const padBottom = 28
+  const maxIndex = points.length > 0 ? points[points.length - 1]!.index : 0
+  const width = graphWidthForIndex(maxIndex)
+  const height = GRAPH_HEIGHT
+  const padLeft = GRAPH_PAD_LEFT
+  const padRight = GRAPH_PAD_RIGHT
+  const padTop = GRAPH_PAD_TOP
+  const padBottom = GRAPH_PAD_BOTTOM
   const innerWidth = width - padLeft - padRight
   const innerHeight = height - padTop - padBottom
-  const maxIndex = points.length > 0 ? points[points.length - 1]!.index : 0
 
   const toX = (idx: number) => padLeft + (maxIndex > 0 ? (idx / maxIndex) * innerWidth : 0)
   const toY = (wr: number) => padTop + ((100 - wr) / 100) * innerHeight
@@ -943,6 +992,7 @@ function WinrateGraph({ points, currentIndex, onNavigate }: WinrateGraphProps) {
 
   const area = `${path} L ${toX(maxIndex).toFixed(2)} ${(height - padBottom).toFixed(2)} L ${toX(points[0]?.index ?? 0).toFixed(2)} ${(height - padBottom).toFixed(2)} Z`
   const markers = [0, 25, 50, 75, 100]
+  const xTickStep = graphTickStep(maxIndex)
 
   const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!onNavigate || maxIndex === 0) return
@@ -963,57 +1013,169 @@ function WinrateGraph({ points, currentIndex, onNavigate }: WinrateGraphProps) {
 
   return (
     <div className="graph-wrap" aria-label="White winrate graph">
-      <svg
-        className="winrate-graph"
-        viewBox={`0 0 ${width} ${height}`}
-        preserveAspectRatio="none"
-        onClick={handleClick}
-        style={{ cursor: onNavigate ? 'pointer' : 'default' }}
-      >
-        <defs>
-          <linearGradient id="graph-gradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(63, 185, 80, 0.24)" />
-            <stop offset="100%" stopColor="rgba(63, 185, 80, 0.02)" />
-          </linearGradient>
-        </defs>
-        {markers.map(v => {
-          const y = toY(v)
-          return (
-            <g key={v}>
-              <line x1={padLeft} x2={width - padRight} y1={y} y2={y} className="graph-grid-line" />
-              <text x={padLeft - 6} y={y + 4} className="graph-grid-text" textAnchor="end">{v}%</text>
-            </g>
-          )
-        })}
-        <path d={area} className="graph-area" />
-        <path d={path} className="graph-line" />
-
-        {points.map((p) => {
-          if (p.index > 0 && p.index % 20 === 0) {
-            const x = toX(p.index)
+      <div className="graph-scroll">
+        <svg
+          className="winrate-graph"
+          width={width}
+          viewBox={`0 0 ${width} ${height}`}
+          onClick={handleClick}
+          style={{ cursor: onNavigate ? 'pointer' : 'default' }}
+        >
+          <defs>
+            <linearGradient id="graph-gradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="rgba(63, 185, 80, 0.24)" />
+              <stop offset="100%" stopColor="rgba(63, 185, 80, 0.02)" />
+            </linearGradient>
+          </defs>
+          {markers.map(v => {
+            const y = toY(v)
             return (
-              <g key={`x-${p.index}`}>
-                <line x1={x} x2={x} y1={height - padBottom} y2={height - padBottom + 6} stroke="rgba(240, 246, 252, 0.2)" strokeWidth="1" />
-                <text x={x} y={height - padBottom + 20} className="graph-grid-text" textAnchor="middle">{p.index / 2}</text>
+              <g key={v}>
+                <line x1={padLeft} x2={width - padRight} y1={y} y2={y} className="graph-grid-line" />
+                <text x={padLeft - 8} y={y + 4} className="graph-grid-text" textAnchor="end">{v}%</text>
               </g>
             )
-          }
-          return null
-        })}
+          })}
+          <path d={area} className="graph-area" />
+          <path d={path} className="graph-line" />
 
-        {currentLineX !== null && (
-          <line
-            x1={currentLineX}
-            x2={currentLineX}
-            y1={padTop}
-            y2={height - padBottom}
-            stroke="rgba(255, 255, 255, 0.8)"
-            strokeWidth="2"
-            strokeDasharray="4 4"
-            style={{ pointerEvents: 'none' }}
-          />
-        )}
-      </svg>
+          {points.map((p) => {
+            if (p.index > 0 && p.index % xTickStep === 0) {
+              const x = toX(p.index)
+              return (
+                <g key={`x-${p.index}`}>
+                  <line x1={x} x2={x} y1={height - padBottom} y2={height - padBottom + 6} stroke="rgba(240, 246, 252, 0.2)" strokeWidth="1" />
+                  <text x={x} y={height - padBottom + 20} className="graph-grid-text" textAnchor="middle">{formatMoveAxisLabel(p.index)}</text>
+                </g>
+              )
+            }
+            return null
+          })}
+
+          {currentLineX !== null && (
+            <line
+              x1={currentLineX}
+              x2={currentLineX}
+              y1={padTop}
+              y2={height - padBottom}
+              stroke="rgba(255, 255, 255, 0.8)"
+              strokeWidth="2"
+              strokeDasharray="4 4"
+              style={{ pointerEvents: 'none' }}
+            />
+          )}
+        </svg>
+      </div>
+    </div>
+  )
+}
+
+type WdlProgressGraphProps = {
+  points: WdlPoint[]
+  currentIndex?: number
+  onNavigate?: (index: number) => void
+}
+
+function WdlProgressGraph({ points, currentIndex, onNavigate }: WdlProgressGraphProps) {
+  if (points.length < 2) {
+    return (
+      <div className="empty-state">
+        <span className="empty-state-icon">📊</span>
+        <p>Analyze moves with WDL enabled to build the W/D/B progression graph.</p>
+      </div>
+    )
+  }
+
+  const maxIndex = points.length > 0 ? points[points.length - 1]!.index : 0
+  const width = graphWidthForIndex(maxIndex)
+  const height = GRAPH_HEIGHT
+  const padLeft = GRAPH_PAD_LEFT
+  const padRight = GRAPH_PAD_RIGHT
+  const padTop = GRAPH_PAD_TOP
+  const padBottom = GRAPH_PAD_BOTTOM
+  const innerWidth = width - padLeft - padRight
+  const innerHeight = height - padTop - padBottom
+  const markers = [0, 25, 50, 75, 100]
+  const xTickStep = graphTickStep(maxIndex)
+
+  const toX = (idx: number) => padLeft + (maxIndex > 0 ? (idx / maxIndex) * innerWidth : 0)
+  const toY = (pct: number) => padTop + ((100 - pct) / 100) * innerHeight
+
+  const buildPath = (selector: (point: WdlPoint) => number): string =>
+    points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(p.index).toFixed(2)} ${toY(selector(p)).toFixed(2)}`).join(' ')
+
+  const whitePath = buildPath((p) => p.white)
+  const drawPath = buildPath((p) => p.draw)
+  const blackPath = buildPath((p) => p.black)
+
+  const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!onNavigate || maxIndex === 0) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const scaleX = width / rect.width
+    const xInsideSvg = (e.clientX - rect.left) * scaleX
+
+    let targetIdx = Math.round(((xInsideSvg - padLeft) / innerWidth) * maxIndex)
+    if (targetIdx < 0) targetIdx = 0
+    if (targetIdx > maxIndex) targetIdx = maxIndex
+
+    onNavigate(targetIdx)
+  }
+
+  const currentLineX = currentIndex !== undefined && maxIndex > 0
+    ? toX(Math.min(currentIndex, maxIndex))
+    : null
+
+  return (
+    <div className="graph-wrap" aria-label="WDL progression graph">
+      <div className="graph-scroll">
+        <svg
+          className="winrate-graph"
+          width={width}
+          viewBox={`0 0 ${width} ${height}`}
+          onClick={handleClick}
+          style={{ cursor: onNavigate ? 'pointer' : 'default' }}
+        >
+          {markers.map(v => {
+            const y = toY(v)
+            return (
+              <g key={v}>
+                <line x1={padLeft} x2={width - padRight} y1={y} y2={y} className="graph-grid-line" />
+                <text x={padLeft - 8} y={y + 4} className="graph-grid-text" textAnchor="end">{v}%</text>
+              </g>
+            )
+          })}
+
+          <path d={whitePath} className="graph-line graph-line-white" />
+          <path d={drawPath} className="graph-line graph-line-draw" />
+          <path d={blackPath} className="graph-line graph-line-black" />
+
+          {points.map((p) => {
+            if (p.index > 0 && p.index % xTickStep === 0) {
+              const x = toX(p.index)
+              return (
+                <g key={`wdl-x-${p.index}`}>
+                  <line x1={x} x2={x} y1={height - padBottom} y2={height - padBottom + 6} stroke="rgba(240, 246, 252, 0.2)" strokeWidth="1" />
+                  <text x={x} y={height - padBottom + 20} className="graph-grid-text" textAnchor="middle">{formatMoveAxisLabel(p.index)}</text>
+                </g>
+              )
+            }
+            return null
+          })}
+
+          {currentLineX !== null && (
+            <line
+              x1={currentLineX}
+              x2={currentLineX}
+              y1={padTop}
+              y2={height - padBottom}
+              stroke="rgba(255, 255, 255, 0.8)"
+              strokeWidth="2"
+              strokeDasharray="4 4"
+              style={{ pointerEvents: 'none' }}
+            />
+          )}
+        </svg>
+      </div>
     </div>
   )
 }

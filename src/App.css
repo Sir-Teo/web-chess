@@ -1186,9 +1186,17 @@
   overflow: hidden;
 }
 
-.winrate-graph {
+.graph-scroll {
   width: 100%;
-  height: 160px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.winrate-graph {
+  width: max-content;
+  min-width: 100%;
+  height: 220px;
   display: block;
 }
 
@@ -1211,10 +1219,26 @@
 .graph-line {
   fill: none;
   stroke: var(--accent);
-  stroke-width: 2;
+  stroke-width: 2.4;
   stroke-linecap: round;
   stroke-linejoin: round;
   filter: drop-shadow(0 0 4px var(--accent-glow));
+}
+
+.graph-line-white {
+  stroke: #f0f6fc;
+  filter: drop-shadow(0 0 3px rgba(240, 246, 252, 0.30));
+}
+
+.graph-line-draw {
+  stroke: #ffb86c;
+  stroke-dasharray: 4 3;
+  filter: drop-shadow(0 0 3px rgba(255, 184, 108, 0.30));
+}
+
+.graph-line-black {
+  stroke: #58a6ff;
+  filter: drop-shadow(0 0 3px rgba(88, 166, 255, 0.35));
 }
 
 .graph-legend {
@@ -1246,6 +1270,33 @@
   font-weight: 700;
   font-family: 'JetBrains Mono', monospace;
   font-variant-numeric: tabular-nums;
+}
+
+.graph-legend.wdl {
+  justify-content: flex-start;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.graph-legend.wdl span {
+  gap: 0.36rem;
+}
+
+.graph-legend.wdl span::before {
+  width: 10px;
+  height: 3px;
+}
+
+.graph-legend .wdl-white-label::before {
+  background: #f0f6fc;
+}
+
+.graph-legend .wdl-draw-label::before {
+  background: #ffb86c;
+}
+
+.graph-legend .wdl-black-label::before {
+  background: #58a6ff;
 }
 
 /* ═══════════════════════════════════════════════════
