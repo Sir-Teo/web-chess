@@ -66,10 +66,9 @@ function App() {
   const stepPendingRef = useRef(false) // for Step mode: advance one move on demand
 
   const handleSpeedChange = useCallback((s: AiSpeed) => {
-    aiSpeed // suppress lint
     setAiSpeed(s)
     aiSpeedRef.current = s
-  }, [aiSpeed])
+  }, [])
 
   // ── Pause state ──────────────────────────────────────
   const [paused, setPaused] = useState(false)
