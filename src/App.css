@@ -1199,9 +1199,9 @@
 }
 
 .graph-grid-text {
-  font-size: 9px;
-  fill: var(--text-muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  fill: var(--text-secondary);
+  font-family: inherit;
 }
 
 .graph-area {

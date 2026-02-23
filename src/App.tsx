@@ -234,14 +234,29 @@ function App() {
   const reviewRows = useMemo(() => buildReviewRows(mainLineMoves, evaluationsByFen), [evaluationsByFen, mainLineMoves])
   const reviewSummary = useMemo(() => summarizeReview(reviewRows), [reviewRows])
 
-  // Graph uses active path so it updates on tree navigation
+  // Graph uses active path up to its deepest child to show the entire branch history
+  const currentLineNodes = useMemo(() => {
+    const nodes = [...currentPathNodes]
+    let cur = nodes[nodes.length - 1]
+    while (cur && cur.children.length > 0) {
+      const firstChild = gameTree.nodesSnapshot.get(cur.children[0]!)
+      if (firstChild) {
+        nodes.push(firstChild)
+        cur = firstChild
+      } else {
+        break
+      }
+    }
+    return nodes
+  }, [currentPathNodes, gameTree.nodesSnapshot])
+
   const winratePoints = useMemo(
     () => {
-      const moves = currentPathNodes.slice(1).map(n => n.move!).filter(Boolean)
+      const moves = currentLineNodes.slice(1).map(n => n.move!).filter(Boolean)
       return buildWinrateSeries(moves, evaluationsByFen)
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [evaluationsByFen, gameTree.current.id],
+    [evaluationsByFen, currentLineNodes.length, currentLineNodes[currentLineNodes.length - 1]?.id],
   )
 
   // ── Move quality → annotate tree nodes ───────────────
@@ -758,7 +773,14 @@ function App() {
         </div>
         <div className="panel-inner" style={{ opacity: (!isMobile && leftWidth === 0) ? 0 : 1 }}>
           <div className="panel-content">
-            <WinrateGraph points={winratePoints} />
+            <WinrateGraph
+              points={winratePoints}
+              currentIndex={currentPathNodes.length - 1}
+              onNavigate={(idx) => {
+                const targetNode = currentLineNodes[idx] || currentLineNodes[currentLineNodes.length - 1]
+                if (targetNode) navigateAndPause(gameTree.navigateTo(targetNode.id))
+              }}
+            />
             {winratePoints.length > 0 && (
               <div className="graph-legend">
                 <span>White win chance</span>
@@ -887,9 +909,13 @@ function EngineOptionControl({ option, onSetOption }: EngineOptionControlProps) 
 
 // ── Winrate graph ──────────────────────────────────────────────────────────────
 
-type WinrateGraphProps = { points: WinratePoint[] }
+type WinrateGraphProps = {
+  points: WinratePoint[]
+  currentIndex?: number
+  onNavigate?: (index: number) => void
+}
 
-function WinrateGraph({ points }: WinrateGraphProps) {
+function WinrateGraph({ points, currentIndex, onNavigate }: WinrateGraphProps) {
   if (points.length < 2) {
     return (
       <div className="empty-state">
@@ -901,24 +927,50 @@ function WinrateGraph({ points }: WinrateGraphProps) {
 
   const width = 980
   const height = 180
-  const pad = 18
-  const innerWidth = width - pad * 2
-  const innerHeight = height - pad * 2
-  const lastIndex = points.length - 1
+  const padLeft = 40
+  const padRight = 18
+  const padTop = 18
+  const padBottom = 28
+  const innerWidth = width - padLeft - padRight
+  const innerHeight = height - padTop - padBottom
+  const maxIndex = points.length > 0 ? points[points.length - 1]!.index : 0
 
-  const toX = (i: number) => pad + (i / lastIndex) * innerWidth
-  const toY = (wr: number) => pad + ((100 - wr) / 100) * innerHeight
+  const toX = (idx: number) => padLeft + (maxIndex > 0 ? (idx / maxIndex) * innerWidth : 0)
+  const toY = (wr: number) => padTop + ((100 - wr) / 100) * innerHeight
 
   const path = points
     .map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(p.index).toFixed(2)} ${toY(p.whiteWinrate).toFixed(2)}`)
     .join(' ')
 
-  const area = `${path} L ${toX(points[lastIndex]!.index).toFixed(2)} ${(height - pad).toFixed(2)} L ${toX(points[0]!.index).toFixed(2)} ${(height - pad).toFixed(2)} Z`
+  const area = `${path} L ${toX(maxIndex).toFixed(2)} ${(height - padBottom).toFixed(2)} L ${toX(points[0]?.index ?? 0).toFixed(2)} ${(height - padBottom).toFixed(2)} Z`
   const markers = [0, 25, 50, 75, 100]
+
+  const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!onNavigate || maxIndex === 0) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const scaleX = width / rect.width
+    const xInsideSvg = (e.clientX - rect.left) * scaleX
+
+    let targetIdx = Math.round(((xInsideSvg - padLeft) / innerWidth) * maxIndex)
+    if (targetIdx < 0) targetIdx = 0
+    if (targetIdx > maxIndex) targetIdx = maxIndex
+
+    onNavigate(targetIdx)
+  }
+
+  const currentLineX = currentIndex !== undefined && maxIndex > 0
+    ? toX(Math.min(currentIndex, maxIndex))
+    : null
 
   return (
     <div className="graph-wrap" aria-label="White winrate graph">
-      <svg className="winrate-graph" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+      <svg
+        className="winrate-graph"
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        onClick={handleClick}
+        style={{ cursor: onNavigate ? 'pointer' : 'default' }}
+      >
         <defs>
           <linearGradient id="graph-gradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="rgba(63, 185, 80, 0.24)" />
@@ -929,13 +981,39 @@ function WinrateGraph({ points }: WinrateGraphProps) {
           const y = toY(v)
           return (
             <g key={v}>
-              <line x1={pad} x2={width - pad} y1={y} y2={y} className="graph-grid-line" />
-              <text x={pad + 4} y={y - 2} className="graph-grid-text">{v}%</text>
+              <line x1={padLeft} x2={width - padRight} y1={y} y2={y} className="graph-grid-line" />
+              <text x={padLeft - 6} y={y + 4} className="graph-grid-text" textAnchor="end">{v}%</text>
             </g>
           )
         })}
         <path d={area} className="graph-area" />
         <path d={path} className="graph-line" />
+
+        {points.map((p) => {
+          if (p.index > 0 && p.index % 20 === 0) {
+            const x = toX(p.index)
+            return (
+              <g key={`x-${p.index}`}>
+                <line x1={x} x2={x} y1={height - padBottom} y2={height - padBottom + 6} stroke="rgba(240, 246, 252, 0.2)" strokeWidth="1" />
+                <text x={x} y={height - padBottom + 20} className="graph-grid-text" textAnchor="middle">{p.index / 2}</text>
+              </g>
+            )
+          }
+          return null
+        })}
+
+        {currentLineX !== null && (
+          <line
+            x1={currentLineX}
+            x2={currentLineX}
+            y1={padTop}
+            y2={height - padBottom}
+            stroke="rgba(255, 255, 255, 0.8)"
+            strokeWidth="2"
+            strokeDasharray="4 4"
+            style={{ pointerEvents: 'none' }}
+          />
+        )}
       </svg>
     </div>
   )
