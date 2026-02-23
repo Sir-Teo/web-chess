@@ -29,30 +29,33 @@ export function PgnDialog({ open, onClose, onImport, mainLineNodes, evaluations 
 
     return (
         <div className="dialog-overlay" onClick={onClose}>
-            <div className="dialog-content" onClick={e => e.stopPropagation()}>
+            <div className="dialog-content pgn-dialog" onClick={e => e.stopPropagation()}>
                 <header className="dialog-header">
+                    <span className="dialog-icon">📥</span>
                     <h2>PGN Import & Export</h2>
                     <button className="close-btn" onClick={onClose}>×</button>
                 </header>
 
                 <div className="dialog-body">
-                    <div className="dialog-section mode-selector" style={{ marginBottom: '16px' }}>
-                        <button
-                            type="button"
-                            className={`mode-card ${tab === 'import' ? 'active' : ''}`}
-                            onClick={() => setTab('import')}
-                            style={{ padding: '8px', minHeight: 'auto', textAlign: 'center' }}
-                        >
-                            <h3>Import PGN</h3>
-                        </button>
-                        <button
-                            type="button"
-                            className={`mode-card ${tab === 'export' ? 'active' : ''}`}
-                            onClick={() => setTab('export')}
-                            style={{ padding: '8px', minHeight: 'auto', textAlign: 'center' }}
-                        >
-                            <h3>Export PGN</h3>
-                        </button>
+                    <div className="dialog-section mode-selector" style={{ paddingBottom: '0.4rem' }}>
+                        <div className="mode-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                            <button
+                                type="button"
+                                className={`mode-card ${tab === 'import' ? 'selected' : ''}`}
+                                onClick={() => setTab('import')}
+                            >
+                                <span className="mode-icon">📋</span>
+                                <strong>Import</strong>
+                            </button>
+                            <button
+                                type="button"
+                                className={`mode-card ${tab === 'export' ? 'selected' : ''}`}
+                                onClick={() => setTab('export')}
+                            >
+                                <span className="mode-icon">📤</span>
+                                <strong>Export</strong>
+                            </button>
+                        </div>
                     </div>
 
                     {tab === 'import' && (
@@ -63,22 +66,10 @@ export function PgnDialog({ open, onClose, onImport, mainLineNodes, evaluations 
                                 placeholder="[Event &quot;FIDE World Cup 2023&quot;]..."
                                 value={importText}
                                 onChange={e => setImportText(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    height: '180px',
-                                    resize: 'vertical',
-                                    background: 'var(--bg-input)',
-                                    border: '1px solid var(--border-default)',
-                                    borderRadius: '6px',
-                                    padding: '8px',
-                                    color: 'var(--text-primary)',
-                                    fontFamily: 'monospace',
-                                    fontSize: '0.85rem'
-                                }}
                             />
-                            <div className="dialog-actions" style={{ marginTop: '16px' }}>
-                                <button type="button" onClick={onClose}>Cancel</button>
-                                <button type="button" className="btn-primary" onClick={handleImport} disabled={!importText.trim()}>
+                            <div className="dialog-actions">
+                                <button type="button" className="btn-cancel" onClick={onClose}>Cancel</button>
+                                <button type="button" className="btn-start" onClick={handleImport} disabled={!importText.trim()}>
                                     Import Game
                                 </button>
                             </div>
@@ -89,25 +80,14 @@ export function PgnDialog({ open, onClose, onImport, mainLineNodes, evaluations 
                         <div className="dialog-section">
                             <label className="dialog-label">Annotated Output</label>
                             <textarea
+                                className="input-textarea"
                                 readOnly
                                 value={exportText}
-                                style={{
-                                    width: '100%',
-                                    height: '180px',
-                                    resize: 'vertical',
-                                    background: 'var(--bg-input)',
-                                    border: '1px solid var(--border-default)',
-                                    borderRadius: '6px',
-                                    padding: '8px',
-                                    color: 'var(--text-primary)',
-                                    fontFamily: 'monospace',
-                                    fontSize: '0.85rem'
-                                }}
                             />
-                            <div className="dialog-actions" style={{ marginTop: '16px' }}>
-                                <button type="button" onClick={onClose}>Close</button>
-                                <button type="button" className="btn-primary" onClick={() => navigator.clipboard.writeText(exportText)}>
-                                    Copy to Clipboard
+                            <div className="dialog-actions">
+                                <button type="button" className="btn-cancel" onClick={onClose}>Close</button>
+                                <button type="button" className="btn-start" onClick={() => navigator.clipboard.writeText(exportText)}>
+                                    Copy PGN
                                 </button>
                             </div>
                         </div>
