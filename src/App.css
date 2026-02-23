@@ -898,6 +898,138 @@
   margin-bottom: var(--space-md);
 }
 
+.analysis-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.analysis-tab-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.32rem;
+}
+
+.analysis-tab-btn {
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.34rem 0.46rem;
+  border-radius: var(--radius-sm);
+}
+
+.analysis-tab-btn:hover {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+.analysis-tab-btn.active {
+  border-color: var(--accent-muted);
+  background: rgba(88, 166, 255, 0.12);
+  color: var(--accent);
+}
+
+.analysis-mode-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.32rem;
+  margin-bottom: 0.5rem;
+}
+
+.mode-pill {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+}
+
+.mode-pill.active {
+  border-color: rgba(63, 185, 80, 0.4);
+  background: rgba(63, 185, 80, 0.15);
+  color: var(--accent);
+}
+
+.command-summary {
+  margin: -0.18rem 0 0.45rem;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  color: var(--text-muted);
+}
+
+.engine-command-inline {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.16rem 0.35rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 42%;
+}
+
+.engine-lab-card {
+  margin-bottom: var(--space-md);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: rgba(13, 17, 23, 0.38);
+  padding: 0.55rem;
+}
+
+.engine-lab-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.63rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.engine-lab-console {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.engine-lab-console input {
+  min-width: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+}
+
+.diagnostics-actions {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 0.45rem;
+}
+
+.engine-lab-output {
+  margin: 0;
+  min-height: 140px;
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: #0c1118;
+  color: #c7d2df;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  padding: 0.45rem 0.5rem;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+}
+
+.error-copy {
+  color: var(--danger);
+}
+
 /* ═══════════════════════════════════════════════════
    Right panel sections
    ═══════════════════════════════════════════════════ */

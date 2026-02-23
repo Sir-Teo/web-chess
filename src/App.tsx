@@ -13,6 +13,7 @@ import {
   type WdlPoint,
   type WinratePoint,
 } from './engine/analysis'
+import type { AnalyzeMode, UciGoLimits } from './engine/uci'
 import { engineProfiles, type EngineProfileId } from './engine/profiles'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
@@ -28,6 +29,7 @@ import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, Ico
 import './App.css'
 
 type Orientation = 'white' | 'black'
+type AnalysisTab = 'analyze' | 'review' | 'engine-lab'
 
 function App() {
   // ── Chess game instance ──────────────────────────────
@@ -49,6 +51,22 @@ function App() {
   const [showWdl, setShowWdl] = useState(true)
   const [autoAnalyze, setAutoAnalyze] = useState(true)
   const [engineProfile, setEngineProfile] = useState<EngineProfileId>('auto')
+  const [analysisTab, setAnalysisTab] = useState<AnalysisTab>('analyze')
+  const [analyzeMode, setAnalyzeMode] = useState<AnalyzeMode>('deep')
+  const [showAdvancedAnalyze, setShowAdvancedAnalyze] = useState(false)
+  const [quickMovetimeMs, setQuickMovetimeMs] = useState(500)
+  const [mateTarget, setMateTarget] = useState(4)
+  const [limitNodes, setLimitNodes] = useState<number | ''>('')
+  const [searchMovesInput, setSearchMovesInput] = useState('')
+  const [useClockLimits, setUseClockLimits] = useState(false)
+  const [whiteTimeMs, setWhiteTimeMs] = useState(120_000)
+  const [blackTimeMs, setBlackTimeMs] = useState(120_000)
+  const [whiteIncMs, setWhiteIncMs] = useState(1_000)
+  const [blackIncMs, setBlackIncMs] = useState(1_000)
+  const [movesToGo, setMovesToGo] = useState<number | ''>('')
+  const [engineLabCommand, setEngineLabCommand] = useState('')
+  const [engineLabError, setEngineLabError] = useState<string | null>(null)
+  const [rawLogOffset, setRawLogOffset] = useState(0)
 
   // ── Evaluations ──────────────────────────────────────
   const [evaluationsByFen, setEvaluationsByFen] = useState<Map<string, EvalSnapshot>>(new Map())
@@ -188,8 +206,15 @@ function App() {
     options,
     lines,
     lastBestMove,
+    lastPonderMove,
+    activeGoCommand,
+    queueLength,
+    rawLines,
     capabilities,
+    analyze,
     analyzePosition,
+    sendCommand,
+    newGame,
     stop,
     setOption,
   } = useStockfishEngine(engineProfile)
@@ -227,6 +252,82 @@ function App() {
     if (!autoAnalyze) return
     analyzePosition({ fen, depth: searchDepth, multiPv, hashMb, showWdl })
   }, [analyzePosition, autoAnalyze, fen, hashMb, multiPv, searchDepth, showWdl])
+
+  const parsedSearchMoves = useMemo(
+    () =>
+      searchMovesInput
+        .split(/[,\s]+/g)
+        .map(move => move.trim())
+        .filter(Boolean),
+    [searchMovesInput],
+  )
+
+  const runAnalyze = useCallback(() => {
+    const limits: UciGoLimits = {}
+    if (analyzeMode === 'quick') limits.movetime = quickMovetimeMs
+    if (analyzeMode === 'deep' || analyzeMode === 'review') limits.depth = searchDepth
+    if (analyzeMode === 'mate') limits.mate = mateTarget
+    if (analyzeMode === 'infinite') limits.infinite = true
+
+    if (showAdvancedAnalyze && typeof limitNodes === 'number' && limitNodes > 0) {
+      limits.nodes = limitNodes
+    }
+    if (showAdvancedAnalyze && useClockLimits) {
+      limits.wtime = whiteTimeMs
+      limits.btime = blackTimeMs
+      limits.winc = whiteIncMs
+      limits.binc = blackIncMs
+      if (typeof movesToGo === 'number' && movesToGo > 0) limits.movestogo = movesToGo
+    }
+
+    analyze({
+      fen,
+      mode: analyzeMode,
+      limits,
+      multiPv,
+      hashMb,
+      showWdl,
+      searchMoves: showAdvancedAnalyze ? parsedSearchMoves : [],
+    })
+  }, [
+    analyze,
+    analyzeMode,
+    blackIncMs,
+    blackTimeMs,
+    fen,
+    hashMb,
+    limitNodes,
+    mateTarget,
+    movesToGo,
+    multiPv,
+    parsedSearchMoves,
+    quickMovetimeMs,
+    searchDepth,
+    showAdvancedAnalyze,
+    showWdl,
+    useClockLimits,
+    whiteIncMs,
+    whiteTimeMs,
+  ])
+
+  const runLabCommand = useCallback(
+    async (command: string) => {
+      const trimmed = command.trim()
+      if (!trimmed) return
+      setEngineLabError(null)
+      try {
+        await sendCommand(trimmed)
+      } catch (error) {
+        setEngineLabError(error instanceof Error ? error.message : String(error))
+      }
+    },
+    [sendCommand],
+  )
+
+  const clearRawConsole = useCallback(() => {
+    setRawLogOffset(rawLines.length)
+    setEngineLabError(null)
+  }, [rawLines.length])
 
   // ── Derived move data ─────────────────────────────────
   const mainLineNodes = gameTree.mainLine()
@@ -387,6 +488,7 @@ function App() {
     try {
       const loader = new Chess()
       loader.loadPgn(pgnText)
+      newGame()
       game.reset()
       gameTree.reset()
       setFen(game.fen())
@@ -404,10 +506,10 @@ function App() {
       pausedRef.current = true
       setIsAiThinking(false)
       aiMoveScheduledRef.current = false
-    } catch (err) {
+    } catch {
       alert("Failed to parse PGN.")
     }
-  }, [game, gameTree])
+  }, [game, gameTree, newGame])
 
   const handleNewGameStart = useCallback(
     ({ mode, playerColor: color, difficulty }: { mode: GameMode; playerColor: PlayerColor; difficulty: AiDifficulty }) => {
@@ -417,6 +519,7 @@ function App() {
       setAiDifficulty(difficulty)
       aiPlayer.setDifficulty(difficulty)
 
+      newGame()
       game.reset()
       const startFen = game.fen()
       setFen(startFen)
@@ -429,7 +532,7 @@ function App() {
 
       setOrientation(mode === 'human-vs-ai' ? color : 'white')
     },
-    [aiPlayer, game, gameTree],
+    [aiPlayer, game, gameTree, newGame],
   )
 
   // ── Mode switch mid-game ──────────────────────────────
@@ -696,80 +799,310 @@ function App() {
           <span className="resize-pill" />
         </div>
         <div className="panel-inner" style={{ opacity: (!isMobile && rightWidth === 0) ? 0 : 1 }}>
-          <header className="panel-header">
+          <header className="panel-header analysis-header">
             <h2>Analysis</h2>
+            <div className="analysis-tab-strip">
+              {([
+                { id: 'analyze', label: 'Analyze' },
+                { id: 'review', label: 'Review' },
+                { id: 'engine-lab', label: 'Engine Lab' },
+              ] as const).map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  className={`analysis-tab-btn ${analysisTab === tab.id ? 'active' : ''}`}
+                  onClick={() => setAnalysisTab(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </header>
           <div className="panel-content">
-            <div className="inline-actions">
-              <button type="button" className="btn-primary"
-                onClick={() => analyzePosition({ fen, depth: searchDepth, multiPv, hashMb, showWdl })}>
-                <IconPlay /> Analyze
-              </button>
-              <button type="button" onClick={stop}>
-                <IconStop /> Stop
-              </button>
-              <button
-                type="button"
-                className={`batch-review-btn ${isBatchReviewing ? 'btn-primary pulsing' : ''}`}
-                onClick={isBatchReviewing ? () => setIsBatchReviewing(false) : startBatchReview}
-              >
-                {isBatchReviewing ? (
-                  <><IconStop /> Reviewing ({batchReviewIdxRef.current}/{mainLineNodes.length - 1})</>
-                ) : (
-                  <><IconSearch /> Review Game</>
-                )}
-              </button>
-            </div>
-
-            {/* Move list (tree) */}
-            <div className="right-section">
-              <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
-              <MoveListTree
-                tree={gameTree}
-                onNavigate={chess => navigateAndPause(chess)}
-              />
-            </div>
-
-            {/* Review summary */}
-            <div className="review-scaffold">
-              <h3><span className="section-icon"><IconBarChart /></span> Review</h3>
-              <div className="review-chips">
-                <span className="chip-best">Best {reviewSummary.best}</span>
-                <span className="chip-good">Good {reviewSummary.good}</span>
-                <span className="chip-inaccuracy">Inaccuracy {reviewSummary.inaccuracy}</span>
-                <span className="chip-mistake">Mistake {reviewSummary.mistake}</span>
-                <span className="chip-blunder">Blunder {reviewSummary.blunder}</span>
-                <span className="chip-pending">Pending {reviewSummary.pending}</span>
-              </div>
-            </div>
-
-            {/* Engine lines */}
-            <div className="pv-list">
-              <h3><span className="section-icon"><IconSearch /></span> Lines</h3>
-              {lines.length === 0 && (
-                <div className="empty-state">
-                  <span className="empty-state-icon"><IconSearch /></span>
-                  <p>Start analysis to see principal variation lines here.</p>
+            {analysisTab === 'analyze' && (
+              <>
+                <div className="inline-actions">
+                  <button type="button" className="btn-primary" onClick={runAnalyze}>
+                    <IconPlay /> Analyze
+                  </button>
+                  <button type="button" onClick={stop}>
+                    <IconStop /> Stop
+                  </button>
                 </div>
-              )}
-              {lines
-                .filter(l => !l.fen || l.fen === fen)
-                .map(line => (
-                  <article key={`${line.multipv}-${line.depth}-${line.pv[0] ?? 'pv'}`}>
-                    <header>
-                      <strong>#{line.multipv}</strong>
-                      <span>D{line.depth}</span>
-                      <span>{formatEvaluation(line.cp, line.mate)}</span>
-                    </header>
-                    <p>{pvToSan(line.fen ?? fen, line) || line.pv.slice(0, 8).join(' ')}</p>
-                    <p className="pv-uci">{line.pv.slice(0, 8).join(' ')}</p>
-                    {showWdl && line.wdl && (
-                      <HorizontalWdlBar wdl={line.wdl} orientation={orientation} />
+                <div className="analysis-mode-pills">
+                  {([
+                    { id: 'quick', label: 'Quick' },
+                    { id: 'deep', label: 'Deep' },
+                    { id: 'infinite', label: 'Infinite' },
+                    { id: 'mate', label: 'Mate' },
+                    { id: 'review', label: 'Review' },
+                  ] as const).map(mode => (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      className={`mode-pill ${analyzeMode === mode.id ? 'active' : ''}`}
+                      onClick={() => setAnalyzeMode(mode.id)}
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="panel-copy small command-summary">
+                  {activeGoCommand ? `Command: ${activeGoCommand}` : 'Command: idle'} {queueLength > 0 ? `· queue ${queueLength}` : ''}
+                </p>
+
+                {(analyzeMode === 'deep' || analyzeMode === 'review') && (
+                  <label className="control">
+                    <span>Depth</span>
+                    <input
+                      type="range"
+                      min={6}
+                      max={32}
+                      step={1}
+                      value={searchDepth}
+                      onChange={e => setSearchDepth(Number(e.target.value))}
+                    />
+                    <strong>{searchDepth}</strong>
+                  </label>
+                )}
+                {analyzeMode === 'quick' && (
+                  <label className="engine-option-row">
+                    <span>Move time (ms)</span>
+                    <input
+                      type="number"
+                      min={50}
+                      max={30000}
+                      step={50}
+                      value={quickMovetimeMs}
+                      onChange={e => setQuickMovetimeMs(Number(e.target.value))}
+                    />
+                  </label>
+                )}
+                {analyzeMode === 'mate' && (
+                  <label className="engine-option-row">
+                    <span>Mate target (plies)</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={30}
+                      step={1}
+                      value={mateTarget}
+                      onChange={e => setMateTarget(Number(e.target.value))}
+                    />
+                  </label>
+                )}
+                <label className="control">
+                  <span>MultiPV</span>
+                  <input type="range" min={1} max={5} step={1} value={multiPv}
+                    onChange={e => setMultiPv(Number(e.target.value))} />
+                  <strong>{multiPv} lines</strong>
+                </label>
+                <label className="switch-control">
+                  <input
+                    type="checkbox"
+                    checked={showAdvancedAnalyze}
+                    onChange={e => setShowAdvancedAnalyze(e.target.checked)}
+                  />
+                  <span>Advanced search limits</span>
+                </label>
+                {showAdvancedAnalyze && (
+                  <div className="engine-lab-card">
+                    <label className="engine-option-row">
+                      <span>Nodes limit</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1000}
+                        value={limitNodes}
+                        onChange={e => setLimitNodes(e.target.value ? Number(e.target.value) : '')}
+                      />
+                    </label>
+                    <label className="engine-option-row">
+                      <span>Search moves (UCI)</span>
+                      <input
+                        type="text"
+                        value={searchMovesInput}
+                        onChange={e => setSearchMovesInput(e.target.value)}
+                        placeholder="e2e4 g1f3"
+                      />
+                    </label>
+                    <label className="switch-control">
+                      <input
+                        type="checkbox"
+                        checked={useClockLimits}
+                        onChange={e => setUseClockLimits(e.target.checked)}
+                      />
+                      <span>Use clock-style limits</span>
+                    </label>
+                    {useClockLimits && (
+                      <>
+                        <label className="engine-option-row">
+                          <span>White time (ms)</span>
+                          <input type="number" min={0} step={100} value={whiteTimeMs}
+                            onChange={e => setWhiteTimeMs(Number(e.target.value))} />
+                        </label>
+                        <label className="engine-option-row">
+                          <span>Black time (ms)</span>
+                          <input type="number" min={0} step={100} value={blackTimeMs}
+                            onChange={e => setBlackTimeMs(Number(e.target.value))} />
+                        </label>
+                        <label className="engine-option-row">
+                          <span>White increment (ms)</span>
+                          <input type="number" min={0} step={50} value={whiteIncMs}
+                            onChange={e => setWhiteIncMs(Number(e.target.value))} />
+                        </label>
+                        <label className="engine-option-row">
+                          <span>Black increment (ms)</span>
+                          <input type="number" min={0} step={50} value={blackIncMs}
+                            onChange={e => setBlackIncMs(Number(e.target.value))} />
+                        </label>
+                        <label className="engine-option-row">
+                          <span>Moves to go</span>
+                          <input
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={movesToGo}
+                            onChange={e => setMovesToGo(e.target.value ? Number(e.target.value) : '')}
+                          />
+                        </label>
+                      </>
                     )}
-                  </article>
-                ))}
-              {lastBestMove && <p className="best-move">Best move: {lastBestMove}</p>}
-            </div>
+                  </div>
+                )}
+
+                <div className="pv-list">
+                  <h3><span className="section-icon"><IconSearch /></span> Lines</h3>
+                  {lines.length === 0 && (
+                    <div className="empty-state">
+                      <span className="empty-state-icon"><IconSearch /></span>
+                      <p>Start analysis to see principal variation lines here.</p>
+                    </div>
+                  )}
+                  {lines
+                    .filter(l => !l.fen || l.fen === fen)
+                    .map(line => (
+                      <article key={`${line.multipv}-${line.depth}-${line.pv[0] ?? 'pv'}`}>
+                        <header>
+                          <strong>#{line.multipv}</strong>
+                          <span>D{line.depth}</span>
+                          <span>{formatEvaluation(line.cp, line.mate)}</span>
+                        </header>
+                        <p>{pvToSan(line.fen ?? fen, line) || line.pv.slice(0, 8).join(' ')}</p>
+                        <p className="pv-uci">{line.pv.slice(0, 8).join(' ')}</p>
+                        {showWdl && line.wdl && (
+                          <HorizontalWdlBar wdl={line.wdl} orientation={orientation} />
+                        )}
+                      </article>
+                    ))}
+                  {lastBestMove && <p className="best-move">Best move: {lastBestMove}</p>}
+                  {lastPonderMove && <p className="best-move">Ponder: {lastPonderMove}</p>}
+                </div>
+              </>
+            )}
+
+            {analysisTab === 'review' && (
+              <>
+                <div className="inline-actions">
+                  <button
+                    type="button"
+                    className={`batch-review-btn ${isBatchReviewing ? 'btn-primary pulsing' : ''}`}
+                    onClick={isBatchReviewing ? () => setIsBatchReviewing(false) : startBatchReview}
+                  >
+                    {isBatchReviewing ? (
+                      <><IconStop /> Reviewing ({batchReviewIdxRef.current}/{mainLineNodes.length - 1})</>
+                    ) : (
+                      <><IconSearch /> Review Game</>
+                    )}
+                  </button>
+                </div>
+                <div className="review-scaffold">
+                  <h3><span className="section-icon"><IconBarChart /></span> Review</h3>
+                  <div className="review-chips">
+                    <span className="chip-best">Best {reviewSummary.best}</span>
+                    <span className="chip-good">Good {reviewSummary.good}</span>
+                    <span className="chip-inaccuracy">Inaccuracy {reviewSummary.inaccuracy}</span>
+                    <span className="chip-mistake">Mistake {reviewSummary.mistake}</span>
+                    <span className="chip-blunder">Blunder {reviewSummary.blunder}</span>
+                    <span className="chip-pending">Pending {reviewSummary.pending}</span>
+                  </div>
+                </div>
+                <div className="right-section">
+                  <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
+                  <MoveListTree
+                    tree={gameTree}
+                    onNavigate={chess => navigateAndPause(chess)}
+                  />
+                </div>
+              </>
+            )}
+
+            {analysisTab === 'engine-lab' && (
+              <>
+                <div className="engine-lab-card">
+                  <h3><span className="section-icon"><IconSettings /></span> Runtime</h3>
+                  <label className="engine-option-row profile-picker">
+                    <span>Engine profile</span>
+                    <select value={engineProfile}
+                      onChange={e => setEngineProfile(e.target.value as EngineProfileId)}>
+                      <option value="auto">Auto (recommended)</option>
+                      {engineProfiles.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="panel-copy small">
+                    Isolation: {capabilities.crossOriginIsolated ? 'yes' : 'no'} / SharedArrayBuffer:{' '}
+                    {capabilities.sharedArrayBuffer ? 'yes' : 'no'} / Cores: {capabilities.hardwareConcurrency}
+                  </p>
+                  <p className="panel-copy small command-summary">
+                    Active: {activeGoCommand || 'none'}
+                  </p>
+                </div>
+
+                <div className="engine-lab-card">
+                  <h3><span className="section-icon"><IconPlay /></span> UCI Console</h3>
+                  <form
+                    className="engine-lab-console"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      void runLabCommand(engineLabCommand)
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={engineLabCommand}
+                      onChange={e => setEngineLabCommand(e.target.value)}
+                      placeholder="go depth 16"
+                    />
+                    <button type="submit">Send</button>
+                    <button type="button" onClick={clearRawConsole}>Clear</button>
+                  </form>
+                  <div className="inline-actions diagnostics-actions">
+                    <button type="button" onClick={() => void runLabCommand('d')}>d</button>
+                    <button type="button" onClick={() => void runLabCommand('eval')}>eval</button>
+                    <button type="button" onClick={() => void runLabCommand('bench')}>bench</button>
+                    <button type="button" onClick={() => void runLabCommand('perft 3')}>perft 3</button>
+                  </div>
+                  {engineLabError && <p className="panel-copy small error-copy">{engineLabError}</p>}
+                  <pre className="engine-lab-output">
+                    {(rawLines.slice(rawLogOffset).slice(-300).join('\n')) || 'No engine output yet.'}
+                  </pre>
+                </div>
+
+                <div className="engine-lab-card">
+                  <h3><span className="section-icon"><IconSettings /></span> Engine options</h3>
+                  <div className="engine-options">
+                    {options.map(option => (
+                      <EngineOptionControl key={option.name} option={option} onSetOption={setOption} />
+                    ))}
+                  </div>
+                  <p className="panel-copy small">
+                    Discovered from UCI handshake; applied immediately.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </aside>
@@ -848,6 +1181,9 @@ function App() {
               <span className="bottom-engine-info">
                 {engineName} · <strong className={`status ${status}`}>{status}</strong>
               </span>
+              {activeGoCommand && (
+                <span className="engine-command-inline">{activeGoCommand}</span>
+              )}
 
               {/* Game-over badges */}
               {game.isCheckmate() && <span className="game-over-badge">♟ Checkmate!</span>}
