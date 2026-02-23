@@ -13,12 +13,20 @@ import {
   type WdlPoint,
   type WinratePoint,
 } from './engine/analysis'
+import {
+  getCachedOpeningExplorer,
+  prefetchOpeningExplorer,
+  type OpeningDatabaseSource,
+  type OpeningExplorerMove,
+  type OpeningSpeed,
+} from './engine/openingExplorer'
 import type { AnalyzeMode, UciGoLimits } from './engine/uci'
 import { engineProfiles, type EngineProfileId } from './engine/profiles'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
 import { useGameTree } from './hooks/useGameTree'
 import { useOpening } from './hooks/useOpening'
+import { useOpeningExplorer } from './hooks/useOpeningExplorer'
 import { NewGameDialog, type GameMode, type PlayerColor } from './components/NewGameDialog'
 import { PgnDialog } from './components/PgnDialog'
 import { WatchControls, AI_SPEED_MS, type AiSpeed } from './components/WatchControls'
@@ -31,10 +39,18 @@ import './App.css'
 type Orientation = 'white' | 'black'
 type AnalysisTab = 'analyze' | 'review' | 'engine-lab'
 type AnalyzePresetId = 'blunder-check' | 'game-review' | 'deep-candidate' | 'mate-hunt'
+type OpeningRatingPresetId = 'all' | 'club' | 'advanced'
 
 const ANALYSIS_SETTINGS_STORAGE_KEY = 'webchess:analysis-settings:v1'
 const ANALYZE_MODE_IDS: AnalyzeMode[] = ['quick', 'deep', 'infinite', 'mate', 'review']
 const ANALYSIS_TAB_IDS: AnalysisTab[] = ['analyze', 'review', 'engine-lab']
+const OPENING_SOURCES: OpeningDatabaseSource[] = ['masters', 'lichess']
+const OPENING_SPEEDS: OpeningSpeed[] = ['bullet', 'blitz', 'rapid', 'classical']
+const OPENING_RATING_PRESETS: Array<{ id: OpeningRatingPresetId; label: string; ratings: number[] }> = [
+  { id: 'all', label: 'All ratings', ratings: [] },
+  { id: 'club', label: '1600-2200', ratings: [1600, 1800, 2000, 2200] },
+  { id: 'advanced', label: '2000+', ratings: [2000, 2200, 2500] },
+]
 
 const analyzePresets: Array<{ id: AnalyzePresetId; label: string; summary: string }> = [
   { id: 'blunder-check', label: 'Fast Blunder Check', summary: 'Quick scan after each move.' },
@@ -66,6 +82,9 @@ type PersistedAppSettings = {
   movesToGo: number | null
   expertModeEnabled: boolean
   labCommandHistory: string[]
+  openingSource: OpeningDatabaseSource
+  openingSpeeds: OpeningSpeed[]
+  openingRatingPreset: OpeningRatingPresetId
 }
 
 const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
@@ -91,6 +110,9 @@ const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
   movesToGo: null,
   expertModeEnabled: false,
   labCommandHistory: [],
+  openingSource: 'masters',
+  openingSpeeds: ['blitz', 'rapid', 'classical'],
+  openingRatingPreset: 'all',
 }
 
 function isAnalyzePresetId(value: unknown): value is AnalyzePresetId {
@@ -110,6 +132,18 @@ function isEngineProfileId(value: unknown): value is EngineProfileId {
   return typeof value === 'string' && engineProfiles.some(profile => profile.id === value)
 }
 
+function isOpeningSource(value: unknown): value is OpeningDatabaseSource {
+  return typeof value === 'string' && OPENING_SOURCES.includes(value as OpeningDatabaseSource)
+}
+
+function isOpeningSpeed(value: unknown): value is OpeningSpeed {
+  return typeof value === 'string' && OPENING_SPEEDS.includes(value as OpeningSpeed)
+}
+
+function isOpeningRatingPreset(value: unknown): value is OpeningRatingPresetId {
+  return typeof value === 'string' && OPENING_RATING_PRESETS.some(preset => preset.id === value)
+}
+
 function normalizeInteger(value: unknown, minimum: number, maximum: number, fallback: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
   const rounded = Math.round(value)
@@ -122,6 +156,28 @@ function normalizeOptionalPositiveInteger(value: unknown, maximum: number): numb
   const rounded = Math.round(value)
   if (rounded <= 0 || rounded > maximum) return null
   return rounded
+}
+
+function normalizeOpeningSpeeds(value: unknown): OpeningSpeed[] {
+  if (!Array.isArray(value)) return DEFAULT_PERSISTED_SETTINGS.openingSpeeds
+  const seen = new Set<OpeningSpeed>()
+  const next = value
+    .filter((item): item is OpeningSpeed => isOpeningSpeed(item))
+    .filter(item => {
+      if (seen.has(item)) return false
+      seen.add(item)
+      return true
+    })
+  return next.length ? next : DEFAULT_PERSISTED_SETTINGS.openingSpeeds
+}
+
+function moveGamesCount(move: OpeningExplorerMove): number {
+  return move.white + move.draws + move.black
+}
+
+function percentage(part: number, total: number): number {
+  if (!total) return 0
+  return (part / total) * 100
 }
 
 function loadPersistedSettings(): PersistedAppSettings {
@@ -167,6 +223,11 @@ function loadPersistedSettings(): PersistedAppSettings {
         ? parsed.expertModeEnabled
         : DEFAULT_PERSISTED_SETTINGS.expertModeEnabled,
       labCommandHistory,
+      openingSource: isOpeningSource(parsed.openingSource) ? parsed.openingSource : DEFAULT_PERSISTED_SETTINGS.openingSource,
+      openingSpeeds: normalizeOpeningSpeeds(parsed.openingSpeeds),
+      openingRatingPreset: isOpeningRatingPreset(parsed.openingRatingPreset)
+        ? parsed.openingRatingPreset
+        : DEFAULT_PERSISTED_SETTINGS.openingRatingPreset,
     }
   } catch {
     return DEFAULT_PERSISTED_SETTINGS
@@ -232,6 +293,10 @@ function App() {
   const [expertModeEnabled, setExpertModeEnabled] = useState(persistedSettings.expertModeEnabled)
   const [labCommandHistory, setLabCommandHistory] = useState<string[]>(persistedSettings.labCommandHistory)
   const [lastLabRun, setLastLabRun] = useState<{ command: string; durationMs: number } | null>(null)
+  const [openingSource, setOpeningSource] = useState<OpeningDatabaseSource>(persistedSettings.openingSource)
+  const [openingSpeeds, setOpeningSpeeds] = useState<OpeningSpeed[]>(persistedSettings.openingSpeeds)
+  const [openingRatingPreset, setOpeningRatingPreset] = useState<OpeningRatingPresetId>(persistedSettings.openingRatingPreset)
+  const [openingPrefetchTick, setOpeningPrefetchTick] = useState(0)
 
   // ── Evaluations ──────────────────────────────────────
   const [evaluationsByFen, setEvaluationsByFen] = useState<Map<string, EvalSnapshot>>(new Map())
@@ -303,6 +368,18 @@ function App() {
     [currentPathNodes],
   )
   const currentPathMovesKey = currentPathMoves.join(' ')
+  const openingRatings = useMemo(
+    () => OPENING_RATING_PRESETS.find(preset => preset.id === openingRatingPreset)?.ratings ?? [],
+    [openingRatingPreset],
+  )
+  const openingRequestSpeeds = openingSource === 'lichess' ? openingSpeeds : undefined
+  const openingRequestRatings = openingSource === 'lichess' ? openingRatings : undefined
+  const openingExplorer = useOpeningExplorer({
+    source: openingSource,
+    moves: currentPathMoves,
+    speeds: openingRequestSpeeds,
+    ratings: openingRequestRatings,
+  })
   const opening = useOpening(currentPathNodes.map(n => n.fen))
   const canGoBack = currentPathNodes.length > 1
   const canGoForward = gameTree.current.children.length > 0
@@ -438,6 +515,45 @@ function App() {
         .filter(Boolean),
     [searchMovesInput],
   )
+  const openingTotals = openingExplorer.data
+    ? {
+        white: openingExplorer.data.white,
+        draws: openingExplorer.data.draws,
+        black: openingExplorer.data.black,
+      }
+    : null
+  const openingTotalGames = openingTotals
+    ? openingTotals.white + openingTotals.draws + openingTotals.black
+    : 0
+  const openingTopMoves = useMemo(() => (openingExplorer.data?.moves ?? []).slice(0, 5), [openingExplorer.data?.moves])
+  const openingTopBookMove = openingTopMoves[0]
+  const currentFenLines = useMemo(() => lines.filter(line => !line.fen || line.fen === fen), [fen, lines])
+  const currentEngineBestUci = currentFenLines.find(line => line.multipv === 1)?.pv[0] ?? null
+  const engineBookAgreement = currentEngineBestUci && openingTopBookMove
+    ? currentEngineBestUci === openingTopBookMove.uci
+    : null
+
+  const toggleOpeningSpeed = useCallback((speed: OpeningSpeed) => {
+    setOpeningSpeeds(previous => {
+      const alreadySelected = previous.includes(speed)
+      if (alreadySelected) {
+        const next = previous.filter(item => item !== speed)
+        return next.length ? next : previous
+      }
+
+      const ordered = [...previous, speed]
+      return OPENING_SPEEDS.filter(item => ordered.includes(item))
+    })
+  }, [])
+
+  const applyBookMovesToSearch = useCallback(() => {
+    const topMoves = openingTopMoves.slice(0, 3).map(move => move.uci)
+    if (!topMoves.length) return
+    setShowAdvancedAnalyze(true)
+    setSearchMovesInput(topMoves.join(' '))
+    setActivePreset(null)
+    setAnalysisTab('analyze')
+  }, [openingTopMoves])
 
   const resetSavedWorkspace = useCallback(() => {
     try {
@@ -468,6 +584,10 @@ function App() {
     setMovesToGo(DEFAULT_PERSISTED_SETTINGS.movesToGo ?? '')
     setExpertModeEnabled(DEFAULT_PERSISTED_SETTINGS.expertModeEnabled)
     setLabCommandHistory(DEFAULT_PERSISTED_SETTINGS.labCommandHistory)
+    setOpeningSource(DEFAULT_PERSISTED_SETTINGS.openingSource)
+    setOpeningSpeeds(DEFAULT_PERSISTED_SETTINGS.openingSpeeds)
+    setOpeningRatingPreset(DEFAULT_PERSISTED_SETTINGS.openingRatingPreset)
+    setOpeningPrefetchTick(0)
     setEngineLabError(null)
   }, [])
 
@@ -623,6 +743,9 @@ function App() {
       movesToGo: typeof movesToGo === 'number' ? movesToGo : null,
       expertModeEnabled,
       labCommandHistory,
+      openingSource,
+      openingSpeeds,
+      openingRatingPreset,
     })
   }, [
     activePreset,
@@ -639,6 +762,9 @@ function App() {
     mateTarget,
     movesToGo,
     multiPv,
+    openingRatingPreset,
+    openingSource,
+    openingSpeeds,
     quickMovetimeMs,
     searchDepth,
     searchMovesInput,
@@ -652,9 +778,107 @@ function App() {
   // ── Derived move data ─────────────────────────────────
   const mainLineNodes = gameTree.mainLine()
   const mainLineMoves = mainLineNodes.slice(1).map(n => n.move!).filter(Boolean)
+  const mainLineUciMoves = useMemo(() => mainLineNodes.slice(1).map(node => node.uci).filter(Boolean), [mainLineNodes])
 
   const reviewRows = useMemo(() => buildReviewRows(mainLineMoves, evaluationsByFen), [evaluationsByFen, mainLineMoves])
   const reviewSummary = useMemo(() => summarizeReview(reviewRows), [reviewRows])
+
+  useEffect(() => {
+    if (analysisTab !== 'review') return
+    if (!mainLineUciMoves.length) return
+
+    let cancelled = false
+    const maxPlyToPrefetch = Math.min(mainLineUciMoves.length, 30)
+
+    const run = async () => {
+      for (let idx = 0; idx < maxPlyToPrefetch; idx += 1) {
+        if (cancelled) return
+        await prefetchOpeningExplorer({
+          source: openingSource,
+          moves: mainLineUciMoves.slice(0, idx),
+          speeds: openingSource === 'lichess' ? openingSpeeds : undefined,
+          ratings: openingSource === 'lichess' ? openingRatings : undefined,
+        })
+        if (cancelled) return
+        setOpeningPrefetchTick(tick => tick + 1)
+      }
+    }
+
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [analysisTab, mainLineUciMoves, openingRatings, openingSource, openingSpeeds])
+
+  const reviewBookRows = useMemo(() => {
+    void openingPrefetchTick
+    return mainLineUciMoves.map((uci, index) => {
+      const beforeMoves = mainLineUciMoves.slice(0, index)
+      const fromCache = getCachedOpeningExplorer({
+        source: openingSource,
+        moves: beforeMoves,
+        speeds: openingSource === 'lichess' ? openingSpeeds : undefined,
+        ratings: openingSource === 'lichess' ? openingRatings : undefined,
+      })
+      const san = mainLineNodes[index + 1]?.san ?? uci
+
+      if (!fromCache) {
+        return {
+          ply: index + 1,
+          san,
+          uci,
+          status: 'loading' as const,
+        }
+      }
+
+      const totalGames = fromCache.white + fromCache.draws + fromCache.black
+      if (!totalGames) {
+        return {
+          ply: index + 1,
+          san,
+          uci,
+          status: 'unknown' as const,
+        }
+      }
+
+      const move = fromCache.moves.find(item => item.uci === uci)
+      if (!move) {
+        return {
+          ply: index + 1,
+          san,
+          uci,
+          status: 'out-of-book' as const,
+          games: 0,
+          popularityPct: 0,
+        }
+      }
+
+      const moveGames = moveGamesCount(move)
+      return {
+        ply: index + 1,
+        san,
+        uci,
+        status: 'in-book' as const,
+        games: moveGames,
+        popularityPct: percentage(moveGames, totalGames),
+      }
+    })
+  }, [
+    mainLineUciMoves,
+    mainLineNodes,
+    openingPrefetchTick,
+    openingRatings,
+    openingSource,
+    openingSpeeds,
+  ])
+
+  const reviewBookSummary = useMemo(() => {
+    const inBook = reviewBookRows.filter(row => row.status === 'in-book').length
+    const outOfBook = reviewBookRows.filter(row => row.status === 'out-of-book').length
+    const loading = reviewBookRows.filter(row => row.status === 'loading').length
+    const firstOutOfBook = reviewBookRows.find(row => row.status === 'out-of-book') ?? null
+    return { inBook, outOfBook, loading, firstOutOfBook }
+  }, [reviewBookRows])
 
   // Graph uses active path up to its deepest child to show the entire branch history
   const currentLineNodes = useMemo(() => {
@@ -1192,6 +1416,105 @@ function App() {
                 <p className="panel-copy small command-summary">
                   {activeGoCommand ? `Command: ${activeGoCommand}` : 'Command: idle'} {queueLength > 0 ? `· queue ${queueLength}` : ''}
                 </p>
+                <div className="opening-intel-card">
+                  <div className="opening-intel-head">
+                    <h3><span className="section-icon"><IconBarChart /></span> Opening Intel</h3>
+                    <div className="opening-source-toggle">
+                      {OPENING_SOURCES.map(source => (
+                        <button
+                          key={source}
+                          type="button"
+                          className={`mode-pill ${openingSource === source ? 'active' : ''}`}
+                          onClick={() => setOpeningSource(source)}
+                        >
+                          {source === 'masters' ? 'Masters' : 'Lichess'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {openingSource === 'lichess' && (
+                    <>
+                      <div className="opening-speed-toggle">
+                        {OPENING_SPEEDS.map(speed => (
+                          <button
+                            key={speed}
+                            type="button"
+                            className={`mode-pill ${openingSpeeds.includes(speed) ? 'active' : ''}`}
+                            onClick={() => toggleOpeningSpeed(speed)}
+                          >
+                            {speed}
+                          </button>
+                        ))}
+                      </div>
+                      <label className="engine-option-row">
+                        <span>Rating bucket</span>
+                        <select
+                          value={openingRatingPreset}
+                          onChange={event => setOpeningRatingPreset(event.target.value as OpeningRatingPresetId)}
+                        >
+                          {OPENING_RATING_PRESETS.map(preset => (
+                            <option key={preset.id} value={preset.id}>
+                              {preset.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </>
+                  )}
+                  {openingExplorer.loading && !openingExplorer.data && (
+                    <p className="panel-copy small">Loading opening database...</p>
+                  )}
+                  {openingExplorer.error && (
+                    <p className="panel-copy small error-copy">Opening DB: {openingExplorer.error}</p>
+                  )}
+                  {openingExplorer.data && (
+                    <>
+                      <p className="panel-copy small">
+                        {openingExplorer.data.opening
+                          ? `${openingExplorer.data.opening.eco} · ${openingExplorer.data.opening.name}`
+                          : 'No named opening at this position.'}
+                      </p>
+                      <p className="panel-copy small command-summary">
+                        Games {openingTotalGames.toLocaleString()} · White {percentage(openingTotals?.white ?? 0, openingTotalGames).toFixed(1)}% ·
+                        Draw {percentage(openingTotals?.draws ?? 0, openingTotalGames).toFixed(1)}% ·
+                        Black {percentage(openingTotals?.black ?? 0, openingTotalGames).toFixed(1)}%
+                      </p>
+                      {engineBookAgreement !== null && (
+                        <p className="panel-copy small">
+                          Engine/book agreement: {engineBookAgreement ? 'yes' : 'no'}{currentEngineBestUci ? ` (${currentEngineBestUci})` : ''}
+                        </p>
+                      )}
+                      {openingTopMoves.length > 0 && (
+                        <div className="opening-move-list">
+                          {openingTopMoves.map(move => {
+                            const games = moveGamesCount(move)
+                            return (
+                              <button
+                                key={move.uci}
+                                type="button"
+                                className="opening-move-row"
+                                onClick={() => {
+                                  setShowAdvancedAnalyze(true)
+                                  setActivePreset(null)
+                                  setSearchMovesInput(move.uci)
+                                }}
+                              >
+                                <strong>{move.san}</strong>
+                                <span>{percentage(games, openingTotalGames).toFixed(1)}%</span>
+                                <span>{games.toLocaleString()}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {openingTopMoves.length > 0 && (
+                        <button type="button" onClick={applyBookMovesToSearch}>
+                          Use Top Book Moves As `searchmoves`
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
 
                 {(analyzeMode === 'deep' || analyzeMode === 'review') && (
                   <label className="control">
@@ -1384,6 +1707,35 @@ function App() {
                     <span className="chip-pending">Pending {reviewSummary.pending}</span>
                   </div>
                 </div>
+                <div className="opening-intel-card review-book-card">
+                  <h3><span className="section-icon"><IconSearch /></span> Book vs Engine</h3>
+                  <p className="panel-copy small command-summary">
+                    In book {reviewBookSummary.inBook} · Out of book {reviewBookSummary.outOfBook}
+                    {reviewBookSummary.loading > 0 ? ` · checking ${reviewBookSummary.loading}` : ''}
+                  </p>
+                  {reviewBookSummary.firstOutOfBook && (
+                    <p className="panel-copy small">
+                      First novelty: ply {reviewBookSummary.firstOutOfBook.ply} ({reviewBookSummary.firstOutOfBook.san})
+                    </p>
+                  )}
+                  <div className="review-book-list">
+                    {reviewBookRows.slice(0, 14).map(row => (
+                      <div key={`${row.ply}-${row.uci}`} className={`review-book-row ${row.status}`}>
+                        <span>#{row.ply}</span>
+                        <strong>{row.san}</strong>
+                        <span>
+                          {row.status === 'in-book' && typeof row.popularityPct === 'number'
+                            ? `${row.popularityPct.toFixed(1)}%`
+                            : row.status === 'out-of-book'
+                              ? 'Novelty'
+                              : row.status === 'loading'
+                                ? '...'
+                                : 'n/a'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 <div className="right-section">
                   <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
                   <MoveListTree
@@ -1427,6 +1779,16 @@ function App() {
                     <p className="panel-copy small warning-copy">
                       Heavy diagnostics are locked to keep the UI responsive.
                     </p>
+                  )}
+                  {openingExplorer.data && (
+                    <div className="engine-lab-inline">
+                      <p className="panel-copy small">
+                        Book moves available: {openingExplorer.data.moves.length} · games {openingTotalGames.toLocaleString()}
+                      </p>
+                      <button type="button" onClick={applyBookMovesToSearch} disabled={openingTopMoves.length === 0}>
+                        Use top book moves in Analyze
+                      </button>
+                    </div>
                   )}
                 </div>
 
