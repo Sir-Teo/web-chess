@@ -13,6 +13,7 @@ import {
   type WdlPoint,
   type WinratePoint,
 } from './engine/analysis'
+import { historicalSampleGames, type HistoricalSampleGame, type HistoricalSampleFormat } from './assets/historicalSamples'
 import {
   getCachedOpeningExplorer,
   prefetchOpeningExplorer,
@@ -40,6 +41,7 @@ type Orientation = 'white' | 'black'
 type AnalysisTab = 'analyze' | 'review' | 'engine-lab'
 type AnalyzePresetId = 'blunder-check' | 'game-review' | 'deep-candidate' | 'mate-hunt'
 type OpeningRatingPresetId = 'all' | 'club' | 'advanced'
+type SampleLibraryFilter = 'all' | HistoricalSampleFormat
 
 const ANALYSIS_SETTINGS_STORAGE_KEY = 'webchess:analysis-settings:v1'
 const ANALYZE_MODE_IDS: AnalyzeMode[] = ['quick', 'deep', 'infinite', 'mate', 'review']
@@ -184,6 +186,12 @@ function percentage(part: number, total: number): number {
   return (part / total) * 100
 }
 
+function resultLabel(result: HistoricalSampleGame['result']): string {
+  if (result === '1-0') return 'White won'
+  if (result === '0-1') return 'Black won'
+  return 'Draw'
+}
+
 function clamp01(value: number): number {
   if (value < 0) return 0
   if (value > 1) return 1
@@ -324,6 +332,10 @@ function App() {
   const [showTopMoveArrows, setShowTopMoveArrows] = useState<boolean>(persistedSettings.showTopMoveArrows)
   const [topMoveArrowCount, setTopMoveArrowCount] = useState<number>(persistedSettings.topMoveArrowCount)
   const [openingPrefetchTick, setOpeningPrefetchTick] = useState(0)
+  const [sampleFilter, setSampleFilter] = useState<SampleLibraryFilter>('all')
+  const [sampleLoadingId, setSampleLoadingId] = useState<string | null>(null)
+  const [sampleLoadError, setSampleLoadError] = useState<string | null>(null)
+  const samplePgnCacheRef = useRef<Map<string, string>>(new Map())
 
   // ── Evaluations ──────────────────────────────────────
   const [evaluationsByFen, setEvaluationsByFen] = useState<Map<string, EvalSnapshot>>(new Map())
@@ -407,6 +419,10 @@ function App() {
     speeds: openingRequestSpeeds,
     ratings: openingRequestRatings,
   })
+  const filteredSampleGames = useMemo(
+    () => historicalSampleGames.filter(sample => sampleFilter === 'all' || sample.format === sampleFilter),
+    [sampleFilter],
+  )
   const opening = useOpening(currentPathNodes.map(n => n.fen))
   const canGoBack = currentPathNodes.length > 1
   const canGoForward = gameTree.current.children.length > 0
@@ -1115,6 +1131,40 @@ function App() {
       alert("Failed to parse PGN.")
     }
   }, [game, gameTree, newGame])
+
+  const fetchSamplePgn = useCallback(async (sample: HistoricalSampleGame): Promise<string> => {
+    const cached = samplePgnCacheRef.current.get(sample.id)
+    if (cached) return cached
+
+    const response = await fetch(`https://lichess.org/game/export/${sample.lichessGameId}`)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch sample PGN (${response.status}).`)
+    }
+
+    const pgnText = await response.text()
+    samplePgnCacheRef.current.set(sample.id, pgnText)
+    return pgnText
+  }, [])
+
+  const loadHistoricalSample = useCallback(
+    async (sample: HistoricalSampleGame, mode: 'load' | 'analyze' = 'load') => {
+      setSampleLoadingId(sample.id)
+      setSampleLoadError(null)
+      try {
+        const pgnText = await fetchSamplePgn(sample)
+        handlePgnImport(pgnText)
+        if (mode === 'analyze') {
+          setAnalysisTab('analyze')
+          window.setTimeout(() => runAnalyze(), 100)
+        }
+      } catch (error) {
+        setSampleLoadError(error instanceof Error ? error.message : 'Failed to load sample game.')
+      } finally {
+        setSampleLoadingId(null)
+      }
+    },
+    [fetchSamplePgn, handlePgnImport, runAnalyze],
+  )
 
   const handleNewGameStart = useCallback(
     ({ mode, playerColor: color, difficulty }: { mode: GameMode; playerColor: PlayerColor; difficulty: AiDifficulty }) => {
@@ -1995,6 +2045,63 @@ function App() {
                 <span className="wdl-black-label">Black {wdlPoints[wdlPoints.length - 1]!.black.toFixed(1)}%</span>
               </div>
             )}
+            <section className="sample-library-card">
+              <header className="sample-library-head">
+                <h3><span className="section-icon"><IconKing /></span> Historical Library</h3>
+                <span>{filteredSampleGames.length} games</span>
+              </header>
+              <div className="sample-filter-row">
+                {([
+                  { id: 'all', label: 'All' },
+                  { id: 'classical', label: 'Classical' },
+                  { id: 'rapid-blitz', label: 'Rapid/Blitz' },
+                ] as const).map(filter => (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    className={`mode-pill ${sampleFilter === filter.id ? 'active' : ''}`}
+                    onClick={() => setSampleFilter(filter.id)}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+              {sampleLoadError && <p className="panel-copy small error-copy">{sampleLoadError}</p>}
+              <div className="sample-game-list">
+                {filteredSampleGames.map(sample => {
+                  const isLoading = sampleLoadingId === sample.id
+                  return (
+                    <article key={sample.id} className="sample-game-row">
+                      <header>
+                        <strong>{sample.white} vs {sample.black}</strong>
+                        <span>{sample.year}</span>
+                      </header>
+                      <p>{sample.event}</p>
+                      <p className="sample-game-opening">{sample.eco} · {sample.opening}</p>
+                      <p className="panel-copy small">
+                        {sample.format === 'classical' ? 'Classical' : 'Rapid/Blitz'} · {resultLabel(sample.result)}
+                      </p>
+                      <div className="sample-game-actions">
+                        <button
+                          type="button"
+                          onClick={() => void loadHistoricalSample(sample, 'load')}
+                          disabled={isLoading}
+                        >
+                          {isLoading ? 'Loading...' : 'Load'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void loadHistoricalSample(sample, 'analyze')}
+                          disabled={isLoading}
+                        >
+                          Analyze
+                        </button>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            </section>
           </div>
         </div>
       </section>

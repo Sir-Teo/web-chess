@@ -1628,6 +1628,103 @@
   background: #58a6ff;
 }
 
+.sample-library-card {
+  margin-top: var(--space-md);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  padding: 0.52rem;
+}
+
+.sample-library-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-bottom: 0.45rem;
+}
+
+.sample-library-head h3 {
+  margin: 0;
+  font-size: 0.63rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.sample-library-head span {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.sample-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+  margin-bottom: 0.45rem;
+}
+
+.sample-game-list {
+  display: grid;
+  gap: 0.36rem;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.sample-game-row {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(13, 17, 23, 0.44);
+  padding: 0.36rem 0.44rem;
+}
+
+.sample-game-row header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.42rem;
+  align-items: baseline;
+  margin-bottom: 0.16rem;
+}
+
+.sample-game-row header strong {
+  font-size: 0.7rem;
+  color: var(--text-primary);
+}
+
+.sample-game-row header span {
+  font-size: 0.64rem;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.sample-game-row p {
+  margin: 0 0 0.2rem;
+  font-size: 0.66rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.sample-game-row p.sample-game-opening {
+  color: var(--text-muted);
+}
+
+.sample-game-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.28rem;
+  margin-top: 0.24rem;
+}
+
+.sample-game-actions button {
+  font-size: 0.66rem;
+  padding: 0.24rem 0.34rem;
+}
+
 /* ═══════════════════════════════════════════════════
    Empty state
    ═══════════════════════════════════════════════════ */
