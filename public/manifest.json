@@ -1,0 +1,16 @@
+{
+    "name": "Web Chess",
+    "short_name": "Web Chess",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0d1117",
+    "theme_color": "#0d1117",
+    "description": "Play, analyze and review your games with Stockfish right in the browser.",
+    "icons": [
+        {
+            "src": "vite.svg",
+            "sizes": "any",
+            "type": "image/svg+xml"
+        }
+    ]
+}
