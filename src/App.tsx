@@ -53,12 +53,11 @@ const OPENING_RATING_PRESETS: Array<{ id: OpeningRatingPresetId; label: string; 
   { id: 'club', label: '1600-2200', ratings: [1600, 1800, 2000, 2200] },
   { id: 'advanced', label: '2000+', ratings: [2000, 2200, 2500] },
 ]
-const IMPORT_SHALLOW_DEPTH = 10
+const IMPORT_LOAD_MOVETIME_MS = 70
 const IMPORT_SHALLOW_MULTIPV = 1
 const MOVE_PONDER_MIN_DEPTH = 20
 const IMPORT_SWEEP_MOVETIME_MS = 70
 const IMPORT_SWEEP_MULTIPV = 1
-const IMPORT_SWEEP_MAX_POSITIONS = 24
 
 const analyzePresets: Array<{ id: AnalyzePresetId; label: string; summary: string }> = [
   { id: 'blunder-check', label: 'Fast Blunder Check', summary: 'Quick scan after each move.' },
@@ -75,29 +74,18 @@ type ImportSweepTarget = {
 function buildImportSweepTargets(entries: Array<{ move: { from: string; to: string; promotion?: string }; fen: string }>): ImportSweepTarget[] {
   if (!entries.length) return []
 
-  const total = entries.length
-  const step = total <= 40 ? 1 : total <= 90 ? 2 : 3
-  const sampledIndexes: number[] = []
-  for (let idx = step - 1; idx < total; idx += step) sampledIndexes.push(idx)
+  const historyMoves: string[] = []
+  const targets: ImportSweepTarget[] = []
 
-  const lastIdx = total - 1
-  if (sampledIndexes[sampledIndexes.length - 1] !== lastIdx) sampledIndexes.push(lastIdx)
+  for (const entry of entries) {
+    historyMoves.push(`${entry.move.from}${entry.move.to}${entry.move.promotion ?? ''}`)
+    targets.push({
+      fen: entry.fen,
+      historyMoves: [...historyMoves],
+    })
+  }
 
-  const cappedIndexes = sampledIndexes.length <= IMPORT_SWEEP_MAX_POSITIONS
-    ? sampledIndexes
-    : Array.from({ length: IMPORT_SWEEP_MAX_POSITIONS }, (_, idx) => {
-        const normalized = idx / Math.max(1, IMPORT_SWEEP_MAX_POSITIONS - 1)
-        const sampledIdx = Math.round(normalized * (sampledIndexes.length - 1))
-        return sampledIndexes[sampledIdx]!
-      })
-
-  const uniqueSortedIndexes = [...new Set(cappedIndexes)].sort((a, b) => a - b)
-  return uniqueSortedIndexes.map(index => ({
-    fen: entries[index]!.fen,
-    historyMoves: entries
-      .slice(0, index + 1)
-      .map(entry => `${entry.move.from}${entry.move.to}${entry.move.promotion ?? ''}`),
-  }))
+  return targets
 }
 
 type PersistedAppSettings = {
@@ -612,7 +600,7 @@ function App() {
       analyze({
         fen,
         mode: 'custom',
-        limits: { depth: IMPORT_SHALLOW_DEPTH },
+        limits: { movetime: IMPORT_LOAD_MOVETIME_MS },
         multiPv: IMPORT_SHALLOW_MULTIPV,
         hashMb,
         showWdl,
@@ -1287,7 +1275,8 @@ function App() {
       const finalFen = game.fen()
       setFen(finalFen)
       setPendingShallowAnalyzeFen(finalFen)
-      const sweepTargets = buildImportSweepTargets(mainLineEntries).filter(target => target.fen !== finalFen)
+      const allSweepTargets = buildImportSweepTargets(mainLineEntries)
+      const sweepTargets = allSweepTargets.slice(0, -1)
       importSweepQueueRef.current = sweepTargets
       setImportSweepProgress({ done: 0, total: sweepTargets.length })
 
