@@ -2073,7 +2073,7 @@ function App() {
                 </div>
                 <div className="pv-list">
                   <h3><span className="section-icon"><IconSearch /></span> Lines</h3>
-                  {lines.length === 0 && (
+                  {lines.length === 0 && !activeGoCommand && !lastBestMove && (
                     <div className="empty-state">
                       <span className="empty-state-icon"><IconSearch /></span>
                       <p>Start analysis to see principal variation lines here.</p>
