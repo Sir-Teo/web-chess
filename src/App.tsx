@@ -1496,56 +1496,60 @@ function App() {
               <span className="app-brand-icon"><IconKing /></span>
               <span className="app-brand-text">Web Chess</span>
             </div>
-            <button type="button" onClick={openNewGameDialog}>
-              <span className="btn-icon"><IconRefresh /></span> New game
-            </button>
-            <button type="button" onClick={flipBoard}>
-              <span className="btn-icon"><IconFlip /></span> Flip
-            </button>
-            <button type="button" onClick={openPgnDialog}>
-              <span className="btn-icon"><IconDownload /></span> PGN
-            </button>
-
-            {/* Workspace mode */}
-            <span className="toolbar-divider" />
-            <div className="top-mode-pills" aria-label="Workspace mode">
-              {([
-                { id: 'play', label: 'Play', icon: <IconSwords /> },
-                { id: 'analysis', label: 'Analysis', icon: <IconSearch /> },
-              ] as const).map(({ id, label, icon }) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={`gc-pill ${workspaceMode === id ? 'gc-pill-active' : ''}`}
-                  onClick={() => setWorkspaceMode(id)}
-                >
-                  <span className="gc-pill-icon">{icon}</span>
-                  {label}
-                </button>
-              ))}
+            <div className="mobile-actions">
+              <button type="button" onClick={openNewGameDialog}>
+                <span className="btn-icon"><IconRefresh /></span> <span className="btn-label">New game</span>
+              </button>
+              <button type="button" onClick={flipBoard}>
+                <span className="btn-icon"><IconFlip /></span> <span className="btn-label">Flip</span>
+              </button>
+              <button type="button" onClick={openPgnDialog}>
+                <span className="btn-icon"><IconDownload /></span> <span className="btn-label">PGN</span>
+              </button>
             </div>
 
-            {/* Game mode switcher */}
-            <span className="toolbar-divider" />
-            <div className="top-mode-pills">
-              {([
-                { id: 'human-vs-human', label: 'H vs H', icon: <IconUsers /> },
-                { id: 'human-vs-ai', label: 'H vs AI', icon: <IconBot /> },
-                { id: 'ai-vs-ai', label: 'AI vs AI', icon: <IconZap /> },
-              ] as const).map(({ id, label, icon }) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={`gc-pill ${gameMode === id ? 'gc-pill-active' : ''}`}
-                  onClick={() => id !== gameMode && handleModeChange(id)}
-                >
-                  <span className="gc-pill-icon">{icon}</span>
-                  {label}
-                </button>
-              ))}
+            {/* Workspace & Game Mode wrappers */}
+            <span className="toolbar-divider desktop-only" />
+            <div className="mobile-modes-wrapper">
+              <div className="top-mode-pills" aria-label="Workspace mode">
+                {([
+                  { id: 'play', label: 'Play', icon: <IconSwords /> },
+                  { id: 'analysis', label: 'Analysis', icon: <IconSearch /> },
+                ] as const).map(({ id, label, icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`gc-pill ${workspaceMode === id ? 'gc-pill-active' : ''}`}
+                    onClick={() => setWorkspaceMode(id)}
+                  >
+                    <span className="gc-pill-icon">{icon}</span>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Game mode switcher */}
+              <span className="toolbar-divider desktop-only" />
+              <div className="top-mode-pills">
+                {([
+                  { id: 'human-vs-human', label: 'H vs H', icon: <IconUsers /> },
+                  { id: 'human-vs-ai', label: 'H vs AI', icon: <IconBot /> },
+                  { id: 'ai-vs-ai', label: 'AI vs AI', icon: <IconZap /> },
+                ] as const).map(({ id, label, icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`gc-pill ${gameMode === id ? 'gc-pill-active' : ''}`}
+                    onClick={() => id !== gameMode && handleModeChange(id)}
+                  >
+                    <span className="gc-pill-icon">{icon}</span>
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <span className="toolbar-divider" />
+            <span className="toolbar-divider desktop-only" />
 
             <details className="settings-menu">
               <summary><span className="btn-icon"><IconSettings /></span> Settings</summary>

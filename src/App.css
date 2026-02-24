@@ -1964,14 +1964,74 @@
   }
 
   .top .compact-grid {
-    gap: 0.42rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "brand settings"
+      "actions actions"
+      "modes modes";
+    gap: 0.45rem;
+  }
+
+  .top .app-brand {
+    grid-area: brand;
+    border-right: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .top .settings-menu {
+    grid-area: settings;
+    margin: 0;
+  }
+
+  .mobile-actions {
+    grid-area: actions;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.35rem;
+  }
+
+  .mobile-actions button {
+    justify-content: center;
+    padding: 0.45rem 0;
+  }
+
+  .mobile-actions .btn-label {
+    display: none;
+  }
+
+  .mobile-modes-wrapper {
+    grid-area: modes;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.35rem;
   }
 
   .top .compact-grid button,
   .top .settings-menu>summary {
     min-height: 2.4rem;
-    padding: 0.5rem 0.78rem;
+    padding: 0.5rem 0;
     font-size: 0.82rem;
+  }
+
+  .top .settings-menu>summary {
+    padding: 0.5rem 0.78rem;
+  }
+
+  .top .settings-body {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) !important;
+    width: 90vw;
+    max-width: 380px;
+    max-height: 85vh;
+    z-index: 1000;
+  }
+
+  .desktop-only {
+    display: none !important;
   }
 
   .top-mode-pills,
@@ -2004,13 +2064,25 @@
   }
 
   .bottom .panel-content {
-    flex-wrap: wrap;
-    gap: 0.28rem;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
+    padding: 0.45rem var(--space-md);
   }
 
-  .game-controls {
+  .bottom-status-row {
+    justify-content: center;
+    width: 100%;
+    margin: 0;
+    padding-bottom: 0.15rem;
+  }
+
+  .game-controls,
+  .watch-controls {
+    justify-content: center;
     flex-wrap: wrap;
-    gap: 0.28rem;
+    gap: 0.35rem;
   }
 
   .resize-handle {
@@ -2450,7 +2522,7 @@
     position: relative;
     inset: auto;
     min-height: 45vh;
-    padding: var(--space-md) var(--space-sm);
+    padding: var(--space-sm);
     z-index: 10;
   }
 
@@ -2483,5 +2555,15 @@
   /* Hide resize handles on mobile since it's full width stacked */
   .resize-handle {
     display: none !important;
+  }
+
+  /* Make UI elements stack gracefully on mobile screens */
+  .preset-grid,
+  .inline-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .diagnostics-actions {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
