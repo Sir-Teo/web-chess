@@ -104,10 +104,11 @@
 
 .dialog-header h2 {
     margin: 0;
-    font-size: 1.05rem;
+    font-family: var(--font-heading, inherit);
+    font-size: 1.15rem;
     font-weight: 700;
-    color: var(--text-heading, #f0f6fc);
-    letter-spacing: -0.01em;
+    color: var(--text-heading, #ffffff);
+    letter-spacing: 0.02em;
 }
 
 /* ── Sections ──────────────────────────────────────── */
@@ -117,9 +118,10 @@
 
 .dialog-label {
     margin: 0 0 0.5rem;
-    font-size: 0.65rem;
+    font-family: var(--font-heading, inherit);
+    font-size: 0.68rem;
     font-weight: 700;
-    letter-spacing: 0.09em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--text-tertiary, #6e7681);
 }

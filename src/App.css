@@ -5,10 +5,10 @@
   position: relative;
   width: 100%;
   min-height: 100vh;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-body);
   background:
-    radial-gradient(ellipse at 20% 0%, rgba(63, 185, 80, 0.05) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 100%, rgba(88, 166, 255, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 20% 0%, rgba(16, 185, 129, 0.07) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(59, 130, 246, 0.07) 0%, transparent 50%),
     var(--bg-base);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
@@ -54,11 +54,12 @@
 
 .panel-header h2 {
   margin: 0;
-  font-size: 0.65rem;
+  font-family: var(--font-heading);
+  font-size: 0.70rem;
   font-weight: 700;
-  letter-spacing: 0.10em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-tertiary);
+  color: var(--text-primary);
 }
 
 .panel-content {
@@ -2408,6 +2409,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .app-shell *,
   .app-shell *::before,
   .app-shell *::after {
@@ -2423,5 +2425,59 @@
   .status.loading::before,
   .status.analyzing::before {
     animation: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   Mobile Responsiveness & Viewports
+   ═══════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .app-shell {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding-top: 3.5rem;
+    /* space for top bar */
+    padding-bottom: 4rem;
+    /* space for bottom bar */
+  }
+
+  .board-stage {
+    position: relative;
+    inset: auto;
+    min-height: 45vh;
+    padding: var(--space-md) var(--space-sm);
+    z-index: 10;
+  }
+
+  .left,
+  .right {
+    position: static;
+    width: 100% !important;
+    max-width: 100%;
+    margin: 0;
+    padding: 0 var(--space-sm) var(--space-lg);
+  }
+
+  /* Make panel contents flow naturally */
+  .left .panel-inner,
+  .right .panel-inner {
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  /* Ensure the inline scrolling stays reasonable inside the panels */
+  .left .panel-content,
+  .right .panel-content {
+    overflow: visible;
+  }
+
+  /* Hide resize handles on mobile since it's full width stacked */
+  .resize-handle {
+    display: none !important;
   }
 }

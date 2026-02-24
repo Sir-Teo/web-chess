@@ -1,52 +1,52 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
   /* ── Base surfaces ─────────────────────────────── */
-  --bg-base: #0d1117;
-  --bg-surface: #161b22;
-  --bg-elevated: #1c2128;
-  --bg-panel: rgba(22, 27, 34, 0.95);
-  --bg-card: rgba(28, 33, 40, 0.90);
-  --bg-card-hover: rgba(33, 38, 45, 0.95);
-  --bg-input: rgba(13, 17, 23, 0.70);
+  --bg-base: #050505;
+  --bg-surface: #0a0a0a;
+  --bg-elevated: #121212;
+  --bg-panel: rgba(10, 10, 10, 0.70);
+  --bg-card: rgba(18, 18, 18, 0.75);
+  --bg-card-hover: rgba(28, 28, 28, 0.85);
+  --bg-input: rgba(5, 5, 5, 0.80);
 
   /* ── Borders ───────────────────────────────────── */
-  --border-subtle: rgba(240, 246, 252, 0.06);
-  --border-default: rgba(240, 246, 252, 0.10);
-  --border-strong: rgba(240, 246, 252, 0.18);
-  --border-accent: rgba(63, 185, 80, 0.35);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-accent: rgba(52, 211, 153, 0.35);
 
   /* ── Text ──────────────────────────────────────── */
-  --text-primary: #e6edf3;
-  --text-secondary: #8b949e;
-  --text-tertiary: #6e7681;
-  --text-heading: #f0f6fc;
-  --text-muted: #4d5566;
+  --text-primary: #ededed;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  --text-heading: #ffffff;
+  --text-muted: #52525b;
 
-  /* ── Accent (green) ────────────────────────────── */
-  --accent: #3fb950;
-  --accent-hover: #52c96a;
-  --accent-muted: #196c2e;
-  --accent-subtle: rgba(63, 185, 80, 0.12);
-  --accent-glow: rgba(63, 185, 80, 0.22);
+  /* ── Accent (emerald glow) ─────────────────────── */
+  --accent: #10b981;
+  --accent-hover: #34d399;
+  --accent-muted: #064e3b;
+  --accent-subtle: rgba(16, 185, 129, 0.15);
+  --accent-glow: rgba(16, 185, 129, 0.35);
 
   /* ── Semantic ──────────────────────────────────── */
-  --danger: #f85149;
-  --danger-subtle: rgba(248, 81, 73, 0.12);
-  --warning: #d29922;
-  --warning-subtle: rgba(210, 153, 34, 0.12);
-  --success: #3fb950;
-  --success-subtle: rgba(63, 185, 80, 0.12);
-  --info: #58a6ff;
-  --info-subtle: rgba(88, 166, 255, 0.12);
+  --danger: #ef4444;
+  --danger-subtle: rgba(239, 68, 68, 0.12);
+  --warning: #f59e0b;
+  --warning-subtle: rgba(245, 158, 11, 0.12);
+  --success: #10b981;
+  --success-subtle: rgba(16, 185, 129, 0.12);
+  --info: #3b82f6;
+  --info-subtle: rgba(59, 130, 246, 0.12);
 
   /* ── Quality ───────────────────────────────────── */
-  --quality-best: #3fb950;
-  --quality-good: #7ee787;
-  --quality-inaccuracy: #e3b341;
-  --quality-mistake: #f0883e;
-  --quality-blunder: #f85149;
-  --quality-pending: #6e7681;
+  --quality-best: #10b981;
+  --quality-good: #34d399;
+  --quality-inaccuracy: #fbbf24;
+  --quality-mistake: #f97316;
+  --quality-blunder: #ef4444;
+  --quality-pending: #71717a;
 
   /* ── Spacing ───────────────────────────────────── */
   --space-xs: 0.25rem;
@@ -57,20 +57,23 @@
 
   /* ── Radii ─────────────────────────────────────── */
   --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
-  --radius-pill: 999px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 9999px;
 
   /* ── Shadows ───────────────────────────────────── */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.30);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.40);
-  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.55);
-  --shadow-glow: 0 0 20px var(--accent-glow);
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.30);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.50);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.65);
+  --shadow-glow: 0 0 24px var(--accent-glow);
 
   /* ── Typography ────────────────────────────────── */
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Outfit', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+
+  font-family: var(--font-body);
   line-height: 1.5;
   font-weight: 400;
   color: var(--text-primary);

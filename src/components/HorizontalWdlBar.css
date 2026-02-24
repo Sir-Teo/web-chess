@@ -16,13 +16,17 @@
 }
 
 .hw-white {
-    background: #e2e8f0;
+    background: linear-gradient(to right, #e2e8f0, #ffffff);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+    z-index: 3;
 }
 
 .hw-draw {
-    background: #64748b;
+    background: linear-gradient(to right, #64748b, #94a3b8);
+    z-index: 2;
 }
 
 .hw-black {
-    background: #1e293b;
+    background: linear-gradient(to right, #0f172a, #334155);
+    z-index: 1;
 }
