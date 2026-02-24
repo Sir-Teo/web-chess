@@ -1306,6 +1306,9 @@
 .review-book-list {
   display: grid;
   gap: 0.28rem;
+  /* Allocate space for 14 rows mapping so the UI below doesn't jump */
+  min-height: 400px;
+  align-content: start;
 }
 
 .review-book-row {
@@ -2292,7 +2295,7 @@
    Move List Tree
    ═══════════════════════════════════════════════════ */
 .mtree-scroll {
-  max-height: 260px;
+  height: 260px;
   overflow-y: auto;
   outline: none;
   padding: 0.1rem 0;
