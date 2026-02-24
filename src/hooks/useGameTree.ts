@@ -150,6 +150,37 @@ export function useGameTree(startFen?: string) {
     }, [bump])
 
     /**
+     * Replace the current tree with a single imported main-line in one render pass.
+     * This avoids O(n) re-render thrashing during large PGN imports.
+     */
+    const loadMainLine = useCallback((entries: Array<{ move: Move; fen: string }>, startFen?: string): string => {
+        const nextTree = makeTree(startFen)
+        let parent = nextTree.nodes.get(nextTree.rootId)!
+
+        for (const entry of entries) {
+            const move = entry.move
+            const node: GameNode = {
+                id: nextId(),
+                fen: entry.fen,
+                move,
+                san: move.san,
+                uci: `${move.from}${move.to}${move.promotion ?? ''}`,
+                parent: parent.id,
+                children: [],
+            }
+
+            nextTree.nodes.set(node.id, node)
+            parent.children.push(node.id)
+            parent = node
+        }
+
+        nextTree.currentId = parent.id
+        treeRef.current = nextTree
+        bump()
+        return nextTree.currentId
+    }, [bump])
+
+    /**
      * Navigate to an arbitrary node (by id).
      * Rebuilds the chess game state from the path so callers can extract `game`.
      * Returns a new Chess() instance positioned at that node.
@@ -220,6 +251,7 @@ export function useGameTree(startFen?: string) {
         getNode,
         // Mutations
         addMove,
+        loadMainLine,
         navigateTo,
         goBack,
         goForward,

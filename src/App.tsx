@@ -53,6 +53,12 @@ const OPENING_RATING_PRESETS: Array<{ id: OpeningRatingPresetId; label: string; 
   { id: 'club', label: '1600-2200', ratings: [1600, 1800, 2000, 2200] },
   { id: 'advanced', label: '2000+', ratings: [2000, 2200, 2500] },
 ]
+const IMPORT_SHALLOW_DEPTH = 10
+const IMPORT_SHALLOW_MULTIPV = 1
+const MOVE_PONDER_MIN_DEPTH = 20
+const IMPORT_SWEEP_MOVETIME_MS = 70
+const IMPORT_SWEEP_MULTIPV = 1
+const IMPORT_SWEEP_MAX_POSITIONS = 24
 
 const analyzePresets: Array<{ id: AnalyzePresetId; label: string; summary: string }> = [
   { id: 'blunder-check', label: 'Fast Blunder Check', summary: 'Quick scan after each move.' },
@@ -60,6 +66,39 @@ const analyzePresets: Array<{ id: AnalyzePresetId; label: string; summary: strin
   { id: 'deep-candidate', label: 'Deep Candidate Search', summary: 'Higher depth and wider MultiPV.' },
   { id: 'mate-hunt', label: 'Mate Hunt', summary: 'Prioritize forced mating lines.' },
 ]
+
+type ImportSweepTarget = {
+  fen: string
+  historyMoves: string[]
+}
+
+function buildImportSweepTargets(entries: Array<{ move: { from: string; to: string; promotion?: string }; fen: string }>): ImportSweepTarget[] {
+  if (!entries.length) return []
+
+  const total = entries.length
+  const step = total <= 40 ? 1 : total <= 90 ? 2 : 3
+  const sampledIndexes: number[] = []
+  for (let idx = step - 1; idx < total; idx += step) sampledIndexes.push(idx)
+
+  const lastIdx = total - 1
+  if (sampledIndexes[sampledIndexes.length - 1] !== lastIdx) sampledIndexes.push(lastIdx)
+
+  const cappedIndexes = sampledIndexes.length <= IMPORT_SWEEP_MAX_POSITIONS
+    ? sampledIndexes
+    : Array.from({ length: IMPORT_SWEEP_MAX_POSITIONS }, (_, idx) => {
+        const normalized = idx / Math.max(1, IMPORT_SWEEP_MAX_POSITIONS - 1)
+        const sampledIdx = Math.round(normalized * (sampledIndexes.length - 1))
+        return sampledIndexes[sampledIdx]!
+      })
+
+  const uniqueSortedIndexes = [...new Set(cappedIndexes)].sort((a, b) => a - b)
+  return uniqueSortedIndexes.map(index => ({
+    fen: entries[index]!.fen,
+    historyMoves: entries
+      .slice(0, index + 1)
+      .map(entry => `${entry.move.from}${entry.move.to}${entry.move.promotion ?? ''}`),
+  }))
+}
 
 type PersistedAppSettings = {
   autoAnalyze: boolean
@@ -335,6 +374,14 @@ function App() {
   const [sampleFilter, setSampleFilter] = useState<SampleLibraryFilter>('all')
   const [sampleLoadingId, setSampleLoadingId] = useState<string | null>(null)
   const [sampleLoadError, setSampleLoadError] = useState<string | null>(null)
+  const [isImportingGame, setIsImportingGame] = useState(false)
+  const [pendingShallowAnalyzeFen, setPendingShallowAnalyzeFen] = useState<string | null>(null)
+  const [pendingPonderFen, setPendingPonderFen] = useState<string | null>(null)
+  const [importSweepProgress, setImportSweepProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 })
+  const skipFullAnalyzeFenRef = useRef<string | null>(null)
+  const importSweepQueueRef = useRef<ImportSweepTarget[]>([])
+  const activeImportSweepRef = useRef<ImportSweepTarget | null>(null)
+  const activeImportSweepStartedRef = useRef(false)
   const samplePgnCacheRef = useRef<Map<string, string>>(new Map())
 
   // ── Evaluations ──────────────────────────────────────
@@ -383,6 +430,14 @@ function App() {
   const gameTreeRef = useRef(gameTree)
   gameTreeRef.current = gameTree
 
+  const clearImportSweep = useCallback(() => {
+    importSweepQueueRef.current = []
+    activeImportSweepRef.current = null
+    activeImportSweepStartedRef.current = false
+    setImportSweepProgress({ done: 0, total: 0 })
+    setPendingPonderFen(null)
+  }, [])
+
   const syncGameToNode = useCallback((chess: Chess) => {
     game.load(chess.fen())
     setFen(chess.fen())
@@ -399,6 +454,12 @@ function App() {
       setPaused(true)
     }
   }, [gameMode, syncGameToNode])
+
+  const navigateAndPonder = useCallback((chess: Chess | null) => {
+    if (!chess) return
+    setPendingPonderFen(chess.fen())
+    navigateAndPause(chess)
+  }, [navigateAndPause])
 
   // ── Playback helpers for WatchControls ───────────────
   const currentPathNodes = gameTree.currentPath()
@@ -423,29 +484,30 @@ function App() {
     () => historicalSampleGames.filter(sample => sampleFilter === 'all' || sample.format === sampleFilter),
     [sampleFilter],
   )
+  const isImportSweepActive = importSweepProgress.total > 0 && importSweepProgress.done < importSweepProgress.total
   const opening = useOpening(currentPathNodes.map(n => n.fen))
   const canGoBack = currentPathNodes.length > 1
   const canGoForward = gameTree.current.children.length > 0
 
   const goFirst = useCallback(() => {
     const root = gameTree.root
-    navigateAndPause(gameTree.navigateTo(root.id))
-  }, [gameTree, navigateAndPause])
+    navigateAndPonder(gameTree.navigateTo(root.id))
+  }, [gameTree, navigateAndPonder])
 
   const goPrev = useCallback(() => {
-    navigateAndPause(gameTree.goBack())
-  }, [gameTree, navigateAndPause])
+    navigateAndPonder(gameTree.goBack())
+  }, [gameTree, navigateAndPonder])
 
   const goNext = useCallback(() => {
-    navigateAndPause(gameTree.goForward())
-  }, [gameTree, navigateAndPause])
+    navigateAndPonder(gameTree.goForward())
+  }, [gameTree, navigateAndPonder])
 
   const goLast = useCallback(() => {
     // Walk first-child chain to tip
     const nodes = gameTree.mainLine()
     const tip = nodes[nodes.length - 1]
-    if (tip) navigateAndPause(gameTree.navigateTo(tip.id))
-  }, [gameTree, navigateAndPause])
+    if (tip) navigateAndPonder(gameTree.navigateTo(tip.id))
+  }, [gameTree, navigateAndPonder])
 
   // Keyboard shortcuts (← →)
   useEffect(() => {
@@ -516,18 +578,21 @@ function App() {
   useEffect(() => {
     const cp = scoreToCp(primaryLine?.cp, primaryLine?.mate)
     if (typeof cp !== 'number') return
+    const evaluationFen = primaryLine?.fen ?? fen
     setEvaluationsByFen(prev => {
-      const cur = prev.get(fen)
+      const cur = prev.get(evaluationFen)
       // Check if cp and wdl are exactly the same
       const sameCp = cur?.cp === cp
-      const sameWdl = cur?.wdl?.w === primaryLine?.wdl?.w && cur?.wdl?.d === primaryLine?.wdl?.d
+      const sameWdl = cur?.wdl?.w === primaryLine?.wdl?.w
+        && cur?.wdl?.d === primaryLine?.wdl?.d
+        && cur?.wdl?.l === primaryLine?.wdl?.l
       if (sameCp && sameWdl) return prev
 
       const next = new Map(prev)
-      next.set(fen, { cp, wdl: primaryLine?.wdl })
+      next.set(evaluationFen, { cp, wdl: primaryLine?.wdl })
       return next
     })
-  }, [fen, primaryLine?.cp, primaryLine?.mate, primaryLine?.wdl])
+  }, [fen, primaryLine?.cp, primaryLine?.fen, primaryLine?.mate, primaryLine?.wdl])
 
   // ── Viewport ─────────────────────────────────────────
   useEffect(() => {
@@ -538,7 +603,45 @@ function App() {
 
   // ── Auto-analyze ─────────────────────────────────────
   useEffect(() => {
+    if (isImportingGame) return
+    if (skipFullAnalyzeFenRef.current && skipFullAnalyzeFenRef.current !== fen) {
+      skipFullAnalyzeFenRef.current = null
+    }
+
+    if (pendingShallowAnalyzeFen && pendingShallowAnalyzeFen === fen) {
+      analyze({
+        fen,
+        mode: 'custom',
+        limits: { depth: IMPORT_SHALLOW_DEPTH },
+        multiPv: IMPORT_SHALLOW_MULTIPV,
+        hashMb,
+        showWdl,
+        historyMoves: currentPathMovesKey ? currentPathMovesKey.split(' ') : [],
+      })
+      // Prevent immediately kicking off a full-depth pass on the same imported position.
+      skipFullAnalyzeFenRef.current = fen
+      setPendingShallowAnalyzeFen(null)
+      return
+    }
+
+    if (pendingPonderFen && pendingPonderFen === fen) {
+      analyze({
+        fen,
+        mode: 'custom',
+        limits: { depth: Math.max(searchDepth, MOVE_PONDER_MIN_DEPTH) },
+        multiPv,
+        hashMb,
+        showWdl,
+        historyMoves: currentPathMovesKey ? currentPathMovesKey.split(' ') : [],
+      })
+      skipFullAnalyzeFenRef.current = fen
+      setPendingPonderFen(null)
+      return
+    }
+
     if (!autoAnalyze) return
+    if (skipFullAnalyzeFenRef.current === fen) return
+
     analyze({
       fen,
       mode: 'custom',
@@ -548,7 +651,58 @@ function App() {
       showWdl,
       historyMoves: currentPathMovesKey ? currentPathMovesKey.split(' ') : [],
     })
-  }, [analyze, autoAnalyze, currentPathMovesKey, fen, hashMb, multiPv, searchDepth, showWdl])
+  }, [
+    analyze,
+    autoAnalyze,
+    currentPathMovesKey,
+    fen,
+    hashMb,
+    isImportingGame,
+    multiPv,
+    pendingPonderFen,
+    pendingShallowAnalyzeFen,
+    searchDepth,
+    showWdl,
+  ])
+
+  // ── Imported game background sweep ───────────────────
+  useEffect(() => {
+    if (isImportingGame) return
+
+    if (activeImportSweepRef.current && !activeImportSweepStartedRef.current && status === 'analyzing') {
+      activeImportSweepStartedRef.current = true
+      return
+    }
+
+    if (activeImportSweepRef.current && activeImportSweepStartedRef.current && status === 'ready') {
+      activeImportSweepRef.current = null
+      activeImportSweepStartedRef.current = false
+      setImportSweepProgress(previous => ({
+        total: previous.total,
+        done: Math.min(previous.total, previous.done + 1),
+      }))
+    }
+
+    if (status !== 'ready') return
+    if (pendingPonderFen) return
+    if (pendingShallowAnalyzeFen) return
+    if (activeImportSweepRef.current) return
+
+    const nextTarget = importSweepQueueRef.current.shift()
+    if (!nextTarget) return
+
+    activeImportSweepRef.current = nextTarget
+    activeImportSweepStartedRef.current = false
+    analyze({
+      fen: nextTarget.fen,
+      mode: 'custom',
+      limits: { movetime: IMPORT_SWEEP_MOVETIME_MS },
+      multiPv: IMPORT_SWEEP_MULTIPV,
+      hashMb,
+      showWdl,
+      historyMoves: nextTarget.historyMoves,
+    })
+  }, [analyze, hashMb, isImportingGame, pendingPonderFen, pendingShallowAnalyzeFen, showWdl, status])
 
   const parsedSearchMoves = useMemo(
     () =>
@@ -674,6 +828,7 @@ function App() {
   }, [])
 
   const runAnalyze = useCallback(() => {
+    clearImportSweep()
     const limits: UciGoLimits = {}
     if (analyzeMode === 'quick') limits.movetime = quickMovetimeMs
     if (analyzeMode === 'deep' || analyzeMode === 'review') limits.depth = searchDepth
@@ -721,6 +876,7 @@ function App() {
     whiteIncMs,
     whiteTimeMs,
     currentPathMovesKey,
+    clearImportSweep,
   ])
 
   const runLabCommand = useCallback(
@@ -1095,6 +1251,7 @@ function App() {
     const move = game.move({ from: sourceSquare, to: targetSquare, promotion })
     if (!move) return false
 
+    clearImportSweep()
     const newFen = game.fen()
     setFen(newFen)
     gameTree.addMove(move, newFen)
@@ -1107,30 +1264,43 @@ function App() {
 
   const handlePgnImport = useCallback((pgnText: string) => {
     try {
+      setIsImportingGame(true)
+      clearImportSweep()
       const loader = new Chess()
       loader.loadPgn(pgnText)
       newGame()
       game.reset()
-      gameTree.reset()
       setFen(game.fen())
       setEvaluationsByFen(new Map())
+      setPendingShallowAnalyzeFen(null)
+      setSampleLoadError(null)
 
       const moves = loader.history({ verbose: true })
+      const mainLineEntries: Array<{ move: (typeof moves)[number]; fen: string }> = []
       for (const m of moves) {
         game.move(m)
         const nextFen = game.fen()
-        gameTree.addMove(m, nextFen)
+        mainLineEntries.push({ move: m, fen: nextFen })
       }
-      setFen(game.fen())
+      gameTree.loadMainLine(mainLineEntries)
+
+      const finalFen = game.fen()
+      setFen(finalFen)
+      setPendingShallowAnalyzeFen(finalFen)
+      const sweepTargets = buildImportSweepTargets(mainLineEntries).filter(target => target.fen !== finalFen)
+      importSweepQueueRef.current = sweepTargets
+      setImportSweepProgress({ done: 0, total: sweepTargets.length })
 
       setPaused(true)
       pausedRef.current = true
       setIsAiThinking(false)
       aiMoveScheduledRef.current = false
+      setIsImportingGame(false)
     } catch {
+      setIsImportingGame(false)
       alert("Failed to parse PGN.")
     }
-  }, [game, gameTree, newGame])
+  }, [clearImportSweep, game, gameTree, newGame])
 
   const fetchSamplePgn = useCallback(async (sample: HistoricalSampleGame): Promise<string> => {
     const cached = samplePgnCacheRef.current.get(sample.id)
@@ -1147,23 +1317,20 @@ function App() {
   }, [])
 
   const loadHistoricalSample = useCallback(
-    async (sample: HistoricalSampleGame, mode: 'load' | 'analyze' = 'load') => {
+    async (sample: HistoricalSampleGame) => {
       setSampleLoadingId(sample.id)
       setSampleLoadError(null)
       try {
         const pgnText = await fetchSamplePgn(sample)
         handlePgnImport(pgnText)
-        if (mode === 'analyze') {
-          setAnalysisTab('analyze')
-          window.setTimeout(() => runAnalyze(), 100)
-        }
+        setAnalysisTab('analyze')
       } catch (error) {
         setSampleLoadError(error instanceof Error ? error.message : 'Failed to load sample game.')
       } finally {
         setSampleLoadingId(null)
       }
     },
-    [fetchSamplePgn, handlePgnImport, runAnalyze],
+    [fetchSamplePgn, handlePgnImport],
   )
 
   const handleNewGameStart = useCallback(
@@ -1181,13 +1348,16 @@ function App() {
       setIsAiThinking(false)
       aiMoveScheduledRef.current = false
       setEvaluationsByFen(new Map())
+      clearImportSweep()
+      setPendingShallowAnalyzeFen(null)
+      setIsImportingGame(false)
       pausedRef.current = false
       setPaused(false)
       gameTree.reset()
 
       setOrientation(mode === 'human-vs-ai' ? color : 'white')
     },
-    [aiPlayer, game, gameTree, newGame],
+    [aiPlayer, clearImportSweep, game, gameTree, newGame],
   )
 
   // ── Mode switch mid-game ──────────────────────────────
@@ -1874,9 +2044,10 @@ function App() {
                 </div>
                 <div className="right-section">
                   <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
+                  <p className="panel-copy small">Click any move to run a deeper local ponder at that position.</p>
                   <MoveListTree
                     tree={gameTree}
-                    onNavigate={chess => navigateAndPause(chess)}
+                    onNavigate={chess => navigateAndPonder(chess)}
                   />
                 </div>
               </>
@@ -2021,7 +2192,7 @@ function App() {
               currentIndex={currentPathNodes.length - 1}
               onNavigate={(idx) => {
                 const targetNode = currentLineNodes[idx] || currentLineNodes[currentLineNodes.length - 1]
-                if (targetNode) navigateAndPause(gameTree.navigateTo(targetNode.id))
+                if (targetNode) navigateAndPonder(gameTree.navigateTo(targetNode.id))
               }}
             />
             {winratePoints.length > 0 && (
@@ -2035,7 +2206,7 @@ function App() {
               currentIndex={currentPathNodes.length - 1}
               onNavigate={(idx) => {
                 const targetNode = currentLineNodes[idx] || currentLineNodes[currentLineNodes.length - 1]
-                if (targetNode) navigateAndPause(gameTree.navigateTo(targetNode.id))
+                if (targetNode) navigateAndPonder(gameTree.navigateTo(targetNode.id))
               }}
             />
             {wdlPoints.length > 0 && (
@@ -2067,6 +2238,11 @@ function App() {
                 ))}
               </div>
               {sampleLoadError && <p className="panel-copy small error-copy">{sampleLoadError}</p>}
+              {isImportSweepActive && (
+                <p className="panel-copy small sample-sweep-copy">
+                  Background graph sampling: {importSweepProgress.done}/{importSweepProgress.total}
+                </p>
+              )}
               <div className="sample-game-list">
                 {filteredSampleGames.map(sample => {
                   const isLoading = sampleLoadingId === sample.id
@@ -2084,17 +2260,10 @@ function App() {
                       <div className="sample-game-actions">
                         <button
                           type="button"
-                          onClick={() => void loadHistoricalSample(sample, 'load')}
+                          onClick={() => void loadHistoricalSample(sample)}
                           disabled={isLoading}
                         >
                           {isLoading ? 'Loading...' : 'Load'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void loadHistoricalSample(sample, 'analyze')}
-                          disabled={isLoading}
-                        >
-                          Analyze
                         </button>
                       </div>
                     </article>
@@ -2257,7 +2426,7 @@ type WinrateGraphProps = {
 }
 
 function WinrateGraph({ points, currentIndex, onNavigate }: WinrateGraphProps) {
-  if (points.length < 2) {
+  if (points.length === 0) {
     return (
       <div className="empty-state">
         <span className="empty-state-icon">📈</span>
@@ -2331,6 +2500,15 @@ function WinrateGraph({ points, currentIndex, onNavigate }: WinrateGraphProps) {
           })}
           <path d={area} className="graph-area" />
           <path d={path} className="graph-line" />
+          {points.map((p) => (
+            <circle
+              key={`wr-point-${p.index}`}
+              cx={toX(p.index)}
+              cy={toY(p.whiteWinrate)}
+              r={2.8}
+              className="graph-point"
+            />
+          ))}
 
           {points.map((p) => {
             if (p.index > 0 && p.index % xTickStep === 0) {
@@ -2370,7 +2548,7 @@ type WdlProgressGraphProps = {
 }
 
 function WdlProgressGraph({ points, currentIndex, onNavigate }: WdlProgressGraphProps) {
-  if (points.length < 2) {
+  if (points.length === 0) {
     return (
       <div className="empty-state">
         <span className="empty-state-icon">📊</span>
@@ -2441,6 +2619,13 @@ function WdlProgressGraph({ points, currentIndex, onNavigate }: WdlProgressGraph
           <path d={whitePath} className="graph-line graph-line-white" />
           <path d={drawPath} className="graph-line graph-line-draw" />
           <path d={blackPath} className="graph-line graph-line-black" />
+          {points.length === 1 && (
+            <>
+              <circle cx={toX(points[0]!.index)} cy={toY(points[0]!.white)} r={2.8} className="graph-point graph-point-white" />
+              <circle cx={toX(points[0]!.index)} cy={toY(points[0]!.draw)} r={2.8} className="graph-point graph-point-draw" />
+              <circle cx={toX(points[0]!.index)} cy={toY(points[0]!.black)} r={2.8} className="graph-point graph-point-black" />
+            </>
+          )}
 
           {points.map((p) => {
             if (p.index > 0 && p.index % xTickStep === 0) {
