@@ -74,6 +74,23 @@ type ImportSweepTarget = {
   historyMoves: string[]
 }
 
+function buildImportSweepTargets(entries: Array<{ move: { from: string; to: string; promotion?: string }; fen: string }>): ImportSweepTarget[] {
+  if (!entries.length) return []
+
+  const historyMoves: string[] = []
+  const targets: ImportSweepTarget[] = []
+
+  for (const entry of entries) {
+    historyMoves.push(`${entry.move.from}${entry.move.to}${entry.move.promotion ?? ''}`)
+    targets.push({
+      fen: entry.fen,
+      historyMoves: [...historyMoves],
+    })
+  }
+
+  return targets
+}
+
 type PersistedAppSettings = {
   workspaceMode: WorkspaceMode
   autoAnalyze: boolean
@@ -240,10 +257,10 @@ function loadPersistedSettings(): PersistedAppSettings {
     const parsed = JSON.parse(raw) as Record<string, unknown>
     const labCommandHistory = Array.isArray(parsed.labCommandHistory)
       ? parsed.labCommandHistory
-          .filter((value): value is string => typeof value === 'string')
-          .map(item => item.trim())
-          .filter(Boolean)
-          .slice(0, 20)
+        .filter((value): value is string => typeof value === 'string')
+        .map(item => item.trim())
+        .filter(Boolean)
+        .slice(0, 20)
       : DEFAULT_PERSISTED_SETTINGS.labCommandHistory
 
     return {
@@ -455,7 +472,7 @@ function App() {
   }, [engineEnabled, navigateAndPause])
 
   // ── Playback helpers for WatchControls ───────────────
-  const currentPathNodes = gameTree.currentPath()
+  const currentPathNodes = useMemo(() => gameTree.currentPath(), [gameTree.currentPath, gameTree.tick])
   const currentPathMoves = useMemo(
     () => currentPathNodes.slice(1).map(node => node.uci).filter(Boolean),
     [currentPathNodes],
@@ -720,10 +737,10 @@ function App() {
   )
   const openingTotals = openingExplorer.data
     ? {
-        white: openingExplorer.data.white,
-        draws: openingExplorer.data.draws,
-        black: openingExplorer.data.black,
-      }
+      white: openingExplorer.data.white,
+      draws: openingExplorer.data.draws,
+      black: openingExplorer.data.black,
+    }
     : null
   const openingTotalGames = openingTotals
     ? openingTotals.white + openingTotals.draws + openingTotals.black
@@ -999,8 +1016,8 @@ function App() {
   ])
 
   // ── Derived move data ─────────────────────────────────
-  const mainLineNodes = gameTree.mainLine()
-  const mainLineMoves = mainLineNodes.slice(1).map(n => n.move!).filter(Boolean)
+  const mainLineNodes = useMemo(() => gameTree.mainLine(), [gameTree.mainLine, gameTree.tick])
+  const mainLineMoves = useMemo(() => mainLineNodes.slice(1).map(n => n.move!).filter(Boolean), [mainLineNodes])
   const mainLineUciMoves = useMemo(() => mainLineNodes.slice(1).map(node => node.uci).filter(Boolean), [mainLineNodes])
 
   const reviewRows = useMemo(() => buildReviewRows(mainLineMoves, evaluationsByFen), [evaluationsByFen, mainLineMoves])
@@ -1309,9 +1326,10 @@ function App() {
       setFen(finalFen)
       if (engineEnabled) {
         setPendingShallowAnalyzeFen(finalFen)
-        // Keep import responsive: analyze the loaded position only.
-        // Full-line review can still be run explicitly via the Review tab.
-        clearImportSweep()
+        const allSweepTargets = buildImportSweepTargets(mainLineEntries)
+        const sweepTargets = allSweepTargets.slice(0, -1)
+        importSweepQueueRef.current = sweepTargets
+        setImportSweepProgress({ done: 0, total: sweepTargets.length })
       } else {
         setPendingShallowAnalyzeFen(null)
         clearImportSweep()
@@ -1755,49 +1773,49 @@ function App() {
                 )}
                 {engineEnabled && (
                   <details className="advanced-settings">
-                  <summary>Advanced engine options</summary>
-                  <div className="advanced-section">
-                    <label className="control">
-                      <span>Hash</span>
-                      <input type="range" min={16} max={512} step={16} value={hashMb}
-                        onChange={e => setHashMb(Number(e.target.value))} />
-                      <strong>{hashMb} MB</strong>
-                    </label>
-                    <label className="switch-control">
-                      <input type="checkbox" checked={showWdl}
-                        onChange={e => setShowWdl(e.target.checked)} />
-                      <span>Show WDL values</span>
-                    </label>
-                    <label className="engine-option-row profile-picker">
-                      <span>Engine profile</span>
-                      <select value={engineProfile}
-                        onChange={e => setEngineProfile(e.target.value as EngineProfileId)}>
-                        <option value="auto">Auto (recommended)</option>
-                        {engineProfiles.map(p => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
+                    <summary>Advanced engine options</summary>
+                    <div className="advanced-section">
+                      <label className="control">
+                        <span>Hash</span>
+                        <input type="range" min={16} max={512} step={16} value={hashMb}
+                          onChange={e => setHashMb(Number(e.target.value))} />
+                        <strong>{hashMb} MB</strong>
+                      </label>
+                      <label className="switch-control">
+                        <input type="checkbox" checked={showWdl}
+                          onChange={e => setShowWdl(e.target.checked)} />
+                        <span>Show WDL values</span>
+                      </label>
+                      <label className="engine-option-row profile-picker">
+                        <span>Engine profile</span>
+                        <select value={engineProfile}
+                          onChange={e => setEngineProfile(e.target.value as EngineProfileId)}>
+                          <option value="auto">Auto (recommended)</option>
+                          {engineProfiles.map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <p className="panel-copy small">
+                        Isolation: {capabilities.crossOriginIsolated ? 'yes' : 'no'} / SharedArrayBuffer:{' '}
+                        {capabilities.sharedArrayBuffer ? 'yes' : 'no'} / Cores: {capabilities.hardwareConcurrency}
+                      </p>
+                      <div className="engine-options">
+                        <h3>Engine options</h3>
+                        {options.map(option => (
+                          <EngineOptionControl key={option.name} option={option} onSetOption={setOption} />
                         ))}
-                      </select>
-                    </label>
-                    <p className="panel-copy small">
-                      Isolation: {capabilities.crossOriginIsolated ? 'yes' : 'no'} / SharedArrayBuffer:{' '}
-                      {capabilities.sharedArrayBuffer ? 'yes' : 'no'} / Cores: {capabilities.hardwareConcurrency}
-                    </p>
-                    <div className="engine-options">
-                      <h3>Engine options</h3>
-                      {options.map(option => (
-                        <EngineOptionControl key={option.name} option={option} onSetOption={setOption} />
-                      ))}
+                      </div>
+                      <p className="panel-copy small">
+                        Options discovered from Stockfish UCI output and applied live.
+                      </p>
+                      <button type="button" onClick={resetSavedWorkspace}>
+                        Reset saved workspace
+                      </button>
+                      <p className="panel-copy small">
+                        Clears persisted analyze/lab controls for this browser.
+                      </p>
                     </div>
-                    <p className="panel-copy small">
-                      Options discovered from Stockfish UCI output and applied live.
-                    </p>
-                    <button type="button" onClick={resetSavedWorkspace}>
-                      Reset saved workspace
-                    </button>
-                    <p className="panel-copy small">
-                      Clears persisted analyze/lab controls for this browser.
-                    </p>
-                  </div>
                   </details>
                 )}
               </div>
