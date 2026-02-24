@@ -1832,579 +1832,581 @@ function App() {
         </div>
       </section>
 
-      {/* ── Board ── */}
-      <section className="board-stage" aria-label="Chessboard">
-        <div className="board-wrap">
-          {engineEnabled && showWdl && <WdlBar fen={fen} evaluation={evaluationsByFen.get(fen)} orientation={orientation} />}
-          {opening && (
-            <div className="board-opening-label fade-in-slide">
-              <div className="opening-pill">
-                <strong>{opening.eco}</strong>
-                <span>{opening.name}</span>
-              </div>
-            </div>
-          )}
-          <Chessboard
-            options={{
-              position: fen,
-              boardOrientation: orientation,
-              onPieceDrop: ({ sourceSquare, targetSquare, piece }) => {
-                if (!targetSquare) return false
-                return onPieceDrop(sourceSquare as Square, targetSquare as Square, piece.pieceType)
-              },
-              arrows,
-              allowDragging: !isAiThinking && !(gameMode === 'human-vs-ai' && !paused && game.turn() !== playerColor[0]),
-              darkSquareStyle: { backgroundColor: '#b58863' },
-              lightSquareStyle: { backgroundColor: '#f0d9b5' },
-              boardStyle: {
-                width: `${Math.max(260, boardWidth)}px`,
-                maxWidth: '100%',
-                borderRadius: 12,
-                boxShadow: '0 8px 40px rgba(0, 0, 0, 0.60), 0 2px 8px rgba(0, 0, 0, 0.40)',
-              },
-            }}
-          />
-          {/* AI thinking badge */}
-          {isAiThinking && (
-            <div className="ai-thinking-overlay">
-              <div className="ai-thinking-badge">
-                <IconBot style={{ marginRight: '4px', fontSize: '1.1em', transform: 'translateY(1px)' }} />
-                AI thinking
-                <div className="thinking-dots"><span /><span /><span /></div>
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ── New Game Dialog ── */}
-      <NewGameDialog
-        open={showNewGameDialog}
-        onStart={handleNewGameStart}
-        onCancel={() => setShowNewGameDialog(false)}
-      />
-
-      <PgnDialog
-        open={showPgnDialog}
-        onClose={() => setShowPgnDialog(false)}
-        onImport={handlePgnImport}
-        mainLineNodes={mainLineNodes}
-        evaluations={evaluationsByFen}
-      />
-
-      {/* ── Right panel ── */}
-      <aside className="panel right" style={{ width: rightWidth }}>
-        <div className="resize-handle resize-handle-left" onMouseDown={startRightResize}
-          onClick={() => { if (rightWidth === 0) setRightWidth(DEFAULT_RIGHT) }}
-          title="Drag to resize · click to expand">
-          <span className="resize-pill" />
-        </div>
-        <div className="panel-inner" style={{ opacity: (!isMobile && rightWidth === 0) ? 0 : 1 }}>
-          <header className="panel-header analysis-header">
-            <h2>{workspaceMode === 'analysis' ? 'Analysis' : 'Play'}</h2>
-            {workspaceMode === 'analysis' && (
-              <div className="analysis-tab-strip">
-                {([
-                  { id: 'analyze', label: 'Analyze' },
-                  { id: 'review', label: 'Review' },
-                  { id: 'engine-lab', label: 'Engine Lab' },
-                ] as const).map(tab => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    className={`analysis-tab-btn ${analysisTab === tab.id ? 'active' : ''}`}
-                    onClick={() => setAnalysisTab(tab.id)}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </header>
-          <div className="panel-content">
-            {workspaceMode === 'play' && (
-              <>
-                <div className="engine-lab-card">
-                  <h3><span className="section-icon"><IconSwords /></span> Play Focus</h3>
-                  <p className="panel-copy small">
-                    Engine is off in Play mode. Use this view for clean gameplay and move navigation.
-                  </p>
-                  <label className="switch-control">
-                    <input
-                      type="checkbox"
-                      checked={showBoardArrows}
-                      onChange={event => setShowBoardArrows(event.target.checked)}
-                    />
-                    <span>Show board arrow overlays</span>
-                  </label>
-                  <button type="button" onClick={() => setWorkspaceMode('analysis')}>
-                    Switch to Analysis mode
-                  </button>
+      <div className="main-container">
+        {/* ── Left panel (winrate graph) ── */}
+        <section className="panel left" style={{ width: leftWidth }}>
+          <div className="resize-handle resize-handle-right" onMouseDown={startLeftResize}
+            onClick={() => { if (leftWidth === 0) setLeftWidth(DEFAULT_LEFT) }}
+            title="Drag to resize · click to expand">
+            <span className="resize-pill" />
+          </div>
+          <div className="panel-inner" style={{ opacity: (!isMobile && leftWidth === 0) ? 0 : 1 }}>
+            <div className="panel-content">
+              <WinrateGraph
+                points={winratePoints}
+                currentIndex={currentPathNodes.length - 1}
+                onNavigate={(idx) => {
+                  const targetNode = currentLineNodes[idx] || currentLineNodes[currentLineNodes.length - 1]
+                  if (!targetNode) return
+                  const chess = gameTree.navigateTo(targetNode.id)
+                  if (workspaceMode === 'analysis') {
+                    navigateAndPonder(chess)
+                    return
+                  }
+                  navigateAndPause(chess)
+                }}
+              />
+              {winratePoints.length > 0 && (
+                <div className="graph-legend">
+                  <span>White win chance</span>
+                  <strong>{winratePoints[winratePoints.length - 1]!.whiteWinrate.toFixed(1)}%</strong>
                 </div>
-                <div className="right-section">
-                  <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
-                  <MoveListTree
-                    tree={gameTree}
-                    onNavigate={chess => navigateAndPause(chess)}
-                  />
+              )}
+              <WdlProgressGraph
+                points={wdlPoints}
+                currentIndex={currentPathNodes.length - 1}
+                onNavigate={(idx) => {
+                  const targetNode = currentLineNodes[idx] || currentLineNodes[currentLineNodes.length - 1]
+                  if (!targetNode) return
+                  const chess = gameTree.navigateTo(targetNode.id)
+                  if (workspaceMode === 'analysis') {
+                    navigateAndPonder(chess)
+                    return
+                  }
+                  navigateAndPause(chess)
+                }}
+              />
+              {wdlPoints.length > 0 && (
+                <div className="graph-legend wdl">
+                  <span className="wdl-white-label">White {wdlPoints[wdlPoints.length - 1]!.white.toFixed(1)}%</span>
+                  <span className="wdl-draw-label">Draw {wdlPoints[wdlPoints.length - 1]!.draw.toFixed(1)}%</span>
+                  <span className="wdl-black-label">Black {wdlPoints[wdlPoints.length - 1]!.black.toFixed(1)}%</span>
                 </div>
-              </>
-            )}
-
-            {workspaceMode === 'analysis' && analysisTab === 'analyze' && (
-              <>
-                <div className="inline-actions">
-                  <button type="button" className="btn-primary" onClick={runAnalyze}>
-                    <IconPlay /> Analyze
-                  </button>
-                  <button type="button" onClick={stop}>
-                    <IconStop /> Stop
-                  </button>
-                </div>
-                <div className="preset-grid">
-                  {analyzePresets.map(preset => (
+              )}
+              <section className="sample-library-card">
+                <header className="sample-library-head">
+                  <h3><span className="section-icon"><IconKing /></span> Historical Library</h3>
+                  <span>{filteredSampleGames.length} games</span>
+                </header>
+                <div className="sample-filter-row">
+                  {([
+                    { id: 'all', label: 'All' },
+                    { id: 'classical', label: 'Classical' },
+                    { id: 'rapid-blitz', label: 'Rapid/Blitz' },
+                  ] as const).map(filter => (
                     <button
-                      key={preset.id}
+                      key={filter.id}
                       type="button"
-                      className={`preset-card ${activePreset === preset.id ? 'active' : ''}`}
-                      onClick={() => applyPreset(preset.id)}
+                      className={`mode-pill ${sampleFilter === filter.id ? 'active' : ''}`}
+                      onClick={() => setSampleFilter(filter.id)}
                     >
-                      <strong>{preset.label}</strong>
-                      <span>{preset.summary}</span>
+                      {filter.label}
                     </button>
                   ))}
                 </div>
-                <p className="panel-copy small command-summary">
-                  {activeGoCommand ? `Command: ${activeGoCommand}` : 'Command: idle'} {queueLength > 0 ? `· queue ${queueLength}` : ''}
-                </p>
-                <div className="opening-intel-card">
-                  <div className="opening-intel-head">
-                    <h3><span className="section-icon"><IconBarChart /></span> Opening Intel</h3>
-                    <div className="opening-source-toggle">
-                      {OPENING_SOURCES.map(source => (
-                        <button
-                          key={source}
-                          type="button"
-                          className={`mode-pill ${openingSource === source ? 'active' : ''}`}
-                          onClick={() => setOpeningSource(source)}
-                        >
-                          {source === 'masters' ? 'Masters' : 'Lichess'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {openingSource === 'lichess' && (
-                    <>
-                      <div className="opening-speed-toggle">
-                        {OPENING_SPEEDS.map(speed => (
+                {sampleLoadError && <p className="panel-copy small error-copy">{sampleLoadError}</p>}
+                {isImportSweepActive && (
+                  <p className="panel-copy small sample-sweep-copy">
+                    Background graph sampling: {importSweepProgress.done}/{importSweepProgress.total}
+                  </p>
+                )}
+                <div className="sample-game-list">
+                  {filteredSampleGames.map(sample => {
+                    const isLoading = sampleLoadingId === sample.id
+                    return (
+                      <article key={sample.id} className="sample-game-row">
+                        <header>
+                          <strong>{sample.white} vs {sample.black}</strong>
+                          <span>{sample.year}</span>
+                        </header>
+                        <p>{sample.event}</p>
+                        <p className="sample-game-opening">{sample.eco} · {sample.opening}</p>
+                        <p className="panel-copy small">
+                          {sample.format === 'classical' ? 'Classical' : 'Rapid/Blitz'} · {resultLabel(sample.result)}
+                        </p>
+                        <div className="sample-game-actions">
                           <button
-                            key={speed}
                             type="button"
-                            className={`mode-pill ${openingSpeeds.includes(speed) ? 'active' : ''}`}
-                            onClick={() => toggleOpeningSpeed(speed)}
+                            onClick={() => void loadHistoricalSample(sample)}
+                            disabled={isLoading}
                           >
-                            {speed}
+                            {isLoading ? 'Loading...' : 'Load'}
+                          </button>
+                        </div>
+                      </article>
+                    )
+                  })}
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Board ── */}
+        <section className="board-stage" aria-label="Chessboard">
+          <div className="board-wrap">
+            {engineEnabled && showWdl && <WdlBar fen={fen} evaluation={evaluationsByFen.get(fen)} orientation={orientation} />}
+            {opening && (
+              <div className="board-opening-label fade-in-slide">
+                <div className="opening-pill">
+                  <strong>{opening.eco}</strong>
+                  <span>{opening.name}</span>
+                </div>
+              </div>
+            )}
+            <Chessboard
+              options={{
+                position: fen,
+                boardOrientation: orientation,
+                onPieceDrop: ({ sourceSquare, targetSquare, piece }) => {
+                  if (!targetSquare) return false
+                  return onPieceDrop(sourceSquare as Square, targetSquare as Square, piece.pieceType)
+                },
+                arrows,
+                allowDragging: !isAiThinking && !(gameMode === 'human-vs-ai' && !paused && game.turn() !== playerColor[0]),
+                darkSquareStyle: { backgroundColor: '#b58863' },
+                lightSquareStyle: { backgroundColor: '#f0d9b5' },
+                boardStyle: {
+                  width: `${Math.max(260, boardWidth)}px`,
+                  maxWidth: '100%',
+                  borderRadius: 12,
+                  boxShadow: '0 8px 40px rgba(0, 0, 0, 0.60), 0 2px 8px rgba(0, 0, 0, 0.40)',
+                },
+              }}
+            />
+            {/* AI thinking badge */}
+            {isAiThinking && (
+              <div className="ai-thinking-overlay">
+                <div className="ai-thinking-badge">
+                  <IconBot style={{ marginRight: '4px', fontSize: '1.1em', transform: 'translateY(1px)' }} />
+                  AI thinking
+                  <div className="thinking-dots"><span /><span /><span /></div>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ── New Game Dialog ── */}
+        <NewGameDialog
+          open={showNewGameDialog}
+          onStart={handleNewGameStart}
+          onCancel={() => setShowNewGameDialog(false)}
+        />
+
+        <PgnDialog
+          open={showPgnDialog}
+          onClose={() => setShowPgnDialog(false)}
+          onImport={handlePgnImport}
+          mainLineNodes={mainLineNodes}
+          evaluations={evaluationsByFen}
+        />
+
+        {/* ── Right panel ── */}
+        <aside className="panel right" style={{ width: rightWidth }}>
+          <div className="resize-handle resize-handle-left" onMouseDown={startRightResize}
+            onClick={() => { if (rightWidth === 0) setRightWidth(DEFAULT_RIGHT) }}
+            title="Drag to resize · click to expand">
+            <span className="resize-pill" />
+          </div>
+          <div className="panel-inner" style={{ opacity: (!isMobile && rightWidth === 0) ? 0 : 1 }}>
+            <header className="panel-header analysis-header">
+              <h2>{workspaceMode === 'analysis' ? 'Analysis' : 'Play'}</h2>
+              {workspaceMode === 'analysis' && (
+                <div className="analysis-tab-strip">
+                  {([
+                    { id: 'analyze', label: 'Analyze' },
+                    { id: 'review', label: 'Review' },
+                    { id: 'engine-lab', label: 'Engine Lab' },
+                  ] as const).map(tab => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      className={`analysis-tab-btn ${analysisTab === tab.id ? 'active' : ''}`}
+                      onClick={() => setAnalysisTab(tab.id)}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </header>
+            <div className="panel-content">
+              {workspaceMode === 'play' && (
+                <>
+                  <div className="engine-lab-card">
+                    <h3><span className="section-icon"><IconSwords /></span> Play Focus</h3>
+                    <p className="panel-copy small">
+                      Engine is off in Play mode. Use this view for clean gameplay and move navigation.
+                    </p>
+                    <label className="switch-control">
+                      <input
+                        type="checkbox"
+                        checked={showBoardArrows}
+                        onChange={event => setShowBoardArrows(event.target.checked)}
+                      />
+                      <span>Show board arrow overlays</span>
+                    </label>
+                    <button type="button" onClick={() => setWorkspaceMode('analysis')}>
+                      Switch to Analysis mode
+                    </button>
+                  </div>
+                  <div className="right-section">
+                    <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
+                    <MoveListTree
+                      tree={gameTree}
+                      onNavigate={chess => navigateAndPause(chess)}
+                    />
+                  </div>
+                </>
+              )}
+
+              {workspaceMode === 'analysis' && analysisTab === 'analyze' && (
+                <>
+                  <div className="inline-actions">
+                    <button type="button" className="btn-primary" onClick={runAnalyze}>
+                      <IconPlay /> Analyze
+                    </button>
+                    <button type="button" onClick={stop}>
+                      <IconStop /> Stop
+                    </button>
+                  </div>
+                  <div className="preset-grid">
+                    {analyzePresets.map(preset => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        className={`preset-card ${activePreset === preset.id ? 'active' : ''}`}
+                        onClick={() => applyPreset(preset.id)}
+                      >
+                        <strong>{preset.label}</strong>
+                        <span>{preset.summary}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="panel-copy small command-summary">
+                    {activeGoCommand ? `Command: ${activeGoCommand}` : 'Command: idle'} {queueLength > 0 ? `· queue ${queueLength}` : ''}
+                  </p>
+                  <div className="opening-intel-card">
+                    <div className="opening-intel-head">
+                      <h3><span className="section-icon"><IconBarChart /></span> Opening Intel</h3>
+                      <div className="opening-source-toggle">
+                        {OPENING_SOURCES.map(source => (
+                          <button
+                            key={source}
+                            type="button"
+                            className={`mode-pill ${openingSource === source ? 'active' : ''}`}
+                            onClick={() => setOpeningSource(source)}
+                          >
+                            {source === 'masters' ? 'Masters' : 'Lichess'}
                           </button>
                         ))}
                       </div>
-                      <label className="engine-option-row">
-                        <span>Rating bucket</span>
-                        <select
-                          value={openingRatingPreset}
-                          onChange={event => setOpeningRatingPreset(event.target.value as OpeningRatingPresetId)}
-                        >
-                          {OPENING_RATING_PRESETS.map(preset => (
-                            <option key={preset.id} value={preset.id}>
-                              {preset.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </>
-                  )}
-                  {openingExplorer.loading && !openingExplorer.data && (
-                    <p className="panel-copy small">Loading opening database...</p>
-                  )}
-                  {openingExplorer.error && (
-                    <p className="panel-copy small error-copy">Opening DB: {openingExplorer.error}</p>
-                  )}
-                  {openingExplorer.data && (
-                    <>
-                      <p className="panel-copy small">
-                        {openingExplorer.data.opening
-                          ? `${openingExplorer.data.opening.eco} · ${openingExplorer.data.opening.name}`
-                          : 'No named opening at this position.'}
-                      </p>
-                      <p className="panel-copy small command-summary">
-                        Games {openingTotalGames.toLocaleString()} · White {percentage(openingTotals?.white ?? 0, openingTotalGames).toFixed(1)}% ·
-                        Draw {percentage(openingTotals?.draws ?? 0, openingTotalGames).toFixed(1)}% ·
-                        Black {percentage(openingTotals?.black ?? 0, openingTotalGames).toFixed(1)}%
-                      </p>
-                      {engineBookAgreement !== null && (
-                        <p className="panel-copy small">
-                          Engine/book agreement: {engineBookAgreement ? 'yes' : 'no'}{currentEngineBestUci ? ` (${currentEngineBestUci})` : ''}
-                        </p>
-                      )}
-                      {openingTopMoves.length > 0 && (
-                        <div className="opening-move-list">
-                          {openingTopMoves.map(move => {
-                            const games = moveGamesCount(move)
-                            return (
-                              <button
-                                key={move.uci}
-                                type="button"
-                                className="opening-move-row"
-                                onClick={() => {
-                                  setShowAdvancedAnalyze(true)
-                                  setActivePreset(null)
-                                  setSearchMovesInput(move.uci)
-                                }}
-                              >
-                                <strong>{move.san}</strong>
-                                <span>{percentage(games, openingTotalGames).toFixed(1)}%</span>
-                                <span>{games.toLocaleString()}</span>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      )}
-                      {openingTopMoves.length > 0 && (
-                        <button type="button" onClick={applyBookMovesToSearch}>
-                          Use Top Book Moves As `searchmoves`
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-                <div className="pv-list">
-                  <h3><span className="section-icon"><IconSearch /></span> Lines</h3>
-                  {lines.length === 0 && !activeGoCommand && !lastBestMove && (
-                    <div className="empty-state">
-                      <span className="empty-state-icon"><IconSearch /></span>
-                      <p>Start analysis to see principal variation lines here.</p>
                     </div>
-                  )}
-                  {lines
-                    .filter(l => !l.fen || l.fen === fen)
-                    .map(line => (
-                      <article key={`${line.multipv}-${line.depth}-${line.pv[0] ?? 'pv'}`}>
-                        <header>
-                          <strong>#{line.multipv}</strong>
-                          <span>D{line.depth}</span>
-                          <span>{formatEvaluation(line.cp, line.mate)}</span>
-                        </header>
-                        <p>{pvToSan(line.fen ?? fen, line) || line.pv.slice(0, 8).join(' ')}</p>
-                        <p className="pv-uci">{line.pv.slice(0, 8).join(' ')}</p>
-                        {showWdl && line.wdl && (
-                          <HorizontalWdlBar wdl={line.wdl} orientation={orientation} />
-                        )}
-                      </article>
-                    ))}
-                  {lastBestMove && <p className="best-move">Best move: {lastBestMove}</p>}
-                  {lastPonderMove && <p className="best-move">Ponder: {lastPonderMove}</p>}
-                </div>
-              </>
-            )}
-
-            {workspaceMode === 'analysis' && analysisTab === 'review' && (
-              <>
-                <div className="inline-actions">
-                  <button
-                    type="button"
-                    className={`batch-review-btn ${isBatchReviewing ? 'btn-primary pulsing' : ''}`}
-                    onClick={isBatchReviewing ? () => setIsBatchReviewing(false) : startBatchReview}
-                  >
-                    {isBatchReviewing ? (
-                      <><IconStop /> Reviewing ({batchReviewIdxRef.current}/{mainLineNodes.length - 1})</>
-                    ) : (
-                      <><IconSearch /> Review Game</>
+                    {openingSource === 'lichess' && (
+                      <>
+                        <div className="opening-speed-toggle">
+                          {OPENING_SPEEDS.map(speed => (
+                            <button
+                              key={speed}
+                              type="button"
+                              className={`mode-pill ${openingSpeeds.includes(speed) ? 'active' : ''}`}
+                              onClick={() => toggleOpeningSpeed(speed)}
+                            >
+                              {speed}
+                            </button>
+                          ))}
+                        </div>
+                        <label className="engine-option-row">
+                          <span>Rating bucket</span>
+                          <select
+                            value={openingRatingPreset}
+                            onChange={event => setOpeningRatingPreset(event.target.value as OpeningRatingPresetId)}
+                          >
+                            {OPENING_RATING_PRESETS.map(preset => (
+                              <option key={preset.id} value={preset.id}>
+                                {preset.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </>
                     )}
-                  </button>
-                </div>
-                <div className="review-scaffold">
-                  <h3><span className="section-icon"><IconBarChart /></span> Review</h3>
-                  <div className="review-chips">
-                    <span className="chip-best">Best {reviewSummary.best}</span>
-                    <span className="chip-good">Good {reviewSummary.good}</span>
-                    <span className="chip-inaccuracy">Inaccuracy {reviewSummary.inaccuracy}</span>
-                    <span className="chip-mistake">Mistake {reviewSummary.mistake}</span>
-                    <span className="chip-blunder">Blunder {reviewSummary.blunder}</span>
-                    <span className="chip-pending">Pending {reviewSummary.pending}</span>
+                    {openingExplorer.loading && !openingExplorer.data && (
+                      <p className="panel-copy small">Loading opening database...</p>
+                    )}
+                    {openingExplorer.error && (
+                      <p className="panel-copy small error-copy">Opening DB: {openingExplorer.error}</p>
+                    )}
+                    {openingExplorer.data && (
+                      <>
+                        <p className="panel-copy small">
+                          {openingExplorer.data.opening
+                            ? `${openingExplorer.data.opening.eco} · ${openingExplorer.data.opening.name}`
+                            : 'No named opening at this position.'}
+                        </p>
+                        <p className="panel-copy small command-summary">
+                          Games {openingTotalGames.toLocaleString()} · White {percentage(openingTotals?.white ?? 0, openingTotalGames).toFixed(1)}% ·
+                          Draw {percentage(openingTotals?.draws ?? 0, openingTotalGames).toFixed(1)}% ·
+                          Black {percentage(openingTotals?.black ?? 0, openingTotalGames).toFixed(1)}%
+                        </p>
+                        {engineBookAgreement !== null && (
+                          <p className="panel-copy small">
+                            Engine/book agreement: {engineBookAgreement ? 'yes' : 'no'}{currentEngineBestUci ? ` (${currentEngineBestUci})` : ''}
+                          </p>
+                        )}
+                        {openingTopMoves.length > 0 && (
+                          <div className="opening-move-list">
+                            {openingTopMoves.map(move => {
+                              const games = moveGamesCount(move)
+                              return (
+                                <button
+                                  key={move.uci}
+                                  type="button"
+                                  className="opening-move-row"
+                                  onClick={() => {
+                                    setShowAdvancedAnalyze(true)
+                                    setActivePreset(null)
+                                    setSearchMovesInput(move.uci)
+                                  }}
+                                >
+                                  <strong>{move.san}</strong>
+                                  <span>{percentage(games, openingTotalGames).toFixed(1)}%</span>
+                                  <span>{games.toLocaleString()}</span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+                        {openingTopMoves.length > 0 && (
+                          <button type="button" onClick={applyBookMovesToSearch}>
+                            Use Top Book Moves As `searchmoves`
+                          </button>
+                        )}
+                      </>
+                    )}
                   </div>
-                </div>
-                <div className="opening-intel-card review-book-card">
-                  <h3><span className="section-icon"><IconSearch /></span> Book vs Engine</h3>
-                  <p className="panel-copy small command-summary">
-                    In book {reviewBookSummary.inBook} · Out of book {reviewBookSummary.outOfBook}
-                    {reviewBookSummary.loading > 0 ? ` · checking ${reviewBookSummary.loading}` : ''}
-                  </p>
-                  {reviewBookSummary.firstOutOfBook && (
-                    <p className="panel-copy small">
-                      First novelty: ply {reviewBookSummary.firstOutOfBook.ply} ({reviewBookSummary.firstOutOfBook.san})
-                    </p>
-                  )}
-                  <div className="review-book-list">
-                    {reviewBookRows.slice(0, 14).map(row => (
-                      <div key={`${row.ply}-${row.uci}`} className={`review-book-row ${row.status}`}>
-                        <span>#{row.ply}</span>
-                        <strong>{row.san}</strong>
-                        <span>
-                          {row.status === 'in-book' && typeof row.popularityPct === 'number'
-                            ? `${row.popularityPct.toFixed(1)}%`
-                            : row.status === 'out-of-book'
-                              ? 'Novelty'
-                              : row.status === 'loading'
-                                ? '...'
-                                : 'n/a'}
-                        </span>
+                  <div className="pv-list">
+                    <h3><span className="section-icon"><IconSearch /></span> Lines</h3>
+                    {lines.length === 0 && !activeGoCommand && !lastBestMove && (
+                      <div className="empty-state">
+                        <span className="empty-state-icon"><IconSearch /></span>
+                        <p>Start analysis to see principal variation lines here.</p>
                       </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="right-section">
-                  <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
-                  <p className="panel-copy small">Click any move to run a deeper local ponder at that position.</p>
-                  <MoveListTree
-                    tree={gameTree}
-                    onNavigate={chess => navigateAndPonder(chess)}
-                  />
-                </div>
-              </>
-            )}
-
-            {workspaceMode === 'analysis' && analysisTab === 'engine-lab' && (
-              <>
-                <div className="engine-lab-card">
-                  <h3><span className="section-icon"><IconSettings /></span> Runtime</h3>
-                  <label className="engine-option-row profile-picker">
-                    <span>Engine profile</span>
-                    <select value={engineProfile}
-                      onChange={e => setEngineProfile(e.target.value as EngineProfileId)}>
-                      <option value="auto">Auto (recommended)</option>
-                      {engineProfiles.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
+                    )}
+                    {lines
+                      .filter(l => !l.fen || l.fen === fen)
+                      .map(line => (
+                        <article key={`${line.multipv}-${line.depth}-${line.pv[0] ?? 'pv'}`}>
+                          <header>
+                            <strong>#{line.multipv}</strong>
+                            <span>D{line.depth}</span>
+                            <span>{formatEvaluation(line.cp, line.mate)}</span>
+                          </header>
+                          <p>{pvToSan(line.fen ?? fen, line) || line.pv.slice(0, 8).join(' ')}</p>
+                          <p className="pv-uci">{line.pv.slice(0, 8).join(' ')}</p>
+                          {showWdl && line.wdl && (
+                            <HorizontalWdlBar wdl={line.wdl} orientation={orientation} />
+                          )}
+                        </article>
                       ))}
-                    </select>
-                  </label>
-                  <p className="panel-copy small">
-                    Isolation: {capabilities.crossOriginIsolated ? 'yes' : 'no'} / SharedArrayBuffer:{' '}
-                    {capabilities.sharedArrayBuffer ? 'yes' : 'no'} / Cores: {capabilities.hardwareConcurrency}
-                  </p>
-                  <p className="panel-copy small command-summary">
-                    Active: {activeGoCommand || 'none'}
-                  </p>
-                  <label className="switch-control expert-toggle">
-                    <input
-                      type="checkbox"
-                      checked={expertModeEnabled}
-                      onChange={e => setExpertModeEnabled(e.target.checked)}
-                    />
-                    <span>Enable expert commands (bench/perft/infinite)</span>
-                  </label>
-                  {!expertModeEnabled && (
-                    <p className="panel-copy small warning-copy">
-                      Heavy diagnostics are locked to keep the UI responsive.
+                    {lastBestMove && <p className="best-move">Best move: {lastBestMove}</p>}
+                    {lastPonderMove && <p className="best-move">Ponder: {lastPonderMove}</p>}
+                  </div>
+                </>
+              )}
+
+              {workspaceMode === 'analysis' && analysisTab === 'review' && (
+                <>
+                  <div className="inline-actions">
+                    <button
+                      type="button"
+                      className={`batch-review-btn ${isBatchReviewing ? 'btn-primary pulsing' : ''}`}
+                      onClick={isBatchReviewing ? () => setIsBatchReviewing(false) : startBatchReview}
+                    >
+                      {isBatchReviewing ? (
+                        <><IconStop /> Reviewing ({batchReviewIdxRef.current}/{mainLineNodes.length - 1})</>
+                      ) : (
+                        <><IconSearch /> Review Game</>
+                      )}
+                    </button>
+                  </div>
+                  <div className="review-scaffold">
+                    <h3><span className="section-icon"><IconBarChart /></span> Review</h3>
+                    <div className="review-chips">
+                      <span className="chip-best">Best {reviewSummary.best}</span>
+                      <span className="chip-good">Good {reviewSummary.good}</span>
+                      <span className="chip-inaccuracy">Inaccuracy {reviewSummary.inaccuracy}</span>
+                      <span className="chip-mistake">Mistake {reviewSummary.mistake}</span>
+                      <span className="chip-blunder">Blunder {reviewSummary.blunder}</span>
+                      <span className="chip-pending">Pending {reviewSummary.pending}</span>
+                    </div>
+                  </div>
+                  <div className="opening-intel-card review-book-card">
+                    <h3><span className="section-icon"><IconSearch /></span> Book vs Engine</h3>
+                    <p className="panel-copy small command-summary">
+                      In book {reviewBookSummary.inBook} · Out of book {reviewBookSummary.outOfBook}
+                      {reviewBookSummary.loading > 0 ? ` · checking ${reviewBookSummary.loading}` : ''}
                     </p>
-                  )}
-                  {openingExplorer.data && (
-                    <div className="engine-lab-inline">
+                    {reviewBookSummary.firstOutOfBook && (
                       <p className="panel-copy small">
-                        Book moves available: {openingExplorer.data.moves.length} · games {openingTotalGames.toLocaleString()}
+                        First novelty: ply {reviewBookSummary.firstOutOfBook.ply} ({reviewBookSummary.firstOutOfBook.san})
                       </p>
-                      <button type="button" onClick={applyBookMovesToSearch} disabled={openingTopMoves.length === 0}>
-                        Use top book moves in Analyze
+                    )}
+                    <div className="review-book-list">
+                      {reviewBookRows.slice(0, 14).map(row => (
+                        <div key={`${row.ply}-${row.uci}`} className={`review-book-row ${row.status}`}>
+                          <span>#{row.ply}</span>
+                          <strong>{row.san}</strong>
+                          <span>
+                            {row.status === 'in-book' && typeof row.popularityPct === 'number'
+                              ? `${row.popularityPct.toFixed(1)}%`
+                              : row.status === 'out-of-book'
+                                ? 'Novelty'
+                                : row.status === 'loading'
+                                  ? '...'
+                                  : 'n/a'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="right-section">
+                    <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
+                    <p className="panel-copy small">Click any move to run a deeper local ponder at that position.</p>
+                    <MoveListTree
+                      tree={gameTree}
+                      onNavigate={chess => navigateAndPonder(chess)}
+                    />
+                  </div>
+                </>
+              )}
+
+              {workspaceMode === 'analysis' && analysisTab === 'engine-lab' && (
+                <>
+                  <div className="engine-lab-card">
+                    <h3><span className="section-icon"><IconSettings /></span> Runtime</h3>
+                    <label className="engine-option-row profile-picker">
+                      <span>Engine profile</span>
+                      <select value={engineProfile}
+                        onChange={e => setEngineProfile(e.target.value as EngineProfileId)}>
+                        <option value="auto">Auto (recommended)</option>
+                        {engineProfiles.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <p className="panel-copy small">
+                      Isolation: {capabilities.crossOriginIsolated ? 'yes' : 'no'} / SharedArrayBuffer:{' '}
+                      {capabilities.sharedArrayBuffer ? 'yes' : 'no'} / Cores: {capabilities.hardwareConcurrency}
+                    </p>
+                    <p className="panel-copy small command-summary">
+                      Active: {activeGoCommand || 'none'}
+                    </p>
+                    <label className="switch-control expert-toggle">
+                      <input
+                        type="checkbox"
+                        checked={expertModeEnabled}
+                        onChange={e => setExpertModeEnabled(e.target.checked)}
+                      />
+                      <span>Enable expert commands (bench/perft/infinite)</span>
+                    </label>
+                    {!expertModeEnabled && (
+                      <p className="panel-copy small warning-copy">
+                        Heavy diagnostics are locked to keep the UI responsive.
+                      </p>
+                    )}
+                    {openingExplorer.data && (
+                      <div className="engine-lab-inline">
+                        <p className="panel-copy small">
+                          Book moves available: {openingExplorer.data.moves.length} · games {openingTotalGames.toLocaleString()}
+                        </p>
+                        <button type="button" onClick={applyBookMovesToSearch} disabled={openingTopMoves.length === 0}>
+                          Use top book moves in Analyze
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="engine-lab-card">
+                    <h3><span className="section-icon"><IconPlay /></span> UCI Console</h3>
+                    <form
+                      className="engine-lab-console"
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        void runLabCommand(engineLabCommand)
+                      }}
+                    >
+                      <input
+                        type="text"
+                        value={engineLabCommand}
+                        onChange={e => setEngineLabCommand(e.target.value)}
+                        placeholder="go depth 16"
+                      />
+                      <button type="submit">Send</button>
+                      <button type="button" onClick={() => void copyRawConsole()}>Copy</button>
+                      <button type="button" onClick={clearRawConsole}>Clear</button>
+                    </form>
+                    {lastLabRun && (
+                      <p className="panel-copy small command-summary">
+                        Last run: <strong>{lastLabRun.command}</strong> ({lastLabRun.durationMs} ms)
+                      </p>
+                    )}
+                    <div className="inline-actions diagnostics-actions">
+                      <button type="button" onClick={() => void runLabCommand('d')}>d</button>
+                      <button type="button" onClick={() => void runLabCommand('eval')}>eval</button>
+                      <button
+                        type="button"
+                        className="danger-lite"
+                        disabled={!expertModeEnabled}
+                        onClick={() => void runLabCommand('bench')}
+                      >
+                        bench
+                      </button>
+                      <button
+                        type="button"
+                        className="danger-lite"
+                        disabled={!expertModeEnabled}
+                        onClick={() => void runLabCommand('perft 3')}
+                      >
+                        perft 3
                       </button>
                     </div>
-                  )}
-                </div>
-
-                <div className="engine-lab-card">
-                  <h3><span className="section-icon"><IconPlay /></span> UCI Console</h3>
-                  <form
-                    className="engine-lab-console"
-                    onSubmit={(e) => {
-                      e.preventDefault()
-                      void runLabCommand(engineLabCommand)
-                    }}
-                  >
-                    <input
-                      type="text"
-                      value={engineLabCommand}
-                      onChange={e => setEngineLabCommand(e.target.value)}
-                      placeholder="go depth 16"
-                    />
-                    <button type="submit">Send</button>
-                    <button type="button" onClick={() => void copyRawConsole()}>Copy</button>
-                    <button type="button" onClick={clearRawConsole}>Clear</button>
-                  </form>
-                  {lastLabRun && (
-                    <p className="panel-copy small command-summary">
-                      Last run: <strong>{lastLabRun.command}</strong> ({lastLabRun.durationMs} ms)
-                    </p>
-                  )}
-                  <div className="inline-actions diagnostics-actions">
-                    <button type="button" onClick={() => void runLabCommand('d')}>d</button>
-                    <button type="button" onClick={() => void runLabCommand('eval')}>eval</button>
-                    <button
-                      type="button"
-                      className="danger-lite"
-                      disabled={!expertModeEnabled}
-                      onClick={() => void runLabCommand('bench')}
-                    >
-                      bench
-                    </button>
-                    <button
-                      type="button"
-                      className="danger-lite"
-                      disabled={!expertModeEnabled}
-                      onClick={() => void runLabCommand('perft 3')}
-                    >
-                      perft 3
-                    </button>
-                  </div>
-                  {labCommandHistory.length > 0 && (
-                    <div className="lab-history">
-                      <h4>History</h4>
-                      <div className="lab-history-list">
-                        {labCommandHistory.map(item => (
-                          <button key={item} type="button" onClick={() => setEngineLabCommand(item)}>
-                            {item}
-                          </button>
-                        ))}
+                    {labCommandHistory.length > 0 && (
+                      <div className="lab-history">
+                        <h4>History</h4>
+                        <div className="lab-history-list">
+                          {labCommandHistory.map(item => (
+                            <button key={item} type="button" onClick={() => setEngineLabCommand(item)}>
+                              {item}
+                            </button>
+                          ))}
+                        </div>
                       </div>
+                    )}
+                    {engineLabError && <p className="panel-copy small error-copy">{engineLabError}</p>}
+                    <pre className="engine-lab-output">
+                      {(visibleRawLines.join('\n')) || 'No engine output yet.'}
+                    </pre>
+                  </div>
+
+                  <div className="engine-lab-card">
+                    <h3><span className="section-icon"><IconSettings /></span> Engine options</h3>
+                    <div className="engine-options">
+                      {options.map(option => (
+                        <EngineOptionControl key={option.name} option={option} onSetOption={setOption} />
+                      ))}
                     </div>
-                  )}
-                  {engineLabError && <p className="panel-copy small error-copy">{engineLabError}</p>}
-                  <pre className="engine-lab-output">
-                    {(visibleRawLines.join('\n')) || 'No engine output yet.'}
-                  </pre>
-                </div>
-
-                <div className="engine-lab-card">
-                  <h3><span className="section-icon"><IconSettings /></span> Engine options</h3>
-                  <div className="engine-options">
-                    {options.map(option => (
-                      <EngineOptionControl key={option.name} option={option} onSetOption={setOption} />
-                    ))}
+                    <p className="panel-copy small">
+                      Discovered from UCI handshake; applied immediately.
+                    </p>
                   </div>
-                  <p className="panel-copy small">
-                    Discovered from UCI handshake; applied immediately.
-                  </p>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </aside>
-
-      {/* ── Left panel (winrate graph) ── */}
-      <section className="panel left" style={{ width: leftWidth }}>
-        <div className="resize-handle resize-handle-right" onMouseDown={startLeftResize}
-          onClick={() => { if (leftWidth === 0) setLeftWidth(DEFAULT_LEFT) }}
-          title="Drag to resize · click to expand">
-          <span className="resize-pill" />
-        </div>
-        <div className="panel-inner" style={{ opacity: (!isMobile && leftWidth === 0) ? 0 : 1 }}>
-          <div className="panel-content">
-            <WinrateGraph
-              points={winratePoints}
-              currentIndex={currentPathNodes.length - 1}
-              onNavigate={(idx) => {
-                const targetNode = currentLineNodes[idx] || currentLineNodes[currentLineNodes.length - 1]
-                if (!targetNode) return
-                const chess = gameTree.navigateTo(targetNode.id)
-                if (workspaceMode === 'analysis') {
-                  navigateAndPonder(chess)
-                  return
-                }
-                navigateAndPause(chess)
-              }}
-            />
-            {winratePoints.length > 0 && (
-              <div className="graph-legend">
-                <span>White win chance</span>
-                <strong>{winratePoints[winratePoints.length - 1]!.whiteWinrate.toFixed(1)}%</strong>
-              </div>
-            )}
-            <WdlProgressGraph
-              points={wdlPoints}
-              currentIndex={currentPathNodes.length - 1}
-              onNavigate={(idx) => {
-                const targetNode = currentLineNodes[idx] || currentLineNodes[currentLineNodes.length - 1]
-                if (!targetNode) return
-                const chess = gameTree.navigateTo(targetNode.id)
-                if (workspaceMode === 'analysis') {
-                  navigateAndPonder(chess)
-                  return
-                }
-                navigateAndPause(chess)
-              }}
-            />
-            {wdlPoints.length > 0 && (
-              <div className="graph-legend wdl">
-                <span className="wdl-white-label">White {wdlPoints[wdlPoints.length - 1]!.white.toFixed(1)}%</span>
-                <span className="wdl-draw-label">Draw {wdlPoints[wdlPoints.length - 1]!.draw.toFixed(1)}%</span>
-                <span className="wdl-black-label">Black {wdlPoints[wdlPoints.length - 1]!.black.toFixed(1)}%</span>
-              </div>
-            )}
-            <section className="sample-library-card">
-              <header className="sample-library-head">
-                <h3><span className="section-icon"><IconKing /></span> Historical Library</h3>
-                <span>{filteredSampleGames.length} games</span>
-              </header>
-              <div className="sample-filter-row">
-                {([
-                  { id: 'all', label: 'All' },
-                  { id: 'classical', label: 'Classical' },
-                  { id: 'rapid-blitz', label: 'Rapid/Blitz' },
-                ] as const).map(filter => (
-                  <button
-                    key={filter.id}
-                    type="button"
-                    className={`mode-pill ${sampleFilter === filter.id ? 'active' : ''}`}
-                    onClick={() => setSampleFilter(filter.id)}
-                  >
-                    {filter.label}
-                  </button>
-                ))}
-              </div>
-              {sampleLoadError && <p className="panel-copy small error-copy">{sampleLoadError}</p>}
-              {isImportSweepActive && (
-                <p className="panel-copy small sample-sweep-copy">
-                  Background graph sampling: {importSweepProgress.done}/{importSweepProgress.total}
-                </p>
+                </>
               )}
-              <div className="sample-game-list">
-                {filteredSampleGames.map(sample => {
-                  const isLoading = sampleLoadingId === sample.id
-                  return (
-                    <article key={sample.id} className="sample-game-row">
-                      <header>
-                        <strong>{sample.white} vs {sample.black}</strong>
-                        <span>{sample.year}</span>
-                      </header>
-                      <p>{sample.event}</p>
-                      <p className="sample-game-opening">{sample.eco} · {sample.opening}</p>
-                      <p className="panel-copy small">
-                        {sample.format === 'classical' ? 'Classical' : 'Rapid/Blitz'} · {resultLabel(sample.result)}
-                      </p>
-                      <div className="sample-game-actions">
-                        <button
-                          type="button"
-                          onClick={() => void loadHistoricalSample(sample)}
-                          disabled={isLoading}
-                        >
-                          {isLoading ? 'Loading...' : 'Load'}
-                        </button>
-                      </div>
-                    </article>
-                  )
-                })}
-              </div>
-            </section>
+            </div>
           </div>
-        </div>
-      </section>
+        </aside>
+      </div>
 
       {/* ── Bottom bar ── */}
       <section className={`panel bottom ${bottomPanelOpen ? '' : 'hidden'}`}>
