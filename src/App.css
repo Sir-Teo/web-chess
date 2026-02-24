@@ -111,6 +111,15 @@
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
+.app-shell :is(button, summary, input, select, textarea, a, [role='button']):focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 2px;
+}
+
+.app-shell :is(button, summary, input, select, textarea, a, [role='button']):focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* Primary button */
 .btn-primary {
   background: var(--accent-muted) !important;
@@ -1949,6 +1958,46 @@
     display: none;
   }
 
+  .top .compact-grid {
+    gap: 0.42rem;
+  }
+
+  .top .compact-grid button,
+  .top .settings-menu>summary {
+    min-height: 2.4rem;
+    padding: 0.5rem 0.78rem;
+    font-size: 0.82rem;
+  }
+
+  .top-mode-pills,
+  .gc-mode-pills,
+  .wc-nav,
+  .wc-speed {
+    min-height: 2.4rem;
+    padding: 0.18rem;
+  }
+
+  .gc-pill,
+  .wc-speed-pill,
+  .mode-pill,
+  .analysis-tab-btn {
+    min-height: 2rem;
+    padding: 0.34rem 0.7rem;
+    font-size: 0.75rem;
+  }
+
+  .wc-btn {
+    min-width: 2.4rem;
+    min-height: 2rem;
+    padding: 0.3rem 0.62rem;
+    font-size: 0.9rem;
+  }
+
+  .watch-controls {
+    flex-wrap: wrap;
+    row-gap: 0.35rem;
+  }
+
   .bottom .panel-content {
     flex-wrap: wrap;
     gap: 0.28rem;
@@ -2356,4 +2405,23 @@
   padding: 0.15rem 0.35rem;
   font-size: 0.71rem;
   width: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell *,
+  .app-shell *::before,
+  .app-shell *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .analyzing-bar.active::after,
+  .thinking-dots span,
+  .pulsing.btn-primary,
+  .status.loading::before,
+  .status.analyzing::before {
+    animation: none !important;
+  }
 }

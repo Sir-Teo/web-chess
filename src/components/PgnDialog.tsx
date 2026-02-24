@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { GameNode } from '../hooks/useGameTree'
 import type { EvalSnapshot } from '../engine/analysis'
 import { exportAnnotatedPgn } from '../engine/pgn'
@@ -18,8 +18,8 @@ type PgnDialogProps = {
 export function PgnDialog({ open, onClose, onImport, mainLineNodes, evaluations }: PgnDialogProps) {
     const [tab, setTab] = useState<'import' | 'export'>('import')
     const [importText, setImportText] = useState('')
-
-    if (!open) return null
+    const panelRef = useRef<HTMLDivElement>(null)
+    const titleId = useId()
 
     const handleImport = () => {
         onImport(importText)
@@ -28,12 +28,80 @@ export function PgnDialog({ open, onClose, onImport, mainLineNodes, evaluations 
 
     const exportText = tab === 'export' ? exportAnnotatedPgn(mainLineNodes, evaluations) : ''
 
+    useEffect(() => {
+        if (!open) return
+
+        const previouslyFocused = document.activeElement as HTMLElement | null
+        const panelEl = panelRef.current
+        if (!panelEl) return
+
+        const focusableSelector = [
+            'button:not([disabled])',
+            '[href]',
+            'input:not([disabled])',
+            'select:not([disabled])',
+            'textarea:not([disabled])',
+            '[tabindex]:not([tabindex="-1"])',
+        ].join(', ')
+
+        const getFocusable = () =>
+            Array.from(panelEl.querySelectorAll<HTMLElement>(focusableSelector))
+                .filter(el => !el.hasAttribute('disabled') && el.tabIndex !== -1)
+
+        const focusable = getFocusable()
+        focusable[0]?.focus()
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault()
+                onClose()
+                return
+            }
+
+            if (event.key !== 'Tab') return
+            const currentFocusable = getFocusable()
+            if (!currentFocusable.length) return
+
+            const first = currentFocusable[0]
+            const last = currentFocusable[currentFocusable.length - 1]
+            const active = document.activeElement as HTMLElement | null
+
+            if (event.shiftKey) {
+                if (active === first || !panelEl.contains(active)) {
+                    event.preventDefault()
+                    last.focus()
+                }
+                return
+            }
+
+            if (active === last || !panelEl.contains(active)) {
+                event.preventDefault()
+                first.focus()
+            }
+        }
+
+        document.addEventListener('keydown', onKeyDown)
+        return () => {
+            document.removeEventListener('keydown', onKeyDown)
+            previouslyFocused?.focus?.()
+        }
+    }, [onClose, open])
+
+    if (!open) return null
+
     return (
         <div className="dialog-backdrop" onClick={onClose}>
-            <div className="dialog-panel pgn-dialog" onClick={e => e.stopPropagation()}>
+            <div
+                ref={panelRef}
+                className="dialog-panel pgn-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={titleId}
+                onClick={e => e.stopPropagation()}
+            >
                 <header className="dialog-header">
                     <span className="dialog-icon"><IconDownload /></span>
-                    <h2>PGN Import & Export</h2>
+                    <h2 id={titleId}>PGN Import & Export</h2>
                 </header>
 
                 <div className="dialog-body">
@@ -43,6 +111,7 @@ export function PgnDialog({ open, onClose, onImport, mainLineNodes, evaluations 
                                 type="button"
                                 className={`mode-card ${tab === 'import' ? 'selected' : ''}`}
                                 onClick={() => setTab('import')}
+                                aria-pressed={tab === 'import'}
                             >
                                 <span className="mode-icon"><IconClipboard /></span>
                                 <strong>Import</strong>
@@ -51,6 +120,7 @@ export function PgnDialog({ open, onClose, onImport, mainLineNodes, evaluations 
                                 type="button"
                                 className={`mode-card ${tab === 'export' ? 'selected' : ''}`}
                                 onClick={() => setTab('export')}
+                                aria-pressed={tab === 'export'}
                             >
                                 <span className="mode-icon"><IconUpload /></span>
                                 <strong>Export</strong>

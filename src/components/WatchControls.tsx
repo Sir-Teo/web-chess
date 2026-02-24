@@ -1,14 +1,6 @@
 import type { GameMode } from './NewGameDialog'
+import type { AiSpeed } from './aiSpeed'
 import { IconSkipBack, IconChevronLeft, IconChevronRight, IconSkipForward, IconStepForward, IconPlay, IconPause } from './icons'
-
-export type AiSpeed = 'slow' | 'normal' | 'fast' | 'step'
-
-export const AI_SPEED_MS: Record<AiSpeed, number> = {
-    slow: 1200,
-    normal: 600,
-    fast: 150,
-    step: 0,   // 0 = manual advance
-}
 
 type Props = {
     // playback
@@ -61,16 +53,16 @@ export function WatchControls({
         <div className="watch-controls">
             {/* ── Navigation ── */}
             <div className="wc-nav">
-                <button type="button" className="wc-btn" onClick={onFirst} disabled={!canGoBack} title="First position (⏮)">
+                <button type="button" className="wc-btn" onClick={onFirst} disabled={!canGoBack} title="First position (⏮)" aria-label="Go to first position">
                     <IconSkipBack />
                 </button>
-                <button type="button" className="wc-btn" onClick={onPrev} disabled={!canGoBack} title="Previous move (←)">
+                <button type="button" className="wc-btn" onClick={onPrev} disabled={!canGoBack} title="Previous move (←)" aria-label="Go to previous move">
                     <IconChevronLeft />
                 </button>
-                <button type="button" className="wc-btn" onClick={onNext} disabled={!canGoForward} title="Next move (→)">
+                <button type="button" className="wc-btn" onClick={onNext} disabled={!canGoForward} title="Next move (→)" aria-label="Go to next move">
                     <IconChevronRight />
                 </button>
-                <button type="button" className="wc-btn" onClick={onLast} disabled={!canGoForward} title="Last position (⏭)">
+                <button type="button" className="wc-btn" onClick={onLast} disabled={!canGoForward} title="Last position (⏭)" aria-label="Go to last position">
                     <IconSkipForward />
                 </button>
             </div>

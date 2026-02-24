@@ -57,11 +57,15 @@ function makeTree(fen?: string): GameTree {
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useGameTree(startFen?: string) {
-    const treeRef = useRef<GameTree>(makeTree(startFen))
+    const [treeState, setTreeState] = useState<GameTree>(() => makeTree(startFen))
+    const treeRef = useRef<GameTree>(treeState)
     const [tick, setTick] = useState(0)
 
-    // Force re-render after mutations
-    const bump = useCallback(() => setTick(t => t + 1), [])
+    const publishTree = useCallback((nextTree: GameTree) => {
+        treeRef.current = nextTree
+        setTreeState(nextTree)
+        setTick(t => t + 1)
+    }, [])
 
     // ── Selectors ─────────────────────────────────────────────────────────────
 
@@ -69,8 +73,8 @@ export function useGameTree(startFen?: string) {
         return treeRef.current.nodes.get(id)
     }, [])
 
-    const current = getNode(treeRef.current.currentId) ?? makeRoot()
-    const root = getNode(treeRef.current.rootId) ?? makeRoot()
+    const current = treeState.nodes.get(treeState.currentId) ?? makeRoot()
+    const root = treeState.nodes.get(treeState.rootId) ?? makeRoot()
 
     /**
      * Walk parent pointers from a node back to root, return ordered path root→node.
@@ -126,8 +130,7 @@ export function useGameTree(startFen?: string) {
         for (const childId of parent.children) {
             const child = tree.nodes.get(childId)
             if (child && child.uci === uci) {
-                tree.currentId = childId
-                bump()
+                publishTree({ ...tree, currentId: childId })
                 return childId
             }
         }
@@ -142,12 +145,16 @@ export function useGameTree(startFen?: string) {
             children: [],
         }
 
-        tree.nodes.set(node.id, node)
-        parent.children.push(node.id)
-        tree.currentId = node.id
-        bump()
+        const nextNodes = new Map(tree.nodes)
+        nextNodes.set(node.id, node)
+        nextNodes.set(parent.id, { ...parent, children: [...parent.children, node.id] })
+        publishTree({
+            ...tree,
+            nodes: nextNodes,
+            currentId: node.id,
+        })
         return node.id
-    }, [bump])
+    }, [publishTree])
 
     /**
      * Replace the current tree with a single imported main-line in one render pass.
@@ -174,11 +181,9 @@ export function useGameTree(startFen?: string) {
             parent = node
         }
 
-        nextTree.currentId = parent.id
-        treeRef.current = nextTree
-        bump()
-        return nextTree.currentId
-    }, [bump])
+        publishTree({ ...nextTree, currentId: parent.id })
+        return parent.id
+    }, [publishTree])
 
     /**
      * Navigate to an arbitrary node (by id).
@@ -189,8 +194,7 @@ export function useGameTree(startFen?: string) {
         const tree = treeRef.current
         if (!tree.nodes.has(id)) return new Chess()
 
-        tree.currentId = id
-        bump()
+        publishTree({ ...tree, currentId: id })
 
         // Reconstruct chess state by replaying moves from root
         const path = pathToNode(id)
@@ -201,7 +205,7 @@ export function useGameTree(startFen?: string) {
             }
         }
         return chess
-    }, [bump, pathToNode])
+    }, [pathToNode, publishTree])
 
     /** Step back one node along the active path */
     const goBack = useCallback((): Chess => {
@@ -225,18 +229,18 @@ export function useGameTree(startFen?: string) {
         const node = tree.nodes.get(id)
         if (!node) return
         if (node.quality === quality) return   // ← break the cascade
-        node.quality = quality
-        bump()
-    }, [bump])
+        const nextNodes = new Map(tree.nodes)
+        nextNodes.set(id, { ...node, quality })
+        publishTree({ ...tree, nodes: nextNodes })
+    }, [publishTree])
 
     /** Reset tree to a fresh starting position */
     const reset = useCallback((fen?: string) => {
-        treeRef.current = makeTree(fen)
-        bump()
-    }, [bump])
+        publishTree(makeTree(fen))
+    }, [publishTree])
 
     // Expose a snapshot of all nodes (for renders that need to traverse)
-    const nodesSnapshot = treeRef.current.nodes
+    const nodesSnapshot = treeState.nodes
 
     return {
         // State

@@ -1,4 +1,6 @@
-import { type AiDifficulty, DIFFICULTY_LABELS } from '../hooks/useAiPlayer'
+import { useEffect, useId, useRef, useState } from 'react'
+import type { AiDifficulty } from '../hooks/useAiPlayer'
+import { DIFFICULTY_LABELS } from '../hooks/useAiPlayer'
 
 export type GameMode = 'human-vs-human' | 'human-vs-ai' | 'ai-vs-ai'
 export type PlayerColor = 'white' | 'black'
@@ -15,7 +17,6 @@ type Props = {
     onCancel: () => void
 }
 
-import { useState } from 'react'
 import { IconUsers, IconBot, IconZap, IconSwords, IconKing, IconPlay } from './icons'
 import './NewGameDialog.css'
 
@@ -42,8 +43,8 @@ export function NewGameDialog({ open, onStart, onCancel }: Props) {
     const [mode, setMode] = useState<GameMode>('human-vs-ai')
     const [playerColor, setPlayerColor] = useState<PlayerColor>('white')
     const [difficulty, setDifficulty] = useState<AiDifficulty>(4)
-
-    if (!open) return null
+    const panelRef = useRef<HTMLDivElement>(null)
+    const titleId = useId()
 
     const handleStart = () => {
         onStart({ mode, playerColor, difficulty })
@@ -52,12 +53,80 @@ export function NewGameDialog({ open, onStart, onCancel }: Props) {
     const showColorPicker = mode === 'human-vs-ai'
     const showDifficulty = mode === 'human-vs-ai' || mode === 'ai-vs-ai'
 
+    useEffect(() => {
+        if (!open) return
+
+        const previouslyFocused = document.activeElement as HTMLElement | null
+        const panelEl = panelRef.current
+        if (!panelEl) return
+
+        const focusableSelector = [
+            'button:not([disabled])',
+            '[href]',
+            'input:not([disabled])',
+            'select:not([disabled])',
+            'textarea:not([disabled])',
+            '[tabindex]:not([tabindex="-1"])',
+        ].join(', ')
+
+        const getFocusable = () =>
+            Array.from(panelEl.querySelectorAll<HTMLElement>(focusableSelector))
+                .filter(el => !el.hasAttribute('disabled') && el.tabIndex !== -1)
+
+        const focusable = getFocusable()
+        focusable[0]?.focus()
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault()
+                onCancel()
+                return
+            }
+
+            if (event.key !== 'Tab') return
+            const currentFocusable = getFocusable()
+            if (!currentFocusable.length) return
+
+            const first = currentFocusable[0]
+            const last = currentFocusable[currentFocusable.length - 1]
+            const active = document.activeElement as HTMLElement | null
+
+            if (event.shiftKey) {
+                if (active === first || !panelEl.contains(active)) {
+                    event.preventDefault()
+                    last.focus()
+                }
+                return
+            }
+
+            if (active === last || !panelEl.contains(active)) {
+                event.preventDefault()
+                first.focus()
+            }
+        }
+
+        document.addEventListener('keydown', onKeyDown)
+        return () => {
+            document.removeEventListener('keydown', onKeyDown)
+            previouslyFocused?.focus?.()
+        }
+    }, [onCancel, open])
+
+    if (!open) return null
+
     return (
         <div className="dialog-backdrop" onClick={onCancel}>
-            <div className="dialog-panel" onClick={(e) => e.stopPropagation()}>
+            <div
+                ref={panelRef}
+                className="dialog-panel"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={titleId}
+                onClick={(e) => e.stopPropagation()}
+            >
                 <header className="dialog-header">
                     <span className="dialog-icon"><IconSwords /></span>
-                    <h2>New Game</h2>
+                    <h2 id={titleId}>New Game</h2>
                 </header>
 
                 {/* Mode selector */}
@@ -70,6 +139,7 @@ export function NewGameDialog({ open, onStart, onCancel }: Props) {
                                 type="button"
                                 className={`mode-card ${mode === opt.value ? 'selected' : ''}`}
                                 onClick={() => setMode(opt.value)}
+                                aria-pressed={mode === opt.value}
                             >
                                 <span className="mode-icon">{opt.icon}</span>
                                 <strong>{opt.label}</strong>
@@ -88,6 +158,7 @@ export function NewGameDialog({ open, onStart, onCancel }: Props) {
                                 type="button"
                                 className={`color-btn ${playerColor === 'white' ? 'selected' : ''}`}
                                 onClick={() => setPlayerColor('white')}
+                                aria-pressed={playerColor === 'white'}
                             >
                                 <span className="color-piece"><IconKing /></span>
                                 White
@@ -96,6 +167,7 @@ export function NewGameDialog({ open, onStart, onCancel }: Props) {
                                 type="button"
                                 className={`color-btn ${playerColor === 'black' ? 'selected' : ''}`}
                                 onClick={() => setPlayerColor('black')}
+                                aria-pressed={playerColor === 'black'}
                             >
                                 <span className="color-piece dark"><IconKing /></span>
                                 Black
@@ -122,10 +194,13 @@ export function NewGameDialog({ open, onStart, onCancel }: Props) {
                         />
                         <div className="difficulty-ticks">
                             {([1, 2, 3, 4, 5, 6, 7, 8] as AiDifficulty[]).map((level) => (
-                                <span
+                                <button
                                     key={level}
+                                    type="button"
                                     className={`tick ${difficulty === level ? 'active' : ''}`}
                                     onClick={() => setDifficulty(level)}
+                                    aria-label={`Set difficulty to ${DIFFICULTY_LABELS[level]}`}
+                                    aria-pressed={difficulty === level}
                                 />
                             ))}
                         </div>

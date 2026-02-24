@@ -30,7 +30,8 @@ import { useOpening } from './hooks/useOpening'
 import { useOpeningExplorer } from './hooks/useOpeningExplorer'
 import { NewGameDialog, type GameMode, type PlayerColor } from './components/NewGameDialog'
 import { PgnDialog } from './components/PgnDialog'
-import { WatchControls, AI_SPEED_MS, type AiSpeed } from './components/WatchControls'
+import { WatchControls } from './components/WatchControls'
+import { AI_SPEED_MS, type AiSpeed } from './components/aiSpeed'
 import { WdlBar } from './components/WdlBar'
 import { HorizontalWdlBar } from './components/HorizontalWdlBar'
 import { MoveListTree } from './components/MoveListTree'
@@ -1166,14 +1167,14 @@ function App() {
   }, [reviewRows])
 
   // ── Engine arrows ────────────────────────────────────
+  const currentBoardMove = gameTree.current.move
   const arrows = useMemo(() => {
     if (!showBoardArrows) return []
 
     const list: Array<{ startSquare: string; endSquare: string; color: string }> = []
 
-    const currentMove = gameTree.current.move
-    if (currentMove) {
-      list.push({ startSquare: currentMove.from, endSquare: currentMove.to, color: 'rgba(255, 170, 0, 0.8)' })
+    if (currentBoardMove) {
+      list.push({ startSquare: currentBoardMove.from, endSquare: currentBoardMove.to, color: 'rgba(255, 170, 0, 0.8)' })
     }
 
     if (!engineEnabled || !showTopMoveArrows) return list
@@ -1218,7 +1219,7 @@ function App() {
     }
 
     return list
-  }, [engineEnabled, fen, gameTree.current.move, lines, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
+  }, [currentBoardMove, engineEnabled, fen, lines, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
 
   // ── AI move loop (with speed throttle) ───────────────
   useEffect(() => {
