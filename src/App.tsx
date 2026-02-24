@@ -74,23 +74,6 @@ type ImportSweepTarget = {
   historyMoves: string[]
 }
 
-function buildImportSweepTargets(entries: Array<{ move: { from: string; to: string; promotion?: string }; fen: string }>): ImportSweepTarget[] {
-  if (!entries.length) return []
-
-  const historyMoves: string[] = []
-  const targets: ImportSweepTarget[] = []
-
-  for (const entry of entries) {
-    historyMoves.push(`${entry.move.from}${entry.move.to}${entry.move.promotion ?? ''}`)
-    targets.push({
-      fen: entry.fen,
-      historyMoves: [...historyMoves],
-    })
-  }
-
-  return targets
-}
-
 type PersistedAppSettings = {
   workspaceMode: WorkspaceMode
   autoAnalyze: boolean
@@ -1326,10 +1309,9 @@ function App() {
       setFen(finalFen)
       if (engineEnabled) {
         setPendingShallowAnalyzeFen(finalFen)
-        const allSweepTargets = buildImportSweepTargets(mainLineEntries)
-        const sweepTargets = allSweepTargets.slice(0, -1)
-        importSweepQueueRef.current = sweepTargets
-        setImportSweepProgress({ done: 0, total: sweepTargets.length })
+        // Keep import responsive: analyze the loaded position only.
+        // Full-line review can still be run explicitly via the Review tab.
+        clearImportSweep()
       } else {
         setPendingShallowAnalyzeFen(null)
         clearImportSweep()

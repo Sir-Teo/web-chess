@@ -91,36 +91,53 @@ function toUci(move: Move): string {
 
 export function buildReviewRows(history: Move[], evaluationsByFen: Map<string, EvalSnapshot>): ReviewRow[] {
   const replay = new Chess()
+  const rows: ReviewRow[] = []
 
-  return history.map((move, index) => {
+  history.forEach((move, index) => {
+    const moveNumber = Math.floor(index / 2) + 1
+    const uci = toUci(move)
     const beforeFen = replay.fen()
-    replay.move({ from: move.from, to: move.to, promotion: move.promotion })
-    const afterFen = replay.fen()
 
+    try {
+      replay.move({ from: move.from, to: move.to, promotion: move.promotion })
+    } catch {
+      rows.push({
+        ply: index + 1,
+        moveNumber,
+        san: move.san,
+        uci,
+        quality: 'pending',
+      })
+      return
+    }
+
+    const afterFen = replay.fen()
     const before = evaluationsByFen.get(beforeFen)?.cp
     const after = evaluationsByFen.get(afterFen)?.cp
     if (typeof before !== 'number' || typeof after !== 'number') {
-      return {
+      rows.push({
         ply: index + 1,
-        moveNumber: Math.floor(index / 2) + 1,
+        moveNumber,
         san: move.san,
-        uci: toUci(move),
+        uci,
         quality: 'pending',
-      }
+      })
+      return
     }
 
     // Engine score is POV side-to-move. After the move, perspective flips.
     const deltaCp = Math.round(-after - before)
-
-    return {
+    rows.push({
       ply: index + 1,
-      moveNumber: Math.floor(index / 2) + 1,
+      moveNumber,
       san: move.san,
-      uci: toUci(move),
+      uci,
       deltaCp,
       quality: qualityFromDelta(deltaCp),
-    }
+    })
   })
+
+  return rows
 }
 
 export function summarizeReview(rows: ReviewRow[]): Record<ReviewLabel, number> {
@@ -174,7 +191,11 @@ export function buildWinrateSeries(history: Move[], evaluationsByFen: Map<string
   }
 
   history.forEach((move, index) => {
-    replay.move({ from: move.from, to: move.to, promotion: move.promotion })
+    try {
+      replay.move({ from: move.from, to: move.to, promotion: move.promotion })
+    } catch {
+      return
+    }
     const fen = replay.fen()
     const cp = evaluationsByFen.get(fen)?.cp
     if (typeof cp !== 'number') return
@@ -209,7 +230,11 @@ export function buildWdlSeries(history: Move[], evaluationsByFen: Map<string, Ev
   }
 
   history.forEach((move, index) => {
-    replay.move({ from: move.from, to: move.to, promotion: move.promotion })
+    try {
+      replay.move({ from: move.from, to: move.to, promotion: move.promotion })
+    } catch {
+      return
+    }
     const fen = replay.fen()
     const wdl = evaluationsByFen.get(fen)?.wdl
     if (!wdl) return
