@@ -38,6 +38,7 @@ import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, Ico
 import './App.css'
 
 type Orientation = 'white' | 'black'
+type WorkspaceMode = 'play' | 'analysis'
 type AnalysisTab = 'analyze' | 'review' | 'engine-lab'
 type AnalyzePresetId = 'blunder-check' | 'game-review' | 'deep-candidate' | 'mate-hunt'
 type OpeningRatingPresetId = 'all' | 'club' | 'advanced'
@@ -46,6 +47,7 @@ type SampleLibraryFilter = 'all' | HistoricalSampleFormat
 const ANALYSIS_SETTINGS_STORAGE_KEY = 'webchess:analysis-settings:v1'
 const ANALYZE_MODE_IDS: AnalyzeMode[] = ['quick', 'deep', 'infinite', 'mate', 'review']
 const ANALYSIS_TAB_IDS: AnalysisTab[] = ['analyze', 'review', 'engine-lab']
+const WORKSPACE_MODE_IDS: WorkspaceMode[] = ['play', 'analysis']
 const OPENING_SOURCES: OpeningDatabaseSource[] = ['masters', 'lichess']
 const OPENING_SPEEDS: OpeningSpeed[] = ['bullet', 'blitz', 'rapid', 'classical']
 const OPENING_RATING_PRESETS: Array<{ id: OpeningRatingPresetId; label: string; ratings: number[] }> = [
@@ -89,6 +91,7 @@ function buildImportSweepTargets(entries: Array<{ move: { from: string; to: stri
 }
 
 type PersistedAppSettings = {
+  workspaceMode: WorkspaceMode
   autoAnalyze: boolean
   engineProfile: EngineProfileId
   analysisTab: AnalysisTab
@@ -114,11 +117,13 @@ type PersistedAppSettings = {
   openingSource: OpeningDatabaseSource
   openingSpeeds: OpeningSpeed[]
   openingRatingPreset: OpeningRatingPresetId
+  showBoardArrows: boolean
   showTopMoveArrows: boolean
   topMoveArrowCount: number
 }
 
 const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
+  workspaceMode: 'analysis',
   autoAnalyze: true,
   engineProfile: 'auto',
   analysisTab: 'analyze',
@@ -144,6 +149,7 @@ const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
   openingSource: 'masters',
   openingSpeeds: ['blitz', 'rapid', 'classical'],
   openingRatingPreset: 'all',
+  showBoardArrows: true,
   showTopMoveArrows: true,
   topMoveArrowCount: 3,
 }
@@ -158,6 +164,10 @@ function isAnalyzeMode(value: unknown): value is AnalyzeMode {
 
 function isAnalysisTab(value: unknown): value is AnalysisTab {
   return typeof value === 'string' && ANALYSIS_TAB_IDS.includes(value as AnalysisTab)
+}
+
+function isWorkspaceMode(value: unknown): value is WorkspaceMode {
+  return typeof value === 'string' && WORKSPACE_MODE_IDS.includes(value as WorkspaceMode)
 }
 
 function isEngineProfileId(value: unknown): value is EngineProfileId {
@@ -253,6 +263,7 @@ function loadPersistedSettings(): PersistedAppSettings {
       : DEFAULT_PERSISTED_SETTINGS.labCommandHistory
 
     return {
+      workspaceMode: isWorkspaceMode(parsed.workspaceMode) ? parsed.workspaceMode : DEFAULT_PERSISTED_SETTINGS.workspaceMode,
       autoAnalyze: typeof parsed.autoAnalyze === 'boolean' ? parsed.autoAnalyze : DEFAULT_PERSISTED_SETTINGS.autoAnalyze,
       engineProfile: isEngineProfileId(parsed.engineProfile) ? parsed.engineProfile : DEFAULT_PERSISTED_SETTINGS.engineProfile,
       analysisTab: isAnalysisTab(parsed.analysisTab) ? parsed.analysisTab : DEFAULT_PERSISTED_SETTINGS.analysisTab,
@@ -284,6 +295,9 @@ function loadPersistedSettings(): PersistedAppSettings {
       openingRatingPreset: isOpeningRatingPreset(parsed.openingRatingPreset)
         ? parsed.openingRatingPreset
         : DEFAULT_PERSISTED_SETTINGS.openingRatingPreset,
+      showBoardArrows: typeof parsed.showBoardArrows === 'boolean'
+        ? parsed.showBoardArrows
+        : DEFAULT_PERSISTED_SETTINGS.showBoardArrows,
       showTopMoveArrows: typeof parsed.showTopMoveArrows === 'boolean'
         ? parsed.showTopMoveArrows
         : DEFAULT_PERSISTED_SETTINGS.showTopMoveArrows,
@@ -318,6 +332,8 @@ function App() {
   const [fen, setFen] = useState(game.fen())
   const [orientation, setOrientation] = useState<Orientation>('white')
   const persistedSettings = useMemo(loadPersistedSettings, [])
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(persistedSettings.workspaceMode)
+  const engineEnabled = workspaceMode === 'analysis'
 
   // ── Layout ───────────────────────────────────────────
   const [topPanelOpen, setTopPanelOpen] = useState(true)
@@ -356,6 +372,7 @@ function App() {
   const [openingSource, setOpeningSource] = useState<OpeningDatabaseSource>(persistedSettings.openingSource)
   const [openingSpeeds, setOpeningSpeeds] = useState<OpeningSpeed[]>(persistedSettings.openingSpeeds)
   const [openingRatingPreset, setOpeningRatingPreset] = useState<OpeningRatingPresetId>(persistedSettings.openingRatingPreset)
+  const [showBoardArrows, setShowBoardArrows] = useState<boolean>(persistedSettings.showBoardArrows)
   const [showTopMoveArrows, setShowTopMoveArrows] = useState<boolean>(persistedSettings.showTopMoveArrows)
   const [topMoveArrowCount, setTopMoveArrowCount] = useState<number>(persistedSettings.topMoveArrowCount)
   const [openingPrefetchTick, setOpeningPrefetchTick] = useState(0)
@@ -445,9 +462,13 @@ function App() {
 
   const navigateAndPonder = useCallback((chess: Chess | null) => {
     if (!chess) return
+    if (!engineEnabled) {
+      navigateAndPause(chess)
+      return
+    }
     setPendingPonderFen(chess.fen())
     navigateAndPause(chess)
-  }, [navigateAndPause])
+  }, [engineEnabled, navigateAndPause])
 
   // ── Playback helpers for WatchControls ───────────────
   const currentPathNodes = gameTree.currentPath()
@@ -560,10 +581,20 @@ function App() {
 
   const aiPlayer = useAiPlayer()
 
+  useEffect(() => {
+    if (workspaceMode !== 'play') return
+    stop()
+    clearImportSweep()
+    setPendingShallowAnalyzeFen(null)
+    setEvaluationsByFen(new Map())
+    setIsBatchReviewing(false)
+  }, [clearImportSweep, stop, workspaceMode])
+
   const primaryLine = lines.find(l => l.multipv === 1) ?? lines[0]
 
   // ── Capture evaluations ──────────────────────────────
   useEffect(() => {
+    if (!engineEnabled) return
     const cp = scoreToCp(primaryLine?.cp, primaryLine?.mate)
     if (typeof cp !== 'number') return
     const evaluationFen = primaryLine?.fen ?? fen
@@ -580,7 +611,7 @@ function App() {
       next.set(evaluationFen, { cp, wdl: primaryLine?.wdl })
       return next
     })
-  }, [fen, primaryLine?.cp, primaryLine?.fen, primaryLine?.mate, primaryLine?.wdl])
+  }, [engineEnabled, fen, primaryLine?.cp, primaryLine?.fen, primaryLine?.mate, primaryLine?.wdl])
 
   // ── Viewport ─────────────────────────────────────────
   useEffect(() => {
@@ -591,6 +622,7 @@ function App() {
 
   // ── Auto-analyze ─────────────────────────────────────
   useEffect(() => {
+    if (!engineEnabled) return
     if (isImportingGame) return
     if (skipFullAnalyzeFenRef.current && skipFullAnalyzeFenRef.current !== fen) {
       skipFullAnalyzeFenRef.current = null
@@ -643,6 +675,7 @@ function App() {
     analyze,
     autoAnalyze,
     currentPathMovesKey,
+    engineEnabled,
     fen,
     hashMb,
     isImportingGame,
@@ -655,6 +688,7 @@ function App() {
 
   // ── Imported game background sweep ───────────────────
   useEffect(() => {
+    if (!engineEnabled) return
     if (isImportingGame) return
 
     if (activeImportSweepRef.current && !activeImportSweepStartedRef.current && status === 'analyzing') {
@@ -690,7 +724,7 @@ function App() {
       showWdl,
       historyMoves: nextTarget.historyMoves,
     })
-  }, [analyze, hashMb, isImportingGame, pendingPonderFen, pendingShallowAnalyzeFen, showWdl, status])
+  }, [analyze, engineEnabled, hashMb, isImportingGame, pendingPonderFen, pendingShallowAnalyzeFen, showWdl, status])
 
   const parsedSearchMoves = useMemo(
     () =>
@@ -747,6 +781,7 @@ function App() {
       // Ignore localStorage failures (private mode / quota).
     }
 
+    setWorkspaceMode(DEFAULT_PERSISTED_SETTINGS.workspaceMode)
     setSearchDepth(DEFAULT_PERSISTED_SETTINGS.searchDepth)
     setMultiPv(DEFAULT_PERSISTED_SETTINGS.multiPv)
     setHashMb(DEFAULT_PERSISTED_SETTINGS.hashMb)
@@ -772,6 +807,7 @@ function App() {
     setOpeningSource(DEFAULT_PERSISTED_SETTINGS.openingSource)
     setOpeningSpeeds(DEFAULT_PERSISTED_SETTINGS.openingSpeeds)
     setOpeningRatingPreset(DEFAULT_PERSISTED_SETTINGS.openingRatingPreset)
+    setShowBoardArrows(DEFAULT_PERSISTED_SETTINGS.showBoardArrows)
     setShowTopMoveArrows(DEFAULT_PERSISTED_SETTINGS.showTopMoveArrows)
     setTopMoveArrowCount(DEFAULT_PERSISTED_SETTINGS.topMoveArrowCount)
     setOpeningPrefetchTick(0)
@@ -816,6 +852,7 @@ function App() {
   }, [])
 
   const runAnalyze = useCallback(() => {
+    if (!engineEnabled) return
     clearImportSweep()
     const limits: UciGoLimits = {}
     if (analyzeMode === 'quick') limits.movetime = quickMovetimeMs
@@ -860,6 +897,7 @@ function App() {
     searchDepth,
     showAdvancedAnalyze,
     showWdl,
+    engineEnabled,
     useClockLimits,
     whiteIncMs,
     whiteTimeMs,
@@ -869,6 +907,10 @@ function App() {
 
   const runLabCommand = useCallback(
     async (command: string) => {
+      if (!engineEnabled) {
+        setEngineLabError('Engine Lab is available only in Analysis mode.')
+        return
+      }
       const trimmed = command.trim()
       if (!trimmed) return
       setEngineLabError(null)
@@ -888,7 +930,7 @@ function App() {
         setEngineLabError(error instanceof Error ? error.message : String(error))
       }
     },
-    [expertModeEnabled, sendCommand],
+    [engineEnabled, expertModeEnabled, sendCommand],
   )
 
   const clearRawConsole = useCallback(() => {
@@ -910,6 +952,7 @@ function App() {
 
   useEffect(() => {
     persistSettings({
+      workspaceMode,
       autoAnalyze,
       engineProfile,
       analysisTab,
@@ -935,10 +978,12 @@ function App() {
       openingSource,
       openingSpeeds,
       openingRatingPreset,
+      showBoardArrows,
       showTopMoveArrows,
       topMoveArrowCount,
     })
   }, [
+    workspaceMode,
     activePreset,
     analysisTab,
     analyzeMode,
@@ -956,6 +1001,7 @@ function App() {
     openingRatingPreset,
     openingSource,
     openingSpeeds,
+    showBoardArrows,
     showTopMoveArrows,
     topMoveArrowCount,
     quickMovetimeMs,
@@ -977,6 +1023,7 @@ function App() {
   const reviewSummary = useMemo(() => summarizeReview(reviewRows), [reviewRows])
 
   useEffect(() => {
+    if (workspaceMode !== 'analysis') return
     if (analysisTab !== 'review') return
     if (!mainLineUciMoves.length) return
 
@@ -1001,7 +1048,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [analysisTab, mainLineUciMoves, openingRatings, openingSource, openingSpeeds])
+  }, [analysisTab, mainLineUciMoves, openingRatings, openingSource, openingSpeeds, workspaceMode])
 
   const reviewBookRows = useMemo(() => {
     void openingPrefetchTick
@@ -1120,6 +1167,8 @@ function App() {
 
   // ── Engine arrows ────────────────────────────────────
   const arrows = useMemo(() => {
+    if (!showBoardArrows) return []
+
     const list: Array<{ startSquare: string; endSquare: string; color: string }> = []
 
     const currentMove = gameTree.current.move
@@ -1127,7 +1176,7 @@ function App() {
       list.push({ startSquare: currentMove.from, endSquare: currentMove.to, color: 'rgba(255, 170, 0, 0.8)' })
     }
 
-    if (!showTopMoveArrows) return list
+    if (!engineEnabled || !showTopMoveArrows) return list
 
     const currentLines = lines
       .filter(line => !line.fen || line.fen === fen)
@@ -1169,7 +1218,7 @@ function App() {
     }
 
     return list
-  }, [fen, gameTree.current.move, lines, showTopMoveArrows, topMoveArrowCount])
+  }, [engineEnabled, fen, gameTree.current.move, lines, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
 
   // ── AI move loop (with speed throttle) ───────────────
   useEffect(() => {
@@ -1274,11 +1323,16 @@ function App() {
 
       const finalFen = game.fen()
       setFen(finalFen)
-      setPendingShallowAnalyzeFen(finalFen)
-      const allSweepTargets = buildImportSweepTargets(mainLineEntries)
-      const sweepTargets = allSweepTargets.slice(0, -1)
-      importSweepQueueRef.current = sweepTargets
-      setImportSweepProgress({ done: 0, total: sweepTargets.length })
+      if (engineEnabled) {
+        setPendingShallowAnalyzeFen(finalFen)
+        const allSweepTargets = buildImportSweepTargets(mainLineEntries)
+        const sweepTargets = allSweepTargets.slice(0, -1)
+        importSweepQueueRef.current = sweepTargets
+        setImportSweepProgress({ done: 0, total: sweepTargets.length })
+      } else {
+        setPendingShallowAnalyzeFen(null)
+        clearImportSweep()
+      }
 
       setPaused(true)
       pausedRef.current = true
@@ -1289,7 +1343,7 @@ function App() {
       setIsImportingGame(false)
       alert("Failed to parse PGN.")
     }
-  }, [clearImportSweep, game, gameTree, newGame])
+  }, [clearImportSweep, engineEnabled, game, gameTree, newGame])
 
   const fetchSamplePgn = useCallback(async (sample: HistoricalSampleGame): Promise<string> => {
     const cached = samplePgnCacheRef.current.get(sample.id)
@@ -1312,14 +1366,14 @@ function App() {
       try {
         const pgnText = await fetchSamplePgn(sample)
         handlePgnImport(pgnText)
-        setAnalysisTab('analyze')
+        if (workspaceMode === 'analysis') setAnalysisTab('analyze')
       } catch (error) {
         setSampleLoadError(error instanceof Error ? error.message : 'Failed to load sample game.')
       } finally {
         setSampleLoadingId(null)
       }
     },
-    [fetchSamplePgn, handlePgnImport],
+    [fetchSamplePgn, handlePgnImport, workspaceMode],
   )
 
   const handleNewGameStart = useCallback(
@@ -1451,7 +1505,26 @@ function App() {
               <span className="btn-icon"><IconDownload /></span> PGN
             </button>
 
-            {/* Mode switcher lives in top bar */}
+            {/* Workspace mode */}
+            <span className="toolbar-divider" />
+            <div className="top-mode-pills" aria-label="Workspace mode">
+              {([
+                { id: 'play', label: 'Play', icon: <IconSwords /> },
+                { id: 'analysis', label: 'Analysis', icon: <IconSearch /> },
+              ] as const).map(({ id, label, icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={`gc-pill ${workspaceMode === id ? 'gc-pill-active' : ''}`}
+                  onClick={() => setWorkspaceMode(id)}
+                >
+                  <span className="gc-pill-icon">{icon}</span>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Game mode switcher */}
             <span className="toolbar-divider" />
             <div className="top-mode-pills">
               {([
@@ -1476,28 +1549,47 @@ function App() {
             <details className="settings-menu">
               <summary><span className="btn-icon"><IconSettings /></span> Settings</summary>
               <div className="settings-body">
+                <p className="panel-copy small command-summary">
+                  Workspace: <strong>{workspaceMode === 'play' ? 'Play mode' : 'Analysis mode'}</strong>
+                </p>
                 <label className="switch-control">
                   <input
                     type="checkbox"
                     checked={autoAnalyze}
+                    disabled={!engineEnabled}
                     onChange={e => setAutoAnalyze(e.target.checked)}
                   />
                   <span>Auto-analyze after every move</span>
                 </label>
+                <label className="switch-control">
+                  <input
+                    type="checkbox"
+                    checked={showBoardArrows}
+                    onChange={e => setShowBoardArrows(e.target.checked)}
+                  />
+                  <span>Show board arrow overlays</span>
+                </label>
                 <label className="control">
                   <span>Search depth</span>
                   <input type="range" min={8} max={30} step={1} value={searchDepth}
+                    disabled={!engineEnabled}
                     onChange={e => setSearchDepth(Number(e.target.value))} />
                   <strong>{searchDepth}</strong>
                 </label>
                 <label className="control">
                   <span>MultiPV</span>
                   <input type="range" min={1} max={5} step={1} value={multiPv}
+                    disabled={!engineEnabled}
                     onChange={e => setMultiPv(Number(e.target.value))} />
                   <strong>{multiPv} lines</strong>
                 </label>
-
-                <details className="advanced-settings">
+                {!engineEnabled && (
+                  <p className="panel-copy small">
+                    Engine tools are disabled in Play mode. Switch to Analysis mode for engine settings and deep analysis.
+                  </p>
+                )}
+                {engineEnabled && (
+                  <details className="advanced-settings">
                   <summary>Advanced engine options</summary>
                   <div className="advanced-section">
                     <label className="control">
@@ -1541,7 +1633,8 @@ function App() {
                       Clears persisted analyze/lab controls for this browser.
                     </p>
                   </div>
-                </details>
+                  </details>
+                )}
               </div>
             </details>
           </div>
@@ -1555,7 +1648,7 @@ function App() {
       {/* ── Board ── */}
       <section className="board-stage" aria-label="Chessboard">
         <div className="board-wrap">
-          {showWdl && <WdlBar fen={fen} evaluation={evaluationsByFen.get(fen)} orientation={orientation} />}
+          {engineEnabled && showWdl && <WdlBar fen={fen} evaluation={evaluationsByFen.get(fen)} orientation={orientation} />}
           {opening && (
             <div className="board-opening-label fade-in-slide">
               <div className="opening-pill">
@@ -1620,26 +1713,57 @@ function App() {
         </div>
         <div className="panel-inner" style={{ opacity: (!isMobile && rightWidth === 0) ? 0 : 1 }}>
           <header className="panel-header analysis-header">
-            <h2>Analysis</h2>
-            <div className="analysis-tab-strip">
-              {([
-                { id: 'analyze', label: 'Analyze' },
-                { id: 'review', label: 'Review' },
-                { id: 'engine-lab', label: 'Engine Lab' },
-              ] as const).map(tab => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  className={`analysis-tab-btn ${analysisTab === tab.id ? 'active' : ''}`}
-                  onClick={() => setAnalysisTab(tab.id)}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            <h2>{workspaceMode === 'analysis' ? 'Analysis' : 'Play'}</h2>
+            {workspaceMode === 'analysis' && (
+              <div className="analysis-tab-strip">
+                {([
+                  { id: 'analyze', label: 'Analyze' },
+                  { id: 'review', label: 'Review' },
+                  { id: 'engine-lab', label: 'Engine Lab' },
+                ] as const).map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    className={`analysis-tab-btn ${analysisTab === tab.id ? 'active' : ''}`}
+                    onClick={() => setAnalysisTab(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </header>
           <div className="panel-content">
-            {analysisTab === 'analyze' && (
+            {workspaceMode === 'play' && (
+              <>
+                <div className="engine-lab-card">
+                  <h3><span className="section-icon"><IconSwords /></span> Play Focus</h3>
+                  <p className="panel-copy small">
+                    Engine is off in Play mode. Use this view for clean gameplay and move navigation.
+                  </p>
+                  <label className="switch-control">
+                    <input
+                      type="checkbox"
+                      checked={showBoardArrows}
+                      onChange={event => setShowBoardArrows(event.target.checked)}
+                    />
+                    <span>Show board arrow overlays</span>
+                  </label>
+                  <button type="button" onClick={() => setWorkspaceMode('analysis')}>
+                    Switch to Analysis mode
+                  </button>
+                </div>
+                <div className="right-section">
+                  <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
+                  <MoveListTree
+                    tree={gameTree}
+                    onNavigate={chess => navigateAndPause(chess)}
+                  />
+                </div>
+              </>
+            )}
+
+            {workspaceMode === 'analysis' && analysisTab === 'analyze' && (
               <>
                 <div className="inline-actions">
                   <button type="button" className="btn-primary" onClick={runAnalyze}>
@@ -1847,12 +1971,21 @@ function App() {
                 <label className="switch-control">
                   <input
                     type="checkbox"
+                    checked={showBoardArrows}
+                    onChange={e => setShowBoardArrows(e.target.checked)}
+                  />
+                  <span>Show board arrow overlays</span>
+                </label>
+                <label className="switch-control">
+                  <input
+                    type="checkbox"
                     checked={showTopMoveArrows}
+                    disabled={!showBoardArrows}
                     onChange={e => setShowTopMoveArrows(e.target.checked)}
                   />
                   <span>Show top move arrows (live score colors)</span>
                 </label>
-                {showTopMoveArrows && (
+                {showBoardArrows && showTopMoveArrows && (
                   <label className="control">
                     <span>Top arrows</span>
                     <input
@@ -1867,7 +2000,9 @@ function App() {
                   </label>
                 )}
                 <p className="panel-copy small">
-                  Better lines render greener and worse lines redder{analyzeMode === 'infinite' ? ' (updates live in infinite mode).' : '.'}
+                  {showBoardArrows
+                    ? `Better lines render greener and worse lines redder${analyzeMode === 'infinite' ? ' (updates live in infinite mode).' : '.'}`
+                    : 'Board arrows are hidden in all game modes.'}
                 </p>
                 <label className="switch-control">
                   <input
@@ -1976,7 +2111,7 @@ function App() {
               </>
             )}
 
-            {analysisTab === 'review' && (
+            {workspaceMode === 'analysis' && analysisTab === 'review' && (
               <>
                 <div className="inline-actions">
                   <button
@@ -2042,7 +2177,7 @@ function App() {
               </>
             )}
 
-            {analysisTab === 'engine-lab' && (
+            {workspaceMode === 'analysis' && analysisTab === 'engine-lab' && (
               <>
                 <div className="engine-lab-card">
                   <h3><span className="section-icon"><IconSettings /></span> Runtime</h3>
@@ -2181,7 +2316,13 @@ function App() {
               currentIndex={currentPathNodes.length - 1}
               onNavigate={(idx) => {
                 const targetNode = currentLineNodes[idx] || currentLineNodes[currentLineNodes.length - 1]
-                if (targetNode) navigateAndPonder(gameTree.navigateTo(targetNode.id))
+                if (!targetNode) return
+                const chess = gameTree.navigateTo(targetNode.id)
+                if (workspaceMode === 'analysis') {
+                  navigateAndPonder(chess)
+                  return
+                }
+                navigateAndPause(chess)
               }}
             />
             {winratePoints.length > 0 && (
@@ -2195,7 +2336,13 @@ function App() {
               currentIndex={currentPathNodes.length - 1}
               onNavigate={(idx) => {
                 const targetNode = currentLineNodes[idx] || currentLineNodes[currentLineNodes.length - 1]
-                if (targetNode) navigateAndPonder(gameTree.navigateTo(targetNode.id))
+                if (!targetNode) return
+                const chess = gameTree.navigateTo(targetNode.id)
+                if (workspaceMode === 'analysis') {
+                  navigateAndPonder(chess)
+                  return
+                }
+                navigateAndPause(chess)
               }}
             />
             {wdlPoints.length > 0 && (
