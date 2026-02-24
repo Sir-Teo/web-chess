@@ -1570,20 +1570,202 @@ function App() {
                   />
                   <span>Show board arrow overlays</span>
                 </label>
-                <label className="control">
-                  <span>Search depth</span>
-                  <input type="range" min={8} max={30} step={1} value={searchDepth}
-                    disabled={!engineEnabled}
-                    onChange={e => setSearchDepth(Number(e.target.value))} />
-                  <strong>{searchDepth}</strong>
-                </label>
-                <label className="control">
-                  <span>MultiPV</span>
-                  <input type="range" min={1} max={5} step={1} value={multiPv}
-                    disabled={!engineEnabled}
-                    onChange={e => setMultiPv(Number(e.target.value))} />
-                  <strong>{multiPv} lines</strong>
-                </label>
+                {engineEnabled && workspaceMode === 'analysis' && (
+                  <details className="advanced-settings" open>
+                    <summary>Analyze controls</summary>
+                    <div className="advanced-section">
+                      <div className="analysis-mode-pills">
+                        {([
+                          { id: 'quick', label: 'Quick' },
+                          { id: 'deep', label: 'Deep' },
+                          { id: 'infinite', label: 'Infinite' },
+                          { id: 'mate', label: 'Mate' },
+                          { id: 'review', label: 'Review' },
+                        ] as const).map(mode => (
+                          <button
+                            key={mode.id}
+                            type="button"
+                            className={`mode-pill ${analyzeMode === mode.id ? 'active' : ''}`}
+                            onClick={() => {
+                              setActivePreset(null)
+                              setAnalyzeMode(mode.id)
+                            }}
+                          >
+                            {mode.label}
+                          </button>
+                        ))}
+                      </div>
+                      {(analyzeMode === 'deep' || analyzeMode === 'review') && (
+                        <label className="control">
+                          <span>Depth</span>
+                          <input
+                            type="range"
+                            min={6}
+                            max={32}
+                            step={1}
+                            value={searchDepth}
+                            onChange={e => {
+                              setActivePreset(null)
+                              setSearchDepth(Number(e.target.value))
+                            }}
+                          />
+                          <strong>{searchDepth}</strong>
+                        </label>
+                      )}
+                      {analyzeMode === 'quick' && (
+                        <label className="engine-option-row">
+                          <span>Move time (ms)</span>
+                          <input
+                            type="number"
+                            min={50}
+                            max={30000}
+                            step={50}
+                            value={quickMovetimeMs}
+                            onChange={e => {
+                              setActivePreset(null)
+                              setQuickMovetimeMs(Number(e.target.value))
+                            }}
+                          />
+                        </label>
+                      )}
+                      {analyzeMode === 'mate' && (
+                        <label className="engine-option-row">
+                          <span>Mate target (plies)</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={30}
+                            step={1}
+                            value={mateTarget}
+                            onChange={e => {
+                              setActivePreset(null)
+                              setMateTarget(Number(e.target.value))
+                            }}
+                          />
+                        </label>
+                      )}
+                      <label className="control">
+                        <span>MultiPV</span>
+                        <input
+                          type="range"
+                          min={1}
+                          max={5}
+                          step={1}
+                          value={multiPv}
+                          onChange={e => {
+                            setActivePreset(null)
+                            setMultiPv(Number(e.target.value))
+                          }}
+                        />
+                        <strong>{multiPv} lines</strong>
+                      </label>
+                      <label className="switch-control">
+                        <input
+                          type="checkbox"
+                          checked={showTopMoveArrows}
+                          disabled={!showBoardArrows}
+                          onChange={e => setShowTopMoveArrows(e.target.checked)}
+                        />
+                        <span>Show top move arrows (live score colors)</span>
+                      </label>
+                      {showBoardArrows && showTopMoveArrows && (
+                        <label className="control">
+                          <span>Top arrows</span>
+                          <input
+                            type="range"
+                            min={1}
+                            max={5}
+                            step={1}
+                            value={topMoveArrowCount}
+                            onChange={e => setTopMoveArrowCount(Number(e.target.value))}
+                          />
+                          <strong>{topMoveArrowCount}</strong>
+                        </label>
+                      )}
+                      <p className="panel-copy small">
+                        {showBoardArrows
+                          ? `Better lines render greener and worse lines redder${analyzeMode === 'infinite' ? ' (updates live in infinite mode).' : '.'}`
+                          : 'Board arrows are hidden in all game modes.'}
+                      </p>
+                      <label className="switch-control">
+                        <input
+                          type="checkbox"
+                          checked={showAdvancedAnalyze}
+                          onChange={e => {
+                            setActivePreset(null)
+                            setShowAdvancedAnalyze(e.target.checked)
+                          }}
+                        />
+                        <span>Advanced search limits</span>
+                      </label>
+                      {showAdvancedAnalyze && (
+                        <div className="engine-lab-card">
+                          <label className="engine-option-row">
+                            <span>Nodes limit</span>
+                            <input
+                              type="number"
+                              min={1}
+                              step={1000}
+                              value={limitNodes}
+                              onChange={e => setLimitNodes(e.target.value ? Number(e.target.value) : '')}
+                            />
+                          </label>
+                          <label className="engine-option-row">
+                            <span>Search moves (UCI)</span>
+                            <input
+                              type="text"
+                              value={searchMovesInput}
+                              onChange={e => setSearchMovesInput(e.target.value)}
+                              placeholder="e2e4 g1f3"
+                            />
+                          </label>
+                          <label className="switch-control">
+                            <input
+                              type="checkbox"
+                              checked={useClockLimits}
+                              onChange={e => setUseClockLimits(e.target.checked)}
+                            />
+                            <span>Use clock-style limits</span>
+                          </label>
+                          {useClockLimits && (
+                            <>
+                              <label className="engine-option-row">
+                                <span>White time (ms)</span>
+                                <input type="number" min={0} step={100} value={whiteTimeMs}
+                                  onChange={e => setWhiteTimeMs(Number(e.target.value))} />
+                              </label>
+                              <label className="engine-option-row">
+                                <span>Black time (ms)</span>
+                                <input type="number" min={0} step={100} value={blackTimeMs}
+                                  onChange={e => setBlackTimeMs(Number(e.target.value))} />
+                              </label>
+                              <label className="engine-option-row">
+                                <span>White increment (ms)</span>
+                                <input type="number" min={0} step={50} value={whiteIncMs}
+                                  onChange={e => setWhiteIncMs(Number(e.target.value))} />
+                              </label>
+                              <label className="engine-option-row">
+                                <span>Black increment (ms)</span>
+                                <input type="number" min={0} step={50} value={blackIncMs}
+                                  onChange={e => setBlackIncMs(Number(e.target.value))} />
+                              </label>
+                              <label className="engine-option-row">
+                                <span>Moves to go</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  step={1}
+                                  value={movesToGo}
+                                  onChange={e => setMovesToGo(e.target.value ? Number(e.target.value) : '')}
+                                />
+                              </label>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </details>
+                )}
                 {!engineEnabled && (
                   <p className="panel-copy small">
                     Engine tools are disabled in Play mode. Switch to Analysis mode for engine settings and deep analysis.
@@ -1787,27 +1969,6 @@ function App() {
                     </button>
                   ))}
                 </div>
-                <div className="analysis-mode-pills">
-                  {([
-                    { id: 'quick', label: 'Quick' },
-                    { id: 'deep', label: 'Deep' },
-                    { id: 'infinite', label: 'Infinite' },
-                    { id: 'mate', label: 'Mate' },
-                    { id: 'review', label: 'Review' },
-                  ] as const).map(mode => (
-                    <button
-                      key={mode.id}
-                      type="button"
-                      className={`mode-pill ${analyzeMode === mode.id ? 'active' : ''}`}
-                      onClick={() => {
-                        setActivePreset(null)
-                        setAnalyzeMode(mode.id)
-                      }}
-                    >
-                      {mode.label}
-                    </button>
-                  ))}
-                </div>
                 <p className="panel-copy small command-summary">
                   {activeGoCommand ? `Command: ${activeGoCommand}` : 'Command: idle'} {queueLength > 0 ? `· queue ${queueLength}` : ''}
                 </p>
@@ -1910,178 +2071,6 @@ function App() {
                     </>
                   )}
                 </div>
-
-                {(analyzeMode === 'deep' || analyzeMode === 'review') && (
-                  <label className="control">
-                    <span>Depth</span>
-                    <input
-                      type="range"
-                      min={6}
-                      max={32}
-                      step={1}
-                      value={searchDepth}
-                      onChange={e => {
-                        setActivePreset(null)
-                        setSearchDepth(Number(e.target.value))
-                      }}
-                    />
-                    <strong>{searchDepth}</strong>
-                  </label>
-                )}
-                {analyzeMode === 'quick' && (
-                  <label className="engine-option-row">
-                    <span>Move time (ms)</span>
-                    <input
-                      type="number"
-                      min={50}
-                      max={30000}
-                      step={50}
-                      value={quickMovetimeMs}
-                      onChange={e => {
-                        setActivePreset(null)
-                        setQuickMovetimeMs(Number(e.target.value))
-                      }}
-                    />
-                  </label>
-                )}
-                {analyzeMode === 'mate' && (
-                  <label className="engine-option-row">
-                    <span>Mate target (plies)</span>
-                    <input
-                      type="number"
-                      min={1}
-                      max={30}
-                      step={1}
-                      value={mateTarget}
-                      onChange={e => {
-                        setActivePreset(null)
-                        setMateTarget(Number(e.target.value))
-                      }}
-                    />
-                  </label>
-                )}
-                <label className="control">
-                  <span>MultiPV</span>
-                  <input type="range" min={1} max={5} step={1} value={multiPv}
-                    onChange={e => {
-                      setActivePreset(null)
-                      setMultiPv(Number(e.target.value))
-                    }} />
-                  <strong>{multiPv} lines</strong>
-                </label>
-                <label className="switch-control">
-                  <input
-                    type="checkbox"
-                    checked={showBoardArrows}
-                    onChange={e => setShowBoardArrows(e.target.checked)}
-                  />
-                  <span>Show board arrow overlays</span>
-                </label>
-                <label className="switch-control">
-                  <input
-                    type="checkbox"
-                    checked={showTopMoveArrows}
-                    disabled={!showBoardArrows}
-                    onChange={e => setShowTopMoveArrows(e.target.checked)}
-                  />
-                  <span>Show top move arrows (live score colors)</span>
-                </label>
-                {showBoardArrows && showTopMoveArrows && (
-                  <label className="control">
-                    <span>Top arrows</span>
-                    <input
-                      type="range"
-                      min={1}
-                      max={5}
-                      step={1}
-                      value={topMoveArrowCount}
-                      onChange={e => setTopMoveArrowCount(Number(e.target.value))}
-                    />
-                    <strong>{topMoveArrowCount}</strong>
-                  </label>
-                )}
-                <p className="panel-copy small">
-                  {showBoardArrows
-                    ? `Better lines render greener and worse lines redder${analyzeMode === 'infinite' ? ' (updates live in infinite mode).' : '.'}`
-                    : 'Board arrows are hidden in all game modes.'}
-                </p>
-                <label className="switch-control">
-                  <input
-                    type="checkbox"
-                    checked={showAdvancedAnalyze}
-                    onChange={e => {
-                      setActivePreset(null)
-                      setShowAdvancedAnalyze(e.target.checked)
-                    }}
-                  />
-                  <span>Advanced search limits</span>
-                </label>
-                {showAdvancedAnalyze && (
-                  <div className="engine-lab-card">
-                    <label className="engine-option-row">
-                      <span>Nodes limit</span>
-                      <input
-                        type="number"
-                        min={1}
-                        step={1000}
-                        value={limitNodes}
-                        onChange={e => setLimitNodes(e.target.value ? Number(e.target.value) : '')}
-                      />
-                    </label>
-                    <label className="engine-option-row">
-                      <span>Search moves (UCI)</span>
-                      <input
-                        type="text"
-                        value={searchMovesInput}
-                        onChange={e => setSearchMovesInput(e.target.value)}
-                        placeholder="e2e4 g1f3"
-                      />
-                    </label>
-                    <label className="switch-control">
-                      <input
-                        type="checkbox"
-                        checked={useClockLimits}
-                        onChange={e => setUseClockLimits(e.target.checked)}
-                      />
-                      <span>Use clock-style limits</span>
-                    </label>
-                    {useClockLimits && (
-                      <>
-                        <label className="engine-option-row">
-                          <span>White time (ms)</span>
-                          <input type="number" min={0} step={100} value={whiteTimeMs}
-                            onChange={e => setWhiteTimeMs(Number(e.target.value))} />
-                        </label>
-                        <label className="engine-option-row">
-                          <span>Black time (ms)</span>
-                          <input type="number" min={0} step={100} value={blackTimeMs}
-                            onChange={e => setBlackTimeMs(Number(e.target.value))} />
-                        </label>
-                        <label className="engine-option-row">
-                          <span>White increment (ms)</span>
-                          <input type="number" min={0} step={50} value={whiteIncMs}
-                            onChange={e => setWhiteIncMs(Number(e.target.value))} />
-                        </label>
-                        <label className="engine-option-row">
-                          <span>Black increment (ms)</span>
-                          <input type="number" min={0} step={50} value={blackIncMs}
-                            onChange={e => setBlackIncMs(Number(e.target.value))} />
-                        </label>
-                        <label className="engine-option-row">
-                          <span>Moves to go</span>
-                          <input
-                            type="number"
-                            min={1}
-                            step={1}
-                            value={movesToGo}
-                            onChange={e => setMovesToGo(e.target.value ? Number(e.target.value) : '')}
-                          />
-                        </label>
-                      </>
-                    )}
-                  </div>
-                )}
-
                 <div className="pv-list">
                   <h3><span className="section-icon"><IconSearch /></span> Lines</h3>
                   {lines.length === 0 && (
