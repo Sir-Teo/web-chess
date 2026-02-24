@@ -199,6 +199,11 @@
   border-radius: var(--radius-sm);
 }
 
+.mobile-actions,
+.mobile-modes-wrapper {
+  display: contents;
+}
+
 /* App branding */
 .app-brand {
   display: flex;
