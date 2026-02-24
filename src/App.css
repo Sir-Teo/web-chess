@@ -160,7 +160,7 @@
   right: 0;
   width: 100%;
   border-radius: 0;
-  z-index: 100;
+  z-index: 2000;
   overflow: visible;
 }
 
@@ -2024,6 +2024,20 @@
     padding: 0.5rem 0.78rem;
   }
 
+  /* Dark blurred backdrop when settings is open */
+  .top .settings-menu[open]>summary::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    z-index: 990;
+    cursor: default;
+  }
+
+  /* Make sure the text on the summary tag stays above if we don't hide it, 
+     but the modal body needs to be above the backdrop. */
   .top .settings-body {
     position: fixed;
     top: 50%;
@@ -2033,6 +2047,8 @@
     max-width: 380px;
     max-height: 85vh;
     z-index: 1000;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--border-subtle);
+    padding: 1.25rem;
   }
 
   .desktop-only {
