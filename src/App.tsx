@@ -1478,7 +1478,7 @@ function App() {
   const isMobile = viewport.width <= 900
 
   const boardWidth = isMobile
-    ? Math.min(viewport.width - 32, viewport.height - (bottomPanelOpen ? 150 : 80) - (topPanelOpen ? 60 : 30))
+    ? Math.max(260, Math.min(viewport.width - 16, viewport.height - (bottomPanelOpen ? 150 : 80) - (topPanelOpen ? 60 : 30)))
     : Math.min(
       viewport.width - leftWidth - rightWidth - 32,
       viewport.height - (bottomPanelOpen ? 120 : 50) - (topPanelOpen ? 50 : 30),
@@ -1858,6 +1858,7 @@ function App() {
               lightSquareStyle: { backgroundColor: '#f0d9b5' },
               boardStyle: {
                 width: `${Math.max(260, boardWidth)}px`,
+                maxWidth: '100%',
                 borderRadius: 12,
                 boxShadow: '0 8px 40px rgba(0, 0, 0, 0.60), 0 2px 8px rgba(0, 0, 0, 0.40)',
               },

@@ -419,6 +419,8 @@
   border-radius: 14px;
   transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
   touch-action: none;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* AI thinking overlay */
@@ -1962,6 +1964,12 @@
     flex-direction: column;
     overflow-y: auto;
     overflow-x: hidden;
+    padding-top: 3.5rem;
+    /* Space for top bar */
+    padding-bottom: 4.5rem;
+    /* Space for bottom bar + grabber */
+    width: 100vw;
+    max-width: 100vw;
   }
 
   .panel {
@@ -1972,53 +1980,75 @@
     bottom: auto !important;
     transform: none !important;
     width: 100% !important;
+    max-width: 100vw !important;
   }
 
   .top {
-    position: sticky !important;
+    position: fixed !important;
+    /* Changed from sticky to fixed to stay definitively on top of flow */
     top: 0 !important;
-    z-index: 10 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 100 !important;
+    /* Huge z-index to stay over the board (10) */
     order: 1;
+    width: 100vw !important;
   }
 
   .board-stage {
     position: relative;
     order: 2;
-    padding: var(--space-md) var(--space-sm);
-    min-height: calc(100vh - 120px);
+    padding: var(--space-sm);
+    min-height: 45vh;
+    /* This sets the initial height, but allows flex children to shrink */
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 10;
+    width: 100vw;
+    max-width: 100vw;
+    box-sizing: border-box;
+    overflow: hidden;
   }
 
   .right {
     order: 3;
-    padding: 0 var(--space-md) !important;
-    margin-bottom: var(--space-md);
-    width: auto !important;
+    padding: 0 var(--space-sm) var(--space-md) !important;
+    width: 100% !important;
     align-self: stretch;
   }
 
   .left {
     order: 4;
-    padding: 0 var(--space-md) !important;
-    margin-bottom: var(--space-lg);
-    width: auto !important;
+    padding: 0 var(--space-sm) var(--space-lg) !important;
+    width: 100% !important;
     align-self: stretch;
   }
 
   .left .panel-inner,
   .right .panel-inner {
     border-radius: var(--radius-lg) !important;
-    border: 1px solid var(--border-subtle) !important;
+    border: 1px solid var(--border-default) !important;
     box-shadow: var(--shadow-sm) !important;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .left .panel-content,
+  .right .panel-content {
+    overflow: visible;
   }
 
   .bottom {
-    position: sticky !important;
+    position: fixed !important;
     bottom: 0 !important;
-    z-index: 10 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 90 !important;
     order: 5;
+    width: 100vw !important;
   }
 
   .app-brand-text {
@@ -2027,12 +2057,12 @@
 
   .top .compact-grid {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       "brand settings"
       "actions actions"
       "modes modes";
-    gap: 0.45rem;
+    gap: 0.5rem;
   }
 
   .top .app-brand {
@@ -2051,12 +2081,17 @@
     grid-area: actions;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 0.35rem;
+    gap: 0.5rem;
+    min-width: 0;
+    /* Let grid shrink */
   }
 
   .mobile-actions button {
     justify-content: center;
-    padding: 0.45rem 0;
+    padding: 0.5rem 0;
+    /* Increase touch target */
+    min-height: 2.75rem;
+    /* ~44px minimum touch target */
   }
 
   .mobile-actions .btn-label {
@@ -2067,11 +2102,13 @@
     grid-area: modes;
     display: flex;
     justify-content: flex-start;
-    gap: 0.35rem;
+    gap: 0.4rem;
     overflow-x: auto;
     padding-bottom: 0.2rem;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    min-width: 0;
+    /* Essential to stop parent blowout */
   }
 
   .mobile-modes-wrapper::-webkit-scrollbar {
@@ -2080,13 +2117,14 @@
 
   .top .compact-grid button,
   .top .settings-menu>summary {
-    min-height: 2.4rem;
+    min-height: 2.75rem;
+    /* ~44px tap target */
     padding: 0.5rem 0;
     font-size: 0.82rem;
   }
 
   .top .settings-menu>summary {
-    padding: 0.5rem 0.78rem;
+    padding: 0.5rem 0.85rem;
   }
 
   /* Dark blurred backdrop when settings is open */
@@ -2094,9 +2132,9 @@
     content: "";
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.65);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     z-index: 990;
     cursor: default;
   }
@@ -2110,7 +2148,8 @@
     left: 0;
     transform: translateY(100%) !important;
     width: 100vw;
-    max-width: none;
+    max-width: 100vw;
+    /* Prevent blowout here */
     max-height: 85vh;
     z-index: 1000;
     box-shadow:
@@ -2119,6 +2158,7 @@
     padding: 1.25rem 1.25rem env(safe-area-inset-bottom, 1.25rem);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     animation: slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    overflow-y: auto;
   }
 
   @keyframes slide-up {
@@ -2136,6 +2176,7 @@
   .wc-nav,
   .wc-speed {
     min-height: 2.75rem;
+    /* Better touch target */
     padding: 0.18rem;
   }
 
@@ -2156,33 +2197,36 @@
   .mode-pill,
   .analysis-tab-btn {
     min-height: 2.3rem;
-    padding: 0.34rem 0.8rem;
+    /* Approaching 44px (with padding of container it's good) */
+    padding: 0.4rem 0.8rem;
     font-size: 0.8rem;
   }
 
   .wc-btn {
     min-width: 2.75rem;
-    min-height: 2.3rem;
+    /* ~44px square roughly */
+    min-height: 2.75rem;
     padding: 0.3rem 0.62rem;
-    font-size: 0.95rem;
+    font-size: 1.05rem;
+    /* Slightly larger icons for better tapping */
   }
 
   .gc-btn {
-    min-height: 2.3rem;
-    padding: 0.3rem 0.8rem;
+    min-height: 2.5rem;
+    padding: 0.35rem 0.85rem;
   }
 
   .watch-controls {
     flex-wrap: wrap;
-    row-gap: 0.35rem;
+    row-gap: 0.5rem;
   }
 
   .bottom .panel-content {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 0.45rem;
-    padding: 0.45rem var(--space-md);
+    gap: 0.5rem;
+    padding: 0.5rem var(--space-md);
   }
 
   .bottom-status-row {
@@ -2196,11 +2240,21 @@
   .watch-controls {
     justify-content: center;
     flex-wrap: wrap;
-    gap: 0.35rem;
+    gap: 0.4rem;
   }
 
   .resize-handle {
     display: none !important;
+  }
+
+  /* Make UI elements stack gracefully on mobile screens */
+  .preset-grid,
+  .inline-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .diagnostics-actions {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -2650,69 +2704,5 @@ summary:active {
   .status.loading::before,
   .status.analyzing::before {
     animation: none !important;
-  }
-}
-
-/* ═══════════════════════════════════════════════════
-   Mobile Responsiveness & Viewports
-   ═══════════════════════════════════════════════════ */
-@media (max-width: 900px) {
-  .app-shell {
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    padding-top: 3.5rem;
-    /* space for top bar */
-    padding-bottom: 4rem;
-    /* space for bottom bar */
-  }
-
-  .board-stage {
-    position: relative;
-    inset: auto;
-    min-height: 45vh;
-    padding: var(--space-sm);
-    z-index: 10;
-  }
-
-  .left,
-  .right {
-    position: static;
-    width: 100% !important;
-    max-width: 100%;
-    margin: 0;
-    padding: 0 var(--space-sm) var(--space-lg);
-  }
-
-  /* Make panel contents flow naturally */
-  .left .panel-inner,
-  .right .panel-inner {
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
-    height: auto;
-    max-height: none;
-    overflow: visible;
-  }
-
-  /* Ensure the inline scrolling stays reasonable inside the panels */
-  .left .panel-content,
-  .right .panel-content {
-    overflow: visible;
-  }
-
-  /* Hide resize handles on mobile since it's full width stacked */
-  .resize-handle {
-    display: none !important;
-  }
-
-  /* Make UI elements stack gracefully on mobile screens */
-  .preset-grid,
-  .inline-actions {
-    grid-template-columns: 1fr;
-  }
-
-  .diagnostics-actions {
-    grid-template-columns: repeat(2, 1fr);
   }
 }
