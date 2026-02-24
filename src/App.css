@@ -1225,6 +1225,7 @@
    ═══════════════════════════════════════════════════ */
 .pv-list {
   margin-top: var(--space-md);
+  min-height: 250px;
 }
 
 .pv-list article {
