@@ -85,6 +85,8 @@ type PersistedAppSettings = {
   openingSource: OpeningDatabaseSource
   openingSpeeds: OpeningSpeed[]
   openingRatingPreset: OpeningRatingPresetId
+  showTopMoveArrows: boolean
+  topMoveArrowCount: number
 }
 
 const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
@@ -113,6 +115,8 @@ const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
   openingSource: 'masters',
   openingSpeeds: ['blitz', 'rapid', 'classical'],
   openingRatingPreset: 'all',
+  showTopMoveArrows: true,
+  topMoveArrowCount: 3,
 }
 
 function isAnalyzePresetId(value: unknown): value is AnalyzePresetId {
@@ -180,6 +184,23 @@ function percentage(part: number, total: number): number {
   return (part / total) * 100
 }
 
+function clamp01(value: number): number {
+  if (value < 0) return 0
+  if (value > 1) return 1
+  return value
+}
+
+function topArrowColor(normalizedStrength: number): string {
+  const t = clamp01(normalizedStrength)
+  const from = { r: 248, g: 81, b: 73 } // Red (worse)
+  const to = { r: 63, g: 185, b: 80 } // Green (better)
+  const r = Math.round(from.r + (to.r - from.r) * t)
+  const g = Math.round(from.g + (to.g - from.g) * t)
+  const b = Math.round(from.b + (to.b - from.b) * t)
+  const alpha = (0.52 + 0.38 * t).toFixed(2)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
 function loadPersistedSettings(): PersistedAppSettings {
   if (typeof window === 'undefined') return DEFAULT_PERSISTED_SETTINGS
 
@@ -228,6 +249,10 @@ function loadPersistedSettings(): PersistedAppSettings {
       openingRatingPreset: isOpeningRatingPreset(parsed.openingRatingPreset)
         ? parsed.openingRatingPreset
         : DEFAULT_PERSISTED_SETTINGS.openingRatingPreset,
+      showTopMoveArrows: typeof parsed.showTopMoveArrows === 'boolean'
+        ? parsed.showTopMoveArrows
+        : DEFAULT_PERSISTED_SETTINGS.showTopMoveArrows,
+      topMoveArrowCount: normalizeInteger(parsed.topMoveArrowCount, 1, 5, DEFAULT_PERSISTED_SETTINGS.topMoveArrowCount),
     }
   } catch {
     return DEFAULT_PERSISTED_SETTINGS
@@ -296,6 +321,8 @@ function App() {
   const [openingSource, setOpeningSource] = useState<OpeningDatabaseSource>(persistedSettings.openingSource)
   const [openingSpeeds, setOpeningSpeeds] = useState<OpeningSpeed[]>(persistedSettings.openingSpeeds)
   const [openingRatingPreset, setOpeningRatingPreset] = useState<OpeningRatingPresetId>(persistedSettings.openingRatingPreset)
+  const [showTopMoveArrows, setShowTopMoveArrows] = useState<boolean>(persistedSettings.showTopMoveArrows)
+  const [topMoveArrowCount, setTopMoveArrowCount] = useState<number>(persistedSettings.topMoveArrowCount)
   const [openingPrefetchTick, setOpeningPrefetchTick] = useState(0)
 
   // ── Evaluations ──────────────────────────────────────
@@ -587,6 +614,8 @@ function App() {
     setOpeningSource(DEFAULT_PERSISTED_SETTINGS.openingSource)
     setOpeningSpeeds(DEFAULT_PERSISTED_SETTINGS.openingSpeeds)
     setOpeningRatingPreset(DEFAULT_PERSISTED_SETTINGS.openingRatingPreset)
+    setShowTopMoveArrows(DEFAULT_PERSISTED_SETTINGS.showTopMoveArrows)
+    setTopMoveArrowCount(DEFAULT_PERSISTED_SETTINGS.topMoveArrowCount)
     setOpeningPrefetchTick(0)
     setEngineLabError(null)
   }, [])
@@ -746,6 +775,8 @@ function App() {
       openingSource,
       openingSpeeds,
       openingRatingPreset,
+      showTopMoveArrows,
+      topMoveArrowCount,
     })
   }, [
     activePreset,
@@ -765,6 +796,8 @@ function App() {
     openingRatingPreset,
     openingSource,
     openingSpeeds,
+    showTopMoveArrows,
+    topMoveArrowCount,
     quickMovetimeMs,
     searchDepth,
     searchMovesInput,
@@ -934,21 +967,49 @@ function App() {
       list.push({ startSquare: currentMove.from, endSquare: currentMove.to, color: 'rgba(255, 170, 0, 0.8)' })
     }
 
-    const currentLines = lines.filter(l => !l.fen || l.fen === fen)
-    const bestLine = currentLines.find(l => l.multipv === 1)
-    if (bestLine) {
-      const uci = bestLine.pv[0]
-      if (uci) {
-        list.push({
-          startSquare: uci.slice(0, 2),
-          endSquare: uci.slice(2, 4),
-          color: 'rgba(63, 185, 80, 0.8)', // Green for best
-        })
+    if (!showTopMoveArrows) return list
+
+    const currentLines = lines
+      .filter(line => !line.fen || line.fen === fen)
+      .filter(line => typeof line.pv[0] === 'string' && line.pv[0]!.length >= 4)
+
+    if (!currentLines.length) return list
+
+    const bestByMove = new Map<string, { uci: string; score: number }>()
+    for (const line of currentLines) {
+      const uci = line.pv[0]
+      if (!uci || uci.length < 4) continue
+      const score = scoreToCp(line.cp, line.mate) ?? -12_000
+      const existing = bestByMove.get(uci)
+      if (!existing || score > existing.score) {
+        bestByMove.set(uci, { uci, score })
       }
     }
 
+    const ranked = [...bestByMove.values()]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, topMoveArrowCount)
+
+    if (!ranked.length) return list
+
+    const maxScore = ranked[0]!.score
+    const minScore = ranked[ranked.length - 1]!.score
+
+    for (let index = 0; index < ranked.length; index += 1) {
+      const candidate = ranked[index]!
+      const spread = maxScore - minScore
+      const strength = spread > 0
+        ? (candidate.score - minScore) / spread
+        : (ranked.length === 1 ? 1 : 1 - (index / Math.max(1, ranked.length - 1)))
+      list.push({
+        startSquare: candidate.uci.slice(0, 2),
+        endSquare: candidate.uci.slice(2, 4),
+        color: topArrowColor(strength),
+      })
+    }
+
     return list
-  }, [gameTree.current.move, lines, fen])
+  }, [fen, gameTree.current.move, lines, showTopMoveArrows, topMoveArrowCount])
 
   // ── AI move loop (with speed throttle) ───────────────
   useEffect(() => {
@@ -1574,6 +1635,31 @@ function App() {
                     }} />
                   <strong>{multiPv} lines</strong>
                 </label>
+                <label className="switch-control">
+                  <input
+                    type="checkbox"
+                    checked={showTopMoveArrows}
+                    onChange={e => setShowTopMoveArrows(e.target.checked)}
+                  />
+                  <span>Show top move arrows (live score colors)</span>
+                </label>
+                {showTopMoveArrows && (
+                  <label className="control">
+                    <span>Top arrows</span>
+                    <input
+                      type="range"
+                      min={1}
+                      max={5}
+                      step={1}
+                      value={topMoveArrowCount}
+                      onChange={e => setTopMoveArrowCount(Number(e.target.value))}
+                    />
+                    <strong>{topMoveArrowCount}</strong>
+                  </label>
+                )}
+                <p className="panel-copy small">
+                  Better lines render greener and worse lines redder{analyzeMode === 'infinite' ? ' (updates live in infinite mode).' : '.'}
+                </p>
                 <label className="switch-control">
                   <input
                     type="checkbox"
