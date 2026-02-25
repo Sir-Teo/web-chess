@@ -452,9 +452,10 @@
 
 .eval-bar-label {
   position: absolute;
-  /* Sit just below the WdlBar – the bar is left:-20px, width:10px */
+  /* Sit just below the WdlBar */
   bottom: -22px;
-  left: -36px;
+  left: -20px;
+  /* Aligned with desktop WdlBar left edge */
   width: 34px;
   font-size: 0.62rem;
   font-weight: 700;
@@ -2015,6 +2016,10 @@
     position: relative !important;
     top: auto !important;
     order: 0;
+  }
+
+  .eval-bar-label {
+    left: -12px;
   }
 
   .board-stage {
