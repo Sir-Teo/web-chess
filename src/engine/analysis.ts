@@ -133,7 +133,7 @@ export function summarizeReview(rows: ReviewRow[]): Record<ReviewLabel, number> 
   )
 }
 
-function normalizeWhitePovCp(fen: string, cp: number): number {
+export function normalizeWhitePovCp(fen: string, cp: number): number {
   const turn = fen.split(' ')[1]
   return turn === 'w' ? cp : -cp
 }

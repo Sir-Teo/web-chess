@@ -442,6 +442,36 @@
   /* Center board */
 }
 
+/* Eval bar + score label wrapper */
+.eval-bar-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.eval-bar-label {
+  position: absolute;
+  /* Sit just below the WdlBar – the bar is left:-20px, width:10px */
+  bottom: -22px;
+  left: -36px;
+  width: 34px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  background: rgba(13, 17, 23, 0.88);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 2px 3px;
+  line-height: 1;
+  pointer-events: none;
+  white-space: nowrap;
+  text-align: center;
+  writing-mode: initial;
+  transform: none;
+}
+
 /* AI thinking overlay */
 .ai-thinking-overlay {
   position: absolute;
@@ -1989,39 +2019,24 @@
 
   .board-stage {
     order: 1;
-    padding: var(--space-md) var(--space-sm);
-    /* Tighter padding for small screens */
+    padding: var(--space-sm);
     min-height: auto;
-    aspect-ratio: 1/1;
-    /* Keep board square on mobile */
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
     flex: none;
-    /* Don't grow board beyond content */
     display: flex;
     justify-content: center;
     align-items: center;
-  }
-
-  .right {
-    order: 2;
-    padding: 0 var(--space-sm) var(--space-md) !important;
-    width: 100% !important;
-    height: auto;
-  }
-
-  .left {
-    order: 3;
-    padding: 0 var(--space-sm) var(--space-lg) !important;
-    width: 100% !important;
-    height: auto;
+    /* Board size driven by JS boardWidth (≈46% viewport height) */
+    background: var(--bg-base);
   }
 
   .right {
     order: 3;
     padding: 0 var(--space-sm) var(--space-md) !important;
     width: 100% !important;
+    height: auto;
     align-self: stretch;
   }
 
@@ -2029,6 +2044,7 @@
     order: 4;
     padding: 0 var(--space-sm) var(--space-lg) !important;
     width: 100% !important;
+    height: auto;
     align-self: stretch;
   }
 
@@ -2048,14 +2064,15 @@
   }
 
   .bottom {
-    position: relative !important;
-    bottom: auto !important;
-    order: 4;
+    position: sticky !important;
+    bottom: 0 !important;
+    order: 2;
     width: 100% !important;
     overflow-x: hidden;
     background: rgba(13, 17, 23, 0.75);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
+    z-index: 200;
   }
 
   .app-brand-text {

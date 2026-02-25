@@ -6,6 +6,7 @@ import {
   buildWinrateSeries,
   buildReviewRows,
   formatEvaluation,
+  normalizeWhitePovCp,
   pvToSan,
   scoreToCp,
   summarizeReview,
@@ -402,6 +403,10 @@ function App() {
   const [isAiThinking, setIsAiThinking] = useState(false)
   const aiMoveScheduledRef = useRef(false)
 
+  // ── Click-to-move (tap support) ───────────────────────
+  const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
+  const [legalTargets, setLegalTargets] = useState<Square[]>([])
+
   // ── AI speed (throttle delay between AI moves) ───────
   const [aiSpeed, setAiSpeed] = useState<AiSpeed>('normal')
   const aiSpeedRef = useRef<AiSpeed>('normal')
@@ -530,6 +535,8 @@ function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [goPrev, goNext])
+
+  // Keyboard shortcuts (← →) and no wheel-to-navigate (conflicts with touch)
 
   // ── Batch Review ─────────────────────────────────────
   const [isBatchReviewing, setIsBatchReviewing] = useState(false)
@@ -1293,8 +1300,53 @@ function App() {
     const newFen = game.fen()
     setFen(newFen)
     gameTree.addMove(move, newFen)
+    setSelectedSquare(null)
+    setLegalTargets([])
     return true
   }
+
+  const onSquareClick = useCallback((square: Square) => {
+    if (gameMode === 'human-vs-ai' && isAiThinking) return
+    if (gameMode === 'human-vs-ai' && !paused && game.turn() !== playerColor[0]) return
+
+    // If a source square is already selected, try to move there
+    if (selectedSquare) {
+      // Deselect if same square clicked
+      if (square === selectedSquare) {
+        setSelectedSquare(null)
+        setLegalTargets([])
+        return
+      }
+      // If clicking another own piece, re-select it
+      const clickedPiece = game.get(square)
+      if (clickedPiece && clickedPiece.color === game.turn()) {
+        const moves = game.moves({ square, verbose: true })
+        setSelectedSquare(square)
+        setLegalTargets(moves.map(m => m.to as Square))
+        return
+      }
+      // Attempt the move
+      const pieceType = game.get(selectedSquare)?.type ?? ''
+      const promotion = pieceType === 'p' && ['1', '8'].includes(square[1]) ? 'q' : undefined
+      const move = game.move({ from: selectedSquare, to: square, promotion })
+      if (move) {
+        clearImportSweep()
+        const newFen = game.fen()
+        setFen(newFen)
+        gameTree.addMove(move, newFen)
+      }
+      setSelectedSquare(null)
+      setLegalTargets([])
+      return
+    }
+
+    // First tap: select if it's a piece of the current player
+    const piece = game.get(square)
+    if (!piece || piece.color !== game.turn()) return
+    const moves = game.moves({ square, verbose: true })
+    setSelectedSquare(square)
+    setLegalTargets(moves.map(m => m.to as Square))
+  }, [clearImportSweep, game, gameMode, gameTree, isAiThinking, paused, playerColor, selectedSquare])
 
   // ── New game ──────────────────────────────────────────
   const openNewGameDialog = () => setShowNewGameDialog(true)
@@ -1477,8 +1529,9 @@ function App() {
 
   const isMobile = viewport.width <= 900
 
+  // Mobile: board occupies ~50% of viewport height so analysis panels are visible below
   const boardWidth = isMobile
-    ? Math.max(280, Math.min(viewport.width - 32, viewport.height - (bottomPanelOpen ? 180 : 100) - (topPanelOpen ? 120 : 60)))
+    ? Math.min(viewport.width - 16, Math.round(viewport.height * 0.46))
     : Math.min(
       viewport.width - leftWidth - rightWidth - 48,
       viewport.height - (bottomPanelOpen ? 140 : 80) - (topPanelOpen ? 80 : 40),
@@ -1945,7 +1998,19 @@ function App() {
         {/* ── Board ── */}
         <section className="board-stage" aria-label="Chessboard">
           <div className="board-wrap">
-            {engineEnabled && showWdl && <WdlBar fen={fen} evaluation={evaluationsByFen.get(fen)} orientation={orientation} />}
+            {engineEnabled && showWdl && (() => {
+              const evalSnap = evaluationsByFen.get(fen)
+              const rawCp = evalSnap?.cp
+              const evalLabel = typeof rawCp === 'number'
+                ? formatEvaluation(normalizeWhitePovCp(fen, rawCp), undefined)
+                : null
+              return (
+                <>
+                  <WdlBar fen={fen} evaluation={evalSnap} orientation={orientation} />
+                  {evalLabel && <span className="eval-bar-label">{evalLabel}</span>}
+                </>
+              )
+            })()}
             {opening && (
               <div className="board-opening-label fade-in-slide">
                 <div className="opening-pill">
@@ -1960,7 +2025,19 @@ function App() {
                 boardOrientation: orientation,
                 onPieceDrop: ({ sourceSquare, targetSquare, piece }) => {
                   if (!targetSquare) return false
+                  setSelectedSquare(null)
+                  setLegalTargets([])
                   return onPieceDrop(sourceSquare as Square, targetSquare as Square, piece.pieceType)
+                },
+                onSquareClick: ({ square }) => onSquareClick(square as Square),
+                squareStyles: {
+                  ...(selectedSquare ? { [selectedSquare]: { backgroundColor: 'rgba(255,215,0,0.55)', boxShadow: 'inset 0 0 0 3px rgba(255,200,0,0.9)' } } : {}),
+                  ...Object.fromEntries(legalTargets.map(sq => [sq, {
+                    background: game.get(sq)
+                      ? 'radial-gradient(circle, rgba(255,100,0,0.5) 60%, transparent 60%)'
+                      : 'radial-gradient(circle, rgba(0,0,0,0.25) 28%, transparent 28%)',
+                    borderRadius: '50%',
+                  }])),
                 },
                 arrows,
                 allowDragging: !isAiThinking && !(gameMode === 'human-vs-ai' && !paused && game.turn() !== playerColor[0]),
@@ -2201,7 +2278,7 @@ function App() {
                           <header>
                             <strong>#{line.multipv}</strong>
                             <span>D{line.depth}</span>
-                            <span>{formatEvaluation(line.cp, line.mate)}</span>
+                            <span>{formatEvaluation(typeof line.cp === 'number' ? normalizeWhitePovCp(line.fen ?? fen, line.cp) : undefined, line.mate)}</span>
                           </header>
                           <p>{pvToSan(line.fen ?? fen, line) || line.pv.slice(0, 8).join(' ')}</p>
                           <p className="pv-uci">{line.pv.slice(0, 8).join(' ')}</p>
