@@ -223,10 +223,15 @@
   align-items: center;
   gap: 0.45rem;
   width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  box-sizing: border-box;
+}
+
+@media (max-width: 900px) {
+  .top .compact-grid {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    box-sizing: border-box;
+  }
 }
 
 .top .compact-grid::-webkit-scrollbar {
