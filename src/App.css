@@ -400,7 +400,7 @@
   left: auto;
   right: 0;
   /* Align to right edge for easier access from the settings button */
-  z-index: 100;
+  z-index: 1000;
   width: 320px;
   /* Slightly narrower for mobile friendliness */
   max-height: 72vh;
