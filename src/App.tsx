@@ -1606,7 +1606,20 @@ function App() {
 
             <details className="settings-menu">
               <summary><span className="btn-icon"><IconSettings /></span> Settings</summary>
+              <div className="settings-backdrop" onClick={(e) => {
+                const details = e.currentTarget.closest('details');
+                if (details) details.removeAttribute('open');
+              }}></div>
               <div className="settings-body">
+                <div className="settings-header">
+                  <h2>Settings</h2>
+                  <button type="button" className="settings-close-btn" onClick={(e) => {
+                    const details = e.currentTarget.closest('details');
+                    if (details) details.removeAttribute('open');
+                  }}>
+                    Done
+                  </button>
+                </div>
                 <p className="panel-copy small command-summary">
                   Workspace: <strong>{workspaceMode === 'play' ? 'Play mode' : 'Analysis mode'}</strong>
                 </p>

@@ -773,8 +773,24 @@
   display: none;
 }
 
+.settings-backdrop {
+  display: none;
+}
+
+.settings-menu[open] .settings-backdrop {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 990;
+  cursor: default;
+}
+
 .settings-body {
   padding: 0 0.65rem 0.65rem;
+}
+
+.settings-header {
+  display: none;
 }
 
 .advanced-settings {
@@ -2168,16 +2184,11 @@
     box-sizing: border-box;
   }
 
-  /* Dark blurred backdrop when settings is open */
-  .top .settings-menu[open]>summary::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    z-index: 990;
-    cursor: default;
+  /* Mobile settings backdrop */
+  .top .settings-menu[open] .settings-backdrop {
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
   }
 
   /* Make sure the text on the summary tag stays above if we don't hide it, 
@@ -2217,6 +2228,42 @@
     background: var(--border-strong);
     border-radius: 4px;
     z-index: 1001;
+    pointer-events: none;
+  }
+
+  .settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .settings-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text-heading);
+    font-weight: 600;
+  }
+
+  .settings-close-btn {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    color: var(--text-primary);
+    padding: 0.35rem 0.85rem;
+    border-radius: var(--radius-pill);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 140ms ease;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .settings-close-btn:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-strong);
+    }
   }
 
   @keyframes slide-up {
