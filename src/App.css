@@ -15,11 +15,11 @@
       rgba(59, 130, 246, 0.07) 0%,
       transparent 50%),
     var(--bg-base);
-  overflow: hidden;
   /* Ensure shell never scrolls horizontally */
   -webkit-font-smoothing: antialiased;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 .app-shell.resizing {
@@ -38,6 +38,7 @@
   overflow-x: hidden;
   /* Prevent horizontal spill */
   overflow-y: hidden;
+  box-sizing: border-box;
 }
 
 .panel {
@@ -143,7 +144,7 @@
   outline-offset: 2px;
 }
 
-.app-shell :is(button, summary, input, select, textarea, a, [role="button"]):focus:not( :focus-visible) {
+.app-shell :is(button, summary, input, select, textarea, a, [role="button"]):focus:not(:focus-visible) {
   outline: none;
 }
 
@@ -1973,8 +1974,8 @@
 
   .main-container {
     flex-direction: column;
-    width: 100vw;
-    max-width: 100vw;
+    width: 100%;
+    max-width: 100%;
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
@@ -1988,13 +1989,13 @@
 
   .board-stage {
     order: 1;
-    padding: var(--space-sm);
+    padding: var(--space-md) var(--space-sm);
     /* Tighter padding for small screens */
     min-height: auto;
     aspect-ratio: 1/1;
     /* Keep board square on mobile */
-    width: 100vw;
-    max-width: 100vw;
+    width: 100%;
+    max-width: 100%;
     box-sizing: border-box;
     flex: none;
     /* Don't grow board beyond content */
@@ -2052,6 +2053,9 @@
     order: 4;
     width: 100% !important;
     overflow-x: hidden;
+    background: rgba(13, 17, 23, 0.75);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
   }
 
   .app-brand-text {
@@ -2096,7 +2100,7 @@
 
   .mobile-actions button {
     justify-content: center;
-    padding: 0.5rem 0;
+    padding: 0.5rem 0.2rem;
     /* Increase touch target */
     min-height: 2.75rem;
     /* ~44px minimum touch target */
@@ -2110,9 +2114,9 @@
     grid-area: modes;
     display: flex;
     justify-content: flex-start;
-    gap: 0.4rem;
+    gap: 0.6rem;
     overflow-x: auto;
-    padding-bottom: 0.2rem;
+    padding-bottom: 0.3rem;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     min-width: 0;
@@ -2164,7 +2168,7 @@
     right: 0;
     transform: translateY(100%) !important;
     width: 100%;
-    max-width: 100vw;
+    max-width: 100%;
     /* Prevent blowout here */
     max-height: 85vh;
     z-index: 1000;
@@ -2177,6 +2181,20 @@
     overflow-y: auto;
     border: none;
     border-top: 1px solid var(--border-strong);
+  }
+
+  /* Drawer pill handle */
+  .top .settings-body::before {
+    content: "";
+    position: fixed;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background: var(--border-strong);
+    border-radius: 4px;
+    z-index: 1001;
   }
 
   @keyframes slide-up {
@@ -2214,19 +2232,19 @@
   .wc-speed-pill,
   .mode-pill,
   .analysis-tab-btn {
-    min-height: 2.75rem;
-    /* Enforced 44px minimum */
-    padding: 0.4rem 0.8rem;
-    font-size: 0.8rem;
+    min-height: 48px;
+    /* Enforced 48px minimum touch target */
+    padding: 0.5rem 0.9rem;
+    font-size: 0.85rem;
   }
 
   .wc-btn {
-    min-width: 2.75rem;
-    /* ~44px square roughly */
-    min-height: 2.75rem;
-    padding: 0.3rem 0.62rem;
-    font-size: 1.05rem;
-    /* Slightly larger icons for better tapping */
+    min-width: 3rem;
+    /* Enforced 48px touch target */
+    min-height: 3rem;
+    padding: 0.35rem 0.65rem;
+    font-size: 1.25rem;
+    /* Larger icons for better tapping */
   }
 
   .gc-btn {
@@ -2236,7 +2254,8 @@
 
   .watch-controls {
     flex-wrap: wrap;
-    row-gap: 0.5rem;
+    row-gap: 0.6rem;
+    column-gap: 0.6rem;
   }
 
   .bottom .panel-content {
@@ -2276,46 +2295,67 @@
 
   /* Typography & fat-fingers adjustments */
   .bottom-engine-info {
-    font-size: 0.78rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
   }
 
   .panel-copy.small {
     font-size: 0.78rem;
   }
 
+  .sample-game-row {
+    padding: 0.6rem;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
+
+  .sample-game-row header strong {
+    font-size: 0.8rem;
+  }
+
   .control,
   .engine-option-row {
-    margin-bottom: 0.8rem;
+    margin-bottom: 1rem;
     padding-bottom: 0.4rem;
   }
 
   .control span,
   .engine-option-row span {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     font-weight: 500;
   }
 
   .control strong {
-    font-size: 0.82rem;
+    font-size: 0.95rem;
   }
 
   .switch-control {
-    margin-bottom: 0.8rem;
+    margin-bottom: 1rem;
   }
 
   .switch-control span {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
   }
 
   input[type="range"] {
-    height: 12px;
-    /* Bigger track */
-    border-radius: 6px;
+    height: 16px;
+    /* Bigger track for fat fingers */
+    border-radius: 8px;
   }
 
   input[type="checkbox"] {
-    width: 1.1rem;
-    height: 1.1rem;
+    width: 1.3rem;
+    height: 1.3rem;
+  }
+
+  .engine-options {
+    max-height: 40vh;
+    padding: 0.6rem;
+  }
+
+  .engine-option-row input,
+  .engine-option-row select {
+    padding: 0.45rem 0.55rem;
+    font-size: 0.85rem;
   }
 }
 

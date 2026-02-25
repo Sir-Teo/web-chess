@@ -40,7 +40,7 @@
 /* On mobile/smaller screens where padding might clip */
 @media (max-width: 900px) {
     .wdl-bar {
-        left: -14px;
-        width: 8px;
+        left: -12px;
+        width: 10px;
     }
 }

@@ -1478,7 +1478,7 @@ function App() {
   const isMobile = viewport.width <= 900
 
   const boardWidth = isMobile
-    ? Math.max(280, Math.min(viewport.width - 24, viewport.height - (bottomPanelOpen ? 180 : 100) - (topPanelOpen ? 120 : 60)))
+    ? Math.max(280, Math.min(viewport.width - 32, viewport.height - (bottomPanelOpen ? 180 : 100) - (topPanelOpen ? 120 : 60)))
     : Math.min(
       viewport.width - leftWidth - rightWidth - 48,
       viewport.height - (bottomPanelOpen ? 140 : 80) - (topPanelOpen ? 80 : 40),
