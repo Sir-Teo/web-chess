@@ -93,6 +93,8 @@ body {
   min-width: 320px;
   background: var(--bg-base);
   scroll-behavior: smooth;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 #root {

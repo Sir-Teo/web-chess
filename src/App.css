@@ -16,6 +16,7 @@
       transparent 50%),
     var(--bg-base);
   overflow: hidden;
+  /* Ensure shell never scrolls horizontally */
   -webkit-font-smoothing: antialiased;
   display: flex;
   flex-direction: column;
@@ -34,7 +35,9 @@
   display: flex;
   position: relative;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  /* Prevent horizontal spill */
+  overflow-y: hidden;
 }
 
 .panel {
@@ -307,21 +310,24 @@
 .top .settings-body {
   position: absolute;
   top: calc(100% + 6px);
-  left: 0;
+  left: auto;
+  right: 0;
+  /* Align to right edge for easier access from the settings button */
   z-index: 100;
-  width: 340px;
+  width: 320px;
+  /* Slightly narrower for mobile friendliness */
   max-height: 72vh;
   overflow-y: auto;
-  padding: var(--space-md);
+  padding: var(--space-lg);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-default);
   background: var(--bg-surface);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
   box-shadow:
     var(--shadow-lg),
     0 0 0 1px var(--border-subtle);
-  animation: dropdown-in 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: dropdown-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes dropdown-in {
@@ -428,8 +434,11 @@
   border-radius: 14px;
   transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
   touch-action: none;
-  width: 100%;
+  width: min-content;
+  /* Force width to match chessboard's calculated style */
   max-width: 100%;
+  margin: 0 auto;
+  /* Center board */
 }
 
 /* AI thinking overlay */
@@ -1956,13 +1965,18 @@
 @media (max-width: 900px) {
   .app-shell {
     height: 100vh;
+    width: 100vw;
+    max-width: 100vw;
     overflow: hidden;
     padding: 0;
   }
 
   .main-container {
     flex-direction: column;
+    width: 100vw;
+    max-width: 100vw;
     overflow-y: auto;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
   }
 
@@ -1974,14 +1988,19 @@
 
   .board-stage {
     order: 1;
-    padding: var(--space-md);
+    padding: var(--space-sm);
+    /* Tighter padding for small screens */
     min-height: auto;
     aspect-ratio: 1/1;
     /* Keep board square on mobile */
+    width: 100vw;
     max-width: 100vw;
     box-sizing: border-box;
     flex: none;
     /* Don't grow board beyond content */
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
 
   .right {
@@ -2031,6 +2050,8 @@
     position: relative !important;
     bottom: auto !important;
     order: 4;
+    width: 100% !important;
+    overflow-x: hidden;
   }
 
   .app-brand-text {
@@ -2044,7 +2065,11 @@
       "brand settings"
       "actions actions"
       "modes modes";
-    gap: 0.5rem;
+    gap: 0.6rem;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    /* Prevent grid items from causing overflow */
   }
 
   .top .app-brand {
@@ -2065,6 +2090,7 @@
     grid-template-columns: repeat(3, 1fr);
     gap: 0.5rem;
     min-width: 0;
+    max-width: 100%;
     /* Let grid shrink */
   }
 
@@ -2090,7 +2116,8 @@
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     min-width: 0;
-    /* Essential to stop parent blowout */
+    max-width: 100%;
+    /* Ensure it doesn't expand parent */
   }
 
   .mobile-modes-wrapper::-webkit-scrollbar {
@@ -2107,6 +2134,12 @@
 
   .top .settings-menu>summary {
     padding: 0.5rem 0.85rem;
+    max-width: 100%;
+    /* Ensure it doesn't push parent width */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    box-sizing: border-box;
   }
 
   /* Dark blurred backdrop when settings is open */
@@ -2128,8 +2161,9 @@
     top: auto;
     bottom: 0;
     left: 0;
+    right: 0;
     transform: translateY(100%) !important;
-    width: 100vw;
+    width: 100%;
     max-width: 100vw;
     /* Prevent blowout here */
     max-height: 85vh;
@@ -2137,10 +2171,12 @@
     box-shadow:
       0 -12px 48px rgba(0, 0, 0, 0.6),
       0 -1px 0 0 var(--border-subtle);
-    padding: 1.25rem 1.25rem env(safe-area-inset-bottom, 1.25rem);
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    animation: slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    padding: 1.5rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom));
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     overflow-y: auto;
+    border: none;
+    border-top: 1px solid var(--border-strong);
   }
 
   @keyframes slide-up {
@@ -2178,8 +2214,8 @@
   .wc-speed-pill,
   .mode-pill,
   .analysis-tab-btn {
-    min-height: 2.3rem;
-    /* Approaching 44px (with padding of container it's good) */
+    min-height: 2.75rem;
+    /* Enforced 44px minimum */
     padding: 0.4rem 0.8rem;
     font-size: 0.8rem;
   }
@@ -2194,7 +2230,7 @@
   }
 
   .gc-btn {
-    min-height: 2.5rem;
+    min-height: 2.75rem;
     padding: 0.35rem 0.85rem;
   }
 
@@ -2229,7 +2265,6 @@
     display: none !important;
   }
 
-  /* Make UI elements stack gracefully on mobile screens */
   .preset-grid,
   .inline-actions {
     grid-template-columns: 1fr;
@@ -2237,6 +2272,50 @@
 
   .diagnostics-actions {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Typography & fat-fingers adjustments */
+  .bottom-engine-info {
+    font-size: 0.78rem;
+  }
+
+  .panel-copy.small {
+    font-size: 0.78rem;
+  }
+
+  .control,
+  .engine-option-row {
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.4rem;
+  }
+
+  .control span,
+  .engine-option-row span {
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+
+  .control strong {
+    font-size: 0.82rem;
+  }
+
+  .switch-control {
+    margin-bottom: 0.8rem;
+  }
+
+  .switch-control span {
+    font-size: 0.8rem;
+  }
+
+  input[type="range"] {
+    height: 12px;
+    /* Bigger track */
+    border-radius: 6px;
+  }
+
+  input[type="checkbox"] {
+    width: 1.1rem;
+    height: 1.1rem;
   }
 }
 
