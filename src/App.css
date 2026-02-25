@@ -219,20 +219,106 @@
 
 .top .compact-grid {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.45rem;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  box-sizing: border-box;
 }
 
-.top .compact-grid button {
-  padding: 0.38rem 0.65rem;
-  font-size: 0.76rem;
-  border-radius: var(--radius-sm);
+.top .compact-grid::-webkit-scrollbar {
+  display: none;
 }
 
-.mobile-actions,
+.mobile-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.35rem;
+  background: rgba(13, 17, 23, 0.5);
+  padding: 0.2rem;
+  border-radius: 24px;
+  border: 1px solid var(--border-subtle);
+}
+
+.mobile-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  min-height: unset;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  box-sizing: border-box;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mobile-actions button:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+  }
+}
+
+.mobile-actions button:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.mobile-actions .btn-label {
+  display: none;
+}
+
 .mobile-modes-wrapper {
   display: contents;
+}
+
+.top-mode-pills {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.2rem;
+  background: rgba(13, 17, 23, 0.5);
+  padding: 0.2rem;
+  border-radius: 24px;
+  border: 1px solid var(--border-subtle);
+  margin: 0;
+  min-height: unset;
+}
+
+.gc-mode-pills {
+  background: rgba(13, 17, 23, 0.5);
+  padding: 0.2rem;
+  border-radius: 24px;
+  border: 1px solid var(--border-subtle);
+}
+
+.top .compact-grid button:not(.btn-icon-only),
+.top .settings-menu>summary {
+  min-height: unset;
+  height: 2.2rem;
+  padding: 0 0.8rem;
+  font-size: 0.78rem;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.top .settings-menu {
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.top .settings-menu>summary {
+  background: rgba(13, 17, 23, 0.6);
+  border: 1px solid var(--border-subtle);
+  max-width: max-content;
+  white-space: nowrap;
 }
 
 /* App branding */
@@ -2100,89 +2186,15 @@
     display: none;
   }
 
-  .top .compact-grid {
-    display: grid;
-    grid-template-columns: auto 1fr auto auto;
-    grid-template-areas:
-      "brand . actions settings"
-      "modes modes modes modes";
-    gap: 0.6rem 0.4rem;
-    width: 100%;
-    box-sizing: border-box;
-    align-items: center;
+  .top .panel-inner {
+    padding-top: env(safe-area-inset-top);
   }
 
-  .top .app-brand {
-    grid-area: brand;
-    margin: 0;
-    padding: 0;
-    border: none;
+  .top .panel-content {
+    padding: 0.35rem 0.5rem;
   }
 
-  .top .settings-menu {
-    grid-area: settings;
-    margin: 0;
-  }
 
-  .mobile-actions {
-    grid-area: actions;
-    display: flex;
-    gap: 0.35rem;
-  }
-
-  .mobile-actions button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    min-height: unset;
-    padding: 0;
-    border-radius: var(--radius-pill);
-    box-sizing: border-box;
-  }
-
-  .mobile-actions .btn-label {
-    display: none;
-  }
-
-  .mobile-modes-wrapper {
-    grid-area: modes;
-    display: flex;
-    justify-content: flex-start;
-    gap: 0.6rem;
-    overflow-x: auto;
-    padding-bottom: 0.3rem;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    min-width: 0;
-    max-width: 100%;
-    /* Ensure it doesn't expand parent */
-  }
-
-  .mobile-modes-wrapper::-webkit-scrollbar {
-    display: none;
-  }
-
-  .top .compact-grid button,
-  .top .settings-menu>summary {
-    min-height: 2.5rem;
-    height: 2.5rem;
-    padding: 0 0.8rem;
-    font-size: 0.82rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-  }
-
-  .top .settings-menu>summary {
-    max-width: 100%;
-    /* Ensure it doesn't push parent width */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
 
   /* Mobile settings backdrop */
   .top .settings-menu[open] .settings-backdrop {
