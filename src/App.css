@@ -2102,23 +2102,21 @@
 
   .top .compact-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto 1fr auto auto;
     grid-template-areas:
-      "brand settings"
-      "actions actions"
-      "modes modes";
-    gap: 0.6rem;
+      "brand . actions settings"
+      "modes modes modes modes";
+    gap: 0.6rem 0.4rem;
     width: 100%;
     box-sizing: border-box;
-    overflow: hidden;
-    /* Prevent grid items from causing overflow */
+    align-items: center;
   }
 
   .top .app-brand {
     grid-area: brand;
-    border-right: none;
     margin: 0;
     padding: 0;
+    border: none;
   }
 
   .top .settings-menu {
@@ -2128,20 +2126,20 @@
 
   .mobile-actions {
     grid-area: actions;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.5rem;
-    min-width: 0;
-    max-width: 100%;
-    /* Let grid shrink */
+    display: flex;
+    gap: 0.35rem;
   }
 
   .mobile-actions button {
+    display: flex;
+    align-items: center;
     justify-content: center;
-    padding: 0.5rem 0.2rem;
-    /* Increase touch target */
-    min-height: 2.75rem;
-    /* ~44px minimum touch target */
+    width: 2.5rem;
+    height: 2.5rem;
+    min-height: unset;
+    padding: 0;
+    border-radius: var(--radius-pill);
+    box-sizing: border-box;
   }
 
   .mobile-actions .btn-label {
@@ -2168,20 +2166,22 @@
 
   .top .compact-grid button,
   .top .settings-menu>summary {
-    min-height: 2.75rem;
-    /* ~44px tap target */
-    padding: 0.5rem 0;
+    min-height: 2.5rem;
+    height: 2.5rem;
+    padding: 0 0.8rem;
     font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
   }
 
   .top .settings-menu>summary {
-    padding: 0.5rem 0.85rem;
     max-width: 100%;
     /* Ensure it doesn't push parent width */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    box-sizing: border-box;
   }
 
   /* Mobile settings backdrop */
@@ -2280,8 +2280,7 @@
   .gc-mode-pills,
   .wc-nav,
   .wc-speed {
-    min-height: 2.75rem;
-    /* Better touch target */
+    min-height: 2.5rem;
     padding: 0.18rem;
   }
 
@@ -2301,23 +2300,20 @@
   .wc-speed-pill,
   .mode-pill,
   .analysis-tab-btn {
-    min-height: 48px;
-    /* Enforced 48px minimum touch target */
-    padding: 0.5rem 0.9rem;
+    min-height: 40px;
+    padding: 0.4rem 0.8rem;
     font-size: 0.85rem;
   }
 
   .wc-btn {
-    min-width: 3rem;
-    /* Enforced 48px touch target */
-    min-height: 3rem;
-    padding: 0.35rem 0.65rem;
-    font-size: 1.25rem;
-    /* Larger icons for better tapping */
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    padding: 0.35rem 0.55rem;
+    font-size: 1.15rem;
   }
 
   .gc-btn {
-    min-height: 2.75rem;
+    min-height: 2.5rem;
     padding: 0.35rem 0.85rem;
   }
 
