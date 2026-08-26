@@ -34,7 +34,7 @@ import { rootFenFromPgnHeaders } from './engine/pgn'
 import { engineProfiles, type EngineProfileId } from './engine/profiles'
 import type { TablebaseCategory, TablebaseMove, TablebaseResult } from './engine/tablebase'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
-import { useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
+import { DIFFICULTY_LABELS, useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
 import { useGameTree, type GameNode } from './hooks/useGameTree'
 import { useOpening } from './hooks/useOpening'
 import { useCloudEvaluation } from './hooks/useCloudEvaluation'
@@ -2260,8 +2260,20 @@ function App() {
       800,
     )
   const minBoardWidth = isLandscapePhone ? 180 : 260
-  // "disabled" reads like a fault; in Play mode the engine is off by design.
-  const engineStatusLabel = status === 'disabled' ? 'engine off' : status
+  // The status strip should name whatever is actually running. In Play mode the
+  // analysis engine is idle by design, and while an AI game is on it is the
+  // opponent — a separate worker — doing the work.
+  const showsAiOpponent = workspaceMode === 'play' && aiEnabled
+  const engineStatusLabel = showsAiOpponent
+    ? (aiPlayer.status === 'thinking' ? 'thinking' : aiPlayer.status)
+    : (status === 'disabled' ? 'engine off' : status)
+  const engineStatusTone = showsAiOpponent ? aiPlayer.status : status
+  const engineSourceLabel = showsAiOpponent
+    ? `AI · ${DIFFICULTY_LABELS[aiDifficulty]}`
+    : activeProfile.name
+  // In Play mode the engine is off, so an empty winrate/WDL card can never fill —
+  // it is 250px of permanent blank. They stay whenever there is data to plot.
+  const showEvaluationGraphs = engineEnabled || winratePoints.length > 0 || wdlPoints.length > 0
   const notationFontSize = `${Math.round(Math.max(10, Math.min(13, boardWidth / 32)))}px`
   const turnLabel = game.turn() === 'w' ? 'White to move' : 'Black to move'
   const moveNumberLabel = `Move ${fen.split(/\s+/)[5] ?? '1'}`
@@ -2674,6 +2686,7 @@ function App() {
           </div>
           <div className="panel-inner" style={{ opacity: (!isMobile && leftWidth === 0) ? 0 : 1 }}>
             <div className="panel-content">
+              {showEvaluationGraphs && (<>
               <section className="analytics-card">
                 <header className="section-heading">
                   <h3><span className="section-icon"><IconTrendingUp /></span> Winrate</h3>
@@ -2729,6 +2742,7 @@ function App() {
                   </div>
                 )}
               </section>
+              </>)}
               <section className="sample-library-card">
                 <header className="sample-library-head">
                   <h3><span className="section-icon"><IconKing /></span> Historical Library</h3>
@@ -3572,7 +3586,7 @@ function App() {
 
             <div className="bottom-status-row">
               <span className="bottom-engine-info" title={`${engineName} · ${profileMessage}`}>
-                {activeProfile.name} · <strong className={`status ${status}`}>{engineStatusLabel}</strong>
+                {engineSourceLabel} · <strong className={`status ${engineStatusTone}`}>{engineStatusLabel}</strong>
               </span>
               {activeGoCommand && (
                 <span className="engine-command-inline">{activeGoCommand}</span>

@@ -103,10 +103,6 @@ export function WatchControls({
                 </div>
             )}
 
-            {/* ── Paused indicator ── */}
-            {paused && aiActive && (
-                <span className="wc-paused-label"><IconPause /> Analyzing</span>
-            )}
         </div>
     )
 }
