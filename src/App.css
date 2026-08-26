@@ -1336,9 +1336,28 @@ body.resizing * {
    ═══════════════════════════════════════════════════ */
 .inline-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 0.35rem;
   margin-bottom: var(--space-md);
+}
+
+/* Running analysis is a cancel action, so the button drops the emerald "go"
+   treatment while it is the stop control. */
+.analyze-toggle.analyzing {
+  background: linear-gradient(180deg, #3a3f4c, #272b35) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-strong) !important;
+  box-shadow: none !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .analyze-toggle.analyzing:hover {
+    background: linear-gradient(180deg, #454b59, #30343f) !important;
+    border-color: rgba(248, 113, 113, 0.45) !important;
+    color: #fca5a5 !important;
+    box-shadow: none !important;
+  }
 }
 
 .analysis-header {
@@ -3226,6 +3245,34 @@ body.resizing * {
 
 .gc-pill-active .gc-pill-icon {
   opacity: 1;
+}
+
+/* Bottom status row */
+.bottom-status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.bottom-engine-info {
+  font-size: 0.71rem;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.bottom-engine-info .status {
+  text-transform: capitalize;
+}
+
+/* `.best-move` is a block paragraph elsewhere; inside the status strip it has to
+   stay inline or it claims the whole row and pushes the bar onto two lines. */
+.bottom-status-row .best-move {
+  margin: 0;
+  white-space: nowrap;
 }
 
 /* ═══════════════════════════════════════════════════

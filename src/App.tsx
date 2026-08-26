@@ -2906,7 +2906,6 @@ function App() {
                 <div className="analysis-context-row">
                   <span>{engineName}</span>
                   <strong className={`status ${status}`}>{status}</strong>
-                  <span>{analysisExperience === 'beginner' ? 'Coach view' : 'Pro view'}</span>
                 </div>
               )}
             </header>
@@ -2943,11 +2942,14 @@ function App() {
               {workspaceMode === 'analysis' && analysisTab === 'analyze' && (
                 <>
                   <div className="inline-actions">
-                    <button type="button" className="btn-primary" onClick={runAnalyze}>
-                      <IconPlay /> Analyze
-                    </button>
-                    <button type="button" onClick={stop}>
-                      <IconStop /> Stop
+                    <button
+                      type="button"
+                      className={`btn-primary analyze-toggle ${status === 'analyzing' ? 'analyzing' : ''}`}
+                      onClick={status === 'analyzing' ? stop : runAnalyze}
+                    >
+                      {status === 'analyzing'
+                        ? <><IconStop /> Stop analysis</>
+                        : <><IconPlay /> Analyze</>}
                     </button>
                   </div>
                   <div className="analysis-experience-toggle" aria-label="Analysis experience">
@@ -3237,14 +3239,9 @@ function App() {
                           )}
                         </article>
                       ))}
-                    {currentLastBestMove && (
-                      <p className="best-move" title={currentLastBestMove}>
-                        Best move: {bestMoveLabel(fen, currentLastBestMove)}
-                      </p>
-                    )}
                     {currentLastPonderMove && (
                       <p className="best-move" title={currentLastPonderMove}>
-                        Ponder: {ponderMoveLabel(fen, currentLastBestMove, currentLastPonderMove)}
+                        Expected reply: {ponderMoveLabel(fen, currentLastBestMove, currentLastPonderMove)}
                       </p>
                     )}
                   </div>
@@ -3533,8 +3530,8 @@ function App() {
             />
 
             <div className="bottom-status-row">
-              <span className="bottom-engine-info" title={profileMessage}>
-                {engineName} · {activeProfile.name} · <strong className={`status ${status}`}>{status}</strong>
+              <span className="bottom-engine-info" title={`${engineName} · ${profileMessage}`}>
+                {activeProfile.name} · <strong className={`status ${status}`}>{status}</strong>
               </span>
               {activeGoCommand && (
                 <span className="engine-command-inline">{activeGoCommand}</span>
