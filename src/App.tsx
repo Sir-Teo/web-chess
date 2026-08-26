@@ -35,6 +35,7 @@ import { engineProfiles, type EngineProfileId } from './engine/profiles'
 import type { TablebaseCategory, TablebaseMove, TablebaseResult } from './engine/tablebase'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { DIFFICULTY_LABELS, useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
+import { useModalFocus } from './hooks/useModalFocus'
 import { useGameTree, type GameNode } from './hooks/useGameTree'
 import { useOpening } from './hooks/useOpening'
 import { useCloudEvaluation } from './hooks/useCloudEvaluation'
@@ -656,6 +657,7 @@ function App() {
   const [rightWidth, setRightWidth] = useState(320)
   const [bottomPanelOpen, setBottomPanelOpen] = useState(true)
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight })
+  const isMobile = viewport.width <= 900
 
   // ── Engine settings ──────────────────────────────────
   const [searchDepth, setSearchDepth] = useState(persistedSettings.searchDepth)
@@ -2041,6 +2043,13 @@ function App() {
     cancelPromotionRef.current = cancelPromotion
   })
 
+  // The settings sheet is a <details>, but on a phone it renders as a full-screen
+  // modal over a backdrop, so it needs the same treatment as the dialogs.
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const settingsBodyRef = useRef<HTMLDivElement | null>(null)
+  const closeSettings = useCallback(() => setSettingsOpen(false), [])
+  useModalFocus(settingsOpen, settingsBodyRef, closeSettings, { trapFocus: isMobile })
+
   // Move focus into the chooser so keyboard users are not left on <body> behind
   // a modal, and so Tab cycles the four pieces.
   const promotionChooserRef = useRef<HTMLDivElement | null>(null)
@@ -2274,7 +2283,6 @@ function App() {
     document.addEventListener('mouseup', onUp)
   }
 
-  const isMobile = viewport.width <= 900
   // A rotated phone has width to spare and almost no height, so the stacked
   // layout would push half the board below the fold. It gets a side-by-side
   // layout instead, with the board sized off the height it actually has.
@@ -2391,22 +2399,28 @@ function App() {
 
             <span className="toolbar-divider desktop-only" />
 
-            <details className="settings-menu">
+            <details
+              className="settings-menu"
+              open={settingsOpen}
+              onToggle={event => setSettingsOpen(event.currentTarget.open)}
+            >
               <summary aria-label="Settings" title="Settings">
                 <span className="btn-icon"><IconSettings /></span>
                 <span className="btn-label">Settings</span>
               </summary>
-              <div className="settings-backdrop" onClick={(e) => {
-                const details = e.currentTarget.closest('details');
-                if (details) details.removeAttribute('open');
-              }}></div>
-              <div className="settings-body">
+              <div className="settings-backdrop" onClick={closeSettings}></div>
+              <div
+                className="settings-body"
+                ref={settingsBodyRef}
+                role="dialog"
+                /* On a phone this is a full-screen sheet over a dimming backdrop;
+                   on a wide screen it is a popover the page stays usable behind. */
+                aria-modal={isMobile || undefined}
+                aria-label="Settings"
+              >
                 <div className="settings-header">
                   <h2>Settings</h2>
-                  <button type="button" className="settings-close-btn" onClick={(e) => {
-                    const details = e.currentTarget.closest('details');
-                    if (details) details.removeAttribute('open');
-                  }}>
+                  <button type="button" className="settings-close-btn" onClick={closeSettings}>
                     Done
                   </button>
                 </div>

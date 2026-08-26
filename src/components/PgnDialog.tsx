@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useId, useRef, useState } from 'react'
+import { useModalFocus } from '../hooks/useModalFocus'
 import type { GameNode } from '../hooks/useGameTree'
 import type { EvalSnapshot } from '../engine/analysis'
 import { exportAnnotatedPgn } from '../engine/pgn'
@@ -71,64 +72,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, mainLineNodes, e
         }
     }
 
-    useEffect(() => {
-        if (!open) return
-
-        const previouslyFocused = document.activeElement as HTMLElement | null
-        const panelEl = panelRef.current
-        if (!panelEl) return
-
-        const focusableSelector = [
-            'button:not([disabled])',
-            '[href]',
-            'input:not([disabled])',
-            'select:not([disabled])',
-            'textarea:not([disabled])',
-            '[tabindex]:not([tabindex="-1"])',
-        ].join(', ')
-
-        const getFocusable = () =>
-            Array.from(panelEl.querySelectorAll<HTMLElement>(focusableSelector))
-                .filter(el => !el.hasAttribute('disabled') && el.tabIndex !== -1)
-
-        const focusable = getFocusable()
-        focusable[0]?.focus()
-
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                event.preventDefault()
-                closeDialog()
-                return
-            }
-
-            if (event.key !== 'Tab') return
-            const currentFocusable = getFocusable()
-            if (!currentFocusable.length) return
-
-            const first = currentFocusable[0]
-            const last = currentFocusable[currentFocusable.length - 1]
-            const active = document.activeElement as HTMLElement | null
-
-            if (event.shiftKey) {
-                if (active === first || !panelEl.contains(active)) {
-                    event.preventDefault()
-                    last.focus()
-                }
-                return
-            }
-
-            if (active === last || !panelEl.contains(active)) {
-                event.preventDefault()
-                first.focus()
-            }
-        }
-
-        document.addEventListener('keydown', onKeyDown)
-        return () => {
-            document.removeEventListener('keydown', onKeyDown)
-            previouslyFocused?.focus?.()
-        }
-    }, [closeDialog, open])
+    useModalFocus(open, panelRef, closeDialog)
 
     if (!open) return null
 

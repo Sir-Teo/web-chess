@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
+import { useModalFocus } from '../hooks/useModalFocus'
 import type { AiDifficulty } from '../hooks/useAiPlayer'
 import { DIFFICULTY_LABELS } from '../hooks/useAiPlayer'
 
@@ -63,65 +64,7 @@ export function NewGameDialog({
     const showColorPicker = mode === 'human-vs-ai'
     const showDifficulty = mode === 'human-vs-ai' || mode === 'ai-vs-ai'
 
-    useEffect(() => {
-        if (!open) return
-
-        const previouslyFocused = document.activeElement as HTMLElement | null
-        const panelEl = panelRef.current
-        if (!panelEl) return
-
-        const focusableSelector = [
-            'button:not([disabled])',
-            '[href]',
-            'input:not([disabled])',
-            'select:not([disabled])',
-            'textarea:not([disabled])',
-            '[tabindex]:not([tabindex="-1"])',
-        ].join(', ')
-
-        const getFocusable = () =>
-            Array.from(panelEl.querySelectorAll<HTMLElement>(focusableSelector))
-                .filter(el => !el.hasAttribute('disabled') && el.tabIndex !== -1)
-
-        const focusable = getFocusable()
-        const selectedModeButton = panelEl.querySelector<HTMLElement>('[data-selected-mode="true"]')
-        ;(selectedModeButton ?? focusable[0])?.focus()
-
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                event.preventDefault()
-                onCancel()
-                return
-            }
-
-            if (event.key !== 'Tab') return
-            const currentFocusable = getFocusable()
-            if (!currentFocusable.length) return
-
-            const first = currentFocusable[0]
-            const last = currentFocusable[currentFocusable.length - 1]
-            const active = document.activeElement as HTMLElement | null
-
-            if (event.shiftKey) {
-                if (active === first || !panelEl.contains(active)) {
-                    event.preventDefault()
-                    last.focus()
-                }
-                return
-            }
-
-            if (active === last || !panelEl.contains(active)) {
-                event.preventDefault()
-                first.focus()
-            }
-        }
-
-        document.addEventListener('keydown', onKeyDown)
-        return () => {
-            document.removeEventListener('keydown', onKeyDown)
-            previouslyFocused?.focus?.()
-        }
-    }, [mode, onCancel, open])
+    useModalFocus(open, panelRef, onCancel, { initialFocus: '[data-selected-mode="true"]' })
 
     if (!open) return null
 
