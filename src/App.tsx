@@ -1,6 +1,6 @@
 import { Chess, type Square } from 'chess.js'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Chessboard } from 'react-chessboard'
+import { Chessboard, defaultArrowOptions } from 'react-chessboard'
 import {
   buildWdlSeries,
   buildWinrateSeries,
@@ -507,6 +507,14 @@ function topArrowColor(centipawnLoss: number): string {
   const b = Math.round(from.b + (to.b - from.b) * t)
   const alpha = (0.5 + 0.4 * t).toFixed(2)
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+// Defaults draw a 1/5-square arrow from square centre, which buries the piece it
+// points at. Narrower, and started at the base of the piece, keeps both readable.
+const BOARD_ARROW_OPTIONS = {
+  ...defaultArrowOptions,
+  arrowWidthDenominator: 7,
+  arrowStartOffset: 0.32,
 }
 
 const NOTATION_BASE_STYLE = {
@@ -2755,16 +2763,19 @@ function App() {
             <div className="board-meta-strip" aria-label="Current game state">
               <span className={`turn-pill ${game.turn() === 'w' ? 'white' : 'black'}`}>{turnLabel}</span>
               <span>{moveNumberLabel}</span>
-              <span>{workspaceMode === 'analysis' ? status : gameModeLabel}</span>
+              {/* The opening shares this slot rather than claiming a row of its
+                  own: a row that appears and disappears mid-game resized the
+                  board under the player. Engine status and game mode both
+                  already read from the panels, so the opening wins the slot. */}
+              {opening
+                ? (
+                  <span className="board-meta-opening" title={`${opening.eco} · ${opening.name}`}>
+                    <strong>{opening.eco}</strong>
+                    <span>{opening.name}</span>
+                  </span>
+                )
+                : <span>{workspaceMode === 'analysis' ? status : gameModeLabel}</span>}
             </div>
-            {opening && (
-              <div className="board-opening-label fade-in-slide">
-                <div className="opening-pill">
-                  <strong>{opening.eco}</strong>
-                  <span>{opening.name}</span>
-                </div>
-              </div>
-            )}
             <div className="board-wrap">
               {engineEnabled && showWdl && (() => {
                 const evalSnap = evaluationsByFen.get(fen)
@@ -2794,12 +2805,13 @@ function App() {
                       ...(selectedSquare ? { [selectedSquare]: { backgroundColor: 'rgba(255,215,0,0.55)', boxShadow: 'inset 0 0 0 3px rgba(255,200,0,0.9)' } } : {}),
                       ...Object.fromEntries(legalTargets.map(sq => [sq, {
                         background: game.get(sq)
-                          ? 'radial-gradient(circle, rgba(255,100,0,0.5) 60%, transparent 60%)'
-                          : 'radial-gradient(circle, rgba(0,0,0,0.25) 28%, transparent 28%)',
+                          ? 'radial-gradient(circle, transparent 62%, rgba(255,110,0,0.55) 62%)'
+                          : 'radial-gradient(circle, rgba(0,0,0,0.32) 26%, transparent 27%)',
                         borderRadius: '50%',
                       }])),
                     },
                     arrows,
+                    arrowOptions: BOARD_ARROW_OPTIONS,
                     allowDrawingArrows: false,
                     allowDragging: !isAiThinking && !(gameMode === 'human-vs-ai' && !paused && game.turn() !== playerColor[0]),
                     darkSquareStyle: { backgroundColor: '#b58863' },
@@ -3544,7 +3556,7 @@ function App() {
               {game.isCheckmate() && <span className="game-over-badge">♟ Checkmate!</span>}
               {game.isStalemate() && <span className="game-over-badge draw">½ Stalemate</span>}
               {game.isDraw() && !game.isStalemate() && <span className="game-over-badge draw">½ Draw</span>}
-              {game.isCheck() && !game.isCheckmate() && (
+              {game.isCheck() && !game.isGameOver() && (
                 <span className="game-over-badge check"><IconAlert style={{ marginRight: '3px' }} />Check!</span>
               )}
 
