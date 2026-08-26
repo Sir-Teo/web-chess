@@ -46,6 +46,10 @@
   --quality-blunder: #ef4444;
   --quality-pending: #71717a;
 
+  /* ── Board evaluation column ───────────────────── */
+  --eval-col-w: 22px;
+  --eval-col-gap: 8px;
+
   /* ── Spacing ───────────────────────────────────── */
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;

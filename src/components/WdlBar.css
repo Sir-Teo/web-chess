@@ -1,17 +1,15 @@
 .wdl-bar {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: -20px;
-    width: 10px;
-    border-radius: 5px;
+    position: relative;
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    border-radius: var(--radius-sm);
     overflow: hidden;
     display: flex;
     flex-direction: column;
     background: rgba(0, 0, 0, 0.4);
     border: 1px solid var(--border-subtle);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-    transition: all 300ms ease;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
     z-index: 5;
 }
 
@@ -37,10 +35,3 @@
     z-index: 1;
 }
 
-/* On mobile/smaller screens where padding might clip */
-@media (max-width: 900px) {
-    .wdl-bar {
-        left: -12px;
-        width: 10px;
-    }
-}

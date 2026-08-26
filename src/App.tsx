@@ -5,6 +5,7 @@ import {
   buildWdlSeries,
   buildWinrateSeries,
   buildReviewRows,
+  formatCompactWhitePovEvaluation,
   formatWhitePovEvaluation,
   pvToSan,
   scoreToCp,
@@ -492,15 +493,36 @@ function clamp01(value: number): number {
   return value
 }
 
-function topArrowColor(normalizedStrength: number): string {
-  const t = clamp01(normalizedStrength)
-  const from = { r: 248, g: 81, b: 73 } // Red (worse)
-  const to = { r: 63, g: 185, b: 80 } // Green (better)
+// Colour a candidate arrow by how much worse it is than the engine's best move,
+// in absolute centipawns. Relative ranking alone would paint a near-equal second
+// choice blunder-red, which misreads the position.
+const ARROW_LOSS_SCALE_CP = 150
+
+function topArrowColor(centipawnLoss: number): string {
+  const t = 1 - clamp01(Math.max(0, centipawnLoss) / ARROW_LOSS_SCALE_CP)
+  const from = { r: 248, g: 81, b: 73 } // Red (clearly worse)
+  const to = { r: 63, g: 185, b: 80 } // Green (as good as best)
   const r = Math.round(from.r + (to.r - from.r) * t)
   const g = Math.round(from.g + (to.g - from.g) * t)
   const b = Math.round(from.b + (to.b - from.b) * t)
-  const alpha = (0.52 + 0.38 * t).toFixed(2)
+  const alpha = (0.5 + 0.4 * t).toFixed(2)
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+const NOTATION_BASE_STYLE = {
+  position: 'absolute' as const,
+  fontWeight: 700,
+  lineHeight: 1,
+  opacity: 0.9,
+  // Coordinates share the square with a piece on the outer files/ranks; the
+  // shadow keeps them readable without darkening the board.
+  textShadow: '0 1px 2px rgba(0, 0, 0, 0.45)',
+  userSelect: 'none' as const,
+  pointerEvents: 'none' as const,
+}
+
+function notationStyle(color: string) {
+  return { color }
 }
 
 function isPromotionMove(chess: Chess, from: Square, to: Square): boolean {
@@ -1777,19 +1799,13 @@ function App() {
 
     if (!ranked.length) return list
 
-    const maxScore = ranked[0]!.score
-    const minScore = ranked[ranked.length - 1]!.score
+    const bestScore = ranked[0]!.score
 
-    for (let index = 0; index < ranked.length; index += 1) {
-      const candidate = ranked[index]!
-      const spread = maxScore - minScore
-      const strength = spread > 0
-        ? (candidate.score - minScore) / spread
-        : (ranked.length === 1 ? 1 : 1 - (index / Math.max(1, ranked.length - 1)))
+    for (const candidate of ranked) {
       list.push({
         startSquare: candidate.uci.slice(0, 2),
         endSquare: candidate.uci.slice(2, 4),
-        color: topArrowColor(strength),
+        color: topArrowColor(bestScore - candidate.score),
       })
     }
 
@@ -2199,13 +2215,16 @@ function App() {
   const isMobile = viewport.width <= 900
 
   // Mobile: board occupies ~50% of viewport height so analysis panels are visible below
+  // Space reserved beside the board for the in-flow evaluation column (--eval-col-w + gap)
+  const evalColumnWidth = engineEnabled && showWdl ? 30 : 0
   const boardWidth = isMobile
-    ? Math.min(viewport.width - 16, Math.round(viewport.height * 0.46))
+    ? Math.min(viewport.width - 32 - evalColumnWidth, Math.round(viewport.height * 0.46))
     : Math.min(
-      viewport.width - leftWidth - rightWidth - 48,
+      viewport.width - leftWidth - rightWidth - 48 - evalColumnWidth,
       viewport.height - (bottomPanelOpen ? 140 : 80) - (topPanelOpen ? 80 : 40),
       800,
     )
+  const notationFontSize = `${Math.round(Math.max(10, Math.min(13, boardWidth / 32)))}px`
   const turnLabel = game.turn() === 'w' ? 'White to move' : 'Black to move'
   const moveNumberLabel = `Move ${fen.split(/\s+/)[5] ?? '1'}`
   const gameModeLabel = gameMode === 'human-vs-human'
@@ -2728,13 +2747,13 @@ function App() {
               {engineEnabled && showWdl && (() => {
                 const evalSnap = evaluationsByFen.get(fen)
                 const evalLabel = evalSnap
-                  ? formatWhitePovEvaluation(fen, evalSnap.cp, evalSnap.mate)
+                  ? formatCompactWhitePovEvaluation(fen, evalSnap.cp, evalSnap.mate)
                   : null
                 return (
-                  <>
+                  <div className="eval-column" aria-hidden="true">
                     <WdlBar fen={fen} evaluation={evalSnap} orientation={orientation} />
                     {evalLabel && <span className="eval-bar-label">{evalLabel}</span>}
-                  </>
+                  </div>
                 )
               })()}
               <div className="board-area">
@@ -2763,6 +2782,10 @@ function App() {
                     allowDragging: !isAiThinking && !(gameMode === 'human-vs-ai' && !paused && game.turn() !== playerColor[0]),
                     darkSquareStyle: { backgroundColor: '#b58863' },
                     lightSquareStyle: { backgroundColor: '#f0d9b5' },
+                    darkSquareNotationStyle: notationStyle('#f0d9b5'),
+                    lightSquareNotationStyle: notationStyle('#b58863'),
+                    alphaNotationStyle: { ...NOTATION_BASE_STYLE, bottom: 2, right: 3, fontSize: notationFontSize },
+                    numericNotationStyle: { ...NOTATION_BASE_STYLE, top: 2, left: 3, fontSize: notationFontSize },
                     boardStyle: {
                       width: `${Math.max(260, boardWidth)}px`,
                       maxWidth: '100%',

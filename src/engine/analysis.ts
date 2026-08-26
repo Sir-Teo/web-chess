@@ -210,6 +210,24 @@ export function formatWhitePovEvaluation(fen: string, cp?: number, mate?: number
   return formatEvaluation()
 }
 
+/**
+ * Short white-POV score for the board's evaluation bar, where the column is only
+ * a couple of characters wide. Large advantages drop the decimal rather than
+ * overflowing; the exact score stays available in the analysis panel.
+ */
+export function formatCompactWhitePovEvaluation(fen: string, cp?: number, mate?: number): string | null {
+  if (typeof mate === 'number') {
+    const normalized = normalizeWhitePovMate(fen, mate)
+    return `M${Math.abs(normalized)}`
+  }
+  if (typeof cp !== 'number') return null
+  const pawns = normalizeWhitePovCp(fen, cp) / 100
+  const sign = pawns < 0 ? '-' : '+'
+  const magnitude = Math.round(Math.abs(pawns) * 10) / 10
+  if (magnitude >= 10) return `${sign}${Math.round(magnitude)}`
+  return `${sign}${magnitude.toFixed(1)}`
+}
+
 function normalizeWhitePovWdl(fen: string, wdl: { w: number; d: number; l: number }): { white: number; draw: number; black: number } | null {
   const total = wdl.w + wdl.d + wdl.l
   if (total <= 0) return null

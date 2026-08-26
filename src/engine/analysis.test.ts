@@ -1,6 +1,6 @@
 import { Chess } from 'chess.js'
 import { describe, expect, it } from 'vitest'
-import { buildReviewRows, buildWinrateSeries, formatWhitePovEvaluation, summarizeReview, uciToSan } from './analysis'
+import { buildReviewRows, buildWinrateSeries, formatCompactWhitePovEvaluation, formatWhitePovEvaluation, summarizeReview, uciToSan } from './analysis'
 
 describe('review analysis helpers', () => {
   it('labels reviewed moves from side-to-move centipawn deltas', () => {
@@ -117,5 +117,29 @@ describe('review analysis helpers', () => {
     expect(series).toHaveLength(2)
     expect(series[0]?.label).toBe('Start')
     expect(series[1]?.label).toBe('1. Kf3')
+  })
+})
+
+describe('formatCompactWhitePovEvaluation', () => {
+  const whiteToMove = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+  const blackToMove = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1'
+
+  it('keeps one decimal for ordinary scores', () => {
+    expect(formatCompactWhitePovEvaluation(whiteToMove, 19)).toBe('+0.2')
+    expect(formatCompactWhitePovEvaluation(whiteToMove, -145)).toBe('-1.5')
+  })
+
+  it('drops the decimal for large advantages so the bar never truncates', () => {
+    expect(formatCompactWhitePovEvaluation(whiteToMove, 1234)).toBe('+12')
+    expect(formatCompactWhitePovEvaluation(whiteToMove, -998)).toBe('-10')
+  })
+
+  it('normalizes to white perspective', () => {
+    expect(formatCompactWhitePovEvaluation(blackToMove, 50)).toBe('-0.5')
+    expect(formatCompactWhitePovEvaluation(blackToMove, undefined, 3)).toBe('M3')
+  })
+
+  it('returns null without a score', () => {
+    expect(formatCompactWhitePovEvaluation(whiteToMove)).toBeNull()
   })
 })
