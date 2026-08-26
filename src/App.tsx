@@ -525,6 +525,10 @@ const BOARD_ARROW_OPTIONS = {
 // everything stacked above and below the board on a rotated phone.
 const LANDSCAPE_BOARD_CHROME = 176
 
+// Stage padding, meta strip, its gap and the board frame — the chrome stacked
+// with the board once the bars are accounted for separately.
+const BOARD_STACK_CHROME = 88
+
 const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['←', '→'], action: 'Previous / next move' },
   { keys: ['Home', 'End'], action: 'First / last position' },
@@ -2288,6 +2292,11 @@ function App() {
   // layout instead, with the board sized off the height it actually has.
   const isLandscapePhone = isMobile && viewport.height <= 520
 
+  // A collapsed bar leaves only its resize handle behind, so the board can claim
+  // the rest. These track the real chrome rather than one blended constant.
+  const topBarAllowance = topPanelOpen ? 78 : 16
+  const bottomBarAllowance = bottomPanelOpen ? 62 : 16
+
   // Space reserved beside the board for the in-flow evaluation column (--eval-col-w + gap)
   const evalColumnWidth = engineEnabled && showWdl ? 34 : 0
   const boardWidth = isMobile
@@ -2297,7 +2306,7 @@ function App() {
       : Math.min(viewport.width - 32 - evalColumnWidth, Math.round(viewport.height * 0.46)))
     : Math.min(
       viewport.width - leftWidth - rightWidth - 48 - evalColumnWidth,
-      viewport.height - (bottomPanelOpen ? 140 : 80) - (topPanelOpen ? 80 : 40),
+      viewport.height - topBarAllowance - bottomBarAllowance - BOARD_STACK_CHROME,
       800,
     )
   const minBoardWidth = isLandscapePhone ? 180 : 260
