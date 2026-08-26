@@ -3758,7 +3758,8 @@ function EngineOptionControl({ option, onSetOption, disabled = false }: EngineOp
 
 // ── Winrate graph ──────────────────────────────────────────────────────────────
 
-const GRAPH_HEIGHT = 220
+// Keep in sync with --graph-height in index.css, which sizes the rendered <svg>.
+const GRAPH_HEIGHT = 160
 const GRAPH_PAD_LEFT = 52
 const GRAPH_PAD_RIGHT = 20
 const GRAPH_PAD_TOP = 16

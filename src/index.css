@@ -46,6 +46,9 @@
   --quality-blunder: #ef4444;
   --quality-pending: #71717a;
 
+  /* ── Trend graphs (keep in sync with GRAPH_HEIGHT in App.tsx) ── */
+  --graph-height: 160px;
+
   /* ── Board evaluation column ───────────────────── */
   --eval-col-w: 26px;
   --eval-col-gap: 8px;

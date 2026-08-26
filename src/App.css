@@ -2543,7 +2543,7 @@ body.resizing * {
 .winrate-graph {
   width: max-content;
   min-width: 100%;
-  height: 220px;
+  height: var(--graph-height);
   display: block;
 }
 
@@ -3385,14 +3385,16 @@ body.resizing * {
      hidden entirely, and a fixed 320px list left a third of the rail blank. */
   .panel.left .sample-library-card {
     flex: 1 1 auto;
-    min-height: 0;
+    /* Floor keeps the header, filters and a couple of rows readable rather than
+       letting the graphs crush the card below its own content. */
+    min-height: 13rem;
     display: flex;
     flex-direction: column;
   }
 
   .panel.left .sample-game-list {
     flex: 1 1 auto;
-    min-height: 8rem;
+    min-height: 0;
     max-height: none;
   }
 }
