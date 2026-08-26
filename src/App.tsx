@@ -1463,6 +1463,16 @@ function App() {
     clearImportSweep,
   ])
 
+  // The mode groups scroll horizontally on narrow screens; keep whichever pill is
+  // active in view so the current mode is never parked off-screen.
+  const modeScrollerRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const scroller = modeScrollerRef.current
+    if (!scroller || scroller.scrollWidth <= scroller.clientWidth) return
+    const active = scroller.querySelector('.gc-pill-active')
+    active?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+  }, [gameMode, workspaceMode])
+
   const handleWorkspaceModeChange = useCallback((mode: WorkspaceMode) => {
     if (mode === 'analysis') pause()
     setWorkspaceMode(mode)
@@ -2258,8 +2268,8 @@ function App() {
 
             {/* Workspace & Game Mode wrappers */}
             <span className="toolbar-divider desktop-only" />
-            <div className="mobile-modes-wrapper">
-              <div className="top-mode-pills" aria-label="Workspace mode">
+            <div className="mobile-modes-wrapper" ref={modeScrollerRef}>
+              <div className="top-mode-pills top-workspaces" aria-label="Workspace mode">
                 {([
                   { id: 'play', label: 'Play', icon: <IconSwords /> },
                   { id: 'analysis', label: 'Analysis', icon: <IconSearch /> },
@@ -2269,38 +2279,50 @@ function App() {
                     type="button"
                     className={`gc-pill ${workspaceMode === id ? 'gc-pill-active' : ''}`}
                     onClick={() => handleWorkspaceModeChange(id)}
+                    aria-pressed={workspaceMode === id}
                   >
                     <span className="gc-pill-icon">{icon}</span>
-                    {label}
+                    <span className="gc-pill-label">{label}</span>
                   </button>
                 ))}
               </div>
 
-              {/* Game mode switcher */}
-              <span className="toolbar-divider desktop-only" />
-              <div className="top-mode-pills" aria-label="Game mode">
-                {([
-                  { id: 'human-vs-human', label: 'H vs H', icon: <IconUsers /> },
-                  { id: 'human-vs-ai', label: 'H vs AI', icon: <IconBot /> },
-                  { id: 'ai-vs-ai', label: 'AI vs AI', icon: <IconZap /> },
-                ] as const).map(({ id, label, icon }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    className={`gc-pill ${gameMode === id ? 'gc-pill-active' : ''}`}
-                    onClick={() => id !== gameMode && handleModeChange(id)}
-                  >
-                    <span className="gc-pill-icon">{icon}</span>
-                    {label}
-                  </button>
-                ))}
-              </div>
+              {/* Game mode switcher — a Play-workspace control: picking a mode
+                  forces the workspace back to Play, so it stays out of Analysis. */}
+              {workspaceMode === 'play' && (
+                <>
+                  <span className="toolbar-divider desktop-only" />
+                  <div className="top-mode-pills top-game-modes" aria-label="Game mode">
+                    {([
+                      { id: 'human-vs-human', label: 'H vs H', title: 'Human vs Human', icon: <IconUsers /> },
+                      { id: 'human-vs-ai', label: 'H vs AI', title: 'Human vs AI', icon: <IconBot /> },
+                      { id: 'ai-vs-ai', label: 'AI vs AI', title: 'AI vs AI', icon: <IconZap /> },
+                    ] as const).map(({ id, label, title, icon }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={`gc-pill ${gameMode === id ? 'gc-pill-active' : ''}`}
+                        onClick={() => id !== gameMode && handleModeChange(id)}
+                        title={title}
+                        aria-label={title}
+                        aria-pressed={gameMode === id}
+                      >
+                        <span className="gc-pill-icon">{icon}</span>
+                        <span className="gc-pill-label">{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             <span className="toolbar-divider desktop-only" />
 
             <details className="settings-menu">
-              <summary><span className="btn-icon"><IconSettings /></span> Settings</summary>
+              <summary aria-label="Settings" title="Settings">
+                <span className="btn-icon"><IconSettings /></span>
+                <span className="btn-label">Settings</span>
+              </summary>
               <div className="settings-backdrop" onClick={(e) => {
                 const details = e.currentTarget.closest('details');
                 if (details) details.removeAttribute('open');

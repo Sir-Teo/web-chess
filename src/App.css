@@ -228,12 +228,79 @@ body.resizing * {
 }
 
 @media (max-width: 900px) {
+  /* The bar never scrolls as a whole: brand actions and Settings stay pinned so
+     they are always reachable, and only the mode groups scroll between them. */
   .top .compact-grid {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    overflow: visible;
     box-sizing: border-box;
   }
+
+  .top .app-brand {
+    display: none;
+  }
+
+  .top .panel-inner {
+    padding-inline: calc(0.5rem + env(safe-area-inset-left)) calc(0.5rem + env(safe-area-inset-right));
+  }
+
+  .top .compact-grid {
+    gap: 0.3rem;
+  }
+
+  .top .mobile-modes-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    /* Fade the trailing edge so a scrolled-off group is discoverable. */
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 1.25rem), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 1.25rem), transparent 100%);
+  }
+
+  .top .mobile-modes-wrapper::-webkit-scrollbar {
+    display: none;
+  }
+
+  .top .mobile-modes-wrapper>* {
+    scroll-snap-align: start;
+  }
+
+  .mobile-actions {
+    gap: 0.2rem;
+  }
+
+  .mobile-actions button {
+    width: 2.1rem;
+    height: 2.1rem;
+  }
+
+  /* Game mode reads from its icon on narrow screens; the active pill keeps its
+     label so the current mode is never ambiguous. */
+  .top-game-modes .gc-pill:not(.gc-pill-active) .gc-pill-label {
+    display: none;
+  }
+
+  .top-game-modes .gc-pill:not(.gc-pill-active) {
+    padding-inline: 0.45rem !important;
+  }
+
+  .top .settings-menu {
+    margin-left: auto;
+  }
+
+  .top .settings-menu>summary .btn-label {
+    display: none;
+  }
+
+  .top .settings-menu>summary {
+    padding-inline: 0.7rem !important;
+  }
+
 }
 
 .top .compact-grid::-webkit-scrollbar {
@@ -294,13 +361,6 @@ body.resizing * {
   border: 1px solid var(--border-subtle);
   margin: 0;
   min-height: unset;
-}
-
-.gc-mode-pills {
-  background: rgba(255, 255, 255, 0.035);
-  padding: 0.2rem;
-  border-radius: 24px;
-  border: 1px solid var(--border-subtle);
 }
 
 .top .compact-grid button:not(.btn-icon-only),
@@ -2969,32 +3029,39 @@ body.resizing * {
   }
 
   .top-mode-pills,
-  .gc-mode-pills,
   .wc-nav,
   .wc-speed {
     min-height: 2.5rem;
     padding: 0.18rem;
   }
 
-  .top-mode-pills,
-  .gc-mode-pills {
+  .top-mode-pills {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
 
-  .top-mode-pills::-webkit-scrollbar,
-  .gc-mode-pills::-webkit-scrollbar {
+  .top-mode-pills::-webkit-scrollbar {
     display: none;
   }
 
   .gc-pill,
   .wc-speed-pill,
-  .mode-pill,
   .analysis-tab-btn {
     min-height: 40px;
     padding: 0.4rem 0.8rem;
     font-size: 0.85rem;
+  }
+
+  .top .compact-grid button:not(.btn-icon-only) {
+    padding: 0 0.5rem;
+    font-size: 0.78rem;
+  }
+
+  /* "Play" and "Analysis" read on their own; dropping the decorative icons buys
+     the width that keeps the whole bar visible without scrolling. */
+  .top-workspaces .gc-pill-icon {
+    display: none;
   }
 
   .wc-btn {
@@ -3002,11 +3069,6 @@ body.resizing * {
     min-height: 2.5rem;
     padding: 0.35rem 0.55rem;
     font-size: 1.15rem;
-  }
-
-  .gc-btn {
-    min-height: 2.5rem;
-    padding: 0.35rem 0.85rem;
   }
 
   .watch-controls {
@@ -3027,7 +3089,6 @@ body.resizing * {
     display: none !important;
   }
 
-  .game-controls,
   .watch-controls {
     justify-content: center;
     flex-wrap: wrap;
@@ -3114,72 +3175,13 @@ body.resizing * {
 }
 
 /* ═══════════════════════════════════════════════════
-   Game Controls (pause + mode-switch pills)
+   Top bar mode pills
    ═══════════════════════════════════════════════════ */
-.game-controls {
+.top-mode-pills {
   display: flex;
+  gap: 0.18rem;
   align-items: center;
-  gap: 0.4rem;
-  flex-shrink: 0;
-}
-
-.gc-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.22rem 0.65rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border-default);
-  background: var(--bg-elevated);
-  color: var(--text-secondary);
-  font-family: inherit;
-  font-size: 0.72rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 140ms ease;
-  white-space: nowrap;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .gc-btn:hover {
-    border-color: var(--border-strong);
-    color: var(--text-primary);
-    background: var(--bg-card-hover);
-  }
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .gc-btn-pause:hover {
-    border-color: rgba(210, 153, 34, 0.4);
-    color: var(--warning);
-    background: var(--warning-subtle);
-  }
-}
-
-.gc-btn-resume {
-  border-color: var(--border-accent);
-  color: var(--accent);
-  background: var(--accent-subtle);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .gc-btn-resume:hover {
-    background: rgba(63, 185, 80, 0.2);
-    box-shadow: 0 0 10px var(--accent-glow);
-  }
-}
-
-.gc-icon {
-  font-size: 0.78rem;
-  line-height: 1;
-}
-
-/* Mode pills */
-.gc-mode-pills {
-  display: flex;
-  gap: 0.2rem;
-  align-items: center;
-  padding: 0.15rem;
+  padding: 0.12rem;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-subtle);
   background: rgba(255, 255, 255, 0.035);
@@ -3210,45 +3212,20 @@ body.resizing * {
 }
 
 .gc-pill-active {
-  background: var(--accent-subtle) !important;
-  border-color: var(--border-accent) !important;
-  color: var(--accent) !important;
+  background: var(--accent-subtle);
+  border-color: var(--border-accent);
+  color: var(--accent);
 }
 
 .gc-pill-icon {
   width: 0.75rem;
   height: 0.75rem;
+  flex: none;
   opacity: 0.8;
 }
 
-/* Bottom status row */
-.bottom-status-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-left: auto;
-}
-
-.bottom-engine-info {
-  font-size: 0.71rem;
-  color: var(--text-tertiary);
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-/* ═══════════════════════════════════════════════════
-   Top bar mode pills
-   ═══════════════════════════════════════════════════ */
-.top-mode-pills {
-  display: flex;
-  gap: 0.18rem;
-  align-items: center;
-  padding: 0.12rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border-subtle);
-  background: rgba(255, 255, 255, 0.035);
+.gc-pill-active .gc-pill-icon {
+  opacity: 1;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -3533,7 +3510,6 @@ body.resizing * {
 
 /* Interactive Active States */
 button:active:not(:disabled),
-.gc-btn:active:not(:disabled),
 .wc-btn:active:not(:disabled),
 .gc-pill:active,
 .mode-pill:active,
