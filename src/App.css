@@ -977,6 +977,27 @@ body.resizing * {
   left: -7px;
 }
 
+/* A collapsed panel is 0px wide, so its handle would hang half outside the
+   window — leaving a 2px sliver as the only way back. Pull it fully inside and
+   make the grip legible so the panel is visibly reopenable. */
+.panel.collapsed .resize-handle-right {
+  right: -14px;
+}
+
+.panel.collapsed .resize-handle-left {
+  left: -14px;
+}
+
+.panel.collapsed .resize-handle {
+  cursor: pointer;
+}
+
+.panel.collapsed .resize-pill {
+  width: 4px;
+  height: 56px;
+  background: rgba(110, 118, 129, 0.55);
+}
+
 .resize-handle-top,
 .resize-handle-bottom {
   left: 0;
@@ -3239,6 +3260,45 @@ body.resizing * {
 .bottom-status-row .best-move {
   margin: 0;
   white-space: nowrap;
+}
+
+/* Keyboard shortcut reference */
+.shortcut-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0.6rem 0 0;
+}
+
+.shortcut-list>div {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.shortcut-list dt {
+  display: flex;
+  gap: 0.25rem;
+  flex: none;
+  min-width: 5.5rem;
+}
+
+.shortcut-list dd {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.shortcut-list kbd {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-default);
+  border-bottom-width: 2px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
 }
 
 /* ═══════════════════════════════════════════════════

@@ -517,6 +517,13 @@ const BOARD_ARROW_OPTIONS = {
   arrowStartOffset: 0.32,
 }
 
+const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
+  { keys: ['←', '→'], action: 'Previous / next move' },
+  { keys: ['Home', 'End'], action: 'First / last position' },
+  { keys: ['F'], action: 'Flip the board' },
+  { keys: ['Space'], action: 'Pause or resume the AI (Play mode)' },
+]
+
 const NOTATION_BASE_STYLE = {
   position: 'absolute' as const,
   fontWeight: 700,
@@ -2266,7 +2273,7 @@ function App() {
               <button type="button" onClick={openNewGameDialog} aria-label="Start new game" title="New game">
                 <span className="btn-icon"><IconRefresh /></span> <span className="btn-label">New game</span>
               </button>
-              <button type="button" onClick={flipBoard} aria-label="Flip board" title="Flip board">
+              <button type="button" onClick={flipBoard} aria-label="Flip board" title="Flip board (F)">
                 <span className="btn-icon"><IconFlip /></span> <span className="btn-label">Flip</span>
               </button>
               <button type="button" onClick={openPgnDialog} aria-label="Open PGN and FEN dialog" title="PGN and FEN">
@@ -2623,6 +2630,17 @@ function App() {
                     </div>
                   </details>
                 )}
+                <details className="advanced-settings">
+                  <summary>Keyboard shortcuts</summary>
+                  <dl className="shortcut-list">
+                    {KEYBOARD_SHORTCUTS.map(({ keys, action }) => (
+                      <div key={action}>
+                        <dt>{keys.map(key => <kbd key={key}>{key}</kbd>)}</dt>
+                        <dd>{action}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </details>
               </div>
             </details>
           </div>
@@ -2635,7 +2653,7 @@ function App() {
 
       <div className="main-container">
         {/* ── Left panel (winrate graph) ── */}
-        <section className="panel left" style={{ width: leftWidth }}>
+        <section className={`panel left ${leftWidth === 0 ? 'collapsed' : ''}`} style={{ width: leftWidth }}>
           <div className="resize-handle resize-handle-right" onMouseDown={startLeftResize}
             onClick={() => { if (leftWidth === 0) setLeftWidth(DEFAULT_LEFT) }}
             title="Drag to resize · click to expand">
@@ -2887,7 +2905,7 @@ function App() {
         />
 
         {/* ── Right panel ── */}
-        <aside className="panel right" style={{ width: rightWidth }}>
+        <aside className={`panel right ${rightWidth === 0 ? 'collapsed' : ''}`} style={{ width: rightWidth }}>
           <div className="resize-handle resize-handle-left" onMouseDown={startRightResize}
             onClick={() => { if (rightWidth === 0) setRightWidth(DEFAULT_RIGHT) }}
             title="Drag to resize · click to expand">
