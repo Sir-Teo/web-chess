@@ -2780,7 +2780,7 @@ function App() {
           <div className="board-layout">
             <div className="board-meta-strip" aria-label="Current game state">
               <span className={`turn-pill ${game.turn() === 'w' ? 'white' : 'black'}`}>{turnLabel}</span>
-              <span>{moveNumberLabel}</span>
+              <span className="board-meta-move">{moveNumberLabel}</span>
               {/* The opening shares this slot rather than claiming a row of its
                   own: a row that appears and disappears mid-game resized the
                   board under the player. Engine status and game mode both

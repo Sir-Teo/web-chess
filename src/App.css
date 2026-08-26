@@ -553,10 +553,22 @@ body.resizing * {
   white-space: nowrap;
 }
 
-.board-meta-strip span {
+.board-meta-strip>span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Whose turn it is and the move number are short and must never clip; the
+   opening name is the long, truncation-tolerant one, so it absorbs the squeeze. */
+.board-meta-strip>.turn-pill,
+.board-meta-strip>.board-meta-move {
+  flex: none;
+}
+
+.board-meta-strip>.board-meta-opening {
+  flex: 1 1 auto;
+  justify-content: flex-end;
 }
 
 .turn-pill {
