@@ -517,6 +517,10 @@ const BOARD_ARROW_OPTIONS = {
   arrowStartOffset: 0.32,
 }
 
+// Top bar, status bar, stage padding, meta strip, its gap, and the board frame —
+// everything stacked above and below the board on a rotated phone.
+const LANDSCAPE_BOARD_CHROME = 176
+
 const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['←', '→'], action: 'Previous / next move' },
   { keys: ['Home', 'End'], action: 'First / last position' },
@@ -2238,17 +2242,24 @@ function App() {
   }
 
   const isMobile = viewport.width <= 900
+  // A rotated phone has width to spare and almost no height, so the stacked
+  // layout would push half the board below the fold. It gets a side-by-side
+  // layout instead, with the board sized off the height it actually has.
+  const isLandscapePhone = isMobile && viewport.height <= 520
 
-  // Mobile: board occupies ~50% of viewport height so analysis panels are visible below
   // Space reserved beside the board for the in-flow evaluation column (--eval-col-w + gap)
   const evalColumnWidth = engineEnabled && showWdl ? 30 : 0
   const boardWidth = isMobile
-    ? Math.min(viewport.width - 32 - evalColumnWidth, Math.round(viewport.height * 0.46))
+    ? (isLandscapePhone
+      ? Math.min(viewport.height - LANDSCAPE_BOARD_CHROME, Math.round(viewport.width * 0.55) - evalColumnWidth)
+      // Portrait: board takes ~46% of the height so the panels stay visible below.
+      : Math.min(viewport.width - 32 - evalColumnWidth, Math.round(viewport.height * 0.46)))
     : Math.min(
       viewport.width - leftWidth - rightWidth - 48 - evalColumnWidth,
       viewport.height - (bottomPanelOpen ? 140 : 80) - (topPanelOpen ? 80 : 40),
       800,
     )
+  const minBoardWidth = isLandscapePhone ? 180 : 260
   const notationFontSize = `${Math.round(Math.max(10, Math.min(13, boardWidth / 32)))}px`
   const turnLabel = game.turn() === 'w' ? 'White to move' : 'Black to move'
   const moveNumberLabel = `Move ${fen.split(/\s+/)[5] ?? '1'}`
@@ -2839,7 +2850,7 @@ function App() {
                     alphaNotationStyle: { ...NOTATION_BASE_STYLE, bottom: 2, right: 3, fontSize: notationFontSize },
                     numericNotationStyle: { ...NOTATION_BASE_STYLE, top: 2, left: 3, fontSize: notationFontSize },
                     boardStyle: {
-                      width: `${Math.max(260, boardWidth)}px`,
+                      width: `${Math.max(minBoardWidth, boardWidth)}px`,
                       maxWidth: '100%',
                       borderRadius: 12,
                       boxShadow: '0 8px 40px rgba(0, 0, 0, 0.60), 0 2px 8px rgba(0, 0, 0, 0.40)',

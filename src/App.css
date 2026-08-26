@@ -3285,6 +3285,56 @@ body.resizing * {
   white-space: nowrap;
 }
 
+/* ═══════════════════════════════════════════════════
+   Landscape phone: board beside the panels
+   ═══════════════════════════════════════════════════ */
+@media (max-width: 900px) and (max-height: 520px) and (orientation: landscape) {
+  .main-container {
+    flex-direction: row;
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  .board-stage {
+    order: 0;
+    flex: none;
+    width: auto;
+    max-width: none;
+    padding: var(--space-sm);
+  }
+
+  .right,
+  .left {
+    flex: 1 1 0;
+    width: auto !important;
+    min-width: 0;
+    height: 100%;
+    overflow-y: auto;
+    padding: var(--space-sm) !important;
+  }
+
+  .right {
+    order: 1;
+  }
+
+  .left {
+    order: 2;
+  }
+
+  /* Height is the scarce axis here, so the bars give some back to the board. */
+  .top .panel-inner {
+    padding-block: 0.2rem;
+  }
+
+  .top .panel-content {
+    padding-block: 0.15rem;
+  }
+
+  .bottom .panel-content {
+    padding-block: 0.25rem;
+  }
+}
+
 /* Keyboard shortcut reference */
 .shortcut-list {
   display: flex;
