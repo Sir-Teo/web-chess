@@ -217,8 +217,9 @@ export function formatWhitePovEvaluation(fen: string, cp?: number, mate?: number
  */
 export function formatCompactWhitePovEvaluation(fen: string, cp?: number, mate?: number): string | null {
   if (typeof mate === 'number') {
-    const normalized = normalizeWhitePovMate(fen, mate)
-    return `M${Math.abs(normalized)}`
+    // Same `#` notation the panels use — an `M` prefix here put two different
+    // mate notations on screen at once.
+    return `#${normalizeWhitePovMate(fen, mate)}`
   }
   if (typeof cp !== 'number') return null
   const pawns = normalizeWhitePovCp(fen, cp) / 100

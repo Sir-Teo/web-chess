@@ -781,12 +781,24 @@ body.resizing * {
   font-weight: 700;
 }
 
-.promotion-choice span:last-child {
+.promotion-label {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.72rem;
+}
+
+.promotion-choice kbd,
+.promotion-cancel kbd {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-default);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-tertiary);
 }
 
 .promotion-glyph {
@@ -797,6 +809,10 @@ body.resizing * {
 .promotion-cancel {
   grid-column: 1 / -1;
   min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
   background: transparent;

@@ -78,6 +78,9 @@ const PROMOTION_OPTIONS: Array<{ piece: PromotionPiece; label: string }> = [
   { piece: 'b', label: 'Bishop' },
   { piece: 'n', label: 'Knight' },
 ]
+const PROMOTION_KEYS: Record<string, PromotionPiece | undefined> = {
+  q: 'q', r: 'r', b: 'b', n: 'n',
+}
 const PROMOTION_GLYPHS: Record<'w' | 'b', Record<PromotionPiece, string>> = {
   w: { q: '♕', r: '♖', b: '♗', n: '♘' },
   b: { q: '♛', r: '♜', b: '♝', n: '♞' },
@@ -868,6 +871,15 @@ function App() {
       const target = e.target as HTMLElement | null
       const tag = target?.tagName
       if (target?.isContentEditable || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
+
+      // The promotion chooser is modal: it owns the keyboard until it resolves,
+      // otherwise navigation would run with a move still half-made.
+      if (pendingPromotionRef.current) {
+        if (e.key === 'Escape') { e.preventDefault(); cancelPromotionRef.current() }
+        const piece = PROMOTION_KEYS[e.key.toLowerCase()]
+        if (piece) { e.preventDefault(); completePromotionRef.current(piece) }
+        return
+      }
 
       if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev() }
       if (e.key === 'ArrowRight') { e.preventDefault(); goNext() }
@@ -2016,6 +2028,25 @@ function App() {
     setPendingPromotion(null)
   }, [])
 
+  // The global key handler is declared above these callbacks, so it reaches them
+  // through refs rather than re-binding the listener on every promotion.
+  const pendingPromotionRef = useRef<PendingPromotion | null>(null)
+  const completePromotionRef = useRef(completePromotion)
+  const cancelPromotionRef = useRef(cancelPromotion)
+  useEffect(() => {
+    pendingPromotionRef.current = pendingPromotion
+    completePromotionRef.current = completePromotion
+    cancelPromotionRef.current = cancelPromotion
+  })
+
+  // Move focus into the chooser so keyboard users are not left on <body> behind
+  // a modal, and so Tab cycles the four pieces.
+  const promotionChooserRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!pendingPromotion) return
+    promotionChooserRef.current?.querySelector('button')?.focus()
+  }, [pendingPromotion])
+
   // ── New game ──────────────────────────────────────────
   const openNewGameDialog = () => setShowNewGameDialog(true)
   const openPgnDialog = () => setShowPgnDialog(true)
@@ -2248,7 +2279,7 @@ function App() {
   const isLandscapePhone = isMobile && viewport.height <= 520
 
   // Space reserved beside the board for the in-flow evaluation column (--eval-col-w + gap)
-  const evalColumnWidth = engineEnabled && showWdl ? 30 : 0
+  const evalColumnWidth = engineEnabled && showWdl ? 34 : 0
   const boardWidth = isMobile
     ? (isLandscapePhone
       ? Math.min(viewport.height - LANDSCAPE_BOARD_CHROME, Math.round(viewport.width * 0.55) - evalColumnWidth)
@@ -2875,7 +2906,7 @@ function App() {
                 />
                 {pendingPromotion && (
                   <div className="promotion-overlay" role="dialog" aria-modal="true" aria-label="Choose promotion piece">
-                    <div className="promotion-chooser">
+                    <div className="promotion-chooser" ref={promotionChooserRef}>
                       {PROMOTION_OPTIONS.map(option => (
                         <button
                           key={option.piece}
@@ -2883,15 +2914,17 @@ function App() {
                           className="promotion-choice"
                           onClick={() => completePromotion(option.piece)}
                           aria-label={`Promote to ${option.label}`}
+                          title={`Promote to ${option.label} (${option.piece.toUpperCase()})`}
                         >
                           <span className="promotion-glyph" aria-hidden="true">
                             {PROMOTION_GLYPHS[promotionColor][option.piece]}
                           </span>
-                          <span>{option.label}</span>
+                          <span className="promotion-label">{option.label}</span>
+                          <kbd aria-hidden="true">{option.piece.toUpperCase()}</kbd>
                         </button>
                       ))}
                       <button type="button" className="promotion-cancel" onClick={cancelPromotion}>
-                        Cancel
+                        Cancel <kbd aria-hidden="true">Esc</kbd>
                       </button>
                     </div>
                   </div>

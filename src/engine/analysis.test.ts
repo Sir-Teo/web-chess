@@ -136,7 +136,13 @@ describe('formatCompactWhitePovEvaluation', () => {
 
   it('normalizes to white perspective', () => {
     expect(formatCompactWhitePovEvaluation(blackToMove, 50)).toBe('-0.5')
-    expect(formatCompactWhitePovEvaluation(blackToMove, undefined, 3)).toBe('M3')
+    expect(formatCompactWhitePovEvaluation(blackToMove, undefined, 3)).toBe('#-3')
+    expect(formatCompactWhitePovEvaluation(whiteToMove, undefined, 3)).toBe('#3')
+  })
+
+  it('matches the mate notation the panels use', () => {
+    expect(formatCompactWhitePovEvaluation(whiteToMove, undefined, 13))
+      .toBe(formatWhitePovEvaluation(whiteToMove, undefined, 13))
   })
 
   it('returns null without a score', () => {
