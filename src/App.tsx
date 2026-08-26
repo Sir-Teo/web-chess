@@ -2260,6 +2260,8 @@ function App() {
       800,
     )
   const minBoardWidth = isLandscapePhone ? 180 : 260
+  // "disabled" reads like a fault; in Play mode the engine is off by design.
+  const engineStatusLabel = status === 'disabled' ? 'engine off' : status
   const notationFontSize = `${Math.round(Math.max(10, Math.min(13, boardWidth / 32)))}px`
   const turnLabel = game.turn() === 'w' ? 'White to move' : 'Black to move'
   const moveNumberLabel = `Move ${fen.split(/\s+/)[5] ?? '1'}`
@@ -2956,7 +2958,7 @@ function App() {
                   <div className="engine-lab-card">
                     <h3><span className="section-icon"><IconSwords /></span> Play Focus</h3>
                     <p className="panel-copy small">
-                      Engine is off in Play mode. Use this view for clean gameplay and move navigation.
+                      Engine is off in Play mode. Switch to Analysis above for evaluation and engine lines.
                     </p>
                     <label className="switch-control">
                       <input
@@ -2966,9 +2968,6 @@ function App() {
                       />
                       <span>Show board arrow overlays</span>
                     </label>
-                    <button type="button" onClick={() => handleWorkspaceModeChange('analysis')}>
-                      Switch to Analysis mode
-                    </button>
                   </div>
                   <div className="right-section">
                     <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
@@ -3573,7 +3572,7 @@ function App() {
 
             <div className="bottom-status-row">
               <span className="bottom-engine-info" title={`${engineName} · ${profileMessage}`}>
-                {activeProfile.name} · <strong className={`status ${status}`}>{status}</strong>
+                {activeProfile.name} · <strong className={`status ${status}`}>{engineStatusLabel}</strong>
               </span>
               {activeGoCommand && (
                 <span className="engine-command-inline">{activeGoCommand}</span>

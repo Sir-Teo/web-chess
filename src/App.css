@@ -3274,10 +3274,6 @@ body.resizing * {
   gap: 0.3rem;
 }
 
-.bottom-engine-info .status {
-  text-transform: capitalize;
-}
-
 /* `.best-move` is a block paragraph elsewhere; inside the status strip it has to
    stay inline or it claims the whole row and pushes the bar onto two lines. */
 .bottom-status-row .best-move {
