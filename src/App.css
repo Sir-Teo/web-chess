@@ -2259,6 +2259,12 @@ body.resizing * {
   overflow: auto;
 }
 
+/* Without this the column flex shrinks every row to fit the 220px box: a
+   190-move game rendered each 22px row as a 2px sliver stacked on the next. */
+.moves-list>li {
+  flex: 0 0 auto;
+}
+
 .moves-list li {
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
@@ -2279,6 +2285,11 @@ body.resizing * {
   width: 100%;
   display: grid !important;
   grid-template-columns: auto auto minmax(0, 1fr) auto auto auto;
+}
+
+/* Coach view drops the raw UCI, matching how the Lines panel hides it. */
+.review-move-row.compact {
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
   gap: 0.32rem;
   align-items: center;
   padding: 0.32rem 0.48rem;

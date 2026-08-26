@@ -3310,6 +3310,7 @@ function App() {
                         rows={reviewRows}
                         nodes={mainLineNodes}
                         currentNodeId={gameTree.current.id}
+                        showUci={analysisExperience === 'pro'}
                         onSelectNode={navigateReviewNode}
                       />
                     )}
@@ -3595,10 +3596,11 @@ type ReviewMoveListProps = {
   rows: ReviewRow[]
   nodes: GameNode[]
   currentNodeId: string
+  showUci: boolean
   onSelectNode: (node: GameNode) => void
 }
 
-const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, currentNodeId, onSelectNode }: ReviewMoveListProps) {
+const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, currentNodeId, showUci, onSelectNode }: ReviewMoveListProps) {
   return (
     <ol className="moves-list review-move-list">
       {rows.map(row => {
@@ -3610,7 +3612,7 @@ const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, currentNodeId
           <li key={`${row.ply}-${row.uci}`} className={`quality-${row.quality}`}>
             <button
               type="button"
-              className={`review-move-row ${isCurrentReviewMove ? 'active' : ''}`}
+              className={`review-move-row ${showUci ? '' : 'compact'} ${isCurrentReviewMove ? 'active' : ''}`}
               disabled={!node}
               aria-current={isCurrentReviewMove ? 'true' : undefined}
               aria-label={`Go to ${movePrefix} ${row.san}`}
@@ -3620,7 +3622,7 @@ const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, currentNodeId
             >
               <span className="move-index">{movePrefix}</span>
               <strong>{row.san}</strong>
-              <span className="move-uci">{row.uci}</span>
+              {showUci && <span className="move-uci">{row.uci}</span>}
               <span className="move-impact">{reviewImpactLabel(row.deltaCp)}</span>
               <span className={`move-confidence confidence-${row.confidence}`}>
                 {reviewConfidenceLabel(row.confidence, row.evalDepth)}
