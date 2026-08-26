@@ -3731,7 +3731,8 @@ summary:active {
   .thinking-dots span,
   .pulsing.btn-primary,
   .status.loading::before,
-  .status.analyzing::before {
+  .status.analyzing::before,
+  .status.thinking::before {
     animation: none !important;
   }
 }

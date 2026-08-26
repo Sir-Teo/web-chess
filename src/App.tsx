@@ -531,14 +531,15 @@ const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['Space'], action: 'Pause or resume the AI (Play mode)' },
 ]
 
+// The usual "opposite square colour" convention cannot reach WCAG AA against the
+// mid-tone dark square — no lightness does — so coordinates take one dark ink,
+// which clears 5:1 on the dark square and 11:1 on the light one.
+const BOARD_NOTATION_INK = '#2b2118'
+
 const NOTATION_BASE_STYLE = {
   position: 'absolute' as const,
   fontWeight: 700,
   lineHeight: 1,
-  opacity: 0.9,
-  // Coordinates share the square with a piece on the outer files/ranks; the
-  // shadow keeps them readable without darkening the board.
-  textShadow: '0 1px 2px rgba(0, 0, 0, 0.45)',
   userSelect: 'none' as const,
   pointerEvents: 'none' as const,
 }
@@ -1501,7 +1502,8 @@ function App() {
     const scroller = modeScrollerRef.current
     if (!scroller || scroller.scrollWidth <= scroller.clientWidth) return
     const active = scroller.querySelector('.gc-pill-active')
-    active?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    active?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' })
   }, [gameMode, workspaceMode])
 
   const handleWorkspaceModeChange = useCallback((mode: WorkspaceMode) => {
@@ -2892,8 +2894,8 @@ function App() {
                     allowDragging: !isAiThinking && !(gameMode === 'human-vs-ai' && !paused && game.turn() !== playerColor[0]),
                     darkSquareStyle: { backgroundColor: '#b58863' },
                     lightSquareStyle: { backgroundColor: '#f0d9b5' },
-                    darkSquareNotationStyle: notationStyle('#f0d9b5'),
-                    lightSquareNotationStyle: notationStyle('#b58863'),
+                    darkSquareNotationStyle: notationStyle(BOARD_NOTATION_INK),
+                    lightSquareNotationStyle: notationStyle(BOARD_NOTATION_INK),
                     alphaNotationStyle: { ...NOTATION_BASE_STYLE, bottom: 2, right: 3, fontSize: notationFontSize },
                     numericNotationStyle: { ...NOTATION_BASE_STYLE, top: 2, left: 3, fontSize: notationFontSize },
                     boardStyle: {
@@ -3303,7 +3305,7 @@ function App() {
                     <h3><span className="section-icon"><IconSearch /></span> Lines</h3>
                     {lines.length === 0 && !activeGoCommand && !currentLastBestMove && (
                       <div className="empty-state">
-                        <span className="empty-state-icon"><IconSearch /></span>
+                        <span className="empty-state-icon" aria-hidden="true"><IconSearch /></span>
                         <p>Start analysis to see principal variation lines here.</p>
                       </div>
                     )}
@@ -3792,7 +3794,7 @@ const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, onNaviga
   if (points.length === 0) {
     return (
       <div className="empty-state">
-        <span className="empty-state-icon">📈</span>
+        <span className="empty-state-icon" aria-hidden="true">📈</span>
         <p>Play and analyze moves to build the live winrate graph.</p>
       </div>
     )
@@ -3914,7 +3916,7 @@ const WdlProgressGraph = memo(function WdlProgressGraph({ points, currentIndex, 
   if (points.length === 0) {
     return (
       <div className="empty-state">
-        <span className="empty-state-icon">📊</span>
+        <span className="empty-state-icon" aria-hidden="true">📊</span>
         <p>Analyze moves with WDL enabled to build the W/D/B progression graph.</p>
       </div>
     )

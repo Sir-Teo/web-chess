@@ -19,7 +19,9 @@
   --text-secondary: #b2b7c2;
   --text-tertiary: #858b98;
   --text-heading: #ffffff;
-  --text-muted: #626977;
+  --text-muted: #7c8391;
+  /* Raised from #626977, which sat at 3.3:1 on the card surface — below AA for
+     the small metadata text it is used for. */
 
   /* ── Accent (emerald glow) ─────────────────────── */
   --accent: #2dd4bf;
