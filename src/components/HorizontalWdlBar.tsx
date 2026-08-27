@@ -1,3 +1,4 @@
+import { normalizeWhitePovWdl } from '../engine/analysis'
 import './HorizontalWdlBar.css'
 
 type Props = {
@@ -7,16 +8,10 @@ type Props = {
 }
 
 export function HorizontalWdlBar({ fen, wdl, orientation = 'white' }: Props) {
-    const total = wdl.w + wdl.d + wdl.l
-    // fallback if sum is zero
-    if (!Number.isFinite(total) || total <= 0) return null
+    const normalized = normalizeWhitePovWdl(fen, wdl)
+    if (!normalized) return null
 
-    const turn = fen.split(' ')[1]
-    const whiteWins = turn === 'w' ? wdl.w : wdl.l
-    const blackWins = turn === 'w' ? wdl.l : wdl.w
-    const whitePct = (whiteWins / total) * 100
-    const drawPct = (wdl.d / total) * 100
-    const blackPct = (blackWins / total) * 100
+    const { white: whitePct, draw: drawPct, black: blackPct } = normalized
 
     const isFlipped = orientation === 'black'
     const leftPct = isFlipped ? blackPct : whitePct

@@ -446,7 +446,12 @@ export function formatCompactWhitePovEvaluation(fen: string, cp?: number, mate?:
   return `${sign}${magnitude.toFixed(1)}`
 }
 
-function normalizeWhitePovWdl(fen: string, wdl: { w: number; d: number; l: number }): { white: number; draw: number; black: number } | null {
+/**
+ * Stockfish reports win/draw/loss from the side to move. Everything the reader
+ * sees is white-relative, so the flip has to happen exactly once, in one place —
+ * getting it backwards inverts an evaluation bar without looking wrong.
+ */
+export function normalizeWhitePovWdl(fen: string, wdl: { w: number; d: number; l: number }): { white: number; draw: number; black: number } | null {
   if (![wdl.w, wdl.d, wdl.l].every(value => isFiniteNumber(value) && value >= 0)) return null
 
   const total = wdl.w + wdl.d + wdl.l

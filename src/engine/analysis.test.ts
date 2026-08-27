@@ -5,6 +5,7 @@ import {
   buildReviewRows,
   buildWdlSeries,
   buildWinrateSeries,
+  normalizeWhitePovWdl,
   filterReviewRowsBySide,
   formatCompactWhitePovEvaluation,
   formatWhitePovEvaluation,
@@ -465,5 +466,26 @@ describe('replaying a history that does not fit its root position', () => {
     game.move('e4')
     game.move('e5')
     expect(buildReviewRows(game.history({ verbose: true }), new Map())).toHaveLength(2)
+  })
+})
+
+
+describe('white-perspective WDL', () => {
+  const wdl = { w: 700, d: 200, l: 100 }
+  const whiteToMove = '8/8/8/8/8/8/8/K6k w - - 0 1'
+  const blackToMove = '8/8/8/8/8/8/8/K6k b - - 0 1'
+
+  it('reads the engine numbers straight through when white is to move', () => {
+    expect(normalizeWhitePovWdl(whiteToMove, wdl)).toEqual({ white: 70, draw: 20, black: 10 })
+  })
+
+  it('swaps win and loss when black is to move', () => {
+    expect(normalizeWhitePovWdl(blackToMove, wdl)).toEqual({ white: 10, draw: 20, black: 70 })
+  })
+
+  it('refuses numbers a bar cannot be drawn from', () => {
+    expect(normalizeWhitePovWdl(whiteToMove, { w: 0, d: 0, l: 0 })).toBeNull()
+    expect(normalizeWhitePovWdl(whiteToMove, { w: -5, d: 10, l: 5 })).toBeNull()
+    expect(normalizeWhitePovWdl(whiteToMove, { w: Number.NaN, d: 1, l: 1 })).toBeNull()
   })
 })
