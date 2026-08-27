@@ -1031,10 +1031,12 @@ function App() {
 
   useEffect(() => {
     if (workspaceMode !== 'play') return
+    // Stop in-flight engine work, but keep the results. Evaluations are keyed by
+    // FEN and the position has not changed — only the view has. Discarding them
+    // threw away a whole game review the moment someone glanced at Play.
     stop()
     clearImportSweep()
     setPendingShallowAnalyzeFen(null)
-    setEvaluationsByFen(new Map())
     setIsBatchReviewing(false)
     batchReviewQueueRef.current = []
     activeBatchReviewRef.current = null

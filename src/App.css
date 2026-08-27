@@ -2423,6 +2423,15 @@ button.critical-moment-row {
   background: rgba(63, 185, 80, 0.09) !important;
 }
 
+/* The active row's tint lifts the backdrop enough to pull `--text-muted` under
+   AA, so its secondary columns step up one tier. */
+.review-move-row.active .move-index,
+.review-move-row.active .move-impact,
+.review-move-row.active .move-confidence,
+.review-move-row.active .move-uci {
+  color: var(--text-secondary) !important;
+}
+
 .review-move-row:disabled {
   cursor: default;
   opacity: 0.65;
@@ -2466,7 +2475,9 @@ button.critical-moment-row {
 
 .move-uci {
   font-family: var(--font-mono);
-  opacity: 0.5;
+  /* Was `opacity: 0.5`, which halved `--text-secondary` to 3:1 across every row
+     in the list. A dim colour reads the same and clears AA. */
+  color: var(--text-muted) !important;
   font-size: 0.66rem !important;
   min-width: 0;
   overflow: hidden;
