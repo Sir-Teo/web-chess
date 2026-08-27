@@ -705,6 +705,16 @@ body.resizing * {
   background: #242936;
 }
 
+/* No side to move at the end of a game, so no side dot either. */
+.turn-pill.final {
+  font-weight: 700;
+  animation: badge-pop 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.turn-pill.final::before {
+  display: none;
+}
+
 .board-meta-opening {
   display: inline-flex;
   align-items: center;
@@ -3372,29 +3382,6 @@ button.critical-moment-row {
   background: var(--bg-elevated);
 }
 
-.game-over-badge {
-  font-size: 0.73rem;
-  font-weight: 700;
-  padding: 0.18rem 0.5rem;
-  border-radius: var(--radius-pill);
-  animation: badge-pop 280ms cubic-bezier(0.22, 1, 0.36, 1);
-  background: var(--danger-subtle);
-  color: var(--danger);
-  border: 1px solid rgba(248, 81, 73, 0.22);
-}
-
-.game-over-badge.draw {
-  background: rgba(110, 118, 129, 0.12);
-  color: var(--text-secondary);
-  border-color: var(--border-default);
-}
-
-.game-over-badge.check {
-  background: var(--warning-subtle);
-  color: var(--warning);
-  border-color: rgba(210, 153, 34, 0.25);
-}
-
 @keyframes badge-pop {
   from {
     transform: scale(0.75);
@@ -3873,12 +3860,6 @@ button.critical-moment-row {
   .bottom-status-row .engine-telemetry-inline,
   .bottom-status-row .best-move {
     display: none;
-  }
-
-  .bottom-status-row .game-over-badge {
-    flex: 0 0 auto;
-    font-size: 0.69rem;
-    padding: 0.12rem 0.42rem;
   }
 
   .watch-controls {

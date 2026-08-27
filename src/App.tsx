@@ -3153,7 +3153,18 @@ function App() {
     ))
   const renderedBoardWidth = isMobile ? boardWidth : Math.max(260, boardWidth)
   const notationFontSize = `${Math.round(Math.max(10, Math.min(13, renderedBoardWidth / 32)))}px`
-  const turnLabel = game.turn() === 'w' ? 'White to move' : 'Black to move'
+  // The strip says what the position is. Once the game is over there is no side
+  // to move, and "Black to move" under a mated king was the loudest wrong thing
+  // on the page.
+  const gameResultLabel = game.isCheckmate()
+    ? `Checkmate · ${game.turn() === 'w' ? 'Black' : 'White'} wins`
+    : game.isStalemate()
+      ? 'Stalemate · Draw'
+      : game.isDraw()
+        ? 'Draw'
+        : null
+  const turnLabel = gameResultLabel
+    ?? `${game.turn() === 'w' ? 'White' : 'Black'} to move${game.isCheck() ? ' · Check' : ''}`
   const moveNumberLabel = `Move ${fen.split(/\s+/)[5] ?? '1'}`
   const currentMoveQuality = gameTree.current.quality
   const gameModeLabel = gameMode === 'human-vs-human'
@@ -3813,7 +3824,9 @@ function App() {
         >
           <div className="board-layout">
             <div className="board-meta-strip" aria-label="Current game state">
-              <span className={`turn-pill ${game.turn() === 'w' ? 'white' : 'black'}`}>{turnLabel}</span>
+              <span className={`turn-pill ${gameResultLabel ? 'final' : game.turn() === 'w' ? 'white' : 'black'}`}>
+                {turnLabel}
+              </span>
               <span>{moveNumberLabel}</span>
               <span className="board-meta-status">{workspaceMode === 'analysis' ? status : gameModeLabel}</span>
               {currentMoveQuality && (
@@ -4824,14 +4837,6 @@ function App() {
               )}
               {analysisExperience === 'pro' && engineTelemetry && (
                 <span className="engine-telemetry-inline">{engineTelemetry}</span>
-              )}
-
-              {/* Game-over badges */}
-              {game.isCheckmate() && <span className="game-over-badge">♟ Checkmate!</span>}
-              {game.isStalemate() && <span className="game-over-badge draw">½ Stalemate</span>}
-              {game.isDraw() && !game.isStalemate() && <span className="game-over-badge draw">½ Draw</span>}
-              {game.isCheck() && !game.isGameOver() && (
-                <span className="game-over-badge check"><IconAlert style={{ marginRight: '3px' }} />Check!</span>
               )}
 
               {currentLastBestMove && !game.isGameOver() && (
