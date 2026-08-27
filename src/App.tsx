@@ -662,6 +662,7 @@ function App() {
   const [rightWidth, setRightWidth] = useState(320)
   const [bottomPanelOpen, setBottomPanelOpen] = useState(true)
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight })
+  const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
   const isMobile = viewport.width <= 900
 
   // ── Engine settings ──────────────────────────────────
@@ -2298,8 +2299,10 @@ function App() {
   const topBarAllowance = topPanelOpen ? 78 : 16
   const bottomBarAllowance = bottomPanelOpen ? 62 : 16
 
-  // Space reserved beside the board for the in-flow evaluation column (--eval-col-w + gap)
-  const evalColumnWidth = engineEnabled && showWdl ? 34 : 0
+  // Space reserved beside the board for the in-flow evaluation column. It is
+  // sized in rem (--eval-col-w + --eval-col-gap = 2.125rem), so the reservation
+  // has to follow the root font size rather than assume 16px.
+  const evalColumnWidth = engineEnabled && showWdl ? Math.ceil(2.125 * rootFontSize) : 0
   const boardWidth = isMobile
     ? (isLandscapePhone
       ? Math.min(viewport.height - LANDSCAPE_BOARD_CHROME, Math.round(viewport.width * 0.55) - evalColumnWidth)

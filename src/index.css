@@ -52,8 +52,10 @@
   --graph-height: 160px;
 
   /* ── Board evaluation column ───────────────────── */
-  --eval-col-w: 26px;
-  --eval-col-gap: 8px;
+  /* In rem so the column grows with the label inside it — at a 20px root the
+     text scaled and a px-fixed column truncated it. */
+  --eval-col-w: 1.625rem;
+  --eval-col-gap: 0.5rem;
 
   /* ── Spacing ───────────────────────────────────── */
   --space-xs: 0.25rem;
