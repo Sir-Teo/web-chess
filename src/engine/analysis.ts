@@ -263,18 +263,36 @@ export function isTerminalPositionFen(fen: string): boolean {
   }
 }
 
+/**
+ * Replay one move of a history onto `replay`.
+ *
+ * chess.js throws when a move does not fit the position, and every caller here
+ * runs inside a React render — an unreplayable history took the whole app down
+ * to the error boundary rather than showing a shorter graph. A history and a
+ * root position can disagree for ordinary reasons: an edited position, an
+ * imported PGN, a shared link. Callers stop at the first move that will not go.
+ */
+function tryReplayMove(replay: Chess, move: Move): boolean {
+  try {
+    return Boolean(replay.move({ from: move.from, to: move.to, promotion: move.promotion }))
+  } catch {
+    return false
+  }
+}
+
 export function buildReviewRows(
   history: Move[],
   evaluationsByFen: Map<string, EvalSnapshot>,
   rootFen = new Chess().fen(),
 ): ReviewRow[] {
   const replay = new Chess(rootFen)
+  const rows: ReviewRow[] = []
 
-  return history.map((move, index) => {
+  for (const [index, move] of history.entries()) {
     const beforeFen = replay.fen()
     const moveNumber = replay.moveNumber()
     const sideToMove = replay.turn()
-    replay.move({ from: move.from, to: move.to, promotion: move.promotion })
+    if (!tryReplayMove(replay, move)) break
     const afterFen = replay.fen()
 
     const beforeSnapshot = evaluationsByFen.get(beforeFen)
@@ -284,7 +302,7 @@ export function buildReviewRows(
     const bestMove = beforeSnapshot?.bestMove
     const bestMoveSan = bestMove ? uciToSan(beforeFen, bestMove) ?? bestMove : undefined
     if (!beforeSnapshot || !afterSnapshot || !isFiniteNumber(before) || !isFiniteNumber(after)) {
-      return {
+      rows.push({
         ply: index + 1,
         moveNumber,
         sideToMove,
@@ -294,7 +312,8 @@ export function buildReviewRows(
         bestMoveSan,
         quality: 'pending',
         confidence: 'pending',
-      }
+      })
+      continue
     }
 
     // Engine score is POV side-to-move. After the move, perspective flips.
@@ -307,7 +326,7 @@ export function buildReviewRows(
         ? 'deep'
         : 'standard'
 
-    return {
+    rows.push({
       ply: index + 1,
       moveNumber,
       sideToMove,
@@ -319,8 +338,10 @@ export function buildReviewRows(
       evalDepth,
       confidence,
       quality: shallow ? 'pending' : qualityFromDelta(deltaCp),
-    }
-  })
+    })
+  }
+
+  return rows
 }
 
 export function summarizeReview(rows: ReviewRow[]): Record<ReviewLabel, number> {
@@ -467,14 +488,14 @@ export function buildWinrateSeries(
     })
   }
 
-  history.forEach((move, index) => {
+  for (const [index, move] of history.entries()) {
     const moveNumber = replay.moveNumber()
     const sideToMove = replay.turn()
-    replay.move({ from: move.from, to: move.to, promotion: move.promotion })
+    if (!tryReplayMove(replay, move)) break
     const fen = replay.fen()
     const snapshot = evaluationsByFen.get(fen)
     const cp = snapshot ? scoreToCp(snapshot.cp, snapshot.mate) : undefined
-    if (!isFiniteNumber(cp)) return
+    if (!isFiniteNumber(cp)) continue
 
     const prefix = sideToMove === 'w' ? `${moveNumber}.` : `${moveNumber}...`
     series.push({
@@ -482,7 +503,7 @@ export function buildWinrateSeries(
       label: `${prefix} ${move.san}`,
       whiteWinrate: cpToWhiteWinrate(normalizeWhitePovCp(fen, cp)),
     })
-  })
+  }
 
   return series
 }
@@ -508,16 +529,16 @@ export function buildWdlSeries(
     }
   }
 
-  history.forEach((move, index) => {
+  for (const [index, move] of history.entries()) {
     const moveNumber = replay.moveNumber()
     const sideToMove = replay.turn()
-    replay.move({ from: move.from, to: move.to, promotion: move.promotion })
+    if (!tryReplayMove(replay, move)) break
     const fen = replay.fen()
     const wdl = evaluationsByFen.get(fen)?.wdl
-    if (!wdl) return
+    if (!wdl) continue
 
     const normalized = normalizeWhitePovWdl(fen, wdl)
-    if (!normalized) return
+    if (!normalized) continue
 
     const prefix = sideToMove === 'w' ? `${moveNumber}.` : `${moveNumber}...`
     series.push({
@@ -525,7 +546,7 @@ export function buildWdlSeries(
       label: `${prefix} ${move.san}`,
       ...normalized,
     })
-  })
+  }
 
   return series
 }

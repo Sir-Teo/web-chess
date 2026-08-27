@@ -432,3 +432,38 @@ describe('formatCompactWhitePovEvaluation', () => {
     expect(formatCompactWhitePovEvaluation(whiteToMove)).toBeNull()
   })
 })
+
+describe('replaying a history that does not fit its root position', () => {
+  // A history and a root position disagree for ordinary reasons — an edited
+  // position, an imported PGN, a shared link. chess.js throws on the first move
+  // that will not go, and these run inside a React render, so the throw reached
+  // the error boundary and took the whole app down.
+  const foreignHistory = () => {
+    const other = new Chess()
+    other.move('e4')
+    other.move('e5')
+    other.move('Nf3')
+    return other.history({ verbose: true })
+  }
+  const endgame = '8/P6k/8/8/8/8/6K1/8 w - - 0 1'
+
+  it('stops the review at the first move that will not replay', () => {
+    const rows = buildReviewRows(foreignHistory(), new Map(), endgame)
+    expect(rows).toEqual([])
+  })
+
+  it('stops the winrate series instead of throwing', () => {
+    expect(() => buildWinrateSeries(foreignHistory(), new Map(), endgame)).not.toThrow()
+  })
+
+  it('stops the WDL series instead of throwing', () => {
+    expect(() => buildWdlSeries(foreignHistory(), new Map(), endgame)).not.toThrow()
+  })
+
+  it('still replays a history that does fit', () => {
+    const game = new Chess()
+    game.move('e4')
+    game.move('e5')
+    expect(buildReviewRows(game.history({ verbose: true }), new Map())).toHaveLength(2)
+  })
+})
