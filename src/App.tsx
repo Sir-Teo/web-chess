@@ -105,15 +105,16 @@ type ImportSweepProgress = { done: number; total: number; sampledFrom?: number }
 // anything that sits beside it has to be subtracted here or the board overflows
 // its stage; the mobile figures are the @media (max-width: 900px) overrides.
 const BOARD_CHROME = {
-  desktop: { stagePadX: 1.25, frame: 0.55 },
-  mobile: { stagePadX: 0.5, frame: 0.25 },
+  desktop: { stagePadX: 1.25, stagePadY: 1.35, frame: 0.55 },
+  mobile: { stagePadX: 0.5, stagePadY: 0.35, frame: 0.25 },
+  landscape: { stagePadX: 0.5, stagePadY: 0.5, frame: 0.25 },
 } as const
 const EVAL_COLUMN_REM = 1.625 + 0.5
 const BOARD_FRAME_BORDER = 1
-// Everything the board is stacked on top of inside the stage: the stage's own
-// vertical padding, the meta strip, and the gap between them. Only landscape
-// needs it — that is the one layout where the stage cannot scroll.
-const LANDSCAPE_BOARD_STACK_REM = 2 * 0.5 + 2.25 + 0.55
+// Everything stacked with the board inside the stage: the meta strip and the
+// gap above it. The stage's own padding is per-breakpoint, so it lives in
+// BOARD_CHROME beside the horizontal figures.
+const BOARD_STACK_REM = 2.25 + 0.55
 
 // Classic scrollbars take layout width from the stacked mobile layout; overlay
 // scrollbars (every touch browser) take none. Measured once — it is a property
@@ -3067,11 +3068,12 @@ function App() {
   const isLandscapePhone = isMobile && viewport.height <= 520 && viewport.width > viewport.height
   const leftPanelUnavailable = workspaceMode === 'play'
   const layoutLeftWidth = leftPanelUnavailable ? 0 : leftWidth
-  const desktopBoardChromeReserve = 44
   // Width the board can never have: the stage padding, the frame drawn around
   // the board, and the evaluation column that sits in flow beside it. All of it
   // is rem-based, so it grows with the user's text size.
-  const chrome = isMobile ? BOARD_CHROME.mobile : BOARD_CHROME.desktop
+  const chrome = isLandscapePhone
+    ? BOARD_CHROME.landscape
+    : isMobile ? BOARD_CHROME.mobile : BOARD_CHROME.desktop
   const boardChromeWidth = viewport.rem * (
     2 * chrome.stagePadX
     + 2 * chrome.frame
@@ -3079,9 +3081,10 @@ function App() {
   ) + 2 * BOARD_FRAME_BORDER
   // The stage stretches to the row it lives in, so its height is the space the
   // board actually has — bars, safe areas and all — without guessing at any of
-  // their sizes.
+  // their sizes. Guessing is what the old fixed allowances did, and at 150%
+  // text the bars outgrew them and the board ran under the bottom one.
   const boardHeightBudget = stageHeight
-    - viewport.rem * (LANDSCAPE_BOARD_STACK_REM + 2 * chrome.frame)
+    - viewport.rem * (2 * chrome.stagePadY + BOARD_STACK_REM + 2 * chrome.frame)
     - 2 * BOARD_FRAME_BORDER
   const mobileBoardWidth = Math.min(
     Math.max(0, viewport.width - viewport.scrollbar - boardChromeWidth),
@@ -3093,7 +3096,7 @@ function App() {
     ? mobileBoardWidth
     : Math.min(
       viewport.width - layoutLeftWidth - rightWidth - boardChromeWidth,
-      viewport.height - (bottomPanelOpen ? 140 : 80) - (topPanelOpen ? 80 : 40) - desktopBoardChromeReserve,
+      boardHeightBudget,
       800,
     ))
   const renderedBoardWidth = isMobile ? boardWidth : Math.max(260, boardWidth)

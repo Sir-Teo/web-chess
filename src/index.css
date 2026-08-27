@@ -62,6 +62,7 @@
      computed in JS, so these stay in rem and are mirrored by
      BOARD_CHROME in App.tsx — change one, change the other. */
   --stage-pad-x: 1.25rem;
+  --stage-pad-y: 1.35rem;
   --board-frame: 0.55rem;
 
   /* ── Spacing ───────────────────────────────────── */

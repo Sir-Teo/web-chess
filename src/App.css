@@ -239,9 +239,12 @@ body.resizing * {
   overflow: visible;
 }
 
+/* Wraps rather than spilling: at 150% text the row is wider than a 1440px
+   window, and with nowrap the Settings button sat at x=1611 with no way to
+   reach it. */
 .top .compact-grid {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem;
   width: 100%;
@@ -583,7 +586,7 @@ body.resizing * {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: clamp(0.75rem, 2vw, 1.35rem) var(--stage-pad-x);
+  padding: var(--stage-pad-y) var(--stage-pad-x);
   z-index: 1;
   min-width: 0;
   position: relative;
@@ -3337,6 +3340,7 @@ button.critical-moment-row {
 @media (max-width: 900px) {
   :root {
     --stage-pad-x: 0.5rem;
+    --stage-pad-y: 0.35rem;
     --board-frame: 0.25rem;
   }
 
@@ -3370,7 +3374,7 @@ button.critical-moment-row {
 
   .board-stage {
     order: 1;
-    padding: 0.35rem var(--stage-pad-x);
+    padding: var(--stage-pad-y) var(--stage-pad-x);
     min-height: auto;
     width: 100%;
     max-width: 100%;
@@ -3948,6 +3952,10 @@ button.critical-moment-row {
    Landscape phone: board beside the panels
    ═══════════════════════════════════════════════════ */
 @media (max-width: 900px) and (max-height: 520px) and (orientation: landscape) {
+  :root {
+    --stage-pad-y: 0.5rem;
+  }
+
   .main-container {
     flex-direction: row;
     align-items: stretch;
@@ -3959,7 +3967,7 @@ button.critical-moment-row {
     flex: none;
     width: auto;
     max-width: none;
-    padding: var(--space-sm) var(--stage-pad-x);
+    padding: var(--stage-pad-y) var(--stage-pad-x);
   }
 
   .right,
