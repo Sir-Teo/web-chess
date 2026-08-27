@@ -77,6 +77,7 @@ import { HorizontalWdlBar } from './components/HorizontalWdlBar'
 import { MoveListTree } from './components/MoveListTree'
 import { graphTickStep } from './components/graphLayout'
 import { useElementHeight, useElementWidth } from './hooks/useElementWidth'
+import { useModalFocus } from './hooks/useModalFocus'
 import { formatGraphAxisLabel, formatGraphPositionLabel } from './components/graphLabels'
 import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlip, IconDownload, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp } from './components/icons'
 import './App.css'
@@ -1048,72 +1049,8 @@ function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [goFirst, goLast, goPrev, goNext, pause, resume, shortcutsSuspended, workspaceMode])
 
-  useEffect(() => {
-    if (!settingsOpen) return
-
-    const panelEl = settingsBodyRef.current
-    if (!panelEl) return
-
-    const previouslyFocused = document.activeElement as HTMLElement | null
-    const focusableSelector = [
-      'button:not([disabled])',
-      '[href]',
-      'input:not([disabled])',
-      'select:not([disabled])',
-      'textarea:not([disabled])',
-      '[tabindex]:not([tabindex="-1"])',
-    ].join(', ')
-
-    const isVisible = (element: HTMLElement) => {
-      const style = window.getComputedStyle(element)
-      return style.visibility !== 'hidden' && style.display !== 'none' && element.getClientRects().length > 0
-    }
-
-    const getFocusable = () =>
-      Array.from(panelEl.querySelectorAll<HTMLElement>(focusableSelector))
-        .filter(el => !el.hasAttribute('disabled') && el.tabIndex !== -1 && isVisible(el))
-
-    const focusable = getFocusable()
-    focusable[0]?.focus()
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        setSettingsOpen(false)
-        return
-      }
-
-      if (event.key !== 'Tab') return
-      const currentFocusable = getFocusable()
-      if (!currentFocusable.length) return
-
-      const first = currentFocusable[0]
-      const last = currentFocusable[currentFocusable.length - 1]
-      const active = document.activeElement as HTMLElement | null
-      const activeIsFocusable = active ? currentFocusable.includes(active) : false
-
-      if (event.shiftKey) {
-        if (active === first || !activeIsFocusable) {
-          event.preventDefault()
-          last.focus()
-        }
-        return
-      }
-
-      if (active === last || !activeIsFocusable) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-      if (previouslyFocused && document.contains(previouslyFocused)) {
-        previouslyFocused.focus?.()
-      }
-    }
-  }, [settingsOpen])
+  const closeSettings = useCallback(() => setSettingsOpen(false), [])
+  useModalFocus(settingsOpen, settingsBodyRef, closeSettings)
 
   // No wheel-to-navigate; it conflicts with trackpads and touch.
 
