@@ -1451,7 +1451,7 @@ body.resizing * {
   gap: 0.32rem;
 }
 
-.analysis-tab-btn {
+button.analysis-tab-btn {
   border: 1px solid var(--border-subtle);
   background: rgba(255, 255, 255, 0.035);
   color: var(--text-secondary);
@@ -1739,7 +1739,7 @@ body.resizing * {
   background: rgba(88, 166, 255, 0.12);
 }
 
-.mode-pill {
+button.mode-pill {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.035);
@@ -3307,7 +3307,11 @@ body.resizing * {
   background: rgba(255, 255, 255, 0.035);
 }
 
-.gc-pill {
+/* Scoped to the group so these outrank `.panel button`, which sets colour,
+   background and border for every button inside a panel. Without that reach the
+   selected pill rendered identically to the unselected ones — same colour, same
+   background, same border — leaving no indication of the current mode. */
+.top-mode-pills .gc-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -3325,13 +3329,13 @@ body.resizing * {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .gc-pill:hover {
+  .top-mode-pills .gc-pill:hover {
     color: var(--text-secondary);
     background: var(--bg-elevated);
   }
 }
 
-.gc-pill-active {
+.top-mode-pills .gc-pill-active {
   background: var(--accent-subtle);
   border-color: var(--border-accent);
   color: var(--accent);
