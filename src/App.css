@@ -3484,10 +3484,6 @@ button.critical-moment-row {
     z-index: 200;
   }
 
-  .app-brand-text {
-    display: none;
-  }
-
   .top .panel-inner {
     padding-top: env(safe-area-inset-top);
   }
@@ -3498,19 +3494,15 @@ button.critical-moment-row {
 
   .top .compact-grid {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    /* No brand column: the <h1> is visually hidden on phones (see the
+       `.top .app-brand` rule), so a third column only bought an empty gap. */
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
-      "brand actions settings"
-      "modes modes modes";
+      "actions settings"
+      "modes modes";
     align-items: center;
     gap: 0.4rem;
     overflow-x: visible;
-  }
-
-  .app-brand {
-    grid-area: brand;
-    margin-right: 0;
-    padding-right: 0.6rem;
   }
 
   .mobile-actions {
@@ -3991,8 +3983,8 @@ button.critical-moment-row {
   /* Height is the scarce axis here, so the bar folds back to a single row —
      there is width to spare — and the bars give their padding to the board. */
   .top .compact-grid {
-    grid-template-columns: auto auto minmax(0, 1fr) auto;
-    grid-template-areas: "brand actions modes settings";
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "actions modes settings";
   }
 
   .mobile-modes-wrapper,
