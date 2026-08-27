@@ -1742,9 +1742,10 @@ body.resizing * {
 
 .coach-grid {
   display: grid;
-  /* Reflow to fewer columns rather than squeezing: at 150% text three fixed
-     columns clipped the evaluation to "+0…". */
-  grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
+  /* Two columns at every width: auto-fit landed on three for most panel widths,
+     which left the fourth tile alone on a row of its own, and three fixed
+     columns clipped the evaluation to "+0…" at 150% text. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.4rem;
   margin-bottom: 0.5rem;
 }
@@ -4120,6 +4121,13 @@ button.critical-moment-row {
    Left rail fills its column
    ═══════════════════════════════════════════════════ */
 @media (min-width: 901px) {
+  /* The analysis header and the bottom bar both state the engine's status
+     beside each other; the strip made three. It keeps the two facts that are
+     only there — whose move it is, and which move. */
+  .board-meta-status {
+    display: none;
+  }
+
   .panel.left .panel-content {
     display: flex;
     flex-direction: column;

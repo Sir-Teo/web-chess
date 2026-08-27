@@ -1557,7 +1557,11 @@ function App() {
     : coachLine?.pv[1] ?? currentCloudEval?.pvs[0]?.moves[1] ?? currentLastPonderMove ?? null
   const coachReplyMoveText = ponderMoveLabel(fen, coachBestMove, coachReplyMove)
   const coachDepth = coachLine?.depth ?? currentCloudEval?.depth
-  const coachDepthLabel = coachBestMoveIsTablebase ? 'TB exact' : coachDepth ? `D${coachDepth}` : tablebase.result ? 'TB exact' : status
+  // A tile labelled Depth reports a depth or nothing. It used to fall back to
+  // the engine status, so it read "analyzing" in a row of numbers.
+  const coachDepthLabel = coachBestMoveIsTablebase || tablebase.result
+    ? 'TB exact'
+    : coachDepth ? `D${coachDepth}` : '...'
   const engineTelemetry = engineTelemetryLabel(coachLine)
   const coachTablebaseLine = tablebaseTopMove
     ? [
@@ -3168,7 +3172,7 @@ function App() {
       ? `${aiPlayer.profileName} play engine · ${aiDifficultyLabel} difficulty`
       : 'Engine is on standby in Play mode. Switch to Analysis mode for Stockfish analysis.'
   const bottomStatusPrefix = engineEnabled
-    ? `${engineName} · ${activeProfile.name} ·`
+    ? `${activeProfile.name} ·`
     : playEngineActive
       ? `${gameModeLabel} · ${aiDifficultyLabel} AI`
       : `${gameModeLabel} · Engine`
@@ -4841,10 +4845,10 @@ function App() {
               <span className="bottom-engine-info" title={bottomStatusTitle}>
                 {bottomStatusPrefix} <strong className={`status ${bottomStatusClass}`}>{bottomStatusText}</strong>
               </span>
-              {activeGoCommand && (
+              {analysisExperience === 'pro' && activeGoCommand && (
                 <span className="engine-command-inline">{activeGoCommand}</span>
               )}
-              {engineTelemetry && (
+              {analysisExperience === 'pro' && engineTelemetry && (
                 <span className="engine-telemetry-inline">{engineTelemetry}</span>
               )}
 
