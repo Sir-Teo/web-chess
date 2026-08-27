@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 
 const FOCUSABLE_SELECTOR = [
   'button:not([disabled])',
@@ -32,6 +32,17 @@ export function useModalFocus(
 ) {
   const { initialFocus, trapFocus = true } = options
 
+  // Held in a ref so it stays out of the effect's dependencies. Callers rebuild
+  // `onClose` on most renders, and an overlay's owner re-renders constantly —
+  // engine status alone ticks several times a second. Re-running the effect
+  // pulled focus back to the first control while the reader was tabbing, and
+  // left it holding a node that the close then detached, so focus fell to
+  // <body> instead of returning to whatever opened the overlay.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
   useEffect(() => {
     if (!open) return
     const panelEl = panelRef.current
@@ -46,6 +57,11 @@ export function useModalFocus(
     // reports false here for controls that are plainly on screen.
     const isFocusable = (el: HTMLElement) => {
       if (el.hasAttribute('disabled') || el.tabIndex === -1) return false
+      // `visibility: hidden` still measures, so the rect alone would let one
+      // through; a zero-size box still returns a rect, so the style alone would
+      // too. Both checks are needed.
+      const style = window.getComputedStyle(el)
+      if (style.display === 'none' || style.visibility === 'hidden') return false
       const rect = el.getBoundingClientRect()
       return rect.width > 0 && rect.height > 0
     }
@@ -60,7 +76,7 @@ export function useModalFocus(
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onClose()
+        onCloseRef.current()
         return
       }
 
@@ -89,7 +105,12 @@ export function useModalFocus(
     document.addEventListener('keydown', onKeyDown)
     return () => {
       document.removeEventListener('keydown', onKeyDown)
-      previouslyFocused?.focus?.()
+      // Whatever opened the overlay may itself be gone by the time it closes —
+      // a dialog opened from another dialog, a control the close re-rendered
+      // away. Focusing a detached node silently drops focus to <body>.
+      if (previouslyFocused && document.contains(previouslyFocused)) {
+        previouslyFocused.focus?.()
+      }
     }
-  }, [initialFocus, onClose, open, panelRef, trapFocus])
+  }, [initialFocus, open, panelRef, trapFocus])
 }

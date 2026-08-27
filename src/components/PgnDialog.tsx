@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useModalFocus } from '../hooks/useModalFocus'
 import type { GameNode } from '../hooks/useGameTree'
 import type { EvalSnapshot } from '../engine/analysis'
 import { validateFenForAnalysis } from '../engine/fen'
@@ -64,15 +65,6 @@ const SETUP_CASTLING_OPTIONS: Array<{ right: SetupCastlingRight; label: string; 
     { right: 'k', label: 'Black kingside', short: 'k' },
     { right: 'q', label: 'Black queenside', short: 'q' },
 ]
-
-function isDialogFocusableElement(element: HTMLElement): boolean {
-    if (element.hasAttribute('disabled') || element.tabIndex === -1) return false
-
-    const style = window.getComputedStyle(element)
-    if (style.display === 'none' || style.visibility === 'hidden') return false
-
-    return element.getClientRects().length > 0
-}
 
 export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, mainLineNodes, gameNodes, evaluations, pgnHeaders }: PgnDialogProps) {
     const [tab, setTab] = useState<'import' | 'fen' | 'export'>('import')
@@ -297,67 +289,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         }
     }
 
-    useEffect(() => {
-        if (!open) return
-
-        const previouslyFocused = document.activeElement as HTMLElement | null
-        const panelEl = panelRef.current
-        if (!panelEl) return
-
-        const focusableSelector = [
-            'button:not([disabled])',
-            '[href]',
-            'input:not([disabled])',
-            'select:not([disabled])',
-            'textarea:not([disabled])',
-            '[tabindex]:not([tabindex="-1"])',
-        ].join(', ')
-
-        const getFocusable = () =>
-            Array.from(panelEl.querySelectorAll<HTMLElement>(focusableSelector))
-                .filter(isDialogFocusableElement)
-
-        const focusable = getFocusable()
-        focusable[0]?.focus()
-
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                event.preventDefault()
-                closeDialog()
-                return
-            }
-
-            if (event.key !== 'Tab') return
-            const currentFocusable = getFocusable()
-            if (!currentFocusable.length) return
-
-            const first = currentFocusable[0]
-            const last = currentFocusable[currentFocusable.length - 1]
-            const active = document.activeElement as HTMLElement | null
-            const activeIsFocusable = active ? currentFocusable.includes(active) : false
-
-            if (event.shiftKey) {
-                if (active === first || !activeIsFocusable) {
-                    event.preventDefault()
-                    last.focus()
-                }
-                return
-            }
-
-            if (active === last || !activeIsFocusable) {
-                event.preventDefault()
-                first.focus()
-            }
-        }
-
-        document.addEventListener('keydown', onKeyDown)
-        return () => {
-            document.removeEventListener('keydown', onKeyDown)
-            if (previouslyFocused && document.contains(previouslyFocused)) {
-                previouslyFocused.focus?.()
-            }
-        }
-    }, [closeDialog, open])
+    useModalFocus(open, panelRef, closeDialog)
 
     if (!open) return null
 
