@@ -311,16 +311,6 @@ body.resizing * {
     height: 2.1rem;
   }
 
-  /* Game mode reads from its icon on narrow screens; the active pill keeps its
-     label so the current mode is never ambiguous. */
-  .top-game-modes .gc-pill:not(.gc-pill-active) .gc-pill-label {
-    display: none;
-  }
-
-  .top-game-modes .gc-pill:not(.gc-pill-active) {
-    padding-inline: 0.45rem !important;
-  }
-
   .top .settings-menu {
     margin-left: auto;
   }
@@ -3808,10 +3798,6 @@ button.critical-moment-row {
 
   /* "Play" and "Analysis" read on their own; dropping the decorative icons buys
      the width that keeps the whole bar visible without scrolling. */
-  .top-workspaces .gc-pill-icon {
-    display: none;
-  }
-
   .watch-controls button.wc-btn {
     min-width: 2.5rem;
     min-height: 2.5rem;
