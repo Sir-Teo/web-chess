@@ -4558,7 +4558,10 @@ button.mtree-chip {
   flex-shrink: 0;
 }
 
-.mtree-chip-compact {
+/* Element+class to match `button.mtree-chip` above: at plain `.mtree-chip-compact`
+   the base rule's `width: 100%` won, and every move in a variation took a line
+   of its own — a two-character move rendered 237px wide. */
+button.mtree-chip-compact {
   padding: 0.15rem 0.35rem;
   font-size: 0.71rem;
   width: auto;
@@ -4657,6 +4660,7 @@ button.mtree-chip {
 
   .panel .mtree-chip-compact {
     min-height: 40px;
+    min-width: 2.5rem;
     padding: 0.34rem 0.48rem;
   }
 
