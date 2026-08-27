@@ -3330,8 +3330,8 @@ function App() {
                   Workspace: <strong>{workspaceMode === 'play' ? 'Play mode' : 'Analysis mode'}</strong>
                 </p>
                 {engineEnabled && (
-                  <p className="panel-copy small command-summary">
-                    Engine: <strong>{activeProfile.name}</strong> · {profileMessage}
+                  <p className="panel-copy small command-summary" title={profileMessage}>
+                    Engine: <strong>{activeProfile.name}</strong>
                   </p>
                 )}
                 <h4 className="settings-subhead">Keyboard shortcuts</h4>
@@ -3608,35 +3608,9 @@ function App() {
                           onChange={e => setShowWdl(e.target.checked)} />
                         <span>Show WDL values</span>
                       </label>
-                      <label className="engine-option-row profile-picker">
-                        <span>Engine profile</span>
-                        <select
-                          aria-label="Engine profile in settings"
-                          value={engineProfile}
-                          onChange={e => setEngineProfile(e.target.value as EngineProfileId)}>
-                          <option value="auto">Auto (recommended)</option>
-                          {engineProfiles.map(p => (
-                            <option key={p.id} value={p.id}>{p.name}</option>
-                          ))}
-                        </select>
-                      </label>
                       <p className="panel-copy small">
-                        Isolation: {capabilities.crossOriginIsolated ? 'yes' : 'no'} / SharedArrayBuffer:{' '}
-                        {capabilities.sharedArrayBuffer ? 'yes' : 'no'} / Cores: {capabilities.hardwareConcurrency}
-                      </p>
-                      <div className="engine-options">
-                        <h3>Engine options</h3>
-                        {options.map(option => (
-                          <EngineOptionControl
-                            key={option.name}
-                            option={option}
-                            disabled={status === 'analyzing'}
-                            onSetOption={setOption}
-                          />
-                        ))}
-                      </div>
-                      <p className="panel-copy small">
-                        Options discovered from Stockfish UCI output and applied live.
+                        The engine profile, what the browser supports, and the UCI
+                        options live together in Analysis → Engine Lab.
                       </p>
                       <button type="button" onClick={resetSavedWorkspace}>
                         Reset saved workspace
