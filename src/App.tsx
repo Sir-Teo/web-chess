@@ -4995,18 +4995,21 @@ type WinrateGraphProps = {
   onNavigate?: (index: number) => void
 }
 
-const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, onNavigate }: WinrateGraphProps) {
-  const scrollRef = useRef<HTMLDivElement | null>(null)
-  const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
-  if (points.length === 0) {
-    return (
-      <div className="empty-state">
-        <span className="empty-state-icon" aria-hidden="true"><IconTrendingUp /></span>
-        <p>Play and analyze moves to build the live winrate graph.</p>
-      </div>
-    )
-  }
-
+/**
+ * Everything the two trend graphs work out identically before they draw
+ * anything: where a point lands, where the gridlines go, and what a click or an
+ * arrow key means. Only the paths drawn through it differ — one line for the
+ * winrate, three for the WDL split.
+ *
+ * A plain function rather than a hook: both callers compute this after their
+ * empty-state early return, where a hook could not be called.
+ */
+function trendGraphGeometry(
+  points: readonly { index: number }[],
+  available: number,
+  currentIndex: number | undefined,
+  onNavigate?: (index: number) => void,
+) {
   const maxIndex = points.length > 0 ? points[points.length - 1]!.index : 0
   const width = graphWidthForIndex(maxIndex, available)
   const height = GRAPH_HEIGHT
@@ -5018,18 +5021,10 @@ const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, onNaviga
   const innerHeight = height - padTop - padBottom
 
   const toX = (idx: number) => padLeft + (maxIndex > 0 ? (idx / maxIndex) * innerWidth : 0)
-  const toY = (wr: number) => padTop + ((100 - wr) / 100) * innerHeight
+  const toY = (pct: number) => padTop + ((100 - pct) / 100) * innerHeight
 
-  const path = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(p.index).toFixed(2)} ${toY(p.whiteWinrate).toFixed(2)}`)
-    .join(' ')
-
-  const area = `${path} L ${toX(maxIndex).toFixed(2)} ${(height - padBottom).toFixed(2)} L ${toX(points[0]?.index ?? 0).toFixed(2)} ${(height - padBottom).toFixed(2)} Z`
-  const markers = [0, 25, 50, 75, 100]
-  const xTickStep = graphTickStep(maxIndex, innerWidth)
   const isNavigable = Boolean(onNavigate && maxIndex > 0)
   const selectedIndex = clampGraphIndex(currentIndex ?? maxIndex, maxIndex)
-  const selectedPoint = points.find(point => point.index === selectedIndex)
 
   const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!isNavigable || !onNavigate) return
@@ -5055,6 +5050,39 @@ const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, onNaviga
       onNavigate(targetIdx)
     }
   }
+
+  return {
+    maxIndex, width, height, padLeft, padRight, padTop, padBottom,
+    innerWidth, innerHeight, toX, toY,
+    markers: [0, 25, 50, 75, 100],
+    xTickStep: graphTickStep(maxIndex, innerWidth),
+    isNavigable, selectedIndex, handleClick, handleKeyDown,
+  }
+}
+
+const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, onNavigate }: WinrateGraphProps) {
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
+  if (points.length === 0) {
+    return (
+      <div className="empty-state">
+        <span className="empty-state-icon" aria-hidden="true"><IconTrendingUp /></span>
+        <p>Play and analyze moves to build the live winrate graph.</p>
+      </div>
+    )
+  }
+
+  const {
+    maxIndex, width, height, padLeft, padRight, padTop, padBottom,
+    toX, toY, markers, xTickStep, isNavigable, selectedIndex, handleClick, handleKeyDown,
+  } = trendGraphGeometry(points, available, currentIndex, onNavigate)
+
+  const path = points
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(p.index).toFixed(2)} ${toY(p.whiteWinrate).toFixed(2)}`)
+    .join(' ')
+
+  const area = `${path} L ${toX(maxIndex).toFixed(2)} ${(height - padBottom).toFixed(2)} L ${toX(points[0]?.index ?? 0).toFixed(2)} ${(height - padBottom).toFixed(2)} Z`
+  const selectedPoint = points.find(point => point.index === selectedIndex)
 
   const currentLineX = currentIndex !== undefined && maxIndex > 0
     ? toX(selectedIndex)
@@ -5154,20 +5182,10 @@ const WdlProgressGraph = memo(function WdlProgressGraph({ points, currentIndex, 
     )
   }
 
-  const maxIndex = points.length > 0 ? points[points.length - 1]!.index : 0
-  const width = graphWidthForIndex(maxIndex, available)
-  const height = GRAPH_HEIGHT
-  const padLeft = GRAPH_PAD_LEFT
-  const padRight = GRAPH_PAD_RIGHT
-  const padTop = GRAPH_PAD_TOP
-  const padBottom = GRAPH_PAD_BOTTOM
-  const innerWidth = width - padLeft - padRight
-  const innerHeight = height - padTop - padBottom
-  const markers = [0, 25, 50, 75, 100]
-  const xTickStep = graphTickStep(maxIndex, innerWidth)
-
-  const toX = (idx: number) => padLeft + (maxIndex > 0 ? (idx / maxIndex) * innerWidth : 0)
-  const toY = (pct: number) => padTop + ((100 - pct) / 100) * innerHeight
+  const {
+    maxIndex, width, height, padLeft, padRight, padTop, padBottom,
+    toX, toY, markers, xTickStep, isNavigable, selectedIndex, handleClick, handleKeyDown,
+  } = trendGraphGeometry(points, available, currentIndex, onNavigate)
 
   const buildPath = (selector: (point: WdlPoint) => number): string =>
     points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(p.index).toFixed(2)} ${toY(selector(p)).toFixed(2)}`).join(' ')
@@ -5175,34 +5193,7 @@ const WdlProgressGraph = memo(function WdlProgressGraph({ points, currentIndex, 
   const whitePath = buildPath((p) => p.white)
   const drawPath = buildPath((p) => p.draw)
   const blackPath = buildPath((p) => p.black)
-  const isNavigable = Boolean(onNavigate && maxIndex > 0)
-  const selectedIndex = clampGraphIndex(currentIndex ?? maxIndex, maxIndex)
   const selectedPoint = points.find(point => point.index === selectedIndex)
-
-  const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!isNavigable || !onNavigate) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const scaleX = width / rect.width
-    const xInsideSvg = (e.clientX - rect.left) * scaleX
-
-    let targetIdx = Math.round(((xInsideSvg - padLeft) / innerWidth) * maxIndex)
-    if (targetIdx < 0) targetIdx = 0
-    if (targetIdx > maxIndex) targetIdx = maxIndex
-
-    onNavigate(targetIdx)
-  }
-
-  const handleKeyDown = (e: ReactKeyboardEvent<SVGSVGElement>) => {
-    if (!isNavigable || !onNavigate) return
-
-    const targetIdx = graphKeyboardTarget(e.key, selectedIndex, maxIndex)
-    if (targetIdx === null) return
-
-    e.preventDefault()
-    if (targetIdx !== selectedIndex) {
-      onNavigate(targetIdx)
-    }
-  }
 
   const currentLineX = currentIndex !== undefined && maxIndex > 0
     ? toX(selectedIndex)
