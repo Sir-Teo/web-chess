@@ -1143,6 +1143,12 @@ function App() {
   // ── Batch Review ─────────────────────────────────────
   const [isBatchReviewing, setIsBatchReviewing] = useState(false)
   const [batchReviewProgress, setBatchReviewProgress] = useState({ done: 0, total: 0 })
+  // A percentage, because the Evaluated tile beside it shows a fraction of a
+  // different thing — moves on the visible side, against this button's engine
+  // searches — and two bare n/m readouts that disagree read as a bug.
+  const batchReviewPercent = batchReviewProgress.total > 0
+    ? Math.round((batchReviewProgress.done / batchReviewProgress.total) * 100)
+    : 0
   const batchReviewQueueRef = useRef<BatchReviewTarget[]>([])
   const activeBatchReviewRef = useRef<BatchReviewTarget | null>(null)
   const tablebase = useTablebase({
@@ -4441,7 +4447,7 @@ function App() {
                       aria-label={reviewGameButtonLabel}
                     >
                       {isBatchReviewing ? (
-                        <><IconStop /> Reviewing ({batchReviewProgress.done}/{batchReviewProgress.total})</>
+                        <><IconStop /> Reviewing {batchReviewPercent}%</>
                       ) : (
                         <><IconSearch /> Review Game</>
                       )}
