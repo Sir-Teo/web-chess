@@ -2295,9 +2295,12 @@ function App() {
   const isLandscapePhone = isMobile && viewport.height <= 520
 
   // A collapsed bar leaves only its resize handle behind, so the board can claim
-  // the rest. These track the real chrome rather than one blended constant.
-  const topBarAllowance = topPanelOpen ? 78 : 16
-  const bottomBarAllowance = bottomPanelOpen ? 62 : 16
+  // the rest. These track the real chrome rather than one blended constant, and
+  // scale with the root font size — the chrome they describe is sized in rem, so
+  // at 150% text the fixed values under-reserved and the board met the bar.
+  const remScale = rootFontSize / 16
+  const topBarAllowance = (topPanelOpen ? 78 : 16) * remScale
+  const bottomBarAllowance = (bottomPanelOpen ? 62 : 16) * remScale
 
   // Space reserved beside the board for the in-flow evaluation column. It is
   // sized in rem (--eval-col-w + --eval-col-gap = 2.125rem), so the reservation
@@ -2305,12 +2308,12 @@ function App() {
   const evalColumnWidth = engineEnabled && showWdl ? Math.ceil(2.125 * rootFontSize) : 0
   const boardWidth = isMobile
     ? (isLandscapePhone
-      ? Math.min(viewport.height - LANDSCAPE_BOARD_CHROME, Math.round(viewport.width * 0.55) - evalColumnWidth)
+      ? Math.min(viewport.height - (LANDSCAPE_BOARD_CHROME * remScale), Math.round(viewport.width * 0.55) - evalColumnWidth)
       // Portrait: board takes ~46% of the height so the panels stay visible below.
       : Math.min(viewport.width - 32 - evalColumnWidth, Math.round(viewport.height * 0.46)))
     : Math.min(
       viewport.width - leftWidth - rightWidth - 48 - evalColumnWidth,
-      viewport.height - topBarAllowance - bottomBarAllowance - BOARD_STACK_CHROME,
+      viewport.height - topBarAllowance - bottomBarAllowance - (BOARD_STACK_CHROME * remScale),
       800,
     )
   const minBoardWidth = isLandscapePhone ? 180 : 260

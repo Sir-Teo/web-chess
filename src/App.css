@@ -1549,7 +1549,9 @@ button.analysis-tab-btn {
 
 .coach-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Reflow to fewer columns rather than squeezing: at 150% text three fixed
+     columns clipped the evaluation to "+0…". */
+  grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
   gap: 0.4rem;
   margin-bottom: 0.5rem;
 }
@@ -2346,15 +2348,18 @@ button.critical-moment-row {
   border-color: rgba(240, 136, 62, 0.22) !important;
 }
 
+/* Lifted off the shared quality tokens, which also colour the move-tree dots
+   where no contrast minimum applies. On their own tinted chips those tokens
+   measured 4.41:1 and 3.54:1 — both under AA for this text size. */
 .chip-blunder {
   background: rgba(248, 81, 73, 0.12);
-  color: var(--quality-blunder);
+  color: #f87171;
   border-color: rgba(248, 81, 73, 0.22) !important;
 }
 
 .chip-pending {
   background: rgba(110, 118, 129, 0.1);
-  color: var(--quality-pending);
+  color: #9a9aa4;
   border-color: rgba(110, 118, 129, 0.18) !important;
 }
 
