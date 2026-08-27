@@ -601,6 +601,16 @@ const NOTATION_BASE_STYLE = {
   pointerEvents: 'none' as const,
 }
 
+/**
+ * A PGN header value, or null when it says nothing. The standard fills unknown
+ * Seven Tag Roster fields with "?" and an unfinished result with "*", so a
+ * generated or anonymised game would otherwise be labelled "? vs ?".
+ */
+function knownPgnHeader(value: string | undefined): string | null {
+  const trimmed = value?.trim()
+  return trimmed && trimmed !== '?' && trimmed !== '*' ? trimmed : null
+}
+
 function notationStyle(color: string) {
   return { color }
 }
@@ -3102,11 +3112,14 @@ function App() {
     ?? `${game.turn() === 'w' ? 'White' : 'Black'} to move${game.isCheck() ? ' · Check' : ''}`
   // An imported game already carries who played it. The app parsed those
   // headers, re-exported them, and never once showed them.
-  const importedPlayers = pgnHeaders.White && pgnHeaders.Black
-    ? `${pgnHeaders.White} vs ${pgnHeaders.Black}`
+  const importedWhite = knownPgnHeader(pgnHeaders.White)
+  const importedBlack = knownPgnHeader(pgnHeaders.Black)
+  const importedPlayers = importedWhite && importedBlack
+    ? `${importedWhite} vs ${importedBlack}`
     : null
-  const importedResult = pgnHeaders.Result && pgnHeaders.Result !== '*' ? pgnHeaders.Result : null
-  const importedGameTitle = [importedPlayers, pgnHeaders.Event, importedResult].filter(Boolean).join(' · ')
+  const importedResult = knownPgnHeader(pgnHeaders.Result)
+  const importedGameTitle = [importedPlayers, knownPgnHeader(pgnHeaders.Event), importedResult]
+    .filter(Boolean).join(' · ')
   const moveNumberLabel = `Move ${fen.split(/\s+/)[5] ?? '1'}`
   const currentMoveQuality = gameTree.current.quality
   const gameModeLabel = gameMode === 'human-vs-human'
