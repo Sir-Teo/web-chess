@@ -3165,6 +3165,13 @@ function App() {
         : null
   const turnLabel = gameResultLabel
     ?? `${game.turn() === 'w' ? 'White' : 'Black'} to move${game.isCheck() ? ' · Check' : ''}`
+  // An imported game already carries who played it. The app parsed those
+  // headers, re-exported them, and never once showed them.
+  const importedPlayers = pgnHeaders.White && pgnHeaders.Black
+    ? `${pgnHeaders.White} vs ${pgnHeaders.Black}`
+    : null
+  const importedResult = pgnHeaders.Result && pgnHeaders.Result !== '*' ? pgnHeaders.Result : null
+  const importedGameTitle = [importedPlayers, pgnHeaders.Event, importedResult].filter(Boolean).join(' · ')
   const moveNumberLabel = `Move ${fen.split(/\s+/)[5] ?? '1'}`
   const currentMoveQuality = gameTree.current.quality
   const gameModeLabel = gameMode === 'human-vs-human'
@@ -3827,7 +3834,13 @@ function App() {
               <span className={`turn-pill ${gameResultLabel ? 'final' : game.turn() === 'w' ? 'white' : 'black'}`}>
                 {turnLabel}
               </span>
-              <span>{moveNumberLabel}</span>
+              <span className="board-meta-move">{moveNumberLabel}</span>
+              {importedPlayers && (
+                <span className="board-meta-game" title={importedGameTitle}>
+                  {importedResult && <strong>{importedResult}</strong>}
+                  <span>{importedPlayers}</span>
+                </span>
+              )}
               <span className="board-meta-status">{workspaceMode === 'analysis' ? status : gameModeLabel}</span>
               {currentMoveQuality && (
                 <span className={`board-quality-pill quality-${currentMoveQuality}`}>
