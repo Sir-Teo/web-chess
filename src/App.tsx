@@ -1910,6 +1910,9 @@ function App() {
   const mainLineNodes = useMemo(() => gameTree.mainLine(), [gameTree])
   const mainLineMoves = useMemo(() => mainLineNodes.slice(1).map(n => n.move!).filter(Boolean), [mainLineNodes])
   const mainLineUciMoves = useMemo(() => mainLineNodes.slice(1).map(node => node.uci).filter(Boolean), [mainLineNodes])
+  // How far into the game the opening book is consulted: the prefetch loop, the
+  // row list and the summary line all have to agree on this number.
+  const reviewBookPrefixLength = Math.min(mainLineUciMoves.length, REVIEW_BOOK_PREFETCH_LIMIT)
 
   const reviewRows = useMemo(
     () => buildReviewRows(mainLineMoves, evaluationsByFen, currentRootFen),
@@ -1955,7 +1958,7 @@ function App() {
 
     let cancelled = false
     const controller = new AbortController()
-    const maxPlyToPrefetch = Math.min(mainLineUciMoves.length, REVIEW_BOOK_PREFETCH_LIMIT)
+    const maxPlyToPrefetch = reviewBookPrefixLength
 
     const run = async () => {
       for (let idx = 0; idx < maxPlyToPrefetch; idx += 1) {
@@ -1991,11 +1994,11 @@ function App() {
       cancelled = true
       controller.abort()
     }
-  }, [analysisTab, currentRootFen, hasOpeningExplorerToken, mainLineUciMoves, openingAuthToken, openingRatings, openingSource, openingSpeeds, workspaceMode])
+  }, [analysisTab, currentRootFen, hasOpeningExplorerToken, mainLineUciMoves, openingAuthToken, openingRatings, openingSource, openingSpeeds, reviewBookPrefixLength, workspaceMode])
 
   const reviewBookRows = useMemo(() => {
     void openingPrefetchTick
-    const maxRows = Math.min(mainLineUciMoves.length, REVIEW_BOOK_PREFETCH_LIMIT)
+    const maxRows = reviewBookPrefixLength
     return mainLineUciMoves.slice(0, maxRows).map((uci, index) => {
       const beforeMoves = mainLineUciMoves.slice(0, index)
       const fromCache = getCachedOpeningExplorer({
@@ -2076,6 +2079,7 @@ function App() {
     openingRatings,
     openingSource,
     openingSpeeds,
+    reviewBookPrefixLength,
     reviewBookTerminalPly,
     reviewBookError,
   ])
@@ -3420,7 +3424,7 @@ function App() {
                             setMultiPv(Number(e.target.value))
                           }}
                         />
-                        <strong>{multiPv} lines</strong>
+                        <strong>{multiPv} {multiPv === 1 ? 'line' : 'lines'}</strong>
                       </label>
                       <label className="switch-control">
                         <input
@@ -4416,7 +4420,7 @@ function App() {
                     </div>
                     {reviewAccuracy.pendingMoves > 0 && (
                       <p className="panel-copy small command-summary">
-                        {reviewAccuracy.pendingMoves} move{reviewAccuracy.pendingMoves === 1 ? '' : 's'} still need deeper evaluation before accuracy is final.
+                        {reviewAccuracy.pendingMoves} move{reviewAccuracy.pendingMoves === 1 ? '' : 's'} still need{reviewAccuracy.pendingMoves === 1 ? 's' : ''} deeper evaluation before accuracy is final.
                       </p>
                     )}
                     <div className="review-chips">
@@ -4508,7 +4512,7 @@ function App() {
                   <div className="opening-intel-card review-book-card">
                     <h3><span className="section-icon"><IconSearch /></span> Book vs Engine</h3>
                     <p className="panel-copy small command-summary">
-                      First {Math.min(mainLineUciMoves.length, REVIEW_BOOK_PREFETCH_LIMIT)} plies · In book {reviewBookSummary.inBook} · Out of book {reviewBookSummary.outOfBook}
+                      First {reviewBookPrefixLength} {reviewBookPrefixLength === 1 ? 'ply' : 'plies'} · In book {reviewBookSummary.inBook} · Out of book {reviewBookSummary.outOfBook}
                       {reviewBookSummary.loading > 0 ? ` · checking ${reviewBookSummary.loading}` : ''}
                       {reviewBookSummary.afterNovelty > 0 ? ` · after novelty ${reviewBookSummary.afterNovelty}` : ''}
                       {reviewBookSummary.authRequired > 0 ? ' · token needed' : ''}
