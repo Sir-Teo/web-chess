@@ -1008,12 +1008,6 @@ function App() {
     if (tip) navigateAndPonder(gameTree.navigateTo(tip.id))
   }, [gameTree, navigateAndPonder])
 
-  // The global key handler is declared above these callbacks, so it reaches them
-  // through refs rather than re-binding the listener on every promotion.
-  const pendingPromotionRef = useRef<PendingPromotion | null>(null)
-  const completePromotionRef = useRef<(piece: PromotionPiece) => void>(() => {})
-  const cancelPromotionRef = useRef<() => void>(() => {})
-
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1022,15 +1016,6 @@ function App() {
       const target = e.target as HTMLElement | null
       const tag = target?.tagName
       if (target?.isContentEditable || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
-
-      // The promotion chooser is modal: it owns the keyboard until it resolves,
-      // otherwise navigation would run with a move still half-made.
-      if (pendingPromotionRef.current) {
-        if (e.key === 'Escape') { e.preventDefault(); cancelPromotionRef.current() }
-        const piece = PROMOTION_KEYS[e.key.toLowerCase()]
-        if (piece) { e.preventDefault(); completePromotionRef.current(piece) }
-        return
-      }
 
       if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev() }
       if (e.key === 'ArrowRight') { e.preventDefault(); goNext() }
@@ -2490,73 +2475,26 @@ function App() {
     setPendingPromotion(null)
   }, [])
 
-  useEffect(() => {
-    pendingPromotionRef.current = pendingPromotion
-    completePromotionRef.current = completePromotion
-    cancelPromotionRef.current = cancelPromotion
-  })
+  useModalFocus(promotionDialogOpen, promotionDialogRef, cancelPromotion)
 
+  // The chooser prints a key on every option, and those keys reached the global
+  // shortcut handler only after it had already returned — `shortcutsSuspended`
+  // covers `promotionDialogOpen`, so Q/R/B/N did nothing at all. They belong to
+  // the dialog anyway, which is the only thing that can act on them.
   useEffect(() => {
     if (!pendingPromotion) return
 
-    const previouslyFocused = document.activeElement as HTMLElement | null
-    const dialogEl = promotionDialogRef.current
-    if (!dialogEl) return
-
-    const focusableSelector = [
-      'button:not([disabled])',
-      '[href]',
-      'input:not([disabled])',
-      'select:not([disabled])',
-      'textarea:not([disabled])',
-      '[tabindex]:not([tabindex="-1"])',
-    ].join(', ')
-
-    const getFocusable = () =>
-      Array.from(dialogEl.querySelectorAll<HTMLElement>(focusableSelector))
-        .filter(el => !el.hasAttribute('disabled') && el.tabIndex !== -1)
-
-    const focusable = getFocusable()
-    focusable[0]?.focus()
-
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        setPendingPromotion(null)
-        return
-      }
-
-      if (event.key !== 'Tab') return
-      const currentFocusable = getFocusable()
-      if (!currentFocusable.length) return
-
-      const first = currentFocusable[0]
-      const last = currentFocusable[currentFocusable.length - 1]
-      const active = document.activeElement as HTMLElement | null
-      const activeIsFocusable = active ? currentFocusable.includes(active) : false
-
-      if (event.shiftKey) {
-        if (active === first || !activeIsFocusable) {
-          event.preventDefault()
-          last.focus()
-        }
-        return
-      }
-
-      if (active === last || !activeIsFocusable) {
-        event.preventDefault()
-        first.focus()
-      }
+      if (event.defaultPrevented) return
+      const piece = PROMOTION_KEYS[event.key.toLowerCase()]
+      if (!piece) return
+      event.preventDefault()
+      completePromotion(piece)
     }
 
     document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-      if (previouslyFocused && document.contains(previouslyFocused)) {
-        previouslyFocused.focus?.()
-      }
-    }
-  }, [pendingPromotion])
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [completePromotion, pendingPromotion])
 
   // ── New game ──────────────────────────────────────────
   const rememberModalTrigger = () => {
