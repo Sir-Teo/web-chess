@@ -2110,6 +2110,19 @@ function App() {
     [currentLineNodes],
   )
 
+  // Both trend graphs navigate identically; they had a character-identical copy
+  // of this closure each.
+  const navigateToGraphPoint = useCallback((idx: number) => {
+    const targetNode = currentLineNodes[idx] || currentLineNodes[currentLineNodes.length - 1]
+    if (!targetNode) return
+    const chess = gameTree.navigateTo(targetNode.id)
+    if (workspaceMode === 'analysis') {
+      navigateAndPonder(chess)
+      return
+    }
+    navigateAndPause(chess)
+  }, [currentLineNodes, gameTree, navigateAndPause, navigateAndPonder, workspaceMode])
+
   const winratePoints = useMemo(
     () => buildWinrateSeries(currentLineMoves, evaluationsByFen, currentRootFen),
     [currentLineMoves, currentRootFen, evaluationsByFen],
@@ -3630,16 +3643,7 @@ function App() {
                 <WinrateGraph
                   points={winratePoints}
                   currentIndex={currentPathNodes.length - 1}
-                  onNavigate={(idx) => {
-                    const targetNode = currentLineNodes[idx] || currentLineNodes[currentLineNodes.length - 1]
-                    if (!targetNode) return
-                    const chess = gameTree.navigateTo(targetNode.id)
-                    if (workspaceMode === 'analysis') {
-                      navigateAndPonder(chess)
-                      return
-                    }
-                    navigateAndPause(chess)
-                  }}
+                  onNavigate={navigateToGraphPoint}
                 />
                 {winratePoints.length > 0 && (
                   <div className="graph-legend">
@@ -3656,16 +3660,7 @@ function App() {
                 <WdlProgressGraph
                   points={wdlPoints}
                   currentIndex={currentPathNodes.length - 1}
-                  onNavigate={(idx) => {
-                    const targetNode = currentLineNodes[idx] || currentLineNodes[currentLineNodes.length - 1]
-                    if (!targetNode) return
-                    const chess = gameTree.navigateTo(targetNode.id)
-                    if (workspaceMode === 'analysis') {
-                      navigateAndPonder(chess)
-                      return
-                    }
-                    navigateAndPause(chess)
-                  }}
+                  onNavigate={navigateToGraphPoint}
                 />
                 {wdlPoints.length > 0 && (
                   <div className="graph-legend wdl">
