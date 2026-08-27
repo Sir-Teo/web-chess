@@ -2403,11 +2403,6 @@ button.critical-moment-row {
   width: 100%;
   display: grid !important;
   grid-template-columns: auto auto minmax(0, 1fr) auto auto auto;
-}
-
-/* Coach view drops the raw UCI, matching how the Lines panel hides it. */
-.review-move-row.compact {
-  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
   gap: 0.32rem;
   align-items: center;
   padding: 0.32rem 0.48rem;
@@ -2417,6 +2412,11 @@ button.critical-moment-row {
   color: inherit !important;
   text-align: left;
   box-shadow: none !important;
+}
+
+/* Coach view drops the raw UCI, matching how the Lines panel hides it. */
+.review-move-row.compact {
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
 }
 
 .review-move-row.active {
