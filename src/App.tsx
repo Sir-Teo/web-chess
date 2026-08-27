@@ -99,6 +99,38 @@ type PromotionPiece = 'q' | 'r' | 'b' | 'n'
 type PendingPromotion = { from: Square; to: Square }
 type ImportSweepProgress = { done: number; total: number; sampledFrom?: number }
 
+// Board chrome, in rem — keep in sync with --stage-pad-x, --board-frame,
+// --eval-col-w and --eval-col-gap in index.css. The board is sized in JS, so
+// anything that sits beside it has to be subtracted here or the board overflows
+// its stage; the mobile figures are the @media (max-width: 900px) overrides.
+const BOARD_CHROME = {
+  desktop: { stagePadX: 1.25, frame: 0.55 },
+  mobile: { stagePadX: 0.5, frame: 0.25 },
+} as const
+const EVAL_COLUMN_REM = 1.625 + 0.5
+const BOARD_FRAME_BORDER = 1
+
+// Classic scrollbars take layout width from the stacked mobile layout; overlay
+// scrollbars (every touch browser) take none. Measured once — it is a property
+// of the browser, not of the page.
+let cachedScrollbarWidth: number | null = null
+const measureScrollbarWidth = () => {
+  if (cachedScrollbarWidth !== null) return cachedScrollbarWidth
+  const probe = document.createElement('div')
+  probe.style.cssText = 'position:absolute;top:-9999px;width:100px;height:100px;overflow:scroll'
+  document.body.append(probe)
+  cachedScrollbarWidth = probe.offsetWidth - probe.clientWidth
+  probe.remove()
+  return cachedScrollbarWidth
+}
+
+const readViewport = () => ({
+  width: window.innerWidth,
+  height: window.innerHeight,
+  rem: parseFloat(getComputedStyle(document.documentElement).fontSize) || 16,
+  scrollbar: measureScrollbarWidth(),
+})
+
 const LICHESS_TOKEN_PAGE_URL = 'https://lichess.org/account/oauth/token/create?'
 const SAMPLE_PGN_CACHE_LIMIT = 12
 const DEFAULT_LEFT_PANEL_WIDTH = 320
@@ -723,7 +755,7 @@ function App() {
   const boardStageRef = useRef<HTMLElement>(null)
   const analysisPanelRef = useRef<HTMLElement>(null)
   const revealOpeningIntelRef = useRef(false)
-  const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight })
+  const [viewport, setViewport] = useState(readViewport)
   const hasAutoOpenedAnalysisLeftRef = useRef(initialWorkspaceMode === 'analysis')
 
   // ── Engine settings ──────────────────────────────────
@@ -1338,7 +1370,7 @@ function App() {
       if (resizeFrame !== null) return
       resizeFrame = window.requestAnimationFrame(() => {
         resizeFrame = null
-        setViewport({ width: window.innerWidth, height: window.innerHeight })
+        setViewport(readViewport())
       })
     }
     window.addEventListener('resize', onResize)
@@ -3077,19 +3109,28 @@ function App() {
   const leftPanelUnavailable = workspaceMode === 'play'
   const layoutLeftWidth = leftPanelUnavailable ? 0 : leftWidth
   const desktopBoardChromeReserve = 44
+  // Width the board can never have: the stage padding, the frame drawn around
+  // the board, and the evaluation column that sits in flow beside it. All of it
+  // is rem-based, so it grows with the user's text size.
+  const chrome = isMobile ? BOARD_CHROME.mobile : BOARD_CHROME.desktop
+  const boardChromeWidth = viewport.rem * (
+    2 * chrome.stagePadX
+    + 2 * chrome.frame
+    + (engineEnabled && showWdl ? EVAL_COLUMN_REM : 0)
+  ) + 2 * BOARD_FRAME_BORDER
   const mobileBoardWidth = Math.min(
-    Math.max(0, viewport.width - 16),
+    Math.max(0, viewport.width - viewport.scrollbar - boardChromeWidth),
     Math.max(300, Math.round(viewport.height * 0.46)),
   )
 
   // Mobile: prefer finger-friendly squares while respecting narrow screens.
-  const boardWidth = isMobile
+  const boardWidth = Math.floor(isMobile
     ? mobileBoardWidth
     : Math.min(
-      viewport.width - layoutLeftWidth - rightWidth - 48,
+      viewport.width - layoutLeftWidth - rightWidth - boardChromeWidth,
       viewport.height - (bottomPanelOpen ? 140 : 80) - (topPanelOpen ? 80 : 40) - desktopBoardChromeReserve,
       800,
-    )
+    ))
   const renderedBoardWidth = isMobile ? boardWidth : Math.max(260, boardWidth)
   const notationFontSize = `${Math.round(Math.max(10, Math.min(13, renderedBoardWidth / 32)))}px`
   const turnLabel = game.turn() === 'w' ? 'White to move' : 'Black to move'

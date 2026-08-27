@@ -593,7 +593,7 @@ body.resizing * {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: clamp(0.75rem, 2vw, 1.35rem);
+  padding: clamp(0.75rem, 2vw, 1.35rem) var(--stage-pad-x);
   z-index: 1;
   min-width: 0;
   position: relative;
@@ -795,7 +795,7 @@ body.resizing * {
 .board-area {
   position: relative;
   border-radius: 14px;
-  padding: clamp(0.25rem, 0.8vw, 0.55rem);
+  padding: var(--board-frame);
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.018)),
     #111318;
@@ -3395,6 +3395,11 @@ button.critical-moment-row {
    Responsive
    ═══════════════════════════════════════════════════ */
 @media (max-width: 900px) {
+  :root {
+    --stage-pad-x: 0.5rem;
+    --board-frame: 0.25rem;
+  }
+
   .app-shell {
     height: 100vh;
     width: 100vw;
@@ -3425,7 +3430,7 @@ button.critical-moment-row {
 
   .board-stage {
     order: 1;
-    padding: 0.35rem var(--space-sm);
+    padding: 0.35rem var(--stage-pad-x);
     min-height: auto;
     width: 100%;
     max-width: 100%;
@@ -4024,7 +4029,7 @@ button.critical-moment-row {
     flex: none;
     width: auto;
     max-width: none;
-    padding: var(--space-sm);
+    padding: var(--space-sm) var(--stage-pad-x);
   }
 
   .right,

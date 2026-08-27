@@ -57,6 +57,13 @@
   --eval-col-w: 1.625rem;
   --eval-col-gap: 0.5rem;
 
+  /* ── Board chrome ──────────────────────────────────
+     Everything stacked horizontally beside the board. The board size is
+     computed in JS, so these stay in rem and are mirrored by
+     BOARD_CHROME in App.tsx — change one, change the other. */
+  --stage-pad-x: 1.25rem;
+  --board-frame: 0.55rem;
+
   /* ── Spacing ───────────────────────────────────── */
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
