@@ -2748,11 +2748,18 @@ button.critical-moment-row {
   overflow: hidden;
 }
 
+/* Pro view carries seven things per row. Seven columns did not fit the 285px
+   panel: the UCI was handed a 0px track and the row still overflowed by 26px,
+   so the trailing verdict was clipped off. Two lines fit all of it. */
 .review-move-row {
   width: 100%;
   display: grid !important;
-  grid-template-columns: auto auto minmax(0, 1fr) minmax(4.6rem, auto) auto auto auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "index san uci quality"
+    "index best impact confidence";
   gap: 0.32rem;
+  row-gap: 0.16rem;
   align-items: center;
   padding: 0.32rem 0.48rem;
   border: 0 !important;
@@ -2763,9 +2770,42 @@ button.critical-moment-row {
   box-shadow: none !important;
 }
 
-/* Coach view drops the raw UCI, matching how the Lines panel hides it. */
+/* Coach view drops the raw UCI and the search depth, matching how the Lines
+   panel hides them. The five that remain fit one line. */
 .review-move-row.compact {
   grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  grid-template-areas: "index san best impact quality";
+}
+
+.review-move-row .move-index {
+  grid-area: index;
+  align-self: start;
+}
+
+.review-move-row strong {
+  grid-area: san;
+}
+
+.review-move-row .move-uci {
+  grid-area: uci;
+}
+
+.review-move-row .move-best {
+  grid-area: best;
+  min-width: 0;
+}
+
+.review-move-row .move-impact {
+  grid-area: impact;
+}
+
+.review-move-row .move-confidence {
+  grid-area: confidence;
+}
+
+.review-move-row .move-quality {
+  grid-area: quality;
+  align-self: center;
 }
 
 .review-move-row.active {
@@ -2805,43 +2845,18 @@ button.critical-moment-row {
 
 @media (max-width: 700px) {
   .review-move-row {
-    grid-template-columns: auto auto minmax(0, 1fr) auto;
     grid-template-areas:
       "index san uci quality"
       "index best best quality"
       "index impact confidence quality";
-    row-gap: 0.16rem;
   }
 
-  .review-move-row .move-index {
-    grid-area: index;
-    align-self: start;
-  }
-
-  .review-move-row strong {
-    grid-area: san;
-  }
-
-  .review-move-row .move-uci {
-    grid-area: uci;
-  }
-
-  .review-move-row .move-best {
-    grid-area: best;
-    min-width: 0;
-  }
-
-  .review-move-row .move-impact {
-    grid-area: impact;
-  }
-
-  .review-move-row .move-confidence {
-    grid-area: confidence;
-  }
-
-  .review-move-row .move-quality {
-    grid-area: quality;
-    align-self: center;
+  .review-move-row.compact {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "index san san quality"
+      "index best best quality"
+      "index impact impact quality";
   }
 }
 

@@ -4502,7 +4502,7 @@ function App() {
                         rows={visibleReviewRows}
                         nodes={mainLineNodes}
                         currentNodeId={gameTree.current.id}
-                        showUci={analysisExperience === 'pro'}
+                        showEngineDetail={analysisExperience === 'pro'}
                         onSelectNode={navigateReviewNode}
                       />
                     ) : (
@@ -4877,11 +4877,11 @@ type ReviewMoveListProps = {
   rows: ReviewRow[]
   nodes: GameNode[]
   currentNodeId: string
-  showUci: boolean
+  showEngineDetail: boolean
   onSelectNode: (node: GameNode) => void
 }
 
-const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, currentNodeId, showUci, onSelectNode }: ReviewMoveListProps) {
+const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, currentNodeId, showEngineDetail, onSelectNode }: ReviewMoveListProps) {
   return (
     <ol className="moves-list review-move-list">
       {rows.map(row => {
@@ -4899,7 +4899,7 @@ const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, currentNodeId
           <li key={`${row.ply}-${row.uci}`} className={`quality-${row.quality}`}>
             <button
               type="button"
-              className={`review-move-row ${showUci ? '' : 'compact'} ${isCurrentReviewMove ? 'active' : ''}`}
+              className={`review-move-row ${showEngineDetail ? '' : 'compact'} ${isCurrentReviewMove ? 'active' : ''}`}
               disabled={!node}
               aria-current={isCurrentReviewMove ? 'true' : undefined}
               aria-label={`Go to ${movePrefix} ${row.san}: ${ariaDetails}`}
@@ -4909,12 +4909,14 @@ const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, currentNodeId
             >
               <span className="move-index">{movePrefix}</span>
               <strong>{row.san}</strong>
-              <span className="move-uci">{row.uci}</span>
+              {showEngineDetail && <span className="move-uci">{row.uci}</span>}
               <span className="move-best">{bestMoveHint ?? ''}</span>
               <span className="move-impact">{impactLabel}</span>
-              <span className={`move-confidence confidence-${row.confidence}`}>
-                {confidenceLabel}
-              </span>
+              {showEngineDetail && (
+                <span className={`move-confidence confidence-${row.confidence}`}>
+                  {confidenceLabel}
+                </span>
+              )}
               <span className="move-quality">{qualityLabel}</span>
             </button>
           </li>
