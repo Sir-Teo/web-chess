@@ -1924,11 +1924,18 @@ function App() {
   )
   const reviewSummary = useMemo(() => summarizeReview(visibleReviewRows), [visibleReviewRows])
   const reviewAccuracy = useMemo(() => summarizeAccuracy(visibleReviewRows), [visibleReviewRows])
-  const reviewGameDisabledReason = !engineEnabled
-    ? 'Enable Stockfish to review the game.'
-    : mainLineNodes.length <= 1
-      ? 'Add moves or import a PGN before running review.'
-      : null
+  // Only rendered inside the analysis workspace, which is exactly when the
+  // engine is on, so the game length is the only thing left to check.
+  const reviewGameDisabledReason = mainLineNodes.length <= 1
+    ? 'Add moves or import a PGN before running review.'
+    : null
+  // The Engine Lab greys controls out behind two gates. Both used to be silent.
+  const engineBusyDisabledReason = status === 'analyzing'
+    ? 'The engine is mid-search. Stop the analysis first.'
+    : null
+  const expertCommandDisabledReason = expertModeEnabled
+    ? engineBusyDisabledReason
+    : 'Expert mode only: these commands take the engine over for a while.'
   const reviewGameButtonLabel = isBatchReviewing
     ? `Stop game review. ${batchReviewProgress.done} of ${batchReviewProgress.total} positions reviewed.`
     : reviewGameDisabledReason
@@ -3313,7 +3320,10 @@ function App() {
                     </div>
                   ))}
                 </dl>
-                <label className="switch-control">
+                <label
+                  className="switch-control"
+                  title={engineEnabled ? undefined : 'Switch to Analysis mode to analyze automatically.'}
+                >
                   <input
                     type="checkbox"
                     checked={autoAnalyze}
@@ -3426,7 +3436,10 @@ function App() {
                         />
                         <strong>{multiPv} {multiPv === 1 ? 'line' : 'lines'}</strong>
                       </label>
-                      <label className="switch-control">
+                      <label
+                        className="switch-control"
+                        title={showBoardArrows ? undefined : 'Turn on board arrows first.'}
+                      >
                         <input
                           type="checkbox"
                           checked={showTopMoveArrows}
@@ -4370,7 +4383,7 @@ function App() {
                       type="button"
                       className={`batch-review-btn ${isBatchReviewing ? 'btn-primary pulsing' : ''}`}
                       onClick={isBatchReviewing ? stopBatchReview : startBatchReview}
-                      disabled={!engineEnabled || mainLineNodes.length <= 1}
+                      disabled={mainLineNodes.length <= 1}
                       title={reviewGameDisabledReason ?? undefined}
                       aria-label={reviewGameButtonLabel}
                     >
@@ -4621,7 +4634,12 @@ function App() {
                         <p className="panel-copy small">
                           Book moves available: {openingExplorer.data.moves.length} · games {openingTotalGames.toLocaleString()}
                         </p>
-                        <button type="button" onClick={applyBookMovesToSearch} disabled={openingTopMoves.length === 0}>
+                        <button
+                          type="button"
+                          onClick={applyBookMovesToSearch}
+                          disabled={openingTopMoves.length === 0}
+                          title={openingTopMoves.length === 0 ? 'No book moves are ranked at this position.' : undefined}
+                        >
                           Use top book moves in Analyze
                         </button>
                       </div>
@@ -4664,6 +4682,7 @@ function App() {
                         type="button"
                         aria-label="Run display board command"
                         disabled={status === 'analyzing'}
+                        title={engineBusyDisabledReason ?? undefined}
                         onClick={() => void runLabCommand('d')}
                       >
                         d
@@ -4672,6 +4691,7 @@ function App() {
                         type="button"
                         aria-label="Run static evaluation command"
                         disabled={status === 'analyzing'}
+                        title={engineBusyDisabledReason ?? undefined}
                         onClick={() => void runLabCommand('eval')}
                       >
                         eval
@@ -4680,6 +4700,7 @@ function App() {
                         type="button"
                         className="danger-lite"
                         disabled={!expertModeEnabled || status === 'analyzing'}
+                        title={expertCommandDisabledReason ?? undefined}
                         onClick={() => void runLabCommand('bench')}
                       >
                         bench
@@ -4688,6 +4709,7 @@ function App() {
                         type="button"
                         className="danger-lite"
                         disabled={!expertModeEnabled || status === 'analyzing'}
+                        title={expertCommandDisabledReason ?? undefined}
                         onClick={() => void runLabCommand('perft 3')}
                       >
                         perft 3
@@ -4725,6 +4747,7 @@ function App() {
                     </div>
                     <p className="panel-copy small">
                       Discovered from UCI handshake; applied immediately.
+                      {status === 'analyzing' && ' Locked while a search is running.'}
                     </p>
                   </div>
                 </>
