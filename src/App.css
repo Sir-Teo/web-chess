@@ -1885,6 +1885,12 @@ button.tablebase-move-row {
   padding: 0.3rem 0.45rem;
 }
 
+/* Coach view keeps the move and the verdict. The raw UCI is already the row's
+   tooltip, and it stays visible in Pro — same split as the review list. */
+button.tablebase-move-row.compact {
+  grid-template-columns: minmax(3rem, 0.7fr) minmax(0, 1fr);
+}
+
 .tablebase-move-row strong {
   min-width: 0;
   overflow: hidden;

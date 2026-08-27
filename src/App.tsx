@@ -4168,7 +4168,7 @@ function App() {
                             <button
                               key={move.uci}
                               type="button"
-                              className="tablebase-move-row"
+                              className={`tablebase-move-row ${analysisExperience === 'pro' ? '' : 'compact'}`}
                               title={move.uci}
                               aria-label={tablebaseMoveAriaLabel(move)}
                               onClick={() => {
@@ -4179,7 +4179,7 @@ function App() {
                             >
                               <strong>{move.san}</strong>
                               <span>{tablebaseMoveSummary(move)}</span>
-                              <span>{move.uci}</span>
+                              {analysisExperience === 'pro' && <span>{move.uci}</span>}
                             </button>
                           ))}
                         </div>
