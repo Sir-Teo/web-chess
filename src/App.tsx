@@ -4627,11 +4627,6 @@ function App() {
                       />
                       <span>Enable expert commands (bench/perft/unbounded go)</span>
                     </label>
-                    {!expertModeEnabled && (
-                      <p className="panel-copy small warning-copy">
-                        Heavy diagnostics are locked to keep the UI responsive.
-                      </p>
-                    )}
                     {openingExplorer.data && (
                       <div className="engine-lab-inline">
                         <p className="panel-copy small">

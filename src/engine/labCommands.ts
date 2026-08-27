@@ -20,7 +20,11 @@ const SEARCHMOVES_TRAILING_LIMITS = new Set([
   'ponder',
 ])
 
-const HEAVY_COMMAND_MESSAGE = 'Enable expert mode before running heavy commands (bench/perft/unbounded go).'
+// Carries the reason, because this is where a reader meets the limit. The
+// Runtime card used to state it permanently, in warning colours, at everyone
+// who never runs one of these.
+const HEAVY_COMMAND_MESSAGE =
+  'Enable expert mode to run bench, perft and unbounded go — they are locked because they can stall the UI.'
 const SEARCHMOVES_ORDER_MESSAGE =
   'Stockfish treats searchmoves as the final go parameter. Put limits before searchmoves, for example: go depth 12 searchmoves e2e4.'
 const QUIT_COMMAND_MESSAGE = 'Engine shutdown is managed by the app. Switch engine profile or reload the page instead of sending quit.'
