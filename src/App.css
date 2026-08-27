@@ -278,10 +278,6 @@ body.resizing * {
     padding-inline: calc(0.5rem + env(safe-area-inset-left)) calc(0.5rem + env(safe-area-inset-right));
   }
 
-  .top .compact-grid {
-    gap: 0.3rem;
-  }
-
   .top .mobile-modes-wrapper {
     display: flex;
     align-items: center;
@@ -458,13 +454,6 @@ body.resizing * {
   margin: 0;
 }
 
-.top .settings-menu>summary {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border-subtle);
-  max-width: max-content;
-  white-space: nowrap;
-}
-
 /* App branding */
 .app-brand {
   display: flex;
@@ -512,6 +501,8 @@ body.resizing * {
 }
 
 .top .settings-menu>summary {
+  max-width: max-content;
+  white-space: nowrap;
   padding: 0.38rem 0.65rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-default);
