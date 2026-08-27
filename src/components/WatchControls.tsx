@@ -79,7 +79,7 @@ export function WatchControls({
                             <IconPlay /> Resume
                         </button>
                     ) : (
-                        <button type="button" className="wc-btn wc-btn-pause" onClick={onPause} title="Pause & analyze">
+                        <button type="button" className="wc-btn wc-btn-pause" onClick={onPause} title="Pause AI">
                             <IconPause /> Pause
                         </button>
                     )}

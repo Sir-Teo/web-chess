@@ -30,7 +30,7 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate }: Pro
         return (
             <div className="empty-state">
                 <span className="empty-state-icon"><IconPawn /></span>
-                <p>Play some moves — they'll appear here with analysis.</p>
+                <p>Play some moves — they'll appear here.</p>
             </div>
         )
     }

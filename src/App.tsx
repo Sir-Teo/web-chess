@@ -3354,7 +3354,7 @@ function App() {
                         )}
                         {openingTopMoves.length > 0 && (
                           <button type="button" onClick={applyBookMovesToSearch}>
-                            Use Top Book Moves As `searchmoves`
+                            Use top book moves as `searchmoves`
                           </button>
                         )}
                       </>
