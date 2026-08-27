@@ -1,7 +1,9 @@
 # Cross-App Learning Plan: web-katrain / web-chess / web-xiangqi
 
 *Read-only survey performed 2026-08-27 across the three sibling repos in
-`~/Developer`. No source files were modified; this document is the only output.*
+`~/Developer`, plus an external research pass over the ecosystems the three
+apps live in (§8). No source files were modified; this document is the only
+output.*
 
 ## TL;DR
 
@@ -256,3 +258,153 @@ no repo has a 5,000-line `App.tsx`.
   `THIRD_PARTY_NOTICES.md` practice.
 - **Not a goal:** unifying the UIs. The three games have genuinely different
   board geometry, notation, and idioms. Share the machinery, not the look.
+
+---
+
+## 8. External research findings (2026-08-27)
+
+A deep pass over the ecosystems each app competes in. Four findings change or
+sharpen the plan above; the rest confirm it.
+
+### 8.1 The shared review math should not be invented — it is published
+
+All three repos hand-rolled their quality thresholds (§2b). The industry-anchor
+formulas are open:
+
+- **Lichess win% from centipawns:**
+  `Win% = 50 + 50 * (2 / (1 + exp(-0.00368208 * cp)) - 1)`
+- **Lichess per-move accuracy from win% loss:**
+  `Accuracy% = 103.1668 * exp(-0.04354 * (win%Before - win%After)) - 3.1669`
+- **Game accuracy aggregation:** Lichess does *not* average per-move accuracy.
+  It computes a volatility-weighted mean (sliding windows over win%, stddev as
+  weight) and a harmonic mean, then averages the two — precisely to stop one
+  blunder in an even game, or noise in a decided game, from distorting the
+  number. None of our three apps does this; all three average naively.
+- **Chess.com's taxonomy** (brilliant/great/best/excellent/good/book/
+  inaccuracy/mistake/blunder/miss) is likewise driven by win-probability loss,
+  not raw centipawns; "brilliant" is now simply *a good piece sacrifice*. The
+  interesting cross-app idea is the **"Miss"** label — a move that fails to
+  punish the opponent's last mistake. Katrain has the punish concept
+  (`punishQuiz.ts`, punished-mistake dot sizing per desktop KaTrain); chess and
+  xiangqi have nothing like it.
+
+Consequences for the plan:
+
+1. The Tier 2 `review/` module (§5) should implement Lichess's published
+   win%/accuracy formulas and window aggregation as its core, with thresholds
+   expressed in win-percent loss. Xiangqi's `review.ts` already carries
+   `REVIEW_WIN_PERCENT_LOSS_THRESHOLDS` beside its centipawn table — it is
+   halfway there; chess's `analysis.ts` is centipawn-only.
+2. **Caveat on cp scales:** since Stockfish 15.1, evaluations are *normalized*
+   so +100 cp = 50% win probability in self-play; the WDL model further depends
+   on ply/material. Pikafish inherits Stockfish conventions; KataGo natively
+   outputs winrate and score lead, so katrain plugs into a win%-based module
+   directly — one more argument for win%-basis rather than cp-basis in shared
+   code. Prefer engine-reported WDL (`UCI_ShowWDL`) over converting cp when
+   available; both chess and xiangqi already parse WDL.
+
+### 8.2 Precedent for the Tier 2 extraction — and a license trap
+
+Lichess itself runs the strategy §5 recommends: the server (lila) stays a
+monolith while genuinely reusable pieces are published standalone —
+**chessground** (board UI), **chessops** (rules/notation), **pgn-viewer** — and
+consumed by dozens of third-party apps. Extraction of settled, game-agnostic
+modules works; nobody extracts the server.
+
+The trap: **chessground and the Stockfish/Pikafish builds are GPL-3.0.**
+web-chess's app code is MIT with GPL engine *assets* — fine as long as GPL code
+is a separate worker/process boundary. But `board-study-kit` must never vendor
+engine code or derive from chessground, or the kit (and arguably its consumers)
+becomes GPL. Same reason web-katrain must not copy from Kaya (AGPL-3.0). Keep
+the kit MIT, clean-room, engine-agnostic.
+
+Also checked: no existing npm package covers our shared-UCI need. `node-uci`
+and friends are Node child-process oriented; browser-worker UCI clients get
+re-written per app everywhere (lila does its own too). The Tier 2 `uci/`
+module fills a real gap and is not reinventing an available wheel.
+
+### 8.3 The engine-flavor matrix is convergent evolution — standardize it
+
+Lichess's `lila-stockfish-web` and nmrugg's `stockfish` npm package (which
+web-chess consumes) both ship the same shape of matrix web-xiangqi built for
+Pikafish: lite-single default (works everywhere), full-multi behind
+COOP/COEP + SharedArrayBuffer, no-SIMD fallback for old Safari, plus special
+workarounds (a no-worker build exists solely for a Chrome 109 bug). Thread
+count is further capped by WASM memory (lichess: 4 threads at 16 MB hash).
+
+This is three independent confirmations of the same design. The Tier 2
+`device/` module (from xiangqi's `analysisProfile.ts`) plus chess's
+`profiles.ts` declarative shape is the right abstraction; katrain should adopt
+it for its TFJS WebGPU→WASM→CPU ladder too. Also worth copying from lichess
+practice: persist the user's thread/hash choices per device (lichess stores
+`analyse.ceval.threads` / `hash-size` in localStorage).
+
+### 8.4 New donor: the outside world (features none of the three has)
+
+- **chessdb.cn Xiangqi Cloud Database** — a free REST API
+  (`chessdb.php?action=queryall|querybest|queue`, FEN in, eval/moves/EGTB out)
+  built by engine analysis, the direct xiangqi analog of the Lichess
+  cloud-eval + opening-explorer + tablebase stack that web-chess already
+  integrates. **web-xiangqi can port chess's `cloudEval.ts` /
+  `cloudEvalPolicy.ts` / `lichessQueue.ts` / `storageCache.ts` layer nearly
+  1:1 with chessdb.cn as the backend** — the highest-leverage new feature this
+  research surfaced. (A sibling API exists for chess as a second cloud-eval
+  source.)
+- **Human-like opponents:** katrain's persona bots map to **Maia** in chess —
+  nine lc0-loadable networks (1100–1900, CC BY-NC-SA implications to check)
+  trained to predict human moves, or the zero-dependency fallback of
+  Stockfish's `UCI_LimitStrength`/`UCI_Elo`. web-chess's `useAiPlayer` +
+  `profiles.ts` is the natural seam.
+- **Repertoire training with spaced repetition** (En Croissant / Pawn Appétit,
+  the leading open-source desktop chess GUIs) — a study mode none of the three
+  apps has; it generalizes across all three games and fits katrain's existing
+  lessons/quiz frame.
+- **Board photo recognition for xiangqi:** the 棋弈江湖 Xiangqi PWA ships an
+  open-source ONNX board recognizer + 7300-puzzle DB; katrain already has
+  `photoBoardRecognition.ts`. If katrain's recognizer is ever generalized,
+  xiangqi has a proven reference implementation to compare against.
+- **Go competitive context** (confirms katrain's `docs/competitor-analysis.md`):
+  AI Sensei and ZBaduk are server-side; katrain's fully client-side analysis
+  remains the differentiator. Kaya (AGPL) is still the closest analog — study
+  its features, never its code.
+- **lixiangqi** (Lichess fork for xiangqi) ships an independently deployable
+  open-source xiangqi opening explorer — a candidate data source or self-host
+  path if chessdb.cn access becomes a concern.
+
+### 8.5 Platform practice checks
+
+- **Large-model caching (katrain):** Chrome's guidance for browser AI models
+  recommends the **Cache API** first; OPFS writes a 100 MB buffer ~10× faster
+  than IndexedDB (~90 ms vs ~850 ms), because IndexedDB structured-clones
+  large ArrayBuffers. Katrain stores uploaded models in IndexedDB
+  (`modelUpload.ts`) and caches the default model via its service worker.
+  When touching that code: move user-uploaded weights to Cache API or OPFS;
+  keep IndexedDB for the library metadata it is good at.
+- **Service worker for chess/xiangqi (§4 item 12):** if adopting
+  `vite-plugin-pwa`/Workbox rather than porting katrain's hand-rolled `sw.js`,
+  note Workbox's 2 MiB `maximumFileSizeToCacheInBytes` default — engine
+  `.wasm`/`.nnue` files must go through runtime caching (as katrain's SW and
+  xiangqi's `serve-demo.cjs` conditional-caching already do), not the precache
+  manifest.
+- **COOP/COEP reality check (all three):** confirmed unchanged upstream —
+  threaded WASM needs cross-origin isolation everywhere; GitHub Pages still
+  cannot set those headers, so single-thread fallbacks remain load-bearing on
+  the current hosting. `coi-serviceworker` (which chess ships) is the
+  community workaround; katrain and xiangqi rely on graceful fallback. Worth
+  aligning all three on one approach in Tier 0.
+
+### Sources
+
+- [Lichess accuracy metric](https://lichess.org/page/accuracy) — win% and accuracy formulas, window aggregation
+- [Chess.com Game Review terms](https://www.chess.com/terms/game-review) and [move classifications](https://chessda.com/guide/move-classifications)
+- [Stockfish normalized eval](https://github.com/official-stockfish/Stockfish/commit/ad2aa8c06f438de8b8bb7b7c8726430e3f2a5685), [WDL model](https://github.com/official-stockfish/WDL_model), [Useful data](https://github.com/official-stockfish/Stockfish/wiki/Useful-data)
+- [lila-stockfish-web](https://github.com/lichess-org/lila-stockfish-web), [stockfish.wasm](https://github.com/lichess-org/stockfish.wasm), [stockfish npm package](https://www.npmjs.com/package/stockfish) ([nmrugg/stockfish.js](https://github.com/nmrugg/stockfish.js/))
+- [chessground](https://github.com/lichess-org/chessground), [chessops](https://www.npmjs.com/package/chessops), [lichess pgn-viewer](https://github.com/lichess-org/pgn-viewer), [lichess source list](https://lichess.org/source)
+- [node-uci](https://github.com/ebemunk/node-uci) (Node-oriented; confirms the browser-UCI gap)
+- [Xiangqi Cloud Database API](https://www.chessdb.cn/cloudbook_api_en.html) and [info page](https://chessdb.cn/cloudbook_info_en.html)
+- [Maia chess](https://github.com/CSSLab/maia-chess), [Lichess Maia announcement](https://lichess.org/blog/X9PUixUAANCqFRSh/introducing-maia-a-human-like-neural-network-chess-engine)
+- [En Croissant](https://github.com/franciscoBSalgueiro/en-croissant), [Pawn Appétit](https://github.com/Pawn-Appetit/pawn-appetit/)
+- [AI Sensei](https://ai-sensei.com/), [ZBaduk](https://www.zbaduk.com/), [KaTrain (desktop)](https://github.com/sanderland/katrain)
+- [awesome-xiangqi](https://github.com/lucaferranti/awesome-xiangqi), [lixiangqi](https://github.com/travis-mallett/lixiangqi), [xiangqi.js](https://github.com/lengyanyu258/xiangqi.js/)
+- [Chrome: cache AI models in the browser](https://developer.chrome.com/docs/ai/cache-models), [web.dev OPFS](https://web.dev/articles/origin-private-file-system), [Lumafield OPFS benchmark](https://barndoors.lumafield.com/3x-faster-project-loads-with-the-origin-private-file-system/)
+- [Vite PWA precache guide](https://vite-pwa-org.netlify.app/guide/service-worker-precache)

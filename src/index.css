@@ -17,7 +17,10 @@
   /* ── Text ──────────────────────────────────────── */
   --text-primary: #f2f3f5;
   --text-secondary: #b2b7c2;
-  --text-tertiary: #858b98;
+  /* Raised from #858b98, which cleared AA on the plain card but fell to 3.8:1
+     over the coach card's teal tint and sat on the 4.5 line in the accuracy
+     summary — both at label sizes under 11px. */
+  --text-tertiary: #949aa7;
   --text-heading: #ffffff;
   --text-muted: #7c8391;
   /* Raised from #626977, which sat at 3.3:1 on the card surface — below AA for

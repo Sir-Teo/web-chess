@@ -1721,11 +1721,13 @@ body.resizing * {
   padding: 0.38rem 0.44rem;
 }
 
+/* The card's teal tint lifts the backdrop the way the active review row does,
+   pulling `--text-muted` under AA at this size. */
 .coach-grid span {
   display: block;
   margin-bottom: 0.12rem;
   font-size: 0.58rem;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0;
 }
