@@ -3031,6 +3031,14 @@ function App() {
                   <strong className={`status ${status}`}>{status}</strong>
                 </div>
               )}
+              {workspaceMode === 'analysis' && status === 'error' && (
+                /* An engine that fails to boot takes every analysis tab with it.
+                   The reason was only in Settings and Engine Lab, two clicks from
+                   where the failure is felt. */
+                <p className="panel-copy small error-copy engine-error-copy" role="alert">
+                  {profileMessage || 'The engine failed to start. Reload the page to try again.'}
+                </p>
+              )}
             </header>
             <div className="panel-content">
               {workspaceMode === 'play' && (
