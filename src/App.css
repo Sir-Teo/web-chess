@@ -813,13 +813,6 @@ body.resizing * {
 }
 
 /* Eval bar + score label wrapper */
-.eval-bar-wrap {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
 .eval-bar-label {
   position: absolute;
   left: 1px;
@@ -1060,18 +1053,6 @@ body.resizing * {
   flex-wrap: wrap;
   gap: var(--space-sm);
   min-height: 2.45rem;
-}
-
-.bottom .status-strip {
-  margin-bottom: 0;
-  border: none;
-  background: none;
-  padding: 0;
-  font-size: 0.72rem;
-  color: var(--text-tertiary);
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
 }
 
 .bottom .best-move {
@@ -1447,20 +1428,6 @@ body.resizing * {
 }
 
 /* Status strip (inside settings panel area) */
-.status-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  padding: 0.35rem 0.5rem;
-  margin-bottom: 0.55rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  background: var(--bg-card);
-  font-size: 0.74rem;
-  color: var(--text-tertiary);
-}
-
 .status {
   text-transform: capitalize;
   font-weight: 600;
@@ -1621,22 +1588,6 @@ body.resizing * {
 
 /* Running analysis is a cancel action, so the button drops the emerald "go"
    treatment while it is the stop control. */
-.analyze-toggle.analyzing {
-  background: linear-gradient(180deg, #3a3f4c, #272b35) !important;
-  color: var(--text-primary) !important;
-  border-color: var(--border-strong) !important;
-  box-shadow: none !important;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .analyze-toggle.analyzing:hover {
-    background: linear-gradient(180deg, #454b59, #30343f) !important;
-    border-color: rgba(248, 113, 113, 0.45) !important;
-    color: #fca5a5 !important;
-    box-shadow: none !important;
-  }
-}
-
 .analysis-header {
   display: flex;
   flex-direction: column;
@@ -3361,19 +3312,6 @@ button.critical-moment-row {
 /* ═══════════════════════════════════════════════════
    Game mode & game-over badges
    ═══════════════════════════════════════════════════ */
-.game-mode-badge {
-  font-size: 0.71rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.16rem 0.48rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-elevated);
-}
-
 @keyframes badge-pop {
   from {
     transform: scale(0.75);
@@ -3384,24 +3322,6 @@ button.critical-moment-row {
     transform: scale(1);
     opacity: 1;
   }
-}
-
-/* ═══════════════════════════════════════════════════
-   NewGameDialog overrides (dark)
-   ═══════════════════════════════════════════════════ */
-.dialog-overlay {
-  background: rgba(0, 0, 0, 0.72) !important;
-  backdrop-filter: blur(6px) !important;
-}
-
-.dialog-box {
-  background: var(--bg-surface) !important;
-  border: 1px solid var(--border-default) !important;
-  box-shadow: var(--shadow-lg) !important;
-}
-
-.dialog-box h2 {
-  color: var(--text-heading) !important;
 }
 
 /* ═══════════════════════════════════════════════════
