@@ -1420,6 +1420,14 @@ body.resizing * {
   margin-bottom: var(--space-md);
 }
 
+/* Nothing gave these buttons padding, so the panel's primary action sat at the
+   UA default 16px — shorter than the 27px tabs above it and the smallest
+   control in the panel. */
+.inline-actions button {
+  min-height: 2rem;
+  padding: 0.4rem 0.7rem;
+}
+
 /* Running analysis is a cancel action, so the button drops the emerald "go"
    treatment while it is the stop control. */
 .analyze-toggle.analyzing {
@@ -3225,6 +3233,10 @@ button.critical-moment-row {
   .preset-grid,
   .inline-actions {
     grid-template-columns: 1fr;
+  }
+
+  .inline-actions button {
+    min-height: 2.5rem;
   }
 
   .diagnostics-actions {
