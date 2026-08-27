@@ -86,11 +86,6 @@ export function pickAutoProfile(capabilities: EngineCapabilities): EngineProfile
   return profileById('lite-single-local')
 }
 
-export function fallbackProfileFor(profile: EngineProfile): EngineProfile {
-  if (profile.id !== 'lite-single-local') return profileById('lite-single-local')
-  return profile
-}
-
 export function deriveWasmPath(workerPath: string): string {
   return workerPath.replace(/\.js($|\?)/, '.wasm$1')
 }
