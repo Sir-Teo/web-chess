@@ -1957,7 +1957,11 @@ body.resizing * {
   margin-top: 0.2rem;
 }
 
-.warning-copy {
+/* `.panel-copy.small` and `.command-summary` are two-class selectors, so a bare
+   `.warning-copy` lost the cascade and every warning in the app rendered in the
+   same muted grey as ordinary copy. */
+.warning-copy,
+.panel-copy.warning-copy {
   color: var(--warning);
 }
 
@@ -2019,7 +2023,8 @@ body.resizing * {
   gap: 0.35rem;
 }
 
-.error-copy {
+.error-copy,
+.panel-copy.error-copy {
   color: var(--danger);
 }
 

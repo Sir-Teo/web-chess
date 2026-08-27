@@ -3130,7 +3130,7 @@ function App() {
                   {tablebase.eligible && (
                     <div className="tablebase-card">
                       <h3><span className="section-icon"><IconKing /></span> Endgame Tablebase</h3>
-                      <p className="panel-copy small command-summary">
+                      <p className={`panel-copy small command-summary ${tablebase.error ? 'error-copy' : ''}`}>
                         {tablebase.status === 'loading'
                           ? `${tablebase.pieceCount} pieces · checking exact result...`
                           : tablebase.result
@@ -3185,7 +3185,7 @@ function App() {
                   {analysisExperience === 'pro' && (currentCloudEval || cloudEvalStatus === 'loading' || cloudEvalStatus === 'missing' || cloudEvalStatus === 'error') && (
                     <div className="cloud-eval-card">
                       <h3><span className="section-icon"><IconZap /></span> Cloud Eval</h3>
-                      <p className="panel-copy small command-summary">
+                      <p className={`panel-copy small command-summary ${cloudEvalStatus === 'error' ? 'error-copy' : ''}`}>
                         {currentCloudEval
                           ? `Lichess cache · D${currentCloudEval.depth} · ${formatCloudNodes(currentCloudEval.knodes)}`
                           : cloudEvalStatus === 'loading'
