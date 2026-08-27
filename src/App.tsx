@@ -716,6 +716,9 @@ function App() {
 
   // ── Evaluations ──────────────────────────────────────
   const [evaluationsByFen, setEvaluationsByFen] = useState<Map<string, EvalSnapshot>>(new Map())
+  // Headers of whatever game is loaded, so an export says who actually played it
+  // rather than defaulting to "Player 1" vs "Player 2".
+  const [gameHeaders, setGameHeaders] = useState<Record<string, string>>({})
 
   // ── Game mode ────────────────────────────────────────
   const [showNewGameDialog, setShowNewGameDialog] = useState(false)
@@ -2076,7 +2079,9 @@ function App() {
       clearImportSweep()
       const loader = new Chess()
       loader.loadPgn(pgnText)
-      const rootFen = rootFenFromPgnHeaders(loader.getHeaders())
+      const importedHeaders = loader.getHeaders()
+      setGameHeaders(importedHeaders)
+      const rootFen = rootFenFromPgnHeaders(importedHeaders)
       newGame()
       game.load(rootFen)
       setFen(game.fen())
@@ -2128,6 +2133,7 @@ function App() {
       game.load(rootFen)
       setFen(rootFen)
       gameTree.reset(rootFen)
+      setGameHeaders({})
       setEvaluationsByFen(new Map())
       clearImportSweep()
       setPendingShallowAnalyzeFen(engineEnabled ? rootFen : null)
@@ -2193,6 +2199,7 @@ function App() {
       setFen(startFen)
       setIsAiThinking(false)
       aiMoveScheduledRef.current = false
+      setGameHeaders({})
       setEvaluationsByFen(new Map())
       clearImportSweep()
       setPendingShallowAnalyzeFen(null)
@@ -3000,6 +3007,7 @@ function App() {
           onLoadFen={handleFenLoad}
           mainLineNodes={mainLineNodes}
           evaluations={evaluationsByFen}
+          headers={gameHeaders}
         />
 
         {/* ── Right panel ── */}

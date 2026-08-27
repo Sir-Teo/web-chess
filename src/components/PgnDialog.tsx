@@ -15,6 +15,8 @@ type PgnDialogProps = {
     onLoadFen: (fen: string) => ImportResult
     mainLineNodes: GameNode[]
     evaluations: Map<string, EvalSnapshot>
+    /** Headers of the loaded game, so an export keeps its real metadata. */
+    headers?: Record<string, string>
 }
 
 type ImportResult = {
@@ -22,7 +24,7 @@ type ImportResult = {
     error?: string
 }
 
-export function PgnDialog({ open, onClose, onImport, onLoadFen, mainLineNodes, evaluations }: PgnDialogProps) {
+export function PgnDialog({ open, onClose, onImport, onLoadFen, mainLineNodes, evaluations, headers }: PgnDialogProps) {
     const [tab, setTab] = useState<'import' | 'fen' | 'export'>('import')
     const [importText, setImportText] = useState('')
     const [fenText, setFenText] = useState('')
@@ -61,7 +63,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, mainLineNodes, e
         setError(result.error ?? 'Could not load that FEN.')
     }
 
-    const exportText = tab === 'export' ? exportAnnotatedPgn(mainLineNodes, evaluations) : ''
+    const exportText = tab === 'export' ? exportAnnotatedPgn(mainLineNodes, evaluations, headers) : ''
 
     const handleCopy = async () => {
         try {

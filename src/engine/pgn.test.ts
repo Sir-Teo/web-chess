@@ -74,3 +74,27 @@ describe('PGN export helpers', () => {
     expect(pgn).toContain('{ [%eval #3] }')
   })
 })
+
+describe('exportAnnotatedPgn header preservation', () => {
+  it('keeps the headers a game was imported with', () => {
+    const chess = new Chess()
+    chess.move('e4')
+    const mainLine: GameNode[] = [
+      { id: 'root', fen: new Chess().fen(), move: null, parentId: null, childIds: [] } as unknown as GameNode,
+      { id: 'n1', fen: chess.fen(), move: { san: 'e4' }, parentId: 'root', childIds: [] } as unknown as GameNode,
+    ]
+
+    const pgn = exportAnnotatedPgn(mainLine, new Map(), {
+      Event: '41st Olympiad Open 2014',
+      White: 'Aronian, L.',
+      Black: 'Carlsen, M.',
+      Result: '1/2-1/2',
+    })
+
+    expect(pgn).toContain('[White "Aronian, L."]')
+    expect(pgn).toContain('[Black "Carlsen, M."]')
+    expect(pgn).toContain('[Result "1/2-1/2"]')
+    expect(pgn).toContain('[Event "41st Olympiad Open 2014"]')
+    expect(pgn).not.toContain('Player 1')
+  })
+})
