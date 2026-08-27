@@ -2337,13 +2337,13 @@ function App() {
   return (
     <main className="app-shell">
       {/* ── Top bar ── */}
-      <section className={`panel top ${topPanelOpen ? '' : 'hidden'}`}>
+      <header className={`panel top ${topPanelOpen ? '' : 'hidden'}`}>
         <div className="panel-inner">
           <div className="panel-content compact-grid">
-            <div className="app-brand">
-              <span className="app-brand-icon"><IconKing /></span>
+            <h1 className="app-brand">
+              <span className="app-brand-icon" aria-hidden="true"><IconKing /></span>
               <span className="app-brand-text">Web Chess</span>
-            </div>
+            </h1>
             <div className="mobile-actions">
               <button type="button" onClick={openNewGameDialog} aria-label="Start new game" title="New game">
                 <span className="btn-icon"><IconRefresh /></span> <span className="btn-label">New game</span>
@@ -2730,11 +2730,15 @@ function App() {
           onClick={() => setTopPanelOpen(!topPanelOpen)} title="Toggle top bar">
           <span className="resize-pill horizontal" />
         </div>
-      </section>
+      </header>
 
       <div className="main-container">
         {/* ── Left panel (winrate graph) ── */}
-        <section className={`panel left ${leftWidth === 0 ? 'collapsed' : ''}`} style={{ width: leftWidth }}>
+        <section
+          className={`panel left ${leftWidth === 0 ? 'collapsed' : ''}`}
+          style={{ width: leftWidth }}
+          aria-label="Game insights"
+        >
           <div className="resize-handle resize-handle-right" onMouseDown={startLeftResize}
             onClick={() => { if (leftWidth === 0) setLeftWidth(DEFAULT_LEFT) }}
             title="Drag to resize · click to expand">
@@ -2990,7 +2994,11 @@ function App() {
         />
 
         {/* ── Right panel ── */}
-        <aside className={`panel right ${rightWidth === 0 ? 'collapsed' : ''}`} style={{ width: rightWidth }}>
+        <aside
+          className={`panel right ${rightWidth === 0 ? 'collapsed' : ''}`}
+          style={{ width: rightWidth }}
+          aria-label={workspaceMode === 'analysis' ? 'Analysis' : 'Play'}
+        >
           <div className="resize-handle resize-handle-left" onMouseDown={startRightResize}
             onClick={() => { if (rightWidth === 0) setRightWidth(DEFAULT_RIGHT) }}
             title="Drag to resize · click to expand">
@@ -3615,7 +3623,10 @@ function App() {
       </div>
 
       {/* ── Bottom bar ── */}
-      <section className={`panel bottom ${bottomPanelOpen ? '' : 'hidden'}`}>
+      <section
+        className={`panel bottom ${bottomPanelOpen ? '' : 'hidden'}`}
+        aria-label="Playback and engine status"
+      >
         <div className="resize-handle resize-handle-top"
           onClick={() => setBottomPanelOpen(!bottomPanelOpen)} title="Toggle bottom bar">
           <span className="resize-pill horizontal" />

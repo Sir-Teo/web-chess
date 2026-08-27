@@ -235,8 +235,20 @@ body.resizing * {
     box-sizing: border-box;
   }
 
+  /* The brand is the page's <h1>. `display: none` would leave a phone with no
+     top-level heading at all, so it is taken out of the layout but kept in the
+     accessibility tree. */
   .top .app-brand {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    clip-path: inset(50%);
+    min-height: 0;
+    border: 0;
   }
 
   .top .panel-inner {
@@ -407,7 +419,10 @@ body.resizing * {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-right: 0.75rem;
+  /* It is the page's <h1>; drop the UA heading size and margins. */
+  margin: 0 0.75rem 0 0;
+  font-size: inherit;
+  font-weight: inherit;
   padding-right: 0.75rem;
   border-right: 1px solid var(--border-subtle);
   min-height: 2.2rem;
