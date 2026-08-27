@@ -2151,6 +2151,8 @@ function App() {
     const side = reviewSideFilter === 'white' ? 'w' : 'b'
     return reviewBookRows.filter(row => row.sideToMove === side)
   }, [reviewBookRows, reviewSideFilter])
+  const reviewBookRowsAllAwaitingToken = visibleReviewBookRows.length > 0
+    && visibleReviewBookRows.slice(0, REVIEW_BOOK_VISIBLE_LIMIT).every(row => row.status === 'auth-required')
 
   const reviewBookSummary = useMemo(() => {
     const inBook = visibleReviewBookRows.filter(row => row.status === 'in-book').length
@@ -4599,20 +4601,24 @@ function App() {
                       </p>
                     )}
                     {reviewBookSummary.authRequired > 0 && (
-                      <p className="panel-copy small warning-copy">
-                        Add a session-only Lichess token in Pro Opening Intel to compare the line against cloud book stats.
-                      </p>
+                      <>
+                        <p className="panel-copy small warning-copy">
+                          Add a session-only Lichess token in Pro Opening Intel to compare the line against cloud book stats.
+                        </p>
+                        <button
+                          type="button"
+                          className="review-book-token-btn"
+                          onClick={openOpeningIntel}
+                        >
+                          <span className="btn-icon"><IconBarChart /></span>
+                          Open Opening Intel
+                        </button>
+                      </>
                     )}
-                    {reviewBookSummary.authRequired > 0 && (
-                      <button
-                        type="button"
-                        className="review-book-token-btn"
-                        onClick={openOpeningIntel}
-                      >
-                        <span className="btn-icon"><IconBarChart /></span>
-                        Open Opening Intel
-                      </button>
-                    )}
+                    {/* With nothing to compare against, every row says "Token" —
+                        the summary, the explanation and the button above have
+                        said it already, once each. */}
+                    {!reviewBookRowsAllAwaitingToken && (
                     <div className="review-book-list">
                       {visibleReviewBookRows.slice(0, REVIEW_BOOK_VISIBLE_LIMIT).map(row => (
                         <div key={`${row.ply}-${row.uci}`} className={`review-book-row ${row.status}`}>
@@ -4636,6 +4642,7 @@ function App() {
                         </div>
                       ))}
                     </div>
+                    )}
                   </div>
                   <div className="right-section">
                     <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
