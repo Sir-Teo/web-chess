@@ -3108,7 +3108,11 @@ function App() {
                       </div>
                       <div>
                         <span>Depth</span>
-                        <strong>{coachDepth ? `D${coachDepth}` : status}</strong>
+                        {/* The sibling tiles use `...` when they have no value;
+                            this one fell back to the engine status, so a tile
+                            labelled Depth read "ready" — and the status is
+                            already on the row directly above. */}
+                        <strong>{coachDepth ? `D${coachDepth}` : '...'}</strong>
                       </div>
                     </div>
                     <p>{coachLineSan || 'Start analysis to get a candidate line.'}</p>
