@@ -20,16 +20,24 @@ export function WdlBar({ fen, evaluation, orientation }: Props) {
         l = evaluation.wdl.l
     }
 
+    let total = w + d + l
+    if (!Number.isFinite(total) || total <= 0) {
+        w = 333
+        d = 334
+        l = 333
+        total = w + d + l
+    }
+
     // Stockfish's reported WDL is always from the side-to-move's perspective
     const whiteWin = turn === 'w' ? w : l
     const draw = d
     const blackWin = turn === 'w' ? l : w
 
     // Convert to percentages (out of 100, assuming sum is 1000)
-    const total = w + d + l
     const whitePct = (whiteWin / total) * 100
     const drawPct = (draw / total) * 100
     const blackPct = (blackWin / total) * 100
+    const label = `Win chances: White ${whitePct.toFixed(1)}%, Draw ${drawPct.toFixed(1)}%, Black ${blackPct.toFixed(1)}%`
 
     // We want White on bottom normally, Black on top.
     // When flipped (orientation === 'black'), we invert this structure.
@@ -38,7 +46,7 @@ export function WdlBar({ fen, evaluation, orientation }: Props) {
     const bottomPct = isFlipped ? blackPct : whitePct
 
     return (
-        <div className="wdl-bar">
+        <div className="wdl-bar" role="img" aria-label={label} title={label}>
             <div
                 className={`wdl-segment wdl-top ${isFlipped ? 'wdl-white' : 'wdl-black'}`}
                 style={{ height: `${topPct}%` }}

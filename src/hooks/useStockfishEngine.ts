@@ -7,7 +7,8 @@ import {
   type EngineProfile,
   type EngineProfileId,
 } from '../engine/profiles'
-import { buildAnalyzeCommand, parseBestMoveLine, type AnalyzeMode, type AnalyzePurpose, type AnalyzeRequest, type UciGoLimits } from '../engine/uci'
+import { createStockfishWorker } from '../engine/stockfishWorker'
+import { buildAnalyzeCommand, buildNewGameCommands, parseBestMoveLine, type AnalyzeMode, type AnalyzePurpose, type AnalyzeRequest, type UciGoLimits } from '../engine/uci'
 
 type EngineStatus = 'loading' | 'ready' | 'analyzing' | 'error' | 'disabled'
 
@@ -29,14 +30,16 @@ type EngineLine = {
   time?: number
 }
 
-type EngineOptionType = 'check' | 'spin' | 'string' | 'button'
+type EngineOptionType = 'check' | 'spin' | 'string' | 'button' | 'combo'
 
 type EngineOption = {
   name: string
   type: EngineOptionType
   defaultValue?: string
+  currentValue?: string
   min?: number
   max?: number
+  vars?: string[]
 }
 
 type AnalyzeParams = {
@@ -71,13 +74,18 @@ const RAW_LINE_LIMIT = 800
 const ENGINE_STATE_FLUSH_INTERVAL_MS = 100
 const NO_REPLY_COMMANDS = new Set(['ucinewgame', 'position', 'setoption', 'stop', 'ponderhit', 'quit'])
 
-function recommendedThreadCount(profile: EngineProfile, capabilities: EngineCapabilities): number {
+export function recommendedThreadCount(profile: EngineProfile, capabilities: EngineCapabilities): number {
   if (!profile.requiresIsolation) return 1
   if (!capabilities.sharedArrayBuffer || !capabilities.crossOriginIsolated) return 1
   if (capabilities.isMobile) return 1
 
-  const usableCores = Math.max(1, capabilities.hardwareConcurrency || 1)
-  return Math.max(1, Math.min(4, Math.floor(usableCores / 2)))
+  const usableCores = Math.max(1, Math.floor(capabilities.hardwareConcurrency || 1))
+  if (usableCores <= 2) return 1
+
+  const memoryAwareCap =
+    typeof capabilities.deviceMemoryGb === 'number' && capabilities.deviceMemoryGb <= 8 ? 4 : 8
+
+  return Math.max(2, Math.min(memoryAwareCap, Math.floor(usableCores * 0.75)))
 }
 
 function firstWord(input: string): string {
@@ -96,6 +104,10 @@ function commandKindFromCommand(command: string): EngineCommandKind {
   if (fw === 'isready') return 'isready'
   if (fw === 'go') return 'go'
   return 'other'
+}
+
+export function shouldStopTimedOutSearchCommand(command: string): boolean {
+  return firstWord(command) === 'go'
 }
 
 function commandKindFromLine(line: string): EngineCommandKind {
@@ -125,44 +137,6 @@ function normalizeWorkerLines(data: string): string[] {
     .filter(Boolean)
 }
 
-function isRemoteWorkerPath(path: string): boolean {
-  return /^https?:\/\//i.test(path)
-}
-
-function deriveWasmPath(workerPath: string): string {
-  return workerPath.replace(/\.js($|\?)/, '.wasm$1')
-}
-
-function createEngineWorker(profile: EngineProfile): { worker: Worker; blobUrl?: string } {
-  if (!isRemoteWorkerPath(profile.workerPath)) {
-    return { worker: new Worker(profile.workerPath) }
-  }
-
-  // Browser Worker constructor requires same-origin script URLs.
-  // For remote profiles, bootstrap a same-origin blob worker and import remote Stockfish from inside it.
-  const wasmPath = deriveWasmPath(profile.workerPath)
-  const bootstrap = `
-self.window = self;
-self.addEventListener('error', function (event) {
-  try {
-    self.postMessage('__BOOT_ERROR__:' + (event && event.message ? event.message : 'Unknown worker bootstrap error'));
-  } catch (_) {}
-  event.preventDefault();
-});
-try {
-  importScripts(${JSON.stringify(profile.workerPath)});
-} catch (error) {
-  self.postMessage('__BOOT_ERROR__:' + (error && error.message ? error.message : String(error)));
-}
-`
-  const blobUrl = URL.createObjectURL(new Blob([bootstrap], { type: 'application/javascript' }))
-
-  return {
-    worker: new Worker(`${blobUrl}#${encodeURIComponent(wasmPath)},worker`),
-    blobUrl,
-  }
-}
-
 function profileRuntimeMessage(
   selectedProfile: EngineProfileId,
   activeProfile: EngineProfile,
@@ -180,7 +154,23 @@ function profileRuntimeMessage(
   return `Running ${activeProfile.name} instead of ${requested.name}.`
 }
 
-function parseInfoLine(line: string): EngineLine | null {
+function finiteNumber(value: string | undefined): number | undefined {
+  if (typeof value !== 'string') return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+function nonNegativeNumber(value: string | undefined): number | undefined {
+  const parsed = finiteNumber(value)
+  return typeof parsed === 'number' && parsed >= 0 ? parsed : undefined
+}
+
+function positiveNumber(value: string | undefined): number | undefined {
+  const parsed = finiteNumber(value)
+  return typeof parsed === 'number' && parsed > 0 ? parsed : undefined
+}
+
+export function parseInfoLine(line: string): EngineLine | null {
   const parts = line.trim().split(/\s+/)
   if (parts[0] !== 'info') return null
 
@@ -198,16 +188,23 @@ function parseInfoLine(line: string): EngineLine | null {
   for (let i = 1; i < parts.length; i += 1) {
     const part = parts[i]
 
-    if (part === 'depth') depth = Number(parts[i + 1])
-    if (part === 'multipv') multipv = Number(parts[i + 1])
-    if (part === 'nodes') nodes = Number(parts[i + 1])
-    if (part === 'nps') nps = Number(parts[i + 1])
-    if (part === 'time') time = Number(parts[i + 1])
-    if (part === 'score' && parts[i + 1] === 'cp') cp = Number(parts[i + 2])
-    if (part === 'score' && parts[i + 1] === 'mate') mate = Number(parts[i + 2])
+    if (part === 'depth') depth = nonNegativeNumber(parts[i + 1]) ?? depth
+    if (part === 'multipv') multipv = positiveNumber(parts[i + 1]) ?? multipv
+    if (part === 'nodes') nodes = nonNegativeNumber(parts[i + 1])
+    if (part === 'nps') nps = nonNegativeNumber(parts[i + 1])
+    if (part === 'time') time = nonNegativeNumber(parts[i + 1])
+    if (part === 'score' && parts[i + 1] === 'cp') cp = finiteNumber(parts[i + 2])
+    if (part === 'score' && parts[i + 1] === 'mate') mate = finiteNumber(parts[i + 2])
     if (part === 'upperbound') scoreBound = 'upperbound'
     if (part === 'lowerbound') scoreBound = 'lowerbound'
-    if (part === 'wdl') wdl = { w: Number(parts[i + 1]), d: Number(parts[i + 2]), l: Number(parts[i + 3]) }
+    if (part === 'wdl') {
+      const w = nonNegativeNumber(parts[i + 1])
+      const d = nonNegativeNumber(parts[i + 2])
+      const l = nonNegativeNumber(parts[i + 3])
+      wdl = typeof w === 'number' && typeof d === 'number' && typeof l === 'number'
+        ? { w, d, l }
+        : undefined
+    }
     if (part === 'pv') {
       pv = parts.slice(i + 1)
       break
@@ -219,7 +216,23 @@ function parseInfoLine(line: string): EngineLine | null {
   return { multipv, depth, cp, mate, scoreBound, wdl, pv, nodes, nps, time }
 }
 
-function parseOptionLine(line: string): EngineOption | null {
+function optionFieldValue(input: string, field: 'default' | 'min' | 'max' | 'var'): string | undefined {
+  const match = input.match(new RegExp(`(?:^|\\s)${field}\\s+([^]+?)(?=\\s(?:default|min|max|var)\\s|$)`))
+  return match?.[1]?.trim()
+}
+
+function optionVarValues(input: string): string[] {
+  const values: string[] = []
+  const pattern = /(?:^|\s)var\s+([^]+?)(?=\s(?:default|min|max|var)\s|$)/g
+  let match: RegExpExecArray | null
+  while ((match = pattern.exec(input)) !== null) {
+    const value = match[1]?.trim()
+    if (value) values.push(value)
+  }
+  return values
+}
+
+export function parseOptionLine(line: string): EngineOption | null {
   if (!line.startsWith('option name ')) return null
 
   const typeToken = ' type '
@@ -230,19 +243,21 @@ function parseOptionLine(line: string): EngineOption | null {
   const rest = line.slice(typeIndex + typeToken.length)
   const [typeRaw] = rest.split(' ')
   const type = typeRaw as EngineOptionType
-  if (!['check', 'spin', 'string', 'button'].includes(type)) return null
+  if (!['check', 'spin', 'string', 'button', 'combo'].includes(type)) return null
 
-  const min = rest.match(/\bmin (-?\d+)/)?.[1]
-  const max = rest.match(/\bmax (-?\d+)/)?.[1]
-  const defaultMatch = rest.match(/\bdefault ([^]+?)(?=\s(?:min|max)\s|$)/)
-  const defaultValue = defaultMatch?.[1]?.trim()
+  const min = optionFieldValue(rest, 'min')
+  const max = optionFieldValue(rest, 'max')
+  const defaultValue = optionFieldValue(rest, 'default')
+  const vars = type === 'combo' ? optionVarValues(rest) : undefined
 
   return {
     name,
     type,
     defaultValue,
+    currentValue: defaultValue,
     min: min ? Number(min) : undefined,
     max: max ? Number(max) : undefined,
+    vars,
   }
 }
 
@@ -262,6 +277,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const currentAnalysisModeRef = useRef<AnalyzeMode | undefined>(undefined)
   const currentAnalysisLimitsRef = useRef<UciGoLimits | undefined>(undefined)
   const currentSearchIdRef = useRef<number>(0)
+  const newGamePendingRef = useRef(false)
   const commandQueueRef = useRef<QueuedCommand[]>([])
   const nextCommandIdRef = useRef(0)
   const bootSessionRef = useRef(0)
@@ -415,6 +431,14 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     [send],
   )
 
+  const sendNewGameSync = useCallback(() => {
+    isReadyRef.current = false
+    setStatus((value) => (value === 'error' ? value : 'loading'))
+    for (const command of buildNewGameCommands()) {
+      sendRaw(command)
+    }
+  }, [sendRaw])
+
   const sendCommand = useCallback(
     (command: string, options?: SendCommandOptions): Promise<string[]> => {
       const trimmed = command.trim()
@@ -446,9 +470,15 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         item.timeoutId = setTimeout(() => {
           const queue = commandQueueRef.current
           const idx = queue.findIndex(entry => entry.id === id)
-          if (idx >= 0) queue.splice(idx, 1)
+          if (idx >= 0) {
+            queue.splice(idx, 1)
+            if (shouldStopTimedOutSearchCommand(trimmed)) {
+              send('stop')
+            }
+          }
           setQueueLength(queue.length)
-          reject(new Error(`Timed out waiting for response to "${trimmed}".`))
+          const stopSuffix = shouldStopTimedOutSearchCommand(trimmed) ? ' Sent "stop" to cancel the search.' : ''
+          reject(new Error(`Timed out waiting for response to "${trimmed}".${stopSuffix}`))
         }, timeoutMs)
 
         commandQueueRef.current = [...commandQueueRef.current, item]
@@ -466,7 +496,13 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         return
       }
 
-      send(`setoption name ${name} value ${withUciValue(value)}`)
+      const normalized = withUciValue(value)
+      setOptions((previous) =>
+        previous.map((option) =>
+          option.name === name ? { ...option, currentValue: normalized } : option,
+        ),
+      )
+      send(`setoption name ${name} value ${normalized}`)
     },
     [send],
   )
@@ -561,13 +597,30 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   }, [enabled, send])
 
   const newGame = useCallback(() => {
-    sendRaw('ucinewgame')
+    pendingAnalyzeRef.current = null
     resetLinesMap()
     setLastBestMove(null)
     setLastBestMoveFen(null)
     setLastPonderMove(null)
     setLastPonderMoveFen(null)
-  }, [resetLinesMap, sendRaw])
+
+    if (!enabled) {
+      newGamePendingRef.current = false
+      setStatus('disabled')
+      return
+    }
+
+    if (isSearchingRef.current) {
+      newGamePendingRef.current = true
+      if (!stopRequestedRef.current) {
+        sendRaw('stop')
+        stopRequestedRef.current = true
+      }
+      return
+    }
+
+    sendNewGameSync()
+  }, [enabled, resetLinesMap, sendNewGameSync, sendRaw])
 
   const ponderHit = useCallback(() => {
     sendRaw('ponderhit')
@@ -586,6 +639,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       isSearchingRef.current = false
       stopRequestedRef.current = false
       pendingAnalyzeRef.current = null
+      newGamePendingRef.current = false
       commandQueueRef.current = []
       queueMicrotask(() => {
         if (currentSession !== bootSessionRef.current) return
@@ -615,8 +669,26 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       }
     }
 
+    const failWorker = (reason: string, queueMessage: string) => {
+      isReadyRef.current = false
+      isSearchingRef.current = false
+      stopRequestedRef.current = false
+      pendingAnalyzeRef.current = null
+      newGamePendingRef.current = false
+      setActiveGoCommand('')
+      setStatus('error')
+      rejectQueuedCommands(queueMessage)
+      if (workerRef.current === worker) workerRef.current = null
+      try {
+        worker?.terminate()
+      } catch {
+        // Ignore shutdown errors from workers that are already gone.
+      }
+      applyFallback(reason)
+    }
+
     try {
-      const created = createEngineWorker(profile)
+      const created = createStockfishWorker(profile)
       worker = created.worker
       workerBlobUrl = created.blobUrl
     } catch (error) {
@@ -672,11 +744,11 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         dispatchQueuedLine(line)
 
         if (line.startsWith('__BOOT_ERROR__:')) {
-          setStatus('error')
-          applyFallback(`Failed to load ${profile.name}: ${line.replace('__BOOT_ERROR__:', '').trim()}.`)
-          rejectQueuedCommands(`Engine bootstrap failed for ${profile.name}.`)
-          worker.terminate()
-          workerRef.current = null
+          const message = line.replace('__BOOT_ERROR__:', '').trim()
+          failWorker(
+            `Failed to load ${profile.name}: ${message}.`,
+            `Engine bootstrap failed for ${profile.name}.`,
+          )
           return
         }
 
@@ -702,7 +774,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
           isReadyRef.current = true
           const threads = recommendedThreadCount(profile, capabilities)
           if (threads > 1) {
-            send(`setoption name Threads value ${threads}`)
+            setOption('Threads', threads)
           }
           setStatus((value) => (value === 'error' ? value : 'ready'))
           flushPendingAnalyze()
@@ -727,6 +799,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         }
 
         if (line.startsWith('bestmove ')) {
+          if (!isSearchingRef.current) continue
           flushLinesMap()
           flushRawLines()
           const parsed = parseBestMoveLine(line)
@@ -736,6 +809,17 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
           setLastPonderMoveFen(parsed?.ponderMove ? currentAnalysisFenRef.current : null)
           isSearchingRef.current = false
           stopRequestedRef.current = false
+
+          const sentNewGameSync = newGamePendingRef.current
+          if (sentNewGameSync) {
+            newGamePendingRef.current = false
+            sendNewGameSync()
+          }
+
+          if (sentNewGameSync) {
+            setActiveGoCommand('')
+            continue
+          }
 
           if (pendingAnalyzeRef.current) {
             setActiveGoCommand('')
@@ -749,22 +833,13 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       }
     }
 
-    worker.onerror = () => {
+    worker.onerror = (event) => {
       if (currentSession !== bootSessionRef.current) return
-      setStatus('error')
-      rejectQueuedCommands(`Engine worker error while running ${profile.name}.`)
-
-      if (profile.id !== 'lite-single-local') {
-        const fallback = resolveProfile('lite-single-local', capabilities)
-        setFallbackOverride({
-          selected: selectedProfile,
-          profile: 'lite-single-local',
-        })
-        setActiveProfile(fallback)
-        setProfileMessage(`Failed to load ${profile.name}; fell back to ${fallback.name}.`)
-      } else {
-        setProfileMessage(`Failed to load ${profile.name}.`)
-      }
+      const message = event.message || 'Unknown worker error.'
+      failWorker(
+        `Engine worker error while running ${profile.name}: ${message}.`,
+        `Engine worker error while running ${profile.name}: ${message}`,
+      )
     }
 
     send('uci')
@@ -781,6 +856,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       isSearchingRef.current = false
       stopRequestedRef.current = false
       pendingAnalyzeRef.current = null
+      newGamePendingRef.current = false
       clearLinesMapFlushTimer()
       clearRawLinesFlushTimer()
       rejectQueuedCommands('Engine worker terminated.')
@@ -803,6 +879,8 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     scheduleLinesMapFlush,
     selectedProfile,
     send,
+    sendNewGameSync,
+    setOption,
   ])
 
   const lines = useMemo(

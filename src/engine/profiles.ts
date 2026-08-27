@@ -47,8 +47,8 @@ export const engineProfiles: EngineProfile[] = [
   {
     id: 'full-single-cdn',
     name: 'Full Single (CDN)',
-    description: 'Full-strength single-thread profile from jsDelivr (~113MB wasm).',
-    workerPath: 'https://cdn.jsdelivr.net/npm/stockfish@18.0.7/bin/stockfish-18-single.js',
+    description: 'Full-strength single-thread profile from unpkg (~113MB wasm).',
+    workerPath: 'https://unpkg.com/stockfish@18.0.7/bin/stockfish-18-single.js',
     strength: 'full',
     requiresIsolation: false,
     source: 'cdn',
@@ -57,7 +57,7 @@ export const engineProfiles: EngineProfile[] = [
     id: 'full-multi-cdn',
     name: 'Full Multi (CDN)',
     description: 'Strongest profile. Requires cross-origin isolation and larger download.',
-    workerPath: 'https://cdn.jsdelivr.net/npm/stockfish@18.0.7/bin/stockfish-18.js',
+    workerPath: 'https://unpkg.com/stockfish@18.0.7/bin/stockfish-18.js',
     strength: 'full',
     requiresIsolation: true,
     source: 'cdn',
@@ -89,6 +89,24 @@ export function pickAutoProfile(capabilities: EngineCapabilities): EngineProfile
 export function fallbackProfileFor(profile: EngineProfile): EngineProfile {
   if (profile.id !== 'lite-single-local') return profileById('lite-single-local')
   return profile
+}
+
+export function deriveWasmPath(workerPath: string): string {
+  return workerPath.replace(/\.js($|\?)/, '.wasm$1')
+}
+
+function defaultUrlBase(): string {
+  return typeof globalThis.location === 'object' ? globalThis.location.href : 'http://localhost/'
+}
+
+export function toAbsoluteAssetUrl(path: string, base = defaultUrlBase()): string {
+  return new URL(path, base).toString()
+}
+
+export function workerMainUrlWithWasmHash(workerPath: string, base?: string): string {
+  const scriptUrl = toAbsoluteAssetUrl(workerPath, base)
+  const wasmUrl = toAbsoluteAssetUrl(deriveWasmPath(workerPath), scriptUrl)
+  return `${scriptUrl}#${encodeURIComponent(wasmUrl)}`
 }
 
 export function profileById(id: Exclude<EngineProfileId, 'auto'>): EngineProfile {

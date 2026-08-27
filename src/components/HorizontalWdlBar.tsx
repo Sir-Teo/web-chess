@@ -9,7 +9,7 @@ type Props = {
 export function HorizontalWdlBar({ fen, wdl, orientation = 'white' }: Props) {
     const total = wdl.w + wdl.d + wdl.l
     // fallback if sum is zero
-    if (total === 0) return null
+    if (!Number.isFinite(total) || total <= 0) return null
 
     const turn = fen.split(' ')[1]
     const whiteWins = turn === 'w' ? wdl.w : wdl.l
@@ -28,7 +28,7 @@ export function HorizontalWdlBar({ fen, wdl, orientation = 'white' }: Props) {
         : `White: ${whitePct.toFixed(1)}% | Draw: ${drawPct.toFixed(1)}% | Black: ${blackPct.toFixed(1)}%`
 
     return (
-        <div className="horizontal-wdl-bar" title={text}>
+        <div className="horizontal-wdl-bar" role="img" aria-label={text} title={text}>
             <div
                 className={`hw-segment hw-left ${isFlipped ? 'hw-black' : 'hw-white'}`}
                 style={{ width: `${leftPct}%` }}

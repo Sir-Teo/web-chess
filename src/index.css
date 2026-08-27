@@ -117,6 +117,75 @@ body {
   width: 100%;
 }
 
+.app-error-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(45, 212, 191, 0.12), transparent 34rem),
+    linear-gradient(180deg, #101218 0%, var(--bg-base) 100%);
+}
+
+.app-error-card {
+  width: min(100%, 31rem);
+  padding: 1.4rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-lg);
+}
+
+.app-error-kicker {
+  margin: 0 0 0.45rem;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.app-error-card h1 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 1.7rem;
+}
+
+.app-error-card p {
+  color: var(--text-secondary);
+}
+
+.app-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 520px) {
+  .app-error-card h1 {
+    font-size: 1.35rem;
+  }
+}
+
+.app-error-actions button {
+  min-height: 2.5rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.app-error-actions button:first-child {
+  border-color: var(--border-accent);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
 /* ── Scrollbar ──────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 4px;

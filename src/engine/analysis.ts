@@ -5,6 +5,7 @@ import type { AnalyzeMode, AnalyzePurpose } from './uci'
 export type EvalSnapshot = {
   cp: number
   mate?: number
+  bestMove?: string
   wdl?: { w: number; d: number; l: number }
   depth?: number
   nodes?: number
@@ -17,6 +18,7 @@ export type EvalSnapshot = {
 }
 
 export type ReviewLabel = 'best' | 'good' | 'inaccuracy' | 'mistake' | 'blunder' | 'pending'
+export type ReviewSideFilter = 'both' | 'white' | 'black'
 
 export type ReviewRow = {
   ply: number
@@ -25,9 +27,22 @@ export type ReviewRow = {
   san: string
   uci: string
   quality: ReviewLabel
+  bestMove?: string
+  bestMoveSan?: string
   deltaCp?: number
   evalDepth?: number
   confidence: 'pending' | 'shallow' | 'standard' | 'deep'
+}
+
+export type AccuracySummary = {
+  overall: number | null
+  white: number | null
+  black: number | null
+  averageCentipawnLoss: number | null
+  whiteAverageCentipawnLoss: number | null
+  blackAverageCentipawnLoss: number | null
+  evaluatedMoves: number
+  pendingMoves: number
 }
 
 export type WinratePoint = {
@@ -44,18 +59,22 @@ export type WdlPoint = {
   black: number
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
 export function scoreToCp(cp?: number, mate?: number): number | undefined {
-  if (typeof mate === 'number') {
+  if (isFiniteNumber(mate)) {
     if (mate > 0) return 10000
     if (mate < 0) return -10000
     return undefined
   }
-  return cp
+  return isFiniteNumber(cp) ? cp : undefined
 }
 
 export function formatEvaluation(cp?: number, mate?: number): string {
-  if (typeof mate === 'number') return `#${mate}`
-  if (typeof cp === 'number') return `${cp > 0 ? '+' : ''}${(cp / 100).toFixed(2)}`
+  if (isFiniteNumber(mate)) return `#${mate}`
+  if (isFiniteNumber(cp)) return `${cp > 0 ? '+' : ''}${(cp / 100).toFixed(2)}`
   return '...'
 }
 
@@ -116,18 +135,132 @@ function qualityFromDelta(deltaCp: number): ReviewLabel {
 
 function isShallowEvaluation(snapshot: EvalSnapshot): boolean {
   if (snapshot.purpose === 'import-load' || snapshot.purpose === 'import-sweep') return true
-  if (typeof snapshot.depth === 'number' && snapshot.depth < 10) return true
-  if (typeof snapshot.time === 'number' && snapshot.time < 150 && typeof snapshot.depth !== 'number') return true
+  if (isFiniteNumber(snapshot.depth) && snapshot.depth < 10) return true
+  if (isFiniteNumber(snapshot.time) && snapshot.time < 150 && !isFiniteNumber(snapshot.depth)) return true
   return false
 }
 
+export function isReviewEvaluationSufficient(snapshot: EvalSnapshot | undefined, minDepth: number): boolean {
+  if (!snapshot) return false
+  if (!isFiniteNumber(scoreToCp(snapshot.cp, snapshot.mate))) return false
+  if (isShallowEvaluation(snapshot)) return false
+
+  const normalizedMinDepth = Number.isFinite(minDepth) ? Math.max(0, Math.round(minDepth)) : 0
+  if (normalizedMinDepth <= 0) return true
+  return isFiniteNumber(snapshot.depth) && snapshot.depth >= normalizedMinDepth
+}
+
+function snapshotDepth(snapshot: EvalSnapshot): number {
+  return isFiniteNumber(snapshot.depth) ? snapshot.depth : -1
+}
+
+function snapshotNodes(snapshot: EvalSnapshot): number {
+  return isFiniteNumber(snapshot.nodes) ? snapshot.nodes : -1
+}
+
+function sameSnapshotScore(a: EvalSnapshot, b: EvalSnapshot): boolean {
+  return scoreToCp(a.cp, a.mate) === scoreToCp(b.cp, b.mate)
+    && a.mate === b.mate
+}
+
+function sameSnapshotWdl(a: EvalSnapshot, b: EvalSnapshot): boolean {
+  return a.wdl?.w === b.wdl?.w
+    && a.wdl?.d === b.wdl?.d
+    && a.wdl?.l === b.wdl?.l
+}
+
+function sameEvaluationSnapshot(a: EvalSnapshot, b: EvalSnapshot): boolean {
+  return sameSnapshotScore(a, b)
+    && sameSnapshotWdl(a, b)
+    && a.bestMove === b.bestMove
+    && a.depth === b.depth
+    && a.nodes === b.nodes
+    && a.nps === b.nps
+    && a.time === b.time
+    && a.searchId === b.searchId
+    && a.mode === b.mode
+    && a.purpose === b.purpose
+}
+
+export function shouldReplaceEvaluationSnapshot(
+  current: EvalSnapshot | undefined,
+  next: EvalSnapshot,
+): boolean {
+  if (!isFiniteNumber(scoreToCp(next.cp, next.mate))) return false
+  if (!current) return true
+  if (!isFiniteNumber(scoreToCp(current.cp, current.mate))) return true
+
+  const currentShallow = isShallowEvaluation(current)
+  const nextShallow = isShallowEvaluation(next)
+  if (currentShallow && !nextShallow) return true
+  if (!currentShallow && nextShallow) return false
+
+  const currentDepth = snapshotDepth(current)
+  const nextDepth = snapshotDepth(next)
+  if (current.purpose === 'cloud-eval' && next.purpose !== 'cloud-eval' && currentDepth >= nextDepth) return false
+  if (next.purpose === 'cloud-eval' && current.purpose !== 'cloud-eval' && nextDepth >= currentDepth) return true
+  if (nextDepth > currentDepth) return true
+  if (nextDepth < currentDepth) return false
+
+  const currentNodes = snapshotNodes(current)
+  const nextNodes = snapshotNodes(next)
+  if (nextNodes > currentNodes) return true
+  if (nextNodes < currentNodes) return false
+
+  return !sameEvaluationSnapshot(current, next)
+}
+
+export function mergeEvaluationSnapshot(
+  current: EvalSnapshot | undefined,
+  next: EvalSnapshot,
+): EvalSnapshot | undefined {
+  if (shouldReplaceEvaluationSnapshot(current, next)) return next
+  if (!current) return undefined
+
+  if (next.wdl && !sameSnapshotWdl(current, next) && sameSnapshotScore(current, next)) {
+    return { ...current, wdl: next.wdl }
+  }
+
+  return current
+}
+
 function minDepth(a: EvalSnapshot, b: EvalSnapshot): number | undefined {
-  if (typeof a.depth === 'number' && typeof b.depth === 'number') return Math.min(a.depth, b.depth)
-  return a.depth ?? b.depth
+  if (isFiniteNumber(a.depth) && isFiniteNumber(b.depth)) return Math.min(a.depth, b.depth)
+  if (isFiniteNumber(a.depth)) return a.depth
+  if (isFiniteNumber(b.depth)) return b.depth
+  return undefined
 }
 
 function toUci(move: Move): string {
   return `${move.from}${move.to}${move.promotion ?? ''}`
+}
+
+function terminalEvaluationSnapshot(position: Chess): EvalSnapshot | null {
+  if (position.isCheckmate()) {
+    return {
+      cp: -10000,
+      purpose: 'batch-review',
+      mode: 'review',
+    }
+  }
+
+  if (position.isDraw()) {
+    return {
+      cp: 0,
+      purpose: 'batch-review',
+      mode: 'review',
+    }
+  }
+
+  return null
+}
+
+export function isTerminalPositionFen(fen: string): boolean {
+  try {
+    return new Chess(fen).isGameOver()
+  } catch {
+    return false
+  }
 }
 
 export function buildReviewRows(
@@ -145,16 +278,20 @@ export function buildReviewRows(
     const afterFen = replay.fen()
 
     const beforeSnapshot = evaluationsByFen.get(beforeFen)
-    const afterSnapshot = evaluationsByFen.get(afterFen)
-    const before = beforeSnapshot?.cp
-    const after = afterSnapshot?.cp
-    if (!beforeSnapshot || !afterSnapshot || typeof before !== 'number' || typeof after !== 'number') {
+    const afterSnapshot = evaluationsByFen.get(afterFen) ?? terminalEvaluationSnapshot(replay)
+    const before = beforeSnapshot ? scoreToCp(beforeSnapshot.cp, beforeSnapshot.mate) : undefined
+    const after = afterSnapshot ? scoreToCp(afterSnapshot.cp, afterSnapshot.mate) : undefined
+    const bestMove = beforeSnapshot?.bestMove
+    const bestMoveSan = bestMove ? uciToSan(beforeFen, bestMove) ?? bestMove : undefined
+    if (!beforeSnapshot || !afterSnapshot || !isFiniteNumber(before) || !isFiniteNumber(after)) {
       return {
         ply: index + 1,
         moveNumber,
         sideToMove,
         san: move.san,
         uci: toUci(move),
+        bestMove,
+        bestMoveSan,
         quality: 'pending',
         confidence: 'pending',
       }
@@ -176,6 +313,8 @@ export function buildReviewRows(
       sideToMove,
       san: move.san,
       uci: toUci(move),
+      bestMove,
+      bestMoveSan,
       deltaCp,
       evalDepth,
       confidence,
@@ -194,6 +333,63 @@ export function summarizeReview(rows: ReviewRow[]): Record<ReviewLabel, number> 
   )
 }
 
+export function filterReviewRowsBySide(rows: ReviewRow[], filter: ReviewSideFilter): ReviewRow[] {
+  if (filter === 'both') return rows
+  const side = filter === 'white' ? 'w' : 'b'
+  return rows.filter(row => row.sideToMove === side)
+}
+
+export function accuracyFromCentipawnLoss(deltaCp: number): number {
+  if (!isFiniteNumber(deltaCp)) return 0
+  const loss = Math.max(0, -deltaCp)
+  const accuracy = 100 * Math.exp(-loss / 300)
+  return Math.max(0, Math.min(100, accuracy))
+}
+
+function average(values: number[]): number | null {
+  if (!values.length) return null
+  return values.reduce((sum, value) => sum + value, 0) / values.length
+}
+
+export function summarizeAccuracy(rows: ReviewRow[]): AccuracySummary {
+  const white: number[] = []
+  const black: number[] = []
+  const whiteLosses: number[] = []
+  const blackLosses: number[] = []
+  let pendingMoves = 0
+
+  for (const row of rows) {
+    if (!isFiniteNumber(row.deltaCp) || row.quality === 'pending') {
+      pendingMoves += 1
+      continue
+    }
+
+    const loss = Math.max(0, -row.deltaCp)
+    const accuracy = accuracyFromCentipawnLoss(row.deltaCp)
+    if (row.sideToMove === 'w') {
+      white.push(accuracy)
+      whiteLosses.push(loss)
+    } else {
+      black.push(accuracy)
+      blackLosses.push(loss)
+    }
+  }
+
+  const values = [...white, ...black]
+  const losses = [...whiteLosses, ...blackLosses]
+
+  return {
+    overall: average(values),
+    white: average(white),
+    black: average(black),
+    averageCentipawnLoss: average(losses),
+    whiteAverageCentipawnLoss: average(whiteLosses),
+    blackAverageCentipawnLoss: average(blackLosses),
+    evaluatedMoves: values.length,
+    pendingMoves,
+  }
+}
+
 export function normalizeWhitePovCp(fen: string, cp: number): number {
   const turn = fen.split(' ')[1]
   return turn === 'w' ? cp : -cp
@@ -205,8 +401,8 @@ export function normalizeWhitePovMate(fen: string, mate: number): number {
 }
 
 export function formatWhitePovEvaluation(fen: string, cp?: number, mate?: number): string {
-  if (typeof mate === 'number') return formatEvaluation(undefined, normalizeWhitePovMate(fen, mate))
-  if (typeof cp === 'number') return formatEvaluation(normalizeWhitePovCp(fen, cp), undefined)
+  if (isFiniteNumber(mate)) return formatEvaluation(undefined, normalizeWhitePovMate(fen, mate))
+  if (isFiniteNumber(cp)) return formatEvaluation(normalizeWhitePovCp(fen, cp), undefined)
   return formatEvaluation()
 }
 
@@ -230,6 +426,8 @@ export function formatCompactWhitePovEvaluation(fen: string, cp?: number, mate?:
 }
 
 function normalizeWhitePovWdl(fen: string, wdl: { w: number; d: number; l: number }): { white: number; draw: number; black: number } | null {
+  if (![wdl.w, wdl.d, wdl.l].every(value => isFiniteNumber(value) && value >= 0)) return null
+
   const total = wdl.w + wdl.d + wdl.l
   if (total <= 0) return null
 
@@ -259,8 +457,9 @@ export function buildWinrateSeries(
   const series: WinratePoint[] = []
 
   const startFen = replay.fen()
-  const startCp = evaluationsByFen.get(startFen)?.cp
-  if (typeof startCp === 'number') {
+  const startSnapshot = evaluationsByFen.get(startFen)
+  const startCp = startSnapshot ? scoreToCp(startSnapshot.cp, startSnapshot.mate) : undefined
+  if (isFiniteNumber(startCp)) {
     series.push({
       index: 0,
       label: 'Start',
@@ -269,13 +468,15 @@ export function buildWinrateSeries(
   }
 
   history.forEach((move, index) => {
+    const moveNumber = replay.moveNumber()
+    const sideToMove = replay.turn()
     replay.move({ from: move.from, to: move.to, promotion: move.promotion })
     const fen = replay.fen()
-    const cp = evaluationsByFen.get(fen)?.cp
-    if (typeof cp !== 'number') return
+    const snapshot = evaluationsByFen.get(fen)
+    const cp = snapshot ? scoreToCp(snapshot.cp, snapshot.mate) : undefined
+    if (!isFiniteNumber(cp)) return
 
-    const moveNumber = Math.floor(index / 2) + 1
-    const prefix = index % 2 === 0 ? `${moveNumber}.` : `${moveNumber}...`
+    const prefix = sideToMove === 'w' ? `${moveNumber}.` : `${moveNumber}...`
     series.push({
       index: index + 1,
       label: `${prefix} ${move.san}`,
@@ -308,6 +509,8 @@ export function buildWdlSeries(
   }
 
   history.forEach((move, index) => {
+    const moveNumber = replay.moveNumber()
+    const sideToMove = replay.turn()
     replay.move({ from: move.from, to: move.to, promotion: move.promotion })
     const fen = replay.fen()
     const wdl = evaluationsByFen.get(fen)?.wdl
@@ -316,8 +519,7 @@ export function buildWdlSeries(
     const normalized = normalizeWhitePovWdl(fen, wdl)
     if (!normalized) return
 
-    const moveNumber = Math.floor(index / 2) + 1
-    const prefix = index % 2 === 0 ? `${moveNumber}.` : `${moveNumber}...`
+    const prefix = sideToMove === 'w' ? `${moveNumber}.` : `${moveNumber}...`
     series.push({
       index: index + 1,
       label: `${prefix} ${move.san}`,

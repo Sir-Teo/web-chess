@@ -1,6 +1,22 @@
 import { Chess } from 'chess.js'
 import { describe, expect, it } from 'vitest'
-import { buildReviewRows, buildWinrateSeries, formatCompactWhitePovEvaluation, formatWhitePovEvaluation, summarizeReview, uciToSan } from './analysis'
+import {
+  accuracyFromCentipawnLoss,
+  buildReviewRows,
+  buildWdlSeries,
+  buildWinrateSeries,
+  filterReviewRowsBySide,
+  formatCompactWhitePovEvaluation,
+  formatWhitePovEvaluation,
+  isTerminalPositionFen,
+  isReviewEvaluationSufficient,
+  mergeEvaluationSnapshot,
+  scoreToCp,
+  shouldReplaceEvaluationSnapshot,
+  summarizeAccuracy,
+  summarizeReview,
+  uciToSan,
+} from './analysis'
 
 describe('review analysis helpers', () => {
   it('labels reviewed moves from side-to-move centipawn deltas', () => {
@@ -46,6 +62,112 @@ describe('review analysis helpers', () => {
     expect(summarizeReview(rows).pending).toBe(1)
   })
 
+  it('uses mate scores when reviewing move quality', () => {
+    const game = new Chess()
+    const rootFen = game.fen()
+    const move = game.move('e4')
+    const afterFen = game.fen()
+
+    const keepsForcedMate = buildReviewRows(
+      [move],
+      new Map([
+        [rootFen, { cp: Number.NaN, mate: 3 }],
+        [afterFen, { cp: Number.NaN, mate: -2 }],
+      ]),
+      rootFen,
+    )
+    const dropsForcedMate = buildReviewRows(
+      [move],
+      new Map([
+        [rootFen, { cp: Number.NaN, mate: 3 }],
+        [afterFen, { cp: 0 }],
+      ]),
+      rootFen,
+    )
+
+    expect(keepsForcedMate[0]).toMatchObject({
+      deltaCp: 0,
+      quality: 'best',
+    })
+    expect(dropsForcedMate[0]).toMatchObject({
+      deltaCp: -10000,
+      quality: 'blunder',
+    })
+  })
+
+  it('reviews final checkmates without waiting for a terminal engine score', () => {
+    const game = new Chess()
+    const moves = [
+      game.move('f3')!,
+      game.move('e5')!,
+      game.move('g4')!,
+    ]
+    const beforeMateFen = game.fen()
+    moves.push(game.move('Qh4#')!)
+
+    const rows = buildReviewRows(
+      moves,
+      new Map([
+        [beforeMateFen, { cp: 10000, bestMove: 'd8h4', depth: 20, purpose: 'batch-review' }],
+      ]),
+    )
+
+    expect(rows.at(-1)).toMatchObject({
+      san: 'Qh4#',
+      quality: 'best',
+      confidence: 'deep',
+      deltaCp: 0,
+    })
+    expect(isTerminalPositionFen(game.fen())).toBe(true)
+    expect(isTerminalPositionFen(beforeMateFen)).toBe(false)
+    expect(isTerminalPositionFen('not a fen')).toBe(false)
+  })
+
+  it('includes finite mate evaluations in the winrate graph', () => {
+    const game = new Chess()
+    const rootFen = game.fen()
+    const move = game.move('e4')
+    const afterFen = game.fen()
+
+    const series = buildWinrateSeries(
+      [move],
+      new Map([
+        [rootFen, { cp: Number.NaN, mate: 3 }],
+        [afterFen, { cp: Number.NaN, mate: -2 }],
+      ]),
+      rootFen,
+    )
+
+    expect(series).toHaveLength(2)
+    expect(series[0]?.label).toBe('Start')
+    expect(series[1]?.label).toBe('1. e4')
+    expect(series[0]?.whiteWinrate).toBeGreaterThan(99)
+    expect(series[1]?.whiteWinrate).toBeGreaterThan(99)
+  })
+
+  it('adds best-move hints to review rows', () => {
+    const game = new Chess()
+    const rootFen = game.fen()
+    const move = game.move('d4')
+    const afterFen = game.fen()
+
+    const rows = buildReviewRows(
+      [move],
+      new Map([
+        [rootFen, { cp: 0, bestMove: 'e2e4' }],
+        [afterFen, { cp: 100 }],
+      ]),
+      rootFen,
+    )
+
+    expect(rows[0]).toMatchObject({
+      san: 'd4',
+      bestMove: 'e2e4',
+      bestMoveSan: 'e4',
+      quality: 'inaccuracy',
+    })
+  })
+
   it('does not assign a final quality label from shallow import scans', () => {
     const game = new Chess()
     const rootFen = game.fen()
@@ -70,6 +192,117 @@ describe('review analysis helpers', () => {
     })
   })
 
+  it('detects review-ready evaluations for queue reuse', () => {
+    expect(isReviewEvaluationSufficient(undefined, 12)).toBe(false)
+    expect(isReviewEvaluationSufficient({ cp: Number.NaN, depth: 20 }, 12)).toBe(false)
+    expect(isReviewEvaluationSufficient({ cp: 20, depth: 20, purpose: 'import-sweep' }, 12)).toBe(false)
+    expect(isReviewEvaluationSufficient({ cp: 20, depth: 8 }, 6)).toBe(false)
+    expect(isReviewEvaluationSufficient({ cp: 20, depth: 12 }, 16)).toBe(false)
+    expect(isReviewEvaluationSufficient({ cp: 20, depth: 16 }, 16)).toBe(true)
+    expect(isReviewEvaluationSufficient({ cp: Number.NaN, mate: -3, depth: 18 }, 16)).toBe(true)
+  })
+
+  it('keeps deeper review evaluations over shallow import scans', () => {
+    const current = { cp: 42, depth: 18, bestMove: 'e2e4', purpose: 'batch-review' as const }
+    const shallowImport = { cp: -80, depth: 4, bestMove: 'd2d4', purpose: 'import-sweep' as const }
+
+    expect(shouldReplaceEvaluationSnapshot(current, shallowImport)).toBe(false)
+    expect(mergeEvaluationSnapshot(current, shallowImport)).toBe(current)
+  })
+
+  it('allows deeper local evaluations to replace shallower stored snapshots', () => {
+    const deeperManual = { cp: 35, depth: 18, nodes: 2000, purpose: 'manual' as const }
+
+    expect(mergeEvaluationSnapshot(
+      { cp: 10, depth: 12, nodes: 1000, purpose: 'cloud-eval' as const },
+      deeperManual,
+    )).toEqual(deeperManual)
+    expect(mergeEvaluationSnapshot(
+      { cp: 10, depth: 12, nodes: 1000, purpose: 'auto' as const },
+      deeperManual,
+    )).toEqual(deeperManual)
+  })
+
+  it('prefers cloud evaluations unless local analysis is deeper', () => {
+    const cloudSameDepth = { cp: 12, depth: 16, nodes: 300000, purpose: 'cloud-eval' as const }
+    const deeperLocal = { cp: 10, depth: 20, nodes: 500000, purpose: 'manual' as const }
+
+    expect(mergeEvaluationSnapshot(
+      { cp: 8, depth: 16, nodes: 250000, purpose: 'auto' as const },
+      cloudSameDepth,
+    )).toEqual(cloudSameDepth)
+    expect(mergeEvaluationSnapshot(deeperLocal, cloudSameDepth)).toBe(deeperLocal)
+  })
+
+  it('can merge WDL into a kept snapshot when the score matches', () => {
+    const current = {
+      cp: 20,
+      depth: 18,
+      purpose: 'batch-review' as const,
+      wdl: { w: 10, d: 80, l: 10 },
+    }
+    const matchingScoreWdl = {
+      cp: 20,
+      depth: 4,
+      purpose: 'import-sweep' as const,
+      wdl: { w: 12, d: 76, l: 12 },
+    }
+    const differentScoreWdl = {
+      cp: 21,
+      depth: 4,
+      purpose: 'import-sweep' as const,
+      wdl: { w: 13, d: 74, l: 13 },
+    }
+
+    expect(mergeEvaluationSnapshot(current, matchingScoreWdl)).toEqual({
+      ...current,
+      wdl: matchingScoreWdl.wdl,
+    })
+    expect(mergeEvaluationSnapshot(current, differentScoreWdl)).toBe(current)
+  })
+
+  it('ignores invalid replacement evaluations', () => {
+    const current = { cp: 15, depth: 18, purpose: 'manual' as const }
+    const invalid = { cp: Number.NaN, depth: 99, purpose: 'manual' as const }
+
+    expect(shouldReplaceEvaluationSnapshot(current, invalid)).toBe(false)
+    expect(mergeEvaluationSnapshot(current, invalid)).toBe(current)
+    expect(mergeEvaluationSnapshot(undefined, invalid)).toBeUndefined()
+  })
+
+  it('summarizes player accuracy from evaluated centipawn loss', () => {
+    const rows = [
+      { ply: 1, moveNumber: 1, sideToMove: 'w' as const, san: 'e4', uci: 'e2e4', quality: 'best' as const, deltaCp: -10, confidence: 'standard' as const },
+      { ply: 2, moveNumber: 1, sideToMove: 'b' as const, san: 'e5', uci: 'e7e5', quality: 'mistake' as const, deltaCp: -220, confidence: 'standard' as const },
+      { ply: 3, moveNumber: 2, sideToMove: 'w' as const, san: 'Nf3', uci: 'g1f3', quality: 'pending' as const, confidence: 'pending' as const },
+    ]
+
+    expect(accuracyFromCentipawnLoss(40)).toBe(100)
+    expect(accuracyFromCentipawnLoss(-300)).toBeCloseTo(36.8, 1)
+    const summary = summarizeAccuracy(rows)
+    expect(summary).toMatchObject({
+      evaluatedMoves: 2,
+      pendingMoves: 1,
+    })
+    expect(summary.overall).toBeCloseTo(72.4, 1)
+    expect(summary.white).toBeCloseTo(96.7, 1)
+    expect(summary.black).toBeCloseTo(48.0, 1)
+    expect(summary.averageCentipawnLoss).toBe(115)
+    expect(summary.whiteAverageCentipawnLoss).toBe(10)
+    expect(summary.blackAverageCentipawnLoss).toBe(220)
+  })
+
+  it('filters review rows by player side', () => {
+    const rows = [
+      { ply: 1, moveNumber: 1, sideToMove: 'w' as const, san: 'e4', uci: 'e2e4', quality: 'best' as const, confidence: 'standard' as const },
+      { ply: 2, moveNumber: 1, sideToMove: 'b' as const, san: 'e5', uci: 'e7e5', quality: 'good' as const, confidence: 'standard' as const },
+    ]
+
+    expect(filterReviewRowsBySide(rows, 'both')).toBe(rows)
+    expect(filterReviewRowsBySide(rows, 'white').map(row => row.uci)).toEqual(['e2e4'])
+    expect(filterReviewRowsBySide(rows, 'black').map(row => row.uci)).toEqual(['e7e5'])
+  })
+
   it('keeps review move numbering from a black-to-move root', () => {
     const game = new Chess()
     game.move('e4')
@@ -91,6 +324,30 @@ describe('review analysis helpers', () => {
     expect(formatWhitePovEvaluation(blackToMove, -10000, -3)).toBe('#3')
     expect(formatWhitePovEvaluation(blackToMove, 10000, 2)).toBe('#-2')
     expect(formatWhitePovEvaluation(whiteToMove, 42)).toBe('+0.42')
+  })
+
+  it('treats non-finite evaluation values as missing', () => {
+    const game = new Chess()
+    const rootFen = game.fen()
+    const move = game.move('e4')
+    const afterFen = game.fen()
+
+    expect(scoreToCp(Number.NaN)).toBeUndefined()
+    expect(scoreToCp(undefined, Number.POSITIVE_INFINITY)).toBeUndefined()
+    expect(formatWhitePovEvaluation(rootFen, Number.NaN)).toBe('...')
+
+    const rows = buildReviewRows(
+      [move],
+      new Map([
+        [rootFen, { cp: Number.NaN, depth: Number.POSITIVE_INFINITY }],
+        [afterFen, { cp: -20 }],
+      ]),
+      rootFen,
+    )
+    expect(rows[0]).toMatchObject({ quality: 'pending', confidence: 'pending' })
+
+    expect(buildWinrateSeries([move], new Map([[rootFen, { cp: Number.NaN }], [afterFen, { cp: Number.POSITIVE_INFINITY }]]), rootFen)).toEqual([])
+    expect(buildWdlSeries([move], new Map([[rootFen, { cp: 0, wdl: { w: 1, d: Number.NaN, l: 1 } }]]), rootFen)).toEqual([])
   })
 
   it('formats a single UCI move as SAN for the current position', () => {
@@ -117,6 +374,32 @@ describe('review analysis helpers', () => {
     expect(series).toHaveLength(2)
     expect(series[0]?.label).toBe('Start')
     expect(series[1]?.label).toBe('1. Kf3')
+  })
+
+  it('labels graph points from black-to-move imported root positions', () => {
+    const rootFen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1'
+    const game = new Chess(rootFen)
+    const blackMove = game.move('c5')!
+    const afterBlackFen = game.fen()
+    const whiteMove = game.move('Nf3')!
+    const afterWhiteFen = game.fen()
+
+    const evaluations = new Map([
+      [rootFen, { cp: 0, wdl: { w: 100, d: 800, l: 100 } }],
+      [afterBlackFen, { cp: -40, wdl: { w: 120, d: 780, l: 100 } }],
+      [afterWhiteFen, { cp: 20, wdl: { w: 110, d: 780, l: 110 } }],
+    ])
+
+    expect(buildWinrateSeries([blackMove, whiteMove], evaluations, rootFen).map(point => point.label)).toEqual([
+      'Start',
+      '1... c5',
+      '2. Nf3',
+    ])
+    expect(buildWdlSeries([blackMove, whiteMove], evaluations, rootFen).map(point => point.label)).toEqual([
+      'Start',
+      '1... c5',
+      '2. Nf3',
+    ])
   })
 })
 

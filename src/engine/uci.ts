@@ -46,6 +46,11 @@ export type ParsedBestMove = {
   ponderMove: string | null
 }
 
+export type ParsedUciMoveList = {
+  validMoves: string[]
+  invalidTokens: string[]
+}
+
 const UCI_MOVE_REGEX = /^[a-h][1-8][a-h][1-8][qrbn]?$/i
 
 function toPositiveInt(value: unknown): number | undefined {
@@ -69,6 +74,25 @@ export function isUciMove(move: string): boolean {
 export function normalizeUciMoves(moves: string[] | undefined): string[] {
   if (!moves?.length) return []
   return moves.map(move => move.trim().toLowerCase()).filter(isUciMove)
+}
+
+export function parseUciMoveListInput(input: string): ParsedUciMoveList {
+  const tokens = input
+    .split(/[,\s]+/g)
+    .map(move => move.trim())
+    .filter(Boolean)
+
+  return tokens.reduce<ParsedUciMoveList>(
+    (parsed, token) => {
+      if (isUciMove(token)) {
+        parsed.validMoves.push(token.toLowerCase())
+      } else {
+        parsed.invalidTokens.push(token)
+      }
+      return parsed
+    },
+    { invalidTokens: [], validMoves: [] },
+  )
 }
 
 export function buildPositionCommand(fen: string, historyMoves?: string[], rootFen?: string): string {
@@ -147,12 +171,14 @@ export function buildGoCommand(
 
 export function buildAnalyzeCommand(request: AnalyzeRequest): BuiltAnalyzeCommand {
   const setOptions: BuiltAnalyzeCommand['setOptions'] = []
+  const hashMb = toPositiveInt(request.hashMb)
+  const multiPv = toPositiveInt(request.multiPv)
 
-  if (typeof request.hashMb === 'number') {
-    setOptions.push({ name: 'Hash', value: request.hashMb })
+  if (hashMb) {
+    setOptions.push({ name: 'Hash', value: hashMb })
   }
-  if (typeof request.multiPv === 'number') {
-    setOptions.push({ name: 'MultiPV', value: request.multiPv })
+  if (multiPv) {
+    setOptions.push({ name: 'MultiPV', value: multiPv })
   }
   if (typeof request.showWdl === 'boolean') {
     setOptions.push({ name: 'UCI_ShowWDL', value: request.showWdl })
@@ -165,6 +191,10 @@ export function buildAnalyzeCommand(request: AnalyzeRequest): BuiltAnalyzeComman
   }
 }
 
+export function buildNewGameCommands(): string[] {
+  return ['ucinewgame', 'isready']
+}
+
 export function parseBestMoveLine(line: string): ParsedBestMove | null {
   if (!line.startsWith('bestmove ')) return null
 
@@ -173,8 +203,8 @@ export function parseBestMoveLine(line: string): ParsedBestMove | null {
   const ponderIndex = parts.indexOf('ponder')
   const ponderRaw = ponderIndex >= 0 ? (parts[ponderIndex + 1] ?? null) : null
 
-  const bestMove = bestMoveRaw === '(none)' ? null : bestMoveRaw
-  const ponderMove = ponderRaw && ponderRaw !== '(none)' ? ponderRaw : null
+  const bestMove = isUciMove(bestMoveRaw) ? bestMoveRaw.trim().toLowerCase() : null
+  const ponderMove = ponderRaw && isUciMove(ponderRaw) ? ponderRaw.trim().toLowerCase() : null
 
   return { bestMove, ponderMove }
 }

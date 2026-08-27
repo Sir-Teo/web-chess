@@ -8,7 +8,12 @@ export type OpeningInfo = {
 let openingMapPromise: Promise<Record<string, OpeningInfo>> | null = null
 
 function loadOpeningMap(): Promise<Record<string, OpeningInfo>> {
-    openingMapPromise ??= import('../assets/eco.json').then(module => module.default as Record<string, OpeningInfo>)
+    openingMapPromise ??= import('../assets/eco.json')
+        .then(module => module.default as Record<string, OpeningInfo>)
+        .catch(error => {
+            openingMapPromise = null
+            throw error
+        })
     return openingMapPromise
 }
 
@@ -19,9 +24,13 @@ export function useOpening(fens: string[], enabled = true): OpeningInfo | undefi
         if (!enabled) return
 
         let cancelled = false
-        void loadOpeningMap().then(loadedMap => {
-            if (!cancelled) setMap(loadedMap)
-        })
+        void loadOpeningMap()
+            .then(loadedMap => {
+                if (!cancelled) setMap(loadedMap)
+            })
+            .catch(() => {
+                if (!cancelled) setMap({})
+            })
         return () => {
             cancelled = true
         }

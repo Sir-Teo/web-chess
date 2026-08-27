@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useModalFocus } from '../hooks/useModalFocus'
 import type { AiDifficulty } from '../hooks/useAiPlayer'
 import { DIFFICULTY_LABELS } from '../hooks/useAiPlayer'
@@ -56,6 +56,7 @@ export function NewGameDialog({
     const [difficulty, setDifficulty] = useState<AiDifficulty>(initialDifficulty)
     const panelRef = useRef<HTMLDivElement>(null)
     const titleId = useId()
+    const difficultyLabelId = useId()
 
     const handleStart = () => {
         onStart({ mode, playerColor, difficulty })
@@ -63,6 +64,13 @@ export function NewGameDialog({
 
     const showColorPicker = mode === 'human-vs-ai'
     const showDifficulty = mode === 'human-vs-ai' || mode === 'ai-vs-ai'
+
+    useEffect(() => {
+        if (!open) return
+        setMode(initialMode)
+        setPlayerColor(initialPlayerColor)
+        setDifficulty(initialDifficulty)
+    }, [initialDifficulty, initialMode, initialPlayerColor, open])
 
     useModalFocus(open, panelRef, onCancel, { initialFocus: '[data-selected-mode="true"]' })
 
@@ -72,7 +80,7 @@ export function NewGameDialog({
         <div className="dialog-backdrop" onClick={onCancel}>
             <div
                 ref={panelRef}
-                className="dialog-panel"
+                className="dialog-panel new-game-dialog"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby={titleId}
@@ -83,85 +91,90 @@ export function NewGameDialog({
                     <h2 id={titleId}>New Game</h2>
                 </header>
 
-                {/* Mode selector */}
-                <div className="dialog-section">
-                    <p className="dialog-label">Game mode</p>
-                    <div className="mode-grid">
-                        {MODE_OPTIONS.map((opt) => (
-                            <button
-                                key={opt.value}
-                                type="button"
-                                className={`mode-card ${mode === opt.value ? 'selected' : ''}`}
-                                onClick={() => setMode(opt.value)}
-                                aria-pressed={mode === opt.value}
-                                data-selected-mode={mode === opt.value ? 'true' : undefined}
-                            >
-                                <span className="mode-icon">{opt.icon}</span>
-                                <strong>{opt.label}</strong>
-                                <span className="mode-desc">{opt.description}</span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Color picker */}
-                {showColorPicker && (
+                <div className="dialog-body">
+                    {/* Mode selector */}
                     <div className="dialog-section">
-                        <p className="dialog-label">Play as</p>
-                        <div className="color-picker">
-                            <button
-                                type="button"
-                                className={`color-btn ${playerColor === 'white' ? 'selected' : ''}`}
-                                onClick={() => setPlayerColor('white')}
-                                aria-pressed={playerColor === 'white'}
-                            >
-                                <span className="color-piece"><IconKing /></span>
-                                White
-                            </button>
-                            <button
-                                type="button"
-                                className={`color-btn ${playerColor === 'black' ? 'selected' : ''}`}
-                                onClick={() => setPlayerColor('black')}
-                                aria-pressed={playerColor === 'black'}
-                            >
-                                <span className="color-piece dark"><IconKing /></span>
-                                Black
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* Difficulty slider */}
-                {showDifficulty && (
-                    <div className="dialog-section">
-                        <p className="dialog-label">
-                            Difficulty —{' '}
-                            <strong className="difficulty-label-value">{DIFFICULTY_LABELS[difficulty]}</strong>
-                        </p>
-                        <input
-                            type="range"
-                            min={1}
-                            max={8}
-                            step={1}
-                            value={difficulty}
-                            className="difficulty-slider"
-                            onChange={(e) => setDifficulty(Number(e.target.value) as AiDifficulty)}
-                        />
-                        <div className="difficulty-ticks">
-                            {([1, 2, 3, 4, 5, 6, 7, 8] as AiDifficulty[]).map((level) => (
+                        <p className="dialog-label">Game mode</p>
+                        <div className="mode-grid">
+                            {MODE_OPTIONS.map((opt) => (
                                 <button
-                                    key={level}
+                                    key={opt.value}
                                     type="button"
-                                    className={`tick ${difficulty === level ? 'active' : ''}`}
-                                    onClick={() => setDifficulty(level)}
-                                    aria-label={`Set difficulty to ${DIFFICULTY_LABELS[level]}`}
-                                    aria-pressed={difficulty === level}
-                                />
+                                    className={`mode-card ${mode === opt.value ? 'selected' : ''}`}
+                                    onClick={() => setMode(opt.value)}
+                                    aria-label={`${opt.label}: ${opt.description}`}
+                                    aria-pressed={mode === opt.value}
+                                    data-selected-mode={mode === opt.value ? 'true' : undefined}
+                                >
+                                    <span className="mode-icon">{opt.icon}</span>
+                                    <strong>{opt.label}</strong>
+                                    <span className="mode-desc">{opt.description}</span>
+                                </button>
                             ))}
                         </div>
-                        <p className="difficulty-desc">{DIFFICULTY_DESCRIPTIONS[difficulty]}</p>
                     </div>
-                )}
+
+                    {/* Color picker */}
+                    {showColorPicker && (
+                        <div className="dialog-section">
+                            <p className="dialog-label">Play as</p>
+                            <div className="color-picker">
+                                <button
+                                    type="button"
+                                    className={`color-btn ${playerColor === 'white' ? 'selected' : ''}`}
+                                    onClick={() => setPlayerColor('white')}
+                                    aria-pressed={playerColor === 'white'}
+                                >
+                                    <span className="color-piece"><IconKing /></span>
+                                    White
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`color-btn ${playerColor === 'black' ? 'selected' : ''}`}
+                                    onClick={() => setPlayerColor('black')}
+                                    aria-pressed={playerColor === 'black'}
+                                >
+                                    <span className="color-piece dark"><IconKing /></span>
+                                    Black
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Difficulty slider */}
+                    {showDifficulty && (
+                        <div className="dialog-section">
+                            <p className="dialog-label" id={difficultyLabelId}>
+                                Difficulty —{' '}
+                                <strong className="difficulty-label-value">{DIFFICULTY_LABELS[difficulty]}</strong>
+                            </p>
+                            <input
+                                type="range"
+                                min={1}
+                                max={8}
+                                step={1}
+                                value={difficulty}
+                                className="difficulty-slider"
+                                aria-labelledby={difficultyLabelId}
+                                aria-valuetext={DIFFICULTY_LABELS[difficulty]}
+                                onChange={(e) => setDifficulty(Number(e.target.value) as AiDifficulty)}
+                            />
+                            <div className="difficulty-ticks">
+                                {([1, 2, 3, 4, 5, 6, 7, 8] as AiDifficulty[]).map((level) => (
+                                    <button
+                                        key={level}
+                                        type="button"
+                                        className={`tick ${difficulty === level ? 'active' : ''}`}
+                                        onClick={() => setDifficulty(level)}
+                                        aria-label={`Set difficulty to ${DIFFICULTY_LABELS[level]}`}
+                                        aria-pressed={difficulty === level}
+                                    />
+                                ))}
+                            </div>
+                            <p className="difficulty-desc">{DIFFICULTY_DESCRIPTIONS[difficulty]}</p>
+                        </div>
+                    )}
+                </div>
 
                 {/* Actions */}
                 <div className="dialog-actions">

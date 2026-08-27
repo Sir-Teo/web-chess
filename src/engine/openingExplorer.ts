@@ -1,3 +1,6 @@
+import { withBoundedMapEntry } from '../hooks/cacheLimit'
+import { fetchLichessResource } from './lichessQueue'
+
 export type OpeningDatabaseSource = 'masters' | 'lichess'
 export type OpeningSpeed = 'bullet' | 'blitz' | 'rapid' | 'classical'
 
@@ -51,7 +54,7 @@ export type OpeningExplorerResponse = {
 const EXPLORER_BASE_URL = 'https://explorer.lichess.org'
 const CACHE_TTL_MS = 5 * 60 * 1000
 const CACHE_STORAGE_KEY = 'webchess:opening-explorer-cache:v1'
-const CACHE_STORAGE_LIMIT = 80
+const CACHE_ENTRY_LIMIT = 80
 const AUTH_REQUIRED_MESSAGE = 'Opening Explorer requires a Lichess API token.'
 const AUTH_REJECTED_MESSAGE = 'Opening Explorer rejected the Lichess API token.'
 
@@ -60,18 +63,29 @@ type CacheEntry = {
   payload: OpeningExplorerResponse
 }
 
-const responseCache = new Map<string, CacheEntry>()
+let responseCache = new Map<string, CacheEntry>()
+let storageCacheRaw: string | null | undefined
+let storageCacheSnapshot: Record<string, unknown> = {}
 
-function readStorageCache(): Record<string, CacheEntry> {
+function readStorageCache(): Record<string, unknown> {
   if (typeof window === 'undefined') return {}
   try {
     const raw = window.localStorage.getItem(CACHE_STORAGE_KEY)
-    if (!raw) return {}
+    if (raw === storageCacheRaw) return storageCacheSnapshot
+    if (!raw) {
+      storageCacheRaw = raw
+      storageCacheSnapshot = {}
+      return storageCacheSnapshot
+    }
     const parsed = JSON.parse(raw)
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+    storageCacheRaw = raw
+    storageCacheSnapshot = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
       ? parsed as Record<string, CacheEntry>
       : {}
+    return storageCacheSnapshot
   } catch {
+    storageCacheRaw = undefined
+    storageCacheSnapshot = {}
     return {}
   }
 }
@@ -79,7 +93,10 @@ function readStorageCache(): Record<string, CacheEntry> {
 function writeStorageCache(cache: Record<string, CacheEntry>) {
   if (typeof window === 'undefined') return
   try {
-    window.localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(cache))
+    const serialized = JSON.stringify(cache)
+    window.localStorage.setItem(CACHE_STORAGE_KEY, serialized)
+    storageCacheRaw = serialized
+    storageCacheSnapshot = cache
   } catch {
     // Cache persistence is optional; ignore private-mode/quota failures.
   }
@@ -87,14 +104,15 @@ function writeStorageCache(cache: Record<string, CacheEntry>) {
 
 function writeStorageCacheEntry(key: string, entry: CacheEntry) {
   const now = Date.now()
-  const stored = readStorageCache()
+  const stored = { ...readStorageCache() }
   stored[key] = entry
 
   const pruned = Object.fromEntries(
     Object.entries(stored)
-      .filter(([, value]) => value.expiresAt > now)
+      .map(([entryKey, value]) => [entryKey, parseCacheEntry(value)] as const)
+      .filter((entry): entry is readonly [string, CacheEntry] => entry[1] !== null && entry[1].expiresAt > now)
       .sort(([, a], [, b]) => b.expiresAt - a.expiresAt)
-      .slice(0, CACHE_STORAGE_LIMIT),
+      .slice(0, CACHE_ENTRY_LIMIT),
   )
   writeStorageCache(pruned)
 }
@@ -134,6 +152,12 @@ function normalizeFen(fen: string | undefined): string {
   return fen?.trim().replace(/\s+/g, ' ') ?? ''
 }
 
+export function normalizeOpeningExplorerFenKey(fen: string | undefined): string {
+  const normalized = normalizeFen(fen)
+  const parts = normalized.split(/\s+/g)
+  return parts.length >= 4 ? parts.slice(0, 4).join(' ') : normalized
+}
+
 function normalizeAuthToken(authToken: string | undefined): string {
   const trimmed = authToken?.trim() ?? ''
   return trimmed.replace(/^Bearer(?:\s+|$)/i, '').trim()
@@ -143,13 +167,25 @@ export function hasOpeningExplorerAuthToken(authToken: string | undefined): bool
   return Boolean(normalizeAuthToken(authToken))
 }
 
+export function openingExplorerGameCount(response: Pick<OpeningExplorerResponse, 'white' | 'draws' | 'black'>): number {
+  return Math.max(0, response.white) + Math.max(0, response.draws) + Math.max(0, response.black)
+}
+
+export function shouldContinueOpeningBookLine(
+  response: Pick<OpeningExplorerResponse, 'white' | 'draws' | 'black' | 'moves'>,
+  nextMoveUci: string,
+): boolean {
+  return openingExplorerGameCount(response) > 0
+    && response.moves.some(move => move.uci === nextMoveUci)
+}
+
 function authHeaders(authToken: string | undefined): HeadersInit {
   const token = normalizeAuthToken(authToken)
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 function requestCacheKey(request: OpeningExplorerRequest): string {
-  const fen = normalizeFen(request.fen)
+  const fen = normalizeOpeningExplorerFenKey(request.fen)
   const moves = normalizeMoves(request.moves)
   const speeds = (request.speeds ?? []).slice().sort().join(',')
   const ratings = clampUniqueInts(request.ratings, 400, 3200).sort((a, b) => a - b).join(',')
@@ -263,6 +299,22 @@ function parseResponse(raw: unknown): OpeningExplorerResponse {
   }
 }
 
+function parseCachedPayload(raw: unknown): OpeningExplorerResponse | null {
+  if (!raw || typeof raw !== 'object') return null
+  const payload = raw as Record<string, unknown>
+  if (!isFiniteNumber(payload.white) || !isFiniteNumber(payload.draws) || !isFiniteNumber(payload.black)) return null
+  if (!Array.isArray(payload.moves) || !Array.isArray(payload.topGames) || !Array.isArray(payload.recentGames)) return null
+  return parseResponse(raw)
+}
+
+function parseCacheEntry(raw: unknown): CacheEntry | null {
+  if (!raw || typeof raw !== 'object') return null
+  const entry = raw as Record<string, unknown>
+  if (!isFiniteNumber(entry.expiresAt)) return null
+  const payload = parseCachedPayload(entry.payload)
+  return payload ? { expiresAt: entry.expiresAt, payload } : null
+}
+
 function readCached(request: OpeningExplorerRequest): OpeningExplorerResponse | null {
   const key = requestCacheKey(request)
   const cached = responseCache.get(key)
@@ -272,11 +324,11 @@ function readCached(request: OpeningExplorerRequest): OpeningExplorerResponse | 
     responseCache.delete(key)
   }
 
-  const stored = readStorageCache()[key]
+  const stored = parseCacheEntry(readStorageCache()[key])
   if (!stored) return null
   if (stored.expiresAt <= now) return null
 
-  responseCache.set(key, stored)
+  responseCache = withBoundedMapEntry(responseCache, key, stored, CACHE_ENTRY_LIMIT)
   return stored.payload
 }
 
@@ -286,8 +338,14 @@ function writeCached(request: OpeningExplorerRequest, payload: OpeningExplorerRe
     expiresAt: Date.now() + CACHE_TTL_MS,
     payload,
   }
-  responseCache.set(key, entry)
+  responseCache = withBoundedMapEntry(responseCache, key, entry, CACHE_ENTRY_LIMIT)
   writeStorageCacheEntry(key, entry)
+}
+
+function throwIfAborted(signal: AbortSignal | undefined) {
+  if (!signal?.aborted) return
+  const reason = signal.reason
+  throw reason instanceof Error ? reason : new Error('Opening Explorer request aborted.')
 }
 
 export function getCachedOpeningExplorer(request: OpeningExplorerRequest): OpeningExplorerResponse | null {
@@ -305,10 +363,12 @@ export async function fetchOpeningExplorer(
     throw new Error(AUTH_REQUIRED_MESSAGE)
   }
 
-  const response = await fetch(buildUrl(request), {
+  const response = await fetchLichessResource(buildUrl(request), {
     signal,
     headers: authHeaders(request.authToken),
   })
+  throwIfAborted(signal)
+
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) {
       throw new Error(AUTH_REJECTED_MESSAGE)
@@ -320,16 +380,18 @@ export async function fetchOpeningExplorer(
   }
 
   const raw = await response.json()
+  throwIfAborted(signal)
+
   const parsed = parseResponse(raw)
   writeCached(request, parsed)
   return parsed
 }
 
-export async function prefetchOpeningExplorer(request: OpeningExplorerRequest): Promise<void> {
+export async function prefetchOpeningExplorer(request: OpeningExplorerRequest, signal?: AbortSignal): Promise<void> {
   if (readCached(request)) return
   if (!normalizeAuthToken(request.authToken)) return
   try {
-    await fetchOpeningExplorer(request)
+    await fetchOpeningExplorer(request, signal)
   } catch {
     // Ignore prefetch errors; live views will show fetch status as needed.
   }

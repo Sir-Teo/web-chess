@@ -12,7 +12,19 @@ export type GameNode = {
     uci: string          // '' for root
     parent: string | null
     children: string[]
+    comment?: string
+    suffix?: string
+    nags?: string[]
     quality?: ReviewLabel
+}
+
+export type GameTreeImportEntry = {
+    move: Move
+    fen: string
+    comment?: string
+    suffix?: string
+    nags?: string[]
+    children?: GameTreeImportEntry[]
 }
 
 type GameTree = {
@@ -59,12 +71,10 @@ function makeTree(fen?: string): GameTree {
 export function useGameTree(startFen?: string) {
     const [treeState, setTreeState] = useState<GameTree>(() => makeTree(startFen))
     const treeRef = useRef<GameTree>(treeState)
-    const [tick, setTick] = useState(0)
 
     const publishTree = useCallback((nextTree: GameTree) => {
         treeRef.current = nextTree
         setTreeState(nextTree)
-        setTick(t => t + 1)
     }, [])
 
     // ── Selectors ─────────────────────────────────────────────────────────────
@@ -160,7 +170,7 @@ export function useGameTree(startFen?: string) {
      * Replace the current tree with a single imported main-line in one render pass.
      * This avoids O(n) re-render thrashing during large PGN imports.
      */
-    const loadMainLine = useCallback((entries: Array<{ move: Move; fen: string }>, startFen?: string): string => {
+    const loadMainLine = useCallback((entries: GameTreeImportEntry[], startFen?: string): string => {
         const nextTree = makeTree(startFen)
         let parent = nextTree.nodes.get(nextTree.rootId)!
 
@@ -174,6 +184,9 @@ export function useGameTree(startFen?: string) {
                 uci: `${move.from}${move.to}${move.promotion ?? ''}`,
                 parent: parent.id,
                 children: [],
+                comment: entry.comment,
+                suffix: entry.suffix,
+                nags: entry.nags,
             }
 
             nextTree.nodes.set(node.id, node)
@@ -183,6 +196,43 @@ export function useGameTree(startFen?: string) {
 
         publishTree({ ...nextTree, currentId: parent.id })
         return parent.id
+    }, [publishTree])
+
+    const loadTree = useCallback((entries: GameTreeImportEntry[], startFen?: string): string => {
+        const nextTree = makeTree(startFen)
+        const root = nextTree.nodes.get(nextTree.rootId)!
+
+        const appendEntries = (parent: GameNode, childEntries: GameTreeImportEntry[]): GameNode | null => {
+            let firstLineLeaf: GameNode | null = null
+
+            for (const entry of childEntries) {
+                const move = entry.move
+                const node: GameNode = {
+                    id: nextId(),
+                    fen: entry.fen,
+                    move,
+                    san: move.san,
+                    uci: `${move.from}${move.to}${move.promotion ?? ''}`,
+                    parent: parent.id,
+                    children: [],
+                    comment: entry.comment,
+                    suffix: entry.suffix,
+                    nags: entry.nags,
+                }
+
+                nextTree.nodes.set(node.id, node)
+                parent.children.push(node.id)
+
+                const leaf = appendEntries(node, entry.children ?? []) ?? node
+                if (!firstLineLeaf) firstLineLeaf = leaf
+            }
+
+            return firstLineLeaf
+        }
+
+        const current = appendEntries(root, entries) ?? root
+        publishTree({ ...nextTree, currentId: current.id })
+        return current.id
     }, [publishTree])
 
     /**
@@ -228,8 +278,26 @@ export function useGameTree(startFen?: string) {
         publishTree({ ...tree, nodes: nextNodes })
     }, [publishTree])
 
+    /** Attach or clear a user comment on a specific node. */
+    const setNodeComment = useCallback((id: string, comment: string) => {
+        const tree = treeRef.current
+        const node = tree.nodes.get(id)
+        if (!node || !node.move) return
+
+        const normalized = comment.trim() ? comment : ''
+        if ((node.comment ?? '') === normalized) return
+
+        const nextNode = { ...node }
+        if (normalized) nextNode.comment = normalized
+        else delete nextNode.comment
+
+        const nextNodes = new Map(tree.nodes)
+        nextNodes.set(id, nextNode)
+        publishTree({ ...tree, nodes: nextNodes })
+    }, [publishTree])
+
     /** Attach quality labels to many nodes in one tree publish. */
-    const setNodeQualities = useCallback((updates: Array<{ id: string; quality: ReviewLabel }>) => {
+    const setNodeQualities = useCallback((updates: Array<{ id: string; quality?: ReviewLabel }>) => {
         if (!updates.length) return
 
         const tree = treeRef.current
@@ -238,7 +306,16 @@ export function useGameTree(startFen?: string) {
 
         for (const update of updates) {
             const node = nextNodes.get(update.id)
-            if (!node || node.quality === update.quality) continue
+            if (!node) continue
+            if (update.quality === undefined) {
+                if (node.quality === undefined) continue
+                const nextNode = { ...node }
+                delete nextNode.quality
+                nextNodes.set(update.id, nextNode)
+                changed = true
+                continue
+            }
+            if (node.quality === update.quality) continue
             nextNodes.set(update.id, { ...node, quality: update.quality })
             changed = true
         }
@@ -259,7 +336,6 @@ export function useGameTree(startFen?: string) {
         current,
         root,
         nodesSnapshot,
-        tick,
         // Derived
         mainLine,
         currentPath,
@@ -268,10 +344,12 @@ export function useGameTree(startFen?: string) {
         // Mutations
         addMove,
         loadMainLine,
+        loadTree,
         navigateTo,
         goBack,
         goForward,
         setNodeQuality,
+        setNodeComment,
         setNodeQualities,
         reset,
     }), [
@@ -282,6 +360,7 @@ export function useGameTree(startFen?: string) {
         goBack,
         goForward,
         loadMainLine,
+        loadTree,
         mainLine,
         navigateTo,
         nodesSnapshot,
@@ -289,8 +368,8 @@ export function useGameTree(startFen?: string) {
         reset,
         root,
         setNodeQuality,
+        setNodeComment,
         setNodeQualities,
-        tick,
     ])
 }
 
