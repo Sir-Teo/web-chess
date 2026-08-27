@@ -12,15 +12,31 @@ import { useLayoutEffect, useState, type RefObject } from 'react'
  * from the result would feed back on itself.
  */
 export function useElementWidth(ref: RefObject<HTMLElement | null>, fallback: number): number {
-  const [width, setWidth] = useState(fallback)
+  return useElementExtent(ref, fallback, 'clientWidth')
+}
+
+/**
+ * Track an element's content height. Same caveat as {@link useElementWidth}:
+ * only observe a box whose height its own contents do not decide.
+ */
+export function useElementHeight(ref: RefObject<HTMLElement | null>, fallback: number): number {
+  return useElementExtent(ref, fallback, 'clientHeight')
+}
+
+function useElementExtent(
+  ref: RefObject<HTMLElement | null>,
+  fallback: number,
+  axis: 'clientWidth' | 'clientHeight',
+): number {
+  const [extent, setExtent] = useState(fallback)
 
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
 
     const measure = () => {
-      const next = el.clientWidth
-      if (next > 0) setWidth(previous => (previous === next ? previous : next))
+      const next = el[axis]
+      if (next > 0) setExtent(previous => (previous === next ? previous : next))
     }
     measure()
 
@@ -30,5 +46,5 @@ export function useElementWidth(ref: RefObject<HTMLElement | null>, fallback: nu
     return () => observer.disconnect()
   })
 
-  return width
+  return extent
 }

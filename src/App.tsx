@@ -76,7 +76,7 @@ import { WdlBar } from './components/WdlBar'
 import { HorizontalWdlBar } from './components/HorizontalWdlBar'
 import { MoveListTree } from './components/MoveListTree'
 import { graphTickStep } from './components/graphLayout'
-import { useElementWidth } from './hooks/useElementWidth'
+import { useElementHeight, useElementWidth } from './hooks/useElementWidth'
 import { formatGraphAxisLabel, formatGraphPositionLabel } from './components/graphLabels'
 import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlip, IconDownload, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp } from './components/icons'
 import './App.css'
@@ -109,6 +109,10 @@ const BOARD_CHROME = {
 } as const
 const EVAL_COLUMN_REM = 1.625 + 0.5
 const BOARD_FRAME_BORDER = 1
+// Everything the board is stacked on top of inside the stage: the stage's own
+// vertical padding, the meta strip, and the gap between them. Only landscape
+// needs it — that is the one layout where the stage cannot scroll.
+const LANDSCAPE_BOARD_STACK_REM = 2 * 0.5 + 2.25 + 0.55
 
 // Classic scrollbars take layout width from the stacked mobile layout; overlay
 // scrollbars (every touch browser) take none. Measured once — it is a property
@@ -756,6 +760,9 @@ function App() {
   const analysisPanelRef = useRef<HTMLElement>(null)
   const revealOpeningIntelRef = useRef(false)
   const [viewport, setViewport] = useState(readViewport)
+  // The stage is sized by the row it sits in, never by the board inside it, so
+  // it is safe to measure and size the board from.
+  const stageHeight = useElementHeight(boardStageRef, viewport.height)
   const hasAutoOpenedAnalysisLeftRef = useRef(initialWorkspaceMode === 'analysis')
 
   // ── Engine settings ──────────────────────────────────
@@ -3106,6 +3113,9 @@ function App() {
   }
 
   const isMobile = viewport.width <= 900
+  // Matches the landscape-phone media query: the one layout that lays the board
+  // beside the panels, with no room to scroll if the board overshoots.
+  const isLandscapePhone = isMobile && viewport.height <= 520 && viewport.width > viewport.height
   const leftPanelUnavailable = workspaceMode === 'play'
   const layoutLeftWidth = leftPanelUnavailable ? 0 : leftWidth
   const desktopBoardChromeReserve = 44
@@ -3118,9 +3128,15 @@ function App() {
     + 2 * chrome.frame
     + (engineEnabled && showWdl ? EVAL_COLUMN_REM : 0)
   ) + 2 * BOARD_FRAME_BORDER
+  // The stage stretches to the row it lives in, so its height is the space the
+  // board actually has — bars, safe areas and all — without guessing at any of
+  // their sizes.
+  const boardHeightBudget = stageHeight
+    - viewport.rem * (LANDSCAPE_BOARD_STACK_REM + 2 * chrome.frame)
+    - 2 * BOARD_FRAME_BORDER
   const mobileBoardWidth = Math.min(
     Math.max(0, viewport.width - viewport.scrollbar - boardChromeWidth),
-    Math.max(300, Math.round(viewport.height * 0.46)),
+    isLandscapePhone ? boardHeightBudget : Math.max(300, Math.round(viewport.height * 0.46)),
   )
 
   // Mobile: prefer finger-friendly squares while respecting narrow screens.
@@ -3821,7 +3837,7 @@ function App() {
             <div className="board-meta-strip" aria-label="Current game state">
               <span className={`turn-pill ${game.turn() === 'w' ? 'white' : 'black'}`}>{turnLabel}</span>
               <span>{moveNumberLabel}</span>
-              <span>{workspaceMode === 'analysis' ? status : gameModeLabel}</span>
+              <span className="board-meta-status">{workspaceMode === 'analysis' ? status : gameModeLabel}</span>
               {currentMoveQuality && (
                 <span className={`board-quality-pill quality-${currentMoveQuality}`}>
                   {REVIEW_LABELS[currentMoveQuality]}
