@@ -5115,7 +5115,7 @@ const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, onNaviga
 
   const area = `${path} L ${toX(maxIndex).toFixed(2)} ${(height - padBottom).toFixed(2)} L ${toX(points[0]?.index ?? 0).toFixed(2)} ${(height - padBottom).toFixed(2)} Z`
   const markers = [0, 25, 50, 75, 100]
-  const xTickStep = graphTickStep(maxIndex)
+  const xTickStep = graphTickStep(maxIndex, innerWidth)
   const isNavigable = Boolean(onNavigate && maxIndex > 0)
   const selectedIndex = clampGraphIndex(currentIndex ?? maxIndex, maxIndex)
   const selectedPoint = points.find(point => point.index === selectedIndex)
@@ -5253,7 +5253,7 @@ const WdlProgressGraph = memo(function WdlProgressGraph({ points, currentIndex, 
   const innerWidth = width - padLeft - padRight
   const innerHeight = height - padTop - padBottom
   const markers = [0, 25, 50, 75, 100]
-  const xTickStep = graphTickStep(maxIndex)
+  const xTickStep = graphTickStep(maxIndex, innerWidth)
 
   const toX = (idx: number) => padLeft + (maxIndex > 0 ? (idx / maxIndex) * innerWidth : 0)
   const toY = (pct: number) => padTop + ((100 - pct) / 100) * innerHeight
