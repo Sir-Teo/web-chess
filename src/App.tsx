@@ -843,6 +843,7 @@ function App() {
   playerColorRef.current = playerColor
 
   // ── Click-to-move (tap support) ───────────────────────
+  const restoreBoardFocusRef = useRef<Square | null>(null)
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
   const [legalTargets, setLegalTargets] = useState<Square[]>([])
   const [pendingPromotion, setPendingPromotion] = useState<PendingPromotion | null>(null)
@@ -2306,6 +2307,13 @@ function App() {
       }
       if (!move) return false
 
+      // An empty square is only focusable while it is a legal target, so the
+      // square the reader just pressed Enter on stops being focusable the
+      // moment the move lands and focus drops to <body>. Play a move from the
+      // keyboard and you were back at the top of the document, 32 piece stops
+      // away from the board.
+      restoreBoardFocusRef.current = to
+
       cancelStaleBackgroundAnalysis()
       stop()
       const newFen = game.fen()
@@ -2403,9 +2411,37 @@ function App() {
   ])
 
   useEffect(() => {
-    const sync = () => syncRenderedBoardAccessibility(game, selectedSquare, legalTargets)
-    const frame = window.requestAnimationFrame(sync)
-    const settleTimer = window.setTimeout(sync, 360)
+    // Only ever reclaims focus the move itself disturbed — focus still on the
+    // board, or already dropped to <body> because the square it was on stopped
+    // being focusable. Anywhere else and the reader moved on deliberately.
+    const restoreBoardFocus = (settled: boolean) => {
+      const square = restoreBoardFocusRef.current
+      if (!square) return
+      const active = document.activeElement as HTMLElement | null
+      const stillOnBoard = Boolean(active?.closest?.('.board-surface'))
+      if (active !== document.body && !stillOnBoard) {
+        restoreBoardFocusRef.current = null
+        return
+      }
+      // Focus the square, not the piece inside it: the board replaces the piece
+      // element as it animates in, which would drop focus straight back to
+      // <body>, while the square itself persists. It already carries the label
+      // a screen reader should hear ("e4, White pawn"), and -1 keeps it out of
+      // the tab order — the sync above only strips tabindex from squares it
+      // marked itself, so this survives.
+      const squareEl = document.getElementById(`chessboard-square-${square}`)
+      if (!squareEl) return
+      if (!squareEl.hasAttribute('tabindex')) squareEl.setAttribute('tabindex', '-1')
+      squareEl.focus()
+      if (settled) restoreBoardFocusRef.current = null
+    }
+
+    const sync = (settled = false) => {
+      syncRenderedBoardAccessibility(game, selectedSquare, legalTargets)
+      restoreBoardFocus(settled)
+    }
+    const frame = window.requestAnimationFrame(() => sync())
+    const settleTimer = window.setTimeout(() => sync(true), 360)
 
     sync()
 
