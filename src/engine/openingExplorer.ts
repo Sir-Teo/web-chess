@@ -1,5 +1,6 @@
 import { withBoundedMapEntry } from '../hooks/cacheLimit'
 import { fetchLichessResource } from './lichessQueue'
+import { createStorageCache } from './storageCache'
 
 export type OpeningDatabaseSource = 'masters' | 'lichess'
 export type OpeningSpeed = 'bullet' | 'blitz' | 'rapid' | 'classical'
@@ -64,58 +65,12 @@ type CacheEntry = {
 }
 
 let responseCache = new Map<string, CacheEntry>()
-let storageCacheRaw: string | null | undefined
-let storageCacheSnapshot: Record<string, unknown> = {}
+const storageCache = createStorageCache<OpeningExplorerResponse>({
+  storageKey: CACHE_STORAGE_KEY,
+  entryLimit: CACHE_ENTRY_LIMIT,
+  parsePayload: raw => parseCachedPayload(raw),
+})
 
-function readStorageCache(): Record<string, unknown> {
-  if (typeof window === 'undefined') return {}
-  try {
-    const raw = window.localStorage.getItem(CACHE_STORAGE_KEY)
-    if (raw === storageCacheRaw) return storageCacheSnapshot
-    if (!raw) {
-      storageCacheRaw = raw
-      storageCacheSnapshot = {}
-      return storageCacheSnapshot
-    }
-    const parsed = JSON.parse(raw)
-    storageCacheRaw = raw
-    storageCacheSnapshot = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? parsed as Record<string, CacheEntry>
-      : {}
-    return storageCacheSnapshot
-  } catch {
-    storageCacheRaw = undefined
-    storageCacheSnapshot = {}
-    return {}
-  }
-}
-
-function writeStorageCache(cache: Record<string, CacheEntry>) {
-  if (typeof window === 'undefined') return
-  try {
-    const serialized = JSON.stringify(cache)
-    window.localStorage.setItem(CACHE_STORAGE_KEY, serialized)
-    storageCacheRaw = serialized
-    storageCacheSnapshot = cache
-  } catch {
-    // Cache persistence is optional; ignore private-mode/quota failures.
-  }
-}
-
-function writeStorageCacheEntry(key: string, entry: CacheEntry) {
-  const now = Date.now()
-  const stored = { ...readStorageCache() }
-  stored[key] = entry
-
-  const pruned = Object.fromEntries(
-    Object.entries(stored)
-      .map(([entryKey, value]) => [entryKey, parseCacheEntry(value)] as const)
-      .filter((entry): entry is readonly [string, CacheEntry] => entry[1] !== null && entry[1].expiresAt > now)
-      .sort(([, a], [, b]) => b.expiresAt - a.expiresAt)
-      .slice(0, CACHE_ENTRY_LIMIT),
-  )
-  writeStorageCache(pruned)
-}
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
@@ -307,14 +262,6 @@ function parseCachedPayload(raw: unknown): OpeningExplorerResponse | null {
   return parseResponse(raw)
 }
 
-function parseCacheEntry(raw: unknown): CacheEntry | null {
-  if (!raw || typeof raw !== 'object') return null
-  const entry = raw as Record<string, unknown>
-  if (!isFiniteNumber(entry.expiresAt)) return null
-  const payload = parseCachedPayload(entry.payload)
-  return payload ? { expiresAt: entry.expiresAt, payload } : null
-}
-
 function readCached(request: OpeningExplorerRequest): OpeningExplorerResponse | null {
   const key = requestCacheKey(request)
   const cached = responseCache.get(key)
@@ -324,12 +271,15 @@ function readCached(request: OpeningExplorerRequest): OpeningExplorerResponse | 
     responseCache.delete(key)
   }
 
-  const stored = parseCacheEntry(readStorageCache()[key])
-  if (!stored) return null
+  const stored = storageCache.read(key)
+  // This service never records a miss, so a null payload can only come from a
+  // cache someone else wrote; read it as absent.
+  if (!stored?.payload) return null
   if (stored.expiresAt <= now) return null
 
-  responseCache = withBoundedMapEntry(responseCache, key, stored, CACHE_ENTRY_LIMIT)
-  return stored.payload
+  const entry: CacheEntry = { expiresAt: stored.expiresAt, payload: stored.payload }
+  responseCache = withBoundedMapEntry(responseCache, key, entry, CACHE_ENTRY_LIMIT)
+  return entry.payload
 }
 
 function writeCached(request: OpeningExplorerRequest, payload: OpeningExplorerResponse) {
@@ -339,7 +289,7 @@ function writeCached(request: OpeningExplorerRequest, payload: OpeningExplorerRe
     payload,
   }
   responseCache = withBoundedMapEntry(responseCache, key, entry, CACHE_ENTRY_LIMIT)
-  writeStorageCacheEntry(key, entry)
+  storageCache.write(key, entry)
 }
 
 function throwIfAborted(signal: AbortSignal | undefined) {

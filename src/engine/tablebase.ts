@@ -1,5 +1,6 @@
 import { withBoundedMapEntry } from '../hooks/cacheLimit'
 import { fetchLichessResource } from './lichessQueue'
+import { createStorageCache } from './storageCache'
 
 export type TablebaseCategory =
   | 'win'
@@ -84,8 +85,11 @@ type BoardSummary = {
 }
 
 let responseCache = new Map<string, CacheEntry>()
-let storageCacheRaw: string | null | undefined
-let storageCacheSnapshot: Record<string, unknown> = {}
+const storageCache = createStorageCache<TablebaseResult>({
+  storageKey: CACHE_STORAGE_KEY,
+  entryLimit: CACHE_ENTRY_LIMIT,
+  parsePayload: raw => parseCachedResult(raw),
+})
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
@@ -205,55 +209,6 @@ export function isTablebaseEligible(fen: string): boolean {
     || isOp1EightPieceEligible(summary)
 }
 
-function readStorageCache(): Record<string, unknown> {
-  if (typeof window === 'undefined') return {}
-  try {
-    const raw = window.localStorage.getItem(CACHE_STORAGE_KEY)
-    if (raw === storageCacheRaw) return storageCacheSnapshot
-    if (!raw) {
-      storageCacheRaw = raw
-      storageCacheSnapshot = {}
-      return storageCacheSnapshot
-    }
-    const parsed = JSON.parse(raw)
-    storageCacheRaw = raw
-    storageCacheSnapshot = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? parsed as Record<string, unknown>
-      : {}
-    return storageCacheSnapshot
-  } catch {
-    storageCacheRaw = undefined
-    storageCacheSnapshot = {}
-    return {}
-  }
-}
-
-function writeStorageCache(cache: Record<string, CacheEntry>) {
-  if (typeof window === 'undefined') return
-  try {
-    const serialized = JSON.stringify(cache)
-    window.localStorage.setItem(CACHE_STORAGE_KEY, serialized)
-    storageCacheRaw = serialized
-    storageCacheSnapshot = cache
-  } catch {
-    // Tablebase caching is optional; ignore private-mode/quota failures.
-  }
-}
-
-function writeStorageCacheEntry(key: string, entry: CacheEntry) {
-  const now = Date.now()
-  const stored = { ...readStorageCache() }
-  stored[key] = entry
-
-  const pruned = Object.fromEntries(
-    Object.entries(stored)
-      .map(([entryKey, value]) => [entryKey, parseCacheEntry(value)] as const)
-      .filter((entry): entry is readonly [string, CacheEntry] => entry[1] !== null && entry[1].expiresAt > now)
-      .sort(([, a], [, b]) => b.expiresAt - a.expiresAt)
-      .slice(0, CACHE_ENTRY_LIMIT),
-  )
-  writeStorageCache(pruned)
-}
 
 function parseCachedResult(raw: unknown): TablebaseResult | null {
   if (!raw || typeof raw !== 'object') return null
@@ -279,15 +234,6 @@ function parseCachedResult(raw: unknown): TablebaseResult | null {
   }
 }
 
-function parseCacheEntry(raw: unknown): CacheEntry | null {
-  if (!raw || typeof raw !== 'object') return null
-  const entry = raw as Record<string, unknown>
-  if (!isFiniteNumber(entry.expiresAt)) return null
-  if (entry.payload === null) return { expiresAt: entry.expiresAt, payload: null }
-  const payload = parseCachedResult(entry.payload)
-  return payload ? { expiresAt: entry.expiresAt, payload } : null
-}
-
 function readCacheEntry(fen: string): CacheEntry | null {
   const key = normalizeTablebaseFen(fen)
   const now = Date.now()
@@ -297,7 +243,7 @@ function readCacheEntry(fen: string): CacheEntry | null {
     responseCache.delete(key)
   }
 
-  const stored = parseCacheEntry(readStorageCache()[key])
+  const stored = storageCache.read(key)
   if (!stored) return null
   if (stored.expiresAt <= now) return null
   responseCache = withBoundedMapEntry(responseCache, key, stored, CACHE_ENTRY_LIMIT)
@@ -315,7 +261,7 @@ function writeCached(fen: string, payload: TablebaseResult) {
     payload,
   }
   responseCache = withBoundedMapEntry(responseCache, key, entry, CACHE_ENTRY_LIMIT)
-  writeStorageCacheEntry(key, entry)
+  storageCache.write(key, entry)
 }
 
 function writeCachedMissing(fen: string) {
@@ -325,7 +271,7 @@ function writeCachedMissing(fen: string) {
     payload: null,
   }
   responseCache = withBoundedMapEntry(responseCache, key, entry, CACHE_ENTRY_LIMIT)
-  writeStorageCacheEntry(key, entry)
+  storageCache.write(key, entry)
 }
 
 function throwIfAborted(signal: AbortSignal | undefined) {

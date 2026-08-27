@@ -1,5 +1,6 @@
 import type { EvalSnapshot } from './analysis'
 import { withBoundedMapEntry } from '../hooks/cacheLimit'
+import { createStorageCache } from './storageCache'
 import { fetchLichessResource } from './lichessQueue'
 
 export type CloudEvalRequest = {
@@ -33,8 +34,11 @@ type CacheEntry = {
 }
 
 let responseCache = new Map<string, CacheEntry>()
-let storageCacheRaw: string | null | undefined
-let storageCacheSnapshot: Record<string, unknown> = {}
+const storageCache = createStorageCache<CloudEvalResult>({
+  storageKey: CACHE_STORAGE_KEY,
+  entryLimit: CACHE_ENTRY_LIMIT,
+  parsePayload: raw => parseCachedResult(raw),
+})
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
@@ -60,55 +64,6 @@ export function cloudEvalRequestKey(request: CloudEvalRequest): string {
   return `${normalizeCloudEvalFen(request.fen)}|${normalizeCloudEvalMultiPv(request.multiPv)}`
 }
 
-function readStorageCache(): Record<string, unknown> {
-  if (typeof window === 'undefined') return {}
-  try {
-    const raw = window.localStorage.getItem(CACHE_STORAGE_KEY)
-    if (raw === storageCacheRaw) return storageCacheSnapshot
-    if (!raw) {
-      storageCacheRaw = raw
-      storageCacheSnapshot = {}
-      return storageCacheSnapshot
-    }
-    const parsed = JSON.parse(raw)
-    storageCacheRaw = raw
-    storageCacheSnapshot = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? parsed as Record<string, CacheEntry>
-      : {}
-    return storageCacheSnapshot
-  } catch {
-    storageCacheRaw = undefined
-    storageCacheSnapshot = {}
-    return {}
-  }
-}
-
-function writeStorageCache(cache: Record<string, CacheEntry>) {
-  if (typeof window === 'undefined') return
-  try {
-    const serialized = JSON.stringify(cache)
-    window.localStorage.setItem(CACHE_STORAGE_KEY, serialized)
-    storageCacheRaw = serialized
-    storageCacheSnapshot = cache
-  } catch {
-    // Cache persistence is optional; ignore private-mode/quota failures.
-  }
-}
-
-function writeStorageCacheEntry(key: string, entry: CacheEntry) {
-  const now = Date.now()
-  const stored = { ...readStorageCache() }
-  stored[key] = entry
-
-  const pruned = Object.fromEntries(
-    Object.entries(stored)
-      .map(([entryKey, value]) => [entryKey, parseCacheEntry(value)] as const)
-      .filter((entry): entry is readonly [string, CacheEntry] => entry[1] !== null && entry[1].expiresAt > now)
-      .sort(([, a], [, b]) => b.expiresAt - a.expiresAt)
-      .slice(0, CACHE_ENTRY_LIMIT),
-  )
-  writeStorageCache(pruned)
-}
 
 function parseCachedResult(raw: unknown): CloudEvalResult | null {
   if (!raw || typeof raw !== 'object') return null
@@ -143,15 +98,6 @@ function parseCachedResult(raw: unknown): CloudEvalResult | null {
   }
 }
 
-function parseCacheEntry(raw: unknown): CacheEntry | null {
-  if (!raw || typeof raw !== 'object') return null
-  const entry = raw as Record<string, unknown>
-  if (!isFiniteNumber(entry.expiresAt)) return null
-  if (entry.payload === null) return { expiresAt: entry.expiresAt, payload: null }
-  const payload = parseCachedResult(entry.payload)
-  return payload ? { expiresAt: entry.expiresAt, payload } : null
-}
-
 function readCacheEntry(request: CloudEvalRequest): CacheEntry | null {
   const key = cloudEvalRequestKey(request)
   const cached = responseCache.get(key)
@@ -161,7 +107,7 @@ function readCacheEntry(request: CloudEvalRequest): CacheEntry | null {
     responseCache.delete(key)
   }
 
-  const stored = parseCacheEntry(readStorageCache()[key])
+  const stored = storageCache.read(key)
   if (!stored) return null
   if (stored.expiresAt <= now) return null
 
@@ -180,7 +126,7 @@ function writeCached(request: CloudEvalRequest, payload: CloudEvalResult) {
     payload,
   }
   responseCache = withBoundedMapEntry(responseCache, key, entry, CACHE_ENTRY_LIMIT)
-  writeStorageCacheEntry(key, entry)
+  storageCache.write(key, entry)
 }
 
 function writeCachedMissing(request: CloudEvalRequest) {
@@ -190,7 +136,7 @@ function writeCachedMissing(request: CloudEvalRequest) {
     payload: null,
   }
   responseCache = withBoundedMapEntry(responseCache, key, entry, CACHE_ENTRY_LIMIT)
-  writeStorageCacheEntry(key, entry)
+  storageCache.write(key, entry)
 }
 
 function throwIfAborted(signal: AbortSignal | undefined) {
