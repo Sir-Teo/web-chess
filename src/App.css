@@ -1595,10 +1595,17 @@ body.resizing * {
   align-items: stretch;
 }
 
+/* Wraps rather than dividing the row three ways: the touch-target padding is
+   in rem, so at 150% text a label needs more than its third and "Analyze" lost
+   its last four pixels. Identical at normal text, where all three still fit. */
 .analysis-tab-strip {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.32rem;
+}
+
+.analysis-tab-btn {
+  flex: 1 1 auto;
 }
 
 .analysis-tab-btn {
