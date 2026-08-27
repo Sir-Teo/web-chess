@@ -3683,7 +3683,10 @@ button.mode-pill {
 }
 
 /* A clickable move chip */
-.mtree-chip {
+/* Element+class so it outranks `.panel button`, which was painting all 84 move
+   chips with a card background and border. The design wants bare text that only
+   takes a surface on hover or when it is the current move. */
+button.mtree-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
