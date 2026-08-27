@@ -3247,16 +3247,28 @@ button.critical-moment-row {
   color: var(--text-muted);
 }
 
+/* Format, result and the load button share the row: a full-width button on a
+   line of its own cost a fifth of every card in a list you scroll. */
 .sample-game-actions {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.28rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.42rem;
   margin-top: 0.24rem;
 }
 
+.sample-game-actions p {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sample-game-actions button {
+  flex: none;
   font-size: 0.66rem;
-  padding: 0.24rem 0.34rem;
+  padding: 0.24rem 0.6rem;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -4121,6 +4133,26 @@ button.critical-moment-row {
    Left rail fills its column
    ═══════════════════════════════════════════════════ */
 @media (min-width: 901px) {
+  /* An empty graph in the rail is a placeholder, not a destination. It says
+     what will fill it on one line and leaves the column to the library, which
+     is the only thing there to act on before a game exists. */
+  .panel.left .empty-state {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: left;
+    padding: var(--space-sm) var(--space-xs);
+    gap: var(--space-sm);
+  }
+
+  .panel.left .empty-state-icon {
+    font-size: 1.1rem;
+  }
+
+  .panel.left .empty-state p {
+    max-width: none;
+  }
+
   /* The analysis header and the bottom bar both state the engine's status
      beside each other; the strip made three. It keeps the two facts that are
      only there — whose move it is, and which move. */

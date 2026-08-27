@@ -3804,10 +3804,10 @@ function App() {
                         </header>
                         <p>{sample.event}</p>
                         <p className="sample-game-opening">{sample.eco} · {sample.opening}</p>
-                        <p className="panel-copy small">
-                          {sample.format === 'classical' ? 'Classical' : 'Rapid/Blitz'} · {resultLabel(sample.result)}
-                        </p>
                         <div className="sample-game-actions">
+                          <p className="panel-copy small">
+                            {sample.format === 'classical' ? 'Classical' : 'Rapid/Blitz'} · {resultLabel(sample.result)}
+                          </p>
                           <button
                             type="button"
                             onClick={() => void loadHistoricalSample(sample)}
