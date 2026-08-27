@@ -35,6 +35,7 @@ import { engineProfiles, type EngineProfileId } from './engine/profiles'
 import type { TablebaseCategory, TablebaseMove, TablebaseResult } from './engine/tablebase'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { DIFFICULTY_LABELS, useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
+import { useElementWidth } from './hooks/useElementWidth'
 import { useModalFocus } from './hooks/useModalFocus'
 import { useGameTree, type GameNode } from './hooks/useGameTree'
 import { useOpening } from './hooks/useOpening'
@@ -3812,11 +3813,16 @@ const GRAPH_PAD_LEFT = 52
 const GRAPH_PAD_RIGHT = 20
 const GRAPH_PAD_TOP = 16
 const GRAPH_PAD_BOTTOM = 34
-const GRAPH_BASE_WIDTH = 440
-const GRAPH_PX_PER_PLY = 16
+// A trend graph exists to show the shape of a game at a glance. At the old
+// 16px per ply an 84-ply game drew 1400px into a ~259px rail, so only a keyhole
+// of the curve was ever visible. It now fills whatever width it is given, and
+// only games long enough to squeeze plies below this floor scroll at all.
+const GRAPH_MIN_PX_PER_PLY = 2
+const GRAPH_FALLBACK_WIDTH = 260
 
-function graphWidthForIndex(maxIndex: number): number {
-  return Math.max(GRAPH_BASE_WIDTH, GRAPH_PAD_LEFT + GRAPH_PAD_RIGHT + (maxIndex * GRAPH_PX_PER_PLY))
+function graphWidthForIndex(maxIndex: number, available: number): number {
+  const intrinsic = GRAPH_PAD_LEFT + GRAPH_PAD_RIGHT + (maxIndex * GRAPH_MIN_PX_PER_PLY)
+  return Math.max(available, intrinsic)
 }
 
 function graphTickStep(maxIndex: number): number {
@@ -3837,6 +3843,8 @@ type WinrateGraphProps = {
 }
 
 const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, onNavigate }: WinrateGraphProps) {
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
   if (points.length === 0) {
     return (
       <div className="empty-state">
@@ -3847,7 +3855,7 @@ const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, onNaviga
   }
 
   const maxIndex = points.length > 0 ? points[points.length - 1]!.index : 0
-  const width = graphWidthForIndex(maxIndex)
+  const width = graphWidthForIndex(maxIndex, available)
   const height = GRAPH_HEIGHT
   const padLeft = GRAPH_PAD_LEFT
   const padRight = GRAPH_PAD_RIGHT
@@ -3886,7 +3894,7 @@ const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, onNaviga
 
   return (
     <div className="graph-wrap" aria-label="White winrate graph">
-      <div className="graph-scroll">
+      <div className="graph-scroll" ref={scrollRef}>
         <svg
           className="winrate-graph"
           width={width}
@@ -3959,6 +3967,8 @@ type WdlProgressGraphProps = {
 }
 
 const WdlProgressGraph = memo(function WdlProgressGraph({ points, currentIndex, onNavigate }: WdlProgressGraphProps) {
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
   if (points.length === 0) {
     return (
       <div className="empty-state">
@@ -3969,7 +3979,7 @@ const WdlProgressGraph = memo(function WdlProgressGraph({ points, currentIndex, 
   }
 
   const maxIndex = points.length > 0 ? points[points.length - 1]!.index : 0
-  const width = graphWidthForIndex(maxIndex)
+  const width = graphWidthForIndex(maxIndex, available)
   const height = GRAPH_HEIGHT
   const padLeft = GRAPH_PAD_LEFT
   const padRight = GRAPH_PAD_RIGHT
@@ -4009,7 +4019,7 @@ const WdlProgressGraph = memo(function WdlProgressGraph({ points, currentIndex, 
 
   return (
     <div className="graph-wrap" aria-label="WDL progression graph">
-      <div className="graph-scroll">
+      <div className="graph-scroll" ref={scrollRef}>
         <svg
           className="winrate-graph"
           width={width}
