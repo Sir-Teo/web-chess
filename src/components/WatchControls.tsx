@@ -85,7 +85,7 @@ export function WatchControls({
                             <IconPlay /> Resume
                         </button>
                     ) : (
-                        <button type="button" className="wc-btn wc-btn-pause" onClick={onPause} title="Pause & analyze" aria-label="Pause AI and analyze" aria-keyshortcuts="Space">
+                        <button type="button" className="wc-btn wc-btn-pause" onClick={onPause} title="Pause AI" aria-label="Pause AI" aria-keyshortcuts="Space">
                             <IconPause /> Pause
                         </button>
                     )}
@@ -113,7 +113,7 @@ export function WatchControls({
 
             {/* ── Paused indicator ── */}
             {paused && aiActive && (
-                <span className="wc-paused-label" role="status"><IconPause /> Analyzing</span>
+                <span className="wc-paused-label" role="status"><IconPause /> Paused</span>
             )}
         </div>
     )
