@@ -1665,7 +1665,9 @@ button.analysis-tab-btn {
   gap: 0.3rem;
 }
 
-.tablebase-move-row {
+/* Element+class so `display: grid` survives `.panel button`'s inline-flex,
+   which was leaving the column template inert and the rows ragged. */
+button.tablebase-move-row {
   border: 1px solid var(--border-subtle);
   background: var(--bg-card);
   border-radius: var(--radius-sm);
@@ -1805,7 +1807,7 @@ button.mode-pill {
   margin-bottom: 0.45rem;
 }
 
-.opening-move-row {
+button.opening-move-row {
   border: 1px solid var(--border-subtle);
   background: var(--bg-card);
   border-radius: var(--radius-sm);
@@ -2202,7 +2204,7 @@ button.mode-pill {
   gap: 0.34rem;
 }
 
-.critical-moment-row {
+button.critical-moment-row {
   width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -3165,9 +3167,10 @@ button.mode-pill {
     display: none;
   }
 
-  .gc-pill,
-  .wc-speed-pill,
-  .analysis-tab-btn {
+  .top-mode-pills button.gc-pill,
+  .watch-controls button.wc-speed-pill,
+  .analysis-tab-strip button.analysis-tab-btn,
+  .app-shell button.mode-pill {
     min-height: 40px;
     padding: 0.4rem 0.8rem;
     font-size: 0.85rem;
@@ -3184,7 +3187,7 @@ button.mode-pill {
     display: none;
   }
 
-  .wc-btn {
+  .watch-controls button.wc-btn {
     min-width: 2.5rem;
     min-height: 2.5rem;
     padding: 0.35rem 0.55rem;
@@ -3529,7 +3532,7 @@ button.mode-pill {
   background: rgba(255, 255, 255, 0.035);
 }
 
-.wc-btn {
+button.wc-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3622,7 +3625,7 @@ button.mode-pill {
   user-select: none;
 }
 
-.wc-speed-pill {
+button.wc-speed-pill {
   display: inline-flex;
   align-items: center;
   padding: 0.18rem 0.5rem;
