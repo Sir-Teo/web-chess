@@ -3,7 +3,7 @@ import { Chess } from 'chess.js'
 import { describe, expect, it } from 'vitest'
 import { PhaseAccuracy } from './PhaseAccuracy'
 import { buildReviewRows } from '../engine/analysis'
-import type { EvalSnapshot, ReviewRow } from '../engine/analysis'
+import type { EvalSnapshot, ReviewPhaseFilter, ReviewRow } from '../engine/analysis'
 
 const format = (value: number | null) => (value === null ? '—' : value.toFixed(1))
 
@@ -23,8 +23,10 @@ const START = new Chess().fen()
 const MIDDLEGAME = 'r1b1k2r/pppp1ppp/2n2n2/4p3/4P3/2N2N2/PPPP1PPP/R1B1K2R w KQkq - 0 12'
 const ENDGAME = '4k2r/5ppp/8/8/8/8/5PPP/4K2R w Kk - 0 40'
 
-function render(rows: ReviewRow[]) {
-    return renderToStaticMarkup(<PhaseAccuracy rows={rows} formatAccuracy={format} />)
+function render(rows: ReviewRow[], selected: ReviewPhaseFilter = 'all') {
+    return renderToStaticMarkup(
+        <PhaseAccuracy rows={rows} formatAccuracy={format} selected={selected} onSelect={() => {}} />,
+    )
 }
 
 describe('PhaseAccuracy', () => {
@@ -56,6 +58,20 @@ describe('PhaseAccuracy', () => {
         expect(html).toContain('White accuracy in the opening')
         expect(html).toContain('Black accuracy in the opening')
         expect(html).toContain('White accuracy in the endgame')
+    })
+
+    it('offers each phase as a control the reader can press', () => {
+        const rows = [...reviewOf(['e4', 'e5'], START), ...reviewOf(['Kf1', 'Kf8'], ENDGAME)]
+        const html = render(rows)
+        expect(html).toContain('aria-pressed="false"')
+        expect(html).toContain('Show only the opening')
+    })
+
+    it('marks the chosen phase as pressed, and offers the way back', () => {
+        const rows = [...reviewOf(['e4', 'e5'], START), ...reviewOf(['Kf1', 'Kf8'], ENDGAME)]
+        const html = render(rows, 'endgame')
+        expect(html).toContain('aria-pressed="true"')
+        expect(html).toContain('Show the whole game again')
     })
 
     it('counts the moves it scored, with the singular spelt out', () => {

@@ -6,6 +6,7 @@ import {
   buildWinrateSeries,
   buildReviewRows,
   formatCompactWhitePovEvaluation,
+  filterReviewRowsByPhase,
   filterReviewRowsBySide,
   formatWhitePovEvaluation,
   isReviewEvaluationSufficient,
@@ -45,6 +46,7 @@ import { type AnalyzeMode, type UciGoLimits } from './engine/uci'
 import { exportAnnotatedPgn, flattenPgnMainLine, parsePgnMoveTree, pgnImportUserErrorMessage } from './engine/pgn'
 import { type LibraryGame, suggestGameName } from './engine/gameLibrary'
 import { narrativeTagToneClass, narrativeTags } from './engine/narrativeTags'
+import type { ReviewPhaseFilter } from './engine/analysis'
 import { PhaseAccuracy } from './components/PhaseAccuracy'
 import {
   type AutoSavedGame,
@@ -820,6 +822,7 @@ function App() {
   const [analysisTab, setAnalysisTab] = useState<AnalysisTab>(persistedSettings.analysisTab)
   const [analysisExperience, setAnalysisExperience] = useState<AnalysisExperience>(persistedSettings.analysisExperience)
   const [reviewSideFilter, setReviewSideFilter] = useState<ReviewSideFilter>('both')
+  const [reviewPhaseFilter, setReviewPhaseFilter] = useState<ReviewPhaseFilter>('all')
   const [activePreset, setActivePreset] = useState<AnalyzePresetId | null>(persistedSettings.activePreset)
   const [analyzeMode, setAnalyzeMode] = useState<AnalyzeMode>(persistedSettings.analyzeMode)
   const [showAdvancedAnalyze, setShowAdvancedAnalyze] = useState(persistedSettings.showAdvancedAnalyze)
@@ -1961,8 +1964,17 @@ function App() {
     () => filterReviewRowsBySide(reviewRows, reviewSideFilter),
     [reviewRows, reviewSideFilter],
   )
-  const reviewSummary = useMemo(() => summarizeReview(visibleReviewRows), [visibleReviewRows])
-  const reviewAccuracy = useMemo(() => summarizeAccuracy(visibleReviewRows), [visibleReviewRows])
+  /**
+   * What the review actually reports on. The phase breakdown deliberately reads
+   * the unfiltered rows instead, so every phase stays visible and switchable —
+   * the same split katrain's report makes.
+   */
+  const reportedReviewRows = useMemo(
+    () => filterReviewRowsByPhase(visibleReviewRows, reviewPhaseFilter),
+    [visibleReviewRows, reviewPhaseFilter],
+  )
+  const reviewSummary = useMemo(() => summarizeReview(reportedReviewRows), [reportedReviewRows])
+  const reviewAccuracy = useMemo(() => summarizeAccuracy(reportedReviewRows), [reportedReviewRows])
   // Only rendered inside the analysis workspace, which is exactly when the
   // engine is on, so the game length is the only thing left to check.
   const reviewGameDisabledReason = mainLineNodes.length <= 1
@@ -1981,10 +1993,10 @@ function App() {
       ? `Review Game unavailable. ${reviewGameDisabledReason}`
       : 'Review Game'
   const criticalReviewRows = useMemo(
-    () => rankCriticalMoments(visibleReviewRows, 5),
-    [visibleReviewRows],
+    () => rankCriticalMoments(reportedReviewRows, 5),
+    [reportedReviewRows],
   )
-  const criticalMomentsEmptyCopy = visibleReviewRows.length === 0
+  const criticalMomentsEmptyCopy = reportedReviewRows.length === 0
     ? 'Run Review Game after a line is analyzed to surface the biggest turning points.'
     : reviewAccuracy.pendingMoves > 0
       ? 'Review Game is still collecting enough depth to identify the biggest turning points.'
@@ -4563,7 +4575,10 @@ function App() {
                           type="button"
                           className={`mode-pill ${reviewSideFilter === filter.id ? 'active' : ''}`}
                           aria-pressed={reviewSideFilter === filter.id}
-                          onClick={() => setReviewSideFilter(filter.id)}
+                          onClick={() => {
+                            setReviewSideFilter(filter.id)
+                            setReviewPhaseFilter('all')
+                          }}
                         >
                           {filter.label}
                         </button>
@@ -4588,10 +4603,15 @@ function App() {
                       </div>
                       <div>
                         <span>Evaluated</span>
-                        <strong>{reviewAccuracy.evaluatedMoves}/{visibleReviewRows.length}</strong>
+                        <strong>{reviewAccuracy.evaluatedMoves}/{reportedReviewRows.length}</strong>
                       </div>
                     </div>
-                    <PhaseAccuracy rows={visibleReviewRows} formatAccuracy={formatAccuracyValue} />
+                    <PhaseAccuracy
+                      rows={visibleReviewRows}
+                      formatAccuracy={formatAccuracyValue}
+                      selected={reviewPhaseFilter}
+                      onSelect={setReviewPhaseFilter}
+                    />
                     {reviewAccuracy.pendingMoves > 0 && (
                       <p className="panel-copy small command-summary">
                         {reviewAccuracy.pendingMoves} move{reviewAccuracy.pendingMoves === 1 ? '' : 's'} still need{reviewAccuracy.pendingMoves === 1 ? 's' : ''} deeper evaluation before accuracy is final.
@@ -4614,9 +4634,9 @@ function App() {
                         ))}
                       </div>
                     )}
-                    {visibleReviewRows.length > 0 ? (
+                    {reportedReviewRows.length > 0 ? (
                       <ReviewMoveList
-                        rows={visibleReviewRows}
+                        rows={reportedReviewRows}
                         nodes={mainLineNodes}
                         currentNodeId={gameTree.current.id}
                         showEngineDetail={analysisExperience === 'pro'}

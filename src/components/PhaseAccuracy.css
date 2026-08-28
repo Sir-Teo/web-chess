@@ -10,10 +10,25 @@
   grid-template-columns: 1fr auto auto;
   align-items: baseline;
   gap: 0.5rem;
+  width: 100%;
   padding: 0.3rem 0.5rem;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--bg-card);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.phase-accuracy-row:hover {
+  border-color: var(--border-default);
+}
+
+.phase-accuracy-row.selected {
+  border-color: var(--border-accent);
+  background: var(--accent-subtle);
 }
 
 .phase-accuracy-label {

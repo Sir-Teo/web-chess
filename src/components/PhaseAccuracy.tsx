@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { type ReviewRow, summarizeAccuracyByPhase } from '../engine/analysis'
+import { type ReviewPhaseFilter, type ReviewRow, summarizeAccuracyByPhase } from '../engine/analysis'
 import { getPhaseLabel } from '../engine/gamePhase'
 import './PhaseAccuracy.css'
 
@@ -7,6 +7,8 @@ type Props = {
   rows: ReviewRow[]
   /** Renders the accuracy figure the same way the overall summary does. */
   formatAccuracy: (value: number | null) => string
+  selected: ReviewPhaseFilter
+  onSelect: (phase: ReviewPhaseFilter) => void
 }
 
 /**
@@ -20,14 +22,21 @@ type Props = {
  * Nothing is shown for a game that never left one phase: a lone bar labelled
  * "Opening" repeats the overall figure without adding to it.
  */
-export function PhaseAccuracy({ rows, formatAccuracy }: Props) {
+export function PhaseAccuracy({ rows, formatAccuracy, selected, onSelect }: Props) {
   const phases = useMemo(() => summarizeAccuracyByPhase(rows), [rows])
   if (phases.length < 2) return null
 
   return (
     <div className="phase-accuracy" aria-label="Accuracy by phase">
       {phases.map(({ phase, summary }) => (
-        <div key={phase} className="phase-accuracy-row">
+        <button
+          key={phase}
+          type="button"
+          className={`phase-accuracy-row${selected === phase ? ' selected' : ''}`}
+          aria-pressed={selected === phase}
+          title={selected === phase ? 'Show the whole game again' : `Show only the ${getPhaseLabel(phase).toLowerCase()}`}
+          onClick={() => onSelect(selected === phase ? 'all' : phase)}
+        >
           <span className="phase-accuracy-label">{getPhaseLabel(phase)}</span>
           <span className="phase-accuracy-scores">
             <span><i aria-hidden="true">W</i> <strong aria-label={`White accuracy in the ${getPhaseLabel(phase).toLowerCase()}`}>{formatAccuracy(summary.white)}</strong></span>
@@ -36,7 +45,7 @@ export function PhaseAccuracy({ rows, formatAccuracy }: Props) {
           <span className="phase-accuracy-count">
             {summary.evaluatedMoves} {summary.evaluatedMoves === 1 ? 'move' : 'moves'}
           </span>
-        </div>
+        </button>
       ))}
     </div>
   )
