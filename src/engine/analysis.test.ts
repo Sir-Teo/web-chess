@@ -276,9 +276,9 @@ describe('review analysis helpers', () => {
 
   it('summarizes player accuracy from evaluated centipawn loss', () => {
     const rows = [
-      { ply: 1, moveNumber: 1, sideToMove: 'w' as const, san: 'e4', uci: 'e2e4', quality: 'best' as const, deltaCp: -10, confidence: 'standard' as const },
-      { ply: 2, moveNumber: 1, sideToMove: 'b' as const, san: 'e5', uci: 'e7e5', quality: 'mistake' as const, deltaCp: -220, confidence: 'standard' as const },
-      { ply: 3, moveNumber: 2, sideToMove: 'w' as const, san: 'Nf3', uci: 'g1f3', quality: 'pending' as const, confidence: 'pending' as const },
+      { ply: 1, moveNumber: 1, sideToMove: 'w' as const, san: 'e4', uci: 'e2e4', quality: 'best' as const, deltaCp: -10, confidence: 'standard' as const, phase: 'opening' as const },
+      { ply: 2, moveNumber: 1, sideToMove: 'b' as const, san: 'e5', uci: 'e7e5', quality: 'mistake' as const, deltaCp: -220, confidence: 'standard' as const, phase: 'opening' as const },
+      { ply: 3, moveNumber: 2, sideToMove: 'w' as const, san: 'Nf3', uci: 'g1f3', quality: 'pending' as const, confidence: 'pending' as const, phase: 'opening' as const },
     ]
 
     expect(accuracyFromCentipawnLoss(40)).toBe(100)
@@ -298,8 +298,8 @@ describe('review analysis helpers', () => {
 
   it('filters review rows by player side', () => {
     const rows = [
-      { ply: 1, moveNumber: 1, sideToMove: 'w' as const, san: 'e4', uci: 'e2e4', quality: 'best' as const, confidence: 'standard' as const },
-      { ply: 2, moveNumber: 1, sideToMove: 'b' as const, san: 'e5', uci: 'e7e5', quality: 'good' as const, confidence: 'standard' as const },
+      { ply: 1, moveNumber: 1, sideToMove: 'w' as const, san: 'e4', uci: 'e2e4', quality: 'best' as const, confidence: 'standard' as const, phase: 'opening' as const },
+      { ply: 2, moveNumber: 1, sideToMove: 'b' as const, san: 'e5', uci: 'e7e5', quality: 'good' as const, confidence: 'standard' as const, phase: 'opening' as const },
     ]
 
     expect(filterReviewRowsBySide(rows, 'both')).toBe(rows)
@@ -549,6 +549,7 @@ describe('position-aware move accuracy', () => {
       quality: 'blunder' as const,
       deltaCp: -300,
       confidence: 'standard' as const,
+      phase: 'opening' as const,
     }
     expect(summarizeAccuracy([legacyRow]).white).toBeCloseTo(accuracyFromCentipawnLoss(-300), 10)
   })
@@ -576,6 +577,7 @@ describe('ranking the moves that cost the most', () => {
     uci: 'e2e4',
     quality: 'mistake' as const,
     confidence: 'standard' as const,
+    phase: 'middleGame' as const,
     ...over,
   })
 
