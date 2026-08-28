@@ -55,9 +55,6 @@ export function narrativeTags(points: WinratePoint[], result?: string | null): N
   const winner: GameWinner = declared
     ?? (Math.abs(finalWhite - 50) < 2 ? 'draw' : finalWhite >= 50 ? 'white' : 'black')
 
-  if (winner === 'draw') {
-    return [{ id: 'draw', label: 'Draw', tone: 'neutral', title: 'The game was drawn.' }]
-  }
   if (winner === null) return []
 
   // The opening is noisy, so judge swings from a fifth of the way in.
@@ -65,6 +62,25 @@ export function narrativeTags(points: WinratePoint[], result?: string | null): N
   const midGame = series.slice(start)
   const minWhite = Math.min(...midGame)
   const maxWhite = Math.max(...midGame)
+
+  if (winner === 'draw') {
+    const drawn: NarrativeTag[] = [
+      { id: 'draw', label: 'Draw', tone: 'neutral', title: 'The game was drawn.' },
+    ]
+    // A draw in which someone was winning is the interesting thing about it,
+    // and returning only "Draw" threw that away.
+    const best = Math.max(maxWhite, 100 - minWhite)
+    if (best >= MISSED_WIN_HIGH) {
+      const who = maxWhite >= 100 - minWhite ? 'White' : 'Black'
+      drawn.push({
+        id: 'missedWin',
+        label: 'Missed win',
+        tone: 'bad',
+        title: `${who} reached a winning position and drew.`,
+      })
+    }
+    return drawn
+  }
 
   const tags: NarrativeTag[] = []
   const winnerName = winner === 'white' ? 'White' : 'Black'

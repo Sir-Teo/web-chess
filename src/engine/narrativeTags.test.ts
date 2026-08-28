@@ -35,8 +35,22 @@ describe('describing the arc of a game', () => {
     expect(narrativeTags([], '1-0')).toEqual([])
   })
 
-  it('labels a draw and stops there', () => {
+  it('labels a quiet draw and stops there', () => {
     expect(ids(narrativeTags(series([50, 50, 52, 48, 50, 50]), '1/2-1/2'))).toEqual(['draw'])
+  })
+
+  it('says when a draw was a win someone let go', () => {
+    // White reaches 92 and the game still ends level.
+    expect(ids(narrativeTags(series([50, 60, 80, 92, 70, 50]), '1/2-1/2'))).toEqual(['draw', 'missedWin'])
+    // And the same for Black.
+    expect(ids(narrativeTags(series([50, 40, 20, 8, 30, 50]), '1/2-1/2'))).toEqual(['draw', 'missedWin'])
+  })
+
+  it('names the side that let the win go', () => {
+    const white = narrativeTags(series([50, 60, 80, 92, 70, 50]), '1/2-1/2')
+    expect(white.find(t => t.id === 'missedWin')?.title).toContain('White')
+    const black = narrativeTags(series([50, 40, 20, 8, 30, 50]), '1/2-1/2')
+    expect(black.find(t => t.id === 'missedWin')?.title).toContain('Black')
   })
 
   it('calls a recovery from a lost position a comeback', () => {
