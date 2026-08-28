@@ -1,0 +1,238 @@
+import { describe, expect, it } from 'vitest'
+import {
+  MAX_LIBRARY_GAMES,
+  MAX_LIBRARY_NAME_LENGTH,
+  countPgnMoves,
+  createLibraryBackup,
+  createLibraryGame,
+  extractLibraryMetadata,
+  formatLibrarySize,
+  getLibraryStats,
+  getUniqueGameName,
+  libraryGameMatchesQuery,
+  normalizeLibraryGames,
+  parseLibraryBackup,
+  parsePgnHeaders,
+  sortLibraryGames,
+  suggestGameName,
+} from './gameLibrary'
+
+const PGN = `[Event "Casual Game"]
+[Site "Berlin GER"]
+[Date "1852.??.??"]
+[Round "?"]
+[White "Adolf Anderssen"]
+[Black "Jean Dufresne"]
+[Result "1-0"]
+[WhiteElo "2600"]
+[ECO "C52"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Ba5 1-0`
+
+describe('pgn header reading', () => {
+  it('pulls the seven tag roster and the extras we show', () => {
+    expect(extractLibraryMetadata(PGN)).toMatchObject({
+      event: 'Casual Game',
+      site: 'Berlin GER',
+      date: '1852.??.??',
+      white: 'Adolf Anderssen',
+      black: 'Jean Dufresne',
+      result: '1-0',
+      whiteElo: 2600,
+      eco: 'C52',
+    })
+  })
+
+  it('treats the placeholder tag values as absent', () => {
+    const metadata = extractLibraryMetadata('[Round "?"]\n[Site "-"]\n[White "  "]\n\n1. e4 *')
+    expect(metadata.round).toBeUndefined()
+    expect(metadata.site).toBeUndefined()
+    expect(metadata.white).toBeUndefined()
+  })
+
+  it('unescapes quotes inside a tag value', () => {
+    expect(parsePgnHeaders('[Event "The \\"Immortal\\" Game"]\n\n1. e4 *').Event)
+      .toBe('The "Immortal" Game')
+  })
+
+  it('stops reading headers once the movetext starts', () => {
+    const headers = parsePgnHeaders('[Event "Real"]\n\n1. e4 e5\n[Event "Not a header"]')
+    expect(headers.Event).toBe('Real')
+  })
+
+  it('ignores a rating that is not a positive number', () => {
+    expect(extractLibraryMetadata('[WhiteElo "?"]\n\n1. e4 *').whiteElo).toBeUndefined()
+    expect(extractLibraryMetadata('[BlackElo "-10"]\n\n1. e4 *').blackElo).toBeUndefined()
+  })
+})
+
+describe('counting moves', () => {
+  it('counts plies rather than move numbers', () => {
+    expect(countPgnMoves(PGN)).toBe(10)
+  })
+
+  it('does not count the result, move numbers, or NAGs', () => {
+    expect(countPgnMoves('1. e4 e5 2. Nf3 1/2-1/2')).toBe(3)
+    expect(countPgnMoves('1. e4 $1 $16 e5 *')).toBe(2)
+  })
+
+  it('ignores comments and side lines', () => {
+    expect(countPgnMoves('1. e4 {a strong move} e5 2. Nf3 *')).toBe(3)
+    expect(countPgnMoves('1. e4 e5 (1... c5 2. Nf3 d6) 2. Nf3 *')).toBe(3)
+    expect(countPgnMoves('1. e4 e5 (1... c5 (1... e6 2. d4) 2. Nf3) 2. Nf3 *')).toBe(3)
+    expect(countPgnMoves('1. e4 ; a trailing comment\ne5 *')).toBe(2)
+  })
+
+  it('counts castling, promotion, and decorated moves', () => {
+    expect(countPgnMoves('1. O-O O-O-O 2. e8=Q+ Kb8 3. Qxd8# *')).toBe(5)
+    expect(countPgnMoves('1. e4! e5?? 2. Nf3!? *')).toBe(3)
+  })
+
+  it('has nothing to count in an empty or header-only PGN', () => {
+    expect(countPgnMoves('')).toBe(0)
+    expect(countPgnMoves('[Event "Empty"]\n\n*')).toBe(0)
+  })
+})
+
+describe('naming a saved game', () => {
+  it('names it after the players and the date', () => {
+    expect(suggestGameName(PGN)).toBe('Adolf Anderssen vs Jean Dufresne · 1852.??.??')
+  })
+
+  it('falls back to the event, then to a placeholder', () => {
+    expect(suggestGameName('[Event "Club Night"]\n\n1. e4 *')).toBe('Club Night')
+    expect(suggestGameName('1. e4 *')).toBe('Untitled game')
+  })
+
+  it('numbers a name that is already taken', () => {
+    expect(getUniqueGameName('Game', [])).toBe('Game')
+    expect(getUniqueGameName('Game', ['Game'])).toBe('Game (2)')
+    expect(getUniqueGameName('Game', ['Game', 'Game (2)'])).toBe('Game (3)')
+  })
+
+  it('keeps a numbered name within the length limit', () => {
+    const long = 'x'.repeat(MAX_LIBRARY_NAME_LENGTH)
+    expect(getUniqueGameName(long, [long]).length).toBeLessThanOrEqual(MAX_LIBRARY_NAME_LENGTH)
+  })
+})
+
+describe('creating records', () => {
+  it('captures the counts and metadata the rows need', () => {
+    const game = createLibraryGame('Evergreen', PGN, 123)
+    expect(game).toMatchObject({
+      name: 'Evergreen',
+      createdAt: 123,
+      updatedAt: 123,
+      moveCount: 10,
+      size: PGN.length,
+      favorite: false,
+    })
+    expect(game.metadata.white).toBe('Adolf Anderssen')
+    expect(game.id).toBeTruthy()
+  })
+
+  it('names an untitled save from the PGN itself', () => {
+    expect(createLibraryGame('   ', PGN, 1).name).toBe('Adolf Anderssen vs Jean Dufresne · 1852.??.??')
+  })
+
+  it('gives two games saved at the same instant different ids', () => {
+    expect(createLibraryGame('A', PGN, 5).id).not.toBe(createLibraryGame('B', PGN, 5).id)
+  })
+})
+
+describe('normalizing what came back from storage', () => {
+  it('keeps well-formed rows and recomputes what it can', () => {
+    const games = normalizeLibraryGames([
+      { id: 'a', name: 'Kept', pgn: PGN, createdAt: 1, updatedAt: 2, favorite: true },
+    ])
+    expect(games).toHaveLength(1)
+    expect(games[0]).toMatchObject({ id: 'a', name: 'Kept', favorite: true, moveCount: 10 })
+  })
+
+  it('drops rows that are not usable', () => {
+    expect(normalizeLibraryGames(null)).toEqual([])
+    expect(normalizeLibraryGames('nope')).toEqual([])
+    expect(normalizeLibraryGames([null, 42, {}, { pgn: '' }])).toEqual([])
+    expect(normalizeLibraryGames([{ pgn: 'x'.repeat(600_000) }])).toEqual([])
+  })
+
+  it('drops a duplicated id rather than rendering it twice', () => {
+    const games = normalizeLibraryGames([
+      { id: 'dup', pgn: PGN },
+      { id: 'dup', pgn: PGN },
+    ])
+    expect(games).toHaveLength(1)
+  })
+
+  it('refuses to load more games than the cap allows', () => {
+    const many = Array.from({ length: MAX_LIBRARY_GAMES + 25 }, (_, index) => ({ id: `g${index}`, pgn: PGN }))
+    expect(normalizeLibraryGames(many)).toHaveLength(MAX_LIBRARY_GAMES)
+  })
+
+  it('repairs missing timestamps and names', () => {
+    const [game] = normalizeLibraryGames([{ id: 'a', pgn: PGN }], 99)
+    expect(game.createdAt).toBe(99)
+    expect(game.updatedAt).toBe(99)
+    expect(game.name).toBe('Adolf Anderssen vs Jean Dufresne · 1852.??.??')
+  })
+})
+
+describe('searching and sorting', () => {
+  const games = [
+    createLibraryGame('Alpha', PGN, 300),
+    createLibraryGame('Beta', '[White "Magnus Carlsen"]\n[Black "Hikaru Nakamura"]\n\n1. d4 *', 100),
+    createLibraryGame('Gamma', '[Event "Rapid"]\n\n1. c4 e5 2. g3 *', 200),
+  ]
+
+  it('matches on any metadata field, and on every term given', () => {
+    expect(libraryGameMatchesQuery(games[1], 'carlsen')).toBe(true)
+    expect(libraryGameMatchesQuery(games[1], 'CARLSEN nakamura')).toBe(true)
+    expect(libraryGameMatchesQuery(games[1], 'carlsen anderssen')).toBe(false)
+    expect(libraryGameMatchesQuery(games[0], 'c52')).toBe(true)
+    expect(libraryGameMatchesQuery(games[0], '   ')).toBe(true)
+  })
+
+  it('orders by the column asked for', () => {
+    expect(sortLibraryGames(games, 'recent').map(g => g.name)).toEqual(['Alpha', 'Gamma', 'Beta'])
+    expect(sortLibraryGames(games, 'oldest').map(g => g.name)).toEqual(['Beta', 'Gamma', 'Alpha'])
+    expect(sortLibraryGames(games, 'name').map(g => g.name)).toEqual(['Alpha', 'Beta', 'Gamma'])
+    expect(sortLibraryGames(games, 'moves')[0].name).toBe('Alpha')
+  })
+
+  it('does not reorder the array it was given', () => {
+    const original = games.map(g => g.name)
+    sortLibraryGames(games, 'name')
+    expect(games.map(g => g.name)).toEqual(original)
+  })
+
+  it('totals the shelf', () => {
+    expect(getLibraryStats(games)).toEqual({
+      count: 3,
+      moves: games.reduce((sum, g) => sum + g.moveCount, 0),
+      size: games.reduce((sum, g) => sum + g.size, 0),
+    })
+    expect(getLibraryStats([])).toEqual({ count: 0, moves: 0, size: 0 })
+  })
+
+  it('shows a size a person can read', () => {
+    expect(formatLibrarySize(0)).toBe('0 KB')
+    expect(formatLibrarySize(512)).toBe('512 B')
+    expect(formatLibrarySize(2048)).toBe('2.0 KB')
+    expect(formatLibrarySize(5 * 1024 * 1024)).toBe('5.0 MB')
+  })
+})
+
+describe('backup round trip', () => {
+  it('restores the games it wrote', () => {
+    const games = [createLibraryGame('Evergreen', PGN, 7)]
+    const restored = parseLibraryBackup(createLibraryBackup(games))
+    expect(restored).toHaveLength(1)
+    expect(restored[0]).toMatchObject({ id: games[0].id, name: 'Evergreen', pgn: PGN, moveCount: 10 })
+  })
+
+  it('refuses anything that is not one of our backups', () => {
+    expect(parseLibraryBackup('not json')).toEqual([])
+    expect(parseLibraryBackup(JSON.stringify({ games: [{ pgn: PGN }] }))).toEqual([])
+    expect(parseLibraryBackup(JSON.stringify({ format: 'something-else', games: [] }))).toEqual([])
+  })
+})
