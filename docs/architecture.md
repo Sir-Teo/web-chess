@@ -203,7 +203,9 @@ They disagree, measured at equality:
 | 200 | 44.7 | 51.3 | **-6.6** |
 | 800 | 11.4 | 6.9 | +4.4 |
 
-**Currently unreachable**, and deliberately kept: `buildReviewRows` sets
+**Unreachable, and now pinned as such** by `accuracyCurveReach.test.ts` — the
+claim was read off the code, so it is enforced rather than trusted. Deliberately
+kept: `buildReviewRows` sets
 `winPercentLoss` on every row it also gives a finite `deltaCp`, and
 `summarizeAccuracy` skips anything pending, so the fallback has no live caller.
 It exists for rows built before the win-percent work and is pinned by a test.
