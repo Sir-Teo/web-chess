@@ -67,7 +67,9 @@ describe('Stockfish thread recommendations', () => {
     sharedArrayBuffer: true,
     crossOriginIsolated: true,
     hardwareConcurrency: 16,
-    deviceMemoryGb: 32,
+    // What a roomy desktop actually reports: the Device Memory API clamps to
+    // 8, so a fixture above that describes hardware no browser reports.
+    deviceMemoryGb: 8,
     isMobile: false,
   }
 
@@ -79,6 +81,9 @@ describe('Stockfish thread recommendations', () => {
     const threadedProfile = profileById('lite-multi-local')
 
     expect(recommendedThreadCount(threadedProfile, { ...desktopCapabilities, hardwareConcurrency: 8, deviceMemoryGb: 4 })).toBe(4)
+    expect(recommendedThreadCount(threadedProfile, { ...desktopCapabilities, deviceMemoryGb: 2 })).toBe(4)
+    // Nothing reported at all reads as roomy rather than constrained.
+    expect(recommendedThreadCount(threadedProfile, { ...desktopCapabilities, deviceMemoryGb: undefined })).toBe(8)
     expect(recommendedThreadCount(threadedProfile, { ...desktopCapabilities, isMobile: true })).toBe(1)
     expect(recommendedThreadCount(threadedProfile, { ...desktopCapabilities, hardwareConcurrency: 2 })).toBe(1)
     expect(recommendedThreadCount(threadedProfile, { ...desktopCapabilities, crossOriginIsolated: false })).toBe(1)

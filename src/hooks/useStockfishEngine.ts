@@ -82,8 +82,11 @@ export function recommendedThreadCount(profile: EngineProfile, capabilities: Eng
   const usableCores = Math.max(1, Math.floor(capabilities.hardwareConcurrency || 1))
   if (usableCores <= 2) return 1
 
+  // navigator.deviceMemory is clamped by spec to at most 8, so a `<= 8` test
+  // matches every device that reports at all and the wider cap was unreachable.
+  // Only a reading strictly below the ceiling says anything about memory.
   const memoryAwareCap =
-    typeof capabilities.deviceMemoryGb === 'number' && capabilities.deviceMemoryGb <= 8 ? 4 : 8
+    typeof capabilities.deviceMemoryGb === 'number' && capabilities.deviceMemoryGb <= 4 ? 4 : 8
 
   return Math.max(2, Math.min(memoryAwareCap, Math.floor(usableCores * 0.75)))
 }
