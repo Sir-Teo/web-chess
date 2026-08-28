@@ -1,6 +1,6 @@
 import { Chess } from 'chess.js'
 import { describe, expect, it } from 'vitest'
-import { buildReviewRows, summarizeAccuracyByPhase } from './analysis'
+import { buildReviewRows, filterReviewRowsByPhase, summarizeAccuracyByPhase } from './analysis'
 import type { EvalSnapshot } from './analysis'
 
 /**
@@ -96,5 +96,29 @@ describe('summarizing accuracy by phase', () => {
     const game = new Chess()
     const rows = buildReviewRows([game.move('e4')], new Map(), new Chess().fen())
     expect(summarizeAccuracyByPhase(rows)).toEqual([])
+  })
+})
+
+describe('narrowing the move list to one phase', () => {
+  const rows = [...reviewOf(['e4', 'e5']), ...reviewOf(['d3', 'd6'], MIDDLEGAME)]
+
+  it('leaves everything alone by default', () => {
+    expect(filterReviewRowsByPhase(rows, 'all')).toBe(rows)
+  })
+
+  it('keeps only the moves played in the chosen phase', () => {
+    const opening = filterReviewRowsByPhase(rows, 'opening')
+    expect(opening).toHaveLength(2)
+    expect(opening.every(row => row.phase === 'opening')).toBe(true)
+  })
+
+  it('returns nothing for a phase the game never reached', () => {
+    expect(filterReviewRowsByPhase(rows, 'endgame')).toEqual([])
+  })
+
+  it('accounts for every row across the phases', () => {
+    const counted = (['opening', 'middleGame', 'endgame'] as const)
+      .reduce((total, phase) => total + filterReviewRowsByPhase(rows, phase).length, 0)
+    expect(counted).toBe(rows.length)
   })
 })

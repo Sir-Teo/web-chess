@@ -461,6 +461,14 @@ export function filterReviewRowsBySide(rows: ReviewRow[], filter: ReviewSideFilt
   return rows.filter(row => row.sideToMove === side)
 }
 
+/** 'all', or one phase to narrow the move list to. Mirrors katrain's report filter. */
+export type ReviewPhaseFilter = 'all' | GamePhase
+
+export function filterReviewRowsByPhase(rows: ReviewRow[], filter: ReviewPhaseFilter): ReviewRow[] {
+  if (filter === 'all') return rows
+  return rows.filter(row => row.phase === filter)
+}
+
 export function accuracyFromCentipawnLoss(deltaCp: number): number {
   if (!isFiniteNumber(deltaCp)) return 0
   const loss = Math.max(0, -deltaCp)
