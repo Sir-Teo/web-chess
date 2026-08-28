@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "audit": "npm audit --audit-level=moderate",
     "lint": "eslint .",
+    "typecheck": "tsc -b",
     "test": "vitest run",
     "sync:stockfish": "node scripts/sync-stockfish-assets.js",
     "preview": "vite preview"
