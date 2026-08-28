@@ -129,23 +129,26 @@ after a 429. Tokens are session-only and never persisted.
   `engine/positionSetup.ts`.
 - Share links: `engine/shareLink.ts` (FEN in the URL hash).
 
-## Known Fragility: board measurement
+## Board measurement in a zero-sized viewport
 
 `react-chessboard` measures its own container and throws `Square width not
-found` from `<Piece2>` if it renders before that container has been laid out.
-`AppErrorBoundary` catches it and the board recovers, so the symptom is
-console noise rather than a broken board.
+found` from `<Piece2>` when that container has no width. `AppErrorBoundary`
+catches it; enough repeats and the app falls back to its error screen.
 
-It does **not** reproduce in a production build. It does reproduce in `npm run
-dev`, and it is sensitive to nothing more than module-graph timing: adding a
-single new import to `App.tsx` was enough to surface it, and removing the JSX
-that import fed did not make it go away. So treat it as latent rather than
-caused by whatever change happens to reveal it.
+The only trigger found is a viewport of literally `0 × 0` — a hidden or
+collapsed browser window, which is what an automation pane looks like when it
+is not on screen. Every real size behaves: 800×500, 800×700 and 1400×900 all
+load a historical game without complaint, in dev and in a production build.
 
-If it ever shows up in production, the fix is to hold `<Chessboard>` back
-until its container reports a non-zero width — `useElementWidth` already
-exists for exactly that kind of measurement — rather than to chase whichever
-commit made it appear.
+Recorded because it is easy to misdiagnose, and was: it first looked like a
+dev-only timing issue sensitive to `App.tsx`'s import graph, then like a
+regression from a specific commit, because the pane happened to be hidden for
+some runs and not others. It is neither. If you see it, check `innerWidth`
+before bisecting anything.
+
+Worth a guard only if the app should survive being rendered in a hidden tab or
+a `display: none` iframe — hold `<Chessboard>` back until its container reports
+a non-zero width, for which `useElementWidth` already exists.
 
 ## Project Invariants
 
