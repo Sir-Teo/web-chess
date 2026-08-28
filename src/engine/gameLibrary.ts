@@ -97,6 +97,26 @@ function stripPgnHeaders(pgn: string): string {
   return lines.slice(index).join('\n')
 }
 
+/**
+ * Replaces each `{...}` comment with a space in one pass. The obvious
+ * `/\{[^}]*\}/g` backtracks from every `{` that has no closing brace, which is
+ * quadratic on a file full of braces that is not really a PGN.
+ */
+function stripBlockComments(text: string): string {
+  if (!text.includes('{')) return text
+
+  let out = ''
+  let index = 0
+  for (;;) {
+    const open = text.indexOf('{', index)
+    if (open < 0) return out + text.slice(index)
+    const close = text.indexOf('}', open + 1)
+    if (close < 0) return out + text.slice(index)
+    out += `${text.slice(index, open)} `
+    index = close + 1
+  }
+}
+
 /** Drops bracketed variations, honouring nesting, so only the main line is left. */
 function stripVariations(movetext: string): string {
   let depth = 0
@@ -112,8 +132,7 @@ function stripVariations(movetext: string): string {
 /** Plies in the main line. Comments, variations, NAGs and results do not count. */
 export function countPgnMoves(pgn: string): number {
   const movetext = stripVariations(
-    stripPgnHeaders(pgn)
-      .replace(/\{[^}]*\}/g, ' ')
+    stripBlockComments(stripPgnHeaders(pgn))
       .replace(/;[^\n]*/g, ' ')
       .replace(/\$\d+/g, ' '),
   )

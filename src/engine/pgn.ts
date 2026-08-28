@@ -10,7 +10,6 @@ const PGN_TAG_NAME_PATTERN = /^[A-Za-z0-9_]+$/
 const PGN_EVENT_TAG_LINE_PATTERN = /^\s*\[Event\s+"(?:[^"\\]|\\.)*"\]\s*$/gim
 const PGN_RESULT_TAG_LINE_PATTERN = /^\s*\[Result\s+"(?:[^"\\]|\\.)*"\]\s*$/gim
 const PGN_HEADER_LINE_PATTERN = /^\s*\[[A-Za-z0-9_]+\s+"(?:[^"\\]|\\.)*"\]\s*$/gm
-const PGN_BLOCK_COMMENT_PATTERN = /\{[^]*?\}/g
 const PGN_SEMICOLON_COMMENT_PATTERN = /;[^\r\n]*/g
 const PGN_MOVETEXT_RESULT_PATTERN = /(?:^|\s)(?:1-0|0-1|1\/2-1\/2|\*)(?=\s|$)/g
 const VALID_PGN_RESULTS = new Set(['1-0', '0-1', '1/2-1/2', '*'])
@@ -48,6 +47,30 @@ function sanitizePgnHeaderValue(value: string): string {
         .replace(/"/g, "'")
 }
 
+/**
+ * Replaces each `{...}` comment with a space, like the regex it replaces, but
+ * in one pass. `/\{[^]*?\}/g` backtracks from every `{` that has no closing
+ * brace, which is quadratic — a 5MB paste of a non-PGN file full of braces
+ * (a minified script, a JSON dump) froze the tab rather than being rejected.
+ *
+ * Semantics are unchanged: a comment ends at the first `}`, and an unterminated
+ * `{` is left in place exactly as the regex left it.
+ */
+function stripPgnBlockComments(text: string): string {
+    if (!text.includes('{')) return text
+
+    let out = ''
+    let index = 0
+    for (;;) {
+        const open = text.indexOf('{', index)
+        if (open < 0) return out + text.slice(index)
+        const close = text.indexOf('}', open + 1)
+        if (close < 0) return out + text.slice(index)
+        out += `${text.slice(index, open)} `
+        index = close + 1
+    }
+}
+
 export function hasMultiplePgnGames(pgnText: string): boolean {
     const eventTags = pgnText.match(PGN_EVENT_TAG_LINE_PATTERN)
     if ((eventTags?.length ?? 0) > 1) return true
@@ -55,9 +78,7 @@ export function hasMultiplePgnGames(pgnText: string): boolean {
     const resultTags = pgnText.match(PGN_RESULT_TAG_LINE_PATTERN)
     if ((resultTags?.length ?? 0) > 1) return true
 
-    const movetextOnly = pgnText
-        .replace(PGN_HEADER_LINE_PATTERN, '\n')
-        .replace(PGN_BLOCK_COMMENT_PATTERN, ' ')
+    const movetextOnly = stripPgnBlockComments(pgnText.replace(PGN_HEADER_LINE_PATTERN, '\n'))
         .replace(PGN_SEMICOLON_COMMENT_PATTERN, ' ')
     const terminationMarkers = movetextOnly.match(PGN_MOVETEXT_RESULT_PATTERN)
     return (terminationMarkers?.length ?? 0) > 1
