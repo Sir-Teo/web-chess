@@ -437,6 +437,7 @@ typecheck, tests, build); UI changes were additionally exercised in a browser.
 | — | katrain, xiangqi | Library and pro-game search match every term rather than the query as one phrase. |
 | — | chess, xiangqi | Comment stripping made linear, so a wrong file cannot freeze the tab on import. |
 | — | chess | The library renders a page of 100 rows with a "Show more", instead of all 500. |
+| — | katrain | The library pages at 100 rows too — it had no cap and rendered every one. |
 
 ### What was verified by running the apps, not just the tests
 
@@ -733,6 +734,46 @@ The xiangqi half could not be driven end-to-end here, because Pikafish never
 finished loading in the automation browser (it went to "Recovering engine", the
 degradation path). Its wiring is covered by tests and its stylesheet was
 checked against the live layout.
+
+### The donation that ran backwards (library paging)
+
+Everything else this document proposes flows out of katrain. One thing flowed
+into it.
+
+Both siblings page their saved-game lists at 100 rows. katrain — the app the
+other two are modelled on, and the one with no size cap on its library and a
+bulk ZIP importer — rendered every row. Seeded with 1,200 games it mounted:
+
+| | before | after |
+| --- | --- | --- |
+| Folder view | 1,208 rows / 35,496 DOM nodes | 107 rows / 3,568 nodes |
+| Search results | 1,200 rows | 100 rows |
+
+Those are DOM counts, not timings, and they are the claim — see the measurement
+note below for why no latency figure is quoted.
+
+Two details were worth getting right, and both came from having done the same
+change in chess an hour earlier:
+
+- **Reset the page count during render, not in an effect.** An effect runs
+  after paint, so typing in the search box paints every matching row before
+  trimming it back — which is precisely the frame the paging exists for. In
+  chess the reset lives in the two setters; katrain's filters are set from half
+  a dozen places, so there it keys on a view string computed during render.
+- **Selection must still span every match**, not the mounted rows. Verified:
+  "Select all" over 1,200 matches still reports "1200 selected" with 100
+  rendered, which is what it did before.
+
+Children of an expanded folder are still rendered in full. Only the folder root
+and the search results are paged, because a per-folder limit needs per-folder
+state and a shared one would make expanding a folder raise the limit
+everywhere.
+
+The general lesson is the one this document keeps arriving at from different
+directions: *the most polished app is not uniformly the most correct one.*
+"Treat katrain as ground truth" is right about conventions, structure and
+taste. It is not a reason to skip looking, and two of the night's findings —
+this and the phase split — are places where looking paid.
 
 ### A fourth measurement lesson: the browser pane throttles timers
 
