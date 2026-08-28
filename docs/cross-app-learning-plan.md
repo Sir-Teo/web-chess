@@ -459,6 +459,31 @@ asked `profile.mobileLike` inside its mid and high tiers, but `detectDeviceTier`
 sends every mobile-like device to the low tier. The invariant is now pinned by a
 test and the dead branches are gone.
 
+**Two of the three CIs were already red, and nobody had noticed.** Both
+web-chess's deploy and web-xiangqi's CI run `npm audit` before anything else,
+and both had been failing on advisories in transitive dev dependencies of vite
+and eslint — packages neither app ships. The consequences differed:
+
+- **web-chess's Pages deploy was blocked outright.** No push to `main` had
+  deployed since those advisories landed.
+- **web-xiangqi's checks aborted at line one.** Its "React app checks" step
+  runs its commands under `bash -e`, so the audit failure took lint, the
+  openings and library tests, and the React build down with it. The unit tests
+  added earlier on this branch would have been dead on arrival for the same
+  reason.
+
+`npm audit fix` cleared both inside existing semver ranges — lockfile only, no
+package.json change, every check still passing. web-chess's gate was
+additionally bare `npm audit`, which fails on *any* severity; one low advisory
+in a dev dependency was enough to stop a release. It now uses the
+`--audit-level=moderate` threshold the other two already use.
+
+Worth watching: this will recur. A static site's deploy being gated on
+dev-dependency advisories means any new npm advisory can block a release
+without a line of app code changing. `npm audit --omit=dev` audits only what
+actually ships and would end the class of failure; it was not adopted here
+only because it would make one repo diverge from the other two again.
+
 ### Corrections to this document
 
 Four claims in the original survey did not survive contact with the code. They
