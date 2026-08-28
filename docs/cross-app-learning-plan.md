@@ -1098,6 +1098,32 @@ best where the thing being stored looks like it belongs to the user.
 That is a more useful summary of "which app needs work" than a defect count, and
 it says where to look first next time.
 
+### Sizing the engine: each sibling gets one half right
+
+Chasing one constant in xiangqi ended up comparing the same decision — how much
+of the machine the search may have — across all three. There are two questions
+in it, and the siblings each answer one of them well:
+
+| | what it reads | how long the answer lives |
+| --- | --- | --- |
+| katrain | `hardwareConcurrency` | recomputed at worker init, never stored |
+| web-chess | `hardwareConcurrency`, `deviceMemory`, mobile user-agent | **written to localStorage on first run** and read back forever |
+| web-xiangqi | **`window.innerWidth`** | recomputed at every engine boot |
+
+chess reads the right things and then freezes the answer: the derived `hashMb`
+becomes a stored preference on a first visit, so improving the sizing logic
+reaches only browsers that have never opened the app. xiangqi reads the wrong
+thing — a window dimension, which changes when a corner is dragged and says
+nothing about cores — but at least re-derives it each time, so fixing the signal
+would immediately reach everyone.
+
+katrain does both: a device property, recomputed. Its persisted settings carry
+no thread count at all.
+
+Neither sibling's problem is visible from inside that sibling. chess's looks
+like a settings blob doing its job; xiangqi's looks like a sensible mobile
+guard. Both only stand out against an app that separated the two questions.
+
 ### Decisions left open, and where each one lives
 
 These are judgment calls rather than unfinished work — each was investigated to
