@@ -79,6 +79,21 @@ export function getLichessBackoffRemainingMs(now = Date.now()): number {
   return Math.max(0, lichessBackoffUntilMs - now)
 }
 
+/**
+ * The message shown when Lichess throttles us.
+ *
+ * Every caller had its own copy of "try again in a minute", which stopped being
+ * true when the backoff started honouring `Retry-After` and could run to two
+ * minutes. One sentence, asked of the queue, so the next endpoint added here
+ * cannot quote a number that has moved.
+ */
+export function lichessRateLimitMessage(what: string, now = Date.now()): string {
+  const seconds = Math.ceil(getLichessBackoffRemainingMs(now) / 1000)
+  return seconds > 0
+    ? `${what} rate limit reached; try again in about ${seconds}s.`
+    : `${what} rate limit reached; try again shortly.`
+}
+
 export function fetchLichessResource(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const signal = init.signal
   const run = async () => {

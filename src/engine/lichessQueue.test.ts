@@ -6,6 +6,7 @@ import {
   parseRetryAfterMs,
   LICHESS_MAX_COOLDOWN_MS,
   getLichessBackoffRemainingMs,
+  lichessRateLimitMessage,
 } from './lichessQueue'
 
 function deferredResponse() {
@@ -159,5 +160,22 @@ describe('reporting how long the backoff has left', () => {
   it('never reports a negative wait once the backoff has passed', () => {
     // Copy that says "try again in -3s" is worse than saying nothing.
     expect(getLichessBackoffRemainingMs(Date.now() + 10_000_000)).toBe(0)
+  })
+})
+
+describe('the rate-limit message every Lichess caller shares', () => {
+  it('names the endpoint and the real remaining wait', () => {
+    const now = Date.now()
+    expect(lichessRateLimitMessage('Lichess tablebase', now)).toContain('Lichess tablebase')
+  })
+
+  it('says "shortly" rather than a number when nothing is left to wait', () => {
+    const msg = lichessRateLimitMessage('Opening Explorer', Date.now() + 10_000_000)
+    expect(msg).toContain('shortly')
+    expect(msg).not.toMatch(/-?\d+s/)
+  })
+
+  it('never quotes a fixed minute, which is what went stale', () => {
+    expect(lichessRateLimitMessage('X')).not.toContain('in a minute')
   })
 })

@@ -1,5 +1,5 @@
 import { withBoundedMapEntry } from '../hooks/cacheLimit'
-import { fetchLichessResource } from './lichessQueue'
+import { fetchLichessResource, lichessRateLimitMessage } from './lichessQueue'
 import { createStorageCache } from './storageCache'
 
 export type OpeningDatabaseSource = 'masters' | 'lichess'
@@ -324,7 +324,7 @@ export async function fetchOpeningExplorer(
       throw new Error(AUTH_REJECTED_MESSAGE)
     }
     if (response.status === 429) {
-      throw new Error('Opening Explorer rate limit reached; try again in a minute.')
+      throw new Error(lichessRateLimitMessage('Opening Explorer'))
     }
     throw new Error(`Opening Explorer request failed (${response.status}).`)
   }
