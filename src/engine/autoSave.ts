@@ -1,3 +1,5 @@
+import { type KeyValueStorage, getLocalStorage, readStorage, removeStorage, writeStorage } from './storage'
+
 /**
  * Keeps the game in progress somewhere it survives a reload, so a refresh does
  * not throw away an analysis. Distinct from the library: one slot, overwritten
@@ -21,16 +23,7 @@ export type AutoSavedGame = {
 
 export type AutoSaveWriteResult = 'saved' | 'too-large' | 'empty' | 'failed'
 
-type AutoSaveStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
-
-function getDefaultStorage(): AutoSaveStorage | null {
-  try {
-    if (typeof window !== 'undefined' && window.localStorage) return window.localStorage
-    return (globalThis as { localStorage?: Storage }).localStorage ?? null
-  } catch {
-    return null
-  }
-}
+type AutoSaveStorage = KeyValueStorage
 
 function serializedByteLength(value: string): number {
   try {
@@ -42,11 +35,11 @@ function serializedByteLength(value: string): number {
 }
 
 export function readAutoSavedGame(
-  storage: AutoSaveStorage | null = getDefaultStorage(),
+  storage: AutoSaveStorage | null = getLocalStorage(),
 ): AutoSavedGame | null {
   if (!storage) return null
   try {
-    const raw = storage.getItem(AUTO_SAVED_GAME_KEY)
+    const raw = readStorage(AUTO_SAVED_GAME_KEY, storage)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<AutoSavedGame> | null
     if (!parsed || parsed.version !== 1) return null
@@ -64,7 +57,7 @@ export function readAutoSavedGame(
 export function writeAutoSavedGame(
   pgn: string,
   moveCount: number,
-  storage: AutoSaveStorage | null = getDefaultStorage(),
+  storage: AutoSaveStorage | null = getLocalStorage(),
   savedAt = Date.now(),
 ): AutoSaveWriteResult {
   if (!storage) return 'failed'
@@ -84,21 +77,15 @@ export function writeAutoSavedGame(
     const serialized = JSON.stringify(snapshot)
     if (serializedByteLength(serialized) > AUTO_SAVE_MAX_BYTES) {
       // A stale snapshot that no longer matches the board is worse than none.
-      storage.removeItem(AUTO_SAVED_GAME_KEY)
+      removeStorage(AUTO_SAVED_GAME_KEY, storage)
       return 'too-large'
     }
-    storage.setItem(AUTO_SAVED_GAME_KEY, serialized)
-    return 'saved'
+    return writeStorage(AUTO_SAVED_GAME_KEY, serialized, storage) ? 'saved' : 'failed'
   } catch {
     return 'failed'
   }
 }
 
-export function clearAutoSavedGame(storage: AutoSaveStorage | null = getDefaultStorage()): void {
-  if (!storage) return
-  try {
-    storage.removeItem(AUTO_SAVED_GAME_KEY)
-  } catch {
-    // Unavailable or quota-limited storage: nothing to undo.
-  }
+export function clearAutoSavedGame(storage: AutoSaveStorage | null = getLocalStorage()): void {
+  removeStorage(AUTO_SAVED_GAME_KEY, storage)
 }
