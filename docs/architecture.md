@@ -311,7 +311,20 @@ what a change to the sizing logic can achieve.
 - Anything user-facing derived from an evaluation should be win-percent based,
   not centipawn based, so it reads correctly in a decided position.
 - New pure logic goes in `src/engine/` with a colocated test, not into
-  `App.tsx`.
+  `App.tsx`. This is about *new* logic: `App.tsx` already carries 44 top-level
+  helpers that predate the rule, so it is "stop adding", not "this is already
+  true". 31 of those are six lines or fewer and not worth moving. The ones with
+  enough logic to deserve a test if they are ever touched are
+  `describeBestMove` (~69 lines, builds user-facing tags and a summary, no
+  test), `loadPersistedSettings`, `buildBatchReviewTargets`, `defaultHashMb`
+  and `topArrowColor`.
+
+  The trap is editing one in place: `reviewImpactLabel` was modified while the
+  centipawn bound was added, which quietly changed the text under every review
+  row with nothing asserting any of it. Moving it out took ten minutes and
+  found nothing broken — but that is the point at which the cost is lowest and
+  the risk highest. Treat "I am changing a pure helper in `App.tsx`" as the
+  moment to extract it.
 - Storage readers must never throw on bad data; return empty and move on.
 - A capability value read from a browser API needs its documented range
   checked before a threshold is chosen against it.
