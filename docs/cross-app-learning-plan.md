@@ -942,6 +942,35 @@ so the local gate matches the one that actually enforces. This is the cheapest
 kind of Tier 0 convention parity and it was found the way most of the night's
 findings were: by running the thing rather than reasoning about it.
 
+### Why katrain cannot have the centipawn bug, and what that says about the fix
+
+Completing the sweep on the mate/ACPL defect: chess has it, xiangqi has it
+worse, katrain cannot have it — and the reason is structural rather than lucky.
+
+KataGo reports `rootScoreLead`, a continuous quantity in points that means the
+same thing at every magnitude. `computePointsLostStrict` subtracts two of them
+and that is the whole story. There is no second kind of value to encode.
+
+UCI engines report *either* a centipawn score *or* a mate distance, and both
+siblings flatten the second into the first with a sentinel — 10000 in chess,
+30000 in xiangqi. That sentinel is not a large evaluation; it is a different
+kind of statement wearing the units of one. Subtracting it from a real
+centipawn score produces a number with no meaning, and averaging that number is
+what puts "ACPL 316" next to "Blunder 0".
+
+So the fix is better understood as *not mixing the two kinds* than as capping a
+big number. A cap is a reasonable implementation of that — Lichess's ±1000cp is
+the well-trodden one — but framing it as "clamp an outlier" invites the wrong
+question ("is 1000 the right threshold?") instead of the right one ("what
+should a move that forces mate contribute to an average of centipawn losses?").
+Whatever is chosen, both siblings should get the same answer, because they have
+the same encoding problem with different constants.
+
+katrain earns its ground-truth status here by not having the problem to solve,
+which is the most useful kind of comparison the three apps have produced: not a
+better fix, but an absent bug, traceable to an engine that never needed the
+sentinel.
+
 ### Decisions left open, and where each one lives
 
 These are judgment calls rather than unfinished work — each was investigated to
