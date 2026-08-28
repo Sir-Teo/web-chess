@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "audit": "npm audit --audit-level=moderate",
     "lint": "eslint .",
     "test": "vitest run",
     "sync:stockfish": "node scripts/sync-stockfish-assets.js",
