@@ -433,6 +433,57 @@ typecheck, tests, build); UI changes were additionally exercised in a browser.
 | 16 | katrain | OGS requests routed through a backoff queue (see below). |
 | — | chess | Review scoring moved onto winning chances (see below). |
 
+### Bugs found while doing the work
+
+Fourteen so far, across all three. Grouped by the lens that found them, because
+the lens generalises better than the individual fix.
+
+**A browser API read past its documented range.** `navigator.deviceMemory` is
+clamped by spec to at most 8, and both siblings compared `<= 8` as though it
+were a real constraint. web-chess capped threads so the eight-thread path was
+unreachable; web-xiangqi put its high tier out of reach **in Chrome only**,
+while Firefox — which does not implement the API — reached it on identical
+hardware. Both tests passed because their fixtures claimed 16 and 32 GB, which
+no browser reports. Detail in the section below.
+
+**A phrase match where a term match was meant.** `filterProGames` in
+web-katrain joined every field into one string and asked whether the query
+appeared as one run of characters, so `"sedol 2005"` found **nothing** — the
+player and the year are different fields and never adjacent. web-xiangqi had
+the same bug in both library filters (`"hu 1977"` → 0 games). web-katrain's own
+`library.ts` already tokenised correctly, so that repo was inconsistent with
+itself. All now require every whitespace-separated term.
+
+**A cap checked after the fact.** `extractUciMoveLine` tested its limit after
+pushing, returning 1025 moves against a stated cap of 1024 — and the library
+refuses a line longer than the cap, so the longest importable game was one the
+app then silently refused to save. Its sibling `extractUciMoveTree` checked
+before incrementing and was correct.
+
+**A non-finite number reaching the UI.** web-xiangqi's `WdlBar` rendered
+`Red NaN%` in the label *and* the aria-label on a malformed engine reading,
+with two segments at 100%; an all-zero triple showed a confident
+0.0%/0.0%/0.0%. web-chess already rejected exactly those three cases.
+
+**Unreachable code.** `resolveEngineBootConfig` branched on `mobileLike` inside
+its mid and high tiers, but a mobile-like device is always the low tier.
+
+**Data listed twice.** Four opening lines appear under two names each, so the
+second name can never be shown, and the duplicates inflated a move's apparent
+branching in the Book Continuations ordering. Ordering fixed; the naming is a
+terminology call left open.
+
+**Output that never appeared.** web-katrain's search benchmark reported through
+`console.log`, which Vitest's default reporter hides for a passing test — so
+the readout it exists to produce printed nothing.
+
+**Three of my own, caught by reviewing or testing my own work.** A debounced
+auto-save that depended on the evaluations map, which the engine replaces
+several times a second, so it never fired *during analysis* — the one time a
+lost tab costs real work; made in both siblings identically. A backoff that
+made an OGS sync ignore its own Stop button for up to four minutes. And "1 move
+were in progress", caught by the first component test in that repo.
+
 ### Three findings that came out of doing the work
 
 **Chess was grading every move by centipawns alone.** Accuracy ran off
@@ -553,9 +604,39 @@ to the old scope first.
 This is why the item is still open rather than done: it is a genuine piece of
 design work, not a port.
 
+### What testing bought, and where it stopped paying
+
+Test count went from 1,327 / 203 / 0 to roughly 1,430 / 300 / 226. The bug
+yield was front-loaded: the first few untested modules in each repo turned up
+real defects, and by the end new test files were mostly confirming correct
+behaviour. Two things stayed reliably productive past that point:
+
+- **Testing a module the author never tested**, especially one handling input
+  from outside the app — an engine, a paste, a stored record.
+- **Reviewing my own changes as if someone else wrote them.** Two of the three
+  bugs I introduced were found this way rather than by a test.
+
+What stopped paying was writing tests for components that were already
+carefully built. Those are worth having as regression cover, but they are not
+where the defects were.
+
 ### Not done yet
 
-Items 4, 6–15 and 17 from §4 stand as written. The next-most-valuable are
-probably 8 (break both 5,000-line `App.tsx` files into stores — do chess first,
-it has the tests to catch regressions) and 4 (device-tier boot config, where
-xiangqi's `analysisProfile.ts` is now test-covered and ready to port).
+Items 6–9, 11, 13, 14 and 17 from §4 stand as written; 4, 10, 15 and 16 are
+done, and 12 is blocked as described above. The next-most-valuable is 8 (break
+both 5,000-line `App.tsx` files into stores — do chess first, it has the tests
+to catch regressions).
+
+Two things were deliberately left alone rather than changed:
+
+- **web-xiangqi's review thresholds.** web-chess's win-percent ladder is now
+  *derived* from its centipawn ladder so the two readings agree at equality.
+  Applying the same derivation to xiangqi would change grading its users
+  already see, on the strength of a rule invented here rather than upstream.
+  The two apps therefore grade slightly differently, which the Tier 2 `review/`
+  module will have to reconcile deliberately.
+- **`EvalGraph`'s non-finite guard.** It carries evaluations forward with
+  `typeof x === 'number'`, which admits `NaN`, and one `NaN` blanks the whole
+  line rather than a point. But nothing was shown to produce one, and the loose
+  check is the dominant idiom in that repo (55 sites to 22). Recorded in
+  web-xiangqi's `docs/architecture.md` instead.
