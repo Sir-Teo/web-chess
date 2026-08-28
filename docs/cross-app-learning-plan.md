@@ -978,6 +978,37 @@ which is the most useful kind of comparison the three apps have produced: not a
 better fix, but an absent bug, traceable to an engine that never needed the
 sentinel.
 
+### What both sibling defects have in common
+
+The two real defects found in the siblings — and not in katrain — turned out to
+have the same shape, which is worth naming because it predicts where to look
+next.
+
+| | katrain | web-chess | web-xiangqi |
+| --- | --- | --- | --- |
+| Kinds of evaluation | one (`rootScoreLead`, continuous) | two (centipawns *or* a mate sentinel) | two (centipawns *or* a mate sentinel) |
+| Grading ladders | one (point loss) | two, **derived** from each other | two, **independent** |
+| Consequence | — | none | ACPL 5017; a 190cp loss at equality graded an inaccuracy |
+
+Both defects are the same failure: **two representations of one judgement, kept
+in different places, drifting apart.** A mate and a centipawn score are two ways
+of saying "how good is this position"; a centipawn ladder and a win-percent
+ladder are two ways of saying "how bad was this move". Neither pair is wrong to
+exist — but each needs one of them to be *defined in terms of* the other, or
+they will disagree and something downstream will silently pick one.
+
+katrain has neither pair, and that is most of why it reads as the polished one.
+It is not that its two representations are better synchronised; it never took on
+the second representation. web-chess has both pairs and got away with it once by
+accident of ordering — the win-percent ladder was derived from the centipawn one
+when it was added — and once not at all, until the mate sentinel was bounded.
+
+The practical rule: when a value can be expressed two ways, one expression
+should be computed from the other, and the place where they are combined
+(`qualityForMove`, `getLessSevereReviewQuality`) should be a no-op safety net
+rather than a real decision. Where it is making a real decision, nobody has
+calibrated the two.
+
 ### Decisions left open, and where each one lives
 
 These are judgment calls rather than unfinished work — each was investigated to
