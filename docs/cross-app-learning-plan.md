@@ -1194,6 +1194,36 @@ The tell is two implementations that are identical rather than merely similar.
 Similar code usually means two problems that resemble each other. Identical code
 written independently means one problem with no home.
 
+### Which shared module is actually shareable, measured
+
+§5 proposes a Tier 2 extraction and says to keep it deliberately small. Having
+now ported four modules into both siblings, there is a measurement rather than
+an intuition. Comparing each pair after normalising indentation, semicolons and
+blank lines:
+
+| module | lines | lines differing |
+| --- | --- | --- |
+| `storage.ts` | 48 | **12** — all of them the doc comment |
+| `autoSave.ts` | 81 | 58 |
+| `narrativeTags.ts` | 125 | 90 |
+| `gamePhase.ts` | 62 | 96 |
+
+Only `storage.ts` is genuinely the same module twice; its entire difference is
+two paragraphs of prose, one pointing at `reportedCentipawnLoss` and the other
+at `clampWinPercentLoss`. Every line of code is identical.
+
+The other three share a *name* and almost no implementation, and that is
+correct: `narrativeTags` talks about red and black rather than white and black,
+`gamePhase` reads a FEN string in one repo and a board array in the other, and
+`autoSave` stores a PGN against a move tree. They were adapted, not copied — the
+shared names make them look like duplication in a grep, and they are not.
+
+So the Tier 2 candidate is not the review layer, which is where the plan
+originally pointed. It is the domain-free infrastructure: **storage access, and
+anything else with no board in it.** A module that mentions a piece, a colour or
+a coordinate is a module that will diverge, and extracting it buys a shared
+signature and three parameters to reconcile the difference.
+
 ### Decisions left open, and where each one lives
 
 These are judgment calls rather than unfinished work — each was investigated to
