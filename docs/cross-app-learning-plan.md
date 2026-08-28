@@ -117,9 +117,9 @@ locally in xiangqi while chess keeps it in `components/aiSpeed.ts`.
 | --- | --- | --- |
 | **UCI command queue** | `hooks/useStockfishEngine.ts`, `engine/uci.ts` | **xiangqi.** Replaces ad-hoc `postMessage` sequencing in `useEngine.ts`; brings completion detection, option parsing, and search-timeout stop handling (`shouldStopTimedOutSearchCommand`). |
 | **Declarative engine profiles** | `engine/profiles.ts` | **xiangqi + katrain.** A profile list with `requiresIsolation`, `source: local\|cdn`, and `EngineCapabilities` beats xiangqi's scattered variant strings and katrain's `backendFallback` ad-hockery. |
-| **Rate-limited external-API layer** | `engine/lichessQueue.ts`, `cloudEval.ts`, `cloudEvalPolicy.ts`, `tablebase.ts`, `openingExplorer.ts`, `storageCache.ts` | **katrain.** `utils/ogs.ts` / `ogsSync.ts` fetch without a shared queue, cache, or degradation policy. |
-| **Colocated unit tests** | 31 `*.test.ts` sitting beside nearly every `engine/` module | **xiangqi.** Near-1:1 module-to-test ratio on pure logic is the single most copyable habit in these repos. |
-| **Deploy gate order** | `.github/workflows/deploy.yml`: audit → lint → test → build → deploy | **katrain.** Its `deploy-pages.yml` runs `npm ci` then `npm run build`. 250 test files never execute in CI. |
+| **Rate-limited external-API layer** ✅ *(partly)* | `engine/lichessQueue.ts`, `cloudEval.ts`, `cloudEvalPolicy.ts`, `tablebase.ts`, `openingExplorer.ts`, `storageCache.ts` | **katrain.** Done: `utils/ogsQueue.ts` serialises every OGS request behind a shared backoff, so a sync walking dozens of games slows down under throttling instead of filing the 429s as failed downloads, and Stop lands while a sync is sleeping. The caching and degradation-policy halves are not ported. |
+| **Colocated unit tests** ✅ | 52 `*.test.ts` sitting beside nearly every `engine/` module | **xiangqi.** Done: 0 unit tests to 339 across 29 files. Still the single most copyable habit in these repos. |
+| **Deploy gate order** ✅ | `.github/workflows/deploy.yml`: audit → lint → test → build → deploy | **katrain.** Done: `deploy-pages.yml` now runs audit → lint → test → test:typecheck → build, so its 1,428 tests gate the deploy. All three also gained `npm run verify`, one command running the same gates locally. |
 | **Position editor** | `engine/positionSetup.ts` | **xiangqi.** No FEN/position editor today. |
 | **Board accessibility model** | `engine/boardAccessibility.ts` (+ tests) | **xiangqi.** Tested, portable square-description logic. |
 
