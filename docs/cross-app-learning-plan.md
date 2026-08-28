@@ -730,10 +730,15 @@ reaches an endgame, and correctly: the final position is queen, rook, knight
 and bishop against rook and bishop, which is 28 — two points the wrong side of
 the threshold.
 
-The xiangqi half could not be driven end-to-end here, because Pikafish never
-finished loading in the automation browser (it went to "Recovering engine", the
-degradation path). Its wiring is covered by tests and its stylesheet was
-checked against the live layout.
+The xiangqi half could not be driven end-to-end in a browser, because Pikafish
+never finished loading there (it went to "Recovering engine", the degradation
+path). Its stylesheet was checked against the live layout, and the part the
+browser would have proved is covered by a test instead: the panel derives its
+breakdown from the move records rather than from the stored summary, so it only
+works if a review actually writes `winPercentLoss` onto those records.
+`reviewPhaseChain.test.ts` computes a review, writes the annotations back the
+way `setNodeReviewDataBulk` does, and reads the breakdown off the records — the
+one link that was otherwise only traced by reading.
 
 ### The donation that ran backwards (library paging)
 
