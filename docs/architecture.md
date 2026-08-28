@@ -319,6 +319,35 @@ Not changed: it alters stored user settings and wants a decision about whether
 existing values are preferences or fossils. Recorded because it silently caps
 what a change to the sizing logic can achieve.
 
+## The share hash is unbounded, and that is fine
+
+`parseFenShareHash` puts no length limit on the URL hash, which looks like an
+omission next to web-xiangqi, whose `shareTree.ts` bounds its share parameter to
+8,000 characters before decoding. It reads like a missing guard, and it runs at
+startup — `loadSharedFenFromUrl` is called from a `useMemo` during the first
+render, so a slow parse would delay first paint on a link someone clicked.
+
+Measured rather than assumed:
+
+| hash size | parse | validate |
+| --- | --- | --- |
+| 10,000 | 0.3ms | 0.1ms |
+| 100,000 | 1.0ms | 0.0ms |
+| 1,000,000 | 4.1ms | 0.0ms |
+| 5,000,000 | 32.4ms | 0.1ms |
+| 4,000,000 of alternating whitespace | 121.0ms | — |
+
+Nothing here is quadratic. `normalizeFenForShare`'s `\s+` collapse is linear
+even on input that is half whitespace, and `validateFenForAnalysis` rejects on
+the rank count before doing any real work, which is why validation is flat at
+0ms regardless of size.
+
+So the asymmetry with xiangqi is real but not a defect: xiangqi needs its bound
+because it base64-decodes and JSON-parses its parameter, which is work
+proportional to the input. Here the input is rejected before anything expensive
+happens. Recorded so the next reader who spots the missing limit does not have to
+re-derive this, or add a bound that buys nothing.
+
 ## Project Invariants
 
 - Engine scores are POV side-to-move; after a move the perspective flips.
