@@ -809,10 +809,10 @@ change in chess an hour earlier:
   "Select all" over 1,200 matches still reports "1200 selected" with 100
   rendered, which is what it did before.
 
-Children of an expanded folder are still rendered in full. Only the folder root
-and the search results are paged, because a per-folder limit needs per-folder
-state and a shared one would make expanding a folder raise the limit
-everywhere.
+Expanded folders are paged too, each keeping its own count keyed by folder id —
+a single shared limit would have made revealing more in one folder silently
+reveal more in all of them. Measured with a folder of 250 games: expanding it
+went from 289 rows to 139.
 
 The general lesson is the one this document keeps arriving at from different
 directions: *the most polished app is not uniformly the most correct one.*
@@ -876,12 +876,6 @@ Three things were deliberately left alone rather than changed:
   line rather than a point. But nothing was shown to produce one, and the loose
   check is the dominant idiom in that repo (55 sites to 22). Recorded in
   web-xiangqi's `docs/architecture.md` instead.
-
-- **Children of an expanded katrain folder.** The folder root and the search
-  results are paged; a folder's own children are not, because a per-folder
-  limit needs per-folder state and a shared one would make expanding one folder
-  raise the limit everywhere. A library that puts a thousand SGFs inside one
-  folder still mounts them all.
 
 ### One gap in the local checks, closed
 
