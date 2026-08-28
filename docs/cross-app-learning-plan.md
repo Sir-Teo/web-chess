@@ -745,6 +745,15 @@ which is the shape that panel already used for side and quality. In both, the
 breakdown itself deliberately reads the *unfiltered* rows so every phase stays
 visible and switchable — the same split katrain makes.
 
+The clickable rows did *not* flow back to katrain, and deliberately. Its report
+already has a first-class phase filter — a four-button grid at the top carrying
+per-phase move counts and disabling a phase with nothing in it — and its
+accuracy table further down is a separate read-only summary. The siblings
+combine the two because they had no filter control at all; adding a second way
+to set the same state in katrain would mean two controls with different
+affordances (the table rows carry no counts and no disabled state) for one
+piece of state. That is a downgrade, not parity, so the ground-truth rule holds.
+
 Neither app persists the phase. Chess recomputes it per row; xiangqi looks it up
 per move index. That was deliberate: putting it on the stored summary would have
 meant a migration in the library's normalizer for something that is derived.
