@@ -748,6 +748,38 @@ works if a review actually writes `winPercentLoss` onto those records.
 way `setNodeReviewDataBulk` does, and reads the breakdown off the records — the
 one link that was otherwise only traced by reading.
 
+### The same bug a third time, left unfixed on purpose
+
+Having found the ply-counting bug in both ports, the obvious question was
+whether katrain has it. It does, in its own form — but fixing it is a judgment
+call about Go, not a defect to clean up, so it is recorded here rather than
+changed.
+
+`buildGameReport` takes each move's number from `n.gameState.moveHistory.length`,
+and the SGF loader writes `AB`/`AW` setup stones straight into the initial board
+without ever putting them in the move stream (`sgf.ts`, `applyPlacement`). Only
+`B`/`W` properties become moves. So for an SGF that opens on a set-up position,
+the first played move is move 1, and on 19x19 anything up to move 50 is
+"Opening" — including the first move of a 150-stone mid-game diagram.
+
+What makes this a decision rather than a fix is that the two cases pull in
+opposite directions:
+
+- **Handicap games** carry 2–9 setup stones, and move 1 genuinely *is* move 1.
+  Counting the stones toward the move number would shift the phases wrongly.
+- **Mid-game diagrams** carry a hundred or more, and calling the play that
+  follows an opening is plainly wrong.
+
+Counting `setupStoneCount` fixes the second and breaks the first. A threshold
+("count them only above N") would work but is a Go convention question, and the
+standing rule for this work is to deviate from katrain only for a *real*
+improvement. This is not clearly one.
+
+Worth noting how narrow the blast radius is: it only affects the game report's
+phase filter, only for SGFs that begin from a set-up position, and the report is
+over the played moves either way — so the numbers are right and only their
+grouping is off. That is a large part of why it was left alone.
+
 ### The donation that ran backwards (library paging)
 
 Everything else this document proposes flows out of katrain. One thing flowed
