@@ -54,13 +54,14 @@ picking it up:
 | Domain | Go (KataGo) | Chess (Stockfish) | Xiangqi (Pikafish) |
 | `src` files | 229 | 82 | 31 |
 | `src` LOC | 65,767 | 16,425 | 13,285 |
-| Test files | 250 files / 1,327 tests | ✅ 35 files / 261 tests | ✅ 4 files / 75 tests (was **0 unit**) |
+| Test files | 257 files / 1,428 tests (survey: 250 / 1,327) | ✅ 52 files / 426 tests (survey: 35 / 261) | ✅ 29 files / 339 tests (survey: **0 unit**) |
 | Commits | 1,213 | 626 | 493 |
 | Biggest file | `store/gameStore.ts` (5,217) | `App.tsx` (**5,310**) | `App.tsx` (**4,950**) |
 | State | Zustand store + selectors | `useState` in `App.tsx` | `useState` in `App.tsx` |
 | Engine | KataGo weights + **MCTS written in TS** (TFJS WebGPU→WASM→CPU) | prebuilt `stockfish` npm worker | **Pikafish built from source** (patch + emsdk) |
 | Engine transport | custom worker protocol | UCI | UCI |
 | Saved games | IndexedDB, folders, tags, favorites, zip backup | ✅ IndexedDB + JSON backup (was **none**) | flat localStorage, 500-game / 3 MB cap |
+| Library rendering | ✅ paged at 100 (was **every row, uncapped**) | ✅ paged at 100 (was all 500) | paged at 100 already |
 | PWA / offline | manifest + real `sw.js` + install banner + update checks | `coi-serviceworker` only | actively **unregisters** SWs |
 | CI gates | ✅ audit → lint → test → typecheck → build (was **build only**) | audit → lint → test → build | ✅ + `npm test`, then WASM build → smoke → parity → Playwright |
 | Style | semicolons, 2-space | **no semicolons**, 2-space | semicolons, **4-space** |
