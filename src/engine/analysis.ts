@@ -127,12 +127,73 @@ export function uciToSan(fen: string, uci: string): string | null {
   }
 }
 
-function qualityFromDelta(deltaCp: number): ReviewLabel {
-  if (deltaCp >= -20) return 'best'
-  if (deltaCp >= -70) return 'good'
-  if (deltaCp >= -140) return 'inaccuracy'
-  if (deltaCp >= -260) return 'mistake'
+// Lichess's win-percentage model: the chance the side the score belongs to
+// goes on to win. https://lichess.org/page/accuracy
+const WIN_PERCENT_CP_LIMIT = 2000
+const WIN_PERCENT_CP_SLOPE = 0.00368208
+
+export function winPercentFromCp(cp: number): number {
+  const limited = Math.max(-WIN_PERCENT_CP_LIMIT, Math.min(WIN_PERCENT_CP_LIMIT, cp))
+  const raw = 50 + 50 * (2 / (1 + Math.exp(-WIN_PERCENT_CP_SLOPE * limited)) - 1)
+  return Math.max(0, Math.min(100, raw))
+}
+
+type GradedLabel = Exclude<ReviewLabel, 'pending'>
+
+const CP_LOSS_THRESHOLDS = {
+  best: 20,
+  good: 70,
+  inaccuracy: 140,
+  mistake: 260,
+} as const
+
+function qualityFromDelta(deltaCp: number): GradedLabel {
+  if (deltaCp >= -CP_LOSS_THRESHOLDS.best) return 'best'
+  if (deltaCp >= -CP_LOSS_THRESHOLDS.good) return 'good'
+  if (deltaCp >= -CP_LOSS_THRESHOLDS.inaccuracy) return 'inaccuracy'
+  if (deltaCp >= -CP_LOSS_THRESHOLDS.mistake) return 'mistake'
   return 'blunder'
+}
+
+/**
+ * The same ladder in percentage points of winning chances, measured from a
+ * balanced position. Deriving it from the centipawn rungs rather than picking
+ * round numbers means the two readings agree at equality and part company only
+ * as the position becomes lopsided — which is the only place we want the
+ * practical reading to take over.
+ */
+const WIN_PERCENT_LOSS_THRESHOLDS = {
+  best: winPercentFromCp(0) - winPercentFromCp(-CP_LOSS_THRESHOLDS.best),
+  good: winPercentFromCp(0) - winPercentFromCp(-CP_LOSS_THRESHOLDS.good),
+  inaccuracy: winPercentFromCp(0) - winPercentFromCp(-CP_LOSS_THRESHOLDS.inaccuracy),
+  mistake: winPercentFromCp(0) - winPercentFromCp(-CP_LOSS_THRESHOLDS.mistake),
+} as const
+
+const LABEL_SEVERITY: Record<GradedLabel, number> = {
+  best: 0,
+  good: 1,
+  inaccuracy: 2,
+  mistake: 3,
+  blunder: 4,
+}
+
+function qualityFromWinPercentLoss(loss: number): GradedLabel {
+  if (loss <= WIN_PERCENT_LOSS_THRESHOLDS.best) return 'best'
+  if (loss <= WIN_PERCENT_LOSS_THRESHOLDS.good) return 'good'
+  if (loss <= WIN_PERCENT_LOSS_THRESHOLDS.inaccuracy) return 'inaccuracy'
+  if (loss <= WIN_PERCENT_LOSS_THRESHOLDS.mistake) return 'mistake'
+  return 'blunder'
+}
+
+/**
+ * The milder of the raw and practical readings, so a game that is already
+ * decided stops calling every imprecision a blunder.
+ */
+function qualityForMove(deltaCp: number, winPercentLoss: number): GradedLabel {
+  const raw = qualityFromDelta(deltaCp)
+  if (!isFiniteNumber(winPercentLoss)) return raw
+  const practical = qualityFromWinPercentLoss(winPercentLoss)
+  return LABEL_SEVERITY[practical] <= LABEL_SEVERITY[raw] ? practical : raw
 }
 
 function isShallowEvaluation(snapshot: EvalSnapshot): boolean {
@@ -343,7 +404,7 @@ export function buildReviewRows(
       winPercentLoss,
       evalDepth,
       confidence,
-      quality: shallow ? 'pending' : qualityFromDelta(deltaCp),
+      quality: shallow ? 'pending' : qualityForMove(deltaCp, winPercentLoss),
     })
   }
 
@@ -371,17 +432,6 @@ export function accuracyFromCentipawnLoss(deltaCp: number): number {
   const loss = Math.max(0, -deltaCp)
   const accuracy = 100 * Math.exp(-loss / 300)
   return Math.max(0, Math.min(100, accuracy))
-}
-
-// Lichess's win-percentage model: the chance the side the score belongs to
-// goes on to win. https://lichess.org/page/accuracy
-const WIN_PERCENT_CP_LIMIT = 2000
-const WIN_PERCENT_CP_SLOPE = 0.00368208
-
-export function winPercentFromCp(cp: number): number {
-  const limited = Math.max(-WIN_PERCENT_CP_LIMIT, Math.min(WIN_PERCENT_CP_LIMIT, cp))
-  const raw = 50 + 50 * (2 / (1 + Math.exp(-WIN_PERCENT_CP_SLOPE * limited)) - 1)
-  return Math.max(0, Math.min(100, raw))
 }
 
 // Lichess's published accuracy curve, over winning chances rather than

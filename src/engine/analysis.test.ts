@@ -524,6 +524,20 @@ describe('position-aware move accuracy', () => {
     expect(won).toBeGreaterThan(95)
   })
 
+  it('stops calling an imprecision in a won game a blunder', () => {
+    // -300cp is a blunder on the raw scale in both positions.
+    expect(reviewRowsForOneMove(0, 300)[0]).toMatchObject({ quality: 'blunder' })
+    // From +18 it costs 0.3 percentage points, so it is graded on that instead.
+    expect(reviewRowsForOneMove(1800, -1500)[0]).toMatchObject({ quality: 'best' })
+  })
+
+  it('never grades a move harsher than the raw centipawn reading', () => {
+    // Losing a whole game from equality: both readings agree it is a blunder.
+    expect(reviewRowsForOneMove(0, 900)[0]).toMatchObject({ quality: 'blunder' })
+    // A tiny slip stays 'best' rather than being dragged down by win percent.
+    expect(reviewRowsForOneMove(0, 5)[0]).toMatchObject({ quality: 'best' })
+  })
+
   it('falls back to the centipawn curve for rows built without a win-percent loss', () => {
     const legacyRow = {
       ply: 1,
