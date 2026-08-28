@@ -373,13 +373,16 @@ practice: persist the user's thread/hash choices per device (lichess stores
 
 ### 8.5 Platform practice checks
 
-- **Large-model caching (katrain):** Chrome's guidance for browser AI models
-  recommends the **Cache API** first; OPFS writes a 100 MB buffer ~10× faster
-  than IndexedDB (~90 ms vs ~850 ms), because IndexedDB structured-clones
-  large ArrayBuffers. Katrain stores uploaded models in IndexedDB
-  (`modelUpload.ts`) and caches the default model via its service worker.
-  When touching that code: move user-uploaded weights to Cache API or OPFS;
-  keep IndexedDB for the library metadata it is good at.
+- **Large-model caching (katrain) — checked, no action needed.** Chrome's
+  guidance for browser AI models recommends the **Cache API** first, and OPFS
+  writes a 100 MB buffer ~10× faster than IndexedDB (~90 ms vs ~850 ms).
+  That gap is specifically about **ArrayBuffers**, which IndexedDB
+  structured-clones byte by byte. `modelUpload.ts` stores a **Blob**, and
+  IndexedDB keeps Blobs by reference in the browser's blob store rather than
+  serializing them — which is the recommended way to put large binary data in
+  IDB. So the benchmark does not transfer and there is nothing to fix here.
+  The rule to carry forward: only reach for Cache API or OPFS if a call site
+  is holding an ArrayBuffer.
 - **Service worker for chess/xiangqi (§4 item 12):** if adopting
   `vite-plugin-pwa`/Workbox rather than porting katrain's hand-rolled `sw.js`,
   note Workbox's 2 MiB `maximumFileSizeToCacheInBytes` default — engine
