@@ -1003,11 +1003,26 @@ the second representation. web-chess has both pairs and got away with it once by
 accident of ordering — the win-percent ladder was derived from the centipawn one
 when it was added — and once not at all, until the mate sentinel was bounded.
 
-The practical rule: when a value can be expressed two ways, one expression
-should be computed from the other, and the place where they are combined
-(`qualityForMove`, `getLessSevereReviewQuality`) should be a no-op safety net
-rather than a real decision. Where it is making a real decision, nobody has
-calibrated the two.
+Applying that to all three sharpened it, because katrain *does* carry two
+accuracy numbers — and correctly. It has `accuracy` (`100 * 0.75^weightedPtLoss`,
+from points lost) and `policyAccuracy` (averaged from a policy-rank category).
+Two numbers, but answering two different questions — "how much did you give
+away" and "how far from what the engine would have played" — each kept under its
+own name, and neither ever silently standing in for the other.
+
+So the rule is not "avoid two numbers". It is:
+
+> When two numbers answer the **same** question, one must be computed from the
+> other, and the place they meet should be a no-op safety net. When they answer
+> **different** questions, keep both, name both, and never let one substitute
+> for the other.
+
+Every defect found in the siblings is the first clause violated. `qualityForMove`
+survives it because its two ladders are derived. `classifyMoveQualityForEval`
+does not, and re-grades moves at equality. `accuracyForRow` does not either, and
+is only safe because its second branch has no live caller. katrain never trips
+the first clause and observes the second by construction — which is a better
+account of "the most polished" than any individual technique it uses.
 
 ### Decisions left open, and where each one lives
 
