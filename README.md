@@ -24,10 +24,23 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 
 ## Quality Gates
 
-Run the same checks used by CI:
+Run every check with one command:
 
 ```bash
-npm run audit
+npm run verify
+```
+
+That is typecheck → lint → tests → build, chained so the first failure stops it.
+Prefer it to running the parts by hand: `npm run typecheck | tail -2 && npm run
+lint` reports `tail`'s exit code rather than the compiler's, so a real failure
+reads as success. Note also that `npm test` typechecks nothing — Vitest
+transpiles without checking, so a test can pass while failing to compile.
+
+The parts, and the one thing `verify` leaves out:
+
+```bash
+npm run audit   # not in verify, so verify works offline
+npm run typecheck
 npm run lint
 npm test
 npm run build
