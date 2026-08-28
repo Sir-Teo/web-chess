@@ -5,6 +5,7 @@ import {
   resetLichessFetchQueueForTests,
   parseRetryAfterMs,
   LICHESS_MAX_COOLDOWN_MS,
+  getLichessBackoffRemainingMs,
 } from './lichessQueue'
 
 function deferredResponse() {
@@ -147,5 +148,16 @@ describe('honouring Retry-After on a 429', () => {
       if (header === '1' || header === '30') continue
       expect(waited).toBeGreaterThanOrEqual(LICHESS_RATE_LIMIT_COOLDOWN_MS)
     }
+  })
+})
+
+describe('reporting how long the backoff has left', () => {
+  it('is nothing when no throttle is in effect', () => {
+    expect(getLichessBackoffRemainingMs()).toBe(0)
+  })
+
+  it('never reports a negative wait once the backoff has passed', () => {
+    // Copy that says "try again in -3s" is worse than saying nothing.
+    expect(getLichessBackoffRemainingMs(Date.now() + 10_000_000)).toBe(0)
   })
 })

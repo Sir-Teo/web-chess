@@ -71,6 +71,14 @@ function recordRateLimit(response: Response) {
   lichessBackoffUntilMs = Math.max(lichessBackoffUntilMs, now + waitMs)
 }
 
+/**
+ * How long the shared backoff still has to run, for copy that would otherwise
+ * have to guess. Mirrors web-katrain's `getOgsBackoffRemainingMs`.
+ */
+export function getLichessBackoffRemainingMs(now = Date.now()): number {
+  return Math.max(0, lichessBackoffUntilMs - now)
+}
+
 export function fetchLichessResource(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const signal = init.signal
   const run = async () => {
