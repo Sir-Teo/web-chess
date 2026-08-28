@@ -159,23 +159,40 @@ Ordered by (value ÷ effort), highest first.
 
 | # | Move | Repo | Source | Effort |
 | --- | --- | --- | --- | --- |
-| 1 | Run lint + the 250 existing tests in CI before deploying | katrain | chess `deploy.yml` | trivial |
-| 2 | Add Vitest + colocate unit tests for `review.ts`, `xiangqi.ts`, `moveNotation.ts`, `gameLibrary.ts`, `openings.ts` | xiangqi | chess's `engine/*.test.ts` habit | small, compounding |
-| 3 | Ship a game library (IndexedDB, folders, zip) | chess | katrain `utils/library.ts` | medium, **unblocks a missing core feature** |
+| 1 ✅ | Run lint + the tests in CI before deploying | katrain | chess `deploy.yml` | trivial |
+| 2 ✅ | Add Vitest + colocate unit tests (0 → 339) | xiangqi | chess's `engine/*.test.ts` habit | small, compounding |
+| 3 ✅ *(no folders/zip)* | Ship a game library (IndexedDB, folders, zip) | chess | katrain `utils/library.ts` | medium, **unblocks a missing core feature** |
 | 4 | Adopt device-tier boot + live-analysis policy | chess, katrain | xiangqi `analysisProfile.ts` | small |
-| 5 | Auto-save + crash recovery | chess, xiangqi | katrain `utils/autoSave.ts` | small |
+| 5 ✅ | Auto-save + crash recovery | chess, xiangqi | katrain `utils/autoSave.ts` | small |
 | 6 | Put the UCI queue behind one implementation | xiangqi | chess `useStockfishEngine.ts` | medium |
 | 7 | Analysis queue with position-key caching | chess, xiangqi | katrain `utils/analysisQueue.ts` | medium |
 | 8 | Break `App.tsx` into a store | chess, xiangqi | katrain `store/gameStore.ts` pattern | large, **highest long-term payoff** |
-| 9 | Phase-aware game report + narrative tags | chess, xiangqi | katrain `gameReport.ts` + `narrativeTags.ts` | medium |
-| 10 | NPS benchmark with regression thresholds | katrain | xiangqi `bench-nps.cjs` | small |
+| 9 ✅ | Phase-aware game report + narrative tags | chess, xiangqi | katrain `gameReport.ts` + `narrativeTags.ts` | medium |
+| 10 ✅ *(not in CI)* | NPS benchmark with regression thresholds | katrain | xiangqi `bench-nps.cjs` | small |
 | 11 | Command palette + shortcut registry + keyboard help | chess, xiangqi | katrain `utils/commandPalette.ts` | medium |
 | 12 | Real service worker, manifest, install banner, update check | chess, xiangqi | katrain `public/sw.js` + `utils/pwa.ts` | medium |
 | 13 | Playwright layout + worker-parity checks | chess, katrain | xiangqi `scripts/test-*.cjs` | medium |
 | 14 | Themes, sound, haptics | chess, xiangqi | katrain `utils/{boardThemes,uiThemes,sound,haptics}.ts` | medium |
-| 15 | `docs/architecture.md` + `docs/engine.md` per repo | chess, xiangqi | katrain `docs/` | small |
-| 16 | Rate-limited external-API queue for OGS sync | katrain | chess `lichessQueue.ts` | small |
+| 15 ✅ *(architecture only)* | `docs/architecture.md` + `docs/engine.md` per repo | chess, xiangqi | katrain `docs/` | small |
+| 16 ✅ | Rate-limited external-API queue for OGS sync | katrain | chess `lichessQueue.ts` | small |
 | 17 | Study modes (lessons, quiz, problems, ladder, personas) | chess, xiangqi | katrain `data/` + `utils/` | large |
+
+> **What the work since suggests about the rest.** This ranking was built from
+> a survey. Having now done eight of the seventeen, the evidence points
+> elsewhere for what is next.
+>
+> Item 8 (break `App.tsx` into a store) is still listed as the highest long-term
+> payoff, and it may be — but nothing found this way turned out to be caused by
+> file size. `App.tsx` holds 44 helpers in chess and 53 in xiangqi, and 31 and 27
+> of those are six lines or fewer. The defects found were two representations of
+> one judgement, and stored conclusions that stopped tracking their source;
+> neither gets fixed by moving state into a store.
+>
+> On the evidence, the higher-value work is the measured items in "Decisions
+> left open" — reconciling xiangqi's two grading ladders, and deciding whether a
+> review summary should be stored at all or rebuilt from the annotations beside
+> it. Both are small, both are pinned by tests already, and both remove a class
+> of bug rather than an instance.
 
 ---
 
