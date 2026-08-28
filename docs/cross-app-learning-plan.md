@@ -1072,6 +1072,22 @@ The rule generalises past this codebase: **persist what you were told, derive
 what you concluded.** A stored conclusion is a copy of your code's behaviour at
 the moment it was written, and it does not get updated when the code does.
 
+### Where the open questions ended up
+
+Worth noticing that almost every open decision below is in web-xiangqi, and that
+is not because it was looked at hardest — chess got the most changes, and
+katrain the most scrutiny per line. It is because xiangqi is where the same few
+patterns keep landing: a second representation of one judgement (two grading
+ladders, two device tests), and a stored conclusion rather than the evidence for
+it (the review summary).
+
+katrain has neither pattern anywhere it was checked. chess has both but got away
+with them — its second ladder is derived, its second accuracy curve is
+unreachable, and it persists nothing derived at all.
+
+That is a more useful summary of "which app needs work" than a defect count, and
+it says where to look first next time.
+
 ### Decisions left open, and where each one lives
 
 These are judgment calls rather than unfinished work — each was investigated to
@@ -1083,6 +1099,7 @@ here because they ended up scattered across three repos' docs.
 | Should katrain count setup stones toward the move number? | this doc, "The same bug a third time" | Handicap games (2–9 stones) and mid-game diagrams (100+) want opposite treatment. A threshold would work; picking it is a Go convention call. Affects only the report's phase grouping, never its numbers. |
 | Should either eval/winrate graph break its line at a gap? | `web-chess/docs/architecture.md`, `web-xiangqi/docs/architecture.md` | katrain's `buildPath` is the pattern. In chess this is cosmetic (it drops the point, so only the stroke spans it) and the area fill shares the path string. In xiangqi it is two failures at once — the stroke carries a value forward *and* one `NaN` takes out the axis — so both halves are one change or neither. |
 | Should xiangqi's two grading ladders be reconciled? | `web-xiangqi/docs/architecture.md` | Now measured, not assumed. Its centipawn and win-percent ladders are independent constants and they cross: 180cp really costs 15.99 win% against a threshold of 20, so a 190–200cp loss **at equality** grades as an inaccuracy though its own centipawn ladder calls it a mistake. chess derives one ladder from the other, which is why its milder-of-two is a no-op. Either derive, or set both so they meet at equality. Untouched because it moves grades users have seen — and because xiangqi persists a whole review summary, so any change strands saved records on the old scale while the library sorts and averages across both. `gradingLadders.test.ts` reports which grades move when either ladder is edited. |
+| Should xiangqi's engine size itself off the device rather than the window? | `web-xiangqi/docs/architecture.md` | `useEngine` picks thread count and hash size from `window.innerWidth <= 900`; `detectDeviceTier` answers the same question from viewport, pointer, cores and memory and is already computed at startup. A desktop in an 800x900 window with 8 cores and 8GB is cut to one thread while the app's own tier calls it mid. chess never consults the viewport for this. Left alone because it is runtime resource policy and Pikafish would not load here to observe it. |
 | What are the four duplicated xiangqi opening lines actually called? | task chip `task_bda45f65` | The ordering bug behind the inflated branch counts is fixed; only the naming is left, and it is a terminology call. |
 | Does xiangqi's phase panel look right against a live review? | — | Never seen rendering from a real engine review; Pikafish would not load in the automation browser. The chain is covered by `reviewPhaseChain.test.ts` and the stylesheet was checked against the live layout. |
 
