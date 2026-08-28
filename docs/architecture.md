@@ -122,6 +122,24 @@ after a 429. Tokens are session-only and never persisted.
   `engine/positionSetup.ts`.
 - Share links: `engine/shareLink.ts` (FEN in the URL hash).
 
+## Known Fragility: board measurement
+
+`react-chessboard` measures its own container and throws `Square width not
+found` from `<Piece2>` if it renders before that container has been laid out.
+`AppErrorBoundary` catches it and the board recovers, so the symptom is
+console noise rather than a broken board.
+
+It does **not** reproduce in a production build. It does reproduce in `npm run
+dev`, and it is sensitive to nothing more than module-graph timing: adding a
+single new import to `App.tsx` was enough to surface it, and removing the JSX
+that import fed did not make it go away. So treat it as latent rather than
+caused by whatever change happens to reveal it.
+
+If it ever shows up in production, the fix is to hold `<Chessboard>` back
+until its container reports a non-zero width — `useElementWidth` already
+exists for exactly that kind of measurement — rather than to chase whichever
+commit made it appear.
+
 ## Project Invariants
 
 - Engine scores are POV side-to-move; after a move the perspective flips.
