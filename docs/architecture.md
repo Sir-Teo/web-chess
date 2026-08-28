@@ -150,6 +150,28 @@ Worth a guard only if the app should survive being rendered in a hidden tab or
 a `display: none` iframe — hold `<Chessboard>` back until its container reports
 a non-zero width, for which `useElementWidth` already exists.
 
+## The winrate line draws across gaps it does not have data for
+
+`buildWinrateSeries` skips a ply whose position has no evaluation
+(`if (!isFiniteNumber(cp)) continue`), and the trend graph then joins the
+remaining points with one continuous path, positioning each by its real `index`.
+A skipped ply is therefore drawn as a straight segment spanning it — a line
+where there is no evaluation.
+
+The full picture only shows this after a completed review, where every position
+is evaluated and there are no gaps. It is visible during a partial analysis,
+which is exactly when someone is watching the graph fill in.
+
+Not changed, for two reasons: interpolating a trend line across a missing sample
+is a defensible reading rather than plainly wrong, and the `area` fill is built
+by closing the same path string, so breaking the stroke into subpaths needs the
+fill reworked with it and a look at the result. web-katrain's `buildPath` is the
+pattern if it is ever done — it sets `started = false` on a gap so the stroke
+stops and restarts, and it filters non-finite values before taking min/max for
+the axis, since one bad value there poisons the whole scale rather than one
+point. This repo is safe from the scale half already, because the skip happens
+at the source and the series only ever holds finite numbers.
+
 ## Project Invariants
 
 - Engine scores are POV side-to-move; after a move the perspective flips.
