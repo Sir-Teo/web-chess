@@ -30,6 +30,8 @@ export type ReviewRow = {
   bestMove?: string
   bestMoveSan?: string
   deltaCp?: number
+  /** Winning chances the mover gave up, in percentage points. Position-aware. */
+  winPercentLoss?: number
   evalDepth?: number
   confidence: 'pending' | 'shallow' | 'standard' | 'deep'
 }
@@ -318,6 +320,9 @@ export function buildReviewRows(
 
     // Engine score is POV side-to-move. After the move, perspective flips.
     const deltaCp = Math.round(-after - before)
+    // Both readings are from the mover's point of view, so the drop in winning
+    // chances is what that player actually gave up.
+    const winPercentLoss = Math.max(0, winPercentFromCp(before) - winPercentFromCp(-after))
     const evalDepth = minDepth(beforeSnapshot, afterSnapshot)
     const shallow = isShallowEvaluation(beforeSnapshot) || isShallowEvaluation(afterSnapshot)
     const confidence = shallow
@@ -335,6 +340,7 @@ export function buildReviewRows(
       bestMove,
       bestMoveSan,
       deltaCp,
+      winPercentLoss,
       evalDepth,
       confidence,
       quality: shallow ? 'pending' : qualityFromDelta(deltaCp),
@@ -367,6 +373,37 @@ export function accuracyFromCentipawnLoss(deltaCp: number): number {
   return Math.max(0, Math.min(100, accuracy))
 }
 
+// Lichess's win-percentage model: the chance the side the score belongs to
+// goes on to win. https://lichess.org/page/accuracy
+const WIN_PERCENT_CP_LIMIT = 2000
+const WIN_PERCENT_CP_SLOPE = 0.00368208
+
+export function winPercentFromCp(cp: number): number {
+  const limited = Math.max(-WIN_PERCENT_CP_LIMIT, Math.min(WIN_PERCENT_CP_LIMIT, cp))
+  const raw = 50 + 50 * (2 / (1 + Math.exp(-WIN_PERCENT_CP_SLOPE * limited)) - 1)
+  return Math.max(0, Math.min(100, raw))
+}
+
+// Lichess's published accuracy curve, over winning chances rather than
+// centipawns: https://lichess.org/page/accuracy
+const MOVE_ACCURACY_SCALE = 103.1668
+const MOVE_ACCURACY_DECAY = 0.04354
+const MOVE_ACCURACY_OFFSET = 3.1669
+
+export function accuracyFromWinPercentLoss(winPercentLoss: number): number {
+  if (!isFiniteNumber(winPercentLoss)) return 0
+  const loss = Math.max(0, Math.min(100, winPercentLoss))
+  const accuracy = MOVE_ACCURACY_SCALE * Math.exp(-MOVE_ACCURACY_DECAY * loss) - MOVE_ACCURACY_OFFSET
+  return Math.max(0, Math.min(100, accuracy))
+}
+
+/** Prefers the position-aware reading, and falls back for rows built without one. */
+function accuracyForRow(row: ReviewRow): number {
+  return isFiniteNumber(row.winPercentLoss)
+    ? accuracyFromWinPercentLoss(row.winPercentLoss)
+    : accuracyFromCentipawnLoss(row.deltaCp as number)
+}
+
 function average(values: number[]): number | null {
   if (!values.length) return null
   return values.reduce((sum, value) => sum + value, 0) / values.length
@@ -386,7 +423,7 @@ export function summarizeAccuracy(rows: ReviewRow[]): AccuracySummary {
     }
 
     const loss = Math.max(0, -row.deltaCp)
-    const accuracy = accuracyFromCentipawnLoss(row.deltaCp)
+    const accuracy = accuracyForRow(row)
     if (row.sideToMove === 'w') {
       white.push(accuracy)
       whiteLosses.push(loss)
@@ -468,11 +505,6 @@ export function normalizeWhitePovWdl(fen: string, wdl: { w: number; d: number; l
   }
 }
 
-function cpToWhiteWinrate(cp: number): number {
-  const limited = Math.max(-2000, Math.min(2000, cp))
-  const raw = 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * limited)) - 1)
-  return Math.max(0, Math.min(100, raw))
-}
 
 export function buildWinrateSeries(
   history: Move[],
@@ -489,7 +521,7 @@ export function buildWinrateSeries(
     series.push({
       index: 0,
       label: 'Start',
-      whiteWinrate: cpToWhiteWinrate(normalizeWhitePovCp(startFen, startCp)),
+      whiteWinrate: winPercentFromCp(normalizeWhitePovCp(startFen, startCp)),
     })
   }
 
@@ -506,7 +538,7 @@ export function buildWinrateSeries(
     series.push({
       index: index + 1,
       label: `${prefix} ${move.san}`,
-      whiteWinrate: cpToWhiteWinrate(normalizeWhitePovCp(fen, cp)),
+      whiteWinrate: winPercentFromCp(normalizeWhitePovCp(fen, cp)),
     })
   }
 

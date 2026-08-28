@@ -2,6 +2,7 @@ import { Chess } from 'chess.js'
 import { describe, expect, it } from 'vitest'
 import {
   accuracyFromCentipawnLoss,
+  accuracyFromWinPercentLoss,
   buildReviewRows,
   buildWdlSeries,
   buildWinrateSeries,
@@ -17,6 +18,7 @@ import {
   summarizeAccuracy,
   summarizeReview,
   uciToSan,
+  winPercentFromCp,
 } from './analysis'
 
 describe('review analysis helpers', () => {
@@ -489,3 +491,63 @@ describe('white-perspective WDL', () => {
     expect(normalizeWhitePovWdl(whiteToMove, { w: Number.NaN, d: 1, l: 1 })).toBeNull()
   })
 })
+
+describe('position-aware move accuracy', () => {
+  it('reads an even position as an even split and saturates at the limit', () => {
+    expect(winPercentFromCp(0)).toBeCloseTo(50, 10)
+    expect(winPercentFromCp(5000)).toBe(winPercentFromCp(2000))
+    expect(winPercentFromCp(-5000)).toBe(winPercentFromCp(-2000))
+    expect(winPercentFromCp(250)).toBeCloseTo(100 - winPercentFromCp(-250), 10)
+  })
+
+  it('scores a move that gives nothing away as full marks', () => {
+    expect(accuracyFromWinPercentLoss(0)).toBeCloseTo(100, 3)
+    expect(accuracyFromWinPercentLoss(5)).toBeGreaterThan(accuracyFromWinPercentLoss(40))
+    expect(accuracyFromWinPercentLoss(100)).toBe(0)
+    expect(accuracyFromWinPercentLoss(Number.NaN)).toBe(0)
+  })
+
+  it('charges the same centipawn drop far less when the game is already decided', () => {
+    // Identical -300cp move, played from equality and from a won position.
+    const rowsFromEven = reviewRowsForOneMove(0, 300)
+    const rowsFromWon = reviewRowsForOneMove(1800, -1500)
+
+    expect(rowsFromEven[0].deltaCp).toBe(-300)
+    expect(rowsFromWon[0].deltaCp).toBe(-300)
+
+    // The old centipawn-only curve scored both at exp(-1), about 36.8%.
+    expect(accuracyFromCentipawnLoss(-300)).toBeCloseTo(36.8, 1)
+
+    const even = summarizeAccuracy(rowsFromEven).white as number
+    const won = summarizeAccuracy(rowsFromWon).white as number
+    expect(even).toBeLessThan(40)
+    expect(won).toBeGreaterThan(95)
+  })
+
+  it('falls back to the centipawn curve for rows built without a win-percent loss', () => {
+    const legacyRow = {
+      ply: 1,
+      moveNumber: 1,
+      sideToMove: 'w' as const,
+      san: 'e4',
+      uci: 'e2e4',
+      quality: 'blunder' as const,
+      deltaCp: -300,
+      confidence: 'standard' as const,
+    }
+    expect(summarizeAccuracy([legacyRow]).white).toBeCloseTo(accuracyFromCentipawnLoss(-300), 10)
+  })
+})
+
+/** One white move from the start, with the two evaluations the review needs. */
+function reviewRowsForOneMove(rootCp: number, afterCp: number) {
+  const game = new Chess()
+  const rootFen = game.fen()
+  const move = game.move('e4')!
+  const afterFen = game.fen()
+  return buildReviewRows(
+    [move],
+    new Map([[rootFen, { cp: rootCp }], [afterFen, { cp: afterCp }]]),
+    rootFen,
+  )
+}
