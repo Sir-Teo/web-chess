@@ -31,6 +31,14 @@ type Props = {
     onImportBackup: (json: string) => LibraryWriteResult
 }
 
+/**
+ * Rows rendered before "Show more". A full library is 500 games, and the whole
+ * list re-renders on every keystroke, sort and star toggle, so mounting all of
+ * them makes the dialog the most expensive thing on screen. Matches the page
+ * size web-xiangqi's library panel already uses.
+ */
+const PAGE_SIZE = 100
+
 const SORT_OPTIONS: { value: LibrarySort; label: string }[] = [
     { value: 'recent', label: 'Recent' },
     { value: 'oldest', label: 'Oldest' },
@@ -65,6 +73,7 @@ export function LibraryDialog({
     const [error, setError] = useState<string | null>(null)
     const [status, setStatus] = useState<string | null>(null)
     const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null)
+    const [visibleLimit, setVisibleLimit] = useState(PAGE_SIZE)
     const panelRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const titleId = useId()
@@ -80,7 +89,22 @@ export function LibraryDialog({
         return [...sorted.filter(g => g.favorite), ...sorted.filter(g => !g.favorite)]
     }, [games, query, sort])
 
+    const shown = useMemo(() => visible.slice(0, visibleLimit), [visible, visibleLimit])
+    const hiddenCount = visible.length - shown.length
     const stats = useMemo(() => getLibraryStats(games), [games])
+
+    // Changing what is listed starts the page count over, rather than keeping a
+    // limit raised for a previous search. Batched with the state it belongs to,
+    // so the full list is never rendered on the way.
+    const changeQuery = (next: string) => {
+        setQuery(next)
+        setVisibleLimit(PAGE_SIZE)
+    }
+
+    const changeSort = (next: LibrarySort) => {
+        setSort(next)
+        setVisibleLimit(PAGE_SIZE)
+    }
 
     const announce = (result: LibraryWriteResult, success: string) => {
         if (result.ok) {
@@ -171,7 +195,7 @@ export function LibraryDialog({
                                 aria-label="Search saved games"
                                 value={query}
                                 placeholder="Search players, event, opening…"
-                                onChange={event => setQuery(event.target.value)}
+                                onChange={event => changeQuery(event.target.value)}
                             />
                             <div className="library-sort" role="group" aria-label="Sort saved games">
                                 {SORT_OPTIONS.map(option => (
@@ -180,7 +204,7 @@ export function LibraryDialog({
                                         type="button"
                                         className={sort === option.value ? 'selected' : ''}
                                         aria-pressed={sort === option.value}
-                                        onClick={() => setSort(option.value)}
+                                        onClick={() => changeSort(option.value)}
                                     >
                                         {option.label}
                                     </button>
@@ -197,7 +221,7 @@ export function LibraryDialog({
                         )}
 
                         <ul className="library-list">
-                            {visible.map(game => (
+                            {shown.map(game => (
                                 <li key={game.id} className="library-row">
                                     <div className="library-row-main">
                                         <button
@@ -262,6 +286,16 @@ export function LibraryDialog({
                                 </li>
                             ))}
                         </ul>
+
+                        {hiddenCount > 0 && (
+                            <button
+                                type="button"
+                                className="btn-cancel library-show-more"
+                                onClick={() => setVisibleLimit(limit => limit + PAGE_SIZE)}
+                            >
+                                Show {Math.min(hiddenCount, PAGE_SIZE)} more
+                            </button>
+                        )}
 
                         {games.length > 0 && (
                             <p className="library-hint">

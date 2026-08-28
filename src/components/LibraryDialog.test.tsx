@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import { LibraryDialog } from './LibraryDialog'
-import { createLibraryGame } from '../engine/gameLibrary'
+import { MAX_LIBRARY_GAMES, createLibraryGame } from '../engine/gameLibrary'
 
 const noop = vi.fn()
 const ok = vi.fn(() => ({ ok: true } as const))
@@ -81,6 +81,28 @@ describe('LibraryDialog', () => {
 
     it('marks the active sort as pressed', () => {
         expect(render()).toContain('aria-pressed="true"')
+    })
+
+    it('renders one page of a full library rather than every row', () => {
+        // A full shelf is MAX_LIBRARY_GAMES, and the whole list re-renders on
+        // every keystroke and star toggle. Only a page is mounted up front.
+        const games = Array.from({ length: MAX_LIBRARY_GAMES }, (_, i) =>
+            createLibraryGame(`Game ${i}`, PGN, i + 1),
+        )
+        const html = render({ games })
+        const rows = html.match(/class="library-row"/g)?.length ?? 0
+        expect(rows).toBe(100)
+        expect(rows).toBeLessThan(games.length)
+        expect(html).toContain('Show 100 more')
+        // The count still reports the whole shelf, not just the page.
+        expect(html).toContain(`${MAX_LIBRARY_GAMES} games`)
+    })
+
+    it('offers no "show more" when everything already fits', () => {
+        const games = Array.from({ length: 3 }, (_, i) => createLibraryGame(`Game ${i}`, PGN, i + 1))
+        const html = render({ games })
+        expect(html.match(/class="library-row"/g)?.length ?? 0).toBe(3)
+        expect(html).not.toContain('more')
     })
 
     it('cannot export an empty library', () => {

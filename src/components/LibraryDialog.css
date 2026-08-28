@@ -159,6 +159,11 @@
     color: var(--accent);
 }
 
+.library-show-more {
+    width: 100%;
+    margin-top: 0.4rem;
+}
+
 .library-hint {
     margin: 0.5rem 0 0;
     font-size: 0.74rem;
