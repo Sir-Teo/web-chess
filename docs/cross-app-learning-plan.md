@@ -1272,6 +1272,30 @@ anything else with no board in it.** A module that mentions a piece, a colour or
 a coordinate is a module that will diverge, and extracting it buys a shared
 signature and three parameters to reconcile the difference.
 
+### Nobody had flagged any of it
+
+All three repos contain zero `TODO`, `FIXME` or `XXX` markers. The only matches
+are `ENABLE_PASSING_HACKS` and `ENABLE_MORE_PASSING_HACKS` in katrain's MCTS,
+which are KataGo's own configuration names carried over deliberately, with
+comments citing the upstream defaults so the port can be diffed against it.
+
+That is worth stating next to the defect list, because it says what kind of
+defects these were. Not one of them was somewhere a previous author knew was
+wrong and left a note about. Every one was invisible from inside the file it
+lived in:
+
+- The mate sentinel looked like an evaluation.
+- The two grading ladders each looked correct alone.
+- The stored review summary looked like caching.
+- The derived `hashMb` looked like a user's setting.
+- `getDefaultStorage` looked like a small local helper — twice.
+- "Try again in a minute" was true when it was written.
+
+A codebase with no TODOs is not a codebase with no problems; it is one where
+the remaining problems are the ones nobody can see by reading a file. Those are
+found by comparison — against a sibling that made a different choice, or against
+a measurement — which is the entire justification for this document existing.
+
 ### Decisions left open, and where each one lives
 
 These are judgment calls rather than unfinished work — each was investigated to
