@@ -43,6 +43,7 @@ import { parseCandidateMoveInput } from './engine/candidateMoves'
 import { type AnalyzeMode, type UciGoLimits } from './engine/uci'
 import { exportAnnotatedPgn, flattenPgnMainLine, parsePgnMoveTree, pgnImportUserErrorMessage } from './engine/pgn'
 import { type LibraryGame, suggestGameName } from './engine/gameLibrary'
+import { narrativeTagToneClass, narrativeTags } from './engine/narrativeTags'
 import {
   type AutoSavedGame,
   clearAutoSavedGame,
@@ -2183,6 +2184,11 @@ function App() {
   const winratePoints = useMemo(
     () => buildWinrateSeries(currentLineMoves, evaluationsByFen, currentRootFen),
     [currentLineMoves, currentRootFen, evaluationsByFen],
+  )
+
+  const gameNarrativeTags = useMemo(
+    () => narrativeTags(winratePoints, pgnHeaders.Result),
+    [winratePoints, pgnHeaders.Result],
   )
 
   // In Play mode the engine is off, so an empty winrate/WDL card can never fill —
@@ -4605,6 +4611,15 @@ function App() {
                       <span className="chip-blunder">Blunder {reviewSummary.blunder}</span>
                       <span className="chip-pending">Pending {reviewSummary.pending}</span>
                     </div>
+                    {gameNarrativeTags.length > 0 && (
+                      <div className="review-chips" aria-label="Game summary">
+                        {gameNarrativeTags.map(tag => (
+                          <span key={tag.id} className={narrativeTagToneClass(tag.tone)} title={tag.title}>
+                            {tag.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {visibleReviewRows.length > 0 ? (
                       <ReviewMoveList
                         rows={visibleReviewRows}
