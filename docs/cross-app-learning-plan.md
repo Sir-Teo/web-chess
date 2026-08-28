@@ -752,12 +752,19 @@ became false: filter to the opening, find it clean, and the app tells you the
 line was clean. Its side filter had the same flaw already. The copy now names
 what is on screen ("Black's moves in the opening").
 
-xiangqi's panel needed no such fix, and the reason is the transferable part: it
-was built with filters from the start, so it already showed a `filtered/total`
-count and distinguished "No moments match these filters" from "No critical
-moments in this line". Copy written before a filter exists makes claims the
-filter breaks — so when porting a filter into an app, the strings around it are
-part of the port, not collateral.
+Checking the other two settled why. Neither needed a fix, and both were built
+with filters from the start:
+
+- **xiangqi** already showed a `filtered/total` count and distinguished "No
+  moments match these filters" from "No critical moments in this line".
+- **katrain** goes further and computes a whole report per phase
+  (`reportsByPhase`), naming the phase in its own advice copy — "Filter
+  {player} in {phase} by ...".
+
+So all three ended up correct, but only chess had to be corrected, and the
+split falls exactly along when the filter arrived. Copy written before a filter
+exists makes claims the filter breaks — so when porting a filter into an app,
+the strings around it are part of the port, not collateral.
 
 The clickable rows did *not* flow back to katrain, and deliberately. Its report
 already has a first-class phase filter — a four-button grid at the top carrying
