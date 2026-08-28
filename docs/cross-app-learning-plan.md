@@ -454,6 +454,7 @@ typecheck, tests, build); UI changes were additionally exercised in a browser.
 | — | katrain, xiangqi | Library and pro-game search match every term rather than the query as one phrase. |
 | — | chess, xiangqi | Comment stripping made linear, so a wrong file cannot freeze the tab on import. |
 | — | chess | The library renders a page of 100 rows with a "Show more", instead of all 500. |
+| — | chess, xiangqi | A storage boundary ported from katrain: one place where reading or writing is allowed to fail. |
 | — | katrain | The library pages at 100 rows too — it had no cap and rendered every one. |
 
 ### What was verified by running the apps, not just the tests
@@ -1167,6 +1168,31 @@ representation from another stops them disagreeing; making the second one
 **unrepresentable** stops them existing. Where a rule can be a type, a union or
 a single exported constant, it will hold without anyone maintaining it — and
 where it can only be a sentence, expect to audit it, because nothing else will.
+
+### A missing abstraction manufactures its own duplication
+
+The clearest single piece of evidence the three-repo comparison produced.
+
+Both siblings' `autoSave.ts` carried a private `getDefaultStorage`. Not similar
+functions — the *same eight lines*, down to the `globalThis` fallback that
+covers a worker or a test with no `window`. Two codebases, written separately,
+arriving at an identical helper.
+
+Nobody copied it. Each author needed safe access to `localStorage`, found no
+boundary to reach for, and wrote the smallest correct thing. The duplication was
+not a lapse; it was the predictable output of an abstraction that did not exist.
+katrain has `utils/storage.ts`, and no module in it has ever needed to write
+that helper.
+
+This is worth separating from the other duplication findings. A stale module
+manifest and a copied breakpoint are maintenance failures — someone had the
+single source and did not use it. This one is a *design* gap: the single source
+was never there, so every reader independently discovered the same need and met
+it locally. The fix is not "stop copying", it is "give them something to call".
+
+The tell is two implementations that are identical rather than merely similar.
+Similar code usually means two problems that resemble each other. Identical code
+written independently means one problem with no home.
 
 ### Decisions left open, and where each one lives
 
