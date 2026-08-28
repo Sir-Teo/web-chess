@@ -530,6 +530,29 @@ The pattern is worth noting for whoever picks this up: the file-level survey in
 §1 is a good map but a poor source of truth. Three of its four errors made
 katrain look *worse* than it is. Read the code before acting on a row.
 
+### A blocker on item 12 (PWA), found before starting it
+
+Porting web-katrain's `public/sw.js` into web-chess is not the small job the
+table makes it look like. web-chess already registers a service worker:
+`coi-serviceworker`, from `index.html`, which is what obtains cross-origin
+isolation on GitHub Pages and therefore what makes the multi-threaded
+Stockfish builds usable at all.
+
+A second service worker registered at the same scope replaces the first. Drop
+katrain's `sw.js` in as-is and the app silently loses cross-origin isolation,
+`SharedArrayBuffer` goes away, and every threaded engine profile falls back to
+single-threaded — a performance regression with no error message.
+
+Whoever picks this up has to **merge** the two: take the COI request-rewriting
+`fetch` handler and add caching to it, rather than registering a second
+worker. web-xiangqi is in a different position again — it deliberately
+unregisters service workers (`utils/serviceWorkerCleanup.ts`) to stop a stale
+demo shell serving old engine assets, so it would need that cleanup narrowed
+to the old scope first.
+
+This is why the item is still open rather than done: it is a genuine piece of
+design work, not a port.
+
 ### Not done yet
 
 Items 4, 6–15 and 17 from §4 stand as written. The next-most-valuable are
