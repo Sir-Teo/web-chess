@@ -1,7 +1,7 @@
 import type { EvalSnapshot } from './analysis'
 import { withBoundedMapEntry } from '../hooks/cacheLimit'
 import { createStorageCache } from './storageCache'
-import { fetchLichessResource } from './lichessQueue'
+import { fetchLichessResource, lichessRateLimitMessage } from './lichessQueue'
 
 export type CloudEvalRequest = {
   fen: string
@@ -215,7 +215,7 @@ export async function fetchCloudEvaluation(
     return null
   }
   if (response.status === 429) {
-    throw new Error('Lichess cloud eval rate limit reached; try again in a minute.')
+    throw new Error(lichessRateLimitMessage('Lichess cloud eval'))
   }
   if (!response.ok) {
     throw new Error(`Lichess cloud eval request failed (${response.status}).`)

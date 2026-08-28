@@ -6,7 +6,8 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 
 - **Play and watch modes**: Play human vs human, human vs Stockfish, or AI vs AI with adjustable difficulty, pause/resume controls, speed control, and single-step playback.
 - **Beginner and pro analysis**: Coach mode keeps the right panel focused on plain-language move guidance, while Pro mode exposes MultiPV, WDL, cloud evals, opening stats, tablebase moves, and UCI controls.
-- **Game review**: Import a PGN, run a review pass, filter critical moments by side, inspect accuracy, and jump from a review row back to the board.
+- **Game review**: Import a PGN, run a review pass, filter critical moments by side, inspect accuracy, and jump from a review row back to the board. Accuracy and move labels are scored on winning chances rather than raw centipawns, so an imprecision in a decided game is not called a blunder.
+- **Saved games**: Keep games in a library stored in IndexedDB, search them by player, event or opening, star and rename them, and export or import the whole shelf as JSON. The game in progress is auto-saved separately, so a reload offers to pick up where you left off.
 - **PGN and FEN workflows**: Import/export annotated PGN, copy FEN/share links, and build custom FEN positions with editable pieces, side to move, castling rights, and move counters.
 - **Opening and endgame intelligence**: Offline ECO names work immediately; optional session-only Lichess tokens unlock Masters/Lichess opening stats, while eligible endgames use Lichess tablebase data.
 - **Interactive analysis visuals**: Clickable winrate/WDL graphs, move transcript navigation, and board arrows for the played move, best move, and candidate lines.
@@ -23,14 +24,31 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 
 ## Quality Gates
 
-Run the same checks used by CI:
+Run every check with one command:
 
 ```bash
-npm audit
+npm run verify
+```
+
+That is typecheck → lint → tests → build, chained so the first failure stops it.
+Prefer it to running the parts by hand: `npm run typecheck | tail -2 && npm run
+lint` reports `tail`'s exit code rather than the compiler's, so a real failure
+reads as success. Note also that `npm test` typechecks nothing — Vitest
+transpiles without checking, so a test can pass while failing to compile.
+
+The parts, and the one thing `verify` leaves out:
+
+```bash
+npm run audit   # not in verify, so verify works offline
+npm run typecheck
 npm run lint
-npm test -- --run
+npm test
 npm run build
 ```
+
+`npm run audit` uses `--audit-level=moderate`, matching the sibling apps. A bare
+`npm audit` fails on any severity, which once blocked a release over a single
+low advisory in a dev dependency.
 
 ## Stockfish Assets
 
@@ -67,6 +85,18 @@ The Lichess Opening Explorer endpoints require API authentication. Create a pers
 ## Continuous Deployment
 
 This project includes a GitHub Actions workflow that audits dependencies, lints, tests, builds, and then deploys to GitHub Pages whenever code is pushed to the `main` branch.
+
+## Related Apps
+
+Two sibling apps share this one's shape — an engine in a worker, a move tree, a
+review pass, a saved-game library — for Go and xiangqi:
+
+- [web-katrain](https://github.com/Sir-Teo/web-katrain) — Go, KataGo in the browser
+- [web-xiangqi](https://github.com/Sir-Teo/web-xiangqi) — xiangqi, Pikafish compiled to WASM
+
+[`docs/cross-app-learning-plan.md`](docs/cross-app-learning-plan.md) compares the
+three and tracks what is worth moving between them.
+[`docs/architecture.md`](docs/architecture.md) covers this app on its own.
 
 ## License
 

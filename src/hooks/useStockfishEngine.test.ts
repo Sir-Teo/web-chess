@@ -67,7 +67,11 @@ describe('Stockfish thread recommendations', () => {
     sharedArrayBuffer: true,
     crossOriginIsolated: true,
     hardwareConcurrency: 16,
-    deviceMemoryGb: 32,
+    // The low end of what a roomy desktop reports. Browsers disagree about the
+    // top of this range — the spec describes clamping to 8, Chromium 148 was
+    // seen reporting 32 — so the fixture uses the value that used to be sorted
+    // as "constrained", which is the case worth pinning.
+    deviceMemoryGb: 8,
     isMobile: false,
   }
 
@@ -79,6 +83,11 @@ describe('Stockfish thread recommendations', () => {
     const threadedProfile = profileById('lite-multi-local')
 
     expect(recommendedThreadCount(threadedProfile, { ...desktopCapabilities, hardwareConcurrency: 8, deviceMemoryGb: 4 })).toBe(4)
+    expect(recommendedThreadCount(threadedProfile, { ...desktopCapabilities, deviceMemoryGb: 2 })).toBe(4)
+    // Nothing reported at all reads as roomy rather than constrained.
+    expect(recommendedThreadCount(threadedProfile, { ...desktopCapabilities, deviceMemoryGb: undefined })).toBe(8)
+    // 8 and 32 must agree: they are the same machine seen by different browsers.
+    expect(recommendedThreadCount(threadedProfile, { ...desktopCapabilities, deviceMemoryGb: 32 })).toBe(8)
     expect(recommendedThreadCount(threadedProfile, { ...desktopCapabilities, isMobile: true })).toBe(1)
     expect(recommendedThreadCount(threadedProfile, { ...desktopCapabilities, hardwareConcurrency: 2 })).toBe(1)
     expect(recommendedThreadCount(threadedProfile, { ...desktopCapabilities, crossOriginIsolated: false })).toBe(1)

@@ -2,6 +2,7 @@ import { Chess } from 'chess.js'
 import { describe, expect, it } from 'vitest'
 import {
   accuracyFromCentipawnLoss,
+  accuracyFromWinPercentLoss,
   buildReviewRows,
   buildWdlSeries,
   buildWinrateSeries,
@@ -14,9 +15,11 @@ import {
   mergeEvaluationSnapshot,
   scoreToCp,
   shouldReplaceEvaluationSnapshot,
+  rankCriticalMoments,
   summarizeAccuracy,
   summarizeReview,
   uciToSan,
+  winPercentFromCp,
 } from './analysis'
 
 describe('review analysis helpers', () => {
@@ -273,9 +276,9 @@ describe('review analysis helpers', () => {
 
   it('summarizes player accuracy from evaluated centipawn loss', () => {
     const rows = [
-      { ply: 1, moveNumber: 1, sideToMove: 'w' as const, san: 'e4', uci: 'e2e4', quality: 'best' as const, deltaCp: -10, confidence: 'standard' as const },
-      { ply: 2, moveNumber: 1, sideToMove: 'b' as const, san: 'e5', uci: 'e7e5', quality: 'mistake' as const, deltaCp: -220, confidence: 'standard' as const },
-      { ply: 3, moveNumber: 2, sideToMove: 'w' as const, san: 'Nf3', uci: 'g1f3', quality: 'pending' as const, confidence: 'pending' as const },
+      { ply: 1, moveNumber: 1, sideToMove: 'w' as const, san: 'e4', uci: 'e2e4', quality: 'best' as const, deltaCp: -10, confidence: 'standard' as const, phase: 'opening' as const },
+      { ply: 2, moveNumber: 1, sideToMove: 'b' as const, san: 'e5', uci: 'e7e5', quality: 'mistake' as const, deltaCp: -220, confidence: 'standard' as const, phase: 'opening' as const },
+      { ply: 3, moveNumber: 2, sideToMove: 'w' as const, san: 'Nf3', uci: 'g1f3', quality: 'pending' as const, confidence: 'pending' as const, phase: 'opening' as const },
     ]
 
     expect(accuracyFromCentipawnLoss(40)).toBe(100)
@@ -295,8 +298,8 @@ describe('review analysis helpers', () => {
 
   it('filters review rows by player side', () => {
     const rows = [
-      { ply: 1, moveNumber: 1, sideToMove: 'w' as const, san: 'e4', uci: 'e2e4', quality: 'best' as const, confidence: 'standard' as const },
-      { ply: 2, moveNumber: 1, sideToMove: 'b' as const, san: 'e5', uci: 'e7e5', quality: 'good' as const, confidence: 'standard' as const },
+      { ply: 1, moveNumber: 1, sideToMove: 'w' as const, san: 'e4', uci: 'e2e4', quality: 'best' as const, confidence: 'standard' as const, phase: 'opening' as const },
+      { ply: 2, moveNumber: 1, sideToMove: 'b' as const, san: 'e5', uci: 'e7e5', quality: 'good' as const, confidence: 'standard' as const, phase: 'opening' as const },
     ]
 
     expect(filterReviewRowsBySide(rows, 'both')).toBe(rows)
@@ -487,5 +490,147 @@ describe('white-perspective WDL', () => {
     expect(normalizeWhitePovWdl(whiteToMove, { w: 0, d: 0, l: 0 })).toBeNull()
     expect(normalizeWhitePovWdl(whiteToMove, { w: -5, d: 10, l: 5 })).toBeNull()
     expect(normalizeWhitePovWdl(whiteToMove, { w: Number.NaN, d: 1, l: 1 })).toBeNull()
+  })
+})
+
+describe('position-aware move accuracy', () => {
+  it('reads an even position as an even split and saturates at the limit', () => {
+    expect(winPercentFromCp(0)).toBeCloseTo(50, 10)
+    expect(winPercentFromCp(5000)).toBe(winPercentFromCp(2000))
+    expect(winPercentFromCp(-5000)).toBe(winPercentFromCp(-2000))
+    expect(winPercentFromCp(250)).toBeCloseTo(100 - winPercentFromCp(-250), 10)
+  })
+
+  it('scores a move that gives nothing away as full marks', () => {
+    expect(accuracyFromWinPercentLoss(0)).toBeCloseTo(100, 3)
+    expect(accuracyFromWinPercentLoss(5)).toBeGreaterThan(accuracyFromWinPercentLoss(40))
+    expect(accuracyFromWinPercentLoss(100)).toBe(0)
+    expect(accuracyFromWinPercentLoss(Number.NaN)).toBe(0)
+  })
+
+  it('charges the same centipawn drop far less when the game is already decided', () => {
+    // Identical -300cp move, played from equality and from a won position.
+    const rowsFromEven = reviewRowsForOneMove(0, 300)
+    const rowsFromWon = reviewRowsForOneMove(1800, -1500)
+
+    expect(rowsFromEven[0].deltaCp).toBe(-300)
+    expect(rowsFromWon[0].deltaCp).toBe(-300)
+
+    // The old centipawn-only curve scored both at exp(-1), about 36.8%.
+    expect(accuracyFromCentipawnLoss(-300)).toBeCloseTo(36.8, 1)
+
+    const even = summarizeAccuracy(rowsFromEven).white as number
+    const won = summarizeAccuracy(rowsFromWon).white as number
+    expect(even).toBeLessThan(40)
+    expect(won).toBeGreaterThan(95)
+  })
+
+  it('stops calling an imprecision in a won game a blunder', () => {
+    // -300cp is a blunder on the raw scale in both positions.
+    expect(reviewRowsForOneMove(0, 300)[0]).toMatchObject({ quality: 'blunder' })
+    // From +18 it costs 0.3 percentage points, so it is graded on that instead.
+    expect(reviewRowsForOneMove(1800, -1500)[0]).toMatchObject({ quality: 'best' })
+  })
+
+  it('never grades a move harsher than the raw centipawn reading', () => {
+    // Losing a whole game from equality: both readings agree it is a blunder.
+    expect(reviewRowsForOneMove(0, 900)[0]).toMatchObject({ quality: 'blunder' })
+    // A tiny slip stays 'best' rather than being dragged down by win percent.
+    expect(reviewRowsForOneMove(0, 5)[0]).toMatchObject({ quality: 'best' })
+  })
+
+  it('falls back to the centipawn curve for rows built without a win-percent loss', () => {
+    const legacyRow = {
+      ply: 1,
+      moveNumber: 1,
+      sideToMove: 'w' as const,
+      san: 'e4',
+      uci: 'e2e4',
+      quality: 'blunder' as const,
+      deltaCp: -300,
+      confidence: 'standard' as const,
+      phase: 'opening' as const,
+    }
+    expect(summarizeAccuracy([legacyRow]).white).toBeCloseTo(accuracyFromCentipawnLoss(-300), 10)
+  })
+})
+
+/** One white move from the start, with the two evaluations the review needs. */
+function reviewRowsForOneMove(rootCp: number, afterCp: number) {
+  const game = new Chess()
+  const rootFen = game.fen()
+  const move = game.move('e4')!
+  const afterFen = game.fen()
+  return buildReviewRows(
+    [move],
+    new Map([[rootFen, { cp: rootCp }], [afterFen, { cp: afterCp }]]),
+    rootFen,
+  )
+}
+
+describe('ranking the moves that cost the most', () => {
+  const row = (over: Partial<import('./analysis').ReviewRow>) => ({
+    ply: 1,
+    moveNumber: 1,
+    sideToMove: 'w' as const,
+    san: 'e4',
+    uci: 'e2e4',
+    quality: 'mistake' as const,
+    confidence: 'standard' as const,
+    phase: 'middleGame' as const,
+    ...over,
+  })
+
+  it('puts the costliest move first', () => {
+    const ranked = rankCriticalMoments([
+      row({ san: 'small', deltaCp: -150, winPercentLoss: 5 }),
+      row({ san: 'big', deltaCp: -160, winPercentLoss: 30 }),
+      row({ san: 'middling', deltaCp: -400, winPercentLoss: 12 }),
+    ])
+    expect(ranked.map(r => r.san)).toEqual(['big', 'middling', 'small'])
+  })
+
+  it('ranks by what a move cost, not by its centipawn delta', () => {
+    // The larger centipawn drop happened where it mattered less.
+    const ranked = rankCriticalMoments([
+      row({ san: 'bigDropLateGame', deltaCp: -500, winPercentLoss: 3 }),
+      row({ san: 'turnedTheGame', deltaCp: -200, winPercentLoss: 25 }),
+    ])
+    expect(ranked[0].san).toBe('turnedTheGame')
+  })
+
+  it('only considers moves the review called a mistake', () => {
+    const ranked = rankCriticalMoments([
+      row({ san: 'best', quality: 'best', deltaCp: -5, winPercentLoss: 1 }),
+      row({ san: 'good', quality: 'good', deltaCp: -40, winPercentLoss: 3 }),
+      row({ san: 'pending', quality: 'pending', deltaCp: -400, winPercentLoss: 40 }),
+      row({ san: 'blunder', quality: 'blunder', deltaCp: -400, winPercentLoss: 40 }),
+    ])
+    expect(ranked.map(r => r.san)).toEqual(['blunder'])
+  })
+
+  it('skips a row with no evaluation at all', () => {
+    expect(rankCriticalMoments([row({ san: 'unevaluated' })])).toEqual([])
+  })
+
+  it('falls back to the centipawn reading for a row from an older review', () => {
+    const ranked = rankCriticalMoments([
+      row({ san: 'slight', deltaCp: -150 }),
+      row({ san: 'severe', deltaCp: -600 }),
+    ])
+    expect(ranked.map(r => r.san)).toEqual(['severe', 'slight'])
+  })
+
+  it('honours the limit, including a nonsensical one', () => {
+    const many = Array.from({ length: 12 }, (_, i) => row({ san: `m${i}`, deltaCp: -200, winPercentLoss: i }))
+    expect(rankCriticalMoments(many)).toHaveLength(5)
+    expect(rankCriticalMoments(many, 3)).toHaveLength(3)
+    expect(rankCriticalMoments(many, 0)).toEqual([])
+    expect(rankCriticalMoments(many, -2)).toEqual([])
+  })
+
+  it('has nothing to rank in a clean game', () => {
+    expect(rankCriticalMoments([])).toEqual([])
+    expect(rankCriticalMoments([row({ quality: 'best', deltaCp: -2, winPercentLoss: 0.2 })])).toEqual([])
   })
 })

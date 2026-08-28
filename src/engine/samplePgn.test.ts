@@ -70,7 +70,10 @@ describe('sample PGN client', () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 429 }))
     vi.stubGlobal('fetch', fetchMock)
 
+    // Asserts what the message must convey, not its wording: the wait is the
+    // queue's and moves with Retry-After, so pinning the exact sentence made
+    // this fail the moment the wait stopped being a fixed minute.
     await expect(fetchSamplePgn({ id: 'sample', lichessGameId: 'A2cM3wqU' }))
-      .rejects.toThrow('Lichess sample game rate limit reached; try again in a minute.')
+      .rejects.toThrow(/Lichess sample game rate limit reached; try again/)
   })
 })

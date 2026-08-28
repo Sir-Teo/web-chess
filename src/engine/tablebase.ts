@@ -1,5 +1,5 @@
 import { withBoundedMapEntry } from '../hooks/cacheLimit'
-import { fetchLichessResource } from './lichessQueue'
+import { fetchLichessResource, lichessRateLimitMessage } from './lichessQueue'
 import { createStorageCache } from './storageCache'
 
 export type TablebaseCategory =
@@ -356,7 +356,7 @@ export async function fetchTablebase(fen: string, signal?: AbortSignal): Promise
     return null
   }
   if (response.status === 429) {
-    throw new Error('Lichess tablebase rate limit reached; try again in a minute.')
+    throw new Error(lichessRateLimitMessage('Lichess tablebase'))
   }
   if (!response.ok) {
     throw new Error(`Lichess tablebase request failed (${response.status}).`)

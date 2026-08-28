@@ -1,6 +1,7 @@
 import { Chess, type Move } from 'chess.js'
 import type { EngineLine } from '../hooks/useStockfishEngine'
 import type { AnalyzeMode, AnalyzePurpose } from './uci'
+import { GAME_PHASES, type GamePhase, getMovePhase, getPhaseLabel } from './gamePhase'
 
 export type EvalSnapshot = {
   cp: number
@@ -30,6 +31,10 @@ export type ReviewRow = {
   bestMove?: string
   bestMoveSan?: string
   deltaCp?: number
+  /** Winning chances the mover gave up, in percentage points. Position-aware. */
+  winPercentLoss?: number
+  /** Read from the position before the move, so it survives an unevaluated row. */
+  phase: GamePhase
   evalDepth?: number
   confidence: 'pending' | 'shallow' | 'standard' | 'deep'
 }
@@ -125,12 +130,73 @@ export function uciToSan(fen: string, uci: string): string | null {
   }
 }
 
-function qualityFromDelta(deltaCp: number): ReviewLabel {
-  if (deltaCp >= -20) return 'best'
-  if (deltaCp >= -70) return 'good'
-  if (deltaCp >= -140) return 'inaccuracy'
-  if (deltaCp >= -260) return 'mistake'
+// Lichess's win-percentage model: the chance the side the score belongs to
+// goes on to win. https://lichess.org/page/accuracy
+const WIN_PERCENT_CP_LIMIT = 2000
+const WIN_PERCENT_CP_SLOPE = 0.00368208
+
+export function winPercentFromCp(cp: number): number {
+  const limited = Math.max(-WIN_PERCENT_CP_LIMIT, Math.min(WIN_PERCENT_CP_LIMIT, cp))
+  const raw = 50 + 50 * (2 / (1 + Math.exp(-WIN_PERCENT_CP_SLOPE * limited)) - 1)
+  return Math.max(0, Math.min(100, raw))
+}
+
+type GradedLabel = Exclude<ReviewLabel, 'pending'>
+
+const CP_LOSS_THRESHOLDS = {
+  best: 20,
+  good: 70,
+  inaccuracy: 140,
+  mistake: 260,
+} as const
+
+function qualityFromDelta(deltaCp: number): GradedLabel {
+  if (deltaCp >= -CP_LOSS_THRESHOLDS.best) return 'best'
+  if (deltaCp >= -CP_LOSS_THRESHOLDS.good) return 'good'
+  if (deltaCp >= -CP_LOSS_THRESHOLDS.inaccuracy) return 'inaccuracy'
+  if (deltaCp >= -CP_LOSS_THRESHOLDS.mistake) return 'mistake'
   return 'blunder'
+}
+
+/**
+ * The same ladder in percentage points of winning chances, measured from a
+ * balanced position. Deriving it from the centipawn rungs rather than picking
+ * round numbers means the two readings agree at equality and part company only
+ * as the position becomes lopsided — which is the only place we want the
+ * practical reading to take over.
+ */
+const WIN_PERCENT_LOSS_THRESHOLDS = {
+  best: winPercentFromCp(0) - winPercentFromCp(-CP_LOSS_THRESHOLDS.best),
+  good: winPercentFromCp(0) - winPercentFromCp(-CP_LOSS_THRESHOLDS.good),
+  inaccuracy: winPercentFromCp(0) - winPercentFromCp(-CP_LOSS_THRESHOLDS.inaccuracy),
+  mistake: winPercentFromCp(0) - winPercentFromCp(-CP_LOSS_THRESHOLDS.mistake),
+} as const
+
+const LABEL_SEVERITY: Record<GradedLabel, number> = {
+  best: 0,
+  good: 1,
+  inaccuracy: 2,
+  mistake: 3,
+  blunder: 4,
+}
+
+function qualityFromWinPercentLoss(loss: number): GradedLabel {
+  if (loss <= WIN_PERCENT_LOSS_THRESHOLDS.best) return 'best'
+  if (loss <= WIN_PERCENT_LOSS_THRESHOLDS.good) return 'good'
+  if (loss <= WIN_PERCENT_LOSS_THRESHOLDS.inaccuracy) return 'inaccuracy'
+  if (loss <= WIN_PERCENT_LOSS_THRESHOLDS.mistake) return 'mistake'
+  return 'blunder'
+}
+
+/**
+ * The milder of the raw and practical readings, so a game that is already
+ * decided stops calling every imprecision a blunder.
+ */
+function qualityForMove(deltaCp: number, winPercentLoss: number): GradedLabel {
+  const raw = qualityFromDelta(deltaCp)
+  if (!isFiniteNumber(winPercentLoss)) return raw
+  const practical = qualityFromWinPercentLoss(winPercentLoss)
+  return LABEL_SEVERITY[practical] <= LABEL_SEVERITY[raw] ? practical : raw
 }
 
 function isShallowEvaluation(snapshot: EvalSnapshot): boolean {
@@ -292,6 +358,12 @@ export function buildReviewRows(
     const beforeFen = replay.fen()
     const moveNumber = replay.moveNumber()
     const sideToMove = replay.turn()
+    // Read before the move is made: the phase a move was played in, not the
+    // one it led to. The ply comes from the position's own move number rather
+    // than the loop index, so analysing from a mid-game FEN does not restart
+    // the phase clock and call move 20 an opening.
+    const gamePly = (moveNumber - 1) * 2 + (sideToMove === 'w' ? 1 : 2)
+    const phase = getMovePhase(beforeFen, gamePly)
     if (!tryReplayMove(replay, move)) break
     const afterFen = replay.fen()
 
@@ -310,6 +382,7 @@ export function buildReviewRows(
         uci: toUci(move),
         bestMove,
         bestMoveSan,
+        phase,
         quality: 'pending',
         confidence: 'pending',
       })
@@ -318,6 +391,9 @@ export function buildReviewRows(
 
     // Engine score is POV side-to-move. After the move, perspective flips.
     const deltaCp = Math.round(-after - before)
+    // Both readings are from the mover's point of view, so the drop in winning
+    // chances is what that player actually gave up.
+    const winPercentLoss = Math.max(0, winPercentFromCp(before) - winPercentFromCp(-after))
     const evalDepth = minDepth(beforeSnapshot, afterSnapshot)
     const shallow = isShallowEvaluation(beforeSnapshot) || isShallowEvaluation(afterSnapshot)
     const confidence = shallow
@@ -334,14 +410,39 @@ export function buildReviewRows(
       uci: toUci(move),
       bestMove,
       bestMoveSan,
+      phase,
       deltaCp,
+      winPercentLoss,
       evalDepth,
       confidence,
-      quality: shallow ? 'pending' : qualityFromDelta(deltaCp),
+      quality: shallow ? 'pending' : qualityForMove(deltaCp, winPercentLoss),
     })
   }
 
   return rows
+}
+
+/**
+ * The moves that cost the most, worst first.
+ *
+ * Ranked by winning chances given up, not by the centipawn delta, so this
+ * agrees with the labels and the accuracy — both of which are scored that way.
+ * Sorting on centipawns put a large drop inside an already-decided position
+ * above a smaller one that actually turned the game. Rows from an older review
+ * carry no win-percent loss and fall back to the centipawn reading.
+ */
+export function rankCriticalMoments(rows: ReviewRow[], limit = 5): ReviewRow[] {
+  const cost = (row: ReviewRow): number => (
+    isFiniteNumber(row.winPercentLoss)
+      ? row.winPercentLoss
+      : winPercentFromCp(0) - winPercentFromCp(row.deltaCp as number)
+  )
+
+  return rows
+    .filter(row => row.quality === 'inaccuracy' || row.quality === 'mistake' || row.quality === 'blunder')
+    .filter(row => isFiniteNumber(row.deltaCp))
+    .sort((a, b) => cost(b) - cost(a) || (a.deltaCp ?? 0) - (b.deltaCp ?? 0))
+    .slice(0, Math.max(0, limit))
 }
 
 export function summarizeReview(rows: ReviewRow[]): Record<ReviewLabel, number> {
@@ -360,11 +461,76 @@ export function filterReviewRowsBySide(rows: ReviewRow[], filter: ReviewSideFilt
   return rows.filter(row => row.sideToMove === side)
 }
 
+/** 'all', or one phase to narrow the move list to. Mirrors katrain's report filter. */
+export type ReviewPhaseFilter = 'all' | GamePhase
+
+export function filterReviewRowsByPhase(rows: ReviewRow[], filter: ReviewPhaseFilter): ReviewRow[] {
+  if (filter === 'all') return rows
+  return rows.filter(row => row.phase === filter)
+}
+
+/**
+ * Names what the review is currently showing, for copy that would otherwise
+ * describe the whole game while a filter is narrowing it — "no major swings
+ * found in this reviewed line" is a different claim from the same sentence
+ * about White's moves in the opening.
+ */
+export function describeReviewScope(
+  side: ReviewSideFilter,
+  phase: ReviewPhaseFilter,
+): string {
+  const parts = [
+    side === 'both' ? null : side === 'white' ? "White's moves" : "Black's moves",
+    phase === 'all' ? null : `the ${getPhaseLabel(phase).toLowerCase()}`,
+  ].filter(Boolean)
+  return parts.length ? parts.join(' in ') : 'this reviewed line'
+}
+
+/**
+ * A mate is stored as a sentinel centipawn score (see `scoreToCp`), not as a
+ * real evaluation. Subtracting it from an ordinary score gives a delta of tens
+ * of pawns, which is not a measurement of anything — it is two different kinds
+ * of statement in the same units. One such move was contributing ~284 to a
+ * 33-move average, putting "ACPL 316" next to "Blunder 0".
+ *
+ * Bounding the *reported* loss keeps a forced mate at the top of the scale
+ * without letting it stand in for the rest of the game. 1000cp is the bound
+ * Lichess uses for the same reason. Deliberately not applied to `deltaCp`
+ * itself: move quality reads winning chances, and the raw delta stays raw for
+ * anything that legitimately wants it.
+ */
+export const MAX_REPORTED_CENTIPAWN_LOSS = 1000
+
+export function reportedCentipawnLoss(deltaCp: number | undefined): number {
+  if (!isFiniteNumber(deltaCp)) return 0
+  return Math.min(MAX_REPORTED_CENTIPAWN_LOSS, Math.max(0, -deltaCp))
+}
+
 export function accuracyFromCentipawnLoss(deltaCp: number): number {
   if (!isFiniteNumber(deltaCp)) return 0
   const loss = Math.max(0, -deltaCp)
   const accuracy = 100 * Math.exp(-loss / 300)
   return Math.max(0, Math.min(100, accuracy))
+}
+
+// Lichess's published accuracy curve, over winning chances rather than
+// centipawns: https://lichess.org/page/accuracy
+const MOVE_ACCURACY_SCALE = 103.1668
+const MOVE_ACCURACY_DECAY = 0.04354
+const MOVE_ACCURACY_OFFSET = 3.1669
+
+export function accuracyFromWinPercentLoss(winPercentLoss: number): number {
+  if (!isFiniteNumber(winPercentLoss)) return 0
+  const loss = Math.max(0, Math.min(100, winPercentLoss))
+  const accuracy = MOVE_ACCURACY_SCALE * Math.exp(-MOVE_ACCURACY_DECAY * loss) - MOVE_ACCURACY_OFFSET
+  return Math.max(0, Math.min(100, accuracy))
+}
+
+/** Prefers the position-aware reading, and falls back for rows built without one. */
+function accuracyForRow(row: ReviewRow): number {
+  return isFiniteNumber(row.winPercentLoss)
+    ? accuracyFromWinPercentLoss(row.winPercentLoss)
+    : accuracyFromCentipawnLoss(row.deltaCp as number)
 }
 
 function average(values: number[]): number | null {
@@ -385,8 +551,8 @@ export function summarizeAccuracy(rows: ReviewRow[]): AccuracySummary {
       continue
     }
 
-    const loss = Math.max(0, -row.deltaCp)
-    const accuracy = accuracyFromCentipawnLoss(row.deltaCp)
+    const loss = reportedCentipawnLoss(row.deltaCp)
+    const accuracy = accuracyForRow(row)
     if (row.sideToMove === 'w') {
       white.push(accuracy)
       whiteLosses.push(loss)
@@ -409,6 +575,19 @@ export function summarizeAccuracy(rows: ReviewRow[]): AccuracySummary {
     evaluatedMoves: values.length,
     pendingMoves,
   }
+}
+
+/**
+ * Accuracy split by phase, so a report can say *where* a game was lost rather
+ * than only by how much. Phases with nothing evaluated are left out entirely —
+ * an empty phase would otherwise read as a score of zero.
+ */
+export function summarizeAccuracyByPhase(
+  rows: ReviewRow[],
+): Array<{ phase: GamePhase; summary: AccuracySummary }> {
+  return GAME_PHASES
+    .map(({ key }) => ({ phase: key, summary: summarizeAccuracy(rows.filter(row => row.phase === key)) }))
+    .filter(entry => entry.summary.evaluatedMoves > 0)
 }
 
 export function normalizeWhitePovCp(fen: string, cp: number): number {
@@ -468,11 +647,6 @@ export function normalizeWhitePovWdl(fen: string, wdl: { w: number; d: number; l
   }
 }
 
-function cpToWhiteWinrate(cp: number): number {
-  const limited = Math.max(-2000, Math.min(2000, cp))
-  const raw = 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * limited)) - 1)
-  return Math.max(0, Math.min(100, raw))
-}
 
 export function buildWinrateSeries(
   history: Move[],
@@ -489,7 +663,7 @@ export function buildWinrateSeries(
     series.push({
       index: 0,
       label: 'Start',
-      whiteWinrate: cpToWhiteWinrate(normalizeWhitePovCp(startFen, startCp)),
+      whiteWinrate: winPercentFromCp(normalizeWhitePovCp(startFen, startCp)),
     })
   }
 
@@ -506,7 +680,7 @@ export function buildWinrateSeries(
     series.push({
       index: index + 1,
       label: `${prefix} ${move.san}`,
-      whiteWinrate: cpToWhiteWinrate(normalizeWhitePovCp(fen, cp)),
+      whiteWinrate: winPercentFromCp(normalizeWhitePovCp(fen, cp)),
     })
   }
 

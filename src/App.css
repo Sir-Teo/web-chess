@@ -2635,6 +2635,25 @@ button.critical-moment-row {
   }
 }
 
+/* Narrative tags describing the shape of a game, beside the quality counts. */
+.chip-narrative {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border-color: var(--border-default) !important;
+}
+
+.chip-narrative-good {
+  background: rgba(63, 185, 80, 0.12);
+  color: var(--quality-best);
+  border-color: rgba(63, 185, 80, 0.22) !important;
+}
+
+.chip-narrative-bad {
+  background: rgba(248, 81, 73, 0.12);
+  color: var(--quality-blunder);
+  border-color: rgba(248, 81, 73, 0.22) !important;
+}
+
 .chip-best {
   background: rgba(63, 185, 80, 0.12);
   color: var(--quality-best);

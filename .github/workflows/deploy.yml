@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Audit dependencies
-        run: npm audit
+        run: npm run audit
       - name: Lint
         run: npm run lint
       - name: Test

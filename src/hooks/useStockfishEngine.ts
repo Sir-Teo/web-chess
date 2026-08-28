@@ -82,8 +82,13 @@ export function recommendedThreadCount(profile: EngineProfile, capabilities: Eng
   const usableCores = Math.max(1, Math.floor(capabilities.hardwareConcurrency || 1))
   if (usableCores <= 2) return 1
 
+  // Compared at 4 rather than 8 because browsers disagree about the top of
+  // navigator.deviceMemory's range: the spec describes clamping it to 8, and
+  // Chromium 148 was observed reporting 32. A threshold at 8 therefore gave the
+  // same machine four threads in one browser and eight in another. Below 4 is a
+  // constraint under either behaviour; 8GB is not.
   const memoryAwareCap =
-    typeof capabilities.deviceMemoryGb === 'number' && capabilities.deviceMemoryGb <= 8 ? 4 : 8
+    typeof capabilities.deviceMemoryGb === 'number' && capabilities.deviceMemoryGb <= 4 ? 4 : 8
 
   return Math.max(2, Math.min(memoryAwareCap, Math.floor(usableCores * 0.75)))
 }

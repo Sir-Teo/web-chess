@@ -6,6 +6,8 @@ import {
   buildWinrateSeries,
   buildReviewRows,
   formatCompactWhitePovEvaluation,
+  describeReviewScope,
+  filterReviewRowsByPhase,
   filterReviewRowsBySide,
   formatWhitePovEvaluation,
   isReviewEvaluationSufficient,
@@ -13,6 +15,7 @@ import {
   mergeEvaluationSnapshot,
   pvToSan,
   scoreToCp,
+  rankCriticalMoments,
   summarizeAccuracy,
   summarizeReview,
   uciToSan,
@@ -41,7 +44,21 @@ import {
 } from './engine/openingExplorer'
 import { parseCandidateMoveInput } from './engine/candidateMoves'
 import { type AnalyzeMode, type UciGoLimits } from './engine/uci'
-import { flattenPgnMainLine, parsePgnMoveTree, pgnImportUserErrorMessage } from './engine/pgn'
+import { exportAnnotatedPgn, flattenPgnMainLine, parsePgnMoveTree, pgnImportUserErrorMessage } from './engine/pgn'
+import { type LibraryGame, suggestGameName } from './engine/gameLibrary'
+import { narrativeTagToneClass, narrativeTags } from './engine/narrativeTags'
+import type { ReviewPhaseFilter } from './engine/analysis'
+import { reviewImpactLabel } from './engine/reviewImpact'
+import { LazyDialogBoundary } from './components/LazyDialogBoundary'
+import { PhaseAccuracy } from './components/PhaseAccuracy'
+import {
+  type AutoSavedGame,
+  clearAutoSavedGame,
+  readAutoSavedGame,
+  writeAutoSavedGame,
+} from './engine/autoSave'
+import { AutoSaveRecoveryDialog } from './components/AutoSaveRecoveryDialog'
+import { type LibraryWriteResult, useGameLibrary } from './hooks/useGameLibrary'
 import { FEN_PARSE_ERROR, validateFenForAnalysis } from './engine/fen'
 import { buildImportSweepTargets, countImportSweepCandidates, type ImportSweepTarget } from './engine/importSweep'
 import {
@@ -52,7 +69,7 @@ import {
   type NumericInputValue,
 } from './engine/numericInput'
 import { normalizeSpinOptionInput } from './engine/options'
-import { engineProfiles, type EngineProfileId } from './engine/profiles'
+import { detectEngineCapabilities, engineProfiles, recommendedHashMb, type EngineProfileId } from './engine/profiles'
 import { fetchSamplePgn } from './engine/samplePgn'
 import { parseFenShareHash } from './engine/shareLink'
 import { tablebaseMoveAriaLabel, tablebaseMoveSummary, tablebaseSummary } from './engine/tablebaseLabels'
@@ -79,7 +96,7 @@ import { graphTickStep } from './components/graphLayout'
 import { useElementHeight, useElementWidth } from './hooks/useElementWidth'
 import { useModalFocus } from './hooks/useModalFocus'
 import { formatGraphAxisLabel, formatGraphPositionLabel } from './components/graphLabels'
-import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlip, IconDownload, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp } from './components/icons'
+import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlip, IconDownload, IconClipboard, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp } from './components/icons'
 import './App.css'
 
 const NewGameDialog = lazy(() =>
@@ -87,6 +104,12 @@ const NewGameDialog = lazy(() =>
 )
 const PgnDialog = lazy(() =>
   import('./components/PgnDialog').then(module => ({ default: module.PgnDialog })),
+)
+/** Long enough that a fast sequence of moves writes once, not per move. */
+const AUTO_SAVE_DEBOUNCE_MS = 700
+
+const LibraryDialog = lazy(() =>
+  import('./components/LibraryDialog').then(module => ({ default: module.LibraryDialog })),
 )
 
 type Orientation = 'white' | 'black'
@@ -264,6 +287,21 @@ type PersistedAppSettings = {
   topMoveArrowCount: number
 }
 
+/**
+ * Read once, lazily: detectEngineCapabilities touches navigator, which is not
+ * there at module scope in a test or a prerender.
+ */
+let cachedDefaultHashMb: number | null = null
+function defaultHashMb(): number {
+  if (cachedDefaultHashMb !== null) return cachedDefaultHashMb
+  try {
+    cachedDefaultHashMb = recommendedHashMb(detectEngineCapabilities())
+  } catch {
+    cachedDefaultHashMb = DEFAULT_PERSISTED_SETTINGS.hashMb
+  }
+  return cachedDefaultHashMb
+}
+
 const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
   workspaceMode: 'play',
   autoAnalyze: true,
@@ -375,13 +413,6 @@ function moveGamesCount(move: OpeningExplorerMove): number {
 function percentage(part: number, total: number): number {
   if (!total) return 0
   return (part / total) * 100
-}
-
-function reviewImpactLabel(deltaCp: number | undefined): string {
-  if (typeof deltaCp !== 'number') return 'Queued'
-  if (deltaCp >= 10) return `Gain +${(deltaCp / 100).toFixed(2)}`
-  if (deltaCp >= -10) return 'No loss'
-  return `Lost ${(Math.abs(deltaCp) / 100).toFixed(2)}`
 }
 
 function reviewConfidenceLabel(confidence: 'pending' | 'shallow' | 'standard' | 'deep', depth: number | undefined): string {
@@ -698,7 +729,7 @@ function loadPersistedSettings(): PersistedAppSettings {
       ),
       mateTarget: normalizeInteger(parsed.mateTarget, MATE_TARGET_BOUNDS.min, MATE_TARGET_BOUNDS.max, MATE_TARGET_BOUNDS.fallback),
       multiPv: normalizeInteger(parsed.multiPv, 1, 5, DEFAULT_PERSISTED_SETTINGS.multiPv),
-      hashMb: normalizeInteger(parsed.hashMb, 16, 512, DEFAULT_PERSISTED_SETTINGS.hashMb),
+      hashMb: normalizeInteger(parsed.hashMb, 16, 512, defaultHashMb()),
       showWdl: typeof parsed.showWdl === 'boolean' ? parsed.showWdl : DEFAULT_PERSISTED_SETTINGS.showWdl,
       limitNodes: normalizeOptionalPositiveInteger(parsed.limitNodes, LIMIT_NODES_BOUNDS.max),
       searchMovesInput: DEFAULT_PERSISTED_SETTINGS.searchMovesInput,
@@ -787,6 +818,7 @@ function App() {
   const [analysisTab, setAnalysisTab] = useState<AnalysisTab>(persistedSettings.analysisTab)
   const [analysisExperience, setAnalysisExperience] = useState<AnalysisExperience>(persistedSettings.analysisExperience)
   const [reviewSideFilter, setReviewSideFilter] = useState<ReviewSideFilter>('both')
+  const [reviewPhaseFilter, setReviewPhaseFilter] = useState<ReviewPhaseFilter>('all')
   const [activePreset, setActivePreset] = useState<AnalyzePresetId | null>(persistedSettings.activePreset)
   const [analyzeMode, setAnalyzeMode] = useState<AnalyzeMode>(persistedSettings.analyzeMode)
   const [showAdvancedAnalyze, setShowAdvancedAnalyze] = useState(persistedSettings.showAdvancedAnalyze)
@@ -841,6 +873,8 @@ function App() {
   // ── Game mode ────────────────────────────────────────
   const [showNewGameDialog, setShowNewGameDialog] = useState(false)
   const [showPgnDialog, setShowPgnDialog] = useState(false)
+  const [showLibraryDialog, setShowLibraryDialog] = useState(false)
+  const [autoSaveRecovery, setAutoSaveRecovery] = useState<AutoSavedGame | null>(null)
   const [gameMode, setGameMode] = useState<GameMode>('human-vs-human')
   const [playerColor, setPlayerColor] = useState<PlayerColor>('white')
   const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>(4)
@@ -971,11 +1005,15 @@ function App() {
   const opening = useOpening(openingFenPath, shouldLoadOpeningNames)
   const canGoBack = currentPathNodes.length > 1
   const canGoForward = gameTree.current.children.length > 0
-  const appModalOpen = showNewGameDialog || showPgnDialog
+  const appModalOpen = showNewGameDialog || showPgnDialog || showLibraryDialog || autoSaveRecovery !== null
   const promotionDialogOpen = pendingPromotion !== null
   const topChromeHidden = appModalOpen || promotionDialogOpen
   const backgroundUiHidden = appModalOpen || settingsOpen || promotionDialogOpen
-  const dialogLoadingLabel = showNewGameDialog ? 'Loading new game...' : 'Loading import tools...'
+  const dialogLoadingLabel = showNewGameDialog
+    ? 'Loading new game...'
+    : showLibraryDialog
+      ? 'Loading library...'
+      : 'Loading import tools...'
   const shortcutsSuspended =
     appModalOpen || settingsOpen || promotionDialogOpen
 
@@ -1604,7 +1642,7 @@ function App() {
     setLeftWidth(0)
     setSearchDepth(DEFAULT_PERSISTED_SETTINGS.searchDepth)
     setMultiPv(DEFAULT_PERSISTED_SETTINGS.multiPv)
-    setHashMb(DEFAULT_PERSISTED_SETTINGS.hashMb)
+    setHashMb(defaultHashMb())
     setShowWdl(DEFAULT_PERSISTED_SETTINGS.showWdl)
     setAutoAnalyze(DEFAULT_PERSISTED_SETTINGS.autoAnalyze)
     setEngineProfile(DEFAULT_PERSISTED_SETTINGS.engineProfile)
@@ -1922,8 +1960,17 @@ function App() {
     () => filterReviewRowsBySide(reviewRows, reviewSideFilter),
     [reviewRows, reviewSideFilter],
   )
-  const reviewSummary = useMemo(() => summarizeReview(visibleReviewRows), [visibleReviewRows])
-  const reviewAccuracy = useMemo(() => summarizeAccuracy(visibleReviewRows), [visibleReviewRows])
+  /**
+   * What the review actually reports on. The phase breakdown deliberately reads
+   * the unfiltered rows instead, so every phase stays visible and switchable —
+   * the same split katrain's report makes.
+   */
+  const reportedReviewRows = useMemo(
+    () => filterReviewRowsByPhase(visibleReviewRows, reviewPhaseFilter),
+    [visibleReviewRows, reviewPhaseFilter],
+  )
+  const reviewSummary = useMemo(() => summarizeReview(reportedReviewRows), [reportedReviewRows])
+  const reviewAccuracy = useMemo(() => summarizeAccuracy(reportedReviewRows), [reportedReviewRows])
   // Only rendered inside the analysis workspace, which is exactly when the
   // engine is on, so the game length is the only thing left to check.
   const reviewGameDisabledReason = mainLineNodes.length <= 1
@@ -1942,18 +1989,16 @@ function App() {
       ? `Review Game unavailable. ${reviewGameDisabledReason}`
       : 'Review Game'
   const criticalReviewRows = useMemo(
-    () => visibleReviewRows
-      .filter(row => row.quality === 'inaccuracy' || row.quality === 'mistake' || row.quality === 'blunder')
-      .filter(row => typeof row.deltaCp === 'number')
-      .sort((a, b) => (a.deltaCp ?? 0) - (b.deltaCp ?? 0))
-      .slice(0, 5),
-    [visibleReviewRows],
+    () => rankCriticalMoments(reportedReviewRows, 5),
+    [reportedReviewRows],
   )
-  const criticalMomentsEmptyCopy = visibleReviewRows.length === 0
+  const criticalMomentsEmptyCopy = reportedReviewRows.length === 0
     ? 'Run Review Game after a line is analyzed to surface the biggest turning points.'
     : reviewAccuracy.pendingMoves > 0
       ? 'Review Game is still collecting enough depth to identify the biggest turning points.'
-      : 'No major swings found in this reviewed line.'
+      // Says what is actually on screen: with a filter on, "this reviewed line"
+      // would claim more than the review is showing.
+      : `No major swings found in ${describeReviewScope(reviewSideFilter, reviewPhaseFilter)}.`
 
   useEffect(() => {
     setReviewBookError(null)
@@ -2147,6 +2192,11 @@ function App() {
   const winratePoints = useMemo(
     () => buildWinrateSeries(currentLineMoves, evaluationsByFen, currentRootFen),
     [currentLineMoves, currentRootFen, evaluationsByFen],
+  )
+
+  const gameNarrativeTags = useMemo(
+    () => narrativeTags(winratePoints, pgnHeaders.Result),
+    [winratePoints, pgnHeaders.Result],
   )
 
   // In Play mode the engine is off, so an empty winrate/WDL card can never fill —
@@ -2551,13 +2601,22 @@ function App() {
     rememberModalTrigger()
     setSettingsOpen(false)
     setShowPgnDialog(false)
+    setShowLibraryDialog(false)
     setShowNewGameDialog(true)
   }
   const openPgnDialog = () => {
     rememberModalTrigger()
     setSettingsOpen(false)
     setShowNewGameDialog(false)
+    setShowLibraryDialog(false)
     setShowPgnDialog(true)
+  }
+  const openLibraryDialog = () => {
+    rememberModalTrigger()
+    setSettingsOpen(false)
+    setShowNewGameDialog(false)
+    setShowPgnDialog(false)
+    setShowLibraryDialog(true)
   }
   const closeNewGameDialog = useCallback(() => {
     setShowNewGameDialog(false)
@@ -2567,12 +2626,29 @@ function App() {
     setShowPgnDialog(false)
     restoreModalTriggerFocus()
   }, [restoreModalTriggerFocus])
+  const library = useGameLibrary()
+  // Built only while the dialog is open; exportAnnotatedPgn walks the whole tree.
+  const libraryPgn = useMemo(
+    () => (showLibraryDialog && mainLineNodes.length > 1
+      ? exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
+      : ''),
+    [showLibraryDialog, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot],
+  )
+  const librarySuggestedName = useMemo(
+    () => (libraryPgn ? suggestGameName(libraryPgn) : ''),
+    [libraryPgn],
+  )
+  const closeLibraryDialog = useCallback(() => {
+    setShowLibraryDialog(false)
+    restoreModalTriggerFocus()
+  }, [restoreModalTriggerFocus])
   const handleSettingsToggle = (event: SyntheticEvent<HTMLDetailsElement>) => {
     const nextOpen = event.currentTarget.open
     setSettingsOpen(nextOpen)
     if (!nextOpen) return
     setShowNewGameDialog(false)
     setShowPgnDialog(false)
+    setShowLibraryDialog(false)
   }
 
   const abortSampleFetch = useCallback(() => {
@@ -2750,6 +2826,69 @@ function App() {
     [handlePgnImport],
   )
 
+  const handleLibraryLoad = useCallback(
+    (game: LibraryGame): LibraryWriteResult => {
+      const result = handleAnalysisPgnImport(game.pgn)
+      if (result.ok) {
+        closeLibraryDialog()
+        return { ok: true }
+      }
+      return { ok: false, error: result.error ?? 'That saved game could not be loaded.' }
+    },
+    [handleAnalysisPgnImport, closeLibraryDialog],
+  )
+
+  // ── Auto-save ──────────────────────────────────────────
+  // Offer whatever the last session left behind, then keep the slot current.
+  // The check is mount-only and runs before the first debounced write, so a
+  // fresh board cannot clear the snapshot it is about to offer.
+  const autoSaveCheckedRef = useRef(false)
+
+  useEffect(() => {
+    if (autoSaveCheckedRef.current) return
+    autoSaveCheckedRef.current = true
+    const snapshot = readAutoSavedGame()
+    if (!snapshot) return
+    if (mainLineNodes.length > 1) {
+      // A share link already put a game on the board, so the snapshot is stale.
+      clearAutoSavedGame()
+      return
+    }
+    setAutoSaveRecovery(snapshot)
+    // Deliberately mount-only: a one-shot check against the board as it loaded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Evaluations are a dependency on purpose: as the engine improves them the
+  // snapshot is rewritten, so a recovered game carries the analysis it had
+  // rather than whatever was known 700ms after the last move.
+  useEffect(() => {
+    if (autoSaveRecovery) return
+    const timeout = window.setTimeout(() => {
+      const plies = mainLineNodes.length - 1
+      if (plies <= 0) {
+        clearAutoSavedGame()
+        return
+      }
+      writeAutoSavedGame(
+        exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot),
+        plies,
+      )
+    }, AUTO_SAVE_DEBOUNCE_MS)
+    return () => window.clearTimeout(timeout)
+  }, [autoSaveRecovery, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
+
+  const dismissAutoSaveRecovery = useCallback(() => {
+    clearAutoSavedGame()
+    setAutoSaveRecovery(null)
+  }, [])
+
+  const restoreAutoSavedGame = useCallback(() => {
+    if (!autoSaveRecovery) return
+    if (!handleAnalysisPgnImport(autoSaveRecovery.pgn).ok) clearAutoSavedGame()
+    setAutoSaveRecovery(null)
+  }, [autoSaveRecovery, handleAnalysisPgnImport])
+
   const handleFenLoad = useCallback((fenText: string, options?: FenLoadOptions) => {
     const validation = validateFenForAnalysis(fenText)
     if (!validation.ok) {
@@ -2803,6 +2942,7 @@ function App() {
       if (!sharedFen) return
       setShowPgnDialog(false)
       setShowNewGameDialog(false)
+      setShowLibraryDialog(false)
       setSettingsOpen(false)
       if (sharedFen === game.fen()) {
         requestBoardReveal()
@@ -3213,6 +3353,9 @@ function App() {
               </button>
               <button type="button" onClick={openPgnDialog} aria-label="Open PGN and FEN dialog" title="PGN and FEN">
                 <span className="btn-icon"><IconDownload /></span> <span className="btn-label">PGN</span>
+              </button>
+              <button type="button" onClick={openLibraryDialog} aria-label="Open saved games library" title="Library">
+                <span className="btn-icon"><IconClipboard /></span> <span className="btn-label">Library</span>
               </button>
             </div>
 
@@ -3912,6 +4055,7 @@ function App() {
           </div>
         </section>
 
+        <LazyDialogBoundary>
         <Suspense fallback={<DialogLoadingFallback label={dialogLoadingLabel} />}>
           {showNewGameDialog && (
             <NewGameDialog
@@ -3938,7 +4082,35 @@ function App() {
               pgnHeaders={pgnHeaders}
             />
           )}
+
+          {autoSaveRecovery && (
+            <AutoSaveRecoveryDialog
+              savedAt={autoSaveRecovery.savedAt}
+              moveCount={autoSaveRecovery.moveCount}
+              onRestore={restoreAutoSavedGame}
+              onDismiss={dismissAutoSaveRecovery}
+            />
+          )}
+
+          {showLibraryDialog && (
+            <LibraryDialog
+              open
+              games={library.games}
+              loaded={library.loaded}
+              currentPgn={libraryPgn}
+              suggestedName={librarySuggestedName}
+              onClose={closeLibraryDialog}
+              onSave={library.saveGame}
+              onLoad={handleLibraryLoad}
+              onRename={library.renameGame}
+              onDelete={library.deleteGame}
+              onToggleFavorite={library.toggleFavorite}
+              onExportBackup={library.exportBackup}
+              onImportBackup={library.importBackup}
+            />
+          )}
         </Suspense>
+        </LazyDialogBoundary>
 
         {/* ── Right panel ── */}
         <aside
@@ -4403,7 +4575,10 @@ function App() {
                           type="button"
                           className={`mode-pill ${reviewSideFilter === filter.id ? 'active' : ''}`}
                           aria-pressed={reviewSideFilter === filter.id}
-                          onClick={() => setReviewSideFilter(filter.id)}
+                          onClick={() => {
+                            setReviewSideFilter(filter.id)
+                            setReviewPhaseFilter('all')
+                          }}
                         >
                           {filter.label}
                         </button>
@@ -4428,9 +4603,15 @@ function App() {
                       </div>
                       <div>
                         <span>Evaluated</span>
-                        <strong>{reviewAccuracy.evaluatedMoves}/{visibleReviewRows.length}</strong>
+                        <strong>{reviewAccuracy.evaluatedMoves}/{reportedReviewRows.length}</strong>
                       </div>
                     </div>
+                    <PhaseAccuracy
+                      rows={visibleReviewRows}
+                      formatAccuracy={formatAccuracyValue}
+                      selected={reviewPhaseFilter}
+                      onSelect={setReviewPhaseFilter}
+                    />
                     {reviewAccuracy.pendingMoves > 0 && (
                       <p className="panel-copy small command-summary">
                         {reviewAccuracy.pendingMoves} move{reviewAccuracy.pendingMoves === 1 ? '' : 's'} still need{reviewAccuracy.pendingMoves === 1 ? 's' : ''} deeper evaluation before accuracy is final.
@@ -4444,9 +4625,18 @@ function App() {
                       <span className="chip-blunder">Blunder {reviewSummary.blunder}</span>
                       <span className="chip-pending">Pending {reviewSummary.pending}</span>
                     </div>
-                    {visibleReviewRows.length > 0 ? (
+                    {gameNarrativeTags.length > 0 && (
+                      <div className="review-chips" aria-label="Game summary">
+                        {gameNarrativeTags.map(tag => (
+                          <span key={tag.id} className={narrativeTagToneClass(tag.tone)} title={tag.title}>
+                            {tag.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {reportedReviewRows.length > 0 ? (
                       <ReviewMoveList
-                        rows={visibleReviewRows}
+                        rows={reportedReviewRows}
                         nodes={mainLineNodes}
                         currentNodeId={gameTree.current.id}
                         showEngineDetail={analysisExperience === 'pro'}
