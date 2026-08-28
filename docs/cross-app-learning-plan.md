@@ -1141,6 +1141,33 @@ Neither sibling's problem is visible from inside that sibling. chess's looks
 like a settings blob doing its job; xiangqi's looks like a sensible mobile
 guard. Both only stand out against an app that separated the two questions.
 
+### The invariants that held were the ones the compiler holds
+
+Auditing each repo's stated invariants against its code turned up two failure
+modes in the siblings and none in katrain, and the difference is not diligence.
+
+- **web-chess** — "New pure logic goes in `src/engine/`" reads as a description
+  and is not one: 44 helpers predate it. True as a rule, misleading as a claim.
+- **web-xiangqi** — "A mobile-like device is always the `low` tier" is true and
+  pinned by a test, and does not reach what it sounds like it protects: the
+  engine's thread count and hash size never consult the tier. A correct,
+  tested invariant whose scope is narrower than its wording.
+- **web-katrain** — "Supported board sizes are 9, 13, and 19" holds, because
+  `BoardSize` *is* `9 | 13 | 19`. `normalizeBoardSize` coerces anything else,
+  and `unsupportedSgfBoardSize` tells the reader their 5x5 was loaded as 19x19
+  instead of silently mangling it.
+
+The difference is where the invariant lives. Chess's and xiangqi's are prose
+about the code; katrain's is a union type *in* the code. Prose drifts silently
+because nothing fails when it stops being true — which is the same reason a
+stale doc, a hand-kept module list, and a stored conclusion all drift.
+
+This is also the strongest form of the night's recurring rule. Deriving one
+representation from another stops them disagreeing; making the second one
+**unrepresentable** stops them existing. Where a rule can be a type, a union or
+a single exported constant, it will hold without anyone maintaining it — and
+where it can only be a sentence, expect to audit it, because nothing else will.
+
 ### Decisions left open, and where each one lives
 
 These are judgment calls rather than unfinished work — each was investigated to
