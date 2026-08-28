@@ -818,12 +818,7 @@ rows mid-search) without any timing at all, which is the point.
 
 ### Not done yet
 
-Items 6, 7, 11, 13, 14 and 17 from §4 stand as written; 4, 9, 10, 15
-and 16 are done, and 12 is blocked as described above. The next-most-valuable is 8 (break
-both 5,000-line `App.tsx` files into stores — do chess first, it has the tests
-to catch regressions).
-
-Two things were deliberately left alone rather than changed:
+Three things were deliberately left alone rather than changed:
 
 - **web-xiangqi's review thresholds.** web-chess's win-percent ladder is now
   *derived* from its centipawn ladder so the two readings agree at equality.
@@ -836,3 +831,32 @@ Two things were deliberately left alone rather than changed:
   line rather than a point. But nothing was shown to produce one, and the loose
   check is the dominant idiom in that repo (55 sites to 22). Recorded in
   web-xiangqi's `docs/architecture.md` instead.
+
+- **Children of an expanded katrain folder.** The folder root and the search
+  results are paged; a folder's own children are not, because a per-folder
+  limit needs per-folder state and a shared one would make expanding one folder
+  raise the limit everywhere. A library that puts a thousand SGFs inside one
+  folder still mounts them all.
+
+### One gap in the local checks, closed
+
+`tsc --noEmit` against the root config does not check the test files. `tsc -b`,
+which every repo's build runs, does. Making `phase` a required field on chess's
+`ReviewRow` therefore looked clean locally and broke the build — the fixtures
+had no phase. CI would have caught it (all three repos build in CI), but only
+after a push.
+
+All three now have `npm run typecheck` running `tsc -b`, under the same name,
+so the local gate matches the one that actually enforces. This is the cheapest
+kind of Tier 0 convention parity and it was found the way most of the night's
+findings were: by running the thing rather than reasoning about it.
+
+### Where this stands
+
+Items 6, 7, 11, 13, 14 and 17 from §4 stand as written; 4, 9, 10, 15 and 16 are
+done, and 12 is blocked as described above. The next-most-valuable is 8 (break
+both 5,000-line `App.tsx` files into stores — do chess first, it has the tests
+to catch regressions).
+
+All three repos are committed clean, build, lint, typecheck and pass their
+suites: katrain 1,428 tests, chess 367, xiangqi 271.
