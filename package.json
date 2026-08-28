@@ -9,6 +9,7 @@
     "audit": "npm audit --audit-level=moderate",
     "lint": "eslint .",
     "typecheck": "tsc -b",
+    "verify": "npm run typecheck && npm run lint && npm test && npm run build",
     "test": "vitest run",
     "sync:stockfish": "node scripts/sync-stockfish-assets.js",
     "preview": "vite preview"
