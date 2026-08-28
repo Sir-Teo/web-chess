@@ -132,6 +132,21 @@ Everything read back from storage goes through a normalizer that drops
 anything malformed, so a corrupted store degrades to empty rather than
 reaching the UI.
 
+`engine/storage.ts` is the boundary where storage is allowed to *fail* —
+distinct from the normalizers, which handle data that is present but wrong.
+`readStorage`/`writeStorage`/`removeStorage` return `null`/`false` instead of
+throwing, so private mode, a blocked-cookie setting and a quota error stop being
+things each reader has to remember. Ported from web-katrain, which guards once
+at the boundary rather than once per reader.
+
+`autoSave.ts` uses it. The others still carry their own `try`/`catch`, which
+works — the wrapper is for anything new, and for whichever of them is next
+touched. Worth knowing why it exists at all: `autoSave` had a private
+`getDefaultStorage` that was a duplicate of `getLocalStorage` down to the
+`globalThis` fallback, and web-xiangqi's `autoSave` had independently grown the
+same eight lines. A missing abstraction had manufactured the duplication twice
+over.
+
 ## External Services
 
 Lichess cloud evaluation, the opening explorer and the tablebase all go
