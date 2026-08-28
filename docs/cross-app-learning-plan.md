@@ -1047,6 +1047,31 @@ is only safe because its second branch has no live caller. katrain never trips
 the first clause and observes the second by construction — which is a better
 account of "the most polished" than any individual technique it uses.
 
+### Store the evidence, not the conclusion
+
+A late finding, and the most directly actionable thing the three-way comparison
+produced.
+
+| | what is persisted | what a change to the maths costs |
+| --- | --- | --- |
+| katrain | raw engine output (`scoreLead`, `winrate`, `visits`, `prior`); every derived field is recomputed on read | nothing — it reaches every stored game for free |
+| web-chess | a PGN and a move count; the review is rebuilt from evaluations | nothing |
+| web-xiangqi | the whole review summary — accuracy, per-side accuracy, counts, key moments | a read-path clamp was needed when the per-move loss was bounded, and the open grading-ladder decision now carries a migration |
+
+`katrainSgfAnalysis.ts` is explicit about it: it sets `pointsLost: 0` while
+reading and then recomputes `m.pointsLost = sign * (rootScoreLead - m.scoreLead)`.
+The stored file never holds the answer, only what the answer is computed from.
+
+xiangqi is the only one of the three storing a conclusion, and it is the only
+one where changing how a number is computed has cost anything. It already saves
+per-move annotations, so a summary rebuilt from them on load would remove the
+class of problem rather than patch each instance — which is what the read-path
+clamp is, and what the ladder decision would need next.
+
+The rule generalises past this codebase: **persist what you were told, derive
+what you concluded.** A stored conclusion is a copy of your code's behaviour at
+the moment it was written, and it does not get updated when the code does.
+
 ### Decisions left open, and where each one lives
 
 These are judgment calls rather than unfinished work — each was investigated to
