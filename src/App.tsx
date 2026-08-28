@@ -49,6 +49,7 @@ import { type LibraryGame, suggestGameName } from './engine/gameLibrary'
 import { narrativeTagToneClass, narrativeTags } from './engine/narrativeTags'
 import type { ReviewPhaseFilter } from './engine/analysis'
 import { reviewImpactLabel } from './engine/reviewImpact'
+import { LazyDialogBoundary } from './components/LazyDialogBoundary'
 import { PhaseAccuracy } from './components/PhaseAccuracy'
 import {
   type AutoSavedGame,
@@ -4054,6 +4055,7 @@ function App() {
           </div>
         </section>
 
+        <LazyDialogBoundary>
         <Suspense fallback={<DialogLoadingFallback label={dialogLoadingLabel} />}>
           {showNewGameDialog && (
             <NewGameDialog
@@ -4108,6 +4110,7 @@ function App() {
             />
           )}
         </Suspense>
+        </LazyDialogBoundary>
 
         {/* ── Right panel ── */}
         <aside
