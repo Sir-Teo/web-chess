@@ -6,6 +6,7 @@ import {
   buildWinrateSeries,
   buildReviewRows,
   formatCompactWhitePovEvaluation,
+  describeReviewScope,
   filterReviewRowsByPhase,
   filterReviewRowsBySide,
   formatWhitePovEvaluation,
@@ -2000,7 +2001,9 @@ function App() {
     ? 'Run Review Game after a line is analyzed to surface the biggest turning points.'
     : reviewAccuracy.pendingMoves > 0
       ? 'Review Game is still collecting enough depth to identify the biggest turning points.'
-      : 'No major swings found in this reviewed line.'
+      // Says what is actually on screen: with a filter on, "this reviewed line"
+      // would claim more than the review is showing.
+      : `No major swings found in ${describeReviewScope(reviewSideFilter, reviewPhaseFilter)}.`
 
   useEffect(() => {
     setReviewBookError(null)

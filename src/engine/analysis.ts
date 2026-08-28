@@ -1,7 +1,7 @@
 import { Chess, type Move } from 'chess.js'
 import type { EngineLine } from '../hooks/useStockfishEngine'
 import type { AnalyzeMode, AnalyzePurpose } from './uci'
-import { GAME_PHASES, type GamePhase, getMovePhase } from './gamePhase'
+import { GAME_PHASES, type GamePhase, getMovePhase, getPhaseLabel } from './gamePhase'
 
 export type EvalSnapshot = {
   cp: number
@@ -467,6 +467,23 @@ export type ReviewPhaseFilter = 'all' | GamePhase
 export function filterReviewRowsByPhase(rows: ReviewRow[], filter: ReviewPhaseFilter): ReviewRow[] {
   if (filter === 'all') return rows
   return rows.filter(row => row.phase === filter)
+}
+
+/**
+ * Names what the review is currently showing, for copy that would otherwise
+ * describe the whole game while a filter is narrowing it — "no major swings
+ * found in this reviewed line" is a different claim from the same sentence
+ * about White's moves in the opening.
+ */
+export function describeReviewScope(
+  side: ReviewSideFilter,
+  phase: ReviewPhaseFilter,
+): string {
+  const parts = [
+    side === 'both' ? null : side === 'white' ? "White's moves" : "Black's moves",
+    phase === 'all' ? null : `the ${getPhaseLabel(phase).toLowerCase()}`,
+  ].filter(Boolean)
+  return parts.length ? parts.join(' in ') : 'this reviewed line'
 }
 
 export function accuracyFromCentipawnLoss(deltaCp: number): number {
