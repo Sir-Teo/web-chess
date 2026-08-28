@@ -3,6 +3,8 @@ import {
   fetchLichessResource,
   LICHESS_RATE_LIMIT_COOLDOWN_MS,
   resetLichessFetchQueueForTests,
+  parseRetryAfterMs,
+  LICHESS_MAX_COOLDOWN_MS,
 } from './lichessQueue'
 
 function deferredResponse() {
@@ -103,5 +105,47 @@ describe('Lichess request queue', () => {
 
     await expect(secondRequest).rejects.toThrow('cancelled during cooldown')
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('honouring Retry-After on a 429', () => {
+  const NOW = 1_700_000_000_000
+
+  it('falls back to the fixed cooldown when the header is absent', () => {
+    expect(parseRetryAfterMs(null, NOW)).toBe(LICHESS_RATE_LIMIT_COOLDOWN_MS)
+    expect(parseRetryAfterMs('', NOW)).toBe(LICHESS_RATE_LIMIT_COOLDOWN_MS)
+  })
+
+  it('reads a count of seconds', () => {
+    expect(parseRetryAfterMs('90', NOW)).toBe(90_000)
+    expect(parseRetryAfterMs('  5  ', NOW)).toBe(5_000)
+  })
+
+  it('reads an HTTP date', () => {
+    expect(parseRetryAfterMs(new Date(NOW + 45_000).toUTCString(), NOW)).toBeGreaterThan(44_000)
+  })
+
+  it('caps a header that asks for far too long', () => {
+    // A confused or hostile server must not park the queue for an hour.
+    expect(parseRetryAfterMs('3600', NOW)).toBe(LICHESS_MAX_COOLDOWN_MS)
+    expect(parseRetryAfterMs(new Date(NOW + 86_400_000).toUTCString(), NOW))
+      .toBe(LICHESS_MAX_COOLDOWN_MS)
+  })
+
+  it('ignores a header that is junk, negative or already past', () => {
+    expect(parseRetryAfterMs('soon', NOW)).toBe(LICHESS_RATE_LIMIT_COOLDOWN_MS)
+    expect(parseRetryAfterMs('-30', NOW)).toBe(LICHESS_RATE_LIMIT_COOLDOWN_MS)
+    expect(parseRetryAfterMs('0', NOW)).toBe(LICHESS_RATE_LIMIT_COOLDOWN_MS)
+    expect(parseRetryAfterMs(new Date(NOW - 10_000).toUTCString(), NOW))
+      .toBe(LICHESS_RATE_LIMIT_COOLDOWN_MS)
+  })
+
+  it('never waits less than the fixed cooldown would have', () => {
+    // The change may only lengthen a wait, never shorten one.
+    for (const header of [null, '', 'junk', '-1', '0', '1', '30']) {
+      const waited = parseRetryAfterMs(header, NOW)
+      if (header === '1' || header === '30') continue
+      expect(waited).toBeGreaterThanOrEqual(LICHESS_RATE_LIMIT_COOLDOWN_MS)
+    }
   })
 })
