@@ -431,7 +431,33 @@ typecheck, tests, build); UI changes were additionally exercised in a browser.
 | 3 | chess | A saved-games library: PGN model, IndexedDB store with a localStorage→memory fallback, hook, dialog, toolbar entry, JSON backup import/export. |
 | 5 | chess, xiangqi | Auto-save and crash recovery, ported from katrain's `autoSave.ts`. |
 | 16 | katrain | OGS requests routed through a backoff queue (see below). |
+| 9 (part) | chess, xiangqi | Narrative tags — Comeback, Wire-to-wire, Missed win, Draw, Nail-biter — ported from katrain. The phase split (opening/middle/endgame) is still open. |
+| 10 | katrain | The search benchmark reports again (its output was hidden), and now writes JSON, compares against a baseline, and can gate on a threshold. |
 | — | chess | Review scoring moved onto winning chances (see below). |
+| — | katrain, xiangqi | Library and pro-game search match every term rather than the query as one phrase. |
+| — | chess, xiangqi | Comment stripping made linear, so a wrong file cannot freeze the tab on import. |
+
+### What was verified by running the apps, not just the tests
+
+Written down because the tests passing is the weaker claim:
+
+- **chess** — saved a game, reloaded, loaded it back; exported a backup, deleted
+  the game, imported it back intact; rejected a duplicate, a foreign JSON file
+  and garbage. Reviewed Aronian–Carlsen end to end: 116/116 evaluated,
+  **98.3% accuracy**, Best 111 / Good 5 / no mistakes, ACPL 4 — a believable
+  reading for a GM draw, which is the real evidence the win-percent curve
+  behaves. A blitz endgame then exercised the critical-moments ranking
+  (3.27 → 2.79 → 1.88 → 1.81 → 1.44). PGN export still carries its headers and
+  79 `[%eval]` annotations after the analysis changes.
+- **xiangqi** — auto-save written, restored and dismissed; library search
+  measured live (`"hu 1977"` 0 → 1 game); narrative tags rendered from a stored
+  review. With the engine deliberately failed, the app still plays moves, offers
+  book continuations and saves, reporting "Recovering engine".
+- **katrain** — runs its KataGo MCTS on WebGPU. The OGS import path was driven
+  end to end against a stubbed response: one request to the right URL, SGF
+  parsed, game loaded. The pro-game search fix confirmed live: `"sedol"` 3
+  games, `"sedol 2005"` 2 (correctly dropping the 2003 game), `"sedol zzz"` 0.
+
 
 ### Bugs found while doing the work
 
@@ -662,8 +688,8 @@ where the defects were.
 
 ### Not done yet
 
-Items 6–9, 11, 13, 14 and 17 from §4 stand as written; 4, 10, 15 and 16 are
-done, and 12 is blocked as described above. The next-most-valuable is 8 (break
+Items 6, 7, 11, 13, 14 and 17 from §4 stand as written; 4, 9 (in part), 10, 15
+and 16 are done, and 12 is blocked as described above. The next-most-valuable is 8 (break
 both 5,000-line `App.tsx` files into stores — do chess first, it has the tests
 to catch regressions).
 
