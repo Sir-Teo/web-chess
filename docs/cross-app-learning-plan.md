@@ -486,6 +486,12 @@ typecheck, tests, build); UI changes were additionally exercised in a browser.
 | — | chess | The library renders a page of 100 rows with a "Show more", instead of all 500. |
 | — | chess, xiangqi | A storage boundary ported from katrain: one place where reading or writing is allowed to fail. |
 | — | katrain | The library pages at 100 rows too — it had no cap and rendered every one. |
+| — | chess, xiangqi | **A failed dialog/panel chunk no longer takes the app down.** Suspense catches promises, not errors, so a chunk that would not fetch — what a tab open across a deploy sees — replaced board and all. katrain's `LazyModalBoundary` names that exact incident; both siblings had the same structure and no equivalent. |
+| — | chess | A mate no longer swamps the centipawn average (ACPL 316 → 62 on the Opera Game), and the per-move figure marks itself off-scale. |
+| — | xiangqi | The same centipawn bound, plus a read-path clamp so reviews saved before it cannot outrank fresh ones. |
+| — | chess | Lichess throttling honours `Retry-After` rather than a flat minute, and one shared message reports the real remaining wait to all four callers. |
+| — | katrain | A throttled OGS sync says why it has paused instead of showing a frozen counter. |
+| — | all three | `npm run verify`: one command running every gate CI does, each watched failing on a deliberate error. |
 
 ### What was verified by running the apps, not just the tests
 
