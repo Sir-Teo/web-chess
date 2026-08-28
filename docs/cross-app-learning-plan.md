@@ -814,6 +814,24 @@ split falls exactly along when the filter arrived. Copy written before a filter
 exists makes claims the filter breaks — so when porting a filter into an app,
 the strings around it are part of the port, not collateral.
 
+**That rule was too narrow, and broke on me within the hour.** Making chess's
+Lichess backoff honour `Retry-After` turned a fixed 60 seconds into a variable
+wait of up to two minutes, and left four separate `try again in a minute`
+messages behind. No filter involved. The general form:
+
+> Any change that makes a fixed thing variable orphans every sentence that
+> quoted the fixed value.
+
+With a corollary that cost a second commit: **fixing the instance you noticed is
+not the fix.** I corrected the message in `cloudEval.ts`, felt done, and only
+found the other three by grepping for the value. Four call sites went through
+one queue and each carried its own copy of the sentence — so the repair was the
+same as everywhere else in this document: one `lichessRateLimitMessage` that
+asks the queue, rather than four strings that each remember a number.
+
+The general habit: after changing a constant into a computation, grep for the
+old constant *and* for the words that describe it.
+
 The clickable rows did *not* flow back to katrain, and deliberately. Its report
 already has a first-class phase filter — a four-button grid at the top carrying
 per-phase move counts and disabling a phase with nothing in it — and its
