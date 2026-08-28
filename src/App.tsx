@@ -2830,6 +2830,16 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Held in a ref rather than depended on: the engine hands back a new
+  // evaluations Map several times a second while it searches, and depending on
+  // it here reset the debounce on every one of those — so the auto-save never
+  // fired during analysis, which is exactly when a lost tab hurts most. The
+  // game shape drives the write; the evaluations are read at write time.
+  const autoSaveSourcesRef = useRef({ evaluationsByFen, pgnHeaders, gameNodes: gameTree.nodesSnapshot })
+  useEffect(() => {
+    autoSaveSourcesRef.current = { evaluationsByFen, pgnHeaders, gameNodes: gameTree.nodesSnapshot }
+  }, [evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
+
   useEffect(() => {
     if (autoSaveRecovery) return
     const timeout = window.setTimeout(() => {
@@ -2838,13 +2848,11 @@ function App() {
         clearAutoSavedGame()
         return
       }
-      writeAutoSavedGame(
-        exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot),
-        plies,
-      )
+      const { evaluationsByFen: evaluations, pgnHeaders: headers, gameNodes } = autoSaveSourcesRef.current
+      writeAutoSavedGame(exportAnnotatedPgn(mainLineNodes, evaluations, headers, gameNodes), plies)
     }, AUTO_SAVE_DEBOUNCE_MS)
     return () => window.clearTimeout(timeout)
-  }, [autoSaveRecovery, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
+  }, [autoSaveRecovery, mainLineNodes])
 
   const dismissAutoSaveRecovery = useCallback(() => {
     clearAutoSavedGame()
