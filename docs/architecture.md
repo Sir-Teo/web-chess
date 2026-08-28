@@ -72,9 +72,12 @@ PGN export can include either.
 - Thread count and starting hash size are sized to the device by
   `recommendedThreadCount` and `recommendedHashMb`.
 
-`navigator.deviceMemory` is clamped by spec to at most 8, so `8` means "8 or
-more" and cannot be read as a constraint. Both sizing functions compare
-strictly below it, and their tests use values a browser can actually report.
+Both sizing functions compare memory well below 8, because **browsers disagree
+about the top of `navigator.deviceMemory`'s range**. The spec describes
+clamping the value to limit fingerprinting, and Chromium 148 was observed here
+reporting `32`. A threshold at 8 therefore sorts identical hardware differently
+depending on the browser — the same desktop got four threads in one and eight
+in another. Below 4 is a constraint under either behaviour; 8GB is not.
 
 ## Evaluations
 

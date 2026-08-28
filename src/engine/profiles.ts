@@ -90,8 +90,11 @@ export function recommendedHashMb(capabilities: EngineCapabilities): number {
   const reported = typeof memoryGb === 'number' && Number.isFinite(memoryGb)
 
   if (capabilities.isMobile) return 16
-  // navigator.deviceMemory is clamped by spec to at most 8, so 8 means "8 or
-  // more" and cannot be read as a constraint. Only step down below it.
+  // Thresholds stay well below 8. Browsers disagree about the top of
+  // navigator.deviceMemory's range — the spec describes clamping it to 8 to
+  // limit fingerprinting, and Chromium 148 was observed reporting 32 — so a
+  // threshold at or near 8 sorts identical hardware differently depending on
+  // the browser. Below 4 is a constraint under either behaviour.
   if (reported && memoryGb <= 2) return 16
   if (reported && memoryGb <= 4) return 32
   if (capabilities.hardwareConcurrency <= 2) return 32

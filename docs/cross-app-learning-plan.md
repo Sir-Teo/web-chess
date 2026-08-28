@@ -438,13 +438,20 @@ typecheck, tests, build); UI changes were additionally exercised in a browser.
 Fourteen so far, across all three. Grouped by the lens that found them, because
 the lens generalises better than the individual fix.
 
-**A browser API read past its documented range.** `navigator.deviceMemory` is
-clamped by spec to at most 8, and both siblings compared `<= 8` as though it
-were a real constraint. web-chess capped threads so the eight-thread path was
-unreachable; web-xiangqi put its high tier out of reach **in Chrome only**,
-while Firefox — which does not implement the API — reached it on identical
-hardware. Both tests passed because their fixtures claimed 16 and 32 GB, which
-no browser reports. Detail in the section below.
+**A threshold sitting exactly where browsers disagree.** Both siblings tested
+`navigator.deviceMemory <= 8` as though 8 meant "constrained". Browsers do not
+agree on the top of that range: the spec describes clamping the value to limit
+fingerprinting, and Chromium 148 was observed reporting `32`. So the same
+machine was sorted differently depending on the browser — in web-chess, four
+threads or eight; in web-xiangqi, the mid tier or the high one. Both now
+compare below 4, which reads as a constraint under either behaviour.
+
+*This entry was rewritten.* It first claimed the value is capped at 8, that
+the wider branches were therefore unreachable, and that the tests missed it
+because their fixtures were unrealistic. Measuring the actual browser showed
+32, so the fixtures were fine and the branches were reachable. The change is
+still right — it removes the browser-dependence — but the original reasoning
+for it was not.
 
 **A phrase match where a term match was meant.** `filterProGames` in
 web-katrain joined every field into one string and asked whether the query
@@ -546,11 +553,11 @@ every device that reports at all. Both apps had one:
 Both are fixed, and the fixtures now use values a browser can actually
 produce. web-katrain reads only `hardwareConcurrency` and was unaffected.
 
-The general lesson is worth more than the two fixes: **a test fixture that
-describes impossible hardware will confirm whatever you already believe.**
-Both bugs were invisible for as long as the fixtures were generous. When a
-capability value comes from a browser API, check what that API is allowed to
-return before choosing a threshold.
+The general lesson survived the rewrite, in a better form: **check what a
+browser API actually returns before choosing a threshold against it — and do
+not trust the spec to tell you.** The spec said one thing, the browser did
+another, and a threshold placed on the boundary made behaviour depend on which
+was true. Put thresholds where every plausible implementation agrees.
 
 **Two of the three CIs were already red, and nobody had noticed.** Both
 web-chess's deploy and web-xiangqi's CI run `npm audit` before anything else,

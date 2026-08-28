@@ -29,11 +29,13 @@ describe('recommendedHashMb', () => {
     expect(recommendedHashMb(capabilities({ deviceMemoryGb: 4 }))).toBe(32)
   })
 
-  it('does not read the reporting ceiling as a constraint', () => {
-    // navigator.deviceMemory is clamped to at most 8, so every roomy machine
-    // reports exactly 8. Reading that as "low memory" would have quietly
-    // halved the hash on every desktop.
+  it('treats 8GB and up as roomy, whatever the browser reports', () => {
+    // Browsers disagree about the top of this range: the spec describes
+    // clamping to 8, and Chromium 148 was seen reporting 32. Both have to land
+    // on the same answer, or identical hardware gets a different hash size
+    // depending on the browser.
     expect(recommendedHashMb(capabilities({ deviceMemoryGb: 8 }))).toBe(64)
+    expect(recommendedHashMb(capabilities({ deviceMemoryGb: 32 }))).toBe(64)
   })
 
   it('steps down for a machine with almost no cores', () => {
