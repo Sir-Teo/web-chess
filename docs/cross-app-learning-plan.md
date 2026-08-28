@@ -500,12 +500,29 @@ terminology call left open.
 `console.log`, which Vitest's default reporter hides for a passing test — so
 the readout it exists to produce printed nothing.
 
-**Three of my own, caught by reviewing or testing my own work.** A debounced
-auto-save that depended on the evaluations map, which the engine replaces
-several times a second, so it never fired *during analysis* — the one time a
-lost tab costs real work; made in both siblings identically. A backoff that
-made an OGS sync ignore its own Stop button for up to four minutes. And "1 move
-were in progress", caught by the first component test in that repo.
+**Two of my own, caught by reviewing my own work.** A backoff that made an OGS
+sync ignore its own Stop button for up to four minutes. And "1 move were in
+progress", caught by the first component test in that repo.
+
+**And two of my own that were not bugs at all**, which is the more useful
+entry. I reported a debounced auto-save "starving" during analysis in both
+siblings, and a board-measurement fragility in web-chess. Both were wrong:
+
+- The auto-save writes 2.9s after a game loads, while the status reads
+  *Analyzing*, and writes once in ten seconds. `mergeEvaluationSnapshot`
+  returns the previous map unchanged when an update does not improve on it, so
+  the identity does not churn per info line the way I assumed. Reverted in
+  both repos — the original was better, because depending on the evaluations
+  means the stored snapshot is refreshed as they improve.
+- The board error came from a viewport of literally `0 × 0`, an automation
+  pane that was not on screen. Every real size is fine, in dev and in a
+  production build, on this branch and on `main`.
+
+Both followed the same pattern: a plausible mechanism, evidence consistent
+with it, and no measurement. Both were caught only by going back and
+measuring. **Read that as a discount on every unmeasured claim in this
+document** — the entries above with numbers attached were measured; treat any
+that are not with suspicion.
 
 ### Three findings that came out of doing the work
 
