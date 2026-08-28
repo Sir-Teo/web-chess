@@ -745,6 +745,20 @@ which is the shape that panel already used for side and quality. In both, the
 breakdown itself deliberately reads the *unfiltered* rows so every phase stays
 visible and switchable — the same split katrain makes.
 
+Adding a filter also quietly invalidated a sentence. Chess's critical-moments
+panel read "No major swings found in this reviewed line" — a claim about the
+whole game, written when nothing could narrow the view. With a phase selected it
+became false: filter to the opening, find it clean, and the app tells you the
+line was clean. Its side filter had the same flaw already. The copy now names
+what is on screen ("Black's moves in the opening").
+
+xiangqi's panel needed no such fix, and the reason is the transferable part: it
+was built with filters from the start, so it already showed a `filtered/total`
+count and distinguished "No moments match these filters" from "No critical
+moments in this line". Copy written before a filter exists makes claims the
+filter breaks — so when porting a filter into an app, the strings around it are
+part of the port, not collateral.
+
 The clickable rows did *not* flow back to katrain, and deliberately. Its report
 already has a first-class phase filter — a four-button grid at the top carrying
 per-phase move counts and disabling a phase with nothing in it — and its
