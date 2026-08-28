@@ -723,6 +723,13 @@ an opening. Chess takes the ply from the position's own move number; xiangqi
 reads an offset off the root FEN, which is what its move display already did.
 The same bug, found once and fixed in both.
 
+Re-verified in the browser afterwards, because changing how a ply is counted is
+exactly the sort of edit that quietly regresses the ordinary case: the Opera
+Game still groups as 20 opening moves and 13 middlegame ones, unchanged. Its
+accuracy figures moved a little (92.8 against the earlier 93.4) because the
+engine reached slightly different depths on the second run — the grouping, which
+is what the change could have broken, did not move at all.
+
 Both read the phase from the position *before* the move, so the move that
 trades the last queen is filed in the middlegame it was played in rather than
 the endgame it created. Chess replays the line and has the FEN to hand;
