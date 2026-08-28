@@ -174,12 +174,16 @@ This predates the win-percent work but was hidden by it: when labels were also
 centipawn-based the two at least agreed with each other, wrongly. Only the
 scoring changed; nobody looked at ACPL in a game that ends in mate.
 
-The fix is the one Lichess uses — cap the evaluation (they use ±1000cp) before
-taking a centipawn loss, so a forced mate contributes a large-but-sane figure
-instead of swamping the average. Not done here: it changes a number users have
-already seen, and it wants its own before/after on real games rather than a
-rushed edit. `accuracyFromCentipawnLoss` is unaffected either way — it is only
-the legacy fallback now, and it saturates near zero long before 9500.
+**Fixed.** `reportedCentipawnLoss` bounds what gets reported at 1000cp, the
+figure Lichess uses. The raw `deltaCp` is left raw — move quality reads winning
+chances and is unaffected, and anything that legitimately wants the real number
+still has it. Measured on the same review of the Opera Game: ACPL 316 -> 62, and
+the row above from "Lost 93.61" to "Lost 10.00+". Accuracy and every quality
+count were unchanged, which is the point — only the centipawn half was wrong.
+
+The trailing "+" is deliberate: it says the real figure is off this scale, which
+is what a forced mate is, rather than presenting a bound as though it had been
+measured.
 
 ## The winrate line draws across gaps it does not have data for
 
