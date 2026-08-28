@@ -465,6 +465,22 @@ before incrementing and was correct.
 with two segments at 100%; an all-zero triple showed a confident
 0.0%/0.0%/0.0%. web-chess already rejected exactly those three cases.
 
+**A regex used where a scan was needed.** Both siblings stripped PGN comments
+with a pattern of the shape `\{[^}]*\}`, which backtracks from every opening
+brace that has no closing one — quadratic. Measured in web-chess: 10k braces
+43ms, 20k 168ms, 40k 622ms, 80k 2.5s. The importer accepts 5MB, so pasting
+something full of braces that is not really a PGN — a minified script, a JSON
+dump, any wrong file — would have hung the tab instead of being rejected.
+web-xiangqi had it for both its tag brackets and its comment braces, freezing
+for about ten seconds at its 200k cap.
+
+**web-katrain does not have this bug, and the reason is the interesting part.**
+Its SGF reader is a hand-written character scanner rather than a set of
+regexes, and it parses 640k characters of pathological input in under a
+millisecond — flat, where the siblings were quadratic. The rule worth carrying
+across: *for delimited runs in untrusted text, scan for the closing character;
+do not ask a regex to backtrack until it finds one.* Both siblings now do.
+
 **Unreachable code.** `resolveEngineBootConfig` branched on `mobileLike` inside
 its mid and high tiers, but a mobile-like device is always the low tier.
 
