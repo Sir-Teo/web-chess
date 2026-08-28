@@ -1,0 +1,49 @@
+.phase-accuracy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.24rem;
+  margin-bottom: 0.48rem;
+}
+
+.phase-accuracy-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+
+.phase-accuracy-label {
+  color: var(--text-tertiary);
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.phase-accuracy-scores {
+  display: flex;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.phase-accuracy-scores strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.phase-accuracy-scores i {
+  color: var(--text-tertiary);
+  font-style: normal;
+  font-size: 0.58rem;
+  font-weight: 700;
+}
+
+.phase-accuracy-count {
+  color: var(--text-tertiary);
+  font-size: 0.6rem;
+  white-space: nowrap;
+}

@@ -45,6 +45,7 @@ import { type AnalyzeMode, type UciGoLimits } from './engine/uci'
 import { exportAnnotatedPgn, flattenPgnMainLine, parsePgnMoveTree, pgnImportUserErrorMessage } from './engine/pgn'
 import { type LibraryGame, suggestGameName } from './engine/gameLibrary'
 import { narrativeTagToneClass, narrativeTags } from './engine/narrativeTags'
+import { PhaseAccuracy } from './components/PhaseAccuracy'
 import {
   type AutoSavedGame,
   clearAutoSavedGame,
@@ -4590,6 +4591,7 @@ function App() {
                         <strong>{reviewAccuracy.evaluatedMoves}/{visibleReviewRows.length}</strong>
                       </div>
                     </div>
+                    <PhaseAccuracy rows={visibleReviewRows} formatAccuracy={formatAccuracyValue} />
                     {reviewAccuracy.pendingMoves > 0 && (
                       <p className="panel-copy small command-summary">
                         {reviewAccuracy.pendingMoves} move{reviewAccuracy.pendingMoves === 1 ? '' : 's'} still need{reviewAccuracy.pendingMoves === 1 ? 's' : ''} deeper evaluation before accuracy is final.
