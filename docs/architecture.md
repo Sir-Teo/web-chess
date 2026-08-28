@@ -239,6 +239,26 @@ the axis, since one bad value there poisons the whole scale rather than one
 point. This repo is safe from the scale half already, because the skip happens
 at the source and the series only ever holds finite numbers.
 
+## What `npm run verify` covers
+
+`npm run verify` runs typecheck, lint, the test suite and the build — every gate
+CI runs except `npm audit`, which is left out so the command works offline. For
+this repo that is the whole of CI, so a green verify means the deploy should go
+through.
+
+Two things worth knowing about the pieces:
+
+- `tsc -b` here *does* include the test files, unlike web-katrain where `test/`
+  sits outside the built projects and needs a separate `test:typecheck`.
+  Confirmed by putting a type error in a test file: verify exits 2.
+- `npm test` alone does not typecheck anything. Vitest transpiles without
+  checking, so a test can pass while failing to compile — which is how a broken
+  fixture was committed tonight.
+
+Run `verify` rather than the parts. Chaining them by hand is how the same
+mistake gets made twice: `npm run typecheck | tail -2 && npm run lint` reports
+tail's exit code, not the compiler's.
+
 ## Project Invariants
 
 - Engine scores are POV side-to-move; after a move the perspective flips.
