@@ -411,6 +411,29 @@ export function buildReviewRows(
   return rows
 }
 
+/**
+ * The moves that cost the most, worst first.
+ *
+ * Ranked by winning chances given up, not by the centipawn delta, so this
+ * agrees with the labels and the accuracy — both of which are scored that way.
+ * Sorting on centipawns put a large drop inside an already-decided position
+ * above a smaller one that actually turned the game. Rows from an older review
+ * carry no win-percent loss and fall back to the centipawn reading.
+ */
+export function rankCriticalMoments(rows: ReviewRow[], limit = 5): ReviewRow[] {
+  const cost = (row: ReviewRow): number => (
+    isFiniteNumber(row.winPercentLoss)
+      ? row.winPercentLoss
+      : winPercentFromCp(0) - winPercentFromCp(row.deltaCp as number)
+  )
+
+  return rows
+    .filter(row => row.quality === 'inaccuracy' || row.quality === 'mistake' || row.quality === 'blunder')
+    .filter(row => isFiniteNumber(row.deltaCp))
+    .sort((a, b) => cost(b) - cost(a) || (a.deltaCp ?? 0) - (b.deltaCp ?? 0))
+    .slice(0, Math.max(0, limit))
+}
+
 export function summarizeReview(rows: ReviewRow[]): Record<ReviewLabel, number> {
   return rows.reduce<Record<ReviewLabel, number>>(
     (acc, row) => {

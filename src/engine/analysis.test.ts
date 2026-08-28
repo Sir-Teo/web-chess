@@ -15,6 +15,7 @@ import {
   mergeEvaluationSnapshot,
   scoreToCp,
   shouldReplaceEvaluationSnapshot,
+  rankCriticalMoments,
   summarizeAccuracy,
   summarizeReview,
   uciToSan,
@@ -565,3 +566,69 @@ function reviewRowsForOneMove(rootCp: number, afterCp: number) {
     rootFen,
   )
 }
+
+describe('ranking the moves that cost the most', () => {
+  const row = (over: Partial<import('./analysis').ReviewRow>) => ({
+    ply: 1,
+    moveNumber: 1,
+    sideToMove: 'w' as const,
+    san: 'e4',
+    uci: 'e2e4',
+    quality: 'mistake' as const,
+    confidence: 'standard' as const,
+    ...over,
+  })
+
+  it('puts the costliest move first', () => {
+    const ranked = rankCriticalMoments([
+      row({ san: 'small', deltaCp: -150, winPercentLoss: 5 }),
+      row({ san: 'big', deltaCp: -160, winPercentLoss: 30 }),
+      row({ san: 'middling', deltaCp: -400, winPercentLoss: 12 }),
+    ])
+    expect(ranked.map(r => r.san)).toEqual(['big', 'middling', 'small'])
+  })
+
+  it('ranks by what a move cost, not by its centipawn delta', () => {
+    // The larger centipawn drop happened where it mattered less.
+    const ranked = rankCriticalMoments([
+      row({ san: 'bigDropLateGame', deltaCp: -500, winPercentLoss: 3 }),
+      row({ san: 'turnedTheGame', deltaCp: -200, winPercentLoss: 25 }),
+    ])
+    expect(ranked[0].san).toBe('turnedTheGame')
+  })
+
+  it('only considers moves the review called a mistake', () => {
+    const ranked = rankCriticalMoments([
+      row({ san: 'best', quality: 'best', deltaCp: -5, winPercentLoss: 1 }),
+      row({ san: 'good', quality: 'good', deltaCp: -40, winPercentLoss: 3 }),
+      row({ san: 'pending', quality: 'pending', deltaCp: -400, winPercentLoss: 40 }),
+      row({ san: 'blunder', quality: 'blunder', deltaCp: -400, winPercentLoss: 40 }),
+    ])
+    expect(ranked.map(r => r.san)).toEqual(['blunder'])
+  })
+
+  it('skips a row with no evaluation at all', () => {
+    expect(rankCriticalMoments([row({ san: 'unevaluated' })])).toEqual([])
+  })
+
+  it('falls back to the centipawn reading for a row from an older review', () => {
+    const ranked = rankCriticalMoments([
+      row({ san: 'slight', deltaCp: -150 }),
+      row({ san: 'severe', deltaCp: -600 }),
+    ])
+    expect(ranked.map(r => r.san)).toEqual(['severe', 'slight'])
+  })
+
+  it('honours the limit, including a nonsensical one', () => {
+    const many = Array.from({ length: 12 }, (_, i) => row({ san: `m${i}`, deltaCp: -200, winPercentLoss: i }))
+    expect(rankCriticalMoments(many)).toHaveLength(5)
+    expect(rankCriticalMoments(many, 3)).toHaveLength(3)
+    expect(rankCriticalMoments(many, 0)).toEqual([])
+    expect(rankCriticalMoments(many, -2)).toEqual([])
+  })
+
+  it('has nothing to rank in a clean game', () => {
+    expect(rankCriticalMoments([])).toEqual([])
+    expect(rankCriticalMoments([row({ quality: 'best', deltaCp: -2, winPercentLoss: 0.2 })])).toEqual([])
+  })
+})

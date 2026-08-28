@@ -13,6 +13,7 @@ import {
   mergeEvaluationSnapshot,
   pvToSan,
   scoreToCp,
+  rankCriticalMoments,
   summarizeAccuracy,
   summarizeReview,
   uciToSan,
@@ -1979,11 +1980,7 @@ function App() {
       ? `Review Game unavailable. ${reviewGameDisabledReason}`
       : 'Review Game'
   const criticalReviewRows = useMemo(
-    () => visibleReviewRows
-      .filter(row => row.quality === 'inaccuracy' || row.quality === 'mistake' || row.quality === 'blunder')
-      .filter(row => typeof row.deltaCp === 'number')
-      .sort((a, b) => (a.deltaCp ?? 0) - (b.deltaCp ?? 0))
-      .slice(0, 5),
+    () => rankCriticalMoments(visibleReviewRows, 5),
     [visibleReviewRows],
   )
   const criticalMomentsEmptyCopy = visibleReviewRows.length === 0
