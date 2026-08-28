@@ -1081,9 +1081,19 @@ patterns keep landing: a second representation of one judgement (two grading
 ladders, two device tests), and a stored conclusion rather than the evidence for
 it (the review summary).
 
-katrain has neither pattern anywhere it was checked. chess has both but got away
-with them — its second ladder is derived, its second accuracy curve is
-unreachable, and it persists nothing derived at all.
+katrain has neither pattern anywhere it was checked. chess mostly got away with
+them — its second ladder is derived and its second accuracy curve is unreachable
+— but it does carry one instance of the second pattern, found late and only by
+looking for it deliberately: `persistSettings` writes the whole settings object
+on mount, so the *derived* `hashMb` default is stored on a first visit and read
+back forever. Improving the sizing logic therefore reaches only browsers that
+have never opened the app. Recorded in `web-chess/docs/architecture.md`.
+
+That one is worth dwelling on, because an earlier draft of this section said
+chess persists nothing derived. It was written from having checked the obvious
+stores — the library holds PGN, auto-save holds a PGN and a move count — and not
+the settings, where a default quietly becomes a preference. The pattern hides
+best where the thing being stored looks like it belongs to the user.
 
 That is a more useful summary of "which app needs work" than a defect count, and
 it says where to look first next time.
