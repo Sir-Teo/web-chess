@@ -101,6 +101,23 @@ reads evaluations from a ref.
 - Quality labels take the milder of the raw centipawn reading and the
   practical one, with the win-percent ladder *derived* from the centipawn
   ladder so the two agree at equality and only diverge once a game is decided.
+  That derivation is what makes "take the milder" safe rather than a silent
+  re-grading; `qualityAgreement.test.ts` pins it.
+
+Every row also carries the phase it was played in:
+
+- `gamePhase.ts` reads the phase from **material**, not the move number.
+  web-katrain splits by move number, which suits Go; here a queen trade on move
+  8 and a 90-move rook ending are both "the middle" by move count.
+- The phase is taken from the position *before* the move, so the move that
+  trades the last queen is filed in the middlegame it was played in rather than
+  the endgame it created.
+- The ply is counted from the start of the **game**, not the review, so
+  analysing from a mid-game FEN does not restart the phase clock and call move
+  20 an opening.
+- `summarizeAccuracyByPhase` splits accuracy by phase and omits a phase with
+  nothing scored; `filterReviewRowsByPhase` narrows the whole review to one.
+  Nothing about the phase is persisted — it is recomputed from the position.
 
 ## Storage
 
