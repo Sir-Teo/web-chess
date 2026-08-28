@@ -1,9 +1,11 @@
 # Cross-App Learning Plan: web-katrain / web-chess / web-xiangqi
 
-*Read-only survey performed 2026-08-27 across the three sibling repos in
-`~/Developer`, plus an external research pass over the ecosystems the three
-apps live in (§8). No source files were modified; this document is the only
-output.*
+*Survey performed 2026-08-27 across the three sibling repos in `~/Developer`,
+plus an external research pass over the ecosystems the three apps live in (§8).*
+
+*Since 2026-08-28 this is no longer a read-only document: §9 records what has
+actually been built, and the tables below have been corrected where reading the
+code contradicted the original survey. Rows marked ✅ are done.*
 
 ## TL;DR
 
@@ -35,17 +37,17 @@ is, Tier 2 is deliberately small.
 | Domain | Go (KataGo) | Chess (Stockfish) | Xiangqi (Pikafish) |
 | `src` files | 229 | 82 | 31 |
 | `src` LOC | 65,767 | 16,425 | 13,285 |
-| Test files | 250 (`test/`, Vitest) | 31 (colocated, Vitest) | **0 unit** (Node/Playwright scripts only) |
+| Test files | 250 files / 1,327 tests | ✅ 35 files / 261 tests | ✅ 4 files / 75 tests (was **0 unit**) |
 | Commits | 1,213 | 626 | 493 |
 | Biggest file | `store/gameStore.ts` (5,217) | `App.tsx` (**5,310**) | `App.tsx` (**4,950**) |
 | State | Zustand store + selectors | `useState` in `App.tsx` | `useState` in `App.tsx` |
 | Engine | KataGo weights + **MCTS written in TS** (TFJS WebGPU→WASM→CPU) | prebuilt `stockfish` npm worker | **Pikafish built from source** (patch + emsdk) |
 | Engine transport | custom worker protocol | UCI | UCI |
-| Saved games | IndexedDB, folders, tags, favorites, zip backup | **none** | flat localStorage, 500-game / 3 MB cap |
+| Saved games | IndexedDB, folders, tags, favorites, zip backup | ✅ IndexedDB + JSON backup (was **none**) | flat localStorage, 500-game / 3 MB cap |
 | PWA / offline | manifest + real `sw.js` + install banner + update checks | `coi-serviceworker` only | actively **unregisters** SWs |
-| CI gates | `npm ci` → **build only** | audit → lint → test → build | lint → build → WASM build → smoke → parity → Playwright |
+| CI gates | ✅ audit → lint → test → typecheck → build (was **build only**) | audit → lint → test → build | ✅ + `npm test`, then WASM build → smoke → parity → Playwright |
 | Style | semicolons, 2-space | **no semicolons**, 2-space | semicolons, **4-space** |
-| Branch | `main` | `main` | `ui-polish-pass` |
+| Branch | `main` | `main` | `main` (the survey said `ui-polish-pass`; it has since moved) |
 
 Feature presence (files matching each concern):
 
@@ -56,8 +58,8 @@ Feature presence (files matching each concern):
 | Sound | 12 | 0 | 2 |
 | Haptics | 1 | 0 | 0 |
 | Themes | 18 | 0 | 1 |
-| Auto-save / crash recovery | 5 | 0 | 0 |
-| Error boundary component | yes (+ lazy-modal boundary) | no | yes |
+| Auto-save / crash recovery | 5 | ✅ yes | ✅ yes |
+| Error boundary component | yes (+ lazy-modal boundary) | **yes** — inline in `main.tsx`, with reload and reset-workspace actions. The original survey said "no" because it looked for a component *file*; that was wrong. | yes |
 | `aria-*` attribute variety | 25 kinds, 143 `role=` | 18 kinds, 38 `role=` | 21 kinds, 60 `role=` |
 
 ---
@@ -411,3 +413,75 @@ practice: persist the user's thread/hash choices per device (lichess stores
 - [awesome-xiangqi](https://github.com/lucaferranti/awesome-xiangqi), [lixiangqi](https://github.com/travis-mallett/lixiangqi), [xiangqi.js](https://github.com/lengyanyu258/xiangqi.js/)
 - [Chrome: cache AI models in the browser](https://developer.chrome.com/docs/ai/cache-models), [web.dev OPFS](https://web.dev/articles/origin-private-file-system), [Lumafield OPFS benchmark](https://barndoors.lumafield.com/3x-faster-project-loads-with-the-origin-private-file-system/)
 - [Vite PWA precache guide](https://vite-pwa-org.netlify.app/guide/service-worker-precache)
+
+---
+
+## 9. Progress log
+
+Work done on the `overnight-cross-app-improvements` branch in each repo,
+2026-08-28. Every change was verified with that repo's own gates (lint,
+typecheck, tests, build); UI changes were additionally exercised in a browser.
+
+### Done
+
+| # from §4 | Repo | What landed |
+| --- | --- | --- |
+| 1 | katrain | Deploy gated on audit, lint, the 250-file suite, and the test type-check. All four already passed; they simply never ran in CI, so a red suite could ship. |
+| 2 | xiangqi | Vitest added and wired into CI. 75 tests over review scoring, the movement rules, device tiering, and auto-save. |
+| 3 | chess | A saved-games library: PGN model, IndexedDB store with a localStorage→memory fallback, hook, dialog, toolbar entry, JSON backup import/export. |
+| 5 | chess, xiangqi | Auto-save and crash recovery, ported from katrain's `autoSave.ts`. |
+| 16 | katrain | OGS requests routed through a backoff queue (see below). |
+| — | chess | Review scoring moved onto winning chances (see below). |
+
+### Three findings that came out of doing the work
+
+**Chess was grading every move by centipawns alone.** Accuracy ran off
+`100 * exp(-loss / 300)`, so a 300cp drop scored 36.8% whether it threw away an
+equal game or shaved a rounding error off a won one. It now scores on winning
+chances using the curve in §8.1 — the same move reads 31.4% from equality and
+98.8% from +18. Labels follow the same rule, and the win-percent ladder is
+*derived* from the existing centipawn ladder (20cp → 1.8 points, 260cp → 22.3)
+so the two readings agree at equality by construction and only diverge once the
+position is decided. Borrowing xiangqi's round thresholds (2/5/20/30) was the
+other option and was too lenient: it downgraded a lost-from-equality blunder to
+a "mistake".
+
+**Katrain's OGS sync turned throttling into data loss.** `downloadNewOgsGames`
+fetches one SGF per game in a loop with nothing watching for HTTP 429, so a
+throttled download threw and the game was filed under `failed` — the reader was
+told their games were broken when the server had only asked us to slow down,
+and the rest of the sync kept hammering at the same rate. Now behind a queue
+that parks on a 429 and retries, honouring `Retry-After` (capped, so a bad
+header cannot park a sync indefinitely).
+
+**Xiangqi's boot config had unreachable branches.** `resolveEngineBootConfig`
+asked `profile.mobileLike` inside its mid and high tiers, but `detectDeviceTier`
+sends every mobile-like device to the low tier. The invariant is now pinned by a
+test and the dead branches are gone.
+
+### Corrections to this document
+
+Four claims in the original survey did not survive contact with the code. They
+are fixed above, and recorded here because each one would have sent work in the
+wrong direction:
+
+1. **Katrain's accuracy formula is not crude.** §3.2 implied its game report was
+   behind the siblings. It computes `100 * 0.75^weightedPtLoss` with
+   complexity weighting — the upstream KaTrain desktop formula, and the one its
+   users already know. Left alone deliberately.
+2. **Katrain's model storage needs no change.** Corrected in §8.5: the OPFS
+   benchmark is about ArrayBuffers, and `modelUpload.ts` stores a Blob.
+3. **Chess has an error boundary.** It is inline in `main.tsx`, not a component
+   file, which is why a filename-based scan missed it.
+4. **Xiangqi is on `main`**, not `ui-polish-pass`.
+
+The pattern is worth noting for whoever picks this up: the file-level survey in
+§1 is a good map but a poor source of truth. Three of its four errors made
+katrain look *worse* than it is. Read the code before acting on a row.
+
+### Not done yet
+
+Items 4, 6–15 and 17 from §4 stand as written. The next-most-valuable are
+probably 8 (break both 5,000-line `App.tsx` files into stores — do chess first,
+it has the tests to catch regressions) and 4 (device-tier boot config, where
+xiangqi's `analysisProfile.ts` is now test-covered and ready to port).
