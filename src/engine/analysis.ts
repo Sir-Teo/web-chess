@@ -359,8 +359,11 @@ export function buildReviewRows(
     const moveNumber = replay.moveNumber()
     const sideToMove = replay.turn()
     // Read before the move is made: the phase a move was played in, not the
-    // one it led to.
-    const phase = getMovePhase(beforeFen, index + 1)
+    // one it led to. The ply comes from the position's own move number rather
+    // than the loop index, so analysing from a mid-game FEN does not restart
+    // the phase clock and call move 20 an opening.
+    const gamePly = (moveNumber - 1) * 2 + (sideToMove === 'w' ? 1 : 2)
+    const phase = getMovePhase(beforeFen, gamePly)
     if (!tryReplayMove(replay, move)) break
     const afterFen = replay.fen()
 

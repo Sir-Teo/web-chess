@@ -49,6 +49,19 @@ describe('tagging review rows with a phase', () => {
     expect(replying.phase).toBe('endgame')
   })
 
+  it('counts plies from the start of the game, not the start of the review', () => {
+    // A closed position at move 20 with nothing captured yet. Analysing from a
+    // FEN restarts the review at index 0, but the game is 39 plies old and this
+    // is not an opening.
+    const closedAtMove20 = 'r1bqk2r/pp1nbppp/2p1pn2/3p4/2PP4/2N1PN2/PP1BBPPP/R2QK2R w KQkq - 0 20'
+    const [row] = reviewOf(['a3'], closedAtMove20)
+    expect(row.phase).toBe('middleGame')
+  })
+
+  it('still reads an opening as an opening when the review starts at move one', () => {
+    expect(reviewOf(['e4'], new Chess().fen())[0].phase).toBe('opening')
+  })
+
   it('tags a row that could not be evaluated too', () => {
     const game = new Chess()
     const rootFen = game.fen()
