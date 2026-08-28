@@ -431,7 +431,7 @@ typecheck, tests, build); UI changes were additionally exercised in a browser.
 | 3 | chess | A saved-games library: PGN model, IndexedDB store with a localStorage→memory fallback, hook, dialog, toolbar entry, JSON backup import/export. |
 | 5 | chess, xiangqi | Auto-save and crash recovery, ported from katrain's `autoSave.ts`. |
 | 16 | katrain | OGS requests routed through a backoff queue (see below). |
-| 9 (part) | chess, xiangqi | Narrative tags — Comeback, Wire-to-wire, Missed win, Draw, Nail-biter — ported from katrain. The phase split (opening/middle/endgame) is still open. |
+| 9 | chess, xiangqi | Narrative tags — Comeback, Wire-to-wire, Missed win, Draw, Nail-biter — ported from katrain, plus the opening/middlegame/endgame split (see below). |
 | 10 | katrain | The search benchmark reports again (its output was hidden), and now writes JSON, compares against a baseline, and can gate on a threshold. |
 | — | chess | Review scoring moved onto winning chances (see below). |
 | — | katrain, xiangqi | Library and pro-game search match every term rather than the query as one phrase. |
@@ -687,6 +687,53 @@ What stopped paying was writing tests for components that were already
 carefully built. Those are worth having as regression cover, but they are not
 where the defects were.
 
+### The one place katrain was the wrong model (item 9's phase split)
+
+katrain splits a game into opening, middle game and endgame by **move number**,
+from a table per board size: on 19x19 the opening is the first 50 moves. That
+is right for Go, where the board fills at a predictable rate, and it is the
+kind of thing the ground-truth rule says to copy.
+
+Copying it would have been wrong. In chess and xiangqi the move number says
+almost nothing about the phase: a queen trade on move 8 and a 90-move rook
+ending are both "the middle" by move count. So both ports read the phase from
+**material** instead, with a move-number cap only to stop a quiet symmetrical
+opening being called an opening forever. The phase *names* still match
+katrain's, so all three reports read the same way.
+
+The thresholds are the domain's, not invented:
+
+| | chess | xiangqi |
+| --- | --- | --- |
+| Counted | queens, rooks, bishops, knights (9/5/3/3) | chariots, cannons, horses (9/5/4) |
+| Full board | 62 | 72 |
+| Endgame at | ≤ 26 — a queen ending or a double-rook ending qualifies; queens *and* rooks does not | ≤ 28 — a chariot and cannon each qualifies; two chariots each does not |
+| Opening while | ply ≤ 24 and ≥ 56 (one pair of minors may be swapped) | ply ≤ 24 and ≥ 62 (one pair of cannons or horses may be swapped) |
+
+Xiangqi counts only the attacking pieces: advisors and elephants never leave
+their own half and pawns are worth little before the river, so none of them
+track the shape of the game.
+
+Both read the phase from the position *before* the move, so the move that
+trades the last queen is filed in the middlegame it was played in rather than
+the endgame it created. Chess replays the line and has the FEN to hand;
+xiangqi needs no replay at all, because a move record already stores the board
+after the move and what it captured, and the position before it is the two
+added back together.
+
+Verified in chess on the Opera Game: opening W 98.1 / B 87.9 over 20 moves,
+middlegame W 98.5 / B 88.6 over 13 — summing to the 33 evaluated moves and
+bracketing the 98.3 and 88.2 overall figures. The opening ends at ply 20, where
+`cxb5` wins the knight, rather than at a fixed move number. That game never
+reaches an endgame, and correctly: the final position is queen, rook, knight
+and bishop against rook and bishop, which is 28 — two points the wrong side of
+the threshold.
+
+The xiangqi half could not be driven end-to-end here, because Pikafish never
+finished loading in the automation browser (it went to "Recovering engine", the
+degradation path). Its wiring is covered by tests and its stylesheet was
+checked against the live layout.
+
 ### A fourth measurement lesson: the browser pane throttles timers
 
 The night's recurring mistake was reasoning about mechanisms instead of
@@ -730,7 +777,7 @@ rows mid-search) without any timing at all, which is the point.
 
 ### Not done yet
 
-Items 6, 7, 11, 13, 14 and 17 from §4 stand as written; 4, 9 (in part), 10, 15
+Items 6, 7, 11, 13, 14 and 17 from §4 stand as written; 4, 9, 10, 15
 and 16 are done, and 12 is blocked as described above. The next-most-valuable is 8 (break
 both 5,000-line `App.tsx` files into stores — do chess first, it has the tests
 to catch regressions).
