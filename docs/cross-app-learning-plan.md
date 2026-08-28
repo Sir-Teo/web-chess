@@ -459,6 +459,32 @@ asked `profile.mobileLike` inside its mid and high tiers, but `detectDeviceTier`
 sends every mobile-like device to the low tier. The invariant is now pinned by a
 test and the dead branches are gone.
 
+**`navigator.deviceMemory` is capped at 8, and both siblings read it as if it
+were not.** The Device Memory API rounds and clamps its reading to one of
+0.25, 0.5, 1, 2, 4, 8 — so 8 means "8 or more", and any `<= 8` test matches
+every device that reports at all. Both apps had one:
+
+- **web-chess** capped threads at `deviceMemoryGb <= 8 ? 4 : 8`, so the
+  eight-thread path was unreachable and every desktop ran on four. Its test
+  passed because the fixture claimed 32 GB, describing hardware no browser
+  reports — it asserted eight threads for a machine that cannot exist while
+  real machines got four.
+- **web-xiangqi** gated its mid tier on `hardwareConcurrency <= 8 ||
+  hasLowMemory(memory, 8)`, which put the **high tier out of reach in Chrome
+  entirely**. The same 32-core workstation got two threads and 32 MB of hash
+  in Chrome and three threads and 64 MB in Firefox — because Firefox does not
+  implement the API and so reports nothing. Its fixtures claimed 16 and 32 GB
+  too.
+
+Both are fixed, and the fixtures now use values a browser can actually
+produce. web-katrain reads only `hardwareConcurrency` and was unaffected.
+
+The general lesson is worth more than the two fixes: **a test fixture that
+describes impossible hardware will confirm whatever you already believe.**
+Both bugs were invisible for as long as the fixtures were generous. When a
+capability value comes from a browser API, check what that API is allowed to
+return before choosing a threshold.
+
 **Two of the three CIs were already red, and nobody had noticed.** Both
 web-chess's deploy and web-xiangqi's CI run `npm audit` before anything else,
 and both had been failing on advisories in transitive dev dependencies of vite
