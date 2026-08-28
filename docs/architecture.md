@@ -5,9 +5,13 @@ state, analysis results and every setting live on the main thread; Stockfish
 runs in a worker so the board stays responsive while it searches.
 
 Structured to mirror [web-katrain's `docs/architecture.md`][katrain], so the
-three sibling apps can be read against each other.
+three sibling apps can be read against each other. The third is
+[web-xiangqi][xiangqi]; how the three compare, and what is worth moving
+between them, is tracked in [the cross-app learning plan](cross-app-learning-plan.md)
+alongside this file.
 
 [katrain]: https://github.com/Sir-Teo/web-katrain/blob/main/docs/architecture.md
+[xiangqi]: https://github.com/Sir-Teo/web-xiangqi/blob/main/docs/architecture.md
 
 ## Runtime Overview
 
