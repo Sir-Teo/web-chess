@@ -15,18 +15,35 @@ bar, review pass with accuracy, saved games, share links, GitHub Pages deploy.
 They have already forked into three dialects of the same code (chess and xiangqi
 literally ship diverged copies of `WdlBar`, `MoveListTree`, and `WatchControls`).
 
-Each repo is strongest in a different layer, and each is missing something a
-sibling already solved:
+Each repo is strongest in a different layer. As first surveyed, each was also
+missing something a sibling had already solved — **all three of those gaps are
+now closed**, and the sentence is kept because it is what the survey found:
 
-- **web-katrain** owns *product surface and app architecture* — and is the only
-  one whose CI never runs its own 250 tests.
-- **web-chess** owns *protocol handling and test discipline* — and is the only
-  one where you cannot save a game.
+- **web-katrain** owns *product surface and app architecture* — and was the only
+  one whose CI never ran its own tests. *(Its workflow now runs audit, lint,
+  tests and typecheck; the suite is 1,428 tests, not the 250 the survey saw.)*
+- **web-chess** owns *protocol handling and test discipline* — and was the only
+  one where you could not save a game. *(It has a library, auto-save and crash
+  recovery.)*
 - **web-xiangqi** owns *the engine toolchain and real-browser verification* —
-  and is the only one with zero unit tests.
+  and was the only one with zero unit tests. *(It has 313.)*
 
 The plan below is graded: Tier 0 costs almost nothing, Tier 1 is where the value
 is, Tier 2 is deliberately small.
+
+### Start here
+
+This document grew from a survey into a working log and is now long. If you are
+picking it up:
+
+- **What is left for you to decide** — "Decisions left open, and where each one
+  lives". Every entry is measured; none is an open investigation.
+- **What was built and what it cost** — §9, the progress log.
+- **What the comparison actually taught** — the sections on storing evidence
+  rather than conclusions, on two representations of one judgement, and on
+  sizing the engine. Those three generalise past this codebase.
+- **Where I was wrong** — the corrections are kept in place rather than edited
+  away, because in every case the mistake was more instructive than the fix.
 
 ---
 
