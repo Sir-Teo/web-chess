@@ -41,7 +41,9 @@ import {
 } from './engine/openingExplorer'
 import { parseCandidateMoveInput } from './engine/candidateMoves'
 import { type AnalyzeMode, type UciGoLimits } from './engine/uci'
-import { flattenPgnMainLine, parsePgnMoveTree, pgnImportUserErrorMessage } from './engine/pgn'
+import { exportAnnotatedPgn, flattenPgnMainLine, parsePgnMoveTree, pgnImportUserErrorMessage } from './engine/pgn'
+import { type LibraryGame, suggestGameName } from './engine/gameLibrary'
+import { type LibraryWriteResult, useGameLibrary } from './hooks/useGameLibrary'
 import { FEN_PARSE_ERROR, validateFenForAnalysis } from './engine/fen'
 import { buildImportSweepTargets, countImportSweepCandidates, type ImportSweepTarget } from './engine/importSweep'
 import {
@@ -79,7 +81,7 @@ import { graphTickStep } from './components/graphLayout'
 import { useElementHeight, useElementWidth } from './hooks/useElementWidth'
 import { useModalFocus } from './hooks/useModalFocus'
 import { formatGraphAxisLabel, formatGraphPositionLabel } from './components/graphLabels'
-import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlip, IconDownload, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp } from './components/icons'
+import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlip, IconDownload, IconClipboard, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp } from './components/icons'
 import './App.css'
 
 const NewGameDialog = lazy(() =>
@@ -87,6 +89,9 @@ const NewGameDialog = lazy(() =>
 )
 const PgnDialog = lazy(() =>
   import('./components/PgnDialog').then(module => ({ default: module.PgnDialog })),
+)
+const LibraryDialog = lazy(() =>
+  import('./components/LibraryDialog').then(module => ({ default: module.LibraryDialog })),
 )
 
 type Orientation = 'white' | 'black'
@@ -841,6 +846,7 @@ function App() {
   // ── Game mode ────────────────────────────────────────
   const [showNewGameDialog, setShowNewGameDialog] = useState(false)
   const [showPgnDialog, setShowPgnDialog] = useState(false)
+  const [showLibraryDialog, setShowLibraryDialog] = useState(false)
   const [gameMode, setGameMode] = useState<GameMode>('human-vs-human')
   const [playerColor, setPlayerColor] = useState<PlayerColor>('white')
   const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>(4)
@@ -971,11 +977,15 @@ function App() {
   const opening = useOpening(openingFenPath, shouldLoadOpeningNames)
   const canGoBack = currentPathNodes.length > 1
   const canGoForward = gameTree.current.children.length > 0
-  const appModalOpen = showNewGameDialog || showPgnDialog
+  const appModalOpen = showNewGameDialog || showPgnDialog || showLibraryDialog
   const promotionDialogOpen = pendingPromotion !== null
   const topChromeHidden = appModalOpen || promotionDialogOpen
   const backgroundUiHidden = appModalOpen || settingsOpen || promotionDialogOpen
-  const dialogLoadingLabel = showNewGameDialog ? 'Loading new game...' : 'Loading import tools...'
+  const dialogLoadingLabel = showNewGameDialog
+    ? 'Loading new game...'
+    : showLibraryDialog
+      ? 'Loading library...'
+      : 'Loading import tools...'
   const shortcutsSuspended =
     appModalOpen || settingsOpen || promotionDialogOpen
 
@@ -2551,13 +2561,22 @@ function App() {
     rememberModalTrigger()
     setSettingsOpen(false)
     setShowPgnDialog(false)
+    setShowLibraryDialog(false)
     setShowNewGameDialog(true)
   }
   const openPgnDialog = () => {
     rememberModalTrigger()
     setSettingsOpen(false)
     setShowNewGameDialog(false)
+    setShowLibraryDialog(false)
     setShowPgnDialog(true)
+  }
+  const openLibraryDialog = () => {
+    rememberModalTrigger()
+    setSettingsOpen(false)
+    setShowNewGameDialog(false)
+    setShowPgnDialog(false)
+    setShowLibraryDialog(true)
   }
   const closeNewGameDialog = useCallback(() => {
     setShowNewGameDialog(false)
@@ -2567,12 +2586,29 @@ function App() {
     setShowPgnDialog(false)
     restoreModalTriggerFocus()
   }, [restoreModalTriggerFocus])
+  const library = useGameLibrary()
+  // Built only while the dialog is open; exportAnnotatedPgn walks the whole tree.
+  const libraryPgn = useMemo(
+    () => (showLibraryDialog && mainLineNodes.length > 1
+      ? exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
+      : ''),
+    [showLibraryDialog, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot],
+  )
+  const librarySuggestedName = useMemo(
+    () => (libraryPgn ? suggestGameName(libraryPgn) : ''),
+    [libraryPgn],
+  )
+  const closeLibraryDialog = useCallback(() => {
+    setShowLibraryDialog(false)
+    restoreModalTriggerFocus()
+  }, [restoreModalTriggerFocus])
   const handleSettingsToggle = (event: SyntheticEvent<HTMLDetailsElement>) => {
     const nextOpen = event.currentTarget.open
     setSettingsOpen(nextOpen)
     if (!nextOpen) return
     setShowNewGameDialog(false)
     setShowPgnDialog(false)
+    setShowLibraryDialog(false)
   }
 
   const abortSampleFetch = useCallback(() => {
@@ -2750,6 +2786,18 @@ function App() {
     [handlePgnImport],
   )
 
+  const handleLibraryLoad = useCallback(
+    (game: LibraryGame): LibraryWriteResult => {
+      const result = handleAnalysisPgnImport(game.pgn)
+      if (result.ok) {
+        closeLibraryDialog()
+        return { ok: true }
+      }
+      return { ok: false, error: result.error ?? 'That saved game could not be loaded.' }
+    },
+    [handleAnalysisPgnImport, closeLibraryDialog],
+  )
+
   const handleFenLoad = useCallback((fenText: string, options?: FenLoadOptions) => {
     const validation = validateFenForAnalysis(fenText)
     if (!validation.ok) {
@@ -2803,6 +2851,7 @@ function App() {
       if (!sharedFen) return
       setShowPgnDialog(false)
       setShowNewGameDialog(false)
+      setShowLibraryDialog(false)
       setSettingsOpen(false)
       if (sharedFen === game.fen()) {
         requestBoardReveal()
@@ -3213,6 +3262,9 @@ function App() {
               </button>
               <button type="button" onClick={openPgnDialog} aria-label="Open PGN and FEN dialog" title="PGN and FEN">
                 <span className="btn-icon"><IconDownload /></span> <span className="btn-label">PGN</span>
+              </button>
+              <button type="button" onClick={openLibraryDialog} aria-label="Open saved games library" title="Library">
+                <span className="btn-icon"><IconClipboard /></span> <span className="btn-label">Library</span>
               </button>
             </div>
 
@@ -3936,6 +3988,24 @@ function App() {
               gameNodes={gameTree.nodesSnapshot}
               evaluations={evaluationsByFen}
               pgnHeaders={pgnHeaders}
+            />
+          )}
+
+          {showLibraryDialog && (
+            <LibraryDialog
+              open
+              games={library.games}
+              loaded={library.loaded}
+              currentPgn={libraryPgn}
+              suggestedName={librarySuggestedName}
+              onClose={closeLibraryDialog}
+              onSave={library.saveGame}
+              onLoad={handleLibraryLoad}
+              onRename={library.renameGame}
+              onDelete={library.deleteGame}
+              onToggleFavorite={library.toggleFavorite}
+              onExportBackup={library.exportBackup}
+              onImportBackup={library.importBackup}
             />
           )}
         </Suspense>

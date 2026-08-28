@@ -22,7 +22,8 @@ type Props = {
     suggestedName: string
     onClose: () => void
     onSave: (name: string, pgn: string) => LibraryWriteResult
-    onLoad: (game: LibraryGame) => void
+    /** Reports a parse failure so a corrupted saved game says so instead of doing nothing. */
+    onLoad: (game: LibraryGame) => LibraryWriteResult
     onRename: (id: string, name: string) => void
     onDelete: (id: string) => void
     onToggleFavorite: (id: string) => void
@@ -218,7 +219,7 @@ export function LibraryDialog({
                                         <button
                                             type="button"
                                             className="btn-cancel"
-                                            onClick={() => onLoad(game)}
+                                            onClick={() => announce(onLoad(game), 'Loaded.')}
                                             aria-label={`Load ${game.name}`}
                                             title="Load"
                                         >
