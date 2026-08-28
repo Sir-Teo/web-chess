@@ -7,7 +7,6 @@ import {
   buildReviewRows,
   formatCompactWhitePovEvaluation,
   describeReviewScope,
-  MAX_REPORTED_CENTIPAWN_LOSS,
   filterReviewRowsByPhase,
   filterReviewRowsBySide,
   formatWhitePovEvaluation,
@@ -17,7 +16,6 @@ import {
   pvToSan,
   scoreToCp,
   rankCriticalMoments,
-  reportedCentipawnLoss,
   summarizeAccuracy,
   summarizeReview,
   uciToSan,
@@ -50,6 +48,7 @@ import { exportAnnotatedPgn, flattenPgnMainLine, parsePgnMoveTree, pgnImportUser
 import { type LibraryGame, suggestGameName } from './engine/gameLibrary'
 import { narrativeTagToneClass, narrativeTags } from './engine/narrativeTags'
 import type { ReviewPhaseFilter } from './engine/analysis'
+import { reviewImpactLabel } from './engine/reviewImpact'
 import { PhaseAccuracy } from './components/PhaseAccuracy'
 import {
   type AutoSavedGame,
@@ -413,21 +412,6 @@ function moveGamesCount(move: OpeningExplorerMove): number {
 function percentage(part: number, total: number): number {
   if (!total) return 0
   return (part / total) * 100
-}
-
-function reviewImpactLabel(deltaCp: number | undefined): string {
-  if (typeof deltaCp !== 'number') return 'Queued'
-  if (deltaCp >= 10) {
-    // Bounded the same way the loss is: a mate sentinel would otherwise read
-    // as a gain of ninety pawns.
-    const gain = Math.min(MAX_REPORTED_CENTIPAWN_LOSS, deltaCp)
-    return `Gain +${(gain / 100).toFixed(2)}${gain < deltaCp ? '+' : ''}`
-  }
-  if (deltaCp >= -10) return 'No loss'
-  const loss = reportedCentipawnLoss(deltaCp)
-  // The trailing "+" says the real figure is off this scale, which is what a
-  // forced mate is — rather than quietly showing a bound as though measured.
-  return `Lost ${(loss / 100).toFixed(2)}${loss < -deltaCp ? '+' : ''}`
 }
 
 function reviewConfidenceLabel(confidence: 'pending' | 'shallow' | 'standard' | 'deep', depth: number | undefined): string {
