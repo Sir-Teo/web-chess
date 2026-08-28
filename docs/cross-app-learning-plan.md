@@ -942,6 +942,22 @@ so the local gate matches the one that actually enforces. This is the cheapest
 kind of Tier 0 convention parity and it was found the way most of the night's
 findings were: by running the thing rather than reasoning about it.
 
+### Decisions left open, and where each one lives
+
+These are judgment calls rather than unfinished work — each was investigated to
+the point where the remaining question is a preference, not a fact. Collected
+here because they ended up scattered across three repos' docs.
+
+| Question | Where | What is already known |
+| --- | --- | --- |
+| Should katrain count setup stones toward the move number? | this doc, "The same bug a third time" | Handicap games (2–9 stones) and mid-game diagrams (100+) want opposite treatment. A threshold would work; picking it is a Go convention call. Affects only the report's phase grouping, never its numbers. |
+| Should either eval/winrate graph break its line at a gap? | `web-chess/docs/architecture.md`, `web-xiangqi/docs/architecture.md` | katrain's `buildPath` is the pattern. In chess this is cosmetic (it drops the point, so only the stroke spans it) and the area fill shares the path string. In xiangqi it is two failures at once — the stroke carries a value forward *and* one `NaN` takes out the axis — so both halves are one change or neither. |
+| What are the four duplicated xiangqi opening lines actually called? | task chip `task_bda45f65` | The ordering bug behind the inflated branch counts is fixed; only the naming is left, and it is a terminology call. |
+| Does xiangqi's phase panel look right against a live review? | — | Never seen rendering from a real engine review; Pikafish would not load in the automation browser. The chain is covered by `reviewPhaseChain.test.ts` and the stylesheet was checked against the live layout. |
+
+None of these blocks anything. Each is written down at the point where picking
+it up costs a decision rather than an investigation.
+
 ### Where this stands
 
 Items 6, 7, 11, 13, 14 and 17 from §4 stand as written; 4, 9, 10, 15 and 16 are
