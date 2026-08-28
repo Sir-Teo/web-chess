@@ -958,7 +958,14 @@ kind of statement wearing the units of one. Subtracting it from a real
 centipawn score produces a number with no meaning, and averaging that number is
 what puts "ACPL 316" next to "Blunder 0".
 
-So the fix is better understood as *not mixing the two kinds* than as capping a
+**Both siblings now carry the same 1000cp bound.** Chess was measured on screen
+(ACPL 316 -> 62 on the Opera Game, with accuracy and every quality count
+unchanged — only the centipawn half was ever wrong). Xiangqi was confirmed
+without an engine, because `useEngine` encodes the sentinel itself, so the
+numbers are known and everything after them is arithmetic: a six-move review
+whose ordinary moves cost tens of centipawns was averaging 5017.
+
+The fix is better understood as *not mixing the two kinds* than as capping a
 big number. A cap is a reasonable implementation of that — Lichess's ±1000cp is
 the well-trodden one — but framing it as "clamp an outlier" invites the wrong
 question ("is 1000 the right threshold?") instead of the right one ("what
@@ -982,7 +989,6 @@ here because they ended up scattered across three repos' docs.
 | Should katrain count setup stones toward the move number? | this doc, "The same bug a third time" | Handicap games (2–9 stones) and mid-game diagrams (100+) want opposite treatment. A threshold would work; picking it is a Go convention call. Affects only the report's phase grouping, never its numbers. |
 | Should either eval/winrate graph break its line at a gap? | `web-chess/docs/architecture.md`, `web-xiangqi/docs/architecture.md` | katrain's `buildPath` is the pattern. In chess this is cosmetic (it drops the point, so only the stroke spans it) and the area fill shares the path string. In xiangqi it is two failures at once — the stroke carries a value forward *and* one `NaN` takes out the axis — so both halves are one change or neither. |
 | What are the four duplicated xiangqi opening lines actually called? | task chip `task_bda45f65` | The ordering bug behind the inflated branch counts is fixed; only the naming is left, and it is a terminology call. |
-| Should xiangqi take the same centipawn bound chess now has? | `web-xiangqi/docs/architecture.md` | **Fixed in chess** (ACPL 316 -> 62 on the Opera Game, accuracy and quality counts unchanged); open in xiangqi. A finished review reads "ACPL 316" beside "Mistake 0, Blunder 0", and one row says "Lost 93.61 / Inaccuracy". `scoreToCp` maps any mate to 10000, so playing into a forced mate scores as a ~9500cp loss and one move supplies most of the average. Lichess caps at ±1000cp. xiangqi's sentinel is 30000 rather than 10000, so one such move adds ~737 to a 40-move average. Read from the code, not yet seen on screen — worth confirming against a real mated game before applying the same bound. |
 | Does xiangqi's phase panel look right against a live review? | — | Never seen rendering from a real engine review; Pikafish would not load in the automation browser. The chain is covered by `reviewPhaseChain.test.ts` and the stylesheet was checked against the live layout. |
 
 None of these blocks anything. Each is written down at the point where picking
