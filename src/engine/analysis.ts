@@ -486,6 +486,26 @@ export function describeReviewScope(
   return parts.length ? parts.join(' in ') : 'this reviewed line'
 }
 
+/**
+ * A mate is stored as a sentinel centipawn score (see `scoreToCp`), not as a
+ * real evaluation. Subtracting it from an ordinary score gives a delta of tens
+ * of pawns, which is not a measurement of anything — it is two different kinds
+ * of statement in the same units. One such move was contributing ~284 to a
+ * 33-move average, putting "ACPL 316" next to "Blunder 0".
+ *
+ * Bounding the *reported* loss keeps a forced mate at the top of the scale
+ * without letting it stand in for the rest of the game. 1000cp is the bound
+ * Lichess uses for the same reason. Deliberately not applied to `deltaCp`
+ * itself: move quality reads winning chances, and the raw delta stays raw for
+ * anything that legitimately wants it.
+ */
+export const MAX_REPORTED_CENTIPAWN_LOSS = 1000
+
+export function reportedCentipawnLoss(deltaCp: number | undefined): number {
+  if (!isFiniteNumber(deltaCp)) return 0
+  return Math.min(MAX_REPORTED_CENTIPAWN_LOSS, Math.max(0, -deltaCp))
+}
+
 export function accuracyFromCentipawnLoss(deltaCp: number): number {
   if (!isFiniteNumber(deltaCp)) return 0
   const loss = Math.max(0, -deltaCp)
@@ -531,7 +551,7 @@ export function summarizeAccuracy(rows: ReviewRow[]): AccuracySummary {
       continue
     }
 
-    const loss = Math.max(0, -row.deltaCp)
+    const loss = reportedCentipawnLoss(row.deltaCp)
     const accuracy = accuracyForRow(row)
     if (row.sideToMove === 'w') {
       white.push(accuracy)
