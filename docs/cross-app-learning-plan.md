@@ -715,6 +715,14 @@ Xiangqi counts only the attacking pieces: advisors and elephants never leave
 their own half and pawns are worth little before the river, so none of them
 track the shape of the game.
 
+Both count plies from the start of the *game*, not the start of the review.
+Each app first used its loop index or its tree-relative `ply`, which is one
+whether the game began at move one or from a FEN taken at move 20 — so a
+mid-game analysis of a closed position with nothing captured yet was filed as
+an opening. Chess takes the ply from the position's own move number; xiangqi
+reads an offset off the root FEN, which is what its move display already did.
+The same bug, found once and fixed in both.
+
 Both read the phase from the position *before* the move, so the move that
 trades the last queen is filed in the middlegame it was played in rather than
 the endgame it created. Chess replays the line and has the FEN to hand;
