@@ -150,6 +150,37 @@ Worth a guard only if the app should survive being rendered in a hidden tab or
 a `display: none` iframe — hold `<Chessboard>` back until its container reports
 a non-zero width, for which `useElementWidth` already exists.
 
+## A mate turns the centipawn loss into nonsense
+
+Found by reading a finished review rather than a test. On the Opera Game the
+panel showed **ACPL 316** beside **Mistake 0, Blunder 0**, which cannot both be
+true, and one row read:
+
+    15... Nxd7   Lost 93.61   Inaccuracy
+
+A 93.61-pawn loss labelled an inaccuracy. The mechanism:
+
+- `scoreToCp` maps any mate to ±10000, whatever its distance.
+- Black stands at roughly -500 and plays into a forced mate. `before` is -500
+  from Black's point of view; `after` is +10000 from White's. The delta is
+  therefore about -9500, i.e. "lost 95 pawns".
+- `summarizeAccuracy` averages that raw figure, so one such move adds ~284 to a
+  33-move ACPL. That is nearly all of the 316.
+- The *label* is right, because labels moved to win-percent loss: someone
+  already lost gives up little by being mated. So the label and the number next
+  to it disagree, and the number is the wrong one.
+
+This predates the win-percent work but was hidden by it: when labels were also
+centipawn-based the two at least agreed with each other, wrongly. Only the
+scoring changed; nobody looked at ACPL in a game that ends in mate.
+
+The fix is the one Lichess uses — cap the evaluation (they use ±1000cp) before
+taking a centipawn loss, so a forced mate contributes a large-but-sane figure
+instead of swamping the average. Not done here: it changes a number users have
+already seen, and it wants its own before/after on real games rather than a
+rushed edit. `accuracyFromCentipawnLoss` is unaffected either way — it is only
+the legacy fallback now, and it saturates near zero long before 9500.
+
 ## The winrate line draws across gaps it does not have data for
 
 `buildWinrateSeries` skips a ply whose position has no evaluation
