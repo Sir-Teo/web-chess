@@ -436,6 +436,7 @@ typecheck, tests, build); UI changes were additionally exercised in a browser.
 | — | chess | Review scoring moved onto winning chances (see below). |
 | — | katrain, xiangqi | Library and pro-game search match every term rather than the query as one phrase. |
 | — | chess, xiangqi | Comment stripping made linear, so a wrong file cannot freeze the tab on import. |
+| — | chess | The library renders a page of 100 rows with a "Show more", instead of all 500. |
 
 ### What was verified by running the apps, not just the tests
 
@@ -685,6 +686,47 @@ behaviour. Two things stayed reliably productive past that point:
 What stopped paying was writing tests for components that were already
 carefully built. Those are worth having as regression cover, but they are not
 where the defects were.
+
+### A fourth measurement lesson: the browser pane throttles timers
+
+The night's recurring mistake was reasoning about mechanisms instead of
+measuring them. The library-pagination work added a variant worth writing down,
+because it makes measurements look precise while being wrong.
+
+Timing an interaction by dispatching an event and awaiting `setTimeout` gave
+plausible-looking numbers — a search costing 56ms, a star toggle 103ms. Those
+numbers are not trustworthy. The automation browser pane spends much of its
+time hidden, and hidden pages throttle `setTimeout` to a second or more and
+never fire `requestAnimationFrame` at all. The same measurement script that
+returned tidy millisecond figures one moment timed out after 30 seconds the
+next, on unchanged code. An earlier "2285ms to open" figure was worse still: it
+silently included the wait I had asked for.
+
+The rule that came out of it:
+
+- **Don't measure interaction latency through an automation browser.** Use it
+  to check *behaviour* — what rendered, what the labels say, whether the state
+  is right — which is what it is reliable for.
+- **Measure cost where it is deterministic.** `renderToStaticMarkup` in a test
+  run is katrain's own technique, it runs in Node, and it counts what actually
+  scales. The pagination change is asserted that way: 500 games in, 100 rows
+  out.
+- **A number with no stated method is a guess.** All three earlier corrections
+  in this document were mechanism-reasoning; this one was measurement without a
+  method. Both fail the same way — they read as evidence.
+
+The pagination commit therefore claims only what was checked: a full shelf
+renders one page rather than every row, and searching a seeded 500-game library
+went from momentarily rendering 176 rows to a flat 100. No latency claim is
+made, because none could be measured here.
+
+One real design point did fall out of it. The page reset was first written as
+`useEffect(() => setVisibleLimit(PAGE_SIZE), [query, sort])`, which is the
+obvious form and is wrong: effects run *after* paint, so a keystroke could paint
+the whole un-paginated list and only then trim it — defeating the pagination on
+exactly the frame that needed it. Resetting inside the `query` and `sort`
+setters keeps it in the same batched render. This was visible in the DOM (176
+rows mid-search) without any timing at all, which is the point.
 
 ### Not done yet
 
