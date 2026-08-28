@@ -1,6 +1,7 @@
 import { Chess, type Move } from 'chess.js'
 import type { EngineLine } from '../hooks/useStockfishEngine'
 import type { AnalyzeMode, AnalyzePurpose } from './uci'
+import { GAME_PHASES, type GamePhase, getMovePhase } from './gamePhase'
 
 export type EvalSnapshot = {
   cp: number
@@ -32,6 +33,8 @@ export type ReviewRow = {
   deltaCp?: number
   /** Winning chances the mover gave up, in percentage points. Position-aware. */
   winPercentLoss?: number
+  /** Read from the position before the move, so it survives an unevaluated row. */
+  phase: GamePhase
   evalDepth?: number
   confidence: 'pending' | 'shallow' | 'standard' | 'deep'
 }
@@ -355,6 +358,9 @@ export function buildReviewRows(
     const beforeFen = replay.fen()
     const moveNumber = replay.moveNumber()
     const sideToMove = replay.turn()
+    // Read before the move is made: the phase a move was played in, not the
+    // one it led to.
+    const phase = getMovePhase(beforeFen, index + 1)
     if (!tryReplayMove(replay, move)) break
     const afterFen = replay.fen()
 
@@ -373,6 +379,7 @@ export function buildReviewRows(
         uci: toUci(move),
         bestMove,
         bestMoveSan,
+        phase,
         quality: 'pending',
         confidence: 'pending',
       })
@@ -400,6 +407,7 @@ export function buildReviewRows(
       uci: toUci(move),
       bestMove,
       bestMoveSan,
+      phase,
       deltaCp,
       winPercentLoss,
       evalDepth,
@@ -519,6 +527,19 @@ export function summarizeAccuracy(rows: ReviewRow[]): AccuracySummary {
     evaluatedMoves: values.length,
     pendingMoves,
   }
+}
+
+/**
+ * Accuracy split by phase, so a report can say *where* a game was lost rather
+ * than only by how much. Phases with nothing evaluated are left out entirely —
+ * an empty phase would otherwise read as a score of zero.
+ */
+export function summarizeAccuracyByPhase(
+  rows: ReviewRow[],
+): Array<{ phase: GamePhase; summary: AccuracySummary }> {
+  return GAME_PHASES
+    .map(({ key }) => ({ phase: key, summary: summarizeAccuracy(rows.filter(row => row.phase === key)) }))
+    .filter(entry => entry.summary.evaluatedMoves > 0)
 }
 
 export function normalizeWhitePovCp(fen: string, cp: number): number {
