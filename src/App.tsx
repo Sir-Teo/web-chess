@@ -43,6 +43,13 @@ import { parseCandidateMoveInput } from './engine/candidateMoves'
 import { type AnalyzeMode, type UciGoLimits } from './engine/uci'
 import { exportAnnotatedPgn, flattenPgnMainLine, parsePgnMoveTree, pgnImportUserErrorMessage } from './engine/pgn'
 import { type LibraryGame, suggestGameName } from './engine/gameLibrary'
+import {
+  type AutoSavedGame,
+  clearAutoSavedGame,
+  readAutoSavedGame,
+  writeAutoSavedGame,
+} from './engine/autoSave'
+import { AutoSaveRecoveryDialog } from './components/AutoSaveRecoveryDialog'
 import { type LibraryWriteResult, useGameLibrary } from './hooks/useGameLibrary'
 import { FEN_PARSE_ERROR, validateFenForAnalysis } from './engine/fen'
 import { buildImportSweepTargets, countImportSweepCandidates, type ImportSweepTarget } from './engine/importSweep'
@@ -90,6 +97,9 @@ const NewGameDialog = lazy(() =>
 const PgnDialog = lazy(() =>
   import('./components/PgnDialog').then(module => ({ default: module.PgnDialog })),
 )
+/** Long enough that a fast sequence of moves writes once, not per move. */
+const AUTO_SAVE_DEBOUNCE_MS = 700
+
 const LibraryDialog = lazy(() =>
   import('./components/LibraryDialog').then(module => ({ default: module.LibraryDialog })),
 )
@@ -847,6 +857,7 @@ function App() {
   const [showNewGameDialog, setShowNewGameDialog] = useState(false)
   const [showPgnDialog, setShowPgnDialog] = useState(false)
   const [showLibraryDialog, setShowLibraryDialog] = useState(false)
+  const [autoSaveRecovery, setAutoSaveRecovery] = useState<AutoSavedGame | null>(null)
   const [gameMode, setGameMode] = useState<GameMode>('human-vs-human')
   const [playerColor, setPlayerColor] = useState<PlayerColor>('white')
   const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>(4)
@@ -977,7 +988,7 @@ function App() {
   const opening = useOpening(openingFenPath, shouldLoadOpeningNames)
   const canGoBack = currentPathNodes.length > 1
   const canGoForward = gameTree.current.children.length > 0
-  const appModalOpen = showNewGameDialog || showPgnDialog || showLibraryDialog
+  const appModalOpen = showNewGameDialog || showPgnDialog || showLibraryDialog || autoSaveRecovery !== null
   const promotionDialogOpen = pendingPromotion !== null
   const topChromeHidden = appModalOpen || promotionDialogOpen
   const backgroundUiHidden = appModalOpen || settingsOpen || promotionDialogOpen
@@ -2798,6 +2809,54 @@ function App() {
     [handleAnalysisPgnImport, closeLibraryDialog],
   )
 
+  // ── Auto-save ──────────────────────────────────────────
+  // Offer whatever the last session left behind, then keep the slot current.
+  // The check is mount-only and runs before the first debounced write, so a
+  // fresh board cannot clear the snapshot it is about to offer.
+  const autoSaveCheckedRef = useRef(false)
+
+  useEffect(() => {
+    if (autoSaveCheckedRef.current) return
+    autoSaveCheckedRef.current = true
+    const snapshot = readAutoSavedGame()
+    if (!snapshot) return
+    if (mainLineNodes.length > 1) {
+      // A share link already put a game on the board, so the snapshot is stale.
+      clearAutoSavedGame()
+      return
+    }
+    setAutoSaveRecovery(snapshot)
+    // Deliberately mount-only: a one-shot check against the board as it loaded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (autoSaveRecovery) return
+    const timeout = window.setTimeout(() => {
+      const plies = mainLineNodes.length - 1
+      if (plies <= 0) {
+        clearAutoSavedGame()
+        return
+      }
+      writeAutoSavedGame(
+        exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot),
+        plies,
+      )
+    }, AUTO_SAVE_DEBOUNCE_MS)
+    return () => window.clearTimeout(timeout)
+  }, [autoSaveRecovery, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
+
+  const dismissAutoSaveRecovery = useCallback(() => {
+    clearAutoSavedGame()
+    setAutoSaveRecovery(null)
+  }, [])
+
+  const restoreAutoSavedGame = useCallback(() => {
+    if (!autoSaveRecovery) return
+    if (!handleAnalysisPgnImport(autoSaveRecovery.pgn).ok) clearAutoSavedGame()
+    setAutoSaveRecovery(null)
+  }, [autoSaveRecovery, handleAnalysisPgnImport])
+
   const handleFenLoad = useCallback((fenText: string, options?: FenLoadOptions) => {
     const validation = validateFenForAnalysis(fenText)
     if (!validation.ok) {
@@ -3988,6 +4047,15 @@ function App() {
               gameNodes={gameTree.nodesSnapshot}
               evaluations={evaluationsByFen}
               pgnHeaders={pgnHeaders}
+            />
+          )}
+
+          {autoSaveRecovery && (
+            <AutoSaveRecoveryDialog
+              savedAt={autoSaveRecovery.savedAt}
+              moveCount={autoSaveRecovery.moveCount}
+              onRestore={restoreAutoSavedGame}
+              onDismiss={dismissAutoSaveRecovery}
             />
           )}
 
