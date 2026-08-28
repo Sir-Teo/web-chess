@@ -234,6 +234,18 @@ a GitHub Packages npm dependency. Initial contents, in order of readiness:
 (SGF / PGN / WXF), opening books, board rendering geometry, engine binaries.
 Anything with per-game semantics stays in its own repo.
 
+> **Corrected by measurement, 2026-08-28.** The ordering above was written from
+> reading the code; four modules have since been ported into both siblings, and
+> comparing the pairs contradicts it. `storage.ts` is identical in both apart
+> from its doc comment; `autoSave`, `narrativeTags` and `gamePhase` differ by
+> 58, 90 and 96 lines despite sharing names. **`review/` is the wrong place to
+> start** — it is saturated with domain, which is exactly what diverges. Start
+> with whatever has no board in it. See "Which shared module is actually
+> shareable, measured" in §9 for the figures, and treat items 2, 4 and 5 above
+> as unproven until each is measured the same way.
+
+
+
 ---
 
 ## 6. Phasing
