@@ -185,6 +185,36 @@ The trailing "+" is deliberate: it says the real figure is off this scale, which
 is what a forced mate is, rather than presenting a bound as though it had been
 measured.
 
+## A third pair, latent: two accuracy curves
+
+Found by applying the rule the two real defects suggested — look for one
+judgement expressed two ways — rather than by hitting it.
+
+`accuracyForRow` prefers `accuracyFromWinPercentLoss` (Lichess's curve over
+winning chances) and falls back to `accuracyFromCentipawnLoss`
+(`100 * exp(-loss/300)`) for a row with no win-percent reading. Those are two
+answers to "how accurate was this move", and neither is derived from the other.
+They disagree, measured at equality:
+
+| centipawn loss | via winning chances | via centipawns | gap |
+| --- | --- | --- | --- |
+| 20 | 92.1 | 93.6 | -1.5 |
+| 100 | 66.2 | 71.7 | -5.4 |
+| 200 | 44.7 | 51.3 | **-6.6** |
+| 800 | 11.4 | 6.9 | +4.4 |
+
+**Currently unreachable**, and deliberately kept: `buildReviewRows` sets
+`winPercentLoss` on every row it also gives a finite `deltaCp`, and
+`summarizeAccuracy` skips anything pending, so the fallback has no live caller.
+It exists for rows built before the win-percent work and is pinned by a test.
+
+The hazard is not today's behaviour, it is the shape: `winPercentLoss` is
+optional on `ReviewRow`, so any future producer that omits it puts rows scored
+on *different curves* into the same average, differing by up to 6.6 points, with
+nothing to signal it. If the legacy path is ever confirmed dead, deleting it
+removes the second representation entirely, which is the fix this codebase keeps
+arriving at.
+
 ## The winrate line draws across gaps it does not have data for
 
 `buildWinrateSeries` skips a ply whose position has no evaluation
