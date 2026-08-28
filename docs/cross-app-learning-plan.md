@@ -1017,6 +1017,29 @@ So the rule is not "avoid two numbers". It is:
 > **different** questions, keep both, name both, and never let one substitute
 > for the other.
 
+One more case forced a third clause, and it is the one that stops the rule being
+applied mechanically. katrain's `classifyMoveByRankAndPolicy` looks exactly like
+the defect: it grades a move twice — once by its rank among candidates, once by
+its prior relative to the best move — from *independent* threshold constants,
+and keeps `Math.min` of the two, i.e. the milder. Structurally identical to
+`classifyMoveQualityForEval`.
+
+It is not the same thing, and "fixing" it would make it worse. Rank and prior
+are **complementary** signals about one judgement, not two encodings of it. A
+move ranked fifth whose prior is nearly the best move's is a close second, and
+forgiving it is the intended behaviour; so is forgiving a highly-ranked move
+that carried little probability mass. The milder-of-two is doing real work in
+both directions, deliberately.
+
+Compare xiangqi: a centipawn loss and a winning-chance loss are the *same*
+quantity twice, one recoverable from the other by a fixed sigmoid. There the
+milder-of-two is not charity, it is one ladder silently overruling the other's
+stated boundary.
+
+So the test is not "are two numbers combined" but **"could one be computed from
+the other?"** If yes, they are one judgement and must be derived. If no, they
+are separate evidence and combining them is a design choice to be made openly.
+
 Every defect found in the siblings is the first clause violated. `qualityForMove`
 survives it because its two ladders are derived. `classifyMoveQualityForEval`
 does not, and re-grades moves at equality. `accuracyForRow` does not either, and
