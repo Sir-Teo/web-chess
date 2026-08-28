@@ -61,7 +61,7 @@ import {
   type NumericInputValue,
 } from './engine/numericInput'
 import { normalizeSpinOptionInput } from './engine/options'
-import { engineProfiles, type EngineProfileId } from './engine/profiles'
+import { detectEngineCapabilities, engineProfiles, recommendedHashMb, type EngineProfileId } from './engine/profiles'
 import { fetchSamplePgn } from './engine/samplePgn'
 import { parseFenShareHash } from './engine/shareLink'
 import { tablebaseMoveAriaLabel, tablebaseMoveSummary, tablebaseSummary } from './engine/tablebaseLabels'
@@ -277,6 +277,21 @@ type PersistedAppSettings = {
   showBoardArrows: boolean
   showTopMoveArrows: boolean
   topMoveArrowCount: number
+}
+
+/**
+ * Read once, lazily: detectEngineCapabilities touches navigator, which is not
+ * there at module scope in a test or a prerender.
+ */
+let cachedDefaultHashMb: number | null = null
+function defaultHashMb(): number {
+  if (cachedDefaultHashMb !== null) return cachedDefaultHashMb
+  try {
+    cachedDefaultHashMb = recommendedHashMb(detectEngineCapabilities())
+  } catch {
+    cachedDefaultHashMb = DEFAULT_PERSISTED_SETTINGS.hashMb
+  }
+  return cachedDefaultHashMb
 }
 
 const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
@@ -713,7 +728,7 @@ function loadPersistedSettings(): PersistedAppSettings {
       ),
       mateTarget: normalizeInteger(parsed.mateTarget, MATE_TARGET_BOUNDS.min, MATE_TARGET_BOUNDS.max, MATE_TARGET_BOUNDS.fallback),
       multiPv: normalizeInteger(parsed.multiPv, 1, 5, DEFAULT_PERSISTED_SETTINGS.multiPv),
-      hashMb: normalizeInteger(parsed.hashMb, 16, 512, DEFAULT_PERSISTED_SETTINGS.hashMb),
+      hashMb: normalizeInteger(parsed.hashMb, 16, 512, defaultHashMb()),
       showWdl: typeof parsed.showWdl === 'boolean' ? parsed.showWdl : DEFAULT_PERSISTED_SETTINGS.showWdl,
       limitNodes: normalizeOptionalPositiveInteger(parsed.limitNodes, LIMIT_NODES_BOUNDS.max),
       searchMovesInput: DEFAULT_PERSISTED_SETTINGS.searchMovesInput,
@@ -1625,7 +1640,7 @@ function App() {
     setLeftWidth(0)
     setSearchDepth(DEFAULT_PERSISTED_SETTINGS.searchDepth)
     setMultiPv(DEFAULT_PERSISTED_SETTINGS.multiPv)
-    setHashMb(DEFAULT_PERSISTED_SETTINGS.hashMb)
+    setHashMb(defaultHashMb())
     setShowWdl(DEFAULT_PERSISTED_SETTINGS.showWdl)
     setAutoAnalyze(DEFAULT_PERSISTED_SETTINGS.autoAnalyze)
     setEngineProfile(DEFAULT_PERSISTED_SETTINGS.engineProfile)

@@ -77,6 +77,27 @@ export function detectEngineCapabilities(): EngineCapabilities {
   }
 }
 
+/**
+ * A starting hash size the device can afford. Only ever a default — a stored
+ * preference wins, and the Advanced slider still spans the full 16-512 MB.
+ *
+ * A fixed 64 MB was being handed to every device, phones included, on top of
+ * the engine's own WASM memory. Sized by tier the way web-xiangqi's
+ * analysisProfile does it, leaving capable desktops exactly where they were.
+ */
+export function recommendedHashMb(capabilities: EngineCapabilities): number {
+  const memoryGb = capabilities.deviceMemoryGb
+  const reported = typeof memoryGb === 'number' && Number.isFinite(memoryGb)
+
+  if (capabilities.isMobile) return 16
+  // navigator.deviceMemory is clamped by spec to at most 8, so 8 means "8 or
+  // more" and cannot be read as a constraint. Only step down below it.
+  if (reported && memoryGb <= 2) return 16
+  if (reported && memoryGb <= 4) return 32
+  if (capabilities.hardwareConcurrency <= 2) return 32
+  return 64
+}
+
 export function pickAutoProfile(capabilities: EngineCapabilities): EngineProfile {
   const canUseThreads = capabilities.sharedArrayBuffer && capabilities.crossOriginIsolated
   const lowMemory = typeof capabilities.deviceMemoryGb === 'number' && capabilities.deviceMemoryGb <= 4
