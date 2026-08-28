@@ -259,6 +259,34 @@ Run `verify` rather than the parts. Chaining them by hand is how the same
 mistake gets made twice: `npm run typecheck | tail -2 && npm run lint` reports
 tail's exit code, not the compiler's.
 
+## A derived default becomes a stored preference on first run
+
+`defaultHashMb()` sizes the engine hash from `detectEngineCapabilities()`, and
+settings load takes the stored value if there is one:
+
+    hashMb: normalizeInteger(parsed.hashMb, 16, 512, defaultHashMb())
+
+But `persistSettings` runs from an effect on mount and writes the whole settings
+object. So on a first visit the derived value is computed, immediately written to
+localStorage, and read back on every later visit. It stops being a default and
+becomes a stored preference the user never set.
+
+The consequence: improving `recommendedHashMb` reaches only browsers that have
+never opened the app. Anyone already using it keeps whatever their first visit
+concluded — which for most existing users is the flat 64 that predates the
+capability-aware sizing.
+
+A setting the user *chose* should of course persist. The problem is that a
+derived default is indistinguishable from a choice once it is in the same
+object, so there is no way to re-derive it without also discarding real
+preferences. The fix would be to store only what was explicitly set and derive
+the rest on load, which is the same "keep the evidence, not the conclusion"
+shape as web-xiangqi's stored review summary.
+
+Not changed: it alters stored user settings and wants a decision about whether
+existing values are preferences or fossils. Recorded because it silently caps
+what a change to the sizing logic can achieve.
+
 ## Project Invariants
 
 - Engine scores are POV side-to-move; after a move the perspective flips.
