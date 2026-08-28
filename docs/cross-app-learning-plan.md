@@ -737,10 +737,25 @@ xiangqi needs no replay at all, because a move record already stores the board
 after the move and what it captured, and the position before it is the two
 added back together.
 
+Both then gained the *filter* katrain's report has had all along, since a
+breakdown that says the endgame went badly is more useful if you can then look
+at just those moves. Clicking a phase narrows the review in chess (move list,
+accuracy figures and critical moments) and the key-moment list in xiangqi,
+which is the shape that panel already used for side and quality. In both, the
+breakdown itself deliberately reads the *unfiltered* rows so every phase stays
+visible and switchable — the same split katrain makes.
+
+Neither app persists the phase. Chess recomputes it per row; xiangqi looks it up
+per move index. That was deliberate: putting it on the stored summary would have
+meant a migration in the library's normalizer for something that is derived.
+
 Verified in chess on the Opera Game: opening W 98.1 / B 87.9 over 20 moves,
 middlegame W 98.5 / B 88.6 over 13 — summing to the 33 evaluated moves and
 bracketing the 98.3 and 88.2 overall figures. The opening ends at ply 20, where
-`cxb5` wins the knight, rather than at a fixed move number. That game never
+`cxb5` wins the knight, rather than at a fixed move number. Selecting a phase
+was checked against the same game: the opening gives 20 of the 33 moves and an
+overall of W 98.1 / B 86.4, exactly what the opening row reports, and the
+middlegame gives 13 and W 98.9 / B 89.5. That game never
 reaches an endgame, and correctly: the final position is queen, rook, knight
 and bishop against rook and bishop, which is 28 — two points the wrong side of
 the threshold.
