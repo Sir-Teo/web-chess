@@ -486,6 +486,26 @@ async function main() {
         `${viewport.name}: the board is ${board.width}x${board.height}, which is not square`)
       assert(board.width > 100, `${viewport.name}: the board collapsed to ${board.width}px`)
 
+      // Command+F must reach the browser. It used to flip the board and call
+      // preventDefault(), so Find could not be opened on this page at all.
+      const chords = await page.evaluate(() => {
+        const fire = (init) => {
+          const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })
+          document.body.dispatchEvent(event)
+          return event.defaultPrevented
+        }
+        return {
+          metaF: fire({ key: 'f', metaKey: true }),
+          ctrlF: fire({ key: 'f', ctrlKey: true }),
+          altLeft: fire({ key: 'ArrowLeft', altKey: true }),
+          plainLeft: fire({ key: 'ArrowLeft' }),
+        }
+      })
+      assert(!chords.metaF, `${viewport.name}: Command+F was swallowed by the app`)
+      assert(!chords.ctrlF, `${viewport.name}: Control+F was swallowed by the app`)
+      assert(!chords.altLeft, `${viewport.name}: Alt+Left was swallowed instead of going back`)
+      assert(chords.plainLeft, `${viewport.name}: the plain Left shortcut stopped working`)
+
       await context.close()
       console.log(`  ${viewport.name}: boot, engine handshake, layout, control names, ` +
                   `board ${board.width}x${board.height} OK`)

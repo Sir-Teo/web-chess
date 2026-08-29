@@ -97,6 +97,7 @@ import { useElementHeight, useElementWidth } from './hooks/useElementWidth'
 import { useModalFocus } from './hooks/useModalFocus'
 import { formatGraphAxisLabel, formatGraphPositionLabel } from './components/graphLabels'
 import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlip, IconDownload, IconClipboard, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp } from './components/icons'
+import { isPlainShortcut, isTypingTarget } from './components/shortcutKeys'
 import './App.css'
 
 const NewGameDialog = lazy(() =>
@@ -1063,7 +1064,13 @@ function App() {
       if (shortcutsSuspended) return
       const target = e.target as HTMLElement | null
       const tag = target?.tagName
-      if (target?.isContentEditable || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
+      if (isTypingTarget(target)) return
+      // Every shortcut below is a bare key, so a chord belongs to the browser.
+      // Without this, Command+F flipped the board and swallowed Find, and
+      // Alt/Command with an arrow stepped through the game instead of going
+      // back. web-katrain's registry matches modifiers per binding; this is the
+      // same rule for an app with six shortcuts.
+      if (!isPlainShortcut(e)) return
 
       if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev() }
       if (e.key === 'ArrowRight') { e.preventDefault(); goNext() }
