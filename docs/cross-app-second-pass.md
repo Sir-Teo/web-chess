@@ -35,7 +35,7 @@ which more passes cost more than they return.
 
 ---
 
-## 0. The six things to do next
+## 0. The seven things to do next
 
 | | Do | Repo | Cost | Why now |
 | --- | --- | --- | --- | --- |
@@ -45,6 +45,7 @@ which more passes cost more than they return.
 | 4 | Write **`docs/parity.md`** in each repo | all three | an hour each | The one Tier-0 item nobody did, and the one that would have caught §2.1 and §2.8. |
 | 5 | Move **game state out of `App.tsx`** into something a test can drive | chess first | weeks | Not because the file is big. Because 22 katrain test files drive its game state directly and **zero** do in either sibling. §2.2 |
 | 6 | Wire the mobile tabs to their panels (`aria-controls`, `role="tabpanel"`) | katrain | hours | The tab list now behaves, but its tabs still control nothing a screen reader can reach. Needs three containers in `Layout.tsx` done together, or not at all. |
+| 7 | Decide whether the **deploys should run the browser suites** | all three | an hour | A push to main runs deploy only, and no deploy runs a browser suite. Green CI on main currently means less than it looks like. |
 
 Items 1–4 are worth doing before item 5, and item 5 is worth starting before the
 next round of ports, for the reason in §2.2.
@@ -648,6 +649,37 @@ the snapshot element, at coordinates derived from the board's own
 because `requestAnimationFrame` does not fire while the pane is hidden. Neither
 is an app defect; both are worth knowing before concluding anything from a
 browser that appears not to respond.
+
+### A test suite that runs in no workflow
+
+The same shape as §2.1, one repo over, and it went unnoticed for the whole
+effort because the suite is green every time anyone runs it. web-katrain's
+`check-viewports.mjs` -- eight viewports, touch-target audits, board
+interaction, and the tab-bar keyboard checks added this session -- ran in no
+workflow at all. Not `ci.yml`, which stopped at `npm run verify`. Not
+`deploy-pages.yml`. Both siblings run their browser suite in CI, so katrain was
+the one of the three whose browser checks only ever ran when someone remembered
+to.
+
+Measured before adding rather than assumed: 54 seconds, spawns its own vite
+server, needs no build output. It went into `ci.yml` and deliberately not into
+the deploy: gating the deploy on the checks was right for web-xiangqi, which ran
+nothing at all before publishing, but a browser suite that goes flaky should
+fail a pull request, not stop a site from publishing.
+
+**The generalisation, and it is the one worth keeping from this session:** "the
+suite passes" and "the suite runs" are different claims, and only the first was
+ever checked. It is the same error as the palette that worked perfectly and
+could not be reached, and the same error as a deploy that publishes without
+gates. Three instances now, in three repos, of something being correct and
+unreachable.
+
+**Still true after this pass**, and the user should know it before reading a
+green CI badge: a direct push to `main` triggers only the deploy workflows, and
+none of the three deploys runs a browser suite. `ci.yml` is pull-request-only in
+all three. The browser suites were therefore run locally before the merge, and
+`ci.yml` can be dispatched manually on `main` (`workflow_dispatch` is enabled in
+all three) to get the same coverage inside CI.
 
 ## 7. Where this stands
 
