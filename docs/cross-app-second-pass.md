@@ -434,6 +434,8 @@ were additionally exercised in a browser at 375x812 and at desktop width.
 | — | katrain | Long game names on the mobile home wrap to two lines with a title, instead of truncating at one with no way to read the rest. |
 | Port `engine/uci.ts` | xiangqi | **The review searched from a bare FEN while live analysis sent the move history.** Pikafish detects repetition from the move list, and in xiangqi perpetual check and chase *lose* — so a review of a game with a repetition was scored by an engine that could not see the rule deciding it. |
 | — | xiangqi | Saved review summaries are rebuilt at the read boundary, not only on load: the library card and the loaded game were reporting 66% and 42% for the same game. |
+| — | katrain | **Pull requests were verified on Node 20 while releases were built on Node 24.** Two workflows in one repo, each valid alone, never read side by side. Guarded by a test that also checks the README names the same major. |
+| — | chess, katrain | **Both service workers cached on `response.ok`, which is true for 206 Partial Content — and `cache.put()` throws on those.** Both apps serve exactly the large assets that attract Range requests. |
 | — | katrain | The CORS failure message for a model download named a "Download" button the dialog does not have; every model row offers "Copy URL". The recommended b18 host sends no `Access-Control-Allow-Origin`, so that failure is the *only* path for that model. |
 | — | chess | **Command+F flipped the board and swallowed Find.** The shortcuts bound bare keys and never checked modifiers, so Control/Command+F and Alt+Arrow — Find and Back — were intercepted and `preventDefault`ed. katrain's registry matches modifiers per binding; xiangqi escapes it by binding only Escape. |
 | — | chess | The COI service worker, the only reason threaded Stockfish is reachable on GitHub Pages, is now covered by a second server that sends no COOP/COEP — the condition Pages is actually in. This is the guard that made the blocked PWA item attemptable. |
@@ -456,6 +458,15 @@ Two findings from doing the work, both worth carrying:
   engine from the window is wrong. `useEngine`, in the same repo, sized the
   engine from the window. Writing a judgement down twice is how one copy gets
   fixed and the other does not.
+- **A test can pin the wrong thing and fail on an improvement.** katrain's
+  `pwaAssets.test.ts` asserted the literal string `if (response.ok)` and broke
+  when that guard was made *stricter*. Assert the intent, not the spelling.
+- **Check that a new test fails for the reason you think.** The Range-request
+  check here first passed against a 200, because the bare test server ignored
+  the header; and after that was fixed it still passed with both guards removed,
+  because the rejection is swallowed inside `waitUntil`. Both times the test
+  looked like coverage and was not. The comment beside it now says what it
+  actually covers.
 - **Ask what your own change just broke.** Making the service worker register
   even when the page is already isolated — right for offline — also pointed it
   at the dev server, where a caching worker caches every Vite module request
