@@ -46,6 +46,19 @@ npm test
 npm run build
 ```
 
+Two more that `verify` leaves out because they drive a real browser:
+
+```bash
+npm run test:ui:install   # once per machine
+npm run test:ui:browser
+```
+
+`test:ui:browser` is the only test here that clicks anything. It builds the app,
+serves it, and drives Chromium with a fake Stockfish injected in place of the
+real worker — so a review runs end to end, deterministically, in seconds and
+with no WASM. The technique is borrowed from web-xiangqi, which has had it
+longer.
+
 `npm run audit` uses `--audit-level=moderate`, matching the sibling apps. A bare
 `npm audit` fails on any severity, which once blocked a release over a single
 low advisory in a dev dependency.

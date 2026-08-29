@@ -41,3 +41,22 @@ jobs:
       # it. The same command developers run locally.
       - name: Verify
         run: npm run verify
+
+      # Playwright has to be installed before anything that drives a browser,
+      # and the cache restore has to come before the install or it saves
+      # nothing. web-xiangqi learned both of those the hard way.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-chromium-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright (Chromium)
+        run: npx playwright install --with-deps chromium
+
+      # Not in `verify`: it builds the app, starts a preview server and drives a
+      # real browser, which is minutes rather than seconds and needs a browser
+      # installed. Kept out of the local gate for the same reason web-katrain
+      # keeps its viewport check out of one.
+      - name: Browser UI checks
+        run: npm run test:ui:browser
