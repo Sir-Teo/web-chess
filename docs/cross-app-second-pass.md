@@ -41,7 +41,7 @@ which more passes cost more than they return.
 | --- | --- | --- | --- | --- |
 | 0 | **Decide what "Classic Games" are** (katrain has the pattern) | xiangqi | hours | The ten entries are 16-24 ply opening fragments shown as complete games between named grandmasters, each with a decisive result badge, and Game Review scores them as whole games -- reporting Hu Ronghua at 25% with 12 blunders. The eval path is fine; four hypotheses about it were tested and refuted. Label them, or exclude fragments from review scoring. |
 | 1 | ~~**Gate the Pages deploy on the checks**~~ done | xiangqi | minutes | Its deploy workflow runs no audit, no lint, no tests, no typecheck. Both siblings gate theirs. §2.1 |
-| 2 | ~~Port the **hostile-input parser sweep**~~ **katrain done**, xiangqi remains | xiangqi | hours | katrain now sweeps 24 hostile inputs over 12 entry points; worst case 30ms against a 1000ms budget. xiangqi still has none. §2.4 |
+| 2 | ~~Port the **hostile-input parser sweep**~~ **done, all three** | — | — | katrain 24 inputs / worst case 30ms, xiangqi 25 / worst case 7ms, both against a 1000ms budget. The 4x gap is the new finding: see below. §2.4 |
 | 3 | Adopt **device-tier boot + live-analysis policy** (`analysisProfile.ts`) | katrain, then chess | hours | katrain sizes its whole search with `min(8, hardwareConcurrency)`. The module is also the most extraction-ready file in the three repos. §2.7 |
 | 4 | Write **`docs/parity.md`** in each repo | all three | an hour each | The one Tier-0 item nobody did, and the one that would have caught §2.1 and §2.8. |
 | 5 | Move **game state out of `App.tsx`** into something a test can drive | chess first | weeks | Not because the file is big. Because 22 katrain test files drive its game state directly and **zero** do in either sibling. §2.2 |
@@ -904,6 +904,37 @@ thread starts to stutter. A green tick alone would have said none of that.
 The assertion is deliberately weak -- not that anything parses, since rejecting
 junk is the right answer for most of these, only that nothing hangs and nothing
 throws past a caller that cannot catch it.
+
+### The margin differs 4x between the two, and the reason is a design choice
+
+Item 2 closed: web-xiangqi has the sweep too, twenty-five hostile inputs over
+twelve entry points, adapted from the SGF corpus to PGN, UCI and FEN. Nothing
+failed there either. But comparing the two margins turned out to be worth more
+than either number alone.
+
+| | worst case | budget | headroom |
+| --- | --- | --- | --- |
+| web-katrain | 30ms (40,000 SGF moves) | 1000ms | 33x |
+| web-xiangqi | 7ms (FEN soup / 50,000 UCI moves) | 1000ms | 140x |
+
+Same class of input, same budget, four times the margin. That is not luck.
+web-xiangqi caps its importer before it parses -- `MAX_MOVE_IMPORT_TEXT_LENGTH`
+at 200,000 characters, `MAX_MOVE_IMPORT_UCI_MOVES` and
+`MAX_MOVE_IMPORT_TREE_NODES` at 1024 -- so hostile input is rejected by a length
+check rather than walked by a parser. web-katrain parses first and asks
+questions afterwards.
+
+Neither is currently a bug: 30ms is nowhere near a stutter. But the ceilings are
+the cheaper design and they are the thing to port back, which reverses the usual
+direction for this pair. It also generalises the search-query fix from earlier
+in this effort -- that one bounded a query at 200 characters for exactly this
+reason, and the importer ceilings are the same idea applied one layer out.
+
+**The pattern across the three sweeps** is that "it passed" was never the
+finding. In web-chess the sweep caught a real freeze. In web-katrain and
+web-xiangqi it caught nothing, and the output that mattered was the timing
+table -- which then made a design difference between two repos visible that no
+amount of reading either codebase had surfaced in three sessions.
 
 ## 7. Where this stands
 
