@@ -39,7 +39,7 @@ which more passes cost more than they return.
 
 | | Do | Repo | Cost | Why now |
 | --- | --- | --- | --- | --- |
-| 0 | **Decide what "Classic Games" are** | xiangqi | hours | The ten entries are 16-24 ply opening fragments shown as complete games between named grandmasters, each with a decisive result badge, and Game Review scores them as whole games -- reporting Hu Ronghua at 25% with 12 blunders. The eval path is fine; four hypotheses about it were tested and refuted. Label them, or exclude fragments from review scoring. |
+| 0 | **Decide what "Classic Games" are** (katrain has the pattern) | xiangqi | hours | The ten entries are 16-24 ply opening fragments shown as complete games between named grandmasters, each with a decisive result badge, and Game Review scores them as whole games -- reporting Hu Ronghua at 25% with 12 blunders. The eval path is fine; four hypotheses about it were tested and refuted. Label them, or exclude fragments from review scoring. |
 | 1 | ~~**Gate the Pages deploy on the checks**~~ done | xiangqi | minutes | Its deploy workflow runs no audit, no lint, no tests, no typecheck. Both siblings gate theirs. §2.1 |
 | 2 | Port the **hostile-input parser sweep** (`src/__fuzz.test.ts`) | katrain, then xiangqi | hours | katrain has 13 modules that parse outside input and no pathological-input test over any of them. §2.4 |
 | 3 | Adopt **device-tier boot + live-analysis policy** (`analysisProfile.ts`) | katrain, then chess | hours | katrain sizes its whole search with `min(8, hardwareConcurrency)`. The module is also the most extraction-ready file in the three repos. §2.7 |
@@ -836,6 +836,41 @@ engine is wrong" and the first three hypotheses were all about the engine. The
 one that held was about the data, and the only reason it surfaced is that the
 depth experiment was cheap enough to run rather than assume.
 
+
+### What the siblings ship as game data, side by side
+
+The natural check after the "Classic Games" finding: the other two ship bundled
+games too. Do they have the same problem? No -- and web-katrain has the donor
+pattern already built.
+
+| | what ships | length | provenance | where the result comes from |
+| --- | --- | --- | --- | --- |
+| **katrain** | real `.sgf` files under `src/data/sgf/**` | 151-296 moves, complete games | `source: 'go4go.com'` recorded in code | the SGF's own `RE[]` tag: `B+R`, `W+7.5` |
+| **chess** | `eco.json` | opening lines | classification data | none claimed -- they are openings, and are called openings |
+| **xiangqi** | hand-written arrays in `historicalGames.ts` | **16-24 plies** | **none** | **a hard-coded `result: 'red'` field** |
+
+katrain is the one to copy, and the mechanism is worth naming precisely. It does
+not assert outcomes: it ships the source file and reads the result out of the
+record. If the SGF says `RE[W+7.5]`, that is what the card shows, and the file
+is attributable to go4go.com. The result cannot drift from the moves because it
+was never entered separately from them.
+
+xiangqi's entries are the opposite on every axis. The moves are typed into a
+TypeScript array, the outcome is typed in next to them as an independent field,
+and nothing records where any of it came from. That is what lets a card claim
+"Hu Ronghua vs Liu Dahua, 1977, Red wins" over twelve moves that end with Red at
+-312cp, and it is why Game Review can then report a world champion at 25%.
+
+The glob in `preloadedGames.ts` is worth stealing whole: `import.meta.glob`
+over `./sgf/**`, eager and `?raw`, so dropping a public-domain game pack into a
+folder grows the library with no code change and the service worker caches it
+for offline use. There is no reason the same could not hold Xiangqi records in
+whatever notation they come in.
+
+This does not change the recommendation in item 0 -- it makes it concrete.
+Either label the fragments honestly, or replace them with sourced records and
+read the result from the record, the way the sibling three directories over has
+been doing all along.
 
 ## 7. Where this stands
 
