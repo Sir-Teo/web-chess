@@ -94,6 +94,8 @@ review pass, a saved-game library — for Go and xiangqi:
 - [web-katrain](https://github.com/Sir-Teo/web-katrain) — Go, KataGo in the browser
 - [web-xiangqi](https://github.com/Sir-Teo/web-xiangqi) — xiangqi, Pikafish compiled to WASM
 
+[`docs/parity.md`](docs/parity.md) is the feature matrix for the three, kept
+current as things land here.
 [`docs/cross-app-learning-plan.md`](docs/cross-app-learning-plan.md) compares the
 three and tracks what is worth moving between them.
 [`docs/architecture.md`](docs/architecture.md) covers this app on its own.
