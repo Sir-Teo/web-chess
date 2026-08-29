@@ -1,5 +1,6 @@
 import { Chess } from 'chess.js'
 import { describe, expect, it } from 'vitest'
+import type { EngineLine } from '../hooks/useStockfishEngine'
 import { parseInfoLine } from '../hooks/useStockfishEngine'
 import {
   type EvalSnapshot,
@@ -22,6 +23,8 @@ import {
   summarizeReview,
   uciToSan,
   winPercentFromCp,
+  recordEvaluation,
+  engineLineToSnapshot,
 } from './analysis'
 
 describe('review analysis helpers', () => {
@@ -685,5 +688,103 @@ describe('bounded engine scores', () => {
             .toBe('upperbound')
         expect(parseInfoLine('info depth 20 score cp 150 nodes 5000 pv e2e4')?.scoreBound)
             .toBeUndefined()
+    })
+})
+
+describe('recording an evaluation', () => {
+    const snap = (cp: number, depth: number): EvalSnapshot =>
+        ({ cp, depth, nodes: depth * 1000, purpose: 'manual' })
+
+    it('stores a reading for a position that had none', () => {
+        const before = new Map<string, EvalSnapshot>()
+        const after = recordEvaluation(before, 'fen-a', snap(20, 18))
+
+        expect(after).not.toBe(before)
+        expect(after.get('fen-a')?.cp).toBe(20)
+        expect(before.size, 'the map handed in is not mutated').toBe(0)
+    })
+
+    it('replaces a shallower reading with a deeper one', () => {
+        const before = new Map([['fen-a', snap(20, 12)]])
+        const after = recordEvaluation(before, 'fen-a', snap(45, 24))
+
+        expect(after).not.toBe(before)
+        expect(after.get('fen-a')?.depth).toBe(24)
+        expect(after.get('fen-a')?.cp).toBe(45)
+    })
+
+    /**
+     * The identity is the point, not an optimisation. Auto-save debounces on a
+     * snapshot that depends on the evaluations; a fresh Map per `info` line
+     * would churn that identity several times a second and the save would never
+     * settle long enough to fire. A previous investigation reported exactly that
+     * starvation and found it was not happening — because of this.
+     */
+    it('returns the very same map when nothing improves', () => {
+        const before = new Map([['fen-a', snap(45, 24)]])
+
+        const shallower = recordEvaluation(before, 'fen-a', snap(20, 12))
+        expect(shallower, 'a shallower reading must not churn the identity').toBe(before)
+
+        const identical = recordEvaluation(shallower, 'fen-a', snap(45, 24))
+        expect(identical, 'an identical reading must not churn the identity').toBe(before)
+    })
+
+    it('does not churn across a burst of shallow lines, which is the failure mode', () => {
+        // What arrives while the engine is thinking: many lines, most of which
+        // improve on nothing. The map must survive the burst unchanged.
+        let map = new Map([['fen-a', snap(45, 24)]])
+        const original = map
+        for (let depth = 1; depth <= 20; depth++) {
+            map = recordEvaluation(map, 'fen-a', snap(20 + depth, depth))
+        }
+        expect(map).toBe(original)
+    })
+
+    it('keeps other positions untouched', () => {
+        const before = new Map([['fen-a', snap(20, 18)], ['fen-b', snap(-30, 18)]])
+        const after = recordEvaluation(before, 'fen-a', snap(60, 26))
+
+        expect(after.get('fen-b')).toBe(before.get('fen-b'))
+        expect(after.size).toBe(2)
+    })
+
+    it('refuses a reading with no usable score', () => {
+        const before = new Map([['fen-a', snap(20, 18)]])
+        const after = recordEvaluation(before, 'fen-a', { cp: Number.NaN, depth: 30, purpose: 'manual' })
+        expect(after).toBe(before)
+    })
+})
+
+describe('turning an engine line into a snapshot', () => {
+    const line = (over: Partial<EngineLine> = {}): EngineLine =>
+        ({ multipv: 1, depth: 20, cp: 35, pv: ['e2e4', 'e7e5'], nodes: 500_000, ...over } as EngineLine)
+
+    it('carries the reading and its telemetry across', () => {
+        const recorded = engineLineToSnapshot(line({ fen: 'fen-a', nps: 900_000, time: 420 }), 'fallback', 1234)
+        expect(recorded?.fen).toBe('fen-a')
+        expect(recorded?.snapshot).toMatchObject({
+            cp: 35, depth: 20, bestMove: 'e2e4', nodes: 500_000, nps: 900_000, time: 420, searchedAt: 1234,
+        })
+    })
+
+    it('falls back to the position on screen when the line names none', () => {
+        expect(engineLineToSnapshot(line(), 'fallback', 0)?.fen).toBe('fallback')
+    })
+
+    it('keeps the bound, so a fail-high cannot pass as a value', () => {
+        const bounded = engineLineToSnapshot(line({ scoreBound: 'lowerbound' }), 'fen', 0)
+        expect(bounded?.snapshot.scoreBound).toBe('lowerbound')
+    })
+
+    it('refuses a line with no usable score, rather than storing a NaN', () => {
+        expect(engineLineToSnapshot(undefined, 'fen', 0)).toBeNull()
+        expect(engineLineToSnapshot(line({ cp: undefined, mate: undefined }), 'fen', 0)).toBeNull()
+    })
+
+    it('turns a mate into a score the map can hold', () => {
+        const mate = engineLineToSnapshot(line({ cp: undefined, mate: 3 }), 'fen', 0)
+        expect(mate?.snapshot.mate).toBe(3)
+        expect(Number.isFinite(mate?.snapshot.cp)).toBe(true)
     })
 })

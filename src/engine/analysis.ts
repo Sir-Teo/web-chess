@@ -347,6 +347,75 @@ function terminalEvaluationSnapshot(position: Chess): EvalSnapshot | null {
   return null
 }
 
+/**
+ * The engine's own reading of a position, as a snapshot ready to record.
+ *
+ * The cloud path has had `cloudEvalToSnapshot` from the start; the engine path
+ * built the same object inline inside an effect, where nothing could reach it.
+ * They are the two sources that feed one map, and they should be shaped the
+ * same way and testable the same way.
+ *
+ * Returns null when the line carries no usable score, which is the check the
+ * effect used to do before building anything.
+ */
+export function engineLineToSnapshot(
+  line: EngineLine | undefined,
+  fallbackFen: string,
+  searchedAt: number,
+): { fen: string; snapshot: EvalSnapshot } | null {
+  const cp = scoreToCp(line?.cp, line?.mate)
+  if (typeof cp !== 'number' || !line) return null
+
+  return {
+    fen: line.fen ?? fallbackFen,
+    snapshot: {
+      cp,
+      mate: line.mate,
+      scoreBound: line.scoreBound,
+      bestMove: line.pv[0],
+      wdl: line.wdl,
+      depth: line.depth,
+      nodes: line.nodes,
+      nps: line.nps,
+      time: line.time,
+      searchId: line.searchId,
+      mode: line.mode,
+      purpose: line.purpose,
+      searchedAt,
+    },
+  }
+}
+
+/**
+ * Records an evaluation for a position, returning the map to use next.
+ *
+ * Returns the *same* map when the new reading does not improve on what is
+ * already stored, and that identity is load-bearing rather than an
+ * optimisation. Auto-save debounces on a snapshot that depends on the
+ * evaluations; if this returned a fresh Map for every `info` line the engine
+ * emits, the identity would churn several times a second and the save would
+ * never settle long enough to fire. That was investigated once already, when a
+ * reported "auto-save starves during analysis" turned out to be wrong for
+ * exactly this reason -- so the property is worth a test rather than a comment.
+ *
+ * Both writers -- the engine's own lines and a cloud evaluation -- had their own
+ * copy of these nine lines. One of them being "simplified" to always return a
+ * new Map is a single-line change with a symptom nobody would connect to it.
+ */
+export function recordEvaluation(
+  evaluations: Map<string, EvalSnapshot>,
+  fen: string,
+  snapshot: EvalSnapshot,
+): Map<string, EvalSnapshot> {
+  const current = evaluations.get(fen)
+  const merged = mergeEvaluationSnapshot(current, snapshot)
+  if (!merged || merged === current) return evaluations
+
+  const next = new Map(evaluations)
+  next.set(fen, merged)
+  return next
+}
+
 export function isTerminalPositionFen(fen: string): boolean {
   try {
     return new Chess(fen).isGameOver()

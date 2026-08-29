@@ -12,7 +12,6 @@ import {
   formatWhitePovEvaluation,
   isReviewEvaluationSufficient,
   isTerminalPositionFen,
-  mergeEvaluationSnapshot,
   pvToSan,
   scoreToCp,
   rankCriticalMoments,
@@ -25,6 +24,8 @@ import {
   type ReviewSideFilter,
   type WdlPoint,
   type WinratePoint,
+  recordEvaluation,
+  engineLineToSnapshot,
 } from './engine/analysis'
 import { historicalSampleGames, type HistoricalSampleGame, type HistoricalSampleFormat } from './assets/historicalSamples'
 import {
@@ -1315,74 +1316,30 @@ function App() {
   }, [clearBatchReview, clearImportSweep, stop, workspaceMode])
 
   const primaryLine = lines.find(l => l.multipv === 1) ?? lines[0]
-  const primaryBestMove = primaryLine?.pv[0]
   const currentLastBestMove = lastBestMoveFen === fen ? lastBestMove : null
   const currentLastPonderMove = lastPonderMoveFen === fen ? lastPonderMove : null
 
   // ── Capture evaluations ──────────────────────────────
   useEffect(() => {
     if (!engineEnabled) return
-    const cp = scoreToCp(primaryLine?.cp, primaryLine?.mate)
-    if (typeof cp !== 'number') return
-    const bestMove = primaryBestMove
-    const evaluationFen = primaryLine?.fen ?? fen
-    const snapshot: EvalSnapshot = {
-      cp,
-      mate: primaryLine?.mate,
-      scoreBound: primaryLine?.scoreBound,
-      bestMove,
-      wdl: primaryLine?.wdl,
-      depth: primaryLine?.depth,
-      nodes: primaryLine?.nodes,
-      nps: primaryLine?.nps,
-      time: primaryLine?.time,
-      searchId: primaryLine?.searchId,
-      mode: primaryLine?.mode,
-      purpose: primaryLine?.purpose,
-      searchedAt: Date.now(),
-    }
+    const recorded = engineLineToSnapshot(primaryLine, fen, Date.now())
+    if (!recorded) return
 
-    setEvaluationsByFen(prev => {
-      const cur = prev.get(evaluationFen)
-      const merged = mergeEvaluationSnapshot(cur, snapshot)
-      if (!merged || merged === cur) return prev
-
-      const next = new Map(prev)
-      next.set(evaluationFen, merged)
-      return next
-    })
-  }, [
-    engineEnabled,
-    fen,
-    primaryLine?.cp,
-    primaryLine?.depth,
-    primaryLine?.fen,
-    primaryLine?.mate,
-    primaryLine?.mode,
-    primaryLine?.nodes,
-    primaryLine?.nps,
-    primaryBestMove,
-    primaryLine?.purpose,
-    primaryLine?.scoreBound,
-    primaryLine?.searchId,
-    primaryLine?.time,
-    primaryLine?.wdl,
-  ])
+    setEvaluationsByFen(prev => recordEvaluation(prev, recorded.fen, recorded.snapshot))
+    // Depends on the whole line rather than a dozen of its fields. That runs the
+    // effect on every flush instead of only on a relevant change, and it is
+    // safe because `recordEvaluation` returns the very same map when nothing
+    // improves -- `sameEvaluationSnapshot` ignores `searchedAt`, so a repeated
+    // reading is a no-op rather than a new identity. The map identity is what
+    // auto-save debounces on, and there is a test for exactly that burst.
+  }, [engineEnabled, fen, primaryLine])
 
   useEffect(() => {
     if (!engineEnabled || !currentCloudEval) return
     const snapshot = cloudEvalToSnapshot(fen, currentCloudEval)
     if (!snapshot) return
 
-    setEvaluationsByFen(previous => {
-      const current = previous.get(fen)
-      const merged = mergeEvaluationSnapshot(current, snapshot)
-      if (!merged || merged === current) return previous
-
-      const next = new Map(previous)
-      next.set(fen, merged)
-      return next
-    })
+    setEvaluationsByFen(previous => recordEvaluation(previous, fen, snapshot))
   }, [currentCloudEval, engineEnabled, fen])
 
   // ── Viewport ─────────────────────────────────────────
