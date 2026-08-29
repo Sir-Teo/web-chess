@@ -35,7 +35,7 @@ which more passes cost more than they return.
 
 ---
 
-## 0. The five things to do next
+## 0. The six things to do next
 
 | | Do | Repo | Cost | Why now |
 | --- | --- | --- | --- | --- |
@@ -44,6 +44,7 @@ which more passes cost more than they return.
 | 3 | Adopt **device-tier boot + live-analysis policy** (`analysisProfile.ts`) | katrain, then chess | hours | katrain sizes its whole search with `min(8, hardwareConcurrency)`. The module is also the most extraction-ready file in the three repos. §2.7 |
 | 4 | Write **`docs/parity.md`** in each repo | all three | an hour each | The one Tier-0 item nobody did, and the one that would have caught §2.1 and §2.8. |
 | 5 | Move **game state out of `App.tsx`** into something a test can drive | chess first | weeks | Not because the file is big. Because 22 katrain test files drive its game state directly and **zero** do in either sibling. §2.2 |
+| 6 | Wire the mobile tabs to their panels (`aria-controls`, `role="tabpanel"`) | katrain | hours | The tab list now behaves, but its tabs still control nothing a screen reader can reach. Needs three containers in `Layout.tsx` done together, or not at all. |
 
 Items 1–4 are worth doing before item 5, and item 5 is worth starting before the
 next round of ports, for the reason in §2.2.
@@ -605,6 +606,48 @@ wrong phase proves nothing. Renaming the test id instead keeps the build valid
 and fails where intended; shrinking the button to 20x20 fails only the two
 narrow viewports, which also proves the viewport branch works. Same rigour in
 xiangqi: deleting the mobile menu item fails `test:ui:layout` on a real timeout.
+
+### The mobile tab bar is a tab list in name only
+
+Found by doing to web-katrain what had already been done to the other two: an
+actual user journey at 375x812, rather than trusting `test:viewport` because it
+is green. Most of what it turned up was reassuring -- the board renders square
+at 344x344 with no horizontal overflow anywhere, stone placement works and
+announces "Move 1 of 1, Black D16", all four tabs switch cleanly, and the
+install banner that once covered a list row now clears it on scroll. Validation
+that finds nothing is still validation, and that is most of what this was.
+
+The one real finding: the bottom navigation carries `role="tablist"` with four
+`role="tab"` children and correct `aria-selected`, but kept all four tabs in the
+tab order and ignored the arrow keys. That is four buttons wearing tab roles. A
+screen-reader user is told "tab, 2 of 4" and then finds the keys that should
+move between them do nothing. web-xiangqi already had `handleTablistKeyDown`, so
+it was ported with a roving `tabIndex` -- two halves of one pattern, and a
+roving tabIndex without the arrow handler would trap focus on one tab, which is
+worse than the gap it replaces.
+
+**Left undone, deliberately.** The tabs still have no `aria-controls` and there
+is no `role="tabpanel"`. The four tabs reveal three different containers in
+three parts of `Layout.tsx`, so wiring one and not the rest would leave
+`aria-controls` pointing at nothing -- the partial-fix trap this document
+already records once, from the SGF parser. It is item 6 below.
+
+**Two false alarms, neither of which reached a commit**, and both worth the time
+they cost. Nine buttons read as unnamed in the accessibility tree; every one of
+them turned out to have a name, from text content the tree had collapsed. Then
+their text looked like it stuttered -- "Open BoardBoard", "Game LibraryLibrary"
+-- which is the responsive two-label pattern, and the spare label is
+`display: none`, which the name computation excludes. Both would have been
+confident, wrong bug reports.
+
+**And the harness fought back, which was itself informative.** Board clicks
+dispatched by hand did nothing until I read how katrain's own suite does it: on
+the snapshot element, at coordinates derived from the board's own
+`data-board-cell-size` and `data-board-origin-*` metadata, not on whatever
+`elementFromPoint` returns at the geometric centre. A pass also hung outright
+because `requestAnimationFrame` does not fire while the pane is hidden. Neither
+is an app defect; both are worth knowing before concluding anything from a
+browser that appears not to respond.
 
 ## 7. Where this stands
 
