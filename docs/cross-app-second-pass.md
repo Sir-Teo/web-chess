@@ -846,12 +846,21 @@ pattern already built.
 | | what ships | length | provenance | where the result comes from |
 | --- | --- | --- | --- | --- |
 | **katrain** | real `.sgf` files under `src/data/sgf/**` | 151-296 moves, complete games | `source: 'go4go.com'` recorded in code | the SGF's own `RE[]` tag: `B+R`, `W+7.5` |
-| **chess** | `eco.json` | opening lines | classification data | none claimed -- they are openings, and are called openings |
+| **chess** (openings) | `eco.json` | opening lines | classification data | none claimed -- they are openings, and are called openings |
+| **chess** (Historical Library) | `historicalSamples.ts`: metadata only, **no moves at all** | n/a -- moves are fetched from Lichess | **a `lichessGameId`** per game | a `result` field, but paired with an id anyone can check |
 | **xiangqi** | hand-written arrays in `historicalGames.ts` | **16-24 plies** | **none** | **a hard-coded `result: 'red'` field** |
 
-katrain is the one to copy, and the mechanism is worth naming precisely. It does
-not assert outcomes: it ships the source file and reads the result out of the
-record. If the SGF says `RE[W+7.5]`, that is what the card shows, and the file
+**Both siblings solve this, and differently, which makes xiangqi the outlier
+rather than merely the odd one.** web-chess's Historical Library turned out to
+carry no moves at all -- `historicalSamples.ts` is metadata plus a
+`lichessGameId`, and the moves are fetched from Lichess on demand. Its `result`
+field is local, like xiangqi's, but it sits next to an id that anyone can paste
+into a browser and check. That is the property that matters and the one xiangqi
+lacks: **the claim is falsifiable.**
+
+katrain is the fuller pattern, and the mechanism is worth naming precisely. It
+does not assert outcomes: it ships the source file and reads the result out of
+the record. If the SGF says `RE[W+7.5]`, that is what the card shows, and the file
 is attributable to go4go.com. The result cannot drift from the moves because it
 was never entered separately from them.
 
