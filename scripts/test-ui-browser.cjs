@@ -18,10 +18,13 @@
  * Usage: npm run test:ui:browser   (needs `npm run test:ui:install` once)
  */
 const { spawn, spawnSync } = require('node:child_process')
+const fs = require('node:fs')
 const http = require('node:http')
 const path = require('node:path')
 
 const PORT = Number(process.env.UI_TEST_PORT || 4319)
+// A second server that sends no COOP/COEP, the way GitHub Pages does.
+const BARE_PORT = PORT + 1
 const BASE = `http://127.0.0.1:${PORT}/web-chess/`
 const ROOT = path.resolve(__dirname, '..')
 
@@ -212,6 +215,78 @@ async function checkBoundedScoreIsIgnored(browser) {
   }
 }
 
+
+/**
+ * Cross-origin isolation on a host that does not send the headers.
+ *
+ * Multi-threaded Stockfish needs `SharedArrayBuffer`, which browsers only
+ * expose to a cross-origin-isolated page. GitHub Pages cannot set COOP/COEP,
+ * so this app ships `coi-serviceworker`: it registers a worker that adds the
+ * headers to its own responses and reloads once, and that is the only reason
+ * the threaded engine profiles are reachable on the deployed site.
+ *
+ * Nothing covered it. `vite preview` sets the headers itself, so every other
+ * check here runs isolated whatever the service worker does -- which is
+ * precisely why breaking it would be silent: the engine would quietly fall
+ * back to single-threaded with no error anywhere.
+ *
+ * This serves the build with no COOP/COEP at all, the way Pages does, and
+ * asserts the page ends up isolated anyway. It is the guard that makes the
+ * offline-caching work in docs/cross-app-second-pass.md safe to attempt: that
+ * merge has to fold caching into this worker's fetch handler, and a second
+ * worker registered at the same scope replaces the first.
+ */
+async function checkCrossOriginIsolationIsRestored(browser) {
+  const dist = path.join(ROOT, 'dist')
+  const types = {
+    '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
+    '.json': 'application/json', '.wasm': 'application/wasm', '.svg': 'image/svg+xml',
+    '.png': 'image/png', '.txt': 'text/plain',
+  }
+  const server = http.createServer((request, response) => {
+    const url = new URL(request.url, `http://127.0.0.1:${BARE_PORT}`)
+    let filePath = decodeURIComponent(url.pathname).replace(/^\/web-chess\/?/, '') || 'index.html'
+    if (filePath.endsWith('/')) filePath += 'index.html'
+    const resolved = path.join(dist, filePath)
+    // Deliberately no Cross-Origin-Opener-Policy or -Embedder-Policy here.
+    fs.readFile(resolved, (error, body) => {
+      if (error) {
+        response.writeHead(404).end('not found')
+        return
+      }
+      response.writeHead(200, { 'Content-Type': types[path.extname(resolved)] || 'application/octet-stream' })
+      response.end(body)
+    })
+  })
+  await new Promise(resolve => server.listen(BARE_PORT, '127.0.0.1', resolve))
+
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const page = await context.newPage()
+  try {
+    const bare = `http://127.0.0.1:${BARE_PORT}/web-chess/`
+    await page.goto(bare, { waitUntil: 'domcontentloaded' })
+
+    // The worker registers and reloads the page once; give it that round trip.
+    await page.waitForFunction(() => self.crossOriginIsolated === true, null, { timeout: 30000 })
+      .catch(() => {})
+
+    const state = await page.evaluate(() => ({
+      isolated: self.crossOriginIsolated === true,
+      sharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
+      controlled: Boolean(navigator.serviceWorker && navigator.serviceWorker.controller),
+    }))
+
+    assert(state.controlled, 'the COI service worker never took control on a host without the headers')
+    assert(state.isolated,
+      'the page is not cross-origin isolated: multi-threaded Stockfish is unreachable on GitHub Pages')
+    assert(state.sharedArrayBuffer, 'SharedArrayBuffer is missing even though the page reports isolation')
+    console.log('  headerless host: service worker restored cross-origin isolation')
+  } finally {
+    await context.close()
+    await new Promise(resolve => server.close(resolve))
+  }
+}
+
 async function main() {
   const { chromium } = require('playwright')
 
@@ -394,6 +469,7 @@ async function main() {
     }
 
     await checkBoundedScoreIsIgnored(browser)
+    await checkCrossOriginIsolationIsRestored(browser)
 
     console.log('Browser UI checks passed.')
   } finally {
