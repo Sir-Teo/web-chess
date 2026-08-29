@@ -425,6 +425,11 @@ were additionally exercised in a browser at 375x812 and at desktop width.
 | — | **all three** | **A pasted record froze the library filter.** All three split an unbounded query and required every term to match, so a 380KB paste was 60,000 terms scanned per game — measured at 900ms against a *single* haystack. The query is now truncated to 200 characters, with `maxLength` on the input as well. |
 | — | katrain | **The PWA install banner covered a recent-games row at every phone width.** The rule that moves it keys off `:root[data-mobile-home='open']`, which nothing set. Also a guard test: every `:root[data-x='v']` selector must have a source file that assigns `dataset.x`. |
 | Version the storage keys | xiangqi | `xiangqi:thing:v1`, matching both siblings, with a read-through migration from the old names. Verified in the browser against real stored data. |
+| One device-tier policy | xiangqi | `useEngine` kept a second copy of the sizing judgement that read `window.innerWidth <= 900` — 1 thread and 16MB where the tier module says 3 and 64MB. The repo had learned that lesson in App.tsx and left the mistake in the file beside it. |
+| Device-tier boot | katrain | The WASM backend took every core up to eight with no other signal. Now cores minus headroom for the UI, held down on a machine short of memory, as a tested function rather than three lines inside `initWasmBackend`. |
+| `docs/parity.md` | **all three** | The feature matrix, plus what each repo is the reference for and what it is still missing. |
+| Weighted accuracy | chess, xiangqi | Game accuracy is the volatility-weighted mean of per-move accuracy rather than a flat average. Aronian-Carlsen: 98.3% → 98.0%, ACPL and every move label unchanged. |
+| — | xiangqi | **Stored review summaries are rebuilt from their annotations on load**, the fix `docs/architecture.md` had been asking for. Without it, changing the accuracy math would have left saved reviews reporting numbers the current code cannot produce, sorted and averaged beside ones that can. |
 
 Two findings from doing the work, both worth carrying:
 
@@ -435,3 +440,16 @@ Two findings from doing the work, both worth carrying:
 - **The bug none of the three could see alone was in all three.** The unbounded
   search query is a single idiom, copied three times, with no owner. It took
   reading the same line in three repos to notice that none of them bounded it.
+- **A lesson learned in one file does not travel to the file beside it.**
+  web-xiangqi's App.tsx carries a comment explaining exactly why sizing the
+  engine from the window is wrong. `useEngine`, in the same repo, sized the
+  engine from the window. Writing a judgement down twice is how one copy gets
+  fixed and the other does not.
+- **Ship the half you can justify.** The published accuracy method has two
+  halves and I implemented both before checking what the second one does: the
+  harmonic mean is unbounded in its sensitivity to near-zero values, and a
+  six-move game ending in mate scored 31 where every other reading was in the
+  eighties. The upstream must floor its inputs somewhere; inventing that floor
+  would have been guessing. The weighted half stands on its own, so that is
+  what shipped — and the correction is a separate commit rather than a quiet
+  amend, because the first one claimed more than it had earned.
