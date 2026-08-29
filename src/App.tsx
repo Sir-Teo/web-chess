@@ -100,6 +100,7 @@ import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, Ico
 import { isPlainShortcut, isTypingTarget } from './components/shortcutKeys'
 import { CommandPaletteDialog } from './components/CommandPaletteDialog'
 import type { Command } from './components/commandPalette'
+import { COMMAND_PALETTE_ARIA_KEYSHORTCUTS, commandPaletteShortcutLabel } from './components/commandPalette'
 import './App.css'
 
 const NewGameDialog = lazy(() =>
@@ -1020,6 +1021,7 @@ function App() {
 
   const closeSettings = useCallback(() => setSettingsOpen(false), [])
   const closeCommandPalette = useCallback(() => setShowCommandPalette(false), [])
+  const openCommandPalette = useCallback(() => setShowCommandPalette(true), [])
   useModalFocus(settingsOpen, settingsBodyRef, closeSettings)
 
   // No wheel-to-navigate; it conflicts with trackpads and touch.
@@ -3280,6 +3282,20 @@ function App() {
               </button>
               <button type="button" onClick={openLibraryDialog} aria-label="Open saved games library" title="Library">
                 <span className="btn-icon"><IconClipboard /></span> <span className="btn-label">Library</span>
+              </button>
+              {/* The palette was keyboard-only until now, which on a phone means
+                  unreachable: there is no Cmd+K on a touch keyboard, and nothing
+                  anywhere in the UI said the chord existed. web-katrain surfaces
+                  its palette in three places and names the shortcut in each. */}
+              <button
+                type="button"
+                onClick={openCommandPalette}
+                aria-label="Open command palette"
+                aria-keyshortcuts={COMMAND_PALETTE_ARIA_KEYSHORTCUTS}
+                title={`Commands (${commandPaletteShortcutLabel()})`}
+                data-testid="command-palette-btn"
+              >
+                <span className="btn-icon"><IconSearch /></span> <span className="btn-label">Commands</span>
               </button>
             </div>
 

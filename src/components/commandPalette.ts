@@ -100,3 +100,38 @@ export function rememberCommandId(id: string, current: string[] = readRecentComm
     writeStorage(RECENT_COMMANDS_STORAGE_KEY, JSON.stringify(next))
     return next
 }
+
+/**
+ * True on Apple platforms, where the palette chord is written with ⌘.
+ *
+ * `navigator.platform` is deprecated, `userAgentData` is Chromium-only, and
+ * neither is present under Node, so all three sources are tried and the
+ * portable spelling wins by default. A wrong guess costs a slightly odd
+ * tooltip; it cannot break the shortcut, because `isCommandPaletteChord`
+ * accepts either modifier on every platform.
+ */
+export function isApplePlatform(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const withData = navigator as Navigator & { userAgentData?: { platform?: string } }
+  const platform = withData.userAgentData?.platform || navigator.platform || navigator.userAgent || ''
+  return /mac|iphone|ipad|ipod/i.test(platform)
+}
+
+/**
+ * How to write the palette chord for a human.
+ *
+ * Deliberately not shown as visible button text anywhere -- it goes in the
+ * tooltip and in `aria-keyshortcuts`. A phone has no ⌘ and no hover, so a
+ * shortcut printed next to a tappable control there is noise at best and a
+ * lie at worst; the button itself is the affordance on touch.
+ */
+export function commandPaletteShortcutLabel(): string {
+  return isApplePlatform() ? '⌘K' : 'Ctrl+K'
+}
+
+/**
+ * The same chord in the token form `aria-keyshortcuts` specifies: a
+ * space-separated list of alternatives, each modifier joined with `+`. Both
+ * are listed because the handler really does accept both.
+ */
+export const COMMAND_PALETTE_ARIA_KEYSHORTCUTS = 'Meta+K Control+K'

@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
     MAX_RECENT_COMMANDS,
     RECENT_COMMANDS_STORAGE_KEY,
     type Command,
     commandMatches,
+    commandPaletteShortcutLabel,
+    isApplePlatform,
     rankCommands,
     readRecentCommandIds,
     rememberCommandId,
@@ -111,5 +113,44 @@ describe('recent commands', () => {
         expect(readRecentCommandIds()).toEqual([])
         store.entries.set(RECENT_COMMANDS_STORAGE_KEY, '[1,2,"ok"]')
         expect(readRecentCommandIds()).toEqual(['ok'])
+    })
+})
+
+describe('platform-aware shortcut label', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals()
+    })
+
+    const withNavigator = (value: unknown) => vi.stubGlobal('navigator', value)
+
+    it('prefers userAgentData, which is the only non-deprecated source', () => {
+        withNavigator({ userAgentData: { platform: 'macOS' }, platform: 'Win32', userAgent: 'Windows' })
+        expect(isApplePlatform()).toBe(true)
+        expect(commandPaletteShortcutLabel()).toBe('⌘K')
+    })
+
+    it('falls back to navigator.platform when userAgentData is absent', () => {
+        withNavigator({ platform: 'MacIntel', userAgent: '' })
+        expect(commandPaletteShortcutLabel()).toBe('⌘K')
+    })
+
+    it('falls back to the user agent when platform is empty', () => {
+        withNavigator({ platform: '', userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)' })
+        expect(commandPaletteShortcutLabel()).toBe('⌘K')
+    })
+
+    it('writes the portable spelling everywhere else', () => {
+        withNavigator({ platform: 'Win32', userAgent: 'Mozilla/5.0 (Windows NT 10.0)' })
+        expect(isApplePlatform()).toBe(false)
+        expect(commandPaletteShortcutLabel()).toBe('Ctrl+K')
+    })
+
+    // Called during module evaluation in some bundlers and under SSR, where
+    // there is no navigator at all. Throwing there would take the whole app
+    // down for a tooltip.
+    it('does not throw without a navigator', () => {
+        withNavigator(undefined)
+        expect(() => commandPaletteShortcutLabel()).not.toThrow()
+        expect(commandPaletteShortcutLabel()).toBe('Ctrl+K')
     })
 })
