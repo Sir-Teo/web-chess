@@ -407,3 +407,31 @@ W='board|piece|square|stone|fen|sgf|pgn|pawn|\bred\b|\bblack\b|\bwhite\b|\bmove\
 f=web-xiangqi/src/utils/analysisProfile.ts
 echo "$(grep -icE "$W" $f) of $(wc -l < $f)"
 ```
+
+---
+
+## 6. Progress log
+
+Work on the `overnight-cross-app-2` branch in each repo, from 2026-08-28.
+Every change was verified with that repo's own `npm run verify`; UI changes
+were additionally exercised in a browser at 375x812 and at desktop width.
+
+| From §3 | Repo | What landed |
+| --- | --- | --- |
+| Gate the deploy | xiangqi | `deploy-pages.yml` runs `npm run verify` after the WASM build; `ci.yml` loses its double trigger and gains the concurrency group both siblings have. An `audit` script was added under the name the siblings use. |
+| Hostile-input sweep | katrain | 23 adversarial inputs across nine parser entry points, asserting a time bound rather than a value. |
+| — | katrain | **Stack overflow on a long record**, found by that sweep. Three walks recursed once per SGF node; a 20,000-node file threw `RangeError` and was reported as "Invalid SGF import". All three now use an explicit stack. |
+| Hostile-input sweep | xiangqi | 17 inputs across nine entry points, plus the deep-nesting case that pins the saved-tree normalizer against katrain's bug. |
+| — | **all three** | **A pasted record froze the library filter.** All three split an unbounded query and required every term to match, so a 380KB paste was 60,000 terms scanned per game — measured at 900ms against a *single* haystack. The query is now truncated to 200 characters, with `maxLength` on the input as well. |
+| — | katrain | **The PWA install banner covered a recent-games row at every phone width.** The rule that moves it keys off `:root[data-mobile-home='open']`, which nothing set. Also a guard test: every `:root[data-x='v']` selector must have a source file that assigns `dataset.x`. |
+| Version the storage keys | xiangqi | `xiangqi:thing:v1`, matching both siblings, with a read-through migration from the old names. Verified in the browser against real stored data. |
+
+Two findings from doing the work, both worth carrying:
+
+- **A partial fix can be worse than none.** Repairing only the SGF parser's two
+  recursive walks would have let a long record parse and then overflow inside
+  the store — turning a caught "Invalid SGF import" into an uncaught error. The
+  unit of work was the chain, not the function.
+- **The bug none of the three could see alone was in all three.** The unbounded
+  search query is a single idiom, copied three times, with no owner. It took
+  reading the same line in three repos to notice that none of them bounded it.
