@@ -10,8 +10,6 @@ import {
   filterReviewRowsByPhase,
   filterReviewRowsBySide,
   formatWhitePovEvaluation,
-  isReviewEvaluationSufficient,
-  isTerminalPositionFen,
   pvToSan,
   scoreToCp,
   rankCriticalMoments,
@@ -62,6 +60,7 @@ import { AutoSaveRecoveryDialog } from './components/AutoSaveRecoveryDialog'
 import { type LibraryWriteResult, useGameLibrary } from './hooks/useGameLibrary'
 import { FEN_PARSE_ERROR, validateFenForAnalysis } from './engine/fen'
 import { buildImportSweepTargets, countImportSweepCandidates, type ImportSweepTarget } from './engine/importSweep'
+import { type BatchReviewTarget, planBatchReview } from './engine/batchReview'
 import {
   normalizeOptionalIntegerInput,
   normalizeRequiredIntegerInput,
@@ -224,7 +223,6 @@ const REVIEW_SIDE_FILTERS: Array<{ id: ReviewSideFilter; label: string }> = [
   { id: 'black', label: 'Black' },
 ]
 
-type BatchReviewTarget = ImportSweepTarget
 
 type AnalysisTarget = {
   fen: string
@@ -239,23 +237,6 @@ type PgnImportOptions = {
 
 type FenLoadOptions = {
   forceAnalysis?: boolean
-}
-
-function buildBatchReviewTargets(
-  nodes: Array<{ fen: string; uci: string }>,
-  rootFen: string,
-): BatchReviewTarget[] {
-  if (!nodes.length) return []
-
-  const historyMoves: string[] = []
-  return nodes.map((node, index) => {
-    if (index > 0 && node.uci) historyMoves.push(node.uci)
-    return {
-      fen: node.fen,
-      rootFen,
-      historyMoves: [...historyMoves],
-    }
-  })
 }
 
 type PersistedAppSettings = {
@@ -1211,14 +1192,10 @@ function App() {
     if (nodes.length <= 1) return
 
     const rootFen = gameTreeRef.current.root.fen
-    const reviewTargets = buildBatchReviewTargets(nodes, rootFen)
-    const searchableTargets = reviewTargets.filter(target => !isTerminalPositionFen(target.fen))
-    const targets = searchableTargets.filter(target => !isReviewEvaluationSufficient(evaluationsByFen.get(target.fen), searchDepth))
+    const plan = planBatchReview(nodes, rootFen, evaluationsByFen, searchDepth)
+    const targets = plan.queue
     clearImportSweep()
-    setBatchReviewProgress({
-      done: searchableTargets.length - targets.length,
-      total: searchableTargets.length,
-    })
+    setBatchReviewProgress({ done: plan.done, total: plan.total })
     if (!targets.length) {
       batchReviewQueueRef.current = []
       activeBatchReviewRef.current = null
