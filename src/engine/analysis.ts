@@ -7,6 +7,13 @@ import { MIN_WEIGHT, aggregateAccuracy, volatilityWeights } from './accuracyAggr
 export type EvalSnapshot = {
   cp: number
   mate?: number
+  /**
+   * Set when the engine reported the score as a bound rather than a value.
+   * A `lowerbound` means "at least this much" and an `upperbound` means "at
+   * most" — they come out of aspiration-window re-searches, and taking one as
+   * an evaluation is taking an inequality for an equation.
+   */
+  scoreBound?: 'upperbound' | 'lowerbound'
   bestMove?: string
   wdl?: { w: number; d: number; l: number }
   depth?: number
@@ -267,6 +274,18 @@ export function shouldReplaceEvaluationSnapshot(
   const nextShallow = isShallowEvaluation(next)
   if (currentShallow && !nextShallow) return true
   if (!currentShallow && nextShallow) return false
+
+  // An exact score beats a bound at the same depth, whatever the node counts
+  // say. The bounded line is the engine saying "I stopped looking once I knew
+  // it was at least this"; the exact line is the answer. Without this the
+  // comparison falls through to nodes, and a fail-high line that happened to
+  // search more nodes could outrank the real evaluation that followed it.
+  const currentDepthForBound = snapshotDepth(current)
+  const nextDepthForBound = snapshotDepth(next)
+  if (currentDepthForBound === nextDepthForBound) {
+    if (current.scoreBound && !next.scoreBound) return true
+    if (!current.scoreBound && next.scoreBound) return false
+  }
 
   const currentDepth = snapshotDepth(current)
   const nextDepth = snapshotDepth(next)

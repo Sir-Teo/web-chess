@@ -1,6 +1,8 @@
 import { Chess } from 'chess.js'
 import { describe, expect, it } from 'vitest'
+import { parseInfoLine } from '../hooks/useStockfishEngine'
 import {
+  type EvalSnapshot,
   accuracyFromCentipawnLoss,
   accuracyFromWinPercentLoss,
   buildReviewRows,
@@ -637,4 +639,51 @@ describe('ranking the moves that cost the most', () => {
     expect(rankCriticalMoments([])).toEqual([])
     expect(rankCriticalMoments([row({ quality: 'best', deltaCp: -2, winPercentLoss: 0.2 })])).toEqual([])
   })
+})
+
+describe('bounded engine scores', () => {
+    /**
+     * `score cp 150 lowerbound` means "at least 150", not "150". It comes out
+     * of an aspiration-window re-search, and the exact line normally follows a
+     * moment later — but a search stopped in between leaves the bound as the
+     * deepest thing the app saw. Taking it as an evaluation turns an inequality
+     * into a number, and in a review that number becomes a swing the player
+     * never caused.
+     *
+     * web-xiangqi does not parse these flags at all; this repo parsed them and
+     * then dropped them before they reached a snapshot, which came to the same
+     * thing.
+     */
+    const exact = (cp: number, depth: number): EvalSnapshot => ({ cp, depth, nodes: 1000, purpose: 'manual' })
+    const bounded = (cp: number, depth: number, bound: 'upperbound' | 'lowerbound'): EvalSnapshot =>
+        ({ cp, depth, nodes: 5000, scoreBound: bound, purpose: 'manual' })
+
+    it('prefers an exact score to a bound at the same depth', () => {
+        expect(shouldReplaceEvaluationSnapshot(bounded(150, 20, 'lowerbound'), exact(210, 20))).toBe(true)
+    })
+
+    it('does not let a bound displace an exact score at the same depth', () => {
+        // Even though the bounded line searched five times the nodes.
+        expect(shouldReplaceEvaluationSnapshot(exact(210, 20), bounded(150, 20, 'lowerbound'))).toBe(false)
+    })
+
+    it('still takes a deeper bound over a shallower exact score', () => {
+        // Depth is the stronger signal: a bound at 24 plies knows more about
+        // the position than an exact score at 18.
+        expect(shouldReplaceEvaluationSnapshot(exact(210, 18), bounded(150, 24, 'upperbound'))).toBe(true)
+    })
+
+    it('leaves two exact scores to the existing comparison', () => {
+        expect(shouldReplaceEvaluationSnapshot(exact(210, 20), exact(215, 22))).toBe(true)
+        expect(shouldReplaceEvaluationSnapshot(exact(210, 22), exact(215, 20))).toBe(false)
+    })
+
+    it('parses both flags off an info line', () => {
+        expect(parseInfoLine('info depth 20 score cp 150 lowerbound nodes 5000 pv e2e4')?.scoreBound)
+            .toBe('lowerbound')
+        expect(parseInfoLine('info depth 20 score cp 150 upperbound nodes 5000 pv e2e4')?.scoreBound)
+            .toBe('upperbound')
+        expect(parseInfoLine('info depth 20 score cp 150 nodes 5000 pv e2e4')?.scoreBound)
+            .toBeUndefined()
+    })
 })

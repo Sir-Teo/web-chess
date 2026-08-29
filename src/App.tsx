@@ -1294,6 +1294,7 @@ function App() {
     const snapshot: EvalSnapshot = {
       cp,
       mate: primaryLine?.mate,
+      scoreBound: primaryLine?.scoreBound,
       bestMove,
       wdl: primaryLine?.wdl,
       depth: primaryLine?.depth,
@@ -1327,6 +1328,7 @@ function App() {
     primaryLine?.nps,
     primaryBestMove,
     primaryLine?.purpose,
+    primaryLine?.scoreBound,
     primaryLine?.searchId,
     primaryLine?.time,
     primaryLine?.wdl,
