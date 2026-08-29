@@ -559,6 +559,30 @@ async function main() {
         `${viewport.name}: the board is ${board.width}x${board.height}, which is not square`)
       assert(board.width > 100, `${viewport.name}: the board collapsed to ${board.width}px`)
 
+      // Every aria-controls has to lead somewhere. The one accepted exception
+      // is a collapsed disclosure -- aria-expanded="false" -- whose content is
+      // rendered on demand and legitimately absent until opened. Anything else
+      // pointing at a missing id promises a screen-reader user a destination
+      // that does not exist, which is worse than saying nothing.
+      //
+      // Written after web-katrain shipped exactly that: a tab whose
+      // aria-controls named a panel React had not mounted. Same check now lives
+      // in all three harnesses.
+      const findDanglingControls = () => page.evaluate(() => Array.from(document.querySelectorAll('[aria-controls]'))
+        .filter((el) => el.getAttribute('aria-expanded') !== 'false')
+        .filter((el) => !document.getElementById(el.getAttribute('aria-controls')))
+        .map((el) => `${el.getAttribute('aria-label') || el.tagName}->#${el.getAttribute('aria-controls')}`))
+      const assertNoDanglingControls = async (state) => {
+        const dangling = await findDanglingControls()
+        assert(dangling.length === 0,
+          `${viewport.name} (${state}): aria-controls pointing at nothing: ${dangling.join(', ')}`)
+      }
+      // Checked closed and again with the palette open. The closed sweep alone
+      // never sees the palette's own combobox->listbox reference, because the
+      // dialog is not mounted -- the very shape of the bug this check exists
+      // for would have gone unexamined.
+      await assertNoDanglingControls('at rest')
+
       // The palette has a button as well as a chord, and the button is the
       // only route a phone has -- there is no Cmd key on a touch keyboard, so
       // until it existed every command here was unreachable on mobile. Check
@@ -581,6 +605,7 @@ async function main() {
       await paletteButton.click()
       assert(await page.locator('[data-command-palette]').count() === 1,
         `${viewport.name}: the palette button did not open the palette`)
+      await assertNoDanglingControls('palette open')
       await page.keyboard.press('Escape')
       await page.locator('[data-command-palette]').waitFor({ state: 'detached', timeout: 5000 })
 
