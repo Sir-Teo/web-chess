@@ -39,7 +39,8 @@ which more passes cost more than they return.
 
 | | Do | Repo | Cost | Why now |
 | --- | --- | --- | --- | --- |
-| 1 | **Gate the Pages deploy on the checks** | xiangqi | minutes | Its deploy workflow runs no audit, no lint, no tests, no typecheck. Both siblings gate theirs. §2.1 |
+| 0 | **Fix the Game Review's evaluation quality** | xiangqi | days | It scores a 1977 master game at 25% with 12 blunders in 24 plies, and is not reproducible run to run. Sign error, budget and accuracy maths are all ruled out; see below. The headline feature of the app is currently not trustworthy. |
+| 1 | ~~**Gate the Pages deploy on the checks**~~ done | xiangqi | minutes | Its deploy workflow runs no audit, no lint, no tests, no typecheck. Both siblings gate theirs. §2.1 |
 | 2 | Port the **hostile-input parser sweep** (`src/__fuzz.test.ts`) | katrain, then xiangqi | hours | katrain has 13 modules that parse outside input and no pathological-input test over any of them. §2.4 |
 | 3 | Adopt **device-tier boot + live-analysis policy** (`analysisProfile.ts`) | katrain, then chess | hours | katrain sizes its whole search with `min(8, hardwareConcurrency)`. The module is also the most extraction-ready file in the three repos. §2.7 |
 | 4 | Write **`docs/parity.md`** in each repo | all three | an hour each | The one Tier-0 item nobody did, and the one that would have caught §2.1 and §2.8. |
@@ -759,6 +760,57 @@ because katrain happens to have no disclosure of that shape; the first one added
 will fail it falsely. That is a real, small divergence between the three and is
 left recorded rather than silently changed, because a passing check with no
 failing case is a bad thing to loosen on speculation.
+
+### web-xiangqi's Game Review scores a master game at 25%
+
+Found by pulling on a number that fell out of an orphaned test: the review
+browser smoke prints its summary card, and it read "Accuracy 27%". The fixture
+is `hist-1` -- Hu Ronghua vs Liu Dahua, 1977 National Championship, 24 plies.
+
+Reproduced in the browser, twice:
+
+- Accuracy **25%** then **28%** on identical input. Red 26%, Black 25-29%.
+- Average loss **346cp**. Every move giving away three and a half pawns.
+- **12 blunders and 4 mistakes in 24 plies.** 16 of 24 plies flagged as key
+  moments.
+- The eval series oscillates by roughly 500cp between consecutive plies:
+  `+13, -469, +6, -503, ...` with the book-keeping itself consistent (each
+  move's `after` is the next move's `before`).
+
+That is not a plausible reading of master play, and the run-to-run variation on
+identical input says something is unstable rather than merely harsh.
+
+**Three explanations were tested and none survived**, which is why this is
+written up rather than fixed:
+
+1. *A point-of-view sign error* -- the classic cause, and the one this document
+   already records a near-miss on. Ruled out: a sign error makes one side look
+   terrible and the other fine. Both sides score alike (26% and 25%).
+2. *The engine budget not being honoured* -- 24 plies at the advertised
+   "D10/1.5s" is 36 seconds, and the review finishes in 6.8. Ruled out:
+   `buildGoCmd` emits `go depth 10 movetime 1500`, and UCI stops at whichever
+   arrives first, so ~280ms per position is depth 10 being reached early, not a
+   search being cut off.
+3. *The accuracy maths* -- ruled out by arithmetic. 346cp of average loss maps
+   to about 25% under any correct reading of the per-move curve. The aggregate
+   is not wrong; **its input is**. Whatever is wrong is in the eval series, not
+   in `accuracyAggregate.ts`.
+
+**The most likely remaining explanation, untested:** depth 10 is simply too
+shallow for xiangqi. This fixture has both rooks lifted onto open files by ply
+8, and a shallow search in a sharp cannon-and-rook position will swing hundreds
+of centipawns between plies. If so the defect is that the review presents
+shallow, unstable evaluations with the same confidence as settled ones, and
+turns search noise into "12 blunders" against a world champion. The fix would
+be some combination of a deeper review budget, discarding a position whose eval
+has not settled between iterations, and not classifying a swing as a blunder
+when neighbouring plies disagree by more than the swing itself.
+
+**Deliberately not fixed here.** This was found roughly an hour before a
+scheduled merge, and changing engine budgets or eval handling on an untested
+fourth hypothesis is the sort of change that should not go in under time
+pressure. Nothing about it is a regression from tonight's work -- it predates
+this session. It is item 1 below.
 
 ## 7. Where this stands
 
