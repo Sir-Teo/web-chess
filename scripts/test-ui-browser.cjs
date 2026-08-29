@@ -316,7 +316,16 @@ async function main() {
     browser = await chromium.launch()
 
     const scenario = 'normal'
-    for (const viewport of [{ width: 1280, height: 800, name: 'desktop' }, { width: 375, height: 812, name: 'mobile' }]) {
+    // Landscape phone is included because it is the size layouts break at and
+    // the one nobody looks at: the board has to stay square while three columns
+    // share 390px of height. It was checked by hand across all three sibling
+    // apps once; this is that check kept.
+    const viewports = [
+      { width: 1280, height: 800, name: 'desktop' },
+      { width: 375, height: 812, name: 'mobile' },
+      { width: 844, height: 390, name: 'mobile landscape' },
+    ]
+    for (const viewport of viewports) {
       const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height } })
       const page = await context.newPage()
 
@@ -464,8 +473,22 @@ async function main() {
                     `white ${summary.white}, black ${summary.black}, ACPL ${summary.acpl}`)
       }
 
+      // A chessboard that is not square is the most obvious possible bug and
+      // the easiest to miss in a screenshot at this size.
+      const board = await page.evaluate(() => {
+        const area = document.querySelector('.board-area')
+        if (!area) return null
+        const rect = area.getBoundingClientRect()
+        return { width: Math.round(rect.width), height: Math.round(rect.height) }
+      })
+      assert(board, `${viewport.name}: no board on the page`)
+      assert(Math.abs(board.width - board.height) <= 1,
+        `${viewport.name}: the board is ${board.width}x${board.height}, which is not square`)
+      assert(board.width > 100, `${viewport.name}: the board collapsed to ${board.width}px`)
+
       await context.close()
-      console.log(`  ${viewport.name}: boot, engine handshake, layout and control names OK`)
+      console.log(`  ${viewport.name}: boot, engine handshake, layout, control names, ` +
+                  `board ${board.width}x${board.height} OK`)
     }
 
     await checkBoundedScoreIsIgnored(browser)
