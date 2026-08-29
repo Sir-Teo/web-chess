@@ -255,7 +255,28 @@ async function checkCrossOriginIsolationIsRestored(browser) {
         response.writeHead(404).end('not found')
         return
       }
-      response.writeHead(200, { 'Content-Type': types[path.extname(resolved)] || 'application/octet-stream' })
+      const contentType = types[path.extname(resolved)] || 'application/octet-stream'
+
+      // Range is honoured so a real 206 reaches the service worker. Without it
+      // the range check below passes against a 200 and proves nothing, which is
+      // worse than not having it.
+      const range = /^bytes=(\d+)-(\d*)$/.exec(request.headers.range || '')
+      if (range) {
+        const start = Number(range[1])
+        const end = range[2] ? Number(range[2]) : body.length - 1
+        if (start < body.length && end >= start) {
+          const slice = body.subarray(start, Math.min(end, body.length - 1) + 1)
+          response.writeHead(206, {
+            'Content-Type': contentType,
+            'Content-Range': `bytes ${start}-${start + slice.length - 1}/${body.length}`,
+            'Content-Length': String(slice.length),
+          })
+          response.end(slice)
+          return
+        }
+      }
+
+      response.writeHead(200, { 'Content-Type': contentType })
       response.end(body)
     })
   })
@@ -282,6 +303,33 @@ async function checkCrossOriginIsolationIsRestored(browser) {
       'the page is not cross-origin isolated: multi-threaded Stockfish is unreachable on GitHub Pages')
     assert(state.sharedArrayBuffer, 'SharedArrayBuffer is missing even though the page reports isolation')
     console.log('  headerless host: service worker restored cross-origin isolation')
+
+    // A Range request must be served correctly through the worker, and no
+    // partial may land in the cache.
+    //
+    // Be clear about what this does and does not catch. It does not fail if the
+    // `status === 200` guard in sw.js is removed: `cache.put` rejects on a 206
+    // either way, the rejection is swallowed inside `waitUntil`, and the page
+    // sees the same response. Checked by removing both guards and watching this
+    // pass. The guard is still right — `.ok` is true for 206, a rejected
+    // promise inside `waitUntil` is allowed to fail the event, and browsers
+    // that are lenient today need not stay so — but it is defensive rather than
+    // test-enforced, and this asserts the outcome a reader can actually see.
+    const ranged = await page.evaluate(async () => {
+      const url = new URL('engine/stockfish-18-lite.js', location.href).toString()
+      const response = await fetch(url, { headers: { Range: 'bytes=0-63' } })
+      const cache = await caches.open('web-chess-v1:runtime')
+      const cached = await cache.match(url)
+      return {
+        status: response.status,
+        cachedStatus: cached ? cached.status : null,
+      }
+    })
+    assert(ranged.status === 206,
+      `the Range request returned ${ranged.status}; the test server did not serve a partial, so this proves nothing`)
+    assert(ranged.cachedStatus === null || ranged.cachedStatus === 200,
+      `a partial response reached the cache with status ${ranged.cachedStatus}`)
+    console.log(`  range request: served ${ranged.status}, cache holds ${ranged.cachedStatus ?? 'nothing'}`)
 
     // Offline, on the same worker. This is the half that made the merge worth
     // doing, and the half that is easy to get wrong: a response served from

@@ -90,6 +90,21 @@ function withIsolationHeaders(response) {
   });
 }
 
+/**
+ * Whether a response may go in the cache.
+ *
+ * `response.ok` is not the test: it is true for 206 Partial Content, and
+ * `cache.put()` throws on those — "Partial response (status code 206) is
+ * unsupported". A browser issues Range requests for exactly the assets this app
+ * is largest in, the 7MB engine `.wasm`, so caching on `.ok` alone meant a
+ * rejected promise inside `waitUntil` on a perfectly normal request. Checked in
+ * a browser: `new Response('', { status: 206 }).ok` is `true`, and putting one
+ * rejects.
+ */
+function isStorableResponse(response) {
+  return response.status === 200;
+}
+
 function isCacheable(request, url) {
   return request.method === 'GET' && url.origin === self.location.origin;
 }
@@ -112,11 +127,18 @@ async function respond(event) {
     const response = await fetch(networkRequest);
     const isolated = withIsolationHeaders(response);
 
-    if (cacheable && response.ok) {
+    if (cacheable && isStorableResponse(response)) {
       // Store the response that already carries the headers, so an offline
       // load is isolated too. clone() before the body is read by the page.
       const copy = isolated.clone();
-      event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(cacheKey, copy)));
+      event.waitUntil(
+        caches
+          .open(CACHE_NAME)
+          .then((cache) => cache.put(cacheKey, copy))
+          // Quota is the realistic failure here, and a cache miss later is a
+          // far better outcome than a rejected fetch event now.
+          .catch(() => undefined)
+      );
     }
 
     return isolated;
