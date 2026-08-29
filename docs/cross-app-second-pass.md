@@ -117,6 +117,20 @@ modes — lands here, and each is larger than anything ported so far. At the rat
 above, two or three more rounds like the last one put both files past 6,000
 lines, and the command palette alone has to reach every action in them.
 
+**Measured, 2026-08-29.** `reviewEndToEnd.test.ts` now plays a game, reviews it
+and asserts on the result with nothing mounted — so for the *analysis* half the
+distance is zero. A PGN parses to a move tree, the entries carry their `Move`,
+and `buildReviewRows`, `summarizeAccuracy`, the side filters and the critical-
+moment ranking are all already pure. The one link that lives in the component is
+the walk down the first-child chain, which `useGameTree` does; reproducing it is
+six lines.
+
+That narrows this item considerably. What is still trapped in `App.tsx` is the
+**engine wiring** — dispatching searches, collecting `info` lines, deciding when
+a position is evaluated deeply enough, cancelling stale work. That is what a
+store would actually buy, and it is a smaller and better-defined job than
+"break up a 5,500-line file". Whoever picks it up should scope it to that.
+
 **The measurable goal is not size, it is whether the state can be driven
 without rendering.** katrain's `App.tsx` is 13 lines with no state at all; its
 game state lives in `store/gameStore.ts`, and **22 test files import
