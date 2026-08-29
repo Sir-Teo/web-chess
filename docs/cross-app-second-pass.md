@@ -46,7 +46,7 @@ which more passes cost more than they return.
 | 4 | ~~Write **`docs/parity.md`** in each repo~~ **done, all three** | — | — | Records the gate matrix, the deploy/browser-suite gap, and what is deliberate divergence versus drift. |
 | 5 | Move **game state out of `App.tsx`** into something a test can drive | chess first | weeks | Not because the file is big. Because 22 katrain test files drive its game state directly and **zero** do in either sibling. §2.2 |
 | 6 | ~~Wire the mobile tabs to their panels~~ **done** | katrain | — | All four tabs now resolve to a real `tabpanel` that names them back. See below for the part that measuring found and reading would not have. |
-| 7 | Decide whether the **deploys should run the browser suites** | all three | an hour | A push to main runs deploy only, and no deploy runs a browser suite. Green CI on main currently means less than it looks like. |
+| 7 | ~~Decide whether the **deploys should run the browser suites**~~ **resolved** | — | — | They should not. `ci.yml` now runs on pushes to `main` instead, which gives the coverage without letting a flaky browser test block publishing. |
 
 Items 1–4 are worth doing before item 5, and item 5 is worth starting before the
 next round of ports, for the reason in §2.2.
@@ -968,6 +968,31 @@ which is why the sweeps time out at 7ms against 30ms.
 That correction is the argument for the file existing. A comparison kept in
 someone's head drifts within the hour; this one had drifted between two sections
 of the very document meant to track it.
+
+### The gap that survived three passes because a comment asserted it was closed
+
+`ci.yml` was pull-request-only in all three repos and no deploy workflow runs a
+browser suite, so nothing browser-level had ever run against `main`. A green
+badge there meant audit, lint, unit tests and a build -- and nothing that opens
+a browser. This was noticed and written down three separate times in this
+document without being fixed, on the reasoning that gating a deploy on a browser
+suite risks a flaky test blocking the site.
+
+That reasoning was sound and the conclusion drawn from it was wrong. `ci.yml`
+publishes nothing. Running it on pushes to `main` gives the coverage and cannot
+block a deploy, because it is a different workflow: if it goes red the site
+still ships. The deploy is still left alone.
+
+**Why it survived so long is the part worth keeping.** The trigger had been made
+PR-only for a real reason -- an *unrestricted* `push` fired alongside
+`pull_request` for the same branch and ran everything twice per change -- but
+the comment recording that also said a push to main was "already covered by the
+deploy workflow, which runs the same gates". That sentence was false when it was
+written. Every later pass read it, believed it, and moved on. Scoping `push` to
+`main` keeps the duplication fixed and closes the coverage hole.
+
+A comment that asserts a property is worth exactly as much as the last time
+someone checked it. This one was load-bearing, wrong, and cost three passes.
 
 ## 7. Where this stands
 
