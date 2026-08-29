@@ -41,7 +41,7 @@ which more passes cost more than they return.
 | --- | --- | --- | --- | --- |
 | 0 | **Decide what "Classic Games" are** (katrain has the pattern) | xiangqi | hours | The ten entries are 16-24 ply opening fragments shown as complete games between named grandmasters, each with a decisive result badge, and Game Review scores them as whole games -- reporting Hu Ronghua at 25% with 12 blunders. The eval path is fine; four hypotheses about it were tested and refuted. Label them, or exclude fragments from review scoring. |
 | 1 | ~~**Gate the Pages deploy on the checks**~~ done | xiangqi | minutes | Its deploy workflow runs no audit, no lint, no tests, no typecheck. Both siblings gate theirs. §2.1 |
-| 2 | Port the **hostile-input parser sweep** (`src/__fuzz.test.ts`) | katrain, then xiangqi | hours | katrain has 13 modules that parse outside input and no pathological-input test over any of them. §2.4 |
+| 2 | ~~Port the **hostile-input parser sweep**~~ **katrain done**, xiangqi remains | xiangqi | hours | katrain now sweeps 24 hostile inputs over 12 entry points; worst case 30ms against a 1000ms budget. xiangqi still has none. §2.4 |
 | 3 | Adopt **device-tier boot + live-analysis policy** (`analysisProfile.ts`) | katrain, then chess | hours | katrain sizes its whole search with `min(8, hardwareConcurrency)`. The module is also the most extraction-ready file in the three repos. §2.7 |
 | 4 | Write **`docs/parity.md`** in each repo | all three | an hour each | The one Tier-0 item nobody did, and the one that would have caught §2.1 and §2.8. |
 | 5 | Move **game state out of `App.tsx`** into something a test can drive | chess first | weeks | Not because the file is big. Because 22 katrain test files drive its game state directly and **zero** do in either sibling. §2.2 |
@@ -871,6 +871,39 @@ This does not change the recommendation in item 0 -- it makes it concrete.
 Either label the fragments honestly, or replace them with sourced records and
 read the result from the record, the way the sibling three directories over has
 been doing all along.
+
+### The parser sweep found nothing, and the margin is the point
+
+Item 2, done for web-katrain. Twenty-four hostile inputs over twelve entry
+points -- opened and pasted SGF, pasted library backups, note text, and the
+analysis payloads KaTrain and Kaya leave in SGF properties. Deep nesting, 200KB
+property values, 50,000 semicolons, unterminated nodes, escaped brackets,
+malformed point lists, lone surrogates, combining marks, astral-plane
+characters, and JSON, CSV and Markdown fed to a parser that wants none of them.
+
+Nothing failed. That is only worth writing down because the suite was checked
+for doing real work rather than passing vacuously -- the trap this document
+records twice already. Dropping the budget to 0.05ms fails 23 of 24 and prints
+per-case timings that scale with the input:
+
+| case | time |
+| --- | --- |
+| whitespace | 0ms |
+| astral plane | 1ms |
+| long property value | 4ms |
+| long token | 5ms |
+| deep nesting | 7ms |
+| markdown-ish note | 13ms |
+| **huge movetext** (40,000 moves) | **30ms** |
+
+Thirty milliseconds against a thousand. The useful output of a sweep like this
+is not "it passed", it is that number: there is 33x of headroom, so the next
+person to touch these parsers can see how much room they have before the UI
+thread starts to stutter. A green tick alone would have said none of that.
+
+The assertion is deliberately weak -- not that anything parses, since rejecting
+junk is the right answer for most of these, only that nothing hangs and nothing
+throws past a caller that cannot catch it.
 
 ## 7. Where this stands
 
