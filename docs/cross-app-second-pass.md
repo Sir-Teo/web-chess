@@ -584,13 +584,35 @@ All six gates pass:
 | web-chess | 486 tests | boot, palette, review, offline, isolation, 3 viewports |
 | web-xiangqi | 408 tests | full Playwright layout suite |
 
-**What is left, and why it was not done.** The store item is now the engine
-wiring in `App.tsx` — dispatching searches, collecting `info` lines, deciding
-when a position is evaluated deeply enough, cancelling stale work. It is a
-design call with several defensible answers rather than a mechanical change, and
-a half-finished state would be worse than none. It is also smaller than it
-looked: the plan asked for the game to be drivable by a test with no DOM, and
-the analysis half already is, in all three.
+**The store item, as far as it goes.** It was scoped to the engine wiring in
+`App.tsx`, and two slices of that are now lifted out and tested:
+
+- `recordEvaluation` — the writer both effects had their own copy of. Its
+  return-the-same-map-when-nothing-improves behaviour is load-bearing (auto-save
+  debounces on that identity) and now has a test that drives twenty shallow
+  lines through and asserts the map comes out identical.
+- `engine/batchReview.ts` — deciding what a review has to search. A checkmate is
+  dropped rather than skipped; a game already analysed reports `done === total`
+  so a re-run shows a full bar. Neither rule could be exercised before without
+  mounting the app.
+
+Also `engineLineToSnapshot`, so the engine's reading is built the same way the
+cloud path's already was.
+
+**What was deliberately left.** The two queue drains — batch review and import
+sweep — look like duplication and are not. They share three lines (shift, mark
+active, dispatch) and differ in their guards, their search limits and what
+happens when the queue empties. A shared drain would need a parameter per
+difference and would hide the interesting half. The progress clamp is genuinely
+duplicated, and is two identical lines that both already clamp correctly.
+
+So the remaining engine wiring is coordination rather than logic, and extracting
+it would be churn. `App.tsx` is still ~5,500 lines and that is not the metric:
+what changed is that the rules inside it are now reachable from a test.
+
+Note what this did *not* do: there is still no store in the katrain sense, and
+no component here reads state through a selector. That is a larger design change
+and remains unmade.
 
 **The findings that generalise past this codebase**, in the order they cost the
 most to learn:
