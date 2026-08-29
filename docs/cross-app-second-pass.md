@@ -1,9 +1,11 @@
 # Cross-App Second Pass: what the three can still learn from each other
 
-*Read-only survey of `web-katrain`, `web-chess` and `web-xiangqi`, 2026-08-28,
-after the first pass landed in all three. **No code was changed in any repo**;
-every number below is a static measurement of the working tree as it stands,
-and the commands that produced them are in §5 so they can be re-run.*
+*Began as a read-only survey of `web-katrain`, `web-chess` and `web-xiangqi` on
+2026-08-28, after the first pass landed in all three. It has since become the
+working log of the overnight session that acted on it, so the "no code was
+changed" framing it opened with no longer holds -- a great deal was. The
+measurements in §1 are from the original survey; §5 has the commands, so any of
+them can be re-run against the tree as it stands.*
 
 This is a companion to [`cross-app-learning-plan.md`](cross-app-learning-plan.md),
 not a replacement. That document surveyed the three apps, ranked seventeen
@@ -15,25 +17,55 @@ figure here disagrees with the first document, this one was measured today.
 
 ## Start here, in the morning
 
-The overnight pass is finished. 68 commits across the three repos, each on a
-branch called `overnight-cross-app-2`, nothing pushed, every repo committed
-clean with its own gates green.
+**110 commits** across the three repos on `overnight-cross-app-2`
+(web-chess 57, web-katrain 23, web-xiangqi 30). Every repo clean, every gate
+green, every branch a clean fast-forward onto `main`.
 
-- **What to review first:** the commit logs. Every commit says what it changed
-  and why, and several say what was wrong with the previous attempt.
-- **What landed:** §6, the progress log.
-- **What is left:** §7, and it is one item — the store work, now scoped to the
-  engine wiring in `App.tsx` rather than to the file's size.
-- **What the comparison taught:** the bullets at the end of §7. Those are the
-  parts that generalise past this codebase.
+**The merge runs itself at 10:28.** A scheduled job stops the loop, re-runs
+every gate for its exit code, merges `--ff-only`, pushes, and watches both
+workflows per repo. It will not merge on a red gate. If it went well you will
+find `main` pushed and CI green in all three; if it did not, it was told to say
+so plainly rather than smooth it over.
 
-The loop that produced this was stopped once the worklist was empty. The last
-three passes found, in order: one divergence in a module ported earlier the same
-night, nothing, and nothing — the final pass raised three failures that all
-turned out to be the test instrument rather than the apps. That is the point at
-which more passes cost more than they return.
+### The one thing that needs you, not more work
 
----
+**web-xiangqi's "Classic Games" are not games.** All ten entries are 16-24 ply
+opening fragments, shown under player names, event, date and a decisive
+result badge -- and Game Review scores them as complete games, reporting Hu
+Ronghua at 25% accuracy with 12 blunders. Four hypotheses about the engine were
+tested and refuted; nothing in the eval path is wrong. Both siblings already
+solve this and differently (katrain ships sourced SGFs and reads the result from
+the file; chess ships a `lichessGameId` and fetches the moves), so the pattern
+exists twice over. **What to do about it is a product call, not a code fix**,
+which is why it was left alone. It is item 0.
+
+### What to review, in order
+
+1. **The commit logs.** Every commit says what changed and why, and several say
+   what was wrong with the previous attempt, including mine.
+2. **`docs/parity.md`**, new in all three: what has to pass, where each check
+   runs, and what is deliberate divergence versus drift.
+3. **§7 below** for the findings. The ones that generalise past this codebase
+   are at the end.
+
+### What this session was actually about
+
+Less than half of it was writing code. The recurring finding, hit four separate
+times, is that **a guard you do not run is indistinguishable from a guard you do
+not have**: katrain's viewport suite ran in no workflow, katrain's `deadAriaRefs`
+sat inside a suite `verify` never calls, xiangqi had an orphaned review smoke,
+and -- the one that stung -- a review fixture *I* broke early in the night and
+did not notice for hours, because it too lived only in a workflow that never ran
+on this branch. Making CI run on `main` is what surfaced it, an hour before the
+merge.
+
+The second theme is narrower and cost more: **measure before concluding.** A
+palette that worked perfectly and could not be reached on a phone. Six
+`aria-controls` in xiangqi that looked like the katrain bug and were correct.
+Three separate screenshots that looked like real defects -- a 0x0 viewport, a
+blank board, a clipped chessboard -- and were all the test instrument. A "too
+shallow" engine theory refuted by running the search at depths 10, 14 and 18 and
+getting the same answer three times.
 
 ## 0. The seven things to do next
 
