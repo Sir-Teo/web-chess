@@ -288,12 +288,11 @@ describe('review analysis helpers', () => {
       evaluatedMoves: 2,
       pendingMoves: 1,
     })
-    // 68.3, not the 72.4 a plain mean gives. Both sides are one move here, so
-    // there is no volatility to weight by and the harmonic mean does all the
-    // work — which is the point of including it: a game where one player
-    // scored 48% should not report in the seventies. Per-side figures are
-    // unchanged, because a single value has the same mean either way.
-    expect(summary.overall).toBeCloseTo(68.3, 1)
+    // These rows carry no winPercentBefore, so there is no swing to weight by
+    // and every weight is the floor — which makes the aggregate the plain mean
+    // it was before. That is the honest behaviour for rows with no evaluation
+    // series behind them; the weighting only bites on a real review.
+    expect(summary.overall).toBeCloseTo(72.4, 1)
     expect(summary.white).toBeCloseTo(96.7, 1)
     expect(summary.black).toBeCloseTo(48.0, 1)
     expect(summary.averageCentipawnLoss).toBe(115)

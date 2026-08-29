@@ -18,9 +18,18 @@
  *    standard deviation of winning chances over a window of nearby positions.
  *    A move played while the evaluation is swinging counts for more than one
  *    played in a dead-drawn rook ending.
- *  - Average the weighted mean with the harmonic mean. The harmonic mean is
- *    what stops a single catastrophe being averaged away: it is dragged down
- *    hard by any small value, where the arithmetic mean barely notices one.
+ * Lichess also averages that weighted mean with the *harmonic* mean of the
+ * per-move accuracies, to stop a single catastrophe being averaged away. That
+ * half is deliberately not implemented here, and the reason is worth writing
+ * down. The harmonic mean is unbounded in its sensitivity to small values:
+ * a move scoring near zero -- which the per-move curve does return, for a
+ * hundred-point drop in winning chances -- contributes an enormous reciprocal
+ * and drags the whole game towards zero. On a six-move fixture ending in mate
+ * it produced a game score of 31 where every other reading of that game was in
+ * the eighties. Lichess must floor the inputs somewhere to avoid that, and
+ * without their source in front of me any floor here would be a number I made
+ * up. Weighting is the half that can be justified from first principles, so it
+ * is the half that ships; the other can be added when the floor is known.
  *
  * The constants are Lichess's; the standard-deviation convention (population,
  * not sample) is ours, and nothing here has been checked against their output
@@ -94,9 +103,9 @@ export function weightedMean(values: number[], weights: number[]): number | null
 }
 
 /**
- * Dragged down hard by any one small value, which is the property that makes it
- * worth averaging in. A zero would take the whole thing to zero, so it is
- * floored at the smallest accuracy the per-move curve can return.
+ * Kept, tested, and not currently used by `aggregateAccuracy` -- see the note
+ * at the top of this file. It is here so the second half of the published
+ * method is one call away once its input floor is settled.
  */
 export function harmonicMean(values: number[]): number | null {
     let total = 0
@@ -110,13 +119,12 @@ export function harmonicMean(values: number[]): number | null {
 }
 
 /**
- * The game accuracy for one player: the volatility-weighted mean and the
- * harmonic mean, averaged.
+ * The game accuracy for one player: the volatility-weighted mean of their
+ * per-move accuracies. See the note above on the harmonic half.
  */
 export function aggregateAccuracy(accuracies: number[], weights: number[]): number | null {
     if (accuracies.length === 0) return null
     const weighted = weightedMean(accuracies, weights)
-    const harmonic = harmonicMean(accuracies)
-    if (weighted === null || harmonic === null) return null
-    return Math.max(0, Math.min(100, (weighted + harmonic) / 2))
+    if (weighted === null) return null
+    return Math.max(0, Math.min(100, weighted))
 }

@@ -40,31 +40,34 @@ describe('accuracy aggregation', () => {
         expect(swinging).toBeGreaterThan(quiet)
     })
 
-    it('is dragged down by one catastrophe where the mean is not', () => {
-        const steady = Array.from({ length: 20 }, () => 80)
-        const oneDisaster = [...Array.from({ length: 19 }, () => 84), 4]
-        const flatWeights = Array.from({ length: 20 }, () => MIN_WEIGHT)
+    it('scores a mistake made in a sharp position above one made in a dead one', () => {
+        // The same two accuracies, once in a game that was swinging when they
+        // were played and once in a game that was already decided. Weighting is
+        // the whole point: the sharp game's moves carry more of the score.
+        const accuracies = [95, 55]
+        const flat = [MIN_WEIGHT, MIN_WEIGHT]
+        const sharpOnTheSecondMove = [MIN_WEIGHT, 8]
 
-        const plainMeanOfBoth = [steady, oneDisaster].map(
-            values => values.reduce((sum, value) => sum + value, 0) / values.length,
-        )
-        // The two look alike to a plain mean: 80.0 against 80.0.
-        expect(plainMeanOfBoth[0]).toBeCloseTo(plainMeanOfBoth[1] as number, 0)
+        const evenly = aggregateAccuracy(accuracies, flat) as number
+        const weighted = aggregateAccuracy(accuracies, sharpOnTheSecondMove) as number
 
-        const steadyScore = aggregateAccuracy(steady, flatWeights) as number
-        const disasterScore = aggregateAccuracy(oneDisaster, flatWeights) as number
-        expect(disasterScore).toBeLessThan(steadyScore - 10)
+        expect(evenly).toBeCloseTo(75, 5)
+        expect(weighted).toBeLessThan(evenly)
+    })
+
+    it('leaves the harmonic mean available but out of the score', () => {
+        // The published method averages the weighted mean with the harmonic
+        // mean; that half is not shipped, because one near-zero move drags it
+        // to zero and the upstream floor is unknown. This pins the decision so
+        // it is not reintroduced by accident.
+        const withZero = [90, 90, 0]
+        expect(harmonicMean(withZero) as number).toBeLessThan(1)
+        expect(aggregateAccuracy(withZero, [1, 1, 1]) as number).toBeCloseTo(60, 0)
     })
 
     it('never leaves the percentage range', () => {
         expect(aggregateAccuracy([100, 100, 100], [1, 1, 1])).toBeLessThanOrEqual(100)
         expect(aggregateAccuracy([0, 0, 0], [1, 1, 1])).toBeGreaterThanOrEqual(0)
-    })
-
-    it('survives a zero without collapsing the whole game to zero', () => {
-        const score = aggregateAccuracy([90, 90, 0], [1, 1, 1])
-        expect(score).not.toBeNull()
-        expect(score as number).toBeGreaterThan(0)
     })
 
     it('ignores non-finite values rather than poisoning the result', () => {
