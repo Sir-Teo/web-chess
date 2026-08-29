@@ -39,7 +39,7 @@ Measured 2026-08-29.
 | Saved-game library | IndexedDB, folders, zip | IndexedDB, JSON backup | localStorage, flat |
 | Auto-save + crash recovery | yes | yes | yes |
 | Error boundary | component + lazy-modal | inline + lazy-dialog | component + lazy-panel |
-| Command palette | yes | no | no |
+| Command palette | yes | yes | no |
 | Board / UI themes | yes | no | no |
 | Sound | yes | no | partial |
 | Haptics | yes | no | no |
@@ -68,8 +68,8 @@ raw centipawns.
 
 ## What this repo is still missing
 
-A store (state is in a 5,500-line `App.tsx`), a command palette, themes, sound,
-haptics, the analysis queue with position caching, and a PWA install banner.
+A store (state is in a 5,500-line `App.tsx`), themes, sound, haptics, the
+analysis queue with position caching, and a PWA install banner.
 
 Two gaps closed since this file was written: game accuracy is no longer a plain
 mean — it is weighted by how volatile the game was around each move — and there
