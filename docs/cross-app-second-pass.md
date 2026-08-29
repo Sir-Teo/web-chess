@@ -563,6 +563,49 @@ Two findings from doing the work, both worth carrying:
 
 ---
 
+### The palette had no button, so touch users had no palette
+
+Found by asking a question the earlier passes never asked: not "does this
+feature work" but "can a user find it". `setShowCommandPalette` had exactly one
+caller in both web-chess and web-xiangqi -- the Cmd/Ctrl+K handler. There is no
+Cmd key on a phone, so this was not a discoverability problem on mobile, it was
+an availability one: every command in the palette was unreachable. Nothing in
+either UI named the chord, so on desktop the only way to learn the feature
+existed was to read `App.tsx`.
+
+web-katrain had it right from the start, and this is the first item in the whole
+effort where the flow ran that way -- katrain to the other two -- rather than
+the reverse. It surfaces the palette in the top bar, the mobile drawer and the
+view menu, and names the shortcut in each. What was *not* ported is its label
+machinery: a full remappable-shortcut registry, far more than one button needs,
+and it prints "Ctrl" on a Mac. The idea travelled; the implementation did not.
+
+Two details worth keeping:
+
+- **web-xiangqi needed two entry points, web-chess one.** Xiangqi's top-bar row
+  is `display: none` at 375px, so a top-bar button alone would have left mobile
+  exactly as broken as before. Measured, not assumed: the button reports 0x0 at
+  that width. Chess's toolbar is shared across widths and collapses to a 44x44
+  icon instead.
+- **The shortcut is named in the tooltip and `aria-keyshortcuts`, never in
+  visible text**, and not at all in xiangqi's mobile menu. A phone has no hover
+  and no modifier key; a chord printed beside a tappable control there is noise.
+
+`commandPaletteShortcutLabel` and `isApplePlatform` are the same helper in both
+repos, with the same tests, and should be kept that way. Both consult
+`userAgentData`, then the deprecated `navigator.platform`, then the user agent,
+and fall back to the portable spelling -- including when there is no `navigator`
+at all, which is real under Node and would otherwise take the app down for a
+tooltip.
+
+**And a fourth entry for the list below.** The negative control for the chess
+test failed at `tsc`, not in the browser: deleting the button orphaned an import
+and a callback, so the assertion never ran. A negative control that fails in the
+wrong phase proves nothing. Renaming the test id instead keeps the build valid
+and fails where intended; shrinking the button to 20x20 fails only the two
+narrow viewports, which also proves the viewport branch works. Same rigour in
+xiangqi: deleting the mobile menu item fails `test:ui:layout` on a real timeout.
+
 ## 7. Where this stands
 
 *Written 2026-08-29, at the end of the overnight pass. Every claim here was
@@ -632,3 +675,8 @@ most to learn:
 - Ask what your own change just broke. The service worker registering in dev,
   and the palette ports missing katrain's live region, were both found that way
   rather than by anything failing.
+- "Does it work" and "can it be found" are different questions, and the second
+  one went unasked for most of this effort. The command palette worked perfectly
+  in all three repos and was unreachable on a phone in two of them.
+- A negative control has to fail in the phase you are testing. One here failed
+  at `tsc` before the browser assertion ran, which looks like proof and is not.
