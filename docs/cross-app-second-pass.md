@@ -43,7 +43,7 @@ which more passes cost more than they return.
 | 1 | ~~**Gate the Pages deploy on the checks**~~ done | xiangqi | minutes | Its deploy workflow runs no audit, no lint, no tests, no typecheck. Both siblings gate theirs. §2.1 |
 | 2 | ~~Port the **hostile-input parser sweep**~~ **done, all three** | — | — | katrain 24 inputs / worst case 30ms, xiangqi 25 / worst case 7ms, both against a 1000ms budget. The 4x gap is the new finding: see below. §2.4 |
 | 3 | Adopt **device-tier boot + live-analysis policy** (`analysisProfile.ts`) | katrain, then chess | hours | katrain sizes its whole search with `min(8, hardwareConcurrency)`. The module is also the most extraction-ready file in the three repos. §2.7 |
-| 4 | Write **`docs/parity.md`** in each repo | all three | an hour each | The one Tier-0 item nobody did, and the one that would have caught §2.1 and §2.8. |
+| 4 | ~~Write **`docs/parity.md`** in each repo~~ **done, all three** | — | — | Records the gate matrix, the deploy/browser-suite gap, and what is deliberate divergence versus drift. |
 | 5 | Move **game state out of `App.tsx`** into something a test can drive | chess first | weeks | Not because the file is big. Because 22 katrain test files drive its game state directly and **zero** do in either sibling. §2.2 |
 | 6 | ~~Wire the mobile tabs to their panels~~ **done** | katrain | — | All four tabs now resolve to a real `tabpanel` that names them back. See below for the part that measuring found and reading would not have. |
 | 7 | Decide whether the **deploys should run the browser suites** | all three | an hour | A push to main runs deploy only, and no deploy runs a browser suite. Green CI on main currently means less than it looks like. |
@@ -935,6 +935,39 @@ finding. In web-chess the sweep caught a real freeze. In web-katrain and
 web-xiangqi it caught nothing, and the output that mattered was the timing
 table -- which then made a design difference between two repos visible that no
 amount of reading either codebase had surfaced in three sessions.
+
+### The parity docs, and a row that was wrong
+
+Item 4 done in all three. Each repo now carries `docs/parity.md`: how to run
+every gate locally, a table of which checks run in `verify` against `ci.yml`
+against the deploy, and a comparison with the siblings that separates deliberate
+divergence from drift. The comparison was read out of `package.json` and the
+workflow files rather than recalled, which mattered -- see below.
+
+The two things worth carrying out of it:
+
+- **A push to `main` runs no browser suite in any of the three.** `ci.yml` is
+  pull-request-only everywhere, and no deploy workflow includes one. Green CI on
+  `main` therefore means less than it appears to; dispatching `ci.yml` on `main`
+  is the stopgap.
+- **Read the exit code, not the output.** Piping a gate into `grep` keys off
+  grep's status. That is how a commit landed over a failing typecheck earlier in
+  this work, and it is now written down in the place someone would look.
+
+**The row that was wrong.** The first draft of the comparison table said
+web-katrain had no input ceilings and web-xiangqi had them all. That is false,
+and it was caught by checking the constants rather than trusting the sentence
+written an hour earlier in this same document. All three have ceilings.
+web-chess bounds library PGN at 512KB, backups at 8MB and auto-save at 2MB;
+web-katrain bounds auto-save at 5MB, model upload at 128MB and a verdict scan at
+4000 nodes. The real distinction is narrower and more interesting than "has
+ceilings": **web-chess and web-katrain bound what they write, web-xiangqi also
+bounds what it reads.** Only a read-side ceiling helps against a hostile paste,
+which is why the sweeps time out at 7ms against 30ms.
+
+That correction is the argument for the file existing. A comparison kept in
+someone's head drifts within the hour; this one had drifted between two sections
+of the very document meant to track it.
 
 ## 7. Where this stands
 
