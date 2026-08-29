@@ -374,10 +374,16 @@ async function main() {
   const build = spawnSync('npm', ['run', 'build'], { cwd: ROOT, stdio: 'inherit' })
   if (build.status !== 0) fail('build failed')
 
+  // detached so the whole group can be signalled below. `npm run preview`
+  // spawns vite as a grandchild, and killing npm alone leaves vite running,
+  // still holding the stdout/stderr pipes it inherited -- so this process never
+  // sees EOF on them and never exits. On a runner that showed up as the suite
+  // printing "Browser UI checks passed." and then sitting there until the job
+  // hit its 20-minute timeout and was cancelled.
   const preview = spawn(
     'npm',
     ['run', 'preview', '--', '--port', String(PORT), '--strictPort', '--host', '127.0.0.1'],
-    { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] },
+    { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], detached: true },
   )
   const previewLog = []
   preview.stdout.on('data', chunk => previewLog.push(String(chunk)))
@@ -664,11 +670,22 @@ async function main() {
     console.log('Browser UI checks passed.')
   } finally {
     if (browser) await browser.close().catch(() => {})
-    preview.kill('SIGTERM')
+    // Signal the group, not just npm, so vite goes too.
+    try {
+      process.kill(-preview.pid, 'SIGTERM')
+    } catch {
+      preview.kill('SIGTERM')
+    }
   }
 }
 
-main().catch(error => {
-  console.error(error.message)
-  process.exitCode = 1
-})
+// Exit explicitly rather than waiting for the event loop to drain. Everything
+// above is finished by the time this runs, and a single stray handle must not
+// be able to turn a passing suite into a cancelled job.
+main().then(
+  () => process.exit(0),
+  error => {
+    console.error(error.message)
+    process.exit(1)
+  },
+)
