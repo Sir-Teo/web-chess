@@ -704,6 +704,24 @@ attribute, typecheck stays green, and the suite reports "with Board active,
 Library points at missing #mobile-panel-library" for exactly the three states
 where it dangles.
 
+**Correction, and it matters more than the item.** The paragraph above was first
+written to say the new check is what caught this. It is not. katrain already had
+`deadAriaRefs` in check-viewports -- dead `aria-controls`/`-labelledby`/
+`-describedby`/`-owns` across the whole document -- and re-reading the negative
+control's output shows it fired too. The guard was there all along. What
+happened is that after wiring the tabs the naive way, `npm run verify` was run
+and `npm run test:viewport` was not, and `verify` does not contain that check.
+The bug was then found by hand in a browser and written up as though nothing
+had been available to catch it.
+
+So the honest finding is not "katrain lacked a guard". It is that a guard you
+do not run is indistinguishable from a guard you do not have -- which is the
+same lesson as §"A test suite that runs in no workflow", arrived at from the
+other direction and in the same session. The new tab/panel check still earns
+its place: it adds the `aria-labelledby` back-reference, the `role="tabpanel"`
+assertion, and the per-tab-state sweep, none of which `deadAriaRefs` does. It
+is an addition, not the discovery.
+
 Two smaller things worth keeping. The shared side panel proves two tabs may name
 one container, provided the container names whichever tab is active back --
 `aria-labelledby` flips between `mobile-tab-tree` and `mobile-tab-info`. And the
@@ -717,6 +735,30 @@ and were wrong by over an hour -- work was deferred as "not enough time before
 the merge" when there was in fact plenty. Item 6 was deferred once on that basis
 and then done comfortably in the window that supposedly did not exist. Check the
 clock before letting it decide the scope.
+
+### One invariant, three harnesses
+
+The natural follow-on: if katrain had `deadAriaRefs` and it was worth having,
+why did neither sibling? They now do.
+
+The rule needed stating carefully, and measuring first is what stated it. Not
+"every `aria-controls` resolves" -- web-xiangqi has six that do not, and all six
+are correct. Each is a collapsed disclosure carrying `aria-expanded="false"`
+whose dialog is rendered on open; each was opened and confirmed to resolve to a
+`role="dialog"` before a line of the check was written. Pattern-matching the
+katrain bug onto them would have produced six changes that made the app worse.
+
+So the invariant is: **an `aria-controls` must resolve unless the element says
+it is collapsed.** That is what separates katrain's tab -- no expanded state, a
+panel that must exist -- from xiangqi's menus, and it is now checked in all
+three harnesses, at rest and again with a disclosure open, since the at-rest
+sweep alone never evaluates a reference whose target is conditionally rendered.
+
+Worth noting that katrain's own version has no such exemption. It passes only
+because katrain happens to have no disclosure of that shape; the first one added
+will fail it falsely. That is a real, small divergence between the three and is
+left recorded rather than silently changed, because a passing check with no
+failing case is a bad thing to loosen on speculation.
 
 ## 7. Where this stands
 
