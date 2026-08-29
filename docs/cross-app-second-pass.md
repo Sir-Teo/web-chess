@@ -432,6 +432,8 @@ were additionally exercised in a browser at 375x812 and at desktop width.
 | — | xiangqi | **Stored review summaries are rebuilt from their annotations on load**, the fix `docs/architecture.md` had been asking for. Without it, changing the accuracy math would have left saved reviews reporting numbers the current code cannot produce, sorted and averaged beside ones that can. |
 | Fake-engine browser test | chess | Its first test that clicks anything: loads a game, runs a full review, asserts the summary, at 1280x800 and 375x812, against a fake Stockfish injected in place of the worker. The technique is web-xiangqi's; the seam here is `new Worker`. |
 | — | katrain | Long game names on the mobile home wrap to two lines with a title, instead of truncating at one with no way to read the rest. |
+| Port `engine/uci.ts` | xiangqi | **The review searched from a bare FEN while live analysis sent the move history.** Pikafish detects repetition from the move list, and in xiangqi perpetual check and chase *lose* — so a review of a game with a repetition was scored by an engine that could not see the rule deciding it. |
+| — | xiangqi | Saved review summaries are rebuilt at the read boundary, not only on load: the library card and the loaded game were reporting 66% and 42% for the same game. |
 | — | chess, xiangqi | **A bounded engine score was being read as an evaluation.** `score cp 900 lowerbound` means "at least 900"; it arrives from an aspiration re-search, after the exact line at the same depth and with more nodes behind it. chess parsed the flags and dropped them before they reached anything; xiangqi did not parse them at all. Both had the defect twice over — once in the stored evaluation and once in the live line the UI reads. |
 
 Two findings from doing the work, both worth carrying:
@@ -448,6 +450,13 @@ Two findings from doing the work, both worth carrying:
   engine from the window is wrong. `useEngine`, in the same repo, sized the
   engine from the window. Writing a judgement down twice is how one copy gets
   fixed and the other does not.
+- **`verify` being green is not the same as the change being right.** Three
+  separate defects from earlier commits on this branch were sitting in
+  web-xiangqi's browser suite, which is not in `verify`: a storage rename that
+  left the harness clearing keys nothing wrote, so a Pro-mode check silently
+  read "coach"; a fixture whose accuracy the weighting had moved; and a fake
+  engine matching positions by a FEN the review no longer sends. All three were
+  invisible to 396 passing unit tests.
 - **The interaction tier earned its keep on its first outing.** The bounded-score
   fix passed its unit tests and the eval bar still read +9.0, because the unit
   tests cover the snapshot merge and the defect happened one level above it, in
