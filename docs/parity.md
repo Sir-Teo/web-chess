@@ -47,7 +47,7 @@ Measured 2026-08-29.
 | Real service worker + install banner | yes | `coi-serviceworker` only | unregisters legacy SWs |
 | Position / FEN editor | no | yes | no |
 | Cloud eval, opening explorer, tablebase | no | yes | no |
-| Browser (Playwright) tests | one viewport script | no | layout + parity + review |
+| Browser (Playwright) tests | one viewport script | boot, review, layout at two sizes | layout + parity + review |
 | Engine built from source | no | no | yes (emsdk) |
 
 ## What this repo is the reference for
@@ -69,7 +69,9 @@ raw centipawns.
 ## What this repo is still missing
 
 A store (state is in a 5,500-line `App.tsx`), a command palette, themes, sound,
-haptics, a real service worker, the analysis queue with position caching, and
-any test that has ever clicked a button — it is the only one of the three with
-no browser-level test. Its game accuracy is still a plain mean of per-move
-accuracy; web-katrain weights by position difficulty.
+haptics, a real service worker, and the analysis queue with position caching.
+
+Two gaps closed since this file was written: game accuracy is no longer a plain
+mean — it is weighted by how volatile the game was around each move — and there
+is now a browser test that loads a game, runs a review and asserts the summary,
+against a fake engine injected in place of the Stockfish worker.

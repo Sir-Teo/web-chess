@@ -430,6 +430,8 @@ were additionally exercised in a browser at 375x812 and at desktop width.
 | `docs/parity.md` | **all three** | The feature matrix, plus what each repo is the reference for and what it is still missing. |
 | Weighted accuracy | chess, xiangqi | Game accuracy is the volatility-weighted mean of per-move accuracy rather than a flat average. Aronian-Carlsen: 98.3% → 98.0%, ACPL and every move label unchanged. |
 | — | xiangqi | **Stored review summaries are rebuilt from their annotations on load**, the fix `docs/architecture.md` had been asking for. Without it, changing the accuracy math would have left saved reviews reporting numbers the current code cannot produce, sorted and averaged beside ones that can. |
+| Fake-engine browser test | chess | Its first test that clicks anything: loads a game, runs a full review, asserts the summary, at 1280x800 and 375x812, against a fake Stockfish injected in place of the worker. The technique is web-xiangqi's; the seam here is `new Worker`. |
+| — | katrain | Long game names on the mobile home wrap to two lines with a title, instead of truncating at one with no way to read the rest. |
 
 Two findings from doing the work, both worth carrying:
 
@@ -445,6 +447,12 @@ Two findings from doing the work, both worth carrying:
   engine from the window is wrong. `useEngine`, in the same repo, sized the
   engine from the window. Writing a judgement down twice is how one copy gets
   fixed and the other does not.
+- **A fake that is easier than the real thing is not a fake, it is a different
+  program.** The first version of the injected engine replied inside
+  `postMessage`. A real worker cannot do that, and the app deadlocked: it sent
+  "go", received the answer before it had finished setting up, sent "stop", and
+  waited for a bestmove that had already gone past. The fake has to be wrong in
+  the same places the real one is.
 - **Ship the half you can justify.** The published accuracy method has two
   halves and I implemented both before checking what the second one does: the
   harmonic mean is unbounded in its sensitivity to near-zero values, and a
