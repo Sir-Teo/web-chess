@@ -132,7 +132,12 @@ export function CommandPaletteDialog({ open, commands, onClose }: Props) {
                                         onClick={() => runCommand(command)}
                                     >
                                         <span className="command-palette-label">{command.label}</span>
-                                        {command.hint && <span className="command-palette-hint">{command.hint}</span>}
+                                        {command.hint && (
+                                            // Titled because the hint is the reason a
+                                            // command is unavailable, and it is the
+                                            // first thing truncated at phone width.
+                                            <span className="command-palette-hint" title={command.hint}>{command.hint}</span>
+                                        )}
                                         {command.shortcut && <kbd className="command-palette-key">{command.shortcut}</kbd>}
                                     </button>
                                 </li>
