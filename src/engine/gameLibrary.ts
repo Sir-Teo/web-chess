@@ -3,6 +3,7 @@
  * library rows need. Pure data handling only — persistence lives alongside it
  * so this half stays testable without a browser.
  */
+import { matchesSearchTerms, toSearchTerms } from './searchTerms'
 
 export const MAX_LIBRARY_GAMES = 500
 export const MAX_LIBRARY_PGN_LENGTH = 512_000
@@ -241,10 +242,9 @@ export function getLibraryGameSearchText(game: LibraryGame): string {
 }
 
 export function libraryGameMatchesQuery(game: LibraryGame, query: string): boolean {
-  const needle = query.trim().toLowerCase()
-  if (!needle) return true
-  const haystack = getLibraryGameSearchText(game)
-  return needle.split(/\s+/).every(term => haystack.includes(term))
+  const terms = toSearchTerms(query)
+  if (terms.length === 0) return true
+  return matchesSearchTerms(getLibraryGameSearchText(game), terms)
 }
 
 export function sortLibraryGames(games: LibraryGame[], sort: LibrarySort): LibraryGame[] {

@@ -236,3 +236,33 @@ describe('backup round trip', () => {
     expect(parseLibraryBackup(JSON.stringify({ format: 'something-else', games: [] }))).toEqual([])
   })
 })
+
+describe('bounded library search', () => {
+    /**
+     * The slip this guards against is a paste into the filter rather than the
+     * importer. Every term has to match, so an unbounded query is terms x
+     * haystack x games of work — 900ms against one haystack when measured in
+     * web-xiangqi, and a frozen tab across a 500-game library.
+     */
+    it('truncates a pasted game instead of scanning every term of it', () => {
+        const pastedPgn = Array.from({ length: 20_000 }, (_, i) => `${i}. e4 e5`).join(' ')
+        const game = createLibraryGame('Aronian vs Carlsen', '[White "Aronian"]\n[Black "Carlsen"]\n\n1. d4 *', 1)
+
+        const started = performance.now()
+        const matched = libraryGameMatchesQuery(game, pastedPgn)
+        const elapsed = performance.now() - started
+
+        expect(matched).toBe(false)
+        expect(elapsed, `took ${elapsed.toFixed(0)}ms`).toBeLessThan(50)
+    })
+
+    it('leaves a real query working across fields', () => {
+        const game = createLibraryGame(
+            'Aronian vs Carlsen',
+            '[White "Aronian"]\n[Black "Carlsen"]\n[Date "2024.01.02"]\n\n1. d4 *',
+            1,
+        )
+        expect(libraryGameMatchesQuery(game, 'carlsen 2024')).toBe(true)
+        expect(libraryGameMatchesQuery(game, 'carlsen 1999')).toBe(false)
+    })
+})
