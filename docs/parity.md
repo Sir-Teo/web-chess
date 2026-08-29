@@ -44,7 +44,7 @@ Measured 2026-08-29.
 | Sound | yes | no | partial |
 | Haptics | yes | no | no |
 | Analysis queue with position cache | yes | no | no |
-| Real service worker + install banner | yes | `coi-serviceworker` only | unregisters legacy SWs |
+| Real service worker | yes (+ install banner) | yes — COI and offline in one worker | unregisters legacy SWs |
 | Position / FEN editor | no | yes | no |
 | Cloud eval, opening explorer, tablebase | no | yes | no |
 | Browser (Playwright) tests | one viewport script | boot, review, layout at two sizes | layout + parity + review |
@@ -69,7 +69,7 @@ raw centipawns.
 ## What this repo is still missing
 
 A store (state is in a 5,500-line `App.tsx`), a command palette, themes, sound,
-haptics, a real service worker, and the analysis queue with position caching.
+haptics, the analysis queue with position caching, and a PWA install banner.
 
 Two gaps closed since this file was written: game accuracy is no longer a plain
 mean — it is weighted by how volatile the game was around each move — and there
