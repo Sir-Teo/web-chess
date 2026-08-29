@@ -1,0 +1,81 @@
+.command-palette {
+    max-width: 32rem;
+    width: min(32rem, calc(100vw - 2rem));
+}
+
+.command-palette-input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.command-palette-list {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    max-height: min(24rem, 50vh);
+    overflow-y: auto;
+}
+
+.command-palette-row + .command-palette-row {
+    margin-top: 2px;
+}
+
+.command-palette-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 0.625rem;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.command-palette-row[data-active='true'] .command-palette-button {
+    border-color: var(--accent, #4f9d78);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.command-palette-button:disabled {
+    cursor: default;
+    opacity: 0.55;
+}
+
+.command-palette-label {
+    flex: 0 0 auto;
+}
+
+.command-palette-hint {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
+/* Pushes the key to the right even when there is no hint to fill the gap. */
+.command-palette-label:last-child {
+    flex: 1 1 auto;
+}
+
+.command-palette-key {
+    flex: 0 0 auto;
+    padding: 0.05rem 0.35rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.7rem;
+    opacity: 0.8;
+}
+
+.command-palette-empty {
+    margin: 0.75rem 0 0;
+    font-size: 0.8rem;
+    opacity: 0.7;
+}

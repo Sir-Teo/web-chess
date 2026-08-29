@@ -10,6 +10,9 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 - **Saved games**: Keep games in a library stored in IndexedDB, search them by player, event or opening, star and rename them, and export or import the whole shelf as JSON. The game in progress is auto-saved separately, so a reload offers to pick up where you left off.
 - **PGN and FEN workflows**: Import/export annotated PGN, copy FEN/share links, and build custom FEN positions with editable pieces, side to move, castling rights, and move counters.
 - **Opening and endgame intelligence**: Offline ECO names work immediately; optional session-only Lichess tokens unlock Masters/Lichess opening stats, while eligible endgames use Lichess tablebase data.
+- **Command palette**: `Ctrl`/`Cmd`+`K` opens a searchable list of every
+  toolbar and mode action, with recently used commands first. Ported in shape
+  from web-katrain, sized for this app's twenty-odd commands.
 - **Interactive analysis visuals**: Clickable winrate/WDL graphs, move transcript navigation, and board arrows for the played move, best move, and candidate lines.
 - **Installable app metadata**: PWA manifest and app icon are configured for hosted releases.
 

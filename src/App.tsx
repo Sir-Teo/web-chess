@@ -98,6 +98,8 @@ import { useModalFocus } from './hooks/useModalFocus'
 import { formatGraphAxisLabel, formatGraphPositionLabel } from './components/graphLabels'
 import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlip, IconDownload, IconClipboard, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp } from './components/icons'
 import { isPlainShortcut, isTypingTarget } from './components/shortcutKeys'
+import { CommandPaletteDialog } from './components/CommandPaletteDialog'
+import type { Command } from './components/commandPalette'
 import './App.css'
 
 const NewGameDialog = lazy(() =>
@@ -342,6 +344,21 @@ const LIMIT_NODES_BOUNDS = { min: 1, max: 1_000_000_000 }
 const CLOCK_TIME_BOUNDS = { min: 0, max: 86_400_000, fallback: DEFAULT_PERSISTED_SETTINGS.whiteTimeMs }
 const CLOCK_INCREMENT_BOUNDS = { min: 0, max: 60_000, fallback: DEFAULT_PERSISTED_SETTINGS.whiteIncMs }
 const MOVES_TO_GO_BOUNDS = { min: 1, max: 500 }
+
+/**
+ * Command+K on a Mac, Control+K elsewhere, with nothing else held.
+ *
+ * The one chord this app claims. It is declared as a chord rather than by
+ * loosening `isPlainShortcut`, which exists precisely to keep the browser's own
+ * combinations — Find, Back — out of the app's hands. No browser owns Ctrl/Cmd+K
+ * and it is the near-universal palette binding.
+ */
+function isCommandPaletteChord(event: KeyboardEvent): boolean {
+  return event.key.toLowerCase() === 'k'
+    && (event.metaKey || event.ctrlKey)
+    && !event.altKey
+    && !event.shiftKey
+}
 
 function isAnalyzePresetId(value: unknown): value is AnalyzePresetId {
   return typeof value === 'string' && analyzePresets.some(preset => preset.id === value)
@@ -875,6 +892,7 @@ function App() {
   const [showNewGameDialog, setShowNewGameDialog] = useState(false)
   const [showPgnDialog, setShowPgnDialog] = useState(false)
   const [showLibraryDialog, setShowLibraryDialog] = useState(false)
+  const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [autoSaveRecovery, setAutoSaveRecovery] = useState<AutoSavedGame | null>(null)
   const [gameMode, setGameMode] = useState<GameMode>('human-vs-human')
   const [playerColor, setPlayerColor] = useState<PlayerColor>('white')
@@ -1064,8 +1082,17 @@ function App() {
       if (shortcutsSuspended) return
       const target = e.target as HTMLElement | null
       const tag = target?.tagName
+      // The one chord this app claims. Command/Control+K is the near-universal
+      // binding for a command palette, and no browser owns it. Declared before
+      // the typing-target check on purpose: it should open from a text field
+      // too, which is where a reader often is when they reach for it.
+      if (isCommandPaletteChord(e)) {
+        e.preventDefault()
+        setShowCommandPalette(open => !open)
+        return
+      }
       if (isTypingTarget(target)) return
-      // Every shortcut below is a bare key, so a chord belongs to the browser.
+      // Every other shortcut below is a bare key, so a chord belongs to the browser.
       // Without this, Command+F flipped the board and swallowed Find, and
       // Alt/Command with an arrow stepped through the game instead of going
       // back. web-katrain's registry matches modifiers per binding; this is the
@@ -1092,6 +1119,7 @@ function App() {
   }, [goFirst, goLast, goPrev, goNext, pause, resume, shortcutsSuspended, workspaceMode])
 
   const closeSettings = useCallback(() => setSettingsOpen(false), [])
+  const closeCommandPalette = useCallback(() => setShowCommandPalette(false), [])
   useModalFocus(settingsOpen, settingsBodyRef, closeSettings)
 
   // No wheel-to-navigate; it conflicts with trackpads and touch.
@@ -2590,9 +2618,9 @@ function App() {
   }, [completePromotion, pendingPromotion])
 
   // ── New game ──────────────────────────────────────────
-  const rememberModalTrigger = () => {
+  const rememberModalTrigger = useCallback(() => {
     modalTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-  }
+  }, [])
 
   const restoreModalTriggerFocus = useCallback(() => {
     const trigger = modalTriggerRef.current
@@ -2606,27 +2634,62 @@ function App() {
     })
   }, [])
 
-  const openNewGameDialog = () => {
+  // Wrapped rather than plain functions because the command palette memoises a
+  // list that calls them; a new identity each render made that memo useless.
+  const openNewGameDialog = useCallback(() => {
     rememberModalTrigger()
     setSettingsOpen(false)
     setShowPgnDialog(false)
     setShowLibraryDialog(false)
     setShowNewGameDialog(true)
-  }
-  const openPgnDialog = () => {
+  }, [rememberModalTrigger])
+  const openPgnDialog = useCallback(() => {
     rememberModalTrigger()
     setSettingsOpen(false)
     setShowNewGameDialog(false)
     setShowLibraryDialog(false)
     setShowPgnDialog(true)
-  }
-  const openLibraryDialog = () => {
+  }, [rememberModalTrigger])
+  const openLibraryDialog = useCallback(() => {
     rememberModalTrigger()
     setSettingsOpen(false)
     setShowNewGameDialog(false)
     setShowPgnDialog(false)
     setShowLibraryDialog(true)
-  }
+  }, [rememberModalTrigger])
+
+  const paletteCommands = useMemo<Command[]>(() => [
+    { id: 'new-game', label: 'New game', shortcut: 'N', keywords: ['restart', 'reset'], run: openNewGameDialog },
+    { id: 'flip-board', label: 'Flip board', shortcut: 'F', keywords: ['orientation', 'rotate', 'side'],
+      run: () => setOrientation(value => (value === 'white' ? 'black' : 'white')) },
+    { id: 'pgn', label: 'PGN and FEN', hint: 'Import, export, share', keywords: ['paste', 'copy', 'link', 'position'],
+      run: openPgnDialog },
+    { id: 'library', label: 'Library', hint: 'Saved games', keywords: ['save', 'open', 'backup'],
+      run: openLibraryDialog },
+    { id: 'mode-play', label: 'Play mode', keywords: ['workspace'], run: () => handleWorkspaceModeChange('play') },
+    { id: 'mode-analysis', label: 'Analysis mode', keywords: ['workspace', 'engine'],
+      run: () => handleWorkspaceModeChange('analysis') },
+    { id: 'tab-analyze', label: 'Analyze', keywords: ['engine', 'evaluation'], run: () => handleAnalysisTabChange('analyze') },
+    { id: 'tab-review', label: 'Review', keywords: ['accuracy', 'mistakes'], run: () => handleAnalysisTabChange('review') },
+    { id: 'tab-lab', label: 'Engine Lab', keywords: ['uci', 'options'], run: () => handleAnalysisTabChange('engine-lab') },
+    {
+      id: 'review-game',
+      label: 'Review game',
+      hint: reviewGameDisabledReason ?? undefined,
+      keywords: ['accuracy', 'blunders', 'report'],
+      // Shown disabled rather than hidden, with the reason as the hint: a
+      // reader looking for it should learn what it needs, not wonder whether
+      // they misremembered the name.
+      disabled: Boolean(reviewGameDisabledReason) || mainLineNodes.length <= 1,
+      run: startBatchReview,
+    },
+    { id: 'go-first', label: 'Go to first position', shortcut: 'Home', keywords: ['start', 'beginning'], run: goFirst },
+    { id: 'go-last', label: 'Go to last position', shortcut: 'End', keywords: ['end', 'latest'], run: goLast },
+    { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
+      run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
+  ], [handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, mainLineNodes.length, openLibraryDialog,
+      openNewGameDialog, openPgnDialog, rememberModalTrigger, reviewGameDisabledReason, startBatchReview])
+
   const closeNewGameDialog = useCallback(() => {
     setShowNewGameDialog(false)
     restoreModalTriggerFocus()
@@ -4120,6 +4183,12 @@ function App() {
           )}
         </Suspense>
         </LazyDialogBoundary>
+
+        <CommandPaletteDialog
+          open={showCommandPalette}
+          commands={paletteCommands}
+          onClose={closeCommandPalette}
+        />
 
         {/* ── Right panel ── */}
         <aside

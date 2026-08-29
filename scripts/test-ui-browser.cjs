@@ -511,6 +511,24 @@ async function main() {
         `${viewport.name}: the board is ${board.width}x${board.height}, which is not square`)
       assert(board.width > 100, `${viewport.name}: the board collapsed to ${board.width}px`)
 
+      // The command palette: the one chord this app claims, and the only way
+      // to reach most of these actions from the keyboard.
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k')
+      const paletteOpen = await page.locator('[data-command-palette]').count()
+      assert(paletteOpen === 1, `${viewport.name}: Ctrl/Cmd+K did not open the command palette`)
+
+      await page.locator('[data-command-input]').fill('libr')
+      const filtered = await page.locator('[data-command-id]').allTextContents()
+      assert(filtered.length === 1 && /Library/.test(filtered[0]),
+        `${viewport.name}: typing "libr" left ${filtered.length} commands: ${filtered.join(', ')}`)
+
+      await page.keyboard.press('Enter')
+      await page.locator('.library-dialog').waitFor({ timeout: 5000 })
+      assert(await page.locator('[data-command-palette]').count() === 0,
+        `${viewport.name}: the palette stayed open after running a command`)
+      await page.keyboard.press('Escape')
+      await page.locator('.library-dialog').waitFor({ state: 'detached', timeout: 5000 })
+
       // Command+F must reach the browser. It used to flip the board and call
       // preventDefault(), so Find could not be opened on this page at all.
       const chords = await page.evaluate(() => {
