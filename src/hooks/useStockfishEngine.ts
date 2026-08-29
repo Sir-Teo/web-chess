@@ -175,6 +175,30 @@ function positiveNumber(value: string | undefined): number | undefined {
   return typeof parsed === 'number' && parsed > 0 ? parsed : undefined
 }
 
+
+/**
+ * Whether a freshly parsed info line should replace the one already held for
+ * its multipv slot.
+ *
+ * Almost always yes -- later lines are deeper or better informed. The exception
+ * is a bound: `score cp 900 lowerbound` means "at least 900", and it arrives
+ * from an aspiration re-search *after* the exact line at that depth, so
+ * last-line-wins puts an inequality on the eval bar. Seen in the browser test:
+ * a position the engine had evaluated at +3.0 displayed as +9.0.
+ *
+ * A deeper bound still wins, because depth is the stronger signal and a bound
+ * at greater depth is the most the engine has said about the position.
+ */
+export function shouldReplaceLiveLine(
+  previous: EngineLine | undefined,
+  next: EngineLine,
+): boolean {
+  if (!previous) return true
+  if (!next.scoreBound) return true
+  if (previous.scoreBound) return true
+  return (next.depth ?? 0) > (previous.depth ?? 0)
+}
+
 export function parseInfoLine(line: string): EngineLine | null {
   const parts = line.trim().split(/\s+/)
   if (parts[0] !== 'info') return null
@@ -791,6 +815,10 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
 
           const parsed = parseInfoLine(line)
           if (!parsed) continue
+
+          const heldLine = liveLinesMapRef.current.get(parsed.multipv)
+          const heldThisSearch = heldLine?.searchId === currentSearchIdRef.current
+          if (heldThisSearch && !shouldReplaceLiveLine(heldLine, parsed)) continue
 
           liveLinesMapRef.current.set(parsed.multipv, {
             ...parsed,

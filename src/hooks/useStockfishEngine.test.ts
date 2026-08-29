@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { profileById } from '../engine/profiles'
-import { parseInfoLine, parseOptionLine, recommendedThreadCount, shouldStopTimedOutSearchCommand } from './useStockfishEngine'
+import { parseInfoLine, parseOptionLine, recommendedThreadCount, shouldReplaceLiveLine, shouldStopTimedOutSearchCommand } from './useStockfishEngine'
 
 describe('Stockfish engine output parsing', () => {
   it('parses finite score, telemetry, WDL, and PV values from info lines', () => {
@@ -104,4 +104,33 @@ describe('Stockfish command queue safety', () => {
     expect(shouldStopTimedOutSearchCommand('perft 5')).toBe(false)
     expect(shouldStopTimedOutSearchCommand('isready')).toBe(false)
   })
+})
+
+describe('holding a line against a later bound', () => {
+    const line = (depth: number, cp: number, scoreBound?: 'upperbound' | 'lowerbound') =>
+        ({ multipv: 1, depth, cp, scoreBound, pv: ['e2e4'] })
+
+    it('takes any line when nothing is held', () => {
+        expect(shouldReplaceLiveLine(undefined, line(20, 30))).toBe(true)
+    })
+
+    it('takes an exact line over anything held', () => {
+        expect(shouldReplaceLiveLine(line(22, 30), line(22, 45))).toBe(true)
+        expect(shouldReplaceLiveLine(line(22, 30, 'lowerbound'), line(22, 45))).toBe(true)
+    })
+
+    it('refuses a bound that would displace an exact score at the same depth', () => {
+        // The case seen on screen: a fail-high re-search arriving after the
+        // exact line put "at least +9" on the eval bar for a +3 position.
+        expect(shouldReplaceLiveLine(line(22, 300), line(22, 900, 'lowerbound'))).toBe(false)
+        expect(shouldReplaceLiveLine(line(22, 300), line(18, 900, 'lowerbound'))).toBe(false)
+    })
+
+    it('still takes a deeper bound, which is the most the engine has said', () => {
+        expect(shouldReplaceLiveLine(line(22, 300), line(24, 900, 'lowerbound'))).toBe(true)
+    })
+
+    it('replaces one bound with another', () => {
+        expect(shouldReplaceLiveLine(line(22, 300, 'upperbound'), line(22, 250, 'upperbound'))).toBe(true)
+    })
 })

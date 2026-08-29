@@ -18,7 +18,6 @@
  * Usage: npm run test:ui:browser   (needs `npm run test:ui:install` once)
  */
 const { spawn, spawnSync } = require('node:child_process')
-const fs = require('node:fs')
 const http = require('node:http')
 const path = require('node:path')
 
@@ -66,8 +65,9 @@ async function waitForHttp(url, timeoutMs) {
  * constant would make every move in a review look equally good and the
  * accuracy figure meaningless as an assertion.
  */
-function fakeEngineScript() {
+function fakeEngineScript(scenario = 'normal') {
   return `
+const SCENARIO = ${JSON.stringify(scenario)};
 (() => {
   const NativeWorker = window.Worker;
   window.__uciCommands = [];
@@ -115,6 +115,13 @@ function fakeEngineScript() {
                 ' nodes 120000 nps 900000 time 130 wdl 400 400 200 pv e2e4 e7e5');
       this.send('info depth 22 seldepth 26 multipv 1 score cp ' + cp +
                 ' nodes 400000 nps 900000 time 420 wdl 400 400 200 pv e2e4 e7e5');
+      if (SCENARIO === 'bounded-last') {
+        // A fail-high re-search at the same depth, with more nodes behind it,
+        // arriving after the exact line and before the search is stopped. This
+        // is the shape that used to overwrite the evaluation with a bound.
+        this.send('info depth 22 seldepth 30 multipv 1 score cp 900 lowerbound' +
+                  ' nodes 900000 nps 900000 time 600 pv e2e4 e7e5');
+      }
     }
     finishSearch() {
       if (!this.searching) return;
@@ -165,16 +172,59 @@ function fakeEngineScript() {
 `
 }
 
+
+/**
+ * The engine's last word before a stop is a bound, not a value.
+ *
+ * `score cp 900 lowerbound` means "at least 900", and it arrives from an
+ * aspiration re-search with more nodes behind it than the exact line it
+ * follows. The app used to compare the two on node count and keep the bound,
+ * so a position evaluated at +3 was displayed at +9. This drives that exact
+ * sequence through the real UI, which is the thing a unit test on the
+ * comparison function cannot do.
+ */
+async function checkBoundedScoreIsIgnored(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript('bounded-last'))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+
+    await page.waitForFunction(() => (window.__uciCommands || []).some(c => c.startsWith('go')),
+                               null, { timeout: 20000 })
+    await page.waitForFunction(() => {
+      const label = document.querySelector('.eval-bar-label')
+      return Boolean(label && label.textContent && label.textContent.trim())
+    }, null, { timeout: 20000 })
+
+    const shown = await page.evaluate(() => document.querySelector('.eval-bar-label').textContent.trim())
+    const value = Math.abs(Number.parseFloat(shown.replace(/[^0-9.+-]/g, '')))
+    assert(Number.isFinite(value), `the eval bar read "${shown}", which is not a number`)
+    assert(value < 8,
+      `the eval bar read "${shown}": the engine's bounded "at least 900" was taken as an evaluation`)
+    console.log(`  bounded score: eval bar reads ${shown}, not the bound`)
+  } finally {
+    await context.close()
+  }
+}
+
 async function main() {
   const { chromium } = require('playwright')
 
-  // `preview` serves whatever is in dist/. Running this on a stale or missing
-  // build tests the previous commit, which is worse than being slow.
-  if (!fs.existsSync(path.join(ROOT, 'dist', 'index.html'))) {
-    console.log('  no build found; running npm run build first')
-    const build = spawnSync('npm', ['run', 'build'], { cwd: ROOT, stdio: 'inherit' })
-    if (build.status !== 0) fail('build failed')
-  }
+  // `preview` serves whatever is in dist/, so this always builds first.
+  //
+  // It used to build only when dist/ was missing, which is a worse bug than it
+  // sounds: with a build already present the test silently exercised the
+  // previous commit. That cost a real debugging detour -- a fix was in the
+  // source, the browser kept showing the defect, and the code looked wrong when
+  // it was the artifact that was old. A test that can report on code other than
+  // the code in front of you is not a test. The build is half a second.
+  const build = spawnSync('npm', ['run', 'build'], { cwd: ROOT, stdio: 'inherit' })
+  if (build.status !== 0) fail('build failed')
 
   const preview = spawn(
     'npm',
@@ -190,6 +240,7 @@ async function main() {
     await waitForHttp(BASE, 30000)
     browser = await chromium.launch()
 
+    const scenario = 'normal'
     for (const viewport of [{ width: 1280, height: 800, name: 'desktop' }, { width: 375, height: 812, name: 'mobile' }]) {
       const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height } })
       const page = await context.newPage()
@@ -200,7 +251,7 @@ async function main() {
         if (message.type() === 'error') pageErrors.push(`console: ${message.text()}`)
       })
 
-      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(fakeEngineScript(scenario))
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
 
       // A previous run's auto-save would otherwise open a dialog over everything.
@@ -341,6 +392,8 @@ async function main() {
       await context.close()
       console.log(`  ${viewport.name}: boot, engine handshake, layout and control names OK`)
     }
+
+    await checkBoundedScoreIsIgnored(browser)
 
     console.log('Browser UI checks passed.')
   } finally {
