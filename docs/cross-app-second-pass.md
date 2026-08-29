@@ -44,7 +44,7 @@ which more passes cost more than they return.
 | 3 | Adopt **device-tier boot + live-analysis policy** (`analysisProfile.ts`) | katrain, then chess | hours | katrain sizes its whole search with `min(8, hardwareConcurrency)`. The module is also the most extraction-ready file in the three repos. §2.7 |
 | 4 | Write **`docs/parity.md`** in each repo | all three | an hour each | The one Tier-0 item nobody did, and the one that would have caught §2.1 and §2.8. |
 | 5 | Move **game state out of `App.tsx`** into something a test can drive | chess first | weeks | Not because the file is big. Because 22 katrain test files drive its game state directly and **zero** do in either sibling. §2.2 |
-| 6 | Wire the mobile tabs to their panels (`aria-controls`, `role="tabpanel"`) | katrain | hours | The tab list now behaves, but its tabs still control nothing a screen reader can reach. Needs three containers in `Layout.tsx` done together, or not at all. |
+| 6 | ~~Wire the mobile tabs to their panels~~ **done** | katrain | — | All four tabs now resolve to a real `tabpanel` that names them back. See below for the part that measuring found and reading would not have. |
 | 7 | Decide whether the **deploys should run the browser suites** | all three | an hour | A push to main runs deploy only, and no deploy runs a browser suite. Green CI on main currently means less than it looks like. |
 
 Items 1–4 are worth doing before item 5, and item 5 is worth starting before the
@@ -680,6 +680,43 @@ none of the three deploys runs a browser suite. `ci.yml` is pull-request-only in
 all three. The browser suites were therefore run locally before the merge, and
 `ci.yml` can be dispatched manually on `main` (`workflow_dispatch` is enabled in
 all three) to get the same coverage inside CI.
+
+### The obvious way to wire the tabs was wrong
+
+Item 6, finished. The interesting part is not the wiring, it is that doing it
+the way the JSX suggests produces a worse result than leaving it alone, and only
+a browser shows that.
+
+Reading the source says: four tabs, three containers, give each an id and point
+`aria-controls` at it. Measuring the live DOM in every tab state says something
+else -- `LibraryPanel` is mounted when its tab is entered and unmounted on the
+way out. A fixed `aria-controls` on that tab therefore dangles in three states
+out of four. For a screen reader a reference to an element that is not in the
+document is worse than no reference: it promises a destination and then has
+none. So `tabPanelId` withholds the attribute unless the panel is really there,
+and which panels are lazy is one exported set rather than a fact smeared across
+three components.
+
+The test had to be written to match. Counting `aria-controls` attributes passes
+the buggy version; resolving them, in every tab state rather than once, is what
+fails it. The negative control is the cleanest of the session: restore the naive
+attribute, typecheck stays green, and the suite reports "with Board active,
+Library points at missing #mobile-panel-library" for exactly the three states
+where it dangles.
+
+Two smaller things worth keeping. The shared side panel proves two tabs may name
+one container, provided the container names whichever tab is active back --
+`aria-labelledby` flips between `mobile-tab-tree` and `mobile-tab-info`. And the
+constants ended up in their own module because lint refused to let a file export
+both a component and a constant. That rule was right, and the result matches how
+both siblings keep shared helpers; it was not a design instinct.
+
+**A process note, since this document is also a record of how the work went.**
+The three passes before this one asserted the time of day without checking it,
+and were wrong by over an hour -- work was deferred as "not enough time before
+the merge" when there was in fact plenty. Item 6 was deferred once on that basis
+and then done comfortably in the window that supposedly did not exist. Check the
+clock before letting it decide the scope.
 
 ## 7. Where this stands
 
