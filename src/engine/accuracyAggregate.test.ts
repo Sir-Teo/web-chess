@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
     MAX_WEIGHT,
+    MAX_WINDOW,
     MIN_WEIGHT,
+    MIN_WINDOW,
     aggregateAccuracy,
     harmonicMean,
     standardDeviation,
@@ -63,6 +65,24 @@ describe('accuracy aggregation', () => {
         const withZero = [90, 90, 0]
         expect(harmonicMean(withZero) as number).toBeLessThan(1)
         expect(aggregateAccuracy(withZero, [1, 1, 1]) as number).toBeCloseTo(60, 0)
+    })
+
+it('clamps the window at both ends, so short and long games both behave', () => {
+        // Window is floor(positions / 10), clamped to [MIN_WINDOW, MAX_WINDOW].
+        // A five-move game would ask for 0 and a 300-move game for 30; neither
+        // is a window, and an unclamped 0 would make every weight the floor.
+        const short = Array.from({ length: 6 }, (_, i) => 50 + i)
+        const long = Array.from({ length: 301 }, (_, i) => 50 + (i % 17))
+
+        expect(volatilityWeights(short)).toHaveLength(short.length - 1)
+        expect(volatilityWeights(long)).toHaveLength(long.length - 1)
+
+        // A window shorter than MIN_WINDOW cannot have a spread, so a short
+        // game would score every move identically if it were not clamped up.
+        const shortWeights = volatilityWeights(short)
+        expect(new Set(shortWeights).size).toBeGreaterThan(0)
+        expect(shortWeights.every(weight => weight >= MIN_WEIGHT && weight <= MAX_WEIGHT)).toBe(true)
+        expect(MIN_WINDOW).toBeLessThan(MAX_WINDOW)
     })
 
     it('never leaves the percentage range', () => {
