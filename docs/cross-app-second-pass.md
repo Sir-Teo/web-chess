@@ -434,6 +434,7 @@ were additionally exercised in a browser at 375x812 and at desktop width.
 | — | katrain | Long game names on the mobile home wrap to two lines with a title, instead of truncating at one with no way to read the rest. |
 | Port `engine/uci.ts` | xiangqi | **The review searched from a bare FEN while live analysis sent the move history.** Pikafish detects repetition from the move list, and in xiangqi perpetual check and chase *lose* — so a review of a game with a repetition was scored by an engine that could not see the rule deciding it. |
 | — | xiangqi | Saved review summaries are rebuilt at the read boundary, not only on load: the library card and the loaded game were reporting 66% and 42% for the same game. |
+| — | katrain | The CORS failure message for a model download named a "Download" button the dialog does not have; every model row offers "Copy URL". The recommended b18 host sends no `Access-Control-Allow-Origin`, so that failure is the *only* path for that model. |
 | — | chess | **Command+F flipped the board and swallowed Find.** The shortcuts bound bare keys and never checked modifiers, so Control/Command+F and Alt+Arrow — Find and Back — were intercepted and `preventDefault`ed. katrain's registry matches modifiers per binding; xiangqi escapes it by binding only Escape. |
 | — | chess | The COI service worker, the only reason threaded Stockfish is reachable on GitHub Pages, is now covered by a second server that sends no COOP/COEP — the condition Pages is actually in. This is the guard that made the blocked PWA item attemptable. |
 | Real service worker (item 12) | chess | **Done.** COI and offline caching in one fetch handler, because a second worker at the same scope replaces the first. Cached responses carry the isolation headers, which is the half that breaks quietly; swapping the two lines was checked and the suite fails. |
@@ -453,6 +454,18 @@ Two findings from doing the work, both worth carrying:
   engine from the window is wrong. `useEngine`, in the same repo, sized the
   engine from the window. Writing a judgement down twice is how one copy gets
   fixed and the other does not.
+- **Ask what your own change just broke.** Making the service worker register
+  even when the page is already isolated — right for offline — also pointed it
+  at the dev server, where a caching worker caches every Vite module request
+  under a `?t=` timestamp. Nothing failed; `sw.js` was simply controlling dev
+  with a cache beside it. The old code had avoided that by accident, because it
+  only registered when the page was *not* isolated. Found by asking what the
+  previous commit could have broken, not by a red test.
+- **A hunt that finds no bug can still find something.** Checking whether
+  chess's isolation worker could be donated to katrain turned up why it cannot
+  be donated blindly: katrain fetches model weights cross-origin, and the host
+  sends no CORS headers at all. That is not a defect — the app catches it and
+  explains — but the explanation named a button that does not exist.
 - **The blocked item was blocked on not being able to see.** Item 12 (a real
   service worker) has been open across two passes because a second worker at
   the same scope replaces `coi-serviceworker`, and the symptom — threaded
