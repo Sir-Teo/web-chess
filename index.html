@@ -45,7 +45,14 @@
       }
     }
 
-    if ('serviceWorker' in navigator && window.isSecureContext) {
+    // Never in dev. Vite extracts this inline module into the bundle, so
+    // `import.meta.env` is substituted here like anywhere else. A caching
+    // worker in front of the dev server caches every module request -- each
+    // one a distinct URL because of the `?t=` HMR timestamp -- which fills the
+    // cache with garbage and can serve a stale module after an edit. The old
+    // registration avoided this by accident: it only ran when the page was
+    // *not* already isolated, and the dev server sends the headers itself.
+    if (!import.meta.env.DEV && 'serviceWorker' in navigator && window.isSecureContext) {
       // The worker is registered whether or not the page is already isolated:
       // on a host that sends the headers itself there is nothing to fix, but
       // the offline cache still wants filling. Only the reload-to-become-
