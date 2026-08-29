@@ -2,6 +2,7 @@ import { Chess, type Move } from 'chess.js'
 import type { EngineLine } from '../hooks/useStockfishEngine'
 import type { AnalyzeMode, AnalyzePurpose } from './uci'
 import { GAME_PHASES, type GamePhase, getMovePhase, getPhaseLabel } from './gamePhase'
+import { MIN_WEIGHT, aggregateAccuracy, volatilityWeights } from './accuracyAggregate'
 
 export type EvalSnapshot = {
   cp: number
@@ -33,6 +34,12 @@ export type ReviewRow = {
   deltaCp?: number
   /** Winning chances the mover gave up, in percentage points. Position-aware. */
   winPercentLoss?: number
+  /**
+   * The mover's winning chances before they played, in percent. Kept so the
+   * game's win-percent series can be rebuilt from the rows alone, which is
+   * what the volatility weighting in `accuracyAggregate` reads.
+   */
+  winPercentBefore?: number
   /** Read from the position before the move, so it survives an unevaluated row. */
   phase: GamePhase
   evalDepth?: number
@@ -393,7 +400,8 @@ export function buildReviewRows(
     const deltaCp = Math.round(-after - before)
     // Both readings are from the mover's point of view, so the drop in winning
     // chances is what that player actually gave up.
-    const winPercentLoss = Math.max(0, winPercentFromCp(before) - winPercentFromCp(-after))
+    const winPercentBefore = winPercentFromCp(before)
+    const winPercentLoss = Math.max(0, winPercentBefore - winPercentFromCp(-after))
     const evalDepth = minDepth(beforeSnapshot, afterSnapshot)
     const shallow = isShallowEvaluation(beforeSnapshot) || isShallowEvaluation(afterSnapshot)
     const confidence = shallow
@@ -413,6 +421,7 @@ export function buildReviewRows(
       phase,
       deltaCp,
       winPercentLoss,
+      winPercentBefore,
       evalDepth,
       confidence,
       quality: shallow ? 'pending' : qualityForMove(deltaCp, winPercentLoss),
@@ -538,14 +547,42 @@ function average(values: number[]): number | null {
   return values.reduce((sum, value) => sum + value, 0) / values.length
 }
 
+/**
+ * The game's winning-chance series, from the mover's point of view at each
+ * position, with the position after the last move appended. Rows that were
+ * never evaluated carry the previous reading forward: a gap is not a swing,
+ * and treating it as one would inflate the weight of the moves around it.
+ */
+function winPercentSeries(rows: ReviewRow[]): number[] {
+  if (rows.length === 0) return []
+  const series: number[] = []
+  let last = 50
+  for (const row of rows) {
+    if (isFiniteNumber(row.winPercentBefore)) last = row.winPercentBefore
+    series.push(last)
+  }
+  const final = rows[rows.length - 1]
+  const after = isFiniteNumber(final.winPercentBefore) && isFiniteNumber(final.winPercentLoss)
+    ? final.winPercentBefore - final.winPercentLoss
+    : last
+  series.push(after)
+  return series
+}
+
 export function summarizeAccuracy(rows: ReviewRow[]): AccuracySummary {
   const white: number[] = []
   const black: number[] = []
   const whiteLosses: number[] = []
   const blackLosses: number[] = []
+  const whiteWeights: number[] = []
+  const blackWeights: number[] = []
   let pendingMoves = 0
 
-  for (const row of rows) {
+  // Weights come from the whole game's swing, not from one player's moves, so
+  // they are computed over every row before the split by colour.
+  const weights = volatilityWeights(winPercentSeries(rows))
+
+  for (const [index, row] of rows.entries()) {
     if (!isFiniteNumber(row.deltaCp) || row.quality === 'pending') {
       pendingMoves += 1
       continue
@@ -553,12 +590,15 @@ export function summarizeAccuracy(rows: ReviewRow[]): AccuracySummary {
 
     const loss = reportedCentipawnLoss(row.deltaCp)
     const accuracy = accuracyForRow(row)
+    const weight = weights[index] ?? MIN_WEIGHT
     if (row.sideToMove === 'w') {
       white.push(accuracy)
       whiteLosses.push(loss)
+      whiteWeights.push(weight)
     } else {
       black.push(accuracy)
       blackLosses.push(loss)
+      blackWeights.push(weight)
     }
   }
 
@@ -566,9 +606,13 @@ export function summarizeAccuracy(rows: ReviewRow[]): AccuracySummary {
   const losses = [...whiteLosses, ...blackLosses]
 
   return {
-    overall: average(values),
-    white: average(white),
-    black: average(black),
+    // Volatility-weighted, then averaged with the harmonic mean; see
+    // engine/accuracyAggregate for why the plain mean is the wrong aggregate
+    // for this number. Centipawn loss stays a plain average: it is reported as
+    // "average centipawn loss" and that is what it should be.
+    overall: aggregateAccuracy(values, [...whiteWeights, ...blackWeights]),
+    white: aggregateAccuracy(white, whiteWeights),
+    black: aggregateAccuracy(black, blackWeights),
     averageCentipawnLoss: average(losses),
     whiteAverageCentipawnLoss: average(whiteLosses),
     blackAverageCentipawnLoss: average(blackLosses),

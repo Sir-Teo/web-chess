@@ -288,7 +288,12 @@ describe('review analysis helpers', () => {
       evaluatedMoves: 2,
       pendingMoves: 1,
     })
-    expect(summary.overall).toBeCloseTo(72.4, 1)
+    // 68.3, not the 72.4 a plain mean gives. Both sides are one move here, so
+    // there is no volatility to weight by and the harmonic mean does all the
+    // work — which is the point of including it: a game where one player
+    // scored 48% should not report in the seventies. Per-side figures are
+    // unchanged, because a single value has the same mean either way.
+    expect(summary.overall).toBeCloseTo(68.3, 1)
     expect(summary.white).toBeCloseTo(96.7, 1)
     expect(summary.black).toBeCloseTo(48.0, 1)
     expect(summary.averageCentipawnLoss).toBe(115)
