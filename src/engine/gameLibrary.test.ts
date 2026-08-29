@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { matchesSearchTerms, toSearchTerms } from './searchTerms'
 import {
   MAX_LIBRARY_GAMES,
   MAX_LIBRARY_NAME_LENGTH,
@@ -264,5 +265,23 @@ describe('bounded library search', () => {
         )
         expect(libraryGameMatchesQuery(game, 'carlsen 2024')).toBe(true)
         expect(libraryGameMatchesQuery(game, 'carlsen 1999')).toBe(false)
+    })
+})
+
+describe('case insensitivity', () => {
+    /**
+     * The haystack is lowercased here rather than by the caller. web-xiangqi's
+     * copy of this module always did; this one assumed a pre-lowercased string,
+     * which its only caller happened to satisfy. Two functions with one name and
+     * different preconditions is a trap for the next caller.
+     */
+    it('matches regardless of the case on either side', () => {
+        expect(matchesSearchTerms('Aronian vs Carlsen', toSearchTerms('CARLSEN'))).toBe(true)
+        expect(matchesSearchTerms('ARONIAN VS CARLSEN', toSearchTerms('carlsen'))).toBe(true)
+        expect(matchesSearchTerms('Aronian vs Carlsen', toSearchTerms('nakamura'))).toBe(false)
+    })
+
+    it('matches everything when no terms were given', () => {
+        expect(matchesSearchTerms('anything', [])).toBe(true)
     })
 })

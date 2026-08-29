@@ -27,6 +27,17 @@ export function toSearchTerms(query: string | null | undefined): string[] {
         .filter(Boolean)
 }
 
+/**
+ * Lowercases the haystack rather than requiring the caller to have done it.
+ *
+ * This used to assume a pre-lowercased string, which its only caller happened
+ * to satisfy — and web-xiangqi's copy of this same module lowercases here. Two
+ * functions with one name and different preconditions is how the next caller
+ * gets case-sensitive matching with nothing to tell them why. Lowercasing an
+ * already-lowercase string costs nothing at these sizes and is idempotent.
+ */
 export function matchesSearchTerms(haystack: string, terms: string[]): boolean {
-    return terms.every(term => haystack.includes(term))
+    if (terms.length === 0) return true
+    const text = haystack.toLowerCase()
+    return terms.every(term => text.includes(term))
 }
