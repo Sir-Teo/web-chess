@@ -12,6 +12,7 @@ import type { LibraryWriteResult } from '../hooks/useGameLibrary'
 import { IconClipboard, IconDownload, IconUpload, IconPlay, IconRefresh } from './icons'
 import './NewGameDialog.css'
 import './LibraryDialog.css'
+import { MAX_SEARCH_QUERY_LENGTH } from '../engine/searchTerms'
 
 type Props = {
     open: boolean
@@ -194,6 +195,9 @@ export function LibraryDialog({
                                 type="search"
                                 aria-label="Search saved games"
                                 value={query}
+                                // Matching truncates past this anyway; stopping it at the
+                                // input keeps a pasted game out of React state as well.
+                                maxLength={MAX_SEARCH_QUERY_LENGTH}
                                 placeholder="Search players, event, opening…"
                                 onChange={event => changeQuery(event.target.value)}
                             />
