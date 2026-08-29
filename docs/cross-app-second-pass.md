@@ -39,7 +39,7 @@ which more passes cost more than they return.
 
 | | Do | Repo | Cost | Why now |
 | --- | --- | --- | --- | --- |
-| 0 | **Fix the Game Review's evaluation quality** | xiangqi | days | It scores a 1977 master game at 25% with 12 blunders in 24 plies, and is not reproducible run to run. Sign error, budget and accuracy maths are all ruled out; see below. The headline feature of the app is currently not trustworthy. |
+| 0 | **Decide what "Classic Games" are** | xiangqi | hours | The ten entries are 16-24 ply opening fragments shown as complete games between named grandmasters, each with a decisive result badge, and Game Review scores them as whole games -- reporting Hu Ronghua at 25% with 12 blunders. The eval path is fine; four hypotheses about it were tested and refuted. Label them, or exclude fragments from review scoring. |
 | 1 | ~~**Gate the Pages deploy on the checks**~~ done | xiangqi | minutes | Its deploy workflow runs no audit, no lint, no tests, no typecheck. Both siblings gate theirs. §2.1 |
 | 2 | Port the **hostile-input parser sweep** (`src/__fuzz.test.ts`) | katrain, then xiangqi | hours | katrain has 13 modules that parse outside input and no pathological-input test over any of them. §2.4 |
 | 3 | Adopt **device-tier boot + live-analysis policy** (`analysisProfile.ts`) | katrain, then chess | hours | katrain sizes its whole search with `min(8, hardwareConcurrency)`. The module is also the most extraction-ready file in the three repos. §2.7 |
@@ -796,21 +796,46 @@ written up rather than fixed:
    is not wrong; **its input is**. Whatever is wrong is in the eval series, not
    in `accuracyAggregate.ts`.
 
-**The most likely remaining explanation, untested:** depth 10 is simply too
-shallow for xiangqi. This fixture has both rooks lifted onto open files by ply
-8, and a shallow search in a sharp cannon-and-rook position will swing hundreds
-of centipawns between plies. If so the defect is that the review presents
-shallow, unstable evaluations with the same confidence as settled ones, and
-turns search noise into "12 blunders" against a world champion. The fix would
-be some combination of a deeper review budget, discarding a position whose eval
-has not settled between iterations, and not classifying a swing as a blunder
-when neighbouring plies disagree by more than the swing itself.
+**The fourth explanation -- that depth 10 is too shallow -- was then tested and
+also refuted.** A scratch probe replayed the fixture through Pikafish in Node
+and searched every position at depth 10, 14 and 18, normalising POV
+side-to-move to a fixed Red frame. The ply-to-ply volatility is unchanged:
 
-**Deliberately not fixed here.** This was found roughly an hour before a
-scheduled merge, and changing engine budgets or eval handling on an untested
-fourth hypothesis is the sort of change that should not go in under time
-pressure. Nothing about it is a regression from tonight's work -- it predates
-this session. It is item 1 below.
+| depth | mean abs delta per ply | max | swings > 300cp |
+| --- | --- | --- | --- |
+| 10 | 331cp | 589cp | 16 / 24 |
+| 14 | 328cp | 646cp | 16 / 24 |
+| 18 | 325cp | 650cp | 16 / 24 |
+
+Eight extra plies of search move nothing. The probe was also checked against
+itself -- both framings measured, the normalised one is smoother (328 against
+455), which confirms the frame and rules out the probe manufacturing the
+oscillation it measures.
+
+**The actual cause is the input, and it is not a bug in the review at all.**
+Every one of the ten entries in `historicalGames.ts` is 16 to 24 plies -- eight
+to twelve moves a side. Competitive xiangqi games run 60 to 120 plies. These are
+opening fragments, and as an opening-study library that is a perfectly good
+thing to ship. Two things follow from it that are not:
+
+- Each fragment carries a **decisive `result`** and is rendered under "Classic
+  Games" as `Hu Ronghua vs Liu Dahua`, with a Red-wins badge, the event and the
+  date. Twenty-four plies cannot establish that result, and the probe agrees:
+  after the recorded moves Red is at -312cp in a game the card says Red won.
+- **Game Review scores the fragment as though it were a whole game.** Hence
+  "Accuracy 25%, 12 blunders in 24 plies" against a world champion. The review
+  is working correctly on data it should not be applied to.
+
+So item 0 is not "fix the evaluation". Nothing in the eval path is wrong. It is
+a product decision between labelling these as the opening fragments they are,
+and excluding fragments from review scoring -- or both. That is the user's call,
+not a change to make unattended an hour before a merge.
+
+Worth recording as a near miss: three sessions' worth of instinct said "the
+engine is wrong" and the first three hypotheses were all about the engine. The
+one that held was about the data, and the only reason it surfaced is that the
+depth experiment was cheap enough to run rather than assume.
+
 
 ## 7. Where this stands
 
