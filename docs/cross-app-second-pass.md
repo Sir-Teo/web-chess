@@ -13,6 +13,28 @@ figure here disagrees with the first document, this one was measured today.
 
 ---
 
+## Start here, in the morning
+
+The overnight pass is finished. 68 commits across the three repos, each on a
+branch called `overnight-cross-app-2`, nothing pushed, every repo committed
+clean with its own gates green.
+
+- **What to review first:** the commit logs. Every commit says what it changed
+  and why, and several say what was wrong with the previous attempt.
+- **What landed:** §6, the progress log.
+- **What is left:** §7, and it is one item — the store work, now scoped to the
+  engine wiring in `App.tsx` rather than to the file's size.
+- **What the comparison taught:** the bullets at the end of §7. Those are the
+  parts that generalise past this codebase.
+
+The loop that produced this was stopped once the worklist was empty. The last
+three passes found, in order: one divergence in a module ported earlier the same
+night, nothing, and nothing — the final pass raised three failures that all
+turned out to be the test instrument rather than the apps. That is the point at
+which more passes cost more than they return.
+
+---
+
 ## 0. The five things to do next
 
 | | Do | Repo | Cost | Why now |
