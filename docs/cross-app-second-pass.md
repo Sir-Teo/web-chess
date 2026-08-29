@@ -71,7 +71,7 @@ getting the same answer three times.
 
 | | Do | Repo | Cost | Why now |
 | --- | --- | --- | --- | --- |
-| 0 | **Decide what "Classic Games" are** (katrain has the pattern) | xiangqi | hours | The ten entries are 16-24 ply opening fragments shown as complete games between named grandmasters, each with a decisive result badge, and Game Review scores them as whole games -- reporting Hu Ronghua at 25% with 12 blunders. The eval path is fine; four hypotheses about it were tested and refuted. Label them, or exclude fragments from review scoring. |
+| 0 | ~~**Decide what "Classic Games" are**~~ **done** | xiangqi | — | Relabelled as "Classic Openings" with the result attributed to the full game, counts in plies, and the excerpt stated in the load button's accessible name. No data invented, none deleted. Provenance is still missing and is recorded in `historicalGames.ts` as the next step. |
 | 1 | ~~**Gate the Pages deploy on the checks**~~ done | xiangqi | minutes | Its deploy workflow runs no audit, no lint, no tests, no typecheck. Both siblings gate theirs. §2.1 |
 | 2 | ~~Port the **hostile-input parser sweep**~~ **done, all three** | — | — | katrain 24 inputs / worst case 30ms, xiangqi 25 / worst case 7ms, both against a 1000ms budget. The 4x gap is the new finding: see below. §2.4 |
 | 3 | Adopt **device-tier boot + live-analysis policy** (`analysisProfile.ts`) | katrain, then chess | hours | katrain sizes its whole search with `min(8, hardwareConcurrency)`. The module is also the most extraction-ready file in the three repos. §2.7 |
@@ -1080,6 +1080,40 @@ Red stays above Black because Red played best and a mistake while Black played
 an inaccuracy and a blunder -- the sanity check that a pasted number would not
 have survived. The arithmetic now sits in the fixture file so the next person
 does not re-derive it.
+
+### Item 0, fixed by changing what is claimed rather than what is stored
+
+The finding was that ten "Classic Games" are 16-24 ply opening excerpts shown
+as complete games between named grandmasters, each with a decisive result badge,
+and that Game Review scored them as finished games -- Hu Ronghua at 25% accuracy
+with twelve blunders in his own 1977 opening.
+
+What made this hard to see is that four separate hypotheses about the *engine*
+were plausible and all wrong: a point-of-view sign error, an unhonoured search
+budget, the accuracy aggregation, and a search too shallow for the position.
+The last was refuted by re-running the fixture at depths 10, 14 and 18 and
+getting the same volatility three times. Nothing in the eval path is wrong.
+
+So the fix touches no data and no maths. The section is "Classic Openings"; a
+note says the result is how the full game finished rather than what these moves
+reach; the badge repeats that in its title; the count reads "opening · 24
+plies" instead of "24 moves"; and the load button announces "Load the opening of
+Hu Ronghua versus Liu Dahua, 24 plies". Nothing was invented and nothing was
+deleted -- the excerpts are genuinely useful as an opening library, they were
+just labelled as something else.
+
+**What is still missing, and is written into `historicalGames.ts` rather than
+papered over:** provenance. These moves are typed into a TypeScript array with
+no source. Both siblings solve it -- katrain records `source: 'go4go.com'`
+beside bundled SGFs, chess stores a `lichessGameId` and fetches the moves -- and
+either makes the claim checkable instead of asserted. That is the direction if
+the list grows.
+
+**The general lesson.** Three of the four wrong hypotheses were about code,
+because a misbehaving number looks like a bug in the thing that computed it. It
+was a bug in what the number was being asked to mean. The engine was reporting,
+correctly, that these are twenty-four plies of opening -- the mistake was
+calling that a game.
 
 ## 7. Where this stands
 
