@@ -994,6 +994,52 @@ written. Every later pass read it, believed it, and moved on. Scoping `push` to
 A comment that asserts a property is worth exactly as much as the last time
 someone checked it. This one was load-bearing, wrong, and cost three passes.
 
+### The lesson finally bit the person writing it down
+
+Making `ci.yml` run on pushes to `main` meant it would run against `main` for the
+first time, so the sensible next step was to run every CI-only step by hand
+before the merge rather than discover the result in front of the user.
+`test:review:fixtures` failed: `Unexpected chance-loss accuracy: 39`.
+
+It was mine. Commit 9c93b66, from earlier the same night, wired volatility
+weighting into `computeReviewArtifacts`. The fixture still asserted the flat-mean
+values -- 55 overall, 70 and 41 per side -- that the app had deliberately stopped
+producing. **It had been broken for hours.**
+
+The reason it went unnoticed is the sentence this document had already written
+three times: the suite runs only in `ci.yml`, `ci.yml` was pull-request-only, and
+nobody ran it locally. A guard you do not run is indistinguishable from a guard
+you do not have. Three earlier instances were found in other people's code --
+katrain's viewport suite in no workflow, katrain's `deadAriaRefs` inside a suite
+`verify` does not call, xiangqi's orphaned review smoke. This one was mine, and
+it was live while the lesson was being typed into this file.
+
+Two things follow that are worth more than the fix.
+
+**Closing a coverage hole finds what the hole was hiding.** Running CI on `main`
+was filed as a process improvement. It immediately surfaced a real broken
+assertion that would otherwise have gone red in front of the user at merge time,
+or -- worse -- stayed quietly wrong on a branch nobody opens a pull request from.
+The value of the trigger change was not hypothetical; it paid out within the
+hour.
+
+**Update the expectation, but derive it.** The new numbers were checked against
+the method before being written down, not read off the failure and pasted:
+
+| | flat mean | volatility-weighted |
+| --- | --- | --- |
+| overall | 55 | 39 |
+| red | 70 | 45 |
+| black | 41 | 34 |
+
+The fixture's evals swing every ply (0, 22, 148, -76, 300), so every window is
+volatile and the two worst moves land in the roughest ones, where the weight
+clamps at `MAX_WEIGHT`. `(99*1.5 + 70*7.5 + 40*12 + 10*12) / 33` is about 39.
+Red stays above Black because Red played best and a mistake while Black played
+an inaccuracy and a blunder -- the sanity check that a pasted number would not
+have survived. The arithmetic now sits in the fixture file so the next person
+does not re-derive it.
+
 ## 7. Where this stands
 
 *Written 2026-08-29, at the end of the overnight pass. Every claim here was
