@@ -109,9 +109,19 @@ export function CommandPaletteDialog({ open, commands, onClose }: Props) {
                         onChange={event => { setQuery(event.target.value); setActiveIndex(0) }}
                     />
 
-                    {ranked.length === 0 ? (
-                        <p className="command-palette-empty">No command matches that.</p>
-                    ) : (
+                    {/*
+                      * Announced politely, the way web-katrain's palette does
+                      * it. Without this a screen-reader user types and hears
+                      * nothing: the list narrowing, or emptying, is invisible
+                      * unless the count is spoken.
+                      */}
+                    <p className="command-palette-count" aria-live="polite" data-command-count>
+                        {ranked.length === 0
+                            ? 'No commands match'
+                            : `${ranked.length} command${ranked.length === 1 ? '' : 's'}`}
+                    </p>
+
+                    {ranked.length > 0 && (
                         <ul className="command-palette-list" id={`${titleId}-list`} role="listbox" ref={listRef}>
                             {ranked.map((command, index) => (
                                 <li

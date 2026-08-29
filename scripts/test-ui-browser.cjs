@@ -570,6 +570,12 @@ async function main() {
       assert(filtered.length === 1 && /Library/.test(filtered[0]),
         `${viewport.name}: typing "libr" left ${filtered.length} commands: ${filtered.join(', ')}`)
 
+      // The count is the only feedback a screen-reader user gets when the list
+      // narrows or empties; katrain's palette announces it and these did not.
+      const countText = await page.locator('[data-command-count]').textContent()
+      assert(/^1 command$/.test((countText ?? '').trim()),
+        `${viewport.name}: the result count read "${countText}" for one match`)
+
       await page.keyboard.press('Enter')
       await page.locator('.library-dialog').waitFor({ timeout: 5000 })
       assert(await page.locator('[data-command-palette]').count() === 0,

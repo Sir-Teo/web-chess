@@ -74,8 +74,9 @@
     opacity: 0.8;
 }
 
-.command-palette-empty {
-    margin: 0.75rem 0 0;
-    font-size: 0.8rem;
-    opacity: 0.7;
+.command-palette-count {
+    margin: 0.5rem 0 0;
+    font-size: 0.75rem;
+    opacity: 0.65;
 }
+
