@@ -117,9 +117,12 @@ modes — lands here, and each is larger than anything ported so far. At the rat
 above, two or three more rounds like the last one put both files past 6,000
 lines, and the command palette alone has to reach every action in them.
 
-**Measured, 2026-08-29.** `reviewEndToEnd.test.ts` now plays a game, reviews it
-and asserts on the result with nothing mounted — so for the *analysis* half the
-distance is zero. A PGN parses to a move tree, the entries carry their `Move`,
+**Measured, 2026-08-29, and the claim above was too strong.** All three apps
+could already review a game with nothing mounted: web-katrain through
+`computeGameReport` in `gameReport.test.ts`, web-xiangqi through
+`computeReviewArtifacts` in three test files, and web-chess now through
+`reviewEndToEnd.test.ts`. For the *analysis* half the distance is zero
+everywhere. A PGN parses to a move tree, the entries carry their `Move`,
 and `buildReviewRows`, `summarizeAccuracy`, the side filters and the critical-
 moment ranking are all already pure. The one link that lives in the component is
 the walk down the first-child chain, which `useGameTree` does; reproducing it is
@@ -535,3 +538,53 @@ Two findings from doing the work, both worth carrying:
   would have been guessing. The weighted half stands on its own, so that is
   what shipped — and the correction is a separate commit rather than a quiet
   amend, because the first one claimed more than it had earned.
+
+---
+
+## 7. Where this stands
+
+*Written 2026-08-29, at the end of the overnight pass. Every claim here was
+checked by running the thing, and each gate below was run for its exit code
+rather than read from its output — which matters, because a `verify | grep`
+chain reports grep's status and let one commit land on a failing typecheck
+during this session.*
+
+**The ordered worklist in §3 is finished, except the store item, which has been
+rescoped rather than done.** Items 11 and 12 — the command palette and a real
+service worker — landed this pass, along with the parity docs, the storage-key
+versioning, the device-tier work and the hostile-input sweeps.
+
+All six gates pass:
+
+| | `verify` | browser suite |
+| --- | --- | --- |
+| web-katrain | 1,482 tests | viewport check, 8 sizes |
+| web-chess | 486 tests | boot, palette, review, offline, isolation, 3 viewports |
+| web-xiangqi | 408 tests | full Playwright layout suite |
+
+**What is left, and why it was not done.** The store item is now the engine
+wiring in `App.tsx` — dispatching searches, collecting `info` lines, deciding
+when a position is evaluated deeply enough, cancelling stale work. It is a
+design call with several defensible answers rather than a mechanical change, and
+a half-finished state would be worse than none. It is also smaller than it
+looked: the plan asked for the game to be drivable by a test with no DOM, and
+the analysis half already is, in all three.
+
+**The findings that generalise past this codebase**, in the order they cost the
+most to learn:
+
+- A bug that lives in one idiom copied three times has no owner. The unbounded
+  search query was one line in each of three repos and none of them had it
+  bounded.
+- A partial fix can be worse than none: repairing the SGF parser's two recursive
+  walks alone would have turned a caught error into an uncaught one.
+- `verify` being green is not the change being right. Three defects sat in
+  web-xiangqi's browser suite, which is not in `verify`, while 396 unit tests
+  passed.
+- Check that a new test fails for the reason you think. Two tests written this
+  session looked like coverage and were not — one passed against a 200 because
+  the test server ignored `Range`, and one passed with the guard it was written
+  for removed entirely.
+- Ask what your own change just broke. The service worker registering in dev,
+  and the palette ports missing katrain's live region, were both found that way
+  rather than by anything failing.
