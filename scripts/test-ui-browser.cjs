@@ -559,6 +559,31 @@ async function main() {
         `${viewport.name}: the board is ${board.width}x${board.height}, which is not square`)
       assert(board.width > 100, `${viewport.name}: the board collapsed to ${board.width}px`)
 
+      // The palette has a button as well as a chord, and the button is the
+      // only route a phone has -- there is no Cmd key on a touch keyboard, so
+      // until it existed every command here was unreachable on mobile. Check
+      // it at each viewport, and check the tap target at the two narrow ones:
+      // the label collapses to an icon there, which is where a control most
+      // easily ends up too small to hit.
+      const paletteButton = page.locator('[data-testid="command-palette-btn"]')
+      assert(await paletteButton.count() === 1,
+        `${viewport.name}: no command palette button`)
+      const paletteButtonBox = await paletteButton.boundingBox()
+      assert(paletteButtonBox && paletteButtonBox.width > 0 && paletteButtonBox.height > 0,
+        `${viewport.name}: the palette button is not visible`)
+      if (viewport.name !== 'desktop') {
+        assert(paletteButtonBox.width >= 44 && paletteButtonBox.height >= 44,
+          `${viewport.name}: the palette button is ${Math.round(paletteButtonBox.width)}x${Math.round(paletteButtonBox.height)}, under the 44px touch minimum`)
+      }
+      const paletteKeyshortcuts = await paletteButton.getAttribute('aria-keyshortcuts')
+      assert(paletteKeyshortcuts === 'Meta+K Control+K',
+        `${viewport.name}: the palette button advertises "${paletteKeyshortcuts}" as its shortcut`)
+      await paletteButton.click()
+      assert(await page.locator('[data-command-palette]').count() === 1,
+        `${viewport.name}: the palette button did not open the palette`)
+      await page.keyboard.press('Escape')
+      await page.locator('[data-command-palette]').waitFor({ state: 'detached', timeout: 5000 })
+
       // The command palette: the one chord this app claims, and the only way
       // to reach most of these actions from the keyboard.
       await page.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k')
