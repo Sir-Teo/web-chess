@@ -432,6 +432,7 @@ were additionally exercised in a browser at 375x812 and at desktop width.
 | — | xiangqi | **Stored review summaries are rebuilt from their annotations on load**, the fix `docs/architecture.md` had been asking for. Without it, changing the accuracy math would have left saved reviews reporting numbers the current code cannot produce, sorted and averaged beside ones that can. |
 | Fake-engine browser test | chess | Its first test that clicks anything: loads a game, runs a full review, asserts the summary, at 1280x800 and 375x812, against a fake Stockfish injected in place of the worker. The technique is web-xiangqi's; the seam here is `new Worker`. |
 | — | katrain | Long game names on the mobile home wrap to two lines with a title, instead of truncating at one with no way to read the rest. |
+| — | chess, xiangqi | **A bounded engine score was being read as an evaluation.** `score cp 900 lowerbound` means "at least 900"; it arrives from an aspiration re-search, after the exact line at the same depth and with more nodes behind it. chess parsed the flags and dropped them before they reached anything; xiangqi did not parse them at all. Both had the defect twice over — once in the stored evaluation and once in the live line the UI reads. |
 
 Two findings from doing the work, both worth carrying:
 
@@ -447,6 +448,19 @@ Two findings from doing the work, both worth carrying:
   engine from the window is wrong. `useEngine`, in the same repo, sized the
   engine from the window. Writing a judgement down twice is how one copy gets
   fixed and the other does not.
+- **The interaction tier earned its keep on its first outing.** The bounded-score
+  fix passed its unit tests and the eval bar still read +9.0, because the unit
+  tests cover the snapshot merge and the defect happened one level above it, in
+  the live line. Nothing below the browser could have seen that.
+- **And it nearly hid the bug it found.** The harness built only when `dist/`
+  was missing, so with a build already present it served the previous commit:
+  the fix was in the source, the browser kept showing the defect, and the code
+  looked wrong when the artifact was old. A test that can report on code other
+  than the code in front of you is not a test.
+- **Three for three on katrain being structurally unable to have the bug.**
+  KataGo reports a winrate and a score lead, both of which mean the same thing
+  at every magnitude. There is no bound to mistake for a value, just as there
+  was no mate sentinel to mistake for an evaluation.
 - **A fake that is easier than the real thing is not a fake, it is a different
   program.** The first version of the injected engine replied inside
   `postMessage`. A real worker cannot do that, and the app deadlocked: it sent
