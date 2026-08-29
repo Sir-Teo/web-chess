@@ -21,6 +21,11 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 - **Chess Engine**: `stockfish.js`
 - **UI Components**: `react-chessboard` plus local SVG icon components
 - **Engine Profiles**: local Stockfish 18 lite assets with optional full-strength CDN profiles
+- **Service worker**: `public/sw.js` does two jobs at once — it adds COOP/COEP
+  to its own responses, which is the only way a host like GitHub Pages can give
+  the page the cross-origin isolation multi-threaded Stockfish needs, and it
+  caches what it serves so the app opens offline. They live in one worker
+  because a second one registered at the same scope replaces the first.
 
 ## Quality Gates
 

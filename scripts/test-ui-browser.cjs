@@ -221,9 +221,10 @@ async function checkBoundedScoreIsIgnored(browser) {
  *
  * Multi-threaded Stockfish needs `SharedArrayBuffer`, which browsers only
  * expose to a cross-origin-isolated page. GitHub Pages cannot set COOP/COEP,
- * so this app ships `coi-serviceworker`: it registers a worker that adds the
- * headers to its own responses and reloads once, and that is the only reason
- * the threaded engine profiles are reachable on the deployed site.
+ * so this app ships `public/sw.js`: it adds the headers to its own responses
+ * and reloads once, and that is the only reason the threaded engine profiles
+ * are reachable on the deployed site. The same worker serves the app offline,
+ * which is checked below.
  *
  * Nothing covered it. `vite preview` sets the headers itself, so every other
  * check here runs isolated whatever the service worker does -- which is
@@ -281,6 +282,30 @@ async function checkCrossOriginIsolationIsRestored(browser) {
       'the page is not cross-origin isolated: multi-threaded Stockfish is unreachable on GitHub Pages')
     assert(state.sharedArrayBuffer, 'SharedArrayBuffer is missing even though the page reports isolation')
     console.log('  headerless host: service worker restored cross-origin isolation')
+
+    // Offline, on the same worker. This is the half that made the merge worth
+    // doing, and the half that is easy to get wrong: a response served from
+    // the cache has to carry the isolation headers too, or the first offline
+    // load quietly drops to one engine thread.
+    await context.setOffline(true)
+    try {
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      const offline = await page.evaluate(() => ({
+        rendered: Boolean(document.querySelector('.board-area')),
+        isolated: self.crossOriginIsolated === true,
+        sharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
+        title: document.title,
+      }))
+
+      assert(offline.rendered, 'the app did not render from the cache with the network down')
+      assert(offline.title.length > 0, 'the offline document has no title, so the shell is not the app')
+      assert(offline.isolated,
+        'the offline page is not cross-origin isolated: a cached response lost the headers')
+      assert(offline.sharedArrayBuffer, 'SharedArrayBuffer is missing on the offline load')
+      console.log('  offline: app rendered from cache, still isolated')
+    } finally {
+      await context.setOffline(false)
+    }
   } finally {
     await context.close()
     await new Promise(resolve => server.close(resolve))

@@ -13,8 +13,13 @@
     content="Web Chess — play, analyze and review your games with Stockfish right in the browser." />
   <title>Web Chess</title>
   <script type="module">
+    // Registered for two reasons now: cross-origin isolation, which is what
+    // makes multi-threaded Stockfish reachable on a host that cannot send
+    // COOP/COEP, and offline support. Both live in public/sw.js, because a
+    // second worker at this scope would replace the first and take isolation
+    // away with no error anywhere.
     const coiServiceWorker = {
-      url: new URL('%BASE_URL%coi-serviceworker.min.js', window.location.origin).toString(),
+      url: new URL('%BASE_URL%sw.js', window.location.origin).toString(),
       scope: '%BASE_URL%',
       coepCredentialless: () => !(window.chrome || window.netscape),
       shouldRegister: () => window.isSecureContext && window.crossOriginIsolated === false,
@@ -40,17 +45,27 @@
       }
     }
 
-    if ('serviceWorker' in navigator && window.crossOriginIsolated === false && coiServiceWorker.shouldRegister()) {
-      navigator.serviceWorker.addEventListener('controllerchange', reloadForCrossOriginIsolation)
+    if ('serviceWorker' in navigator && window.isSecureContext) {
+      // The worker is registered whether or not the page is already isolated:
+      // on a host that sends the headers itself there is nothing to fix, but
+      // the offline cache still wants filling. Only the reload-to-become-
+      // isolated dance is conditional, because a page that is already isolated
+      // must not reload itself in a loop.
+      const needsIsolation = coiServiceWorker.shouldRegister()
+      if (needsIsolation) {
+        navigator.serviceWorker.addEventListener('controllerchange', reloadForCrossOriginIsolation)
+      }
 
       navigator.serviceWorker.register(coiServiceWorker.url, { scope: coiServiceWorker.scope }).then(registration => {
+        if (!needsIsolation) return
         registration.addEventListener('updatefound', reloadForCrossOriginIsolation)
 
         if (registration.active && !navigator.serviceWorker.controller) {
           reloadForCrossOriginIsolation()
         }
       }).catch(() => {
-        // Cross-origin isolation is a performance upgrade; keep the app usable if registration fails.
+        // Isolation is a performance upgrade and offline is a convenience;
+        // keep the app usable if registration fails.
       })
     }
   </script>
