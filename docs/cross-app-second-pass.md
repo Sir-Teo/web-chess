@@ -434,6 +434,8 @@ were additionally exercised in a browser at 375x812 and at desktop width.
 | — | katrain | Long game names on the mobile home wrap to two lines with a title, instead of truncating at one with no way to read the rest. |
 | Port `engine/uci.ts` | xiangqi | **The review searched from a bare FEN while live analysis sent the move history.** Pikafish detects repetition from the move list, and in xiangqi perpetual check and chase *lose* — so a review of a game with a repetition was scored by an engine that could not see the rule deciding it. |
 | — | xiangqi | Saved review summaries are rebuilt at the read boundary, not only on load: the library card and the loaded game were reporting 66% and 42% for the same game. |
+| — | chess | **Command+F flipped the board and swallowed Find.** The shortcuts bound bare keys and never checked modifiers, so Control/Command+F and Alt+Arrow — Find and Back — were intercepted and `preventDefault`ed. katrain's registry matches modifiers per binding; xiangqi escapes it by binding only Escape. |
+| — | chess | The COI service worker, the only reason threaded Stockfish is reachable on GitHub Pages, is now covered by a second server that sends no COOP/COEP — the condition Pages is actually in. This is the guard that makes the blocked PWA item attemptable. |
 | — | chess, xiangqi | **A bounded engine score was being read as an evaluation.** `score cp 900 lowerbound` means "at least 900"; it arrives from an aspiration re-search, after the exact line at the same depth and with more nodes behind it. chess parsed the flags and dropped them before they reached anything; xiangqi did not parse them at all. Both had the defect twice over — once in the stored evaluation and once in the live line the UI reads. |
 
 Two findings from doing the work, both worth carrying:
@@ -450,6 +452,14 @@ Two findings from doing the work, both worth carrying:
   engine from the window is wrong. `useEngine`, in the same repo, sized the
   engine from the window. Writing a judgement down twice is how one copy gets
   fixed and the other does not.
+- **The blocked item was blocked on not being able to see.** Item 12 (a real
+  service worker) has been open across two passes because a second worker at
+  the same scope replaces `coi-serviceworker`, and the symptom — threaded
+  Stockfish quietly unavailable on Pages — is invisible locally, where the
+  preview server sends the headers itself. Serving the build from a second
+  server with no COOP/COEP reproduces the deployed condition, so the failure is
+  now loud. Unblocking a task can mean building the instrument rather than
+  doing the task.
 - **`verify` being green is not the same as the change being right.** Three
   separate defects from earlier commits on this branch were sitting in
   web-xiangqi's browser suite, which is not in `verify`: a storage rename that
