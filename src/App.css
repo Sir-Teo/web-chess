@@ -4470,6 +4470,23 @@ button.mtree-chip {
 }
 
 /* Quality dot on chip */
+/* A variation is capped in the list; this says how much is past the cut rather
+   than letting it disappear. Not a button: the moves it stands for are reached
+   by walking the variation, and a chip that navigates somewhere unnamed is
+   worse than a count. */
+.mtree-var-more {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 0.05rem 0.34rem;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-pill);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  line-height: 1.5;
+  cursor: help;
+}
+
 .mtree-chip-markers {
   display: inline-flex;
   align-items: center;

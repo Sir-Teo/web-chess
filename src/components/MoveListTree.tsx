@@ -1,6 +1,7 @@
 import React, { memo, useEffect, useId, useRef } from 'react'
 import type { GameTreeHandle, GameNode } from '../hooks/useGameTree'
 import { IconPawn, IconBranch } from './icons'
+import { buildVariationPreview } from './variationPreview'
 
 type Props = {
     tree: GameTreeHandle
@@ -78,7 +79,7 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
         if (parent.children.length <= 1) return
 
         for (const varId of parent.children.slice(1)) {
-            const varLine = buildVariationLine(varId, nodesSnapshot)
+            const { nodes: varLine, hidden } = buildVariationPreview(varId, nodesSnapshot, current.id)
             rows.push(
                 <div key={`var-${parent.id}-${varId}`} className="mtree-variation">
                     <span className="mtree-var-marker"><IconBranch /></span>
@@ -91,6 +92,15 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
                             compact
                         />
                     ))}
+                    {hidden > 0 && (
+                        <span
+                            className="mtree-var-more"
+                            title={`${hidden} more move${hidden === 1 ? '' : 's'} in this variation`}
+                            aria-label={`${hidden} more move${hidden === 1 ? '' : 's'} in this variation`}
+                        >
+                            +{hidden}
+                        </span>
+                    )}
                 </div>,
             )
         }
@@ -258,16 +268,4 @@ function MoveChip({ node, isCurrent, onClick, compact }: ChipProps) {
             )}
         </button>
     )
-}
-
-/** Walk the first-child chain from a node to build a short variation line */
-function buildVariationLine(startId: string, nodes: Map<string, GameNode>): GameNode[] {
-    const line: GameNode[] = []
-    let cur = nodes.get(startId)
-    let limit = 6 // cap variation preview length
-    while (cur && limit-- > 0) {
-        line.push(cur)
-        cur = cur.children[0] ? nodes.get(cur.children[0]) : undefined
-    }
-    return line
 }
