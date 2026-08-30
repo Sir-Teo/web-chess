@@ -128,20 +128,43 @@ export function pvToSan(fen: string, line: EngineLine, maxMoves = 8): string {
   return chunks.join(' ')
 }
 
+/**
+ * A bounded, insertion-ordered cache of `uciToSan` answers.
+ *
+ * The function is pure in `(fen, uci)`, and every call builds a whole `Chess`
+ * from the FEN to make one move. The review pipeline asks it for the best move
+ * of every ply, and it re-asks on every engine flush -- roughly ten times a
+ * second while a search runs -- for a best move that has usually not changed.
+ */
+const SAN_CACHE_LIMIT = 1024
+const sanCache = new Map<string, string | null>()
+
 export function uciToSan(fen: string, uci: string): string | null {
   if (uci.length < 4) return null
 
+  const key = `${fen}|${uci}`
+  const cached = sanCache.get(key)
+  if (cached !== undefined) return cached
+
   const replay = new Chess(fen)
+  let san: string | null
   try {
     const move = replay.move({
       from: uci.slice(0, 2),
       to: uci.slice(2, 4),
       promotion: uci[4],
     })
-    return move?.san ?? null
+    san = move?.san ?? null
   } catch {
-    return null
+    san = null
   }
+
+  sanCache.set(key, san)
+  if (sanCache.size > SAN_CACHE_LIMIT) {
+    const oldest = sanCache.keys().next().value
+    if (typeof oldest === 'string') sanCache.delete(oldest)
+  }
+  return san
 }
 
 // Lichess's win-percentage model: the chance the side the score belongs to
@@ -441,13 +464,55 @@ function tryReplayMove(replay: Chess, move: Move): boolean {
   }
 }
 
-export function buildReviewRows(
-  history: Move[],
-  evaluationsByFen: Map<string, EvalSnapshot>,
-  rootFen = new Chess().fen(),
-): ReviewRow[] {
+/**
+ * One ply of a replayed history: everything about the move and the positions
+ * around it that no evaluation can change.
+ */
+type ReplayPly = {
+  index: number
+  beforeFen: string
+  afterFen: string
+  moveNumber: number
+  sideToMove: 'w' | 'b'
+  san: string
+  uci: string
+  phase: GamePhase
+  /** The forced result after this move, if the move ended the game. */
+  terminal: EvalSnapshot | null
+}
+
+type ReplayedHistory = {
+  startFen: string
+  plies: ReplayPly[]
+}
+
+/**
+ * Replay a history once and cache the result.
+ *
+ * `buildReviewRows`, `buildWinrateSeries` and `buildWdlSeries` each walk the
+ * same history from the same root, and every one of them is recomputed whenever
+ * the evaluation map takes a new identity -- which is roughly ten times a second
+ * for the whole duration of a search, because a reading with more nodes at the
+ * same depth counts as an improvement. The replay is the expensive half and none
+ * of it depends on an evaluation, so it is done once and shared.
+ *
+ * Keyed by content rather than by array identity: `App` rebuilds `mainLineMoves`
+ * whenever a node's quality label changes, which is a new array holding the same
+ * moves, and that should still hit.
+ */
+const REPLAY_CACHE_LIMIT = 8
+const replayCache = new Map<string, ReplayedHistory>()
+
+function replayHistory(history: Move[], rootFen: string): ReplayedHistory {
+  let key = rootFen
+  for (const move of history) key += `|${toUci(move)}`
+
+  const cached = replayCache.get(key)
+  if (cached) return cached
+
   const replay = new Chess(rootFen)
-  const rows: ReviewRow[] = []
+  const startFen = replay.fen()
+  const plies: ReplayPly[] = []
 
   for (const [index, move] of history.entries()) {
     const beforeFen = replay.fen()
@@ -460,10 +525,42 @@ export function buildReviewRows(
     const gamePly = (moveNumber - 1) * 2 + (sideToMove === 'w' ? 1 : 2)
     const phase = getMovePhase(beforeFen, gamePly)
     if (!tryReplayMove(replay, move)) break
-    const afterFen = replay.fen()
+
+    plies.push({
+      index,
+      beforeFen,
+      afterFen: replay.fen(),
+      moveNumber,
+      sideToMove,
+      san: move.san,
+      uci: toUci(move),
+      phase,
+      terminal: terminalEvaluationSnapshot(replay),
+    })
+  }
+
+  const replayed: ReplayedHistory = { startFen, plies }
+  replayCache.set(key, replayed)
+  while (replayCache.size > REPLAY_CACHE_LIMIT) {
+    const oldest = replayCache.keys().next().value
+    if (typeof oldest !== 'string') break
+    replayCache.delete(oldest)
+  }
+  return replayed
+}
+
+export function buildReviewRows(
+  history: Move[],
+  evaluationsByFen: Map<string, EvalSnapshot>,
+  rootFen = new Chess().fen(),
+): ReviewRow[] {
+  const rows: ReviewRow[] = []
+
+  for (const ply of replayHistory(history, rootFen).plies) {
+    const { index, beforeFen, afterFen, moveNumber, sideToMove, phase } = ply
 
     const beforeSnapshot = evaluationsByFen.get(beforeFen)
-    const afterSnapshot = evaluationsByFen.get(afterFen) ?? terminalEvaluationSnapshot(replay)
+    const afterSnapshot = evaluationsByFen.get(afterFen) ?? ply.terminal
     const before = beforeSnapshot ? scoreToCp(beforeSnapshot.cp, beforeSnapshot.mate) : undefined
     const after = afterSnapshot ? scoreToCp(afterSnapshot.cp, afterSnapshot.mate) : undefined
     const bestMove = beforeSnapshot?.bestMove
@@ -473,8 +570,8 @@ export function buildReviewRows(
         ply: index + 1,
         moveNumber,
         sideToMove,
-        san: move.san,
-        uci: toUci(move),
+        san: ply.san,
+        uci: ply.uci,
         bestMove,
         bestMoveSan,
         phase,
@@ -502,8 +599,8 @@ export function buildReviewRows(
       ply: index + 1,
       moveNumber,
       sideToMove,
-      san: move.san,
-      uci: toUci(move),
+      san: ply.san,
+      uci: ply.uci,
       bestMove,
       bestMoveSan,
       phase,
@@ -785,10 +882,9 @@ export function buildWinrateSeries(
   evaluationsByFen: Map<string, EvalSnapshot>,
   rootFen = new Chess().fen(),
 ): WinratePoint[] {
-  const replay = new Chess(rootFen)
+  const { startFen, plies } = replayHistory(history, rootFen)
   const series: WinratePoint[] = []
 
-  const startFen = replay.fen()
   const startSnapshot = evaluationsByFen.get(startFen)
   const startCp = startSnapshot ? scoreToCp(startSnapshot.cp, startSnapshot.mate) : undefined
   if (isFiniteNumber(startCp)) {
@@ -799,20 +895,16 @@ export function buildWinrateSeries(
     })
   }
 
-  for (const [index, move] of history.entries()) {
-    const moveNumber = replay.moveNumber()
-    const sideToMove = replay.turn()
-    if (!tryReplayMove(replay, move)) break
-    const fen = replay.fen()
-    const snapshot = evaluationsByFen.get(fen)
+  for (const ply of plies) {
+    const snapshot = evaluationsByFen.get(ply.afterFen)
     const cp = snapshot ? scoreToCp(snapshot.cp, snapshot.mate) : undefined
     if (!isFiniteNumber(cp)) continue
 
-    const prefix = sideToMove === 'w' ? `${moveNumber}.` : `${moveNumber}...`
+    const prefix = ply.sideToMove === 'w' ? `${ply.moveNumber}.` : `${ply.moveNumber}...`
     series.push({
-      index: index + 1,
-      label: `${prefix} ${move.san}`,
-      whiteWinrate: winPercentFromCp(normalizeWhitePovCp(fen, cp)),
+      index: ply.index + 1,
+      label: `${prefix} ${ply.san}`,
+      whiteWinrate: winPercentFromCp(normalizeWhitePovCp(ply.afterFen, cp)),
     })
   }
 
@@ -824,10 +916,9 @@ export function buildWdlSeries(
   evaluationsByFen: Map<string, EvalSnapshot>,
   rootFen = new Chess().fen(),
 ): WdlPoint[] {
-  const replay = new Chess(rootFen)
+  const { startFen, plies } = replayHistory(history, rootFen)
   const series: WdlPoint[] = []
 
-  const startFen = replay.fen()
   const startWdl = evaluationsByFen.get(startFen)?.wdl
   if (startWdl) {
     const normalized = normalizeWhitePovWdl(startFen, startWdl)
@@ -840,21 +931,17 @@ export function buildWdlSeries(
     }
   }
 
-  for (const [index, move] of history.entries()) {
-    const moveNumber = replay.moveNumber()
-    const sideToMove = replay.turn()
-    if (!tryReplayMove(replay, move)) break
-    const fen = replay.fen()
-    const wdl = evaluationsByFen.get(fen)?.wdl
+  for (const ply of plies) {
+    const wdl = evaluationsByFen.get(ply.afterFen)?.wdl
     if (!wdl) continue
 
-    const normalized = normalizeWhitePovWdl(fen, wdl)
+    const normalized = normalizeWhitePovWdl(ply.afterFen, wdl)
     if (!normalized) continue
 
-    const prefix = sideToMove === 'w' ? `${moveNumber}.` : `${moveNumber}...`
+    const prefix = ply.sideToMove === 'w' ? `${ply.moveNumber}.` : `${ply.moveNumber}...`
     series.push({
-      index: index + 1,
-      label: `${prefix} ${move.san}`,
+      index: ply.index + 1,
+      label: `${prefix} ${ply.san}`,
       ...normalized,
     })
   }

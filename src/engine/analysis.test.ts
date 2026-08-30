@@ -482,6 +482,83 @@ describe('replaying a history that does not fit its root position', () => {
 })
 
 
+/**
+ * The three series builders share one cached replay of the history, keyed by the
+ * root position and every move in it. A key that dropped any part of that would
+ * hand one game's positions to another game's evaluations, and every symptom of
+ * it would look like an evaluation bug rather than a caching one.
+ */
+describe('the shared history replay', () => {
+    const playFrom = (rootFen: string | undefined, sans: string[]) => {
+        const chess = rootFen ? new Chess(rootFen) : new Chess()
+        for (const san of sans) chess.move(san)
+        return { moves: chess.history({ verbose: true }), fen: chess.fen() }
+    }
+
+    it('tells apart two lines that share a prefix', () => {
+        const root = new Chess().fen()
+        const italian = playFrom(undefined, ['e4', 'e5', 'Nf3'])
+        const scotch = playFrom(undefined, ['e4', 'e5', 'Nf3', 'Nc6', 'd4'])
+
+        const shortRows = buildReviewRows(italian.moves, new Map(), root)
+        const longRows = buildReviewRows(scotch.moves, new Map(), root)
+
+        expect(shortRows.map(row => row.san)).toEqual(['e4', 'e5', 'Nf3'])
+        expect(longRows.map(row => row.san)).toEqual(['e4', 'e5', 'Nf3', 'Nc6', 'd4'])
+
+        // Re-asking for the shorter line must not return the longer one's rows.
+        expect(buildReviewRows(italian.moves, new Map(), root).map(row => row.san))
+            .toEqual(['e4', 'e5', 'Nf3'])
+    })
+
+    it('tells apart the same moves played from two different roots', () => {
+        const fromStart = playFrom(undefined, ['e4'])
+        const shifted = 'rnbqkbnr/pppppppp/8/8/8/5N2/PPPPPPPP/RNBQKB1R w KQkq - 2 2'
+        const fromShifted = playFrom(shifted, ['e4'])
+
+        const startRows = buildReviewRows(fromStart.moves, new Map([[new Chess().fen(), { cp: 30 }]]), new Chess().fen())
+        const shiftedRows = buildReviewRows(fromShifted.moves, new Map([[shifted, { cp: 30 }]]), shifted)
+
+        expect(startRows).toHaveLength(1)
+        expect(shiftedRows).toHaveLength(1)
+        expect(startRows[0]!.moveNumber).toBe(1)
+        expect(shiftedRows[0]!.moveNumber).toBe(2)
+    })
+
+    it('still reflects a new evaluation for an unchanged history', () => {
+        const root = new Chess().fen()
+        const { moves, fen: afterFen } = playFrom(undefined, ['e4'])
+
+        const pending = buildReviewRows(moves, new Map(), root)
+        expect(pending[0]!.quality).toBe('pending')
+
+        const scored = buildReviewRows(
+            moves,
+            new Map<string, EvalSnapshot>([
+                [root, { cp: 30, depth: 20 }],
+                // POV side-to-move: after 1. e4 a positive score is Black's.
+                [afterFen, { cp: 400, depth: 20 }],
+            ]),
+            root,
+        )
+        expect(scored[0]!.quality).toBe('blunder')
+    })
+
+    it('keeps the winrate and WDL series in step with the rows', () => {
+        const root = new Chess().fen()
+        const { moves, fen: afterFen } = playFrom(undefined, ['e4'])
+        const evaluations = new Map<string, EvalSnapshot>([
+            [root, { cp: 30, depth: 20, wdl: { w: 400, d: 500, l: 100 } }],
+            [afterFen, { cp: -30, depth: 20, wdl: { w: 100, d: 500, l: 400 } }],
+        ])
+
+        expect(buildWinrateSeries(moves, evaluations, root).map(point => point.label))
+            .toEqual(['Start', '1. e4'])
+        expect(buildWdlSeries(moves, evaluations, root).map(point => point.label))
+            .toEqual(['Start', '1. e4'])
+    })
+})
+
 describe('white-perspective WDL', () => {
   const wdl = { w: 700, d: 200, l: 100 }
   const whiteToMove = '8/8/8/8/8/8/8/K6k w - - 0 1'
