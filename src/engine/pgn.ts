@@ -13,7 +13,14 @@ const PGN_HEADER_LINE_PATTERN = /^\s*\[[A-Za-z0-9_]+\s+"(?:[^"\\]|\\.)*"\]\s*$/g
 const PGN_SEMICOLON_COMMENT_PATTERN = /;[^\r\n]*/g
 const PGN_MOVETEXT_RESULT_PATTERN = /(?:^|\s)(?:1-0|0-1|1\/2-1\/2|\*)(?=\s|$)/g
 const VALID_PGN_RESULTS = new Set(['1-0', '0-1', '1/2-1/2', '*'])
-const PGN_EVAL_COMMENT_PATTERN = /\[%eval\s+[^\]]+\]/gi
+/**
+ * Any `[%name ...]` command inside a comment. The PGN standard reserves this
+ * shape for machine annotations, so none of them is prose: `[%clk]` from a
+ * Lichess export used to be shown to the reader as though they had typed it.
+ */
+const PGN_COMMAND_PATTERN = /\[%[A-Za-z]+\s+[^\]]*\]/g
+/** This app's own: the engine's best move for the position being annotated. */
+const PGN_BEST_MOVE_PATTERN = /\[%wcbest\s+([a-h][1-8][a-h][1-8][qrbn]?)\s*\]/i
 export const PGN_EMPTY_IMPORT_ERROR = 'Paste a PGN game or choose a .pgn file before importing.'
 export const PGN_MULTIPLE_GAMES_ERROR = 'PGN import supports one game at a time. Paste a single game, or split a database file before importing.'
 export const PGN_NO_MOVES_IMPORT_ERROR = 'PGN import needs at least one legal move.'
@@ -143,15 +150,20 @@ function evaluationFromComment(fen: string, comment: string | undefined): EvalSn
     const rawScore = match?.[1]?.trim()
     if (!rawScore) return null
 
+    // Travels with the evaluation because it belongs to the same position: the
+    // move the engine preferred there. Written as a command rather than the
+    // prose "Best Nf3" beside it, so it comes back as data.
+    const bestMove = comment.match(PGN_BEST_MOVE_PATTERN)?.[1]?.toLowerCase()
+
     if (rawScore.startsWith('#')) {
         const mate = Number(rawScore.slice(1))
         if (!Number.isFinite(mate)) return null
-        return sideToMoveScoreFromWhitePov(fen, { mate })
+        return { ...sideToMoveScoreFromWhitePov(fen, { mate }), bestMove }
     }
 
     const pawnScore = Number(rawScore)
     if (!Number.isFinite(pawnScore)) return null
-    return sideToMoveScoreFromWhitePov(fen, { cp: Math.round(pawnScore * 100) })
+    return { ...sideToMoveScoreFromWhitePov(fen, { cp: Math.round(pawnScore * 100) }), bestMove }
 }
 
 function sanitizePgnCommentText(value: string | undefined): string | undefined {
@@ -209,7 +221,7 @@ function humanCommentFromPgnComment(comment: string | undefined): string | undef
     if (!comment) return undefined
 
     const kept = comment
-        .replace(PGN_EVAL_COMMENT_PATTERN, '')
+        .replace(PGN_COMMAND_PATTERN, '')
         .split(';')
         .map(part => part.trim())
         .filter(part => part && !isGeneratedCommentPart(part))
@@ -266,6 +278,60 @@ function movePrefixFromFen(fen: string): string {
     return position.turn() === 'w' ? `${moveNumber}.` : `${moveNumber}...`
 }
 
+/**
+ * The `[%eval ...]` token for a position, from White's point of view, or null
+ * when there is nothing to say. Engine scores are POV side-to-move, so the
+ * flip is read from the FEN being annotated.
+ */
+function evalAnnotation(fen: string, evaluation: EvalSnapshot | undefined): string | null {
+    if (!evaluation) return null
+
+    const turn = fen.split(' ')[1]
+    const cpPov = isFiniteNumber(evaluation.cp)
+        ? turn === 'w' ? evaluation.cp : -evaluation.cp
+        : undefined
+
+    if (isFiniteNumber(evaluation.mate)) {
+        const matePov = turn === 'w' ? evaluation.mate : -evaluation.mate
+        return `[%eval #${matePov}]`
+    }
+    if (typeof cpPov === 'number' && Math.abs(cpPov) >= 10000) {
+        return cpPov > 0 ? '[%eval #1]' : '[%eval #-1]'
+    }
+    if (typeof cpPov === 'number') return `[%eval ${(cpPov / 100).toFixed(2)}]`
+    return null
+}
+
+/**
+ * The comment that goes before the first move.
+ *
+ * The root position's evaluation is the one a move list cannot do without and
+ * the one export used to drop: comments are written per *move* node, and the
+ * root is not one. So a saved game came back with its first move ungradable --
+ * `buildReviewRows` needs the reading before a move as much as the one after
+ * it, and there was nothing before move one.
+ */
+function rootCommentForExport(
+    root: GameNode | undefined,
+    rootFen: string,
+    evaluationsByFen: Map<string, EvalSnapshot>,
+    options: Required<PgnExportOptions>,
+): string | null {
+    const parts: string[] = []
+
+    if (options.includeEngineAnnotations) {
+        const rootEvaluation = evaluationsByFen.get(rootFen)
+        const evalStr = evalAnnotation(rootFen, rootEvaluation)
+        if (evalStr) parts.push(evalStr)
+        if (evalStr && rootEvaluation?.bestMove) parts.push(`[%wcbest ${rootEvaluation.bestMove}]`)
+    }
+
+    const preserved = options.includeComments ? sanitizePgnCommentText(root?.comment) : undefined
+    if (preserved) parts.push(preserved)
+
+    return parts.length ? `{ ${parts.join('; ')} }` : null
+}
+
 function commentForNode(
     node: GameNode,
     parentFen: string,
@@ -276,24 +342,10 @@ function commentForNode(
     const evaluation = evaluationsByFen.get(node.fen)
     const preservedComment = sanitizePgnCommentText(node.comment)
 
-    if (options.includeEngineAnnotations && evaluation) {
-        const turn = node.fen.split(' ')[1]
-        const cpPov = isFiniteNumber(evaluation.cp)
-            ? turn === 'w' ? evaluation.cp : -evaluation.cp
-            : undefined
-
-        let evalStr: string | null = null
-        if (isFiniteNumber(evaluation.mate)) {
-            const matePov = turn === 'w' ? evaluation.mate : -evaluation.mate
-            evalStr = `#${matePov}`
-        } else if (typeof cpPov === 'number' && Math.abs(cpPov) >= 10000) {
-            evalStr = cpPov > 0 ? '#1' : '#-1'
-        } else if (typeof cpPov === 'number') {
-            const cpVal = cpPov / 100
-            evalStr = cpVal.toFixed(2)
-        }
-
-        if (evalStr) commentParts.push(`[%eval ${evalStr}]`)
+    if (options.includeEngineAnnotations) {
+        const evalStr = evalAnnotation(node.fen, evaluation)
+        if (evalStr) commentParts.push(evalStr)
+        if (evalStr && evaluation?.bestMove) commentParts.push(`[%wcbest ${evaluation.bestMove}]`)
     }
 
     if (options.includeComments && preservedComment) {
@@ -450,6 +502,12 @@ export function parsePgnMoveTree(pgnText: string): {
     const rootFen = rootFenFromPgnHeaders(parsed.headers)
     const rootPosition = new Chess(rootFen)
     const evaluations = new Map<string, EvalSnapshot>()
+
+    // The position before the first move, which travels in the comment ahead of
+    // it. Without this the opening move has nothing to be graded against.
+    const rootEvaluation = evaluationFromComment(rootFen, parsed.root.comment)
+    if (rootEvaluation) evaluations.set(rootFen, rootEvaluation)
+
     const moves = buildImportEntries(
         parsed.root.variations,
         rootPosition,
@@ -548,6 +606,9 @@ export function exportAnnotatedPgn(
 
         return lineTokens
     }
+
+    const rootComment = rootCommentForExport(mainLine[0], rootFen, evaluationsByFen, options)
+    if (rootComment) tokens.push(rootComment)
 
     const firstMove = mainLine[1]
     if (firstMove?.id) {

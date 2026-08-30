@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { GameNode } from '../hooks/useGameTree'
 import { Chess } from 'chess.js'
+import { type EvalSnapshot, buildReviewRows as buildReviewRowsForTest } from './analysis'
 import {
   PGN_EMPTY_IMPORT_ERROR,
   PGN_MULTIPLE_GAMES_ERROR,
@@ -732,5 +733,127 @@ describe('exporting and importing the same game repeatedly', () => {
   it('drops a note that is only this app\'s own wording, because it is regenerated', () => {
     const imported = parsePgnMoveTree('1. e4 { [%eval 0.30]; Best d4; Blunder } *')
     expect(imported.moves[0]?.comment).toBeUndefined()
+  })
+})
+
+/**
+ * The position before the first move. Comments are written per move node and
+ * the root is not one, so a saved game used to come back with nothing to grade
+ * its opening move against -- `buildReviewRows` needs the reading before a move
+ * as much as the one after it.
+ */
+describe('the evaluation of the position before the first move', () => {
+  const rootFen = new Chess().fen()
+
+  function afterE4(): string {
+    const chess = new Chess()
+    chess.move('e4')
+    return chess.fen()
+  }
+
+  function exportOneMove(evaluations: Map<string, EvalSnapshot>): string {
+    const chess = new Chess()
+    const move = chess.move('e4')
+    const root = makeNode('r', rootFen, null, null, ['n1'])
+    const first = makeNode('n1', chess.fen(), move, 'r', [], undefined, { san: 'e4', uci: 'e2e4' })
+    return exportAnnotatedPgn([root, first], evaluations, {}, new Map([[root.id, root], [first.id, first]]))
+  }
+
+  it('is written ahead of the first move', () => {
+    const pgn = exportOneMove(new Map<string, EvalSnapshot>([[rootFen, { cp: 30, depth: 20 }]]))
+    const movetext = pgn.split('\n').filter(row => !row.startsWith('[')).join(' ').trim()
+
+    expect(movetext.startsWith('{ [%eval 0.30] } 1. e4'), movetext).toBe(true)
+  })
+
+  it('comes back on import, keyed to the root position', () => {
+    const pgn = exportOneMove(new Map<string, EvalSnapshot>([[rootFen, { cp: 30, depth: 20 }]]))
+    const imported = parsePgnMoveTree(pgn)
+
+    expect(imported.evaluations.get(rootFen)?.cp).toBe(30)
+  })
+
+  /** Engine scores are POV side-to-move, so a Black-to-move root has to flip. */
+  it('keeps White\'s point of view through the round trip', () => {
+    const blackToMove = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1'
+    const chess = new Chess(blackToMove)
+    const move = chess.move('e5')
+    const root = makeNode('r', blackToMove, null, null, ['n1'])
+    const first = makeNode('n1', chess.fen(), move, 'r', [], undefined, { san: 'e5', uci: 'e7e5' })
+
+    // cp is POV side-to-move: +50 for Black reads as -0.50 for White.
+    const pgn = exportAnnotatedPgn(
+      [root, first],
+      new Map([[blackToMove, { cp: 50 }]]),
+      {},
+      new Map([[root.id, root], [first.id, first]]),
+    )
+
+    expect(pgn).toContain('[%eval -0.50]')
+    expect(parsePgnMoveTree(pgn).evaluations.get(blackToMove)?.cp).toBe(50)
+  })
+
+  it('writes nothing when the root was never evaluated', () => {
+    const pgn = exportOneMove(new Map<string, EvalSnapshot>([[afterE4(), { cp: -20 }]]))
+    const movetext = pgn.split('\n').filter(row => !row.startsWith('[')).join(' ').trim()
+
+    expect(movetext.startsWith('1. e4'), movetext).toBe(true)
+  })
+
+  it('lets the first move be graded from a saved game alone', () => {
+    const pgn = exportOneMove(new Map<string, EvalSnapshot>([
+      [rootFen, { cp: 30 }],
+      [afterE4(), { cp: 400 }],
+    ]))
+    const imported = parsePgnMoveTree(pgn)
+    const chess = new Chess()
+    const move = chess.move('e4')
+
+    const rows = buildReviewRowsForTest([move], imported.evaluations, imported.rootFen)
+    expect(rows[0]?.quality).toBe('blunder')
+  })
+})
+
+/**
+ * The engine's preferred move for a position. It was already written beside the
+ * evaluation as the prose "Best Nf3", which is for a human reading the file --
+ * and prose cannot be read back, so the review lost its best-move hints on
+ * every save and reload. The command form travels as data.
+ */
+describe('the best move for a position', () => {
+  const rootFen = new Chess().fen()
+
+  function exportOneMove(evaluations: Map<string, EvalSnapshot>): string {
+    const chess = new Chess()
+    const move = chess.move('e4')
+    const root = makeNode('r', rootFen, null, null, ['n1'])
+    const first = makeNode('n1', chess.fen(), move, 'r', [], undefined, { san: 'e4', uci: 'e2e4' })
+    return exportAnnotatedPgn([root, first], evaluations, {}, new Map([[root.id, root], [first.id, first]]))
+  }
+
+  it('round-trips beside the evaluation it belongs to', () => {
+    const pgn = exportOneMove(new Map<string, EvalSnapshot>([[rootFen, { cp: 30, bestMove: 'd2d4' }]]))
+
+    expect(pgn).toContain('[%wcbest d2d4]')
+    expect(parsePgnMoveTree(pgn).evaluations.get(rootFen)?.bestMove).toBe('d2d4')
+  })
+
+  it('is not written without an evaluation to hang it on', () => {
+    const pgn = exportOneMove(new Map<string, EvalSnapshot>([[rootFen, { cp: Number.NaN, bestMove: 'd2d4' }]]))
+    expect(pgn).not.toContain('%wcbest')
+  })
+
+  it('is not shown to the reader as though they had typed it', () => {
+    const imported = parsePgnMoveTree('1. e4 { [%eval 0.30]; [%wcbest d2d4]; my own note } *')
+    expect(imported.moves[0]?.comment).toBe('my own note')
+  })
+
+  /**
+   * The same rule covers every other tool's commands. A Lichess export carries
+   * [%clk ...] on every move, and those were being shown as comments.
+   */
+  it('drops another tool\'s commands from the comment too', () => {
+    const imported = parsePgnMoveTree('1. e4 { [%clk 0:03:00] [%emt 0:00:04] real note } *')
+    expect(imported.moves[0]?.comment).toBe('real note')
   })
 })
