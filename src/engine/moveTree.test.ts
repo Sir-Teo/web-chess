@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GameNode } from '../hooks/useGameTree'
-import { isOnMainLine, promoteToMainLine } from './moveTree'
+import { isOnMainLine, promoteToMainLine, removeSubtree, variationRootId } from './moveTree'
 
 type Spec = Record<string, string[]>
 
@@ -120,5 +120,66 @@ describe('promoting a variation to the main line', () => {
 
     expect(() => promoteToMainLine(nodes, 'a2')).not.toThrow()
     expect(() => isOnMainLine(nodes, 'a2')).not.toThrow()
+  })
+})
+
+describe('finding the branch a move belongs to', () => {
+  it('names the node where the line left the main line', () => {
+    const nodes = treeFrom({ root: ['a1', 'b1'], b1: ['b2'], b2: ['b3'] })
+    expect(variationRootId(nodes, 'b3')).toBe('b1')
+    expect(variationRootId(nodes, 'b1')).toBe('b1')
+  })
+
+  it('names the nearest fork for a variation inside a variation', () => {
+    const nodes = treeFrom({ root: ['a1', 'b1'], b1: ['b2', 'c2'], c2: ['c3'] })
+    expect(variationRootId(nodes, 'c3')).toBe('c2')
+  })
+
+  it('has nothing to name for a move on the main line', () => {
+    const nodes = treeFrom({ root: ['a1'], a1: ['a2'] })
+    expect(variationRootId(nodes, 'a2')).toBeNull()
+    expect(variationRootId(nodes, 'root')).toBeNull()
+  })
+})
+
+describe('removing a branch', () => {
+  it('takes the node and everything under it', () => {
+    const nodes = treeFrom({ root: ['a1', 'b1'], b1: ['b2'], b2: ['b3', 'b4'] })
+    const removal = removeSubtree(nodes, 'b1')
+
+    expect(removal!.removedCount).toBe(4)
+    expect([...removal!.nodes.keys()].sort()).toEqual(['a1', 'root'])
+    expect(removal!.nodes.get('root')!.children).toEqual(['a1'])
+    expect(removal!.fallbackId).toBe('root')
+  })
+
+  it('leaves the siblings it did not remove', () => {
+    const nodes = treeFrom({ root: ['a1', 'b1', 'c1'] })
+    const removal = removeSubtree(nodes, 'b1')
+    expect(removal!.nodes.get('root')!.children).toEqual(['a1', 'c1'])
+  })
+
+  it('does not mutate the map handed in', () => {
+    const nodes = treeFrom({ root: ['a1', 'b1'] })
+    removeSubtree(nodes, 'b1')
+    expect(nodes.get('root')!.children).toEqual(['a1', 'b1'])
+    expect(nodes.has('b1')).toBe(true)
+  })
+
+  /** There is no such thing as a tree with no root, so this cannot be asked for. */
+  it('refuses the root', () => {
+    const nodes = treeFrom({ root: ['a1'] })
+    expect(removeSubtree(nodes, 'root')).toBeNull()
+  })
+
+  it('refuses a node that is not in the tree', () => {
+    const nodes = treeFrom({ root: ['a1'] })
+    expect(removeSubtree(nodes, 'nope')).toBeNull()
+  })
+
+  it('terminates on a cycle instead of walking forever', () => {
+    const nodes = treeFrom({ root: ['a1'], a1: ['a2'], a2: [] })
+    nodes.set('a2', { ...nodes.get('a2')!, children: ['a1'] })
+    expect(removeSubtree(nodes, 'a1')!.removedCount).toBe(2)
   })
 })

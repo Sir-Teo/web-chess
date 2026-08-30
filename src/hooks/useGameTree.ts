@@ -1,7 +1,11 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { Chess, type Move } from 'chess.js'
 import type { ReviewLabel } from '../engine/analysis'
-import { promoteToMainLine as promoteNodesToMainLine } from '../engine/moveTree'
+import {
+    promoteToMainLine as promoteNodesToMainLine,
+    removeSubtree,
+    variationRootId,
+} from '../engine/moveTree'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -343,6 +347,37 @@ export function useGameTree(startFen?: string) {
         return true
     }, [publishTree])
 
+    /**
+     * Discard the whole variation the given node belongs to, and return a Chess
+     * at the move it hung off -- the same shape `navigateTo` returns, because
+     * the caller has to move the board off a node that no longer exists.
+     *
+     * "The variation" is the branch, not the node: deleting from the cursor
+     * would leave the first half of a discarded line behind, still drawn and
+     * still exported. A node on the main line has no branch to discard, and
+     * returns null rather than eating the game.
+     */
+    const deleteVariation = useCallback((id: string): Chess | null => {
+        const tree = treeRef.current
+        const branchId = variationRootId(tree.nodes, id)
+        if (!branchId) return null
+
+        const removal = removeSubtree(tree.nodes, branchId)
+        if (!removal) return null
+
+        const fallback = removal.nodes.get(removal.fallbackId)
+        if (!fallback) return null
+
+        const currentSurvives = removal.nodes.has(tree.currentId)
+        publishTree({
+            ...tree,
+            nodes: removal.nodes,
+            currentId: currentSurvives ? tree.currentId : removal.fallbackId,
+        })
+
+        return new Chess(currentSurvives ? tree.nodes.get(tree.currentId)!.fen : fallback.fen)
+    }, [publishTree])
+
     /** Reset tree to a fresh starting position */
     const reset = useCallback((fen?: string) => {
         publishTree(makeTree(fen))
@@ -372,11 +407,13 @@ export function useGameTree(startFen?: string) {
         setNodeComment,
         setNodeQualities,
         promoteToMainLine,
+        deleteVariation,
         reset,
     }), [
         addMove,
         current,
         currentPath,
+        deleteVariation,
         getNode,
         goBack,
         goForward,

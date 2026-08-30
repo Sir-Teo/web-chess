@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useId, useRef } from 'react'
+import React, { memo, useEffect, useId, useRef, useState } from 'react'
 import type { GameTreeHandle, GameNode } from '../hooks/useGameTree'
 import { IconPawn, IconBranch } from './icons'
 import { buildVariationPreview } from './variationPreview'
@@ -47,7 +47,11 @@ function scrollWithinMoveList(container: HTMLElement, element: HTMLElement) {
  * Variation nodes are shown as indented continuation rows.
  */
 export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allowCommentEditing = true }: Props) {
-    const { current, mainLine, nodesSnapshot, navigateTo, promoteToMainLine } = tree
+    const { current, mainLine, nodesSnapshot, navigateTo, promoteToMainLine, deleteVariation } = tree
+    // Two-step, because there is no undo anywhere in this app and a discarded
+    // line is a discarded analysis. Reset whenever the reader moves, so the
+    // armed state never outlives the move it was armed for.
+    const [deleteArmed, setDeleteArmed] = useState(false)
     const scrollRef = useRef<HTMLDivElement>(null)
     const commentId = useId()
 
@@ -60,6 +64,10 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
     // Keyboard navigation on the container is already handled globally in App.tsx
 
     // Auto-scroll current node into view
+    useEffect(() => {
+        setDeleteArmed(false)
+    }, [current.id])
+
     useEffect(() => {
         const container = scrollRef.current
         const el = container?.querySelector(`[data-node-id="${current.id}"]`) as HTMLElement | null
@@ -194,6 +202,28 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
                         aria-label={`Promote the line through ${current.san} to the main line`}
                     >
                         <IconBranch /> Promote to main line
+                    </button>
+                    <button
+                        type="button"
+                        className={`mtree-delete-btn ${deleteArmed ? 'armed' : ''}`}
+                        onClick={() => {
+                            if (!deleteArmed) {
+                                setDeleteArmed(true)
+                                return
+                            }
+                            setDeleteArmed(false)
+                            const chess = deleteVariation(current.id)
+                            if (chess) onNavigate(chess)
+                        }}
+                        onBlur={() => setDeleteArmed(false)}
+                        title={deleteArmed
+                            ? 'Discard this whole line. There is no undo.'
+                            : 'Discard this line and everything after it'}
+                        aria-label={deleteArmed
+                            ? `Confirm discarding the line through ${current.san}. There is no undo.`
+                            : `Discard the line through ${current.san}`}
+                    >
+                        {deleteArmed ? 'Discard? Click again' : 'Discard line'}
                     </button>
                 </div>
             )}

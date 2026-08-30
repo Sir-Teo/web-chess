@@ -4485,6 +4485,7 @@ button.mtree-chip {
    as an offer rather than a permanent control. */
 .mtree-branch-actions {
   display: flex;
+  gap: 0.35rem;
   padding: 0.4rem 0 0;
 }
 
@@ -4508,6 +4509,34 @@ button.mtree-chip {
 .mtree-promote-btn:hover {
   border-color: rgba(63, 185, 80, 0.6);
   background: rgba(63, 185, 80, 0.14);
+}
+
+/* Quieter than promote until it is armed: promoting is the move a reader wants,
+   discarding is the one they should have to mean. */
+.mtree-delete-btn {
+  flex: 0 0 auto;
+  min-height: 2rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mtree-delete-btn:hover {
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+
+.mtree-delete-btn.armed,
+.mtree-delete-btn.armed:hover {
+  border-color: rgba(248, 81, 73, 0.55);
+  background: rgba(248, 81, 73, 0.12);
+  color: #f85149;
 }
 
 .mtree-var-more {
