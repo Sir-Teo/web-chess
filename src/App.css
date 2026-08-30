@@ -4481,6 +4481,35 @@ button.mtree-chip {
    than letting it disappear. Not a button: the moves it stands for are reached
    by walking the variation, and a chip that navigates somewhere unnamed is
    worse than a count. */
+/* Only present while the current move is off the main line, so it should read
+   as an offer rather than a permanent control. */
+.mtree-branch-actions {
+  display: flex;
+  padding: 0.4rem 0 0;
+}
+
+.mtree-promote-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  justify-content: center;
+  min-height: 2rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid rgba(63, 185, 80, 0.34);
+  border-radius: var(--radius-md);
+  background: rgba(63, 185, 80, 0.08);
+  color: var(--quality-good, #34d399);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mtree-promote-btn:hover {
+  border-color: rgba(63, 185, 80, 0.6);
+  background: rgba(63, 185, 80, 0.14);
+}
+
 .mtree-var-more {
   flex: 0 0 auto;
   align-self: center;

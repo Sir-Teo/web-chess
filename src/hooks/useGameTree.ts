@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { Chess, type Move } from 'chess.js'
 import type { ReviewLabel } from '../engine/analysis'
+import { promoteToMainLine as promoteNodesToMainLine } from '../engine/moveTree'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -323,6 +324,25 @@ export function useGameTree(startFen?: string) {
         if (changed) publishTree({ ...tree, nodes: nextNodes })
     }, [publishTree])
 
+    /**
+     * Make the line through a node the main line.
+     *
+     * The main line is the first-child chain, and it is what `mainLine()`, the
+     * review pass, the accuracy summary, the graphs and PGN export all read --
+     * so before this, a better line found in analysis stayed a footnote: it was
+     * never reviewed, never scored and never exported as the game.
+     *
+     * Returns whether anything moved, so a caller can say nothing happened
+     * rather than claim it did.
+     */
+    const promoteToMainLine = useCallback((id: string): boolean => {
+        const tree = treeRef.current
+        const nextNodes = promoteNodesToMainLine(tree.nodes, id)
+        if (!nextNodes) return false
+        publishTree({ ...tree, nodes: nextNodes })
+        return true
+    }, [publishTree])
+
     /** Reset tree to a fresh starting position */
     const reset = useCallback((fen?: string) => {
         publishTree(makeTree(fen))
@@ -351,6 +371,7 @@ export function useGameTree(startFen?: string) {
         setNodeQuality,
         setNodeComment,
         setNodeQualities,
+        promoteToMainLine,
         reset,
     }), [
         addMove,
@@ -365,6 +386,7 @@ export function useGameTree(startFen?: string) {
         navigateTo,
         nodesSnapshot,
         pathToNode,
+        promoteToMainLine,
         reset,
         root,
         setNodeQuality,

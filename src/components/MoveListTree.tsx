@@ -2,6 +2,7 @@ import React, { memo, useEffect, useId, useRef } from 'react'
 import type { GameTreeHandle, GameNode } from '../hooks/useGameTree'
 import { IconPawn, IconBranch } from './icons'
 import { buildVariationPreview } from './variationPreview'
+import { isOnMainLine } from '../engine/moveTree'
 
 type Props = {
     tree: GameTreeHandle
@@ -46,12 +47,15 @@ function scrollWithinMoveList(container: HTMLElement, element: HTMLElement) {
  * Variation nodes are shown as indented continuation rows.
  */
 export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allowCommentEditing = true }: Props) {
-    const { current, mainLine, nodesSnapshot, navigateTo } = tree
+    const { current, mainLine, nodesSnapshot, navigateTo, promoteToMainLine } = tree
     const scrollRef = useRef<HTMLDivElement>(null)
     const commentId = useId()
 
     const line = mainLine()
     const currentComment = current.comment?.trim() ?? ''
+    // A variation is a footnote until it is promoted: mainLine() is what the
+    // review pass, the accuracy summary, the graphs and PGN export all read.
+    const currentIsVariation = Boolean(current.move) && !isOnMainLine(nodesSnapshot, current.id)
 
     // Keyboard navigation on the container is already handled globally in App.tsx
 
@@ -180,6 +184,19 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
             <div className="mtree-scroll" ref={scrollRef} tabIndex={-1}>
                 {rows}
             </div>
+            {currentIsVariation && (
+                <div className="mtree-branch-actions">
+                    <button
+                        type="button"
+                        className="mtree-promote-btn"
+                        onClick={() => promoteToMainLine(current.id)}
+                        title="Make this line the main line, so the review and the exported PGN follow it"
+                        aria-label={`Promote the line through ${current.san} to the main line`}
+                    >
+                        <IconBranch /> Promote to main line
+                    </button>
+                </div>
+            )}
             {current.move && (allowCommentEditing || currentComment) && (
                 <aside className="mtree-current-comment" aria-label="Current move comment">
                     {allowCommentEditing ? (
