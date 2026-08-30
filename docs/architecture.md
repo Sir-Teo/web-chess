@@ -86,10 +86,25 @@ Evaluations are keyed by FEN in a single `Map` on `App.tsx`.
 — deeper, more nodes, and a live search beats a cloud probe of equal depth.
 
 The map gets a **new identity on every accepted engine update**, which is
-several times a second during a search. Anything that reacts to evaluations
-must expect that; a debounced effect that lists it as a dependency will never
-fire while the engine runs. The auto-save learned this the hard way and now
-reads evaluations from a ref.
+several times a second during a search — `shouldReplaceEvaluationSnapshot`
+takes a reading with more nodes at the same depth as an improvement, so every
+100ms flush produces a new Map. Measured in `analysis.test.ts`: 100 identity
+changes across 100 flushes of a live search.
+
+Anything that reacts to evaluations must expect that. A debounced effect that
+lists it as a dependency will never fire while the engine runs — the auto-save
+did, and a game review could grind through a hundred positions with nothing
+written. It keeps the dependency, deliberately, so a recovered game carries the
+analysis it had; what changed is that `autoSaveDelayMs` adds a five-second
+deadline to the 700ms debounce, so the wait shrinks as the deadline approaches
+and reaches zero at it.
+
+There is a second cost to the churn, and it is the reason `analysis.ts` caches
+its replay: every consumer of the map recomputes at that rate. `buildReviewRows`,
+`buildWinrateSeries` and `buildWdlSeries` each walked the whole game from the
+root, 14.72 ms together on a 120-ply game, ten times a second. They now share
+one content-keyed replay — 0.09 ms warm, 1.11 ms cold — because none of the
+replay depends on an evaluation.
 
 ## Review and Accuracy
 
@@ -178,9 +193,19 @@ regression from a specific commit, because the pane happened to be hidden for
 some runs and not others. It is neither. If you see it, check `innerWidth`
 before bisecting anything.
 
-Worth a guard only if the app should survive being rendered in a hidden tab or
-a `display: none` iframe — hold `<Chessboard>` back until its container reports
-a non-zero width, for which `useElementWidth` already exists.
+**Guarded.** `<Chessboard>` is held back while the computed board width is
+zero. The guard is on the width the board is *given* rather than on a measured
+container: only the mobile branch of the sizing maths can reach zero, because
+it is `max(0, viewport - chrome)` and goes to zero as soon as the chrome is
+wider than the window, while the desktop branch floors at 260px.
+
+Measured at `innerWidth` 80, the narrowest this repo's preview allows: before
+the guard, 64 squares and `Square width not found` thrown repeatedly; after,
+no board, no throw, and the rest of the app intact. At 1440x900 the board
+still renders 64 squares at 667px.
+
+Written after hitting it for real while resizing the preview, which is what
+turned the note above from a curiosity into a guard.
 
 ## A mate turns the centipawn loss into nonsense
 
@@ -348,6 +373,39 @@ proportional to the input. Here the input is rejected before anything expensive
 happens. Recorded so the next reader who spots the missing limit does not have to
 re-derive this, or add a bound that buys nothing.
 
+## A derived annotation came back in as user data
+
+`commentForNode` writes what the app concluded — `[%eval 0.31]`, `Best Nf3`,
+`Blunder` — into a move's PGN comment, alongside whatever the reader wrote
+there. The importer stripped `[%eval ...]` and kept the rest as the move's
+human comment.
+
+So the app's own words came back as the reader's, and the next export appended
+freshly derived copies beside them. One export/import cycle, one more copy;
+measured over four rounds on a single move, `Best d4` appeared 1, 2, 3, then 4
+times. The auto-save writes a PGN and restoring reads it back, so a reload was
+a full cycle, and the slot found on the board during this work read:
+
+    2. Bc4 { [%eval 0.00]; Best Nf3; Best Nf3; Best Nf3; Best Nf3 }
+
+Growth is unbounded against a 2 MB auto-save ceiling, past which the snapshot
+is *removed* rather than truncated — so the end state is the analysed game
+quietly no longer being offered back.
+
+**Fixed** by dropping, on import, the fragments the exporter regenerates:
+`Best <move>` and the six quality words, matched whole and anchored. A note
+that merely contains one ("Blunder, but the only practical try") is not a match
+and survives. Existing PGNs are cleaned by the same rule on the way in, so
+nothing had to be migrated.
+
+This is the same shape as the two defects recorded above and as web-xiangqi's
+stored review summary: **keep the evidence, derive the conclusion**. The
+evaluation map is the evidence and it round-trips fine — `[%eval]` is read back
+into it. The conclusions drawn from it should not have been persisted in a
+field that also carries user text, because nothing downstream could then tell
+which was which. `[%eval]` gets this right by being namespaced; the two plain
+sentences beside it did not.
+
 ## Project Invariants
 
 - Engine scores are POV side-to-move; after a move the perspective flips.
@@ -370,5 +428,9 @@ re-derive this, or add a bound that buys nothing.
   the risk highest. Treat "I am changing a pure helper in `App.tsx`" as the
   moment to extract it.
 - Storage readers must never throw on bad data; return empty and move on.
+- Anything the app derives and writes into a field that also carries user text
+  must be recognisable on the way back in, or the next export appends to its
+  own output. Prefer a namespaced marker like `[%eval ...]`; a plain sentence
+  is indistinguishable from something the reader typed.
 - A capability value read from a browser API needs its documented range
   checked before a threshold is chosen against it.
