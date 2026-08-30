@@ -727,6 +727,54 @@ body.resizing * {
   letter-spacing: 0;
 }
 
+/* The opening name, under the meta strip. The mobile breakpoint has always
+   tightened this pill's padding, gap and font size -- but the rules it was
+   tightening were never written, so on a desktop the container was a bare
+   block, the ECO badge a plain inline, and the two ran together: the Slav
+   read "D16Slav Defense: Smyslov Variation". */
+.board-opening-label {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.opening-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: 100%;
+  padding: 0.24rem 0.62rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: rgba(17, 19, 25, 0.72);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.opening-pill strong {
+  flex: none;
+  padding: 0.1rem 0.44rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+}
+
+/* The name is the long half, so it is the half that truncates. */
+.opening-pill>span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .fade-in-slide {
   animation: slideDownFade 300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
