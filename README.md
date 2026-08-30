@@ -14,6 +14,12 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   toolbar and mode action, with recently used commands first. Ported in shape
   from web-katrain, sized for this app's twenty-odd commands.
 - **Interactive analysis visuals**: Clickable winrate/WDL graphs, move transcript navigation, and board arrows for the played move, best move, and candidate lines.
+- **Threats**: `T`, or the button in the Coach card, asks what the opponent is
+  threatening — a null-move search, drawn on the board in violet so it reads as
+  neither the move that was played nor a move the engine recommends.
+- **A review offered where the game ends**: when a game finishes in Play mode
+  the result card offers to review it, rather than leaving you to find the
+  Review tab yourself.
 - **Play from here**: Hand the position on the board to the engine and take the
   move yourself — to try a critical moment again, or to see whether you can
   convert the endgame the review just graded. New Game always starts from the
