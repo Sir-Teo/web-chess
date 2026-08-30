@@ -78,7 +78,7 @@ import { BOARD_SQUARES, describeBoardSquare, isBoardSquare } from './engine/boar
 import { isBoardInputLocked } from './engine/boardInput'
 import { isExactTablebaseCoachMove, selectCoachBestMove } from './engine/coach'
 import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage } from './engine/labCommands'
-import { defaultOrientationForGameMode, sideToMoveColor } from './engine/playMode'
+import { aiSearchHistory, defaultOrientationForGameMode, sideToMoveColor } from './engine/playMode'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { DIFFICULTY_LABELS, useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
 import { useGameTree, type GameNode } from './hooks/useGameTree'
@@ -2204,8 +2204,19 @@ function App() {
       setIsAiThinking(false)
     }
 
+    // Read from the tree rather than from a dependency, the way addMove below
+    // does: the tree ref is current, and aiSearchHistory checks the path
+    // actually leads to the position being searched before it is sent.
+    const treeAtRequest = gameTreeRef.current
+    const searchHistory = aiSearchHistory(
+      requestFen,
+      treeAtRequest.current.fen,
+      treeAtRequest.root.fen,
+      treeAtRequest.currentPath().slice(1).map(node => node.uci),
+    )
+
     const doMove = () => {
-      requestAiMove(requestFen, aiDifficulty).then(uciMove => {
+      requestAiMove(requestFen, aiDifficulty, searchHistory).then(uciMove => {
         if (cancelled) return
         finishAiMove()
 

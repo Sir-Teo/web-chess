@@ -7,6 +7,8 @@ import {
     isTablebaseEligible,
     type TablebaseResult,
 } from '../engine/tablebase'
+import type { AiSearchHistory } from '../engine/playMode'
+import { buildPositionCommand } from '../engine/uci'
 
 export type AiDifficulty = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 
@@ -359,7 +361,7 @@ export function useAiPlayer(enabled = true) {
     /** Request the engine to pick a move for the given position.
      *  Returns a promise resolving to a UCI move string (e.g. "e2e4") or null. */
     const requestMove = useCallback(
-        (fen: string, difficulty: AiDifficulty): Promise<string | null> => {
+        (fen: string, difficulty: AiDifficulty, history?: AiSearchHistory): Promise<string | null> => {
             if (!enabled) return Promise.resolve(null)
 
             return (async () => {
@@ -397,7 +399,10 @@ export function useAiPlayer(enabled = true) {
                         try { worker.postMessage('stop') } catch { /* worker may already be gone */ }
                         settleRequest(null)
                     }, movetime + 10_000)
-                    worker.postMessage(`position fen ${fen}`)
+                    // With the moves that led here, not just the position: the
+                    // engine builds its repetition history from them, and
+                    // without it cannot see that a position has occurred before.
+                    worker.postMessage(buildPositionCommand(fen, history?.moves, history?.rootFen))
                     // Per docs: "go movetime N" is the clean way to get a single best move
                     worker.postMessage(`go movetime ${movetime}`)
                 })
