@@ -1,11 +1,9 @@
-import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
+import stockfishPackage from 'stockfish/package.json'
 import { deriveWasmPath, engineProfiles, toAbsoluteAssetUrl, workerMainUrlWithWasmHash } from './profiles'
 
 /** The Stockfish the local profiles are built from: sync:stockfish copies its bin/ into public/engine. */
-const installedStockfishVersion = (
-  createRequire(import.meta.url)('stockfish/package.json') as { version: string }
-).version
+const installedStockfishVersion: string = stockfishPackage.version
 
 describe('engine profile worker URLs', () => {
   it('derives the matching wasm asset path from a Stockfish worker script', () => {
