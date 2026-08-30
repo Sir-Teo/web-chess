@@ -818,6 +818,46 @@ describe('recording an evaluation', () => {
         expect(map).toBe(original)
     })
 
+    /**
+     * The counterpart to the test above, and the case it does not cover. That
+     * one feeds readings that improve on nothing. A live search improves on
+     * something every time: the node count, the elapsed time and usually the
+     * depth all climb, and `shouldReplaceEvaluationSnapshot` takes more nodes
+     * at the same depth as an improvement.
+     *
+     * So the map identity churns on *every* flush while the engine runs, which
+     * is roughly ten times a second. Anything debouncing on it -- the auto-save
+     * did -- never settles. Pinned because the fix lives in the consumer, and
+     * a reader who finds only the test above would conclude there is nothing
+     * to consume around.
+     */
+    it('churns on every flush of a live search, which is the case the burst test does not cover', () => {
+        let map = new Map<string, EvalSnapshot>()
+        let previous = map
+        let changes = 0
+        let nodes = 1000
+
+        for (let depth = 1; depth <= 20; depth += 1) {
+            for (let flush = 0; flush < 5; flush += 1) {
+                nodes += 50_000
+                map = recordEvaluation(map, 'fen-a', {
+                    cp: 30,
+                    depth,
+                    nodes,
+                    nps: 900_000,
+                    time: depth * 500 + flush * 100,
+                    purpose: 'manual',
+                })
+                if (map !== previous) {
+                    changes += 1
+                    previous = map
+                }
+            }
+        }
+
+        expect(changes, 'every flush of a running search is a new map').toBe(100)
+    })
+
     it('keeps other positions untouched', () => {
         const before = new Map([['fen-a', snap(20, 18)], ['fen-b', snap(-30, 18)]])
         const after = recordEvaluation(before, 'fen-a', snap(60, 26))

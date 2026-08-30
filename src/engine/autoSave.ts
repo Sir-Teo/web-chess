@@ -21,6 +21,39 @@ export type AutoSavedGame = {
   moveCount: number
 }
 
+/**
+ * The longest the slot may go unwritten while something keeps changing.
+ *
+ * A plain debounce fires only once its input goes quiet, and the evaluation
+ * map the auto-save watches never does while the engine is searching: a
+ * reading with more nodes at the same depth counts as an improvement, so every
+ * 100ms flush is a new map. Measured in `analysis.test.ts`: 100 changes across
+ * 100 flushes. A 700ms debounce over that input never elapses, which meant a
+ * game review or an infinite search could run for minutes with nothing written.
+ */
+export const AUTO_SAVE_MAX_WAIT_MS = 5_000
+
+/**
+ * How long to wait before writing, given when the last write landed.
+ *
+ * The debounce still governs the quiet case -- a burst of moves writes once.
+ * The deadline governs the noisy one: the wait shrinks as it approaches and
+ * reaches zero at it, so a stream of changes 100ms apart still lands a write
+ * every {@link AUTO_SAVE_MAX_WAIT_MS} instead of none at all.
+ */
+export function autoSaveDelayMs(
+  now: number,
+  lastWriteAt: number | null,
+  debounceMs: number,
+  maxWaitMs: number = AUTO_SAVE_MAX_WAIT_MS,
+): number {
+  const debounce = Math.max(0, debounceMs)
+  if (lastWriteAt === null) return debounce
+  const untilDeadline = maxWaitMs - (now - lastWriteAt)
+  if (untilDeadline <= 0) return 0
+  return Math.min(debounce, untilDeadline)
+}
+
 export type AutoSaveWriteResult = 'saved' | 'too-large' | 'empty' | 'failed'
 
 type AutoSaveStorage = KeyValueStorage

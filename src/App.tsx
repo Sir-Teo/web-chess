@@ -52,6 +52,7 @@ import { LazyDialogBoundary } from './components/LazyDialogBoundary'
 import { PhaseAccuracy } from './components/PhaseAccuracy'
 import {
   type AutoSavedGame,
+  autoSaveDelayMs,
   clearAutoSavedGame,
   readAutoSavedGame,
   writeAutoSavedGame,
@@ -2788,9 +2789,20 @@ function App() {
   // Evaluations are a dependency on purpose: as the engine improves them the
   // snapshot is rewritten, so a recovered game carries the analysis it had
   // rather than whatever was known 700ms after the last move.
+  //
+  // Which is also why the delay is not a plain debounce. The evaluation map
+  // takes a new identity on every engine flush, so while a search runs this
+  // effect re-runs about ten times a second and a 700ms timer never elapses:
+  // a game review could grind through a hundred positions with nothing
+  // written. autoSaveDelayMs keeps the debounce for the quiet case and adds a
+  // deadline for the noisy one.
+  const autoSaveLastWriteAtRef = useRef<number | null>(null)
+
   useEffect(() => {
     if (autoSaveRecovery) return
+    const delay = autoSaveDelayMs(Date.now(), autoSaveLastWriteAtRef.current, AUTO_SAVE_DEBOUNCE_MS)
     const timeout = window.setTimeout(() => {
+      autoSaveLastWriteAtRef.current = Date.now()
       const plies = mainLineNodes.length - 1
       if (plies <= 0) {
         clearAutoSavedGame()
@@ -2800,7 +2812,7 @@ function App() {
         exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot),
         plies,
       )
-    }, AUTO_SAVE_DEBOUNCE_MS)
+    }, delay)
     return () => window.clearTimeout(timeout)
   }, [autoSaveRecovery, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
 

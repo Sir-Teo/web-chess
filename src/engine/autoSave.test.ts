@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   AUTO_SAVED_GAME_KEY,
   AUTO_SAVE_MAX_BYTES,
+  AUTO_SAVE_MAX_WAIT_MS,
+  autoSaveDelayMs,
   clearAutoSavedGame,
   readAutoSavedGame,
   writeAutoSavedGame,
@@ -107,5 +109,54 @@ describe('refusing to restore something unusable', () => {
     writeAutoSavedGame(PGN, 3, storage, 1)
     clearAutoSavedGame(storage)
     expect(readAutoSavedGame(storage)).toBeNull()
+  })
+})
+
+/**
+ * The scheduling half. A plain debounce is the wrong tool for an input that
+ * never goes quiet, and the evaluation map does not go quiet while the engine
+ * searches -- every flush is a new identity, ten times a second.
+ */
+describe('deciding when to write', () => {
+  const DEBOUNCE = 700
+
+  it('waits the full debounce when nothing has been written yet', () => {
+    expect(autoSaveDelayMs(10_000, null, DEBOUNCE)).toBe(DEBOUNCE)
+  })
+
+  it('waits the full debounce while the deadline is far off', () => {
+    expect(autoSaveDelayMs(10_000, 9_900, DEBOUNCE)).toBe(DEBOUNCE)
+  })
+
+  it('shortens the wait as the deadline approaches', () => {
+    // 4.6s since the last write, so 400ms of the 5s budget is left.
+    expect(autoSaveDelayMs(14_600, 10_000, DEBOUNCE)).toBe(400)
+  })
+
+  it('writes immediately once the deadline has passed', () => {
+    expect(autoSaveDelayMs(15_000, 10_000, DEBOUNCE)).toBe(0)
+    expect(autoSaveDelayMs(30_000, 10_000, DEBOUNCE)).toBe(0)
+  })
+
+  /**
+   * The failure this exists to stop: a change every 100ms, forever. A plain
+   * debounce never fires; this schedules a write at the deadline.
+   */
+  it('still lands a write under a change every 100ms', () => {
+    const lastWriteAt = 0
+    let now = 0
+    let fired: number | null = null
+
+    for (let step = 0; step < 200; step += 1) {
+      const delay = autoSaveDelayMs(now, lastWriteAt, DEBOUNCE)
+      if (delay === 0 || delay < 100) {
+        fired = now + delay
+        break
+      }
+      now += 100
+    }
+
+    expect(fired).not.toBeNull()
+    expect(fired!).toBeLessThanOrEqual(AUTO_SAVE_MAX_WAIT_MS)
   })
 })
