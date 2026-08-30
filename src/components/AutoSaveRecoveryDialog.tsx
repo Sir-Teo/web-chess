@@ -6,12 +6,19 @@ import './NewGameDialog.css'
 
 type Props = {
     savedAt: number
-    moveCount: number
+    /**
+     * Plies, which is what the auto-save slot stores and what the library
+     * reports. Chess counts in full moves, so the copy converts: a 116-ply
+     * game is on move 58, and "116 moves were in progress" reads to any
+     * player as a game twice as long as the one they left.
+     */
+    plyCount: number
     onRestore: () => void
     onDismiss: () => void
 }
 
-export function AutoSaveRecoveryDialog({ savedAt, moveCount, onRestore, onDismiss }: Props) {
+export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss }: Props) {
+    const moveCount = Math.ceil(Math.max(0, plyCount) / 2)
     const panelRef = useRef<HTMLDivElement>(null)
     useModalFocus(true, panelRef, onDismiss, { initialFocus: '[data-restore]' })
 

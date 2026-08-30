@@ -4026,7 +4026,7 @@ function App() {
           {autoSaveRecovery && (
             <AutoSaveRecoveryDialog
               savedAt={autoSaveRecovery.savedAt}
-              moveCount={autoSaveRecovery.moveCount}
+              plyCount={autoSaveRecovery.moveCount}
               onRestore={restoreAutoSavedGame}
               onDismiss={dismissAutoSaveRecovery}
             />

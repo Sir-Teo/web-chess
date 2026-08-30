@@ -9,7 +9,7 @@ function render(overrides: Partial<Parameters<typeof AutoSaveRecoveryDialog>[0]>
     return renderToStaticMarkup(
         <AutoSaveRecoveryDialog
             savedAt={NOW - 5 * 60_000}
-            moveCount={12}
+            plyCount={24}
             onRestore={noop}
             onDismiss={noop}
             {...overrides}
@@ -32,8 +32,20 @@ describe('AutoSaveRecoveryDialog', () => {
         expect(render()).toContain('12 moves were in progress 5 minutes ago')
     })
 
+    /**
+     * The slot stores plies, the way the library does. Reporting them as moves
+     * claimed a game twice as long as the one the reader left: the 116-ply
+     * sample game offered to restore "116 moves", which every player reads as
+     * move 116 rather than move 58.
+     */
+    it('reports full moves, not the plies it is given', () => {
+        expect(render({ plyCount: 116 })).toContain('58 moves were in progress')
+        expect(render({ plyCount: 115 })).toContain('58 moves were in progress')
+    })
+
     it('counts a single move in the singular', () => {
-        expect(render({ moveCount: 1 })).toContain('1 move was in progress')
+        expect(render({ plyCount: 1 })).toContain('1 move was in progress')
+        expect(render({ plyCount: 2 })).toContain('1 move was in progress')
     })
 
     it('offers restoring as the primary action', () => {
