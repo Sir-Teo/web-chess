@@ -73,6 +73,7 @@ import { normalizeSpinOptionInput } from './engine/options'
 import { detectEngineCapabilities, engineProfiles, recommendedHashMb, type EngineProfileId } from './engine/profiles'
 import { fetchSamplePgn } from './engine/samplePgn'
 import { parseFenShareHash } from './engine/shareLink'
+import { nullMoveProbe } from './engine/threats'
 import { tablebaseMoveAriaLabel, tablebaseMoveSummary, tablebaseSummary } from './engine/tablebaseLabels'
 import { BOARD_SQUARES, describeBoardSquare, isBoardSquare } from './engine/boardAccessibility'
 import { isBoardInputLocked } from './engine/boardInput'
@@ -199,6 +200,9 @@ const IMPORT_SWEEP_MOVETIME_MS = 70
 const IMPORT_SWEEP_TARGET_LIMIT = 80
 const IMPORT_SWEEP_MULTIPV = 1
 const AUTO_ANALYZE_DEBOUNCE_MS = 140
+// Long enough to be worth trusting on a threat, short enough that the main
+// analysis is only interrupted for a moment.
+const THREAT_MOVETIME_MS = 700
 const REVIEW_BOOK_PREFETCH_LIMIT = 30
 const REVIEW_BOOK_VISIBLE_LIMIT = 14
 const SEARCH_MOVES_HELP_ID = 'search-moves-help'
@@ -778,6 +782,15 @@ function App() {
   const [analysisPanelRevealTick, setAnalysisPanelRevealTick] = useState(0)
   const [pendingShallowAnalyzeFen, setPendingShallowAnalyzeFen] = useState<string | null>(null)
   const [pendingPonderFen, setPendingPonderFen] = useState<string | null>(null)
+  // The null-move position the "What is threatened?" probe is asking about, and
+  // the board position it was asked for. Kept apart so a stale answer is never
+  // shown against a position it was not computed for.
+  const [threatRequest, setThreatRequest] = useState<{ boardFen: string; probeFen: string } | null>(null)
+  const [threatResult, setThreatResult] = useState<
+    { boardFen: string; uci: string; san: string; evaluation: string } | null
+  >(null)
+  const [threatError, setThreatError] = useState<string | null>(null)
+  const threatSettledRef = useRef<string | null>(null)
   const [importSweepProgress, setImportSweepProgress] = useState<ImportSweepProgress>({ done: 0, total: 0 })
   const skipFullAnalyzeFenRef = useRef<string | null>(null)
   const importSweepQueueRef = useRef<ImportSweepTarget[]>([])
@@ -1220,6 +1233,9 @@ function App() {
   // ── Capture evaluations ──────────────────────────────
   useEffect(() => {
     if (!engineEnabled) return
+    // A threat search is a null-move position that is not in the game, so its
+    // reading does not belong in a map keyed by positions that are.
+    if (primaryLine?.purpose === 'threat') return
     const recorded = engineLineToSnapshot(primaryLine, fen, Date.now())
     if (!recorded) return
 
@@ -1446,6 +1462,86 @@ function App() {
       : currentCloudEval?.pvs[0]
         ? pvToSan(fen, { multipv: 1, depth: currentCloudEval.depth, pv: currentCloudEval.pvs[0].moves }, 6)
         : coachTablebaseLine
+  /**
+   * "What is the opponent threatening?" — a null-move search, which is how
+   * every GUI answers it: hand the engine the same position with the other side
+   * to move and its best move is the thing you have to stop.
+   *
+   * Run on demand rather than live, because there is one engine and one queue:
+   * a standing threat search would be fighting the analysis of the position the
+   * reader is actually looking at.
+   */
+  const requestThreat = useCallback(() => {
+    if (!engineEnabled) return
+
+    const probe = nullMoveProbe(fen)
+    if (!probe.ok) {
+      setThreatError(probe.reason)
+      setThreatRequest(null)
+      setThreatResult(null)
+      return
+    }
+
+    setThreatError(null)
+    setThreatResult(null)
+    threatSettledRef.current = null
+    setThreatRequest({ boardFen: fen, probeFen: probe.fen })
+    cancelStaleBackgroundAnalysis()
+    analyze({
+      fen: probe.fen,
+      purpose: 'threat',
+      mode: 'custom',
+      limits: { movetime: THREAT_MOVETIME_MS },
+      multiPv: 1,
+      hashMb,
+      showWdl: false,
+    })
+  }, [analyze, cancelStaleBackgroundAnalysis, engineEnabled, fen, hashMb])
+
+  /**
+   * Take the answer as it lands, then put the engine back on the position the
+   * reader is looking at.
+   *
+   * Keyed off `lastBestMoveFen` rather than the engine status: it is set
+   * exactly when a `bestmove` arrives for a given search, so there is no window
+   * where a not-yet-started search looks finished.
+   */
+  useEffect(() => {
+    if (!threatRequest) return
+    if (lastBestMoveFen !== threatRequest.probeFen) return
+    if (threatSettledRef.current === threatRequest.probeFen) return
+    threatSettledRef.current = threatRequest.probeFen
+
+    const line = lines.find(item => item.fen === threatRequest.probeFen && item.multipv === 1)
+    const uci = line?.pv[0] ?? lastBestMove
+
+    if (uci) {
+      setThreatResult({
+        boardFen: threatRequest.boardFen,
+        uci,
+        san: uciToSan(threatRequest.probeFen, uci) ?? uci,
+        evaluation: formatWhitePovEvaluation(threatRequest.probeFen, line?.cp, line?.mate),
+      })
+    } else {
+      setThreatError('The engine did not name a threat in this position.')
+    }
+
+    setThreatRequest(null)
+    // The threat search replaced whatever was running, so hand the engine back
+    // the board position rather than leaving the Coach card reading "...".
+    if (threatRequest.boardFen === fen) setPendingPonderFen(threatRequest.boardFen)
+  }, [fen, lastBestMove, lastBestMoveFen, lines, threatRequest])
+
+  // A threat belongs to the position it was asked about, and nothing else.
+  useEffect(() => {
+    setThreatResult(previous => (previous && previous.boardFen !== fen ? null : previous))
+    setThreatError(null)
+    setThreatRequest(null)
+  }, [fen])
+
+  const activeThreat = threatResult && threatResult.boardFen === fen ? threatResult : null
+  const isProbingThreat = threatRequest !== null
+
   const currentEngineBestUci = currentFenLines.find(line => line.multipv === 1)?.pv[0] ?? null
   const engineBookAgreement = currentEngineBestUci && openingTopBookMove
     ? currentEngineBestUci === openingTopBookMove.uci
@@ -2130,6 +2226,17 @@ function App() {
       list.push({ startSquare: currentBoardMove.from, endSquare: currentBoardMove.to, color: 'rgba(255, 170, 0, 0.8)' })
     }
 
+    // Violet, so it reads as neither the move that was played (amber) nor a move
+    // the engine recommends (the red-to-green candidate scale). It is the move
+    // the *other* side wants to make.
+    if (activeThreat) {
+      list.push({
+        startSquare: activeThreat.uci.slice(0, 2),
+        endSquare: activeThreat.uci.slice(2, 4),
+        color: 'rgba(167, 139, 250, 0.85)',
+      })
+    }
+
     if (!engineEnabled || !showTopMoveArrows) return list
 
     const currentLines = lines
@@ -2166,7 +2273,7 @@ function App() {
     }
 
     return list
-  }, [currentBoardMove, engineEnabled, fen, lines, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
+  }, [activeThreat, currentBoardMove, engineEnabled, fen, lines, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
 
   // ── AI move loop (with speed throttle) ───────────────
   useEffect(() => {
@@ -4341,6 +4448,32 @@ function App() {
                       </div>
                     </div>
                     <p>{coachLineSan || 'Start analysis to get a candidate line.'}</p>
+                    {/* The question a player asks before every move, and the one
+                        thing the panel could not answer. A null-move search:
+                        the same position with the other side to move. */}
+                    <div className="coach-threat">
+                      <button
+                        type="button"
+                        className="coach-threat-btn"
+                        onClick={requestThreat}
+                        disabled={isProbingThreat}
+                        aria-label="Show what the opponent is threatening"
+                      >
+                        <IconAlert /> {isProbingThreat ? 'Reading the threat...' : 'What is threatened?'}
+                      </button>
+                      {activeThreat && (
+                        <p className="coach-threat-answer" role="status">
+                          <strong>{activeThreat.san}</strong>
+                          <span>
+                            {' is the threat'}
+                            {analysisExperience === 'pro' ? ` · ${activeThreat.evaluation} after it` : ''}
+                          </span>
+                        </p>
+                      )}
+                      {threatError && (
+                        <p className="coach-threat-answer error-copy" role="status">{threatError}</p>
+                      )}
+                    </div>
                     {coachMoveInsight && (
                       <div className="coach-insight">
                         <div className="coach-tags" aria-label="Best move traits">

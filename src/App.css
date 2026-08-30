@@ -4483,6 +4483,53 @@ button.mtree-chip {
    worse than a count. */
 /* Only present while the current move is off the main line, so it should read
    as an offer rather than a permanent control. */
+/* The threat probe sits under the candidate line in the Coach card: one button
+   and one sentence, because that is the whole of the question. */
+.coach-threat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.coach-threat-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: 2rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid rgba(167, 139, 250, 0.34);
+  border-radius: var(--radius-md);
+  background: rgba(167, 139, 250, 0.08);
+  color: #a78bfa;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.coach-threat-btn:hover:not(:disabled) {
+  border-color: rgba(167, 139, 250, 0.6);
+  background: rgba(167, 139, 250, 0.14);
+}
+
+.coach-threat-btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.coach-threat-answer {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+}
+
+/* Matches the violet of the arrow drawn for the same move. */
+.coach-threat-answer strong {
+  color: #a78bfa;
+}
+
 .mtree-branch-actions {
   display: flex;
   gap: 0.35rem;

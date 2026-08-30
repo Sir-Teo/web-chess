@@ -7,6 +7,7 @@ export type AnalyzePurpose =
   | 'review-ponder'
   | 'batch-review'
   | 'cloud-eval'
+  | 'threat'
 
 export type UciGoLimits = {
   depth?: number
