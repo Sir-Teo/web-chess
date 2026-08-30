@@ -4274,10 +4274,12 @@ function App() {
                     <button type="button" aria-label="Stop analysis" onClick={stop}>
                       <IconStop /> Stop
                     </button>
-                    {/* The one action that turns a position being read into a
-                        position being practised. Sits here because this is
-                        where someone is standing when they think "I want to
-                        try that again". */}
+                  </div>
+                  {/* Its own row rather than a third column beside Analyze and
+                      Stop. Those two are engine commands and this is a mode
+                      change, and at the panel's default 320px a three-way split
+                      cut the label off mid-word. */}
+                  <div className="inline-actions play-from-here-row">
                     <button
                       type="button"
                       className="play-from-here-btn"

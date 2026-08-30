@@ -777,7 +777,14 @@ body.resizing * {
 
 /* Third action in the analyze row: a mode change, not an engine command, so it
    reads as neither the primary nor a plain secondary. */
+/* Sits on its own row above the experience toggle, so it needs the row's
+   bottom margin closed up rather than doubled. */
+.play-from-here-row {
+  margin-top: calc(-1 * var(--space-md) + 0.35rem);
+}
+
 .play-from-here-btn {
+  justify-content: center;
   white-space: nowrap;
 }
 
