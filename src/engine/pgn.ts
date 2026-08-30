@@ -167,13 +167,54 @@ function sanitizePgnCommentText(value: string | undefined): string | undefined {
     return sanitized || undefined
 }
 
+/**
+ * SAN, or the raw UCI that `bestMoveSanFromFen` falls back to when the move
+ * will not replay. Anchored, because the point is to match a fragment this app
+ * wrote and nothing else.
+ */
+const MOVE_TOKEN_SOURCE =
+    'O-O(?:-O)?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?|[a-h][1-8][a-h][1-8][qrbn]?'
+
+/**
+ * The comment fragments the exporter writes itself, which it will write again
+ * on the next export.
+ *
+ * They must not come back in as a human comment. `commentForNode` re-derives
+ * them from the evaluation map every time, and it also carries the preserved
+ * comment through -- so a fragment that survived an import was appended to
+ * again, and the annotation grew by one copy on every export/import cycle.
+ *
+ * That cycle is not rare: the auto-save writes a PGN and restoring reads it
+ * back, so every reload compounded it. Measured before the fix, over four
+ * rounds, one move's comment held "Best d4" 1, 2, 3 then 4 times. Games are
+ * capped at 2 MB in the auto-save slot, and an oversized snapshot is dropped
+ * rather than truncated -- so this ended at "the game I was analysing stopped
+ * being offered back".
+ *
+ * The cost is that a human note reading exactly "Blunder", or exactly
+ * "Best Nf3", is dropped on import. Those are this app's own words for its own
+ * judgement, and it regenerates both, so losing the copy loses nothing. A real
+ * note ("Blunder, but the only practical try") does not match and survives.
+ */
+const GENERATED_COMMENT_PATTERNS = [
+    new RegExp(`^Best (?:${MOVE_TOKEN_SOURCE})[+#]?$`),
+    /^(?:Best|Good|Inaccuracy|Mistake|Blunder|Pending)$/,
+]
+
+function isGeneratedCommentPart(part: string): boolean {
+    return GENERATED_COMMENT_PATTERNS.some(pattern => pattern.test(part))
+}
+
 function humanCommentFromPgnComment(comment: string | undefined): string | undefined {
     if (!comment) return undefined
-    return sanitizePgnCommentText(
-        comment
-            .replace(PGN_EVAL_COMMENT_PATTERN, '')
-            .replace(/\s*;\s*/g, '; '),
-    )
+
+    const kept = comment
+        .replace(PGN_EVAL_COMMENT_PATTERN, '')
+        .split(';')
+        .map(part => part.trim())
+        .filter(part => part && !isGeneratedCommentPart(part))
+
+    return sanitizePgnCommentText(kept.join('; '))
 }
 
 function normalizePgnSuffix(suffix: unknown): string | undefined {

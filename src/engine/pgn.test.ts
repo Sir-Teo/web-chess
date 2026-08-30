@@ -643,3 +643,94 @@ describe('exportAnnotatedPgn header preservation', () => {
     expect(pgn).not.toContain('Player 1')
   })
 })
+
+/**
+ * The auto-save writes a PGN and restoring reads it back, so this loop runs on
+ * every reload. `commentForNode` re-derives its own annotations from the
+ * evaluation map each time *and* carries the preserved comment through, so any
+ * fragment that survived an import was appended to again. Measured before the
+ * fix: "Best d4" appeared 1, 2, 3 then 4 times over four rounds.
+ */
+describe('exporting and importing the same game repeatedly', () => {
+  const rootFen = new Chess().fen()
+
+  function afterE4(): string {
+    const chess = new Chess()
+    chess.move('e4')
+    return chess.fen()
+  }
+
+  /** Rebuild a node list from imported entries, following the main line. */
+  function nodesFromEntries(entries: ReturnType<typeof parsePgnMoveTree>['moves']) {
+    const nodes = new Map<string, GameNode>()
+    const root = makeNode('r', rootFen, null, null)
+    nodes.set(root.id, root)
+
+    const line: GameNode[] = [root]
+    let parent = root
+    let index = 0
+    let cursor = entries
+
+    while (cursor.length) {
+      const entry = cursor[0]!
+      index += 1
+      const node = makeNode(`n${index}`, entry.fen, entry.move, parent.id, [], undefined, {
+        san: entry.move.san,
+        uci: `${entry.move.from}${entry.move.to}${entry.move.promotion ?? ''}`,
+        comment: entry.comment,
+      })
+      nodes.set(node.id, node)
+      parent.children.push(node.id)
+      line.push(node)
+      parent = node
+      cursor = entry.children ?? []
+    }
+
+    return { nodes, line }
+  }
+
+  function movetextOf(pgn: string): string {
+    return pgn.split('\n').filter(row => !row.startsWith('[')).join(' ')
+  }
+
+  it('does not grow its own annotations one copy per round', () => {
+    const evaluations = new Map([
+      [rootFen, { cp: 30, depth: 20, bestMove: 'd2d4' }],
+      [afterE4(), { cp: -20, depth: 20, bestMove: 'e7e5' }],
+    ])
+
+    let entries = parsePgnMoveTree('1. e4 *').moves
+    const counts: number[] = []
+
+    for (let round = 0; round < 4; round += 1) {
+      const { nodes, line } = nodesFromEntries(entries)
+      const pgn = exportAnnotatedPgn(line, evaluations, {}, nodes)
+      counts.push((movetextOf(pgn).match(/Best d4/g) ?? []).length)
+      entries = parsePgnMoveTree(pgn).moves
+    }
+
+    expect(counts).toEqual([1, 1, 1, 1])
+  })
+
+  it('keeps a real note through the same loop', () => {
+    const evaluations = new Map([
+      [rootFen, { cp: 30, depth: 20, bestMove: 'd2d4' }],
+    ])
+
+    let entries = parsePgnMoveTree('1. e4 { Blunder, but the only practical try } *').moves
+
+    for (let round = 0; round < 3; round += 1) {
+      const { nodes, line } = nodesFromEntries(entries)
+      const pgn = exportAnnotatedPgn(line, evaluations, {}, nodes)
+      expect(movetextOf(pgn)).toContain('Blunder, but the only practical try')
+      entries = parsePgnMoveTree(pgn).moves
+    }
+
+    expect(entries[0]?.comment).toBe('Blunder, but the only practical try')
+  })
+
+  it('drops a note that is only this app\'s own wording, because it is regenerated', () => {
+    const imported = parsePgnMoveTree('1. e4 { [%eval 0.30]; Best d4; Blunder } *')
+    expect(imported.moves[0]?.comment).toBeUndefined()
+  })
+})
