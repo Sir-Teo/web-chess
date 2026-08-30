@@ -775,6 +775,21 @@ body.resizing * {
   white-space: nowrap;
 }
 
+/* Third action in the analyze row: a mode change, not an engine command, so it
+   reads as neither the primary nor a plain secondary. */
+.play-from-here-btn {
+  white-space: nowrap;
+}
+
+.play-from-here-btn:not(:disabled) {
+  border-color: rgba(63, 185, 80, 0.34);
+  color: var(--quality-good, #34d399);
+}
+
+.play-from-here-btn:not(:disabled):hover {
+  border-color: rgba(63, 185, 80, 0.6);
+}
+
 .fade-in-slide {
   animation: slideDownFade 300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }

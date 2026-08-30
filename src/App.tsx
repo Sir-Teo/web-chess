@@ -78,7 +78,7 @@ import { BOARD_SQUARES, describeBoardSquare, isBoardSquare } from './engine/boar
 import { isBoardInputLocked } from './engine/boardInput'
 import { isExactTablebaseCoachMove, selectCoachBestMove } from './engine/coach'
 import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage } from './engine/labCommands'
-import { defaultOrientationForGameMode } from './engine/playMode'
+import { defaultOrientationForGameMode, sideToMoveColor } from './engine/playMode'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { DIFFICULTY_LABELS, useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
 import { useGameTree, type GameNode } from './hooks/useGameTree'
@@ -1868,6 +1868,11 @@ function App() {
   const reviewGameDisabledReason = mainLineNodes.length <= 1
     ? 'Add moves or import a PGN before running review.'
     : null
+  // Same shape as the reason above: shown rather than hidden, so a reader
+  // looking for the button learns why it will not do anything.
+  const playFromHereDisabledReason = game.isGameOver()
+    ? 'This game is already over.'
+    : null
   // The Engine Lab greys controls out behind two gates. Both used to be silent.
   const engineBusyDisabledReason = status === 'analyzing'
     ? 'The engine is mid-search. Stop the analysis first.'
@@ -2513,37 +2518,6 @@ function App() {
     setShowLibraryDialog(true)
   }, [rememberModalTrigger])
 
-  const paletteCommands = useMemo<Command[]>(() => [
-    { id: 'new-game', label: 'New game', shortcut: 'N', keywords: ['restart', 'reset'], run: openNewGameDialog },
-    { id: 'flip-board', label: 'Flip board', shortcut: 'F', keywords: ['orientation', 'rotate', 'side'],
-      run: () => setOrientation(value => (value === 'white' ? 'black' : 'white')) },
-    { id: 'pgn', label: 'PGN and FEN', hint: 'Import, export, share', keywords: ['paste', 'copy', 'link', 'position'],
-      run: openPgnDialog },
-    { id: 'library', label: 'Library', hint: 'Saved games', keywords: ['save', 'open', 'backup'],
-      run: openLibraryDialog },
-    { id: 'mode-play', label: 'Play mode', keywords: ['workspace'], run: () => handleWorkspaceModeChange('play') },
-    { id: 'mode-analysis', label: 'Analysis mode', keywords: ['workspace', 'engine'],
-      run: () => handleWorkspaceModeChange('analysis') },
-    { id: 'tab-analyze', label: 'Analyze', keywords: ['engine', 'evaluation'], run: () => handleAnalysisTabChange('analyze') },
-    { id: 'tab-review', label: 'Review', keywords: ['accuracy', 'mistakes'], run: () => handleAnalysisTabChange('review') },
-    { id: 'tab-lab', label: 'Engine Lab', keywords: ['uci', 'options'], run: () => handleAnalysisTabChange('engine-lab') },
-    {
-      id: 'review-game',
-      label: 'Review game',
-      hint: reviewGameDisabledReason ?? undefined,
-      keywords: ['accuracy', 'blunders', 'report'],
-      // Shown disabled rather than hidden, with the reason as the hint: a
-      // reader looking for it should learn what it needs, not wonder whether
-      // they misremembered the name.
-      disabled: Boolean(reviewGameDisabledReason) || mainLineNodes.length <= 1,
-      run: startBatchReview,
-    },
-    { id: 'go-first', label: 'Go to first position', shortcut: 'Home', keywords: ['start', 'beginning'], run: goFirst },
-    { id: 'go-last', label: 'Go to last position', shortcut: 'End', keywords: ['end', 'latest'], run: goLast },
-    { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
-      run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
-  ], [handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, mainLineNodes.length, openLibraryDialog,
-      openNewGameDialog, openPgnDialog, rememberModalTrigger, reviewGameDisabledReason, startBatchReview])
 
   const closeNewGameDialog = useCallback(() => {
     setShowNewGameDialog(false)
@@ -2960,6 +2934,111 @@ function App() {
     },
     [cancelPendingAiMove, cancelSampleLoad, clearBatchReview, clearBoardSelection, clearImportSweep, game, gameTree, newGame, requestBoardReveal, setAiPlayerDifficulty, setPgnHeaders],
   )
+
+  /**
+   * Hand the position on the board to Play mode and take the move.
+   *
+   * The gap this closes: New Game always resets to the starting position, so
+   * there was no way to try a critical moment again, or to convert an endgame
+   * the review just called a mistake. Both siblings of this app and every
+   * desktop GUI have it -- Nibbler calls it playing from any position -- and it
+   * is the one place beginners and players who are actually studying want the
+   * same button.
+   *
+   * The human takes whichever side is on move, because the point is to find
+   * *that* move rather than watch the reply. Evaluations are deliberately kept:
+   * they are keyed by position, not by game, so a line that comes back to a
+   * position already searched keeps its reading.
+   */
+  const playFromCurrentPosition = useCallback(() => {
+    const startFen = game.fen()
+    const humanColor = sideToMoveColor(startFen)
+    if (!humanColor) return
+    if (game.isGameOver()) return
+
+    cancelSampleLoad()
+    cancelPendingAiMove()
+    cancelStaleBackgroundAnalysis()
+    setSettingsOpen(false)
+
+    setWorkspaceMode('play')
+    setGameMode('human-vs-ai')
+    setPlayerColor(humanColor)
+    setAiPlayerDifficulty(aiDifficulty)
+
+    newGame()
+    game.load(startFen)
+    setFen(startFen)
+    gameTree.reset(startFen)
+    setPgnHeaders({})
+    clearImportSweep()
+    clearBatchReview()
+    setPendingShallowAnalyzeFen(null)
+    setPendingPonderFen(null)
+    setIsImportingGame(false)
+    setPendingPromotion(null)
+    clearBoardSelection()
+    pausedRef.current = false
+    setPaused(false)
+
+    setOrientation(defaultOrientationForGameMode('human-vs-ai', humanColor))
+    requestBoardReveal()
+  }, [
+    aiDifficulty,
+    cancelPendingAiMove,
+    cancelSampleLoad,
+    cancelStaleBackgroundAnalysis,
+    clearBatchReview,
+    clearBoardSelection,
+    clearImportSweep,
+    game,
+    gameTree,
+    newGame,
+    requestBoardReveal,
+    setAiPlayerDifficulty,
+    setPgnHeaders,
+  ])
+
+  const paletteCommands = useMemo<Command[]>(() => [
+    { id: 'new-game', label: 'New game', shortcut: 'N', keywords: ['restart', 'reset'], run: openNewGameDialog },
+    { id: 'flip-board', label: 'Flip board', shortcut: 'F', keywords: ['orientation', 'rotate', 'side'],
+      run: () => setOrientation(value => (value === 'white' ? 'black' : 'white')) },
+    { id: 'pgn', label: 'PGN and FEN', hint: 'Import, export, share', keywords: ['paste', 'copy', 'link', 'position'],
+      run: openPgnDialog },
+    { id: 'library', label: 'Library', hint: 'Saved games', keywords: ['save', 'open', 'backup'],
+      run: openLibraryDialog },
+    { id: 'mode-play', label: 'Play mode', keywords: ['workspace'], run: () => handleWorkspaceModeChange('play') },
+    { id: 'mode-analysis', label: 'Analysis mode', keywords: ['workspace', 'engine'],
+      run: () => handleWorkspaceModeChange('analysis') },
+    { id: 'tab-analyze', label: 'Analyze', keywords: ['engine', 'evaluation'], run: () => handleAnalysisTabChange('analyze') },
+    { id: 'tab-review', label: 'Review', keywords: ['accuracy', 'mistakes'], run: () => handleAnalysisTabChange('review') },
+    { id: 'tab-lab', label: 'Engine Lab', keywords: ['uci', 'options'], run: () => handleAnalysisTabChange('engine-lab') },
+    {
+      id: 'review-game',
+      label: 'Review game',
+      hint: reviewGameDisabledReason ?? undefined,
+      keywords: ['accuracy', 'blunders', 'report'],
+      // Shown disabled rather than hidden, with the reason as the hint: a
+      // reader looking for it should learn what it needs, not wonder whether
+      // they misremembered the name.
+      disabled: Boolean(reviewGameDisabledReason) || mainLineNodes.length <= 1,
+      run: startBatchReview,
+    },
+    { id: 'go-first', label: 'Go to first position', shortcut: 'Home', keywords: ['start', 'beginning'], run: goFirst },
+    { id: 'go-last', label: 'Go to last position', shortcut: 'End', keywords: ['end', 'latest'], run: goLast },
+    {
+      id: 'play-from-here',
+      label: 'Play from this position',
+      hint: playFromHereDisabledReason ?? 'Take the move against the engine',
+      keywords: ['practice', 'train', 'convert', 'try again', 'engine'],
+      disabled: Boolean(playFromHereDisabledReason),
+      run: playFromCurrentPosition,
+    },
+    { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
+      run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
+  ], [handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, mainLineNodes.length, openLibraryDialog,
+      openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger,
+      reviewGameDisabledReason, startBatchReview])
 
   // ── Mode switch mid-game ──────────────────────────────
   const handleModeChange = useCallback((mode: GameMode) => {
@@ -4194,6 +4273,22 @@ function App() {
                     </button>
                     <button type="button" aria-label="Stop analysis" onClick={stop}>
                       <IconStop /> Stop
+                    </button>
+                    {/* The one action that turns a position being read into a
+                        position being practised. Sits here because this is
+                        where someone is standing when they think "I want to
+                        try that again". */}
+                    <button
+                      type="button"
+                      className="play-from-here-btn"
+                      onClick={playFromCurrentPosition}
+                      disabled={Boolean(playFromHereDisabledReason)}
+                      title={playFromHereDisabledReason ?? 'Take the move against the engine from this position'}
+                      aria-label={playFromHereDisabledReason
+                        ? `Play from this position unavailable. ${playFromHereDisabledReason}`
+                        : 'Play from this position against the engine'}
+                    >
+                      <IconSwords /> Play from here
                     </button>
                   </div>
                   <div className="analysis-experience-toggle" aria-label="Analysis experience">
