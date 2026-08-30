@@ -236,6 +236,17 @@ function qualityForMove(deltaCp: number, winPercentLoss: number): GradedLabel {
   return LABEL_SEVERITY[practical] <= LABEL_SEVERITY[raw] ? practical : raw
 }
 
+/**
+ * Whether a reading is too thin to grade a move with.
+ *
+ * The two import purposes are the app's own 70ms passes over a freshly loaded
+ * game -- fast enough to fill a graph, not enough to call a move a blunder.
+ *
+ * An `[%eval ...]` read out of a PGN is deliberately *not* in that set, though
+ * it used to be: it carried `import-load` and was therefore classed shallow,
+ * which meant the 70ms sweep outranked it on depth and overwrote it. A game
+ * saved with its review, then loaded back, lost that review on the way in.
+ */
 function isShallowEvaluation(snapshot: EvalSnapshot): boolean {
   if (snapshot.purpose === 'import-load' || snapshot.purpose === 'import-sweep') return true
   if (isFiniteNumber(snapshot.depth) && snapshot.depth < 10) return true

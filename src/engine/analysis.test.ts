@@ -768,6 +768,58 @@ describe('bounded engine scores', () => {
     })
 })
 
+/**
+ * A game saved with its review and loaded back should still be graded. The
+ * evaluations travel in the PGN as `[%eval ...]`, and the app parses them --
+ * but they used to be tagged `import-load`, the purpose its own 70ms pass
+ * uses, and so were classed shallow. The sweep that runs on every import then
+ * outranked them on depth and overwrote them, and every row read "Pending".
+ */
+describe('an evaluation read out of a PGN', () => {
+    const annotation: EvalSnapshot = { cp: -71, purpose: 'pgn-annotation', mode: 'review' }
+    const sweep: EvalSnapshot = { cp: 20, depth: 16, purpose: 'import-sweep' }
+
+    it('is not overwritten by the shallow sweep that runs after an import', () => {
+        const before = new Map([['fen-a', annotation]])
+        const after = recordEvaluation(before, 'fen-a', sweep)
+
+        expect(after, 'the sweep must not displace the saved reading').toBe(before)
+        expect(after.get('fen-a')?.cp).toBe(-71)
+    })
+
+    it('still grades the move, rather than sitting at pending', () => {
+        const game = new Chess()
+        const rootFen = game.fen()
+        const move = game.move('f3')
+        const afterFen = game.fen()
+
+        const rows = buildReviewRows(
+            [move],
+            new Map<string, EvalSnapshot>([
+                [rootFen, { cp: 30, purpose: 'pgn-annotation' }],
+                [afterFen, { cp: 130, purpose: 'pgn-annotation' }],
+            ]),
+            rootFen,
+        )
+
+        expect(rows[0]!.quality).not.toBe('pending')
+        expect(rows[0]!.confidence).not.toBe('shallow')
+    })
+
+    /** A real search is still worth more than an annotation of unknown depth. */
+    it('gives way to an actual review search', () => {
+        const before = new Map([['fen-a', annotation]])
+        const after = recordEvaluation(before, 'fen-a', { cp: 44, depth: 22, purpose: 'batch-review' })
+
+        expect(after).not.toBe(before)
+        expect(after.get('fen-a')?.depth).toBe(22)
+    })
+
+    it('is still worth deepening, so a review does not skip it', () => {
+        expect(isReviewEvaluationSufficient(annotation, 16)).toBe(false)
+    })
+})
+
 describe('recording an evaluation', () => {
     const snap = (cp: number, depth: number): EvalSnapshot =>
         ({ cp, depth, nodes: depth * 1000, purpose: 'manual' })

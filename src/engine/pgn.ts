@@ -121,7 +121,7 @@ function sideToMoveScoreFromWhitePov(
         return {
             cp: mate > 0 ? 10000 : -10000,
             mate,
-            purpose: 'import-load',
+            purpose: 'pgn-annotation',
             mode: 'review',
             searchedAt: Date.now(),
         }
@@ -130,7 +130,7 @@ function sideToMoveScoreFromWhitePov(
     const whitePovCp = score.cp ?? 0
     return {
         cp: turn === 'w' ? whitePovCp : -whitePovCp,
-        purpose: 'import-load',
+        purpose: 'pgn-annotation',
         mode: 'review',
         searchedAt: Date.now(),
     }

@@ -8,6 +8,8 @@ export type AnalyzePurpose =
   | 'batch-review'
   | 'cloud-eval'
   | 'threat'
+  /** An `[%eval ...]` read out of a PGN, of unknown depth but not a shallow search. */
+  | 'pgn-annotation'
 
 export type UciGoLimits = {
   depth?: number
