@@ -536,11 +536,22 @@ const BOARD_ARROW_OPTIONS = {
   arrowStartOffset: 0.32,
 }
 
+/**
+ * What Settings tells the reader they can press. It is the only place in the
+ * app that answers the question, so anything the keydown handler claims and
+ * this list omits is a shortcut nobody finds — the command palette was exactly
+ * that, documented in the README and nowhere the app itself would show it.
+ *
+ * The palette chord is built rather than written out, so the list cannot say
+ * Ctrl on a Mac.
+ */
 const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['←', '→'], action: 'Previous / next move' },
   { keys: ['Home', 'End'], action: 'First / last position' },
   { keys: ['F'], action: 'Flip the board' },
+  { keys: ['T'], action: 'Show what the opponent threatens (Analysis mode)' },
   { keys: ['Space'], action: 'Pause or resume the AI (Play mode)' },
+  { keys: [commandPaletteShortcutLabel()], action: 'Open the command palette' },
 ]
 
 // The usual "opposite square colour" convention cannot reach WCAG AA against the
@@ -990,6 +1001,15 @@ function App() {
     if (tip) navigateAndPonder(gameTree.navigateTo(tip.id))
   }, [gameTree, navigateAndPonder])
 
+  /**
+   * Assigned on every render so the global keydown handler, installed well
+   * before `requestThreat` is declared, can reach the current one without
+   * listing it as a dependency. The same shape `gameTreeRef` uses, and for the
+   * same reason: re-installing the handler on every render of a component that
+   * re-renders several times a second is not free.
+   */
+  const requestThreatRef = useRef<() => void>(() => {})
+
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1021,6 +1041,10 @@ function App() {
       if (e.key.toLowerCase() === 'f') {
         e.preventDefault()
         setOrientation(value => value === 'white' ? 'black' : 'white')
+      }
+      if (e.key.toLowerCase() === 't' && workspaceMode === 'analysis') {
+        e.preventDefault()
+        requestThreatRef.current()
       }
       if (e.key === ' ' && workspaceMode === 'play') {
         if (tag === 'BUTTON') return
@@ -1497,6 +1521,7 @@ function App() {
       showWdl: false,
     })
   }, [analyze, cancelStaleBackgroundAnalysis, engineEnabled, fen, hashMb])
+  requestThreatRef.current = requestThreat
 
   /**
    * Take the answer as it lands, then put the engine back on the position the
