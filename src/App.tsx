@@ -3921,6 +3921,17 @@ function App() {
                   aria-hidden={promotionDialogOpen ? true : undefined}
                   inert={promotionDialogOpen ? true : undefined}
                 >
+                  {/* react-chessboard measures its own container and throws
+                      "Square width not found" from <Piece2> when that container
+                      has no width, which takes the whole app to the error
+                      boundary. The trigger is a viewport of literally 0x0 -- a
+                      hidden or collapsed window, a display:none container, an
+                      automation pane that is not on screen. Only the mobile
+                      branch of the width maths can reach 0; the desktop branch
+                      has a 260px floor. Hit for real while resizing this app's
+                      preview, which is what turned a documented curiosity into
+                      a guard. */}
+                  {renderedBoardWidth > 0 && (
                   <Chessboard
                     options={{
                       position: fen,
@@ -3959,6 +3970,7 @@ function App() {
                       },
                     }}
                   />
+                  )}
                 </div>
                 {pendingPromotion && (
                   <div
