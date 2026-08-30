@@ -802,6 +802,9 @@ function App() {
   >(null)
   const [threatError, setThreatError] = useState<string | null>(null)
   const threatSettledRef = useRef<string | null>(null)
+  // A review asked for from Play mode, which cannot start until the workspace
+  // has actually switched and the analysis engine is up.
+  const [pendingGameReview, setPendingGameReview] = useState(false)
   const [importSweepProgress, setImportSweepProgress] = useState<ImportSweepProgress>({ done: 0, total: 0 })
   const skipFullAnalyzeFenRef = useRef<string | null>(null)
   const importSweepQueueRef = useRef<ImportSweepTarget[]>([])
@@ -1231,6 +1234,49 @@ function App() {
     aiMoveScheduledRef.current = false
     setIsAiThinking(false)
   }, [cancelAiRequest])
+
+  /**
+   * "How did I do?" — the question at the end of every game, which the app made
+   * you answer in three steps: switch to Analysis, find the Review tab, press
+   * Review Game. Play mode showed the result in the meta strip and offered
+   * nothing to do about it.
+   *
+   * The review cannot start here: the engine is off in Play mode, and
+   * `engineEnabled` only becomes true once the workspace switch has rendered.
+   * So this asks, and the effect below starts it when the engine is actually up.
+   */
+  const reviewFinishedGame = useCallback(() => {
+    cancelPendingAiMove()
+    pause()
+    setSettingsOpen(false)
+    setWorkspaceMode('analysis')
+    setAnalysisTab('review')
+    setAnalysisPanelRevealTick(tick => tick + 1)
+    setPendingGameReview(true)
+  }, [cancelPendingAiMove, pause])
+
+  useEffect(() => {
+    if (!pendingGameReview) return
+    // Going back to Play, or anywhere the engine is not, cancels the request
+    // rather than leaving it armed for the next time Analysis is opened.
+    if (!engineEnabled) {
+      setPendingGameReview(false)
+      return
+    }
+    if (status === 'error') {
+      setPendingGameReview(false)
+      return
+    }
+    // 'disabled' is precisely what the engine reports on the way out of Play
+    // mode: the worker for Analysis has not booted yet. Treating it as a
+    // failure -- which this did -- cancelled every request on the render right
+    // after the click, so the button switched tabs and silently reviewed
+    // nothing. Waiting through 'disabled' and 'loading' is the whole job.
+    if (status !== 'ready') return
+    setPendingGameReview(false)
+    startBatchReview()
+  }, [engineEnabled, pendingGameReview, startBatchReview, status])
+
 
   useEffect(() => {
     aiPlayerStatusRef.current = aiPlayerStatus
@@ -4381,6 +4427,30 @@ function App() {
             <div className="panel-content">
               {workspaceMode === 'play' && (
                 <>
+                  {/* The end of a game is where "how did I do?" gets asked, and
+                      the result only appeared in the meta strip with nothing to
+                      do about it. Getting to a review took three steps. */}
+                  {gameResultLabel && (
+                    <div className="game-over-card" role="status">
+                      <h3>{gameResultLabel}</h3>
+                      <p className="panel-copy small">
+                        {mainLineNodes.length > 1
+                          ? 'Run a review to see the accuracy for both sides and the moves that turned it.'
+                          : 'Start a new game to play again.'}
+                      </p>
+                      {mainLineNodes.length > 1 && (
+                        <button
+                          type="button"
+                          className="btn-primary game-over-review-btn"
+                          onClick={reviewFinishedGame}
+                          disabled={pendingGameReview}
+                          aria-label="Review this finished game"
+                        >
+                          <IconBarChart /> {pendingGameReview ? 'Starting review...' : 'Review this game'}
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <div className="engine-lab-card">
                     <h3><span className="section-icon"><IconSwords /></span> Play Focus</h3>
                     <p className="panel-copy small">

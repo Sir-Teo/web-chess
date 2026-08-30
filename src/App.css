@@ -4485,6 +4485,39 @@ button.mtree-chip {
    as an offer rather than a permanent control. */
 /* The threat probe sits under the candidate line in the Coach card: one button
    and one sentence, because that is the whole of the question. */
+/* Shown only when a game has actually ended, so it should look like a moment
+   rather than another panel section. */
+.game-over-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: var(--space-md);
+  padding: 0.7rem 0.75rem;
+  border: 1px solid rgba(63, 185, 80, 0.34);
+  border-radius: var(--radius-md);
+  background: rgba(63, 185, 80, 0.07);
+}
+
+.game-over-card h3 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.game-over-card p {
+  margin: 0;
+}
+
+.game-over-review-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.1rem;
+  padding: 0.4rem 0.7rem;
+}
+
 .coach-threat {
   display: flex;
   flex-direction: column;
