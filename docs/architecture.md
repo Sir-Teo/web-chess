@@ -171,7 +171,29 @@ after a 429. Tokens are session-only and never persisted.
 ## Data Formats
 
 - PGN import/export: `engine/pgn.ts`. Import builds the whole variation tree
-  and recovers `[%eval ...]` annotations.
+  and recovers the machine annotations.
+
+  A PGN is this app's save format, so what it can carry decides what a saved
+  game keeps. Three things were being lost, all for one reason — they were
+  written for a human to read rather than for the app to read back:
+
+  | | was | is |
+  | --- | --- | --- |
+  | Per-move evaluation | `[%eval 0.31]`, recovered | unchanged |
+  | Root evaluation | never written; first move ungradable on reload | written in the comment ahead of the first move |
+  | Best move | prose `Best Nf3`, unreadable | also `[%wcbest e2e4]`, beside the eval it belongs to |
+  | Quality label | prose `Blunder`, re-appended every round trip | derived from the evaluations, not stored |
+
+  The rule the three arrived at is in the invariants: a machine annotation gets
+  a `[%name ...]` command, because the standard reserves that shape and nothing
+  else in a comment is distinguishable from something the reader typed. Import
+  strips every such command from the human comment now, not only `[%eval]` —
+  a Lichess export's `[%clk 0:03:00]` was being shown as a comment.
+
+  Note what is *not* stored: the quality labels. They are recomputed from the
+  evaluations on load, which is why removing them from the comment lost
+  nothing. Verified by saving a reviewed game and loading it back: every row
+  returns with its grade and its best move.
 - FEN parsing, validation and the position editor: `engine/fen.ts`,
   `engine/positionSetup.ts`.
 - Share links: `engine/shareLink.ts` (FEN in the URL hash).
