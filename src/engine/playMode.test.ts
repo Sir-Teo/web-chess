@@ -105,6 +105,7 @@ describe('taking a move back', () => {
 
 describe('asking for a hint', () => {
   const ready = {
+    workspaceMode: 'play' as const,
     gameMode: 'human-vs-ai' as const,
     turn: 'white' as const,
     playerColor: 'white' as const,
@@ -118,6 +119,18 @@ describe('asking for a hint', () => {
   })
 
   /** Play mode turns the analysis engine off; the other two modes never start one. */
+  /**
+   * Analysis turns the play engine off deliberately, so reporting it as
+   * "still starting up" describes something that is not happening — and the
+   * panel on the right is already answering the same question.
+   */
+  it('points at the analysis panel rather than blaming the engine, in Analysis', () => {
+    expect(hintDisabledReason({ ...ready, workspaceMode: 'analysis' }))
+      .toBe("The analysis panel already shows the engine's move.")
+    expect(hintDisabledReason({ ...ready, workspaceMode: 'analysis', engineReady: false }))
+      .toBe("The analysis panel already shows the engine's move.")
+  })
+
   it('needs an engine, which only one mode has', () => {
     expect(hintDisabledReason({ ...ready, gameMode: 'human-vs-human' })).toMatch(/against the computer/)
     expect(hintDisabledReason({ ...ready, gameMode: 'ai-vs-ai' })).toMatch(/nobody to hint to/)

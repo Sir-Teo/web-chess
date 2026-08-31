@@ -1209,6 +1209,7 @@ function App() {
    */
   const requestHint = useCallback(() => {
     if (hintDisabledReason({
+      workspaceMode,
       gameMode,
       turn: game.turn() === 'w' ? 'white' : 'black',
       playerColor,
@@ -1235,11 +1236,12 @@ function App() {
         setHintMove(uci)
       })
       .catch(() => setIsHinting(false))
-  }, [game, gameMode, isHinting, playerColor, requestAiMove])
+  }, [game, gameMode, isHinting, playerColor, requestAiMove, workspaceMode])
   const requestHintRef = useRef(requestHint)
   requestHintRef.current = requestHint
 
   const hintReason = hintDisabledReason({
+    workspaceMode,
     gameMode,
     turn: game.turn() === 'w' ? 'white' : 'black',
     playerColor,

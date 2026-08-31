@@ -128,6 +128,7 @@ export function takebackDisabledReason({
  * AI-vs-AI never start the other one.
  */
 export function hintDisabledReason({
+  workspaceMode,
   gameMode,
   turn,
   playerColor,
@@ -135,6 +136,7 @@ export function hintDisabledReason({
   engineReady,
   busy,
 }: {
+  workspaceMode: 'play' | 'analysis'
   gameMode: PlayGameMode
   turn: PlayColor
   playerColor: PlayColor
@@ -142,6 +144,10 @@ export function hintDisabledReason({
   engineReady: boolean
   busy: boolean
 }): string | null {
+  // Checked before the engine, or Analysis reports the play engine as "still
+  // starting up" — which is not what has happened. It is off, deliberately,
+  // and the panel on the right is already answering the same question.
+  if (workspaceMode !== 'play') return 'The analysis panel already shows the engine\'s move.'
   if (gameMode === 'human-vs-human') return 'Hints need an engine — start a game against the computer.'
   if (gameMode === 'ai-vs-ai') return 'Both sides are the engine; there is nobody to hint to.'
   if (gameOver) return 'This game is already over.'
