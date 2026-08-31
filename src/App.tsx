@@ -2087,6 +2087,16 @@ function App() {
     () => rankCriticalMoments(reportedReviewRows, 5),
     [reportedReviewRows],
   )
+  /**
+   * The move list's empty state has two quite different causes and used to give
+   * one answer. `reportedReviewRows` is `reviewRows` narrowed by the side and
+   * phase filters, and the phase chips read the *unfiltered* rows on purpose —
+   * so a phase that exists for White can be selected while Black filters to
+   * nothing, and a reader who has just imported a game is told to import one.
+   */
+  const reviewListEmptyCopy = reviewRows.length === 0
+    ? 'Add moves or import a PGN, then run Review Game.'
+    : `Nothing to show for ${describeReviewScope(reviewSideFilter, reviewPhaseFilter)}.`
   const criticalMomentsEmptyCopy = reportedReviewRows.length === 0
     ? 'Run Review Game after a line is analyzed to surface the biggest turning points.'
     : reviewAccuracy.pendingMoves > 0
@@ -5196,7 +5206,7 @@ function App() {
                     ) : (
                       <div className="empty-state review-empty-state">
                         <span className="empty-state-icon"><IconSearch /></span>
-                        <p>Add moves or import a PGN, then run Review Game.</p>
+                        <p>{reviewListEmptyCopy}</p>
                       </div>
                     )}
                   </div>
