@@ -810,7 +810,21 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         if (line === 'readyok') {
           isReadyRef.current = true
           const threads = recommendedThreadCount(profile, capabilities)
-          if (threads > 1) {
+          // Only when it is not already what the engine was told.
+          //
+          // `readyok` arrives after every `isready`, and `ucinewgame` sends one
+          // -- so this re-sent the same thread count on every new game, and
+          // `flushPendingAnalyze` fires the queued search on the very next
+          // line. `setoption name Threads` tears down and rebuilds the thread
+          // pool, and on the multi-threaded WASM build a `go` issued in the
+          // same tick as that rebuild never answers: one `go`, no `bestmove`,
+          // the engine stuck on "analyzing" for good.
+          //
+          // Reproduced on every run of the import path -- restore an auto-saved
+          // game, which does `ucinewgame` and then immediately queues a 70ms
+          // search -- with the multi-threaded profile, and on no run of the
+          // single-threaded one, which never sends `Threads` at all.
+          if (threads > 1 && appliedOptionsRef.current.get('Threads') !== String(threads)) {
             setOption('Threads', threads)
           }
           setStatus((value) => (value === 'error' ? value : 'ready'))
