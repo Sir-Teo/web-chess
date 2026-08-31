@@ -24,6 +24,12 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   Lines panel or the Coach card — and the board walks into the line up to that
   move. It lands as a variation like any other, so it can be reviewed, promoted
   to the main line, or discarded.
+- **A clock**: Pick a time control when you start a game — bullet through
+  classical, or none, which stays the default. Both clocks sit in the strip
+  above the board, the side to move is highlighted, tenths appear under ten
+  seconds, and running out ends the game and records it in the PGN result.
+  `Space` pauses the clock as well as the AI, and stepping out to Analysis stops
+  it rather than letting it run while you consult the engine.
 - **Move sounds**: A knock when a piece lands, heavier for a capture, a two-part
   knock for castling, and tones for check, promotion and the end of the game.
   Synthesized in the browser rather than shipped as audio files, and off with

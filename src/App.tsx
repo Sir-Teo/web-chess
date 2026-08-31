@@ -80,6 +80,19 @@ import { BOARD_SQUARES, describeBoardSquare, isBoardSquare } from './engine/boar
 import { isBoardInputLocked } from './engine/boardInput'
 import { moveSoundFor } from './engine/moveSound'
 import {
+  createClock,
+  flagPgnResult,
+  flagResultLabel,
+  isTimeControlPresetId,
+  moveMade,
+  pauseClock,
+  settleFlag,
+  startSide,
+  timeControlPresetById,
+  type ClockState,
+} from './engine/chessClock'
+import { ChessClock } from './components/ChessClock'
+import {
   MARK_COLORS,
   hasSquareMarks,
   markColorForModifiers,
@@ -288,6 +301,7 @@ type PersistedAppSettings = {
   showTopMoveArrows: boolean
   topMoveArrowCount: number
   soundEnabled: boolean
+  timeControlId: string
 }
 
 /**
@@ -337,6 +351,7 @@ const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
   showTopMoveArrows: true,
   topMoveArrowCount: 3,
   soundEnabled: true,
+  timeControlId: 'unlimited',
 }
 
 const QUICK_MOVETIME_BOUNDS = { min: 50, max: 30_000, fallback: DEFAULT_PERSISTED_SETTINGS.quickMovetimeMs }
@@ -712,6 +727,9 @@ function loadPersistedSettings(): PersistedAppSettings {
       soundEnabled: typeof parsed.soundEnabled === 'boolean'
         ? parsed.soundEnabled
         : DEFAULT_PERSISTED_SETTINGS.soundEnabled,
+      timeControlId: isTimeControlPresetId(parsed.timeControlId)
+        ? parsed.timeControlId
+        : DEFAULT_PERSISTED_SETTINGS.timeControlId,
     }
   } catch {
     return DEFAULT_PERSISTED_SETTINGS
@@ -807,6 +825,14 @@ function App() {
   const [showTopMoveArrows, setShowTopMoveArrows] = useState<boolean>(persistedSettings.showTopMoveArrows)
   const [topMoveArrowCount, setTopMoveArrowCount] = useState<number>(persistedSettings.topMoveArrowCount)
   const [soundEnabled, setSoundEnabled] = useState<boolean>(persistedSettings.soundEnabled)
+  const [timeControlId, setTimeControlId] = useState<string>(persistedSettings.timeControlId)
+  /** Null whenever the game is untimed, which is the default and most of the time. */
+  const [clock, setClock] = useState<ClockState | null>(null)
+  // The AI loop is an effect that must not re-install on every clock change,
+  // and a clock changes on every move. Same shape as gameTreeRef.
+  const clockFlaggedRef = useRef<'w' | 'b' | null>(null)
+  const timeControlIdRef = useRef(timeControlId)
+  timeControlIdRef.current = timeControlId
   const [openingPrefetchTick, setOpeningPrefetchTick] = useState(0)
   const [sampleFilter, setSampleFilter] = useState<SampleLibraryFilter>('all')
   const [sampleLoadingId, setSampleLoadingId] = useState<string | null>(null)
@@ -885,18 +911,28 @@ function App() {
   const [paused, setPaused] = useState(false)
   const pausedRef = useRef(false)
 
+  /**
+   * Pause stops the clock as well as the AI. It is the only way to step away
+   * from a timed game, and a pause that left the clock running would be worse
+   * than no pause at all.
+   *
+   * The side to move is read back from the board on resume rather than
+   * remembered, because navigating the move list while paused can move it.
+   */
   const pause = useCallback(() => {
     pausedRef.current = true
     setPaused(true)
     setIsAiThinking(false)
+    setClock(previous => (previous ? pauseClock(previous, Date.now()) : previous))
   }, [])
 
   const resume = useCallback(() => {
     pausedRef.current = false
     setPaused(false)
     aiMoveScheduledRef.current = false
+    setClock(previous => (previous && !previous.flagged ? startSide(previous, game.turn(), Date.now()) : previous))
     setFen(f => f) // nudge AI effect
-  }, [])
+  }, [game])
 
   // ── Game tree ────────────────────────────────────────
   const gameTree = useGameTree(sharedInitialFen ?? undefined)
@@ -1994,6 +2030,7 @@ function App() {
       showTopMoveArrows,
       topMoveArrowCount,
       soundEnabled,
+      timeControlId,
     })
   }, [
     workspaceMode,
@@ -2019,6 +2056,7 @@ function App() {
     showTopMoveArrows,
     topMoveArrowCount,
     soundEnabled,
+    timeControlId,
     quickMovetimeMs,
     searchDepth,
     showAdvancedAnalyze,
@@ -2334,6 +2372,51 @@ function App() {
     setMarkedSquares(marks => (hasSquareMarks(marks) ? {} : marks))
   }, [fen])
 
+  /**
+   * Notice a flag.
+   *
+   * Nothing else can: the display is derived from `Date.now()` inside the clock
+   * component, so running out of time produces no state change on its own. The
+   * check is `settleFlag`, which returns the very same object while there is
+   * nothing to report — so this interval costs one comparison four times a
+   * second and re-renders exactly once, when the flag falls.
+   */
+  useEffect(() => {
+    if (!clock || clock.flagged || clock.running === null) return
+    const id = window.setInterval(() => {
+      setClock(previous => (previous ? settleFlag(previous, Date.now()) : previous))
+    }, 250)
+    return () => window.clearInterval(id)
+  }, [clock])
+
+  const clockFlagged = clock?.flagged ?? null
+  clockFlaggedRef.current = clockFlagged
+
+  /**
+   * Stepping out to Analysis stops the clock, and says so.
+   *
+   * The alternative is a clock that runs while you consult the engine, which is
+   * either cheating or a lost game depending on how you look at it. Coming back
+   * leaves it paused: resuming is a decision, and Space makes it.
+   */
+  useEffect(() => {
+    if (workspaceMode === 'play') return
+    if (!clock || clock.running === null) return
+    setClock(pauseClock(clock, Date.now()))
+    pausedRef.current = true
+    setPaused(true)
+  }, [clock, workspaceMode])
+
+  // A flag stops the AI as surely as a checkmate does, and it is how the game
+  // ended -- so it goes into the headers the PGN, the auto-save and the library
+  // all read, rather than living only in the panel's result line.
+  useEffect(() => {
+    if (!clockFlagged) return
+    cancelPendingAiMove()
+    const result = flagPgnResult(clockFlagged)
+    setPgnHeaders(previous => (previous.Result === result ? previous : { ...previous, Result: result }))
+  }, [cancelPendingAiMove, clockFlagged, setPgnHeaders])
+
   // ── Engine arrows ────────────────────────────────────
   const currentBoardMove = gameTree.current.move
   const arrows = useMemo(() => {
@@ -2407,15 +2490,26 @@ function App() {
   const playMoveSound = useCallback((move: Move) => {
     playSound(moveSoundFor({ flags: move.flags, san: move.san, isGameOver: game.isGameOver() }))
   }, [game, playSound])
+
+  /**
+   * Everything that happens because a move landed on the board: it makes a
+   * noise and it presses the clock. One function so the two cannot drift apart,
+   * and so the AI loop has one thing to reach for.
+   */
+  const registerMovePlayed = useCallback((move: Move) => {
+    playMoveSound(move)
+    setClock(previous => (previous ? moveMade(previous, move.color, Date.now()) : previous))
+  }, [playMoveSound])
   // Reached from the AI loop, which is an effect that must not re-install
   // whenever the sound setting changes mid-game. Same shape as requestThreatRef.
-  const playMoveSoundRef = useRef(playMoveSound)
-  playMoveSoundRef.current = playMoveSound
+  const playMoveSoundRef = useRef(registerMovePlayed)
+  playMoveSoundRef.current = registerMovePlayed
 
   // ── AI move loop (with speed throttle) ───────────────
   useEffect(() => {
     if (workspaceMode !== 'play') return
     if (game.isGameOver()) return
+    if (clockFlaggedRef.current) return
     void aiReadyTick
     void stepRequestTick
     if (aiPlayerStatusRef.current !== 'ready') return
@@ -2541,12 +2635,12 @@ function App() {
       const newFen = game.fen()
       setFen(newFen)
       gameTree.addMove(move, newFen)
-      playMoveSound(move)
+      registerMovePlayed(move)
       clearBoardSelection()
       setPendingPromotion(null)
       return true
     },
-    [cancelStaleBackgroundAnalysis, clearBoardSelection, game, gameTree, playMoveSound, stop],
+    [cancelStaleBackgroundAnalysis, clearBoardSelection, game, gameTree, registerMovePlayed, stop],
   )
 
   /**
@@ -2615,6 +2709,7 @@ function App() {
       paused,
       turn: game.turn(),
       playerColor: playerColorToTurn(playerColor),
+      clockFlagged: Boolean(clockFlagged),
     })) return false
 
     if (pieceType.toLowerCase().endsWith('p') && isPromotionMove(game, sourceSquare, targetSquare)) {
@@ -2667,6 +2762,7 @@ function App() {
       paused,
       turn: game.turn(),
       playerColor: playerColorToTurn(playerColor),
+      clockFlagged: Boolean(clockFlagged),
     })) return
 
     // If a source square is already selected, try to move there
@@ -2706,6 +2802,7 @@ function App() {
     clearBoardSelection,
     game,
     gameMode,
+    clockFlagged,
     isAiThinking,
     paused,
     pendingPromotion,
@@ -3020,6 +3117,7 @@ function App() {
       game.load(rootFen)
       setFen(game.fen())
       setEvaluationsByFen(new Map())
+      setClock(null)
       setPendingShallowAnalyzeFen(null)
       setSampleLoadError(null)
       setPendingPromotion(null)
@@ -3184,6 +3282,7 @@ function App() {
       gameTree.reset(rootFen)
       setPgnHeaders({})
       setEvaluationsByFen(new Map())
+      setClock(null)
       setPgnHeaders({})
       clearImportSweep()
       clearBatchReview()
@@ -3262,7 +3361,12 @@ function App() {
   )
 
   const handleNewGameStart = useCallback(
-    ({ mode, playerColor: color, difficulty }: { mode: GameMode; playerColor: PlayerColor; difficulty: AiDifficulty }) => {
+    ({ mode, playerColor: color, difficulty, timeControlId: chosenTimeControlId }: {
+      mode: GameMode
+      playerColor: PlayerColor
+      difficulty: AiDifficulty
+      timeControlId: string
+    }) => {
       cancelSampleLoad()
       setShowNewGameDialog(false)
       cancelPendingAiMove()
@@ -3278,6 +3382,7 @@ function App() {
       setFen(startFen)
       cancelPendingAiMove()
       setEvaluationsByFen(new Map())
+      setClock(null)
       setPgnHeaders({})
       clearImportSweep()
       clearBatchReview()
@@ -3288,6 +3393,13 @@ function App() {
       pausedRef.current = false
       setPaused(false)
       gameTree.reset()
+
+      setTimeControlId(chosenTimeControlId)
+      const control = timeControlPresetById(chosenTimeControlId)?.control ?? null
+      // White's clock runs from the start of the game, the way a clock does.
+      // The alternative -- starting it on the first move -- gives White an
+      // untimed think that Black never gets. Space pauses if you are not ready.
+      setClock(control ? startSide(createClock(control), 'w', Date.now()) : null)
 
       setOrientation(defaultOrientationForGameMode(mode, color))
       requestBoardReveal()
@@ -3340,6 +3452,13 @@ function App() {
     clearBoardSelection()
     pausedRef.current = false
     setPaused(false)
+
+    // A game against the engine from here is still a game, so it gets the
+    // clock the reader last chose -- and the side to move starts on it.
+    const control = timeControlPresetById(timeControlIdRef.current)?.control ?? null
+    setClock(control
+      ? startSide(createClock(control), sideToMoveColor(startFen) === 'white' ? 'w' : 'b', Date.now())
+      : null)
 
     setOrientation(defaultOrientationForGameMode('human-vs-ai', humanColor))
     requestBoardReveal()
@@ -3629,7 +3748,9 @@ function App() {
   // The strip says what the position is. Once the game is over there is no side
   // to move, and "Black to move" under a mated king was the loudest wrong thing
   // on the page.
-  const gameResultLabel = game.isCheckmate()
+  const gameResultLabel = clockFlagged
+    ? flagResultLabel(clockFlagged)
+    : game.isCheckmate()
     ? `Checkmate · ${game.turn() === 'w' ? 'Black' : 'White'} wins`
     : game.isStalemate()
       ? 'Stalemate · Draw'
@@ -3690,6 +3811,7 @@ function App() {
     paused,
     turn: game.turn(),
     playerColor: playerColorToTurn(playerColor),
+    clockFlagged: Boolean(clockFlagged),
   })
 
   // ─────────────────────────────────────────────────────
@@ -4346,6 +4468,9 @@ function App() {
                   <span>{importedPlayers}</span>
                 </span>
               )}
+              {clock && workspaceMode === 'play' && (
+                <ChessClock state={clock} paused={paused} orientation={orientation} />
+              )}
               <span className="board-meta-status">{workspaceMode === 'analysis' ? status : gameModeLabel}</span>
               {currentMoveQuality && (
                 <span className={`board-quality-pill quality-${currentMoveQuality}`}>
@@ -4491,11 +4616,12 @@ function App() {
         <Suspense fallback={<DialogLoadingFallback label={dialogLoadingLabel} />}>
           {showNewGameDialog && (
             <NewGameDialog
-              key={`${gameMode}-${playerColor}-${aiDifficulty}`}
+              key={`${gameMode}-${playerColor}-${aiDifficulty}-${timeControlId}`}
               open
               initialMode={gameMode}
               initialPlayerColor={playerColor}
               initialDifficulty={aiDifficulty}
+              initialTimeControlId={timeControlId}
               onStart={handleNewGameStart}
               onCancel={closeNewGameDialog}
             />

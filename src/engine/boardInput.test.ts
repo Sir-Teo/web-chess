@@ -66,4 +66,46 @@ describe('board input locking', () => {
       playerColor: 'w',
     })).toBe(false)
   })
+
+  /**
+   * Checkmate and stalemate lock the board by themselves — no legal move exists
+   * — but a flag leaves an ordinary position behind, so this is the one ending
+   * that has to be enforced here.
+   */
+  it('locks the board once a side has flagged, in every play mode', () => {
+    for (const gameMode of ['human-vs-human', 'human-vs-ai', 'ai-vs-ai'] as const) {
+      expect(isBoardInputLocked({
+        workspaceMode: 'play',
+        gameMode,
+        isAiThinking: false,
+        paused: false,
+        turn: 'w',
+        playerColor: 'w',
+        clockFlagged: true,
+      }), gameMode).toBe(true)
+    }
+  })
+
+  it('leaves analysis alone when a flag is reported, since no clock runs there', () => {
+    expect(isBoardInputLocked({
+      workspaceMode: 'analysis',
+      gameMode: 'human-vs-human',
+      isAiThinking: false,
+      paused: false,
+      turn: 'w',
+      playerColor: 'w',
+      clockFlagged: true,
+    })).toBe(false)
+  })
+
+  it('is unlocked by default, so an untimed game is unaffected', () => {
+    expect(isBoardInputLocked({
+      workspaceMode: 'play',
+      gameMode: 'human-vs-human',
+      isAiThinking: false,
+      paused: false,
+      turn: 'w',
+      playerColor: 'w',
+    })).toBe(false)
+  })
 })

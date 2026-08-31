@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useModalFocus } from '../hooks/useModalFocus'
 import type { AiDifficulty } from '../hooks/useAiPlayer'
 import { DIFFICULTY_LABELS } from '../hooks/useAiPlayer'
+import { TIME_CONTROL_PRESETS } from '../engine/chessClock'
 
 export type GameMode = 'human-vs-human' | 'human-vs-ai' | 'ai-vs-ai'
 export type PlayerColor = 'white' | 'black'
@@ -10,6 +11,7 @@ type NewGameConfig = {
     mode: GameMode
     playerColor: PlayerColor
     difficulty: AiDifficulty
+    timeControlId: string
 }
 
 type Props = {
@@ -17,6 +19,7 @@ type Props = {
     initialMode: GameMode
     initialPlayerColor: PlayerColor
     initialDifficulty: AiDifficulty
+    initialTimeControlId: string
     onStart: (config: NewGameConfig) => void
     onCancel: () => void
 }
@@ -48,18 +51,21 @@ export function NewGameDialog({
     initialMode,
     initialPlayerColor,
     initialDifficulty,
+    initialTimeControlId,
     onStart,
     onCancel,
 }: Props) {
     const [mode, setMode] = useState<GameMode>(initialMode)
     const [playerColor, setPlayerColor] = useState<PlayerColor>(initialPlayerColor)
     const [difficulty, setDifficulty] = useState<AiDifficulty>(initialDifficulty)
+    const [timeControlId, setTimeControlId] = useState<string>(initialTimeControlId)
     const panelRef = useRef<HTMLDivElement>(null)
     const titleId = useId()
     const difficultyLabelId = useId()
+    const timeControlLabelId = useId()
 
     const handleStart = () => {
-        onStart({ mode, playerColor, difficulty })
+        onStart({ mode, playerColor, difficulty, timeControlId })
     }
 
     const showColorPicker = mode === 'human-vs-ai'
@@ -70,7 +76,8 @@ export function NewGameDialog({
         setMode(initialMode)
         setPlayerColor(initialPlayerColor)
         setDifficulty(initialDifficulty)
-    }, [initialDifficulty, initialMode, initialPlayerColor, open])
+        setTimeControlId(initialTimeControlId)
+    }, [initialDifficulty, initialMode, initialPlayerColor, initialTimeControlId, open])
 
     useModalFocus(open, panelRef, onCancel, { initialFocus: '[data-selected-mode="true"]' })
 
@@ -109,6 +116,26 @@ export function NewGameDialog({
                                     <span className="mode-icon">{opt.icon}</span>
                                     <strong>{opt.label}</strong>
                                     <span className="mode-desc">{opt.description}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Time control */}
+                    <div className="dialog-section">
+                        <p className="dialog-label" id={timeControlLabelId}>Time control</p>
+                        <div className="time-control-grid" role="group" aria-labelledby={timeControlLabelId}>
+                            {TIME_CONTROL_PRESETS.map((preset) => (
+                                <button
+                                    key={preset.id}
+                                    type="button"
+                                    className={`time-control-card ${timeControlId === preset.id ? 'selected' : ''}`}
+                                    onClick={() => setTimeControlId(preset.id)}
+                                    aria-pressed={timeControlId === preset.id}
+                                    aria-label={`${preset.label}: ${preset.blurb}`}
+                                >
+                                    <strong>{preset.label}</strong>
+                                    <span>{preset.blurb}</span>
                                 </button>
                             ))}
                         </div>

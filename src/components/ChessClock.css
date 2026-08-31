@@ -1,0 +1,98 @@
+/* Two clock faces, sized to sit inside the board's meta strip without changing
+   its height — the board is measured against `min-height: 2.25rem` there, and
+   `BOARD_STACK_REM` in App.tsx mirrors that number. Anything taller here
+   overflows the board stage. */
+.chess-clock {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: none;
+}
+
+.clock-face {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: rgba(8, 10, 14, 0.6);
+  line-height: 1.25;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.clock-face>i {
+  font-style: normal;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.clock-face>strong {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  /* Tenths appear under ten seconds and the field would otherwise jump two
+     characters wider mid-countdown. */
+  min-width: 3.4ch;
+  text-align: right;
+}
+
+/* Which side the game is waiting on. The border does the work rather than a
+   fill, so the running clock does not out-shout the board beside it. */
+.clock-face.running {
+  border-color: var(--accent, #3fb950);
+  background: rgba(63, 185, 80, 0.12);
+}
+
+.clock-face.running>strong {
+  color: var(--text-heading);
+}
+
+.clock-face.low>strong {
+  color: #f0a04b;
+}
+
+.clock-face.running.low {
+  border-color: #f0a04b;
+  background: rgba(240, 160, 75, 0.14);
+}
+
+.clock-face.flagged {
+  border-color: #f85149;
+  background: rgba(248, 81, 73, 0.16);
+}
+
+.clock-face.flagged>strong {
+  color: #ff9d96;
+}
+
+.clock-paused {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* The meta strip drops to a tighter type scale on a phone; the clocks follow it
+   rather than forcing the strip taller. */
+@media (max-width: 900px) {
+  .clock-face {
+    padding: 0.05rem 0.3rem;
+    gap: 0.22rem;
+  }
+
+  .clock-face>strong {
+    font-size: 0.76rem;
+  }
+
+  .clock-face>i {
+    font-size: 0.56rem;
+  }
+}
