@@ -562,13 +562,49 @@ remaining 29ms browser internals and effectively no JavaScript.
 
 Two smaller things worth knowing here:
 
-- A flag has to lock the board explicitly. Every other ending locks it by
-  leaving no legal move, so `isBoardInputLocked` never had to know about them;
-  a flag leaves an ordinary position where every move is still legal.
+- Some endings have to lock the board explicitly. Every other one locks it by
+  leaving no legal move, so `isBoardInputLocked` never had to know about them.
+  A flag and a resignation leave an ordinary position where every move is still
+  legal, which is why the field is called `endedOffBoard` rather than
+  `clockFlagged`: it was never about the clock.
 - `canPremove` is what re-enables dragging while the board is locked, which is
   exactly when a premove is made. It is the only thing that relaxes that lock,
   and it is off in pass and play, in analysis, while paused, and once the game
   is over.
+
+## The result is a fact about the game, not about the board
+
+Three of the ways a game ends cannot be read off the position, and for a long
+time none of them was written down. `Result` was set by the clock-flag handler
+alone, so a checkmate exported as `[Result "*"]` — which every other program
+reads as *unfinished* — and the library and the auto-save stored the same `*`.
+
+The reach of that was larger than the export. `narrativeTags` takes the winner
+from the header and falls back to the final evaluation without one, so a game
+drawn from a winning position was read as a win. On a series peaking at 93% for
+White and then drawn, `*` produces **Wire-to-wire** and `1/2-1/2` produces
+**Draw, Missed win** — an inverted verdict, with the most useful thing the
+review had to say suppressed.
+
+`engine/gameEnd.ts` returns the label and the result tag together so the two
+cannot disagree, and three things now feed it:
+
+- **The board**, via `describeGameEnd`, which also separates the three draws the
+  strip used to call all "Draw": a dead position, a repetition and the
+  fifty-move rule are not the same ending to anyone trying to learn from one.
+- **The clock**, unchanged, which still wins over everything: a flag is the
+  last thing that can happen.
+- **A resignation**, held beside the board like the flag.
+
+Two things about `describeGameEnd` are easy to get wrong:
+
+- **It reads the main line, not the board.** A mate found while exploring a
+  variation is not how the game ended, and neither is the quiet position you
+  navigated back to. The strip still follows the board — a variation that mates
+  says so — but the header does not.
+- **The line is replayed, not read off its last FEN.** Threefold repetition is
+  a fact about the history: a position cannot show that it has occurred before,
+  so a FEN alone can never detect it.
 
 ## chess.js takes less PGN than the standard defines
 

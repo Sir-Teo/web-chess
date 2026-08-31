@@ -6,7 +6,7 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 
 ### Playing
 
-- **Play and watch modes**: Play human vs human, human vs Stockfish, or AI vs AI with adjustable difficulty, pause/resume controls, speed control, and single-step playback. With a clock, a takeback and premoves below, a game against the engine is a game rather than a position trainer.
+- **Play and watch modes**: Play human vs human, human vs Stockfish, or AI vs AI with adjustable difficulty, pause/resume controls, speed control, and single-step playback. With a clock, a takeback, premoves and a resign button below, a game against the engine is a game rather than a position trainer.
 - **A clock**: Pick a time control when you start a game — bullet through
   classical, or none, which stays the default. Both clocks sit in the strip
   above the board, the side to move is highlighted, tenths appear under ten
@@ -29,6 +29,13 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   has not, and disabled with a reason when there is nothing of yours to undo.
   The move you took back stays in the game as a variation, and the clock is not
   refunded.
+- **Resign**: Concede the game rather than playing a lost position out to mate
+  or waiting for the clock. Two clicks — Resign, then Confirm? — and never a
+  keyboard shortcut, because one keystroke should not end a game. Against the
+  engine it resigns for you whoever is on move, so you can give up in its
+  thinking time; on a shared board it resigns for the side to move. The game
+  ends properly: the clock stops, the board locks, the result is written, and
+  the review is offered.
 - **Move sounds**: A knock when a piece lands, heavier for a capture, a two-part
   knock for castling, and tones for check, promotion and the end of the game.
   Synthesized in the browser rather than shipped as audio files, and off with
