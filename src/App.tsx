@@ -72,7 +72,7 @@ import {
   type NumericInputValue,
 } from './engine/numericInput'
 import { normalizeSpinOptionInput } from './engine/options'
-import { detectEngineCapabilities, engineProfiles, recommendedHashMb, type EngineProfileId } from './engine/profiles'
+import { engineProfiles, type EngineProfileId } from './engine/profiles'
 import { fetchSamplePgn } from './engine/samplePgn'
 import { parseFenShareHash } from './engine/shareLink'
 import { parseGameShareHash, replaySharedGame } from './engine/shareGame'
@@ -88,12 +88,11 @@ import {
   type Premove,
 } from './engine/premove'
 import { moveSoundFor } from './engine/moveSound'
-import { BOARD_THEMES, boardThemeById, isBoardThemeId } from './engine/boardThemes'
+import { BOARD_THEMES, boardThemeById } from './engine/boardThemes'
 import {
   createClock,
   flagPgnResult,
   flagResultLabel,
-  isTimeControlPresetId,
   describeClockTime,
   formatClockTime,
   moveEndedGame,
@@ -125,6 +124,25 @@ import { useOpening } from './hooks/useOpening'
 import { useCloudEvaluation } from './hooks/useCloudEvaluation'
 import { useOpeningExplorer } from './hooks/useOpeningExplorer'
 import { useTablebase } from './hooks/useTablebase'
+import {
+  CLOCK_INCREMENT_BOUNDS,
+  CLOCK_TIME_BOUNDS,
+  DEFAULT_PERSISTED_SETTINGS,
+  LIMIT_NODES_BOUNDS,
+  MATE_TARGET_BOUNDS,
+  MOVES_TO_GO_BOUNDS,
+  OPENING_SOURCES,
+  OPENING_SPEEDS,
+  QUICK_MOVETIME_BOUNDS,
+  defaultHashMb,
+  loadPersistedSettings,
+  persistSettings,
+  type AnalysisExperience,
+  type AnalysisTab,
+  type AnalyzePresetId,
+  type OpeningRatingPresetId,
+  type WorkspaceMode,
+} from './engine/appSettings'
 import { ANALYSIS_SETTINGS_STORAGE_KEY } from './storageKeys'
 import type { GameMode, PlayerColor } from './components/NewGameDialog'
 import { WatchControls } from './components/WatchControls'
@@ -158,11 +176,6 @@ const LibraryDialog = lazy(() =>
 )
 
 type Orientation = 'white' | 'black'
-type WorkspaceMode = 'play' | 'analysis'
-type AnalysisTab = 'analyze' | 'review' | 'engine-lab'
-type AnalysisExperience = 'beginner' | 'pro'
-type AnalyzePresetId = 'blunder-check' | 'game-review' | 'deep-candidate' | 'mate-hunt'
-type OpeningRatingPresetId = 'all' | 'club' | 'advanced'
 type SampleLibraryFilter = 'all' | HistoricalSampleFormat
 type PromotionPiece = 'q' | 'r' | 'b' | 'n'
 type PendingPromotion = { from: Square; to: Square }
@@ -208,12 +221,6 @@ const readViewport = () => ({
 const LICHESS_TOKEN_PAGE_URL = 'https://lichess.org/account/oauth/token/create?'
 const SAMPLE_PGN_CACHE_LIMIT = 12
 const DEFAULT_LEFT_PANEL_WIDTH = 320
-const ANALYZE_MODE_IDS: AnalyzeMode[] = ['quick', 'deep', 'infinite', 'mate', 'review']
-const ANALYSIS_TAB_IDS: AnalysisTab[] = ['analyze', 'review', 'engine-lab']
-const ANALYSIS_EXPERIENCE_IDS: AnalysisExperience[] = ['beginner', 'pro']
-const WORKSPACE_MODE_IDS: WorkspaceMode[] = ['play', 'analysis']
-const OPENING_SOURCES: OpeningDatabaseSource[] = ['masters', 'lichess']
-const OPENING_SPEEDS: OpeningSpeed[] = ['bullet', 'blitz', 'rapid', 'classical']
 const OPENING_RATING_PRESETS: Array<{ id: OpeningRatingPresetId; label: string; ratings: number[] }> = [
   { id: 'all', label: 'All ratings', ratings: [] },
   { id: 'club', label: '1600-2200', ratings: [1600, 1800, 2000, 2200] },
@@ -289,99 +296,13 @@ type FenLoadOptions = {
   forceAnalysis?: boolean
 }
 
-type PersistedAppSettings = {
-  workspaceMode: WorkspaceMode
-  autoAnalyze: boolean
-  engineProfile: EngineProfileId
-  analysisTab: AnalysisTab
-  analysisExperience: AnalysisExperience
-  activePreset: AnalyzePresetId | null
-  analyzeMode: AnalyzeMode
-  showAdvancedAnalyze: boolean
-  searchDepth: number
-  quickMovetimeMs: number
-  mateTarget: number
-  multiPv: number
-  hashMb: number
-  showWdl: boolean
-  limitNodes: number | null
-  searchMovesInput: string
-  useClockLimits: boolean
-  whiteTimeMs: number
-  blackTimeMs: number
-  whiteIncMs: number
-  blackIncMs: number
-  movesToGo: number | null
-  expertModeEnabled: boolean
-  labCommandHistory: string[]
-  openingSource: OpeningDatabaseSource
-  openingSpeeds: OpeningSpeed[]
-  openingRatingPreset: OpeningRatingPresetId
-  showBoardArrows: boolean
-  showTopMoveArrows: boolean
-  topMoveArrowCount: number
-  soundEnabled: boolean
-  timeControlId: string
-  boardThemeId: string
-}
 
 /**
  * Read once, lazily: detectEngineCapabilities touches navigator, which is not
  * there at module scope in a test or a prerender.
  */
-let cachedDefaultHashMb: number | null = null
-function defaultHashMb(): number {
-  if (cachedDefaultHashMb !== null) return cachedDefaultHashMb
-  try {
-    cachedDefaultHashMb = recommendedHashMb(detectEngineCapabilities())
-  } catch {
-    cachedDefaultHashMb = DEFAULT_PERSISTED_SETTINGS.hashMb
-  }
-  return cachedDefaultHashMb
-}
 
-const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
-  workspaceMode: 'play',
-  autoAnalyze: true,
-  engineProfile: 'auto',
-  analysisTab: 'analyze',
-  analysisExperience: 'beginner',
-  activePreset: 'game-review',
-  analyzeMode: 'review',
-  showAdvancedAnalyze: false,
-  searchDepth: 16,
-  quickMovetimeMs: 500,
-  mateTarget: 4,
-  multiPv: 2,
-  hashMb: 64,
-  showWdl: true,
-  limitNodes: null,
-  searchMovesInput: '',
-  useClockLimits: false,
-  whiteTimeMs: 120_000,
-  blackTimeMs: 120_000,
-  whiteIncMs: 1_000,
-  blackIncMs: 1_000,
-  movesToGo: null,
-  expertModeEnabled: false,
-  labCommandHistory: [],
-  openingSource: 'masters',
-  openingSpeeds: ['blitz', 'rapid', 'classical'],
-  openingRatingPreset: 'all',
-  showBoardArrows: true,
-  showTopMoveArrows: true,
-  topMoveArrowCount: 3,
-  soundEnabled: true,
-  timeControlId: 'unlimited',
-  boardThemeId: 'classic',
-}
 
-const QUICK_MOVETIME_BOUNDS = { min: 50, max: 30_000, fallback: DEFAULT_PERSISTED_SETTINGS.quickMovetimeMs }
-const MATE_TARGET_BOUNDS = { min: 1, max: 30, fallback: DEFAULT_PERSISTED_SETTINGS.mateTarget }
-const LIMIT_NODES_BOUNDS = { min: 1, max: 1_000_000_000 }
-const CLOCK_TIME_BOUNDS = { min: 0, max: 86_400_000, fallback: DEFAULT_PERSISTED_SETTINGS.whiteTimeMs }
-const CLOCK_INCREMENT_BOUNDS = { min: 0, max: 60_000, fallback: DEFAULT_PERSISTED_SETTINGS.whiteIncMs }
-const MOVES_TO_GO_BOUNDS = { min: 1, max: 500 }
 
 /**
  * Command+K on a Mac, Control+K elsewhere, with nothing else held.
@@ -398,69 +319,18 @@ function isCommandPaletteChord(event: KeyboardEvent): boolean {
     && !event.shiftKey
 }
 
-function isAnalyzePresetId(value: unknown): value is AnalyzePresetId {
-  return typeof value === 'string' && analyzePresets.some(preset => preset.id === value)
-}
 
-function isAnalyzeMode(value: unknown): value is AnalyzeMode {
-  return typeof value === 'string' && ANALYZE_MODE_IDS.includes(value as AnalyzeMode)
-}
 
-function isAnalysisTab(value: unknown): value is AnalysisTab {
-  return typeof value === 'string' && ANALYSIS_TAB_IDS.includes(value as AnalysisTab)
-}
 
-function isAnalysisExperience(value: unknown): value is AnalysisExperience {
-  return typeof value === 'string' && ANALYSIS_EXPERIENCE_IDS.includes(value as AnalysisExperience)
-}
 
-function isWorkspaceMode(value: unknown): value is WorkspaceMode {
-  return typeof value === 'string' && WORKSPACE_MODE_IDS.includes(value as WorkspaceMode)
-}
 
-function isEngineProfileId(value: unknown): value is EngineProfileId {
-  if (value === 'auto') return true
-  return typeof value === 'string' && engineProfiles.some(profile => profile.id === value)
-}
 
-function isOpeningSource(value: unknown): value is OpeningDatabaseSource {
-  return typeof value === 'string' && OPENING_SOURCES.includes(value as OpeningDatabaseSource)
-}
 
-function isOpeningSpeed(value: unknown): value is OpeningSpeed {
-  return typeof value === 'string' && OPENING_SPEEDS.includes(value as OpeningSpeed)
-}
 
-function isOpeningRatingPreset(value: unknown): value is OpeningRatingPresetId {
-  return typeof value === 'string' && OPENING_RATING_PRESETS.some(preset => preset.id === value)
-}
 
-function normalizeInteger(value: unknown, minimum: number, maximum: number, fallback: number): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
-  const rounded = Math.round(value)
-  if (rounded < minimum || rounded > maximum) return fallback
-  return rounded
-}
 
-function normalizeOptionalPositiveInteger(value: unknown, maximum: number): number | null {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return null
-  const rounded = Math.round(value)
-  if (rounded <= 0 || rounded > maximum) return null
-  return rounded
-}
 
-function normalizeOpeningSpeeds(value: unknown): OpeningSpeed[] {
-  if (!Array.isArray(value)) return DEFAULT_PERSISTED_SETTINGS.openingSpeeds
-  const seen = new Set<OpeningSpeed>()
-  const next = value
-    .filter((item): item is OpeningSpeed => isOpeningSpeed(item))
-    .filter(item => {
-      if (seen.has(item)) return false
-      seen.add(item)
-      return true
-    })
-  return next.length ? next : DEFAULT_PERSISTED_SETTINGS.openingSpeeds
-}
+
 
 function moveGamesCount(move: OpeningExplorerMove): number {
   return move.white + move.draws + move.black
@@ -690,93 +560,7 @@ function playerColorToTurn(color: PlayerColor): 'w' | 'b' {
   return color === 'white' ? 'w' : 'b'
 }
 
-function loadPersistedSettings(): PersistedAppSettings {
-  if (typeof window === 'undefined') return DEFAULT_PERSISTED_SETTINGS
 
-  try {
-    const raw = window.localStorage.getItem(ANALYSIS_SETTINGS_STORAGE_KEY)
-    if (!raw) return DEFAULT_PERSISTED_SETTINGS
-
-    const parsed = JSON.parse(raw) as Record<string, unknown>
-    const labCommandHistory = Array.isArray(parsed.labCommandHistory)
-      ? parsed.labCommandHistory
-        .filter((value): value is string => typeof value === 'string')
-        .map(item => item.trim())
-        .filter(Boolean)
-        .slice(0, 20)
-      : DEFAULT_PERSISTED_SETTINGS.labCommandHistory
-
-    return {
-      workspaceMode: isWorkspaceMode(parsed.workspaceMode) ? parsed.workspaceMode : DEFAULT_PERSISTED_SETTINGS.workspaceMode,
-      autoAnalyze: typeof parsed.autoAnalyze === 'boolean' ? parsed.autoAnalyze : DEFAULT_PERSISTED_SETTINGS.autoAnalyze,
-      engineProfile: isEngineProfileId(parsed.engineProfile) ? parsed.engineProfile : DEFAULT_PERSISTED_SETTINGS.engineProfile,
-      analysisTab: isAnalysisTab(parsed.analysisTab) ? parsed.analysisTab : DEFAULT_PERSISTED_SETTINGS.analysisTab,
-      analysisExperience: isAnalysisExperience(parsed.analysisExperience)
-        ? parsed.analysisExperience
-        : DEFAULT_PERSISTED_SETTINGS.analysisExperience,
-      activePreset: parsed.activePreset === null ? null : (isAnalyzePresetId(parsed.activePreset) ? parsed.activePreset : DEFAULT_PERSISTED_SETTINGS.activePreset),
-      analyzeMode: isAnalyzeMode(parsed.analyzeMode) ? parsed.analyzeMode : DEFAULT_PERSISTED_SETTINGS.analyzeMode,
-      showAdvancedAnalyze: typeof parsed.showAdvancedAnalyze === 'boolean'
-        ? parsed.showAdvancedAnalyze
-        : DEFAULT_PERSISTED_SETTINGS.showAdvancedAnalyze,
-      searchDepth: normalizeInteger(parsed.searchDepth, 6, 32, DEFAULT_PERSISTED_SETTINGS.searchDepth),
-      quickMovetimeMs: normalizeInteger(
-        parsed.quickMovetimeMs,
-        QUICK_MOVETIME_BOUNDS.min,
-        QUICK_MOVETIME_BOUNDS.max,
-        QUICK_MOVETIME_BOUNDS.fallback,
-      ),
-      mateTarget: normalizeInteger(parsed.mateTarget, MATE_TARGET_BOUNDS.min, MATE_TARGET_BOUNDS.max, MATE_TARGET_BOUNDS.fallback),
-      multiPv: normalizeInteger(parsed.multiPv, 1, 5, DEFAULT_PERSISTED_SETTINGS.multiPv),
-      hashMb: normalizeInteger(parsed.hashMb, 16, 512, defaultHashMb()),
-      showWdl: typeof parsed.showWdl === 'boolean' ? parsed.showWdl : DEFAULT_PERSISTED_SETTINGS.showWdl,
-      limitNodes: normalizeOptionalPositiveInteger(parsed.limitNodes, LIMIT_NODES_BOUNDS.max),
-      searchMovesInput: DEFAULT_PERSISTED_SETTINGS.searchMovesInput,
-      useClockLimits: typeof parsed.useClockLimits === 'boolean' ? parsed.useClockLimits : DEFAULT_PERSISTED_SETTINGS.useClockLimits,
-      whiteTimeMs: normalizeInteger(parsed.whiteTimeMs, CLOCK_TIME_BOUNDS.min, CLOCK_TIME_BOUNDS.max, DEFAULT_PERSISTED_SETTINGS.whiteTimeMs),
-      blackTimeMs: normalizeInteger(parsed.blackTimeMs, CLOCK_TIME_BOUNDS.min, CLOCK_TIME_BOUNDS.max, DEFAULT_PERSISTED_SETTINGS.blackTimeMs),
-      whiteIncMs: normalizeInteger(parsed.whiteIncMs, CLOCK_INCREMENT_BOUNDS.min, CLOCK_INCREMENT_BOUNDS.max, DEFAULT_PERSISTED_SETTINGS.whiteIncMs),
-      blackIncMs: normalizeInteger(parsed.blackIncMs, CLOCK_INCREMENT_BOUNDS.min, CLOCK_INCREMENT_BOUNDS.max, DEFAULT_PERSISTED_SETTINGS.blackIncMs),
-      movesToGo: normalizeOptionalPositiveInteger(parsed.movesToGo, MOVES_TO_GO_BOUNDS.max),
-      expertModeEnabled: typeof parsed.expertModeEnabled === 'boolean'
-        ? parsed.expertModeEnabled
-        : DEFAULT_PERSISTED_SETTINGS.expertModeEnabled,
-      labCommandHistory,
-      openingSource: isOpeningSource(parsed.openingSource) ? parsed.openingSource : DEFAULT_PERSISTED_SETTINGS.openingSource,
-      openingSpeeds: normalizeOpeningSpeeds(parsed.openingSpeeds),
-      openingRatingPreset: isOpeningRatingPreset(parsed.openingRatingPreset)
-        ? parsed.openingRatingPreset
-        : DEFAULT_PERSISTED_SETTINGS.openingRatingPreset,
-      showBoardArrows: typeof parsed.showBoardArrows === 'boolean'
-        ? parsed.showBoardArrows
-        : DEFAULT_PERSISTED_SETTINGS.showBoardArrows,
-      showTopMoveArrows: typeof parsed.showTopMoveArrows === 'boolean'
-        ? parsed.showTopMoveArrows
-        : DEFAULT_PERSISTED_SETTINGS.showTopMoveArrows,
-      topMoveArrowCount: normalizeInteger(parsed.topMoveArrowCount, 1, 5, DEFAULT_PERSISTED_SETTINGS.topMoveArrowCount),
-      soundEnabled: typeof parsed.soundEnabled === 'boolean'
-        ? parsed.soundEnabled
-        : DEFAULT_PERSISTED_SETTINGS.soundEnabled,
-      timeControlId: isTimeControlPresetId(parsed.timeControlId)
-        ? parsed.timeControlId
-        : DEFAULT_PERSISTED_SETTINGS.timeControlId,
-      boardThemeId: isBoardThemeId(parsed.boardThemeId)
-        ? parsed.boardThemeId
-        : DEFAULT_PERSISTED_SETTINGS.boardThemeId,
-    }
-  } catch {
-    return DEFAULT_PERSISTED_SETTINGS
-  }
-}
-
-function persistSettings(settings: PersistedAppSettings) {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(ANALYSIS_SETTINGS_STORAGE_KEY, JSON.stringify(settings))
-  } catch {
-    // Ignore localStorage failures (private mode / quota).
-  }
-}
 
 function loadSharedFenFromUrl(): string | null {
   if (typeof window === 'undefined') return null

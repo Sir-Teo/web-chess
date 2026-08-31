@@ -560,13 +560,20 @@ grammar, not a normalisation the format needs.
 - Anything user-facing derived from an evaluation should be win-percent based,
   not centipawn based, so it reads correctly in a decided position.
 - New pure logic goes in `src/engine/` with a colocated test, not into
-  `App.tsx`. This is about *new* logic: `App.tsx` already carries 44 top-level
+  `App.tsx`. This is about *new* logic: `App.tsx` already carries top-level
   helpers that predate the rule, so it is "stop adding", not "this is already
-  true". 31 of those are six lines or fewer and not worth moving. The ones with
-  enough logic to deserve a test if they are ever touched are
-  `describeBestMove` (~69 lines, builds user-facing tags and a summary, no
-  test), `loadPersistedSettings`, `buildBatchReviewTargets`, `defaultHashMb`
-  and `topArrowColor`.
+  true". Most are six lines or fewer and not worth moving. Of the ones this
+  file used to name, `describeBestMove`, `buildBatchReviewTargets`,
+  `loadPersistedSettings` and `defaultHashMb` have since moved out —
+  `engine/appSettings.ts` took the last two, along with every guard and bound
+  they use. `topArrowColor` is the one left, and it is nine lines.
+
+  The extraction of `loadPersistedSettings` is what the rule is *for*, and the
+  record of it is instructive: three settings were added to it in one session —
+  move sounds, the time control, the board theme — each editing sixty lines of
+  normalisation that nothing exercised, before anyone stopped to move it. The
+  twenty-one tests written the moment it landed in `engine/` all passed first
+  time, which is the good outcome and also the reason it kept being put off.
 
   The trap is editing one in place: `reviewImpactLabel` was modified while the
   centipawn bound was added, which quietly changed the text under every review
