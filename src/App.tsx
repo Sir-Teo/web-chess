@@ -5075,6 +5075,7 @@ function App() {
               onDelete={library.deleteGame}
               onToggleFavorite={library.toggleFavorite}
               onExportBackup={library.exportBackup}
+              onExportPgn={library.exportPgn}
               onImportBackup={library.importBackup}
               storageIsDurable={libraryStorageIsDurable()}
             />

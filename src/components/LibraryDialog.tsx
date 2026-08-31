@@ -29,6 +29,11 @@ type Props = {
     onDelete: (id: string) => void
     onToggleFavorite: (id: string) => void
     onExportBackup: () => string
+    /**
+     * The library as a PGN database. The backup is JSON and only this app
+     * reads it; a PGN opens anywhere.
+     */
+    onExportPgn: () => string
     onImportBackup: (json: string) => LibraryWriteResult
     /**
      * Whether anything saved here will outlive the tab. False when the browser
@@ -73,6 +78,7 @@ export function LibraryDialog({
     onDelete,
     onToggleFavorite,
     onExportBackup,
+    onExportPgn,
     onImportBackup,
     storageIsDurable,
 }: Props) {
@@ -135,14 +141,33 @@ export function LibraryDialog({
         setName('')
     }
 
-    const handleExport = () => {
-        const blob = new Blob([onExportBackup()], { type: 'application/json' })
+    const download = (text: string, filename: string, type: string) => {
+        const blob = new Blob([text], { type })
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
-        link.download = `web-chess-library-${new Date().toISOString().slice(0, 10)}.json`
+        link.download = filename
         link.click()
         URL.revokeObjectURL(url)
+    }
+
+    const today = () => new Date().toISOString().slice(0, 10)
+
+    const handleExportPgn = () => {
+        const text = onExportPgn()
+        if (!text) {
+            setStatus(null)
+            setError('There is nothing in the library to export yet.')
+            return
+        }
+        download(text, `web-chess-library-${today()}.pgn`, 'application/x-chess-pgn')
+        setError(null)
+        setStatus(`Exported ${stats.count} ${stats.count === 1 ? 'game' : 'games'} as PGN.`)
+    }
+
+    const handleExport = () => {
+        download(onExportBackup(), `web-chess-library-${today()}.json`, 'application/json')
+        setError(null)
         setStatus(`Exported ${stats.count} ${stats.count === 1 ? 'game' : 'games'}.`)
     }
 
@@ -356,6 +381,15 @@ export function LibraryDialog({
                         disabled={!games.length}
                     >
                         <IconDownload /> Export backup
+                    </button>
+                    <button
+                        type="button"
+                        className="btn-cancel"
+                        onClick={handleExportPgn}
+                        disabled={!games.length}
+                        title="A PGN database every other chess program can open"
+                    >
+                        <IconDownload /> Export PGN
                     </button>
                     <button type="button" className="btn-start" onClick={onClose}>Done</button>
                 </div>

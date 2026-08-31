@@ -6,6 +6,7 @@ import {
   createLibraryBackup,
   backupMergeNote,
   createLibraryGame,
+  createLibraryPgn,
   getUniqueGameName,
   mergeLibraryBackup,
   normalizeLibraryGames,
@@ -96,6 +97,9 @@ export function useGameLibrary() {
 
   const exportBackup = useCallback(() => createLibraryBackup(gamesRef.current), [])
 
+  /** The same games as a PGN database, which every other chess program reads. */
+  const exportPgn = useCallback(() => createLibraryPgn(gamesRef.current), [])
+
   /**
    * Add every game in a database file, which is how Lichess and chess.com hand
    * games over. Each is parsed before it is kept: a file with a broken game in
@@ -173,6 +177,7 @@ export function useGameLibrary() {
     toggleFavorite,
     clearLibrary,
     exportBackup,
+    exportPgn,
     importBackup,
   }
 }

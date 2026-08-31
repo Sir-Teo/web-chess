@@ -7,6 +7,7 @@ import {
   countPgnMoves,
   createLibraryBackup,
   createLibraryGame,
+  createLibraryPgn,
   extractLibraryMetadata,
   formatLibrarySize,
   getLibraryStats,
@@ -19,6 +20,7 @@ import {
   sortLibraryGames,
   suggestGameName,
 } from './gameLibrary'
+import { pgnImportContentError, splitPgnGames } from './pgn'
 
 const PGN = `[Event "Casual Game"]
 [Site "Berlin GER"]
@@ -409,5 +411,52 @@ describe('what the reader is told about a merge', () => {
   it('counts one game as a game', () => {
     expect(merge(1, 1, 0)).toContain('1 game already')
     expect(merge(2, 2, 0)).toContain('2 games already')
+  })
+})
+
+describe('exporting the library as a PGN database', () => {
+  const withHeaders = (event: string, result: string) =>
+    `[Event "${event}"]\n[Site "?"]\n[Date "2026.01.01"]\n[Round "1"]\n[White "A"]\n[Black "B"]\n[Result "${result}"]\n\n1. e4 e5 ${result}`
+
+  it('writes nothing for an empty library', () => {
+    expect(createLibraryPgn([])).toBe('')
+  })
+
+  it('writes one game as itself', () => {
+    const pgn = withHeaders('Solo', '1-0')
+    expect(createLibraryPgn([createLibraryGame('a', pgn, 1, 'a')])).toBe(`${pgn}\n`)
+  })
+
+  it('separates games with a blank line', () => {
+    const games = [
+      createLibraryGame('one', withHeaders('First', '1-0'), 1, 'a'),
+      createLibraryGame('two', withHeaders('Second', '0-1'), 1, 'b'),
+    ]
+    expect(createLibraryPgn(games)).toContain('1-0\n\n[Event "Second"]')
+  })
+
+  it('skips an entry with no move text at all rather than writing a gap', () => {
+    const games = [
+      createLibraryGame('real', withHeaders('First', '1-0'), 1, 'a'),
+      { ...createLibraryGame('blank', withHeaders('Second', '*'), 1, 'b'), pgn: '   ' },
+    ]
+    expect(createLibraryPgn(games)).toBe(`${withHeaders('First', '1-0')}\n`)
+  })
+
+  /** The point of the format: it has to come back in through the front door. */
+  it('round-trips through the database splitter', () => {
+    const games = ['First', 'Second', 'Third'].map((event, i) =>
+      createLibraryGame(event, withHeaders(event, '1-0'), 1, `id-${i}`))
+    const parts = splitPgnGames(createLibraryPgn(games))
+    expect(parts).toHaveLength(3)
+    expect(parts.map(part => (part.match(/\[Event "([^"]*)"\]/) ?? [])[1])).toEqual(['First', 'Second', 'Third'])
+  })
+
+  it('produces a file every game of which the importer accepts', () => {
+    const games = ['First', 'Second'].map((event, i) =>
+      createLibraryGame(event, withHeaders(event, '1-0'), 1, `id-${i}`))
+    for (const part of splitPgnGames(createLibraryPgn(games))) {
+      expect(pgnImportContentError(part), part).toBeNull()
+    }
   })
 })

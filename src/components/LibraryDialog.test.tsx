@@ -22,6 +22,7 @@ function render(overrides: Partial<Parameters<typeof LibraryDialog>[0]> = {}) {
             onDelete={noop}
             onToggleFavorite={noop}
             onExportBackup={() => '{}'}
+            onExportPgn={() => ''}
             onImportBackup={ok}
             storageIsDurable
             {...overrides}

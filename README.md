@@ -91,6 +91,10 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 
 ### Throughout
 
+- **Export the library as PGN**: Alongside the JSON backup, which only this app
+  reads, the whole library saves as one PGN database that Lichess, chess.com,
+  SCID and ChessBase all open. It round-trips: the file it writes is one the
+  database import above reads straight back.
 - **Import a whole database**: Paste or open a PGN file with many games in it —
   which is what Lichess and chess.com hand you — and add the lot to the library
   in one go, each named from its own headers. A game in the file that will not

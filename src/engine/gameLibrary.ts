@@ -400,6 +400,26 @@ export function getLibraryStats(games: LibraryGame[]): { count: number; moves: n
   )
 }
 
+/**
+ * The whole library as one PGN database.
+ *
+ * The backup is JSON, which only this app reads. Games can now come *in* as a
+ * PGN database, and they should be able to leave as one too -- that file opens
+ * in Lichess, chess.com, SCID, ChessBase and everything else.
+ *
+ * Games are separated by a blank line, which is what the standard asks for and
+ * what `splitPgnGames` reads back. Names are not written: a library name is
+ * this app's label for a game, and a PGN already carries the headers every
+ * other program uses to identify one.
+ */
+export function createLibraryPgn(games: LibraryGame[]): string {
+  const text = games
+    .map(game => game.pgn.trim())
+    .filter(Boolean)
+    .join('\n\n')
+  return text ? `${text}\n` : ''
+}
+
 export function createLibraryBackup(games: LibraryGame[]): string {
   return JSON.stringify({
     format: LIBRARY_BACKUP_FORMAT,
