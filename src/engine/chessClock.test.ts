@@ -11,6 +11,7 @@ import {
   isTimeControlPresetId,
   LOW_TIME_CEILING_MS,
   lowTimeThresholdMs,
+  moveEndedGame,
   moveMade,
   pauseClock,
   remainingMs,
@@ -110,6 +111,34 @@ describe('making a move', () => {
     expect(after).toBe(clock)
     clock = startSide(clock, 'b', 92_000)
     expect(clock.running).toBeNull()
+  })
+})
+
+describe('the move that ends the game', () => {
+  it('banks the mover as usual but hands over to nobody', () => {
+    let clock = startSide(createClock(BLITZ), 'w', 0)
+    clock = moveEndedGame(clock, 'w', 5_000)
+    expect(clock.whiteMs).toBe(177_000)
+    expect(clock.blackMs).toBe(180_000)
+    expect(clock.running).toBeNull()
+  })
+
+  /**
+   * The bug this exists for: a fool's mate left the loser's clock counting for
+   * a full minute and then flagging, and a stalemate would have turned a draw
+   * into a loss on time.
+   */
+  it('leaves nothing to flag, however long the board sits there', () => {
+    let clock = startSide(createClock({ initialMs: 10_000, incrementMs: 0 }), 'w', 0)
+    clock = moveEndedGame(clock, 'w', 1_000)
+    expect(flaggedSide(clock, 10_000_000)).toBeNull()
+    expect(settleFlag(clock, 10_000_000)).toBe(clock)
+  })
+
+  it('still flags when the ending move was itself the one that ran out', () => {
+    let clock = startSide(createClock({ initialMs: 10_000, incrementMs: 0 }), 'w', 0)
+    clock = moveEndedGame(clock, 'w', 30_000)
+    expect(clock.flagged).toBe('w')
   })
 })
 

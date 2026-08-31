@@ -141,6 +141,19 @@ export function moveMade(state: ClockState, side: ClockSide, now: number): Clock
   return { ...banked, running: opponent, since: now }
 }
 
+/**
+ * The move that ended the game: bank it as usual, then stop.
+ *
+ * `moveMade` always hands over, because that is what a move does. A move that
+ * checkmates or stalemates does not — a finished game has no side to move, so
+ * nobody's clock should run. Without this the loser's clock counted down for a
+ * full minute after a fool's mate and then flagged, replacing "Checkmate" with
+ * "flagged on time"; a stalemate would have turned a draw into a loss.
+ */
+export function moveEndedGame(state: ClockState, side: ClockSide, now: number): ClockState {
+  return pauseClock(moveMade(state, side, now), now)
+}
+
 export function pauseClock(state: ClockState, now: number): ClockState {
   if (state.running === null) return state
   return commit(state, now)

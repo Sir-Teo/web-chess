@@ -85,6 +85,7 @@ import {
   flagPgnResult,
   flagResultLabel,
   isTimeControlPresetId,
+  moveEndedGame,
   moveMade,
   pauseClock,
   settleFlag,
@@ -2503,8 +2504,15 @@ function App() {
    */
   const registerMovePlayed = useCallback((move: Move) => {
     playMoveSound(move)
-    setClock(previous => (previous ? moveMade(previous, move.color, Date.now()) : previous))
-  }, [playMoveSound])
+    // Read once, from the position the move created: a move that mates or
+    // stalemates hands over to nobody, and the clock has to be told.
+    const ended = game.isGameOver()
+    setClock(previous => {
+      if (!previous) return previous
+      const now = Date.now()
+      return ended ? moveEndedGame(previous, move.color, now) : moveMade(previous, move.color, now)
+    })
+  }, [game, playMoveSound])
   // Reached from the AI loop, which is an effect that must not re-install
   // whenever the sound setting changes mid-game. Same shape as requestThreatRef.
   const playMoveSoundRef = useRef(registerMovePlayed)
