@@ -4,6 +4,7 @@ import {
   hasOpeningExplorerAuthToken,
   normalizeOpeningExplorerFenKey,
   openingExplorerGameCount,
+  openingMoveActionLabel,
   prefetchOpeningExplorer,
   shouldContinueOpeningBookLine,
 } from './openingExplorer'
@@ -282,5 +283,25 @@ describe('opening explorer client', () => {
       'Opening Explorer requires a Lichess API token.',
     )
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('what a book move button says it does', () => {
+  it('leads with the action, not the numbers', () => {
+    expect(openingMoveActionLabel('Nf3', 47100, 47.5))
+      .toBe('Analyze only Nf3: 47,100 games, 47.5% of this position')
+  })
+
+  it('groups the digits, because a screen reader reads them out', () => {
+    expect(openingMoveActionLabel('e4', 1234567, 61.25)).toContain('1,234,567 games')
+  })
+
+  it('keeps one decimal place, matching the row', () => {
+    expect(openingMoveActionLabel('c5', 10, 3)).toContain('3.0%')
+  })
+
+  /** The point of it: never just the data the row already shows. */
+  it('never reads as a bare statistic', () => {
+    expect(openingMoveActionLabel('d4', 5, 1).startsWith('Analyze only')).toBe(true)
   })
 })

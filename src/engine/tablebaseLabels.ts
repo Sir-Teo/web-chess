@@ -46,3 +46,15 @@ export function tablebaseMoveAriaLabel(move: TablebaseMove): string {
   const summary = tablebaseMoveSummary(move)
   return summary ? `${move.san}: ${summary}. UCI ${move.uci}` : `${move.san}. UCI ${move.uci}`
 }
+
+/**
+ * The same, led by what pressing it does.
+ *
+ * The row looks like a move you could play -- every other site plays one when
+ * you click it -- and this restricts the engine's search to it instead. The
+ * name described the move and its result and never the action, so a screen
+ * reader heard a fact rather than a button.
+ */
+export function tablebaseMoveActionLabel(move: TablebaseMove): string {
+  return `Analyze only ${tablebaseMoveAriaLabel(move)}`
+}

@@ -122,6 +122,29 @@ export function hasOpeningExplorerAuthToken(authToken: string | undefined): bool
   return Boolean(normalizeAuthToken(authToken))
 }
 
+/**
+ * What clicking a book move actually does, said out loud.
+ *
+ * The row is a button whose contents are "Nf3 47.5% 47,100" -- a description
+ * of the data, not of the action -- so its accessible name was that string and
+ * nothing else. And the action is not the one every other site has trained
+ * people to expect: clicking a move in Lichess's explorer *plays* it, while
+ * this restricts the engine's search to it. A control that does something
+ * other than the convention has to say so, to a screen reader and in a
+ * tooltip.
+ *
+ * The tablebase rows next to it already carry a composed label; this is the
+ * same courtesy for the explorer.
+ */
+export function openingMoveActionLabel(
+  san: string,
+  games: number,
+  sharePercent: number,
+): string {
+  return `Analyze only ${san}: ${games.toLocaleString()} games, `
+    + `${sharePercent.toFixed(1)}% of this position`
+}
+
 export function openingExplorerGameCount(response: Pick<OpeningExplorerResponse, 'white' | 'draws' | 'black'>): number {
   return Math.max(0, response.white) + Math.max(0, response.draws) + Math.max(0, response.black)
 }

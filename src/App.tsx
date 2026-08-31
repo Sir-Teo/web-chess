@@ -40,6 +40,7 @@ import {
   getCachedOpeningExplorer,
   hasOpeningExplorerAuthToken,
   openingExplorerGameCount,
+  openingMoveActionLabel,
   shouldContinueOpeningBookLine,
   type OpeningDatabaseSource,
   type OpeningExplorerMove,
@@ -81,7 +82,11 @@ import { fetchSamplePgn } from './engine/samplePgn'
 import { parseFenShareHash } from './engine/shareLink'
 import { parseGameShareHash, replaySharedGame } from './engine/shareGame'
 import { nullMoveProbe } from './engine/threats'
-import { tablebaseMoveAriaLabel, tablebaseMoveSummary, tablebaseSummary } from './engine/tablebaseLabels'
+import {
+  tablebaseMoveActionLabel,
+  tablebaseMoveSummary,
+  tablebaseSummary,
+} from './engine/tablebaseLabels'
 import { BOARD_SQUARES, describeBoardSquare, isBoardSquare } from './engine/boardAccessibility'
 import { isBoardInputLocked } from './engine/boardInput'
 import {
@@ -5428,8 +5433,8 @@ function App() {
                               key={move.uci}
                               type="button"
                               className={`tablebase-move-row ${analysisExperience === 'pro' ? '' : 'compact'}`}
-                              title={move.uci}
-                              aria-label={tablebaseMoveAriaLabel(move)}
+                              aria-label={tablebaseMoveActionLabel(move)}
+                              title={tablebaseMoveActionLabel(move)}
                               onClick={() => {
                                 setShowAdvancedAnalyze(true)
                                 setActivePreset(null)
@@ -5604,6 +5609,16 @@ function App() {
                                   key={move.uci}
                                   type="button"
                                   className="opening-move-row"
+                                  aria-label={openingMoveActionLabel(
+                                    move.san,
+                                    games,
+                                    percentage(games, openingTotalGames),
+                                  )}
+                                  title={openingMoveActionLabel(
+                                    move.san,
+                                    games,
+                                    percentage(games, openingTotalGames),
+                                  )}
                                   onClick={() => {
                                     setShowAdvancedAnalyze(true)
                                     setActivePreset(null)

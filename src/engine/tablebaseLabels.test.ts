@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { tablebaseMoveAriaLabel, tablebaseMoveSummary, tablebaseSummary } from './tablebaseLabels'
+import {
+  tablebaseMoveActionLabel,
+  tablebaseMoveAriaLabel,
+  tablebaseMoveSummary,
+  tablebaseSummary,
+} from './tablebaseLabels'
 
 describe('tablebase labels', () => {
   it('includes DTC for op1-style tablebase results', () => {
@@ -40,5 +45,22 @@ describe('tablebase labels', () => {
 
     expect(tablebaseMoveSummary(move)).toBe('Win · DTC 1')
     expect(tablebaseMoveAriaLabel(move)).toBe('Rxa8+: Win · DTC 1. UCI a1a8')
+  })
+})
+
+describe('what a tablebase row says it does', () => {
+  const move = { uci: 'e2e4', san: 'e4', category: 'draw' as const, dtz: 0, preciseDtz: 0, dtc: null, dtm: null, zeroing: true, checkmate: false, stalemate: false, insufficientMaterial: false }
+
+  it('leads with the action rather than the verdict', () => {
+    expect(tablebaseMoveActionLabel(move).startsWith('Analyze only e4')).toBe(true)
+  })
+
+  it('keeps everything the plain label already said', () => {
+    expect(tablebaseMoveActionLabel(move)).toContain(tablebaseMoveAriaLabel(move))
+  })
+
+  /** The row looks playable and is not; the name is the only thing that can say so. */
+  it('never reads as a bare move', () => {
+    expect(tablebaseMoveActionLabel(move)).not.toBe(tablebaseMoveAriaLabel(move))
   })
 })
