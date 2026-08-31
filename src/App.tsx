@@ -4212,8 +4212,8 @@ function App() {
                     Engine: <strong>{activeProfile.name}</strong>
                   </p>
                 )}
-                <h4 className="settings-subhead">Keyboard shortcuts</h4>
-                <dl className="shortcut-list">
+                <h4 className="settings-subhead pointer-fine-only">Keyboard shortcuts</h4>
+                <dl className="shortcut-list pointer-fine-only">
                   {KEYBOARD_SHORTCUTS.map(({ keys, action }) => (
                     <div key={action}>
                       <dt>{keys.map(key => <kbd key={key}>{key}</kbd>)}</dt>
@@ -4283,12 +4283,18 @@ function App() {
                     : 'Moves are silent.'}
                 </p>
                 {/* A mouse gesture, so it cannot go in the keyboard list, and an
-                    undiscoverable feature is not a feature. */}
-                <p className="panel-copy small">
+                    undiscoverable feature is not a feature. The second copy is
+                    for a touch device, where the first would promise a gesture
+                    that cannot be performed. */}
+                <p className="panel-copy small pointer-fine-only">
                   Right-drag on the board to draw your own arrow, right-click a square to mark it.
                   Hold <kbd>Shift</kbd> or <kbd>Ctrl</kbd> for the other two colours. Your marks are
                   blue, so nothing the engine draws can be mistaken for them; they clear on your next
                   move or left click.
+                </p>
+                <p className="panel-copy small pointer-coarse-only">
+                  Drawing arrows and marking squares needs a mouse — they are on the right button, and
+                  there is no touch equivalent yet.
                 </p>
                 {engineEnabled && workspaceMode === 'analysis' && (
                   <details className="advanced-settings" open>

@@ -4990,3 +4990,24 @@ button.takeback-btn {
   gap: 0.35rem;
   font-weight: 600;
 }
+
+/* Pointer-specific settings copy.
+   The keyboard shortcut list is seven rows at the top of the panel, and on a
+   phone it pushes every control you can actually use below the fold for keys
+   the device does not have. Nothing is lost by hiding it: the command palette
+   prints each shortcut beside its command, so a paired keyboard still finds
+   them. The board-drawing hint is hidden for the stronger reason that it
+   describes a gesture a touch screen cannot perform. */
+.pointer-coarse-only {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .pointer-fine-only {
+    display: none;
+  }
+
+  .pointer-coarse-only {
+    display: block;
+  }
+}

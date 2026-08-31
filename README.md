@@ -19,7 +19,10 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   They are blue, magenta and white rather than Lichess's green, because green
   already means "the engine likes this" on this board — amber is the move that
   was played, violet the threat, and red-to-green the candidate scale. Marks
-  clear on your next move or left click, the way the drawn arrows do.
+  clear on your next move or left click, the way the drawn arrows do. Mouse
+  only: both gestures live on the right button and there is no touch equivalent
+  yet, which Settings says on a touch device rather than describing a gesture
+  the screen cannot perform.
 - **Steppable engine lines**: Click any move in a principal variation — in the
   Lines panel or the Coach card — and the board walks into the line up to that
   move. It lands as a variation like any other, so it can be reviewed, promoted
