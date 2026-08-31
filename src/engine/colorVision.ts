@@ -47,7 +47,7 @@ const apply = (matrix: Triple[], vector: Triple): Triple =>
   matrix.map(row => row[0] * vector[0] + row[1] * vector[1] + row[2] * vector[2]) as Triple
 
 /** `#rrggbb` to three 0-1 channels. Throws on anything else, so a typo is loud. */
-export function parseHexColor(hex: string): Triple {
+function parseHexColor(hex: string): Triple {
   const match = /^#([0-9a-f]{6})$/i.exec(hex.trim())
   if (!match) throw new Error(`Not a six-digit hex colour: ${hex}`)
   const value = match[1]
@@ -75,7 +75,7 @@ function toLab(rgb: Triple): Triple {
 }
 
 /** CIE76 distance. Around 2 is "only side by side"; around 10 is "clearly different". */
-export function colorDistance(a: Triple, b: Triple): number {
+function colorDistance(a: Triple, b: Triple): number {
   const first = toLab(a)
   const second = toLab(b)
   return Math.hypot(first[0] - second[0], first[1] - second[1], first[2] - second[2])
