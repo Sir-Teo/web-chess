@@ -484,6 +484,46 @@ because the fix someone would reach for — memoising subtrees, splitting
 testability, which is the reason `docs/cross-app-learning-plan.md` gives; not
 for speed.
 
+## The engine you play against runs on one thread
+
+`useStockfishEngine` sizes its thread count with `recommendedThreadCount` and
+sends `setoption name Threads 8` on a capable desktop. `useAiPlayer` boots the
+same multi-threaded profile — `resolveProfile('auto', ...)` — and never sends
+`Threads` at all, so the opponent searches on one thread. Confirmed by tracing
+what reaches its worker: at difficulty 8 it sends only `position` and
+`go movetime 2000`.
+
+There is no download saving in it. The two binaries are the same size
+(`stockfish-18-lite.wasm` 6.8 MB, `...-single.wasm` 7.0 MB), so the app already
+pays for the multi-threaded build and then uses one core of it.
+
+What the threads are worth, measured at the 2000ms budget difficulty 8 uses,
+over two middlegame positions:
+
+| | mean depth | nodes |
+| --- | --- | --- |
+| 1 thread | 25.5 | 7.8M |
+| 8 threads | 23.5 | 55.3M |
+
+Seven times the nodes, and *lower* nominal depth — which is the normal Lazy SMP
+picture and the reason depth is not comparable across thread counts. It is a
+real strength increase, but not one this table can put an Elo number on.
+
+**Deliberately not changed**, because it is a trade rather than a fix:
+
+- Only difficulty 8 is affected. One to seven set `UCI_LimitStrength` with a
+  `UCI_Elo`, and an Elo-capped search does not get stronger with more threads —
+  it would just burn eight cores to play like a 1320.
+- It means putting a `setoption name Threads` back into a code path that ends
+  in `go`, which is precisely the hang recorded above. `useAiPlayer` has no
+  command queue and no `isready` handshake, so there is nowhere safe to put it
+  without building one; and a hang there does not stall a review, it stops the
+  opponent moving.
+
+So the question is whether "Maximum" should mean maximum at the cost of eight
+busy cores while somebody plays a casual game, and whether that is worth an
+`isready` handshake in the play engine. Worth deciding rather than drifting.
+
 ## Play mode
 
 Play mode and Analysis mode share one board, one tree and one set of input
