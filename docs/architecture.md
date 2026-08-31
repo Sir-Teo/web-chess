@@ -606,6 +606,36 @@ Two things about `describeGameEnd` are easy to get wrong:
   a fact about the history: a position cannot show that it has occurred before,
   so a FEN alone can never detect it.
 
+## One Lichess backoff covers every Lichess endpoint
+
+`engine/lichessQueue.ts` keeps a single `lichessBackoffUntilMs`, so a 429 from
+any endpoint pauses all of them. That is deliberate -- one polite backoff per
+host -- and it has a consequence worth knowing before anyone debugs it.
+
+Measured on a machine whose IP had been rate-limited by a night of automated
+testing:
+
+    game/export   200   the sample games
+    cloud-eval    429   fires automatically on every page load
+    explorer      401   needs a token
+
+Cloud eval is the endpoint that runs on its own, constantly, with no one asking
+for it; the sample games are fetched only when a reader clicks Load. So the
+call nobody made throttles the call somebody did: clicking a Historical Library
+game with cloud eval throttled queues behind the shared backoff and loads about
+thirty seconds later. The app is doing what it was told to; it just looks like
+a hang.
+
+That is also why `scripts/test-ui-browser.cjs` can fail on a rate-limited
+machine while the branch is fine -- the sample-load wait there says so
+explicitly now.
+
+Whether the backoff should be per-endpoint instead is a real question and not
+one to settle quietly: Lichess rate-limits per endpoint, so a per-endpoint
+backoff would be more accurate and would stop an optional background call
+blocking a deliberate one -- at the cost of pressing a host that has just asked
+you to slow down.
+
 ## The review colours are measured, not eyeballed
 
 The five classifications are told apart in the move list by a 5px coloured
