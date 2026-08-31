@@ -53,7 +53,9 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 - **Threats**: `T`, or the button in the Coach card, asks what the opponent is
   threatening — a null-move search, drawn on the board in violet so it reads as
   neither the move that was played nor a move the engine recommends.
-- **Play from here**: Hand the position on the board to the engine and take the
+- **Play from here**: On both analysis tabs — including Review, next to the
+  critical moments, which is where the reader who wants it actually is. Hand the
+  position on the board to the engine and take the
   move yourself — to try a critical moment again, or to see whether you can
   convert the endgame the review just graded. New Game always starts from the
   initial position; this does not.

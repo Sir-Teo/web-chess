@@ -3993,6 +3993,32 @@ function App() {
     .filter(Boolean).join(' · ')
   const moveNumberLabel = `Move ${fen.split(/\s+/)[5] ?? '1'}`
   const currentMoveQuality = gameTree.current.quality
+  /**
+   * The same control on both analysis tabs.
+   *
+   * It only lived on Analyze, and the reader who most wants it is on Review:
+   * they have just been shown the move that lost the game, and "try that again
+   * properly" meant navigating to the moment, switching tab, and finding a
+   * button. "Try best" beside each critical moment plays the engine's answer;
+   * this is the other half, where the reader plays it.
+   */
+  const playFromHereRow = (
+    <div className="inline-actions play-from-here-row">
+      <button
+        type="button"
+        className="play-from-here-btn"
+        onClick={playFromCurrentPosition}
+        disabled={Boolean(playFromHereDisabledReason)}
+        title={playFromHereDisabledReason ?? 'Take the move against the engine from this position'}
+        aria-label={playFromHereDisabledReason
+          ? `Play from this position unavailable. ${playFromHereDisabledReason}`
+          : 'Play from this position against the engine'}
+      >
+        <IconSwords /> Play from here
+      </button>
+    </div>
+  )
+
   const gameModeLabel = gameMode === 'human-vs-human'
     ? 'Human vs Human'
     : gameMode === 'human-vs-ai'
@@ -5114,20 +5140,7 @@ function App() {
                       Stop. Those two are engine commands and this is a mode
                       change, and at the panel's default 320px a three-way split
                       cut the label off mid-word. */}
-                  <div className="inline-actions play-from-here-row">
-                    <button
-                      type="button"
-                      className="play-from-here-btn"
-                      onClick={playFromCurrentPosition}
-                      disabled={Boolean(playFromHereDisabledReason)}
-                      title={playFromHereDisabledReason ?? 'Take the move against the engine from this position'}
-                      aria-label={playFromHereDisabledReason
-                        ? `Play from this position unavailable. ${playFromHereDisabledReason}`
-                        : 'Play from this position against the engine'}
-                    >
-                      <IconSwords /> Play from here
-                    </button>
-                  </div>
+                  {playFromHereRow}
                   <div className="analysis-experience-toggle" aria-label="Analysis experience">
                     {([
                       { id: 'beginner', label: 'Coach' },
@@ -5549,6 +5562,7 @@ function App() {
                       )}
                     </button>
                   </div>
+                  {playFromHereRow}
                   <div className="review-scaffold">
                     <h3><span className="section-icon"><IconBarChart /></span> Review</h3>
                     <div className="review-filter-row" aria-label="Review side filter">
