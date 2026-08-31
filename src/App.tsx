@@ -109,6 +109,13 @@ import {
   type ClockState,
 } from './engine/chessClock'
 import { describeGameEnd } from './engine/gameEnd'
+import {
+  resignDisabledReason,
+  resignPgnResult,
+  resignResultLabel,
+  resigningSide,
+  type ResignedBy,
+} from './engine/resignation'
 import { ChessClock } from './components/ChessClock'
 import {
   MARK_COLORS,
@@ -159,7 +166,7 @@ import { useElementHeight, useElementWidth } from './hooks/useElementWidth'
 import { useModalFocus } from './hooks/useModalFocus'
 import { useMoveSound } from './hooks/useMoveSound'
 import { formatGraphAxisLabel, formatGraphPositionLabel } from './components/graphLabels'
-import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlip, IconDownload, IconClipboard, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp } from './components/icons'
+import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlag, IconFlip, IconDownload, IconClipboard, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp } from './components/icons'
 import { isPlainShortcut, isTypingTarget } from './components/shortcutKeys'
 import { CommandPaletteDialog } from './components/CommandPaletteDialog'
 import type { Command } from './components/commandPalette'
@@ -651,9 +658,21 @@ function App() {
   const boardTheme = useMemo(() => boardThemeById(boardThemeId), [boardThemeId])
   /** Null whenever the game is untimed, which is the default and most of the time. */
   const [clock, setClock] = useState<ClockState | null>(null)
+  /**
+   * Who has given up, if anyone. Held beside the board rather than in it,
+   * because a resignation leaves an ordinary position -- the same reason the
+   * clock's flag lives out here.
+   */
+  const [resignedBy, setResignedBy] = useState<ResignedBy | null>(null)
+  /**
+   * Whether Resign is one click from happening. Two clicks rather than a
+   * modal: a misclick that ends a game is worth guarding against, and a dialog
+   * for it would be heavier than the action deserves.
+   */
+  const [resignArmed, setResignArmed] = useState(false)
   // The AI loop is an effect that must not re-install on every clock change,
   // and a clock changes on every move. Same shape as gameTreeRef.
-  const clockFlaggedRef = useRef<'w' | 'b' | null>(null)
+  const endedOffBoardRef = useRef<'w' | 'b' | null>(null)
   // Read by the auto-save, which must not list the clock as a dependency: the
   // clock changes on every move and the save is already debounced on the tree.
   const clockRef = useRef<ClockState | null>(null)
@@ -2389,10 +2408,14 @@ function App() {
   }, [clock])
 
   const clockFlagged = clock?.flagged ?? null
-  clockFlaggedRef.current = clockFlagged
+  // A flag and a resignation end the game identically as far as the board is
+  // concerned: the position stays legal, so every "can this move be made"
+  // question has to be told separately that the game is over.
+  const endedOffBoard = clockFlagged ?? resignedBy
+  endedOffBoardRef.current = endedOffBoard
   clockRef.current = clock
   playSessionRef.current = workspaceMode === 'play'
-    ? { gameMode, playerColor, difficulty: aiDifficulty }
+    ? { gameMode, playerColor, difficulty: aiDifficulty, resignedBy: resignedBy ?? undefined }
     : undefined
 
   /**
@@ -2407,7 +2430,7 @@ function App() {
     turn: game.turn(),
     playerColor: playerColorToTurn(playerColor),
     gameOver: game.isGameOver(),
-    clockFlagged: Boolean(clockFlagged),
+    endedOffBoard: Boolean(endedOffBoard),
     paused,
   })
 
@@ -2436,6 +2459,25 @@ function App() {
     setPgnHeaders(previous => (previous.Result === result ? previous : { ...previous, Result: result }))
   }, [cancelPendingAiMove, clockFlagged, setPgnHeaders])
 
+  const resignGame = useCallback(() => {
+    const side = resigningSide({ gameMode, playerColor, turn: game.turn() })
+    if (!side) return
+    setResignedBy(side)
+    // Everything a finished game stops doing. The clock is paused for the same
+    // reason a checkmate pauses it: the game is over, so nobody is on move.
+    setClock(previous => (previous ? pauseClock(previous, Date.now()) : previous))
+    cancelPendingAiMove()
+    setPremove(null)
+    setHintMove(null)
+  }, [cancelPendingAiMove, game, gameMode, playerColor])
+
+  // The result a resignation earns, written the way a flag's is.
+  useEffect(() => {
+    if (clockFlagged || !resignedBy) return
+    const result = resignPgnResult(resignedBy)
+    setPgnHeaders(previous => (previous.Result === result ? previous : { ...previous, Result: result }))
+  }, [clockFlagged, resignedBy, setPgnHeaders])
+
   // Checkmate, stalemate and the three drawing rules end a game just as
   // finally, and until this existed only the clock ever wrote a Result. Every
   // other ending exported as `*`, which every other program reads as
@@ -2443,11 +2485,11 @@ function App() {
   // this header, could not tell a won game from a drawn one. A flag wins if
   // both happen, because it is the later of the two.
   useEffect(() => {
-    if (clockFlagged || !mainLineEnd) return
+    if (endedOffBoard || !mainLineEnd) return
     setPgnHeaders(previous => (
       previous.Result === mainLineEnd.result ? previous : { ...previous, Result: mainLineEnd.result }
     ))
-  }, [clockFlagged, mainLineEnd, setPgnHeaders])
+  }, [endedOffBoard, mainLineEnd, setPgnHeaders])
 
   // ── Engine arrows ────────────────────────────────────
   const currentBoardMove = gameTree.current.move
@@ -2560,7 +2602,7 @@ function App() {
   useEffect(() => {
     if (workspaceMode !== 'play') return
     if (game.isGameOver()) return
-    if (clockFlaggedRef.current) return
+    if (endedOffBoardRef.current) return
     void aiReadyTick
     void stepRequestTick
     if (aiPlayerStatusRef.current !== 'ready') return
@@ -2720,13 +2762,13 @@ function App() {
     if (!premove) return
     if (workspaceMode !== 'play' || gameMode !== 'human-vs-ai') { setPremove(null); return }
     if (game.turn() !== playerColorToTurn(playerColor)) return
-    if (game.isGameOver() || clockFlagged || pausedRef.current) { setPremove(null); return }
+    if (game.isGameOver() || endedOffBoard || pausedRef.current) { setPremove(null); return }
 
     setPremove(null)
     const probe = new Chess(game.fen())
     if (!applyPremove(probe, premove)) return
     applyHumanMove(premove.from, premove.to, premove.promotion)
-  }, [applyHumanMove, clockFlagged, fen, game, gameMode, playerColor, premove, workspaceMode])
+  }, [applyHumanMove, endedOffBoard, fen, game, gameMode, playerColor, premove, workspaceMode])
 
 
   /**
@@ -2801,7 +2843,7 @@ function App() {
       paused,
       turn: game.turn(),
       playerColor: playerColorToTurn(playerColor),
-      clockFlagged: Boolean(clockFlagged),
+      endedOffBoard: Boolean(endedOffBoard),
     })) return false
 
     if (pieceType.toLowerCase().endsWith('p') && isPromotionMove(game, sourceSquare, targetSquare)) {
@@ -2871,7 +2913,7 @@ function App() {
       paused,
       turn: game.turn(),
       playerColor: playerColorToTurn(playerColor),
-      clockFlagged: Boolean(clockFlagged),
+      endedOffBoard: Boolean(endedOffBoard),
     })) return
 
     // If a source square is already selected, try to move there
@@ -2911,7 +2953,7 @@ function App() {
     clearBoardSelection,
     game,
     gameMode,
-    clockFlagged,
+    endedOffBoard,
     isAiThinking,
     paused,
     pendingPromotion,
@@ -3228,6 +3270,7 @@ function App() {
       setFen(game.fen())
       setEvaluationsByFen(new Map())
       setClock(null)
+      setResignedBy(null)
       setPremove(null)
       setHintMove(null)
       setPendingShallowAnalyzeFen(null)
@@ -3389,6 +3432,8 @@ function App() {
       setOrientation(defaultOrientationForGameMode(session.gameMode, session.playerColor))
       pausedRef.current = true
       setPaused(true)
+      // Restored after the import, which cleared it along with the board.
+      if (session.resignedBy) setResignedBy(session.resignedBy)
     }
     // Stopped, not running: the reader was not thinking while the page was
     // closed, and starting a countdown under a board they have not looked at
@@ -3439,6 +3484,7 @@ function App() {
       setPgnHeaders({})
       setEvaluationsByFen(new Map())
       setClock(null)
+      setResignedBy(null)
       setPremove(null)
       setHintMove(null)
       setPgnHeaders({})
@@ -3492,6 +3538,7 @@ function App() {
     newGame()
     setEvaluationsByFen(new Map())
     setClock(null)
+    setResignedBy(null)
     setPremove(null)
     setPgnHeaders({})
     clearImportSweep()
@@ -3597,6 +3644,7 @@ function App() {
       cancelPendingAiMove()
       setEvaluationsByFen(new Map())
       setClock(null)
+      setResignedBy(null)
       setPremove(null)
       setHintMove(null)
       setPgnHeaders({})
@@ -3616,6 +3664,7 @@ function App() {
       // The alternative -- starting it on the first move -- gives White an
       // untimed think that Black never gets. Space pauses if you are not ready.
       setClock(control ? startSide(createClock(control), 'w', Date.now()) : null)
+      setResignedBy(null)
       // The header the per-move `[%clk]` readings count down from. Without it
       // an exported timed game says how much time was left and never what of.
       if (control) setPgnHeaders({ TimeControl: timeControlTag(control) })
@@ -3678,6 +3727,7 @@ function App() {
     setClock(control
       ? startSide(createClock(control), sideToMoveColor(startFen) === 'white' ? 'w' : 'b', Date.now())
       : null)
+    setResignedBy(null)
     if (control) setPgnHeaders({ TimeControl: timeControlTag(control) })
 
     setOrientation(defaultOrientationForGameMode('human-vs-ai', humanColor))
@@ -4012,8 +4062,16 @@ function App() {
     && gameTree.current.id === mainLineNodes[mainLineNodes.length - 1].id
   const gameResultLabel = clockFlagged
     ? flagResultLabel(clockFlagged)
+    : resignedBy
+    ? resignResultLabel(resignedBy)
     : describeGameEnd(game)?.label
       ?? (atMainLineEnd ? mainLineEnd?.label ?? null : null)
+  const resignReason = resignDisabledReason({
+    workspaceMode,
+    gameMode,
+    pliesPlayed: mainLineNodes.length - 1,
+    gameAlreadyOver: Boolean(gameResultLabel),
+  })
   const turnLabel = gameResultLabel
     ?? `${game.turn() === 'w' ? 'White' : 'Black'} to move${game.isCheck() ? ' · Check' : ''}`
   // An imported game already carries who played it. The app parsed those
@@ -4094,7 +4152,7 @@ function App() {
     paused,
     turn: game.turn(),
     playerColor: playerColorToTurn(playerColor),
-    clockFlagged: Boolean(clockFlagged),
+    endedOffBoard: Boolean(endedOffBoard),
   })
 
   // ─────────────────────────────────────────────────────
@@ -5148,6 +5206,23 @@ function App() {
                           : `Take back ${takebackPlies === 1 ? 'your move' : 'the last move and the reply'}`}
                       >
                         <IconRefresh /> Take back
+                      </button>
+                      <button
+                        type="button"
+                        className={`takeback-btn resign-btn${resignArmed ? ' armed' : ''}`}
+                        onClick={() => {
+                          if (!resignArmed) { setResignArmed(true); return }
+                          setResignArmed(false)
+                          resignGame()
+                        }}
+                        onBlur={() => setResignArmed(false)}
+                        disabled={Boolean(resignReason)}
+                        title={resignReason ?? (resignArmed ? 'Click again to resign' : 'Concede the game')}
+                        aria-label={resignReason
+                          ? `Resign unavailable. ${resignReason}`
+                          : resignArmed ? 'Confirm resignation' : 'Resign the game'}
+                      >
+                        <IconFlag /> {resignArmed ? 'Confirm?' : 'Resign'}
                       </button>
                     </div>
                   </div>

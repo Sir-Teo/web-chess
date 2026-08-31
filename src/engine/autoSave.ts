@@ -42,6 +42,14 @@ export type AutoSavedPlay = {
   playerColor: 'white' | 'black'
   /** 1-8; see `useAiPlayer`. Clamped rather than rejected, so a stale value still loads. */
   difficulty: number
+  /**
+   * Who resigned, when someone did. Absent for a game still being played.
+   *
+   * A resignation is not in the position and not in the clock, so without
+   * this a reload un-resigns the game: the board comes back playable, the
+   * result reverts, and the game that was over is offered as unfinished.
+   */
+  resignedBy?: 'w' | 'b'
 }
 
 export type AutoSavedGame = {
@@ -141,7 +149,8 @@ export function normalizeAutoSavedPlay(value: unknown): AutoSavedPlay | undefine
   const difficulty = typeof raw.difficulty === 'number' && Number.isFinite(raw.difficulty)
     ? Math.min(8, Math.max(1, Math.trunc(raw.difficulty)))
     : 4
-  return { gameMode: raw.gameMode as AutoSavedPlay['gameMode'], playerColor, difficulty }
+  const resignedBy = raw.resignedBy === 'w' || raw.resignedBy === 'b' ? raw.resignedBy : undefined
+  return { gameMode: raw.gameMode as AutoSavedPlay['gameMode'], playerColor, difficulty, resignedBy }
 }
 
 export function readAutoSavedGame(

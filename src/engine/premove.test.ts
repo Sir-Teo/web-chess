@@ -17,7 +17,7 @@ const waiting: PremoveContext = {
   turn: 'b',
   playerColor: 'w',
   gameOver: false,
-  clockFlagged: false,
+  endedOffBoard: false,
   paused: false,
 }
 
@@ -43,7 +43,7 @@ describe('when a premove is offered', () => {
   it('is not offered while paused, or after the game has ended either way', () => {
     expect(canPremove({ ...waiting, paused: true })).toBe(false)
     expect(canPremove({ ...waiting, gameOver: true })).toBe(false)
-    expect(canPremove({ ...waiting, clockFlagged: true })).toBe(false)
+    expect(canPremove({ ...waiting, endedOffBoard: true })).toBe(false)
   })
 
   it('reads the same for a player of the black pieces', () => {

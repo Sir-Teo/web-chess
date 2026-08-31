@@ -5069,3 +5069,11 @@ button.hint-btn {
   font-weight: 600;
   color: var(--text-secondary);
 }
+
+/* Resign sits beside Take back and behaves like it, until it is armed --
+   then it has to look like the thing that ends the game, or the second
+   click is a surprise. */
+.resign-btn.armed {
+  border-color: var(--danger, #f87171);
+  color: var(--danger, #f87171);
+}

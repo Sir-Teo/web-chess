@@ -248,3 +248,23 @@ describe('the game that was being played', () => {
     expect(normalizeAutoSavedPlay({ ...play, playerColor: 'green' })?.playerColor).toBe('white')
   })
 })
+
+describe('a resignation surviving a reload', () => {
+  const session = { gameMode: 'human-vs-ai', playerColor: 'white', difficulty: 4 }
+
+  it('carries who resigned', () => {
+    expect(normalizeAutoSavedPlay({ ...session, resignedBy: 'w' })?.resignedBy).toBe('w')
+    expect(normalizeAutoSavedPlay({ ...session, resignedBy: 'b' })?.resignedBy).toBe('b')
+  })
+
+  it('leaves a game still being played without one', () => {
+    expect(normalizeAutoSavedPlay(session)?.resignedBy).toBeUndefined()
+  })
+
+  /** A stale or hand-edited slot must not put a third side on the board. */
+  it('refuses anything that is not a side', () => {
+    for (const bad of ['white', 'W', '', 0, true, null, {}]) {
+      expect(normalizeAutoSavedPlay({ ...session, resignedBy: bad })?.resignedBy).toBeUndefined()
+    }
+  })
+})

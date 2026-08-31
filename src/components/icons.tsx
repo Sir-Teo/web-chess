@@ -74,6 +74,12 @@ export const IconPlay = (props: React.SVGProps<SVGSVGElement>) => (
 )
 
 
+export const IconFlag = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V4s-1 1-4 1-5-2-8-2-4 1-4 1z" /><path d="M4 22v-7" />
+    </svg>
+)
+
 export const IconStop = (props: React.SVGProps<SVGSVGElement>) => (
     <svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
         <rect width="14" height="14" x="5" y="5" rx="2" />

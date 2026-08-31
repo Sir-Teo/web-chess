@@ -31,7 +31,7 @@ export type PremoveContext = {
   /** The side the human has. */
   playerColor: 'w' | 'b'
   gameOver: boolean
-  clockFlagged: boolean
+  endedOffBoard: boolean
   paused: boolean
 }
 
@@ -46,7 +46,7 @@ export type PremoveContext = {
 export function canPremove(context: PremoveContext): boolean {
   if (context.workspaceMode !== 'play') return false
   if (context.gameMode !== 'human-vs-ai') return false
-  if (context.gameOver || context.clockFlagged || context.paused) return false
+  if (context.gameOver || context.endedOffBoard || context.paused) return false
   return context.turn !== context.playerColor
 }
 

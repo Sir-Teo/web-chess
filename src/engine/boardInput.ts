@@ -13,11 +13,12 @@ type BoardInputLockArgs = {
    * Set once a side has run out of time.
    *
    * The other endings need no guard: checkmate and stalemate leave the position
-   * with no legal move, so chess.js refuses every input on its own. A flag does
-   * not — the position is ordinary and every move in it is still legal, so
-   * without this the board stays playable after the game is over.
+   * with no legal move, so chess.js refuses every input on its own. A flag and
+   * a resignation do not — the position is ordinary and every move in it is
+   * still legal, so without this the board stays playable after the game is
+   * over.
    */
-  clockFlagged?: boolean
+  endedOffBoard?: boolean
 }
 
 export function isBoardInputLocked({
@@ -27,10 +28,10 @@ export function isBoardInputLocked({
   paused,
   turn,
   playerColor,
-  clockFlagged = false,
+  endedOffBoard = false,
 }: BoardInputLockArgs): boolean {
   if (workspaceMode !== 'play') return false
-  if (clockFlagged) return true
+  if (endedOffBoard) return true
   if (gameMode === 'ai-vs-ai') return true
   if (gameMode !== 'human-vs-ai') return false
 

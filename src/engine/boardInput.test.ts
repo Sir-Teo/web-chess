@@ -81,7 +81,7 @@ describe('board input locking', () => {
         paused: false,
         turn: 'w',
         playerColor: 'w',
-        clockFlagged: true,
+        endedOffBoard: true,
       }), gameMode).toBe(true)
     }
   })
@@ -94,7 +94,7 @@ describe('board input locking', () => {
       paused: false,
       turn: 'w',
       playerColor: 'w',
-      clockFlagged: true,
+      endedOffBoard: true,
     })).toBe(false)
   })
 
