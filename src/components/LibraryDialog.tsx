@@ -118,7 +118,9 @@ export function LibraryDialog({
     const announce = (result: LibraryWriteResult, success: string) => {
         if (result.ok) {
             setError(null)
-            setStatus(success)
+            // A write that succeeded but skipped something says what it skipped,
+            // rather than a confirmation that would read as "all of it".
+            setStatus(result.note ?? success)
         } else {
             setStatus(null)
             setError(result.error)

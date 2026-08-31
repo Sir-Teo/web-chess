@@ -247,6 +247,85 @@ export function normalizeLibraryGames(value: unknown, now = 0): LibraryGame[] {
   return games
 }
 
+export type LibraryBackupMerge = {
+  /** The list to commit. Existing games are never displaced. */
+  games: LibraryGame[]
+  /** Games from the backup that were added. */
+  added: number
+  /** Games from the backup already in the library, so not added twice. */
+  duplicates: number
+  /** Games from the backup there was no room for under the cap. */
+  omitted: number
+}
+
+/**
+ * Merge a restored backup into the library, keeping what is already there.
+ *
+ * The cap has to be applied *here*, deliberately, rather than left to
+ * `normalizeLibraryGames`. That function stops at {@link MAX_LIBRARY_GAMES}
+ * and drops the rest, and the import used to hand it the additions first --
+ * so importing a 300-game backup into a 400-game library kept all 300 new
+ * games and threw away 200 of the reader's own, silently, and reported
+ * success. Saving a game has always refused when the library is full; this is
+ * the same rule for the other way in.
+ *
+ * Existing games keep their places and the backup fills whatever room is
+ * left, in the order the file lists them, so what is dropped is the tail of
+ * something the reader still has a copy of.
+ */
+export function mergeLibraryBackup(
+  existing: LibraryGame[],
+  restored: LibraryGame[],
+): LibraryBackupMerge {
+  const existingIds = new Set(existing.map(game => game.id))
+  const names = existing.map(game => game.name)
+  const room = Math.max(0, MAX_LIBRARY_GAMES - existing.length)
+
+  const additions: LibraryGame[] = []
+  let duplicates = 0
+  let omitted = 0
+
+  for (const game of restored) {
+    if (existingIds.has(game.id)) { duplicates++; continue }
+    if (additions.length >= room) { omitted++; continue }
+    const name = getUniqueGameName(game.name, [...names, ...additions.map(item => item.name)])
+    additions.push({ ...game, name })
+  }
+
+  return {
+    games: additions.length ? [...additions, ...existing] : existing,
+    added: additions.length,
+    duplicates,
+    omitted,
+  }
+}
+
+/**
+ * What to tell the reader about a merge, or null when it went entirely to plan.
+ *
+ * Silence is right only when every game in the file was added. Anything
+ * skipped -- already held, or no room -- is a difference between what they
+ * handed over and what they got, and they should hear it from the app rather
+ * than notice it later.
+ */
+export function backupMergeNote(merge: LibraryBackupMerge): string | null {
+  const plural = (count: number) => (count === 1 ? 'game' : 'games')
+  const parts: string[] = []
+
+  if (merge.duplicates > 0) {
+    parts.push(`${merge.duplicates} ${plural(merge.duplicates)} already in the library`)
+  }
+  if (merge.omitted > 0) {
+    parts.push(`${merge.omitted} ${plural(merge.omitted)} left out — the library holds ${MAX_LIBRARY_GAMES}`)
+  }
+  if (!parts.length) return null
+
+  const added = merge.added > 0
+    ? `Added ${merge.added} ${plural(merge.added)}; `
+    : 'Added nothing: '
+  return `${added}${parts.join(', ')}.`
+}
+
 export function getLibraryGameSearchText(game: LibraryGame): string {
   const { white, black, event, site, date, result, eco, opening } = game.metadata
   return [game.name, white, black, event, site, date, result, eco, opening]

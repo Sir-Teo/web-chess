@@ -4,15 +4,24 @@ import {
   MAX_LIBRARY_PGN_LENGTH,
   type LibraryGame,
   createLibraryBackup,
+  backupMergeNote,
   createLibraryGame,
   getUniqueGameName,
+  mergeLibraryBackup,
   normalizeLibraryGames,
   parseLibraryBackup,
   suggestGameName,
 } from '../engine/gameLibrary'
 import { loadLibraryGames, saveLibraryGames } from '../engine/gameLibraryStorage'
 
-export type LibraryWriteResult = { ok: true; game?: LibraryGame } | { ok: false; error: string }
+/**
+ * `note` is for a write that succeeded but not entirely as asked -- a backup
+ * merge that skipped games, say. The caller shows it instead of the plain
+ * confirmation, so a partial result is never reported as a clean one.
+ */
+export type LibraryWriteResult =
+  | { ok: true; game?: LibraryGame; note?: string }
+  | { ok: false; error: string }
 
 export const LIBRARY_FULL_ERROR = `The library holds ${MAX_LIBRARY_GAMES} games. Delete one before saving another.`
 export const LIBRARY_EMPTY_PGN_ERROR = 'There is nothing to save yet — play or import a game first.'
@@ -89,19 +98,22 @@ export function useGameLibrary() {
     const restored = parseLibraryBackup(json, Date.now())
     if (!restored.length) return { ok: false, error: 'That file is not a web-chess library backup.' }
 
-    // Merge rather than replace, renaming anything that collides.
-    const existingNames = gamesRef.current.map(game => game.name)
-    const existingIds = new Set(gamesRef.current.map(game => game.id))
-    const additions: LibraryGame[] = []
-    for (const game of restored) {
-      if (existingIds.has(game.id)) continue
-      const name = getUniqueGameName(game.name, [...existingNames, ...additions.map(item => item.name)])
-      additions.push({ ...game, name })
+    // Merge rather than replace, renaming collisions and respecting the cap:
+    // handing the whole lot to `commit` used to drop the reader's own games
+    // off the end of it.
+    const merge = mergeLibraryBackup(gamesRef.current, restored)
+    if (!merge.added) {
+      return {
+        ok: false,
+        error: merge.omitted > 0
+          ? `The library is full at ${MAX_LIBRARY_GAMES} games, so none of that backup could be added.`
+          : 'Every game in that backup is already in the library.',
+      }
     }
-    if (!additions.length) return { ok: false, error: 'Every game in that backup is already in the library.' }
 
-    commit([...additions, ...gamesRef.current])
-    return { ok: true }
+    commit(merge.games)
+    const note = backupMergeNote(merge)
+    return note ? { ok: true, note } : { ok: true }
   }, [commit])
 
   return {

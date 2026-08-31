@@ -3,6 +3,7 @@ import { matchesSearchTerms, toSearchTerms } from './searchTerms'
 import {
   MAX_LIBRARY_GAMES,
   MAX_LIBRARY_NAME_LENGTH,
+  backupMergeNote,
   countPgnMoves,
   createLibraryBackup,
   createLibraryGame,
@@ -11,6 +12,7 @@ import {
   getLibraryStats,
   getUniqueGameName,
   libraryGameMatchesQuery,
+  mergeLibraryBackup,
   normalizeLibraryGames,
   parseLibraryBackup,
   parsePgnHeaders,
@@ -306,5 +308,106 @@ describe('the result a library row shows', () => {
 
   it('drops a missing result the same way', () => {
     expect(extractLibraryMetadata('[White "A"]\n\n1. e4 *').result).toBeUndefined()
+  })
+})
+
+describe('merging a backup into a library that already has games', () => {
+  const make = (prefix: string, count: number, at: number) =>
+    Array.from({ length: count }, (_, i) => createLibraryGame(`${prefix} ${i}`, '1. e4 *', at, `${prefix}-${i}`))
+
+  it('keeps both sides when there is room', () => {
+    const merged = mergeLibraryBackup(make('old', 3, 1), make('new', 2, 2))
+    expect(merged.added).toBe(2)
+    expect(merged.omitted).toBe(0)
+    expect(merged.games).toHaveLength(5)
+    expect(merged.games.map(game => game.name)).toEqual(
+      expect.arrayContaining(['old 0', 'old 1', 'old 2', 'new 0', 'new 1']),
+    )
+  })
+
+  it('does not add a game the library already holds', () => {
+    const existing = make('same', 3, 1)
+    const merged = mergeLibraryBackup(existing, make('same', 3, 2))
+    expect(merged.duplicates).toBe(3)
+    expect(merged.added).toBe(0)
+    expect(merged.games).toBe(existing)
+  })
+
+  it('renames a collision rather than overwriting one', () => {
+    const merged = mergeLibraryBackup(
+      [createLibraryGame('Sicilian', '1. e4 c5 *', 1, 'a')],
+      [createLibraryGame('Sicilian', '1. e4 c5 *', 2, 'b')],
+    )
+    expect(merged.added).toBe(1)
+    expect(merged.games.map(game => game.name).sort()).toEqual(['Sicilian', 'Sicilian (2)'])
+  })
+})
+
+describe('the data loss this merge exists to stop', () => {
+  const make = (prefix: string, count: number) =>
+    Array.from({ length: count }, (_, i) => createLibraryGame(`${prefix} ${i}`, '1. e4 *', 1, `${prefix}-${i}`))
+
+  /**
+   * What the import used to do: hand everything to `normalizeLibraryGames`,
+   * which stops at the cap. With the additions first, the games it dropped
+   * were the reader's own.
+   */
+  it('is real: normalizing additions-first silently drops the existing games', () => {
+    const existing = make('old', 400)
+    const restored = make('new', 300)
+    const naive = normalizeLibraryGames([...restored, ...existing])
+    expect(naive).toHaveLength(MAX_LIBRARY_GAMES)
+    expect(naive.filter(game => game.name.startsWith('old'))).toHaveLength(200)
+  })
+
+  it('keeps every existing game and reports what would not fit', () => {
+    const existing = make('old', 400)
+    const merged = mergeLibraryBackup(existing, make('new', 300))
+    expect(merged.games.filter(game => game.name.startsWith('old'))).toHaveLength(400)
+    expect(merged.added).toBe(100)
+    expect(merged.omitted).toBe(200)
+    expect(merged.games).toHaveLength(MAX_LIBRARY_GAMES)
+  })
+
+  it('adds nothing at all to a full library, and says so', () => {
+    const merged = mergeLibraryBackup(make('old', MAX_LIBRARY_GAMES), make('new', 5))
+    expect(merged.added).toBe(0)
+    expect(merged.omitted).toBe(5)
+    expect(merged.games).toHaveLength(MAX_LIBRARY_GAMES)
+  })
+
+  it('survives normalizing afterwards without losing anything', () => {
+    const merged = mergeLibraryBackup(make('old', 400), make('new', 300))
+    expect(normalizeLibraryGames(merged.games)).toHaveLength(MAX_LIBRARY_GAMES)
+  })
+})
+
+describe('what the reader is told about a merge', () => {
+  const merge = (added: number, duplicates: number, omitted: number) =>
+    backupMergeNote({ games: [], added, duplicates, omitted })
+
+  it('says nothing when the whole backup went in', () => {
+    expect(merge(5, 0, 0)).toBeNull()
+  })
+
+  it('says what was already there', () => {
+    expect(merge(3, 2, 0)).toBe('Added 3 games; 2 games already in the library.')
+  })
+
+  it('says what would not fit, and why', () => {
+    expect(merge(100, 0, 200)).toBe(
+      `Added 100 games; 200 games left out — the library holds ${MAX_LIBRARY_GAMES}.`,
+    )
+  })
+
+  it('says both when both happened', () => {
+    expect(merge(1, 1, 1)).toBe(
+      `Added 1 game; 1 game already in the library, 1 game left out — the library holds ${MAX_LIBRARY_GAMES}.`,
+    )
+  })
+
+  it('counts one game as a game', () => {
+    expect(merge(1, 1, 0)).toContain('1 game already')
+    expect(merge(2, 2, 0)).toContain('2 games already')
   })
 })
