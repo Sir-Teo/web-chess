@@ -4,29 +4,15 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 
 ## Features
 
-- **Play and watch modes**: Play human vs human, human vs Stockfish, or AI vs AI with adjustable difficulty, pause/resume controls, speed control, and single-step playback.
-- **Beginner and pro analysis**: Coach mode keeps the right panel focused on plain-language move guidance, while Pro mode exposes MultiPV, WDL, cloud evals, opening stats, tablebase moves, and UCI controls.
-- **Game review**: Import a PGN, run a review pass, filter critical moments by side, inspect accuracy, and jump from a review row back to the board. Accuracy and move labels are scored on winning chances rather than raw centipawns, so an imprecision in a decided game is not called a blunder.
-- **Saved games**: Keep games in a library stored in IndexedDB, search them by player, event or opening, star and rename them, and export or import the whole shelf as JSON. The game in progress is auto-saved separately, so a reload offers to pick up where you left off — and for a game that was being *played*, that now includes the opponent, the side you had and the clock, stopped where it stood.
-- **PGN and FEN workflows**: Import/export annotated PGN, copy FEN/share links, and build custom FEN positions with editable pieces, side to move, castling rights, and move counters.
-- **Opening and endgame intelligence**: Offline ECO names work immediately; optional session-only Lichess tokens unlock Masters/Lichess opening stats, while eligible endgames use Lichess tablebase data.
-- **Command palette**: `Ctrl`/`Cmd`+`K` opens a searchable list of every
-  toolbar and mode action, with recently used commands first. Ported in shape
-  from web-katrain, sized for this app's twenty-odd commands.
-- **Interactive analysis visuals**: Clickable winrate/WDL graphs, move transcript navigation, and board arrows for the played move, best move, and candidate lines.
-- **Your own arrows and marks**: Right-drag on the board to draw an arrow,
-  right-click a square to mark it, `Shift` or `Ctrl` for the other two colours.
-  They are blue, magenta and white rather than Lichess's green, because green
-  already means "the engine likes this" on this board — amber is the move that
-  was played, violet the threat, and red-to-green the candidate scale. Marks
-  clear on your next move or left click, the way the drawn arrows do. Mouse
-  only: both gestures live on the right button and there is no touch equivalent
-  yet, which Settings says on a touch device rather than describing a gesture
-  the screen cannot perform.
-- **Steppable engine lines**: Click any move in a principal variation — in the
-  Lines panel or the Coach card — and the board walks into the line up to that
-  move. It lands as a variation like any other, so it can be reviewed, promoted
-  to the main line, or discarded.
+### Playing
+
+- **Play and watch modes**: Play human vs human, human vs Stockfish, or AI vs AI with adjustable difficulty, pause/resume controls, speed control, and single-step playback. With a clock, a takeback and premoves below, a game against the engine is a game rather than a position trainer.
+- **A clock**: Pick a time control when you start a game — bullet through
+  classical, or none, which stays the default. Both clocks sit in the strip
+  above the board, the side to move is highlighted, tenths appear under ten
+  seconds, and running out ends the game and records it in the PGN result.
+  `Space` pauses the clock as well as the AI, and stepping out to Analysis stops
+  it rather than letting it run while you consult the engine.
 - **Premoves**: While the engine is thinking, drag or tap your reply and it is
   held, both squares ringed, then played the instant the position arrives. A
   premove the engine's reply made illegal is dropped without comment, a pawn
@@ -38,29 +24,26 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   has not, and disabled with a reason when there is nothing of yours to undo.
   The move you took back stays in the game as a variation, and the clock is not
   refunded.
-- **A clock**: Pick a time control when you start a game — bullet through
-  classical, or none, which stays the default. Both clocks sit in the strip
-  above the board, the side to move is highlighted, tenths appear under ten
-  seconds, and running out ends the game and records it in the PGN result.
-  `Space` pauses the clock as well as the AI, and stepping out to Analysis stops
-  it rather than letting it run while you consult the engine.
-- **Board themes**: Five schemes in Settings. Each ships its own coordinate ink
-  rather than reusing one: the coordinates are drawn inside the squares, and an
-  ink chosen by eye is how a board ends up with rank numbers nobody can read on
-  the dark squares. Every ink clears WCAG AA against its own dark square and is
-  no less legible than the original pair's, both computed in the tests rather
-  than asserted in a comment.
 - **Move sounds**: A knock when a piece lands, heavier for a capture, a two-part
   knock for castling, and tones for check, promotion and the end of the game.
   Synthesized in the browser rather than shipped as audio files, and off with
   one switch in Settings. Moves you *navigate* to are silent — scrubbing a
   60-move review with the arrow keys should not be a hundred knocks.
-- **Threats**: `T`, or the button in the Coach card, asks what the opponent is
-  threatening — a null-move search, drawn on the board in violet so it reads as
-  neither the move that was played nor a move the engine recommends.
 - **A review offered where the game ends**: when a game finishes in Play mode
   the result card offers to review it, rather than leaving you to find the
   Review tab yourself.
+
+### Studying
+
+- **Beginner and pro analysis**: Coach mode keeps the right panel focused on plain-language move guidance, while Pro mode exposes MultiPV, WDL, cloud evals, opening stats, tablebase moves, and UCI controls.
+- **Game review**: Import a PGN, run a review pass, filter critical moments by side, inspect accuracy, and jump from a review row back to the board. Accuracy and move labels are scored on winning chances rather than raw centipawns, so an imprecision in a decided game is not called a blunder.
+- **Steppable engine lines**: Click any move in a principal variation — in the
+  Lines panel or the Coach card — and the board walks into the line up to that
+  move. It lands as a variation like any other, so it can be reviewed, promoted
+  to the main line, or discarded.
+- **Threats**: `T`, or the button in the Coach card, asks what the opponent is
+  threatening — a null-move search, drawn on the board in violet so it reads as
+  neither the move that was played nor a move the engine recommends.
 - **Play from here**: Hand the position on the board to the engine and take the
   move yourself — to try a critical moment again, or to see whether you can
   convert the endgame the review just graded. New Game always starts from the
@@ -70,6 +53,31 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   summary, both graphs and the exported PGN follow it; discard one and it is
   gone from all of them. The move list shows the branch you are standing in
   however deep you have gone, and says how much of it is still folded away.
+- **Interactive analysis visuals**: Clickable winrate/WDL graphs, move transcript navigation, and board arrows for the played move, best move, and candidate lines.
+- **Your own arrows and marks**: Right-drag on the board to draw an arrow,
+  right-click a square to mark it, `Shift` or `Ctrl` for the other two colours.
+  They are blue, magenta and white rather than Lichess's green, because green
+  already means "the engine likes this" on this board — amber is the move that
+  was played, violet the threat, and red-to-green the candidate scale. Marks
+  clear on your next move or left click, the way the drawn arrows do. Mouse
+  only: both gestures live on the right button and there is no touch equivalent
+  yet, which Settings says on a touch device rather than describing a gesture
+  the screen cannot perform.
+- **Opening and endgame intelligence**: Offline ECO names work immediately; optional session-only Lichess tokens unlock Masters/Lichess opening stats, while eligible endgames use Lichess tablebase data.
+
+### Throughout
+
+- **Saved games**: Keep games in a library stored in IndexedDB, search them by player, event or opening, star and rename them, and export or import the whole shelf as JSON. The game in progress is auto-saved separately, so a reload offers to pick up where you left off — and for a game that was being *played*, that now includes the opponent, the side you had and the clock, stopped where it stood.
+- **PGN and FEN workflows**: Import/export annotated PGN, copy FEN/share links, and build custom FEN positions with editable pieces, side to move, castling rights, and move counters.
+- **Board themes**: Five schemes in Settings. Each ships its own coordinate ink
+  rather than reusing one: the coordinates are drawn inside the squares, and an
+  ink chosen by eye is how a board ends up with rank numbers nobody can read on
+  the dark squares. Every ink clears WCAG AA against its own dark square and is
+  no less legible than the original pair's, both computed in the tests rather
+  than asserted in a comment.
+- **Command palette**: `Ctrl`/`Cmd`+`K` opens a searchable list of every
+  toolbar and mode action, with recently used commands first. Ported in shape
+  from web-katrain, sized for this app's twenty-odd commands.
 - **Installable app metadata**: PWA manifest and app icon are configured for hosted releases.
 
 ## Technology Stack

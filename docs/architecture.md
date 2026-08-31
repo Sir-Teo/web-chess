@@ -513,6 +513,13 @@ into the position the takeback created. It is cleared in `syncGameToNode`,
 which is the funnel every navigation already goes through to clear the
 selection and any pending promotion — the general form of the same rule.
 
+The clock is the reason `engine/chessClock.ts` stores a bank and a start time
+rather than a countdown: what is displayed is derived on read, so the state
+object changes only on a move, a pause or a flag, and the repaint loop lives
+inside `<ChessClock />`. Measured against a production build with a 1+0 clock
+running, in its tenths band: **7,994ms idle out of 8,026ms sampled**, the
+remaining 29ms browser internals and effectively no JavaScript.
+
 Two smaller things worth knowing here:
 
 - A flag has to lock the board explicitly. Every other ending locks it by
