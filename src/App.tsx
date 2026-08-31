@@ -588,6 +588,7 @@ const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['Home', 'End'], action: 'First / last position' },
   { keys: ['F'], action: 'Flip the board' },
   { keys: ['T'], action: 'Show what the opponent threatens (Analysis mode)' },
+  { keys: ['Z'], action: 'Take back your last move (Play mode)' },
   { keys: ['Space'], action: 'Pause or resume the AI (Play mode)' },
   { keys: [commandPaletteShortcutLabel()], action: 'Open the command palette' },
 ]
@@ -1081,6 +1082,8 @@ function App() {
    * re-renders several times a second is not free.
    */
   const requestThreatRef = useRef<() => void>(() => {})
+  /** Same reason as `requestThreatRef`: the keydown handler predates it. */
+  const takebackMoveRef = useRef<() => void>(() => {})
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1117,6 +1120,12 @@ function App() {
       if (e.key.toLowerCase() === 't' && workspaceMode === 'analysis') {
         e.preventDefault()
         requestThreatRef.current()
+      }
+      // Z rather than Ctrl+Z: the chord belongs to the browser, and
+      // `isPlainShortcut` above is what keeps it there.
+      if (e.key.toLowerCase() === 'z' && workspaceMode === 'play') {
+        e.preventDefault()
+        takebackMoveRef.current()
       }
       if (e.key === ' ' && workspaceMode === 'play') {
         if (tag === 'BUTTON') return
@@ -1350,6 +1359,20 @@ function App() {
     pausedRef.current = false
     setPaused(false)
   }, [cancelPendingAiMove, game, gameMode, playerColor, syncGameToNode])
+  takebackMoveRef.current = takebackMove
+
+  const takebackPlies = takebackPlyCount({
+    gameMode,
+    playerColor,
+    pliesPlayed: currentPathNodes.length - 1,
+    turn: game.turn() === 'w' ? 'white' : 'black',
+  })
+  const takebackReason = takebackDisabledReason({
+    gameMode,
+    pliesPlayed: currentPathNodes.length - 1,
+    plies: takebackPlies,
+  })
+
 
   const reviewFinishedGame = useCallback(() => {
     cancelPendingAiMove()
@@ -3556,6 +3579,30 @@ function App() {
       disabled: Boolean(reviewGameDisabledReason) || mainLineNodes.length <= 1,
       run: startBatchReview,
     },
+    {
+      id: 'take-back',
+      label: 'Take back',
+      shortcut: 'Z',
+      hint: takebackReason ?? 'Undo back to your last turn',
+      keywords: ['undo', 'takeback', 'revert', 'oops'],
+      disabled: Boolean(takebackReason),
+      run: takebackMove,
+    },
+    {
+      id: 'threats',
+      label: 'What is threatened?',
+      shortcut: 'T',
+      hint: workspaceMode === 'analysis' ? undefined : 'Analysis mode only',
+      keywords: ['threat', 'danger', 'null move', 'opponent'],
+      disabled: workspaceMode !== 'analysis' || isProbingThreat,
+      run: () => requestThreatRef.current(),
+    },
+    {
+      id: 'toggle-sound',
+      label: soundEnabled ? 'Turn move sounds off' : 'Turn move sounds on',
+      keywords: ['audio', 'sound', 'mute', 'quiet'],
+      run: () => setSoundEnabled(value => !value),
+    },
     { id: 'go-first', label: 'Go to first position', shortcut: 'Home', keywords: ['start', 'beginning'], run: goFirst },
     { id: 'go-last', label: 'Go to last position', shortcut: 'End', keywords: ['end', 'latest'], run: goLast },
     {
@@ -3568,9 +3615,10 @@ function App() {
     },
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
-  ], [handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, mainLineNodes.length, openLibraryDialog,
-      openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger,
-      reviewGameDisabledReason, startBatchReview])
+  ], [handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, isProbingThreat, mainLineNodes.length,
+      openLibraryDialog, openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason,
+      rememberModalTrigger, reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason,
+      workspaceMode])
 
   // ── Mode switch mid-game ──────────────────────────────
   const handleModeChange = useCallback((mode: GameMode) => {
@@ -3824,18 +3872,6 @@ function App() {
     .filter(Boolean).join(' · ')
   const moveNumberLabel = `Move ${fen.split(/\s+/)[5] ?? '1'}`
   const currentMoveQuality = gameTree.current.quality
-  const takebackPlies = takebackPlyCount({
-    gameMode,
-    playerColor,
-    pliesPlayed: currentPathNodes.length - 1,
-    turn: game.turn() === 'w' ? 'white' : 'black',
-  })
-  const takebackReason = takebackDisabledReason({
-    gameMode,
-    pliesPlayed: currentPathNodes.length - 1,
-    plies: takebackPlies,
-  })
-
   const gameModeLabel = gameMode === 'human-vs-human'
     ? 'Human vs Human'
     : gameMode === 'human-vs-ai'
