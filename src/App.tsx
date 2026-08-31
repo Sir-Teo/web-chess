@@ -108,6 +108,7 @@ import {
   timeControlTag,
   type ClockState,
 } from './engine/chessClock'
+import { describeGameEnd } from './engine/gameEnd'
 import { ChessClock } from './components/ChessClock'
 import {
   MARK_COLORS,
@@ -2056,6 +2057,24 @@ function App() {
   const mainLineNodes = useMemo(() => gameTree.mainLine(), [gameTree])
   const mainLineMoves = useMemo(() => mainLineNodes.slice(1).map(n => n.move!).filter(Boolean), [mainLineNodes])
   const mainLineUciMoves = useMemo(() => mainLineNodes.slice(1).map(node => node.uci).filter(Boolean), [mainLineNodes])
+  // How the game ended, as opposed to what is on the board right now: a mate
+  // found while exploring a variation is not the game's result, and neither is
+  // the quiet position you navigated back to. Replaying the line rather than
+  // reading its last FEN is what makes threefold repetition visible at all --
+  // a position alone cannot show that it has occurred before.
+  const mainLineEnd = useMemo(() => {
+    if (mainLineNodes.length < 2) return null
+    try {
+      const replay = new Chess(mainLineNodes[0].fen)
+      for (const node of mainLineNodes.slice(1)) {
+        if (!node.move) return null
+        replay.move({ from: node.move.from, to: node.move.to, promotion: node.move.promotion })
+      }
+      return describeGameEnd(replay)
+    } catch {
+      return null
+    }
+  }, [mainLineNodes])
   // How far into the game the opening book is consulted: the prefetch loop, the
   // row list and the summary line all have to agree on this number.
   const reviewBookPrefixLength = Math.min(mainLineUciMoves.length, REVIEW_BOOK_PREFETCH_LIMIT)
@@ -2416,6 +2435,19 @@ function App() {
     const result = flagPgnResult(clockFlagged)
     setPgnHeaders(previous => (previous.Result === result ? previous : { ...previous, Result: result }))
   }, [cancelPendingAiMove, clockFlagged, setPgnHeaders])
+
+  // Checkmate, stalemate and the three drawing rules end a game just as
+  // finally, and until this existed only the clock ever wrote a Result. Every
+  // other ending exported as `*`, which every other program reads as
+  // "unfinished" -- and the review's narrative tags, which take the winner from
+  // this header, could not tell a won game from a drawn one. A flag wins if
+  // both happen, because it is the later of the two.
+  useEffect(() => {
+    if (clockFlagged || !mainLineEnd) return
+    setPgnHeaders(previous => (
+      previous.Result === mainLineEnd.result ? previous : { ...previous, Result: mainLineEnd.result }
+    ))
+  }, [clockFlagged, mainLineEnd, setPgnHeaders])
 
   // ── Engine arrows ────────────────────────────────────
   const currentBoardMove = gameTree.current.move
@@ -3970,15 +4002,18 @@ function App() {
   // The strip says what the position is. Once the game is over there is no side
   // to move, and "Black to move" under a mated king was the loudest wrong thing
   // on the page.
+  // The position on the board answers this on its own for every ending a FEN
+  // can carry -- including inside a variation, where a mate really is a mate
+  // even though it is not the game's result. Threefold repetition is the one
+  // exception, because it is a fact about the history rather than the
+  // position, so the main line's own verdict is used when that is where we are
+  // standing.
+  const atMainLineEnd = mainLineNodes.length > 1
+    && gameTree.current.id === mainLineNodes[mainLineNodes.length - 1].id
   const gameResultLabel = clockFlagged
     ? flagResultLabel(clockFlagged)
-    : game.isCheckmate()
-    ? `Checkmate · ${game.turn() === 'w' ? 'Black' : 'White'} wins`
-    : game.isStalemate()
-      ? 'Stalemate · Draw'
-      : game.isDraw()
-        ? 'Draw'
-        : null
+    : describeGameEnd(game)?.label
+      ?? (atMainLineEnd ? mainLineEnd?.label ?? null : null)
   const turnLabel = gameResultLabel
     ?? `${game.turn() === 'w' ? 'White' : 'Black'} to move${game.isCheck() ? ' · Check' : ''}`
   // An imported game already carries who played it. The app parsed those
