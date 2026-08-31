@@ -92,3 +92,53 @@ describe('AutoSaveRecoveryDialog', () => {
         expect(html).toContain('dialog-actions')
     })
 })
+
+describe('a saved game that already ended', () => {
+    it('calls an unfinished game unfinished, and asks to pick it up', () => {
+        const html = render()
+        expect(html).toContain('Unfinished game')
+        expect(html).toContain('in progress')
+        expect(html).toContain('Pick up where you left off?')
+    })
+
+    /**
+     * The bug this covers: a checkmate was offered back as "12 moves were in
+     * progress. Pick up where you left off?", which asks about something that
+     * cannot happen.
+     */
+    it('names the winner instead of claiming the game is still going', () => {
+        const html = render({ result: '1-0' })
+        expect(html).toContain('Finished game')
+        expect(html).toContain('White won in 12 moves')
+        expect(html).toContain('Open it again?')
+        expect(html).not.toContain('in progress')
+        expect(html).not.toContain('Pick up where you left off')
+    })
+
+    it('names the other winner too', () => {
+        expect(render({ result: '0-1' })).toContain('Black won in 12 moves')
+    })
+
+    it('does not give a draw a winner', () => {
+        const html = render({ result: '1/2-1/2' })
+        expect(html).toContain('Drawn in 12 moves')
+        expect(html).toContain('Finished game')
+    })
+
+    it('counts one move as a move', () => {
+        expect(render({ plyCount: 2, result: '1-0' })).toContain('White won in 1 move,')
+    })
+
+    /** `*` means no result, and the library strips it before it reaches here. */
+    it('treats a result it does not recognise as no result', () => {
+        for (const result of ['*', '', 'anything else']) {
+            expect(render({ result })).toContain('Unfinished game')
+        }
+    })
+
+    it('still reports a failed restore, whatever the game ended as', () => {
+        const html = render({ result: '1-0', error: 'Failed to parse PGN.' })
+        expect(html).toContain('could not be read back: Failed to parse PGN.')
+        expect(html).toContain('Copy PGN')
+    })
+})

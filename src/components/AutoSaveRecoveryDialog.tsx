@@ -24,10 +24,27 @@ type Props = {
     /** Hands the unreadable PGN to the clipboard, so it is not simply lost. */
     onCopyPgn?: () => void
     copyLabel?: string
+    /**
+     * The saved game's PGN `Result`, when it has one. A game that ended is not
+     * "in progress", and asking someone to pick up where they left off after a
+     * checkmate offers something that cannot happen. Absent for a game that is
+     * genuinely unfinished -- `*` never reaches here, because the library's
+     * metadata already treats it as no result at all.
+     */
+    result?: string
 }
 
-export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss, error, onCopyPgn, copyLabel }: Props) {
+/** How to describe a saved game that already has a result. */
+function describeSavedOutcome(result: string | undefined): string | null {
+    if (result === '1-0') return 'White won'
+    if (result === '0-1') return 'Black won'
+    if (result === '1/2-1/2') return 'Drawn'
+    return null
+}
+
+export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss, error, onCopyPgn, copyLabel, result }: Props) {
     const moveCount = Math.ceil(Math.max(0, plyCount) / 2)
+    const outcome = describeSavedOutcome(result)
     const panelRef = useRef<HTMLDivElement>(null)
     useModalFocus(true, panelRef, onDismiss, { initialFocus: '[data-restore]' })
 
@@ -44,14 +61,16 @@ export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss
             >
                 <header className="dialog-header">
                     <span className="dialog-icon"><IconRefresh /></span>
-                    <h2 id="auto-save-title">Unfinished game</h2>
+                    <h2 id="auto-save-title">{outcome ? 'Finished game' : 'Unfinished game'}</h2>
                 </header>
 
                 <div className="dialog-body">
                     <p id="auto-save-body">
                         {error
-                            ? `That unfinished game could not be read back: ${error}`
-                            : `${moveCount} ${moveCount === 1 ? 'move was' : 'moves were'} in progress ${describeElapsed(savedAt)}. Pick up where you left off?`}
+                            ? `That saved game could not be read back: ${error}`
+                            : outcome
+                                ? `${outcome} in ${moveCount} ${moveCount === 1 ? 'move' : 'moves'}, ${describeElapsed(savedAt)}. Open it again?`
+                                : `${moveCount} ${moveCount === 1 ? 'move was' : 'moves were'} in progress ${describeElapsed(savedAt)}. Pick up where you left off?`}
                     </p>
                     {error && (
                         <p className="dialog-note">

@@ -48,7 +48,7 @@ import {
 import { parseCandidateMoveInput, describeBestMove } from './engine/candidateMoves'
 import { type AnalyzeMode, type UciGoLimits } from './engine/uci'
 import { exportAnnotatedPgn, flattenPgnMainLine, parsePgnMoveTree, pgnImportUserErrorMessage } from './engine/pgn'
-import { type LibraryGame, suggestGameName } from './engine/gameLibrary'
+import { type LibraryGame, extractLibraryMetadata, suggestGameName } from './engine/gameLibrary'
 import { narrativeTagToneClass, narrativeTags } from './engine/narrativeTags'
 import type { ReviewPhaseFilter } from './engine/analysis'
 import { reviewImpactLabel } from './engine/reviewImpact'
@@ -4968,6 +4968,7 @@ function App() {
             <AutoSaveRecoveryDialog
               savedAt={autoSaveRecovery.savedAt}
               plyCount={autoSaveRecovery.moveCount}
+              result={extractLibraryMetadata(autoSaveRecovery.pgn).result}
               onRestore={restoreAutoSavedGame}
               onDismiss={dismissAutoSaveRecovery}
               error={autoSaveRestoreError}
