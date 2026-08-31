@@ -606,6 +606,29 @@ Two things about `describeGameEnd` are easy to get wrong:
   a fact about the history: a position cannot show that it has occurred before,
   so a FEN alone can never detect it.
 
+## The review colours are measured, not eyeballed
+
+The five classifications are told apart in the move list by a 5px coloured
+dot, and roughly one man in twelve sees those colours differently.
+`engine/reviewPalette.test.ts` reads the real `--quality-*` values out of
+`index.css` -- not a copy, which would guard nothing -- simulates protanopia,
+deuteranopia and tritanopia, and measures CIE76 distance between every pair.
+
+Two numbers are worth carrying:
+
+- **Best against Blunder is 119.5 normally and 21.1 for protanopia.** Most of
+  the separation goes on the red-green axis and enough survives. The test
+  asserts both, so a palette tuned for how it looks to the tuner cannot
+  quietly collapse the one distinction the review exists to draw.
+- **Best against Good is 9.1, for everyone.** They are two greens, and at 5px
+  they are the same dot whatever your vision. The classification is still in
+  the label, the tooltip and the review list, so the cost is small -- but the
+  dot carries four categories rather than five, and that is recorded as a
+  choice rather than left as a surprise.
+
+`engine/colorVision.ts` does the simulation, the same way `boardThemes`
+computes its coordinate contrast in tests instead of asserting it in a comment.
+
 ## chess.js takes less PGN than the standard defines
 
 The PGN standard lets any number of comments and NAGs follow a move, in any
