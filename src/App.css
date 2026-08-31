@@ -5060,3 +5060,12 @@ button.hint-btn {
   color: var(--text-muted);
   white-space: nowrap;
 }
+
+/* The evaluation in words, above the grid that gives it as a number. Coach
+   mode only: a Pro reader wants the number and already knows what it says. */
+.coach-verdict {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}

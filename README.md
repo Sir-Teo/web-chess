@@ -40,7 +40,7 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 
 ### Studying
 
-- **Beginner and pro analysis**: Coach mode keeps the right panel focused on plain-language move guidance, while Pro mode exposes MultiPV, WDL, cloud evals, opening stats, tablebase moves, and UCI controls.
+- **Beginner and pro analysis**: Coach mode keeps the right panel focused on plain-language move guidance — it opens with the evaluation *in words*, "Black is slightly better · 46% for White", rather than with `-0.48` — while Pro mode exposes MultiPV, WDL, cloud evals, opening stats, tablebase moves, and UCI controls.
 - **Time trouble, in the review**: A move's clock reading rides with it — read
   from `[%clk]` on import, recorded from the running clock in a timed game, and
   written back out. So a review of a real blitz game shows *0:07* beside the

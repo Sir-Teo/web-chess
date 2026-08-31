@@ -898,6 +898,43 @@ export function summarizeAccuracyByPhase(
     .filter(entry => entry.summary.evaluatedMoves > 0)
 }
 
+/**
+ * What the evaluation means, in words.
+ *
+ * The Coach card showed "-0.49", which is precise and tells a beginner nothing:
+ * the whole point of that view is to say things in plain language, and the one
+ * number at the top of it was the least plain thing on the panel. The bands are
+ * the ones a commentator uses, and the percentage is this app's own
+ * `winPercentFromCp` — the same model the trend graph and the accuracy scoring
+ * read, so the sentence cannot disagree with the graph beside it.
+ *
+ * Everything is White-relative, because everything the reader sees is.
+ */
+const ADVANTAGE_BANDS: Array<{ upTo: number; label: string }> = [
+  { upTo: 30, label: 'level' },
+  { upTo: 90, label: 'slightly better' },
+  { upTo: 250, label: 'better' },
+  { upTo: 600, label: 'winning' },
+  { upTo: Number.POSITIVE_INFINITY, label: 'completely winning' },
+]
+
+export function describeAdvantage(whitePovCp?: number, whitePovMate?: number): string | null {
+  if (isFiniteNumber(whitePovMate)) {
+    if (whitePovMate === 0) return null
+    const side = whitePovMate > 0 ? 'White' : 'Black'
+    const moves = Math.abs(whitePovMate)
+    return `${side} has mate in ${moves}.`
+  }
+  if (!isFiniteNumber(whitePovCp)) return null
+
+  const percent = Math.round(winPercentFromCp(whitePovCp))
+  const band = ADVANTAGE_BANDS.find(entry => Math.abs(whitePovCp) <= entry.upTo)!
+  if (band.label === 'level') return `Level · ${percent}% for White`
+
+  const side = whitePovCp > 0 ? 'White' : 'Black'
+  return `${side} is ${band.label} · ${percent}% for White`
+}
+
 export function normalizeWhitePovCp(fen: string, cp: number): number {
   const turn = fen.split(' ')[1]
   return turn === 'w' ? cp : -cp

@@ -6,7 +6,10 @@ import {
   buildWinrateSeries,
   buildReviewRows,
   formatCompactWhitePovEvaluation,
+  describeAdvantage,
   describeReviewScope,
+  normalizeWhitePovCp,
+  normalizeWhitePovMate,
   filterReviewRowsByPhase,
   filterReviewRowsBySide,
   formatWhitePovEvaluation,
@@ -1513,6 +1516,30 @@ function App() {
         : tablebase.result
           ? tablebaseSummary(tablebase.result)
           : '...'
+  /**
+   * The same reading as `coachEvaluation`, in words.
+   *
+   * Coach mode exists to say things in plain language, and the one number at
+   * the top of it was the least plain thing on the panel. Whichever source the
+   * evaluation came from, this is that reading turned White-relative and
+   * described; `describeAdvantage` uses `winPercentFromCp`, so the sentence
+   * cannot disagree with the trend graph beside it.
+   */
+  const coachVerdict = (() => {
+    const source = coachLine
+      ? { fen: coachLine.fen ?? fen, cp: coachLine.cp, mate: coachLine.mate }
+      : coachCloudScore
+        ? { fen, cp: coachCloudScore.cp, mate: coachCloudScore.mate }
+        : evaluationsByFen.get(fen)
+          ? { fen, cp: evaluationsByFen.get(fen)!.cp, mate: evaluationsByFen.get(fen)!.mate }
+          : null
+    if (!source) return null
+    return describeAdvantage(
+      typeof source.cp === 'number' ? normalizeWhitePovCp(source.fen, source.cp) : undefined,
+      typeof source.mate === 'number' ? normalizeWhitePovMate(source.fen, source.mate) : undefined,
+    )
+  })()
+
   const tablebaseTopMove = tablebase.result?.moves[0]?.uci ?? null
   const coachBestMove = selectCoachBestMove({
     engine: coachLine?.pv[0],
@@ -5117,6 +5144,9 @@ function App() {
                   </div>
                   <div className="coach-card">
                     <h3><span className="section-icon"><IconKing /></span> Coach</h3>
+                    {analysisExperience === 'beginner' && coachVerdict && (
+                      <p className="coach-verdict" role="status">{coachVerdict}</p>
+                    )}
                     <div className="coach-grid">
                       <div>
                         <span>Position</span>

@@ -26,6 +26,7 @@ import {
   recordEvaluation,
   engineLineToSnapshot,
   pvLineMoves,
+  describeAdvantage,
 } from './analysis'
 
 describe('review analysis helpers', () => {
@@ -1003,5 +1004,46 @@ describe('pvLineMoves', () => {
     expect(pvLineMoves(START, ['e2e4', 'e2e4', 'g1f3']).map(move => move.san)).toEqual(['e4'])
     expect(pvLineMoves(START, ['not-a-move'])).toEqual([])
     expect(pvLineMoves('total nonsense', ['e2e4'])).toEqual([])
+  })
+})
+
+describe('describeAdvantage', () => {
+  it('calls a balanced position level, with the even percentage', () => {
+    expect(describeAdvantage(0)).toBe('Level · 50% for White')
+    expect(describeAdvantage(29)).toMatch(/^Level ·/)
+    expect(describeAdvantage(-29)).toMatch(/^Level ·/)
+  })
+
+  it('names the side and the size of an edge', () => {
+    expect(describeAdvantage(60)).toMatch(/^White is slightly better · \d+% for White$/)
+    expect(describeAdvantage(-60)).toMatch(/^Black is slightly better · \d+% for White$/)
+    expect(describeAdvantage(200)).toMatch(/^White is better ·/)
+    expect(describeAdvantage(-400)).toMatch(/^Black is winning ·/)
+    expect(describeAdvantage(1200)).toMatch(/^White is completely winning ·/)
+  })
+
+  /** The percentage is White-relative throughout, like everything else shown. */
+  it('keeps the percentage White-relative whichever side is ahead', () => {
+    const white = Number(describeAdvantage(300)!.match(/(\d+)% for White/)![1])
+    const black = Number(describeAdvantage(-300)!.match(/(\d+)% for White/)![1])
+    expect(white).toBeGreaterThan(50)
+    expect(black).toBeLessThan(50)
+    expect(white + black).toBe(100)
+  })
+
+  it('agrees with the model the graph and the accuracy use', () => {
+    const percent = Number(describeAdvantage(150)!.match(/(\d+)% for White/)![1])
+    expect(percent).toBe(Math.round(winPercentFromCp(150)))
+  })
+
+  it('says a mate as a mate, on either side', () => {
+    expect(describeAdvantage(undefined, 3)).toBe('White has mate in 3.')
+    expect(describeAdvantage(undefined, -2)).toBe('Black has mate in 2.')
+  })
+
+  it('has nothing to say without an evaluation', () => {
+    expect(describeAdvantage(undefined, undefined)).toBeNull()
+    expect(describeAdvantage(Number.NaN)).toBeNull()
+    expect(describeAdvantage(undefined, 0)).toBeNull()
   })
 })
