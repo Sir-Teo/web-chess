@@ -30,6 +30,12 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   seconds, and running out ends the game and records it in the PGN result.
   `Space` pauses the clock as well as the AI, and stepping out to Analysis stops
   it rather than letting it run while you consult the engine.
+- **Board themes**: Five schemes in Settings. Each ships its own coordinate ink
+  rather than reusing one: the coordinates are drawn inside the squares, and an
+  ink chosen by eye is how a board ends up with rank numbers nobody can read on
+  the dark squares. Every ink clears WCAG AA against its own dark square and is
+  no less legible than the original pair's, both computed in the tests rather
+  than asserted in a comment.
 - **Move sounds**: A knock when a piece lands, heavier for a capture, a two-part
   knock for castling, and tones for check, promotion and the end of the game.
   Synthesized in the browser rather than shipped as audio files, and off with

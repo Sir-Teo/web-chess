@@ -79,6 +79,7 @@ import { tablebaseMoveAriaLabel, tablebaseMoveSummary, tablebaseSummary } from '
 import { BOARD_SQUARES, describeBoardSquare, isBoardSquare } from './engine/boardAccessibility'
 import { isBoardInputLocked } from './engine/boardInput'
 import { moveSoundFor } from './engine/moveSound'
+import { BOARD_THEMES, boardThemeById, isBoardThemeId } from './engine/boardThemes'
 import {
   createClock,
   flagPgnResult,
@@ -302,6 +303,7 @@ type PersistedAppSettings = {
   topMoveArrowCount: number
   soundEnabled: boolean
   timeControlId: string
+  boardThemeId: string
 }
 
 /**
@@ -352,6 +354,7 @@ const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
   topMoveArrowCount: 3,
   soundEnabled: true,
   timeControlId: 'unlimited',
+  boardThemeId: 'classic',
 }
 
 const QUICK_MOVETIME_BOUNDS = { min: 50, max: 30_000, fallback: DEFAULT_PERSISTED_SETTINGS.quickMovetimeMs }
@@ -588,11 +591,6 @@ const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: [commandPaletteShortcutLabel()], action: 'Open the command palette' },
 ]
 
-// The usual "opposite square colour" convention cannot reach WCAG AA against the
-// mid-tone dark square — no lightness does — so coordinates take one dark ink,
-// which clears 5:1 on the dark square and 11:1 on the light one.
-const BOARD_NOTATION_INK = '#2b2118'
-
 const NOTATION_BASE_STYLE = {
   position: 'absolute' as const,
   fontWeight: 700,
@@ -730,6 +728,9 @@ function loadPersistedSettings(): PersistedAppSettings {
       timeControlId: isTimeControlPresetId(parsed.timeControlId)
         ? parsed.timeControlId
         : DEFAULT_PERSISTED_SETTINGS.timeControlId,
+      boardThemeId: isBoardThemeId(parsed.boardThemeId)
+        ? parsed.boardThemeId
+        : DEFAULT_PERSISTED_SETTINGS.boardThemeId,
     }
   } catch {
     return DEFAULT_PERSISTED_SETTINGS
@@ -826,6 +827,8 @@ function App() {
   const [topMoveArrowCount, setTopMoveArrowCount] = useState<number>(persistedSettings.topMoveArrowCount)
   const [soundEnabled, setSoundEnabled] = useState<boolean>(persistedSettings.soundEnabled)
   const [timeControlId, setTimeControlId] = useState<string>(persistedSettings.timeControlId)
+  const [boardThemeId, setBoardThemeId] = useState<string>(persistedSettings.boardThemeId)
+  const boardTheme = useMemo(() => boardThemeById(boardThemeId), [boardThemeId])
   /** Null whenever the game is untimed, which is the default and most of the time. */
   const [clock, setClock] = useState<ClockState | null>(null)
   // The AI loop is an effect that must not re-install on every clock change,
@@ -2031,6 +2034,7 @@ function App() {
       topMoveArrowCount,
       soundEnabled,
       timeControlId,
+      boardThemeId,
     })
   }, [
     workspaceMode,
@@ -2057,6 +2061,7 @@ function App() {
     topMoveArrowCount,
     soundEnabled,
     timeControlId,
+    boardThemeId,
     quickMovetimeMs,
     searchDepth,
     showAdvancedAnalyze,
@@ -4007,6 +4012,31 @@ function App() {
                   />
                   <span>Move sounds</span>
                 </label>
+                <div className="board-theme-row">
+                  <span className="board-theme-label" id="board-theme-label">Board</span>
+                  <div className="board-theme-swatches" role="group" aria-labelledby="board-theme-label">
+                    {BOARD_THEMES.map(theme => (
+                      <button
+                        key={theme.id}
+                        type="button"
+                        className={`board-theme-swatch ${boardThemeId === theme.id ? 'selected' : ''}`}
+                        aria-pressed={boardThemeId === theme.id}
+                        aria-label={`${theme.label} board`}
+                        title={theme.label}
+                        onClick={() => setBoardThemeId(theme.id)}
+                      >
+                        {/* Two squares and a coordinate: the swatch shows the
+                            thing that actually varies, including whether the
+                            notation is readable on the dark square. */}
+                        <span className="board-theme-chip" aria-hidden="true">
+                          <span style={{ background: theme.light }} />
+                          <span style={{ background: theme.dark, color: theme.ink }}>a</span>
+                        </span>
+                        <span className="board-theme-name">{theme.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <p className="panel-copy small">
                   {soundEnabled
                     ? 'A knock for a move, heavier for a capture, and a tone for check, promotion and the end of the game. Moves you navigate to are silent.'
@@ -4547,14 +4577,14 @@ function App() {
                       },
                       arrows,
                       arrowOptions: BOARD_ARROW_OPTIONS,
-                      darkSquareNotationStyle: notationStyle(BOARD_NOTATION_INK),
-                      lightSquareNotationStyle: notationStyle(BOARD_NOTATION_INK),
+                      darkSquareNotationStyle: notationStyle(boardTheme.ink),
+                      lightSquareNotationStyle: notationStyle(boardTheme.ink),
                       alphaNotationStyle: { ...NOTATION_BASE_STYLE, bottom: 2, right: 3, fontSize: notationFontSize },
                       numericNotationStyle: { ...NOTATION_BASE_STYLE, top: 2, left: 3, fontSize: notationFontSize },
                       allowDrawingArrows: true,
                       allowDragging: !boardInputLocked,
-                      darkSquareStyle: { backgroundColor: '#b58863' },
-                      lightSquareStyle: { backgroundColor: '#f0d9b5' },
+                      darkSquareStyle: { backgroundColor: boardTheme.dark },
+                      lightSquareStyle: { backgroundColor: boardTheme.light },
                       boardStyle: {
                         width: `${renderedBoardWidth}px`,
                         maxWidth: '100%',
