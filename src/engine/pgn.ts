@@ -156,6 +156,42 @@ function sideToMoveScoreFromWhitePov(
     }
 }
 
+/**
+ * The clock reading a move was made with, out of `[%clk H:MM:SS]`.
+ *
+ * Lichess and chess.com both write it, and the importer already strips it from
+ * the human comment as a machine command — so the app was throwing away, on
+ * every real game it imported, the one fact that explains most blunders. It is
+ * read back onto the move so the review can show it: "0:07 left" beside a
+ * mistake says something the centipawns never will.
+ *
+ * Tolerant of the shapes seen in the wild: `H:MM:SS`, `MM:SS`, and a fractional
+ * second, which Lichess writes when the increment is small.
+ */
+const PGN_CLOCK_PATTERN = /\[%clk\s+([0-9]{1,3}(?::[0-9]{1,2}){1,2}(?:\.[0-9]+)?)\s*\]/i
+
+export function clockMsFromComment(comment: string | undefined): number | undefined {
+    const match = comment?.match(PGN_CLOCK_PATTERN)
+    if (!match) return undefined
+
+    const parts = match[1].split(':').map(Number)
+    if (parts.some(part => !Number.isFinite(part) || part < 0)) return undefined
+
+    // Two parts are minutes and seconds, three are hours, minutes and seconds.
+    const [hours, minutes, seconds] = parts.length === 3 ? parts : [0, parts[0], parts[1]]
+    if (minutes >= 60 || seconds >= 60) return undefined
+    return Math.round((hours * 3600 + minutes * 60 + seconds) * 1000)
+}
+
+/** `[%clk 0:03:07]`, the shape Lichess writes and every reader expects. */
+export function clockCommentValue(ms: number): string {
+    const total = Math.max(0, Math.floor(ms / 1000))
+    const hours = Math.floor(total / 3600)
+    const minutes = Math.floor((total % 3600) / 60)
+    const seconds = total % 60
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
 function evaluationFromComment(fen: string, comment: string | undefined): EvalSnapshot | null {
     if (!comment) return null
 
@@ -359,6 +395,10 @@ function commentForNode(
         const evalStr = evalAnnotation(node.fen, evaluation)
         if (evalStr) commentParts.push(evalStr)
         if (evalStr && evaluation?.bestMove) commentParts.push(`[%wcbest ${evaluation.bestMove}]`)
+        // A namespaced command like the two above, and for the same reason: it
+        // has to be recognisable on the way back in, or the next import reads
+        // it as something the reader typed.
+        if (typeof node.clockMs === 'number') commentParts.push(`[%clk ${clockCommentValue(node.clockMs)}]`)
     }
 
     if (options.includeComments && preservedComment) {
@@ -462,6 +502,7 @@ function buildImportEntry(
         move,
         fen: nextPosition.fen(),
         comment: joinPgnComments([first.leadingComment, humanCommentFromPgnComment(moveNode.comment)]),
+        clockMs: clockMsFromComment(moveNode.comment),
         suffix: normalizePgnSuffix(moveNode.suffix),
         nags: normalizePgnNags(moveNode.nag),
         children: buildImportEntries(moveNode.variations, nextPosition, evaluations),

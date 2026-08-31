@@ -13,6 +13,8 @@ import {
   parsePgnMoveTree,
   pgnImportContentError,
   rootFenFromPgnHeaders,
+  clockCommentValue,
+  clockMsFromComment,
   reorderPgnAnnotations,
   stripPgnByteOrderMark,
 } from './pgn'
@@ -958,5 +960,40 @@ describe('a PGN file as it arrives from a disk', () => {
     it('reads a file saved with Windows line endings', () => {
         const parsed = parsePgnMoveTree((headers + '1. e4 c5 2. Nf3 *\n').replace(/\n/g, '\r\n'))
         expect(parsed.moves.length).toBeGreaterThan(0)
+    })
+})
+
+describe('the clock reading a move was made with', () => {
+    it('reads the shape Lichess and chess.com write', () => {
+        expect(clockMsFromComment('[%clk 0:03:07]')).toBe(187_000)
+        expect(clockMsFromComment('[%eval 0.2] [%clk 1:02:03]')).toBe(3_723_000)
+        expect(clockMsFromComment('[%clk 0:00:00]')).toBe(0)
+    })
+
+    /** Lichess writes two fields on a short control, and tenths on a small increment. */
+    it('reads minutes:seconds, and a fractional second', () => {
+        expect(clockMsFromComment('[%clk 2:58]')).toBe(178_000)
+        expect(clockMsFromComment('[%clk 0:00:09.7]')).toBe(9_700)
+    })
+
+    it('is absent rather than wrong for anything it does not recognise', () => {
+        expect(clockMsFromComment(undefined)).toBeUndefined()
+        expect(clockMsFromComment('a note with no clock')).toBeUndefined()
+        expect(clockMsFromComment('[%clk banana]')).toBeUndefined()
+        expect(clockMsFromComment('[%clk 0:99:00]')).toBeUndefined()
+        expect(clockMsFromComment('[%clk 0:00:61]')).toBeUndefined()
+    })
+
+    it('writes the shape it reads', () => {
+        expect(clockCommentValue(187_000)).toBe('0:03:07')
+        expect(clockCommentValue(3_723_000)).toBe('1:02:03')
+        expect(clockCommentValue(0)).toBe('0:00:00')
+        expect(clockCommentValue(-5)).toBe('0:00:00')
+    })
+
+    it('round-trips a reading through its own writer', () => {
+        for (const ms of [0, 999, 1_000, 59_000, 187_000, 3_723_000]) {
+            expect(clockMsFromComment(`[%clk ${clockCommentValue(ms)}]`)).toBe(Math.floor(ms / 1000) * 1000)
+        }
     })
 })

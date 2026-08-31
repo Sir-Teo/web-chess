@@ -41,6 +41,10 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 ### Studying
 
 - **Beginner and pro analysis**: Coach mode keeps the right panel focused on plain-language move guidance, while Pro mode exposes MultiPV, WDL, cloud evals, opening stats, tablebase moves, and UCI controls.
+- **Time trouble, in the review**: A move's clock reading rides with it — read
+  from `[%clk]` on import, recorded from the running clock in a timed game, and
+  written back out. So a review of a real blitz game shows *0:07* beside the
+  blunder, which is the explanation the centipawns never carry.
 - **Game review**: Import a PGN, run a review pass, filter critical moments by side, inspect accuracy, and jump from a review row back to the board. Accuracy and move labels are scored on winning chances rather than raw centipawns, so an imprecision in a decided game is not called a blunder.
 - **Steppable engine lines**: Click any move in a principal variation — in the
   Lines panel or the Coach card — and the board walks into the line up to that

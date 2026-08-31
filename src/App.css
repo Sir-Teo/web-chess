@@ -2866,10 +2866,13 @@ button.critical-moment-row {
 .review-move-row {
   width: 100%;
   display: grid !important;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  /* The clock is one column spanning both rows: it belongs to the move rather
+     than to either half of it, and a track with nothing in it collapses, so a
+     game with no clock reads exactly as it did. */
   grid-template-areas:
-    "index san uci quality"
-    "index best impact confidence";
+    "index san uci clock quality"
+    "index best impact clock confidence";
   gap: 0.32rem;
   row-gap: 0.16rem;
   align-items: center;
@@ -2885,8 +2888,8 @@ button.critical-moment-row {
 /* Coach view drops the raw UCI and the search depth, matching how the Lines
    panel hides them. The five that remain fit one line. */
 .review-move-row.compact {
-  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
-  grid-template-areas: "index san best impact quality";
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto auto;
+  grid-template-areas: "index san best impact clock quality";
 }
 
 .review-move-row .move-index {
@@ -5033,4 +5036,16 @@ button.hint-btn {
 .hint-answer strong {
   color: var(--accent);
   font-family: var(--font-mono);
+}
+
+/* What the mover had left. Tabular and dim: it belongs to the row without
+   competing with the quality label, which is what the eye is scanning for. */
+.review-move-row .move-clock {
+  grid-area: clock;
+  justify-self: end;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  white-space: nowrap;
 }

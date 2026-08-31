@@ -21,6 +21,14 @@ export type GameNode = {
     suffix?: string
     nags?: string[]
     quality?: ReviewLabel
+    /**
+     * What the mover's clock read after this move, in milliseconds.
+     *
+     * Read from a PGN's `[%clk]` on import and recorded from the running clock
+     * on a timed game. Present only where a clock existed; an untimed game and
+     * an unannotated PGN both leave it undefined.
+     */
+    clockMs?: number
 }
 
 export type GameTreeImportEntry = {
@@ -29,6 +37,7 @@ export type GameTreeImportEntry = {
     comment?: string
     suffix?: string
     nags?: string[]
+    clockMs?: number
     children?: GameTreeImportEntry[]
 }
 
@@ -142,7 +151,7 @@ export function useGameTree(startFen?: string) {
      * auto-save stores it, and Review Game reviews it, while the game you are
      * actually playing sits in brackets.
      */
-    const addMove = useCallback((move: Move, fen: string, options?: { mainLine?: boolean }): string => {
+    const addMove = useCallback((move: Move, fen: string, options?: { mainLine?: boolean; clockMs?: number }): string => {
         const tree = treeRef.current
         const parent = tree.nodes.get(tree.currentId)
         if (!parent) return tree.currentId
@@ -174,6 +183,7 @@ export function useGameTree(startFen?: string) {
             uci,
             parent: parent.id,
             children: [],
+            ...(typeof options?.clockMs === 'number' ? { clockMs: options.clockMs } : {}),
         }
 
         const nextNodes = new Map(tree.nodes)
@@ -204,6 +214,7 @@ export function useGameTree(startFen?: string) {
                 comment: entry.comment,
                 suffix: entry.suffix,
                 nags: entry.nags,
+                clockMs: entry.clockMs,
             }
 
             nextTree.nodes.set(node.id, node)
@@ -235,6 +246,7 @@ export function useGameTree(startFen?: string) {
                     comment: entry.comment,
                     suffix: entry.suffix,
                     nags: entry.nags,
+                    clockMs: entry.clockMs,
                 }
 
                 nextTree.nodes.set(node.id, node)

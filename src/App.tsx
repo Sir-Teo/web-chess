@@ -94,6 +94,8 @@ import {
   flagPgnResult,
   flagResultLabel,
   isTimeControlPresetId,
+  describeClockTime,
+  formatClockTime,
   moveEndedGame,
   moveMade,
   remainingMs,
@@ -2784,7 +2786,10 @@ function App() {
           const newFen = game.fen()
           setFen(newFen)
           // The AI loop only runs in Play mode, so its moves are always the game.
-          gameTreeRef.current.addMove(move, newFen, { mainLine: true })
+          gameTreeRef.current.addMove(move, newFen, {
+            mainLine: true,
+            clockMs: clockRef.current ? remainingMs(clockRef.current, move.color, Date.now()) : undefined,
+          })
           playMoveSoundRef.current(move)
         }
 
@@ -2840,7 +2845,14 @@ function App() {
       setFen(newFen)
       // In a game the move you just played is the game, even if you took one
       // back to play it. In analysis it is a variation, which is the point.
-      gameTree.addMove(move, newFen, { mainLine: workspaceMode === 'play' })
+      //
+      // The clock is read *before* `registerMovePlayed` presses it, so the node
+      // carries what the mover had left when they moved -- which is what
+      // `[%clk]` means everywhere else.
+      gameTree.addMove(move, newFen, {
+        mainLine: workspaceMode === 'play',
+        clockMs: clockRef.current ? remainingMs(clockRef.current, move.color, Date.now()) : undefined,
+      })
       registerMovePlayed(move)
       clearBoardSelection()
       setPendingPromotion(null)
@@ -6182,7 +6194,17 @@ const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, currentNodeId
         const confidenceLabel = reviewConfidenceLabel(row.confidence, row.evalDepth)
         const bestMoveHint =
           row.bestMove && row.bestMove !== row.uci ? `Best ${row.bestMoveSan ?? row.bestMove}` : null
-        const ariaDetails = [qualityLabel, impactLabel, confidenceLabel, bestMoveHint].filter(Boolean).join(', ')
+        // What the mover had left when they played it, where the game carries
+        // it. Half the blunders in a real game are explained by this number and
+        // by nothing in the evaluation.
+        const clockLabel = typeof node?.clockMs === 'number' ? formatClockTime(node.clockMs) : null
+        const ariaDetails = [
+          qualityLabel,
+          impactLabel,
+          confidenceLabel,
+          bestMoveHint,
+          clockLabel ? `${describeClockTime(node!.clockMs!)} left` : null,
+        ].filter(Boolean).join(', ')
 
         return (
           <li key={`${row.ply}-${row.uci}`} className={`quality-${row.quality}`}>
@@ -6201,6 +6223,7 @@ const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, currentNodeId
               {showEngineDetail && <span className="move-uci">{row.uci}</span>}
               <span className="move-best">{bestMoveHint ?? ''}</span>
               <span className="move-impact">{impactLabel}</span>
+              {clockLabel && <span className="move-clock" aria-hidden="true">{clockLabel}</span>}
               {showEngineDetail && (
                 <span className={`move-confidence confidence-${row.confidence}`}>
                   {confidenceLabel}
