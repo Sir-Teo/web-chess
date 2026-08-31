@@ -523,6 +523,29 @@ Two smaller things worth knowing here:
   and it is off in pass and play, in analysis, while paused, and once the game
   is over.
 
+## chess.js takes less PGN than the standard defines
+
+The PGN standard lets any number of comments and NAGs follow a move, in any
+order. chess.js's grammar takes `e4 $1 {note}` and refuses both of these:
+
+    e4 {note} {more}      two comments
+    e4 {note} $1          a NAG after its comment
+
+with `Expected end of input, game termination marker, move number, standard
+algebraic notation, or whitespace but "{" found` — which the app surfaced as
+"Check the move text, headers, and move numbers", unhelpful advice about text
+that is correct. Found by building a Lichess-shaped export and importing it: a
+game with a written note beside an `[%eval]` lands in the second shape, and so
+do annotated games out of a database.
+
+`reorderPgnAnnotations` rewrites both into the order chess.js accepts, before
+`parsePgn` sees the text. It is safe on input that contains neither, and it
+cannot reach inside a comment, because a `}` only ever ends one — PGN comments
+do not nest.
+
+Worth knowing if the parser is ever replaced: this is a workaround for a
+grammar, not a normalisation the format needs.
+
 ## Project Invariants
 
 - Engine scores are POV side-to-move; after a move the perspective flips.

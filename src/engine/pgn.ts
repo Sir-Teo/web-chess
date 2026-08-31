@@ -486,6 +486,33 @@ function buildImportEntries(
     return entries
 }
 
+/**
+ * Reorder the two shapes chess.js's PGN grammar refuses but the standard allows.
+ *
+ * The PGN spec lets any number of comments and NAGs follow a move, in any
+ * order. chess.js accepts `e4 $1 {note}` and rejects both `e4 {note} {more}`
+ * and `e4 {note} $1`, with an error that blames the move text — which is
+ * unhelpful when the move text is correct. Annotated games from a database, and
+ * a Lichess study where a written note sits beside an `[%eval]`, land in the
+ * second shape routinely.
+ *
+ * Two rewrites, both safe on text that does not contain them:
+ *
+ *   {a} {b}   ->  {a b}     one comment, which is all a node can hold anyway
+ *   {a} $1    ->  $1 {a}    the order chess.js does accept
+ *
+ * A `}` can only ever end a comment — PGN comments do not nest — so matching on
+ * the braces cannot reach inside one.
+ */
+export function reorderPgnAnnotations(pgnText: string): string {
+    // NAGs first, so a `{a} $1 {b}` becomes `$1 {a} {b}` and then `$1 {a b}`.
+    const nagsBeforeComments = pgnText.replace(
+        /(\{[^}]*\})(\s*)((?:\$\d+)(?:\s+\$\d+)*)/g,
+        (_match, comment: string, gap: string, nags: string) => `${nags}${gap || ' '}${comment}`,
+    )
+    return nagsBeforeComments.replace(/\}(\s*)\{/g, ' ')
+}
+
 export function parsePgnMoveTree(pgnText: string): {
     headers: Record<string, string>
     rootFen: string
@@ -496,7 +523,7 @@ export function parsePgnMoveTree(pgnText: string): {
     const importError = pgnImportContentError(pgnText)
     if (importError) throw new Error(importError)
 
-    const parsed = parsePgn(pgnText)
+    const parsed = parsePgn(reorderPgnAnnotations(pgnText))
     const headers = { ...parsed.headers }
     if (parsed.result && !headers.Result) headers.Result = parsed.result
     const rootFen = rootFenFromPgnHeaders(parsed.headers)

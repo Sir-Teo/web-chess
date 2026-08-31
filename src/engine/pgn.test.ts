@@ -13,6 +13,7 @@ import {
   parsePgnMoveTree,
   pgnImportContentError,
   rootFenFromPgnHeaders,
+  reorderPgnAnnotations,
 } from './pgn'
 
 function makeNode(
@@ -856,4 +857,63 @@ describe('the best move for a position', () => {
     const imported = parsePgnMoveTree('1. e4 { [%clk 0:03:00] [%emt 0:00:04] real note } *')
     expect(imported.moves[0]?.comment).toBe('real note')
   })
+})
+
+describe('annotation shapes chess.js will not take', () => {
+    const headers = '[Event "x"]\n[White "a"]\n[Black "b"]\n[Result "*"]\n\n'
+    const parses = (movetext: string) => {
+        try {
+            parsePgnMoveTree(headers + movetext + '\n')
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    /**
+     * The PGN standard lets any number of comments and NAGs follow a move, in
+     * any order. chess.js takes `$1 {note}` and refuses `{note} {more}` and
+     * `{note} $1`, blaming the move text — which is unhelpful when the move
+     * text is right. Database exports and Lichess studies produce both.
+     */
+    it('imports a move carrying two comments', () => {
+        expect(parses('1. e4 c5 { dubious } { [%eval -0.1] } 2. Nf3 *')).toBe(true)
+    })
+
+    it('imports a NAG written after its comment', () => {
+        expect(parses('1. e4 c5 { dubious } $2 2. Nf3 *')).toBe(true)
+        expect(parses('1. e4 c5 { dubious } $2 $14 2. Nf3 *')).toBe(true)
+    })
+
+    it('imports the two mixed, and inside a variation', () => {
+        expect(parses('1. e4 c5 { dubious } $2 { [%eval -0.1] } 2. Nf3 *')).toBe(true)
+        expect(parses('1. e4 c5 (1... e5 { open } { [%eval 0.1] }) 2. Nf3 *')).toBe(true)
+    })
+
+    it('merges the comments rather than dropping one', () => {
+        const parsed = parsePgnMoveTree(headers + '1. e4 { first } { second } *\n')
+        expect(parsed.moves[0]?.comment).toContain('first')
+        expect(parsed.moves[0]?.comment).toContain('second')
+    })
+
+    it('keeps the evaluation when it arrives in the second comment', () => {
+        const parsed = parsePgnMoveTree(headers + '1. e4 { a note } { [%eval 0.31] } *\n')
+        expect(parsed.evaluations.size).toBe(1)
+        expect(parsed.moves[0]?.comment).toBe('a note')
+    })
+
+    it('leaves a PGN without either shape byte-identical', () => {
+        for (const movetext of [
+            '1. e4 c5 2. Nf3 *',
+            '1. e4 c5 $2 { dubious } 2. Nf3 *',
+            '1. e4 { [%eval 0.2] [%clk 0:02:56] } c5 *',
+        ]) {
+            expect(reorderPgnAnnotations(movetext)).toBe(movetext)
+        }
+    })
+
+    /** A `}` only ever ends a comment, so the rewrite cannot reach inside one. */
+    it('does not rewrite braces that are part of a comment body', () => {
+        expect(reorderPgnAnnotations('1. e4 { a $1 b } *')).toBe('1. e4 { a $1 b } *')
+    })
 })
