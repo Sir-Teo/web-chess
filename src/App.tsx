@@ -53,6 +53,7 @@ import { LazyDialogBoundary } from './components/LazyDialogBoundary'
 import { PhaseAccuracy } from './components/PhaseAccuracy'
 import {
   type AutoSavedGame,
+  type AutoSavedPlay,
   autoSaveDelayMs,
   clearAutoSavedGame,
   readAutoSavedGame,
@@ -94,6 +95,7 @@ import {
   isTimeControlPresetId,
   moveEndedGame,
   moveMade,
+  remainingMs,
   pauseClock,
   settleFlag,
   startSide,
@@ -854,6 +856,10 @@ function App() {
   // The AI loop is an effect that must not re-install on every clock change,
   // and a clock changes on every move. Same shape as gameTreeRef.
   const clockFlaggedRef = useRef<'w' | 'b' | null>(null)
+  // Read by the auto-save, which must not list the clock as a dependency: the
+  // clock changes on every move and the save is already debounced on the tree.
+  const clockRef = useRef<ClockState | null>(null)
+  const playSessionRef = useRef<AutoSavedPlay | undefined>(undefined)
   const timeControlIdRef = useRef(timeControlId)
   timeControlIdRef.current = timeControlId
   const [openingPrefetchTick, setOpeningPrefetchTick] = useState(0)
@@ -2482,6 +2488,10 @@ function App() {
 
   const clockFlagged = clock?.flagged ?? null
   clockFlaggedRef.current = clockFlagged
+  clockRef.current = clock
+  playSessionRef.current = workspaceMode === 'play'
+    ? { gameMode, playerColor, difficulty: aiDifficulty }
+    : undefined
 
   /**
    * Whether the board is taking a premove right now.
@@ -3385,6 +3395,21 @@ function App() {
       writeAutoSavedGame(
         exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot),
         plies,
+        undefined,
+        undefined,
+        // Banked times, read at the moment of writing, so a clock that is
+        // running is stored as what it would show if it stopped now.
+        clockRef.current
+          ? {
+            control: clockRef.current.control,
+            whiteMs: remainingMs(clockRef.current, 'w', Date.now()),
+            blackMs: remainingMs(clockRef.current, 'b', Date.now()),
+            flagged: clockRef.current.flagged,
+          }
+          : undefined,
+        // Only for a game being played. An imported PGN under analysis has no
+        // side to take, and restoring one into Play mode would invent one.
+        playSessionRef.current,
       )
     }, delay)
     return () => window.clearTimeout(timeout)
@@ -3412,7 +3437,36 @@ function App() {
     }
     setAutoSaveRestoreError(null)
     setAutoSaveRecovery(null)
-  }, [autoSaveRecovery, handleAnalysisPgnImport])
+    // Everything below runs after the import, which resets the board and the
+    // clock and sends the workspace to Analysis.
+    const session = autoSaveRecovery.play
+    if (session) {
+      // It was a game. Restoring it into the analysis board loses the opponent,
+      // which is most of what was in progress.
+      setWorkspaceMode('play')
+      setGameMode(session.gameMode)
+      setPlayerColor(session.playerColor)
+      setAiDifficulty(session.difficulty as AiDifficulty)
+      setAiPlayerDifficulty(session.difficulty as AiDifficulty)
+      setOrientation(defaultOrientationForGameMode(session.gameMode, session.playerColor))
+      pausedRef.current = true
+      setPaused(true)
+    }
+    // Stopped, not running: the reader was not thinking while the page was
+    // closed, and starting a countdown under a board they have not looked at
+    // yet would take time off them for the reload.
+    const saved = autoSaveRecovery.clock
+    if (saved) {
+      setClock({
+        control: saved.control,
+        whiteMs: saved.whiteMs,
+        blackMs: saved.blackMs,
+        running: null,
+        since: null,
+        flagged: saved.flagged,
+      })
+    }
+  }, [autoSaveRecovery, handleAnalysisPgnImport, setAiPlayerDifficulty])
 
   const copyAutoSavedPgn = useCallback(() => {
     const pgn = autoSaveRecovery?.pgn

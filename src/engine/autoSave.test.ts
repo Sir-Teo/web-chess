@@ -7,6 +7,8 @@ import {
   clearAutoSavedGame,
   readAutoSavedGame,
   writeAutoSavedGame,
+  normalizeAutoSavedClock,
+  normalizeAutoSavedPlay,
 } from './autoSave'
 
 const PGN = '[Event "Casual"]\n\n1. e4 e5 2. Nf3 *'
@@ -158,5 +160,91 @@ describe('deciding when to write', () => {
 
     expect(fired).not.toBeNull()
     expect(fired!).toBeLessThanOrEqual(AUTO_SAVE_MAX_WAIT_MS)
+  })
+})
+
+describe('the clock a timed game leaves behind', () => {
+  const clock = {
+    control: { initialMs: 180_000, incrementMs: 2_000 },
+    whiteMs: 91_400,
+    blackMs: 120_000,
+    flagged: null,
+  }
+
+  it('round-trips beside the moves', () => {
+    const { storage } = stubStorage()
+    writeAutoSavedGame('1. e4 *', 1, storage, 5, clock)
+    expect(readAutoSavedGame(storage)?.clock).toEqual(clock)
+  })
+
+  it('leaves an untimed game without one, rather than inventing a control', () => {
+    const { storage } = stubStorage()
+    writeAutoSavedGame('1. e4 *', 1, storage, 5)
+    expect(readAutoSavedGame(storage)?.clock).toBeUndefined()
+  })
+
+  it('keeps a flag, so a game already lost on time does not come back playable', () => {
+    const { storage } = stubStorage()
+    writeAutoSavedGame('1. e4 *', 1, storage, 5, { ...clock, whiteMs: 0, flagged: 'w' })
+    expect(readAutoSavedGame(storage)?.clock?.flagged).toBe('w')
+  })
+
+  /**
+   * A half-written clock would restore a game with a side already on zero,
+   * which is worse than restoring it untimed.
+   */
+  it('drops anything it cannot fully believe', () => {
+    expect(normalizeAutoSavedClock(undefined)).toBeUndefined()
+    expect(normalizeAutoSavedClock('nope')).toBeUndefined()
+    expect(normalizeAutoSavedClock({ whiteMs: 1, blackMs: 1 })).toBeUndefined()
+    expect(normalizeAutoSavedClock({ control: { initialMs: 0, incrementMs: 0 }, whiteMs: 1, blackMs: 1 })).toBeUndefined()
+    expect(normalizeAutoSavedClock({ control: { initialMs: 60_000, incrementMs: 0 }, whiteMs: -1, blackMs: 1 })).toBeUndefined()
+    expect(normalizeAutoSavedClock({ control: { initialMs: 60_000, incrementMs: 0 }, whiteMs: 1, blackMs: Number.NaN })).toBeUndefined()
+  })
+
+  it('reads a clock with an unknown flag value as unflagged rather than refusing it', () => {
+    expect(normalizeAutoSavedClock({ ...clock, flagged: 'x' })?.flagged).toBeNull()
+  })
+
+  it('leaves a snapshot written before clocks existed readable', () => {
+    const { storage } = stubStorage()
+    storage.setItem('webchess:auto-saved-game:v1', JSON.stringify({ version: 1, savedAt: 5, pgn: '1. e4 *', moveCount: 1 }))
+    const read = readAutoSavedGame(storage)
+    expect(read?.pgn).toBe('1. e4 *')
+    expect(read?.clock).toBeUndefined()
+  })
+})
+
+describe('the game that was being played', () => {
+  const play = { gameMode: 'human-vs-ai' as const, playerColor: 'black' as const, difficulty: 6 }
+
+  it('round-trips beside the moves and the clock', () => {
+    const { storage } = stubStorage()
+    writeAutoSavedGame('1. e4 *', 1, storage, 5, undefined, play)
+    expect(readAutoSavedGame(storage)?.play).toEqual(play)
+  })
+
+  /** An imported PGN under analysis has no side to take. */
+  it('is absent for a board that was being analysed rather than played', () => {
+    const { storage } = stubStorage()
+    writeAutoSavedGame('1. e4 *', 1, storage, 5)
+    expect(readAutoSavedGame(storage)?.play).toBeUndefined()
+  })
+
+  it('refuses a game mode it does not know', () => {
+    expect(normalizeAutoSavedPlay({ ...play, gameMode: 'human-vs-dog' })).toBeUndefined()
+    expect(normalizeAutoSavedPlay({ playerColor: 'white', difficulty: 4 })).toBeUndefined()
+    expect(normalizeAutoSavedPlay(null)).toBeUndefined()
+  })
+
+  /** A stale difficulty should still load a game, not discard it. */
+  it('clamps the difficulty instead of rejecting the session', () => {
+    expect(normalizeAutoSavedPlay({ ...play, difficulty: 99 })?.difficulty).toBe(8)
+    expect(normalizeAutoSavedPlay({ ...play, difficulty: 0 })?.difficulty).toBe(1)
+    expect(normalizeAutoSavedPlay({ ...play, difficulty: 'hard' })?.difficulty).toBe(4)
+  })
+
+  it('reads an unknown colour as white rather than refusing the session', () => {
+    expect(normalizeAutoSavedPlay({ ...play, playerColor: 'green' })?.playerColor).toBe('white')
   })
 })
