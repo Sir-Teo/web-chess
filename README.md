@@ -29,6 +29,12 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   has not, and disabled with a reason when there is nothing of yours to undo.
   The move you took back stays in the game as a variation, and the clock is not
   refunded.
+- **Who is up material**: A pill in the strip above the board reads "White +3"
+  whenever the material is uneven, with what each side has taken spelled out in
+  words for the tooltip and the screen reader. Counted from the position the
+  game started from, so a FEN pasted in does not open fourteen captures down,
+  and read from the board rather than the moves, so it is right in a variation
+  and at any position you navigate to.
 - **Resign**: Concede the game rather than playing a lost position out to mate
   or waiting for the clock. Two clicks — Resign, then Confirm? — and never a
   keyboard shortcut, because one keystroke should not end a game. Against the

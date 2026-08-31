@@ -109,6 +109,7 @@ import {
   type ClockState,
 } from './engine/chessClock'
 import { describeGameEnd } from './engine/gameEnd'
+import { describeCaptures, materialAdvantageLabel, materialBalance } from './engine/material'
 import {
   resignDisabledReason,
   resignPgnResult,
@@ -4085,6 +4086,24 @@ function App() {
   const importedGameTitle = [importedPlayers, knownPgnHeader(pgnHeaders.Event), importedResult]
     .filter(Boolean).join(' · ')
   const moveNumberLabel = `Move ${fen.split(/\s+/)[5] ?? '1'}`
+  // Counted from the game's own root rather than the standard array, so a
+  // position pasted in as a FEN does not open fourteen captures down.
+  const material = useMemo(
+    () => materialBalance(mainLineNodes[0]?.fen ?? '', fen),
+    [fen, mainLineNodes],
+  )
+  const materialLeader: 'w' | 'b' | null = material.delta > 0 ? 'w' : material.delta < 0 ? 'b' : null
+  const materialDetail = useMemo(() => {
+    if (!materialLeader) return null
+    const lead = `${materialLeader === 'w' ? 'White' : 'Black'} is up ${Math.abs(material.delta)}.`
+    const taken = describeCaptures(material.capturedByWhite)
+    const lost = describeCaptures(material.capturedByBlack)
+    // A position set up from a FEN can start uneven with nothing captured, and
+    // "up 5, having taken nothing" reads as a contradiction rather than a fact
+    // about where the game began.
+    if (!taken && !lost) return lead
+    return `${lead} White has taken ${taken || 'nothing'}; Black has taken ${lost || 'nothing'}.`
+  }, [material, materialLeader])
   const currentMoveQuality = gameTree.current.quality
   /**
    * The same control on both analysis tabs.
@@ -4834,6 +4853,11 @@ function App() {
                 {turnLabel}
               </span>
               <span className="board-meta-move">{moveNumberLabel}</span>
+              {materialLeader && materialDetail && (
+                <span className="board-meta-material" title={materialDetail} aria-label={materialDetail}>
+                  {materialLeader === 'w' ? 'White' : 'Black'} {materialAdvantageLabel(material.delta, materialLeader)}
+                </span>
+              )}
               {importedPlayers && (
                 <span className="board-meta-game" title={importedGameTitle}>
                   {importedResult && <strong>{importedResult}</strong>}

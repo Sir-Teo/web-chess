@@ -5077,3 +5077,10 @@ button.hint-btn {
   border-color: var(--danger, #f87171);
   color: var(--danger, #f87171);
 }
+
+/* Who is up material. `flex: none` for the same reason the move number has it:
+   it is short, it must never clip, and the players' names absorb the squeeze. */
+.board-meta-strip>.board-meta-material {
+  flex: none;
+  color: var(--text-secondary);
+}
