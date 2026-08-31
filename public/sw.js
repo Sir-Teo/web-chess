@@ -20,11 +20,60 @@
  * Strategy is network-first for everything, falling back to the cache. Not
  * cache-first: the engine assets are hashed and immutable so the HTTP cache
  * already makes repeat loads fast, while network-first means an online reader
- * can never be served a stale bundle after a deploy. The cache exists for the
- * offline case, not for speed.
+ * can never be served a stale bundle after a deploy.
+ *
+ * The fallback is on a timeout, not only on failure. A network that fails is
+ * the easy case and was always handled -- measured at 37ms to a working board.
+ * A network that *hangs* is the common one: hotel wifi, a captive portal, a
+ * tunnel, one bar. `fetch` never rejects there, so a worker that waits for it
+ * waits for ever. Measured before this: 45 seconds and still a blank page,
+ * with a complete cache sitting unread.
+ *
+ * So a request that has something cached races the network against
+ * {@link NETWORK_TIMEOUT_MS}, and the in-flight fetch is kept alive past the
+ * response, so a reader served from the cache still refreshes it for next
+ * time. A request with nothing cached waits, because waiting is the only
+ * option it has.
  */
 const CACHE_VERSION = 'web-chess-v1';
 const CACHE_NAME = `${CACHE_VERSION}:runtime`;
+
+/**
+ * How long a reader waits for the network before a cached copy beats a blank
+ * page. Only ever reached when there is something cached to fall back to.
+ *
+ * Being eager is safe here, which is not obvious. A deploy changes the hash in
+ * every asset filename, so a new bundle is a cache *miss* -- and a miss waits
+ * for the network however slow it is. Only the handful of unhashed files can
+ * be served stale at all, and each of them refreshes the cache on the way
+ * past, so the staleness lasts exactly one load.
+ */
+const NETWORK_TIMEOUT_MS = 2500;
+
+/**
+ * The timeout once the network has already failed a race.
+ *
+ * A page load is a chain of requests, and paying the full timeout on each in
+ * turn is most of the wait: with one flat timeout, lie-fi took 8s to show a
+ * board it could have drawn from cache immediately. One timeout is evidence
+ * about the connection, not about the request, so the ones behind it give up
+ * quickly.
+ */
+const SLOW_NETWORK_TIMEOUT_MS = 400;
+
+/** How long that evidence is worth acting on. */
+const SLOW_NETWORK_MEMORY_MS = 20_000;
+
+let lastNetworkTimeoutAt = 0;
+
+function currentTimeoutMs() {
+  const recent = Date.now() - lastNetworkTimeoutAt < SLOW_NETWORK_MEMORY_MS;
+  return recent ? SLOW_NETWORK_TIMEOUT_MS : NETWORK_TIMEOUT_MS;
+}
+
+/** Distinct from any Response, so the race can say which branch won. */
+const TIMED_OUT = Symbol('timed out');
+const NETWORK_FAILED = Symbol('network failed');
 
 /** The document to fall back to when a navigation cannot reach the network. */
 const APP_SHELL_URL = './index.html';
@@ -123,8 +172,7 @@ async function respond(event) {
   // cache with copies of one document.
   const cacheKey = request.mode === 'navigate' ? APP_SHELL_URL : request;
 
-  try {
-    const response = await fetch(networkRequest);
+  const fromNetwork = fetch(networkRequest).then((response) => {
     const isolated = withIsolationHeaders(response);
 
     if (cacheable && isStorableResponse(response)) {
@@ -142,18 +190,39 @@ async function respond(event) {
     }
 
     return isolated;
-  } catch (error) {
-    if (cacheable) {
-      const cache = await caches.open(CACHE_NAME);
-      const cached = await cache.match(cacheKey);
-      if (cached) return cached;
-      if (request.mode === 'navigate') {
-        const shell = await cache.match(APP_SHELL_URL);
-        if (shell) return shell;
-      }
-    }
-    throw error;
+  });
+
+  // Nothing to fall back to: the network is the only answer there is, and a
+  // rejection here is the network error the reader should see.
+  if (!cacheable) return fromNetwork;
+
+  const cached = await caches
+    .open(CACHE_NAME)
+    .then((cache) => cache.match(cacheKey))
+    .catch(() => undefined);
+  if (!cached) return fromNetwork;
+
+  // Keep the fetch running whichever branch wins, so a reader served from the
+  // cache still leaves a fresh copy behind for the next load.
+  event.waitUntil(fromNetwork.catch(() => undefined));
+
+  let timer;
+  const deadline = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(TIMED_OUT), currentTimeoutMs());
+  });
+
+  const winner = await Promise.race([fromNetwork.catch(() => NETWORK_FAILED), deadline]);
+  clearTimeout(timer);
+
+  if (winner === TIMED_OUT) {
+    lastNetworkTimeoutAt = Date.now();
+    return cached;
   }
+  if (winner === NETWORK_FAILED) return cached;
+
+  // The network answered in time, so whatever it was is over.
+  lastNetworkTimeoutAt = 0;
+  return winner;
 }
 
 self.addEventListener('fetch', (event) => {
