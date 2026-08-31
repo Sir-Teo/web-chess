@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildAnalyzeCommand, buildNewGameCommands, normalizeUciMoves, parseBestMoveLine, parseUciMoveListInput } from './uci'
+import { buildAnalyzeCommand, buildNewGameCommands, changedSetOptions, engineOptionValueToString, normalizeUciMoves, parseBestMoveLine, parseUciMoveListInput } from './uci'
 
 describe('UCI helpers', () => {
   it('normalizes UCI moves and keeps promotions', () => {
@@ -89,6 +89,41 @@ describe('UCI helpers', () => {
       bestMove: null,
       ponderMove: null,
     })
+  })
+
+  it('sends only the options whose value the engine does not already hold', () => {
+    const desired = buildAnalyzeCommand({
+      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      hashMb: 64,
+      multiPv: 1,
+      showWdl: true,
+      mode: 'review',
+    }).setOptions
+
+    // A fresh engine has been told nothing, so everything goes.
+    expect(changedSetOptions(desired, new Map())).toEqual(desired)
+
+    // The batch review searches sixty positions at one hash size. Re-sending it
+    // resizes -- and so clears -- the transposition table between every one.
+    const applied = new Map([['Hash', '64'], ['MultiPV', '1'], ['UCI_ShowWDL', 'true']])
+    expect(changedSetOptions(desired, applied)).toEqual([])
+
+    // A real change still goes through, and only it.
+    expect(changedSetOptions(desired, new Map([...applied, ['MultiPV', '3']])))
+      .toEqual([{ name: 'MultiPV', value: 1 }])
+  })
+
+  it('keeps valueless button options, which have no current value to match', () => {
+    expect(changedSetOptions([{ name: 'Clear Hash' }], new Map([['Clear Hash', '']])))
+      .toEqual([{ name: 'Clear Hash' }])
+  })
+
+  it('compares against the wire form, not the JavaScript value', () => {
+    expect(engineOptionValueToString(true)).toBe('true')
+    expect(engineOptionValueToString(false)).toBe('false')
+    expect(engineOptionValueToString(64)).toBe('64')
+    expect(changedSetOptions([{ name: 'UCI_ShowWDL', value: true }], new Map([['UCI_ShowWDL', 'true']])))
+      .toEqual([])
   })
 
   it('builds a synchronized new-game reset sequence', () => {

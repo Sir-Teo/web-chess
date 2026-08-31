@@ -8,7 +8,7 @@ import {
   type EngineProfileId,
 } from '../engine/profiles'
 import { createStockfishWorker } from '../engine/stockfishWorker'
-import { buildAnalyzeCommand, buildNewGameCommands, parseBestMoveLine, type AnalyzeMode, type AnalyzePurpose, type AnalyzeRequest, type UciGoLimits } from '../engine/uci'
+import { buildAnalyzeCommand, buildNewGameCommands, changedSetOptions, engineOptionValueToString, parseBestMoveLine, type AnalyzeMode, type AnalyzePurpose, type AnalyzeRequest, type UciGoLimits } from '../engine/uci'
 
 type EngineStatus = 'loading' | 'ready' | 'analyzing' | 'error' | 'disabled'
 
@@ -290,11 +290,6 @@ export function parseOptionLine(line: string): EngineOption | null {
   }
 }
 
-function withUciValue(value: string | number | boolean): string {
-  if (typeof value === 'boolean') return value ? 'true' : 'false'
-  return String(value)
-}
-
 export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', enabled = true) {
   const workerRef = useRef<Worker | null>(null)
   const isReadyRef = useRef(false)
@@ -313,6 +308,12 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const rawLinesRef = useRef<string[]>([])
   const rawLinesFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const liveLinesMapRef = useRef<Map<number, EngineLine>>(new Map())
+  /**
+   * What this worker has already been told each option is. Per worker, because
+   * a replacement starts at its own defaults; see `changedSetOptions` for why
+   * re-sending an unchanged value is not free.
+   */
+  const appliedOptionsRef = useRef<Map<string, string>>(new Map())
   const linesMapFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const capabilities = useMemo<EngineCapabilities>(() => detectEngineCapabilities(), [])
   const [fallbackOverride, setFallbackOverride] = useState<{
@@ -455,6 +456,10 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     (command: string) => {
       const trimmed = command.trim()
       if (!trimmed) return
+      // The Engine Lab console can set an option behind this hook's back, which
+      // would leave `appliedOptionsRef` describing an engine that no longer
+      // matches. Forgetting is cheap; a stale record silently skips a real set.
+      if (firstWord(trimmed) === 'setoption') appliedOptionsRef.current.clear()
       send(trimmed)
     },
     [send],
@@ -525,7 +530,8 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         return
       }
 
-      const normalized = withUciValue(value)
+      const normalized = engineOptionValueToString(value)
+      appliedOptionsRef.current.set(name, normalized)
       setOptions((previous) =>
         previous.map((option) =>
           option.name === name ? { ...option, currentValue: normalized } : option,
@@ -555,7 +561,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       currentAnalysisLimitsRef.current = request.limits
       setActiveGoCommand(built.go)
 
-      for (const option of built.setOptions) {
+      for (const option of changedSetOptions(built.setOptions, appliedOptionsRef.current)) {
         setOption(option.name, option.value)
       }
       send(built.position)
@@ -670,6 +676,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       pendingAnalyzeRef.current = null
       newGamePendingRef.current = false
       commandQueueRef.current = []
+      appliedOptionsRef.current = new Map()
       queueMicrotask(() => {
         if (currentSession !== bootSessionRef.current) return
         setStatus('disabled')
@@ -746,6 +753,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     pendingAnalyzeRef.current = null
     currentSearchIdRef.current = 0
     commandQueueRef.current = []
+    appliedOptionsRef.current = new Map()
 
     queueMicrotask(() => {
       if (currentSession !== bootSessionRef.current) return
