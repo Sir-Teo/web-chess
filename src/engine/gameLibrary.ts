@@ -83,12 +83,26 @@ export function extractLibraryMetadata(pgn: string): LibraryGameMetadata {
     round: trimmedOrUndefined(headers.Round),
     white: trimmedOrUndefined(headers.White),
     black: trimmedOrUndefined(headers.Black),
-    result: trimmedOrUndefined(headers.Result),
+    result: resultOrUndefined(headers.Result),
     eco: trimmedOrUndefined(headers.ECO),
     opening: trimmedOrUndefined(headers.Opening),
     whiteElo: positiveIntOrUndefined(headers.WhiteElo),
     blackElo: positiveIntOrUndefined(headers.BlackElo),
   }
+}
+
+/**
+ * `*` is how a PGN says a game has no result yet, so it is a placeholder in
+ * exactly the way `?` and `-` are -- but only in the Result tag, which is why
+ * it does not belong in `trimmedOrUndefined`.
+ *
+ * Without this a row reads "Player 1 - Player 2 · * · 2026.08.31", showing a
+ * person a token that means nothing to them, and every unfinished game carries
+ * a `*` into the search index.
+ */
+function resultOrUndefined(value: string | undefined): string | undefined {
+  const trimmed = trimmedOrUndefined(value)
+  return trimmed === '*' ? undefined : trimmed
 }
 
 function stripPgnHeaders(pgn: string): string {

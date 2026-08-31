@@ -285,3 +285,26 @@ describe('case insensitivity', () => {
         expect(matchesSearchTerms('anything', [])).toBe(true)
     })
 })
+
+describe('the result a library row shows', () => {
+  const withResult = (result: string) =>
+    extractLibraryMetadata(`[White "A"]\n[Black "B"]\n[Result "${result}"]\n\n1. e4 e5 ${result}`).result
+
+  it('keeps a real result', () => {
+    expect(withResult('1-0')).toBe('1-0')
+    expect(withResult('0-1')).toBe('0-1')
+    expect(withResult('1/2-1/2')).toBe('1/2-1/2')
+  })
+
+  /**
+   * `*` means "no result", and a row that prints it shows a person a token
+   * from a file format rather than a fact about their game.
+   */
+  it('drops the placeholder an unfinished game carries', () => {
+    expect(withResult('*')).toBeUndefined()
+  })
+
+  it('drops a missing result the same way', () => {
+    expect(extractLibraryMetadata('[White "A"]\n\n1. e4 *').result).toBeUndefined()
+  })
+})
