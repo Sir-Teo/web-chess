@@ -78,6 +78,7 @@ import { nullMoveProbe } from './engine/threats'
 import { tablebaseMoveAriaLabel, tablebaseMoveSummary, tablebaseSummary } from './engine/tablebaseLabels'
 import { BOARD_SQUARES, describeBoardSquare, isBoardSquare } from './engine/boardAccessibility'
 import { isBoardInputLocked } from './engine/boardInput'
+import { moveSoundFor } from './engine/moveSound'
 import {
   MARK_COLORS,
   hasSquareMarks,
@@ -106,6 +107,7 @@ import { MoveListTree } from './components/MoveListTree'
 import { graphTickStep } from './components/graphLayout'
 import { useElementHeight, useElementWidth } from './hooks/useElementWidth'
 import { useModalFocus } from './hooks/useModalFocus'
+import { useMoveSound } from './hooks/useMoveSound'
 import { formatGraphAxisLabel, formatGraphPositionLabel } from './components/graphLabels'
 import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlip, IconDownload, IconClipboard, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp } from './components/icons'
 import { isPlainShortcut, isTypingTarget } from './components/shortcutKeys'
@@ -285,6 +287,7 @@ type PersistedAppSettings = {
   showBoardArrows: boolean
   showTopMoveArrows: boolean
   topMoveArrowCount: number
+  soundEnabled: boolean
 }
 
 /**
@@ -333,6 +336,7 @@ const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
   showBoardArrows: true,
   showTopMoveArrows: true,
   topMoveArrowCount: 3,
+  soundEnabled: true,
 }
 
 const QUICK_MOVETIME_BOUNDS = { min: 50, max: 30_000, fallback: DEFAULT_PERSISTED_SETTINGS.quickMovetimeMs }
@@ -705,6 +709,9 @@ function loadPersistedSettings(): PersistedAppSettings {
         ? parsed.showTopMoveArrows
         : DEFAULT_PERSISTED_SETTINGS.showTopMoveArrows,
       topMoveArrowCount: normalizeInteger(parsed.topMoveArrowCount, 1, 5, DEFAULT_PERSISTED_SETTINGS.topMoveArrowCount),
+      soundEnabled: typeof parsed.soundEnabled === 'boolean'
+        ? parsed.soundEnabled
+        : DEFAULT_PERSISTED_SETTINGS.soundEnabled,
     }
   } catch {
     return DEFAULT_PERSISTED_SETTINGS
@@ -799,6 +806,7 @@ function App() {
   const [showBoardArrows, setShowBoardArrows] = useState<boolean>(persistedSettings.showBoardArrows)
   const [showTopMoveArrows, setShowTopMoveArrows] = useState<boolean>(persistedSettings.showTopMoveArrows)
   const [topMoveArrowCount, setTopMoveArrowCount] = useState<number>(persistedSettings.topMoveArrowCount)
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(persistedSettings.soundEnabled)
   const [openingPrefetchTick, setOpeningPrefetchTick] = useState(0)
   const [sampleFilter, setSampleFilter] = useState<SampleLibraryFilter>('all')
   const [sampleLoadingId, setSampleLoadingId] = useState<string | null>(null)
@@ -1985,6 +1993,7 @@ function App() {
       showBoardArrows,
       showTopMoveArrows,
       topMoveArrowCount,
+      soundEnabled,
     })
   }, [
     workspaceMode,
@@ -2009,6 +2018,7 @@ function App() {
     showBoardArrows,
     showTopMoveArrows,
     topMoveArrowCount,
+    soundEnabled,
     quickMovetimeMs,
     searchDepth,
     showAdvancedAnalyze,
@@ -2374,6 +2384,24 @@ function App() {
     return list
   }, [activeThreat, currentBoardMove, engineEnabled, fen, lines, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
 
+  const playSound = useMoveSound(soundEnabled)
+  /**
+   * Sound a move that has *already* been applied to `game` — the flags and SAN
+   * come from the move, and whether the game ended has to be read from the
+   * position it created.
+   *
+   * Only moves that are made, not moves that are navigated to. Stepping through
+   * a review with the arrow keys is a scrub, and key repeat over a 60-move game
+   * would be a hundred knocks in three seconds.
+   */
+  const playMoveSound = useCallback((move: Move) => {
+    playSound(moveSoundFor({ flags: move.flags, san: move.san, isGameOver: game.isGameOver() }))
+  }, [game, playSound])
+  // Reached from the AI loop, which is an effect that must not re-install
+  // whenever the sound setting changes mid-game. Same shape as requestThreatRef.
+  const playMoveSoundRef = useRef(playMoveSound)
+  playMoveSoundRef.current = playMoveSound
+
   // ── AI move loop (with speed throttle) ───────────────
   useEffect(() => {
     if (workspaceMode !== 'play') return
@@ -2449,6 +2477,7 @@ function App() {
           const newFen = game.fen()
           setFen(newFen)
           gameTreeRef.current.addMove(move, newFen)
+          playMoveSoundRef.current(move)
         }
 
         if (stepModeMove && aiSpeedRef.current === 'step') {
@@ -2502,11 +2531,12 @@ function App() {
       const newFen = game.fen()
       setFen(newFen)
       gameTree.addMove(move, newFen)
+      playMoveSound(move)
       clearBoardSelection()
       setPendingPromotion(null)
       return true
     },
-    [cancelStaleBackgroundAnalysis, clearBoardSelection, game, gameTree, stop],
+    [cancelStaleBackgroundAnalysis, clearBoardSelection, game, gameTree, playMoveSound, stop],
   )
 
   /**
@@ -2531,6 +2561,7 @@ function App() {
       cancelStaleBackgroundAnalysis()
       stop()
 
+      let landed: Move | null = null
       for (const step of moves) {
         let move: Move | null
         try {
@@ -2540,16 +2571,20 @@ function App() {
         }
         if (!move) break
         gameTree.addMove(move, game.fen())
+        landed = move
       }
 
       const reached = game.fen()
+      // One sound for the walk, not one per ply: six knocks in as many
+      // milliseconds is a noise, not six moves.
+      if (landed) playMoveSound(landed)
       setFen(reached)
       clearBoardSelection()
       setPendingPromotion(null)
       // Analyse where we landed, the same way stepping through the move list does.
       if (engineEnabled) setPendingPonderFen(reached)
     },
-    [cancelStaleBackgroundAnalysis, clearBoardSelection, engineEnabled, game, gameTree, stop],
+    [cancelStaleBackgroundAnalysis, clearBoardSelection, engineEnabled, game, gameTree, playMoveSound, stop],
   )
 
   const beginPromotion = useCallback(
@@ -3829,6 +3864,30 @@ function App() {
                   />
                   <span>Show board arrow overlays</span>
                 </label>
+                {/* Sound and the drawing gestures both work in Play mode, so they
+                    sit with the switches that are always here rather than inside
+                    the Analyze controls, which Play mode does not render at all. */}
+                <label className="switch-control">
+                  <input
+                    type="checkbox"
+                    checked={soundEnabled}
+                    onChange={event => setSoundEnabled(event.target.checked)}
+                  />
+                  <span>Move sounds</span>
+                </label>
+                <p className="panel-copy small">
+                  {soundEnabled
+                    ? 'A knock for a move, heavier for a capture, and a tone for check, promotion and the end of the game. Moves you navigate to are silent.'
+                    : 'Moves are silent.'}
+                </p>
+                {/* A mouse gesture, so it cannot go in the keyboard list, and an
+                    undiscoverable feature is not a feature. */}
+                <p className="panel-copy small">
+                  Right-drag on the board to draw your own arrow, right-click a square to mark it.
+                  Hold <kbd>Shift</kbd> or <kbd>Ctrl</kbd> for the other two colours. Your marks are
+                  blue, so nothing the engine draws can be mistaken for them; they clear on your next
+                  move or left click.
+                </p>
                 {engineEnabled && workspaceMode === 'analysis' && (
                   <details className="advanced-settings" open>
                     <summary>Analyze controls</summary>
@@ -3957,14 +4016,6 @@ function App() {
                         {showBoardArrows
                           ? `Better lines render greener and worse lines redder${analyzeMode === 'infinite' ? ' (updates live in infinite mode).' : '.'}`
                           : 'Board arrows are hidden in all game modes.'}
-                      </p>
-                      {/* A mouse gesture, so it cannot go in the keyboard list,
-                          and an undiscoverable feature is not a feature. */}
-                      <p className="panel-copy small">
-                        Right-drag on the board to draw your own arrow, right-click a square to mark it.
-                        Hold <kbd>Shift</kbd> or <kbd>Ctrl</kbd> for the other two colours. Your marks are
-                        blue, so nothing the engine draws can be mistaken for them; they clear on your next
-                        move or left click.
                       </p>
                       <label className="switch-control">
                         <input

@@ -24,6 +24,11 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   Lines panel or the Coach card — and the board walks into the line up to that
   move. It lands as a variation like any other, so it can be reviewed, promoted
   to the main line, or discarded.
+- **Move sounds**: A knock when a piece lands, heavier for a capture, a two-part
+  knock for castling, and tones for check, promotion and the end of the game.
+  Synthesized in the browser rather than shipped as audio files, and off with
+  one switch in Settings. Moves you *navigate* to are silent — scrubbing a
+  60-move review with the arrow keys should not be a hundred knocks.
 - **Threats**: `T`, or the button in the Coach card, asks what the opponent is
   threatening — a null-move search, drawn on the board in violet so it reads as
   neither the move that was played nor a move the engine recommends.
