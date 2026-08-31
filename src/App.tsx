@@ -4745,6 +4745,7 @@ function App() {
                 <WinrateGraph
                   points={winratePoints}
                   currentIndex={currentPathNodes.length - 1}
+                  lastPlyIndex={currentLineMoves.length}
                   onNavigate={navigateToGraphPoint}
                 />
                 {winratePoints.length > 0 && (
@@ -4762,6 +4763,7 @@ function App() {
                 <WdlProgressGraph
                   points={wdlPoints}
                   currentIndex={currentPathNodes.length - 1}
+                  lastPlyIndex={currentLineMoves.length}
                   onNavigate={navigateToGraphPoint}
                 />
                 {wdlPoints.length > 0 && (
@@ -6369,6 +6371,11 @@ function graphKeyboardTarget(key: string, currentIndex: number, maxIndex: number
 type WinrateGraphProps = {
   points: WinratePoint[]
   currentIndex?: number
+  /**
+   * Plies in the line being shown, which is what the navigator's range has to
+   * be. See {@link trendGraphGeometry}.
+   */
+  lastPlyIndex?: number
   onNavigate?: (index: number) => void
 }
 
@@ -6386,8 +6393,24 @@ function trendGraphGeometry(
   available: number,
   currentIndex: number | undefined,
   onNavigate?: (index: number) => void,
+  lastPlyIndex?: number,
 ) {
-  const maxIndex = points.length > 0 ? points[points.length - 1]!.index : 0
+  /**
+   * The range is the *game*, not the data.
+   *
+   * Both series skip a position they have no reading for, so their last point
+   * is the last position that happens to have been evaluated. Using that as
+   * the range made the WDL navigator two things it should never be: short --
+   * End landed on 10. d4 in a game ending 10... Nbd7 -- and unstable, because
+   * `aria-valuemax` moved from 19 to 18 as evaluations came and went under it.
+   * A slider whose range depends on which points have data is not a slider
+   * over the game.
+   *
+   * Falls back to the data when the caller does not say, and never reports
+   * less than the data it is drawing.
+   */
+  const lastPointIndex = points.length > 0 ? points[points.length - 1]!.index : 0
+  const maxIndex = Math.max(lastPlyIndex ?? 0, lastPointIndex)
   const width = graphWidthForIndex(maxIndex, available)
   const height = GRAPH_HEIGHT
   const padLeft = GRAPH_PAD_LEFT
@@ -6430,14 +6453,14 @@ function trendGraphGeometry(
 
   return {
     maxIndex, width, height, padLeft, padRight, padTop, padBottom,
-    innerWidth, innerHeight, toX, toY,
+    innerWidth, innerHeight, toX, toY, lastPointIndex,
     markers: [0, 25, 50, 75, 100],
     xTickStep: graphTickStep(maxIndex, innerWidth),
     isNavigable, selectedIndex, handleClick, handleKeyDown,
   }
 }
 
-const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, onNavigate }: WinrateGraphProps) {
+const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, lastPlyIndex, onNavigate }: WinrateGraphProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
   if (points.length === 0) {
@@ -6451,14 +6474,14 @@ const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, onNaviga
 
   const {
     maxIndex, width, height, padLeft, padRight, padTop, padBottom,
-    toX, toY, markers, xTickStep, isNavigable, selectedIndex, handleClick, handleKeyDown,
-  } = trendGraphGeometry(points, available, currentIndex, onNavigate)
+    toX, toY, lastPointIndex, markers, xTickStep, isNavigable, selectedIndex, handleClick, handleKeyDown,
+  } = trendGraphGeometry(points, available, currentIndex, onNavigate, lastPlyIndex)
 
   const path = points
     .map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(p.index).toFixed(2)} ${toY(p.whiteWinrate).toFixed(2)}`)
     .join(' ')
 
-  const area = `${path} L ${toX(maxIndex).toFixed(2)} ${(height - padBottom).toFixed(2)} L ${toX(points[0]?.index ?? 0).toFixed(2)} ${(height - padBottom).toFixed(2)} Z`
+  const area = `${path} L ${toX(lastPointIndex).toFixed(2)} ${(height - padBottom).toFixed(2)} L ${toX(points[0]?.index ?? 0).toFixed(2)} ${(height - padBottom).toFixed(2)} Z`
   const selectedPoint = points.find(point => point.index === selectedIndex)
 
   const currentLineX = currentIndex !== undefined && maxIndex > 0
@@ -6544,10 +6567,12 @@ const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, onNaviga
 type WdlProgressGraphProps = {
   points: WdlPoint[]
   currentIndex?: number
+  /** See {@link WinrateGraphProps}. */
+  lastPlyIndex?: number
   onNavigate?: (index: number) => void
 }
 
-const WdlProgressGraph = memo(function WdlProgressGraph({ points, currentIndex, onNavigate }: WdlProgressGraphProps) {
+const WdlProgressGraph = memo(function WdlProgressGraph({ points, currentIndex, lastPlyIndex, onNavigate }: WdlProgressGraphProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
   if (points.length === 0) {
@@ -6562,7 +6587,7 @@ const WdlProgressGraph = memo(function WdlProgressGraph({ points, currentIndex, 
   const {
     maxIndex, width, height, padLeft, padRight, padTop, padBottom,
     toX, toY, markers, xTickStep, isNavigable, selectedIndex, handleClick, handleKeyDown,
-  } = trendGraphGeometry(points, available, currentIndex, onNavigate)
+  } = trendGraphGeometry(points, available, currentIndex, onNavigate, lastPlyIndex)
 
   const buildPath = (selector: (point: WdlPoint) => number): string =>
     points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(p.index).toFixed(2)} ${toY(selector(p)).toFixed(2)}`).join(' ')
