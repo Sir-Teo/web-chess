@@ -326,6 +326,33 @@ export function backupMergeNote(merge: LibraryBackupMerge): string | null {
   return `${added}${parts.join(', ')}.`
 }
 
+/**
+ * What to say after adding a batch of games from one file.
+ *
+ * Same rule as {@link backupMergeNote}: silence only when everything the
+ * reader handed over went in. A file with three unreadable games in it is a
+ * difference they should hear about now rather than discover later.
+ */
+export function libraryImportNote(counts: {
+  added: number
+  unreadable: number
+  omitted: number
+}): string | null {
+  const plural = (count: number) => (count === 1 ? 'game' : 'games')
+  const parts: string[] = []
+
+  if (counts.unreadable > 0) {
+    parts.push(`${counts.unreadable} ${plural(counts.unreadable)} could not be read`)
+  }
+  if (counts.omitted > 0) {
+    parts.push(`${counts.omitted} ${plural(counts.omitted)} left out — the library holds ${MAX_LIBRARY_GAMES}`)
+  }
+
+  const added = `Added ${counts.added} ${plural(counts.added)} to the library`
+  if (!parts.length) return `${added}.`
+  return `${added}; ${parts.join(', ')}.`
+}
+
 export function getLibraryGameSearchText(game: LibraryGame): string {
   const { white, black, event, site, date, result, eco, opening } = game.metadata
   return [game.name, white, black, event, site, date, result, eco, opening]

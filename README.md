@@ -91,6 +91,11 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 
 ### Throughout
 
+- **Import a whole database**: Paste or open a PGN file with many games in it —
+  which is what Lichess and chess.com hand you — and add the lot to the library
+  in one go, each named from its own headers. A game in the file that will not
+  parse is skipped and counted rather than silently dropped, and a file that
+  would overflow the library says how many were left out.
 - **Saved games**: Keep games in a library stored in IndexedDB, search them by player, event or opening, star and rename them, and export or import the whole shelf as JSON. The game in progress is auto-saved separately, so a reload offers to pick up where you left off — and for a game that was being *played*, that now includes the opponent, the side you had and the clock, stopped where it stood.
 - **PGN and FEN workflows**: Import/export annotated PGN, copy FEN/share links, and build custom FEN positions with editable pieces, side to move, castling rights, and move counters.
 - **Share a game, not just a position**: `Copy Game Link` on the Export tab puts

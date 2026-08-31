@@ -6,16 +6,17 @@ import {
   PGN_EMPTY_IMPORT_ERROR,
   PGN_MULTIPLE_GAMES_ERROR,
   PGN_NO_MOVES_IMPORT_ERROR,
+  clockCommentValue,
+  clockMsFromComment,
   exportAnnotatedPgn,
   flattenPgnMainLine,
   formatPgnDate,
   hasMultiplePgnGames,
   parsePgnMoveTree,
   pgnImportContentError,
-  rootFenFromPgnHeaders,
-  clockCommentValue,
-  clockMsFromComment,
   reorderPgnAnnotations,
+  rootFenFromPgnHeaders,
+  splitPgnGames,
   stripPgnByteOrderMark,
 } from './pgn'
 
@@ -996,4 +997,69 @@ describe('the clock reading a move was made with', () => {
             expect(clockMsFromComment(`[%clk ${clockCommentValue(ms)}]`)).toBe(Math.floor(ms / 1000) * 1000)
         }
     })
+})
+
+describe('splitting a database file into its games', () => {
+  const game = (event: string, moves: string) =>
+    `[Event "${event}"]\n[White "A"]\n[Black "B"]\n[Result "*"]\n\n${moves}`
+
+  it('finds nothing in an empty file', () => {
+    expect(splitPgnGames('')).toEqual([])
+    expect(splitPgnGames('   \n\n  ')).toEqual([])
+  })
+
+  it('leaves a single game alone', () => {
+    const one = game('Solo', '1. e4 e5 *')
+    expect(splitPgnGames(one)).toEqual([one])
+  })
+
+  it('splits games separated by blank lines', () => {
+    const parts = splitPgnGames(`${game('First', '1. e4 e5 *')}\n\n${game('Second', '1. d4 d5 *')}`)
+    expect(parts).toHaveLength(2)
+    expect(parts[0]).toContain('First')
+    expect(parts[1]).toContain('Second')
+    expect(parts[0]).not.toContain('Second')
+  })
+
+  it('splits games that are not separated by a blank line at all', () => {
+    const parts = splitPgnGames(`${game('First', '1. e4 e5 *')}\n${game('Second', '1. d4 d5 *')}`)
+    expect(parts).toHaveLength(2)
+  })
+
+  /**
+   * The reason this is not a regular expression. A comment can say anything,
+   * including something that looks exactly like the start of the next game.
+   */
+  it('does not cut a game in half at a header quoted inside a comment', () => {
+    const tricky = '[Event "Annotated"]\n[Result "*"]\n\n1. e4 { as in\n[Event "Linares"]\n1993 } e5 *'
+    const parts = splitPgnGames(tricky)
+    expect(parts).toHaveLength(1)
+    expect(parts[0]).toContain('Linares')
+  })
+
+  it('keeps each game whole, headers and all', () => {
+    const parts = splitPgnGames(`${game('First', '1. e4 e5 1-0')}\n\n${game('Second', '1. d4 d5 0-1')}`)
+    expect(parts[0]).toContain('[White "A"]')
+    expect(parts[1]).toContain('[White "A"]')
+    expect(parts[0]).toContain('1-0')
+    expect(parts[1]).toContain('0-1')
+  })
+
+  it('handles a headerless game, which is still a game', () => {
+    expect(splitPgnGames('1. e4 e5 2. Nf3 *')).toEqual(['1. e4 e5 2. Nf3 *'])
+  })
+
+  it('reads back as many games as it was given', () => {
+    const many = Array.from({ length: 12 }, (_, i) => game(`Game ${i}`, '1. e4 e5 *')).join('\n\n')
+    expect(splitPgnGames(many)).toHaveLength(12)
+  })
+
+  /** Every piece it returns has to be importable on its own. */
+  it('returns pieces the importer accepts one at a time', () => {
+    const parts = splitPgnGames(`${game('First', '1. e4 e5 1-0')}\n\n${game('Second', '1. d4 d5 0-1')}`)
+    for (const part of parts) {
+      expect(pgnImportContentError(part), part).toBeNull()
+      expect(parsePgnMoveTree(part).moves.length).toBeGreaterThan(0)
+    }
+  })
 })

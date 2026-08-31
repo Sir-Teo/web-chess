@@ -3,7 +3,13 @@ import { useModalFocus } from '../hooks/useModalFocus'
 import type { GameNode } from '../hooks/useGameTree'
 import type { EvalSnapshot } from '../engine/analysis'
 import { validateFenForAnalysis } from '../engine/fen'
-import { exportAnnotatedPgn, pgnImportContentError, type PgnExportOptions } from '../engine/pgn'
+import {
+    PGN_MULTIPLE_GAMES_ERROR,
+    exportAnnotatedPgn,
+    pgnImportContentError,
+    splitPgnGames,
+    type PgnExportOptions,
+} from '../engine/pgn'
 import {
     createEmptyPositionSetup,
     createStartingPositionSetup,
@@ -44,6 +50,12 @@ type PgnDialogProps = {
     gameNodes: Map<string, GameNode>
     evaluations: Map<string, EvalSnapshot>
     pgnHeaders: Record<string, string>
+    /**
+     * Add every game in a database file to the library. Absent when there is
+     * no library to add to; the dialog then just reports that it cannot take
+     * more than one game, which is what it always did.
+     */
+    onImportManyToLibrary?: (pgns: string[]) => ImportResult & { note?: string }
 }
 
 type ImportResult = {
@@ -67,11 +79,12 @@ const SETUP_CASTLING_OPTIONS: Array<{ right: SetupCastlingRight; label: string; 
     { right: 'q', label: 'Black queenside', short: 'q' },
 ]
 
-export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, mainLineNodes, gameNodes, evaluations, pgnHeaders }: PgnDialogProps) {
+export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, mainLineNodes, gameNodes, evaluations, pgnHeaders, onImportManyToLibrary }: PgnDialogProps) {
     const [tab, setTab] = useState<'import' | 'fen' | 'export'>('import')
     const [importText, setImportText] = useState('')
     const [fenText, setFenText] = useState(currentFen)
     const [error, setError] = useState<string | null>(null)
+    const [status, setStatus] = useState<string | null>(null)
     const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
     const [exportOptions, setExportOptions] = useState(DEFAULT_EXPORT_OPTIONS)
     const [setup, setSetup] = useState<PositionSetup>(() => parsePositionSetupFen(currentFen) ?? createStartingPositionSetup())
@@ -90,6 +103,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
 
     const resetFeedback = useCallback(() => {
         setError(null)
+        setStatus(null)
         setCopyStatus('idle')
         setShareLinkFallback('')
     }, [])
@@ -114,6 +128,19 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
             return
         }
         setError(result.error ?? 'Could not import that PGN.')
+    }
+
+    const handleImportDatabase = () => {
+        if (!databaseGames || !onImportManyToLibrary) return
+        const result = onImportManyToLibrary(databaseGames)
+        if (!result.ok) {
+            setError(result.error ?? 'Those games could not be added.')
+            return
+        }
+        setError(null)
+        setStatus(result.note ?? `Added ${databaseGames.length} games to the library.`)
+        setImportText('')
+        setImportFileName(null)
     }
 
     const handlePickImportFile = () => {
@@ -218,6 +245,18 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const canLoadFen = Boolean(fenText.trim()) && !fenValidationError
     const canCopyShareLink = fenShareValidation.ok
     const canImportPgn = Boolean(importText.trim()) && !importContentError
+    /**
+     * The games in a pasted database file. Derived from the text rather than
+     * set when Import is pressed, because a content error disables Import --
+     * so the offer has to appear the moment the file is recognised, which is
+     * also when the reader is looking for it.
+     */
+    const databaseGames = useMemo(
+        () => (onImportManyToLibrary && importContentError === PGN_MULTIPLE_GAMES_ERROR
+            ? splitPgnGames(importText)
+            : null),
+        [importContentError, importText, onImportManyToLibrary],
+    )
 
     const handleLoadFen = () => {
         if (fenValidationError) {
@@ -420,6 +459,14 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                 aria-invalid={Boolean(error)}
                             />
                             {error && <p className="dialog-error" role="alert">{error}</p>}
+                            {databaseGames && databaseGames.length > 1 && (
+                                <div className="dialog-database-offer">
+                                    <button type="button" className="btn-start" onClick={handleImportDatabase}>
+                                        Add {databaseGames.length} games to the library
+                                    </button>
+                                </div>
+                            )}
+                            {status && <p className="library-status" role="status">{status}</p>}
                         </div>
                     )}
 

@@ -5084,3 +5084,10 @@ button.hint-btn {
   flex: none;
   color: var(--text-secondary);
 }
+
+/* The offer to put a database file in the library, under the message that
+   says the board cannot take it. */
+.dialog-database-offer {
+  display: flex;
+  margin: 0.6rem 0 0.2rem;
+}

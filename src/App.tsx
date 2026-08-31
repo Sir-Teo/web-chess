@@ -5044,6 +5044,7 @@ function App() {
               gameNodes={gameTree.nodesSnapshot}
               evaluations={evaluationsByFen}
               pgnHeaders={pgnHeaders}
+              onImportManyToLibrary={library.importGames}
             />
           )}
 

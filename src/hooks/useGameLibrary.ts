@@ -12,6 +12,8 @@ import {
   parseLibraryBackup,
   suggestGameName,
 } from '../engine/gameLibrary'
+import { libraryImportNote } from '../engine/gameLibrary'
+import { parsePgnMoveTree } from '../engine/pgn'
 import { loadLibraryGames, saveLibraryGames } from '../engine/gameLibraryStorage'
 
 /**
@@ -94,6 +96,51 @@ export function useGameLibrary() {
 
   const exportBackup = useCallback(() => createLibraryBackup(gamesRef.current), [])
 
+  /**
+   * Add every game in a database file, which is how Lichess and chess.com hand
+   * games over. Each is parsed before it is kept: a file with a broken game in
+   * it should lose that game, not the import, and certainly not go into the
+   * library as something that will fail to open later.
+   */
+  const importGames = useCallback((pgns: string[]): LibraryWriteResult => {
+    const room = MAX_LIBRARY_GAMES - gamesRef.current.length
+    if (room <= 0) return { ok: false, error: LIBRARY_FULL_ERROR }
+
+    const names = gamesRef.current.map(game => game.name)
+    const additions: LibraryGame[] = []
+    let unreadable = 0
+    let omitted = 0
+
+    for (const pgn of pgns) {
+      const text = pgn?.trim() ?? ''
+      if (!text || text.length > MAX_LIBRARY_PGN_LENGTH) { unreadable++; continue }
+      try {
+        if (!parsePgnMoveTree(text).moves.length) { unreadable++; continue }
+      } catch {
+        unreadable++
+        continue
+      }
+      if (additions.length >= room) { omitted++; continue }
+      const name = getUniqueGameName(
+        suggestGameName(text),
+        [...names, ...additions.map(item => item.name)],
+      )
+      additions.push(createLibraryGame(name, text, Date.now()))
+    }
+
+    if (!additions.length) {
+      return {
+        ok: false,
+        error: omitted > 0
+          ? `The library is full at ${MAX_LIBRARY_GAMES} games, so none of those could be added.`
+          : 'No readable game was found in that file.',
+      }
+    }
+
+    commit([...additions, ...gamesRef.current])
+    return { ok: true, note: libraryImportNote({ added: additions.length, unreadable, omitted }) ?? undefined }
+  }, [commit])
+
   const importBackup = useCallback((json: string): LibraryWriteResult => {
     const restored = parseLibraryBackup(json, Date.now())
     if (!restored.length) return { ok: false, error: 'That file is not a web-chess library backup.' }
@@ -120,6 +167,7 @@ export function useGameLibrary() {
     games,
     loaded,
     saveGame,
+    importGames,
     renameGame,
     deleteGame,
     toggleFavorite,

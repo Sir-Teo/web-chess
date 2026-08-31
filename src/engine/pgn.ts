@@ -22,7 +22,7 @@ const PGN_COMMAND_PATTERN = /\[%[A-Za-z]+\s+[^\]]*\]/g
 /** This app's own: the engine's best move for the position being annotated. */
 const PGN_BEST_MOVE_PATTERN = /\[%wcbest\s+([a-h][1-8][a-h][1-8][qrbn]?)\s*\]/i
 export const PGN_EMPTY_IMPORT_ERROR = 'Paste a PGN game or choose a .pgn file before importing.'
-export const PGN_MULTIPLE_GAMES_ERROR = 'PGN import supports one game at a time. Paste a single game, or split a database file before importing.'
+export const PGN_MULTIPLE_GAMES_ERROR = 'The board takes one game at a time, and this file holds several. Add them all to the library, or paste a single game.'
 export const PGN_NO_MOVES_IMPORT_ERROR = 'PGN import needs at least one legal move.'
 const PGN_IMPORT_USER_ERRORS = new Set([PGN_EMPTY_IMPORT_ERROR, PGN_MULTIPLE_GAMES_ERROR, PGN_NO_MOVES_IMPORT_ERROR])
 const QUALITY_EXPORT_LABELS: Record<NonNullable<GameNode['quality']>, string> = {
@@ -102,6 +102,62 @@ export function hasMultiplePgnGames(pgnText: string): boolean {
  */
 export function stripPgnByteOrderMark(pgnText: string): string {
     return pgnText.charCodeAt(0) === 0xfeff ? pgnText.slice(1) : pgnText
+}
+
+/**
+ * Split a PGN file into its games.
+ *
+ * A database file is the normal way to get games out of Lichess or
+ * chess.com, and the importer used to refuse the whole thing and tell the
+ * reader to split it themselves. This does that for them.
+ *
+ * Done line by line rather than with a regular expression because a `{}`
+ * comment can span lines and can contain anything, including the text of a
+ * header: a game annotated "as in {[Event "Linares"] 1993}" would otherwise
+ * be cut in half. Tracking the braces is the only way to know whether a
+ * bracket is markup or prose.
+ *
+ * A new game begins at an `[Event` line that follows movetext. Header blocks
+ * run together at the top of a game, so the rule is "a header after moves",
+ * not "a header".
+ */
+export function splitPgnGames(pgnText: string): string[] {
+    const text = stripPgnByteOrderMark(pgnText)
+    if (!text.trim()) return []
+
+    const games: string[] = []
+    let current: string[] = []
+    let sawMoves = false
+    let depth = 0
+
+    const flush = () => {
+        const game = current.join('\n').trim()
+        if (game) games.push(game)
+        current = []
+        sawMoves = false
+    }
+
+    for (const line of text.split(/\r?\n/)) {
+        const outsideComment = depth === 0
+        const isEventTag = outsideComment && /^\s*\[Event\s/.test(line)
+
+        if (isEventTag && sawMoves) flush()
+        current.push(line)
+
+        // Braces only mean a comment outside a header line; a header's value is
+        // quoted text and cannot open one.
+        const isHeader = outsideComment && /^\s*\[[A-Za-z0-9_]+\s+"/.test(line)
+        if (!isHeader) {
+            for (const character of line) {
+                if (character === '{') depth++
+                else if (character === '}' && depth > 0) depth--
+            }
+            if (depth === 0 && line.trim() && !/^\s*\[/.test(line)) sawMoves = true
+        }
+    }
+
+    flush()
+    return games
 }
 
 export function pgnImportContentError(pgnText: string): string | null {
