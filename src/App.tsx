@@ -2585,7 +2585,8 @@ function App() {
         if (move) {
           const newFen = game.fen()
           setFen(newFen)
-          gameTreeRef.current.addMove(move, newFen)
+          // The AI loop only runs in Play mode, so its moves are always the game.
+          gameTreeRef.current.addMove(move, newFen, { mainLine: true })
           playMoveSoundRef.current(move)
         }
 
@@ -2639,13 +2640,15 @@ function App() {
       stop()
       const newFen = game.fen()
       setFen(newFen)
-      gameTree.addMove(move, newFen)
+      // In a game the move you just played is the game, even if you took one
+      // back to play it. In analysis it is a variation, which is the point.
+      gameTree.addMove(move, newFen, { mainLine: workspaceMode === 'play' })
       registerMovePlayed(move)
       clearBoardSelection()
       setPendingPromotion(null)
       return true
     },
-    [cancelStaleBackgroundAnalysis, clearBoardSelection, game, gameTree, registerMovePlayed, stop],
+    [cancelStaleBackgroundAnalysis, clearBoardSelection, game, gameTree, registerMovePlayed, stop, workspaceMode],
   )
 
   /**

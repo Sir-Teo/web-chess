@@ -133,19 +133,35 @@ export function useGameTree(startFen?: string) {
      * Add a move as a child of the current node.
      * If the exact same move already exists as a child, just navigate to it.
      * Returns the new (or existing) node id.
+     *
+     * `mainLine` decides what the move *is*. A new child is appended last, so
+     * by default a move played from a position that already has a continuation
+     * becomes a variation -- which is right in analysis and wrong in a game.
+     * Take a move back while playing and play a different one, and without this
+     * the move you abandoned is still the main line: the PGN exports it, the
+     * auto-save stores it, and Review Game reviews it, while the game you are
+     * actually playing sits in brackets.
      */
-    const addMove = useCallback((move: Move, fen: string): string => {
+    const addMove = useCallback((move: Move, fen: string, options?: { mainLine?: boolean }): string => {
         const tree = treeRef.current
         const parent = tree.nodes.get(tree.currentId)
         if (!parent) return tree.currentId
 
         const uci = `${move.from}${move.to}${move.promotion ?? ''}`
 
+        const publishPromoted = (nextTree: GameTree, id: string) => {
+            const promoted = options?.mainLine ? promoteNodesToMainLine(nextTree.nodes, id) : null
+            publishTree(promoted ? { ...nextTree, nodes: promoted, currentId: id } : { ...nextTree, currentId: id })
+        }
+
         // De-dupe: check if an identical child already exists
         for (const childId of parent.children) {
             const child = tree.nodes.get(childId)
             if (child && child.uci === uci) {
-                publishTree({ ...tree, currentId: childId })
+                // Replaying a move that is already a variation still makes it
+                // the game, or taking back and playing the same move again
+                // would leave the line in brackets.
+                publishPromoted(tree, childId)
                 return childId
             }
         }
@@ -163,11 +179,7 @@ export function useGameTree(startFen?: string) {
         const nextNodes = new Map(tree.nodes)
         nextNodes.set(node.id, node)
         nextNodes.set(parent.id, { ...parent, children: [...parent.children, node.id] })
-        publishTree({
-            ...tree,
-            nodes: nextNodes,
-            currentId: node.id,
-        })
+        publishPromoted({ ...tree, nodes: nextNodes }, node.id)
         return node.id
     }, [publishTree])
 
