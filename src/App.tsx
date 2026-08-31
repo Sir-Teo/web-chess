@@ -77,6 +77,14 @@ import { nullMoveProbe } from './engine/threats'
 import { tablebaseMoveAriaLabel, tablebaseMoveSummary, tablebaseSummary } from './engine/tablebaseLabels'
 import { BOARD_SQUARES, describeBoardSquare, isBoardSquare } from './engine/boardAccessibility'
 import { isBoardInputLocked } from './engine/boardInput'
+import {
+  MARK_COLORS,
+  hasSquareMarks,
+  markColorForModifiers,
+  squareMarkStyle,
+  toggleSquareMark,
+  type SquareMarks,
+} from './engine/boardMarks'
 import { isExactTablebaseCoachMove, selectCoachBestMove } from './engine/coach'
 import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage } from './engine/labCommands'
 import { aiSearchHistory, defaultOrientationForGameMode, sideToMoveColor } from './engine/playMode'
@@ -534,6 +542,12 @@ const BOARD_ARROW_OPTIONS = {
   ...defaultArrowOptions,
   arrowWidthDenominator: 7,
   arrowStartOffset: 0.32,
+  // Arrows the reader drags with the right button. The library's amber default
+  // is the colour this board already uses for the move that was played, so a
+  // drawn arrow would have claimed to be something it is not.
+  color: MARK_COLORS.primary,
+  secondaryColor: MARK_COLORS.alternate,
+  tertiaryColor: MARK_COLORS.tertiary,
 }
 
 /**
@@ -839,6 +853,10 @@ function App() {
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
   const [legalTargets, setLegalTargets] = useState<Square[]>([])
   const [pendingPromotion, setPendingPromotion] = useState<PendingPromotion | null>(null)
+  // Squares the reader right-clicked. Arrows they drag are the library's own
+  // state; only the squares are ours, because it has no notion of them.
+  const [markedSquares, setMarkedSquares] = useState<SquareMarks>({})
+  const rightClickAnchorRef = useRef<string | null>(null)
   const promotionDialogRef = useRef<HTMLDivElement>(null)
 
   // ── AI speed (throttle delay between AI moves) ───────
@@ -2286,6 +2304,13 @@ function App() {
     setTreeNodeQualities(qualityUpdates)
   }, [mainLineNodes, reviewRows, setTreeNodeQualities])
 
+  // The board is told to clear its drawn arrows when the position changes; the
+  // squares have to follow, or a mark from two moves ago outlives the arrow it
+  // was drawn beside.
+  useEffect(() => {
+    setMarkedSquares(marks => (hasSquareMarks(marks) ? {} : marks))
+  }, [fen])
+
   // ── Engine arrows ────────────────────────────────────
   const currentBoardMove = gameTree.current.move
   const arrows = useMemo(() => {
@@ -2508,6 +2533,39 @@ function App() {
 
     return applyHumanMove(sourceSquare, targetSquare)
   }
+
+  /**
+   * The reader's own square marks, on the right button.
+   *
+   * A right press and release on the *same* square is a mark; anywhere else is
+   * the start of an arrow, which the board draws itself. The anchor is what
+   * tells the two apart, so it has to be recorded on the way down.
+   */
+  const handleSquareMouseDown = useCallback(
+    ({ square }: { square: string }, event: { button: number }) => {
+      if (event.button === 2) {
+        rightClickAnchorRef.current = square
+        return
+      }
+      // The board clears its own drawn arrows on a left press; the squares are
+      // ours to clear, and leaving them behind would strand half the annotation.
+      if (event.button === 0) {
+        setMarkedSquares(marks => (hasSquareMarks(marks) ? {} : marks))
+      }
+    },
+    [],
+  )
+
+  const handleSquareMouseUp = useCallback(
+    ({ square }: { square: string }, event: { button: number } & Parameters<typeof markColorForModifiers>[0]) => {
+      if (event.button !== 2) return
+      const anchor = rightClickAnchorRef.current
+      rightClickAnchorRef.current = null
+      if (anchor !== square) return
+      setMarkedSquares(marks => toggleSquareMark(marks, square, markColorForModifiers(event)))
+    },
+    [],
+  )
 
   const onSquareClick = useCallback((square: Square) => {
     if (pendingPromotion) return
@@ -3832,6 +3890,14 @@ function App() {
                           ? `Better lines render greener and worse lines redder${analyzeMode === 'infinite' ? ' (updates live in infinite mode).' : '.'}`
                           : 'Board arrows are hidden in all game modes.'}
                       </p>
+                      {/* A mouse gesture, so it cannot go in the keyboard list,
+                          and an undiscoverable feature is not a feature. */}
+                      <p className="panel-copy small">
+                        Right-drag on the board to draw your own arrow, right-click a square to mark it.
+                        Hold <kbd>Shift</kbd> or <kbd>Ctrl</kbd> for the other two colours. Your marks are
+                        blue, so nothing the engine draws can be mistaken for them; they clear on your next
+                        move or left click.
+                      </p>
                       <label className="switch-control">
                         <input
                           type="checkbox"
@@ -4211,7 +4277,12 @@ function App() {
                         return onPieceDrop(sourceSquare as Square, targetSquare as Square, piece.pieceType)
                       },
                       onSquareClick: ({ square }) => onSquareClick(square as Square),
+                      onSquareMouseDown: handleSquareMouseDown,
+                      onSquareMouseUp: handleSquareMouseUp,
                       squareStyles: {
+                        ...Object.fromEntries(
+                          Object.entries(markedSquares).map(([square, color]) => [square, squareMarkStyle(color)]),
+                        ),
                         ...(selectedSquare ? { [selectedSquare]: { backgroundColor: 'rgba(255,215,0,0.55)', boxShadow: 'inset 0 0 0 3px rgba(255,200,0,0.9)' } } : {}),
                         ...Object.fromEntries(legalTargets.map(sq => [sq, {
                           background: game.get(sq)
@@ -4226,7 +4297,7 @@ function App() {
                       lightSquareNotationStyle: notationStyle(BOARD_NOTATION_INK),
                       alphaNotationStyle: { ...NOTATION_BASE_STYLE, bottom: 2, right: 3, fontSize: notationFontSize },
                       numericNotationStyle: { ...NOTATION_BASE_STYLE, top: 2, left: 3, fontSize: notationFontSize },
-                      allowDrawingArrows: false,
+                      allowDrawingArrows: true,
                       allowDragging: !boardInputLocked,
                       darkSquareStyle: { backgroundColor: '#b58863' },
                       lightSquareStyle: { backgroundColor: '#f0d9b5' },

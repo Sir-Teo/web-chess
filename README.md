@@ -14,6 +14,12 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   toolbar and mode action, with recently used commands first. Ported in shape
   from web-katrain, sized for this app's twenty-odd commands.
 - **Interactive analysis visuals**: Clickable winrate/WDL graphs, move transcript navigation, and board arrows for the played move, best move, and candidate lines.
+- **Your own arrows and marks**: Right-drag on the board to draw an arrow,
+  right-click a square to mark it, `Shift` or `Ctrl` for the other two colours.
+  They are blue, magenta and white rather than Lichess's green, because green
+  already means "the engine likes this" on this board — amber is the move that
+  was played, violet the threat, and red-to-green the candidate scale. Marks
+  clear on your next move or left click, the way the drawn arrows do.
 - **Threats**: `T`, or the button in the Coach card, asks what the opponent is
   threatening — a null-move search, drawn on the board in violet so it reads as
   neither the move that was played nor a move the engine recommends.
