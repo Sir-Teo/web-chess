@@ -19,6 +19,11 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   reaching the last rank promotes to a queen without asking, and clicking
   anywhere else cancels — the same rules every other board uses, because they
   are the ones a premove has to follow to be worth having.
+- **Hint**: `H`, or the button in Play mode, asks the engine what it would play
+  and draws it on the board in the green the analysis side already uses for
+  "the engine likes this". Asked at *full* strength rather than the opponent's,
+  because the question is what the best move is — the engine is back at its own
+  setting by its next move, which the tests check rather than assume.
 - **Take back**: One button in Play mode, undoing back to the last position you
   were asked to move from — both plies when the engine has replied, one when it
   has not, and disabled with a reason when there is nothing of yours to undo.

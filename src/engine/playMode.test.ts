@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aiSearchHistory, defaultOrientationForGameMode, sideToMoveColor, takebackPlyCount, takebackDisabledReason } from './playMode'
+import { aiSearchHistory, defaultOrientationForGameMode, sideToMoveColor, takebackPlyCount, takebackDisabledReason, hintDisabledReason } from './playMode'
 
 describe('play mode defaults', () => {
   it('orients human-vs-ai games from the player side', () => {
@@ -100,5 +100,42 @@ describe('taking a move back', () => {
       .toBe('No moves have been played yet.')
     expect(takebackDisabledReason({ gameMode: 'ai-vs-ai', pliesPlayed: 8, plies: 0 }))
       .toContain('both sides are the engine')
+  })
+})
+
+describe('asking for a hint', () => {
+  const ready = {
+    gameMode: 'human-vs-ai' as const,
+    turn: 'white' as const,
+    playerColor: 'white' as const,
+    gameOver: false,
+    engineReady: true,
+    busy: false,
+  }
+
+  it('is available on your own turn against the engine', () => {
+    expect(hintDisabledReason(ready)).toBeNull()
+  })
+
+  /** Play mode turns the analysis engine off; the other two modes never start one. */
+  it('needs an engine, which only one mode has', () => {
+    expect(hintDisabledReason({ ...ready, gameMode: 'human-vs-human' })).toMatch(/against the computer/)
+    expect(hintDisabledReason({ ...ready, gameMode: 'ai-vs-ai' })).toMatch(/nobody to hint to/)
+  })
+
+  it('says which of the other reasons applies, rather than greying out', () => {
+    expect(hintDisabledReason({ ...ready, gameOver: true })).toBe('This game is already over.')
+    expect(hintDisabledReason({ ...ready, turn: 'black' })).toBe('Wait for your turn.')
+    expect(hintDisabledReason({ ...ready, engineReady: false })).toMatch(/starting up/)
+    expect(hintDisabledReason({ ...ready, busy: true })).toBe('Already looking.')
+  })
+
+  it('reports the game being over before it reports whose turn it is', () => {
+    expect(hintDisabledReason({ ...ready, gameOver: true, turn: 'black' })).toBe('This game is already over.')
+  })
+
+  it('reads the same for a player of the black pieces', () => {
+    expect(hintDisabledReason({ ...ready, playerColor: 'black', turn: 'black' })).toBeNull()
+    expect(hintDisabledReason({ ...ready, playerColor: 'black', turn: 'white' })).toBe('Wait for your turn.')
   })
 })

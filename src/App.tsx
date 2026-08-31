@@ -114,7 +114,7 @@ import {
 } from './engine/boardMarks'
 import { isExactTablebaseCoachMove, selectCoachBestMove } from './engine/coach'
 import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage } from './engine/labCommands'
-import { aiSearchHistory, defaultOrientationForGameMode, sideToMoveColor, takebackDisabledReason, takebackPlyCount } from './engine/playMode'
+import { aiSearchHistory, defaultOrientationForGameMode, hintDisabledReason, sideToMoveColor, takebackDisabledReason, takebackPlyCount } from './engine/playMode'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { DIFFICULTY_LABELS, useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
 import { useGameTree, type GameNode } from './hooks/useGameTree'
@@ -229,6 +229,11 @@ const PROMOTION_GLYPHS: Record<'w' | 'b', Record<PromotionPiece, string>> = {
   w: { q: '♕', r: '♖', b: '♗', n: '♘' },
   b: { q: '♛', r: '♜', b: '♝', n: '♞' },
 }
+/**
+ * A hint answers "what is best here?", so it is asked at full strength rather
+ * than at whatever the opponent has been set to.
+ */
+const HINT_DIFFICULTY: AiDifficulty = 8
 const IMPORT_LOAD_MOVETIME_MS = 70
 const IMPORT_SHALLOW_MULTIPV = 1
 const MOVE_PONDER_MIN_DEPTH = 20
@@ -599,6 +604,7 @@ const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['F'], action: 'Flip the board' },
   { keys: ['T'], action: 'Show what the opponent threatens (Analysis mode)' },
   { keys: ['Z'], action: 'Take back your last move (Play mode)' },
+  { keys: ['H'], action: 'Ask the engine for a hint (Play mode)' },
   { keys: ['Space'], action: 'Pause or resume the AI (Play mode)' },
   { keys: [commandPaletteShortcutLabel()], action: 'Open the command palette' },
 ]
@@ -925,6 +931,9 @@ function App() {
   const [markedSquares, setMarkedSquares] = useState<SquareMarks>({})
   /** A move queued while the engine is thinking. One at a time, like everywhere else. */
   const [premove, setPremove] = useState<Premove | null>(null)
+  /** The move a hint suggested, and whether one is being searched for. */
+  const [hintMove, setHintMove] = useState<string | null>(null)
+  const [isHinting, setIsHinting] = useState(false)
   const rightClickAnchorRef = useRef<string | null>(null)
   const promotionDialogRef = useRef<HTMLDivElement>(null)
 
@@ -990,8 +999,10 @@ function App() {
     // A premove was queued against the position you were looking at. Take the
     // board anywhere else -- navigate, take a move back -- and it is a move for
     // a game that no longer exists: without this, a takeback played the queued
-    // move the instant it handed you the turn.
+    // move the instant it handed you the turn. A hint is the same: it answers a
+    // question about one position and means nothing at another.
     setPremove(null)
+    setHintMove(null)
   }, [game])
 
   // Navigate tree + stay paused so user can explore
@@ -1158,6 +1169,10 @@ function App() {
       if (e.key.toLowerCase() === 'z' && workspaceMode === 'play') {
         e.preventDefault()
         takebackMoveRef.current()
+      }
+      if (e.key.toLowerCase() === 'h' && workspaceMode === 'play') {
+        e.preventDefault()
+        requestHintRef.current()
       }
       if (e.key === ' ' && workspaceMode === 'play') {
         if (tag === 'BUTTON') return
@@ -1392,6 +1407,57 @@ function App() {
     setPaused(false)
   }, [cancelPendingAiMove, game, gameMode, playerColor, syncGameToNode])
   takebackMoveRef.current = takebackMove
+
+  /**
+   * "What should I play here?", answered without leaving the game.
+   *
+   * At full strength rather than at the opponent's: the question is what the
+   * best move is, not what a 1500 would find. `requestMove` re-applies the
+   * difficulty whenever it changes, so the engine is back at the opponent's
+   * setting by its own next move — no restore needed here, and none that could
+   * be missed.
+   */
+  const requestHint = useCallback(() => {
+    if (hintDisabledReason({
+      gameMode,
+      turn: game.turn() === 'w' ? 'white' : 'black',
+      playerColor,
+      gameOver: game.isGameOver(),
+      engineReady: aiPlayerStatusRef.current === 'ready',
+      busy: isHinting,
+    })) return
+
+    const askedFor = game.fen()
+    setIsHinting(true)
+    setHintMove(null)
+    const tree = gameTreeRef.current
+    const history = aiSearchHistory(
+      askedFor,
+      tree.current.fen,
+      tree.root.fen,
+      tree.currentPath().slice(1).map(node => node.uci),
+    )
+    void requestAiMove(askedFor, HINT_DIFFICULTY, history)
+      .then(uci => {
+        setIsHinting(false)
+        // The board may have moved on while the engine was looking.
+        if (!uci || game.fen() !== askedFor) return
+        setHintMove(uci)
+      })
+      .catch(() => setIsHinting(false))
+  }, [game, gameMode, isHinting, playerColor, requestAiMove])
+  const requestHintRef = useRef(requestHint)
+  requestHintRef.current = requestHint
+
+  const hintReason = hintDisabledReason({
+    gameMode,
+    turn: game.turn() === 'w' ? 'white' : 'black',
+    playerColor,
+    gameOver: game.isGameOver(),
+    engineReady: aiPlayerStatus === 'ready',
+    busy: isHinting,
+  })
+  const hintSan = hintMove ? uciToSan(fen, hintMove) : null
 
   const takebackPlies = takebackPlyCount({
     gameMode,
@@ -2557,6 +2623,17 @@ function App() {
       })
     }
 
+    // A hint is the engine recommending a move, so it takes the colour the
+    // analysis board already uses for exactly that -- the top of the candidate
+    // scale -- rather than inventing a sixth meaning.
+    if (hintMove && hintMove.length >= 4) {
+      list.push({
+        startSquare: hintMove.slice(0, 2),
+        endSquare: hintMove.slice(2, 4),
+        color: 'rgba(63, 185, 80, 0.9)',
+      })
+    }
+
     if (!engineEnabled || !showTopMoveArrows) return list
 
     const currentLines = lines
@@ -2593,7 +2670,7 @@ function App() {
     }
 
     return list
-  }, [activeThreat, currentBoardMove, engineEnabled, fen, lines, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
+  }, [activeThreat, currentBoardMove, engineEnabled, fen, hintMove, lines, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
 
   const playSound = useMoveSound(soundEnabled)
   /**
@@ -2616,6 +2693,7 @@ function App() {
    */
   const registerMovePlayed = useCallback((move: Move) => {
     playMoveSound(move)
+    setHintMove(null)
     // Read once, from the position the move created: a move that mates or
     // stalemates hands over to nobody, and the clock has to be told.
     const ended = game.isGameOver()
@@ -3293,6 +3371,7 @@ function App() {
       setEvaluationsByFen(new Map())
       setClock(null)
       setPremove(null)
+      setHintMove(null)
       setPendingShallowAnalyzeFen(null)
       setSampleLoadError(null)
       setPendingPromotion(null)
@@ -3503,6 +3582,7 @@ function App() {
       setEvaluationsByFen(new Map())
       setClock(null)
       setPremove(null)
+      setHintMove(null)
       setPgnHeaders({})
       clearImportSweep()
       clearBatchReview()
@@ -3660,6 +3740,7 @@ function App() {
       setEvaluationsByFen(new Map())
       setClock(null)
       setPremove(null)
+      setHintMove(null)
       setPgnHeaders({})
       clearImportSweep()
       clearBatchReview()
@@ -3790,6 +3871,15 @@ function App() {
       run: takebackMove,
     },
     {
+      id: 'hint',
+      label: 'Hint',
+      shortcut: 'H',
+      hint: hintReason ?? 'Ask the engine what it would play',
+      keywords: ['help', 'suggest', 'stuck', 'best move', 'advice'],
+      disabled: Boolean(hintReason),
+      run: requestHint,
+    },
+    {
       id: 'threats',
       label: 'What is threatened?',
       shortcut: 'T',
@@ -3816,7 +3906,7 @@ function App() {
     },
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
-  ], [handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, isProbingThreat, mainLineNodes.length,
+  ], [handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, hintReason, isProbingThreat, mainLineNodes.length, requestHint,
       openLibraryDialog, openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason,
       rememberModalTrigger, reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason,
       workspaceMode])
@@ -5137,6 +5227,23 @@ function App() {
                       />
                       <span>Show board arrow overlays</span>
                     </label>
+                    <div className="inline-actions hint-row">
+                      <button
+                        type="button"
+                        className="hint-btn"
+                        onClick={requestHint}
+                        disabled={Boolean(hintReason)}
+                        title={hintReason ?? 'Ask the engine what it would play'}
+                        aria-label={hintReason ? `Hint unavailable. ${hintReason}` : 'Ask the engine for a hint'}
+                      >
+                        <IconZap /> {isHinting ? 'Looking...' : 'Hint'}
+                      </button>
+                    </div>
+                    {hintSan && (
+                      <p className="panel-copy small hint-answer" role="status">
+                        Try <strong>{hintSan}</strong> — drawn on the board in green.
+                      </p>
+                    )}
                     <div className="inline-actions takeback-row">
                       <button
                         type="button"

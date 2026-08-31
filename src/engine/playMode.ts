@@ -114,3 +114,39 @@ export function takebackDisabledReason({
   if (plies <= 0) return 'There is no move of yours to take back.'
   return null
 }
+
+/**
+ * Why a hint is unavailable, or null when it is.
+ *
+ * Play mode deliberately shows nothing: no evaluation, no arrows, no coach.
+ * That is right for a game and wrong for a beginner stuck on move nine, who
+ * currently has to leave the game, switch to Analysis, and come back — by which
+ * point the position is being studied rather than played.
+ *
+ * Only against the engine, because that is the only mode with an engine
+ * running: Play mode turns the analysis engine off, and pass-and-play and
+ * AI-vs-AI never start the other one.
+ */
+export function hintDisabledReason({
+  gameMode,
+  turn,
+  playerColor,
+  gameOver,
+  engineReady,
+  busy,
+}: {
+  gameMode: PlayGameMode
+  turn: PlayColor
+  playerColor: PlayColor
+  gameOver: boolean
+  engineReady: boolean
+  busy: boolean
+}): string | null {
+  if (gameMode === 'human-vs-human') return 'Hints need an engine — start a game against the computer.'
+  if (gameMode === 'ai-vs-ai') return 'Both sides are the engine; there is nobody to hint to.'
+  if (gameOver) return 'This game is already over.'
+  if (turn !== playerColor) return 'Wait for your turn.'
+  if (!engineReady) return 'The engine is still starting up.'
+  if (busy) return 'Already looking.'
+  return null
+}

@@ -5011,3 +5011,26 @@ button.takeback-btn {
     display: block;
   }
 }
+
+/* Hint and takeback share the Play Focus card's full width: both change the
+   game rather than the engine, and a two-column split cut their labels. */
+.hint-row {
+  margin-top: 0.5rem;
+}
+
+button.hint-btn {
+  width: 100%;
+  justify-content: center;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
+.hint-answer {
+  margin-top: 0.4rem;
+  color: var(--text-secondary);
+}
+
+.hint-answer strong {
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
