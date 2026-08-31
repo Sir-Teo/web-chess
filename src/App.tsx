@@ -980,6 +980,11 @@ function App() {
     setPendingPromotion(null)
     setSelectedSquare(null)
     setLegalTargets([])
+    // A premove was queued against the position you were looking at. Take the
+    // board anywhere else -- navigate, take a move back -- and it is a move for
+    // a game that no longer exists: without this, a takeback played the queued
+    // move the instant it handed you the turn.
+    setPremove(null)
   }, [game])
 
   // Navigate tree + stay paused so user can explore
@@ -3276,6 +3281,7 @@ function App() {
       setFen(game.fen())
       setEvaluationsByFen(new Map())
       setClock(null)
+      setPremove(null)
       setPendingShallowAnalyzeFen(null)
       setSampleLoadError(null)
       setPendingPromotion(null)
@@ -3441,6 +3447,7 @@ function App() {
       setPgnHeaders({})
       setEvaluationsByFen(new Map())
       setClock(null)
+      setPremove(null)
       setPgnHeaders({})
       clearImportSweep()
       clearBatchReview()
@@ -3541,6 +3548,7 @@ function App() {
       cancelPendingAiMove()
       setEvaluationsByFen(new Map())
       setClock(null)
+      setPremove(null)
       setPgnHeaders({})
       clearImportSweep()
       clearBatchReview()
