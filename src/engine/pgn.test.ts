@@ -14,6 +14,7 @@ import {
   pgnImportContentError,
   rootFenFromPgnHeaders,
   reorderPgnAnnotations,
+  stripPgnByteOrderMark,
 } from './pgn'
 
 function makeNode(
@@ -915,5 +916,47 @@ describe('annotation shapes chess.js will not take', () => {
     /** A `}` only ever ends a comment, so the rewrite cannot reach inside one. */
     it('does not rewrite braces that are part of a comment body', () => {
         expect(reorderPgnAnnotations('1. e4 { a $1 b } *')).toBe('1. e4 { a $1 b } *')
+    })
+})
+
+describe('a PGN file as it arrives from a disk', () => {
+    const headers = '[Event "x"]\n[White "a"]\n[Black "b"]\n[Result "*"]\n\n'
+
+    /**
+     * `\uFEFF` is what Notepad, Excel and several download paths put at the
+     * front of a text file. The parser failed on the very first character, with
+     * a message about move numbers.
+     */
+    it('imports a file that starts with a byte order mark', () => {
+        const parsed = parsePgnMoveTree('\uFEFF' + headers + '1. e4 c5 *\n')
+        expect(parsed.moves[0]?.move.san).toBe('e4')
+    })
+
+    it('leaves a file without one untouched', () => {
+        const plain = headers + '1. e4 *\n'
+        expect(stripPgnByteOrderMark(plain)).toBe(plain)
+        expect(stripPgnByteOrderMark('')).toBe('')
+    })
+
+    /**
+     * Only the first character. Elsewhere `\uFEFF` is a zero-width space
+     * somebody typed, and it is not this function's business — the comment
+     * normalizer folds it into a space along with every other whitespace, which
+     * is its own decision and unaffected by this.
+     */
+    it('strips only a leading mark, never one further in', () => {
+        expect(stripPgnByteOrderMark('\uFEFFa\uFEFFb')).toBe('a\uFEFFb')
+        expect(stripPgnByteOrderMark('a\uFEFFb')).toBe('a\uFEFFb')
+    })
+
+    it('imports a game whose comment contains one, rather than failing on it', () => {
+        const parsed = parsePgnMoveTree(headers + '1. e4 { a\uFEFFb } *\n')
+        expect(parsed.moves[0]?.move.san).toBe('e4')
+        expect(parsed.moves[0]?.comment).toBe('a b')
+    })
+
+    it('reads a file saved with Windows line endings', () => {
+        const parsed = parsePgnMoveTree((headers + '1. e4 c5 2. Nf3 *\n').replace(/\n/g, '\r\n'))
+        expect(parsed.moves.length).toBeGreaterThan(0)
     })
 })

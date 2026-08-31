@@ -91,6 +91,19 @@ export function hasMultiplePgnGames(pgnText: string): boolean {
     return (terminationMarkers?.length ?? 0) > 1
 }
 
+/**
+ * Drop a leading UTF-8 byte order mark.
+ *
+ * `\uFEFF` is what Notepad, Excel and a good many download paths put at the
+ * front of a text file, and the PGN grammar has no place for it: the parser
+ * fails on the very first character with a message about move numbers. Nothing
+ * else is stripped — a `\uFEFF` in the middle of a file is a zero-width space
+ * that somebody typed, and it belongs to whichever comment it is in.
+ */
+export function stripPgnByteOrderMark(pgnText: string): string {
+    return pgnText.charCodeAt(0) === 0xfeff ? pgnText.slice(1) : pgnText
+}
+
 export function pgnImportContentError(pgnText: string): string | null {
     if (!pgnText.trim()) return PGN_EMPTY_IMPORT_ERROR
     return hasMultiplePgnGames(pgnText) ? PGN_MULTIPLE_GAMES_ERROR : null
@@ -520,10 +533,11 @@ export function parsePgnMoveTree(pgnText: string): {
     evaluations: Map<string, EvalSnapshot>
     result?: string
 } {
-    const importError = pgnImportContentError(pgnText)
+    const text = stripPgnByteOrderMark(pgnText)
+    const importError = pgnImportContentError(text)
     if (importError) throw new Error(importError)
 
-    const parsed = parsePgn(reorderPgnAnnotations(pgnText))
+    const parsed = parsePgn(reorderPgnAnnotations(text))
     const headers = { ...parsed.headers }
     if (parsed.result && !headers.Result) headers.Result = parsed.result
     const rootFen = rootFenFromPgnHeaders(parsed.headers)
