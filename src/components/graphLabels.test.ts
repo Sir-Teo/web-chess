@@ -8,13 +8,19 @@ describe('graph label helpers', () => {
 
     expect(formatGraphPositionLabel(blackMovePoint, 1)).toBe('After 1... c5')
     expect(formatGraphPositionLabel(whiteMovePoint, 2)).toBe('After 2. Nf3')
-    expect(formatGraphAxisLabel(blackMovePoint)).toBe('1...')
-    expect(formatGraphAxisLabel(whiteMovePoint)).toBe('2.')
+    // The axis is a number line; "1..." there reads as a label that was cut off.
+    expect(formatGraphAxisLabel(blackMovePoint)).toBe('1')
+    expect(formatGraphAxisLabel(whiteMovePoint)).toBe('2')
   })
 
   it('keeps start positions and sparse graph positions readable', () => {
     expect(formatGraphPositionLabel({ index: 0, label: 'Start' }, 0)).toBe('Start position')
     expect(formatGraphAxisLabel({ index: 0, label: 'Start' })).toBe('Start')
     expect(formatGraphPositionLabel(undefined, 3)).toBe('After move 3')
+  })
+
+  it('leaves a label with no move number alone rather than emptying the tick', () => {
+    expect(formatGraphAxisLabel({ index: 4, label: '...' })).toBe('...')
+    expect(formatGraphAxisLabel({ index: 4, label: 'e4' })).toBe('e4')
   })
 })
