@@ -24,6 +24,11 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   Lines panel or the Coach card — and the board walks into the line up to that
   move. It lands as a variation like any other, so it can be reviewed, promoted
   to the main line, or discarded.
+- **Take back**: One button in Play mode, undoing back to the last position you
+  were asked to move from — both plies when the engine has replied, one when it
+  has not, and disabled with a reason when there is nothing of yours to undo.
+  The move you took back stays in the game as a variation, and the clock is not
+  refunded.
 - **A clock**: Pick a time control when you start a game — bullet through
   classical, or none, which stays the default. Both clocks sit in the strip
   above the board, the side to move is highlighted, tenths appear under ten

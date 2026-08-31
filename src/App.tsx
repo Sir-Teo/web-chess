@@ -104,7 +104,7 @@ import {
 } from './engine/boardMarks'
 import { isExactTablebaseCoachMove, selectCoachBestMove } from './engine/coach'
 import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage } from './engine/labCommands'
-import { aiSearchHistory, defaultOrientationForGameMode, sideToMoveColor } from './engine/playMode'
+import { aiSearchHistory, defaultOrientationForGameMode, sideToMoveColor, takebackDisabledReason, takebackPlyCount } from './engine/playMode'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { DIFFICULTY_LABELS, useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
 import { useGameTree, type GameNode } from './hooks/useGameTree'
@@ -1314,6 +1314,43 @@ function App() {
    * `engineEnabled` only becomes true once the workspace switch has rendered.
    * So this asks, and the effect below starts it when the engine is actually up.
    */
+  /**
+   * Undo back to the last position the human was asked to move from.
+   *
+   * Reachable before this only as: left arrow, left arrow, play, space -- and
+   * only correct at all since a played move started replacing the one it was
+   * taken back over. Four keystrokes and a rule about variations is not a
+   * takeback; a beginner who has just hung a queen needs a button.
+   *
+   * The clock is not refunded. Time spent is spent, which is what a takeback
+   * does everywhere else it exists.
+   */
+  const takebackMove = useCallback(() => {
+    const tree = gameTreeRef.current
+    // The path to where the board *is*, not the whole main line: a takeback
+    // undoes from the position in front of you, and after one the moves ahead
+    // of the cursor are a line you already left.
+    const line = tree.currentPath()
+    const plies = takebackPlyCount({
+      gameMode,
+      playerColor,
+      pliesPlayed: line.length - 1,
+      turn: game.turn() === 'w' ? 'white' : 'black',
+    })
+    if (plies <= 0) return
+
+    const target = line[line.length - 1 - plies]
+    if (!target) return
+
+    cancelPendingAiMove()
+    const chess = tree.navigateTo(target.id)
+    syncGameToNode(chess)
+    // Straight back to playing: a takeback that leaves the game paused makes
+    // the reader find the pause control before they can try again.
+    pausedRef.current = false
+    setPaused(false)
+  }, [cancelPendingAiMove, game, gameMode, playerColor, syncGameToNode])
+
   const reviewFinishedGame = useCallback(() => {
     cancelPendingAiMove()
     pause()
@@ -3787,6 +3824,18 @@ function App() {
     .filter(Boolean).join(' · ')
   const moveNumberLabel = `Move ${fen.split(/\s+/)[5] ?? '1'}`
   const currentMoveQuality = gameTree.current.quality
+  const takebackPlies = takebackPlyCount({
+    gameMode,
+    playerColor,
+    pliesPlayed: currentPathNodes.length - 1,
+    turn: game.turn() === 'w' ? 'white' : 'black',
+  })
+  const takebackReason = takebackDisabledReason({
+    gameMode,
+    pliesPlayed: currentPathNodes.length - 1,
+    plies: takebackPlies,
+  })
+
   const gameModeLabel = gameMode === 'human-vs-human'
     ? 'Human vs Human'
     : gameMode === 'human-vs-ai'
@@ -4836,6 +4885,20 @@ function App() {
                       />
                       <span>Show board arrow overlays</span>
                     </label>
+                    <div className="inline-actions takeback-row">
+                      <button
+                        type="button"
+                        className="takeback-btn"
+                        onClick={takebackMove}
+                        disabled={Boolean(takebackReason)}
+                        title={takebackReason ?? 'Undo back to your last turn'}
+                        aria-label={takebackReason
+                          ? `Take back unavailable. ${takebackReason}`
+                          : `Take back ${takebackPlies === 1 ? 'your move' : 'the last move and the reply'}`}
+                      >
+                        <IconRefresh /> Take back
+                      </button>
+                    </div>
                   </div>
                   <div className="right-section">
                     <h3><span className="section-icon"><IconSwords /></span> Moves</h3>

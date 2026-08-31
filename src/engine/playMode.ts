@@ -62,3 +62,55 @@ export function aiSearchHistory(
   if (!moves.length) return undefined
   return { rootFen, moves }
 }
+
+/**
+ * How many plies a takeback should undo.
+ *
+ * A takeback returns the board to the last position the human was asked to
+ * move from, which is not always one ply. Against the engine it is normally
+ * two — your move and the reply — but only one if the engine has not answered
+ * yet, and none at all if the last move on the board was not yours to take
+ * back.
+ *
+ * Returns 0 when there is nothing to undo, which is also the answer for AI vs
+ * AI: nobody played those moves.
+ */
+export function takebackPlyCount({
+  gameMode,
+  playerColor,
+  pliesPlayed,
+  /** Whose turn it is at the tip of the line. */
+  turn,
+}: {
+  gameMode: PlayGameMode
+  playerColor: PlayColor
+  pliesPlayed: number
+  turn: PlayColor
+}): number {
+  if (pliesPlayed <= 0) return 0
+  if (gameMode === 'ai-vs-ai') return 0
+  // Pass and play: the last move is always a human's, so one ply is a takeback.
+  if (gameMode === 'human-vs-human') return 1
+
+  // Against the engine: back to the human's own turn.
+  //   turn === playerColor  -> the engine has replied, undo both
+  //   turn !== playerColor  -> your move is the last one, undo just it
+  const plies = turn === playerColor ? 2 : 1
+  return Math.min(plies, pliesPlayed)
+}
+
+/** Why a takeback is unavailable, or null when it is. */
+export function takebackDisabledReason({
+  gameMode,
+  pliesPlayed,
+  plies,
+}: {
+  gameMode: PlayGameMode
+  pliesPlayed: number
+  plies: number
+}): string | null {
+  if (gameMode === 'ai-vs-ai') return 'Nothing to take back — both sides are the engine.'
+  if (pliesPlayed <= 0) return 'No moves have been played yet.'
+  if (plies <= 0) return 'There is no move of yours to take back.'
+  return null
+}

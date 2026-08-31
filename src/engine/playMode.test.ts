@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aiSearchHistory, defaultOrientationForGameMode, sideToMoveColor } from './playMode'
+import { aiSearchHistory, defaultOrientationForGameMode, sideToMoveColor, takebackPlyCount, takebackDisabledReason } from './playMode'
 
 describe('play mode defaults', () => {
   it('orients human-vs-ai games from the player side', () => {
@@ -59,5 +59,46 @@ describe('the history handed to the play engine', () => {
 
   it('sends nothing without a root position to anchor the moves to', () => {
     expect(aiSearchHistory(AFTER, AFTER, '', ['e2e4'])).toBeUndefined()
+  })
+})
+
+describe('taking a move back', () => {
+  const vsAi = { gameMode: 'human-vs-ai' as const, playerColor: 'white' as const }
+
+  it('undoes both plies when the engine has already replied', () => {
+    expect(takebackPlyCount({ ...vsAi, pliesPlayed: 4, turn: 'white' })).toBe(2)
+  })
+
+  /** You moved and the engine has not answered: only your move is yours to undo. */
+  it('undoes one ply when your move is the last on the board', () => {
+    expect(takebackPlyCount({ ...vsAi, pliesPlayed: 3, turn: 'black' })).toBe(1)
+  })
+
+  it('never asks for more plies than have been played', () => {
+    expect(takebackPlyCount({ ...vsAi, pliesPlayed: 1, turn: 'white' })).toBe(1)
+    expect(takebackPlyCount({ ...vsAi, pliesPlayed: 0, turn: 'white' })).toBe(0)
+  })
+
+  it('reads the same way for a player of the black pieces', () => {
+    const asBlack = { gameMode: 'human-vs-ai' as const, playerColor: 'black' as const }
+    expect(takebackPlyCount({ ...asBlack, pliesPlayed: 5, turn: 'black' })).toBe(2)
+    expect(takebackPlyCount({ ...asBlack, pliesPlayed: 4, turn: 'white' })).toBe(1)
+  })
+
+  it('is one ply in pass and play, where every move is a human move', () => {
+    expect(takebackPlyCount({ gameMode: 'human-vs-human', playerColor: 'white', pliesPlayed: 3, turn: 'black' })).toBe(1)
+    expect(takebackPlyCount({ gameMode: 'human-vs-human', playerColor: 'white', pliesPlayed: 0, turn: 'white' })).toBe(0)
+  })
+
+  it('is nothing at all in AI vs AI, where nobody played the moves', () => {
+    expect(takebackPlyCount({ gameMode: 'ai-vs-ai', playerColor: 'white', pliesPlayed: 20, turn: 'white' })).toBe(0)
+  })
+
+  it('says why, rather than greying out silently', () => {
+    expect(takebackDisabledReason({ gameMode: 'human-vs-ai', pliesPlayed: 4, plies: 2 })).toBeNull()
+    expect(takebackDisabledReason({ gameMode: 'human-vs-ai', pliesPlayed: 0, plies: 0 }))
+      .toBe('No moves have been played yet.')
+    expect(takebackDisabledReason({ gameMode: 'ai-vs-ai', pliesPlayed: 8, plies: 0 }))
+      .toContain('both sides are the engine')
   })
 })

@@ -4977,3 +4977,16 @@ button.board-theme-swatch.selected {
 button.board-theme-swatch.selected .board-theme-name {
   color: var(--text-heading);
 }
+
+/* The takeback sits under the Play Focus switches rather than beside Analyze
+   and Stop: those are engine commands and this changes the game. */
+.takeback-row {
+  margin-top: 0.5rem;
+}
+
+button.takeback-btn {
+  width: 100%;
+  justify-content: center;
+  gap: 0.35rem;
+  font-weight: 600;
+}
