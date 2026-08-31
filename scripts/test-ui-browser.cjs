@@ -217,6 +217,80 @@ async function checkBoundedScoreIsIgnored(browser) {
 
 
 /**
+ * A move played in a game is the game, even when a move was taken back to play
+ * it.
+ *
+ * `addMove` appends a new child last and the main line is the first-child
+ * chain, so a move played from a position that already has a continuation
+ * becomes a variation. That is right in analysis and was wrong in a game: take
+ * a blunder back, play something else, and the *blunder* stayed the main line —
+ * which is what the PGN export, the auto-save, the library, Review Game and
+ * both graphs all read.
+ *
+ * It lives here rather than in a unit test because the rule is wiring: which
+ * mode the board is in decides it, and no unit test in this repo can drive
+ * that. It needs no engine at all — pass and play — so it costs a couple of
+ * seconds.
+ */
+async function checkPlayedMoveBecomesTheGame(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+
+    // Click-to-move, two taps a square, which is the same path a touch device
+    // takes and the one that needs no drag emulation.
+    const play = async (from, to) => {
+      await page.click(`#chessboard-square-${from}`)
+      await page.click(`#chessboard-square-${to}`)
+      await page.waitForTimeout(150)
+    }
+    await play('e2', 'e4')
+    await play('e7', 'e5')
+    await play('g1', 'f3')
+    await page.waitForFunction(() => /Nf3/.test(document.body.innerText), null, { timeout: 10000 })
+
+    // Take the last move back and play a different one.
+    await page.keyboard.press('ArrowLeft')
+    await page.waitForTimeout(250)
+    await play('d2', 'd4')
+    await page.waitForFunction(() => /d4/.test(document.body.innerText), null, { timeout: 10000 })
+
+    const movetext = await page.evaluate(async () => {
+      const open = [...document.querySelectorAll('button')]
+        .find(b => b.getAttribute('aria-label') === 'Open PGN and FEN dialog')
+      open.click()
+      await new Promise(resolve => setTimeout(resolve, 800))
+      const exportTab = [...document.querySelectorAll('.dialog-panel button')]
+        .find(b => /^Export$/.test(b.textContent.trim()))
+      if (exportTab) exportTab.click()
+      await new Promise(resolve => setTimeout(resolve, 600))
+      const text = [...document.querySelectorAll('textarea')]
+        .map(area => area.value)
+        .find(value => /^\[Event/m.test(value)) || ''
+      return (text.split('\n\n')[1] || '').replace(/\{[^}]*\}/g, '').replace(/\s+/g, ' ').trim()
+    })
+
+    assert(/2\.\s*d4/.test(movetext),
+      `the move played after a takeback is not in the game: ${movetext}`)
+    const played = movetext.search(/2\.\s*d4/)
+    const abandoned = movetext.search(/\(\s*2\.\s*Nf3/)
+    assert(abandoned > played,
+      `the move taken back is still the main line: ${movetext}`)
+    console.log(`  takeback: the game follows the move played, not the one undone`)
+  } finally {
+    await context.close()
+  }
+}
+
+
+/**
  * Cross-origin isolation on a host that does not send the headers.
  *
  * Multi-threaded Stockfish needs `SharedArrayBuffer`, which browsers only
@@ -665,6 +739,7 @@ async function main() {
     }
 
     await checkBoundedScoreIsIgnored(browser)
+    await checkPlayedMoveBecomesTheGame(browser)
     await checkCrossOriginIsolationIsRestored(browser)
 
     console.log('Browser UI checks passed.')

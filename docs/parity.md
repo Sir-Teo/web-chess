@@ -27,6 +27,13 @@ typecheck during this work. Run the gate, then read `$?`.
 | `audit` | no | yes | yes |
 | browser suite (`test:ui:browser`) | no | **yes** | no |
 
+The browser suite is also the only tier that can cover App-level *wiring* —
+which rule applies in which mode. `checkPlayedMoveBecomesTheGame` is there for
+that reason: whether a played move joins the game or becomes a variation is
+decided by the workspace mode, and no unit test in this repo can drive that.
+Verified by mutation: putting the bug back makes it fail with the broken PGN in
+the message.
+
 The last row used to read "no" for the deploy *and* for `ci.yml`, because
 `ci.yml` was pull-request-only -- so nothing browser-level ever ran against
 `main`. `ci.yml` now also runs on pushes to `main`, which closes that.
