@@ -803,3 +803,12 @@
         opacity: 1.0;
     }
 }
+
+/* A consequence the reader should read before pressing the button beside it —
+   the discard in the auto-save dialog's error state cannot be undone. */
+.dialog-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--text-muted, #7c8391);
+}

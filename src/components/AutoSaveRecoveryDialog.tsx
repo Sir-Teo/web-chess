@@ -15,9 +15,18 @@ type Props = {
     plyCount: number
     onRestore: () => void
     onDismiss: () => void
+    /**
+     * Why the last Restore did not work. Present only after one failed, and it
+     * changes what the dialog is for: the game cannot be loaded, so the choice
+     * is no longer restore-or-discard but take-it-elsewhere-or-discard.
+     */
+    error?: string | null
+    /** Hands the unreadable PGN to the clipboard, so it is not simply lost. */
+    onCopyPgn?: () => void
+    copyLabel?: string
 }
 
-export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss }: Props) {
+export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss, error, onCopyPgn, copyLabel }: Props) {
     const moveCount = Math.ceil(Math.max(0, plyCount) / 2)
     const panelRef = useRef<HTMLDivElement>(null)
     useModalFocus(true, panelRef, onDismiss, { initialFocus: '[data-restore]' })
@@ -40,14 +49,34 @@ export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss
 
                 <div className="dialog-body">
                     <p id="auto-save-body">
-                        {moveCount} {moveCount === 1 ? 'move was' : 'moves were'} in progress{' '}
-                        {describeElapsed(savedAt)}. Pick up where you left off?
+                        {error
+                            ? `That unfinished game could not be read back: ${error}`
+                            : `${moveCount} ${moveCount === 1 ? 'move was' : 'moves were'} in progress ${describeElapsed(savedAt)}. Pick up where you left off?`}
                     </p>
+                    {error && (
+                        <p className="dialog-note">
+                            Copy it first if you want to keep the moves — discarding is the only way to stop
+                            being asked, and it cannot be undone.
+                        </p>
+                    )}
                 </div>
 
                 <div className="dialog-actions">
-                    <button type="button" className="btn-cancel" onClick={onDismiss}>Start fresh</button>
-                    <button type="button" className="btn-start" data-restore onClick={onRestore}>Restore</button>
+                    {error
+                        ? (
+                            <>
+                                <button type="button" className="btn-cancel" onClick={onDismiss}>Discard it</button>
+                                <button type="button" className="btn-start" data-restore onClick={onCopyPgn}>
+                                    {copyLabel ?? 'Copy PGN'}
+                                </button>
+                            </>
+                        )
+                        : (
+                            <>
+                                <button type="button" className="btn-cancel" onClick={onDismiss}>Start fresh</button>
+                                <button type="button" className="btn-start" data-restore onClick={onRestore}>Restore</button>
+                            </>
+                        )}
                 </div>
             </div>
         </div>

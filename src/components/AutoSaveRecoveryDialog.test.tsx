@@ -43,6 +43,34 @@ describe('AutoSaveRecoveryDialog', () => {
         expect(render({ plyCount: 115 })).toContain('58 moves were in progress')
     })
 
+    /**
+     * A restore that fails is the one place in the app where the reader's own
+     * game can be destroyed. It used to clear the slot and close without a
+     * word; the dialog now has to say what happened and offer the moves before
+     * anything is discarded.
+     */
+    it('reports a failed restore instead of closing on it', () => {
+        const html = render({ error: 'Invalid move in PGN: Qh9' })
+        expect(html).toContain('could not be read back')
+        expect(html).toContain('Invalid move in PGN: Qh9')
+        expect(html).toContain('cannot be undone')
+    })
+
+    it('swaps Restore for Copy PGN once restoring has failed', () => {
+        const html = render({ error: 'broken' })
+        expect(html).toContain('Copy PGN')
+        expect(html).toContain('Discard it')
+        expect(html).not.toContain('>Restore<')
+        expect(html).not.toContain('Start fresh')
+    })
+
+    it('offers Restore, and no discard-only wording, while nothing has failed', () => {
+        const html = render()
+        expect(html).toContain('>Restore<')
+        expect(html).toContain('Start fresh')
+        expect(html).not.toContain('could not be read back')
+    })
+
     it('counts a single move in the singular', () => {
         expect(render({ plyCount: 1 })).toContain('1 move was in progress')
         expect(render({ plyCount: 2 })).toContain('1 move was in progress')

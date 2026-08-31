@@ -837,6 +837,8 @@ function App() {
   const [showLibraryDialog, setShowLibraryDialog] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [autoSaveRecovery, setAutoSaveRecovery] = useState<AutoSavedGame | null>(null)
+  const [autoSaveRestoreError, setAutoSaveRestoreError] = useState<string | null>(null)
+  const [autoSaveCopyLabel, setAutoSaveCopyLabel] = useState('Copy PGN')
   const [gameMode, setGameMode] = useState<GameMode>('human-vs-human')
   const [playerColor, setPlayerColor] = useState<PlayerColor>('white')
   const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>(4)
@@ -3039,14 +3041,36 @@ function App() {
 
   const dismissAutoSaveRecovery = useCallback(() => {
     clearAutoSavedGame()
+    setAutoSaveRestoreError(null)
     setAutoSaveRecovery(null)
   }, [])
 
+  /**
+   * A failed restore used to delete the slot and close the dialog without a
+   * word, so the reader pressed Restore and watched their unfinished game
+   * vanish into an empty board. Nothing here is recoverable once the slot is
+   * gone, so the failure now says what went wrong, keeps the snapshot, and
+   * offers the moves to the clipboard before anything is discarded.
+   */
   const restoreAutoSavedGame = useCallback(() => {
     if (!autoSaveRecovery) return
-    if (!handleAnalysisPgnImport(autoSaveRecovery.pgn).ok) clearAutoSavedGame()
+    const result = handleAnalysisPgnImport(autoSaveRecovery.pgn)
+    if (!result.ok) {
+      setAutoSaveRestoreError(result.error ?? 'The saved moves could not be read.')
+      return
+    }
+    setAutoSaveRestoreError(null)
     setAutoSaveRecovery(null)
   }, [autoSaveRecovery, handleAnalysisPgnImport])
+
+  const copyAutoSavedPgn = useCallback(() => {
+    const pgn = autoSaveRecovery?.pgn
+    if (!pgn) return
+    navigator.clipboard?.writeText(pgn).then(
+      () => setAutoSaveCopyLabel('Copied'),
+      () => setAutoSaveCopyLabel('Copy failed'),
+    )
+  }, [autoSaveRecovery])
 
   const handleFenLoad = useCallback((fenText: string, options?: FenLoadOptions) => {
     const validation = validateFenForAnalysis(fenText)
@@ -4392,6 +4416,9 @@ function App() {
               plyCount={autoSaveRecovery.moveCount}
               onRestore={restoreAutoSavedGame}
               onDismiss={dismissAutoSaveRecovery}
+              error={autoSaveRestoreError}
+              onCopyPgn={copyAutoSavedPgn}
+              copyLabel={autoSaveCopyLabel}
             />
           )}
 
