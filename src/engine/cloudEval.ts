@@ -207,7 +207,7 @@ export async function fetchCloudEvaluation(
   const response = await fetchLichessResource(buildUrl(request), {
     signal,
     headers: { Accept: 'application/json' },
-  })
+  }, 'Lichess')
   throwIfAborted(signal)
 
   if (response.status === 404) {

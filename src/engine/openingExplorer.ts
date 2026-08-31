@@ -316,7 +316,7 @@ export async function fetchOpeningExplorer(
   const response = await fetchLichessResource(buildUrl(request), {
     signal,
     headers: authHeaders(request.authToken),
-  })
+  }, 'Lichess')
   throwIfAborted(signal)
 
   if (!response.ok) {

@@ -32,7 +32,7 @@ export async function fetchSamplePgn(
   const response = await fetchLichessResource(buildSamplePgnUrl(sample.lichessGameId), {
     signal,
     headers: { Accept: 'application/x-chess-pgn' },
-  })
+  }, 'This historical game')
   throwIfAborted(signal)
 
   if (!response.ok) {

@@ -348,7 +348,7 @@ export async function fetchTablebase(fen: string, signal?: AbortSignal): Promise
   const response = await fetchLichessResource(buildUrl(fen), {
     signal,
     headers: { Accept: 'application/json' },
-  })
+  }, 'Lichess')
   throwIfAborted(signal)
 
   if (response.status === 404) {

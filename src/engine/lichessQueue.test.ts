@@ -7,6 +7,8 @@ import {
   LICHESS_MAX_COOLDOWN_MS,
   getLichessBackoffRemainingMs,
   lichessRateLimitMessage,
+  isLichessAbortError,
+  lichessUnreachableMessage,
 } from './lichessQueue'
 
 function deferredResponse() {
@@ -177,5 +179,60 @@ describe('the rate-limit message every Lichess caller shares', () => {
 
   it('never quotes a fixed minute, which is what went stale', () => {
     expect(lichessRateLimitMessage('X')).not.toContain('in a minute')
+  })
+})
+
+describe('when Lichess cannot be reached at all', () => {
+  const originalFetch = globalThis.fetch
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+    resetLichessFetchQueueForTests()
+  })
+
+  /**
+   * `fetch` rejects with `TypeError: Failed to fetch` for a dropped connection,
+   * a blocked request, DNS or CORS, and that string used to reach the panel
+   * verbatim — a browser internal shown to somebody who is simply offline.
+   */
+  it('replaces the browser string with a sentence, naming the endpoint', async () => {
+    globalThis.fetch = (() => Promise.reject(new TypeError('Failed to fetch'))) as typeof fetch
+    await expect(fetchLichessResource('https://lichess.org/x', {}, 'The Lichess tablebase'))
+      .rejects.toThrow(/^The Lichess tablebase could not be reached\./)
+  })
+
+  it('says the local half still works, because that is the fact that matters', async () => {
+    expect(lichessUnreachableMessage('Cloud eval')).toContain('local engine keep working')
+  })
+
+  it('falls back to a generic name rather than an empty sentence', async () => {
+    globalThis.fetch = (() => Promise.reject(new TypeError('Failed to fetch'))) as typeof fetch
+    await expect(fetchLichessResource('https://lichess.org/x')).rejects.toThrow(/^Lichess could not be reached/)
+  })
+
+  /** Navigating away from a position must not read as a connection error. */
+  it('lets an abort through untouched', async () => {
+    globalThis.fetch = (() => {
+      const error = new Error('The operation was aborted.')
+      error.name = 'AbortError'
+      return Promise.reject(error)
+    }) as typeof fetch
+    await expect(fetchLichessResource('https://lichess.org/x', {}, 'Cloud eval'))
+      .rejects.toThrow(/aborted/i)
+  })
+
+  it('recognises both shapes of cancellation and nothing else', () => {
+    const aborted = new Error('nothing useful')
+    aborted.name = 'AbortError'
+    expect(isLichessAbortError(aborted)).toBe(true)
+    expect(isLichessAbortError(new Error('Lichess request aborted.'))).toBe(true)
+    expect(isLichessAbortError(new TypeError('Failed to fetch'))).toBe(false)
+    expect(isLichessAbortError('failed')).toBe(false)
+  })
+
+  it('leaves a response that arrived alone, however bad its status', async () => {
+    globalThis.fetch = (() => Promise.resolve(new Response('', { status: 503 }))) as typeof fetch
+    const response = await fetchLichessResource('https://lichess.org/x', {}, 'Cloud eval')
+    expect(response.status).toBe(503)
   })
 })

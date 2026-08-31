@@ -94,14 +94,55 @@ export function lichessRateLimitMessage(what: string, now = Date.now()): string 
     : `${what} rate limit reached; try again shortly.`
 }
 
-export function fetchLichessResource(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+/**
+ * Whether a rejection is the caller cancelling rather than the network failing.
+ *
+ * `fetch` rejects with an `AbortError` when its signal fires, and this module's
+ * own cancellations carry the word too. Both have to pass through untouched, or
+ * navigating away from a position becomes a connection error.
+ */
+export function isLichessAbortError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  return error.name === 'AbortError' || /abort/i.test(error.message)
+}
+
+/**
+ * The message shown when Lichess cannot be reached at all.
+ *
+ * `fetch` rejects with `TypeError: Failed to fetch` for a dropped connection, a
+ * blocked request, DNS, CORS — and that string reached the panel verbatim. The
+ * sibling of `lichessRateLimitMessage`, and here for the same reason: one
+ * sentence, written for a person, so every endpoint says the same thing. It
+ * ends with the fact that matters, which is that nothing local has stopped.
+ */
+export function lichessUnreachableMessage(what: string): string {
+  return `${what} could not be reached. Check your connection — the board and the local engine keep working without it.`
+}
+
+/**
+ * @param label What to call this endpoint if it cannot be reached at all. Most
+ * panels prefix the message with their own name — "Cloud eval: ..." — so the
+ * plain "Lichess" is right for those; only a panel that renders the message
+ * bare needs a longer one.
+ */
+export function fetchLichessResource(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  label = 'Lichess',
+): Promise<Response> {
   const signal = init.signal
   const run = async () => {
     if (signal?.aborted) throw abortError(signal)
     const backoffWait = waitForBackoff(signal)
     if (backoffWait) await backoffWait
     if (signal?.aborted) throw abortError(signal)
-    const response = await fetch(input, init)
+    let response: Response
+    try {
+      response = await fetch(input, init)
+    } catch (error) {
+      if (signal?.aborted || isLichessAbortError(error)) throw error
+      throw new Error(lichessUnreachableMessage(label))
+    }
     recordRateLimit(response)
     return response
   }
