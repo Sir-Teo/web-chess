@@ -71,14 +71,27 @@ Feature presence (files matching each concern):
 
 | Concern | katrain | chess | xiangqi |
 | --- | --- | --- | --- |
-| Command palette | 7 | 0 | 0 |
-| Keyboard shortcut system | 30 | 2 | 5 |
-| Sound | 12 | 0 | 2 |
+| Command palette | 7 | ✅ 4 (was **0**) | 0 |
+| Keyboard shortcut system | 30 | 4 (was 2) | 5 |
+| Sound | 12 | ✅ 2 (was **0**) — synthesized, no audio files | 2 |
 | Haptics | 1 | 0 | 0 |
-| Themes | 18 | 0 | 1 |
-| Auto-save / crash recovery | 5 | ✅ yes | ✅ yes |
+| Themes | 18 | ✅ 2 (was **0**) — board schemes; no piece sets | 1 |
+| Clock | ? | ✅ 3 (was **none in any of the three**) | ? |
+| Premoves | ? | ✅ 2 (was **none in any of the three**) | ? |
+| Auto-save / crash recovery | 5 | ✅ yes, and it restores the opponent and the clock | ✅ yes |
 | Error boundary component | yes (+ lazy-modal boundary) | **yes** — inline in `main.tsx`, with reload and reset-workspace actions. The original survey said "no" because it looked for a component *file*; that was wrong. | yes |
 | `aria-*` attribute variety | 25 kinds, 143 `role=` | 18 kinds, 38 `role=` | 21 kinds, 60 `role=` |
+
+Five of those rows moved on 2026-08-31, all in web-chess, and two of them are
+now the other way round: **nothing in these three repos had a clock or
+premoves**, so the play side of all three was a position trainer rather than a
+game. Both are worth porting, and both are mostly pure logic —
+`engine/chessClock.ts` reads no wall clock of its own and `engine/premove.ts`
+knows nothing about React, so the two siblings need a component and a handler
+each rather than a rewrite.
+
+The question marks are honest: the clock and premove rows have not been
+measured against katrain and xiangqi, only against this repo's own absence.
 
 ---
 
