@@ -484,6 +484,45 @@ because the fix someone would reach for — memoising subtrees, splitting
 testability, which is the reason `docs/cross-app-learning-plan.md` gives; not
 for speed.
 
+## Play mode
+
+Play mode and Analysis mode share one board, one tree and one set of input
+handlers, and three bugs found in one night came from the same place: a rule
+that is right in analysis is wrong in a game.
+
+**A played move is the game.** `addMove` appends a new child last and the main
+line is the first-child chain, so a move played from a position that already
+has a continuation becomes a variation. In analysis that is the point. In a
+game it meant taking a move back and playing a different one left the move you
+*abandoned* as the main line — and the main line is what the PGN export, the
+auto-save, the library, Review Game and both graphs all read. A beginner who
+took back a blunder got a review of the blunder. Play mode passes
+`{ mainLine: true }`; the move you took back is kept as a variation rather than
+deleted.
+
+**A move that ends the game hands over to nobody.** `moveMade` always starts
+the opponent's clock, because that is what a move does. A fool's mate therefore
+left the loser's clock running down to zero and flagging, replacing "Checkmate"
+with "flagged on time" — and a stalemate would have turned a draw into a loss.
+`moveEndedGame` is the same bank-and-increment followed by a stop.
+
+**State queued against a position has to die with the position.** A premove is
+a move for a position that has not happened yet, and the effect that plays it
+asks only whether it is your turn. Take a move back and the queued move fired
+into the position the takeback created. It is cleared in `syncGameToNode`,
+which is the funnel every navigation already goes through to clear the
+selection and any pending promotion — the general form of the same rule.
+
+Two smaller things worth knowing here:
+
+- A flag has to lock the board explicitly. Every other ending locks it by
+  leaving no legal move, so `isBoardInputLocked` never had to know about them;
+  a flag leaves an ordinary position where every move is still legal.
+- `canPremove` is what re-enables dragging while the board is locked, which is
+  exactly when a premove is made. It is the only thing that relaxes that lock,
+  and it is off in pass and play, in analysis, while paused, and once the game
+  is over.
+
 ## Project Invariants
 
 - Engine scores are POV side-to-move; after a move the perspective flips.
@@ -519,3 +558,9 @@ for speed.
   three against the four engine colours.
 - Performance claims about this app come from a production build. See
   "Profiling React here in dev measures the dev runtime".
+- A rule that is right in analysis is not automatically right in a game. Before
+  sharing a handler between the two modes, ask what it means in each; see
+  "Play mode".
+- Anything held against a position — a premove, a pending analysis, a selection
+  — is cleared in `syncGameToNode`, because that is where the board stops being
+  the position it was held for.
