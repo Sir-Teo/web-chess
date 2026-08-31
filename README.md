@@ -69,6 +69,12 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 
 - **Saved games**: Keep games in a library stored in IndexedDB, search them by player, event or opening, star and rename them, and export or import the whole shelf as JSON. The game in progress is auto-saved separately, so a reload offers to pick up where you left off — and for a game that was being *played*, that now includes the opponent, the side you had and the clock, stopped where it stood.
 - **PGN and FEN workflows**: Import/export annotated PGN, copy FEN/share links, and build custom FEN positions with editable pieces, side to move, castling rights, and move counters.
+- **Share a game, not just a position**: `Copy Game Link` on the Export tab puts
+  the whole game in the URL — the position it started from and every move — so
+  opening the link replays it rather than showing where it ended up. An 8-ply
+  game is a 166-character link and a 120-ply one is under 1,200. Refused rather
+  than truncated past 8,000 characters, and a link that has been edited or cut
+  short plays as far as it really goes instead of being thrown away.
 - **Board themes**: Five schemes in Settings. Each ships its own coordinate ink
   rather than reusing one: the coordinates are drawn inside the squares, and an
   ink chosen by eye is how a board ends up with rank numbers nobody can read on

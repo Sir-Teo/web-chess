@@ -75,6 +75,7 @@ import { normalizeSpinOptionInput } from './engine/options'
 import { detectEngineCapabilities, engineProfiles, recommendedHashMb, type EngineProfileId } from './engine/profiles'
 import { fetchSamplePgn } from './engine/samplePgn'
 import { parseFenShareHash } from './engine/shareLink'
+import { parseGameShareHash, replaySharedGame } from './engine/shareGame'
 import { nullMoveProbe } from './engine/threats'
 import { tablebaseMoveAriaLabel, tablebaseMoveSummary, tablebaseSummary } from './engine/tablebaseLabels'
 import { BOARD_SQUARES, describeBoardSquare, isBoardSquare } from './engine/boardAccessibility'
@@ -3526,8 +3527,56 @@ function App() {
     [handleFenLoad],
   )
 
+  /**
+   * Open a game somebody sent as a link.
+   *
+   * The FEN share below carries where a game got to; this carries how it got
+   * there. Built through `loadMainLine` rather than move by move, for the same
+   * reason a PGN import is: one tree publish instead of one per ply.
+   *
+   * A link that has been truncated or edited plays as far as it really goes —
+   * `replaySharedGame` stops at the first move the position will not take —
+   * rather than being thrown away whole.
+   */
+  const loadSharedGame = useCallback((shared: { rootFen: string; moves: string[] }): boolean => {
+    const played = replaySharedGame(shared)
+    if (!played.length) return false
+
+    cancelSampleLoad()
+    cancelPendingAiMove()
+    cancelStaleBackgroundAnalysis()
+    setShowPgnDialog(false)
+    setShowNewGameDialog(false)
+    setShowLibraryDialog(false)
+    setSettingsOpen(false)
+    setWorkspaceMode('analysis')
+
+    newGame()
+    setEvaluationsByFen(new Map())
+    setClock(null)
+    setPremove(null)
+    setPgnHeaders({})
+    clearImportSweep()
+    clearBatchReview()
+    setPendingPromotion(null)
+    clearBoardSelection()
+
+    gameTree.loadMainLine(played.map(entry => ({ move: entry.move, fen: entry.fen })), shared.rootFen)
+    const finalFen = played[played.length - 1]!.fen
+    game.load(finalFen)
+    setFen(finalFen)
+    setPendingPonderFen(finalFen)
+    requestBoardReveal()
+    return true
+  }, [
+    cancelPendingAiMove, cancelSampleLoad, cancelStaleBackgroundAnalysis, clearBatchReview,
+    clearBoardSelection, clearImportSweep, game, gameTree, newGame, requestBoardReveal, setPgnHeaders,
+  ])
+
   useEffect(() => {
     const loadSharedHash = () => {
+      const sharedGame = parseGameShareHash(window.location.hash)
+      if (sharedGame && loadSharedGame(sharedGame)) return
       const sharedFen = loadSharedFenFromUrl()
       if (!sharedFen) return
       setShowPgnDialog(false)
@@ -3541,9 +3590,17 @@ function App() {
       handleFenLoad(sharedFen, { forceAnalysis: true })
     }
 
+    // Also on mount: a link opened cold has its hash before the first render,
+    // and only the FEN half was read there.
+    loadSharedHash()
+
     window.addEventListener('hashchange', loadSharedHash)
     return () => window.removeEventListener('hashchange', loadSharedHash)
-  }, [game, handleFenLoad, requestBoardReveal])
+    // Mount-and-hashchange only. Re-running this on every render of the
+    // callbacks it uses would re-open the link under whatever the reader has
+    // since done with the board.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const loadHistoricalSample = useCallback(
     async (sample: HistoricalSampleGame) => {

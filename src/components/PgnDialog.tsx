@@ -26,6 +26,7 @@ import {
     type SetupTurn,
 } from '../engine/positionSetup'
 import { buildFenShareUrl } from '../engine/shareLink'
+import { MAX_SHARED_GAME_CHARS, buildGameShareUrl } from '../engine/shareGame'
 import { IconDownload, IconClipboard, IconUpload } from './icons'
 import { fenTextForShareLink } from './pgnDialogHelpers'
 import { MAX_PGN_IMPORT_BYTES, PGN_IMPORT_LIMIT_MESSAGE, pgnImportLengthError } from './pgnImportLimits'
@@ -50,7 +51,7 @@ type ImportResult = {
     error?: string
 }
 
-type CopyStatus = 'idle' | 'fen-copied' | 'link-copied' | 'pgn-copied' | 'failed'
+type CopyStatus = 'idle' | 'fen-copied' | 'link-copied' | 'game-link-copied' | 'pgn-copied' | 'failed'
 
 const DEFAULT_EXPORT_OPTIONS: Required<PgnExportOptions> = {
     includeVariations: true,
@@ -267,6 +268,38 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
             setCopyStatus('fen-copied')
         } catch {
             setCopyStatus('failed')
+        }
+    }
+
+    /**
+     * The whole game in a link, where "Copy Share Link" on the FEN tab shares
+     * only the position it reached. Refused rather than truncated past the
+     * decoder's own bound — half a game in a link is worse than being told to
+     * send the PGN.
+     */
+    const gameShareUrl = mainLineNodes.length > 1
+        ? buildGameShareUrl(
+            mainLineNodes[0]?.fen ?? currentFen,
+            mainLineNodes.slice(1).map(node => node.uci).filter(Boolean),
+            typeof window === 'undefined' ? 'https://localhost/' : window.location.href,
+        )
+        : null
+    const gameShareTooLong = Boolean(gameShareUrl && gameShareUrl.length > MAX_SHARED_GAME_CHARS)
+    const gameShareDisabledReason = !gameShareUrl
+        ? 'Play or import a game first — there are no moves to share.'
+        : gameShareTooLong
+            ? 'This game is too long for a link. Copy or download the PGN instead.'
+            : null
+
+    const handleCopyGameLink = async () => {
+        resetFeedback()
+        if (!gameShareUrl || gameShareTooLong) return
+        try {
+            await navigator.clipboard.writeText(gameShareUrl)
+            setCopyStatus('game-link-copied')
+        } catch {
+            setCopyStatus('failed')
+            setShareLinkFallback(gameShareUrl)
         }
     }
 
@@ -651,6 +684,18 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                         <button type="button" className="btn-cancel" onClick={closeDialog}>Close</button>
                         <button type="button" className="btn-cancel" onClick={handleDownload}>
                             Download PGN
+                        </button>
+                        <button
+                            type="button"
+                            className="btn-cancel"
+                            onClick={handleCopyGameLink}
+                            disabled={Boolean(gameShareDisabledReason)}
+                            title={gameShareDisabledReason ?? 'A link that opens this whole game, not just the position'}
+                            aria-label={gameShareDisabledReason
+                                ? `Copy game link unavailable. ${gameShareDisabledReason}`
+                                : 'Copy a link to this whole game'}
+                        >
+                            <IconClipboard /> {copyStatus === 'game-link-copied' ? 'Copied Link' : 'Copy Game Link'}
                         </button>
                         <button type="button" className="btn-start" onClick={handleCopy}>
                             {copyStatus === 'pgn-copied' ? 'Copied' : 'Copy PGN'}
