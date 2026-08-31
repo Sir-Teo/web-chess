@@ -24,6 +24,12 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   Lines panel or the Coach card — and the board walks into the line up to that
   move. It lands as a variation like any other, so it can be reviewed, promoted
   to the main line, or discarded.
+- **Premoves**: While the engine is thinking, drag or tap your reply and it is
+  held, both squares ringed, then played the instant the position arrives. A
+  premove the engine's reply made illegal is dropped without comment, a pawn
+  reaching the last rank promotes to a queen without asking, and clicking
+  anywhere else cancels — the same rules every other board uses, because they
+  are the ones a premove has to follow to be worth having.
 - **Take back**: One button in Play mode, undoing back to the last position you
   were asked to move from — both plies when the engine has replied, one when it
   has not, and disabled with a reason when there is nothing of yours to undo.

@@ -78,6 +78,13 @@ import { nullMoveProbe } from './engine/threats'
 import { tablebaseMoveAriaLabel, tablebaseMoveSummary, tablebaseSummary } from './engine/tablebaseLabels'
 import { BOARD_SQUARES, describeBoardSquare, isBoardSquare } from './engine/boardAccessibility'
 import { isBoardInputLocked } from './engine/boardInput'
+import {
+  applyPremove,
+  canPremove,
+  isPremoveablePiece,
+  premoveFromSquares,
+  type Premove,
+} from './engine/premove'
 import { moveSoundFor } from './engine/moveSound'
 import { BOARD_THEMES, boardThemeById, isBoardThemeId } from './engine/boardThemes'
 import {
@@ -593,6 +600,17 @@ const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: [commandPaletteShortcutLabel()], action: 'Open the command palette' },
 ]
 
+/**
+ * A queued premove. Its own colour again: amber is the move that was played,
+ * violet the threat, red-to-green the engine's candidates, and blue the
+ * reader's own marks — so a move the reader has *committed to* takes the one
+ * shape none of those use, a dashed ring in the mark family's blue.
+ */
+const PREMOVE_SQUARE_STYLE = {
+  boxShadow: `inset 0 0 0 4px ${MARK_COLORS.primary}`,
+  backgroundColor: 'rgba(59, 130, 246, 0.28)',
+}
+
 const NOTATION_BASE_STYLE = {
   position: 'absolute' as const,
   fontWeight: 700,
@@ -898,6 +916,8 @@ function App() {
   // Squares the reader right-clicked. Arrows they drag are the library's own
   // state; only the squares are ours, because it has no notion of them.
   const [markedSquares, setMarkedSquares] = useState<SquareMarks>({})
+  /** A move queued while the engine is thinking. One at a time, like everywhere else. */
+  const [premove, setPremove] = useState<Premove | null>(null)
   const rightClickAnchorRef = useRef<string | null>(null)
   const promotionDialogRef = useRef<HTMLDivElement>(null)
 
@@ -2459,6 +2479,22 @@ function App() {
   clockFlaggedRef.current = clockFlagged
 
   /**
+   * Whether the board is taking a premove right now.
+   *
+   * The board is locked while the engine moves, which is exactly when a premove
+   * is made, so this is what lets dragging back for that one case.
+   */
+  const premoveAllowed = canPremove({
+    workspaceMode,
+    gameMode,
+    turn: game.turn(),
+    playerColor: playerColorToTurn(playerColor),
+    gameOver: game.isGameOver(),
+    clockFlagged: Boolean(clockFlagged),
+    paused,
+  })
+
+  /**
    * Stepping out to Analysis stops the clock, and says so.
    *
    * The alternative is a clock that runs while you consult the engine, which is
@@ -2720,6 +2756,28 @@ function App() {
   )
 
   /**
+   * Play the queued premove, the moment the position it was waiting for exists.
+   *
+   * Legality is settled here and nowhere earlier: the premove was made against
+   * a guess about the reply, and a guess that turned out wrong is dropped
+   * without comment. That is what every board with premoves does — the
+   * alternative is holding it and playing it two moves later, into a position
+   * it was never meant for.
+   */
+  useEffect(() => {
+    if (!premove) return
+    if (workspaceMode !== 'play' || gameMode !== 'human-vs-ai') { setPremove(null); return }
+    if (game.turn() !== playerColorToTurn(playerColor)) return
+    if (game.isGameOver() || clockFlagged || pausedRef.current) { setPremove(null); return }
+
+    setPremove(null)
+    const probe = new Chess(game.fen())
+    if (!applyPremove(probe, premove)) return
+    applyHumanMove(premove.from, premove.to, premove.promotion)
+  }, [applyHumanMove, clockFlagged, fen, game, gameMode, playerColor, premove, workspaceMode])
+
+
+  /**
    * Walk into an engine line, up to and including the move that was clicked.
    *
    * The panel used to render the principal variation as a sentence, which left
@@ -2778,6 +2836,12 @@ function App() {
   const onPieceDrop = (sourceSquare: Square, targetSquare: Square, pieceType: string) => {
     if (pendingPromotion) return false
     if (sourceSquare === targetSquare) return false
+    if (premoveAllowed) {
+      // Not a move: the position it belongs to has not happened yet. Held, and
+      // played the moment it does.
+      setPremove(premoveFromSquares(game.fen(), sourceSquare, targetSquare, playerColorToTurn(playerColor)))
+      return false
+    }
     if (isBoardInputLocked({
       workspaceMode,
       gameMode,
@@ -2831,6 +2895,23 @@ function App() {
 
   const onSquareClick = useCallback((square: Square) => {
     if (pendingPromotion) return
+    if (premoveAllowed) {
+      // Same two-tap shape as an ordinary move, so the gesture does not change
+      // just because it is the engine's turn.
+      if (selectedSquare) {
+        setPremove(premoveFromSquares(game.fen(), selectedSquare, square, playerColorToTurn(playerColor)))
+        clearBoardSelection()
+        return
+      }
+      if (isPremoveablePiece(game.fen(), square, playerColorToTurn(playerColor))) {
+        setSelectedSquare(square)
+        setLegalTargets([])
+      } else {
+        // Anywhere else cancels, the way it does on every other board.
+        setPremove(null)
+      }
+      return
+    }
     if (isBoardInputLocked({
       workspaceMode,
       gameMode,
@@ -2883,6 +2964,7 @@ function App() {
     paused,
     pendingPromotion,
     playerColor,
+    premoveAllowed,
     selectedSquare,
     workspaceMode,
   ])
@@ -4660,6 +4742,15 @@ function App() {
                       onSquareMouseDown: handleSquareMouseDown,
                       onSquareMouseUp: handleSquareMouseUp,
                       squareStyles: {
+                        // The piece stays where it is and both squares light up:
+                        // nothing has been played, and pretending otherwise
+                        // would show a position that does not exist.
+                        ...(premove
+                          ? {
+                            [premove.from]: PREMOVE_SQUARE_STYLE,
+                            [premove.to]: PREMOVE_SQUARE_STYLE,
+                          }
+                          : {}),
                         ...Object.fromEntries(
                           Object.entries(markedSquares).map(([square, color]) => [square, squareMarkStyle(color)]),
                         ),
@@ -4678,7 +4769,7 @@ function App() {
                       alphaNotationStyle: { ...NOTATION_BASE_STYLE, bottom: 2, right: 3, fontSize: notationFontSize },
                       numericNotationStyle: { ...NOTATION_BASE_STYLE, top: 2, left: 3, fontSize: notationFontSize },
                       allowDrawingArrows: true,
-                      allowDragging: !boardInputLocked,
+                      allowDragging: !boardInputLocked || premoveAllowed,
                       darkSquareStyle: { backgroundColor: boardTheme.dark },
                       lightSquareStyle: { backgroundColor: boardTheme.light },
                       boardStyle: {
