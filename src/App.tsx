@@ -673,6 +673,12 @@ function App() {
   // The AI loop is an effect that must not re-install on every clock change,
   // and a clock changes on every move. Same shape as gameTreeRef.
   const endedOffBoardRef = useRef<'w' | 'b' | null>(null)
+  const clockFlagged = clock?.flagged ?? null
+  // A flag and a resignation end the game identically as far as the board is
+  // concerned: the position stays legal, so everything that asks "is there
+  // still a game here" has to be told separately.
+  const endedOffBoard = clockFlagged ?? resignedBy
+  endedOffBoardRef.current = endedOffBoard
   // Read by the auto-save, which must not list the clock as a dependency: the
   // clock changes on every move and the save is already debounced on the tree.
   const clockRef = useRef<ClockState | null>(null)
@@ -1233,7 +1239,7 @@ function App() {
       gameMode,
       turn: game.turn() === 'w' ? 'white' : 'black',
       playerColor,
-      gameOver: game.isGameOver(),
+      gameOver: game.isGameOver() || Boolean(endedOffBoardRef.current),
       engineReady: aiPlayerStatusRef.current === 'ready',
       busy: isHinting,
     })) return
@@ -1265,7 +1271,7 @@ function App() {
     gameMode,
     turn: game.turn() === 'w' ? 'white' : 'black',
     playerColor,
-    gameOver: game.isGameOver(),
+    gameOver: game.isGameOver() || Boolean(endedOffBoard),
     engineReady: aiPlayerStatus === 'ready',
     busy: isHinting,
   })
@@ -2407,12 +2413,6 @@ function App() {
     return () => window.clearInterval(id)
   }, [clock])
 
-  const clockFlagged = clock?.flagged ?? null
-  // A flag and a resignation end the game identically as far as the board is
-  // concerned: the position stays legal, so every "can this move be made"
-  // question has to be told separately that the game is over.
-  const endedOffBoard = clockFlagged ?? resignedBy
-  endedOffBoardRef.current = endedOffBoard
   clockRef.current = clock
   playSessionRef.current = workspaceMode === 'play'
     ? { gameMode, playerColor, difficulty: aiDifficulty, resignedBy: resignedBy ?? undefined }
@@ -4142,7 +4142,7 @@ function App() {
     : playEngineActive
       ? (playEngineStatus === 'thinking' ? 'analyzing' : playEngineStatus)
       : 'standby'
-  const canStepAiMove = playEngineActive && !game.isGameOver() && (
+  const canStepAiMove = playEngineActive && !game.isGameOver() && !endedOffBoard && (
     gameMode === 'ai-vs-ai' || (gameMode === 'human-vs-ai' && game.turn() !== playerColor[0])
   )
   const boardInputLocked = isBoardInputLocked({
@@ -6086,7 +6086,7 @@ function App() {
               onLast={goLast}
               aiActive={playEngineActive}
               paused={paused}
-              isGameOver={game.isGameOver()}
+              isGameOver={game.isGameOver() || Boolean(endedOffBoard)}
               stepMode={aiSpeed === 'step'}
               canStep={canStepAiMove}
               onPause={pause}
