@@ -128,6 +128,74 @@ export function pvToSan(fen: string, line: EngineLine, maxMoves = 8): string {
   return chunks.join(' ')
 }
 
+export type PvMove = {
+  /** 0-based position in the principal variation. */
+  index: number
+  uci: string
+  san: string
+  /** "12." or "12..." — printed only where a reader needs it. */
+  prefix: string | null
+  /**
+   * "12. Nf3" or "12... Nc6", always numbered. The printed line leaves the
+   * number off a Black move that follows its White one, which reads correctly
+   * and announces terribly: a screen reader gets "e6" with nothing to place it.
+   */
+  numbered: string
+  /** The position after this move, so a caller can walk into the line. */
+  fenAfter: string
+}
+
+/**
+ * The principal variation as moves rather than as a sentence.
+ *
+ * `pvToSan` renders the same walk into one string, which is all a label needs
+ * and all this panel had. A line you cannot step into is a line you have to
+ * replay by hand on the board to see what the engine is talking about, which is
+ * the whole reason every other analysis board makes its engine line clickable.
+ *
+ * The move number prefix is only emitted where it carries information — ahead
+ * of every White move, and ahead of a Black move that opens the line — so the
+ * rendered line reads the way a printed one does.
+ *
+ * Stops at the first move the position will not accept, the way the rest of
+ * this module does: a PV outliving its position is a stale flush, not a crash.
+ */
+export function pvLineMoves(fen: string, pv: string[], maxMoves = 8): PvMove[] {
+  let replay: Chess
+  try {
+    replay = new Chess(fen)
+  } catch {
+    return []
+  }
+
+  const moves: PvMove[] = []
+  for (const [index, uci] of pv.slice(0, maxMoves).entries()) {
+    if (uci.length < 4) break
+
+    const moveNumber = replay.moveNumber()
+    const sideToMove = replay.turn()
+
+    let move: Move | undefined
+    try {
+      move = replay.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })
+    } catch {
+      break
+    }
+    if (!move) break
+
+    moves.push({
+      index,
+      uci: `${move.from}${move.to}${move.promotion ?? ''}`,
+      san: move.san,
+      prefix: sideToMove === 'w' ? `${moveNumber}.` : index === 0 ? `${moveNumber}...` : null,
+      numbered: `${moveNumber}${sideToMove === 'w' ? '.' : '...'} ${move.san}`,
+      fenAfter: replay.fen(),
+    })
+  }
+
+  return moves
+}
+
 /**
  * A bounded, insertion-ordered cache of `uciToSan` answers.
  *

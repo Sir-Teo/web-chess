@@ -11,6 +11,7 @@ import {
   filterReviewRowsBySide,
   formatWhitePovEvaluation,
   pvToSan,
+  pvLineMoves,
   scoreToCp,
   rankCriticalMoments,
   summarizeAccuracy,
@@ -2508,6 +2509,49 @@ function App() {
     [cancelStaleBackgroundAnalysis, clearBoardSelection, game, gameTree, stop],
   )
 
+  /**
+   * Walk into an engine line, up to and including the move that was clicked.
+   *
+   * The panel used to render the principal variation as a sentence, which left
+   * the reader replaying it on the board by hand to see the position it was
+   * describing. The moves become tree nodes like any other, so the line lands
+   * as a variation that can be reviewed, promoted to the main line, or
+   * discarded — rather than as a preview with nowhere to go.
+   *
+   * `lineFen` is checked against the board rather than assumed: a flush can
+   * arrive for a position the reader has already navigated away from, and the
+   * moves would then be applied to the wrong one.
+   */
+  const playPvLine = useCallback(
+    (lineFen: string, pv: string[], throughIndex: number) => {
+      if (lineFen !== game.fen()) return
+      const moves = pvLineMoves(lineFen, pv, throughIndex + 1)
+      if (!moves.length) return
+
+      cancelStaleBackgroundAnalysis()
+      stop()
+
+      for (const step of moves) {
+        let move: Move | null
+        try {
+          move = game.move({ from: step.uci.slice(0, 2), to: step.uci.slice(2, 4), promotion: step.uci[4] })
+        } catch {
+          break
+        }
+        if (!move) break
+        gameTree.addMove(move, game.fen())
+      }
+
+      const reached = game.fen()
+      setFen(reached)
+      clearBoardSelection()
+      setPendingPromotion(null)
+      // Analyse where we landed, the same way stepping through the move list does.
+      if (engineEnabled) setPendingPonderFen(reached)
+    },
+    [cancelStaleBackgroundAnalysis, clearBoardSelection, engineEnabled, game, gameTree, stop],
+  )
+
   const beginPromotion = useCallback(
     (from: Square, to: Square) => {
       setPendingPromotion({ from, to })
@@ -4640,7 +4684,36 @@ function App() {
                         <strong>{coachDepthLabel}</strong>
                       </div>
                     </div>
-                    <p>{coachLineSan || 'Start analysis to get a candidate line.'}</p>
+                    {/* The Coach line is the one a beginner is most likely to
+                        want to see played out, and it was the same dead text as
+                        the Pro panel's. Same buttons, shorter line. */}
+                    {(() => {
+                      const source = coachLine ?? (currentCloudEval?.pvs[0]
+                        ? { fen, pv: currentCloudEval.pvs[0].moves }
+                        : null)
+                      const steps = source ? pvLineMoves(source.fen ?? fen, source.pv, 6) : []
+                      if (!steps.length) {
+                        return <p>{coachLineSan || 'Start analysis to get a candidate line.'}</p>
+                      }
+                      const lineFen = source!.fen ?? fen
+                      return (
+                        <p className="pv-moves coach-line-moves">
+                          {steps.map(step => (
+                            <button
+                              key={`${step.index}-${step.uci}`}
+                              type="button"
+                              className="pv-move"
+                              onClick={() => playPvLine(lineFen, source!.pv, step.index)}
+                              title={`Play the line to ${step.san}`}
+                              aria-label={`Play this line up to ${step.numbered}`}
+                            >
+                              {step.prefix && <span className="pv-move-number">{step.prefix}</span>}
+                              {step.san}
+                            </button>
+                          ))}
+                        </p>
+                      )
+                    })()}
                     {/* The question a player asks before every move, and the one
                         thing the panel could not answer. A null-move search:
                         the same position with the other side to move. */}
@@ -4934,7 +5007,30 @@ function App() {
                             <span>D{line.depth}</span>
                             <span>{formatWhitePovEvaluation(line.fen ?? fen, line.cp, line.mate)}</span>
                           </header>
-                          <p>{pvToSan(line.fen ?? fen, line) || line.pv.slice(0, 8).join(' ')}</p>
+                          {(() => {
+                            const lineFen = line.fen ?? fen
+                            const steps = pvLineMoves(lineFen, line.pv, 8)
+                            if (!steps.length) {
+                              return <p>{line.pv.slice(0, 8).join(' ')}</p>
+                            }
+                            return (
+                              <p className="pv-moves">
+                                {steps.map(step => (
+                                  <button
+                                    key={`${step.index}-${step.uci}`}
+                                    type="button"
+                                    className="pv-move"
+                                    onClick={() => playPvLine(lineFen, line.pv, step.index)}
+                                    title={`Play the line to ${step.san}`}
+                                    aria-label={`Play this line up to ${step.numbered}`}
+                                  >
+                                    {step.prefix && <span className="pv-move-number">{step.prefix}</span>}
+                                    {step.san}
+                                  </button>
+                                ))}
+                              </p>
+                            )
+                          })()}
                           {analysisExperience === 'pro' && (
                             <p className="pv-uci">{line.pv.slice(0, 8).join(' ')}</p>
                           )}

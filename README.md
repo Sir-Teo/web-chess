@@ -20,6 +20,10 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   already means "the engine likes this" on this board — amber is the move that
   was played, violet the threat, and red-to-green the candidate scale. Marks
   clear on your next move or left click, the way the drawn arrows do.
+- **Steppable engine lines**: Click any move in a principal variation — in the
+  Lines panel or the Coach card — and the board walks into the line up to that
+  move. It lands as a variation like any other, so it can be reviewed, promoted
+  to the main line, or discarded.
 - **Threats**: `T`, or the button in the Coach card, asks what the opponent is
   threatening — a null-move search, drawn on the board in violet so it reads as
   neither the move that was played nor a move the engine recommends.

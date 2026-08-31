@@ -25,6 +25,7 @@ import {
   winPercentFromCp,
   recordEvaluation,
   engineLineToSnapshot,
+  pvLineMoves,
 } from './analysis'
 
 describe('review analysis helpers', () => {
@@ -956,4 +957,51 @@ describe('turning an engine line into a snapshot', () => {
         expect(mate?.snapshot.mate).toBe(3)
         expect(Number.isFinite(mate?.snapshot.cp)).toBe(true)
     })
+})
+
+describe('pvLineMoves', () => {
+  const START = new Chess().fen()
+
+  it('turns a principal variation into steppable moves with the position after each', () => {
+    const moves = pvLineMoves(START, ['e2e4', 'e7e5', 'g1f3'])
+    expect(moves.map(move => ({ index: move.index, san: move.san, prefix: move.prefix }))).toEqual([
+      { index: 0, san: 'e4', prefix: '1.' },
+      { index: 1, san: 'e5', prefix: null },
+      { index: 2, san: 'Nf3', prefix: '2.' },
+    ])
+    expect(new Chess(moves[2].fenAfter).turn()).toBe('b')
+  })
+
+  it('always numbers the spoken form, even where the printed one leaves it out', () => {
+    const moves = pvLineMoves(START, ['e2e4', 'e7e5', 'g1f3'])
+    expect(moves.map(move => move.numbered)).toEqual(['1. e4', '1... e5', '2. Nf3'])
+    // The printed form still drops the number on the Black move that follows.
+    expect(moves.map(move => move.prefix)).toEqual(['1.', null, '2.'])
+  })
+
+  it('numbers a line that opens on Black, so it does not read as White to move', () => {
+    const afterE4 = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1'
+    const moves = pvLineMoves(afterE4, ['e7e5', 'g1f3'])
+    expect(moves.map(move => move.prefix)).toEqual(['1...', '2.'])
+  })
+
+  it('reports the move it actually made, so a promotion keeps its piece', () => {
+    const [move] = pvLineMoves('8/P6k/8/8/8/8/7K/8 w - - 0 1', ['a7a8q'])
+    expect(move.san).toBe('a8=Q')
+    expect(move.uci).toBe('a7a8q')
+  })
+
+  it('honours the move cap the panel renders', () => {
+    expect(pvLineMoves(START, ['e2e4', 'e7e5', 'g1f3', 'b8c6'], 2)).toHaveLength(2)
+  })
+
+  /**
+   * A flush can outlive the position it was searched from. Every other walk in
+   * this module stops rather than throwing, because all of them run in render.
+   */
+  it('stops at the first move the position will not take', () => {
+    expect(pvLineMoves(START, ['e2e4', 'e2e4', 'g1f3']).map(move => move.san)).toEqual(['e4'])
+    expect(pvLineMoves(START, ['not-a-move'])).toEqual([])
+    expect(pvLineMoves('total nonsense', ['e2e4'])).toEqual([])
+  })
 })

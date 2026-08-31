@@ -2415,6 +2415,67 @@ button.opening-move-row {
   line-height: 1.5;
 }
 
+/* A principal variation the reader can step into. Each move is a button, but
+   the row has to keep reading as a line of chess rather than as a toolbar, so
+   the buttons drop `.panel button`'s chip shape and take it back on hover.
+   Element+class to clear that rule at equal specificity, the way
+   `button.tablebase-move-row` does below. */
+.pv-moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.05rem 0.1rem;
+  align-items: baseline;
+}
+
+button.pv-move {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.1rem 0.22rem;
+  border-radius: var(--radius-sm);
+  line-height: 1.45;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button.pv-move:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--border-subtle);
+    color: var(--text-heading);
+  }
+}
+
+button.pv-move:focus-visible {
+  border-color: var(--border-strong);
+  color: var(--text-heading);
+}
+
+/* A finger needs more than a line of text is tall. */
+@media (pointer: coarse) {
+  button.pv-move {
+    padding: 0.3rem 0.4rem;
+  }
+}
+
+.pv-move-number {
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-right: 0.1rem;
+}
+
+/* The Coach card sets its own line colour and size on <p>; the moves inside it
+   are buttons, which do not inherit either. */
+.coach-line-moves {
+  margin: 0.35rem 0 0;
+}
+
 .pv-list article p.pv-uci {
   margin-top: 0.18rem;
   font-size: 0.64rem;
