@@ -9,6 +9,7 @@ import {
 } from '../engine/profiles'
 import { createStockfishWorker } from '../engine/stockfishWorker'
 import { buildAnalyzeCommand, buildNewGameCommands, changedSetOptions, engineOptionValueToString, parseBestMoveLine, type AnalyzeMode, type AnalyzePurpose, type AnalyzeRequest, type UciGoLimits } from '../engine/uci'
+import { engineBootFailureMessage } from '../engine/engineBootError'
 
 type EngineStatus = 'loading' | 'ready' | 'analyzing' | 'error' | 'disabled'
 
@@ -783,7 +784,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         if (line.startsWith('__BOOT_ERROR__:')) {
           const message = line.replace('__BOOT_ERROR__:', '').trim()
           failWorker(
-            `Failed to load ${profile.name}: ${message}.`,
+            engineBootFailureMessage(profile.name, message),
             `Engine bootstrap failed for ${profile.name}.`,
           )
           return
@@ -891,8 +892,11 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     worker.onerror = (event) => {
       if (currentSession !== bootSessionRef.current) return
       const message = event.message || 'Unknown worker error.'
+      // The browser's messages usually end in a full stop of their own, and
+      // two of them read as a typo.
+      const punctuated = /[.!?]$/.test(message) ? message : `${message}.`
       failWorker(
-        `Engine worker error while running ${profile.name}: ${message}.`,
+        `Engine worker error while running ${profile.name}: ${punctuated}`,
         `Engine worker error while running ${profile.name}: ${message}`,
       )
     }
