@@ -18,6 +18,7 @@ import {
   settleFlag,
   startSide,
   timeControlPresetById,
+  timeControlTag,
   type ClockState,
 } from './chessClock'
 
@@ -297,5 +298,22 @@ describe('a whole blitz game on the clock', () => {
     expect(flaggedSide(clock, now)).toBe('w')
     clock = settleFlag(clock, now)
     expect(flagResultLabel(clock.flagged!)).toContain('Black wins on time')
+  })
+})
+
+describe('the PGN TimeControl tag', () => {
+  it('writes the increment form when there is one, and sudden death when there is not', () => {
+    expect(timeControlTag({ initialMs: 180_000, incrementMs: 2_000 })).toBe('180+2')
+    expect(timeControlTag({ initialMs: 300_000, incrementMs: 0 })).toBe('300')
+  })
+
+  it('matches what every preset is called', () => {
+    const tags = TIME_CONTROL_PRESETS.filter(p => p.control).map(p => timeControlTag(p.control!))
+    expect(tags).toEqual(['60', '180+2', '300', '600', '900+10'])
+  })
+
+  it('never writes a negative or fractional field', () => {
+    expect(timeControlTag({ initialMs: -1, incrementMs: -1 })).toBe('0')
+    expect(timeControlTag({ initialMs: 1_500, incrementMs: 1_400 })).toBe('2+1')
   })
 })

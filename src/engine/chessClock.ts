@@ -238,6 +238,19 @@ export function lowTimeThresholdMs(control: TimeControl): number {
   return Math.min(LOW_TIME_CEILING_MS, Math.max(0, control.initialMs) / 5)
 }
 
+/**
+ * The PGN `TimeControl` tag for a control: seconds, then increment.
+ *
+ * The standard's "sudden death" and "increment" forms, which is what Lichess
+ * and chess.com both write. Without it an exported timed game carries per-move
+ * `[%clk]` readings and no statement of what they were counting down from.
+ */
+export function timeControlTag(control: TimeControl): string {
+  const seconds = Math.max(0, Math.round(control.initialMs / 1000))
+  const increment = Math.max(0, Math.round(control.incrementMs / 1000))
+  return increment > 0 ? `${seconds}+${increment}` : String(seconds)
+}
+
 /** The result line for a game that ended on the clock. */
 export function flagResultLabel(flagged: ClockSide): string {
   return flagged === 'w' ? 'White flagged · Black wins on time' : 'Black flagged · White wins on time'

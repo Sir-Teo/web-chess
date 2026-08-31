@@ -103,6 +103,7 @@ import {
   settleFlag,
   startSide,
   timeControlPresetById,
+  timeControlTag,
   type ClockState,
 } from './engine/chessClock'
 import { ChessClock } from './components/ChessClock'
@@ -3770,6 +3771,9 @@ function App() {
       // The alternative -- starting it on the first move -- gives White an
       // untimed think that Black never gets. Space pauses if you are not ready.
       setClock(control ? startSide(createClock(control), 'w', Date.now()) : null)
+      // The header the per-move `[%clk]` readings count down from. Without it
+      // an exported timed game says how much time was left and never what of.
+      if (control) setPgnHeaders({ TimeControl: timeControlTag(control) })
 
       setOrientation(defaultOrientationForGameMode(mode, color))
       requestBoardReveal()
@@ -3829,6 +3833,7 @@ function App() {
     setClock(control
       ? startSide(createClock(control), sideToMoveColor(startFen) === 'white' ? 'w' : 'b', Date.now())
       : null)
+    if (control) setPgnHeaders({ TimeControl: timeControlTag(control) })
 
     setOrientation(defaultOrientationForGameMode('human-vs-ai', humanColor))
     requestBoardReveal()
