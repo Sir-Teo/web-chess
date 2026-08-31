@@ -428,6 +428,62 @@ field that also carries user text, because nothing downstream could then tell
 which was which. `[%eval]` gets this right by being namespaced; the two plain
 sentences beside it did not.
 
+## Setting an engine option is not free
+
+`buildAnalyzeCommand` names every option a search depends on — `Hash`,
+`MultiPV`, `UCI_ShowWDL` — because an analyze request is self-describing, and
+`startAnalysis` sent all of them before every `go`. One of them has a side
+effect: `setoption name Hash` resizes the transposition table, and a resize
+clears it whatever size is asked for. Every search therefore began by deleting
+what the last one learned.
+
+Measured against `stockfish-18-lite-single`, one position searched twice to
+depth 20:
+
+| | nodes on the 2nd search |
+| --- | --- |
+| table survives | 0.63x |
+| same-value `Hash` sent in between | 1.12x |
+
+and over the sequence a game review actually sends — 61 positions of a 60-ply
+game at depth 16, MultiPV 1 — 21.1M nodes and 12.9s became 19.3M and 11.2s,
+repeatable to a tenth of a second. Navigating back and forth over an analysed
+line gets the larger figure, because there it really is the same position
+twice.
+
+`changedSetOptions` in `engine/uci.ts` is the rule; `useStockfishEngine` keeps
+the record of what its worker was last told, resets it when the worker is
+replaced, and clears it when the Engine Lab console sets an option behind its
+back. A valueless option is a UCI button rather than a setting, so it is always
+sent.
+
+The general shape: **a UCI option is a command, not a declaration.** Before
+sending one every search, check what the engine does when it receives it.
+
+## Profiling React here in dev measures the dev runtime
+
+A render-cost investigation on the dev server said each re-render during a live
+search cost 150-230ms, which for a page with 421 DOM nodes is absurd on its
+face. Two things were wrong with the measurement, and both are easy to repeat:
+
+- **A hidden browser pane throttles everything.** `document.hidden` was true, so
+  timers were clamped to ~1s and the renderer was deprioritised. Check
+  `document.hidden` before trusting any number taken from an automation pane.
+- **`jsxDEV` dominates a dev profile.** A CPU profile against the dev server
+  attributed ~1.5s of an 8s window to `exports.jsxDEV` — element creation in the
+  development JSX runtime, which the production build does not use.
+
+The same scenario against `vite preview` — a 60-ply game, infinite analysis,
+MultiPV 3, 8 seconds — leaves the main thread **94% idle**, with the non-idle
+remainder mostly `(program)` and a few ms of `chess.js`. There is no React
+rendering problem in this app today.
+
+Recorded because the conclusion is the opposite of what the dev numbers say, and
+because the fix someone would reach for — memoising subtrees, splitting
+`App.tsx` for performance — would have bought nothing. Split `App.tsx` for
+testability, which is the reason `docs/cross-app-learning-plan.md` gives; not
+for speed.
+
 ## Project Invariants
 
 - Engine scores are POV side-to-move; after a move the perspective flips.
@@ -456,3 +512,10 @@ sentences beside it did not.
   is indistinguishable from something the reader typed.
 - A capability value read from a browser API needs its documented range
   checked before a threshold is chosen against it.
+- Anything the reader draws on the board takes a colour the engine does not
+  already use. Amber is the move that was played, violet the threat probe, and
+  the red-to-green scale a candidate's ranking; a mark in green would assert
+  something about a square the reader picked. `boardMarks.test.ts` pins the
+  three against the four engine colours.
+- Performance claims about this app come from a production build. See
+  "Profiling React here in dev measures the dev runtime".
