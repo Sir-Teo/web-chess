@@ -3704,6 +3704,17 @@ button.critical-moment-row {
     flex-basis: 9rem;
   }
 
+  /* Play and Analysis fill their strip instead of sitting at the left of it.
+     The container grows to the row width, so with `flex: none` pills the rest
+     of it was a wide dark tail — visible on a phone as most of the row being
+     empty. Grow but never shrink: the labels are short and must not truncate,
+     which is what `flex: none` was protecting further down. */
+  .top-mode-pills[aria-label="Workspace mode"] .gc-pill {
+    flex-grow: 1;
+    flex-shrink: 0;
+    justify-content: center;
+  }
+
   .top-mode-pills[aria-label="Game mode"] {
     flex-basis: 17rem;
   }
