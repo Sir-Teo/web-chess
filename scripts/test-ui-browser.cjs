@@ -545,9 +545,22 @@ async function main() {
         // Wait for the game to actually be loaded before switching tabs;
         // clicking Review first leaves nothing for Review Game to act on. The
         // header carries the players once the PGN is in the tree.
+        //
+        // This is the one step that needs a third party: the sample games are
+        // fetched from lichess.org. When that is rate-limiting, the app queues
+        // the request behind its backoff and loads perfectly well half a minute
+        // later -- so the bare "waitForFunction: Timeout" this used to fail
+        // with pointed at nothing and cost twenty minutes to diagnose. Say what
+        // it depends on instead.
         await page.waitForFunction(
           () => /Carlsen/.test(document.body.innerText) && /\bMove\s+\d\d/.test(document.body.innerText),
-          null, { timeout: 15000 })
+          null, { timeout: 25000 })
+          .catch(() => fail(
+            'the sample game did not load within 25s. This step fetches it from lichess.org: '
+            + 'if that is rate-limiting this IP or unreachable, the app queues behind its own '
+            + 'backoff and this wait expires first. Re-run in a few minutes before reading it '
+            + 'as a regression.',
+          ))
 
         await page.getByRole('button', { name: 'Review', exact: true }).first().click()
         const reviewGame = page.getByRole('button', { name: /^review game$/i }).first()
