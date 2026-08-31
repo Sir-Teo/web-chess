@@ -30,6 +30,13 @@ type Props = {
     onToggleFavorite: (id: string) => void
     onExportBackup: () => string
     onImportBackup: (json: string) => LibraryWriteResult
+    /**
+     * Whether anything saved here will outlive the tab. False when the browser
+     * refuses both stores -- private mode, an enterprise policy, a full quota.
+     * The dialog used to say "Saved to the library." either way, which was a
+     * lie in exactly the case where the games were about to be lost.
+     */
+    storageIsDurable: boolean
 }
 
 /**
@@ -67,6 +74,7 @@ export function LibraryDialog({
     onToggleFavorite,
     onExportBackup,
     onImportBackup,
+    storageIsDurable,
 }: Props) {
     const [name, setName] = useState('')
     const [query, setQuery] = useState('')
@@ -118,7 +126,10 @@ export function LibraryDialog({
     }
 
     const handleSave = () => {
-        announce(onSave(name, currentPgn), 'Saved to the library.')
+        announce(
+            onSave(name, currentPgn),
+            storageIsDurable ? 'Saved to the library.' : 'Saved for this session only.',
+        )
         setName('')
     }
 
@@ -308,6 +319,12 @@ export function LibraryDialog({
                         )}
                     </div>
 
+                    {!storageIsDurable && (
+                        <p className="dialog-note library-not-durable" role="status">
+                            This browser is not letting the page store data, so saved games last only until
+                            this tab closes. Export the library to keep them.
+                        </p>
+                    )}
                     {error && <p className="dialog-error" role="alert">{error}</p>}
                     {status && <p className="library-status" role="status">{status}</p>}
                 </div>

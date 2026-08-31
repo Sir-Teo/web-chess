@@ -127,6 +127,37 @@ export function resetLibraryStorageState(): void {
   indexedDbFailed = false
 }
 
+/**
+ * Whether anything saved here can outlive the tab.
+ *
+ * The library used to say "Saved to the library." whatever happened, and with
+ * both stores blocked -- Safari in private mode, an enterprise policy, a
+ * browser set to refuse site data -- that was a lie: the games lived in
+ * `memoryGames` until the tab closed and then went, with no warning at any
+ * point. Confidently wrong about someone's data is the worst thing this app
+ * can be.
+ *
+ * Asked rather than watched, so the warning is there before the first save
+ * instead of after it. `localStorage` in particular can exist and still refuse
+ * every write, and the only way to find out is to try one.
+ */
+export function libraryStorageIsDurable(): boolean {
+  // A write has already fallen through to memory, which settles it.
+  if (memoryGames !== null) return false
+  if (getIndexedDb() && !indexedDbFailed) return true
+
+  const storage = getLocalStorage()
+  if (!storage) return false
+  try {
+    const probe = `${LIBRARY_FALLBACK_STORAGE_KEY}:probe`
+    storage.setItem(probe, '1')
+    storage.removeItem(probe)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function loadLibraryGames(): Promise<LibraryGame[]> {
   if (!getIndexedDb() || indexedDbFailed) return loadFallback()
   try {

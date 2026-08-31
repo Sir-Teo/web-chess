@@ -23,6 +23,7 @@ function render(overrides: Partial<Parameters<typeof LibraryDialog>[0]> = {}) {
             onToggleFavorite={noop}
             onExportBackup={() => '{}'}
             onImportBackup={ok}
+            storageIsDurable
             {...overrides}
         />,
     )
@@ -108,5 +109,22 @@ describe('LibraryDialog', () => {
     it('cannot export an empty library', () => {
         expect(render()).toMatch(/Export backup/)
         expect(render()).toContain('disabled=""')
+    })
+})
+
+describe('when the browser will not store anything', () => {
+    /**
+     * The bug: with both stores blocked the dialog still said "Saved to the
+     * library." and the games were gone on the next reload, with no warning at
+     * any point.
+     */
+    it('warns before a save rather than after the games are lost', () => {
+        const html = render({ storageIsDurable: false })
+        expect(html).toContain('not letting the page store data')
+        expect(html).toContain('Export the library to keep them')
+    })
+
+    it('says nothing when storage works, which is nearly always', () => {
+        expect(render()).not.toContain('not letting the page store data')
     })
 })

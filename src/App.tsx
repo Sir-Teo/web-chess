@@ -49,6 +49,7 @@ import { parseCandidateMoveInput, describeBestMove } from './engine/candidateMov
 import { type AnalyzeMode, type UciGoLimits } from './engine/uci'
 import { exportAnnotatedPgn, flattenPgnMainLine, parsePgnMoveTree, pgnImportUserErrorMessage } from './engine/pgn'
 import { type LibraryGame, extractLibraryMetadata, suggestGameName } from './engine/gameLibrary'
+import { libraryStorageIsDurable } from './engine/gameLibraryStorage'
 import { narrativeTagToneClass, narrativeTags } from './engine/narrativeTags'
 import type { ReviewPhaseFilter } from './engine/analysis'
 import { reviewImpactLabel } from './engine/reviewImpact'
@@ -5074,6 +5075,7 @@ function App() {
               onToggleFavorite={library.toggleFavorite}
               onExportBackup={library.exportBackup}
               onImportBackup={library.importBackup}
+              storageIsDurable={libraryStorageIsDurable()}
             />
           )}
         </Suspense>
