@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isExactTablebaseCoachMove, selectCoachBestMove } from './coach'
+import { coachReadingSource, describeCoachDepth, isExactTablebaseCoachMove, selectCoachBestMove } from './coach'
 
 describe('coach move selection', () => {
   it('prioritizes exact tablebase moves over heuristic engine sources', () => {
@@ -43,5 +43,53 @@ describe('coach move selection', () => {
     expect(isExactTablebaseCoachMove('G6G1', 'g6g1')).toBe(true)
     expect(isExactTablebaseCoachMove('e2e4', 'g6g1')).toBe(false)
     expect(isExactTablebaseCoachMove('(none)', 'g6g1')).toBe(false)
+  })
+})
+
+describe('coachReadingSource', () => {
+  const none = { hasEngineLine: false, hasCloudScore: false, hasStored: false, hasTablebase: false }
+
+  it('prefers the engine running here over everything else', () => {
+    expect(coachReadingSource({ ...none, hasEngineLine: true, hasCloudScore: true, hasTablebase: true }))
+      .toBe('engine')
+  })
+
+  it('names the cloud when only Lichess has answered', () => {
+    expect(coachReadingSource({ ...none, hasCloudScore: true })).toBe('cloud')
+  })
+
+  it('reads a stored snapshot back to whatever produced it', () => {
+    expect(coachReadingSource({ ...none, hasStored: true, storedPurpose: 'cloud-eval' })).toBe('cloud')
+    expect(coachReadingSource({ ...none, hasStored: true, storedPurpose: 'pgn-annotation' })).toBe('imported')
+    expect(coachReadingSource({ ...none, hasStored: true, storedPurpose: 'auto' })).toBe('engine')
+  })
+
+  it('falls back to the tablebase, and to nothing at all', () => {
+    expect(coachReadingSource({ ...none, hasTablebase: true })).toBe('tablebase')
+    expect(coachReadingSource(none)).toBeNull()
+  })
+})
+
+describe('describeCoachDepth', () => {
+  it('marks a cloud depth as one this app did not reach', () => {
+    // The case that prompted this: 75 plies, from Lichess's cache, shown as a
+    // bare "D75" beside a Lines panel correctly saying nothing had run.
+    const reading = describeCoachDepth('cloud', 75)
+    expect(reading.label).toBe('D75 cloud')
+    expect(reading.title).toContain('Lichess')
+  })
+
+  it('leaves a local search reading as a plain depth', () => {
+    expect(describeCoachDepth('engine', 16).label).toBe('D16')
+  })
+
+  it('says a tablebase result is not a depth, whichever source asked', () => {
+    expect(describeCoachDepth('engine', 16, true).label).toBe('TB exact')
+    expect(describeCoachDepth('tablebase', undefined).label).toBe('TB exact')
+  })
+
+  it('has an answer before anything has evaluated the position', () => {
+    expect(describeCoachDepth(null, undefined).label).toBe('...')
+    expect(describeCoachDepth('engine', undefined).label).toBe('...')
   })
 })

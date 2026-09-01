@@ -132,7 +132,7 @@ import {
   toggleSquareMark,
   type SquareMarks,
 } from './engine/boardMarks'
-import { isExactTablebaseCoachMove, selectCoachBestMove } from './engine/coach'
+import { coachReadingSource, describeCoachDepth, isExactTablebaseCoachMove, selectCoachBestMove } from './engine/coach'
 import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage } from './engine/labCommands'
 import { aiSearchHistory, defaultOrientationForGameMode, hintDisabledReason, sideToMoveColor, takebackDisabledReason, takebackPlyCount } from './engine/playMode'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
@@ -1590,10 +1590,21 @@ function App() {
   const coachReplyMoveText = ponderMoveLabel(fen, coachBestMove, coachReplyMove)
   const coachDepth = coachLine?.depth ?? currentCloudEval?.depth
   // A tile labelled Depth reports a depth or nothing. It used to fall back to
-  // the engine status, so it read "analyzing" in a row of numbers.
-  const coachDepthLabel = coachBestMoveIsTablebase || tablebase.result
-    ? 'TB exact'
-    : coachDepth ? `D${coachDepth}` : '...'
+  // the engine status, so it read "analyzing" in a row of numbers -- and then,
+  // once cloud evals arrived, it reported theirs as though this app had reached
+  // 75 plies. It says whose depth it is.
+  const coachSource = coachReadingSource({
+    hasEngineLine: Boolean(coachLine),
+    hasCloudScore: Boolean(coachCloudScore),
+    hasStored: evaluationsByFen.has(fen),
+    storedPurpose: evaluationsByFen.get(fen)?.purpose,
+    hasTablebase: Boolean(tablebase.result),
+  })
+  const coachDepthReading = describeCoachDepth(
+    coachSource,
+    coachDepth,
+    coachBestMoveIsTablebase || Boolean(tablebase.result),
+  )
   const engineTelemetry = engineTelemetryLabel(coachLine)
   const coachTablebaseLine = tablebaseTopMove
     ? [
@@ -5321,9 +5332,9 @@ function App() {
                         <span>Reply</span>
                         <strong title={coachReplyMove ?? undefined}>{coachReplyMoveText}</strong>
                       </div>
-                      <div>
+                      <div title={coachDepthReading.title}>
                         <span>Depth</span>
-                        <strong>{coachDepthLabel}</strong>
+                        <strong>{coachDepthReading.label}</strong>
                       </div>
                     </div>
                     {/* The Coach line is the one a beginner is most likely to
@@ -5647,7 +5658,15 @@ function App() {
                     {currentFenLines.length === 0 && !activeGoCommand && !currentLastBestMove && (
                       <div className="empty-state">
                         <span className="empty-state-icon" aria-hidden="true"><IconSearch /></span>
-                        <p>Start analysis to see principal variation lines here.</p>
+                        {/* Two quite different empty states. With a cloud eval
+                            in hand the Coach card above is already showing a
+                            line, and "start analysis" reads as a contradiction
+                            rather than as an offer. */}
+                        <p>
+                          {coachSource === 'cloud'
+                            ? 'Lichess had this position analysed already, and the Coach card is showing it. Analyze to search it here.'
+                            : 'Start analysis to see principal variation lines here.'}
+                        </p>
                       </div>
                     )}
                     {currentFenLines
