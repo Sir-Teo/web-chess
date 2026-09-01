@@ -1138,7 +1138,8 @@ function App() {
 
   const startBatchReview = useCallback(() => {
     if (!engineEnabled) return
-    const nodes = gameTreeRef.current.mainLine()
+    // The line being read, not the game's main line -- see `reviewLineNodes`.
+    const nodes = reviewLineNodesRef.current
     if (nodes.length <= 1) return
 
     const rootFen = gameTreeRef.current.root.fen
@@ -2139,8 +2140,62 @@ function App() {
 
   // ── Derived move data ─────────────────────────────────
   const mainLineNodes = useMemo(() => gameTree.mainLine(), [gameTree])
-  const mainLineMoves = useMemo(() => mainLineNodes.slice(1).map(n => n.move!).filter(Boolean), [mainLineNodes])
-  const mainLineUciMoves = useMemo(() => mainLineNodes.slice(1).map(node => node.uci).filter(Boolean), [mainLineNodes])
+
+  // The whole branch the board is standing in: the path down to the current
+  // node, then its first-child chain to the tip. Equal to the main line
+  // whenever the current node is on it, which is most of the time.
+  const currentLineNodes = useMemo(() => {
+    const nodes = [...currentPathNodes]
+    let cur = nodes[nodes.length - 1]
+    while (cur && cur.children.length > 0) {
+      const firstChild = gameTree.nodesSnapshot.get(cur.children[0]!)
+      if (firstChild) {
+        nodes.push(firstChild)
+        cur = firstChild
+      } else {
+        break
+      }
+    }
+    return nodes
+  }, [currentPathNodes, gameTree.nodesSnapshot])
+
+  const currentLineMoves = useMemo(
+    () => currentLineNodes.slice(1).map(n => n.move!).filter(Boolean),
+    [currentLineNodes],
+  )
+
+  /**
+   * The line the review reports on.
+   *
+   * It used to be the main line, always, while both trend graphs plotted
+   * `currentLineNodes` -- so standing in a variation gave a graph of the branch
+   * you were looking at, an accuracy summary of a different line, and critical
+   * moments pointing at moves that were not on the board. Nothing said which
+   * was which.
+   *
+   * They are one line now, and it is the branch you are standing in. That also
+   * makes a variation reviewable at all, which it was not: `Review Game` would
+   * quietly search the main line instead. Evaluations are keyed by position, so
+   * moving between branches re-uses everything already searched rather than
+   * starting again.
+   *
+   * What stays on the main line is everything that is about the *game* rather
+   * than about what is being read: the PGN export, the auto-save, the library,
+   * and the result in the header.
+   */
+  const reviewLineNodes = currentLineNodes
+  const reviewLineMoves = currentLineMoves
+  const reviewLineUciMoves = useMemo(
+    () => reviewLineNodes.slice(1).map(node => node.uci).filter(Boolean),
+    [reviewLineNodes],
+  )
+  // Read by `startBatchReview`, which is reached from an effect and from the
+  // command palette and must not take a new identity on every navigation.
+  const reviewLineNodesRef = useRef(reviewLineNodes)
+  reviewLineNodesRef.current = reviewLineNodes
+  const reviewsAVariation = reviewLineNodes.length > 1
+    && mainLineNodes.length > 1
+    && reviewLineNodes[reviewLineNodes.length - 1]!.id !== mainLineNodes[mainLineNodes.length - 1]!.id
   // How the game ended, as opposed to what is on the board right now: a mate
   // found while exploring a variation is not the game's result, and neither is
   // the quiet position you navigated back to. Replaying the line rather than
@@ -2161,11 +2216,11 @@ function App() {
   }, [mainLineNodes])
   // How far into the game the opening book is consulted: the prefetch loop, the
   // row list and the summary line all have to agree on this number.
-  const reviewBookPrefixLength = Math.min(mainLineUciMoves.length, REVIEW_BOOK_PREFETCH_LIMIT)
+  const reviewBookPrefixLength = Math.min(reviewLineUciMoves.length, REVIEW_BOOK_PREFETCH_LIMIT)
 
   const reviewRows = useMemo(
-    () => buildReviewRows(mainLineMoves, evaluationsByFen, currentRootFen),
-    [currentRootFen, evaluationsByFen, mainLineMoves],
+    () => buildReviewRows(reviewLineMoves, evaluationsByFen, currentRootFen),
+    [currentRootFen, evaluationsByFen, reviewLineMoves],
   )
   const visibleReviewRows = useMemo(
     () => filterReviewRowsBySide(reviewRows, reviewSideFilter),
@@ -2184,7 +2239,7 @@ function App() {
   const reviewAccuracy = useMemo(() => summarizeAccuracy(reportedReviewRows), [reportedReviewRows])
   // Only rendered inside the analysis workspace, which is exactly when the
   // engine is on, so the game length is the only thing left to check.
-  const reviewGameDisabledReason = mainLineNodes.length <= 1
+  const reviewGameDisabledReason = reviewLineNodes.length <= 1
     ? 'Add moves or import a PGN before running review.'
     : null
   // Same shape as the reason above: shown rather than hidden, so a reader
@@ -2234,7 +2289,7 @@ function App() {
     // Coach mode does not render the card these rows fill, so a review there
     // was walking thirty positions past Lichess for nothing.
     if (analysisExperience !== 'pro') return
-    if (!mainLineUciMoves.length) return
+    if (!reviewLineUciMoves.length) return
     if (!hasOpeningExplorerToken) return
 
     let cancelled = false
@@ -2248,12 +2303,12 @@ function App() {
           const bookPosition = await fetchOpeningExplorer({
             source: openingSource,
             fen: currentRootFen,
-            moves: mainLineUciMoves.slice(0, idx),
+            moves: reviewLineUciMoves.slice(0, idx),
             speeds: openingSource === 'lichess' ? openingSpeeds : undefined,
             ratings: openingSource === 'lichess' ? openingRatings : undefined,
             authToken: openingAuthToken,
           }, controller.signal)
-          if (!shouldContinueOpeningBookLine(bookPosition, mainLineUciMoves[idx] ?? '')) {
+          if (!shouldContinueOpeningBookLine(bookPosition, reviewLineUciMoves[idx] ?? '')) {
             setReviewBookTerminalPly(idx + 1)
             setOpeningPrefetchTick(tick => tick + 1)
             return
@@ -2275,13 +2330,13 @@ function App() {
       cancelled = true
       controller.abort()
     }
-  }, [analysisExperience, analysisTab, currentRootFen, hasOpeningExplorerToken, mainLineUciMoves, openingAuthToken, openingRatings, openingSource, openingSpeeds, reviewBookPrefixLength, workspaceMode])
+  }, [analysisExperience, analysisTab, currentRootFen, hasOpeningExplorerToken, openingAuthToken, openingRatings, openingSource, openingSpeeds, reviewBookPrefixLength, reviewLineUciMoves, workspaceMode])
 
   const reviewBookRows = useMemo(() => {
     void openingPrefetchTick
     const maxRows = reviewBookPrefixLength
-    return mainLineUciMoves.slice(0, maxRows).map((uci, index) => {
-      const beforeMoves = mainLineUciMoves.slice(0, index)
+    return reviewLineUciMoves.slice(0, maxRows).map((uci, index) => {
+      const beforeMoves = reviewLineUciMoves.slice(0, index)
       const fromCache = getCachedOpeningExplorer({
         source: openingSource,
         fen: currentRootFen,
@@ -2289,8 +2344,8 @@ function App() {
         speeds: openingSource === 'lichess' ? openingSpeeds : undefined,
         ratings: openingSource === 'lichess' ? openingRatings : undefined,
       })
-      const san = mainLineNodes[index + 1]?.san ?? uci
-      const sideToMove = mainLineNodes[index]?.fen.split(/\s+/g)[1] === 'b' ? 'b' : 'w'
+      const san = reviewLineNodes[index + 1]?.san ?? uci
+      const sideToMove = reviewLineNodes[index]?.fen.split(/\s+/g)[1] === 'b' ? 'b' : 'w'
 
       if (reviewBookTerminalPly !== null && index + 1 > reviewBookTerminalPly) {
         return {
@@ -2352,8 +2407,8 @@ function App() {
       }
     })
   }, [
-    mainLineUciMoves,
-    mainLineNodes,
+    reviewLineUciMoves,
+    reviewLineNodes,
     currentRootFen,
     hasOpeningExplorerToken,
     openingPrefetchTick,
@@ -2383,27 +2438,6 @@ function App() {
     const firstOutOfBook = visibleReviewBookRows.find(row => row.status === 'out-of-book') ?? null
     return { inBook, outOfBook, loading, afterNovelty, authRequired, failed, firstOutOfBook }
   }, [visibleReviewBookRows])
-
-  // Graph uses active path up to its deepest child to show the entire branch history
-  const currentLineNodes = useMemo(() => {
-    const nodes = [...currentPathNodes]
-    let cur = nodes[nodes.length - 1]
-    while (cur && cur.children.length > 0) {
-      const firstChild = gameTree.nodesSnapshot.get(cur.children[0]!)
-      if (firstChild) {
-        nodes.push(firstChild)
-        cur = firstChild
-      } else {
-        break
-      }
-    }
-    return nodes
-  }, [currentPathNodes, gameTree.nodesSnapshot])
-
-  const currentLineMoves = useMemo(
-    () => currentLineNodes.slice(1).map(n => n.move!).filter(Boolean),
-    [currentLineNodes],
-  )
 
   // Both trend graphs navigate identically; they had a character-identical copy
   // of this closure each.
@@ -2441,7 +2475,7 @@ function App() {
   const setTreeNodeQualities = gameTree.setNodeQualities
   useEffect(() => {
     const qualityUpdates = reviewRows.flatMap((row, idx): Array<{ id: string; quality?: ReviewLabel }> => {
-      const node = mainLineNodes[idx + 1]
+      const node = reviewLineNodes[idx + 1]
       if (!node) return []
       return [{
         id: node.id,
@@ -2449,7 +2483,7 @@ function App() {
       }]
     })
     setTreeNodeQualities(qualityUpdates)
-  }, [mainLineNodes, reviewRows, setTreeNodeQualities])
+  }, [reviewLineNodes, reviewRows, setTreeNodeQualities])
 
   // The board is told to clear its drawn arrows when the position changes; the
   // squares have to follow, or a mark from two moves ago outlives the arrow it
@@ -3879,7 +3913,7 @@ function App() {
       // Shown disabled rather than hidden, with the reason as the hint: a
       // reader looking for it should learn what it needs, not wonder whether
       // they misremembered the name.
-      disabled: Boolean(reviewGameDisabledReason) || mainLineNodes.length <= 1,
+      disabled: Boolean(reviewGameDisabledReason),
       run: startBatchReview,
     },
     {
@@ -3927,7 +3961,7 @@ function App() {
     },
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
-  ], [handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, hintReason, isProbingThreat, mainLineNodes.length, requestHint,
+  ], [handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, hintReason, isProbingThreat, requestHint,
       openLibraryDialog, openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason,
       rememberModalTrigger, reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason,
       workspaceMode])
@@ -5880,7 +5914,7 @@ function App() {
                       type="button"
                       className={`batch-review-btn ${isBatchReviewing ? 'btn-primary pulsing' : ''}`}
                       onClick={isBatchReviewing ? stopBatchReview : startBatchReview}
-                      disabled={mainLineNodes.length <= 1}
+                      disabled={Boolean(reviewGameDisabledReason)}
                       title={reviewGameDisabledReason ?? undefined}
                       aria-label={reviewGameButtonLabel}
                     >
@@ -5895,6 +5929,16 @@ function App() {
                   {experienceToggle}
                   <div className="review-scaffold">
                     <h3><span className="section-icon"><IconBarChart /></span> Review</h3>
+                    {/* The reviewed line is the branch on the board, and when
+                        that is not the main line the reader has to be told --
+                        the accuracy, the critical moments and the graphs are
+                        all about a line the game does not contain. */}
+                    {reviewsAVariation && (
+                      <p className="panel-copy small warning-copy" role="status">
+                        Reviewing the variation you are standing in, not the game's main line.
+                        Promote it in the move list below to make it the game.
+                      </p>
+                    )}
                     <div className="review-filter-row" aria-label="Review side filter">
                       {REVIEW_SIDE_FILTERS.map(filter => (
                         <button
@@ -5970,7 +6014,7 @@ function App() {
                     {reportedReviewRows.length > 0 ? (
                       <ReviewMoveList
                         rows={reportedReviewRows}
-                        nodes={mainLineNodes}
+                        nodes={reviewLineNodes}
                         currentNodeId={gameTree.current.id}
                         showEngineDetail={analysisExperience === 'pro'}
                         onSelectNode={navigateReviewNode}
@@ -5987,7 +6031,7 @@ function App() {
                     {criticalReviewRows.length > 0 ? (
                       <div className="critical-moment-list">
                         {criticalReviewRows.map(row => {
-                          const beforeNode = mainLineNodes[row.ply - 1]
+                          const beforeNode = reviewLineNodes[row.ply - 1]
                           const movePrefix = row.sideToMove === 'w' ? `${row.moveNumber}.` : `${row.moveNumber}...`
                           const bestMoveHint =
                             row.bestMove && row.bestMove !== row.uci ? `Best ${row.bestMoveSan ?? row.bestMove}` : null
