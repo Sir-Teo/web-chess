@@ -1,5 +1,5 @@
 import { Chess, type Move, type Square } from 'chess.js'
-import { Suspense, lazy, memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type SyntheticEvent } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type SyntheticEvent } from 'react'
 import { Chessboard, defaultArrowOptions } from 'react-chessboard'
 import {
   buildWdlSeries,
@@ -22,11 +22,8 @@ import {
   summarizeReview,
   uciToSan,
   type EvalSnapshot,
-  type ReviewRow,
   type ReviewLabel,
   type ReviewSideFilter,
-  type WdlPoint,
-  type WinratePoint,
   recordEvaluation,
   engineLineToSnapshot,
 } from './engine/analysis'
@@ -55,6 +52,7 @@ import { libraryStorageIsDurable } from './engine/gameLibraryStorage'
 import { narrativeTagToneClass, narrativeTags } from './engine/narrativeTags'
 import type { ReviewPhaseFilter } from './engine/analysis'
 import { reviewImpactLabel } from './engine/reviewImpact'
+import { REVIEW_LABELS } from './engine/reviewLabels'
 import { LazyDialogBoundary } from './components/LazyDialogBoundary'
 import { PhaseAccuracy } from './components/PhaseAccuracy'
 import {
@@ -77,7 +75,6 @@ import {
   parseIntegerInputValue,
   type NumericInputValue,
 } from './engine/numericInput'
-import { normalizeSpinOptionInput } from './engine/options'
 import { engineProfiles, type EngineProfileId } from './engine/profiles'
 import { fetchSamplePgn } from './engine/samplePgn'
 import { parseFenShareHash } from './engine/shareLink'
@@ -103,8 +100,6 @@ import {
   createClock,
   flagPgnResult,
   flagResultLabel,
-  describeClockTime,
-  formatClockTime,
   moveEndedGame,
   moveMade,
   remainingMs,
@@ -168,12 +163,13 @@ import { WatchControls } from './components/WatchControls'
 import { AI_SPEED_MS, type AiSpeed } from './components/aiSpeed'
 import { WdlBar } from './components/WdlBar'
 import { HorizontalWdlBar } from './components/HorizontalWdlBar'
+import { EngineOptionControl } from './components/EngineOptionControl'
 import { MoveListTree } from './components/MoveListTree'
-import { graphTickStep } from './components/graphLayout'
-import { useElementHeight, useElementWidth } from './hooks/useElementWidth'
+import { ReviewMoveList } from './components/ReviewMoveList'
+import { WdlProgressGraph, WinrateGraph } from './components/TrendGraph'
+import { useElementHeight } from './hooks/useElementWidth'
 import { useModalFocus } from './hooks/useModalFocus'
 import { useMoveSound } from './hooks/useMoveSound'
-import { formatGraphAxisLabel, formatGraphPositionLabel } from './components/graphLabels'
 import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlag, IconFlip, IconDownload, IconClipboard, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp } from './components/icons'
 import { isPlainShortcut, isTypingTarget } from './components/shortcutKeys'
 import { CommandPaletteDialog } from './components/CommandPaletteDialog'
@@ -284,15 +280,6 @@ const analyzePresets: Array<{ id: AnalyzePresetId; label: string; summary: strin
   { id: 'mate-hunt', label: 'Mate Hunt', summary: 'Prioritize forced mating lines.' },
 ]
 
-const REVIEW_LABELS: Record<ReviewLabel, string> = {
-  best: 'Best',
-  good: 'Good',
-  inaccuracy: 'Inaccuracy',
-  mistake: 'Mistake',
-  blunder: 'Blunder',
-  pending: 'Pending',
-}
-
 const REVIEW_SIDE_FILTERS: Array<{ id: ReviewSideFilter; label: string }> = [
   { id: 'both', label: 'Both' },
   { id: 'white', label: 'White' },
@@ -358,13 +345,6 @@ function moveGamesCount(move: OpeningExplorerMove): number {
 function percentage(part: number, total: number): number {
   if (!total) return 0
   return (part / total) * 100
-}
-
-function reviewConfidenceLabel(confidence: 'pending' | 'shallow' | 'standard' | 'deep', depth: number | undefined): string {
-  if (confidence === 'pending') return 'Needs eval'
-  if (confidence === 'shallow') return depth ? `Shallow d${depth}` : 'Shallow'
-  if (confidence === 'deep') return depth ? `Deep d${depth}` : 'Deep'
-  return depth ? `D${depth}` : 'Evaluated'
 }
 
 function formatAccuracyValue(value: number | null): string {
@@ -6418,524 +6398,3 @@ function App() {
 }
 
 export default App
-
-type ReviewMoveListProps = {
-  rows: ReviewRow[]
-  nodes: GameNode[]
-  currentNodeId: string
-  showEngineDetail: boolean
-  onSelectNode: (node: GameNode) => void
-}
-
-const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, currentNodeId, showEngineDetail, onSelectNode }: ReviewMoveListProps) {
-  return (
-    <ol className="moves-list review-move-list">
-      {rows.map(row => {
-        const node = nodes[row.ply]
-        const movePrefix = row.sideToMove === 'w' ? `${row.moveNumber}.` : `${row.moveNumber}...`
-        const isCurrentReviewMove = node?.id === currentNodeId
-        const qualityLabel = REVIEW_LABELS[row.quality]
-        const impactLabel = reviewImpactLabel(row.deltaCp)
-        const confidenceLabel = reviewConfidenceLabel(row.confidence, row.evalDepth)
-        const bestMoveHint =
-          row.bestMove && row.bestMove !== row.uci ? `Best ${row.bestMoveSan ?? row.bestMove}` : null
-        // What the mover had left when they played it, where the game carries
-        // it. Half the blunders in a real game are explained by this number and
-        // by nothing in the evaluation.
-        const clockLabel = typeof node?.clockMs === 'number' ? formatClockTime(node.clockMs) : null
-        const ariaDetails = [
-          qualityLabel,
-          impactLabel,
-          confidenceLabel,
-          bestMoveHint,
-          clockLabel ? `${describeClockTime(node!.clockMs!)} left` : null,
-        ].filter(Boolean).join(', ')
-
-        return (
-          <li key={`${row.ply}-${row.uci}`} className={`quality-${row.quality}`}>
-            <button
-              type="button"
-              className={`review-move-row ${showEngineDetail ? '' : 'compact'} ${isCurrentReviewMove ? 'active' : ''}`}
-              disabled={!node}
-              aria-current={isCurrentReviewMove ? 'true' : undefined}
-              aria-label={`Go to ${movePrefix} ${row.san}: ${ariaDetails}`}
-              onClick={() => {
-                if (node) onSelectNode(node)
-              }}
-            >
-              <span className="move-index">{movePrefix}</span>
-              <strong>{row.san}</strong>
-              {showEngineDetail && <span className="move-uci">{row.uci}</span>}
-              <span className="move-best">{bestMoveHint ?? ''}</span>
-              <span className="move-impact">{impactLabel}</span>
-              {clockLabel && <span className="move-clock" aria-hidden="true">{clockLabel}</span>}
-              {showEngineDetail && (
-                <span className={`move-confidence confidence-${row.confidence}`}>
-                  {confidenceLabel}
-                </span>
-              )}
-              <span className="move-quality">{qualityLabel}</span>
-            </button>
-          </li>
-        )
-      })}
-    </ol>
-  )
-})
-
-// ── Engine option control ──────────────────────────────────────────────────────
-
-type EngineOptionControlProps = {
-  option: {
-    name: string
-    type: 'check' | 'spin' | 'string' | 'button' | 'combo'
-    defaultValue?: string
-    currentValue?: string
-    min?: number
-    max?: number
-    vars?: string[]
-  }
-  onSetOption: (name: string, value?: string | number | boolean) => void
-  disabled?: boolean
-}
-
-function EngineOptionControl({ option, onSetOption, disabled = false }: EngineOptionControlProps) {
-  const optionValue = option.currentValue ?? option.defaultValue ?? ''
-  const [value, setValue] = useState(optionValue)
-
-  useEffect(() => {
-    setValue(optionValue)
-  }, [optionValue])
-
-  if (option.type === 'button') {
-    return (
-      <div className="engine-option-row">
-        <button type="button" disabled={disabled} onClick={() => onSetOption(option.name)}>
-          {option.name}
-        </button>
-      </div>
-    )
-  }
-
-  if (option.type === 'check') {
-    const checked = value === 'true'
-    return (
-      <label className="switch-control">
-        <input
-          type="checkbox"
-          aria-label={option.name}
-          checked={checked}
-          disabled={disabled}
-          onChange={e => {
-            const nv = e.target.checked ? 'true' : 'false'
-            setValue(nv)
-            onSetOption(option.name, e.target.checked)
-          }} />
-        <span>{option.name}</span>
-      </label>
-    )
-  }
-
-  if (option.type === 'spin') {
-    return (
-      <label className="engine-option-row">
-        <span>{option.name}</span>
-        <input
-          type="number"
-          aria-label={option.name}
-          min={option.min}
-          max={option.max}
-          value={value}
-          disabled={disabled}
-          onChange={e => setValue(e.target.value)}
-          onBlur={() => {
-            const normalized = normalizeSpinOptionInput(option, value)
-            setValue(String(normalized))
-            onSetOption(option.name, normalized)
-          }} />
-      </label>
-    )
-  }
-
-  if (option.type === 'combo') {
-    const choices = option.vars?.length ? option.vars : [optionValue].filter(Boolean)
-    return (
-      <label className="engine-option-row">
-        <span>{option.name}</span>
-        <select
-          aria-label={option.name}
-          value={value}
-          disabled={disabled}
-          onChange={e => {
-            setValue(e.target.value)
-            onSetOption(option.name, e.target.value)
-          }}>
-          {choices.map(choice => (
-            <option key={choice} value={choice}>{choice}</option>
-          ))}
-        </select>
-      </label>
-    )
-  }
-
-  return (
-    <label className="engine-option-row">
-      <span>{option.name}</span>
-      <input
-        type="text"
-        aria-label={option.name}
-        value={value}
-        disabled={disabled}
-        onChange={e => setValue(e.target.value)}
-        onBlur={() => onSetOption(option.name, value)} />
-    </label>
-  )
-}
-
-// ── Winrate graph ──────────────────────────────────────────────────────────────
-
-// Keep in sync with --graph-height in index.css, which sizes the rendered <svg>.
-const GRAPH_HEIGHT = 160
-const GRAPH_PAD_LEFT = 52
-const GRAPH_PAD_RIGHT = 20
-const GRAPH_PAD_TOP = 16
-const GRAPH_PAD_BOTTOM = 34
-// A trend graph exists to show the shape of a game at a glance. At the old
-// 16px per ply an 84-ply game drew 1400px into a ~259px rail, so only a keyhole
-// of the curve was ever visible. It now fills whatever width it is given, and
-// only games long enough to squeeze plies below this floor scroll at all.
-const GRAPH_MIN_PX_PER_PLY = 2
-const GRAPH_FALLBACK_WIDTH = 260
-
-function graphWidthForIndex(maxIndex: number, available: number): number {
-  const intrinsic = GRAPH_PAD_LEFT + GRAPH_PAD_RIGHT + (maxIndex * GRAPH_MIN_PX_PER_PLY)
-  return Math.max(available, intrinsic)
-}
-
-function clampGraphIndex(index: number, maxIndex: number): number {
-  return Math.min(Math.max(index, 0), maxIndex)
-}
-
-function graphKeyboardTarget(key: string, currentIndex: number, maxIndex: number): number | null {
-  switch (key) {
-    case 'ArrowLeft':
-    case 'ArrowDown':
-      return clampGraphIndex(currentIndex - 1, maxIndex)
-    case 'ArrowRight':
-    case 'ArrowUp':
-      return clampGraphIndex(currentIndex + 1, maxIndex)
-    case 'Home':
-      return 0
-    case 'End':
-      return maxIndex
-    case 'PageDown':
-      return clampGraphIndex(currentIndex - 10, maxIndex)
-    case 'PageUp':
-      return clampGraphIndex(currentIndex + 10, maxIndex)
-    default:
-      return null
-  }
-}
-
-type WinrateGraphProps = {
-  points: WinratePoint[]
-  currentIndex?: number
-  /**
-   * Plies in the line being shown, which is what the navigator's range has to
-   * be. See {@link trendGraphGeometry}.
-   */
-  lastPlyIndex?: number
-  onNavigate?: (index: number) => void
-}
-
-/**
- * Everything the two trend graphs work out identically before they draw
- * anything: where a point lands, where the gridlines go, and what a click or an
- * arrow key means. Only the paths drawn through it differ — one line for the
- * winrate, three for the WDL split.
- *
- * A plain function rather than a hook: both callers compute this after their
- * empty-state early return, where a hook could not be called.
- */
-function trendGraphGeometry(
-  points: readonly { index: number }[],
-  available: number,
-  currentIndex: number | undefined,
-  onNavigate?: (index: number) => void,
-  lastPlyIndex?: number,
-) {
-  /**
-   * The range is the *game*, not the data.
-   *
-   * Both series skip a position they have no reading for, so their last point
-   * is the last position that happens to have been evaluated. Using that as
-   * the range made the WDL navigator two things it should never be: short --
-   * End landed on 10. d4 in a game ending 10... Nbd7 -- and unstable, because
-   * `aria-valuemax` moved from 19 to 18 as evaluations came and went under it.
-   * A slider whose range depends on which points have data is not a slider
-   * over the game.
-   *
-   * Falls back to the data when the caller does not say, and never reports
-   * less than the data it is drawing.
-   */
-  const lastPointIndex = points.length > 0 ? points[points.length - 1]!.index : 0
-  const maxIndex = Math.max(lastPlyIndex ?? 0, lastPointIndex)
-  const width = graphWidthForIndex(maxIndex, available)
-  const height = GRAPH_HEIGHT
-  const padLeft = GRAPH_PAD_LEFT
-  const padRight = GRAPH_PAD_RIGHT
-  const padTop = GRAPH_PAD_TOP
-  const padBottom = GRAPH_PAD_BOTTOM
-  const innerWidth = width - padLeft - padRight
-  const innerHeight = height - padTop - padBottom
-
-  const toX = (idx: number) => padLeft + (maxIndex > 0 ? (idx / maxIndex) * innerWidth : 0)
-  const toY = (pct: number) => padTop + ((100 - pct) / 100) * innerHeight
-
-  const isNavigable = Boolean(onNavigate && maxIndex > 0)
-  const selectedIndex = clampGraphIndex(currentIndex ?? maxIndex, maxIndex)
-
-  const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!isNavigable || !onNavigate) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const scaleX = width / rect.width
-    const xInsideSvg = (e.clientX - rect.left) * scaleX
-
-    let targetIdx = Math.round(((xInsideSvg - padLeft) / innerWidth) * maxIndex)
-    if (targetIdx < 0) targetIdx = 0
-    if (targetIdx > maxIndex) targetIdx = maxIndex
-
-    onNavigate(targetIdx)
-  }
-
-  const handleKeyDown = (e: ReactKeyboardEvent<SVGSVGElement>) => {
-    if (!isNavigable || !onNavigate) return
-
-    const targetIdx = graphKeyboardTarget(e.key, selectedIndex, maxIndex)
-    if (targetIdx === null) return
-
-    e.preventDefault()
-    if (targetIdx !== selectedIndex) {
-      onNavigate(targetIdx)
-    }
-  }
-
-  return {
-    maxIndex, width, height, padLeft, padRight, padTop, padBottom,
-    innerWidth, innerHeight, toX, toY, lastPointIndex,
-    markers: [0, 25, 50, 75, 100],
-    xTickStep: graphTickStep(maxIndex, innerWidth),
-    isNavigable, selectedIndex, handleClick, handleKeyDown,
-  }
-}
-
-const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, lastPlyIndex, onNavigate }: WinrateGraphProps) {
-  const scrollRef = useRef<HTMLDivElement | null>(null)
-  const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
-  if (points.length === 0) {
-    return (
-      <div className="empty-state">
-        <span className="empty-state-icon" aria-hidden="true"><IconTrendingUp /></span>
-        <p>Play and analyze moves to build the live winrate graph.</p>
-      </div>
-    )
-  }
-
-  const {
-    maxIndex, width, height, padLeft, padRight, padTop, padBottom,
-    toX, toY, lastPointIndex, markers, xTickStep, isNavigable, selectedIndex, handleClick, handleKeyDown,
-  } = trendGraphGeometry(points, available, currentIndex, onNavigate, lastPlyIndex)
-
-  const path = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(p.index).toFixed(2)} ${toY(p.whiteWinrate).toFixed(2)}`)
-    .join(' ')
-
-  const area = `${path} L ${toX(lastPointIndex).toFixed(2)} ${(height - padBottom).toFixed(2)} L ${toX(points[0]?.index ?? 0).toFixed(2)} ${(height - padBottom).toFixed(2)} Z`
-  const selectedPoint = points.find(point => point.index === selectedIndex)
-
-  const currentLineX = currentIndex !== undefined && maxIndex > 0
-    ? toX(selectedIndex)
-    : null
-
-  return (
-    <div className="graph-wrap" aria-label="White winrate graph">
-      <div className="graph-scroll" ref={scrollRef}>
-        <svg
-          className="winrate-graph"
-          width={width}
-          viewBox={`0 0 ${width} ${height}`}
-          role={isNavigable ? 'slider' : 'img'}
-          tabIndex={isNavigable ? 0 : undefined}
-          aria-label={isNavigable ? 'White winrate move navigator' : 'White winrate graph'}
-          aria-valuemin={isNavigable ? 0 : undefined}
-          aria-valuemax={isNavigable ? maxIndex : undefined}
-          aria-valuenow={isNavigable ? selectedIndex : undefined}
-          aria-valuetext={isNavigable ? formatGraphPositionLabel(selectedPoint, selectedIndex) : undefined}
-          onClick={handleClick}
-          onKeyDown={handleKeyDown}
-          style={{ cursor: isNavigable ? 'pointer' : 'default' }}
-        >
-          <defs>
-            <linearGradient id="graph-gradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgba(63, 185, 80, 0.24)" />
-              <stop offset="100%" stopColor="rgba(63, 185, 80, 0.02)" />
-            </linearGradient>
-          </defs>
-          {markers.map(v => {
-            const y = toY(v)
-            return (
-              <g key={v}>
-                <line x1={padLeft} x2={width - padRight} y1={y} y2={y} className="graph-grid-line" />
-                <text x={padLeft - 8} y={y + 4} className="graph-grid-text" textAnchor="end">{v}%</text>
-              </g>
-            )
-          })}
-          <path d={area} className="graph-area" />
-          <path d={path} className="graph-line" />
-          {points.map((p) => (
-            <circle
-              key={`wr-point-${p.index}`}
-              cx={toX(p.index)}
-              cy={toY(p.whiteWinrate)}
-              r={2.8}
-              className="graph-point"
-            />
-          ))}
-
-          {points.map((p) => {
-            if (p.index > 0 && p.index % xTickStep === 0) {
-              const x = toX(p.index)
-              return (
-                <g key={`x-${p.index}`}>
-                  <line x1={x} x2={x} y1={height - padBottom} y2={height - padBottom + 6} stroke="rgba(240, 246, 252, 0.2)" strokeWidth="1" />
-                  <text x={x} y={height - padBottom + 20} className="graph-grid-text" textAnchor="middle">{formatGraphAxisLabel(p)}</text>
-                </g>
-              )
-            }
-            return null
-          })}
-
-          {currentLineX !== null && (
-            <line
-              x1={currentLineX}
-              x2={currentLineX}
-              y1={padTop}
-              y2={height - padBottom}
-              stroke="rgba(255, 255, 255, 0.8)"
-              strokeWidth="2"
-              strokeDasharray="4 4"
-              style={{ pointerEvents: 'none' }}
-            />
-          )}
-        </svg>
-      </div>
-    </div>
-  )
-})
-
-type WdlProgressGraphProps = {
-  points: WdlPoint[]
-  currentIndex?: number
-  /** See {@link WinrateGraphProps}. */
-  lastPlyIndex?: number
-  onNavigate?: (index: number) => void
-}
-
-const WdlProgressGraph = memo(function WdlProgressGraph({ points, currentIndex, lastPlyIndex, onNavigate }: WdlProgressGraphProps) {
-  const scrollRef = useRef<HTMLDivElement | null>(null)
-  const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
-  if (points.length === 0) {
-    return (
-      <div className="empty-state">
-        <span className="empty-state-icon" aria-hidden="true"><IconBarChart /></span>
-        <p>Analyze moves with WDL enabled to build the W/D/B progression graph.</p>
-      </div>
-    )
-  }
-
-  const {
-    maxIndex, width, height, padLeft, padRight, padTop, padBottom,
-    toX, toY, markers, xTickStep, isNavigable, selectedIndex, handleClick, handleKeyDown,
-  } = trendGraphGeometry(points, available, currentIndex, onNavigate, lastPlyIndex)
-
-  const buildPath = (selector: (point: WdlPoint) => number): string =>
-    points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(p.index).toFixed(2)} ${toY(selector(p)).toFixed(2)}`).join(' ')
-
-  const whitePath = buildPath((p) => p.white)
-  const drawPath = buildPath((p) => p.draw)
-  const blackPath = buildPath((p) => p.black)
-  const selectedPoint = points.find(point => point.index === selectedIndex)
-
-  const currentLineX = currentIndex !== undefined && maxIndex > 0
-    ? toX(selectedIndex)
-    : null
-
-  return (
-    <div className="graph-wrap" aria-label="WDL progression graph">
-      <div className="graph-scroll" ref={scrollRef}>
-        <svg
-          className="winrate-graph"
-          width={width}
-          viewBox={`0 0 ${width} ${height}`}
-          role={isNavigable ? 'slider' : 'img'}
-          tabIndex={isNavigable ? 0 : undefined}
-          aria-label={isNavigable ? 'WDL trend move navigator' : 'WDL progression graph'}
-          aria-valuemin={isNavigable ? 0 : undefined}
-          aria-valuemax={isNavigable ? maxIndex : undefined}
-          aria-valuenow={isNavigable ? selectedIndex : undefined}
-          aria-valuetext={isNavigable ? formatGraphPositionLabel(selectedPoint, selectedIndex) : undefined}
-          onClick={handleClick}
-          onKeyDown={handleKeyDown}
-          style={{ cursor: isNavigable ? 'pointer' : 'default' }}
-        >
-          {markers.map(v => {
-            const y = toY(v)
-            return (
-              <g key={v}>
-                <line x1={padLeft} x2={width - padRight} y1={y} y2={y} className="graph-grid-line" />
-                <text x={padLeft - 8} y={y + 4} className="graph-grid-text" textAnchor="end">{v}%</text>
-              </g>
-            )
-          })}
-
-          <path d={whitePath} className="graph-line graph-line-white" />
-          <path d={drawPath} className="graph-line graph-line-draw" />
-          <path d={blackPath} className="graph-line graph-line-black" />
-          {points.length === 1 && (
-            <>
-              <circle cx={toX(points[0]!.index)} cy={toY(points[0]!.white)} r={2.8} className="graph-point graph-point-white" />
-              <circle cx={toX(points[0]!.index)} cy={toY(points[0]!.draw)} r={2.8} className="graph-point graph-point-draw" />
-              <circle cx={toX(points[0]!.index)} cy={toY(points[0]!.black)} r={2.8} className="graph-point graph-point-black" />
-            </>
-          )}
-
-          {points.map((p) => {
-            if (p.index > 0 && p.index % xTickStep === 0) {
-              const x = toX(p.index)
-              return (
-                <g key={`wdl-x-${p.index}`}>
-                  <line x1={x} x2={x} y1={height - padBottom} y2={height - padBottom + 6} stroke="rgba(240, 246, 252, 0.2)" strokeWidth="1" />
-                  <text x={x} y={height - padBottom + 20} className="graph-grid-text" textAnchor="middle">{formatGraphAxisLabel(p)}</text>
-                </g>
-              )
-            }
-            return null
-          })}
-
-          {currentLineX !== null && (
-            <line
-              x1={currentLineX}
-              x2={currentLineX}
-              y1={padTop}
-              y2={height - padBottom}
-              stroke="rgba(255, 255, 255, 0.8)"
-              strokeWidth="2"
-              strokeDasharray="4 4"
-              style={{ pointerEvents: 'none' }}
-            />
-          )}
-        </svg>
-      </div>
-    </div>
-  )
-})
