@@ -491,6 +491,7 @@ const BOARD_ARROW_OPTIONS = {
  * Ctrl on a Mac.
  */
 const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
+  { keys: ['N'], action: 'New game' },
   { keys: ['←', '→'], action: 'Previous / next move' },
   { keys: ['Home', 'End'], action: 'First / last position' },
   { keys: ['F'], action: 'Flip the board' },
@@ -974,6 +975,8 @@ function App() {
   const requestThreatRef = useRef<() => void>(() => {})
   /** Same reason as `requestThreatRef`: the keydown handler predates it. */
   const takebackMoveRef = useRef<() => void>(() => {})
+  /** Same again: New Game is declared with the other dialog openers, below. */
+  const openNewGameDialogRef = useRef<() => void>(() => {})
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1006,6 +1009,16 @@ function App() {
       if (e.key.toLowerCase() === 'f') {
         e.preventDefault()
         setOrientation(value => value === 'white' ? 'black' : 'white')
+      }
+      // The command palette printed "N" beside New game from the day it landed
+      // and nothing here answered it. A shortcut a reader is shown and cannot
+      // press is worse than one that is not offered: the palette, this handler
+      // and the Settings list are the app's three answers to "what can I
+      // press", and they have to agree. It opens a dialog with a Cancel, which
+      // is the whole reason it is safe to bind a bare letter to.
+      if (e.key.toLowerCase() === 'n') {
+        e.preventDefault()
+        openNewGameDialogRef.current()
       }
       if (e.key.toLowerCase() === 't' && workspaceMode === 'analysis') {
         e.preventDefault()
@@ -3178,6 +3191,7 @@ function App() {
     setShowLibraryDialog(false)
     setShowNewGameDialog(true)
   }, [rememberModalTrigger])
+  openNewGameDialogRef.current = openNewGameDialog
   const openPgnDialog = useCallback(() => {
     rememberModalTrigger()
     setSettingsOpen(false)
