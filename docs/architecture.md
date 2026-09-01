@@ -198,6 +198,37 @@ after a 429. Tokens are session-only and never persisted.
   `engine/positionSetup.ts`.
 - Share links: `engine/shareLink.ts` (FEN in the URL hash).
 
+## The board had no labels until it was touched
+
+`syncRenderedBoardAccessibility` writes each square's description onto the DOM
+`react-chessboard` renders, because that DOM belongs to a third party. It ran
+three times per position: immediately, on the next animation frame, and again
+after 360ms. Its effect's dependencies are the position, the selection and the
+legal targets — none of which change again until the reader does something.
+
+`<Chessboard>` is held back until its width has been measured (see the section
+below). So the three attempts race the board's mount, and when they lose, every
+square stays anonymous until the first click — which is precisely the state a
+screen reader user cannot get out of, because the interaction that would fix it
+is the one the labels exist to make possible.
+
+Seen in the browser pane, where `document.hidden` is true and animation frames
+are throttled: **0 labelled elements on load, 96 after one click.** The pane
+makes it reproducible rather than causing it; anything that delays the first
+paint — a slow phone, a cold WASM boot — races the same way.
+
+**Fixed** by making the sync report whether it found a board and having the
+caller keep asking on each frame until it does, capped at
+`BOARD_A11Y_SYNC_MAX_RETRIES`. It costs one extra frame in the normal case and
+stops the moment it succeeds. Same load now: 64 squares labelled, no
+interaction.
+
+The function moved to `components/boardAccessibilitySync.ts` with it, and is
+tested against a stubbed `document` — four calls are all it makes of one, so it
+needs no DOM library to check that it labels what it finds, says so when there
+is nothing to label, makes an empty legal target focusable, and gives that
+focusability back.
+
 ## Board measurement in a zero-sized viewport
 
 `react-chessboard` measures its own container and throws `Square width not

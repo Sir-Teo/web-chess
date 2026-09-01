@@ -96,8 +96,9 @@ import {
   tablebaseMoveSummary,
   tablebaseSummary,
 } from './engine/tablebaseLabels'
-import { BOARD_SQUARES, describeBoardSquare, isBoardSquare } from './engine/boardAccessibility'
-import { isBoardInputLocked } from './engine/boardInput'
+import { isBoardSquare } from './engine/boardAccessibility'
+import { BOARD_A11Y_SYNC_MAX_RETRIES, syncRenderedBoardAccessibility } from './components/boardAccessibilitySync'
+import { isBoardInputLocked, isPromotionMove } from './engine/boardInput'
 import { boardSizing, isMobileViewport } from './engine/boardSizing'
 import {
   applyPremove,
@@ -186,7 +187,7 @@ import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, Ico
 import { isPlainShortcut, isTypingTarget } from './components/shortcutKeys'
 import { CommandPaletteDialog } from './components/CommandPaletteDialog'
 import type { Command } from './components/commandPalette'
-import { COMMAND_PALETTE_ARIA_KEYSHORTCUTS, commandPaletteShortcutLabel } from './components/commandPalette'
+import { COMMAND_PALETTE_ARIA_KEYSHORTCUTS, commandPaletteShortcutLabel, isCommandPaletteChord } from './components/commandPalette'
 import './App.css'
 
 const NewGameDialog = lazy(() =>
@@ -299,27 +300,6 @@ type FenLoadOptions = {
 }
 
 
-/**
- * Read once, lazily: detectEngineCapabilities touches navigator, which is not
- * there at module scope in a test or a prerender.
- */
-
-
-
-/**
- * Command+K on a Mac, Control+K elsewhere, with nothing else held.
- *
- * The one chord this app claims. It is declared as a chord rather than by
- * loosening `isPlainShortcut`, which exists precisely to keep the browser's own
- * combinations — Find, Back — out of the app's hands. No browser owns Ctrl/Cmd+K
- * and it is the near-universal palette binding.
- */
-function isCommandPaletteChord(event: KeyboardEvent): boolean {
-  return event.key.toLowerCase() === 'k'
-    && (event.metaKey || event.ctrlKey)
-    && !event.altKey
-    && !event.shiftKey
-}
 
 
 
@@ -417,43 +397,6 @@ const NOTATION_BASE_STYLE = {
 
 function notationStyle(color: string) {
   return { color }
-}
-
-function isPromotionMove(chess: Chess, from: Square, to: Square): boolean {
-  const piece = chess.get(from)
-  if (!piece || piece.type !== 'p') return false
-  return chess.moves({ square: from, verbose: true }).some(move => move.to === to && move.flags.includes('p'))
-}
-
-function syncRenderedBoardAccessibility(chess: Chess, selectedSquare: Square | null, legalTargets: Square[]) {
-  const legalTargetSet = new Set(legalTargets)
-
-  for (const square of BOARD_SQUARES) {
-    const squareEl = document.getElementById(`chessboard-square-${square}`)
-    if (!squareEl) continue
-
-    const label = describeBoardSquare(chess, square, { selectedSquare, legalTargets })
-    squareEl.setAttribute('aria-label', label)
-    squareEl.setAttribute('title', label)
-
-    for (const interactiveEl of squareEl.querySelectorAll<HTMLElement>('button, [role="button"]')) {
-      interactiveEl.setAttribute('aria-label', label)
-      interactiveEl.setAttribute('title', label)
-    }
-
-    const shouldExposeEmptyTarget = !squareEl.querySelector('button, [role="button"]')
-      && Boolean(selectedSquare)
-      && legalTargetSet.has(square)
-    if (shouldExposeEmptyTarget) {
-      squareEl.setAttribute('role', 'button')
-      squareEl.setAttribute('tabindex', '0')
-      squareEl.setAttribute('data-webchess-a11y-target', 'true')
-    } else if (squareEl.getAttribute('data-webchess-a11y-target') === 'true') {
-      squareEl.removeAttribute('role')
-      squareEl.removeAttribute('tabindex')
-      squareEl.removeAttribute('data-webchess-a11y-target')
-    }
-  }
 }
 
 function uniqueSquares(squares: Square[]): Square[] {
@@ -3029,20 +2972,36 @@ function App() {
       // labelling e4 "empty" under a pawn the reader can see is worse than no
       // label. A preview has no selection and no legal targets, because
       // nothing can be moved in a position that is not the game.
-      syncRenderedBoardAccessibility(
+      const applied = syncRenderedBoardAccessibility(
         previewChess ?? game,
         previewChess ? null : selectedSquare,
         previewChess ? [] : legalTargets,
       )
       restoreBoardFocus(settled)
+      return applied
     }
-    const frame = window.requestAnimationFrame(() => sync())
+
+    // Keep looking until there is a board to label. The three fixed attempts
+    // this used to make were all spent before `<Chessboard>` mounted on a cold
+    // load, and nothing here re-runs until the reader moves -- so the board
+    // stayed unlabelled for exactly the reader who cannot move it.
+    let retryFrame: number | null = null
+    let retries = 0
+    const syncUntilBoardExists = () => {
+      retryFrame = null
+      if (sync() || retries >= BOARD_A11Y_SYNC_MAX_RETRIES) return
+      retries += 1
+      retryFrame = window.requestAnimationFrame(syncUntilBoardExists)
+    }
+
+    const frame = window.requestAnimationFrame(syncUntilBoardExists)
     const settleTimer = window.setTimeout(() => sync(true), 360)
 
     sync()
 
     return () => {
       window.cancelAnimationFrame(frame)
+      if (retryFrame !== null) window.cancelAnimationFrame(retryFrame)
       window.clearTimeout(settleTimer)
     }
   }, [fen, game, legalTargets, previewChess, selectedSquare])

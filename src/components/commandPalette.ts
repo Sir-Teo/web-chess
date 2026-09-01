@@ -135,3 +135,20 @@ export function commandPaletteShortcutLabel(): string {
  * are listed because the handler really does accept both.
  */
 export const COMMAND_PALETTE_ARIA_KEYSHORTCUTS = 'Meta+K Control+K'
+
+/**
+ * Command+K on a Mac, Control+K elsewhere, with nothing else held.
+ *
+ * The one chord this app claims. It is declared as a chord rather than by
+ * loosening `isPlainShortcut`, which exists precisely to keep the browser's own
+ * combinations — Find, Back — out of the app's hands. No browser owns Ctrl/Cmd+K
+ * and it is the near-universal palette binding.
+ */
+export function isCommandPaletteChord(
+  event: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'>,
+): boolean {
+  return event.key.toLowerCase() === 'k'
+    && (event.metaKey || event.ctrlKey)
+    && !event.altKey
+    && !event.shiftKey
+}

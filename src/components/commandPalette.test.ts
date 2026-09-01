@@ -8,6 +8,7 @@ import {
     isApplePlatform,
     rankCommands,
     readRecentCommandIds,
+    isCommandPaletteChord,
     rememberCommandId,
 } from './commandPalette'
 import { MAX_SEARCH_QUERY_LENGTH } from '../engine/searchTerms'
@@ -153,4 +154,30 @@ describe('platform-aware shortcut label', () => {
         expect(() => commandPaletteShortcutLabel()).not.toThrow()
         expect(commandPaletteShortcutLabel()).toBe('Ctrl+K')
     })
+})
+
+describe('isCommandPaletteChord', () => {
+  const chord = (over: Partial<KeyboardEvent>) => isCommandPaletteChord({
+    key: 'k', metaKey: false, ctrlKey: false, altKey: false, shiftKey: false, ...over,
+  } as KeyboardEvent)
+
+  it('takes either modifier, on every platform', () => {
+    expect(chord({ metaKey: true })).toBe(true)
+    expect(chord({ ctrlKey: true })).toBe(true)
+    expect(chord({ key: 'K', metaKey: true })).toBe(true)
+  })
+
+  it('is a chord, not a bare key', () => {
+    expect(chord({})).toBe(false)
+  })
+
+  /**
+   * Anything else held belongs to the browser or to nobody. The palette must
+   * not claim Cmd+Shift+K or Cmd+Alt+K, which other tools do use.
+   */
+  it('refuses the combinations it does not own', () => {
+    expect(chord({ metaKey: true, shiftKey: true })).toBe(false)
+    expect(chord({ ctrlKey: true, altKey: true })).toBe(false)
+    expect(chord({ key: 'j', metaKey: true })).toBe(false)
+  })
 })
