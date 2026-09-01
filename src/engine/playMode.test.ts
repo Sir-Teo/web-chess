@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aiSearchHistory, defaultOrientationForGameMode, sideToMoveColor, takebackPlyCount, takebackDisabledReason, hintDisabledReason } from './playMode'
+import { aiSearchHistory, defaultOrientationForGameMode, sideToMoveColor, takebackPlyCount, takebackDisabledReason, hintDisabledReason, describePlayEngine } from './playMode'
 
 describe('play mode defaults', () => {
   it('orients human-vs-ai games from the player side', () => {
@@ -150,5 +150,42 @@ describe('asking for a hint', () => {
   it('reads the same for a player of the black pieces', () => {
     expect(hintDisabledReason({ ...ready, playerColor: 'black', turn: 'black' })).toBeNull()
     expect(hintDisabledReason({ ...ready, playerColor: 'black', turn: 'white' })).toBe('Wait for your turn.')
+  })
+})
+
+describe('describePlayEngine', () => {
+  const base = { profileName: 'Lite Multi (Local)', difficultyLabel: 'Intermediate' }
+
+  it('reads as a sentence for every status, not only the two it was written for', () => {
+    for (const status of ['loading', 'ready', 'thinking', 'stopping', 'error', 'disabled'] as const) {
+      const { message } = describePlayEngine({ ...base, status })
+      expect(message).not.toContain(`is ${status} at`)
+      expect(message.endsWith('.')).toBe(true)
+    }
+  })
+
+  /**
+   * The case that prompted this. A play engine whose worker fails to boot has
+   * no fallback, so the opponent simply never moves -- and the whole of what
+   * the app said about it was "is error at Intermediate difficulty".
+   */
+  it('says there is nobody to play against, and what still works', () => {
+    const report = describePlayEngine({ ...base, status: 'error' })
+    expect(report.failed).toBe(true)
+    expect(report.message).toContain('nobody to play against')
+    expect(report.message).toContain('Human vs Human')
+  })
+
+  it('is not a failure while the engine is merely busy or starting', () => {
+    for (const status of ['loading', 'ready', 'thinking', 'stopping'] as const) {
+      expect(describePlayEngine({ ...base, status }).failed).toBe(false)
+    }
+  })
+
+  it('names the difficulty where the difficulty is what is being described', () => {
+    expect(describePlayEngine({ ...base, status: 'ready' }).message).toContain('Intermediate')
+    // Not while it is stopping: it is finishing a search, and its strength
+    // setting is not what the reader is waiting on.
+    expect(describePlayEngine({ ...base, status: 'stopping' }).message).not.toContain('Intermediate')
   })
 })

@@ -156,3 +156,62 @@ export function hintDisabledReason({
   if (busy) return 'Already looking.'
   return null
 }
+
+export type PlayEngineStatus = 'loading' | 'ready' | 'thinking' | 'stopping' | 'error' | 'disabled'
+
+export type PlayEngineReport = {
+  message: string
+  /** True when the opponent is not coming, so the panel can say so loudly. */
+  failed: boolean
+}
+
+/**
+ * What the Play Focus card says about the opponent.
+ *
+ * It used to interpolate the status word straight into a sentence --
+ * "`${name}` play engine is `${status}` at `${difficulty}` difficulty" -- which
+ * reads correctly for exactly two of the six values it can hold. The other four
+ * produced "is stopping at Intermediate difficulty", "is loading at ...", and,
+ * when the opponent's worker had failed to boot, **"is error at Intermediate
+ * difficulty"**: a broken sentence that was also the only sign anywhere in the
+ * app that there was nobody to play against.
+ *
+ * The failure case gets the treatment `engineBootFailureMessage` gives the
+ * analysis side: say what happened, and say what still works, because most of
+ * the app does.
+ */
+export function describePlayEngine({
+  profileName,
+  status,
+  difficultyLabel,
+}: {
+  profileName: string
+  status: PlayEngineStatus
+  difficultyLabel: string
+}): PlayEngineReport {
+  if (status === 'error') {
+    return {
+      failed: true,
+      message: `${profileName} could not start, so there is nobody to play against. `
+        + 'Reload the page to try again — Human vs Human and everything on the Analysis side are unaffected.',
+    }
+  }
+
+  if (status === 'disabled') {
+    return { failed: false, message: `${profileName} is off.` }
+  }
+
+  if (status === 'loading') {
+    return { failed: false, message: `${profileName} is starting up, at ${difficultyLabel} strength.` }
+  }
+
+  if (status === 'thinking') {
+    return { failed: false, message: `${profileName} is thinking, at ${difficultyLabel} strength.` }
+  }
+
+  if (status === 'stopping') {
+    return { failed: false, message: `${profileName} is finishing its last search.` }
+  }
+
+  return { failed: false, message: `${profileName} is ready to play, at ${difficultyLabel} strength.` }
+}

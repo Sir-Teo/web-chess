@@ -135,7 +135,7 @@ import {
 } from './engine/boardMarks'
 import { coachReadingSource, describeCoachDepth, isExactTablebaseCoachMove, selectCoachBestMove } from './engine/coach'
 import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage } from './engine/labCommands'
-import { aiSearchHistory, defaultOrientationForGameMode, hintDisabledReason, sideToMoveColor, takebackDisabledReason, takebackPlyCount } from './engine/playMode'
+import { aiSearchHistory, defaultOrientationForGameMode, describePlayEngine, hintDisabledReason, sideToMoveColor, takebackDisabledReason, takebackPlyCount } from './engine/playMode'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { DIFFICULTY_LABELS, useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
 import { useGameTree, type GameNode } from './hooks/useGameTree'
@@ -4278,6 +4278,11 @@ function App() {
   const playEngineActive = workspaceMode === 'play' && gameMode !== 'human-vs-human'
   const playEngineStatus = isAiThinking ? 'thinking' : aiPlayer.status
   const aiDifficultyLabel = DIFFICULTY_LABELS[aiDifficulty]
+  const playEngineReport = describePlayEngine({
+    profileName: aiPlayer.profileName,
+    status: playEngineStatus,
+    difficultyLabel: aiDifficultyLabel,
+  })
   const bottomStatusTitle = engineEnabled
     ? profileMessage
     : playEngineActive
@@ -5356,9 +5361,12 @@ function App() {
                   )}
                   <div className="engine-lab-card">
                     <h3><span className="section-icon"><IconSwords /></span> Play Focus</h3>
-                    <p className="panel-copy small">
+                    <p
+                      className={`panel-copy small${playEngineActive && playEngineReport.failed ? ' error-copy' : ''}`}
+                      role={playEngineActive && playEngineReport.failed ? 'alert' : undefined}
+                    >
                       {playEngineActive
-                        ? `${aiPlayer.profileName} play engine is ${playEngineStatus} at ${aiDifficultyLabel} difficulty.`
+                        ? playEngineReport.message
                         : 'Analysis engine is on standby. Use this view for clean gameplay and move navigation.'}
                     </p>
                     <label className="switch-control">
