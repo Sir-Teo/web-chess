@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Chess, type Move } from 'chess.js'
-import { detectEngineCapabilities, resolveProfile } from '../engine/profiles'
+import { detectEngineCapabilities, profileById, resolveProfile } from '../engine/profiles'
 import { createStockfishWorker } from '../engine/stockfishWorker'
 import {
     fetchTablebase,
@@ -169,6 +169,20 @@ export function useAiPlayer(enabled = true) {
     const ignoredBestMoveCountRef = useRef(0)
     const [status, setStatus] = useState<AiStatus>('loading')
     const [profileName, setProfileName] = useState('Stockfish')
+    /**
+     * The build to fall back to when the chosen one will not boot.
+     *
+     * The analysis engine has had this since it existed; the opponent had not,
+     * and the two degrade very differently. Analysis without its preferred
+     * build is analysis on fewer threads. An opponent without its build is no
+     * opponent at all: `requestMove` returns null forever and the engine simply
+     * never plays, which is a game that cannot be started rather than a game
+     * that is a little weaker.
+     *
+     * `lite-single-local` is the floor -- no isolation, no pthreads, nothing to
+     * fail past -- so a failure there is a real failure and stops here.
+     */
+    const [fallbackProfileId, setFallbackProfileId] = useState<'lite-single-local' | null>(null)
     const difficultyRef = useRef<AiDifficulty>(4)
 
     const clearRequestTimeout = useCallback(() => {
@@ -235,15 +249,20 @@ export function useAiPlayer(enabled = true) {
             }
         }
 
-        const profile = resolveProfile('auto', detectEngineCapabilities())
+        const profile = fallbackProfileId
+            ? profileById(fallbackProfileId)
+            : resolveProfile('auto', detectEngineCapabilities())
 
         try {
             const created = createStockfishWorker(profile)
             worker = created.worker
             workerBlobUrl = created.blobUrl
         } catch {
+            const canFallBack = profile.id !== 'lite-single-local'
             queueMicrotask(() => {
-                if (active) setStatus('error')
+                if (!active) return
+                setStatus(canFallBack ? 'loading' : 'error')
+                if (canFallBack) setFallbackProfileId('lite-single-local')
             })
             return () => {
                 active = false
@@ -262,13 +281,19 @@ export function useAiPlayer(enabled = true) {
             ignoredBestMoveCountRef.current = 0
             cancelTablebaseRequest()
             clearStopAckTimeout()
-            finishRequest(null, 'error')
+            // 'loading' rather than 'error' when there is somewhere to fall
+            // back to: the effect is about to re-run with the simpler build, and
+            // reporting a failure the app is in the middle of recovering from
+            // puts a red card on screen for as long as a boot takes.
+            const canFallBack = profile.id !== 'lite-single-local'
+            finishRequest(null, canFallBack ? 'loading' : 'error')
             if (workerRef.current === worker) workerRef.current = null
             try {
                 worker?.terminate()
             } catch {
                 // Ignore shutdown errors from workers that are already gone.
             }
+            if (canFallBack) setFallbackProfileId('lite-single-local')
         }
 
         worker.onmessage = (event: MessageEvent<unknown>) => {
@@ -331,7 +356,7 @@ export function useAiPlayer(enabled = true) {
             settleRequest(null)
             if (workerBlobUrl) URL.revokeObjectURL(workerBlobUrl)
         }
-    }, [applyDifficulty, cancelTablebaseRequest, clearStopAckTimeout, enabled, finishRequest, settleRequest])
+    }, [applyDifficulty, cancelTablebaseRequest, clearStopAckTimeout, enabled, fallbackProfileId, finishRequest, settleRequest])
 
     const setDifficulty = useCallback((difficulty: AiDifficulty) => {
         difficultyRef.current = difficulty
