@@ -29,12 +29,22 @@ flowchart LR
 
 ## Main Thread
 
-`src/App.tsx` is the whole application shell, and at ~5,300 lines it is by far
+`src/App.tsx` is the whole application shell, and at ~6,200 lines it is by far
 the largest file in the repo. It owns the board, the panels, every dialog, and
 all persisted settings. This is the one place the three apps diverge sharply:
 web-katrain moved the equivalent state into `store/gameStore.ts` and has
 component-level tests as a result. Breaking `App.tsx` into a store is the
-largest outstanding item in `docs/cross-app-learning-plan.md`.
+largest outstanding item in `docs/cross-app-learning-plan.md`, **and it is
+still outstanding**: every hook is still in one component.
+
+What has come out is everything that did not need the state — the two trend
+graphs, the review move list and the engine option control as components, and
+the pure logic as `engine/` modules with tests: `panelReadings`, `moveLabels`,
+`arrowColors`, `reviewLabels`, `boardSizing`, and the board's accessibility
+sync. Two defects surfaced in the moving, which is the argument for the rest of
+it: `boardSizing`'s zero-width guard and `boardAccessibilitySync`'s mount race
+were both invisible while they were twenty lines in the middle of a component
+nothing could render.
 
 What is already factored out and worth reaching for before adding to `App.tsx`:
 
