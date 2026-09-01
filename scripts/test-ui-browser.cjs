@@ -563,6 +563,12 @@ async function main() {
           ))
 
         await page.getByRole('button', { name: 'Review', exact: true }).first().click()
+        // Pro, because ACPL is a Pro reading. Coach is the default experience
+        // and shows the three accuracy percentages without it -- so a harness
+        // that never switches reads an absent tile as NaN, which is how this
+        // step first failed. Switching here also keeps the assertion honest:
+        // it is checking the number the Pro panel promises.
+        await page.getByRole('button', { name: 'Pro', exact: true }).first().click()
         const reviewGame = page.getByRole('button', { name: /^review game$/i }).first()
         await reviewGame.waitFor({ timeout: 10000 })
         await reviewGame.click()
