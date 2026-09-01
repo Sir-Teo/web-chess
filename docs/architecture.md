@@ -581,6 +581,47 @@ Measured by watching an AI vs AI game at 1+0, Maximum, both sides: **move 47
 with seven seconds each still on the clock**, where the fixed budget could not
 have reached move 31.
 
+## Ponder, and why the opponent does not
+
+Stockfish supports it — `bestmove X ponder Y` names the reply it expects, and a
+GUI can search that position while the human thinks, then send `ponderhit` and
+keep the work. It is the standard "permanent brain" of a desktop GUI, and this
+app throws the `ponder` half of every `bestmove` away.
+
+Looked at properly and **deliberately not built**, which is a different answer
+from the thread count above: there the objection was a missing handshake, and
+building the handshake made the trade worth taking. Here the objection is
+structural.
+
+**App's AI loop cancels on every re-run.** The effect that drives the opponent
+lists `fen` among its dependencies and calls `cancelAiRequest()` from its
+cleanup. So the *next* thing to happen after the engine's move lands is a
+cleanup that cancels — including a ponder started microseconds earlier. Ponder
+cannot be added to `useAiPlayer` alone; the loop in `App.tsx` has to learn the
+difference between "the position changed, stop searching" and "the position
+changed because we moved, keep searching", and that is a redesign of the one
+piece of this app with three separate bugs already recorded against it.
+
+**A stuck ponder is silent and expensive.** Every other engine state announces
+itself — `thinking`, `stopping`, a status pill. A ponder that is never stopped
+is eight cores at full tilt with the UI reading `ready`. The paths that would
+have to stop one are every path that abandons a position: pause, takeback,
+navigation, resign, new game, import, mode switch, and the tab being left open
+on a game nobody returns to. Missing one is not a wrong move, it is a laptop
+fan.
+
+**And the payoff is bounded to one difficulty.** One to seven are capped by
+`UCI_Elo` and do not play better with more search, the same reason they get one
+thread and the shorter clock share. So the whole benefit is a deeper search at
+Maximum, roughly half the time — the fraction where the predicted reply is the
+one played.
+
+What would change the answer: an AI loop whose cancellation is scoped to a
+search rather than to a render, which is one of the things splitting `App.tsx`
+into a store would give. Until then the honest version of "use the opponent's
+time well" is the clock share above, which is a larger win, costs nothing while
+nobody is thinking, and cannot leave a search running.
+
 ## The engine you play against, and how many threads it gets
 
 `useStockfishEngine` sizes its thread count with `recommendedThreadCount` and
