@@ -134,7 +134,10 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 - **Chess Logic**: `chess.js`
 - **Chess Engine**: `stockfish.js`
 - **UI Components**: `react-chessboard` plus local SVG icon components
-- **Engine Profiles**: local Stockfish 18 lite assets with optional full-strength CDN profiles
+- **Engine Profiles**: local Stockfish 18 lite assets with optional full-strength CDN profiles. On a
+  cross-origin-isolated page the multi-threaded build is chosen automatically and sized to the
+  device; both the analysis engine and the opponent fall back to the single-threaded build if it
+  cannot start, and say so.
 - **Service worker**: `public/sw.js` does two jobs at once — it adds COOP/COEP
   to its own responses, which is the only way a host like GitHub Pages can give
   the page the cross-origin isolation multi-threaded Stockfish needs, and it

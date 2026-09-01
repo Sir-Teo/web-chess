@@ -516,11 +516,24 @@ Measured in the browser, same position, same `go depth 16`:
 
 Seven times the nodes, and the game review is a few hundred of those searches.
 
+**And the opponent was not running at all.** `useAiPlayer` boots
+`resolveProfile('auto', ...)` through the same factory, so on the same machines
+it asked for the same build and got the same dead worker -- but unlike
+`useStockfishEngine` it had no fallback. `requestMove` returned null from then
+on and the engine never played a move. Confirmed by restoring the branch and
+starting a Human vs AI game: `"Lite Multi (Local) play engine is error at
+Intermediate difficulty"`, no move, ever. So on a cross-origin-isolated desktop
+-- which is what this app arranges for itself, with `vite`'s headers in dev and
+`sw.js` in production -- analysis quietly ran at a seventh of its nodes and
+*playing against the computer did not work.*
+
 **Fixed** by deleting `needsBootstrap`: every profile goes through the
 bootstrap, which is what three of the four already did.
 `stockfishWorker.test.ts` pins it by booting each profile with `Worker`, `Blob`
 and `URL.createObjectURL` stubbed and asserting what they were handed --
-reverting the branch fails two of its four tests.
+reverting the branch fails two of its four tests. `useAiPlayer` also has the
+fallback now, because "no opponent" and "a slightly weaker opponent" should not
+be the same failure.
 
 Two things worth carrying:
 
@@ -544,6 +557,12 @@ what reaches its worker: at difficulty 8 it sends only `position` and
 There is no download saving in it. The two binaries are the same size
 (`stockfish-18-lite.wasm` 6.8 MB, `...-single.wasm` 7.0 MB), so the app already
 pays for the multi-threaded build and then uses one core of it.
+
+Worth reading against "The strongest local engine never started" above, which
+was written later: when this section was written the multi-threaded build was
+not booting at all, so the opponent was not on one thread of it -- it was on
+`lite-single-local`, or on nothing. The trade below is a real one again now
+that the build works.
 
 What the threads are worth, measured at the 2000ms budget difficulty 8 uses,
 over two middlegame positions:
