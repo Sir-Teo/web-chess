@@ -38,10 +38,10 @@ import {
   getCachedOpeningExplorer,
   hasOpeningExplorerAuthToken,
   openingExplorerGameCount,
+  openingMoveGameCount,
   openingMoveActionLabel,
   shouldContinueOpeningBookLine,
   type OpeningDatabaseSource,
-  type OpeningExplorerMove,
   type OpeningSpeed,
 } from './engine/openingExplorer'
 import { parseCandidateMoveInput, describeBestMove } from './engine/candidateMoves'
@@ -52,6 +52,17 @@ import { libraryStorageIsDurable } from './engine/gameLibraryStorage'
 import { narrativeTagToneClass, narrativeTags } from './engine/narrativeTags'
 import type { ReviewPhaseFilter } from './engine/analysis'
 import { reviewImpactLabel } from './engine/reviewImpact'
+import { topArrowColor } from './engine/arrowColors'
+import { bestMoveLabel, ponderMoveLabel } from './engine/moveLabels'
+import {
+  countLabel,
+  engineTelemetryLabel,
+  formatAccuracyValue,
+  formatCentipawnLossValue,
+  formatCloudNodes,
+  knownPgnHeader,
+  percentage,
+} from './engine/panelReadings'
 import { REVIEW_LABELS } from './engine/reviewLabels'
 import { LazyDialogBoundary } from './components/LazyDialogBoundary'
 import { PhaseAccuracy } from './components/PhaseAccuracy'
@@ -338,52 +349,6 @@ function isCommandPaletteChord(event: KeyboardEvent): boolean {
 
 
 
-function moveGamesCount(move: OpeningExplorerMove): number {
-  return move.white + move.draws + move.black
-}
-
-function percentage(part: number, total: number): number {
-  if (!total) return 0
-  return (part / total) * 100
-}
-
-function formatAccuracyValue(value: number | null): string {
-  return typeof value === 'number' ? value.toFixed(1) : '--'
-}
-
-function formatCentipawnLossValue(value: number | null): string {
-  return typeof value === 'number' ? value.toFixed(0) : '--'
-}
-
-function formatCloudNodes(knodes: number): string {
-  if (knodes >= 1000) return `${(knodes / 1000).toFixed(1)}M nodes`
-  return `${knodes.toLocaleString()}k nodes`
-}
-
-function formatCompactNumber(value: number): string {
-  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
-  if (value >= 1_000) return `${Math.round(value / 1_000)}k`
-  return String(value)
-}
-
-function countLabel(count: number, singular: string, plural = `${singular}s`): string {
-  return `${count} ${count === 1 ? singular : plural}`
-}
-
-function engineTelemetryLabel(line: { depth?: number; nodes?: number; nps?: number; time?: number } | null | undefined): string | null {
-  if (!line) return null
-
-  const parts = [
-    typeof line.depth === 'number' && line.depth > 0 ? `D${line.depth}` : null,
-    typeof line.nodes === 'number' && line.nodes > 0 ? `${formatCompactNumber(line.nodes)} nodes` : null,
-    typeof line.nps === 'number' && line.nps > 0 ? `${formatCompactNumber(line.nps)} nps` : null,
-    typeof line.time === 'number' && line.time > 0 ? `${line.time} ms` : null,
-  ].filter(Boolean)
-
-  return parts.length ? parts.join(' · ') : null
-}
-
 function DialogLoadingFallback({ label }: { label: string }) {
   return (
     <div className="lazy-dialog-backdrop">
@@ -395,56 +360,10 @@ function DialogLoadingFallback({ label }: { label: string }) {
   )
 }
 
-function bestMoveLabel(fen: string, uci: string | null | undefined): string {
-  if (!uci) return '...'
-  return uciToSan(fen, uci) ?? uci
-}
-
-function ponderMoveLabel(fen: string, bestMove: string | null | undefined, ponderMove: string | null | undefined): string {
-  if (!ponderMove) return '...'
-  if (!bestMove) return bestMoveLabel(fen, ponderMove)
-
-  const replay = new Chess(fen)
-  try {
-    const move = replay.move({
-      from: bestMove.slice(0, 2),
-      to: bestMove.slice(2, 4),
-      promotion: bestMove[4],
-    })
-    if (!move) return ponderMove
-  } catch {
-    return ponderMove
-  }
-
-  return uciToSan(replay.fen(), ponderMove) ?? ponderMove
-}
-
 function resultLabel(result: HistoricalSampleGame['result']): string {
   if (result === '1-0') return 'White won'
   if (result === '0-1') return 'Black won'
   return 'Draw'
-}
-
-function clamp01(value: number): number {
-  if (value < 0) return 0
-  if (value > 1) return 1
-  return value
-}
-
-// Colour a candidate arrow by how much worse it is than the engine's best move,
-// in absolute centipawns. Relative ranking alone would paint a near-equal second
-// choice blunder-red, which misreads the position.
-const ARROW_LOSS_SCALE_CP = 150
-
-function topArrowColor(centipawnLoss: number): string {
-  const t = 1 - clamp01(Math.max(0, centipawnLoss) / ARROW_LOSS_SCALE_CP)
-  const from = { r: 248, g: 81, b: 73 } // Red (clearly worse)
-  const to = { r: 63, g: 185, b: 80 } // Green (as good as best)
-  const r = Math.round(from.r + (to.r - from.r) * t)
-  const g = Math.round(from.g + (to.g - from.g) * t)
-  const b = Math.round(from.b + (to.b - from.b) * t)
-  const alpha = (0.5 + 0.4 * t).toFixed(2)
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
 // Defaults draw a 1/5-square arrow from square centre, which buries the piece it
@@ -509,16 +428,6 @@ const NOTATION_BASE_STYLE = {
   lineHeight: 1,
   userSelect: 'none' as const,
   pointerEvents: 'none' as const,
-}
-
-/**
- * A PGN header value, or null when it says nothing. The standard fills unknown
- * Seven Tag Roster fields with "?" and an unfinished result with "*", so a
- * generated or anonymised game would otherwise be labelled "? vs ?".
- */
-function knownPgnHeader(value: string | undefined): string | null {
-  const trimmed = value?.trim()
-  return trimmed && trimmed !== '?' && trimmed !== '*' ? trimmed : null
 }
 
 function notationStyle(color: string) {
@@ -2394,7 +2303,7 @@ function App() {
         }
       }
 
-      const moveGames = moveGamesCount(move)
+      const moveGames = openingMoveGameCount(move)
       return {
         ply: index + 1,
         sideToMove,
@@ -5800,7 +5709,7 @@ function App() {
                         {openingTopMoves.length > 0 && (
                           <div className="opening-move-list">
                             {openingTopMoves.map(move => {
-                              const games = moveGamesCount(move)
+                              const games = openingMoveGameCount(move)
                               return (
                                 <button
                                   key={move.uci}

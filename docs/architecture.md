@@ -847,7 +847,8 @@ grammar, not a normalisation the format needs.
   file used to name, `describeBestMove`, `buildBatchReviewTargets`,
   `loadPersistedSettings` and `defaultHashMb` have since moved out —
   `engine/appSettings.ts` took the last two, along with every guard and bound
-  they use. `topArrowColor` is the one left, and it is nine lines.
+  they use, and `topArrowColor` — named here for a long time as the one left —
+  now lives in `engine/arrowColors.ts` with the scale it depends on.
 
   The extraction of `loadPersistedSettings` is what the rule is *for*, and the
   record of it is instructive: three settings were added to it in one session —
@@ -855,6 +856,18 @@ grammar, not a normalisation the format needs.
   normalisation that nothing exercised, before anyone stopped to move it. The
   twenty-one tests written the moment it landed in `engine/` all passed first
   time, which is the good outcome and also the reason it kept being put off.
+
+  The backlog this paragraph used to describe has since been cleared.
+  `engine/panelReadings.ts` took the display formatters, `engine/moveLabels.ts`
+  the two move-notation helpers, `engine/arrowColors.ts` the candidate arrow
+  scale, `engine/reviewLabels.ts` the classification words, and
+  `openingMoveGameCount` went to sit beside `openingExplorerGameCount`, which
+  was the same sum over a move rather than a position. All of them arrived with
+  tests, and two of those tests describe behaviour nothing had asserted:
+  `ponderMoveLabel` plays the best move before naming the reply, because the
+  reply happens a move ahead of the board, and `topArrowColor` scales by
+  absolute loss so that three moves within a tenth of a pawn read as three good
+  moves rather than as one good move and two blunders.
 
   The trap is editing one in place: `reviewImpactLabel` was modified while the
   centipawn bound was added, which quietly changed the text under every review

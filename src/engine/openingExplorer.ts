@@ -149,6 +149,14 @@ export function openingExplorerGameCount(response: Pick<OpeningExplorerResponse,
   return Math.max(0, response.white) + Math.max(0, response.draws) + Math.max(0, response.black)
 }
 
+/**
+ * How many games a single book move has, the same way
+ * {@link openingExplorerGameCount} counts a position's.
+ */
+export function openingMoveGameCount(move: Pick<OpeningExplorerMove, 'white' | 'draws' | 'black'>): number {
+  return Math.max(0, move.white) + Math.max(0, move.draws) + Math.max(0, move.black)
+}
+
 export function shouldContinueOpeningBookLine(
   response: Pick<OpeningExplorerResponse, 'white' | 'draws' | 'black' | 'moves'>,
   nextMoveUci: string,
