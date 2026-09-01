@@ -532,6 +532,33 @@ async function main() {
         .slice(0, 5))
       assert(unnamed.length === 0, `${viewport.name}: buttons with no accessible name: ${unnamed.join(', ')}`)
 
+      // And so does every square, before anything has been clicked.
+      //
+      // The board is a third party's DOM and the labels are written onto it
+      // afterwards, which used to be three fixed attempts racing the board's
+      // mount. When they lost, a screen reader found sixty-four anonymous divs
+      // and the only thing that would fix it was the interaction the labels
+      // exist to make possible. Asserted here rather than after the review,
+      // because "after a click" is exactly when it used to work.
+      //
+      // Honest about what it covers: a real browser wins that race, so this
+      // passes against the old three-attempt version too. It pins the property
+      // -- every square named, before anything is touched -- not the retry that
+      // makes the property hold on a slow or throttled paint.
+      const boardLabels = await page.evaluate(() => {
+        const squares = [...document.querySelectorAll('div[id^="chessboard-square-"]')]
+        return {
+          total: squares.length,
+          labelled: squares.filter(el => el.getAttribute('aria-label')).length,
+          sample: squares[0]?.getAttribute('aria-label') ?? null,
+        }
+      })
+      assert(boardLabels.total === 64, `${viewport.name}: the board rendered ${boardLabels.total} squares`)
+      assert(boardLabels.labelled === 64,
+        `${viewport.name}: only ${boardLabels.labelled} of 64 squares are labelled before any interaction`)
+      assert(/^[a-h][1-8], /.test(boardLabels.sample || ''),
+        `${viewport.name}: a square label reads "${boardLabels.sample}"`)
+
       // The whole point of the tier: a review, driven through the UI, against
       // an engine that answers the same way every time. Desktop only -- the
       // mobile layout reaches the same code through a different set of taps,
