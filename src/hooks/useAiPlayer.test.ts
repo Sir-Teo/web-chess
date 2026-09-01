@@ -21,14 +21,24 @@ describe('AI difficulty UCI commands', () => {
         expect(aiDifficultyCommands(1)).toEqual([
             'setoption name UCI_LimitStrength value true',
             'setoption name UCI_Elo value 1320',
-            'setoption name Skill Level value 0',
         ])
 
         expect(aiDifficultyCommands(4)).toEqual([
             'setoption name UCI_LimitStrength value true',
             'setoption name UCI_Elo value 1900',
-            'setoption name Skill Level value 9',
         ])
+    })
+
+    /**
+     * Stockfish reads `UCI_Elo` in preference to `Skill Level` while
+     * `UCI_LimitStrength` is on, so a `Skill Level` sent alongside it is a
+     * second strength control that does nothing -- and disagrees with the one
+     * that works.
+     */
+    it('does not send a Skill Level the engine will ignore', () => {
+        for (const difficulty of [1, 2, 3, 4, 5, 6, 7] as const) {
+            expect(aiDifficultyCommands(difficulty).join(' ')).not.toContain('Skill Level')
+        }
     })
 
     it('turns off Stockfish strength limiting at maximum difficulty', () => {
@@ -37,6 +47,17 @@ describe('AI difficulty UCI commands', () => {
             'setoption name Skill Level value 20',
         ])
         expect(aiDifficultyCommands(8).join(' ')).not.toContain('UCI_Elo')
+    })
+
+    /**
+     * Maximum's `Skill Level 20` is the one that matters: it is the only level
+     * that turns `UCI_LimitStrength` off, and with it off the engine starts
+     * reading `Skill Level` again -- so without this, a game switched down to
+     * Novice and back up would leave "Maximum" playing at whatever level the
+     * old code had last written.
+     */
+    it('restores full skill when it stops limiting strength', () => {
+        expect(aiDifficultyCommands(8)).toContain('setoption name Skill Level value 20')
     })
 })
 

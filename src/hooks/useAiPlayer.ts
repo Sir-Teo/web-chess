@@ -57,21 +57,33 @@ export const DIFFICULTY_LABELS: Record<AiDifficulty, string> = {
     8: 'Maximum',
 }
 
+/**
+ * The options that set the opponent's strength, and only the ones the engine
+ * will read.
+ *
+ * Stockfish documents that **`UCI_Elo` takes precedence over `Skill Level`**:
+ * with `UCI_LimitStrength` on it derives its own internal level from the Elo
+ * and the `Skill Level` option is not consulted. So every level below Maximum
+ * was sending a third option the engine ignored -- and, worse, one that reads
+ * as a second, disagreeing strength control to anyone in the Engine Lab
+ * watching the values.
+ *
+ * Maximum is the exception and its `Skill Level 20` is load-bearing. It turns
+ * `UCI_LimitStrength` *off*, at which point `Skill Level` starts being read
+ * again -- and whatever an earlier difficulty left behind would silently
+ * weaken the "Maximum" opponent. Sending 20 is what undoes that.
+ */
 export function aiDifficultyCommands(difficulty: AiDifficulty): string[] {
-    const skillLevel = Math.round(((difficulty - 1) / 7) * 20)
-
     if (difficulty === 8) {
         return [
             'setoption name UCI_LimitStrength value false',
-            `setoption name Skill Level value ${skillLevel}`,
+            'setoption name Skill Level value 20',
         ]
     }
 
-    const elo = DIFFICULTY_ELO[difficulty]
     return [
         'setoption name UCI_LimitStrength value true',
-        `setoption name UCI_Elo value ${elo}`,
-        `setoption name Skill Level value ${skillLevel}`,
+        `setoption name UCI_Elo value ${DIFFICULTY_ELO[difficulty]}`,
     ]
 }
 
