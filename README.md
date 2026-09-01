@@ -63,6 +63,14 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   Lines panel or the Coach card — and the board walks into the line up to that
   move. It lands as a variation like any other, so it can be reviewed, promoted
   to the main line, or discarded.
+- **See a line without playing it**: point at any move in a principal
+  variation — in the Lines panel or the Coach card — and the board shows that
+  position, ringed in green, with the move that reached it drawn on. Nothing
+  else moves: not the evaluation, not the move list, not the engine. Take the
+  mouse away and the board is back. Clicking is unchanged and still walks the
+  line into the game as a variation, so reading three lines no longer means
+  committing to three branches and navigating out of each. Borrowed from
+  Nibbler, which answers the same question the same way.
 - **Threats**: `T`, or the button in the Coach card, asks what the opponent is
   threatening — a null-move search, drawn on the board in violet so it reads as
   neither the move that was played nor a move the engine recommends.

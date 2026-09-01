@@ -5091,3 +5091,27 @@ button.hint-btn {
   display: flex;
   margin: 0.6rem 0 0.2rem;
 }
+
+/* A line being previewed: the board is showing a position the game has not
+   reached, so it is ringed in the green the engine's own moves already use and
+   the strip above says which move it is. */
+.board-surface.previewing :is(.board, [data-column]) {
+  outline: none;
+}
+
+.board-surface.previewing {
+  box-shadow: 0 0 0 2px rgba(63, 185, 80, 0.55);
+  border-radius: 14px;
+}
+
+.board-meta-preview {
+  flex: 0 0 auto;
+  border: 1px solid rgba(63, 185, 80, 0.5);
+  border-radius: var(--radius-pill);
+  padding: 0.12rem 0.44rem;
+  background: rgba(63, 185, 80, 0.14);
+  color: var(--quality-best);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  white-space: nowrap;
+}

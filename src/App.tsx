@@ -15,6 +15,7 @@ import {
   formatWhitePovEvaluation,
   pvToSan,
   pvLineMoves,
+  type PvMove,
   scoreToCp,
   rankCriticalMoments,
   summarizeAccuracy,
@@ -511,6 +512,16 @@ const PREMOVE_SQUARE_STYLE = {
   backgroundColor: 'rgba(59, 130, 246, 0.28)',
 }
 
+/**
+ * The two squares of a move being previewed. Green, because a previewed move is
+ * one the engine put in a line -- the same thing the candidate arrows and the
+ * hint mean -- rather than anything the reader claimed about the square.
+ */
+const PREVIEW_SQUARE_STYLE = {
+  boxShadow: 'inset 0 0 0 3px rgba(63, 185, 80, 0.85)',
+  backgroundColor: 'rgba(63, 185, 80, 0.22)',
+}
+
 const NOTATION_BASE_STYLE = {
   position: 'absolute' as const,
   fontWeight: 700,
@@ -757,6 +768,19 @@ function App() {
   /** The move a hint suggested, and whether one is being searched for. */
   const [hintMove, setHintMove] = useState<string | null>(null)
   const [isHinting, setIsHinting] = useState(false)
+  /**
+   * A position from an engine line, shown on the board while the reader points
+   * at the move -- and gone when they point somewhere else.
+   *
+   * Clicking a principal variation walks into it for real, as a variation that
+   * can be reviewed or discarded. That is the right thing to *do* with a line
+   * and the wrong thing to do to *read* one: a reader comparing three lines had
+   * to commit to each and navigate back out, leaving three branches behind.
+   * Nibbler answers it by playing the line out on the board without changing
+   * the position being analysed, which is what this is. Nothing else moves --
+   * not the evaluation, not the move list, not the engine.
+   */
+  const [linePreview, setLinePreview] = useState<{ fen: string; uci: string; label: string } | null>(null)
   const rightClickAnchorRef = useRef<string | null>(null)
   const promotionDialogRef = useRef<HTMLDivElement>(null)
 
@@ -2516,6 +2540,16 @@ function App() {
 
     const list: Array<{ startSquare: string; endSquare: string; color: string }> = []
 
+    // Every arrow below is about the position on the game board, and none of
+    // them is true of the one being previewed. The move that got there is.
+    if (linePreview) {
+      return [{
+        startSquare: linePreview.uci.slice(0, 2),
+        endSquare: linePreview.uci.slice(2, 4),
+        color: 'rgba(63, 185, 80, 0.9)',
+      }]
+    }
+
     if (currentBoardMove) {
       list.push({ startSquare: currentBoardMove.from, endSquare: currentBoardMove.to, color: 'rgba(255, 170, 0, 0.8)' })
     }
@@ -2578,7 +2612,7 @@ function App() {
     }
 
     return list
-  }, [activeThreat, currentBoardMove, engineEnabled, fen, hintMove, lines, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
+  }, [activeThreat, currentBoardMove, engineEnabled, fen, hintMove, linePreview, lines, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
 
   const playSound = useMoveSound(soundEnabled)
   /**
@@ -2837,6 +2871,34 @@ function App() {
     [cancelStaleBackgroundAnalysis, clearBoardSelection, engineEnabled, game, gameTree, playMoveSound, stop],
   )
 
+  /**
+   * Hover or focus a move in a line: show where it lands.
+   *
+   * `fenAfter` is already on the step -- `pvLineMoves` replays the line to
+   * build the SAN, so the position after each move is a by-product rather than
+   * work this repeats.
+   */
+  const showLinePreview = useCallback((step: PvMove) => {
+    setLinePreview({ fen: step.fenAfter, uci: step.uci, label: step.numbered })
+  }, [])
+  const clearLinePreview = useCallback(() => setLinePreview(null), [])
+
+  // A preview belongs to the position it was previewed from. Same rule as the
+  // premove, the hint and the drawn marks.
+  useEffect(() => {
+    setLinePreview(null)
+  }, [fen])
+
+  const previewChess = useMemo(() => {
+    if (!linePreview) return null
+    try {
+      return new Chess(linePreview.fen)
+    } catch {
+      return null
+    }
+  }, [linePreview])
+  const isPreviewingLine = previewChess !== null
+
   const beginPromotion = useCallback(
     (from: Square, to: Square) => {
       setPendingPromotion({ from, to })
@@ -3008,7 +3070,15 @@ function App() {
     }
 
     const sync = (settled = false) => {
-      syncRenderedBoardAccessibility(game, selectedSquare, legalTargets)
+      // The board as drawn, which is the previewed position while one is up:
+      // labelling e4 "empty" under a pawn the reader can see is worse than no
+      // label. A preview has no selection and no legal targets, because
+      // nothing can be moved in a position that is not the game.
+      syncRenderedBoardAccessibility(
+        previewChess ?? game,
+        previewChess ? null : selectedSquare,
+        previewChess ? [] : legalTargets,
+      )
       restoreBoardFocus(settled)
     }
     const frame = window.requestAnimationFrame(() => sync())
@@ -3020,7 +3090,7 @@ function App() {
       window.cancelAnimationFrame(frame)
       window.clearTimeout(settleTimer)
     }
-  }, [fen, game, legalTargets, selectedSquare])
+  }, [fen, game, legalTargets, previewChess, selectedSquare])
 
   const handleBoardKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -4090,8 +4160,14 @@ function App() {
     pliesPlayed: mainLineNodes.length - 1,
     gameAlreadyOver: Boolean(gameResultLabel),
   })
-  const turnLabel = gameResultLabel
-    ?? `${game.turn() === 'w' ? 'White' : 'Black'} to move${game.isCheck() ? ' · Check' : ''}`
+  // The strip describes the board, and while a line is being previewed the
+  // board is the previewed position -- so "White to move" over a position where
+  // it is Black's turn would be the one thing on screen that is simply wrong.
+  // The Preview pill beside it says the position is not the game's.
+  const turnLabel = previewChess
+    ? `${previewChess.turn() === 'w' ? 'White' : 'Black'} to move${previewChess.isCheck() ? ' · Check' : ''}`
+    : gameResultLabel
+      ?? `${game.turn() === 'w' ? 'White' : 'Black'} to move${game.isCheck() ? ' · Check' : ''}`
   // An imported game already carries who played it. The app parsed those
   // headers, re-exported them, and never once showed them.
   const importedWhite = knownPgnHeader(pgnHeaders.White)
@@ -4102,7 +4178,7 @@ function App() {
   const importedResult = knownPgnHeader(pgnHeaders.Result)
   const importedGameTitle = [importedPlayers, knownPgnHeader(pgnHeaders.Event), importedResult]
     .filter(Boolean).join(' · ')
-  const moveNumberLabel = `Move ${fen.split(/\s+/)[5] ?? '1'}`
+  const moveNumberLabel = `Move ${(linePreview?.fen ?? fen).split(/\s+/)[5] ?? '1'}`
   // Counted from the game's own root rather than the standard array, so a
   // position pasted in as a FEN does not open fourteen captures down.
   const material = useMemo(
@@ -4427,6 +4503,16 @@ function App() {
                 <p className="panel-copy small pointer-coarse-only">
                   Drawing arrows and marking squares needs a mouse — they are on the right button, and
                   there is no touch equivalent yet.
+                </p>
+                {/* Hover has no touch equivalent either, but the click it
+                    replaces does, so the coarse-pointer copy says what to press
+                    rather than describing a gesture the screen cannot make. */}
+                <p className="panel-copy small pointer-fine-only">
+                  Point at any move in an engine line to see that position on the board without playing
+                  it. Click it to play the line into the game as a variation.
+                </p>
+                <p className="panel-copy small pointer-coarse-only">
+                  Tap any move in an engine line to play the line into the game as a variation.
                 </p>
                 {engineEnabled && workspaceMode === 'analysis' && (
                   <details className="advanced-settings" open>
@@ -4868,10 +4954,20 @@ function App() {
         >
           <div className="board-layout">
             <div className="board-meta-strip" aria-label="Current game state">
-              <span className={`turn-pill ${gameResultLabel ? 'final' : game.turn() === 'w' ? 'white' : 'black'}`}>
+              <span className={`turn-pill ${previewChess
+                ? previewChess.turn() === 'w' ? 'white' : 'black'
+                : gameResultLabel ? 'final' : game.turn() === 'w' ? 'white' : 'black'}`}>
                 {turnLabel}
               </span>
               <span className="board-meta-move">{moveNumberLabel}</span>
+              {/* The board is showing a position the game has not reached, and
+                  it has to say so: without this the only difference between a
+                  preview and the game is that the reader remembers hovering. */}
+              {linePreview && (
+                <span className="board-meta-preview" role="status">
+                  Preview · {linePreview.label}
+                </span>
+              )}
               {materialLeader && materialDetail && (
                 <span className="board-meta-material" title={materialDetail} aria-label={materialDetail}>
                   {materialLeader === 'w' ? 'White' : 'Black'} {materialAdvantageLabel(material.delta, materialLeader)}
@@ -4920,7 +5016,7 @@ function App() {
               })()}
               <div className="board-area" onKeyDown={handleBoardKeyDown}>
                 <div
-                  className="board-surface"
+                  className={`board-surface${isPreviewingLine ? ' previewing' : ''}`}
                   aria-hidden={promotionDialogOpen ? true : undefined}
                   inert={promotionDialogOpen ? true : undefined}
                 >
@@ -4937,7 +5033,7 @@ function App() {
                   {renderedBoardWidth > 0 && (
                   <Chessboard
                     options={{
-                      position: fen,
+                      position: linePreview ? linePreview.fen : fen,
                       boardOrientation: orientation,
                       onPieceDrop: ({ sourceSquare, targetSquare, piece }) => {
                         if (!targetSquare) return false
@@ -4948,7 +5044,13 @@ function App() {
                       onSquareClick: ({ square }) => onSquareClick(square as Square),
                       onSquareMouseDown: handleSquareMouseDown,
                       onSquareMouseUp: handleSquareMouseUp,
-                      squareStyles: {
+                      squareStyles: linePreview ? {
+                        // Nothing the reader put on the board belongs to a
+                        // position they are only looking at. The two squares of
+                        // the previewed move do.
+                        [linePreview.uci.slice(0, 2) as Square]: PREVIEW_SQUARE_STYLE,
+                        [linePreview.uci.slice(2, 4) as Square]: PREVIEW_SQUARE_STYLE,
+                      } : {
                         // The piece stays where it is and both squares light up:
                         // nothing has been played, and pretending otherwise
                         // would show a position that does not exist.
@@ -4975,8 +5077,8 @@ function App() {
                       lightSquareNotationStyle: notationStyle(boardTheme.ink),
                       alphaNotationStyle: { ...NOTATION_BASE_STYLE, bottom: 2, right: 3, fontSize: notationFontSize },
                       numericNotationStyle: { ...NOTATION_BASE_STYLE, top: 2, left: 3, fontSize: notationFontSize },
-                      allowDrawingArrows: true,
-                      allowDragging: !boardInputLocked || premoveAllowed,
+                      allowDrawingArrows: !isPreviewingLine,
+                      allowDragging: !isPreviewingLine && (!boardInputLocked || premoveAllowed),
                       darkSquareStyle: { backgroundColor: boardTheme.dark },
                       lightSquareStyle: { backgroundColor: boardTheme.light },
                       boardStyle: {
@@ -5357,7 +5459,11 @@ function App() {
                               type="button"
                               className="pv-move"
                               onClick={() => playPvLine(lineFen, source!.pv, step.index)}
-                              title={`Play the line to ${step.san}`}
+                              onMouseEnter={() => showLinePreview(step)}
+                              onMouseLeave={clearLinePreview}
+                              onFocus={() => showLinePreview(step)}
+                              onBlur={clearLinePreview}
+                              title={`Point at ${step.san} to see the position; click to play the line here`}
                               aria-label={`Play this line up to ${step.numbered}`}
                             >
                               {step.prefix && <span className="pv-move-number">{step.prefix}</span>}
@@ -5692,7 +5798,11 @@ function App() {
                                     type="button"
                                     className="pv-move"
                                     onClick={() => playPvLine(lineFen, line.pv, step.index)}
-                                    title={`Play the line to ${step.san}`}
+                                    onMouseEnter={() => showLinePreview(step)}
+                                    onMouseLeave={clearLinePreview}
+                                    onFocus={() => showLinePreview(step)}
+                                    onBlur={clearLinePreview}
+                                    title={`Point at ${step.san} to see the position; click to play the line here`}
                                     aria-label={`Play this line up to ${step.numbered}`}
                                   >
                                     {step.prefix && <span className="pv-move-number">{step.prefix}</span>}
