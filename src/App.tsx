@@ -2227,6 +2227,9 @@ function App() {
     setReviewBookTerminalPly(null)
     if (workspaceMode !== 'analysis') return
     if (analysisTab !== 'review') return
+    // Coach mode does not render the card these rows fill, so a review there
+    // was walking thirty positions past Lichess for nothing.
+    if (analysisExperience !== 'pro') return
     if (!mainLineUciMoves.length) return
     if (!hasOpeningExplorerToken) return
 
@@ -2268,7 +2271,7 @@ function App() {
       cancelled = true
       controller.abort()
     }
-  }, [analysisTab, currentRootFen, hasOpeningExplorerToken, mainLineUciMoves, openingAuthToken, openingRatings, openingSource, openingSpeeds, reviewBookPrefixLength, workspaceMode])
+  }, [analysisExperience, analysisTab, currentRootFen, hasOpeningExplorerToken, mainLineUciMoves, openingAuthToken, openingRatings, openingSource, openingSpeeds, reviewBookPrefixLength, workspaceMode])
 
   const reviewBookRows = useMemo(() => {
     void openingPrefetchTick
@@ -4221,6 +4224,33 @@ function App() {
    * button. "Try best" beside each critical moment plays the engine's answer;
    * this is the other half, where the reader plays it.
    */
+  /**
+   * The Coach/Pro switch, on both tabs it governs.
+   *
+   * It only ever rendered on Analyze, and it decides what Review shows too --
+   * the engine columns in the move list, the ACPL tile, the Book vs Engine
+   * card. So a reader on Review could see the pro detail appear and disappear
+   * with no control in front of them to explain it.
+   */
+  const experienceToggle = (
+    <div className="analysis-experience-toggle" aria-label="Analysis experience">
+      {([
+        { id: 'beginner', label: 'Coach' },
+        { id: 'pro', label: 'Pro' },
+      ] as const).map(option => (
+        <button
+          key={option.id}
+          type="button"
+          className={`mode-pill ${analysisExperience === option.id ? 'active' : ''}`}
+          aria-pressed={analysisExperience === option.id}
+          onClick={() => setAnalysisExperience(option.id)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  )
+
   const playFromHereRow = (
     <div className="inline-actions play-from-here-row">
       <button
@@ -5414,22 +5444,7 @@ function App() {
                       change, and at the panel's default 320px a three-way split
                       cut the label off mid-word. */}
                   {playFromHereRow}
-                  <div className="analysis-experience-toggle" aria-label="Analysis experience">
-                    {([
-                      { id: 'beginner', label: 'Coach' },
-                      { id: 'pro', label: 'Pro' },
-                    ] as const).map(option => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        className={`mode-pill ${analysisExperience === option.id ? 'active' : ''}`}
-                        aria-pressed={analysisExperience === option.id}
-                        onClick={() => setAnalysisExperience(option.id)}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
+                  {experienceToggle}
                   <div className="coach-card">
                     <h3><span className="section-icon"><IconKing /></span> Coach</h3>
                     {analysisExperience === 'beginner' && coachVerdict && (
@@ -5862,6 +5877,7 @@ function App() {
                     </button>
                   </div>
                   {playFromHereRow}
+                  {experienceToggle}
                   <div className="review-scaffold">
                     <h3><span className="section-icon"><IconBarChart /></span> Review</h3>
                     <div className="review-filter-row" aria-label="Review side filter">
@@ -5893,10 +5909,16 @@ function App() {
                         <span>Black</span>
                         <strong>{formatAccuracyValue(reviewAccuracy.black)}</strong>
                       </div>
-                      <div>
-                        <span>ACPL</span>
-                        <strong>{formatCentipawnLossValue(reviewAccuracy.averageCentipawnLoss)}</strong>
-                      </div>
+                      {/* Average centipawn loss is a number you have to already
+                          know to read, and the three accuracy percentages beside
+                          it say the same thing in a scale a beginner has. Same
+                          split Analyze already makes with MultiPV and WDL. */}
+                      {analysisExperience === 'pro' && (
+                        <div>
+                          <span>ACPL</span>
+                          <strong>{formatCentipawnLossValue(reviewAccuracy.averageCentipawnLoss)}</strong>
+                        </div>
+                      )}
                       <div>
                         <span>Evaluated</span>
                         <strong>{reviewAccuracy.evaluatedMoves}/{reportedReviewRows.length}</strong>
@@ -6008,6 +6030,13 @@ function App() {
                       </p>
                     )}
                   </div>
+                  {/* Pro only, like Opening Intel and Cloud Eval on the Analyze
+                      tab, and for the same reason: it is a Lichess explorer
+                      panel that needs a personal API token. Coach mode never
+                      offers the token field, so this card's whole content there
+                      was a summary reading "token needed", a paragraph asking
+                      for one, and a button that switches to Pro. */}
+                  {analysisExperience === 'pro' && (
                   <div className="opening-intel-card review-book-card">
                     <h3><span className="section-icon"><IconSearch /></span> Book vs Engine</h3>
                     <p className="panel-copy small command-summary">
@@ -6069,6 +6098,7 @@ function App() {
                     </div>
                     )}
                   </div>
+                  )}
                   <div className="right-section">
                     <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
                     <p className="panel-copy small">Click any move to run a deeper local ponder at that position.</p>
