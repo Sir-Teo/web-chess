@@ -545,6 +545,42 @@ Two things worth carrying:
   cases that needed wrapping rather than the case that did not, so adding a
   profile meant remembering to add it there too. It now wraps everything.
 
+## The opponent did not know there was a clock
+
+`useAiPlayer` searched `go movetime DIFFICULTY_MOVETIME[difficulty]`, and
+nothing ever told it the game was timed. `DIFFICULTY_MOVETIME[8]` is 2000ms.
+
+So at Maximum on a 1+0 clock the opponent spent two seconds a move on a sixty
+second clock and **flagged itself at about move thirty**, every time, in a game
+it was otherwise winning. Seen on the board: a fresh 1+0 game, White to move,
+0:56 left after its first move, and a fixed two seconds gone per move from
+there.
+
+`aiMovetimeMs` takes the reading for the side about to move and gives it the
+ordinary sudden-death share -- a thirtieth of what is left, plus most of the
+increment -- capped at what it actually has, minus a 300ms margin for the round
+trip. That decays instead of running out: 2.0s at the start of a 1+0 game, 1.0s
+at half time, 0.33s with ten seconds left, and it can be asked with nothing on
+the clock and still answer.
+
+Two rules ride along with it, both the same rule the thread count follows:
+
+- **Maximum may spend the whole share; one to seven may not.** They are capped
+  by `UCI_Elo`, and an Elo-capped search does not get better with more time --
+  it would only make a beginner wait for a move that was already decided. So a
+  15+10 game against Maximum gets a real 38-second think, and against Novice
+  still moves in 300ms.
+- **The reading is taken after the speed throttle's delay,** not before. That
+  delay is real time off the same clock.
+
+`Move Overhead` is deliberately left at Stockfish's default: the budget is
+computed here, and two mechanisms clipping the same number would only make the
+sum hard to reason about.
+
+Measured by watching an AI vs AI game at 1+0, Maximum, both sides: **move 47
+with seven seconds each still on the clock**, where the fixed budget could not
+have reached move 31.
+
 ## The engine you play against, and how many threads it gets
 
 `useStockfishEngine` sizes its thread count with `recommendedThreadCount` and

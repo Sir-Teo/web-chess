@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { resetLichessFetchQueueForTests } from '../engine/lichessQueue'
 import {
     addStoppedSearchBestMoveAck,
+    AI_MIN_MOVETIME_MS,
     aiDifficultyCommands,
+    aiMovetimeMs,
     aiThreadCount,
     consumeStoppedSearchBestMove,
     fetchExactTablebaseMove,
@@ -225,5 +227,56 @@ describe('AI thread count', () => {
         expect(aiThreadCount(profileById('lite-single-local'), capable, 8)).toBe(1)
         expect(aiThreadCount(threaded, { ...capable, crossOriginIsolated: false }, 8)).toBe(1)
         expect(aiThreadCount(threaded, { ...capable, isMobile: true }, 8)).toBe(1)
+    })
+})
+
+describe('AI move budget', () => {
+    it('uses the difficulty budget when there is no clock', () => {
+        expect(aiMovetimeMs(8)).toBe(2000)
+        expect(aiMovetimeMs(1, null)).toBe(200)
+    })
+
+    /**
+     * The defect. `DIFFICULTY_MOVETIME[8]` is 2000ms, so Maximum on a 1+0 clock
+     * spent two seconds a move on a sixty second clock and flagged itself
+     * around move thirty, never having been told there was a clock.
+     */
+    it('shrinks with the clock instead of flagging', () => {
+        const bullet = (remainingMs: number) => aiMovetimeMs(8, { remainingMs, incrementMs: 0 })
+        expect(bullet(60_000)).toBe(2000)
+        expect(bullet(30_000)).toBe(1000)
+        expect(bullet(10_000)).toBe(333)
+        expect(bullet(2_000)).toBe(67)
+        // Whatever is left, it never asks for more than it has.
+        for (const remaining of [60_000, 30_000, 10_000, 2_000, 400, 120, 0]) {
+            expect(bullet(remaining)).toBeLessThanOrEqual(Math.max(AI_MIN_MOVETIME_MS, remaining))
+        }
+    })
+
+    it('spends the increment it is about to be given back', () => {
+        expect(aiMovetimeMs(8, { remainingMs: 180_000, incrementMs: 2_000 }))
+            .toBe(Math.round(180_000 / 30 + 2_000 * 0.8))
+    })
+
+    /**
+     * The same rule that gives them one thread: an Elo-capped search does not
+     * get better with more time, so a long think would only make a beginner
+     * wait for a move that was already decided.
+     */
+    it('never lets a capped level think longer than its own budget', () => {
+        for (const difficulty of [1, 2, 3, 4, 5, 6, 7] as const) {
+            const generous = aiMovetimeMs(difficulty, { remainingMs: 900_000, incrementMs: 10_000 })
+            expect(generous).toBeLessThanOrEqual(aiMovetimeMs(difficulty))
+        }
+    })
+
+    it('lets Maximum use a long clock, which is what a long clock is for', () => {
+        expect(aiMovetimeMs(8, { remainingMs: 900_000, incrementMs: 10_000 }))
+            .toBeGreaterThan(aiMovetimeMs(8))
+    })
+
+    it('always leaves something to move with', () => {
+        expect(aiMovetimeMs(8, { remainingMs: 0, incrementMs: 0 })).toBe(AI_MIN_MOVETIME_MS)
+        expect(aiMovetimeMs(8, { remainingMs: -5_000, incrementMs: -1 })).toBe(AI_MIN_MOVETIME_MS)
     })
 })

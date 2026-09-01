@@ -10,7 +10,10 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 - **A clock**: Pick a time control when you start a game — bullet through
   classical, or none, which stays the default. Both clocks sit in the strip
   above the board, the side to move is highlighted, tenths appear under ten
-  seconds, and running out ends the game and records it in the PGN result.
+  seconds, and running out ends the game and records it in the PGN result. The
+  engine plays to the clock rather than to a stopwatch: it takes a share of what
+  it has left, so it cannot flag itself in a bullet game, and it uses a long
+  clock when there is one to use.
   `Space` pauses the clock as well as the AI, and stepping out to Analysis stops
   it rather than letting it run while you consult the engine.
 - **Premoves**: While the engine is thinking, drag or tap your reply and it is

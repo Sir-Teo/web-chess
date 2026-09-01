@@ -45,6 +45,55 @@ const DIFFICULTY_MOVETIME: Record<AiDifficulty, number> = {
     8: 2000,
 }
 
+/**
+ * How much of the clock the opponent leaves untouched for the round trip: the
+ * `postMessage` out, the search, the `bestmove` back, and React applying the
+ * move. Its own margin rather than Stockfish's `Move Overhead`, because the
+ * budget below is computed here -- two mechanisms clipping the same number
+ * would just make the sum hard to reason about.
+ */
+export const AI_MOVE_OVERHEAD_MS = 300
+/** Below this there is no search worth running; the engine just moves. */
+export const AI_MIN_MOVETIME_MS = 50
+
+export type AiClockReading = {
+    /** What the side about to move has left, in milliseconds. */
+    remainingMs: number
+    incrementMs: number
+}
+
+/**
+ * How long the opponent may think about one move.
+ *
+ * Without a clock this is the difficulty's fixed budget, which is what it has
+ * always been. With one it is a share of what that side actually has left, and
+ * that is the bug this exists for: `DIFFICULTY_MOVETIME[8]` is 2000ms, so at
+ * Maximum on a 1+0 clock the opponent spent two seconds a move on a sixty
+ * second clock and **flagged itself around move thirty**, having never been
+ * told there was a clock at all.
+ *
+ * The share is the ordinary sudden-death rule -- a thirtieth of what is left,
+ * plus most of the increment -- which decays rather than running out: 2.0s at
+ * the start of a 1+0 game, 1.0s at half time, 0.3s with ten seconds left.
+ *
+ * Maximum is allowed to spend the whole share; one to seven are still capped at
+ * their own budget, for the same reason they get one thread. An Elo-capped
+ * search does not get better with more time, so a longer think would only make
+ * a beginner wait.
+ */
+export function aiMovetimeMs(difficulty: AiDifficulty, clock?: AiClockReading | null): number {
+    const preferred = DIFFICULTY_MOVETIME[difficulty]
+    if (!clock) return preferred
+
+    const remaining = Math.max(0, clock.remainingMs)
+    const increment = Math.max(0, clock.incrementMs)
+    const share = remaining / 30 + increment * 0.8
+    const ceiling = difficulty === 8 ? share : Math.min(preferred, share)
+    const budget = Math.min(ceiling, Math.max(0, remaining - AI_MOVE_OVERHEAD_MS))
+
+    return Math.max(AI_MIN_MOVETIME_MS, Math.round(budget))
+}
+
 const BEGINNER_RANDOM_MOVE_CHANCE: Partial<Record<AiDifficulty, number>> = {
     1: 0.38,
     2: 0.20,
@@ -483,7 +532,12 @@ export function useAiPlayer(enabled = true) {
     /** Request the engine to pick a move for the given position.
      *  Returns a promise resolving to a UCI move string (e.g. "e2e4") or null. */
     const requestMove = useCallback(
-        (fen: string, difficulty: AiDifficulty, history?: AiSearchHistory): Promise<string | null> => {
+        (
+            fen: string,
+            difficulty: AiDifficulty,
+            history?: AiSearchHistory,
+            clock?: AiClockReading | null,
+        ): Promise<string | null> => {
             if (!enabled) return Promise.resolve(null)
 
             return (async () => {
@@ -520,7 +574,7 @@ export function useAiPlayer(enabled = true) {
                     resolveRef.current = resolve
                     setStatus('thinking')
 
-                    const movetime = DIFFICULTY_MOVETIME[difficulty]
+                    const movetime = aiMovetimeMs(difficulty, clock)
                     requestTimeoutRef.current = setTimeout(() => {
                         ignoredBestMoveCountRef.current = addStoppedSearchBestMoveAck(ignoredBestMoveCountRef.current)
                         setStatus('stopping')

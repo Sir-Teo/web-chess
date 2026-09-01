@@ -1219,6 +1219,22 @@ function App() {
   const aiPlayerStatusRef = useRef(aiPlayerStatus)
   const [aiReadyTick, setAiReadyTick] = useState(0)
 
+  /**
+   * What the side to move in `searchFen` has on the clock, or null in an
+   * untimed game. Read at the moment the search is asked for, so the speed
+   * throttle's delay -- which is real time off that side's clock -- has already
+   * come out of it.
+   */
+  const readClockForSearch = useCallback((searchFen: string) => {
+    const clock = clockRef.current
+    if (!clock) return null
+    const side = searchFen.split(/\s+/)[1] === 'b' ? 'b' : 'w'
+    return {
+      remainingMs: remainingMs(clock, side, Date.now()),
+      incrementMs: clock.control.incrementMs,
+    }
+  }, [])
+
   const cancelPendingAiMove = useCallback(() => {
     cancelAiRequest()
     aiMoveScheduledRef.current = false
@@ -1303,7 +1319,10 @@ function App() {
       tree.root.fen,
       tree.currentPath().slice(1).map(node => node.uci),
     )
-    void requestAiMove(askedFor, HINT_DIFFICULTY, history)
+    // The clock is passed here too: a hint asked with eight seconds left
+    // should answer in well under eight seconds, and it is your clock running
+    // while it thinks.
+    void requestAiMove(askedFor, HINT_DIFFICULTY, history, readClockForSearch(askedFor))
       .then(uci => {
         setIsHinting(false)
         // The board may have moved on while the engine was looking.
@@ -1311,7 +1330,7 @@ function App() {
         setHintMove(uci)
       })
       .catch(() => setIsHinting(false))
-  }, [game, gameMode, isHinting, playerColor, requestAiMove, workspaceMode])
+  }, [game, gameMode, isHinting, playerColor, readClockForSearch, requestAiMove, workspaceMode])
   const requestHintRef = useRef(requestHint)
   requestHintRef.current = requestHint
 
@@ -2753,7 +2772,9 @@ function App() {
     )
 
     const doMove = () => {
-      requestAiMove(requestFen, aiDifficulty, searchHistory).then(uciMove => {
+      // Read here rather than above: the speed throttle's delay has run by now,
+      // and it came off this side's clock.
+      requestAiMove(requestFen, aiDifficulty, searchHistory, readClockForSearch(requestFen)).then(uciMove => {
         if (cancelled) return
         finishAiMove()
 
@@ -2808,7 +2829,7 @@ function App() {
       cancelAiRequest()
       finishAiMove()
     }
-  }, [aiDifficulty, aiReadyTick, cancelAiRequest, fen, game, gameMode, paused, playerColor, requestAiMove, stepRequestTick, workspaceMode])
+  }, [aiDifficulty, aiReadyTick, cancelAiRequest, fen, game, gameMode, paused, playerColor, readClockForSearch, requestAiMove, stepRequestTick, workspaceMode])
 
   // ── Human move ────────────────────────────────────────
   const clearBoardSelection = useCallback(() => {
