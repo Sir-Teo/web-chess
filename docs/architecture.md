@@ -221,6 +221,13 @@ container: only the mobile branch of the sizing maths can reach zero, because
 it is `max(0, viewport - chrome)` and goes to zero as soon as the chrome is
 wider than the window, while the desktop branch floors at 260px.
 
+The maths itself is `engine/boardSizing.ts` now, out of `App.tsx` and under
+test — the breakpoints, the per-breakpoint chrome, the measured height budget,
+the desktop floor and ceiling, and the zero this paragraph is about. Worth
+having asserted rather than described: it is rem-based on purpose, so a test
+that the budget shrinks as the root font grows is the only thing standing
+between a reader at 150% text and the bug two paragraphs up.
+
 Measured at `innerWidth` 80, the narrowest this repo's preview allows: before
 the guard, 64 squares and `Square width not found` thrown repeatedly; after,
 no board, no throw, and the rest of the app intact. At 1440x900 the board

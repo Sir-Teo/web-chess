@@ -98,6 +98,7 @@ import {
 } from './engine/tablebaseLabels'
 import { BOARD_SQUARES, describeBoardSquare, isBoardSquare } from './engine/boardAccessibility'
 import { isBoardInputLocked } from './engine/boardInput'
+import { boardSizing, isMobileViewport } from './engine/boardSizing'
 import {
   applyPremove,
   canPremove,
@@ -206,22 +207,6 @@ type SampleLibraryFilter = 'all' | HistoricalSampleFormat
 type PromotionPiece = 'q' | 'r' | 'b' | 'n'
 type PendingPromotion = { from: Square; to: Square }
 type ImportSweepProgress = { done: number; total: number; sampledFrom?: number }
-
-// Board chrome, in rem — keep in sync with --stage-pad-x, --board-frame,
-// --eval-col-w and --eval-col-gap in index.css. The board is sized in JS, so
-// anything that sits beside it has to be subtracted here or the board overflows
-// its stage; the mobile figures are the @media (max-width: 900px) overrides.
-const BOARD_CHROME = {
-  desktop: { stagePadX: 1.25, stagePadY: 1.35, frame: 0.55 },
-  mobile: { stagePadX: 0.5, stagePadY: 0.35, frame: 0.25 },
-  landscape: { stagePadX: 0.5, stagePadY: 0.5, frame: 0.25 },
-} as const
-const EVAL_COLUMN_REM = 1.625 + 0.5
-const BOARD_FRAME_BORDER = 1
-// Everything stacked with the board inside the stage: the meta strip and the
-// gap above it. The stage's own padding is per-breakpoint, so it lives in
-// BOARD_CHROME beside the horizontal figures.
-const BOARD_STACK_REM = 2.25 + 0.55
 
 // Classic scrollbars take layout width from the stacked mobile layout; overlay
 // scrollbars (every touch browser) take none. Measured once — it is a property
@@ -514,6 +499,12 @@ function App() {
   const analysisPanelRef = useRef<HTMLElement>(null)
   const revealOpeningIntelRef = useRef(false)
   const [viewport, setViewport] = useState(readViewport)
+  /**
+   * Whether the layout is stacked. Derived once and depended on by name: the
+   * effects below used `viewport.width`, which changes on every pixel of a
+   * window drag, to answer a question that changes twice.
+   */
+  const isMobileLayout = isMobileViewport(viewport)
   // The stage is sized by the row it sits in, never by the board inside it, so
   // it is safe to measure and size the board from.
   const stageHeight = useElementHeight(boardStageRef, viewport.height)
@@ -1701,7 +1692,7 @@ function App() {
       const openingIntel = openingIntelRef.current
       if (!openingIntel) return
       const panelContent = openingIntel.closest('.panel-content') as HTMLElement | null
-      const scrollContainer = viewport.width <= 900 ? mainContainerRef.current : panelContent
+      const scrollContainer = isMobileLayout ? mainContainerRef.current : panelContent
       if (!scrollContainer) {
         openingIntel.scrollIntoView({ block: 'start' })
         return
@@ -1724,7 +1715,7 @@ function App() {
       if (settleTimer) window.clearTimeout(settleTimer)
       if (finalTimer) window.clearTimeout(finalTimer)
     }
-  }, [analysisExperience, analysisTab, viewport.width])
+  }, [analysisExperience, analysisTab, isMobileLayout])
 
   const resetSavedWorkspace = useCallback(() => {
     try {
@@ -3216,7 +3207,7 @@ function App() {
 
   useEffect(() => {
     if (boardRevealTick === 0) return
-    if (viewport.width > 900) return
+    if (!isMobileLayout) return
 
     let settleTimer: ReturnType<typeof window.setTimeout> | null = null
     let finalTimer: ReturnType<typeof window.setTimeout> | null = null
@@ -3244,11 +3235,11 @@ function App() {
       if (finalTimer) window.clearTimeout(finalTimer)
       if (longSettleTimer) window.clearTimeout(longSettleTimer)
     }
-  }, [boardRevealTick, viewport.width])
+  }, [boardRevealTick, isMobileLayout])
 
   useEffect(() => {
     if (analysisPanelRevealTick === 0) return
-    if (viewport.width > 900) return
+    if (!isMobileLayout) return
     if (workspaceMode !== 'analysis') return
 
     let settleTimer: ReturnType<typeof window.setTimeout> | null = null
@@ -3274,7 +3265,7 @@ function App() {
       if (settleTimer) window.clearTimeout(settleTimer)
       if (finalTimer) window.clearTimeout(finalTimer)
     }
-  }, [analysisPanelRevealTick, viewport.width, workspaceMode])
+  }, [analysisPanelRevealTick, isMobileLayout, workspaceMode])
 
   useEffect(() => {
     if (importSweepProgress.total <= 0) return
@@ -4066,45 +4057,16 @@ function App() {
     document.addEventListener('mouseup', onUp)
   }
 
-  const isMobile = viewport.width <= 900
-  // Matches the landscape-phone media query: the one layout that lays the board
-  // beside the panels, with no room to scroll if the board overshoots.
-  const isLandscapePhone = isMobile && viewport.height <= 520 && viewport.width > viewport.height
   const leftPanelUnavailable = workspaceMode === 'play'
   const layoutLeftWidth = leftPanelUnavailable ? 0 : leftWidth
-  // Width the board can never have: the stage padding, the frame drawn around
-  // the board, and the evaluation column that sits in flow beside it. All of it
-  // is rem-based, so it grows with the user's text size.
-  const chrome = isLandscapePhone
-    ? BOARD_CHROME.landscape
-    : isMobile ? BOARD_CHROME.mobile : BOARD_CHROME.desktop
-  const boardChromeWidth = viewport.rem * (
-    2 * chrome.stagePadX
-    + 2 * chrome.frame
-    + (engineEnabled && showWdl ? EVAL_COLUMN_REM : 0)
-  ) + 2 * BOARD_FRAME_BORDER
-  // The stage stretches to the row it lives in, so its height is the space the
-  // board actually has — bars, safe areas and all — without guessing at any of
-  // their sizes. Guessing is what the old fixed allowances did, and at 150%
-  // text the bars outgrew them and the board ran under the bottom one.
-  const boardHeightBudget = stageHeight
-    - viewport.rem * (2 * chrome.stagePadY + BOARD_STACK_REM + 2 * chrome.frame)
-    - 2 * BOARD_FRAME_BORDER
-  const mobileBoardWidth = Math.min(
-    Math.max(0, viewport.width - viewport.scrollbar - boardChromeWidth),
-    isLandscapePhone ? boardHeightBudget : Math.max(300, Math.round(viewport.height * 0.46)),
-  )
-
-  // Mobile: prefer finger-friendly squares while respecting narrow screens.
-  const boardWidth = Math.floor(isMobile
-    ? mobileBoardWidth
-    : Math.min(
-      viewport.width - layoutLeftWidth - rightWidth - boardChromeWidth,
-      boardHeightBudget,
-      800,
-    ))
-  const renderedBoardWidth = isMobile ? boardWidth : Math.max(260, boardWidth)
-  const notationFontSize = `${Math.round(Math.max(10, Math.min(13, renderedBoardWidth / 32)))}px`
+  const { rendered: renderedBoardWidth, notationFontSizePx } = boardSizing({
+    viewport,
+    stageHeight,
+    leftPanelWidth: layoutLeftWidth,
+    rightPanelWidth: rightWidth,
+    showEvalColumn: engineEnabled && showWdl,
+  })
+  const notationFontSize = `${notationFontSizePx}px`
   // The strip says what the position is. Once the game is over there is no side
   // to move, and "Black to move" under a mated king was the loudest wrong thing
   // on the page.
