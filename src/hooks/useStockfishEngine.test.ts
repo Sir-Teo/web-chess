@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { profileById } from '../engine/profiles'
-import { parseInfoLine, parseOptionLine, recommendedThreadCount, shouldReplaceLiveLine, shouldStopTimedOutSearchCommand } from './useStockfishEngine'
+import { parseInfoLine, parseOptionLine, profileRuntimeMessage, recommendedThreadCount, shouldReplaceLiveLine, shouldStopTimedOutSearchCommand } from './useStockfishEngine'
 
 describe('Stockfish engine output parsing', () => {
   it('parses finite score, telemetry, WDL, and PV values from info lines', () => {
@@ -133,4 +133,40 @@ describe('holding a line against a later bound', () => {
     it('replaces one bound with another', () => {
         expect(shouldReplaceLiveLine(line(22, 300, 'upperbound'), line(22, 250, 'upperbound'))).toBe(true)
     })
+})
+
+describe('Engine profile message', () => {
+  const capable = {
+    sharedArrayBuffer: true,
+    crossOriginIsolated: true,
+    hardwareConcurrency: 8,
+    deviceMemoryGb: 8,
+    isMobile: false,
+  }
+
+  it('describes the running engine when nothing was substituted', () => {
+    const single = profileById('lite-single-local')
+    expect(profileRuntimeMessage('auto', single, capable)).toBe(single.description)
+    expect(profileRuntimeMessage('lite-single-local', single, capable)).toBe(single.description)
+  })
+
+  it('names the substitution when a chosen profile cannot run here', () => {
+    expect(profileRuntimeMessage('lite-multi-local', profileById('lite-single-local'), {
+      ...capable,
+      sharedArrayBuffer: false,
+      crossOriginIsolated: false,
+    })).toContain('needs cross-origin isolation')
+  })
+
+  /**
+   * A boot failure is the only thing that knows why the engine was replaced,
+   * and the replacement's own boot writes this message. Without the reason
+   * being carried in, `auto` answered with the fallback's description and the
+   * reader was never told the stronger build had failed to start.
+   */
+  it('keeps a boot failure\'s reason over the replacement\'s description', () => {
+    const reason = 'Lite Multi (Local) could not be started: worker sent an error. Falling back to Lite Single (Local).'
+    expect(profileRuntimeMessage('auto', profileById('lite-single-local'), capable, reason)).toBe(reason)
+    expect(profileRuntimeMessage('lite-multi-local', profileById('lite-single-local'), capable, reason)).toBe(reason)
+  })
 })

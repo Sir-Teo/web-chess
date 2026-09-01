@@ -154,11 +154,24 @@ function normalizeWorkerLines(data: string): string[] {
     .filter(Boolean)
 }
 
-function profileRuntimeMessage(
+/**
+ * What the Engine Lab says about the engine that is actually running.
+ *
+ * `fallbackReason` is why the app is not running what it chose, and it is a
+ * parameter rather than something this works out because only the boot that
+ * failed knows. Without it the reason was written by `applyFallback` and then
+ * immediately overwritten: setting the fallback re-resolves the profile, which
+ * re-runs the boot effect, whose own message is this function's answer for the
+ * *replacement*. On `auto` that answer is the replacement's description, so a
+ * multi-threaded build that failed to start left no trace anywhere.
+ */
+export function profileRuntimeMessage(
   selectedProfile: EngineProfileId,
   activeProfile: EngineProfile,
   capabilities: EngineCapabilities,
+  fallbackReason?: string | null,
 ): string {
+  if (fallbackReason) return fallbackReason
   if (selectedProfile === 'auto') return activeProfile.description
 
   const requested = profileById(selectedProfile)
@@ -329,6 +342,8 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const [fallbackOverride, setFallbackOverride] = useState<{
     selected: EngineProfileId
     profile: Exclude<EngineProfileId, 'auto'>
+    /** Why, kept so the replacement's boot can still say it. */
+    reason: string
   } | null>(null)
 
   const [status, setStatus] = useState<EngineStatus>('loading')
@@ -352,6 +367,12 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       ),
     [capabilities, fallbackOverride, selectedProfile],
   )
+
+  /**
+   * Why the running engine is not the one that was asked for, or null when it
+   * is. Cleared by choosing a different profile, which is a fresh request.
+   */
+  const activeFallbackReason = fallbackOverride?.selected === selectedProfile ? fallbackOverride.reason : null
 
   const send = useCallback((command: string) => {
     workerRef.current?.postMessage(command)
@@ -670,12 +691,14 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     const applyFallback = (reason: string) => {
       if (profile.id !== 'lite-single-local') {
         const fallback = resolveProfile('lite-single-local', capabilities)
+        const message = `${reason} Falling back to ${fallback.name}.`
         setFallbackOverride({
           selected: selectedProfile,
           profile: 'lite-single-local',
+          reason: message,
         })
         setActiveProfile(fallback)
-        setProfileMessage(`${reason} Falling back to ${fallback.name}.`)
+        setProfileMessage(message)
       } else {
         setProfileMessage(reason)
       }
@@ -744,7 +767,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       setActiveGoCommand('')
       setQueueLength(0)
       setActiveProfile(profile)
-      setProfileMessage(profileRuntimeMessage(selectedProfile, profile, capabilities))
+      setProfileMessage(profileRuntimeMessage(selectedProfile, profile, capabilities, activeFallbackReason))
     })
 
     worker.onmessage = (event: MessageEvent<unknown>) => {
@@ -893,6 +916,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       if (workerBlobUrl) URL.revokeObjectURL(workerBlobUrl)
     }
   }, [
+    activeFallbackReason,
     capabilities,
     clearLinesMapFlushTimer,
     dispatchQueuedLine,
