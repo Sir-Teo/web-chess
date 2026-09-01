@@ -484,6 +484,54 @@ because the fix someone would reach for — memoising subtrees, splitting
 testability, which is the reason `docs/cross-app-learning-plan.md` gives; not
 for speed.
 
+## The strongest local engine never started
+
+`auto` picks `lite-multi-local` on a cross-origin-isolated desktop, and on the
+machine this was found on -- isolation yes, `SharedArrayBuffer` yes, 18 cores,
+32GB reported -- it duly picked it. The Engine Lab still read:
+
+    Loaded: Lite Single (Local)
+
+`createStockfishWorker` wrapped a profile in a bootstrap blob only when
+`needsBootstrap` said so, and that was `source === 'cdn' || id ===
+'lite-single-local'`. Every profile *except* the local multi-threaded one. So
+`lite-multi-local` alone was booted as a bare `new Worker(workerPath)` -- and
+it is the one local build that spawns pthread workers, which is exactly what
+the bootstrap's `self.Worker` proxy exists to serve. The pthread came up with
+no `self.window` and no wasm URL, the parent answered
+
+    worker sent an error! undefined:undefined: undefined
+
+and died. `useStockfishEngine` caught it, fell back to `lite-single-local`, and
+the replacement's own boot then overwrote `profileMessage` with its
+description -- so nothing anywhere said the strongest available engine had
+failed. Two worker requests in the network panel and one silent downgrade.
+
+Measured in the browser, same position, same `go depth 16`:
+
+| | nodes | nps | time |
+| --- | --- | --- | --- |
+| before | 336k | 443k | 758ms |
+| after | 2.4M | 3.5M | 691ms |
+
+Seven times the nodes, and the game review is a few hundred of those searches.
+
+**Fixed** by deleting `needsBootstrap`: every profile goes through the
+bootstrap, which is what three of the four already did.
+`stockfishWorker.test.ts` pins it by booting each profile with `Worker`, `Blob`
+and `URL.createObjectURL` stubbed and asserting what they were handed --
+reverting the branch fails two of its four tests.
+
+Two things worth carrying:
+
+- **A silent fallback is worse than a failure.** The app behaved correctly at
+  every step: it detected the failure, degraded, and kept working. What it did
+  not do is say so, and the cost was invisible for as long as nobody read the
+  node counts.
+- **An exemption list is the shape to distrust.** `needsBootstrap` named the
+  cases that needed wrapping rather than the case that did not, so adding a
+  profile meant remembering to add it there too. It now wraps everything.
+
 ## The engine you play against runs on one thread
 
 `useStockfishEngine` sizes its thread count with `recommendedThreadCount` and
