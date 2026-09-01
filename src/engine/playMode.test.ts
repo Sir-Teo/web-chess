@@ -189,3 +189,18 @@ describe('describePlayEngine', () => {
     expect(describePlayEngine({ ...base, status: 'stopping' }).message).not.toContain('Intermediate')
   })
 })
+
+describe('describePlayEngine thread reporting', () => {
+  const base = { profileName: 'Lite Multi (Local)', difficultyLabel: 'Maximum' }
+
+  it('says what Maximum is costing when it costs more than one core', () => {
+    expect(describePlayEngine({ ...base, status: 'ready', threadCount: 8 }).message)
+      .toContain('Maximum strength on 8 threads')
+  })
+
+  it('says nothing about threads at one, which is the unremarkable case', () => {
+    expect(describePlayEngine({ ...base, status: 'ready', threadCount: 1 }).message)
+      .not.toContain('thread')
+    expect(describePlayEngine({ ...base, status: 'ready' }).message).not.toContain('thread')
+  })
+})

@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Chess, type Move } from 'chess.js'
-import { detectEngineCapabilities, profileById, resolveProfile } from '../engine/profiles'
+import {
+    detectEngineCapabilities,
+    profileById,
+    recommendedThreadCount,
+    resolveProfile,
+    type EngineCapabilities,
+    type EngineProfile,
+} from '../engine/profiles'
 import { createStockfishWorker } from '../engine/stockfishWorker'
 import {
     fetchTablebase,
@@ -85,6 +92,29 @@ export function aiDifficultyCommands(difficulty: AiDifficulty): string[] {
         'setoption name UCI_LimitStrength value true',
         `setoption name UCI_Elo value ${DIFFICULTY_ELO[difficulty]}`,
     ]
+}
+
+/**
+ * How many threads the opponent searches on.
+ *
+ * One at every difficulty but Maximum, and that is not a compromise: one to
+ * seven set `UCI_LimitStrength` with a `UCI_Elo`, and an Elo-capped search does
+ * not get stronger with more threads. It would burn eight cores to keep playing
+ * like a 1320. Maximum is the setting that turns the limit off, so it is the
+ * only one where the cores buy anything -- roughly seven times the nodes in the
+ * same 2000ms budget, measured in `docs/architecture.md`.
+ *
+ * Whether Maximum should mean maximum is the question that section leaves open.
+ * It should: it is the level whose whole definition is "no limit", it is chosen
+ * deliberately, and it is only busy for the two seconds it is thinking.
+ */
+export function aiThreadCount(
+    profile: EngineProfile,
+    capabilities: EngineCapabilities,
+    difficulty: AiDifficulty,
+): number {
+    if (difficulty !== 8) return 1
+    return recommendedThreadCount(profile, capabilities)
 }
 
 type AiStatus = 'loading' | 'ready' | 'thinking' | 'stopping' | 'error' | 'disabled'
@@ -179,6 +209,19 @@ export function useAiPlayer(enabled = true) {
     const stopAckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const tablebaseRequestControllerRef = useRef<AbortController | null>(null)
     const ignoredBestMoveCountRef = useRef(0)
+    /**
+     * The thread count this worker was last told, and how many `readyok`s are
+     * still owed before it is safe to search.
+     *
+     * `setoption name Threads` tears down and rebuilds the engine's thread
+     * pool, and on the multi-threaded WASM build a `go` issued in the same tick
+     * as that rebuild never answers -- one `go`, no `bestmove`, the engine
+     * stuck for good. That is the hang `useStockfishEngine` records, and it is
+     * the reason the opponent had no thread count at all: there was nowhere
+     * safe to put one without a handshake. This is the handshake.
+     */
+    const appliedThreadsRef = useRef<number | null>(null)
+    const awaitingReadyRef = useRef(0)
     const [status, setStatus] = useState<AiStatus>('loading')
     const [profileName, setProfileName] = useState('Stockfish')
     /**
@@ -195,6 +238,8 @@ export function useAiPlayer(enabled = true) {
      * fail past -- so a failure there is a real failure and stops here.
      */
     const [fallbackProfileId, setFallbackProfileId] = useState<'lite-single-local' | null>(null)
+    /** What the Play panel reports, so "Maximum" can say what it is costing. */
+    const [threadCount, setThreadCount] = useState(1)
     const difficultyRef = useRef<AiDifficulty>(4)
 
     const clearRequestTimeout = useCallback(() => {
@@ -236,10 +281,34 @@ export function useAiPlayer(enabled = true) {
         setStatus(nextStatus)
     }, [settleRequest])
 
-    const applyDifficulty = useCallback((worker: Worker, difficulty: AiDifficulty) => {
+    /**
+     * Set the opponent's strength, and the thread count that strength wants.
+     *
+     * Returns whether it is safe to search straight after. It is not when the
+     * thread count changed: the pool is being rebuilt, an `isready` is
+     * outstanding, and a `go` before its `readyok` is the hang described on
+     * `appliedThreadsRef`. The caller waits for `ready` and asks again.
+     */
+    const applyStrength = useCallback((
+        worker: Worker,
+        difficulty: AiDifficulty,
+        profile: EngineProfile,
+        capabilities: EngineCapabilities,
+    ): boolean => {
         for (const command of aiDifficultyCommands(difficulty)) {
             worker.postMessage(command)
         }
+
+        const threads = aiThreadCount(profile, capabilities, difficulty)
+        if (appliedThreadsRef.current === threads) return true
+
+        appliedThreadsRef.current = threads
+        worker.postMessage(`setoption name Threads value ${threads}`)
+        awaitingReadyRef.current += 1
+        isReadyRef.current = false
+        setStatus('loading')
+        worker.postMessage('isready')
+        return false
     }, [])
 
     // Boot a fresh Stockfish worker for the AI player.
@@ -261,9 +330,10 @@ export function useAiPlayer(enabled = true) {
             }
         }
 
+        const capabilities = detectEngineCapabilities()
         const profile = fallbackProfileId
             ? profileById(fallbackProfileId)
-            : resolveProfile('auto', detectEngineCapabilities())
+            : resolveProfile('auto', capabilities)
 
         try {
             const created = createStockfishWorker(profile)
@@ -284,8 +354,13 @@ export function useAiPlayer(enabled = true) {
 
         workerRef.current = worker
         isReadyRef.current = false
+        appliedThreadsRef.current = null
+        awaitingReadyRef.current = 0
         queueMicrotask(() => {
-            if (active) setProfileName(profile.name)
+            if (active) {
+                setProfileName(profile.name)
+                setThreadCount(aiThreadCount(profile, capabilities, difficultyRef.current))
+            }
         })
 
         const failWorker = () => {
@@ -324,8 +399,13 @@ export function useAiPlayer(enabled = true) {
                 }
 
                 if (line === 'readyok' && worker) {
+                    if (awaitingReadyRef.current > 0) awaitingReadyRef.current -= 1
+                    // Re-applied on every handshake, which is cheap and means
+                    // the record of what the worker has been told cannot drift
+                    // from what it was actually sent.
+                    applyStrength(worker, difficultyRef.current, profile, capabilities)
+                    if (awaitingReadyRef.current > 0) continue
                     isReadyRef.current = true
-                    applyDifficulty(worker, difficultyRef.current)
                     setStatus('ready')
                 }
 
@@ -368,14 +448,19 @@ export function useAiPlayer(enabled = true) {
             settleRequest(null)
             if (workerBlobUrl) URL.revokeObjectURL(workerBlobUrl)
         }
-    }, [applyDifficulty, cancelTablebaseRequest, clearStopAckTimeout, enabled, fallbackProfileId, finishRequest, settleRequest])
+    }, [applyStrength, cancelTablebaseRequest, clearStopAckTimeout, enabled, fallbackProfileId, finishRequest, settleRequest])
 
     const setDifficulty = useCallback((difficulty: AiDifficulty) => {
         difficultyRef.current = difficulty
-        if (workerRef.current && isReadyRef.current) {
-            applyDifficulty(workerRef.current, difficulty)
-        }
-    }, [applyDifficulty])
+        const worker = workerRef.current
+        if (!worker || !isReadyRef.current) return
+        const capabilities = detectEngineCapabilities()
+        const profile = fallbackProfileId
+            ? profileById(fallbackProfileId)
+            : resolveProfile('auto', capabilities)
+        setThreadCount(aiThreadCount(profile, capabilities, difficulty))
+        applyStrength(worker, difficulty, profile, capabilities)
+    }, [applyStrength, fallbackProfileId])
 
     const cancelRequest = useCallback(() => {
         const worker = workerRef.current
@@ -418,12 +503,20 @@ export function useAiPlayer(enabled = true) {
                 if (!worker || !isReadyRef.current || resolveRef.current) return null
                 if (ignoredBestMoveCountRef.current > 0) return null
 
-                return new Promise((resolve) => {
-                    if (difficultyRef.current !== difficulty) {
-                        difficultyRef.current = difficulty
-                        applyDifficulty(worker, difficulty)
-                    }
+                if (difficultyRef.current !== difficulty) {
+                    difficultyRef.current = difficulty
+                    const capabilities = detectEngineCapabilities()
+                    const activeProfile = fallbackProfileId
+                        ? profileById(fallbackProfileId)
+                        : resolveProfile('auto', capabilities)
+                    setThreadCount(aiThreadCount(activeProfile, capabilities, difficulty))
+                    // A thread change is not safe to search behind. The status
+                    // goes back to 'loading' and returns to 'ready' on the
+                    // handshake, which is what re-enters the caller's loop.
+                    if (!applyStrength(worker, difficulty, activeProfile, capabilities)) return null
+                }
 
+                return new Promise((resolve) => {
                     resolveRef.current = resolve
                     setStatus('thinking')
 
@@ -445,8 +538,8 @@ export function useAiPlayer(enabled = true) {
                 })
             })()
         },
-        [applyDifficulty, cancelTablebaseRequest, clearStopAckTimeout, enabled, releaseStoppedSearch, settleRequest],
+        [applyStrength, cancelTablebaseRequest, clearStopAckTimeout, enabled, fallbackProfileId, releaseStoppedSearch, settleRequest],
     )
 
-    return { status, requestMove, setDifficulty, cancelRequest, profileName }
+    return { status, requestMove, setDifficulty, cancelRequest, profileName, threadCount }
 }

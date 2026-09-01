@@ -184,10 +184,17 @@ export function describePlayEngine({
   profileName,
   status,
   difficultyLabel,
+  threadCount = 1,
 }: {
   profileName: string
   status: PlayEngineStatus
   difficultyLabel: string
+  /**
+   * Threads the opponent is searching on. Reported only above one, because
+   * "on 1 thread" is the unremarkable case and saying it every time would make
+   * the interesting case invisible.
+   */
+  threadCount?: number
 }): PlayEngineReport {
   if (status === 'error') {
     return {
@@ -201,17 +208,21 @@ export function describePlayEngine({
     return { failed: false, message: `${profileName} is off.` }
   }
 
+  const strength = threadCount > 1
+    ? `${difficultyLabel} strength on ${threadCount} threads`
+    : `${difficultyLabel} strength`
+
   if (status === 'loading') {
-    return { failed: false, message: `${profileName} is starting up, at ${difficultyLabel} strength.` }
+    return { failed: false, message: `${profileName} is starting up, at ${strength}.` }
   }
 
   if (status === 'thinking') {
-    return { failed: false, message: `${profileName} is thinking, at ${difficultyLabel} strength.` }
+    return { failed: false, message: `${profileName} is thinking, at ${strength}.` }
   }
 
   if (status === 'stopping') {
     return { failed: false, message: `${profileName} is finishing its last search.` }
   }
 
-  return { failed: false, message: `${profileName} is ready to play, at ${difficultyLabel} strength.` }
+  return { failed: false, message: `${profileName} is ready to play, at ${strength}.` }
 }

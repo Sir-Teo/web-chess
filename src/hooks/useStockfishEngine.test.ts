@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { profileById } from '../engine/profiles'
-import { parseInfoLine, parseOptionLine, profileRuntimeMessage, recommendedThreadCount, shouldReplaceLiveLine, shouldStopTimedOutSearchCommand } from './useStockfishEngine'
+import { profileById, recommendedThreadCount } from '../engine/profiles'
+import { parseInfoLine, parseOptionLine, profileRuntimeMessage, shouldReplaceLiveLine, shouldStopTimedOutSearchCommand } from './useStockfishEngine'
 
 describe('Stockfish engine output parsing', () => {
   it('parses finite score, telemetry, WDL, and PV values from info lines', () => {

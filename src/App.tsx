@@ -4323,6 +4323,7 @@ function App() {
     profileName: aiPlayer.profileName,
     status: playEngineStatus,
     difficultyLabel: aiDifficultyLabel,
+    threadCount: aiPlayer.threadCount,
   })
   const bottomStatusTitle = engineEnabled
     ? profileMessage

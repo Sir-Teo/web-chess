@@ -3,11 +3,13 @@ import { resetLichessFetchQueueForTests } from '../engine/lichessQueue'
 import {
     addStoppedSearchBestMoveAck,
     aiDifficultyCommands,
+    aiThreadCount,
     consumeStoppedSearchBestMove,
     fetchExactTablebaseMove,
     pickBeginnerVarietyMove,
     pickExactTablebaseMove,
 } from './useAiPlayer'
+import { profileById, recommendedThreadCount } from '../engine/profiles'
 
 afterEach(() => {
     vi.restoreAllMocks()
@@ -190,5 +192,38 @@ describe('AI exact tablebase move selection', () => {
 
         await expect(pending).resolves.toBeNull()
         expect(fetchSignal?.aborted).toBe(true)
+    })
+})
+
+describe('AI thread count', () => {
+    const threaded = profileById('lite-multi-local')
+    const capable = {
+        sharedArrayBuffer: true,
+        crossOriginIsolated: true,
+        hardwareConcurrency: 16,
+        deviceMemoryGb: 16,
+        isMobile: false,
+    }
+
+    /**
+     * One to seven cap the engine with `UCI_Elo`, and an Elo-capped search does
+     * not get stronger with more threads -- it burns the cores and still plays
+     * like a 1320.
+     */
+    it('leaves an Elo-capped opponent on one thread', () => {
+        for (const difficulty of [1, 2, 3, 4, 5, 6, 7] as const) {
+            expect(aiThreadCount(threaded, capable, difficulty)).toBe(1)
+        }
+    })
+
+    it('gives Maximum the threads the device can spare', () => {
+        expect(aiThreadCount(threaded, capable, 8)).toBe(recommendedThreadCount(threaded, capable))
+        expect(aiThreadCount(threaded, capable, 8)).toBeGreaterThan(1)
+    })
+
+    it('stays on one thread where threads are not available at all', () => {
+        expect(aiThreadCount(profileById('lite-single-local'), capable, 8)).toBe(1)
+        expect(aiThreadCount(threaded, { ...capable, crossOriginIsolated: false }, 8)).toBe(1)
+        expect(aiThreadCount(threaded, { ...capable, isMobile: true }, 8)).toBe(1)
     })
 })

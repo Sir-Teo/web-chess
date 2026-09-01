@@ -545,7 +545,7 @@ Two things worth carrying:
   cases that needed wrapping rather than the case that did not, so adding a
   profile meant remembering to add it there too. It now wraps everything.
 
-## The engine you play against runs on one thread
+## The engine you play against, and how many threads it gets
 
 `useStockfishEngine` sizes its thread count with `recommendedThreadCount` and
 sends `setoption name Threads 8` on a capable desktop. `useAiPlayer` boots the
@@ -576,20 +576,28 @@ Seven times the nodes, and *lower* nominal depth — which is the normal Lazy SM
 picture and the reason depth is not comparable across thread counts. It is a
 real strength increase, but not one this table can put an Elo number on.
 
-**Deliberately not changed**, because it is a trade rather than a fix:
+**Decided, and changed.** `aiThreadCount` gives the opponent
+`recommendedThreadCount` at difficulty 8 and one thread everywhere else. The
+two halves of the old objection are answered separately:
 
-- Only difficulty 8 is affected. One to seven set `UCI_LimitStrength` with a
-  `UCI_Elo`, and an Elo-capped search does not get stronger with more threads —
-  it would just burn eight cores to play like a 1320.
-- It means putting a `setoption name Threads` back into a code path that ends
-  in `go`, which is precisely the hang recorded above. `useAiPlayer` has no
-  command queue and no `isready` handshake, so there is nowhere safe to put it
-  without building one; and a hang there does not stall a review, it stops the
-  opponent moving.
+- **Only difficulty 8 gets them,** which is the half that was always right. One
+  to seven set `UCI_LimitStrength` with a `UCI_Elo`, and an Elo-capped search
+  does not get stronger with more threads — it would burn eight cores to keep
+  playing like a 1320. Maximum is the level whose definition is "no limit", it
+  is chosen deliberately, and it is only busy for the two seconds it thinks.
+- **The handshake got built.** `applyStrength` returns whether it is safe to
+  search: when the thread count changed it has sent `setoption name Threads`
+  and an `isready`, put the status back to `loading`, and the caller waits for
+  `ready` and asks again. `awaitingReadyRef` counts the outstanding `readyok`s
+  so a boot handshake and a thread change cannot be confused for each other.
+  Nothing issues a `go` between the option and its acknowledgement, which is
+  the whole of the hang.
 
-So the question is whether "Maximum" should mean maximum at the cost of eight
-busy cores while somebody plays a casual game, and whether that is worth an
-`isready` handshake in the play engine. Worth deciding rather than drifting.
+Checked in the browser in both directions, which is where a thread change hangs
+if it is going to: Maximum boots on 8 threads and opens 1.e4; a new game at
+Novice takes it back to 1 and opens 1.d4; Maximum again returns to 8. The Play
+panel says "at Maximum strength on 8 threads", and says nothing about threads at
+one, because one is the unremarkable case.
 
 ## Play mode
 
