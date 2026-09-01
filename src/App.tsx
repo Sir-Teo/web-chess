@@ -820,7 +820,11 @@ function App() {
     setPaused(false)
     aiMoveScheduledRef.current = false
     setClock(previous => (previous && !previous.flagged ? startSide(previous, game.turn(), Date.now()) : previous))
-    setFen(f => f) // nudge AI effect
+    // `setPaused(false)` is what re-enters the AI loop: `paused` is one of that
+    // effect's dependencies. This used to also call `setFen(f => f)`, commented
+    // "nudge AI effect", which cannot do that -- React bails out of a state
+    // update to an Object.is-equal value, so no dependency changed and no
+    // effect re-ran. It was doing nothing, next to the line that does the job.
   }, [game])
 
   // ── Game tree ────────────────────────────────────────
@@ -3942,7 +3946,10 @@ function App() {
       pausedRef.current = false
       setPaused(false)
     }
-    setFen(f => f)
+    // Same as `resume`: the AI loop is re-entered by `gameMode`, by
+    // `workspaceMode`, or by `paused` above -- one of the three has always
+    // changed by the time this returns, since the caller only reaches here for
+    // a different mode or a different workspace.
   }, [cancelPendingAiMove, cancelStaleBackgroundAnalysis, clearBoardSelection, playerColor, workspaceMode])
 
   const navigateMoveListAndPause = useCallback((chess: Chess) => {
