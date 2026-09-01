@@ -71,7 +71,18 @@ type QueuedCommand = {
   discard?: boolean
 }
 
-const RAW_LINE_LIMIT = 800
+/**
+ * How often parsed engine state reaches React. The engine emits `info` far
+ * faster than the UI can usefully render, so lines are collected in a ref and
+ * published on this interval instead of per line.
+ *
+ * There is deliberately only *one* such mirror. A second one held every raw
+ * line the worker ever sent, capped at 800, and copied the array into state on
+ * the same interval -- so every search re-rendered the whole app twice as often
+ * as it needed to, and each line past the cap shifted an 800-element array, for
+ * a value no caller read. The Engine Lab console does not use it either: it
+ * streams its own output through `sendCommand`'s `stream` option.
+ */
 const ENGINE_STATE_FLUSH_INTERVAL_MS = 100
 const NO_REPLY_COMMANDS = new Set(['ucinewgame', 'position', 'setoption', 'stop', 'ponderhit', 'quit'])
 
@@ -306,8 +317,6 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const commandQueueRef = useRef<QueuedCommand[]>([])
   const nextCommandIdRef = useRef(0)
   const bootSessionRef = useRef(0)
-  const rawLinesRef = useRef<string[]>([])
-  const rawLinesFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const liveLinesMapRef = useRef<Map<number, EngineLine>>(new Map())
   /**
    * What this worker has already been told each option is. Per worker, because
@@ -330,7 +339,6 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const [lastPonderMoveFen, setLastPonderMoveFen] = useState<string | null>(null)
   const [activeGoCommand, setActiveGoCommand] = useState<string>('')
   const [queueLength, setQueueLength] = useState(0)
-  const [rawLines, setRawLines] = useState<string[]>([])
   const [linesMap, setLinesMap] = useState<Map<number, EngineLine>>(new Map())
   const [options, setOptions] = useState<EngineOption[]>([])
   const [activeProfile, setActiveProfile] = useState<EngineProfile>(() => resolveProfile(selectedProfile, capabilities))
@@ -348,39 +356,6 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const send = useCallback((command: string) => {
     workerRef.current?.postMessage(command)
   }, [])
-
-  const clearRawLinesFlushTimer = useCallback(() => {
-    if (!rawLinesFlushTimerRef.current) return
-    clearTimeout(rawLinesFlushTimerRef.current)
-    rawLinesFlushTimerRef.current = null
-  }, [])
-
-  const flushRawLines = useCallback(() => {
-    clearRawLinesFlushTimer()
-    setRawLines([...rawLinesRef.current])
-  }, [clearRawLinesFlushTimer])
-
-  const scheduleRawLinesFlush = useCallback(() => {
-    if (rawLinesFlushTimerRef.current) return
-    rawLinesFlushTimerRef.current = setTimeout(() => {
-      rawLinesFlushTimerRef.current = null
-      setRawLines([...rawLinesRef.current])
-    }, ENGINE_STATE_FLUSH_INTERVAL_MS)
-  }, [])
-
-  const appendRawLine = useCallback((line: string) => {
-    rawLinesRef.current.push(line)
-    if (rawLinesRef.current.length > RAW_LINE_LIMIT) {
-      rawLinesRef.current.splice(0, rawLinesRef.current.length - RAW_LINE_LIMIT)
-    }
-    scheduleRawLinesFlush()
-  }, [scheduleRawLinesFlush])
-
-  const resetRawLines = useCallback(() => {
-    clearRawLinesFlushTimer()
-    rawLinesRef.current = []
-    setRawLines([])
-  }, [clearRawLinesFlushTimer])
 
   const clearLinesMapFlushTimer = useCallback(() => {
     if (!linesMapFlushTimerRef.current) return
@@ -766,7 +741,6 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       setLastBestMoveFen(null)
       setLastPonderMove(null)
       setLastPonderMoveFen(null)
-      resetRawLines()
       setActiveGoCommand('')
       setQueueLength(0)
       setActiveProfile(profile)
@@ -778,7 +752,6 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       if (typeof event.data !== 'string') return
       const lines = normalizeWorkerLines(event.data)
       for (const line of lines) {
-        appendRawLine(line)
         dispatchQueuedLine(line)
 
         if (line.startsWith('__BOOT_ERROR__:')) {
@@ -857,7 +830,6 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         if (line.startsWith('bestmove ')) {
           if (!isSearchingRef.current) continue
           flushLinesMap()
-          flushRawLines()
           const parsed = parseBestMoveLine(line)
           setLastBestMove(parsed?.bestMove ?? null)
           setLastBestMoveFen(parsed?.bestMove ? currentAnalysisFenRef.current : null)
@@ -917,23 +889,18 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       pendingAnalyzeRef.current = null
       newGamePendingRef.current = false
       clearLinesMapFlushTimer()
-      clearRawLinesFlushTimer()
       rejectQueuedCommands('Engine worker terminated.')
       if (workerBlobUrl) URL.revokeObjectURL(workerBlobUrl)
     }
   }, [
-    appendRawLine,
     capabilities,
     clearLinesMapFlushTimer,
-    clearRawLinesFlushTimer,
     dispatchQueuedLine,
     enabled,
     flushLinesMap,
     flushPendingAnalyze,
-    flushRawLines,
     rejectQueuedCommands,
     resetLinesMap,
-    resetRawLines,
     resolvedProfile,
     scheduleLinesMapFlush,
     selectedProfile,
@@ -962,7 +929,6 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     lastPonderMoveFen,
     activeGoCommand,
     queueLength,
-    rawLines,
     capabilities,
     activeProfile,
     profileMessage,
