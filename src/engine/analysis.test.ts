@@ -73,6 +73,53 @@ describe('review analysis helpers', () => {
     expect(summarizeReview(rows).pending).toBe(1)
   })
 
+  it('grades a played best move Best, whatever the two searches disagree by', () => {
+    // The readings before and after a move come from two separate searches,
+    // and at a fixed depth they drift by a few dozen centipawns as a matter of
+    // course. These two drift by 80, which on its own reads "inaccuracy" --
+    // printed beside "Best e4", the move that was played. The engine's own
+    // choice cost nothing by its own account, and Lichess and chess.com both
+    // grade it so.
+    const game = new Chess()
+    const rootFen = game.fen()
+    const move = game.move('e4')
+    const afterFen = game.fen()
+
+    const playedBest = buildReviewRows(
+      [move],
+      new Map([
+        [rootFen, { cp: 50, bestMove: 'e2e4' }],
+        [afterFen, { cp: 30 }],
+      ]),
+      rootFen,
+    )
+    expect(playedBest[0]).toMatchObject({ uci: 'e2e4', quality: 'best', deltaCp: 0, winPercentLoss: 0 })
+    expect(summarizeAccuracy(playedBest).averageCentipawnLoss).toBe(0)
+
+    // The same readings with a different best move are still graded on the drop.
+    const playedOther = buildReviewRows(
+      [move],
+      new Map([
+        [rootFen, { cp: 50, bestMove: 'd2d4' }],
+        [afterFen, { cp: 30 }],
+      ]),
+      rootFen,
+    )
+    expect(playedOther[0]).toMatchObject({ quality: 'inaccuracy', deltaCp: -80 })
+
+    // A second search that likes the move *more* is information, not noise,
+    // and the gain is kept.
+    const gained = buildReviewRows(
+      [move],
+      new Map([
+        [rootFen, { cp: 50, bestMove: 'e2e4' }],
+        [afterFen, { cp: -70 }],
+      ]),
+      rootFen,
+    )
+    expect(gained[0]).toMatchObject({ quality: 'best', deltaCp: 20 })
+  })
+
   it('uses mate scores when reviewing move quality', () => {
     const game = new Chess()
     const rootFen = game.fen()

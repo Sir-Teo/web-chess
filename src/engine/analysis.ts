@@ -661,11 +661,22 @@ export function buildReviewRows(
     }
 
     // Engine score is POV side-to-move. After the move, perspective flips.
-    const deltaCp = Math.round(-after - before)
+    const measuredDeltaCp = Math.round(-after - before)
     // Both readings are from the mover's point of view, so the drop in winning
     // chances is what that player actually gave up.
     const winPercentBefore = winPercentFromCp(before)
-    const winPercentLoss = Math.max(0, winPercentBefore - winPercentFromCp(-after))
+    const measuredWinPercentLoss = Math.max(0, winPercentBefore - winPercentFromCp(-after))
+    // The engine's own choice cannot have cost anything, by its own account.
+    // The two readings that grade a move come from two separate searches, and
+    // at a fixed depth they disagree by a few dozen centipawns as a matter of
+    // course -- enough to call the move the engine asked for an inaccuracy,
+    // which a reader who played it then reads beside "Best Nf3", the move they
+    // played. Lichess and chess.com both grade a played best move "Best"
+    // whatever the drift says; a gain is kept, because a deeper second search
+    // that likes the move more is information rather than noise.
+    const playedBest = bestMove !== undefined && bestMove === ply.uci
+    const deltaCp = playedBest ? Math.max(0, measuredDeltaCp) : measuredDeltaCp
+    const winPercentLoss = playedBest ? 0 : measuredWinPercentLoss
     const evalDepth = minDepth(beforeSnapshot, afterSnapshot)
     const shallow = isShallowEvaluation(beforeSnapshot) || isShallowEvaluation(afterSnapshot)
     const confidence = shallow
@@ -688,7 +699,7 @@ export function buildReviewRows(
       winPercentBefore,
       evalDepth,
       confidence,
-      quality: shallow ? 'pending' : qualityForMove(deltaCp, winPercentLoss),
+      quality: shallow ? 'pending' : playedBest ? 'best' : qualityForMove(deltaCp, winPercentLoss),
     })
   }
 
