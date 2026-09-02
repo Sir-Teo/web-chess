@@ -515,6 +515,21 @@ recorded.
 The general shape: **a UCI option is a command, not a declaration.** Before
 sending one every search, check what the engine does when it receives it.
 
+## Off-screen analysis is suspended, then resumed
+
+Stockfish runs in a Web Worker, which keeps the interface responsive but does
+not make the search free. In particular, an infinite analysis can continue to
+occupy every configured engine thread after the tab is hidden. The engine hook
+listens for `visibilitychange`, sends one `stop`, retains only the newest
+analysis request, and restarts that request when the page becomes visible.
+
+Both halves matter. Stopping without remembering the request saves the laptop
+but leaves the analysis board unexpectedly idle on return; restarting without
+stopping does not save anything. An explicit Stop or New Game clears the held
+request, so visibility cannot resurrect work the reader cancelled. The browser
+harness keeps a fake infinite search open and checks the UCI sequence is one
+`go`, one `stop`, then one resumed `go`.
+
 ## Profiling React here in dev measures the dev runtime
 
 A render-cost investigation on the dev server said each re-render during a live

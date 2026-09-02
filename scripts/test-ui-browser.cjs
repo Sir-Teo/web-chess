@@ -151,7 +151,9 @@ const SCENARIO = ${JSON.stringify(scenario)};
         this.emitInfo();
         // A search ends on its own, or early when the app says stop. Both
         // finish with a bestmove, which is what the app waits for.
-        this.finishTimer = setTimeout(() => this.finishSearch(), 15);
+        if (SCENARIO !== 'hold-search') {
+          this.finishTimer = setTimeout(() => this.finishSearch(), 15);
+        }
         return;
       }
       if (text === 'stop') { this.finishSearch(); return; }
@@ -173,6 +175,56 @@ const SCENARIO = ${JSON.stringify(scenario)};
   window.Worker.prototype = FakeStockfish.prototype;
 })();
 `
+}
+
+/**
+ * An infinite analysis must not keep every configured Stockfish thread busy
+ * after the page disappears. The newest request is held and restarted when
+ * the page becomes visible again; a plain stop would save the CPU but leave a
+ * reader returning to a mysteriously idle analysis board.
+ */
+async function checkHiddenAnalysisPausesAndResumes(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(() => {
+      window.__testVisibilityState = 'visible'
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        get: () => window.__testVisibilityState,
+      })
+      Object.defineProperty(document, 'hidden', {
+        configurable: true,
+        get: () => window.__testVisibilityState === 'hidden',
+      })
+      window.__setTestVisibility = state => {
+        window.__testVisibilityState = state
+        document.dispatchEvent(new Event('visibilitychange'))
+      }
+    })
+    await page.addInitScript(fakeEngineScript('hold-search'))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+    await page.waitForFunction(() => (window.__uciCommands || []).filter(c => c.startsWith('go')).length === 1,
+                               null, { timeout: 20000 })
+
+    await page.evaluate(() => window.__setTestVisibility('hidden'))
+    await page.waitForFunction(() => (window.__uciCommands || []).filter(c => c === 'stop').length === 1,
+                               null, { timeout: 5000 })
+    await page.evaluate(() => window.__setTestVisibility('visible'))
+    await page.waitForFunction(() => (window.__uciCommands || []).filter(c => c.startsWith('go')).length === 2,
+                               null, { timeout: 5000 })
+
+    const commands = await page.evaluate(() => window.__uciCommands.slice())
+    assert(commands.filter(command => command === 'stop').length === 1,
+      `visibility pause sent the wrong number of stops: ${commands.join(' | ')}`)
+    console.log('  visibility: hidden analysis stops once and resumes on return')
+  } finally {
+    await context.close()
+  }
 }
 
 
@@ -786,6 +838,7 @@ async function main() {
 
     await checkBoundedScoreIsIgnored(browser)
     await checkPlayedMoveBecomesTheGame(browser)
+    await checkHiddenAnalysisPausesAndResumes(browser)
     await checkCrossOriginIsolationIsRestored(browser)
 
     console.log('Browser UI checks passed.')

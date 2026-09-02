@@ -302,6 +302,15 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const workerRef = useRef<Worker | null>(null)
   const isReadyRef = useRef(false)
   const pendingAnalyzeRef = useRef<AnalyzeRequest | null>(null)
+  const currentAnalysisRequestRef = useRef<AnalyzeRequest | null>(null)
+  /**
+   * The newest search that was active or requested while the page was hidden.
+   * Stockfish does not become cheap when a browser deprioritises its tab: an
+   * infinite search can still occupy every configured worker thread. Keep one
+   * request (last request wins), stop off-screen work, and restart it when the
+   * reader returns.
+   */
+  const visibilityResumeRequestRef = useRef<AnalyzeRequest | null>(null)
   const isSearchingRef = useRef(false)
   const stopRequestedRef = useRef(false)
   const currentAnalysisFenRef = useRef<string>('')
@@ -546,6 +555,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const startAnalysis = useCallback(
     (request: AnalyzeRequest) => {
       pendingAnalyzeRef.current = null
+      currentAnalysisRequestRef.current = request
       const built = buildAnalyzeCommand(request)
       const searchId = currentSearchIdRef.current + 1
       currentSearchIdRef.current = searchId
@@ -593,10 +603,20 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const analyze = useCallback(
     (request: AnalyzeRequest) => {
       if (!enabled) return
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        visibilityResumeRequestRef.current = request
+        pendingAnalyzeRef.current = null
+        if (isSearchingRef.current && !stopRequestedRef.current) {
+          send('stop')
+          stopRequestedRef.current = true
+        }
+        return
+      }
+      visibilityResumeRequestRef.current = null
       pendingAnalyzeRef.current = request
       flushPendingAnalyze()
     },
-    [enabled, flushPendingAnalyze],
+    [enabled, flushPendingAnalyze, send],
   )
 
   const analyzePosition = useCallback(
@@ -614,6 +634,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   )
 
   const stop = useCallback(() => {
+    visibilityResumeRequestRef.current = null
     pendingAnalyzeRef.current = null
     if (!enabled) {
       setStatus('disabled')
@@ -633,7 +654,9 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   }, [enabled, send])
 
   const newGame = useCallback(() => {
+    visibilityResumeRequestRef.current = null
     pendingAnalyzeRef.current = null
+    currentAnalysisRequestRef.current = null
     resetLinesMap()
     setLastBestMove(null)
     setLastBestMoveFen(null)
@@ -663,6 +686,36 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   }, [sendRaw])
 
   useEffect(() => {
+    if (!enabled || typeof document === 'undefined') return
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        const requestToResume = pendingAnalyzeRef.current
+          ?? (isSearchingRef.current ? currentAnalysisRequestRef.current : null)
+        if (!requestToResume) return
+
+        visibilityResumeRequestRef.current = requestToResume
+        pendingAnalyzeRef.current = null
+        if (isSearchingRef.current && !stopRequestedRef.current) {
+          send('stop')
+          stopRequestedRef.current = true
+        }
+        return
+      }
+
+      const requestToResume = visibilityResumeRequestRef.current
+      if (!requestToResume) return
+      visibilityResumeRequestRef.current = null
+      pendingAnalyzeRef.current = requestToResume
+      flushPendingAnalyze()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    handleVisibilityChange()
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [enabled, flushPendingAnalyze, send])
+
+  useEffect(() => {
     bootSessionRef.current += 1
     const currentSession = bootSessionRef.current
     const profile = resolvedProfile
@@ -675,6 +728,8 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       isSearchingRef.current = false
       stopRequestedRef.current = false
       pendingAnalyzeRef.current = null
+      currentAnalysisRequestRef.current = null
+      visibilityResumeRequestRef.current = null
       newGamePendingRef.current = false
       commandQueueRef.current = []
       appliedOptionsRef.current = new Map()
@@ -754,6 +809,8 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     isSearchingRef.current = false
     stopRequestedRef.current = false
     pendingAnalyzeRef.current = null
+    currentAnalysisRequestRef.current = null
+    visibilityResumeRequestRef.current = null
     currentSearchIdRef.current = 0
     commandQueueRef.current = []
     appliedOptionsRef.current = new Map()
@@ -914,6 +971,8 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       isSearchingRef.current = false
       stopRequestedRef.current = false
       pendingAnalyzeRef.current = null
+      currentAnalysisRequestRef.current = null
+      visibilityResumeRequestRef.current = null
       newGamePendingRef.current = false
       clearLinesMapFlushTimer()
       rejectQueuedCommands('Engine worker terminated.')
