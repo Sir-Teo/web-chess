@@ -22,6 +22,13 @@ describe('coach move selection', () => {
     })).toBe('d2d4')
   })
 
+  it('restores the best move saved with an earlier position evaluation', () => {
+    expect(selectCoachBestMove({
+      stored: 'c2c4',
+      last: null,
+    })).toBe('c2c4')
+  })
+
   it('uses the exact tablebase move when no engine move is available', () => {
     expect(selectCoachBestMove({
       engine: null,

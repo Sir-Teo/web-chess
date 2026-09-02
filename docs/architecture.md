@@ -530,6 +530,11 @@ request, so visibility cannot resurrect work the reader cancelled. The browser
 harness keeps a fake infinite search open and checks the UCI sequence is one
 `go`, one `stop`, then one resumed `go`.
 
+The position snapshots also carry their best move and search depth. Coach mode
+reads those fields back when the current worker lines belong to another
+position; otherwise navigating away and back restored the evaluation number
+but left the adjacent Best move and Depth tiles blank.
+
 ## Profiling React here in dev measures the dev runtime
 
 A render-cost investigation on the dev server said each re-render during a live

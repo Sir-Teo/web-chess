@@ -1506,6 +1506,7 @@ function App() {
   const coachBestMove = selectCoachBestMove({
     engine: coachLine?.pv[0],
     cloud: currentCloudEval?.pvs[0]?.moves[0],
+    stored: evaluationsByFen.get(fen)?.bestMove,
     last: currentLastBestMove,
     tablebase: tablebaseTopMove,
   })
@@ -1515,7 +1516,7 @@ function App() {
     ? null
     : coachLine?.pv[1] ?? currentCloudEval?.pvs[0]?.moves[1] ?? currentLastPonderMove ?? null
   const coachReplyMoveText = ponderMoveLabel(fen, coachBestMove, coachReplyMove)
-  const coachDepth = coachLine?.depth ?? currentCloudEval?.depth
+  const coachDepth = coachLine?.depth ?? currentCloudEval?.depth ?? evaluationsByFen.get(fen)?.depth
   // A tile labelled Depth reports a depth or nothing. It used to fall back to
   // the engine status, so it read "analyzing" in a row of numbers -- and then,
   // once cloud evals arrived, it reported theirs as though this app had reached

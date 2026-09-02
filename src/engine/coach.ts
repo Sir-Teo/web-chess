@@ -1,6 +1,7 @@
 type CoachMoveSources = {
   engine?: string | null
   cloud?: string | null
+  stored?: string | null
   last?: string | null
   tablebase?: string | null
 }
@@ -15,12 +16,14 @@ function normalizeUciMove(move: string | null | undefined): string | null {
 export function selectCoachBestMove({
   engine,
   cloud,
+  stored,
   last,
   tablebase,
 }: CoachMoveSources): string | null {
   return normalizeUciMove(tablebase)
     ?? normalizeUciMove(engine)
     ?? normalizeUciMove(cloud)
+    ?? normalizeUciMove(stored)
     ?? normalizeUciMove(last)
 }
 
