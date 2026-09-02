@@ -153,6 +153,13 @@ arrows and review best-move text are hidden until the move is solved or two
 misses reveal the answer. The prompt lives in the board's existing metadata
 strip so the exercise does not cover the playfield.
 
+Done goes back to the node the exercise began from. A solved answer is a
+variation, and the review follows the line the board is standing in, so the
+first version left the reader inside the solution reading "No major swings
+found in this reviewed line" -- with the game's critical moments, and the
+next one to practise, one node back on the main line and no button to reach
+them. Found by solving one in the browser and looking for the next.
+
 ## Storage
 
 | What | Where | Module |

@@ -213,6 +213,8 @@ type PendingPromotion = { from: Square; to: Square }
 type ImportSweepProgress = { done: number; total: number; sampledFrom?: number }
 type ReviewPracticeState = {
   beforeFen: string
+  /** The node the exercise began from -- on the game, which is where Done goes back to. */
+  beforeNodeId: string
   expectedUci: string
   expectedSan: string
   moveLabel: string
@@ -4044,6 +4046,7 @@ function App() {
     const chess = gameTreeRef.current.navigateTo(beforeNode.id)
     setReviewPractice({
       beforeFen: beforeNode.fen,
+      beforeNodeId: beforeNode.id,
       expectedUci,
       expectedSan,
       moveLabel,
@@ -4054,9 +4057,25 @@ function App() {
     requestBoardReveal()
   }, [navigateAndPonder, requestBoardReveal])
 
+  /**
+   * Leave the exercise.
+   *
+   * A solved one leaves the board inside the variation the answer became,
+   * and the review follows the line you are standing in -- so the panel read
+   * "No major swings found in this reviewed line" with no Practice button on
+   * it, while the game's critical moments, and the next one to practise, sat
+   * one node back on the main line. Done goes back to the position the
+   * exercise began from, which is on the game. The solved line stays in the
+   * tree for anyone who wants to walk it.
+   */
   const exitReviewPractice = useCallback(() => {
+    const active = reviewPractice
     setReviewPractice(null)
-  }, [])
+    if (active?.status !== 'correct') return
+    const tree = gameTreeRef.current
+    if (!tree.getNode(active.beforeNodeId)) return
+    navigateAndPonder(tree.navigateTo(active.beforeNodeId))
+  }, [navigateAndPonder, reviewPractice])
 
   const tryReviewBestMove = useCallback((beforeNode: GameNode, bestMove?: string) => {
     setReviewPractice(null)

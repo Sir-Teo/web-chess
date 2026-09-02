@@ -62,7 +62,9 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 - **Practice critical moments**: In Coach mode, a critical mistake becomes a
   playable retry. Engine answers and candidate arrows are hidden, wrong moves
   snap back without adding junk variations, and the answer appears after two
-  misses. Promotions are graded exactly, including the chosen piece.
+  misses. Promotions are graded exactly, including the chosen piece. Done
+  returns to the game, so the next critical moment is where you left it — the
+  solved line stays in the tree as a variation.
 - **Time trouble, in the review**: A move's clock reading rides with it — read
   from `[%clk]` on import, recorded from the running clock in a timed game, and
   written back out. So a review of a real blitz game shows *0:07* beside the
