@@ -64,20 +64,26 @@ export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss
                     <h2 id="auto-save-title">{outcome ? 'Finished game' : 'Unfinished game'}</h2>
                 </header>
 
+                {/* Inside a section like every other dialog's copy: the body
+                    carries no padding of its own, and a bare paragraph in it
+                    sat flush against the panel's edge -- against the screen's,
+                    on a phone, where the panel is the screen. */}
                 <div className="dialog-body">
-                    <p id="auto-save-body">
-                        {error
-                            ? `That saved game could not be read back: ${error}`
-                            : outcome
-                                ? `${outcome} in ${moveCount} ${moveCount === 1 ? 'move' : 'moves'}, ${describeElapsed(savedAt)}. Open it again?`
-                                : `${moveCount} ${moveCount === 1 ? 'move was' : 'moves were'} in progress ${describeElapsed(savedAt)}. Pick up where you left off?`}
-                    </p>
-                    {error && (
-                        <p className="dialog-note">
-                            Copy it first if you want to keep the moves — discarding is the only way to stop
-                            being asked, and it cannot be undone.
+                    <div className="dialog-section">
+                        <p id="auto-save-body">
+                            {error
+                                ? `That saved game could not be read back: ${error}`
+                                : outcome
+                                    ? `${outcome} in ${moveCount} ${moveCount === 1 ? 'move' : 'moves'}, ${describeElapsed(savedAt)}. Open it again?`
+                                    : `${moveCount} ${moveCount === 1 ? 'move was' : 'moves were'} in progress ${describeElapsed(savedAt)}. Pick up where you left off?`}
                         </p>
-                    )}
+                        {error && (
+                            <p className="dialog-note">
+                                Copy it first if you want to keep the moves — discarding is the only way to stop
+                                being asked, and it cannot be undone.
+                            </p>
+                        )}
+                    </div>
                 </div>
 
                 <div className="dialog-actions">

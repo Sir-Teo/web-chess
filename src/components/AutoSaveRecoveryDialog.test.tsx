@@ -28,6 +28,12 @@ describe('AutoSaveRecoveryDialog', () => {
         expect(html).toContain('id="auto-save-body"')
     })
 
+    it('keeps its copy inside a section, so it is padded like every other dialog', () => {
+        // The body carries no padding of its own; a bare paragraph in it sat
+        // flush against the panel's edge, which on a phone is the screen's.
+        expect(render()).toMatch(/<div class="dialog-body"><div class="dialog-section"><p id="auto-save-body">/)
+    })
+
     it('says how much work is at stake and how old it is', () => {
         expect(render()).toContain('12 moves were in progress 5 minutes ago')
     })
