@@ -539,6 +539,18 @@ request, so visibility cannot resurrect work the reader cancelled. The browser
 harness keeps a fake infinite search open and checks the UCI sequence is one
 `go`, one `stop`, then one resumed `go`.
 
+Only an *unbounded* search is parked (`suspendsWhileHidden`). The first
+version parked every search, and the game review paid for it: the batch
+effect counts a position as reviewed the moment the engine goes `ready`, and
+cannot tell a search that reached depth 16 from one a tab switch cut off at
+depth 6. A review left running behind another tab -- the one thing a reader
+switches away *to let finish* -- came back finished, with positions graded
+shallow and nothing to say so. The import sweep has the same shape. A finite
+search ends on its own in seconds; the work worth parking is the search that
+never ends. Measured in the preview pane, which is itself a hidden document:
+before, a restored game sat at `ready` with no engine lines for as long as it
+was watched; after, the navigation search runs to depth and the lines fill.
+
 The position snapshots also carry their best move and search depth. Coach mode
 reads those fields back when the current worker lines belong to another
 position; otherwise navigating away and back restored the evaluation number

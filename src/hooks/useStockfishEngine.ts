@@ -112,6 +112,24 @@ export function reusableAnalysisCacheKey(request: AnalyzeRequest): string | null
   return JSON.stringify([built.position, built.go, built.setOptions])
 }
 
+/**
+ * Whether a search is the kind that should not run while nobody is looking.
+ *
+ * Only an unbounded one. Stockfish does not become cheap when a browser
+ * deprioritises its tab, and an infinite search occupies every configured
+ * thread until something stops it -- that is the work worth parking. A finite
+ * search ends on its own in seconds, and stopping it costs more than it saves:
+ * the game review counts a position as reviewed the moment the engine goes
+ * ready, and cannot tell a search that reached its depth from one a tab
+ * switch cut off at depth 6. So a review left running behind another tab
+ * came back finished, with positions graded shallow and nothing to say so --
+ * and the review is precisely the work the reader switched away to let
+ * finish. The import sweep has the same shape.
+ */
+export function suspendsWhileHidden(request: AnalyzeRequest): boolean {
+  return Boolean(request.limits?.infinite) || request.mode === 'infinite'
+}
+
 
 function firstWord(input: string): string {
   const trimmed = input.trim()
@@ -686,7 +704,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const analyze = useCallback(
     (request: AnalyzeRequest) => {
       if (!enabled) return
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden' && suspendsWhileHidden(request)) {
         visibilityResumeRequestRef.current = request
         pendingAnalyzeRef.current = null
         if (isSearchingRef.current && !stopRequestedRef.current) {
@@ -775,7 +793,8 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       if (document.visibilityState === 'hidden') {
         const requestToResume = pendingAnalyzeRef.current
           ?? (isSearchingRef.current ? currentAnalysisRequestRef.current : null)
-        if (!requestToResume) return
+        // A finite search is left to finish; see suspendsWhileHidden.
+        if (!requestToResume || !suspendsWhileHidden(requestToResume)) return
 
         visibilityResumeRequestRef.current = requestToResume
         pendingAnalyzeRef.current = null

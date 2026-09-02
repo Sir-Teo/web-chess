@@ -184,6 +184,13 @@ const SCENARIO = ${JSON.stringify(scenario)};
  * after the page disappears. The newest request is held and restarted when
  * the page becomes visible again; a plain stop would save the CPU but leave a
  * reader returning to a mysteriously idle analysis board.
+ *
+ * Only an unbounded search, though. A finite one is left to finish: the game
+ * review counts a position as reviewed the moment the engine goes ready, and
+ * a review left running behind another tab used to come back with positions
+ * graded at whatever depth the tab switch caught them. So the first half of
+ * this check hides the page during the auto-analyze `go depth 16` and expects
+ * *no* stop; the second switches to Infinite and expects one.
  */
 async function checkHiddenAnalysisPausesAndResumes(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
@@ -213,17 +220,38 @@ async function checkHiddenAnalysisPausesAndResumes(browser) {
     await page.waitForFunction(() => (window.__uciCommands || []).filter(c => c.startsWith('go')).length === 1,
                                null, { timeout: 20000 })
 
+    // A finite search, hidden mid-way, is left to finish.
     await page.evaluate(() => window.__setTestVisibility('hidden'))
-    await page.waitForFunction(() => (window.__uciCommands || []).filter(c => c === 'stop').length === 1,
-                               null, { timeout: 5000 })
+    await page.waitForTimeout(800)
+    const stopsWhileFinite = await page.evaluate(() => (window.__uciCommands || []).filter(c => c === 'stop').length)
+    assert(stopsWhileFinite === 0,
+      `hiding the page stopped a finite search: ${stopsWhileFinite} stop(s)`)
     await page.evaluate(() => window.__setTestVisibility('visible'))
+
+    // An unbounded one is parked, and comes back.
+    await page.getByRole('button', { name: 'Open settings' }).click()
+    await page.getByRole('button', { name: 'Infinite', exact: true }).click()
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await page.getByRole('button', { name: 'Run analysis' }).click()
+    // Replacing the held auto search costs one stop of its own; the infinite
+    // search is the second go.
     await page.waitForFunction(() => (window.__uciCommands || []).filter(c => c.startsWith('go')).length === 2,
                                null, { timeout: 5000 })
 
+    await page.evaluate(() => window.__setTestVisibility('hidden'))
+    await page.waitForFunction(() => (window.__uciCommands || []).filter(c => c === 'stop').length === 2,
+                               null, { timeout: 5000 })
+    await page.evaluate(() => window.__setTestVisibility('visible'))
+    await page.waitForFunction(() => (window.__uciCommands || []).filter(c => c.startsWith('go')).length === 3,
+                               null, { timeout: 5000 })
+
     const commands = await page.evaluate(() => window.__uciCommands.slice())
-    assert(commands.filter(command => command === 'stop').length === 1,
+    const goCommands = commands.filter(command => command.startsWith('go'))
+    assert(goCommands[1] === 'go infinite' && goCommands[2] === 'go infinite',
+      `the parked search did not come back as itself: ${goCommands.join(' | ')}`)
+    assert(commands.filter(command => command === 'stop').length === 2,
       `visibility pause sent the wrong number of stops: ${commands.join(' | ')}`)
-    console.log('  visibility: hidden analysis stops once and resumes on return')
+    console.log('  visibility: a finite search is left to finish; an infinite one stops once and resumes')
   } finally {
     await context.close()
   }

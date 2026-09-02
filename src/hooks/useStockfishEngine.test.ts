@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { profileById, recommendedThreadCount } from '../engine/profiles'
-import { parseInfoLine, parseOptionLine, profileRuntimeMessage, reusableAnalysisCacheKey, shouldReplaceLiveLine, shouldStopTimedOutSearchCommand } from './useStockfishEngine'
+import { parseInfoLine, parseOptionLine, profileRuntimeMessage, reusableAnalysisCacheKey, shouldReplaceLiveLine, shouldStopTimedOutSearchCommand, suspendsWhileHidden } from './useStockfishEngine'
 
 describe('Stockfish engine output parsing', () => {
   it('parses finite score, telemetry, WDL, and PV values from info lines', () => {
@@ -139,6 +139,28 @@ describe('automatic analysis cache identity', () => {
     expect(reusableAnalysisCacheKey({ ...request, purpose: 'manual' })).toBeNull()
     expect(reusableAnalysisCacheKey({ ...request, mode: 'infinite' })).toBeNull()
     expect(reusableAnalysisCacheKey({ ...request, limits: { infinite: true } })).toBeNull()
+  })
+})
+
+describe('what is parked while the page is hidden', () => {
+  const fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+
+  it('parks an unbounded search, whichever way it was asked for', () => {
+    expect(suspendsWhileHidden({ fen, purpose: 'manual', mode: 'infinite' })).toBe(true)
+    expect(suspendsWhileHidden({ fen, purpose: 'manual', mode: 'custom', limits: { infinite: true } })).toBe(true)
+  })
+
+  /**
+   * The review counts a position as reviewed the moment the engine goes ready,
+   * and cannot tell a search that reached its depth from one a tab switch cut
+   * off. Every finite search is left to finish for that reason -- the review
+   * above all, since it is the work the reader switched away to let finish.
+   */
+  it('lets a finite search finish', () => {
+    expect(suspendsWhileHidden({ fen, purpose: 'batch-review', mode: 'review', limits: { depth: 16 } })).toBe(false)
+    expect(suspendsWhileHidden({ fen, purpose: 'auto', mode: 'custom', limits: { depth: 16 } })).toBe(false)
+    expect(suspendsWhileHidden({ fen, purpose: 'import-sweep', mode: 'custom', limits: { movetime: 70 } })).toBe(false)
+    expect(suspendsWhileHidden({ fen, purpose: 'manual', mode: 'mate', limits: { mate: 5 } })).toBe(false)
   })
 })
 
