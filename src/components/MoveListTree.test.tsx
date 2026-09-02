@@ -94,6 +94,7 @@ function handle(nodes: Map<string, GameNode>, rootId: string, currentId = rootId
         goForward: vi.fn(),
         setNodeQuality: vi.fn(),
         setNodeComment: vi.fn(),
+        setNodeGlyph: vi.fn(),
         setNodeQualities: vi.fn(),
         promoteToMainLine: vi.fn(),
         deleteVariation: vi.fn(),
@@ -156,6 +157,27 @@ describe('MoveListTree variations', () => {
         expect(readable(html)).toContain('Bb5! ⩲')
         expect(html).toContain('Go to move 3. Bb5!, good move, White is slightly better')
         expect(html).not.toContain('$1')
+    })
+
+    it('offers the six judgements on the current move, with the one it has pressed', () => {
+        const { nodes, rootId } = buildTree(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5'])
+        const bb5 = findBySan(nodes, 'Bb5')
+        nodes.set(bb5.id, { ...bb5, nags: ['1'] })
+        const html = renderToStaticMarkup(<MoveListTree tree={handle(nodes, rootId, bb5.id)} onNavigate={vi.fn()} />)
+
+        expect(html).toContain('aria-label="Move judgement"')
+        expect(html).toContain('aria-pressed="true" aria-label="good move (!)"')
+        expect(html.match(/aria-pressed="false" aria-label="[^"]+ \([!?]{1,2}\)"/g)).toHaveLength(5)
+    })
+
+    it('keeps the judgements out of a list that is not for editing', () => {
+        const { nodes, rootId } = buildTree(['e4', 'e5'])
+        const e5 = findBySan(nodes, 'e5')
+        const html = renderToStaticMarkup(
+            <MoveListTree tree={handle(nodes, rootId, e5.id)} onNavigate={vi.fn()} allowCommentEditing={false} />,
+        )
+
+        expect(html).not.toContain('Move judgement')
     })
 
     it('reaches the sub-line the reader is standing in, past the preview cap', () => {

@@ -6,6 +6,7 @@ import {
     removeSubtree,
     variationRootId,
 } from '../engine/moveTree'
+import { annotateMove, type MoveGlyph } from '../engine/nags'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -325,6 +326,24 @@ export function useGameTree(startFen?: string) {
         publishTree({ ...tree, nodes: nextNodes })
     }, [publishTree])
 
+    /**
+     * Judge a move -- "!", "??" and the rest -- or clear the judgement.
+     * Written as the PGN suffix, so it exports with the move and comes back
+     * with it; see `annotateMove` for what it does to an imported NAG.
+     */
+    const setNodeGlyph = useCallback((id: string, glyph: MoveGlyph | null) => {
+        const tree = treeRef.current
+        const node = tree.nodes.get(id)
+        if (!node || !node.move) return
+
+        const nextNode = annotateMove(node, glyph)
+        if (!nextNode) return
+
+        const nextNodes = new Map(tree.nodes)
+        nextNodes.set(id, nextNode)
+        publishTree({ ...tree, nodes: nextNodes })
+    }, [publishTree])
+
     /** Attach quality labels to many nodes in one tree publish. */
     const setNodeQualities = useCallback((updates: Array<{ id: string; quality?: ReviewLabel }>) => {
         if (!updates.length) return
@@ -429,6 +448,7 @@ export function useGameTree(startFen?: string) {
         goForward,
         setNodeQuality,
         setNodeComment,
+        setNodeGlyph,
         setNodeQualities,
         promoteToMainLine,
         deleteVariation,
@@ -452,6 +472,7 @@ export function useGameTree(startFen?: string) {
         root,
         setNodeQuality,
         setNodeComment,
+        setNodeGlyph,
         setNodeQualities,
     ])
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   MOVE_GLYPHS,
+  annotateMove,
   glyphName,
   isMoveGlyph,
   moveGlyphFor,
@@ -56,5 +57,27 @@ describe('withoutMoveNags', () => {
   it('returns nothing rather than an empty list, so the node carries no field', () => {
     expect(withoutMoveNags(['1'])).toBeUndefined()
     expect(withoutMoveNags(undefined)).toBeUndefined()
+  })
+})
+
+describe('annotateMove', () => {
+  it('writes the judgement as the suffix the PGN prints, and keeps the rest of the node', () => {
+    const node: { san: string; suffix?: string; nags?: string[] } = { san: 'Bb5' }
+    expect(annotateMove(node, '!')).toEqual({ san: 'Bb5', suffix: '!' })
+  })
+
+  it('replaces an imported move NAG rather than sitting beside it', () => {
+    // "Bb5? $1" would say two things at once.
+    expect(annotateMove({ nags: ['1', '14'] }, '?')).toEqual({ suffix: '?', nags: ['14'] })
+  })
+
+  it('clears the judgement, NAG and all, and keeps the positional ones', () => {
+    expect(annotateMove({ suffix: '!', nags: ['1', '16'] }, null)).toEqual({ nags: ['16'] })
+  })
+
+  it('returns null when nothing would change, so the tree is not republished', () => {
+    expect(annotateMove({ suffix: '!' }, '!')).toBeNull()
+    expect(annotateMove({}, null)).toBeNull()
+    expect(annotateMove({ nags: ['14'] }, null)).toBeNull()
   })
 })

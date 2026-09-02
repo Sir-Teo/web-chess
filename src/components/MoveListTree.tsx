@@ -4,7 +4,7 @@ import { IconPawn, IconBranch } from './icons'
 import { buildVariationPreview } from './variationPreview'
 import { isOnMainLine } from '../engine/moveTree'
 import { moveNumberPrefix } from '../engine/moveLabels'
-import { glyphName, moveGlyphFor, positionGlyphsFor } from '../engine/nags'
+import { MOVE_GLYPHS, glyphName, moveGlyphFor, positionGlyphsFor } from '../engine/nags'
 
 type Props = {
     tree: GameTreeHandle
@@ -72,6 +72,7 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
     // whether the line the reader is standing in hangs off one of its moves.
     const currentPathIds = new Set(currentPath().map(node => node.id))
     const currentComment = current.comment?.trim() ?? ''
+    const currentGlyph = moveGlyphFor(current)
     // A variation is a footnote until it is promoted: mainLine() is what the
     // review pass, the accuracy summary, the graphs and PGN export all read.
     const currentIsVariation = Boolean(current.move) && !isOnMainLine(nodesSnapshot, current.id)
@@ -302,6 +303,26 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
                 <aside className="mtree-current-comment" aria-label="Current move comment">
                     {allowCommentEditing ? (
                         <>
+                            {/* The six judgements, on the move under the cursor.
+                                Pressing the one it already has takes it off. */}
+                            <div className="mtree-glyph-row" role="group" aria-label="Move judgement">
+                                {MOVE_GLYPHS.map(glyph => {
+                                    const active = currentGlyph === glyph
+                                    return (
+                                        <button
+                                            key={glyph}
+                                            type="button"
+                                            className={`mtree-glyph-btn ${active ? 'active' : ''}`}
+                                            aria-pressed={active}
+                                            aria-label={`${glyphName(glyph)} (${glyph})`}
+                                            title={active ? `Remove ${glyphName(glyph)}` : glyphName(glyph)}
+                                            onClick={() => tree.setNodeGlyph(current.id, active ? null : glyph)}
+                                        >
+                                            {glyph}
+                                        </button>
+                                    )
+                                })}
+                            </div>
                             <label htmlFor={commentId}>Move note</label>
                             <textarea
                                 id={commentId}

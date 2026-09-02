@@ -88,6 +88,12 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   summary, both graphs and the exported PGN follow it; discard one and it is
   gone from all of them. The move list shows the branch you are standing in
   however deep you have gone, and says how much of it is still folded away.
+- **Every variation, however deep, and the glyphs on it**: The move list
+  draws a variation inside a variation in brackets within its row, numbered
+  the way a PGN is, so an annotated game reads on screen as it does on paper.
+  A `$1` in the file shows as `!` and a `$16` as `±`, and the current move can
+  be judged from the list — `!!`, `!`, `!?`, `?!`, `?`, `??` — which is written
+  as the move's suffix and exported with it.
 - **Interactive analysis visuals**: Clickable winrate/WDL graphs, move transcript navigation, and board arrows for the played move, best move, and candidate lines.
 - **Your own arrows and marks**: Right-drag on the board to draw an arrow,
   right-click a square to mark it, `Shift` or `Ctrl` for the other two colours.

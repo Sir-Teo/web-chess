@@ -116,3 +116,27 @@ export function withoutMoveNags(nags: string[] | undefined): string[] | undefine
   const rest = (nags ?? []).filter(nag => !MOVE_NAG_GLYPHS[nag])
   return rest.length ? rest : undefined
 }
+
+/**
+ * The node with its move judged, or null when nothing would change.
+ *
+ * Written as the PGN suffix, which is what the exporter prints after the move
+ * and the importer reads back. The judgement lives in one place: any move NAG
+ * the node carried goes with it (see {@link withoutMoveNags}), and the
+ * positional NAGs, which are not judgements of the move, stay.
+ */
+export function annotateMove<T extends { suffix?: string; nags?: string[] }>(
+  node: T,
+  glyph: MoveGlyph | null,
+): T | null {
+  const next = { ...node }
+  if (glyph) next.suffix = glyph
+  else delete next.suffix
+
+  const nags = withoutMoveNags(node.nags)
+  if (nags) next.nags = nags
+  else delete next.nags
+
+  const sameNags = (next.nags ?? []).join(' ') === (node.nags ?? []).join(' ')
+  return next.suffix === node.suffix && sameNags ? null : next
+}

@@ -4817,6 +4817,32 @@ button.mtree-chip-compact {
   color: var(--text-secondary);
 }
 
+/* The six judgements a reader can put on the current move. One row, equal
+   pills; the one the move has takes the accent, the way the current move
+   chip does, so the state reads without hunting for it. */
+.mtree-glyph-row {
+  display: flex;
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.panel button.mtree-glyph-btn {
+  flex: 1;
+  min-width: 0;
+  padding: 0.24rem 0;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: var(--radius-xs);
+}
+
+.panel button.mtree-glyph-btn.active {
+  background: var(--accent-subtle);
+  border-color: var(--border-accent);
+  color: var(--accent);
+}
+
 .mtree-current-comment label,
 .mtree-current-comment-label {
   display: block;
