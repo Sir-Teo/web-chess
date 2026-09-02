@@ -88,6 +88,8 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   summary, both graphs and the exported PGN follow it; discard one and it is
   gone from all of them. The move list shows the branch you are standing in
   however deep you have gone, and says how much of it is still folded away.
+  `↑` and `↓` step between the lines at a fork, the way they do in every
+  desktop GUI; anywhere else they are the browser's and scroll.
 - **Every variation, however deep, and the glyphs on it**: The move list
   draws a variation inside a variation in brackets within its row, numbered
   the way a PGN is, so an annotated game reads on screen as it does on paper.

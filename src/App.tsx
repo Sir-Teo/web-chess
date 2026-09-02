@@ -108,6 +108,7 @@ import {
   type Premove,
 } from './engine/premove'
 import { moveSoundFor } from './engine/moveSound'
+import { hasSiblingVariations, siblingVariation } from './engine/moveTree'
 import { BOARD_THEMES, boardThemeById } from './engine/boardThemes'
 import {
   createClock,
@@ -357,6 +358,7 @@ const BOARD_ARROW_OPTIONS = {
 const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['N'], action: 'New game' },
   { keys: ['←', '→'], action: 'Previous / next move' },
+  { keys: ['↑', '↓'], action: 'Previous / next variation at this move' },
   { keys: ['Home', 'End'], action: 'First / last position' },
   { keys: ['F'], action: 'Flip the board' },
   { keys: ['T'], action: 'Show what the opponent threatens (Analysis mode)' },
@@ -793,6 +795,24 @@ function App() {
   }, [gameTree, navigateAndPonder])
 
   /**
+   * Step to the variation beside this one at the same fork -- what ↑ and ↓
+   * do in every desktop GUI, and what this app had no key for: the only way
+   * from 2. Nf3 to the 2. Nc3 beside it was the mouse.
+   *
+   * Returns whether there was a fork to step within at all, because that is
+   * what decides whether the key is the app's: with nothing to step between,
+   * ↑ and ↓ stay the browser's and scroll the panel the reader is in.
+   */
+  const goSiblingVariation = useCallback((direction: -1 | 1): boolean => {
+    const tree = gameTreeRef.current
+    if (!hasSiblingVariations(tree.nodesSnapshot, tree.current.id)) return false
+    const target = siblingVariation(tree.nodesSnapshot, tree.current.id, direction)
+    if (target) navigateAndPonder(tree.navigateTo(target))
+    return true
+  }, [navigateAndPonder])
+  const atVariationFork = hasSiblingVariations(gameTree.nodesSnapshot, gameTree.current.id)
+
+  /**
    * Assigned on every render so the global keydown handler, installed well
    * before `requestThreat` is declared, can reach the current one without
    * listing it as a dependency. The same shape `gameTreeRef` uses, and for the
@@ -831,6 +851,10 @@ function App() {
 
       if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev() }
       if (e.key === 'ArrowRight') { e.preventDefault(); goNext() }
+      // Claimed only at a fork; see goSiblingVariation for why.
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        if (goSiblingVariation(e.key === 'ArrowUp' ? -1 : 1)) e.preventDefault()
+      }
       if (e.key === 'Home') { e.preventDefault(); goFirst() }
       if (e.key === 'End') { e.preventDefault(); goLast() }
       if (e.key.toLowerCase() === 'f') {
@@ -870,7 +894,7 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [goFirst, goLast, goPrev, goNext, pause, resume, shortcutsSuspended, workspaceMode])
+  }, [goFirst, goLast, goPrev, goNext, goSiblingVariation, pause, resume, shortcutsSuspended, workspaceMode])
 
   const closeSettings = useCallback(() => setSettingsOpen(false), [])
   const closeCommandPalette = useCallback(() => setShowCommandPalette(false), [])
@@ -3812,6 +3836,24 @@ function App() {
     { id: 'go-first', label: 'Go to first position', shortcut: 'Home', keywords: ['start', 'beginning'], run: goFirst },
     { id: 'go-last', label: 'Go to last position', shortcut: 'End', keywords: ['end', 'latest'], run: goLast },
     {
+      id: 'prev-variation',
+      label: 'Previous variation',
+      shortcut: '↑',
+      hint: atVariationFork ? undefined : 'No other line at this move',
+      keywords: ['line', 'branch', 'alternative', 'sibling'],
+      disabled: !atVariationFork,
+      run: () => goSiblingVariation(-1),
+    },
+    {
+      id: 'next-variation',
+      label: 'Next variation',
+      shortcut: '↓',
+      hint: atVariationFork ? undefined : 'No other line at this move',
+      keywords: ['line', 'branch', 'alternative', 'sibling'],
+      disabled: !atVariationFork,
+      run: () => goSiblingVariation(1),
+    },
+    {
       id: 'play-from-here',
       label: 'Play from this position',
       hint: playFromHereDisabledReason ?? 'Take the move against the engine',
@@ -3821,10 +3863,10 @@ function App() {
     },
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
-  ], [handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, hintReason, isProbingThreat, requestHint,
-      openLibraryDialog, openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason,
-      rememberModalTrigger, reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason,
-      workspaceMode])
+  ], [atVariationFork, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, goSiblingVariation, hintReason,
+      isProbingThreat, requestHint, openLibraryDialog, openNewGameDialog, openPgnDialog, playFromCurrentPosition,
+      playFromHereDisabledReason, rememberModalTrigger, reviewGameDisabledReason, soundEnabled, startBatchReview,
+      takebackMove, takebackReason, workspaceMode])
 
   // ── Mode switch mid-game ──────────────────────────────
   const handleModeChange = useCallback((mode: GameMode) => {

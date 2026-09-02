@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GameNode } from '../hooks/useGameTree'
-import { isOnMainLine, promoteToMainLine, removeSubtree, variationRootId } from './moveTree'
+import { hasSiblingVariations, isOnMainLine, promoteToMainLine, removeSubtree, siblingVariation, variationRootId } from './moveTree'
 
 type Spec = Record<string, string[]>
 
@@ -181,5 +181,46 @@ describe('removing a branch', () => {
     const nodes = treeFrom({ root: ['a1'], a1: ['a2'], a2: [] })
     nodes.set('a2', { ...nodes.get('a2')!, children: ['a1'] })
     expect(removeSubtree(nodes, 'a1')!.removedCount).toBe(2)
+  })
+})
+
+describe('stepping between the variations at a fork', () => {
+  it('moves to the line beside this one, in the order the lines were added', () => {
+    const nodes = treeFrom({ root: ['a1', 'b1', 'c1'] })
+    expect(siblingVariation(nodes, 'a1', 1)).toBe('b1')
+    expect(siblingVariation(nodes, 'b1', 1)).toBe('c1')
+    expect(siblingVariation(nodes, 'c1', -1)).toBe('b1')
+    expect(siblingVariation(nodes, 'b1', -1)).toBe('a1')
+  })
+
+  it('stops at either end rather than wrapping', () => {
+    const nodes = treeFrom({ root: ['a1', 'b1', 'c1'] })
+    expect(siblingVariation(nodes, 'a1', -1)).toBeNull()
+    expect(siblingVariation(nodes, 'c1', 1)).toBeNull()
+  })
+
+  it('has nowhere to go from a move with no alternatives, and says so', () => {
+    const nodes = treeFrom({ root: ['a1'], a1: ['a2'] })
+    expect(hasSiblingVariations(nodes, 'a2')).toBe(false)
+    expect(siblingVariation(nodes, 'a2', 1)).toBeNull()
+    expect(hasSiblingVariations(nodes, 'root')).toBe(false)
+    expect(siblingVariation(nodes, 'root', 1)).toBeNull()
+  })
+
+  /**
+   * The distinction the key binding needs: at the edge of a fork the key is
+   * still claimed -- there is a fork, the reader has reached its end -- but
+   * there is nothing to move to.
+   */
+  it('knows a fork from its edge', () => {
+    const nodes = treeFrom({ root: ['a1', 'b1'] })
+    expect(hasSiblingVariations(nodes, 'b1')).toBe(true)
+    expect(siblingVariation(nodes, 'b1', 1)).toBeNull()
+  })
+
+  it('refuses a node that is not in the tree', () => {
+    const nodes = treeFrom({ root: ['a1'] })
+    expect(hasSiblingVariations(nodes, 'nope')).toBe(false)
+    expect(siblingVariation(nodes, 'nope', 1)).toBeNull()
   })
 })

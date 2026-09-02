@@ -101,6 +101,40 @@ export function variationRootId(nodes: Map<string, GameNode>, id: string): strin
   return null
 }
 
+/**
+ * Whether the move under the cursor is one of several at its fork -- the
+ * condition under which stepping between variations means anything.
+ */
+export function hasSiblingVariations(nodes: Map<string, GameNode>, id: string): boolean {
+  const node = nodes.get(id)
+  if (!node?.parent) return false
+  const parent = nodes.get(node.parent)
+  return Boolean(parent && parent.children.length > 1 && parent.children.includes(id))
+}
+
+/**
+ * The variation beside this one at the same fork, or null when there is none.
+ *
+ * "Beside" is the parent's children in order: the main continuation first,
+ * then each alternative as it was added or read from the PGN. Stepping past
+ * the last line, or before the first, goes nowhere rather than wrapping: a
+ * key that wraps cannot tell the reader they have now seen every line.
+ */
+export function siblingVariation(
+  nodes: Map<string, GameNode>,
+  id: string,
+  direction: -1 | 1,
+): string | null {
+  const node = nodes.get(id)
+  if (!node?.parent) return null
+  const parent = nodes.get(node.parent)
+  if (!parent) return null
+
+  const index = parent.children.indexOf(id)
+  if (index < 0) return null
+  return parent.children[index + direction] ?? null
+}
+
 export type SubtreeRemoval = {
   nodes: Map<string, GameNode>
   /** Where to stand once the branch is gone: the parent it hung off. */
