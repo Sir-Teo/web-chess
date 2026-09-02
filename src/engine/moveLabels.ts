@@ -14,6 +14,22 @@ export function bestMoveLabel(fen: string, uci: string | null | undefined): stri
 }
 
 /**
+ * "12." or "12..." for a move, read off the position it produced.
+ *
+ * A FEN after a White move has Black to move at the same move number; one
+ * after a Black move has White to move at the next. A position nobody has
+ * moved in -- the root -- has no move and gets null.
+ */
+export function moveNumberPrefix(fenAfter: string): string | null {
+  const parts = fenAfter.split(/\s+/)
+  const number = Number(parts[5])
+  if (!Number.isInteger(number) || number < 1) return null
+  if (parts[1] === 'b') return `${number}.`
+  if (parts[1] === 'w') return number > 1 ? `${number - 1}...` : null
+  return null
+}
+
+/**
  * The reply the engine expects, in the position that reply is made in.
  *
  * That position is one move ahead of the board, so the best move has to be

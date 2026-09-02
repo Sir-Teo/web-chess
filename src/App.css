@@ -4781,6 +4781,25 @@ button.mtree-chip-compact {
   width: auto;
 }
 
+/* The move number inside a variation chip. Quieter than the move, in the same
+   face as the main line's number column, so "2... Nc6" reads as one token. */
+.mtree-chip-num {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  font-weight: 500;
+}
+
+/* The brackets around a variation nested inside a variation. Not part of any
+   chip: they belong to the line, the way they do in a PGN. */
+.mtree-var-paren {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 0 0.05rem;
+  user-select: none;
+}
+
 .mtree-current-comment {
   margin-top: 0.5rem;
   padding: 0.55rem 0.65rem;

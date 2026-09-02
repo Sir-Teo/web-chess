@@ -26,13 +26,18 @@ export type VariationPreview = {
  * nothing carried `aria-current`, and the auto-scroll had nothing to scroll to.
  * The move list stopped answering "where am I", which is most of its job.
  *
+ * Given the whole current path rather than one id, it reaches any node on it.
+ * That is what a variation nested inside this one needs: the reader standing
+ * in a sub-line is not on this chain at all, but the move the sub-line hangs
+ * off is, and it has to be drawn or the line they are in has no visible root.
+ *
  * Whatever is still cut is reported in `hidden` rather than dropped quietly, so
  * the caller can say so.
  */
 export function buildVariationPreview(
   startId: string,
   nodes: Map<string, GameNode>,
-  currentId?: string,
+  current?: string | ReadonlySet<string>,
 ): VariationPreview {
   const chain: GameNode[] = []
   let cursor = nodes.get(startId)
@@ -47,8 +52,22 @@ export function buildVariationPreview(
     cursor = firstChildId ? nodes.get(firstChildId) : undefined
   }
 
-  const currentIndex = currentId ? chain.findIndex(node => node.id === currentId) : -1
-  const shown = Math.max(VARIATION_PREVIEW_LENGTH, currentIndex + 1)
+  const onPath = typeof current === 'string' ? new Set([current]) : current
+  let reach = -1
+  if (onPath) {
+    chain.forEach((node, index) => {
+      if (onPath.has(node.id)) reach = index
+    })
+  }
+  // A sub-line is drawn after the move it is an alternative to, which is the
+  // chain's next node -- so when the path leaves the chain at `reach`, that
+  // next node has to be shown as well, or the sub-line has nothing to follow.
+  const fork = reach >= 0 ? chain[reach] : undefined
+  const next = reach >= 0 ? chain[reach + 1] : undefined
+  const leavesChainHere = Boolean(
+    fork && next && onPath && fork.children.some(id => id !== next.id && onPath.has(id)),
+  )
+  const shown = Math.max(VARIATION_PREVIEW_LENGTH, reach + 1 + (leavesChainHere ? 1 : 0))
 
   return {
     nodes: chain.slice(0, shown),

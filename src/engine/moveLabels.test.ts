@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bestMoveLabel, ponderMoveLabel } from './moveLabels'
+import { bestMoveLabel, moveNumberPrefix, ponderMoveLabel } from './moveLabels'
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
@@ -42,5 +42,19 @@ describe('ponderMoveLabel', () => {
 
   it('falls back to the raw reply when the first move will not go in', () => {
     expect(ponderMoveLabel(START, 'e2e5', 'e7e5')).toBe('e7e5')
+  })
+})
+
+describe('moveNumberPrefix', () => {
+  it('reads the move number off the position the move produced', () => {
+    // After 1. e4 Black is to move at move 1; after 1... e5 White is to move at 2.
+    expect(moveNumberPrefix('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1')).toBe('1.')
+    expect(moveNumberPrefix('rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2')).toBe('1...')
+    expect(moveNumberPrefix('r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3')).toBe('2...')
+  })
+
+  it('has nothing to say about a position nobody has moved in', () => {
+    expect(moveNumberPrefix(START)).toBeNull()
+    expect(moveNumberPrefix('not a fen')).toBeNull()
   })
 })
