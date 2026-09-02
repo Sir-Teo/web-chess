@@ -22,6 +22,7 @@ type EngineLine = {
   limits?: UciGoLimits
   multipv: number
   depth: number
+  seldepth?: number
   cp?: number
   mate?: number
   scoreBound?: 'upperbound' | 'lowerbound'
@@ -29,6 +30,8 @@ type EngineLine = {
   pv: string[]
   nodes?: number
   nps?: number
+  hashfull?: number
+  tbhits?: number
   time?: number
 }
 
@@ -212,12 +215,15 @@ export function parseInfoLine(line: string): EngineLine | null {
   if (parts[0] !== 'info') return null
 
   let depth = 0
+  let seldepth: number | undefined
   let multipv = 1
   let cp: number | undefined
   let mate: number | undefined
   let wdl: { w: number; d: number; l: number } | undefined
   let nodes: number | undefined
   let nps: number | undefined
+  let hashfull: number | undefined
+  let tbhits: number | undefined
   let time: number | undefined
   let scoreBound: 'upperbound' | 'lowerbound' | undefined
   let pv: string[] = []
@@ -226,9 +232,12 @@ export function parseInfoLine(line: string): EngineLine | null {
     const part = parts[i]
 
     if (part === 'depth') depth = nonNegativeNumber(parts[i + 1]) ?? depth
+    if (part === 'seldepth') seldepth = nonNegativeNumber(parts[i + 1])
     if (part === 'multipv') multipv = positiveNumber(parts[i + 1]) ?? multipv
     if (part === 'nodes') nodes = nonNegativeNumber(parts[i + 1])
     if (part === 'nps') nps = nonNegativeNumber(parts[i + 1])
+    if (part === 'hashfull') hashfull = nonNegativeNumber(parts[i + 1])
+    if (part === 'tbhits') tbhits = nonNegativeNumber(parts[i + 1])
     if (part === 'time') time = nonNegativeNumber(parts[i + 1])
     if (part === 'score' && parts[i + 1] === 'cp') cp = finiteNumber(parts[i + 2])
     if (part === 'score' && parts[i + 1] === 'mate') mate = finiteNumber(parts[i + 2])
@@ -250,7 +259,7 @@ export function parseInfoLine(line: string): EngineLine | null {
 
   if (!pv.length) return null
 
-  return { multipv, depth, cp, mate, scoreBound, wdl, pv, nodes, nps, time }
+  return { multipv, depth, seldepth, cp, mate, scoreBound, wdl, pv, nodes, nps, hashfull, tbhits, time }
 }
 
 function optionFieldValue(input: string, field: 'default' | 'min' | 'max' | 'var'): string | undefined {

@@ -49,14 +49,31 @@ export function countLabel(count: number, singular: string, plural = `${singular
  * caller can leave the row out instead of rendering a blank one.
  */
 export function engineTelemetryLabel(
-  line: { depth?: number; nodes?: number; nps?: number; time?: number } | null | undefined,
+  line: {
+    depth?: number
+    seldepth?: number
+    nodes?: number
+    nps?: number
+    hashfull?: number
+    tbhits?: number
+    time?: number
+  } | null | undefined,
 ): string | null {
   if (!line) return null
 
   const parts = [
     typeof line.depth === 'number' && line.depth > 0 ? `D${line.depth}` : null,
+    typeof line.seldepth === 'number' && line.seldepth > 0 && line.seldepth !== line.depth
+      ? `SD${line.seldepth}`
+      : null,
     typeof line.nodes === 'number' && line.nodes > 0 ? `${formatCompactNumber(line.nodes)} nodes` : null,
     typeof line.nps === 'number' && line.nps > 0 ? `${formatCompactNumber(line.nps)} nps` : null,
+    typeof line.hashfull === 'number' && line.hashfull > 0
+      ? `Hash ${(line.hashfull / 10).toFixed(1)}%`
+      : null,
+    typeof line.tbhits === 'number' && line.tbhits > 0
+      ? countLabel(line.tbhits, 'TB hit')
+      : null,
     typeof line.time === 'number' && line.time > 0 ? `${line.time} ms` : null,
   ].filter(Boolean)
 

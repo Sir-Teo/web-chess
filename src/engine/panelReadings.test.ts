@@ -60,8 +60,15 @@ describe('countLabel', () => {
 
 describe('engineTelemetryLabel', () => {
   it('reports what the search has actually said', () => {
-    expect(engineTelemetryLabel({ depth: 16, nodes: 2_400_000, nps: 3_500_000, time: 691 }))
-      .toBe('D16 · 2.4M nodes · 3.5M nps · 691 ms')
+    expect(engineTelemetryLabel({
+      depth: 16,
+      seldepth: 24,
+      nodes: 2_400_000,
+      nps: 3_500_000,
+      hashfull: 127,
+      tbhits: 3,
+      time: 691,
+    })).toBe('D16 · SD24 · 2.4M nodes · 3.5M nps · Hash 12.7% · 3 TB hits · 691 ms')
   })
 
   /**
@@ -69,7 +76,7 @@ describe('engineTelemetryLabel', () => {
    * not searched none of them.
    */
   it('leaves out fields that are missing or zero', () => {
-    expect(engineTelemetryLabel({ depth: 12, nodes: 0, nps: 0, time: 0 })).toBe('D12')
+    expect(engineTelemetryLabel({ depth: 12, seldepth: 12, nodes: 0, nps: 0, hashfull: 0, tbhits: 0, time: 0 })).toBe('D12')
     expect(engineTelemetryLabel({})).toBeNull()
     expect(engineTelemetryLabel(null)).toBeNull()
     expect(engineTelemetryLabel(undefined)).toBeNull()

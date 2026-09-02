@@ -115,9 +115,9 @@ const SCENARIO = ${JSON.stringify(scenario)};
     emitInfo() {
       const cp = scoreFor(this.fen);
       this.send('info depth 16 seldepth 20 multipv 1 score cp ' + cp +
-                ' nodes 120000 nps 900000 time 130 wdl 400 400 200 pv e2e4 e7e5');
+                ' nodes 120000 nps 900000 hashfull 45 tbhits 0 time 130 wdl 400 400 200 pv e2e4 e7e5');
       this.send('info depth 22 seldepth 26 multipv 1 score cp ' + cp +
-                ' nodes 400000 nps 900000 time 420 wdl 400 400 200 pv e2e4 e7e5');
+                ' nodes 400000 nps 900000 hashfull 127 tbhits 3 time 420 wdl 400 400 200 pv e2e4 e7e5');
       if (SCENARIO === 'bounded-last') {
         // A fail-high re-search at the same depth, with more nodes behind it,
         // arriving after the exact line and before the search is stopped. This
@@ -750,6 +750,16 @@ async function main() {
         assert(headerHeight !== null, 'desktop: top bar is missing')
         assert(headerHeight <= 72,
           `desktop: top bar wrapped to ${headerHeight}px instead of staying on one row`)
+
+        await page.getByRole('button', { name: 'Pro', exact: true }).click()
+        const telemetry = await page.locator('.engine-telemetry-inline').textContent()
+        assert(/SD26/.test(telemetry || ''),
+          `desktop: Pro telemetry omitted selective depth: ${telemetry}`)
+        assert(/Hash 12\.7%/.test(telemetry || ''),
+          `desktop: Pro telemetry omitted hash occupancy: ${telemetry}`)
+        assert(/3 TB hits/.test(telemetry || ''),
+          `desktop: Pro telemetry omitted tablebase hits: ${telemetry}`)
+        await page.getByRole('button', { name: 'Coach', exact: true }).click()
       }
 
       // Every aria-controls has to lead somewhere. The one accepted exception
