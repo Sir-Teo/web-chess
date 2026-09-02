@@ -144,6 +144,7 @@ import {
   type SquareMarks,
 } from './engine/boardMarks'
 import { coachReadingSource, describeCoachDepth, isExactTablebaseCoachMove, selectCoachBestMove } from './engine/coach'
+import { isReviewPracticeAnswer } from './engine/reviewPractice'
 import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage } from './engine/labCommands'
 import { aiSearchHistory, defaultOrientationForGameMode, describePlayEngine, hintDisabledReason, sideToMoveColor, takebackDisabledReason, takebackPlyCount } from './engine/playMode'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
@@ -210,6 +211,15 @@ type SampleLibraryFilter = 'all' | HistoricalSampleFormat
 type PromotionPiece = 'q' | 'r' | 'b' | 'n'
 type PendingPromotion = { from: Square; to: Square }
 type ImportSweepProgress = { done: number; total: number; sampledFrom?: number }
+type ReviewPracticeState = {
+  beforeFen: string
+  expectedUci: string
+  expectedSan: string
+  moveLabel: string
+  attempts: number
+  status: 'ready' | 'retry' | 'correct'
+  solvedFen?: string
+}
 
 // Classic scrollbars take layout width from the stacked mobile layout; overlay
 // scrollbars (every touch browser) take none. Measured once — it is a property
@@ -551,6 +561,7 @@ function App() {
   // A review asked for from Play mode, which cannot start until the workspace
   // has actually switched and the analysis engine is up.
   const [pendingGameReview, setPendingGameReview] = useState(false)
+  const [reviewPractice, setReviewPractice] = useState<ReviewPracticeState | null>(null)
   const [importSweepProgress, setImportSweepProgress] = useState<ImportSweepProgress>({ done: 0, total: 0 })
   const skipFullAnalyzeFenRef = useRef<string | null>(null)
   const importSweepQueueRef = useRef<ImportSweepTarget[]>([])
@@ -2024,6 +2035,19 @@ function App() {
     setSearchMovesInput(value => value ? '' : value)
   }, [fen])
 
+  useEffect(() => {
+    setReviewPractice(previous => {
+      if (!previous) return previous
+      if (fen === previous.beforeFen || fen === previous.solvedFen) return previous
+      return null
+    })
+  }, [fen])
+
+  useEffect(() => {
+    if (workspaceMode === 'analysis' && analysisTab === 'review') return
+    setReviewPractice(previous => previous ? null : previous)
+  }, [analysisTab, workspaceMode])
+
   // ── Derived move data ─────────────────────────────────
   const mainLineNodes = useMemo(() => gameTree.mainLine(), [gameTree])
 
@@ -2494,6 +2518,13 @@ function App() {
       list.push({ startSquare: currentBoardMove.from, endSquare: currentBoardMove.to, color: 'rgba(255, 170, 0, 0.8)' })
     }
 
+    // A retry that draws the engine answer on the board is only theatre. Keep
+    // the move that reached the position for orientation, but hide every hint
+    // and candidate until two misses reveal the answer or the move is solved.
+    if (reviewPractice && reviewPractice.status !== 'correct' && reviewPractice.attempts < 2) {
+      return list
+    }
+
     // Violet, so it reads as neither the move that was played (amber) nor a move
     // the engine recommends (the red-to-green candidate scale). It is the move
     // the *other* side wants to make.
@@ -2552,7 +2583,7 @@ function App() {
     }
 
     return list
-  }, [activeThreat, currentBoardMove, engineEnabled, fen, hintMove, linePreview, lines, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
+  }, [activeThreat, currentBoardMove, engineEnabled, fen, hintMove, linePreview, lines, reviewPractice, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
 
   const playSound = useMoveSound(soundEnabled)
   /**
@@ -2706,6 +2737,7 @@ function App() {
 
   const applyHumanMove = useCallback(
     (from: Square, to: Square, promotion?: PromotionPiece) => {
+      const beforeFen = game.fen()
       let move: Move | null
       try {
         move = game.move({ from, to, promotion })
@@ -2713,6 +2745,21 @@ function App() {
         return false
       }
       if (!move) return false
+
+      const activePractice = reviewPractice
+        && reviewPractice.beforeFen === beforeFen
+        && reviewPractice.status !== 'correct'
+        ? reviewPractice
+        : null
+      if (activePractice && !isReviewPracticeAnswer(activePractice.expectedUci, move)) {
+        game.undo()
+        setReviewPractice(previous => previous && previous.beforeFen === beforeFen
+          ? { ...previous, attempts: previous.attempts + 1, status: 'retry' }
+          : previous)
+        clearBoardSelection()
+        setPendingPromotion(null)
+        return false
+      }
 
       // An empty square is only focusable while it is a legal target, so the
       // square the reader just pressed Enter on stops being focusable the
@@ -2736,11 +2783,21 @@ function App() {
         clockMs: clockRef.current ? remainingMs(clockRef.current, move.color, Date.now()) : undefined,
       })
       registerMovePlayed(move)
+      if (activePractice) {
+        setReviewPractice(previous => previous && previous.beforeFen === beforeFen
+          ? {
+            ...previous,
+            attempts: previous.attempts + 1,
+            status: 'correct',
+            solvedFen: newFen,
+          }
+          : previous)
+      }
       clearBoardSelection()
       setPendingPromotion(null)
       return true
     },
-    [cancelStaleBackgroundAnalysis, clearBoardSelection, game, gameTree, registerMovePlayed, stop, workspaceMode],
+    [cancelStaleBackgroundAnalysis, clearBoardSelection, game, gameTree, registerMovePlayed, reviewPractice, stop, workspaceMode],
   )
 
   /**
@@ -3974,10 +4031,35 @@ function App() {
   }, [navigateAndPonder])
 
   const navigateReviewNode = useCallback((node: GameNode) => {
+    setReviewPractice(null)
     navigateAndPonder(gameTreeRef.current.navigateTo(node.id))
   }, [navigateAndPonder])
 
+  const startReviewPractice = useCallback((
+    beforeNode: GameNode,
+    expectedUci: string,
+    expectedSan: string,
+    moveLabel: string,
+  ) => {
+    const chess = gameTreeRef.current.navigateTo(beforeNode.id)
+    setReviewPractice({
+      beforeFen: beforeNode.fen,
+      expectedUci,
+      expectedSan,
+      moveLabel,
+      attempts: 0,
+      status: 'ready',
+    })
+    navigateAndPonder(chess)
+    requestBoardReveal()
+  }, [navigateAndPonder, requestBoardReveal])
+
+  const exitReviewPractice = useCallback(() => {
+    setReviewPractice(null)
+  }, [])
+
   const tryReviewBestMove = useCallback((beforeNode: GameNode, bestMove?: string) => {
+    setReviewPractice(null)
     const chess = gameTreeRef.current.navigateTo(beforeNode.id)
     if (!bestMove || bestMove.length < 4) {
       navigateAndPonder(chess)
@@ -5006,6 +5088,35 @@ function App() {
                 {turnLabel}
               </span>
               <span className="board-meta-move">{moveNumberLabel}</span>
+              {reviewPractice && (
+                <div
+                  className={`board-meta-practice ${reviewPractice.status}`}
+                  data-review-practice
+                >
+                  <span
+                    role="status"
+                    aria-live="polite"
+                    aria-label={reviewPractice.status === 'correct'
+                      ? `Correct. The best move was ${reviewPractice.expectedSan}.`
+                      : reviewPractice.attempts >= 2
+                        ? `Try again. The best move is ${reviewPractice.expectedSan}.`
+                        : reviewPractice.status === 'retry'
+                          ? 'Not quite. The position was reset; try another move.'
+                          : `Practice the position before ${reviewPractice.moveLabel}. Find a better move.`}
+                  >
+                    {reviewPractice.status === 'correct'
+                      ? `Correct · ${reviewPractice.expectedSan}`
+                      : reviewPractice.attempts >= 2
+                        ? `Answer · ${reviewPractice.expectedSan}`
+                        : reviewPractice.status === 'retry'
+                          ? 'Not quite · try again'
+                          : `Practice · improve on ${reviewPractice.moveLabel}`}
+                  </span>
+                  <button type="button" onClick={exitReviewPractice}>
+                    {reviewPractice.status === 'correct' ? 'Done' : 'Exit'}
+                  </button>
+                </div>
+              )}
               {/* The board is showing a position the game has not reached, and
                   it has to say so: without this the only difference between a
                   preview and the game is that the reader remembers hovering. */}
@@ -5014,12 +5125,12 @@ function App() {
                   Preview · {linePreview.label}
                 </span>
               )}
-              {materialLeader && materialDetail && (
+              {!reviewPractice && materialLeader && materialDetail && (
                 <span className="board-meta-material" title={materialDetail} aria-label={materialDetail}>
                   {materialLeader === 'w' ? 'White' : 'Black'} {materialAdvantageLabel(material.delta, materialLeader)}
                 </span>
               )}
-              {importedPlayers && (
+              {!reviewPractice && importedPlayers && (
                 <span className="board-meta-game" title={importedGameTitle}>
                   {importedResult && <strong>{importedResult}</strong>}
                   <span>{importedPlayers}</span>
@@ -5029,7 +5140,7 @@ function App() {
                 <ChessClock state={clock} paused={paused} orientation={orientation} />
               )}
               <span className="board-meta-status">{workspaceMode === 'analysis' ? status : gameModeLabel}</span>
-              {currentMoveQuality && (
+              {!reviewPractice && currentMoveQuality && (
                 <span className={`board-quality-pill quality-${currentMoveQuality}`}>
                   {REVIEW_LABELS[currentMoveQuality]}
                 </span>
@@ -5973,6 +6084,11 @@ function App() {
                         nodes={reviewLineNodes}
                         currentNodeId={gameTree.current.id}
                         showEngineDetail={analysisExperience === 'pro'}
+                        hideBestMoves={Boolean(
+                          reviewPractice
+                          && reviewPractice.status !== 'correct'
+                          && reviewPractice.attempts < 2
+                        )}
                         onSelectNode={navigateReviewNode}
                       />
                     ) : (
@@ -5992,6 +6108,8 @@ function App() {
                           const bestMoveHint =
                             row.bestMove && row.bestMove !== row.uci ? `Best ${row.bestMoveSan ?? row.bestMove}` : null
                           const bestMoveLabel = row.bestMoveSan ?? row.bestMove
+                          const practiceHidesAnswer = analysisExperience === 'beginner'
+                            && (!reviewPractice || (reviewPractice.status !== 'correct' && reviewPractice.attempts < 2))
                           return (
                             <div
                               key={`${row.ply}-${row.uci}`}
@@ -6004,7 +6122,7 @@ function App() {
                                 className="critical-moment-main"
                                 disabled={!beforeNode}
                                 aria-label={`Review position before ${movePrefix} ${row.san}`}
-                                title={bestMoveHint ?? undefined}
+                                title={practiceHidesAnswer ? undefined : bestMoveHint ?? undefined}
                                 onClick={() => {
                                   if (!beforeNode) return
                                   navigateAndPonder(gameTree.navigateTo(beforeNode.id))
@@ -6017,7 +6135,7 @@ function App() {
                                 <span className="critical-moment-impact">
                                   {reviewImpactLabel(row.deltaCp)}
                                 </span>
-                                {bestMoveHint && (
+                                {bestMoveHint && !practiceHidesAnswer && (
                                   <span className="critical-moment-best">
                                     {bestMoveHint}
                                   </span>
@@ -6027,12 +6145,27 @@ function App() {
                                 <button
                                   type="button"
                                   className="critical-moment-best-action"
-                                  aria-label={`Try best move ${bestMoveLabel} before ${movePrefix} ${row.san}`}
-                                  title={`Try ${bestMoveLabel}`}
-                                  onClick={() => tryReviewBestMove(beforeNode, row.bestMove)}
+                                  aria-label={analysisExperience === 'beginner'
+                                    ? `Practice the position before ${movePrefix} ${row.san}`
+                                    : `Try best move ${bestMoveLabel} before ${movePrefix} ${row.san}`}
+                                  title={analysisExperience === 'beginner'
+                                    ? 'Hide the answer and retry this position'
+                                    : `Try ${bestMoveLabel}`}
+                                  onClick={() => {
+                                    if (analysisExperience === 'beginner') {
+                                      startReviewPractice(
+                                        beforeNode,
+                                        row.bestMove!,
+                                        bestMoveLabel!,
+                                        `${movePrefix} ${row.san}`,
+                                      )
+                                      return
+                                    }
+                                    tryReviewBestMove(beforeNode, row.bestMove)
+                                  }}
                                 >
                                   <IconPlay aria-hidden="true" />
-                                  Try best
+                                  {analysisExperience === 'beginner' ? 'Practice' : 'Try best'}
                                 </button>
                               )}
                             </div>

@@ -634,6 +634,42 @@ body.resizing * {
   justify-content: flex-end;
 }
 
+.board-meta-strip>.board-meta-practice {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.42rem;
+  overflow: visible;
+  color: var(--info);
+}
+
+.board-meta-practice>span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.board-meta-practice.retry {
+  color: var(--quality-inaccuracy);
+}
+
+.board-meta-practice.correct {
+  color: var(--quality-best);
+}
+
+.board-meta-practice button {
+  flex: none;
+  min-height: 1.75rem;
+  padding: 0.22rem 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: inherit;
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
 .board-quality-pill {
   flex: 0 0 auto;
   border: 1px solid var(--border-default);
@@ -3545,6 +3581,11 @@ button.critical-moment-row {
     min-height: 1.85rem;
     padding: 0.22rem 0.38rem;
     font-size: 0.68rem;
+  }
+
+  .board-meta-practice button {
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .opening-pill {

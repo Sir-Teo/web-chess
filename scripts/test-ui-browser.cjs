@@ -778,6 +778,26 @@ async function main() {
 
         console.log(`  review: ${summary.moves} moves, overall ${summary.overall}, ` +
                     `white ${summary.white}, black ${summary.black}, ACPL ${summary.acpl}`)
+
+        // Coach turns a critical moment into a board exercise rather than
+        // playing the answer for the reader. The answer must disappear before
+        // the exercise begins, the prompt has to reach the board, and Exit has
+        // to return the ordinary analysis surface without a reload.
+        await page.getByRole('button', { name: 'Coach', exact: true }).click()
+        const practiceButtons = page.getByRole('button', { name: /^Practice the position before / })
+        assert(await practiceButtons.count() > 0,
+          'review produced no critical position that Coach could practice')
+        assert(await page.locator('.critical-moment-best').count() === 0,
+          'Coach revealed the critical-moment answer before practice')
+        await practiceButtons.first().click()
+        const practicePrompt = page.locator('[data-review-practice]')
+        await practicePrompt.waitFor({ timeout: 5000 })
+        const practiceLabel = await practicePrompt.getByRole('status').getAttribute('aria-label')
+        assert(/Find a better move/.test(practiceLabel || ''),
+          `practice prompt read "${practiceLabel}"`)
+        await practicePrompt.getByRole('button', { name: 'Exit' }).click()
+        await practicePrompt.waitFor({ state: 'detached', timeout: 5000 })
+        console.log('  practice: Coach hides the answer and opens a playable retry position')
       }
 
       // A chessboard that is not square is the most obvious possible bug and

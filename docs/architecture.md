@@ -144,6 +144,15 @@ Every row also carries the phase it was played in:
   nothing scored; `filterReviewRowsByPhase` narrows the whole review to one.
   Nothing about the phase is persisted — it is recomputed from the position.
 
+Coach mode can turn a ranked critical moment into a retry exercise. The
+exercise holds the position before the reviewed move and the engine's UCI best
+move. `applyHumanMove` compares a legal attempt before it mutates the game tree:
+an incorrect move is undone on the mutable `Chess` instance and never becomes
+a variation; the exact answer follows the ordinary add-move path. Candidate
+arrows and review best-move text are hidden until the move is solved or two
+misses reveal the answer. The prompt lives in the board's existing metadata
+strip so the exercise does not cover the playfield.
+
 ## Storage
 
 | What | Where | Module |

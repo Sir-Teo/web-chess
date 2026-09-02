@@ -10,10 +10,11 @@ type ReviewMoveListProps = {
   nodes: GameNode[]
   currentNodeId: string
   showEngineDetail: boolean
+  hideBestMoves?: boolean
   onSelectNode: (node: GameNode) => void
 }
 
-export const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, currentNodeId, showEngineDetail, onSelectNode }: ReviewMoveListProps) {
+export const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, currentNodeId, showEngineDetail, hideBestMoves = false, onSelectNode }: ReviewMoveListProps) {
   return (
     <ol className="moves-list review-move-list">
       {rows.map(row => {
@@ -25,6 +26,7 @@ export const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, curren
         const confidenceLabel = reviewConfidenceLabel(row.confidence, row.evalDepth)
         const bestMoveHint =
           row.bestMove && row.bestMove !== row.uci ? `Best ${row.bestMoveSan ?? row.bestMove}` : null
+        const visibleBestMoveHint = hideBestMoves ? null : bestMoveHint
         // What the mover had left when they played it, where the game carries
         // it. Half the blunders in a real game are explained by this number and
         // by nothing in the evaluation.
@@ -33,7 +35,7 @@ export const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, curren
           qualityLabel,
           impactLabel,
           confidenceLabel,
-          bestMoveHint,
+          visibleBestMoveHint,
           clockLabel ? `${describeClockTime(node!.clockMs!)} left` : null,
         ].filter(Boolean).join(', ')
 
@@ -52,7 +54,7 @@ export const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, curren
               <span className="move-index">{movePrefix}</span>
               <strong>{row.san}</strong>
               {showEngineDetail && <span className="move-uci">{row.uci}</span>}
-              <span className="move-best">{bestMoveHint ?? ''}</span>
+              <span className="move-best">{visibleBestMoveHint ?? ''}</span>
               <span className="move-impact">{impactLabel}</span>
               {clockLabel && <span className="move-clock" aria-hidden="true">{clockLabel}</span>}
               {showEngineDetail && (

@@ -59,6 +59,10 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 - **Beginner and pro analysis**: Coach mode keeps the right panel focused on plain-language move guidance — it opens with the evaluation *in words*, "Black is slightly better · 46% for White", rather than with `-0.48` — while Pro mode exposes MultiPV, WDL, cloud evals, opening stats, tablebase moves, and UCI controls.
 - **Search diagnostics for pros**: Pro mode reports ordinary and selective depth, nodes, NPS, transposition-table occupancy, tablebase hits, and elapsed time from Stockfish's live UCI output, so Hash and Syzygy settings can be judged from evidence rather than guesswork.
 - **Game review, of the line you are on**: Import a PGN, run a review pass, filter critical moments by side, inspect accuracy, and jump from a review row back to the board. The review follows the branch the board is standing in, so a variation can be reviewed like the game — and when that is not the main line it says so. Accuracy and move labels are scored on winning chances rather than raw centipawns, so an imprecision in a decided game is not called a blunder.
+- **Practice critical moments**: In Coach mode, a critical mistake becomes a
+  playable retry. Engine answers and candidate arrows are hidden, wrong moves
+  snap back without adding junk variations, and the answer appears after two
+  misses. Promotions are graded exactly, including the chosen piece.
 - **Time trouble, in the review**: A move's clock reading rides with it — read
   from `[%clk]` on import, recorded from the running clock in a timed game, and
   written back out. So a review of a real blitz game shows *0:07* beside the
