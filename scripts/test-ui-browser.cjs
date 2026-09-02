@@ -737,6 +737,21 @@ async function main() {
         `${viewport.name}: the board is ${board.width}x${board.height}, which is not square`)
       assert(board.width > 100, `${viewport.name}: the board collapsed to ${board.width}px`)
 
+      // At 1280px the five action labels used to push Settings onto a second
+      // header row. Every control was technically reachable, so the earlier
+      // bounding-box checks all passed while the toolbar took nearly twice the
+      // vertical space and shrank the playfield. Desktop gets one compact row;
+      // mobile intentionally uses multiple rows to keep 44px touch targets.
+      if (viewport.name === 'desktop') {
+        const headerHeight = await page.evaluate(() => {
+          const header = document.querySelector('.top')
+          return header ? Math.round(header.getBoundingClientRect().height) : null
+        })
+        assert(headerHeight !== null, 'desktop: top bar is missing')
+        assert(headerHeight <= 72,
+          `desktop: top bar wrapped to ${headerHeight}px instead of staying on one row`)
+      }
+
       // Every aria-controls has to lead somewhere. The one accepted exception
       // is a collapsed disclosure -- aria-expanded="false" -- whose content is
       // rendered on demand and legitimately absent until opened. Anything else

@@ -435,7 +435,11 @@ body.resizing * {
   box-sizing: border-box;
 }
 
-@media (min-width: 1100px) {
+/* Text labels make the action cluster easier to scan when the room genuinely
+   exists. At 1280px they forced Settings onto a second row, taking a full row
+   of height from the board for five words that already have tooltips and
+   accessible names. Keep the compact icon treatment through laptop widths. */
+@media (min-width: 1400px) {
   .mobile-actions .btn-label {
     display: inline;
   }
