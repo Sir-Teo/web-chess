@@ -795,6 +795,8 @@ async function main() {
         const practiceLabel = await practicePrompt.getByRole('status').getAttribute('aria-label')
         assert(/Find a better move/.test(practiceLabel || ''),
           `practice prompt read "${practiceLabel}"`)
+        assert(await page.locator('.best-move').count() === 0,
+          'Coach practice leaked the answer through the bottom engine status')
         await practicePrompt.getByRole('button', { name: 'Exit' }).click()
         await practicePrompt.waitFor({ state: 'detached', timeout: 5000 })
         console.log('  practice: Coach hides the answer and opens a playable retry position')

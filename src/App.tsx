@@ -6473,9 +6473,12 @@ function App() {
                 <span className="engine-telemetry-inline">{engineTelemetry}</span>
               )}
 
-              {currentLastBestMove && !game.isGameOver() && (
-                <p className="best-move" title={currentLastBestMove}>Best: {bestMoveLabel(fen, currentLastBestMove)}</p>
-              )}
+              {currentLastBestMove
+                && !game.isGameOver()
+                && (!reviewPractice || reviewPractice.status === 'correct' || reviewPractice.attempts >= 2)
+                && (
+                  <p className="best-move" title={currentLastBestMove}>Best: {bestMoveLabel(fen, currentLastBestMove)}</p>
+                )}
             </div>
           </div>
         </div>
