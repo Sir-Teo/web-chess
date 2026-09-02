@@ -29,7 +29,7 @@ flowchart LR
 
 ## Main Thread
 
-`src/App.tsx` is the whole application shell, and at ~6,200 lines it is by far
+`src/App.tsx` is the whole application shell, and at ~6,400 lines it is by far
 the largest file in the repo. It owns the board, the panels, every dialog, and
 all persisted settings. This is the one place the three apps diverge sharply:
 web-katrain moved the equivalent state into `store/gameStore.ts` and has
@@ -888,6 +888,75 @@ do not nest.
 
 Worth knowing if the parser is ever replaced: this is a workaround for a
 grammar, not a normalisation the format needs.
+
+## A played best move, graded by the drift between two searches
+
+The two readings that grade a move -- the position before it and the position
+after -- come from two separate searches, and at a fixed depth they disagree by
+a few dozen centipawns as a matter of course. `buildReviewRows` never asked
+whether the move played was the one the engine wanted, so that drift alone
+could label the engine's own choice an inaccuracy. The row then read
+*Inaccuracy* beside *Best e4* -- the move the reader had just played, on the
+engine's advice.
+
+**Fixed.** A move that matches the recorded best move is graded Best and its
+loss reported as zero, so ACPL and accuracy agree with the label; a gain is
+kept, because a deeper second search that likes the move more is information.
+Lichess and chess.com both do the same. The shallow gate still applies first: a
+best move recorded by a 70ms sweep never reaches grading at all.
+
+The rule underneath: **a judgement about a move has to be consistent with the
+evidence it is printed beside.** "Best e4" and "Inaccuracy" on one row cannot
+both be true, and when they disagree it is the number that was measured
+wrongly, not the label.
+
+## The move list drew the tree's first level
+
+`MoveListTree` rendered variations only off main-line nodes, walking each
+one's first-child chain. A variation inside a variation -- which every
+annotated game has -- was in the tree, in the exported PGN, and nowhere on
+screen. Imported, `2. Nf3 (2. Nc3 Nf6 (2... Nc6 3. Bc4 (3. f4 exf4) 3... Bc5)
+3. f4)` showed as "Nc3 Nf6 f4": no numbers, and the inner line gone.
+
+Nested lines are drawn in brackets within their row, the way a PGN writes
+them, and numbered the way a PGN is: the first move of a line, every White
+move, and a Black move that follows a bracket. `moveNumberPrefix` in
+`engine/moveLabels.ts` reads the number off the position a move produced.
+
+The preview cap that keeps a long variation short had to learn one thing, and
+the test found it rather than the screen: a sub-line is drawn *after* the move
+it is an alternative to, which is the chain's next node. When the reader
+stands in a sub-line, the chain has to be shown one node past the fork, or the
+line they are in has nothing to follow -- the first version cut it exactly
+there. `buildVariationPreview` takes the whole current path for that reason.
+
+Two things rode along. NAGs print as the glyph they stand for -- `$1` is `!`,
+`$16` is `±` -- with the words for a screen reader (`engine/nags.ts`); the list
+used to print the file format, and only in the tooltip. And the reader can
+judge the move under the cursor from the list, which writes the PGN suffix the
+exporter already prints; an imported `$1` is replaced rather than kept beside a
+written `?`, or the export says two things at once.
+
+## Chunks by what changes
+
+Everything shipped as one 561 kB chunk whose hash changed on every deploy. The
+service worker is network-first, so every deploy re-downloaded React and the
+board for every returning reader, for code that changes only when a dependency
+is upgraded.
+
+| chunk | raw | gzipped | changes when |
+| --- | --- | --- | --- |
+| react | 192 kB | 60 kB | React is upgraded |
+| chess | 118 kB | 37 kB | chess.js or react-chessboard is |
+| index | 255 kB | 81 kB | every deploy |
+| eco | 470 kB | 61 kB | the opening table is regenerated |
+
+`manualChunks` is a function keyed on module path, not Rollup's object form.
+The object form names package entry points, and this app reaches React
+through `react/jsx-runtime` and `react-dom/client`, which are not those: the
+first attempt produced a `react` chunk of 0.00 kB and left everything in
+`index`. The build output reports chunk sizes and nothing else would have
+said so; read them after changing this.
 
 ## Project Invariants
 
