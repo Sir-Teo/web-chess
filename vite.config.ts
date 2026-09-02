@@ -11,6 +11,28 @@ const crossOriginIsolationHeaders = {
 export default defineConfig({
   plugins: [react()],
   base: '/web-chess/',
+  build: {
+    rollupOptions: {
+      output: {
+        // The libraries in their own chunks, so a deploy that changes only
+        // this app's code leaves them where the browser already has them.
+        // Everything was one 560 kB chunk with a hash that changed on every
+        // deploy; the service worker is network-first, so every deploy was a
+        // full re-download of React and the board for every returning
+        // reader. These change only when a dependency is upgraded.
+        //
+        // By path rather than by the object form: that form names package
+        // entry points, and the app reaches React through react/jsx-runtime
+        // and react-dom/client, which are not those -- it produced an empty
+        // "react" chunk and left everything where it was.
+        manualChunks(id: string) {
+          if (/\/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react'
+          if (/\/node_modules\/(chess\.js|react-chessboard|@dnd-kit)\//.test(id)) return 'chess'
+          return undefined
+        },
+      },
+    },
+  },
   test: {
     // Vitest stubs CSS imports to nothing by default, which also empties
     // `?raw`. `reviewPalette.test.ts` reads the real `--quality-*` values out
