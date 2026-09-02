@@ -320,6 +320,79 @@ describe('PGN export helpers', () => {
     expect(loader.history()).toEqual(['e4', 'e5', 'Nf3'])
   })
 
+  it('wraps a long variation across lines instead of exporting it as one', () => {
+    // A variation was joined into a single token before wrapping, so a long
+    // one came out as one line however far it ran -- here 20 plies, well past
+    // the 79 characters the export format asks for and heading for the 255 it
+    // refuses. The brackets stay attached to the moves they enclose.
+    const root = new Chess()
+    const rootFen = root.fen()
+    const e4Move = root.move('e4')!
+    const e4Fen = root.fen()
+    const e5Move = root.move('e5')!
+    const e5Fen = root.fen()
+
+    // Alekhine's Defence, 21 plies of it, as the alternative to 1... e5.
+    const alekhine = new Chess(e4Fen)
+    const line = ['Nf6', 'e5', 'Nd5', 'd4', 'd6', 'Nf3', 'Bg4', 'Be2', 'e6', 'O-O', 'Be7', 'c4', 'Nb6', 'Nc3', 'O-O', 'Be3', 'd5', 'c5', 'Bxf3', 'Bxf3', 'Nc4']
+    const nodes = new Map<string, GameNode>()
+    const rootNode = makeNode('root', rootFen, null, null, ['e4'])
+    const e4 = makeNode('e4', e4Fen, e4Move, 'root', ['e5', 'v0'])
+    const e5 = makeNode('e5', e5Fen, e5Move, 'e4')
+    nodes.set(rootNode.id, rootNode)
+    nodes.set(e4.id, e4)
+    nodes.set(e5.id, e5)
+    let parentId = 'e4'
+    line.forEach((san, index) => {
+      const move = alekhine.move(san)!
+      const id = `v${index}`
+      nodes.set(id, makeNode(id, alekhine.fen(), move, parentId, index + 1 < line.length ? [`v${index + 1}`] : []))
+      parentId = id
+    })
+
+    const pgn = exportAnnotatedPgn([rootNode, e4, e5], new Map(), { Result: '*' }, nodes)
+    const lines = pgn.split('\n')
+    expect(Math.max(...lines.map(text => text.length))).toBeLessThanOrEqual(79)
+    expect(pgn).toContain('(1... Nf6')
+    expect(pgn).toContain('Nc4)')
+
+    // And it comes back as the variation it was.
+    const imported = parsePgnMoveTree(pgn)
+    expect(imported.moves[0]?.children?.map(child => child.move.san)).toEqual(['e5', 'Nf6'])
+    const variation = imported.moves[0]!.children![1]!
+    const replayed: string[] = []
+    let cursor: typeof variation | undefined = variation
+    while (cursor) {
+      replayed.push(cursor.move.san)
+      cursor = cursor.children?.[0]
+    }
+    expect(replayed).toEqual(line)
+  })
+
+  it('breaks a comment that cannot fit on a line, and keeps its commands whole', () => {
+    const game = new Chess()
+    const rootFen = game.fen()
+    const move = game.move('e4')!
+    const fen = game.fen()
+    const note = 'The Open Game. White stakes a claim in the centre and opens lines for the bishop and the queen, which is why it has been the first move of choice since the game was written down.'
+    const rootNode = makeNode('root', rootFen, null, null, ['e4'])
+    const e4 = { ...makeNode('e4', fen, move, 'root'), comment: note, clockMs: 180_000 }
+
+    const pgn = exportAnnotatedPgn([rootNode, e4], new Map([[fen, { cp: -31, bestMove: 'e7e5' }]]), { Result: '*' })
+    const lines = pgn.split('\n')
+    expect(Math.max(...lines.map(text => text.length))).toBeLessThanOrEqual(79)
+    // Each command is on one line, whichever line that is.
+    expect(lines.some(text => text.includes('[%eval 0.31]'))).toBe(true)
+    expect(lines.some(text => text.includes('[%wcbest e7e5]'))).toBe(true)
+    expect(lines.some(text => text.includes('[%clk 0:03:00]'))).toBe(true)
+
+    const imported = parsePgnMoveTree(pgn)
+    expect(imported.moves[0]?.comment).toBe(note)
+    expect(imported.moves[0]?.clockMs).toBe(180_000)
+    // Side-to-move POV on the way back in, which after 1. e4 is Black's.
+    expect(imported.evaluations.get(fen)).toMatchObject({ cp: -31, bestMove: 'e7e5' })
+  })
+
   it('can export a clean main line without study annotations', () => {
     const rootFen = new Chess().fen()
     const e4Game = new Chess(rootFen)

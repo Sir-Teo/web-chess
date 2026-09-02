@@ -473,8 +473,46 @@ function commentForNode(
     return commentParts.length ? `{ ${commentParts.join('; ')} }` : null
 }
 
+/**
+ * The width movetext is wrapped to. The standard's export format asks for
+ * lines of at most 79 characters and refuses any over 255; a comfortable
+ * margin under the first keeps a token that will not fit from reaching the
+ * second.
+ */
+const MOVETEXT_LINE_WIDTH = 70
+
+/**
+ * Wrap a variation's tokens in parentheses, keeping each token its own.
+ *
+ * Joined into one token, a variation was one token however long it ran, and
+ * `wrapMovetext` cannot break inside a token: a twenty-move line came out as a
+ * single 300-character line, past the 255 the standard allows and past what
+ * some readers will take. The brackets are attached to the first and last
+ * tokens -- `(2. Nc3 Nf6)` -- which is the shape every reader expects.
+ */
+function parenthesize(tokens: string[]): string[] {
+    if (!tokens.length) return []
+    const wrapped = [...tokens]
+    wrapped[0] = `(${wrapped[0]}`
+    wrapped[wrapped.length - 1] = `${wrapped[wrapped.length - 1]})`
+    return wrapped
+}
+
+/**
+ * A token that will not fit on a line, broken at its spaces so that it can.
+ *
+ * Only a comment can be that long, and a newline inside a comment is
+ * whitespace to every reader, including this app's own importer. The
+ * `[%name ...]` commands inside it are kept whole so a reader that scans for
+ * one line at a time still finds it.
+ */
+function breakLongToken(token: string): string[] {
+    if (token.length <= MOVETEXT_LINE_WIDTH) return [token]
+    return token.match(/\[%[^\]]*\]|\S+/g) ?? [token]
+}
+
 function wrapMovetext(tokens: string[], result: string): string {
-    const outputTokens = [...tokens, result]
+    const outputTokens = [...tokens, result].flatMap(breakLongToken)
     const lines: string[] = []
     let currentLine = ''
 
@@ -484,7 +522,7 @@ function wrapMovetext(tokens: string[], result: string): string {
             continue
         }
 
-        if (currentLine.length + token.length + 1 > 70) {
+        if (currentLine.length + token.length + 1 > MOVETEXT_LINE_WIDTH) {
             lines.push(currentLine)
             currentLine = token
             continue
@@ -731,10 +769,7 @@ export function exportAnnotatedPgn(
 
             if (options.includeVariations && parent?.children[0] === node.id) {
                 for (const variationId of parent.children.slice(1)) {
-                    const variationTokens = renderLine(variationId)
-                    if (variationTokens.length) {
-                        lineTokens.push(`(${variationTokens.join(' ')})`)
-                    }
+                    lineTokens.push(...parenthesize(renderLine(variationId)))
                 }
             }
 
