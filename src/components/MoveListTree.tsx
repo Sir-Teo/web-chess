@@ -4,6 +4,7 @@ import { IconPawn, IconBranch } from './icons'
 import { buildVariationPreview } from './variationPreview'
 import { isOnMainLine } from '../engine/moveTree'
 import { moveNumberPrefix } from '../engine/moveLabels'
+import { glyphName, moveGlyphFor, positionGlyphsFor } from '../engine/nags'
 
 type Props = {
     tree: GameTreeHandle
@@ -347,21 +348,25 @@ type ChipProps = {
 
 function MoveChip({ node, isCurrent, onClick, compact, prefix }: ChipProps) {
     const q = node.quality
-    const displaySan = `${node.san}${node.suffix ?? ''}`
-    const nagText = node.nags?.length ? node.nags.map(nag => `$${nag}`).join(' ') : ''
+    // A NAG is printed as the symbol it stands for. The list used to print
+    // "$1", which is the file format, and only in the tooltip.
+    const glyph = moveGlyphFor(node)
+    const positionGlyphs = positionGlyphsFor(node.nags)
+    const displaySan = `${node.san}${glyph}`
+    const annotation = [glyph ? glyphName(glyph) : '', ...positionGlyphs.map(glyphName)].filter(Boolean).join(', ')
     // Always numbered for a screen reader, whatever the row shows: the button
     // is read on its own, and "e6" with nothing to place it is not a move.
     const numbered = `${moveNumberPrefix(node.fen) ?? ''} ${displaySan}`.trim()
     const labelParts = [
         `Go to ${compact ? 'variation move' : 'move'} ${numbered}`,
-        nagText,
+        annotation,
         isCurrent ? 'current position' : '',
         q ? `review ${q}` : '',
         node.comment ? 'has comment' : '',
     ].filter(Boolean)
     const title = [
-        displaySan,
-        nagText,
+        positionGlyphs.length ? `${displaySan} ${positionGlyphs.join(' ')}` : displaySan,
+        annotation,
         q,
         node.comment,
     ].filter(Boolean).join(' - ')
@@ -383,6 +388,9 @@ function MoveChip({ node, isCurrent, onClick, compact, prefix }: ChipProps) {
         >
             {prefix && <span className="mtree-chip-num" aria-hidden="true">{prefix}</span>}
             {displaySan}
+            {positionGlyphs.length > 0 && (
+                <span className="mtree-chip-nag" aria-hidden="true">{positionGlyphs.join(' ')}</span>
+            )}
             {((q && q !== 'pending') || node.comment) && (
                 <span className="mtree-chip-markers" aria-hidden="true">
                     {q && q !== 'pending' && <span className="mtree-quality-dot" />}

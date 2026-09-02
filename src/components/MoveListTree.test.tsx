@@ -147,6 +147,17 @@ describe('MoveListTree variations', () => {
         expect(html).toContain('aria-label="Go to variation move 2... Nc6"')
     })
 
+    it('prints a NAG as its glyph and names it for a screen reader', () => {
+        const { nodes, rootId } = buildTree(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5'])
+        const bb5 = findBySan(nodes, 'Bb5')
+        nodes.set(bb5.id, { ...bb5, nags: ['1', '14'] })
+        const html = renderToStaticMarkup(<MoveListTree tree={handle(nodes, rootId)} onNavigate={vi.fn()} />)
+
+        expect(readable(html)).toContain('Bb5! ⩲')
+        expect(html).toContain('Go to move 3. Bb5!, good move, White is slightly better')
+        expect(html).not.toContain('$1')
+    })
+
     it('reaches the sub-line the reader is standing in, past the preview cap', () => {
         // A variation of eight moves, with a sub-line branching from its
         // eighth. The cap alone would cut the variation at six and the sub-line

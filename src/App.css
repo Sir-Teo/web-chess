@@ -4790,6 +4790,14 @@ button.mtree-chip-compact {
   font-weight: 500;
 }
 
+/* What the NAGs say about the position, after the move: "Bb5 ±". The move's
+   own judgement is part of the move text, the way "Bb5!" is written. */
+.mtree-chip-nag {
+  color: var(--text-muted);
+  font-size: 0.7em;
+  margin-left: 0.1rem;
+}
+
 /* The brackets around a variation nested inside a variation. Not part of any
    chip: they belong to the line, the way they do in a PGN. */
 .mtree-var-paren {
