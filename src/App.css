@@ -4891,6 +4891,7 @@ button.mtree-chip-compact {
   }
 
   .right .inline-actions button,
+  .right .mtree-glyph-btn,
   .right .preset-card,
   .right .tablebase-move-row,
   .right .opening-move-row,
