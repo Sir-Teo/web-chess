@@ -215,12 +215,62 @@ export function changedSetOptions(
   desired: BuiltAnalyzeCommand['setOptions'],
   applied: ReadonlyMap<string, string>,
 ): BuiltAnalyzeCommand['setOptions'] {
+  // Keyed the way the engine keys them, whatever the caller did. See optionKey.
+  const appliedByKey = new Map<string, string>()
+  for (const [name, value] of applied) appliedByKey.set(optionKey(name), value)
+
   return desired.filter(option => {
     // A valueless option is a UCI button: it is an action, not a setting, and
     // has no current value to compare against.
     if (option.value === undefined) return true
-    return applied.get(option.name) !== engineOptionValueToString(option.value)
+    return appliedByKey.get(optionKey(option.name)) !== engineOptionValueToString(option.value)
   })
+}
+
+/**
+ * The key an option is recorded under in the applied-options map.
+ *
+ * Stockfish matches option names case-insensitively -- `hash`, `Hash` and
+ * `HASH` all reach the same table -- so the record of what it was told has to
+ * as well, or a `setoption name hash value 128` typed into the Engine Lab is
+ * filed beside the app's own `Hash` rather than over it, and the next search
+ * finds its `Hash 64` "already applied" and leaves the engine at 128.
+ */
+export function optionKey(name: string): string {
+  return name.trim().toLowerCase()
+}
+
+export type ParsedSetOption = { name: string; value?: string }
+
+/**
+ * `setoption name <id> [value <x>]`, as the Engine Lab console types it.
+ *
+ * The app records every option it sends so it can avoid re-sending one the
+ * engine already has (see {@link changedSetOptions} for why that matters). A
+ * command typed into the console reaches the same engine, so it has to reach
+ * the same record -- and it used to be dropped on the floor, which left the
+ * record describing an engine that no longer matched it.
+ *
+ * Names may contain spaces ("Skill Level", "Move Overhead"), so the name is
+ * everything up to the `value` keyword. A button has no `value` and comes back
+ * without one; a `value` with nothing after it is an empty string, which is
+ * what Stockfish would receive too.
+ */
+export function parseSetOptionCommand(command: string): ParsedSetOption | null {
+  const trimmed = command.trim()
+  const body = trimmed.replace(/^setoption\s+name\s+/i, '')
+  if (body === trimmed) return null
+
+  const valueAt = body.search(/\s+value(?:\s|$)/i)
+  if (valueAt < 0) {
+    const name = body.trim()
+    return name ? { name } : null
+  }
+
+  const name = body.slice(0, valueAt).trim()
+  if (!name) return null
+  const value = body.slice(valueAt).replace(/^\s+value\s*/i, '').trim()
+  return { name, value }
 }
 
 /** The wire form of an option value, so a comparison is against what was sent. */

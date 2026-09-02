@@ -501,9 +501,16 @@ twice.
 
 `changedSetOptions` in `engine/uci.ts` is the rule; `useStockfishEngine` keeps
 the record of what its worker was last told, resets it when the worker is
-replaced, and clears it when the Engine Lab console sets an option behind its
-back. A valueless option is a UCI button rather than a setting, so it is always
-sent.
+replaced, and records what the Engine Lab console sends as well. That last
+part was claimed by a comment and not true: the console's commands went out by
+a path that skipped the record, so `setoption name MultiPV value 4` typed in
+the Lab left the next search believing its own `MultiPV 2` was already applied
+-- and the engine at 4, showing four lines under a control that said two.
+`parseSetOptionCommand` reads the typed command back into the record, and
+names are matched the way Stockfish matches them, without regard to case, so
+`hash` in the console is filed over `Hash` rather than beside it. A valueless
+option is a UCI button rather than a setting, so it is always sent and never
+recorded.
 
 The general shape: **a UCI option is a command, not a declaration.** Before
 sending one every search, check what the engine does when it receives it.

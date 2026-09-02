@@ -9,7 +9,7 @@ import {
   type EngineProfileId,
 } from '../engine/profiles'
 import { createStockfishWorker } from '../engine/stockfishWorker'
-import { buildAnalyzeCommand, buildNewGameCommands, changedSetOptions, engineOptionValueToString, parseBestMoveLine, type AnalyzeMode, type AnalyzePurpose, type AnalyzeRequest, type UciGoLimits } from '../engine/uci'
+import { buildAnalyzeCommand, buildNewGameCommands, changedSetOptions, engineOptionValueToString, optionKey, parseBestMoveLine, parseSetOptionCommand, type AnalyzeMode, type AnalyzePurpose, type AnalyzeRequest, type UciGoLimits } from '../engine/uci'
 import { engineBootFailureMessage } from '../engine/engineBootError'
 
 type EngineStatus = 'loading' | 'ready' | 'analyzing' | 'error' | 'disabled'
@@ -432,17 +432,40 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     if (!item.discard) item.resolve(item.lines)
   }, [])
 
+  /**
+   * Record that the engine has been told an option's value, wherever the
+   * command came from. The map is what `changedSetOptions` reads before every
+   * search, and the option list is what the Engine Lab's controls display, so
+   * both have to move together or one of them describes an engine that no
+   * longer exists.
+   */
+  const recordSentOption = useCallback((name: string, value: string) => {
+    const key = optionKey(name)
+    appliedOptionsRef.current.set(key, value)
+    setOptions((previous) =>
+      previous.map((option) =>
+        optionKey(option.name) === key ? { ...option, currentValue: value } : option,
+      ),
+    )
+  }, [])
+
   const sendRaw = useCallback(
     (command: string) => {
       const trimmed = command.trim()
       if (!trimmed) return
-      // The Engine Lab console can set an option behind this hook's back, which
-      // would leave `appliedOptionsRef` describing an engine that no longer
-      // matches. Forgetting is cheap; a stale record silently skips a real set.
-      if (firstWord(trimmed) === 'setoption') appliedOptionsRef.current.clear()
+      // The Engine Lab console can set an option behind this hook's back, and
+      // the engine remembers what it was told whoever told it. Record the value
+      // so the next search re-sends only what actually differs; a `setoption`
+      // that cannot be read is treated as "anything may have changed", which
+      // costs one transposition table and never a wrong skip.
+      if (firstWord(trimmed) === 'setoption') {
+        const parsed = parseSetOptionCommand(trimmed)
+        if (parsed?.value !== undefined) recordSentOption(parsed.name, parsed.value)
+        else if (!parsed) appliedOptionsRef.current.clear()
+      }
       send(trimmed)
     },
-    [send],
+    [recordSentOption, send],
   )
 
   const sendNewGameSync = useCallback(() => {
@@ -459,8 +482,11 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       if (!trimmed) return Promise.resolve([])
       if (!workerRef.current) return Promise.reject(new Error('Engine worker is not available.'))
 
+      // Through `sendRaw`, not `send`: this is the path the Engine Lab console
+      // takes, and a `setoption` typed there has to reach the applied-options
+      // record. It did not, which is what the comment on `sendRaw` promised.
       if (hasNoReply(trimmed)) {
-        send(trimmed)
+        sendRaw(trimmed)
         return Promise.resolve([])
       }
 
@@ -500,7 +526,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         send(trimmed)
       })
     },
-    [send],
+    [send, sendRaw],
   )
 
   const setOption = useCallback(
@@ -511,15 +537,10 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       }
 
       const normalized = engineOptionValueToString(value)
-      appliedOptionsRef.current.set(name, normalized)
-      setOptions((previous) =>
-        previous.map((option) =>
-          option.name === name ? { ...option, currentValue: normalized } : option,
-        ),
-      )
+      recordSentOption(name, normalized)
       send(`setoption name ${name} value ${normalized}`)
     },
-    [send],
+    [recordSentOption, send],
   )
 
   const startAnalysis = useCallback(
@@ -804,7 +825,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
           // game, which does `ucinewgame` and then immediately queues a 70ms
           // search -- with the multi-threaded profile, and on no run of the
           // single-threaded one, which never sends `Threads` at all.
-          if (threads > 1 && appliedOptionsRef.current.get('Threads') !== String(threads)) {
+          if (threads > 1 && appliedOptionsRef.current.get(optionKey('Threads')) !== String(threads)) {
             setOption('Threads', threads)
           }
           setStatus((value) => (value === 'error' ? value : 'ready'))
