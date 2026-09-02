@@ -348,15 +348,28 @@ function normalizePgnNags(nags: unknown): string[] | undefined {
     return normalized.length ? normalized : undefined
 }
 
+/**
+ * A move as the movetext prints it.
+ *
+ * A White move always carries its number. A Black move carries one only
+ * where `numberBlack` says the reader would otherwise lose the thread -- at
+ * the start of a line, and after a comment or a variation -- because
+ * "1. e4 e5" is how a game is written, and "1. e4 1... e5" is how this app
+ * used to write every game, a third of the width spent on numbers nothing
+ * needed.
+ */
 function moveTextForNode(
     node: GameNode,
     parentFen: string,
     options: Required<PgnExportOptions>,
+    numberBlack: boolean,
 ): string {
     const suffix = options.includeGlyphs ? normalizePgnSuffix(node.suffix) ?? '' : ''
     const nags = options.includeGlyphs ? normalizePgnNags(node.nags)?.map(nag => `$${nag}`) ?? [] : []
+    const prefix = movePrefixFromFen(parentFen)
+    const numbered = prefix.endsWith('...') ? numberBlack : true
     return [
-        `${movePrefixFromFen(parentFen)} ${node.san}${suffix}`,
+        `${numbered ? `${prefix} ` : ''}${node.san}${suffix}`,
         ...nags,
     ].join(' ')
 }
@@ -757,19 +770,30 @@ export function exportAnnotatedPgn(
     const renderLine = (startId: string): string[] => {
         const lineTokens: string[] = []
         let node = nodeLookup.get(startId)
+        // See moveTextForNode: a line starts numbered, and anything that
+        // interrupts the moves -- a comment, a variation -- numbers the next.
+        let numberBlack = true
 
         while (node?.move && !visited.has(node.id)) {
             visited.add(node.id)
             const parent = node.parent ? nodeLookup.get(node.parent) : undefined
             const parentFen = parent?.fen ?? rootFen
-            lineTokens.push(moveTextForNode(node, parentFen, options))
+            lineTokens.push(moveTextForNode(node, parentFen, options, numberBlack))
+            numberBlack = false
 
             const comment = commentForNode(node, parentFen, evaluationsByFen, options)
-            if (comment) lineTokens.push(comment)
+            if (comment) {
+                lineTokens.push(comment)
+                numberBlack = true
+            }
 
             if (options.includeVariations && parent?.children[0] === node.id) {
                 for (const variationId of parent.children.slice(1)) {
-                    lineTokens.push(...parenthesize(renderLine(variationId)))
+                    const variationTokens = parenthesize(renderLine(variationId))
+                    if (variationTokens.length) {
+                        lineTokens.push(...variationTokens)
+                        numberBlack = true
+                    }
                 }
             }
 

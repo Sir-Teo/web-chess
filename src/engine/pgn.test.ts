@@ -355,6 +355,10 @@ describe('PGN export helpers', () => {
     expect(Math.max(...lines.map(text => text.length))).toBeLessThanOrEqual(79)
     expect(pgn).toContain('(1... Nf6')
     expect(pgn).toContain('Nc4)')
+    // Inside the line the Black moves follow their White ones unnumbered; the
+    // number comes back only where something interrupts the moves.
+    expect(pgn).toContain('2. e5 Nd5 3. d4 d6')
+    expect(pgn).not.toContain('2... Nd5')
 
     // And it comes back as the variation it was.
     const imported = parsePgnMoveTree(pgn)
@@ -435,7 +439,10 @@ describe('PGN export helpers', () => {
     const loader = new Chess()
     loader.loadPgn(pgn)
 
-    expect(pgn).toContain('1. e4 1... e5 *')
+    // Written the way a game is written: a Black move after its White one
+    // carries no number of its own.
+    expect(pgn).toContain('1. e4 e5 *')
+    expect(pgn).not.toContain('1...')
     expect(pgn).not.toContain('(')
     expect(pgn).not.toContain('{')
     expect(pgn).not.toContain('$1')
