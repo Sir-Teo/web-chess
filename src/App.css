@@ -5168,3 +5168,47 @@ button.hint-btn {
   font-size: 0.64rem;
   white-space: nowrap;
 }
+
+/* A one-line word about what just happened -- "FEN copied" -- for the
+   commands that would otherwise finish in silence. Floated over the board
+   rather than parked in a panel, because the command was run from the
+   palette and the reader may be looking anywhere. */
+.app-notice-region {
+  position: fixed;
+  left: 50%;
+  bottom: 3.4rem;
+  transform: translateX(-50%);
+  z-index: 40;
+  pointer-events: none;
+}
+
+.app-notice {
+  display: inline-block;
+  padding: 0.42rem 0.85rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  animation: app-notice-in 160ms ease-out;
+}
+
+@keyframes app-notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-notice {
+    animation: none;
+  }
+}

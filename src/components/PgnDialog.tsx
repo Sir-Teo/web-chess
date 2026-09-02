@@ -33,6 +33,7 @@ import {
 } from '../engine/positionSetup'
 import { buildFenShareUrl } from '../engine/shareLink'
 import { MAX_SHARED_GAME_CHARS, buildGameShareUrl } from '../engine/shareGame'
+import { lichessAnalysisUrl } from '../engine/externalLinks'
 import { IconDownload, IconClipboard, IconUpload } from './icons'
 import { fenTextForShareLink } from './pgnDialogHelpers'
 import { MAX_PGN_IMPORT_BYTES, PGN_IMPORT_LIMIT_MESSAGE, pgnImportLengthError } from './pgnImportLimits'
@@ -324,6 +325,16 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         )
         : null
     const gameShareTooLong = Boolean(gameShareUrl && gameShareUrl.length > MAX_SHARED_GAME_CHARS)
+    /**
+     * The same game on Lichess's board. A link rather than a button that
+     * opens a window, because a link is never popup-blocked and can be
+     * copied or opened however the reader likes.
+     */
+    const lichessUrl = lichessAnalysisUrl({
+        rootFen: mainLineNodes[0]?.fen ?? currentFen,
+        sanMoves: mainLineNodes.slice(1).map(node => node.san),
+        fen: currentFen,
+    })
     const gameShareDisabledReason = !gameShareUrl
         ? 'Play or import a game first — there are no moves to share.'
         : gameShareTooLong
@@ -707,6 +718,20 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                             {copyStatus === 'failed' && (
                                 <p className="dialog-error" role="alert">Clipboard access failed. Select the text and copy it manually.</p>
                             )}
+                            {/* Under the output rather than in the button row, which
+                                already holds four actions at the dialog's width. */}
+                            <p className="dialog-external-link">
+                                <a
+                                    href={lichessUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title={mainLineNodes.length > 1
+                                        ? 'Open this game on the Lichess analysis board'
+                                        : 'Open this position on the Lichess analysis board'}
+                                >
+                                    Open in Lichess ↗
+                                </a>
+                            </p>
                         </div>
                     )}
                 </div>

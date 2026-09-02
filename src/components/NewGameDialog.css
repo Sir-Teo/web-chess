@@ -871,3 +871,23 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
+
+/* A way out of the app, under the output it takes with it. A link rather than
+   a button that opens a window: it cannot be popup-blocked, and it can be
+   copied or opened however the reader likes. Not in the action row, which
+   already holds four buttons at this dialog's width. */
+.dialog-external-link {
+    margin: 0.5rem 0 0;
+    font-size: 0.78rem;
+    text-align: right;
+}
+
+.dialog-external-link a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.dialog-external-link a:hover,
+.dialog-external-link a:focus-visible {
+    text-decoration: underline;
+}

@@ -135,7 +135,11 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   than asserted in a comment.
 - **Command palette**: `Ctrl`/`Cmd`+`K` opens a searchable list of every
   toolbar and mode action, with recently used commands first. Ported in shape
-  from web-katrain, sized for this app's twenty-odd commands.
+  from web-katrain, sized for this app's twenty-odd commands. `Copy FEN`,
+  `Copy PGN` and `Open in Lichess` live there too, so the position or the line
+  you are looking at can leave without a trip through the PGN dialog; each
+  says what it did in a one-line notice, since a copy that finishes in silence
+  leaves you checking the clipboard.
 - **Installable app metadata**: PWA manifest and app icon are configured for hosted releases.
 
 ## Technology Stack

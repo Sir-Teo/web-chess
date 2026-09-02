@@ -109,6 +109,7 @@ import {
 } from './engine/premove'
 import { moveSoundFor } from './engine/moveSound'
 import { hasSiblingVariations, siblingVariation } from './engine/moveTree'
+import { lichessAnalysisUrl } from './engine/externalLinks'
 import { BOARD_THEMES, boardThemeById } from './engine/boardThemes'
 import {
   createClock,
@@ -567,6 +568,24 @@ function App() {
   const [showPgnDialog, setShowPgnDialog] = useState(false)
   const [showLibraryDialog, setShowLibraryDialog] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
+  /**
+   * A word about what just happened -- "FEN copied" -- for the commands that
+   * otherwise finish in silence. One at a time and gone in a moment; it is a
+   * receipt, not a log.
+   */
+  const [notice, setNotice] = useState<string | null>(null)
+  const noticeTimerRef = useRef<number | null>(null)
+  const announce = useCallback((text: string) => {
+    setNotice(text)
+    if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current)
+    noticeTimerRef.current = window.setTimeout(() => {
+      noticeTimerRef.current = null
+      setNotice(null)
+    }, 2400)
+  }, [])
+  useEffect(() => () => {
+    if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current)
+  }, [])
   const [autoSaveRecovery, setAutoSaveRecovery] = useState<AutoSavedGame | null>(null)
   const [autoSaveRestoreError, setAutoSaveRestoreError] = useState<string | null>(null)
   const [autoSaveCopyLabel, setAutoSaveCopyLabel] = useState('Copy PGN')
@@ -3775,12 +3794,69 @@ function App() {
     setPgnHeaders,
   ])
 
+  /**
+   * The three things a reader with a position wants to do with it somewhere
+   * else, and had to open the PGN dialog for: put the FEN or the PGN on the
+   * clipboard, or take the line to Lichess for a second opinion.
+   */
+  const copyFen = useCallback(() => {
+    const clipboard = navigator.clipboard
+    if (!clipboard) {
+      announce('Clipboard unavailable — copy the FEN from the PGN dialog')
+      return
+    }
+    clipboard.writeText(fen).then(
+      () => announce('FEN copied'),
+      () => announce('Clipboard blocked — copy the FEN from the PGN dialog'),
+    )
+  }, [announce, fen])
+  const copyPgn = useCallback(() => {
+    if (mainLineNodes.length <= 1) return
+    const clipboard = navigator.clipboard
+    if (!clipboard) {
+      announce('Clipboard unavailable — copy the PGN from the PGN dialog')
+      return
+    }
+    const pgn = exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
+    clipboard.writeText(pgn).then(
+      () => announce('PGN copied'),
+      () => announce('Clipboard blocked — copy the PGN from the PGN dialog'),
+    )
+  }, [announce, evaluationsByFen, gameTree.nodesSnapshot, mainLineNodes, pgnHeaders])
+  const openInLichess = useCallback(() => {
+    // The line the reader is standing in, up to where they stand -- not the
+    // main line, which may be a different game by now.
+    const url = lichessAnalysisUrl({
+      rootFen: currentRootFen,
+      sanMoves: currentPathNodes.slice(1).map(node => node.san),
+      fen,
+    })
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }, [currentPathNodes, currentRootFen, fen])
+
   const paletteCommands = useMemo<Command[]>(() => [
     { id: 'new-game', label: 'New game', shortcut: 'N', keywords: ['restart', 'reset'], run: openNewGameDialog },
     { id: 'flip-board', label: 'Flip board', shortcut: 'F', keywords: ['orientation', 'rotate', 'side'],
       run: () => setOrientation(value => (value === 'white' ? 'black' : 'white')) },
     { id: 'pgn', label: 'PGN and FEN', hint: 'Import, export, share', keywords: ['paste', 'copy', 'link', 'position'],
       run: openPgnDialog },
+    { id: 'copy-fen', label: 'Copy FEN', hint: 'The position on the board', keywords: ['clipboard', 'position', 'share'],
+      run: copyFen },
+    {
+      id: 'copy-pgn',
+      label: 'Copy PGN',
+      hint: mainLineNodes.length > 1 ? 'The whole game, variations and all' : 'No moves to copy yet',
+      keywords: ['clipboard', 'game', 'export', 'share'],
+      disabled: mainLineNodes.length <= 1,
+      run: copyPgn,
+    },
+    {
+      id: 'open-lichess',
+      label: 'Open in Lichess',
+      hint: 'This line, on the Lichess analysis board',
+      keywords: ['lichess', 'external', 'explorer', 'study', 'second opinion'],
+      run: openInLichess,
+    },
     { id: 'library', label: 'Library', hint: 'Saved games', keywords: ['save', 'open', 'backup'],
       run: openLibraryDialog },
     { id: 'mode-play', label: 'Play mode', keywords: ['workspace'], run: () => handleWorkspaceModeChange('play') },
@@ -3863,10 +3939,10 @@ function App() {
     },
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
-  ], [atVariationFork, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, goSiblingVariation, hintReason,
-      isProbingThreat, requestHint, openLibraryDialog, openNewGameDialog, openPgnDialog, playFromCurrentPosition,
-      playFromHereDisabledReason, rememberModalTrigger, reviewGameDisabledReason, soundEnabled, startBatchReview,
-      takebackMove, takebackReason, workspaceMode])
+  ], [atVariationFork, copyFen, copyPgn, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast,
+      goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, openInLichess, requestHint, openLibraryDialog,
+      openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger,
+      reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason, workspaceMode])
 
   // ── Mode switch mid-game ──────────────────────────────
   const handleModeChange = useCallback((mode: GameMode) => {
@@ -4243,6 +4319,11 @@ function App() {
         <a href="#chessboard-stage">Skip to board</a>
         <a href="#analysis-panel">Skip to analysis</a>
       </nav>
+
+      {/* Always in the tree, so a screen reader is told when it fills. */}
+      <div className="app-notice-region" role="status" aria-live="polite">
+        {notice && <span className="app-notice">{notice}</span>}
+      </div>
 
       {/* ── Top bar ── */}
       <section
