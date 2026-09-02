@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { profileById, recommendedThreadCount } from '../engine/profiles'
-import { parseInfoLine, parseOptionLine, profileRuntimeMessage, shouldReplaceLiveLine, shouldStopTimedOutSearchCommand } from './useStockfishEngine'
+import { parseInfoLine, parseOptionLine, profileRuntimeMessage, reusableAnalysisCacheKey, shouldReplaceLiveLine, shouldStopTimedOutSearchCommand } from './useStockfishEngine'
 
 describe('Stockfish engine output parsing', () => {
   it('parses finite score, telemetry, WDL, and PV values from info lines', () => {
@@ -109,6 +109,36 @@ describe('Stockfish command queue safety', () => {
     expect(shouldStopTimedOutSearchCommand('bench')).toBe(false)
     expect(shouldStopTimedOutSearchCommand('perft 5')).toBe(false)
     expect(shouldStopTimedOutSearchCommand('isready')).toBe(false)
+  })
+})
+
+describe('automatic analysis cache identity', () => {
+  const request = {
+    fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+    rootFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+    historyMoves: [] as string[],
+    purpose: 'auto' as const,
+    mode: 'custom' as const,
+    limits: { depth: 16 },
+    multiPv: 2,
+    hashMb: 64,
+    showWdl: true,
+  }
+
+  it('matches only exact automatic UCI requests', () => {
+    const key = reusableAnalysisCacheKey(request)
+    expect(key).not.toBeNull()
+    expect(reusableAnalysisCacheKey({ ...request })).toBe(key)
+    expect(reusableAnalysisCacheKey({ ...request, purpose: 'review-ponder' })).toBe(key)
+    expect(reusableAnalysisCacheKey({ ...request, limits: { depth: 18 } })).not.toBe(key)
+    expect(reusableAnalysisCacheKey({ ...request, multiPv: 3 })).not.toBe(key)
+    expect(reusableAnalysisCacheKey({ ...request, historyMoves: ['e2e4'] })).not.toBe(key)
+  })
+
+  it('keeps manual refreshes and infinite analysis live', () => {
+    expect(reusableAnalysisCacheKey({ ...request, purpose: 'manual' })).toBeNull()
+    expect(reusableAnalysisCacheKey({ ...request, mode: 'infinite' })).toBeNull()
+    expect(reusableAnalysisCacheKey({ ...request, limits: { infinite: true } })).toBeNull()
   })
 })
 

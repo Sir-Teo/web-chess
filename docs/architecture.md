@@ -535,6 +535,27 @@ reads those fields back when the current worker lines belong to another
 position; otherwise navigating away and back restored the evaluation number
 but left the adjacent Best move and Depth tiles blank.
 
+## Completed automatic searches are reused
+
+Scrubbing backward and forward through a line used to launch the same finite
+automatic search every time. The evaluation map prevented the score from being
+lost, but it did not prevent Stockfish from doing the expensive work again, and
+the live lines briefly disappeared while it did so.
+
+The engine hook now keeps the 96 most recently completed automatic and
+navigation-ponder searches in an in-memory LRU. Its identity is the built UCI
+request: position plus history, `go` limits and root-move filter, and the
+requested Hash/MultiPV/WDL options. Returning to an exact request restores every
+principal variation and the best/ponder moves without another `go` command.
+Manual Analyze remains a true refresh, infinite searches are never cached,
+stopped searches never enter the cache, and a manual Engine Lab option change
+invalidates it because the Lab can change options that are intentionally not
+part of the normal request model.
+
+The browser harness completes the normal and deeper navigation searches for
+two positions, revisits the first, and checks both that its analysis is visible
+and that the worker did not receive a fifth `go` command.
+
 ## Profiling React here in dev measures the dev runtime
 
 A render-cost investigation on the dev server said each re-render during a live

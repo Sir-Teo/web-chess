@@ -11,6 +11,7 @@ import {
 import { createStockfishWorker } from '../engine/stockfishWorker'
 import { buildAnalyzeCommand, buildNewGameCommands, changedSetOptions, engineOptionValueToString, optionKey, parseBestMoveLine, parseSetOptionCommand, type AnalyzeMode, type AnalyzePurpose, type AnalyzeRequest, type UciGoLimits } from '../engine/uci'
 import { engineBootFailureMessage } from '../engine/engineBootError'
+import { withBoundedMapEntry } from './cacheLimit'
 
 type EngineStatus = 'loading' | 'ready' | 'analyzing' | 'error' | 'disabled'
 
@@ -88,7 +89,28 @@ type QueuedCommand = {
  * streams its own output through `sendCommand`'s `stream` option.
  */
 const ENGINE_STATE_FLUSH_INTERVAL_MS = 100
+const NAVIGATION_ANALYSIS_CACHE_LIMIT = 96
 const NO_REPLY_COMMANDS = new Set(['ucinewgame', 'position', 'setoption', 'stop', 'ponderhit', 'quit'])
+
+type CachedAnalysisResult = {
+  lines: Map<number, EngineLine>
+  bestMove: string | null
+  ponderMove: string | null
+}
+
+/**
+ * Automatic navigation searches are safe to reuse only when they are finite.
+ * A manual Analyze click is deliberately fresh, while infinite analysis has no
+ * completed answer to cache. The built UCI commands make the key sensitive to
+ * the full position history, search limits, MultiPV, Hash, WDL, and root-move
+ * filters instead of treating equal-looking board diagrams as equal searches.
+ */
+export function reusableAnalysisCacheKey(request: AnalyzeRequest): string | null {
+  const isAutomaticNavigation = request.purpose === 'auto' || request.purpose === 'review-ponder'
+  if (!isAutomaticNavigation || request.limits?.infinite || request.mode === 'infinite') return null
+  const built = buildAnalyzeCommand(request)
+  return JSON.stringify([built.position, built.go, built.setOptions])
+}
 
 
 function firstWord(input: string): string {
@@ -332,6 +354,8 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const nextCommandIdRef = useRef(0)
   const bootSessionRef = useRef(0)
   const liveLinesMapRef = useRef<Map<number, EngineLine>>(new Map())
+  const analysisCacheRef = useRef<Map<string, CachedAnalysisResult>>(new Map())
+  const currentAnalysisCacheKeyRef = useRef<string | null>(null)
   /**
    * What this worker has already been told each option is. Per worker, because
    * a replacement starts at its own defaults; see `changedSetOptions` for why
@@ -477,6 +501,12 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       // that cannot be read is treated as "anything may have changed", which
       // costs one transposition table and never a wrong skip.
       if (firstWord(trimmed) === 'setoption') {
+        // Engine Lab options extend beyond the request fields used in the
+        // automatic-search cache key. Any manual option mutation invalidates
+        // those answers rather than presenting analysis produced under a
+        // different engine configuration.
+        analysisCacheRef.current = new Map()
+        currentAnalysisCacheKeyRef.current = null
         const parsed = parseSetOptionCommand(trimmed)
         if (parsed?.value !== undefined) recordSentOption(parsed.name, parsed.value)
         else if (!parsed) appliedOptionsRef.current.clear()
@@ -549,6 +579,8 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
 
   const setOption = useCallback(
     (name: string, value?: string | number | boolean) => {
+      analysisCacheRef.current = new Map()
+      currentAnalysisCacheKeyRef.current = null
       if (value === undefined) {
         send(`setoption name ${name}`)
         return
@@ -569,6 +601,45 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       const searchId = currentSearchIdRef.current + 1
       currentSearchIdRef.current = searchId
 
+      const cacheKey = reusableAnalysisCacheKey(request)
+      const cached = cacheKey ? analysisCacheRef.current.get(cacheKey) : undefined
+      if (cacheKey && cached) {
+        // Touch the entry so the bounded map evicts genuinely cold positions.
+        analysisCacheRef.current = withBoundedMapEntry(
+          analysisCacheRef.current,
+          cacheKey,
+          cached,
+          NAVIGATION_ANALYSIS_CACHE_LIMIT,
+        )
+        const restoredLines = new Map(
+          [...cached.lines].map(([multipv, line]) => [multipv, {
+            ...line,
+            fen: request.fen,
+            searchId,
+            purpose: request.purpose,
+            mode: request.mode,
+            limits: request.limits,
+          }]),
+        )
+        clearLinesMapFlushTimer()
+        liveLinesMapRef.current = restoredLines
+        setLinesMap(new Map(restoredLines))
+        setLastBestMove(cached.bestMove)
+        setLastBestMoveFen(cached.bestMove ? request.fen : null)
+        setLastPonderMove(cached.ponderMove)
+        setLastPonderMoveFen(cached.ponderMove ? request.fen : null)
+        currentAnalysisFenRef.current = request.fen
+        currentAnalysisPurposeRef.current = request.purpose
+        currentAnalysisModeRef.current = request.mode
+        currentAnalysisLimitsRef.current = request.limits
+        currentAnalysisCacheKeyRef.current = null
+        isSearchingRef.current = false
+        stopRequestedRef.current = false
+        setActiveGoCommand('')
+        setStatus((value) => (value === 'error' ? value : 'ready'))
+        return
+      }
+
       setStatus('analyzing')
       resetLinesMap()
       setLastBestMove(null)
@@ -584,12 +655,15 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       for (const option of changedSetOptions(built.setOptions, appliedOptionsRef.current)) {
         setOption(option.name, option.value)
       }
+      // Assign after changing options: `setOption` invalidates an in-flight
+      // cache candidate so a Lab mutation cannot file a mixed-config search.
+      currentAnalysisCacheKeyRef.current = cacheKey
       send(built.position)
       send(built.go)
       isSearchingRef.current = true
       stopRequestedRef.current = false
     },
-    [resetLinesMap, send, setOption],
+    [clearLinesMapFlushTimer, resetLinesMap, send, setOption],
   )
 
   const flushPendingAnalyze = useCallback(() => {
@@ -739,6 +813,8 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       pendingAnalyzeRef.current = null
       currentAnalysisRequestRef.current = null
       visibilityResumeRequestRef.current = null
+      currentAnalysisCacheKeyRef.current = null
+      analysisCacheRef.current = new Map()
       newGamePendingRef.current = false
       commandQueueRef.current = []
       appliedOptionsRef.current = new Map()
@@ -820,6 +896,8 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     pendingAnalyzeRef.current = null
     currentAnalysisRequestRef.current = null
     visibilityResumeRequestRef.current = null
+    currentAnalysisCacheKeyRef.current = null
+    analysisCacheRef.current = new Map()
     currentSearchIdRef.current = 0
     commandQueueRef.current = []
     appliedOptionsRef.current = new Map()
@@ -924,6 +1002,21 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
           if (!isSearchingRef.current) continue
           flushLinesMap()
           const parsed = parseBestMoveLine(line)
+          const searchWasStopped = stopRequestedRef.current
+          const cacheKey = currentAnalysisCacheKeyRef.current
+          if (!searchWasStopped && cacheKey) {
+            analysisCacheRef.current = withBoundedMapEntry(
+              analysisCacheRef.current,
+              cacheKey,
+              {
+                lines: new Map(liveLinesMapRef.current),
+                bestMove: parsed?.bestMove ?? null,
+                ponderMove: parsed?.ponderMove ?? null,
+              },
+              NAVIGATION_ANALYSIS_CACHE_LIMIT,
+            )
+          }
+          currentAnalysisCacheKeyRef.current = null
           setLastBestMove(parsed?.bestMove ?? null)
           setLastBestMoveFen(parsed?.bestMove ? currentAnalysisFenRef.current : null)
           setLastPonderMove(parsed?.ponderMove ?? null)
@@ -982,6 +1075,8 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       pendingAnalyzeRef.current = null
       currentAnalysisRequestRef.current = null
       visibilityResumeRequestRef.current = null
+      currentAnalysisCacheKeyRef.current = null
+      analysisCacheRef.current = new Map()
       newGamePendingRef.current = false
       clearLinesMapFlushTimer()
       rejectQueuedCommands('Engine worker terminated.')

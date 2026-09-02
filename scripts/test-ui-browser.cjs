@@ -74,6 +74,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
 (() => {
   const NativeWorker = window.Worker;
   window.__uciCommands = [];
+  window.__uciBestmoves = 0;
 
   function scoreFor(fen) {
     // Deterministic pseudo-eval in [-120, 120], stable for a given position.
@@ -130,6 +131,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
       if (!this.searching) return;
       this.searching = false;
       if (this.finishTimer) { clearTimeout(this.finishTimer); this.finishTimer = null; }
+      window.__uciBestmoves += 1;
       this.send('bestmove e2e4 ponder e7e5');
     }
     postMessage(command) {
@@ -222,6 +224,60 @@ async function checkHiddenAnalysisPausesAndResumes(browser) {
     assert(commands.filter(command => command === 'stop').length === 1,
       `visibility pause sent the wrong number of stops: ${commands.join(' | ')}`)
     console.log('  visibility: hidden analysis stops once and resumes on return')
+  } finally {
+    await context.close()
+  }
+}
+
+
+/**
+ * Revisiting a position should restore the exact finite automatic result the
+ * engine just completed. History scrubbing is common in analysis, and doing a
+ * fresh depth search on every Back/Forward click wastes the worker's dominant
+ * CPU cost while briefly blanking information the reader already had.
+ */
+async function checkAutomaticAnalysisIsReused(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+    await page.waitForFunction(() => window.__uciBestmoves >= 1, null, { timeout: 20000 })
+
+    await page.click('#chessboard-square-e2')
+    await page.click('#chessboard-square-e4')
+    await page.waitForFunction(() => window.__uciBestmoves >= 2, null, { timeout: 20000 })
+
+    // Navigation deliberately deepens both positions from the normal 16-ply
+    // auto pass to a 20-ply ponder pass. Complete one such round trip first;
+    // reusing the shallower entry would be fast but wrong.
+    await page.getByRole('button', { name: 'Go to first position' }).click()
+    await page.waitForFunction(() => window.__uciBestmoves >= 3, null, { timeout: 20000 })
+    await page.getByRole('button', { name: 'Go to last position' }).click()
+    await page.waitForFunction(() => window.__uciBestmoves >= 4, null, { timeout: 20000 })
+
+    const goCountBeforeReturn = await page.evaluate(() =>
+      window.__uciCommands.filter(command => command.startsWith('go')).length)
+    assert(goCountBeforeReturn === 4,
+      `two positions at two depths launched ${goCountBeforeReturn} searches before the cache check`)
+
+    await page.getByRole('button', { name: 'Go to first position' }).click()
+    await page.waitForTimeout(800)
+
+    const restored = await page.evaluate(() => ({
+      goCount: window.__uciCommands.filter(command => command.startsWith('go')).length,
+      searchCommands: window.__uciCommands.filter(command =>
+        command.startsWith('position') || command.startsWith('go') || command.startsWith('setoption')),
+      hasEvaluation: Boolean(document.querySelector('.pv-list article')),
+    }))
+    assert(restored.goCount === goCountBeforeReturn,
+      `returning to the first position launched search ${restored.goCount} instead of reusing search ${goCountBeforeReturn}: ${restored.searchCommands.join(' | ')}`)
+    assert(restored.hasEvaluation, 'the cached position returned without its analysis UI')
+    console.log('  analysis cache: returning to a position reuses its completed search')
   } finally {
     await context.close()
   }
@@ -864,6 +920,7 @@ async function main() {
     await checkBoundedScoreIsIgnored(browser)
     await checkPlayedMoveBecomesTheGame(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)
+    await checkAutomaticAnalysisIsReused(browser)
     await checkCrossOriginIsolationIsRestored(browser)
 
     console.log('Browser UI checks passed.')
