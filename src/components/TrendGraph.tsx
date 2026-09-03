@@ -141,6 +141,10 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
+  // The readout follows the pointer, and failing that the keyboard: a reader
+  // scrubbing with the arrow keys had the dashed cursor and a screen-reader
+  // value and nothing to read on screen.
+  const [focused, setFocused] = useState(false)
   if (points.length === 0) {
     return (
       <div className="empty-state">
@@ -161,7 +165,8 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
 
   const area = `${path} L ${toX(lastPointIndex).toFixed(2)} ${(height - padBottom).toFixed(2)} L ${toX(points[0]?.index ?? 0).toFixed(2)} ${(height - padBottom).toFixed(2)} Z`
   const selectedPoint = points.find(point => point.index === selectedIndex)
-  const hoverPoint = hoverIndex === null ? undefined : points.find(point => point.index === hoverIndex)
+  const readoutIndex = hoverIndex ?? (focused && isNavigable ? selectedIndex : null)
+  const readoutPoint = readoutIndex === null ? undefined : points.find(point => point.index === readoutIndex)
 
   const currentLineX = currentIndex !== undefined && maxIndex > 0
     ? toX(selectedIndex)
@@ -185,6 +190,8 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
           onKeyDown={handleKeyDown}
           onMouseMove={maxIndex > 0 ? e => setHoverIndex(indexAtClientX(e.currentTarget, e.clientX)) : undefined}
           onMouseLeave={() => setHoverIndex(null)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           style={{ cursor: isNavigable ? 'pointer' : 'default' }}
         >
           <defs>
@@ -239,14 +246,14 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
               style={{ pointerEvents: 'none' }}
             />
           )}
-          {hoverIndex !== null && (
+          {readoutIndex !== null && (
             <GraphReadout
-              x={toX(hoverIndex)}
+              x={toX(readoutIndex)}
               padLeft={padLeft}
               padTop={padTop}
               height={height}
               padBottom={padBottom}
-              text={formatWinrateReadout(hoverPoint, hoverIndex)}
+              text={formatWinrateReadout(readoutPoint, readoutIndex)}
             />
           )}
         </svg>
@@ -267,6 +274,7 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
+  const [focused, setFocused] = useState(false)
   if (points.length === 0) {
     return (
       <div className="empty-state">
@@ -288,7 +296,8 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
   const drawPath = buildPath((p) => p.draw)
   const blackPath = buildPath((p) => p.black)
   const selectedPoint = points.find(point => point.index === selectedIndex)
-  const hoverPoint = hoverIndex === null ? undefined : points.find(point => point.index === hoverIndex)
+  const readoutIndex = hoverIndex ?? (focused && isNavigable ? selectedIndex : null)
+  const readoutPoint = readoutIndex === null ? undefined : points.find(point => point.index === readoutIndex)
 
   const currentLineX = currentIndex !== undefined && maxIndex > 0
     ? toX(selectedIndex)
@@ -312,6 +321,8 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
           onKeyDown={handleKeyDown}
           onMouseMove={maxIndex > 0 ? e => setHoverIndex(indexAtClientX(e.currentTarget, e.clientX)) : undefined}
           onMouseLeave={() => setHoverIndex(null)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           style={{ cursor: isNavigable ? 'pointer' : 'default' }}
         >
           {markers.map(v => {
@@ -360,14 +371,14 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
               style={{ pointerEvents: 'none' }}
             />
           )}
-          {hoverIndex !== null && (
+          {readoutIndex !== null && (
             <GraphReadout
-              x={toX(hoverIndex)}
+              x={toX(readoutIndex)}
               padLeft={padLeft}
               padTop={padTop}
               height={height}
               padBottom={padBottom}
-              text={formatWdlReadout(hoverPoint, hoverIndex)}
+              text={formatWdlReadout(readoutPoint, readoutIndex)}
             />
           )}
         </svg>
