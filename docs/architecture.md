@@ -917,6 +917,14 @@ be between two different games. The hook exposes the reading through a
 function rather than state, because the loop reads it the moment a move
 resolves and a state value would be a render behind.
 
+The judgement is unit-tested; whether the move loop feeds it two readings
+and clears it on a takeback is App wiring, which only the browser suite can
+drive. `checkBlunderIsPointedOut` gives the fake engine a `blunder-nudge`
+scenario -- its first search reads +0.30 and answers 1...e5, its second
++3.30 and answers ...Nc6 -- plays 1. e4 and 2. Qh5 against it, and reads
+"Qh5 looks like a blunder: it gave up about 3.0 pawns" off the card before
+pressing the take-back and checking the turn came back.
+
 ## Play mode
 
 Play mode and Analysis mode share one board, one tree and one set of input

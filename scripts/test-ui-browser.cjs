@@ -91,7 +91,20 @@ const SCENARIO = ${JSON.stringify(scenario)};
       this.fen = 'startpos';
       this.searching = false;
       this.finishTimer = null;
+      this.searches = 0;
       this.send('Fake Stockfish ready');
+    }
+    /**
+     * What this search says and plays. The 'blunder-nudge' scenario is the
+     * opponent in a game: its first search reads +0.30 and answers 1...e5,
+     * its second reads +3.30 and answers ...Nc6 -- a 300cp swing between two
+     * consecutive searches, which is the one input the Play-mode nudge needs.
+     */
+    scriptedLine() {
+      if (SCENARIO === 'blunder-nudge') {
+        return this.searches >= 2 ? { cp: 330, move: 'b8c6' } : { cp: 30, move: 'e7e5' };
+      }
+      return { cp: scoreFor(this.fen), move: 'e2e4' };
     }
     addEventListener(type, listener) {
       if (type === 'message') this.listeners.push(listener);
@@ -114,11 +127,11 @@ const SCENARIO = ${JSON.stringify(scenario)};
       }, 0);
     }
     emitInfo() {
-      const cp = scoreFor(this.fen);
+      const { cp, move } = this.scriptedLine();
       this.send('info depth 16 seldepth 20 multipv 1 score cp ' + cp +
-                ' nodes 120000 nps 900000 hashfull 45 tbhits 0 time 130 wdl 400 400 200 pv e2e4 e7e5');
+                ' nodes 120000 nps 900000 hashfull 45 tbhits 0 time 130 wdl 400 400 200 pv ' + move + ' e7e5');
       this.send('info depth 22 seldepth 26 multipv 1 score cp ' + cp +
-                ' nodes 400000 nps 900000 hashfull 127 tbhits 3 time 420 wdl 400 400 200 pv e2e4 e7e5');
+                ' nodes 400000 nps 900000 hashfull 127 tbhits 3 time 420 wdl 400 400 200 pv ' + move + ' e7e5');
       if (SCENARIO === 'bounded-last') {
         // A fail-high re-search at the same depth, with more nodes behind it,
         // arriving after the exact line and before the search is stopped. This
@@ -132,7 +145,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
       this.searching = false;
       if (this.finishTimer) { clearTimeout(this.finishTimer); this.finishTimer = null; }
       window.__uciBestmoves += 1;
-      this.send('bestmove e2e4 ponder e7e5');
+      this.send('bestmove ' + this.scriptedLine().move + ' ponder e7e5');
     }
     postMessage(command) {
       const text = String(command);
@@ -150,6 +163,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
       if (text.startsWith('position')) { this.fen = text; return; }
       if (text.startsWith('go')) {
         this.searching = true;
+        this.searches += 1;
         this.emitInfo();
         // A search ends on its own, or early when the app says stop. Both
         // finish with a bestmove, which is what the app waits for.
@@ -425,6 +439,52 @@ async function checkPlayedMoveBecomesTheGame(browser) {
     assert(abandoned > played,
       `the move taken back is still the main line: ${movetext}`)
     console.log(`  takeback: the game follows the move played, not the one undone`)
+  } finally {
+    await context.close()
+  }
+}
+
+/**
+ * The nudge in Play mode. The opponent's search after the human's second
+ * move scores 300cp higher than after the first, and the Play Focus card
+ * should say which move did it and what it cost, with the take-back one
+ * click away. The judgement is unit-tested; whether the move loop feeds it
+ * the two readings, and clears it on a takeback, only a browser can show.
+ */
+async function checkBlunderIsPointedOut(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript('blunder-nudge'))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await page.click('.top-mode-pills button:has-text("Human vs AI")')
+    await page.waitForFunction(() => /ready to play/.test(document.body.innerText), null, { timeout: 20000 })
+
+    const play = async (from, to) => {
+      await page.click(`#chessboard-square-${from}`)
+      await page.click(`#chessboard-square-${to}`)
+    }
+    await play('e2', 'e4')
+    await page.waitForFunction(() => /e5/.test(document.querySelector('.mtree-scroll')?.textContent || ''),
+                               null, { timeout: 10000 })
+    await play('d1', 'h5')
+    await page.waitForFunction(() => /Nc6/.test(document.querySelector('.mtree-scroll')?.textContent || ''),
+                               null, { timeout: 10000 })
+
+    const nudge = await page.locator('.blunder-nudge').textContent({ timeout: 5000 })
+    assert(/Qh5 looks like a blunder/.test(nudge), `the nudge did not name the blunder: ${nudge}`)
+    assert(/3\.0 pawns/.test(nudge), `the nudge did not say what it cost: ${nudge}`)
+
+    await page.getByRole('button', { name: /take back Qh5/i }).click()
+    await page.waitForFunction(() => !document.querySelector('.blunder-nudge'), null, { timeout: 5000 })
+    const strip = await page.locator('.board-meta-strip').textContent()
+    assert(/White to move/.test(strip) && /Move 2/.test(strip),
+      `the take-back did not hand the turn back: ${strip}`)
+    console.log('  nudge: a blunder is pointed out where it happens, and the take-back clears it')
   } finally {
     await context.close()
   }
@@ -976,6 +1036,7 @@ async function main() {
 
     await checkBoundedScoreIsIgnored(browser)
     await checkPlayedMoveBecomesTheGame(browser)
+    await checkBlunderIsPointedOut(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)
     await checkAutomaticAnalysisIsReused(browser)
     await checkCrossOriginIsolationIsRestored(browser)
