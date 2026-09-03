@@ -112,7 +112,7 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   A `$1` in the file shows as `!` and a `$16` as `±`, and the current move can
   be judged from the list — `!!`, `!`, `!?`, `?!`, `?`, `??` — which is written
   as the move's suffix and exported with it.
-- **Interactive analysis visuals**: Clickable winrate/WDL graphs, move transcript navigation, and board arrows for the played move, best move, and candidate lines.
+- **Interactive analysis visuals**: Clickable winrate/WDL graphs, move transcript navigation, and board arrows for the played move, best move, and candidate lines. Point at either graph and it reads the ply under the pointer — "12. Nf3 · 61.2% White", or the win/draw/loss split — with a hairline marking it; a click still goes there.
 - **Your own arrows and marks**: Right-drag on the board to draw an arrow,
   right-click a square to mark it, `Shift` or `Ctrl` for the other two colours.
   They are blue, magenta and white rather than Lichess's green, because green

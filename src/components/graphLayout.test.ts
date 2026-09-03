@@ -7,6 +7,7 @@ import {
   graphKeyboardTarget,
   graphTickStep,
   graphWidthForIndex,
+  graphIndexAtX,
 } from './graphLayout'
 
 describe('graph layout helpers', () => {
@@ -69,5 +70,26 @@ describe('graph keyboard navigation', () => {
     expect(graphKeyboardTarget('Tab', 5, 20)).toBeNull()
     expect(graphKeyboardTarget('f', 5, 20)).toBeNull()
     expect(graphKeyboardTarget(' ', 5, 20)).toBeNull()
+  })
+})
+
+describe('the ply under a pointer', () => {
+  // A 100px plot starting at x=50, over a 20-ply game: 5px per ply.
+  it('reads the nearest ply, and the same one a click would navigate to', () => {
+    expect(graphIndexAtX(50, 50, 100, 20)).toBe(0)
+    expect(graphIndexAtX(100, 50, 100, 20)).toBe(10)
+    expect(graphIndexAtX(102, 50, 100, 20)).toBe(10)
+    expect(graphIndexAtX(103, 50, 100, 20)).toBe(11)
+    expect(graphIndexAtX(150, 50, 100, 20)).toBe(20)
+  })
+
+  it('clamps a pointer in the padding to the nearest end rather than reading nothing', () => {
+    expect(graphIndexAtX(0, 50, 100, 20)).toBe(0)
+    expect(graphIndexAtX(400, 50, 100, 20)).toBe(20)
+  })
+
+  it('has one answer for a graph with nothing to point at', () => {
+    expect(graphIndexAtX(75, 50, 100, 0)).toBe(0)
+    expect(graphIndexAtX(75, 50, 0, 20)).toBe(0)
   })
 })

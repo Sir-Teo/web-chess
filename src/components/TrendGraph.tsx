@@ -1,7 +1,7 @@
-import { memo, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { memo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { WdlPoint, WinratePoint } from '../engine/analysis'
 import { useElementWidth } from '../hooks/useElementWidth'
-import { formatGraphAxisLabel, formatGraphPositionLabel } from './graphLabels'
+import { formatGraphAxisLabel, formatGraphPositionLabel, formatWdlReadout, formatWinrateReadout } from './graphLabels'
 import {
   GRAPH_FALLBACK_WIDTH,
   GRAPH_HEIGHT,
@@ -10,6 +10,7 @@ import {
   GRAPH_PAD_RIGHT,
   GRAPH_PAD_TOP,
   clampGraphIndex,
+  graphIndexAtX,
   graphKeyboardTarget,
   graphTickStep,
   graphWidthForIndex,
@@ -74,17 +75,16 @@ function trendGraphGeometry(
   const isNavigable = Boolean(onNavigate && maxIndex > 0)
   const selectedIndex = clampGraphIndex(currentIndex ?? maxIndex, maxIndex)
 
+  /** The ply under a pointer position, for a click that navigates and a hover that reads. */
+  const indexAtClientX = (svg: SVGSVGElement, clientX: number): number => {
+    const rect = svg.getBoundingClientRect()
+    const scaleX = rect.width > 0 ? width / rect.width : 1
+    return graphIndexAtX((clientX - rect.left) * scaleX, padLeft, innerWidth, maxIndex)
+  }
+
   const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!isNavigable || !onNavigate) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const scaleX = width / rect.width
-    const xInsideSvg = (e.clientX - rect.left) * scaleX
-
-    let targetIdx = Math.round(((xInsideSvg - padLeft) / innerWidth) * maxIndex)
-    if (targetIdx < 0) targetIdx = 0
-    if (targetIdx > maxIndex) targetIdx = maxIndex
-
-    onNavigate(targetIdx)
+    onNavigate(indexAtClientX(e.currentTarget, e.clientX))
   }
 
   const handleKeyDown = (e: ReactKeyboardEvent<SVGSVGElement>) => {
@@ -104,13 +104,43 @@ function trendGraphGeometry(
     innerWidth, innerHeight, toX, toY, lastPointIndex,
     markers: [0, 25, 50, 75, 100],
     xTickStep: graphTickStep(maxIndex, innerWidth),
-    isNavigable, selectedIndex, handleClick, handleKeyDown,
+    isNavigable, selectedIndex, handleClick, handleKeyDown, indexAtClientX,
   }
+}
+
+/**
+ * The hairline and label that answer a pointer: what a reader gets by
+ * pointing at the curve, which used to be nothing -- the graph answered a
+ * click and a keyboard and ignored a hover.
+ *
+ * The hairline follows the pointer; the label does not. Pinned beside the
+ * pointer it ran off whichever edge was nearer -- the rail is 260px wide and
+ * the text is most of that -- and jumped as the pointer moved. Top-left of
+ * the plot is always inside the drawing and always in the same place. The
+ * stroke behind the text keeps it legible over the curve.
+ */
+function GraphReadout({ x, padLeft, padTop, height, padBottom, text }: {
+  x: number
+  padLeft: number
+  padTop: number
+  height: number
+  padBottom: number
+  text: string
+}) {
+  return (
+    <g style={{ pointerEvents: 'none' }} aria-hidden="true">
+      <line x1={x} x2={x} y1={padTop} y2={height - padBottom} className="graph-hover-line" />
+      <text x={padLeft + 4} y={padTop + 11} textAnchor="start" className="graph-readout">
+        {text}
+      </text>
+    </g>
+  )
 }
 
 export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, lastPlyIndex, onNavigate }: WinrateGraphProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   if (points.length === 0) {
     return (
       <div className="empty-state">
@@ -122,7 +152,7 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
 
   const {
     maxIndex, width, height, padLeft, padRight, padTop, padBottom,
-    toX, toY, lastPointIndex, markers, xTickStep, isNavigable, selectedIndex, handleClick, handleKeyDown,
+    toX, toY, lastPointIndex, markers, xTickStep, isNavigable, selectedIndex, handleClick, handleKeyDown, indexAtClientX,
   } = trendGraphGeometry(points, available, currentIndex, onNavigate, lastPlyIndex)
 
   const path = points
@@ -131,6 +161,7 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
 
   const area = `${path} L ${toX(lastPointIndex).toFixed(2)} ${(height - padBottom).toFixed(2)} L ${toX(points[0]?.index ?? 0).toFixed(2)} ${(height - padBottom).toFixed(2)} Z`
   const selectedPoint = points.find(point => point.index === selectedIndex)
+  const hoverPoint = hoverIndex === null ? undefined : points.find(point => point.index === hoverIndex)
 
   const currentLineX = currentIndex !== undefined && maxIndex > 0
     ? toX(selectedIndex)
@@ -152,6 +183,8 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
           aria-valuetext={isNavigable ? formatGraphPositionLabel(selectedPoint, selectedIndex) : undefined}
           onClick={handleClick}
           onKeyDown={handleKeyDown}
+          onMouseMove={maxIndex > 0 ? e => setHoverIndex(indexAtClientX(e.currentTarget, e.clientX)) : undefined}
+          onMouseLeave={() => setHoverIndex(null)}
           style={{ cursor: isNavigable ? 'pointer' : 'default' }}
         >
           <defs>
@@ -206,6 +239,16 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
               style={{ pointerEvents: 'none' }}
             />
           )}
+          {hoverIndex !== null && (
+            <GraphReadout
+              x={toX(hoverIndex)}
+              padLeft={padLeft}
+              padTop={padTop}
+              height={height}
+              padBottom={padBottom}
+              text={formatWinrateReadout(hoverPoint, hoverIndex)}
+            />
+          )}
         </svg>
       </div>
     </div>
@@ -223,6 +266,7 @@ type WdlProgressGraphProps = {
 export const WdlProgressGraph = memo(function WdlProgressGraph({ points, currentIndex, lastPlyIndex, onNavigate }: WdlProgressGraphProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   if (points.length === 0) {
     return (
       <div className="empty-state">
@@ -234,7 +278,7 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
 
   const {
     maxIndex, width, height, padLeft, padRight, padTop, padBottom,
-    toX, toY, markers, xTickStep, isNavigable, selectedIndex, handleClick, handleKeyDown,
+    toX, toY, markers, xTickStep, isNavigable, selectedIndex, handleClick, handleKeyDown, indexAtClientX,
   } = trendGraphGeometry(points, available, currentIndex, onNavigate, lastPlyIndex)
 
   const buildPath = (selector: (point: WdlPoint) => number): string =>
@@ -244,6 +288,7 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
   const drawPath = buildPath((p) => p.draw)
   const blackPath = buildPath((p) => p.black)
   const selectedPoint = points.find(point => point.index === selectedIndex)
+  const hoverPoint = hoverIndex === null ? undefined : points.find(point => point.index === hoverIndex)
 
   const currentLineX = currentIndex !== undefined && maxIndex > 0
     ? toX(selectedIndex)
@@ -265,6 +310,8 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
           aria-valuetext={isNavigable ? formatGraphPositionLabel(selectedPoint, selectedIndex) : undefined}
           onClick={handleClick}
           onKeyDown={handleKeyDown}
+          onMouseMove={maxIndex > 0 ? e => setHoverIndex(indexAtClientX(e.currentTarget, e.clientX)) : undefined}
+          onMouseLeave={() => setHoverIndex(null)}
           style={{ cursor: isNavigable ? 'pointer' : 'default' }}
         >
           {markers.map(v => {
@@ -311,6 +358,16 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
               strokeWidth="2"
               strokeDasharray="4 4"
               style={{ pointerEvents: 'none' }}
+            />
+          )}
+          {hoverIndex !== null && (
+            <GraphReadout
+              x={toX(hoverIndex)}
+              padLeft={padLeft}
+              padTop={padTop}
+              height={height}
+              padBottom={padBottom}
+              text={formatWdlReadout(hoverPoint, hoverIndex)}
             />
           )}
         </svg>

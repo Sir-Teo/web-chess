@@ -3260,6 +3260,24 @@ button.critical-moment-row {
   font-family: inherit;
 }
 
+/* The pointer's ply, and what the graph knows about it. The stroke behind the
+   text is what keeps it legible over the curve and the gridlines. */
+.graph-hover-line {
+  stroke: rgba(240, 246, 252, 0.35);
+  stroke-width: 1;
+}
+
+.graph-readout {
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--text-primary);
+  font-family: inherit;
+  paint-order: stroke;
+  stroke: var(--bg-elevated);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
 .graph-area {
   fill: url(#graph-gradient);
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatGraphAxisLabel, formatGraphPositionLabel } from './graphLabels'
+import { formatGraphAxisLabel, formatGraphPositionLabel, formatWdlReadout, formatWinrateReadout } from './graphLabels'
 
 describe('graph label helpers', () => {
   it('uses graph point labels for black-to-move imported roots', () => {
@@ -22,5 +22,21 @@ describe('graph label helpers', () => {
   it('leaves a label with no move number alone rather than emptying the tick', () => {
     expect(formatGraphAxisLabel({ index: 4, label: '...' })).toBe('...')
     expect(formatGraphAxisLabel({ index: 4, label: 'e4' })).toBe('e4')
+  })
+})
+
+describe('the readout under the pointer', () => {
+  it('names the position and its reading, short enough for a rail-width plot', () => {
+    expect(formatWinrateReadout({ index: 23, label: '12. Nf3', whiteWinrate: 61.24 }, 23))
+      .toBe('12. Nf3 · 61.2% White')
+    expect(formatWdlReadout({ index: 23, label: '12. Nf3', white: 40.4, draw: 49.6, black: 10 }, 23))
+      .toBe('12. Nf3 · W 40 · D 50 · B 10')
+    expect(formatWinrateReadout({ index: 0, label: 'Start', whiteWinrate: 51.7 }, 0))
+      .toBe('Start · 51.7% White')
+  })
+
+  it('still names the position over a ply the series skipped', () => {
+    expect(formatWinrateReadout(undefined, 7)).toBe('Move 7 · no reading')
+    expect(formatWdlReadout(undefined, 0)).toBe('Start · no reading')
   })
 })

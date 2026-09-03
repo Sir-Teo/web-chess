@@ -29,6 +29,16 @@ export function clampGraphIndex(index: number, maxIndex: number): number {
 }
 
 /**
+ * The ply under an x coordinate inside the drawn graph -- the same reading
+ * for a click that navigates and a pointer that only asks. Clamped, so a
+ * pointer in the padding reads as the nearest end rather than as nothing.
+ */
+export function graphIndexAtX(xInsideSvg: number, padLeft: number, innerWidth: number, maxIndex: number): number {
+  if (maxIndex <= 0 || innerWidth <= 0) return 0
+  return clampGraphIndex(Math.round(((xInsideSvg - padLeft) / innerWidth) * maxIndex), maxIndex)
+}
+
+/**
  * Where a key press moves the graph's cursor, or null for a key the graph does
  * not claim — which is what lets everything else reach the page.
  */
