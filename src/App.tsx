@@ -246,6 +246,9 @@ const readViewport = () => ({
   scrollbar: measureScrollbarWidth(),
 })
 
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
+const readReducedMotion = () => typeof window !== 'undefined' && Boolean(window.matchMedia?.(REDUCED_MOTION_QUERY).matches)
+
 const LICHESS_TOKEN_PAGE_URL = 'https://lichess.org/account/oauth/token/create?'
 const SAMPLE_PGN_CACHE_LIMIT = 12
 const DEFAULT_LEFT_PANEL_WIDTH = 320
@@ -459,6 +462,19 @@ function App() {
   const analysisPanelRef = useRef<HTMLElement>(null)
   const revealOpeningIntelRef = useRef(false)
   const [viewport, setViewport] = useState(readViewport)
+  /**
+   * The OS-level request for less motion. The app's own scrolling already
+   * honoured it; the board animated every move at the library's default
+   * regardless, which is the one animation on the page a reader cannot avoid.
+   */
+  const [reduceMotion, setReduceMotion] = useState(readReducedMotion)
+  useEffect(() => {
+    const query = window.matchMedia?.(REDUCED_MOTION_QUERY)
+    if (!query) return
+    const onChange = () => setReduceMotion(query.matches)
+    query.addEventListener('change', onChange)
+    return () => query.removeEventListener('change', onChange)
+  }, [])
   /**
    * Whether the layout is stacked. Derived once and depended on by name: the
    * effects below used `viewport.width`, which changes on every pixel of a
@@ -1935,9 +1951,8 @@ function App() {
     const scroller = modeScrollerRef.current
     if (!scroller || scroller.scrollWidth <= scroller.clientWidth) return
     const active = scroller.querySelector('.gc-pill-active')
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     active?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' })
-  }, [gameMode, workspaceMode])
+  }, [gameMode, reduceMotion, workspaceMode])
 
   const handleWorkspaceModeChange = useCallback((mode: WorkspaceMode) => {
     if (mode !== 'play') cancelPendingAiMove()
@@ -5343,6 +5358,7 @@ function App() {
                       numericNotationStyle: { ...NOTATION_BASE_STYLE, top: 2, left: 3, fontSize: notationFontSize },
                       allowDrawingArrows: !isPreviewingLine,
                       allowDragging: !isPreviewingLine && (!boardInputLocked || premoveAllowed),
+                      showAnimations: !reduceMotion,
                       darkSquareStyle: { backgroundColor: boardTheme.dark },
                       lightSquareStyle: { backgroundColor: boardTheme.light },
                       boardStyle: {
