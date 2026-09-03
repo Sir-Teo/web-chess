@@ -5652,7 +5652,14 @@ function App() {
                         : null)
                       const steps = source ? pvLineMoves(source.fen ?? fen, source.pv, 6) : []
                       if (!steps.length) {
-                        return <p>{coachLineSan || 'Start analysis to get a candidate line.'}</p>
+                        // Under a checkmate the card used to ask for an analysis
+                        // that has nothing to find.
+                        return (
+                          <p>
+                            {coachLineSan
+                              || (boardEnding ? 'The game is over here. There is no line to play.' : 'Start analysis to get a candidate line.')}
+                          </p>
+                        )
                       }
                       const lineFen = source!.fen ?? fen
                       return (
