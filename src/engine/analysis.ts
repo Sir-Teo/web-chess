@@ -320,6 +320,16 @@ function qualityForMove(deltaCp: number, winPercentLoss: number): GradedLabel {
 }
 
 /**
+ * The ladder, for a loss measured somewhere other than a review row -- the
+ * nudge in Play mode grades the human's last move from the opponent's own
+ * searches. One ladder, so a move the game called a blunder is one the
+ * review will call a blunder too.
+ */
+export function qualityForLoss(deltaCp: number, winPercentLoss: number): GradedLabel {
+  return qualityForMove(deltaCp, winPercentLoss)
+}
+
+/**
  * Whether a reading is too thin to grade a move with.
  *
  * The two import purposes are the app's own 70ms passes over a freshly loaded

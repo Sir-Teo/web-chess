@@ -1,3 +1,5 @@
+import { qualityForLoss, scoreToCp, winPercentFromCp } from './analysis'
+
 export type PlayGameMode = 'human-vs-human' | 'human-vs-ai' | 'ai-vs-ai'
 export type PlayColor = 'white' | 'black'
 export type PlayOrientation = 'white' | 'black'
@@ -155,6 +157,64 @@ export function hintDisabledReason({
   if (!engineReady) return 'The engine is still starting up.'
   if (busy) return 'Already looking.'
   return null
+}
+
+/** What the opponent's search said about a position, from its own side. */
+export type AiSearchReading = {
+  fen: string
+  cp?: number
+  mate?: number
+}
+
+export type MoveJudgement = {
+  quality: 'mistake' | 'blunder'
+  /** Centipawns the mover gave up, from the mover's side; negative is a loss. */
+  deltaCp: number
+  /** Winning chances the mover gave up, in percentage points. */
+  winPercentLoss: number
+  /** The move walked into a forced mate, which the centipawn figure cannot say. */
+  intoMate: boolean
+}
+
+/**
+ * What the opponent's two searches say about the human move played between
+ * them, or null when they say nothing worth interrupting a game for.
+ *
+ * Both readings are from the engine's side with the engine to move: the one
+ * before its last move, and the one it has just made after the human's reply.
+ * If the human played the reply the engine expected, the two agree; the gap is
+ * what the human gave up. It is graded on the review's own ladder, so a move
+ * the game calls a blunder is one the review will call a blunder too, and only
+ * a mistake or worse is reported -- a game is not the place to be told about
+ * every inaccuracy.
+ *
+ * One property makes this safe at the weak levels, where the engine chooses
+ * a worse move on purpose: the first reading is the engine's *best* line, so
+ * if it then played something weaker the human's true loss is larger than
+ * the gap, never smaller. The nudge can miss a mistake; it cannot invent one.
+ */
+export function judgeMoveBetweenSearches(
+  previous: AiSearchReading,
+  current: AiSearchReading,
+): MoveJudgement | null {
+  const before = scoreToCp(previous.cp, previous.mate)
+  const after = scoreToCp(current.cp, current.mate)
+  if (typeof before !== 'number' || typeof after !== 'number') return null
+
+  // Engine side to human side is a sign flip; the loss is before minus after.
+  const deltaCp = before - after
+  const winPercentLoss = Math.max(0, winPercentFromCp(-before) - winPercentFromCp(-after))
+  if (deltaCp >= 0) return null
+
+  const quality = qualityForLoss(deltaCp, winPercentLoss)
+  if (quality !== 'mistake' && quality !== 'blunder') return null
+
+  return {
+    quality,
+    deltaCp,
+    winPercentLoss,
+    intoMate: typeof current.mate === 'number' && current.mate > 0,
+  }
 }
 
 export type PlayEngineStatus = 'loading' | 'ready' | 'thinking' | 'stopping' | 'error' | 'disabled'

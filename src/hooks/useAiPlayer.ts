@@ -13,7 +13,7 @@ import {
     isTablebaseEligible,
     type TablebaseResult,
 } from '../engine/tablebase'
-import type { AiSearchHistory } from '../engine/playMode'
+import type { AiSearchHistory, AiSearchReading } from '../engine/playMode'
 import { buildPositionCommand, isUciMove } from '../engine/uci'
 import { scoreToCp } from '../engine/analysis'
 import { parseInfoLine, type EngineLine } from './useStockfishEngine'
@@ -315,6 +315,9 @@ export function useAiPlayer(enabled = true) {
     const awaitingReadyRef = useRef(0)
     /** The lines of the search in flight, newest depth per rank, for the weak levels' choice. */
     const searchLinesRef = useRef<Map<number, EngineLine>>(new Map())
+    /** The position that search is of, and what its first line said once it finished. */
+    const searchFenRef = useRef<string>('')
+    const lastSearchRef = useRef<AiSearchReading | null>(null)
     const [status, setStatus] = useState<AiStatus>('loading')
     const [profileName, setProfileName] = useState('Stockfish')
     /**
@@ -531,6 +534,12 @@ export function useAiPlayer(enabled = true) {
                     const bestMove = move === '(none)' ? null : move
                     const searchLines = [...searchLinesRef.current.values()]
                         .map(held => ({ multipv: held.multipv, cp: held.cp, mate: held.mate, move: held.pv[0]! }))
+                    // What the position was worth, by the engine's own account,
+                    // for the nudge that compares one search with the next.
+                    const first = searchLinesRef.current.get(1)
+                    lastSearchRef.current = first
+                        ? { fen: searchFenRef.current, cp: first.cp, mate: first.mate }
+                        : null
                     finishRequest(pickVarietyMove(difficultyRef.current, searchLines, bestMove), 'ready')
                 }
             }
@@ -650,6 +659,7 @@ export function useAiPlayer(enabled = true) {
                     // engine builds its repetition history from them, and
                     // without it cannot see that a position has occurred before.
                     searchLinesRef.current = new Map()
+                    searchFenRef.current = fen
                     worker.postMessage(buildPositionCommand(fen, history?.moves, history?.rootFen))
                     // Per docs: "go movetime N" is the clean way to get a single best move
                     worker.postMessage(`go movetime ${movetime}`)
@@ -659,5 +669,13 @@ export function useAiPlayer(enabled = true) {
         [applyStrength, cancelTablebaseRequest, clearStopAckTimeout, enabled, fallbackProfileId, releaseStoppedSearch, settleRequest],
     )
 
-    return { status, requestMove, setDifficulty, cancelRequest, profileName, threadCount }
+    /**
+     * The last completed search's reading of its position, from the engine's
+     * side. A function rather than state: the caller reads it inside the move
+     * loop the moment a move resolves, and a state value would be a render
+     * behind.
+     */
+    const readLastSearch = useCallback((): AiSearchReading | null => lastSearchRef.current, [])
+
+    return { status, requestMove, setDifficulty, cancelRequest, profileName, threadCount, readLastSearch }
 }

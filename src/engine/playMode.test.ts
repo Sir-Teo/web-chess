@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aiSearchHistory, defaultOrientationForGameMode, sideToMoveColor, takebackPlyCount, takebackDisabledReason, hintDisabledReason, describePlayEngine } from './playMode'
+import { aiSearchHistory, defaultOrientationForGameMode, sideToMoveColor, takebackPlyCount, takebackDisabledReason, hintDisabledReason, describePlayEngine, judgeMoveBetweenSearches } from './playMode'
 
 describe('play mode defaults', () => {
   it('orients human-vs-ai games from the player side', () => {
@@ -202,5 +202,47 @@ describe('describePlayEngine thread reporting', () => {
     expect(describePlayEngine({ ...base, status: 'ready', threadCount: 1 }).message)
       .not.toContain('thread')
     expect(describePlayEngine({ ...base, status: 'ready' }).message).not.toContain('thread')
+  })
+})
+
+describe('judging the human move between two of the opponent searches', () => {
+  const at = (cp?: number, mate?: number) => ({ fen: 'irrelevant', cp, mate })
+
+  it('says nothing when the reply was the one the engine expected', () => {
+    expect(judgeMoveBetweenSearches(at(50), at(55))).toBeNull()
+    expect(judgeMoveBetweenSearches(at(50), at(50))).toBeNull()
+  })
+
+  it('says nothing about a slip the review would call an inaccuracy', () => {
+    // 60cp given up from level: Good on the ladder, not worth interrupting for.
+    expect(judgeMoveBetweenSearches(at(0), at(60))).toBeNull()
+    expect(judgeMoveBetweenSearches(at(0), at(120))).toBeNull()
+  })
+
+  it('grades a real loss on the review ladder, from the human side', () => {
+    // The engine saw +30; after the human's reply it sees +330. The human
+    // gave up three pawns.
+    expect(judgeMoveBetweenSearches(at(30), at(330))).toMatchObject({
+      quality: 'blunder',
+      deltaCp: -300,
+      intoMate: false,
+    })
+    expect(judgeMoveBetweenSearches(at(30), at(230))).toMatchObject({ quality: 'mistake', deltaCp: -200 })
+  })
+
+  it('never blames the human for ground the engine gave away', () => {
+    // The engine chose a weaker move on purpose, so its next reading is lower.
+    expect(judgeMoveBetweenSearches(at(200), at(50))).toBeNull()
+  })
+
+  it('reads a forced mate as what it is', () => {
+    expect(judgeMoveBetweenSearches(at(30), at(undefined, 2))).toMatchObject({ quality: 'blunder', intoMate: true })
+    // Already mating before and after: nothing was given up.
+    expect(judgeMoveBetweenSearches(at(undefined, 3), at(undefined, 2))).toBeNull()
+  })
+
+  it('is quiet when a reading has no score', () => {
+    expect(judgeMoveBetweenSearches(at(), at(300))).toBeNull()
+    expect(judgeMoveBetweenSearches(at(30), at())).toBeNull()
   })
 })

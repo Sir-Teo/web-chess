@@ -27,6 +27,7 @@ import {
   recordEvaluation,
   engineLineToSnapshot,
   terminalSnapshotForFen,
+  reportedCentipawnLoss,
 } from './engine/analysis'
 import { historicalSampleGames, type HistoricalSampleGame, type HistoricalSampleFormat } from './assets/historicalSamples'
 import {
@@ -147,7 +148,7 @@ import {
 import { coachReadingSource, describeCoachDepth, isExactTablebaseCoachMove, selectCoachBestMove } from './engine/coach'
 import { isReviewPracticeAnswer } from './engine/reviewPractice'
 import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage } from './engine/labCommands'
-import { aiSearchHistory, defaultOrientationForGameMode, describePlayEngine, hintDisabledReason, sideToMoveColor, takebackDisabledReason, takebackPlyCount } from './engine/playMode'
+import { aiSearchHistory, defaultOrientationForGameMode, describePlayEngine, hintDisabledReason, sideToMoveColor, takebackDisabledReason, takebackPlyCount, judgeMoveBetweenSearches, type AiSearchReading, type MoveJudgement } from './engine/playMode'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { DIFFICULTY_LABELS, useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
 import { useGameTree, type GameNode } from './hooks/useGameTree'
@@ -511,6 +512,18 @@ function App() {
   const [showTopMoveArrows, setShowTopMoveArrows] = useState<boolean>(persistedSettings.showTopMoveArrows)
   const [topMoveArrowCount, setTopMoveArrowCount] = useState<number>(persistedSettings.topMoveArrowCount)
   const [soundEnabled, setSoundEnabled] = useState<boolean>(persistedSettings.soundEnabled)
+  const [blunderNudges, setBlunderNudges] = useState<boolean>(persistedSettings.blunderNudges)
+  // Read by the AI loop, which must not re-install when the switch changes.
+  const blunderNudgesRef = useRef(blunderNudges)
+  blunderNudgesRef.current = blunderNudges
+  /**
+   * The opponent's reading before its previous move, so the one after the
+   * human's reply can be compared with it. Null whenever the two would not be
+   * consecutive: a new game, a takeback, a navigation, a position handed over.
+   */
+  const lastAiSearchRef = useRef<AiSearchReading | null>(null)
+  /** The human's last move, when the opponent's searches say it was a mistake. */
+  const [blunderNudge, setBlunderNudge] = useState<(MoveJudgement & { san: string; fen: string }) | null>(null)
   const [timeControlId, setTimeControlId] = useState<string>(persistedSettings.timeControlId)
   const [boardThemeId, setBoardThemeId] = useState<string>(persistedSettings.boardThemeId)
   const boardTheme = useMemo(() => boardThemeById(boardThemeId), [boardThemeId])
@@ -713,6 +726,10 @@ function App() {
     // question about one position and means nothing at another.
     setPremove(null)
     setHintMove(null)
+    // The nudge is about the move that got the board here, and the readings
+    // it compares are consecutive only while the game goes forward.
+    setBlunderNudge(null)
+    lastAiSearchRef.current = null
   }, [game])
 
   // Navigate tree + stay paused so user can explore
@@ -1109,6 +1126,7 @@ function App() {
   const cancelAiRequest = aiPlayer.cancelRequest
   const requestAiMove = aiPlayer.requestMove
   const setAiPlayerDifficulty = aiPlayer.setDifficulty
+  const readAiSearch = aiPlayer.readLastSearch
   const aiPlayerStatusRef = useRef(aiPlayerStatus)
   const [aiReadyTick, setAiReadyTick] = useState(0)
 
@@ -1799,6 +1817,7 @@ function App() {
     setShowBoardArrows(DEFAULT_PERSISTED_SETTINGS.showBoardArrows)
     setShowTopMoveArrows(DEFAULT_PERSISTED_SETTINGS.showTopMoveArrows)
     setTopMoveArrowCount(DEFAULT_PERSISTED_SETTINGS.topMoveArrowCount)
+    setBlunderNudges(DEFAULT_PERSISTED_SETTINGS.blunderNudges)
     setOpeningPrefetchTick(0)
     setEngineLabError(null)
     setEngineLabCommand('')
@@ -2033,6 +2052,7 @@ function App() {
       showTopMoveArrows,
       topMoveArrowCount,
       soundEnabled,
+      blunderNudges,
       timeControlId,
       boardThemeId,
     })
@@ -2060,6 +2080,7 @@ function App() {
     showTopMoveArrows,
     topMoveArrowCount,
     soundEnabled,
+    blunderNudges,
     timeControlId,
     boardThemeId,
     quickMovetimeMs,
@@ -2746,6 +2767,20 @@ function App() {
             clockMs: clockRef.current ? remainingMs(clockRef.current, move.color, Date.now()) : undefined,
           })
           playMoveSoundRef.current(move)
+
+          // What the engine's search of this position says about the human
+          // move that reached it, against its search before its last move.
+          // The node the search started from is the human's move.
+          const reading = readAiSearch()
+          const humanNode = treeAtRequest.current
+          if (reading && reading.fen === requestFen) {
+            const previous = lastAiSearchRef.current
+            const verdict = previous && liveGameMode === 'human-vs-ai' && blunderNudgesRef.current && humanNode.move
+              ? judgeMoveBetweenSearches(previous, reading)
+              : null
+            setBlunderNudge(verdict ? { ...verdict, san: humanNode.san, fen: humanNode.fen } : null)
+            lastAiSearchRef.current = reading
+          }
         }
 
         if (stepModeMove && aiSpeedRef.current === 'step') {
@@ -2769,7 +2804,7 @@ function App() {
       cancelAiRequest()
       finishAiMove()
     }
-  }, [aiDifficulty, aiReadyTick, cancelAiRequest, fen, game, gameMode, paused, playerColor, readClockForSearch, requestAiMove, stepRequestTick, workspaceMode])
+  }, [aiDifficulty, aiReadyTick, cancelAiRequest, fen, game, gameMode, paused, playerColor, readAiSearch, readClockForSearch, requestAiMove, stepRequestTick, workspaceMode])
 
   // ── Human move ────────────────────────────────────────
   const clearBoardSelection = useCallback(() => {
@@ -2809,6 +2844,8 @@ function App() {
       // keyboard and you were back at the top of the document, 32 piece stops
       // away from the board.
       restoreBoardFocusRef.current = to
+      // A new move answers the nudge about the last one, whichever way.
+      setBlunderNudge(null)
 
       cancelStaleBackgroundAnalysis()
       stop()
@@ -4647,6 +4684,17 @@ function App() {
                   />
                   <span>Move sounds</span>
                 </label>
+                <label
+                  className="switch-control"
+                  title="In a game against the engine, say so when a move gives up a lot, with the take-back one click away."
+                >
+                  <input
+                    type="checkbox"
+                    checked={blunderNudges}
+                    onChange={event => setBlunderNudges(event.target.checked)}
+                  />
+                  <span>Point out my mistakes while playing</span>
+                </label>
                 <div className="board-theme-row">
                   <span className="board-theme-label" id="board-theme-label">Board</span>
                   <div className="board-theme-swatches" role="group" aria-labelledby="board-theme-label">
@@ -5560,6 +5608,34 @@ function App() {
                       <p className="panel-copy small hint-answer" role="status">
                         Try <strong>{hintSan}</strong> — drawn on the board in green.
                       </p>
+                    )}
+                    {/* The review says this afterwards; a learner needs it now,
+                        while the take-back is one click away. Judged from the
+                        opponent's own two searches, so it costs no search of
+                        its own and can miss a mistake but not invent one. */}
+                    {blunderNudge && !gameResultLabel && (
+                      <div className={`blunder-nudge ${blunderNudge.quality}`} role="status">
+                        <p>
+                          <strong>{blunderNudge.san}</strong>
+                          {blunderNudge.intoMate
+                            ? ' walks into a forced mate.'
+                            : ` looks like a ${blunderNudge.quality}: it gave up about ${(reportedCentipawnLoss(blunderNudge.deltaCp) / 100).toFixed(1)} pawns.`}
+                        </p>
+                        <div className="blunder-nudge-actions">
+                          <button
+                            type="button"
+                            className="takeback-btn"
+                            onClick={takebackMove}
+                            disabled={Boolean(takebackReason)}
+                            aria-label={`Take back ${blunderNudge.san} and the reply`}
+                          >
+                            <IconRefresh /> Take it back
+                          </button>
+                          <button type="button" onClick={() => setBlunderNudge(null)}>
+                            Play on
+                          </button>
+                        </div>
+                      </div>
                     )}
                     <div className="inline-actions takeback-row">
                       <button

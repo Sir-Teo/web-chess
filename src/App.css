@@ -5199,6 +5199,45 @@ button.hint-btn {
   font-family: var(--font-mono);
 }
 
+/* The one interruption a game allows itself: a move that gave up a lot, with
+   the take-back beside it. Tinted like the grade it carries. */
+.blunder-nudge {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid rgba(249, 115, 22, 0.38);
+  border-radius: var(--radius-md);
+  background: rgba(249, 115, 22, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.blunder-nudge.blunder {
+  border-color: rgba(239, 68, 68, 0.42);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.blunder-nudge p {
+  margin: 0;
+}
+
+.blunder-nudge strong {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.blunder-nudge-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+
+/* Two words that stay on one line: at the panel's default width "Play on"
+   was breaking across two. */
+.blunder-nudge-actions button {
+  white-space: nowrap;
+}
+
 /* What the mover had left. Tabular and dim: it belongs to the row without
    competing with the quality label, which is what the eye is scanning for. */
 .review-move-row .move-clock {

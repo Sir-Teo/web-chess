@@ -886,6 +886,33 @@ a window nothing falls inside, plays the engine move.
 `MultiPV` is sent with the strength options on every handshake; unlike
 `Threads` it rebuilds nothing, so it needs no `isready` of its own.
 
+## A blunder is pointed out where it happens
+
+The review says afterwards which move lost the game. A learner needs it at
+the moment, while the take-back is one click away -- and Play mode runs no
+analysis engine, deliberately. But the opponent's search is an evaluation of
+the position after every human move, and its search before its own previous
+move is an evaluation of the position before. Both are from the engine's
+side with the engine to move, so their gap is what the human gave up:
+`judgeMoveBetweenSearches` flips the sign, grades the loss on the review's
+ladder through `qualityForLoss`, and reports mistakes and blunders only.
+
+The property that makes this safe at the weak levels: the first reading is
+the engine's *best* line, and if the engine then chose a worse move -- which
+the skill limit and the variety roll both do on purpose -- the human's true
+loss is larger than the measured gap. So the nudge can miss a mistake; it
+cannot invent one. A mate score is the sentinel on both sides, so walking
+into a forced mate reads as a blunder and being mated a move later does not
+read as a second one.
+
+The readings are consecutive only while the game goes forward. Everything
+that moves the board any other way -- a takeback, a navigation, a new game,
+a position handed over from analysis -- runs through `syncGameToNode` or
+its own reset and clears the previous reading, or the next comparison would
+be between two different games. The hook exposes the reading through a
+function rather than state, because the loop reads it the moment a move
+resolves and a state value would be a render behind.
+
 ## Play mode
 
 Play mode and Analysis mode share one board, one tree and one set of input

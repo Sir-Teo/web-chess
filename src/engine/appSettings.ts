@@ -74,6 +74,8 @@ export type PersistedAppSettings = {
   showTopMoveArrows: boolean
   topMoveArrowCount: number
   soundEnabled: boolean
+  /** Whether a game against the engine points out a mistake as it is made. */
+  blunderNudges: boolean
   timeControlId: string
   boardThemeId: string
 }
@@ -110,6 +112,7 @@ export const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
   showTopMoveArrows: true,
   topMoveArrowCount: 3,
   soundEnabled: true,
+  blunderNudges: true,
   timeControlId: 'unlimited',
   boardThemeId: 'classic',
 }
@@ -268,6 +271,9 @@ export function loadPersistedSettings(): PersistedAppSettings {
       soundEnabled: typeof parsed.soundEnabled === 'boolean'
         ? parsed.soundEnabled
         : DEFAULT_PERSISTED_SETTINGS.soundEnabled,
+      blunderNudges: typeof parsed.blunderNudges === 'boolean'
+        ? parsed.blunderNudges
+        : DEFAULT_PERSISTED_SETTINGS.blunderNudges,
       timeControlId: isTimeControlPresetId(parsed.timeControlId)
         ? parsed.timeControlId
         : DEFAULT_PERSISTED_SETTINGS.timeControlId,

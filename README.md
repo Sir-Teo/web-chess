@@ -53,6 +53,15 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 - **A review offered where the game ends**: when a game finishes in Play mode
   the result card offers to review it, rather than leaving you to find the
   Review tab yourself.
+- **A word after a blunder, while it can still be taken back**: against the
+  engine, a move that gives up a lot is pointed out as it is made — "Qh4 looks
+  like a blunder: it gave up about 3.0 pawns", or "walks into a forced mate" —
+  with the take-back beside it. Judged from the opponent's own two searches,
+  the one before its last move and the one after your reply, so it costs no
+  search of its own; and because the first of those is the engine's *best*
+  line, a weak level that chose a worse move on purpose can only make the
+  nudge miss a mistake, never invent one. Mistakes and blunders only, on the
+  review's own ladder, and off with one switch in Settings.
 
 ### Studying
 
