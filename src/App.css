@@ -2025,6 +2025,16 @@ button.tablebase-move-row.compact {
   background: rgba(88, 166, 255, 0.12);
 }
 
+/* Choosing a preset must not make its own description harder to read. The
+   selected card swaps a dark fill for a blue wash, which on the dark theme
+   lifts the ground toward the muted grey underneath: measured 4.62:1 on an
+   idle card and 4.14:1 on the selected one, at 10px. One rung up the ladder
+   on the selected card only, which reads 5.58 there and gains on the light
+   theme too, where the same wash darkens rather than lightens. */
+.preset-card.active span {
+  color: var(--text-tertiary);
+}
+
 .mode-pill {
   display: inline-flex;
   align-items: center;

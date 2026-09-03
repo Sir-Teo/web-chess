@@ -180,7 +180,15 @@
   --text-secondary: #374151;
   --text-tertiary: #4b5563;
   --text-heading: #0b1220;
-  --text-muted: #6b7280;
+  /* Not gray-500, which is what mirroring the dark block gives you. The dark
+     `--text-muted` above carries a note about being raised off a value that
+     sat under AA for the small metadata this token draws; the light one was
+     never put through the same check and landed in the same place. gray-500
+     reads 4.23:1 on `--bg-base` -- which is the page itself and the bottom
+     half of the shell gradient, where the sample-game metadata and the preset
+     summaries sit at 10px. This is 5.25 there and 6.00 on a card, and stays
+     a clear step lighter than `--text-tertiary`. */
+  --text-muted: #5b6470;
 
   --accent: #0d9488;
   /* Teal-800, two steps darker than the fill. Teal-600 is what every accent
