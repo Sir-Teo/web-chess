@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatGraphAxisLabel, formatGraphPositionLabel, formatWdlReadout, formatWinrateReadout } from './graphLabels'
+import { describeWdlPosition, describeWinratePosition, formatGraphAxisLabel, formatGraphPositionLabel, formatWdlReadout, formatWinrateReadout } from './graphLabels'
 
 describe('graph label helpers', () => {
   it('uses graph point labels for black-to-move imported roots', () => {
@@ -22,6 +22,20 @@ describe('graph label helpers', () => {
   it('leaves a label with no move number alone rather than emptying the tick', () => {
     expect(formatGraphAxisLabel({ index: 4, label: '...' })).toBe('...')
     expect(formatGraphAxisLabel({ index: 4, label: 'e4' })).toBe('e4')
+  })
+})
+
+describe('what the slider announces', () => {
+  it('reads the number along with the position', () => {
+    expect(describeWinratePosition({ index: 23, label: '12. Nf3', whiteWinrate: 61.24 }, 23))
+      .toBe('After 12. Nf3, 61.2% for White')
+    expect(describeWdlPosition({ index: 23, label: '12. Nf3', white: 40.4, draw: 49.6, black: 10 }, 23))
+      .toBe('After 12. Nf3, White 40%, draw 50%, Black 10%')
+  })
+
+  it('names the position alone where nothing has been read', () => {
+    expect(describeWinratePosition(undefined, 7)).toBe('After move 7')
+    expect(describeWdlPosition(undefined, 0)).toBe('Start position')
   })
 })
 

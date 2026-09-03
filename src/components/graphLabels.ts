@@ -32,6 +32,30 @@ export function formatGraphPositionLabel(point: GraphPointLabel | undefined, ind
 }
 
 /**
+ * What the slider announces for the selected ply: the position, and the
+ * reading when there is one. It used to name the position alone, so a
+ * screen-reader user scrubbing the graph heard "After 12. Nf3" and never
+ * the number the graph exists to show.
+ */
+export function describeWinratePosition(
+  point: (GraphPointLabel & { whiteWinrate: number }) | undefined,
+  index: number,
+): string {
+  const where = formatGraphPositionLabel(point, index)
+  return point ? `${where}, ${point.whiteWinrate.toFixed(1)}% for White` : where
+}
+
+export function describeWdlPosition(
+  point: (GraphPointLabel & { white: number; draw: number; black: number }) | undefined,
+  index: number,
+): string {
+  const where = formatGraphPositionLabel(point, index)
+  return point
+    ? `${where}, White ${point.white.toFixed(0)}%, draw ${point.draw.toFixed(0)}%, Black ${point.black.toFixed(0)}%`
+    : where
+}
+
+/**
  * The position, as short as the graph's own axis writes it: the move that
  * reached it, "Start", or the ply when the series has no move for it. The
  * readout has a rail's width to live in -- about 190px of plot -- so the

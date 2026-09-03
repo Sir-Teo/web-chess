@@ -1,7 +1,7 @@
 import { memo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { WdlPoint, WinratePoint } from '../engine/analysis'
 import { useElementWidth } from '../hooks/useElementWidth'
-import { formatGraphAxisLabel, formatGraphPositionLabel, formatWdlReadout, formatWinrateReadout } from './graphLabels'
+import { describeWdlPosition, describeWinratePosition, formatGraphAxisLabel, formatWdlReadout, formatWinrateReadout } from './graphLabels'
 import {
   GRAPH_FALLBACK_WIDTH,
   GRAPH_HEIGHT,
@@ -185,7 +185,7 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
           aria-valuemin={isNavigable ? 0 : undefined}
           aria-valuemax={isNavigable ? maxIndex : undefined}
           aria-valuenow={isNavigable ? selectedIndex : undefined}
-          aria-valuetext={isNavigable ? formatGraphPositionLabel(selectedPoint, selectedIndex) : undefined}
+          aria-valuetext={isNavigable ? describeWinratePosition(selectedPoint, selectedIndex) : undefined}
           onClick={handleClick}
           onKeyDown={handleKeyDown}
           onMouseMove={maxIndex > 0 ? e => setHoverIndex(indexAtClientX(e.currentTarget, e.clientX)) : undefined}
@@ -316,7 +316,7 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
           aria-valuemin={isNavigable ? 0 : undefined}
           aria-valuemax={isNavigable ? maxIndex : undefined}
           aria-valuenow={isNavigable ? selectedIndex : undefined}
-          aria-valuetext={isNavigable ? formatGraphPositionLabel(selectedPoint, selectedIndex) : undefined}
+          aria-valuetext={isNavigable ? describeWdlPosition(selectedPoint, selectedIndex) : undefined}
           onClick={handleClick}
           onKeyDown={handleKeyDown}
           onMouseMove={maxIndex > 0 ? e => setHoverIndex(indexAtClientX(e.currentTarget, e.clientX)) : undefined}
