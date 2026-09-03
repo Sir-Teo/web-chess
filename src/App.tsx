@@ -1974,14 +1974,53 @@ function App() {
     cancelStaleBackgroundAnalysis,
   ])
 
-  // The mode groups scroll horizontally on narrow screens; keep whichever pill is
-  // active in view so the current mode is never parked off-screen.
+  /**
+   * The mode strip scrolls sideways on a narrow screen; keep the pill you just
+   * chose inside it, so the mode you are in is never parked off the edge.
+   *
+   * Two things had to be true for this to work, and neither was.
+   *
+   * The ref belongs on `.mobile-modes-wrapper`, which is the element the
+   * stylesheet gives `overflow-x: auto`. It was attached to nothing, so
+   * `scroller` was always null and this returned on its first line.
+   *
+   * And the pill to scroll to is the one in the group that *changed*. There
+   * are two active pills in the strip at all times -- one per group -- and
+   * asking the scroller for `.gc-pill-active` returns the first, which is
+   * always the workspace pill at the far left. It is already in view, so even
+   * with the ref attached this scrolled nowhere: on a landscape phone,
+   * choosing AI vs AI left the pill saying so 62px past the right edge.
+   *
+   * Both halves are checked in the browser harness at 844x390 rather than
+   * believed, because a ref that is not attached looks exactly like one that
+   * is, and a scroll of zero looks exactly like a strip that already fits.
+   *
+   * `smooth` only while the page is on screen. A smooth scroll is an animation
+   * and a hidden document runs none: measured at 0px moved with `smooth` and
+   * 63px with `auto`, in the same tab, one line apart. This is a layout
+   * correction rather than a flourish -- the mode you chose has to be legible
+   * whenever you next look -- so it is not left to something the browser is
+   * free to skip. Every other reveal in this file scrolls with `auto` already.
+   */
   const modeScrollerRef = useRef<HTMLDivElement | null>(null)
+  const previousModesRef = useRef({ workspaceMode, gameMode })
   useEffect(() => {
+    const previous = previousModesRef.current
+    const changedGroup = previous.workspaceMode !== workspaceMode
+      ? 'workspace'
+      : previous.gameMode !== gameMode
+        ? 'game'
+        : null
+    previousModesRef.current = { workspaceMode, gameMode }
+
     const scroller = modeScrollerRef.current
     if (!scroller || scroller.scrollWidth <= scroller.clientWidth) return
-    const active = scroller.querySelector('.gc-pill-active')
-    active?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' })
+    // On the first run nothing has changed yet, and the reader is looking at
+    // the strip as it loaded: the game mode is the half that can be off-screen.
+    const group = scroller.querySelector(`[data-mode-group="${changedGroup ?? 'game'}"]`)
+    const active = (group ?? scroller).querySelector('.gc-pill-active')
+    const animate = !reduceMotion && typeof document !== 'undefined' && document.visibilityState === 'visible'
+    active?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: animate ? 'smooth' : 'auto' })
   }, [gameMode, reduceMotion, workspaceMode])
 
   const handleWorkspaceModeChange = useCallback((mode: WorkspaceMode) => {
@@ -4611,10 +4650,11 @@ function App() {
             <span className="toolbar-divider desktop-only" />
             <div
               className="mobile-modes-wrapper"
+              ref={modeScrollerRef}
               aria-hidden={settingsOpen ? true : undefined}
               inert={settingsOpen ? true : undefined}
             >
-              <div className="top-mode-pills" aria-label="Workspace mode">
+              <div className="top-mode-pills" data-mode-group="workspace" aria-label="Workspace mode">
                 {([
                   { id: 'play', label: 'Play', icon: <IconSwords /> },
                   { id: 'analysis', label: 'Analysis', icon: <IconSearch /> },
@@ -4634,7 +4674,7 @@ function App() {
 
               {/* Game mode switcher */}
               <span className="toolbar-divider desktop-only" />
-              <div className="top-mode-pills" aria-label="Game mode">
+              <div className="top-mode-pills" data-mode-group="game" aria-label="Game mode">
                 {([
                   { id: 'human-vs-human', label: 'Human vs Human', title: 'Local board for two players', icon: <IconUsers /> },
                   { id: 'human-vs-ai', label: 'Human vs AI', title: 'Play against the engine', icon: <IconBot /> },

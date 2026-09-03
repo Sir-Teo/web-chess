@@ -897,6 +897,44 @@ async function main() {
         console.log('  practice: Coach hides the answer and opens a playable retry position')
       }
 
+      // The mode strip scrolls sideways at this size, and the pill saying which
+      // mode you are in has to be inside it. Landscape only: it is the one
+      // viewport here where the strip is `nowrap` and narrower than its
+      // contents, so it is the only one that can park the active pill
+      // off-screen. Play mode, because that is where both groups render.
+      //
+      // Written after finding the effect that does this reading a ref nothing
+      // was attached to: choosing AI vs AI left its pill 62px past the right
+      // edge, and no assertion in this file could see it.
+      if (viewport.name === 'mobile landscape') {
+        await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+        await page.getByRole('button', { name: 'AI vs AI', exact: true }).first().click()
+        const strip = await page.evaluate(async () => {
+          await new Promise(resolve => setTimeout(resolve, 600))
+          const scroller = document.querySelector('.mobile-modes-wrapper')
+          if (!scroller) return null
+          const active = scroller.querySelector('[aria-label="Game mode"] .gc-pill-active')
+          if (!active) return { scrolls: false }
+          const box = active.getBoundingClientRect()
+          const frame = scroller.getBoundingClientRect()
+          return {
+            scrolls: scroller.scrollWidth > scroller.clientWidth,
+            label: active.textContent.trim(),
+            clippedLeft: Math.round(Math.max(0, frame.left - box.left)),
+            clippedRight: Math.round(Math.max(0, box.right - frame.right)),
+          }
+        })
+        assert(strip, 'mobile landscape: no mode strip on the page')
+        if (strip.scrolls) {
+          assert(strip.clippedLeft <= 1 && strip.clippedRight <= 1,
+            `mobile landscape: the active mode pill "${strip.label}" is clipped by `
+            + `${strip.clippedLeft}px on the left and ${strip.clippedRight}px on the right`)
+          console.log(`  mode strip: "${strip.label}" scrolled into view on a strip that overflows`)
+        }
+        await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+        await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+      }
+
       // A chessboard that is not square is the most obvious possible bug and
       // the easiest to miss in a screenshot at this size.
       const board = await page.evaluate(() => {
