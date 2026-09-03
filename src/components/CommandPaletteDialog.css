@@ -37,7 +37,7 @@
 
 .command-palette-row[data-active='true'] .command-palette-button {
     border-color: var(--accent, #4f9d78);
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--glass-3);
 }
 
 .command-palette-button:disabled {
@@ -67,7 +67,7 @@
 .command-palette-key {
     flex: 0 0 auto;
     padding: 0.05rem 0.35rem;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid var(--border-strong);
     border-radius: 4px;
     font-family: inherit;
     font-size: 0.7rem;

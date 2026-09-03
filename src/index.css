@@ -43,6 +43,34 @@
   --info: #3b82f6;
   --info-subtle: rgba(59, 130, 246, 0.12);
 
+  /* ── Glass and depth ────────────────────────────────
+     The highlights, scrims and insets App.css used to write as literals.
+     On a dark surface a highlight is a little white and a well a little
+     black; a light theme has them the other way round, which is the reason
+     these are tokens and not the literals they replaced. */
+  --glass-1: rgba(255, 255, 255, 0.025);
+  --glass-2: rgba(255, 255, 255, 0.035);
+  --glass-3: rgba(255, 255, 255, 0.05);
+  --glass-4: rgba(255, 255, 255, 0.08);
+  --glass-5: rgba(255, 255, 255, 0.12);
+  --bg-scrim: rgba(11, 13, 17, 0.94);
+  --bg-inset: rgba(8, 10, 14, 0.42);
+  --bg-tooltip: rgba(6, 8, 12, 0.9);
+  --tooltip-text: #ffffff;
+  --backdrop: rgba(0, 0, 0, 0.66);
+  --accent-chip-bg: #06110f;
+  --accent-chip-text: #7defde;
+
+  /* ── Trend graph inks ───────────────────────────────
+     White's line is white on the dark theme, which is the one ink that
+     cannot survive a light one. */
+  --graph-grid: rgba(240, 246, 252, 0.05);
+  --graph-axis: rgba(240, 246, 252, 0.35);
+  --graph-white: #f0f6fc;
+  --graph-white-glow: rgba(240, 246, 252, 0.3);
+  --graph-draw: #ffb86c;
+  --graph-black: #58a6ff;
+
   /* ── Quality ───────────────────────────────────── */
   /* Slate rather than a colour: Book is not a grade. Measured in
      reviewPalette.test.ts -- blue-400 collapsed onto Best's green for a

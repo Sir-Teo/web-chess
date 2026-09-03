@@ -16,7 +16,7 @@
   padding: 0.1rem 0.4rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
-  background: rgba(8, 10, 14, 0.6);
+  background: var(--bg-inset);
   line-height: 1.25;
   transition:
     border-color 140ms ease,
@@ -55,21 +55,21 @@
 }
 
 .clock-face.low>strong {
-  color: #f0a04b;
+  color: var(--warning);
 }
 
 .clock-face.running.low {
-  border-color: #f0a04b;
+  border-color: var(--warning);
   background: rgba(240, 160, 75, 0.14);
 }
 
 .clock-face.flagged {
-  border-color: #f85149;
+  border-color: var(--danger);
   background: rgba(248, 81, 73, 0.16);
 }
 
 .clock-face.flagged>strong {
-  color: #ff9d96;
+  color: var(--danger);
 }
 
 .clock-paused {
