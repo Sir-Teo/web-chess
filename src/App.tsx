@@ -145,7 +145,7 @@ import {
   toggleSquareMark,
   type SquareMarks,
 } from './engine/boardMarks'
-import { coachReadingSource, describeCoachDepth, isExactTablebaseCoachMove, selectCoachBestMove } from './engine/coach'
+import { coachReadingSource, describeCoachDepth, isExactTablebaseCoachMove, selectCoachBestMove, selectCoachLineSource } from './engine/coach'
 import { isReviewPracticeAnswer } from './engine/reviewPractice'
 import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage } from './engine/labCommands'
 import { aiSearchHistory, defaultOrientationForGameMode, describePlayEngine, hintDisabledReason, sideToMoveColor, takebackDisabledReason, takebackPlyCount, judgeMoveBetweenSearches, type AiSearchReading, type MoveJudgement } from './engine/playMode'
@@ -5842,10 +5842,17 @@ function App() {
                         want to see played out, and it was the same dead text as
                         the Pro panel's. Same buttons, shorter line. */}
                     {(() => {
-                      const source = coachLine ?? (currentCloudEval?.pvs[0]
-                        ? { fen, pv: currentCloudEval.pvs[0].moves }
-                        : null)
-                      const steps = source ? pvLineMoves(source.fen ?? fen, source.pv, 6) : []
+                      // See `selectCoachLineSource` for why a stored best move
+                      // counts as a line: the card used to name one and ask for
+                      // an analysis in the same breath.
+                      const source = selectCoachLineSource({
+                        fen,
+                        engineLine: coachLine,
+                        cloudMoves: currentCloudEval?.pvs[0]?.moves,
+                        storedBestMove: coachBestMove,
+                        bestMoveIsTablebase: coachBestMoveIsTablebase,
+                      })
+                      const steps = source ? pvLineMoves(source.fen, source.pv, 6) : []
                       if (!steps.length) {
                         // Under a checkmate the card used to ask for an analysis
                         // that has nothing to find.
@@ -5856,7 +5863,7 @@ function App() {
                           </p>
                         )
                       }
-                      const lineFen = source!.fen ?? fen
+                      const lineFen = source!.fen
                       return (
                         <p className="pv-moves coach-line-moves">
                           {steps.map(step => (

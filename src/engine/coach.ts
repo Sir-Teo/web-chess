@@ -138,3 +138,48 @@ export function describeCoachDepth(
 
   return { label: '...', title: 'Nothing has evaluated this position yet.' }
 }
+
+/** Where the Coach card's playable line comes from, or null when there is none. */
+export type CoachLineSource = { fen: string; pv: string[] } | null
+
+type CoachLineInput = {
+  /** The position on the board, and the fallback for a source that carries none. */
+  fen: string
+  /** A live line from the Stockfish running in this tab. */
+  engineLine?: { fen?: string; pv: string[] } | null
+  /** Lichess's cached principal variation for this position. */
+  cloudMoves?: string[] | null
+  /** The best move stored for this position, from a review or an import sweep. */
+  storedBestMove?: string | null
+  /** Whether that move is the tablebase's, which the card writes out itself. */
+  bestMoveIsTablebase?: boolean
+}
+
+/**
+ * The line the Coach card draws.
+ *
+ * The last of the three is the one this exists for. A position the review or
+ * the import sweep has already searched keeps its **best move** in the
+ * evaluation map and not the line it came from -- so navigating back to one
+ * left the card saying four things at once: best move Kf3, depth 22, "Start
+ * analysis to get a candidate line", and an insight telling the reader to use
+ * the line that was not drawn. Measured on a reviewed game, not imagined.
+ *
+ * One known move is a one-move line, and a one-move line is exactly what is
+ * known -- so it is drawn as one, clickable and previewable like any other.
+ * The tablebase move is left out because `coachTablebaseLine` already writes
+ * it with its distance to mate, which is more than an arrow would say.
+ */
+export function selectCoachLineSource({
+  fen,
+  engineLine,
+  cloudMoves,
+  storedBestMove,
+  bestMoveIsTablebase,
+}: CoachLineInput): CoachLineSource {
+  if (engineLine?.pv?.length) return { fen: engineLine.fen ?? fen, pv: engineLine.pv }
+  if (cloudMoves?.length) return { fen, pv: cloudMoves }
+  if (bestMoveIsTablebase) return null
+  const stored = normalizeUciMove(storedBestMove)
+  return stored ? { fen, pv: [stored] } : null
+}

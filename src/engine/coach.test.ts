@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { coachReadingSource, describeCoachDepth, isExactTablebaseCoachMove, selectCoachBestMove } from './coach'
+import {
+  coachReadingSource,
+  describeCoachDepth,
+  isExactTablebaseCoachMove,
+  selectCoachBestMove,
+  selectCoachLineSource,
+} from './coach'
 
 describe('coach move selection', () => {
   it('prioritizes exact tablebase moves over heuristic engine sources', () => {
@@ -124,5 +130,46 @@ describe('a finished game as a Coach source', () => {
     const live = { gameOver: false, hasEngineLine: false, hasCloudScore: false, hasStored: false, hasTablebase: false }
     expect(coachReadingSource(live)).toBeNull()
     expect(coachReadingSource({ ...live, hasEngineLine: true })).toBe('engine')
+  })
+})
+
+describe('the line the Coach card draws', () => {
+  const fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+
+  it('prefers the line the engine here is producing, at the position it searched', () => {
+    expect(selectCoachLineSource({
+      fen,
+      engineLine: { fen: 'other', pv: ['e2e4', 'e7e5'] },
+      cloudMoves: ['d2d4'],
+      storedBestMove: 'g1f3',
+    })).toEqual({ fen: 'other', pv: ['e2e4', 'e7e5'] })
+  })
+
+  it('falls back to the cloud line when nothing is running here', () => {
+    expect(selectCoachLineSource({ fen, cloudMoves: ['d2d4', 'd7d5'], storedBestMove: 'g1f3' }))
+      .toEqual({ fen, pv: ['d2d4', 'd7d5'] })
+  })
+
+  /**
+   * The case this exists for. A reviewed position keeps its best move and not
+   * the line it came from, and the card used to name that move, report its
+   * depth, and ask for an analysis in the same breath.
+   */
+  it('draws the stored best move as a one-move line rather than claiming there is none', () => {
+    expect(selectCoachLineSource({ fen, storedBestMove: 'g1f3' })).toEqual({ fen, pv: ['g1f3'] })
+  })
+
+  it('leaves the tablebase move alone, because the card writes that one out itself', () => {
+    expect(selectCoachLineSource({ fen, storedBestMove: 'g1f3', bestMoveIsTablebase: true })).toBeNull()
+  })
+
+  it('has nothing to draw when nothing has evaluated the position', () => {
+    expect(selectCoachLineSource({ fen })).toBeNull()
+    expect(selectCoachLineSource({ fen, engineLine: { pv: [] }, cloudMoves: [], storedBestMove: '' })).toBeNull()
+  })
+
+  it('refuses a stored value that is not a move', () => {
+    expect(selectCoachLineSource({ fen, storedBestMove: '(none)' })).toBeNull()
+    expect(selectCoachLineSource({ fen, storedBestMove: 'e9e4' })).toBeNull()
   })
 })

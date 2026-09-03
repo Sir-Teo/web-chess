@@ -895,6 +895,7 @@ async function main() {
         await practicePrompt.getByRole('button', { name: 'Exit' }).click()
         await practicePrompt.waitFor({ state: 'detached', timeout: 5000 })
         console.log('  practice: Coach hides the answer and opens a playable retry position')
+
       }
 
       // The mode strip scrolls sideways at this size, and the pill saying which
