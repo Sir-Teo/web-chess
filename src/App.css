@@ -2790,6 +2790,12 @@ button.critical-moment-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  /* Pro mode has five tiles; on two columns the fifth sat alone on a row
+     half the width of the others. */
+  .accuracy-summary>div:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
   /* The players' names ellipsize to a stray "C." beside the result at this
      width. The result is the fact the strip is there for; the names are in
      the library row and the PGN headers. */
