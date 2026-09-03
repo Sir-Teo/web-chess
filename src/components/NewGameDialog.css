@@ -131,7 +131,7 @@
 .fen-piece-btn.active {
     border-color: rgba(125, 239, 222, 0.62);
     background: var(--accent-subtle);
-    color: var(--accent);
+    color: var(--accent-ink);
 }
 
 .fen-setup-grid {
@@ -549,7 +549,7 @@
 
 /* ── Difficulty slider ─────────────────────────────── */
 .difficulty-label-value {
-    color: var(--accent);
+    color: var(--accent-ink);
     font-family: var(--font-mono);
 }
 
@@ -883,7 +883,7 @@
 }
 
 .dialog-external-link a {
-    color: var(--accent);
+    color: var(--accent-ink);
     text-decoration: none;
 }
 

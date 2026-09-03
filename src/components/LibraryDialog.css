@@ -156,7 +156,7 @@
 }
 
 .library-favorite[aria-pressed='true'] {
-    color: var(--accent);
+    color: var(--accent-ink);
 }
 
 .library-show-more {
@@ -173,7 +173,7 @@
 .library-status {
     margin: 0.6rem 1.4rem 0;
     font-size: 0.76rem;
-    color: var(--accent);
+    color: var(--accent-ink);
 }
 
 .library-dialog .dialog-actions {

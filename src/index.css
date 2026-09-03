@@ -312,7 +312,7 @@ body {
 
 .app-error-kicker {
   margin: 0 0 0.45rem;
-  color: var(--accent);
+  color: var(--accent-ink);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0;
@@ -357,7 +357,7 @@ body {
 .app-error-actions button:first-child {
   border-color: var(--border-accent);
   background: var(--accent-subtle);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 /* ── Scrollbar ──────────────────────────────────── */

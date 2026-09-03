@@ -144,3 +144,42 @@ describe('the accent fill and the accent ink', () => {
       .toBeLessThan(AA_NORMAL_TEXT)
   })
 })
+
+/**
+ * Every stylesheet, found rather than listed, so a new one is covered the day
+ * it is added. `import.meta.glob` is Vite's own, which is what runs the tests.
+ */
+const STYLESHEETS: Record<string, string> = import.meta.glob('../**/*.css', {
+  query: '?raw',
+  eager: true,
+  import: 'default',
+})
+
+describe('the accent as a colour rather than a fill', () => {
+  /**
+   * The reason this exists: the first pass at `--accent-ink` swept App.css and
+   * stopped there, leaving seven `color: var(--accent)` rules in index.css and
+   * the two dialog stylesheets. One of them drew "Open in Lichess" inside the
+   * PGN dialog at 3.52:1 -- the very defect the token was introduced to fix,
+   * one file over, found only by sweeping the dialogs in a browser.
+   *
+   * Anchored to the start of a declaration so `border-color` and
+   * `accent-color`, which are not read and correctly keep the fill, do not
+   * match.
+   */
+  it('is never used to paint text, in any stylesheet', () => {
+    const offenders: string[] = []
+    for (const [path, css] of Object.entries(STYLESHEETS)) {
+      for (const match of css.matchAll(/(^|[;{])\s*color:\s*var\(--accent\)\s*(!important)?\s*;/gm)) {
+        const line = css.slice(0, match.index).split('\n').length
+        offenders.push(`${path}:${line}`)
+      }
+    }
+    expect(offenders, `use --accent-ink for text: ${offenders.join(', ')}`).toEqual([])
+  })
+
+  it('found some stylesheets to check, so an empty pass is not a green one', () => {
+    expect(Object.keys(STYLESHEETS).length).toBeGreaterThanOrEqual(3)
+    expect(Object.keys(STYLESHEETS).some(path => path.endsWith('App.css'))).toBe(true)
+  })
+})
