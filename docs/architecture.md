@@ -413,6 +413,39 @@ The WDL series takes the final point only when it already has one. With WDL
 off nothing else in the game has a reading, and a graph of a single closing
 point would claim there was a trend to show.
 
+## The browser harness was red, and nothing said so
+
+`npm run test:ui:browser` is not in `verify`, and its last check -- the
+visibility pause added with the practice work -- had never passed. Three
+things hid that, and each is worth carrying.
+
+**The exit code was piped away.** The first run of the day went through
+`| tail`, which reports `tail`'s status, so a failing harness printed its
+assertion and then "exited with code 0". The README already warns about
+this shape for `typecheck`; it applies to every command that can fail.
+Redirect to a file and read `$?`.
+
+**The app asked for the same search twice.** With the trace printed, the
+failing assertion read `go depth 16 | stop | position … | go depth 16`: the
+auto-analysis was requested, stopped and requested again for one position.
+On mount the settled target is already the board position, so switching to
+Analysis inside the 140ms debounce fired the effect once against the initial
+object and once against an identical replacement. A real engine is still
+booting and takes the second request quietly, which is why the pane showed
+one `go`; the harness's instant fake had already started, and answered with
+a stop and a restart. The debounce now keeps the previous target's identity
+when nothing changed.
+
+**The check pressed a button that is 0×0 on a desktop.** The Settings sheet
+lays its header away above 900px -- `useModalFocus` documents this -- so
+"Done" exists and cannot be clicked, and Playwright waited thirty seconds
+for a visibility that never comes. The check closes the sheet with Escape,
+which every overlay honours at every breakpoint.
+
+The harness is still the only thing that clicks anything, and the only
+thing that can see the second of those. Run it before a push that touches
+the engine hook or the analysis effects, and read its exit code.
+
 ## What `npm run verify` covers
 
 `npm run verify` runs typecheck, lint, the test suite and the build — every gate

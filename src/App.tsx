@@ -800,11 +800,21 @@ function App() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setSettledAnalysisTarget({
-        fen,
-        rootFen: currentRootFen,
-        pathMovesKey: currentPathMovesKey,
-      })
+      // Keep the identity when nothing changed. The auto-analyze effect
+      // depends on this object, and on mount the target is already the
+      // board position: switching to Analysis inside these 140ms fired that
+      // effect once against the initial value and once more against an
+      // identical replacement, which asked the engine for the same search
+      // twice. A real engine is still booting and takes the second request
+      // quietly; one that had already started answered with a stop and a
+      // restart, which is how the browser harness found it.
+      setSettledAnalysisTarget(previous => (
+        previous.fen === fen
+          && previous.rootFen === currentRootFen
+          && previous.pathMovesKey === currentPathMovesKey
+          ? previous
+          : { fen, rootFen: currentRootFen, pathMovesKey: currentPathMovesKey }
+      ))
     }, AUTO_ANALYZE_DEBOUNCE_MS)
 
     return () => window.clearTimeout(timer)
