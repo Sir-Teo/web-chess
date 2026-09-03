@@ -475,7 +475,7 @@ body.resizing * {
 .app-brand-icon {
   font-size: 1.05rem;
   line-height: 1;
-  color: var(--accent);
+  color: var(--accent-ink);
   opacity: 0.95;
 }
 
@@ -1172,7 +1172,7 @@ body.resizing * {
   margin-left: auto;
   font-size: 0.74rem;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-ink);
   display: flex;
   align-items: center;
   gap: 0.35rem;
@@ -1567,7 +1567,7 @@ body.resizing * {
 }
 
 .status.ready {
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .status.ready::before {
@@ -1742,7 +1742,7 @@ body.resizing * {
 .analysis-tab-btn.active {
   border-color: rgba(45, 212, 191, 0.36);
   background: var(--accent-subtle);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .analysis-context-row {
@@ -1893,7 +1893,7 @@ body.resizing * {
 
 .coach-tags span {
   border-color: rgba(45, 212, 191, 0.24);
-  color: var(--accent);
+  color: var(--accent-ink);
   background: rgba(45, 212, 191, 0.08);
 }
 
@@ -1912,7 +1912,7 @@ body.resizing * {
 }
 
 .coach-opening strong {
-  color: var(--accent);
+  color: var(--accent-ink);
   font-family: var(--font-mono);
   margin-right: 0.2rem;
 }
@@ -2044,7 +2044,7 @@ button.tablebase-move-row.compact {
 .mode-pill.active {
   border-color: rgba(45, 212, 191, 0.4);
   background: var(--accent-subtle);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .command-summary {
@@ -2443,7 +2443,7 @@ button.opening-move-row {
 }
 
 .pv-list article header strong {
-  color: var(--accent);
+  color: var(--accent-ink);
   font-weight: 700;
 }
 
@@ -2536,7 +2536,7 @@ button.pv-move:focus-visible {
   margin: 0.45rem 0 0;
   font-size: 0.76rem;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-ink);
   display: flex;
   align-items: center;
   gap: 0.3rem;
@@ -3163,7 +3163,7 @@ button.critical-moment-row {
 }
 
 .confidence-deep {
-  color: var(--accent) !important;
+  color: var(--accent-ink) !important;
 }
 
 .move-quality {
@@ -3404,7 +3404,7 @@ button.critical-moment-row {
 }
 
 .graph-legend strong {
-  color: var(--accent);
+  color: var(--accent-ink);
   font-weight: 700;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -4222,7 +4222,7 @@ button.critical-moment-row {
 .top-mode-pills .gc-pill-active {
   background: var(--accent-subtle);
   border-color: var(--border-accent);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .gc-pill-icon {
@@ -4561,7 +4561,7 @@ button.wc-btn {
 .wc-btn-resume {
   background: var(--accent-subtle) !important;
   border-color: var(--border-accent) !important;
-  color: var(--accent) !important;
+  color: var(--accent-ink) !important;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -4638,7 +4638,7 @@ button.wc-speed-pill {
 .wc-speed-active {
   background: var(--accent-subtle) !important;
   border-color: var(--border-accent) !important;
-  color: var(--accent) !important;
+  color: var(--accent-ink) !important;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -4710,7 +4710,7 @@ button.mtree-chip {
 .mtree-chip-active {
   background: var(--accent-subtle) !important;
   border-color: var(--border-accent) !important;
-  color: var(--accent) !important;
+  color: var(--accent-ink) !important;
   font-weight: 700 !important;
 }
 
@@ -5008,7 +5008,7 @@ button.mtree-chip-compact {
 .panel button.mtree-glyph-btn.active {
   background: var(--accent-subtle);
   border-color: var(--border-accent);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .mtree-current-comment label,
@@ -5267,7 +5267,7 @@ button.hint-btn {
 }
 
 .hint-answer strong {
-  color: var(--accent);
+  color: var(--accent-ink);
   font-family: var(--font-mono);
 }
 

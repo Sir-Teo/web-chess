@@ -28,6 +28,12 @@
 
   /* ── Accent (emerald glow) ─────────────────────── */
   --accent: #2dd4bf;
+  /* The accent as *text*: the active pill, the engine status, "Best: Nf3".
+     Its own token because a fill and an ink want opposite things from a
+     colour. On near-black this one is the accent itself and clears AA
+     comfortably; on white the same teal is a pastel. Measured, not guessed --
+     see accentContrast.test.ts. */
+  --accent-ink: #2dd4bf;
   --accent-hover: #34d399;
   --accent-muted: #0f766e;
   --accent-subtle: rgba(45, 212, 191, 0.14);
@@ -165,6 +171,13 @@
   --text-muted: #6b7280;
 
   --accent: #0d9488;
+  /* Teal-800, two steps darker than the fill. Teal-600 is what every accent
+     *text* rule used to inherit here, and it reads 2.95:1 on the tinted
+     background of an active pill -- under AA, on the selected state of the
+     app's primary navigation, at 12px. Teal-700 gets to 4.31 and still misses.
+     This clears 4.5 everywhere it lands: 5.97 on the pill, 7.14 on a card,
+     7.58 on white. The fill keeps teal-600, because a fill is not read. */
+  --accent-ink: #115e59;
   --accent-hover: #0f766e;
   --accent-muted: #99f6e4;
   --accent-subtle: rgba(13, 148, 136, 0.12);
