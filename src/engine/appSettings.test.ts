@@ -3,6 +3,7 @@ import {
   DEFAULT_PERSISTED_SETTINGS,
   loadPersistedSettings,
   persistSettings,
+  resolveTheme,
   type PersistedAppSettings,
 } from './appSettings'
 import { ANALYSIS_SETTINGS_STORAGE_KEY } from '../storageKeys'
@@ -196,5 +197,25 @@ describe('writing settings out', () => {
   it('says nothing and throws nothing when storage refuses the write', () => {
     installStorage(undefined, { setItem: () => { throw new Error('quota') } })
     expect(() => persistSettings(DEFAULT_PERSISTED_SETTINGS)).not.toThrow()
+  })
+})
+
+describe('the theme preference', () => {
+  it('keeps a preference it knows and falls back to dark for anything else', () => {
+    installStorage(stored({ theme: 'light' }))
+    expect(loadPersistedSettings().theme).toBe('light')
+    installStorage(stored({ theme: 'system' }))
+    expect(loadPersistedSettings().theme).toBe('system')
+    installStorage(stored({ theme: 'sepia' }))
+    expect(loadPersistedSettings().theme).toBe('dark')
+    installStorage(stored({ theme: true }))
+    expect(loadPersistedSettings().theme).toBe('dark')
+  })
+
+  it('draws what the reader chose, and follows the OS only when asked to', () => {
+    expect(resolveTheme('dark', true)).toBe('dark')
+    expect(resolveTheme('light', false)).toBe('light')
+    expect(resolveTheme('system', true)).toBe('light')
+    expect(resolveTheme('system', false)).toBe('dark')
   })
 })

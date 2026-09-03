@@ -174,6 +174,8 @@ import {
   type AnalyzePresetId,
   type OpeningRatingPresetId,
   type WorkspaceMode,
+  type ThemePreference,
+  resolveTheme,
 } from './engine/appSettings'
 import { ANALYSIS_SETTINGS_STORAGE_KEY } from './storageKeys'
 import type { GameMode, PlayerColor } from './components/NewGameDialog'
@@ -246,6 +248,8 @@ const readViewport = () => ({
   scrollbar: measureScrollbarWidth(),
 })
 
+const LIGHT_SCHEME_QUERY = '(prefers-color-scheme: light)'
+const readSystemPrefersLight = () => typeof window !== 'undefined' && Boolean(window.matchMedia?.(LIGHT_SCHEME_QUERY).matches)
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
 const readReducedMotion = () => typeof window !== 'undefined' && Boolean(window.matchMedia?.(REDUCED_MOTION_QUERY).matches)
 
@@ -543,6 +547,31 @@ function App() {
   const [timeControlId, setTimeControlId] = useState<string>(persistedSettings.timeControlId)
   const [boardThemeId, setBoardThemeId] = useState<string>(persistedSettings.boardThemeId)
   const boardTheme = useMemo(() => boardThemeById(boardThemeId), [boardThemeId])
+  const [theme, setTheme] = useState<ThemePreference>(persistedSettings.theme)
+  const [systemPrefersLight, setSystemPrefersLight] = useState(readSystemPrefersLight)
+  useEffect(() => {
+    const query = window.matchMedia?.(LIGHT_SCHEME_QUERY)
+    if (!query) return
+    const onChange = () => setSystemPrefersLight(query.matches)
+    query.addEventListener('change', onChange)
+    return () => query.removeEventListener('change', onChange)
+  }, [])
+  const resolvedTheme = resolveTheme(theme, systemPrefersLight)
+  /**
+   * The theme is a document-level fact -- the tokens live on :root and the
+   * browser draws its own scrollbars and form controls from color-scheme --
+   * so it is written to the root element and the meta tag rather than to any
+   * component. Dark is the app's own look and the default; nothing here runs
+   * for a reader who never touched the switch except writing "dark" where
+   * "dark" already was.
+   */
+  useEffect(() => {
+    document.documentElement.dataset.theme = resolvedTheme
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="color-scheme"]')
+    if (meta) meta.content = resolvedTheme
+    const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+    if (themeColor) themeColor.content = resolvedTheme === 'light' ? '#f3f4f6' : '#0d1117'
+  }, [resolvedTheme])
   /** Null whenever the game is untimed, which is the default and most of the time. */
   const [clock, setClock] = useState<ClockState | null>(null)
   /**
@@ -1834,6 +1863,7 @@ function App() {
     setShowTopMoveArrows(DEFAULT_PERSISTED_SETTINGS.showTopMoveArrows)
     setTopMoveArrowCount(DEFAULT_PERSISTED_SETTINGS.topMoveArrowCount)
     setBlunderNudges(DEFAULT_PERSISTED_SETTINGS.blunderNudges)
+    setTheme(DEFAULT_PERSISTED_SETTINGS.theme)
     setOpeningPrefetchTick(0)
     setEngineLabError(null)
     setEngineLabCommand('')
@@ -2070,6 +2100,7 @@ function App() {
       blunderNudges,
       timeControlId,
       boardThemeId,
+      theme,
     })
   }, [
     workspaceMode,
@@ -2098,6 +2129,7 @@ function App() {
     blunderNudges,
     timeControlId,
     boardThemeId,
+    theme,
     quickMovetimeMs,
     searchDepth,
     showAdvancedAnalyze,
@@ -4740,6 +4772,26 @@ function App() {
                     ? 'A knock for a move, heavier for a capture, and a tone for check, promotion and the end of the game. Moves you navigate to are silent.'
                     : 'Moves are silent.'}
                 </p>
+                <div className="board-theme-row">
+                  <span className="board-theme-label" id="app-theme-label">Theme</span>
+                  <div className="analysis-mode-pills" role="group" aria-labelledby="app-theme-label">
+                    {([
+                      { id: 'dark', label: 'Dark' },
+                      { id: 'light', label: 'Light' },
+                      { id: 'system', label: 'System' },
+                    ] as const).map(option => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={`mode-pill ${theme === option.id ? 'active' : ''}`}
+                        aria-pressed={theme === option.id}
+                        onClick={() => setTheme(option.id)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 {/* A mouse gesture, so it cannot go in the keyboard list, and an
                     undiscoverable feature is not a feature. The second copy is
                     for a touch device, where the first would promise a gesture

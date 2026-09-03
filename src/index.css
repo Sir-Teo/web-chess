@@ -138,6 +138,93 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ── Light theme ─────────────────────────────────────
+   Every token above, on a light surface. The same names, so nothing in the
+   stylesheets knows which theme it is drawing; the hues keep their meaning
+   and lose a step of brightness, because a colour that reads on near-black
+   is a pastel on white. Set from Settings, or by the OS when the reader
+   picks System; the app's own look stays dark. */
+:root[data-theme="light"] {
+  --bg-base: #eef0f3;
+  --bg-surface: #f7f8fa;
+  --bg-elevated: #ffffff;
+  --bg-panel: rgba(255, 255, 255, 0.88);
+  --bg-card: rgba(255, 255, 255, 0.84);
+  --bg-card-hover: rgba(241, 243, 246, 0.96);
+  --bg-input: rgba(255, 255, 255, 0.92);
+
+  --border-subtle: rgba(15, 23, 42, 0.07);
+  --border-default: rgba(15, 23, 42, 0.13);
+  --border-strong: rgba(15, 23, 42, 0.24);
+  --border-accent: rgba(13, 148, 136, 0.42);
+
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-tertiary: #4b5563;
+  --text-heading: #0b1220;
+  --text-muted: #6b7280;
+
+  --accent: #0d9488;
+  --accent-hover: #0f766e;
+  --accent-muted: #99f6e4;
+  --accent-subtle: rgba(13, 148, 136, 0.12);
+  --accent-glow: rgba(13, 148, 136, 0.22);
+
+  --danger: #dc2626;
+  --danger-subtle: rgba(220, 38, 38, 0.10);
+  --warning: #b45309;
+  --warning-subtle: rgba(180, 83, 9, 0.10);
+  --success: #047857;
+  --success-subtle: rgba(4, 120, 87, 0.10);
+  --info: #1d4ed8;
+  --info-subtle: rgba(29, 78, 216, 0.10);
+
+  --glass-1: rgba(15, 23, 42, 0.03);
+  --glass-2: rgba(15, 23, 42, 0.045);
+  --glass-3: rgba(15, 23, 42, 0.06);
+  --glass-4: rgba(15, 23, 42, 0.09);
+  --glass-5: rgba(15, 23, 42, 0.13);
+  --bg-scrim: rgba(247, 248, 250, 0.94);
+  --bg-inset: rgba(15, 23, 42, 0.05);
+  --bg-tooltip: rgba(17, 24, 39, 0.94);
+  --tooltip-text: #ffffff;
+  --backdrop: rgba(15, 23, 42, 0.42);
+  --accent-chip-bg: #ccfbf1;
+  --accent-chip-text: #0f766e;
+
+  --graph-grid: rgba(15, 23, 42, 0.07);
+  --graph-axis: rgba(15, 23, 42, 0.42);
+  --graph-white: #334155;
+  --graph-white-glow: rgba(51, 65, 85, 0.22);
+  --graph-draw: #b45309;
+  --graph-black: #1d4ed8;
+
+  /* Measured in reviewPalette.test.ts like the dark set, and chosen by the
+     probe rather than by eye. A deuteranope keeps lightness and blue-yellow
+     and little else, so on white the three bad grades are a lightness
+     ladder -- amber-700, orange-800, red-900 -- not a hue ladder: the
+     first try, a step apart in hue and alike in lightness, put inaccuracy
+     0.7 units from mistake for them. Worst pairs now: 19.4 across the
+     divide (inaccuracy/blunder, tritan), 9.0 anywhere (mistake/blunder,
+     tritan), 22.4 best/blunder for a protanope. Every ink but Good clears
+     AA on white; Good sits at 3.8, and is the grade a reader loses least
+     by misreading. Book is a mid slate for the same reason its dark
+     counterpart is a light one. */
+  --quality-book: #475569;
+  --quality-best: #047857;
+  --quality-good: #059669;
+  --quality-inaccuracy: #b45309;
+  --quality-mistake: #9a3412;
+  --quality-blunder: #7f1d1d;
+  --quality-pending: #6b7280;
+
+  --shadow-sm: 0 4px 14px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 10px 30px rgba(15, 23, 42, 0.12);
+  --shadow-lg: 0 22px 60px rgba(15, 23, 42, 0.16);
+
+  color-scheme: light;
+}
+
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;

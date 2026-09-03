@@ -890,6 +890,43 @@ a window nothing falls inside, plays the engine move.
 `MultiPV` is sent with the strength options on every handshake; unlike
 `Threads` it rebuilds nothing, so it needs no `isready` of its own.
 
+## A light theme, from the tokens
+
+The app was dark-only, with `color-scheme: dark` in the root and the meta
+tag. Making it light in two commits:
+
+**First, nothing changed.** The stylesheets used tokens 572 times and raw
+literals 175 times, and the literals were of two kinds. A teal button, a red
+chip and the board's own squares mean the same thing on any surface. The
+"white glass" of a dark theme does not: a highlight at 3.5% white, a scrim
+at 94% near-black, a well at 42%, White's winrate line drawn in white --
+on a light surface each is the other way round. Those became tokens
+(`--glass-1..5`, `--bg-scrim`, `--bg-inset`, `--bg-tooltip`, `--backdrop`,
+`--accent-chip-*`, `--graph-*`) with exactly the values they had, so the
+dark theme was byte-for-byte unchanged and could be checked as such.
+
+**Then the palette.** `:root[data-theme="light"]` redefines every token;
+`resolveTheme` in `engine/appSettings.ts` turns the persisted preference
+(`dark` | `light` | `system`) into what to draw, and an effect writes it to
+the root element and the `color-scheme` meta so the browser's own
+scrollbars and form controls follow. Dark is the default: a reader who never
+touches the switch gets what they had.
+
+The light review grades were chosen by the probe, not by eye. The first
+try -- each grade a step darker in its own hue -- put inaccuracy 0.7 units
+from mistake for a deuteranope, who keeps lightness and blue-yellow and
+little else. On white the three bad grades are therefore a lightness ladder
+(amber-700, orange-800, red-900), and `reviewPalette.test.ts` now measures
+both blocks of `index.css` separately, since one pass over the file would
+keep whichever definition came last and guard only that one. The
+normal-vision best/blunder gap is 81.7 against the dark set's 119.5 -- what
+darker, lower-chroma inks cost -- and that recorded "> 100" stays a dark
+measurement; the dichromat guards are the ones both sets carry.
+
+Not themed: the board (it has its own five schemes), the Engine Lab console
+(a dark terminal on a light page is the expected look), and the WDL bars,
+whose white segment *is* White.
+
 ## A blunder is pointed out where it happens
 
 The review says afterwards which move lost the game. A learner needs it at

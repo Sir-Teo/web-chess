@@ -26,6 +26,21 @@ export type AnalysisTab = 'analyze' | 'review' | 'engine-lab'
 export type AnalysisExperience = 'beginner' | 'pro'
 export type AnalyzePresetId = 'blunder-check' | 'game-review' | 'deep-candidate' | 'mate-hunt'
 export type OpeningRatingPresetId = 'all' | 'club' | 'advanced'
+/** Dark is the app's own look; light and system are the reader's choice. */
+export type ThemePreference = 'dark' | 'light' | 'system'
+export type ResolvedTheme = 'dark' | 'light'
+
+export const THEME_PREFERENCE_IDS: ThemePreference[] = ['dark', 'light', 'system']
+
+export function isThemePreference(value: unknown): value is ThemePreference {
+  return typeof value === 'string' && THEME_PREFERENCE_IDS.includes(value as ThemePreference)
+}
+
+/** The theme to draw, given the preference and what the OS asked for. */
+export function resolveTheme(preference: ThemePreference, systemPrefersLight: boolean): ResolvedTheme {
+  if (preference === 'system') return systemPrefersLight ? 'light' : 'dark'
+  return preference
+}
 
 export const ANALYZE_PRESET_IDS: AnalyzePresetId[] = ['blunder-check', 'game-review', 'deep-candidate', 'mate-hunt']
 export const OPENING_RATING_PRESET_IDS: OpeningRatingPresetId[] = ['all', 'club', 'advanced']
@@ -78,6 +93,7 @@ export type PersistedAppSettings = {
   blunderNudges: boolean
   timeControlId: string
   boardThemeId: string
+  theme: ThemePreference
 }
 
 export const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
@@ -115,6 +131,7 @@ export const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
   blunderNudges: true,
   timeControlId: 'unlimited',
   boardThemeId: 'classic',
+  theme: 'dark',
 }
 
 let cachedDefaultHashMb: number | null = null
@@ -280,6 +297,7 @@ export function loadPersistedSettings(): PersistedAppSettings {
       boardThemeId: isBoardThemeId(parsed.boardThemeId)
         ? parsed.boardThemeId
         : DEFAULT_PERSISTED_SETTINGS.boardThemeId,
+      theme: isThemePreference(parsed.theme) ? parsed.theme : DEFAULT_PERSISTED_SETTINGS.theme,
     }
   } catch {
     return DEFAULT_PERSISTED_SETTINGS

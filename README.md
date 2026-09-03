@@ -149,6 +149,14 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   the dark squares. Every ink clears WCAG AA against its own dark square and is
   no less legible than the original pair's, both computed in the tests rather
   than asserted in a comment.
+- **A light theme**: Dark is the app's own look and the default; Settings
+  offers Light, and System to follow the OS. The same token names draw both,
+  so no stylesheet knows which theme it is drawing — the highlights, scrims
+  and graph inks that a dark surface writes in white were the one kind of
+  colour that could not survive a light one, and they became tokens first.
+  The light review grades were chosen by the same colour-vision probe as the
+  dark ones: a deuteranope keeps lightness and blue-yellow and little else,
+  so on white the bad grades are a lightness ladder rather than a hue ladder.
 - **Command palette**: `Ctrl`/`Cmd`+`K` opens a searchable list of every
   toolbar and mode action, with recently used commands first. Ported in shape
   from web-katrain, sized for this app's twenty-odd commands. `Copy FEN`,
