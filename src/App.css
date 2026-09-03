@@ -2915,7 +2915,7 @@ button.critical-moment-row {
 
 .chip-good {
   background: rgba(126, 231, 135, 0.1);
-  color: var(--quality-good);
+  color: var(--quality-good-ink);
   border-color: rgba(126, 231, 135, 0.18) !important;
 }
 
@@ -2932,17 +2932,20 @@ button.critical-moment-row {
 }
 
 /* Lifted off the shared quality tokens, which also colour the move-tree dots
-   where no contrast minimum applies. On their own tinted chips those tokens
-   measured 4.41:1 and 3.54:1 — both under AA for this text size. */
+   where a dot's 3:1 applies rather than this text's 4.5. The first attempt
+   moved these two onto `--danger` and `--text-muted` and stopped just short:
+   measured on their own tints they came out at 4.41:1 and 4.49:1, which is
+   under AA by a hair in both cases and under it in the light theme by more.
+   They have their own inks now; see the block in index.css. */
 .chip-blunder {
   background: rgba(248, 81, 73, 0.12);
-  color: var(--danger);
+  color: var(--quality-blunder-ink);
   border-color: rgba(248, 81, 73, 0.22) !important;
 }
 
 .chip-pending {
   background: rgba(110, 118, 129, 0.1);
-  color: var(--text-muted);
+  color: var(--quality-pending-ink);
   border-color: rgba(110, 118, 129, 0.18) !important;
 }
 

@@ -90,6 +90,18 @@
   --quality-blunder: #ef4444;
   --quality-pending: #71717a;
 
+  /* ── Quality, as chip text ───────────────────────────
+     The quality tokens above draw the 5px dot beside a move in the tree,
+     where the floor is 3:1 because a dot is not read. The review's summary
+     chips print the same grades as *words* -- "Blunder 2" -- at 10.7px on a
+     tint of their own colour, where the floor is 4.5. Three of them miss it,
+     which is why these exist: the same split `--accent-ink` makes, for the
+     same reason. The other five chips clear it on the shared token and are
+     left there. Measured in qualityChipContrast.test.ts. */
+  --quality-good-ink: #34d399;
+  --quality-blunder-ink: #f87171;
+  --quality-pending-ink: #949aa7;
+
   /* ── Trend graphs (keep in sync with GRAPH_HEIGHT in App.tsx) ── */
   --graph-height: 160px;
 
@@ -230,6 +242,16 @@
   --quality-mistake: #9a3412;
   --quality-blunder: #7f1d1d;
   --quality-pending: #6b7280;
+
+  /* Good is emerald-800 rather than the 600 the dot uses: the light palette's
+     note above accepts Good at 3.8 on white as the grade a reader loses least
+     by misreading, which is a fair trade for a dot and not for a word. Blunder
+     is red-700, which stays clearly redder than mistake's orange-800 while
+     clearing the floor; the dot keeps red-900. Pending is the theme's own
+     tertiary text, because "not read yet" is what that colour already means. */
+  --quality-good-ink: #065f46;
+  --quality-blunder-ink: #b91c1c;
+  --quality-pending-ink: #4b5563;
 
   --shadow-sm: 0 4px 14px rgba(15, 23, 42, 0.08);
   --shadow-md: 0 10px 30px rgba(15, 23, 42, 0.12);
