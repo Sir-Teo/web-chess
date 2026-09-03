@@ -48,14 +48,6 @@ type EngineOption = {
   vars?: string[]
 }
 
-type AnalyzeParams = {
-  fen: string
-  depth: number
-  multiPv: number
-  hashMb: number
-  showWdl: boolean
-}
-
 type EngineCommandKind = 'uci' | 'isready' | 'go' | 'other'
 
 type SendCommandOptions = {
@@ -720,20 +712,6 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     [enabled, flushPendingAnalyze, send],
   )
 
-  const analyzePosition = useCallback(
-    (params: AnalyzeParams) => {
-      analyze({
-        fen: params.fen,
-        mode: 'custom',
-        limits: { depth: params.depth },
-        multiPv: params.multiPv,
-        hashMb: params.hashMb,
-        showWdl: params.showWdl,
-      })
-    },
-    [analyze],
-  )
-
   const stop = useCallback(() => {
     visibilityResumeRequestRef.current = null
     pendingAnalyzeRef.current = null
@@ -781,10 +759,6 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
 
     sendNewGameSync()
   }, [enabled, resetLinesMap, sendNewGameSync, sendRaw])
-
-  const ponderHit = useCallback(() => {
-    sendRaw('ponderhit')
-  }, [sendRaw])
 
   useEffect(() => {
     if (!enabled || typeof document === 'undefined') return
@@ -1143,11 +1117,9 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     activeProfile,
     profileMessage,
     analyze,
-    analyzePosition,
     sendRaw,
     sendCommand,
     newGame,
-    ponderHit,
     stop,
     setOption,
   }
