@@ -224,14 +224,19 @@ async function checkHiddenAnalysisPausesAndResumes(browser) {
     await page.evaluate(() => window.__setTestVisibility('hidden'))
     await page.waitForTimeout(800)
     const stopsWhileFinite = await page.evaluate(() => (window.__uciCommands || []).filter(c => c === 'stop').length)
+    const traceSoFar = await page.evaluate(() => (window.__uciCommands || []).slice())
     assert(stopsWhileFinite === 0,
-      `hiding the page stopped a finite search: ${stopsWhileFinite} stop(s)`)
+      `hiding the page stopped a finite search: ${stopsWhileFinite} stop(s): ${traceSoFar.join(' | ')}`)
     await page.evaluate(() => window.__setTestVisibility('visible'))
 
     // An unbounded one is parked, and comes back.
     await page.getByRole('button', { name: 'Open settings' }).click()
     await page.getByRole('button', { name: 'Infinite', exact: true }).click()
-    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    // Escape rather than the sheet's Done button: on a desktop viewport the
+    // settings are a popover whose header is laid away, so Done measures 0x0
+    // and a click on it waits for a visibility that never comes. Escape closes
+    // every overlay in the app at every breakpoint.
+    await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'Run analysis' }).click()
     // Replacing the held auto search costs one stop of its own; the infinite
     // search is the second go.
@@ -766,7 +771,9 @@ async function main() {
             if (label) stats[label] = value
           }
           const text = document.body.innerText
-          const labelTotal = ['Best', 'Good', 'Inaccuracy', 'Mistake', 'Blunder']
+          // Every word the review can put on a move. Book and Excellent
+          // arrived together; a list that forgets one reads "11 of 116".
+          const labelTotal = ['Book', 'Best', 'Excellent', 'Good', 'Inaccuracy', 'Mistake', 'Blunder']
             .map(label => {
               const match = text.match(new RegExp(label + '\\s+(\\d+)'))
               return match ? Number(match[1]) : 0
