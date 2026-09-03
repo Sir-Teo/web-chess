@@ -2858,18 +2858,24 @@ button.critical-moment-row {
   gap: 0.4rem;
 }
 
+/* Only what `.panel button` does not already set. It is (0,1,1) and this is
+   (0,1,0), so every property the two share -- the flex box, min-height,
+   min-width, padding, font-size -- belongs to it, and declaring them here
+   just reads as though they were in force. */
 .review-jump-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 2rem;
-  justify-content: center;
-  padding: 0.3rem 0.5rem;
-  font-size: 0.72rem;
   font-weight: 600;
   white-space: nowrap;
+}
+
+/* Through the row, which wins at (0,2,0). Scoping is the point rather than a
+   style: `.panel button` pins `min-height: 32px` on everything in a panel, so
+   the `(pointer: coarse)` rule below was overridden and did nothing -- the two
+   buttons stayed 32px on a phone, under the 44px the toolbar's own controls
+   take and the browser harness enforces for them. Same move
+   `.top .compact-grid .mobile-actions button` makes for those. */
+.review-jump-actions .review-jump-btn {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .review-jump-btn svg {
@@ -2886,7 +2892,7 @@ button.critical-moment-row {
 }
 
 @media (pointer: coarse) {
-  .review-jump-btn {
+  .review-jump-actions .review-jump-btn {
     min-height: 2.75rem;
   }
 }
