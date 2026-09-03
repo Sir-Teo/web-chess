@@ -23,6 +23,7 @@ import {
   uciToSan,
   type EvalSnapshot,
   type ReviewLabel,
+  type ReviewRow,
   type ReviewSideFilter,
   recordEvaluation,
   engineLineToSnapshot,
@@ -54,6 +55,7 @@ import { libraryStorageIsDurable } from './engine/gameLibraryStorage'
 import { narrativeTagToneClass, narrativeTags } from './engine/narrativeTags'
 import type { ReviewPhaseFilter } from './engine/analysis'
 import { reviewImpactLabel } from './engine/reviewImpact'
+import { reviewFaultPosition, reviewFaults, stepToReviewFault } from './engine/reviewNavigation'
 import { topArrowColor } from './engine/arrowColors'
 import { bestMoveLabel, ponderMoveLabel } from './engine/moveLabels'
 import {
@@ -190,7 +192,7 @@ import { WdlProgressGraph, WinrateGraph } from './components/TrendGraph'
 import { useElementHeight } from './hooks/useElementWidth'
 import { useModalFocus } from './hooks/useModalFocus'
 import { useMoveSound } from './hooks/useMoveSound'
-import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlag, IconFlip, IconDownload, IconClipboard, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp } from './components/icons'
+import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlag, IconFlip, IconDownload, IconClipboard, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp, IconChevronLeft, IconChevronRight } from './components/icons'
 import { isPlainShortcut, isTypingTarget } from './components/shortcutKeys'
 import { CommandPaletteDialog } from './components/CommandPaletteDialog'
 import type { Command } from './components/commandPalette'
@@ -2252,6 +2254,12 @@ function App() {
   // command palette and must not take a new identity on every navigation.
   const reviewLineNodesRef = useRef(reviewLineNodes)
   reviewLineNodesRef.current = reviewLineNodes
+  /**
+   * The rows the review is reporting, for the fault stepping. Same shape and
+   * same reason as `reviewLineNodesRef`: the command palette memoises a list
+   * that reaches it, so the callback must not take a new identity per render.
+   */
+  const reviewRowsRef = useRef<ReviewRow[]>([])
   const reviewsAVariation = reviewLineNodes.length > 1
     && mainLineNodes.length > 1
     && reviewLineNodes[reviewLineNodes.length - 1]!.id !== mainLineNodes[mainLineNodes.length - 1]!.id
@@ -2294,6 +2302,7 @@ function App() {
     () => filterReviewRowsByPhase(visibleReviewRows, reviewPhaseFilter),
     [visibleReviewRows, reviewPhaseFilter],
   )
+  reviewRowsRef.current = reportedReviewRows
   const reviewSummary = useMemo(() => summarizeReview(reportedReviewRows), [reportedReviewRows])
   const reviewAccuracy = useMemo(() => summarizeAccuracy(reportedReviewRows), [reportedReviewRows])
   // Only rendered inside the analysis workspace, which is exactly when the
@@ -2322,6 +2331,42 @@ function App() {
     () => rankCriticalMoments(reportedReviewRows, 5),
     [reportedReviewRows],
   )
+  /**
+   * Stepping through every fault the review found, not only the five Critical
+   * Moments ranks. A 116-move game can hold twenty inaccuracies and the sixth
+   * was reachable only by scrolling the move list for a coloured dot.
+   *
+   * Node index rather than ply: a fault at ply p was played from node p-1, and
+   * that is where the reader wants to stand -- the position with the decision
+   * still in it, which is also where a Critical Moment lands them.
+   */
+  const boardNodeIndex = currentPathNodes.length - 1
+  const reviewFaultCount = useMemo(() => reviewFaults(reportedReviewRows).length, [reportedReviewRows])
+  const nextReviewFaultRow = useMemo(
+    () => stepToReviewFault(reportedReviewRows, boardNodeIndex, 1),
+    [boardNodeIndex, reportedReviewRows],
+  )
+  const previousReviewFaultRow = useMemo(
+    () => stepToReviewFault(reportedReviewRows, boardNodeIndex, -1),
+    [boardNodeIndex, reportedReviewRows],
+  )
+  const reviewFaultAt = useMemo(
+    () => reviewFaultPosition(reportedReviewRows, boardNodeIndex),
+    [boardNodeIndex, reportedReviewRows],
+  )
+  const goToReviewFault = useCallback((direction: 1 | -1) => {
+    const tree = gameTreeRef.current
+    const target = stepToReviewFault(reviewRowsRef.current, tree.currentPath().length - 1, direction)
+    if (!target) return
+    const beforeNode = reviewLineNodesRef.current[target.ply - 1]
+    if (!beforeNode) return
+    setReviewPractice(null)
+    navigateAndPonder(tree.navigateTo(beforeNode.id))
+    // The stacked layout puts the board above this panel; jumping to a mistake
+    // that stays off-screen is a jump the reader cannot see. The setter rather
+    // than `requestBoardReveal`, which is declared further down.
+    setBoardRevealTick(tick => tick + 1)
+  }, [navigateAndPonder])
   /**
    * The move list's empty state has two quite different causes and used to give
    * one answer. `reportedReviewRows` is `reviewRows` narrowed by the side and
@@ -4164,6 +4209,26 @@ function App() {
       run: () => goSiblingVariation(1),
     },
     {
+      id: 'next-mistake',
+      label: 'Next mistake',
+      hint: reviewFaultCount > 0
+        ? `${countLabel(reviewFaultCount, 'mistake')} in the reviewed line`
+        : 'Run Review Game first',
+      keywords: ['blunder', 'inaccuracy', 'error', 'jump', 'skip', 'review'],
+      disabled: !nextReviewFaultRow,
+      run: () => goToReviewFault(1),
+    },
+    {
+      id: 'previous-mistake',
+      label: 'Previous mistake',
+      hint: reviewFaultCount > 0
+        ? `${countLabel(reviewFaultCount, 'mistake')} in the reviewed line`
+        : 'Run Review Game first',
+      keywords: ['blunder', 'inaccuracy', 'error', 'jump', 'back', 'review'],
+      disabled: !previousReviewFaultRow,
+      run: () => goToReviewFault(-1),
+    },
+    {
       id: 'play-from-here',
       label: 'Play from this position',
       hint: playFromHereDisabledReason ?? 'Take the move against the engine',
@@ -4173,10 +4238,11 @@ function App() {
     },
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
-  ], [atVariationFork, copyFen, copyPgn, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast,
-      goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, openInChessCom, openInLichess, requestHint, openLibraryDialog,
+  ], [atVariationFork, copyFen, copyPgn, goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast,
+      goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
+      previousReviewFaultRow, requestHint, openLibraryDialog,
       openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger,
-      reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason, workspaceMode])
+      reviewFaultCount, reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason, workspaceMode])
 
   // ── Mode switch mid-game ──────────────────────────────
   const handleModeChange = useCallback((mode: GameMode) => {
@@ -6339,6 +6405,51 @@ function App() {
                       <span className="chip-blunder">Blunder {reviewSummary.blunder}</span>
                       <span className="chip-pending">Pending {reviewSummary.pending}</span>
                     </div>
+                    {/* The counts above say how many faults there are; this is
+                        how a reader visits them. Critical Moments ranks the
+                        five costliest, and everything past the fifth used to
+                        be reachable only by scrolling the move list for a
+                        coloured dot. Reads the filtered rows, so narrowing to
+                        Black's middlegame steps Black's middlegame mistakes. */}
+                    {reviewFaultCount > 0 && (
+                      <div className="review-jump-row" role="group" aria-label="Step through the mistakes">
+                        <span className="review-jump-count">
+                          {reviewFaultAt
+                            ? `Mistake ${reviewFaultAt.index} of ${reviewFaultAt.total}`
+                            : countLabel(reviewFaultCount, 'mistake')}
+                        </span>
+                        <div className="review-jump-actions">
+                        <button
+                          type="button"
+                          className="review-jump-btn"
+                          onClick={() => goToReviewFault(-1)}
+                          disabled={!previousReviewFaultRow}
+                          title={previousReviewFaultRow
+                            ? `Go to ${previousReviewFaultRow.moveNumber}${previousReviewFaultRow.sideToMove === 'w' ? '.' : '...'} ${previousReviewFaultRow.san}`
+                            : 'No mistake before this position'}
+                          aria-label={previousReviewFaultRow
+                            ? `Go to the previous mistake, ${previousReviewFaultRow.san}`
+                            : 'Previous mistake unavailable. No mistake before this position.'}
+                        >
+                          <IconChevronLeft aria-hidden="true" /> Previous
+                        </button>
+                        <button
+                          type="button"
+                          className="review-jump-btn"
+                          onClick={() => goToReviewFault(1)}
+                          disabled={!nextReviewFaultRow}
+                          title={nextReviewFaultRow
+                            ? `Go to ${nextReviewFaultRow.moveNumber}${nextReviewFaultRow.sideToMove === 'w' ? '.' : '...'} ${nextReviewFaultRow.san}`
+                            : 'No mistake after this position'}
+                          aria-label={nextReviewFaultRow
+                            ? `Go to the next mistake, ${nextReviewFaultRow.san}`
+                            : 'Next mistake unavailable. No mistake after this position.'}
+                        >
+                          Next <IconChevronRight aria-hidden="true" />
+                        </button>
+                        </div>
+                      </div>
+                    )}
                     {gameNarrativeTags.length > 0 && (
                       <div className="review-chips" aria-label="Game summary">
                         {gameNarrativeTags.map(tag => (

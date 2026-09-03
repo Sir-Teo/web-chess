@@ -2827,6 +2827,60 @@ button.critical-moment-row {
   }
 }
 
+/* Stepping through the faults the review found, under the counts that say how
+   many there are. A 44px minimum on the two buttons, like every other control
+   a phone has to hit. */
+/* The count reads above the buttons rather than between them. Between them is
+   tidier and does not survive a narrow panel: with the count holding a fixed
+   width the two buttons were squeezed to their icons and the row still spilled
+   28px past a 200px panel -- the only row in this panel that did. Stacked, the
+   buttons get the whole width and the label above them has as much as it
+   needs. */
+.review-jump-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.1rem;
+}
+
+.review-jump-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.review-jump-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 2rem;
+  justify-content: center;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.review-jump-btn svg {
+  width: 0.85em;
+  height: 0.85em;
+  flex: none;
+}
+
+.review-jump-count {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (pointer: coarse) {
+  .review-jump-btn {
+    min-height: 2.75rem;
+  }
+}
+
 /* Narrative tags describing the shape of a game, beside the quality counts. */
 .chip-narrative {
   background: var(--bg-elevated);
