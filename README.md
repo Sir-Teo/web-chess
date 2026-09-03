@@ -66,6 +66,13 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 ### Studying
 
 - **Beginner and pro analysis**: Coach mode keeps the right panel focused on plain-language move guidance — it opens with the evaluation *in words*, "Black is slightly better · 46% for White", rather than with `-0.48` — while Pro mode exposes MultiPV, WDL, cloud evals, opening stats, tablebase moves, and UCI controls.
+- **Engine settings that stay set**: `Threads` is the setting that decides how
+  much of the machine a search gets, and the app picks a default for the
+  device. That default used to reassert itself: raise Threads to 12 in the
+  Engine Lab on a 16-core machine, import a game, and the engine was quietly
+  back on 8 with nothing on screen saying so, because `ucinewgame` produces a
+  handshake and the handshake re-sent the recommendation. It is applied once
+  per engine now, so what you set is what searches.
 - **Search diagnostics for pros**: Pro mode reports ordinary and selective depth, nodes, NPS, transposition-table occupancy, tablebase hits, and elapsed time from Stockfish's live UCI output, so Hash and Syzygy settings can be judged from evidence rather than guesswork.
 - **Game review, of the line you are on**: Import a PGN, run a review pass, filter critical moments by side, inspect accuracy, and jump from a review row back to the board. The review follows the branch the board is standing in, so a variation can be reviewed like the game — and when that is not the main line it says so. Accuracy and move labels are scored on winning chances rather than raw centipawns, so an imprecision in a decided game is not called a blunder. The labels are the ones readers arrive knowing: *Book* while a sound move stays in the opening table, *Best* for the engine's own move and nothing else, *Excellent* for one that gave up almost nothing, then Good, Inaccuracy, Mistake and Blunder — so a row never reads "Best e4" beside a move it also calls Best. A best-move hint appears only once a search deep enough to grade the move has run; the 70 ms import sweep's choice is not one.
 - **Step through every mistake**: `‹ Previous` and `Next ›` under the review's

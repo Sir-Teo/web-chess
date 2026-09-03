@@ -105,6 +105,37 @@ export function reusableAnalysisCacheKey(request: AnalyzeRequest): string | null
 }
 
 /**
+ * Whether to send the thread count this device is sized for.
+ *
+ * Only when the worker has not been told one. The recommendation is a
+ * *default*, and a default that reasserts itself is not a default: `readyok`
+ * arrives after every `isready` and `ucinewgame` sends one, so a comparison
+ * against the recommended value re-sent it on every new game and on every PGN
+ * import -- and set a reader's own choice back. Raise Threads to 12 in the
+ * Engine Lab on a 16-core machine, import a game, and the engine is quietly on
+ * 8 again with nothing on screen saying so. It is the one setting a pro is
+ * most likely to change and the one this app was surest it knew better about.
+ *
+ * Skipping the resend also keeps the hang this guard was written for. A
+ * `setoption name Threads` tears down and rebuilds the pool, and on the
+ * multi-threaded WASM build a `go` issued in the same tick as that rebuild
+ * never answers -- one `go`, no `bestmove`, the engine stuck on "analyzing"
+ * for good. Reproduced on the import path, which does `ucinewgame` and then
+ * queues a 70ms search, and on no run of the single-threaded profile, which
+ * never sends Threads at all.
+ *
+ * A fresh worker starts at its own defaults with an empty record, so the
+ * recommendation lands once per worker, which is exactly where it belongs.
+ */
+export function shouldApplyRecommendedThreads(
+  recommended: number,
+  appliedThreads: string | undefined,
+): boolean {
+  if (!Number.isFinite(recommended) || recommended <= 1) return false
+  return appliedThreads === undefined
+}
+
+/**
  * Whether a search is the kind that should not run while nobody is looking.
  *
  * Only an unbounded one. Stockfish does not become cheap when a browser
@@ -947,23 +978,12 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
 
         if (line === 'readyok') {
           isReadyRef.current = true
-          const threads = recommendedThreadCount(profile, capabilities)
-          // Only when it is not already what the engine was told.
-          //
-          // `readyok` arrives after every `isready`, and `ucinewgame` sends one
-          // -- so this re-sent the same thread count on every new game, and
-          // `flushPendingAnalyze` fires the queued search on the very next
-          // line. `setoption name Threads` tears down and rebuilds the thread
-          // pool, and on the multi-threaded WASM build a `go` issued in the
-          // same tick as that rebuild never answers: one `go`, no `bestmove`,
-          // the engine stuck on "analyzing" for good.
-          //
-          // Reproduced on every run of the import path -- restore an auto-saved
-          // game, which does `ucinewgame` and then immediately queues a 70ms
-          // search -- with the multi-threaded profile, and on no run of the
-          // single-threaded one, which never sends `Threads` at all.
-          if (threads > 1 && appliedOptionsRef.current.get(optionKey('Threads')) !== String(threads)) {
-            setOption('Threads', threads)
+          // A default, applied once per worker; see shouldApplyRecommendedThreads.
+          if (shouldApplyRecommendedThreads(
+            recommendedThreadCount(profile, capabilities),
+            appliedOptionsRef.current.get(optionKey('Threads')),
+          )) {
+            setOption('Threads', recommendedThreadCount(profile, capabilities))
           }
           setStatus((value) => (value === 'error' ? value : 'ready'))
           flushPendingAnalyze()

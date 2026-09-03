@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { profileById, recommendedThreadCount } from '../engine/profiles'
-import { parseInfoLine, parseOptionLine, profileRuntimeMessage, reusableAnalysisCacheKey, shouldReplaceLiveLine, shouldStopTimedOutSearchCommand, suspendsWhileHidden } from './useStockfishEngine'
+import { parseInfoLine, parseOptionLine, profileRuntimeMessage, reusableAnalysisCacheKey, shouldApplyRecommendedThreads, shouldReplaceLiveLine, shouldStopTimedOutSearchCommand, suspendsWhileHidden } from './useStockfishEngine'
 
 describe('Stockfish engine output parsing', () => {
   it('parses finite score, telemetry, WDL, and PV values from info lines', () => {
@@ -226,5 +226,47 @@ describe('Engine profile message', () => {
     const reason = 'Lite Multi (Local) could not be started: worker sent an error. Falling back to Lite Single (Local).'
     expect(profileRuntimeMessage('auto', profileById('lite-single-local'), capable, reason)).toBe(reason)
     expect(profileRuntimeMessage('lite-multi-local', profileById('lite-single-local'), capable, reason)).toBe(reason)
+  })
+})
+
+describe('the thread count this device is sized for', () => {
+  it('is sent once, when the worker has not been told one', () => {
+    expect(shouldApplyRecommendedThreads(8, undefined)).toBe(true)
+  })
+
+  /**
+   * The bug this replaced a value comparison for. `readyok` arrives after
+   * every `isready` and `ucinewgame` sends one, so comparing against the
+   * recommendation re-sent it on every new game and every PGN import -- and
+   * put a reader's own choice back. Raise Threads to 12 on a 16-core machine,
+   * import a game, and the engine is quietly on 8 again.
+   */
+  it('leaves a value the reader chose alone, however far it is from the recommendation', () => {
+    expect(shouldApplyRecommendedThreads(8, '12')).toBe(false)
+    expect(shouldApplyRecommendedThreads(8, '1')).toBe(false)
+    expect(shouldApplyRecommendedThreads(8, '2')).toBe(false)
+  })
+
+  it('does not resend the recommendation it already sent', () => {
+    // The `go` that follows a resend in the same tick is the hang the original
+    // guard existed to prevent, so this half has to keep holding.
+    expect(shouldApplyRecommendedThreads(8, '8')).toBe(false)
+  })
+
+  it('says nothing on a build that has no threads to set', () => {
+    expect(shouldApplyRecommendedThreads(1, undefined)).toBe(false)
+    expect(shouldApplyRecommendedThreads(0, undefined)).toBe(false)
+    expect(shouldApplyRecommendedThreads(Number.NaN, undefined)).toBe(false)
+  })
+
+  it('agrees with what the single-threaded profile asks for', () => {
+    const single = profileById('lite-single-local')
+    const capabilities = {
+      sharedArrayBuffer: true,
+      crossOriginIsolated: true,
+      hardwareConcurrency: 16,
+      isMobile: false,
+    }
+    expect(shouldApplyRecommendedThreads(recommendedThreadCount(single, capabilities), undefined)).toBe(false)
   })
 })
