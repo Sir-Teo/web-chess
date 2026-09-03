@@ -218,10 +218,22 @@ function abortLinkedController(controller: AbortController, signal?: AbortSignal
     controller.abort(reason instanceof Error ? reason : new Error(TABLEBASE_AI_ABORT_MESSAGE))
 }
 
+/**
+ * The exact move from the Lichess tablebase, or null when there is none to
+ * be had in time.
+ *
+ * `timeoutMs` is how long the opponent may wait for the answer. It used to be
+ * a flat 2.5 seconds, which on a bullet clock is most of a move: at Maximum
+ * with seven men left the opponent could sit through a slow reply and only
+ * then start searching, on a budget that had been computed before the wait.
+ * The caller passes its move budget, so the lookup can never cost more than
+ * the move it is for.
+ */
 export async function fetchExactTablebaseMove(
     fen: string,
     difficulty: AiDifficulty,
     signal?: AbortSignal,
+    timeoutMs = TABLEBASE_AI_TIMEOUT_MS,
 ): Promise<string | null> {
     if (difficulty !== EXACT_TABLEBASE_DIFFICULTY) return null
     if (!isTablebaseEligible(fen)) return null
@@ -238,7 +250,7 @@ export async function fetchExactTablebaseMove(
 
     const timeout = setTimeout(
         () => controller.abort(new Error('AI tablebase request timed out.')),
-        TABLEBASE_AI_TIMEOUT_MS,
+        Math.min(TABLEBASE_AI_TIMEOUT_MS, Math.max(0, timeoutMs)),
     )
     try {
         return pickExactTablebaseMove(await fetchTablebase(fen, controller.signal))
@@ -541,10 +553,17 @@ export function useAiPlayer(enabled = true) {
             if (!enabled) return Promise.resolve(null)
 
             return (async () => {
+                // One budget for the whole move: the tablebase lookup is
+                // paid for out of it, and whatever it used comes off the
+                // search. Read before the wait, because the clock keeps
+                // running through it.
+                const budgetMs = aiMovetimeMs(difficulty, clock)
+                const startedAt = Date.now()
+
                 cancelTablebaseRequest()
                 const tablebaseController = new AbortController()
                 tablebaseRequestControllerRef.current = tablebaseController
-                const exactMove = await fetchExactTablebaseMove(fen, difficulty, tablebaseController.signal)
+                const exactMove = await fetchExactTablebaseMove(fen, difficulty, tablebaseController.signal, budgetMs)
                 if (tablebaseRequestControllerRef.current === tablebaseController) {
                     tablebaseRequestControllerRef.current = null
                 }
@@ -574,7 +593,7 @@ export function useAiPlayer(enabled = true) {
                     resolveRef.current = resolve
                     setStatus('thinking')
 
-                    const movetime = aiMovetimeMs(difficulty, clock)
+                    const movetime = Math.max(AI_MIN_MOVETIME_MS, Math.round(budgetMs - (Date.now() - startedAt)))
                     requestTimeoutRef.current = setTimeout(() => {
                         ignoredBestMoveCountRef.current = addStoppedSearchBestMoveAck(ignoredBestMoveCountRef.current)
                         setStatus('stopping')

@@ -195,6 +195,44 @@ describe('AI exact tablebase move selection', () => {
         await expect(pending).resolves.toBeNull()
         expect(fetchSignal?.aborted).toBe(true)
     })
+
+    it('waits no longer than the move budget it was given', async () => {
+        // A reply that never comes. The flat 2.5s this used to wait is most
+        // of a bullet move; the budget is what the caller can actually spend.
+        vi.useFakeTimers()
+        let fetchSignal: AbortSignal | undefined
+        const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+            fetchSignal = init?.signal ?? undefined
+            return new Promise<Response>((_resolve, reject) => {
+                fetchSignal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true })
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        const pending = fetchExactTablebaseMove('8/8/8/8/8/8/3K4/5k2 w - - 14 1', 8, undefined, 300)
+        let settled = false
+        void pending.then(() => { settled = true })
+
+        await vi.advanceTimersByTimeAsync(299)
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+        expect(settled).toBe(false)
+
+        await vi.advanceTimersByTimeAsync(1)
+        await expect(pending).resolves.toBeNull()
+        expect(fetchSignal?.aborted).toBe(true)
+    })
+
+    it('never waits past its own ceiling, whatever budget it is handed', async () => {
+        vi.useFakeTimers()
+        const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true })
+        }))
+        vi.stubGlobal('fetch', fetchMock)
+
+        const pending = fetchExactTablebaseMove('8/8/8/8/8/8/3K4/5k2 w - - 14 1', 8, undefined, 60_000)
+        await vi.advanceTimersByTimeAsync(2_500)
+        await expect(pending).resolves.toBeNull()
+    })
 })
 
 describe('AI thread count', () => {
