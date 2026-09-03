@@ -866,6 +866,16 @@
     max-width: 100%;
 }
 
+/* Choosing a time control must not make its own description harder to read.
+   The selected card trades `--bg-elevated` for the accent's tint, which on the
+   dark theme lifts the ground toward the muted grey on top of it: 4.57:1
+   unselected and 3.80:1 once chosen, at 10px. One rung up on the selected card
+   only, which measures 5.13 there. The same trade the analysis presets make in
+   App.css, and the third place a selected state has cost contrast. */
+.time-control-card.selected span {
+    color: var(--text-tertiary);
+}
+
 @media (max-width: 620px) {
     .time-control-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
