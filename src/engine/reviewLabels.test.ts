@@ -6,7 +6,7 @@ describe('review labels', () => {
   it('has a word for every classification a row can carry', () => {
     // The list is `ReviewLabel`'s members; the type checker holds the table to
     // it, and this holds the table to having something to say for each.
-    const labels: ReviewLabel[] = ['best', 'good', 'inaccuracy', 'mistake', 'blunder', 'pending']
+    const labels: ReviewLabel[] = ['book', 'best', 'excellent', 'good', 'inaccuracy', 'mistake', 'blunder', 'pending']
     for (const label of labels) {
       expect(REVIEW_LABELS[label]).toBeTruthy()
     }

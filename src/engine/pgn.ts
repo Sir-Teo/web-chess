@@ -26,7 +26,9 @@ export const PGN_MULTIPLE_GAMES_ERROR = 'The board takes one game at a time, and
 export const PGN_NO_MOVES_IMPORT_ERROR = 'PGN import needs at least one legal move.'
 const PGN_IMPORT_USER_ERRORS = new Set([PGN_EMPTY_IMPORT_ERROR, PGN_MULTIPLE_GAMES_ERROR, PGN_NO_MOVES_IMPORT_ERROR])
 const QUALITY_EXPORT_LABELS: Record<NonNullable<GameNode['quality']>, string> = {
+    book: 'Book',
     best: 'Best',
+    excellent: 'Excellent',
     good: 'Good',
     inaccuracy: 'Inaccuracy',
     mistake: 'Mistake',
@@ -315,7 +317,7 @@ const MOVE_TOKEN_SOURCE =
  */
 const GENERATED_COMMENT_PATTERNS = [
     new RegExp(`^Best (?:${MOVE_TOKEN_SOURCE})[+#]?$`),
-    /^(?:Best|Good|Inaccuracy|Mistake|Blunder|Pending)$/,
+    /^(?:Book|Best|Excellent|Good|Inaccuracy|Mistake|Blunder|Pending)$/,
 ]
 
 function isGeneratedCommentPart(part: string): boolean {

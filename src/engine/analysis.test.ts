@@ -53,10 +53,13 @@ describe('review analysis helpers', () => {
         san: 'e4',
         uci: 'e2e4',
         deltaCp: -10,
-        quality: 'best',
+        // Not 'best': nothing recorded what the engine wanted here, and Best
+        // is that move by identity. A move that lost almost nothing is
+        // Excellent.
+        quality: 'excellent',
       },
     ])
-    expect(summarizeReview(rows)).toMatchObject({ best: 1, pending: 0 })
+    expect(summarizeReview(rows)).toMatchObject({ excellent: 1, best: 0, pending: 0 })
   })
 
   it('marks rows pending when either side of the move is missing an evaluation', () => {
@@ -146,7 +149,7 @@ describe('review analysis helpers', () => {
 
     expect(keepsForcedMate[0]).toMatchObject({
       deltaCp: 0,
-      quality: 'best',
+      quality: 'excellent',
     })
     expect(dropsForcedMate[0]).toMatchObject({
       deltaCp: -10000,
@@ -713,14 +716,14 @@ describe('position-aware move accuracy', () => {
     // -300cp is a blunder on the raw scale in both positions.
     expect(reviewRowsForOneMove(0, 300)[0]).toMatchObject({ quality: 'blunder' })
     // From +18 it costs 0.3 percentage points, so it is graded on that instead.
-    expect(reviewRowsForOneMove(1800, -1500)[0]).toMatchObject({ quality: 'best' })
+    expect(reviewRowsForOneMove(1800, -1500)[0]).toMatchObject({ quality: 'excellent' })
   })
 
   it('never grades a move harsher than the raw centipawn reading', () => {
     // Losing a whole game from equality: both readings agree it is a blunder.
     expect(reviewRowsForOneMove(0, 900)[0]).toMatchObject({ quality: 'blunder' })
-    // A tiny slip stays 'best' rather than being dragged down by win percent.
-    expect(reviewRowsForOneMove(0, 5)[0]).toMatchObject({ quality: 'best' })
+    // A tiny slip stays on the top rung rather than being dragged down by win percent.
+    expect(reviewRowsForOneMove(0, 5)[0]).toMatchObject({ quality: 'excellent' })
   })
 
   it('falls back to the centipawn curve for rows built without a win-percent loss', () => {
@@ -751,6 +754,93 @@ function reviewRowsForOneMove(rootCp: number, afterCp: number) {
     rootFen,
   )
 }
+
+describe('book moves', () => {
+  const deep = (cp: number, bestMove?: string): EvalSnapshot => ({ cp, depth: 16, bestMove, purpose: 'batch-review' })
+
+  /** 1. e4 e5, with the evaluation map an engine would leave. */
+  function openingRows(isBookPosition: (fen: string) => boolean, evaluate = true) {
+    const game = new Chess()
+    const rootFen = game.fen()
+    const e4 = game.move('e4')!
+    const afterE4 = game.fen()
+    const e5 = game.move('e5')!
+    const afterE5 = game.fen()
+    const evaluations = evaluate
+      ? new Map([
+        [rootFen, deep(30, 'e2e4')],
+        [afterE4, deep(-25, 'e7e5')],
+        [afterE5, deep(28, 'g1f3')],
+      ])
+      : new Map<string, EvalSnapshot>()
+    return buildReviewRows([e4, e5], evaluations, rootFen, { isBookPosition })
+  }
+
+  it('labels a sound move that stays in the book as Book', () => {
+    const rows = openingRows(() => true)
+    expect(rows.map(row => row.quality)).toEqual(['book', 'book'])
+    // The grading underneath is untouched: the move still counts for accuracy.
+    expect(rows[0]).toMatchObject({ deltaCp: 0, winPercentLoss: 0, confidence: 'standard' })
+  })
+
+  it('is the engine\'s verdict without a book, as before', () => {
+    expect(openingRows(() => false).map(row => row.quality)).toEqual(['best', 'best'])
+    expect(buildReviewRows([new Chess().move('e4')!], new Map(), undefined).map(row => row.quality))
+      .toEqual(['pending'])
+  })
+
+  it('does not hide a mistake the engine found behind Book', () => {
+    const game = new Chess()
+    const rootFen = game.fen()
+    const move = game.move('f3')!
+    const rows = buildReviewRows(
+      [move],
+      new Map([[rootFen, deep(30, 'e2e4')], [game.fen(), deep(200)]]),
+      rootFen,
+      { isBookPosition: () => true },
+    )
+    expect(rows[0].quality).toBe('mistake')
+  })
+
+  it('runs the book to the last position the table knows, gaps included', () => {
+    const game = new Chess()
+    const rootFen = game.fen()
+    const afterE4 = (game.move('e4'), game.fen())
+    const afterE5 = (game.move('e5'), game.fen())
+    const evaluations = new Map([
+      [rootFen, deep(30, 'e2e4')],
+      [afterE4, deep(-25, 'e7e5')],
+      [afterE5, deep(28, 'g1f3')],
+    ])
+    const history = new Chess()
+    const moves = [history.move('e4')!, history.move('e5')!]
+
+    // The table knows the second position but not the first: the gap is the
+    // table's, and the opening is still the opening.
+    expect(buildReviewRows(moves, evaluations, rootFen, { isBookPosition: fen => fen === afterE5 })
+      .map(row => row.quality)).toEqual(['book', 'book'])
+    // And it stops where the table stops.
+    expect(buildReviewRows(moves, evaluations, rootFen, { isBookPosition: fen => fen === afterE4 })
+      .map(row => row.quality)).toEqual(['book', 'best'])
+  })
+
+  it('calls an unevaluated book move Book rather than Pending', () => {
+    // The opening is graded by the book before the engine reaches it, which
+    // is what a reader sees first: the review fills from the position on the
+    // board outward, and the first ten moves are theory anyway.
+    const rows = openingRows(() => true, false)
+    expect(rows.map(row => row.quality)).toEqual(['book', 'book'])
+    expect(rows[0].confidence).toBe('pending')
+    expect(rows[0].deltaCp).toBeUndefined()
+  })
+
+  it('counts Book beside the other labels, and never ranks one as critical', () => {
+    const rows = openingRows(() => true)
+    expect(summarizeReview(rows)).toMatchObject({ book: 2, best: 0, pending: 0 })
+    expect(rankCriticalMoments(rows)).toEqual([])
+    expect(summarizeAccuracy(rows).evaluatedMoves).toBe(2)
+  })
+})
 
 describe('ranking the moves that cost the most', () => {
   const row = (over: Partial<import('./analysis').ReviewRow>) => ({

@@ -682,7 +682,15 @@ body.resizing * {
   text-transform: uppercase;
 }
 
-.board-quality-pill.quality-best {
+.board-quality-pill.quality-book {
+  border-color: rgba(203, 213, 225, 0.42);
+  color: var(--quality-book);
+}
+
+/* Excellent takes Best's colour: both mean the move was fine, and the review
+   palette already carries two greens nobody can tell apart at 5px. */
+.board-quality-pill.quality-best,
+.board-quality-pill.quality-excellent {
   border-color: rgba(16, 185, 129, 0.42);
   color: var(--quality-best);
 }
@@ -2825,7 +2833,14 @@ button.critical-moment-row {
   border-color: rgba(248, 81, 73, 0.22) !important;
 }
 
-.chip-best {
+.chip-book {
+  background: rgba(203, 213, 225, 0.1);
+  color: var(--quality-book);
+  border-color: rgba(203, 213, 225, 0.2) !important;
+}
+
+.chip-best,
+.chip-excellent {
   background: rgba(63, 185, 80, 0.12);
   color: var(--quality-best);
   border-color: rgba(63, 185, 80, 0.22) !important;
@@ -3093,11 +3108,21 @@ button.critical-moment-row {
 }
 
 /* Quality-colored left borders */
-.quality-best {
+.quality-book {
+  border-left-color: var(--quality-book) !important;
+}
+
+.quality-book .move-quality {
+  color: var(--quality-book);
+}
+
+.quality-best,
+.quality-excellent {
   border-left-color: var(--quality-best) !important;
 }
 
-.quality-best .move-quality {
+.quality-best .move-quality,
+.quality-excellent .move-quality {
   color: var(--quality-best);
 }
 
@@ -4779,7 +4804,12 @@ button.mtree-chip {
 }
 
 /* Inherit dot color from quality classes */
-.quality-best .mtree-quality-dot {
+.quality-book .mtree-quality-dot {
+  background: var(--quality-book);
+}
+
+.quality-best .mtree-quality-dot,
+.quality-excellent .mtree-quality-dot {
   background: var(--quality-best);
 }
 

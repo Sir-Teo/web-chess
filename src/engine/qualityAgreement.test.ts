@@ -58,8 +58,9 @@ describe('grading the same centipawn loss in different positions', () => {
   })
 
   it('agrees with the centipawn reading exactly at equality', () => {
-    // Where the two ladders are defined to meet.
-    expect(labelFor(0, -10).quality).toBe('best')
+    // Where the two ladders are defined to meet. The top rung is Excellent:
+    // Best is the engine's own move, which no reading here names.
+    expect(labelFor(0, -10).quality).toBe('excellent')
     expect(labelFor(0, -500).quality).toBe('blunder')
   })
 })

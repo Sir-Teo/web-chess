@@ -151,7 +151,7 @@ import { aiSearchHistory, defaultOrientationForGameMode, describePlayEngine, hin
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { DIFFICULTY_LABELS, useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
 import { useGameTree, type GameNode } from './hooks/useGameTree'
-import { useOpening } from './hooks/useOpening'
+import { useOpening, useOpeningBook } from './hooks/useOpening'
 import { useCloudEvaluation } from './hooks/useCloudEvaluation'
 import { useOpeningExplorer } from './hooks/useOpeningExplorer'
 import { useTablebase } from './hooks/useTablebase'
@@ -774,6 +774,9 @@ function App() {
   const openingFenPath = useMemo(() => currentPathNodes.map(n => n.fen), [currentPathNodes])
   const shouldLoadOpeningNames = currentPathNodes.length > 1
   const opening = useOpening(openingFenPath, shouldLoadOpeningNames)
+  // For the review's Book label: the same table the opening name reads,
+  // loaded whenever the engine is, which is the only time a review can run.
+  const isBookPosition = useOpeningBook(engineEnabled)
   const canGoBack = currentPathNodes.length > 1
   const canGoForward = gameTree.current.children.length > 0
   const appModalOpen = showNewGameDialog || showPgnDialog || showLibraryDialog || autoSaveRecovery !== null
@@ -2158,8 +2161,8 @@ function App() {
   const reviewBookPrefixLength = Math.min(reviewLineUciMoves.length, REVIEW_BOOK_PREFETCH_LIMIT)
 
   const reviewRows = useMemo(
-    () => buildReviewRows(reviewLineMoves, evaluationsByFen, currentRootFen),
-    [currentRootFen, evaluationsByFen, reviewLineMoves],
+    () => buildReviewRows(reviewLineMoves, evaluationsByFen, currentRootFen, { isBookPosition }),
+    [currentRootFen, evaluationsByFen, isBookPosition, reviewLineMoves],
   )
   const visibleReviewRows = useMemo(
     () => filterReviewRowsBySide(reviewRows, reviewSideFilter),
@@ -6108,7 +6111,9 @@ function App() {
                       </p>
                     )}
                     <div className="review-chips">
+                      <span className="chip-book">Book {reviewSummary.book}</span>
                       <span className="chip-best">Best {reviewSummary.best}</span>
+                      <span className="chip-excellent">Excellent {reviewSummary.excellent}</span>
                       <span className="chip-good">Good {reviewSummary.good}</span>
                       <span className="chip-inaccuracy">Inaccuracy {reviewSummary.inaccuracy}</span>
                       <span className="chip-mistake">Mistake {reviewSummary.mistake}</span>

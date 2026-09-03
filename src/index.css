@@ -44,6 +44,11 @@
   --info-subtle: rgba(59, 130, 246, 0.12);
 
   /* ── Quality ───────────────────────────────────── */
+  /* Slate rather than a colour: Book is not a grade. Measured in
+     reviewPalette.test.ts -- blue-400 collapsed onto Best's green for a
+     tritanope (0.5 units apart); this keeps 23+ from every grade and 37
+     from Pending's grey under all three simulations. */
+  --quality-book: #cbd5e1;
   --quality-best: #10b981;
   --quality-good: #34d399;
   --quality-inaccuracy: #fbbf24;

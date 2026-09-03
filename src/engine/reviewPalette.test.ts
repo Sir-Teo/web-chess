@@ -23,7 +23,13 @@ function paletteFromCss(): Record<string, string> {
 }
 
 const palette = paletteFromCss()
-const CLASSIFICATIONS = ['best', 'good', 'inaccuracy', 'mistake', 'blunder']
+/**
+ * Excellent is deliberately absent: it takes Best's colour. Both mean "the
+ * move was fine", the same trade already recorded for Best and Good below,
+ * and a third green between two that are already the same dot would be a
+ * third thing nobody could tell apart.
+ */
+const CLASSIFICATIONS = ['book', 'best', 'good', 'inaccuracy', 'mistake', 'blunder']
 const VISIONS: ColorVision[] = ['normal', 'protan', 'deutan', 'tritan']
 
 /** How far apart two classifications are, at the worst kind of vision for them. */
@@ -53,6 +59,7 @@ describe('telling a good move from a bad one, however you see colour', () => {
   const ACROSS_THE_DIVIDE = [
     ['best', 'mistake'], ['best', 'blunder'],
     ['good', 'mistake'], ['good', 'blunder'],
+    ['book', 'mistake'], ['book', 'blunder'],
     ['inaccuracy', 'blunder'],
   ]
 

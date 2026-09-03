@@ -8,7 +8,9 @@
 import type { ReviewLabel } from './analysis'
 
 export const REVIEW_LABELS: Record<ReviewLabel, string> = {
+  book: 'Book',
   best: 'Best',
+  excellent: 'Excellent',
   good: 'Good',
   inaccuracy: 'Inaccuracy',
   mistake: 'Mistake',

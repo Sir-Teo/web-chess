@@ -17,7 +17,19 @@ function loadOpeningMap(): Promise<Record<string, OpeningInfo>> {
     return openingMapPromise
 }
 
-export function useOpening(fens: string[], enabled = true): OpeningInfo | undefined {
+/** The table's key: a FEN without its move counters, which the table omits. */
+function openingKey(fen: string): string {
+    return fen.split(' ').slice(0, 4).join(' ')
+}
+
+/**
+ * The opening table, once it has loaded, or null before that.
+ *
+ * Loaded on demand rather than imported: the table is the largest thing the
+ * app ships after the engine, and nothing needs it until there is a position
+ * to name.
+ */
+function useOpeningMap(enabled: boolean): Record<string, OpeningInfo> | null {
     const [map, setMap] = useState<Record<string, OpeningInfo> | null>(null)
 
     useEffect(() => {
@@ -36,6 +48,12 @@ export function useOpening(fens: string[], enabled = true): OpeningInfo | undefi
         }
     }, [enabled])
 
+    return map
+}
+
+export function useOpening(fens: string[], enabled = true): OpeningInfo | undefined {
+    const map = useOpeningMap(enabled)
+
     return useMemo(() => {
         if (!enabled) return undefined
         if (!map) return undefined
@@ -43,11 +61,28 @@ export function useOpening(fens: string[], enabled = true): OpeningInfo | undefi
         for (let i = fens.length - 1; i >= 0; i--) {
             const fen = fens[i]
             if (!fen) continue
-            const key = fen.split(' ').slice(0, 4).join(' ')
+            const key = openingKey(fen)
             if (map[key]) {
                 return map[key]
             }
         }
         return undefined
     }, [enabled, fens, map])
+}
+
+/**
+ * Whether a position is in the opening table, for the review's Book label.
+ *
+ * Undefined until the table has loaded, so a caller can tell "not in the
+ * book" from "the book is not here yet" and grade nothing as Book in the
+ * meantime, rather than everything as not. The predicate keeps its identity
+ * once the table is in, so a memo keyed on it settles.
+ */
+export function useOpeningBook(enabled = true): ((fen: string) => boolean) | undefined {
+    const map = useOpeningMap(enabled)
+
+    return useMemo(() => {
+        if (!enabled || !map) return undefined
+        return (fen: string) => Boolean(map[openingKey(fen)])
+    }, [enabled, map])
 }

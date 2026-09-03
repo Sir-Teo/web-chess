@@ -26,7 +26,18 @@ export type EvalSnapshot = {
   searchedAt?: number
 }
 
-export type ReviewLabel = 'best' | 'good' | 'inaccuracy' | 'mistake' | 'blunder' | 'pending'
+/**
+ * What the review calls a move.
+ *
+ * `best` is the engine's own choice and nothing else; a move that gave up
+ * almost nothing but was not that choice is `excellent`. They used to share
+ * one word, and a row then read "d4 · Best e4 · Best" -- a contradiction to
+ * anyone who has not read the thresholds. `book` is a sound move that stays
+ * in the opening table, which is the label a reader wants on the first ten
+ * moves of every game rather than a grade for each. Both are the words
+ * chess.com uses, because they are the words readers arrive knowing.
+ */
+export type ReviewLabel = 'book' | 'best' | 'excellent' | 'good' | 'inaccuracy' | 'mistake' | 'blunder' | 'pending'
 export type ReviewSideFilter = 'both' | 'white' | 'black'
 
 export type ReviewRow = {
@@ -246,17 +257,21 @@ export function winPercentFromCp(cp: number): number {
   return Math.max(0, Math.min(100, raw))
 }
 
-type GradedLabel = Exclude<ReviewLabel, 'pending'>
+/**
+ * The rungs a loss is measured against. `best` and `book` are not rungs:
+ * one is the engine's move by identity, the other a position in a table.
+ */
+type GradedLabel = 'excellent' | 'good' | 'inaccuracy' | 'mistake' | 'blunder'
 
 const CP_LOSS_THRESHOLDS = {
-  best: 20,
+  excellent: 20,
   good: 70,
   inaccuracy: 140,
   mistake: 260,
 } as const
 
 function qualityFromDelta(deltaCp: number): GradedLabel {
-  if (deltaCp >= -CP_LOSS_THRESHOLDS.best) return 'best'
+  if (deltaCp >= -CP_LOSS_THRESHOLDS.excellent) return 'excellent'
   if (deltaCp >= -CP_LOSS_THRESHOLDS.good) return 'good'
   if (deltaCp >= -CP_LOSS_THRESHOLDS.inaccuracy) return 'inaccuracy'
   if (deltaCp >= -CP_LOSS_THRESHOLDS.mistake) return 'mistake'
@@ -271,14 +286,14 @@ function qualityFromDelta(deltaCp: number): GradedLabel {
  * practical reading to take over.
  */
 const WIN_PERCENT_LOSS_THRESHOLDS = {
-  best: winPercentFromCp(0) - winPercentFromCp(-CP_LOSS_THRESHOLDS.best),
+  excellent: winPercentFromCp(0) - winPercentFromCp(-CP_LOSS_THRESHOLDS.excellent),
   good: winPercentFromCp(0) - winPercentFromCp(-CP_LOSS_THRESHOLDS.good),
   inaccuracy: winPercentFromCp(0) - winPercentFromCp(-CP_LOSS_THRESHOLDS.inaccuracy),
   mistake: winPercentFromCp(0) - winPercentFromCp(-CP_LOSS_THRESHOLDS.mistake),
 } as const
 
 const LABEL_SEVERITY: Record<GradedLabel, number> = {
-  best: 0,
+  excellent: 0,
   good: 1,
   inaccuracy: 2,
   mistake: 3,
@@ -286,7 +301,7 @@ const LABEL_SEVERITY: Record<GradedLabel, number> = {
 }
 
 function qualityFromWinPercentLoss(loss: number): GradedLabel {
-  if (loss <= WIN_PERCENT_LOSS_THRESHOLDS.best) return 'best'
+  if (loss <= WIN_PERCENT_LOSS_THRESHOLDS.excellent) return 'excellent'
   if (loss <= WIN_PERCENT_LOSS_THRESHOLDS.good) return 'good'
   if (loss <= WIN_PERCENT_LOSS_THRESHOLDS.inaccuracy) return 'inaccuracy'
   if (loss <= WIN_PERCENT_LOSS_THRESHOLDS.mistake) return 'mistake'
@@ -658,14 +673,42 @@ function replayHistory(history: Move[], rootFen: string): ReplayedHistory {
   return replayed
 }
 
+export type ReviewRowOptions = {
+  /**
+   * Whether a position is in the opening table. The opening lasts as far as
+   * the last position the table knows, and every sound move up to there is
+   * labelled Book instead of graded: a gap inside that stretch is the
+   * table's, not the game's -- 3...Nf6 in a Slav was reading "Best" between
+   * six Book moves because that one position was missing from it. A move
+   * the engine faulted keeps its fault, because "in the book" is not an
+   * answer to "was it a mistake". Absent, nothing is Book, which is also
+   * what the caller passes while the table is still loading.
+   */
+  isBookPosition?: (fen: string) => boolean
+}
+
+/** The grades a book position may replace. A fault is never hidden behind Book. */
+const BOOK_REPLACES: ReadonlySet<ReviewLabel> = new Set(['pending', 'best', 'excellent', 'good'])
+
 export function buildReviewRows(
   history: Move[],
   evaluationsByFen: Map<string, EvalSnapshot>,
   rootFen = new Chess().fen(),
+  options: ReviewRowOptions = {},
 ): ReviewRow[] {
   const rows: ReviewRow[] = []
+  const plies = replayHistory(history, rootFen).plies
 
-  for (const ply of replayHistory(history, rootFen).plies) {
+  let bookThroughIndex = -1
+  if (options.isBookPosition) {
+    for (const ply of plies) {
+      if (options.isBookPosition(ply.afterFen)) bookThroughIndex = ply.index
+    }
+  }
+  const labelled = (index: number, graded: ReviewLabel): ReviewLabel =>
+    index <= bookThroughIndex && BOOK_REPLACES.has(graded) ? 'book' : graded
+
+  for (const ply of plies) {
     const { index, beforeFen, afterFen, moveNumber, sideToMove, phase } = ply
 
     const beforeSnapshot = evaluationsByFen.get(beforeFen)
@@ -684,7 +727,10 @@ export function buildReviewRows(
         bestMove,
         bestMoveSan,
         phase,
-        quality: 'pending',
+        // The book grades the opening before the engine reaches it: the
+        // review fills outward from the board, and theory is theory whether
+        // or not a search has confirmed it yet.
+        quality: labelled(index, 'pending'),
         confidence: 'pending',
       })
       continue
@@ -729,7 +775,10 @@ export function buildReviewRows(
       winPercentBefore,
       evalDepth,
       confidence,
-      quality: shallow ? 'pending' : playedBest ? 'best' : qualityForMove(deltaCp, winPercentLoss),
+      // Best is the engine's move and nothing else. A move that gave up
+      // almost nothing but was not that move is Excellent -- the two used to
+      // share a word, and "d4 · Best e4 · Best" read as a contradiction.
+      quality: labelled(index, shallow ? 'pending' : playedBest ? 'best' : qualityForMove(deltaCp, winPercentLoss)),
     })
   }
 
@@ -765,7 +814,7 @@ export function summarizeReview(rows: ReviewRow[]): Record<ReviewLabel, number> 
       acc[row.quality] += 1
       return acc
     },
-    { best: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0, pending: 0 },
+    { book: 0, best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0, pending: 0 },
   )
 }
 

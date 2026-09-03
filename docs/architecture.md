@@ -1010,6 +1010,48 @@ evidence it is printed beside.** "Best e4" and "Inaccuracy" on one row cannot
 both be true, and when they disagree it is the number that was measured
 wrongly, not the label.
 
+## Book, Best and Excellent
+
+Reading a finished review of Carlsen--Topalov 2015, the first row said
+
+    1. d4    Best e4    No loss    Best
+
+The label "Best" was the top rung of the loss ladder -- within 20 centipawns
+-- and the hint "Best e4" was the engine's actual choice, so a move the
+engine had *not* chosen was called Best beside the move it preferred. True
+under the thresholds, and a contradiction to everyone else.
+
+`best` is now the engine's move by identity and nothing else; the top rung
+is `excellent`. That is chess.com's ladder, kept because it is the one
+readers arrive knowing, and it changes what a row without a recorded best
+move can say: with nothing to be identical to, a near-lossless move is
+Excellent, which is the honest word. Several tests that asserted `best` for
+such rows were asserting the old ambiguity and were changed to say so.
+
+`book` is a sound move played while the game is still in the opening
+table -- the same 3,641 positions the opening name reads -- and it grades
+the opening before the engine reaches it, because the review fills outward
+from the board and theory is theory whether or not a search has confirmed
+it. The opening lasts as far as the *last* position the table knows, gaps
+included: on the first pass 3...Nf6 in a Slav read "Best" between six Book
+moves, because that one position is missing from the table, and a gap
+inside the opening is the table's, not the game's. A move the engine faulted
+keeps its fault: "in the book" is not an answer to "was it a mistake", so
+Book replaces only Pending, Best, Excellent and Good.
+
+The colour was measured rather than picked. Blue-400 looked right and
+collapsed onto Best's green for a tritanope at 0.5 CIE76 units;
+`reviewPalette.test.ts` caught it and a probe over fourteen candidates
+chose slate-300, 23+ from every grade and 37 from Pending under all three
+simulations. Excellent takes Best's colour deliberately: both mean the move
+was fine, which is the trade the palette already makes for Best and Good.
+
+One thing rode along. The review list printed a best-move hint from
+whatever snapshot the position had, and before the review ran that was the
+70 ms import sweep -- "Best e4" beside 1. d4, from a search the review
+itself refuses to grade on. The hint now needs a standard or deep reading
+behind it, the same bar the grade has.
+
 ## The move list drew the tree's first level
 
 `MoveListTree` rendered variations only off main-line nodes, walking each
