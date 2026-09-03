@@ -313,6 +313,16 @@ export function useAiPlayer(enabled = true) {
      */
     const appliedThreadsRef = useRef<number | null>(null)
     const awaitingReadyRef = useRef(0)
+    /**
+     * Requests parked behind a thread-count handshake, and the generation a
+     * cancel bumps so a parked request knows it was overtaken. `requestMove`
+     * used to resolve null when the handshake began and leave the retry to the
+     * caller; the AI loop retried on the ready tick, the hint did not, and on
+     * a multi-core machine every hint after an engine move -- Maximum for the
+     * hint, one thread for the opponent -- silently did nothing.
+     */
+    const readyWaitersRef = useRef<Array<() => void>>([])
+    const cancelGenerationRef = useRef(0)
     /** The lines of the search in flight, newest depth per rank, for the weak levels' choice. */
     const searchLinesRef = useRef<Map<number, EngineLine>>(new Map())
     /** The position that search is of, and what its first line said once it finished. */
@@ -371,6 +381,13 @@ export function useAiPlayer(enabled = true) {
         resolveRef.current = null
         resolve?.(move)
     }, [clearRequestTimeout])
+
+    /** Wake whatever was waiting for a handshake; each re-checks the engine for itself. */
+    const releaseReadyWaiters = useCallback(() => {
+        const waiters = readyWaitersRef.current
+        readyWaitersRef.current = []
+        for (const waiter of waiters) waiter()
+    }, [])
 
     const finishRequest = useCallback((move: string | null, nextStatus: AiStatus) => {
         settleRequest(move)
@@ -467,6 +484,7 @@ export function useAiPlayer(enabled = true) {
             ignoredBestMoveCountRef.current = 0
             cancelTablebaseRequest()
             clearStopAckTimeout()
+            releaseReadyWaiters()
             // 'loading' rather than 'error' when there is somewhere to fall
             // back to: the effect is about to re-run with the simpler build, and
             // reporting a failure the app is in the middle of recovering from
@@ -506,6 +524,7 @@ export function useAiPlayer(enabled = true) {
                     if (awaitingReadyRef.current > 0) continue
                     isReadyRef.current = true
                     setStatus('ready')
+                    releaseReadyWaiters()
                 }
 
                 if (line.startsWith('info ') && resolveRef.current) {
@@ -562,9 +581,10 @@ export function useAiPlayer(enabled = true) {
             cancelTablebaseRequest()
             clearStopAckTimeout()
             settleRequest(null)
+            releaseReadyWaiters()
             if (workerBlobUrl) URL.revokeObjectURL(workerBlobUrl)
         }
-    }, [applyStrength, cancelTablebaseRequest, clearStopAckTimeout, enabled, fallbackProfileId, finishRequest, settleRequest])
+    }, [applyStrength, cancelTablebaseRequest, clearStopAckTimeout, enabled, fallbackProfileId, finishRequest, releaseReadyWaiters, settleRequest])
 
     const setDifficulty = useCallback((difficulty: AiDifficulty) => {
         difficultyRef.current = difficulty
@@ -580,6 +600,7 @@ export function useAiPlayer(enabled = true) {
 
     const cancelRequest = useCallback(() => {
         const worker = workerRef.current
+        cancelGenerationRef.current += 1
         cancelTablebaseRequest()
         clearRequestTimeout()
         if (resolveRef.current) {
@@ -636,10 +657,16 @@ export function useAiPlayer(enabled = true) {
                         ? profileById(fallbackProfileId)
                         : resolveProfile('auto', capabilities)
                     setThreadCount(aiThreadCount(activeProfile, capabilities, difficulty))
-                    // A thread change is not safe to search behind. The status
-                    // goes back to 'loading' and returns to 'ready' on the
-                    // handshake, which is what re-enters the caller's loop.
-                    if (!applyStrength(worker, difficulty, activeProfile, capabilities)) return null
+                    // A thread change is not safe to search behind: the pool is
+                    // being rebuilt and an isready is outstanding. Wait here for
+                    // its readyok rather than handing the caller a null to retry
+                    // -- the AI loop did retry, the hint never did.
+                    if (!applyStrength(worker, difficulty, activeProfile, capabilities)) {
+                        const generation = cancelGenerationRef.current
+                        await new Promise<void>(resolve => { readyWaitersRef.current.push(resolve) })
+                        if (generation !== cancelGenerationRef.current) return null
+                        if (!workerRef.current || !isReadyRef.current || resolveRef.current) return null
+                    }
                 }
 
                 return new Promise((resolve) => {

@@ -852,8 +852,12 @@ two halves of the old objection are answered separately:
   is chosen deliberately, and it is only busy for the two seconds it thinks.
 - **The handshake got built.** `applyStrength` returns whether it is safe to
   search: when the thread count changed it has sent `setoption name Threads`
-  and an `isready`, put the status back to `loading`, and the caller waits for
-  `ready` and asks again. `awaitingReadyRef` counts the outstanding `readyok`s
+  and an `isready`, put the status back to `loading`, and a request that arrives
+  meanwhile waits inside the hook for the `readyok` rather than resolving
+  null. It used to resolve null and leave the retry to the caller: the AI
+  loop retried on the ready tick, the hint never did, and on a multi-core
+  machine every hint after an engine move -- Maximum for the hint, one
+  thread for the opponent -- silently did nothing. `awaitingReadyRef` counts the outstanding `readyok`s
   so a boot handshake and a thread change cannot be confused for each other.
   Nothing issues a `go` between the option and its acknowledgement, which is
   the whole of the hang.
