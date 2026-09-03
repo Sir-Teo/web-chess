@@ -864,6 +864,28 @@ Novice takes it back to 1 and opens 1.d4; Maximum again returns to 8. The Play
 panel says "at Maximum strength on 8 threads", and says nothing about threads at
 one, because one is the unremarkable case.
 
+## The weakest levels vary among the engine's lines, not among all legal moves
+
+Beginner and Novice used to play a uniformly random legal move 38% and 20%
+of the time, before any search. At Beginner that is a hung queen every third
+move -- a thing no 1320 does, and the opposite of what a learner needs from
+an opponent, which is mistakes of the kind people make. Stockfish's own
+strength limit already produces those: `UCI_Elo` sets an internal skill
+level that picks among several lines with a bias towards the better ones.
+
+The random layer is gone. The two levels ask for `MultiPV 4`, the hook keeps
+the newest line per rank as the `info` lines arrive, and on `bestmove`
+`pickVarietyMove` rolls once for whether to vary and once for which
+alternative -- uniformly among the lines within a window of the best
+(180cp at Beginner, 90 at Novice), the best excluded, because the point of
+the roll is to not play it. A mate scores as the sentinel and sits outside
+any window on its own, so the opponent never varies into being mated or
+away from mating. Anything above Novice, a search that reported nothing, or
+a window nothing falls inside, plays the engine move.
+
+`MultiPV` is sent with the strength options on every handshake; unlike
+`Threads` it rebuilds nothing, so it needs no `isready` of its own.
+
 ## Play mode
 
 Play mode and Analysis mode share one board, one tree and one set of input

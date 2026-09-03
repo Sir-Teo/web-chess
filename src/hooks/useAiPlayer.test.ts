@@ -8,7 +8,8 @@ import {
     aiThreadCount,
     consumeStoppedSearchBestMove,
     fetchExactTablebaseMove,
-    pickBeginnerVarietyMove,
+    aiMultiPv,
+    pickVarietyMove,
     pickExactTablebaseMove,
 } from './useAiPlayer'
 import { profileById, recommendedThreadCount } from '../engine/profiles'
@@ -87,25 +88,62 @@ describe('AI stopped-search bestmove routing', () => {
 })
 
 describe('AI beginner move variety', () => {
-    it('occasionally returns legal non-engine moves for beginner levels', () => {
-        const startFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+    /** The rolls in order: whether to vary, then which alternative. */
+    const rolls = (...values: number[]) => {
+        let index = 0
+        return () => values[index++] ?? 0
+    }
+    const lines = [
+        { multipv: 1, cp: 30, move: 'e2e4' },
+        { multipv: 2, cp: -20, move: 'd2d4' },
+        { multipv: 3, cp: -150, move: 'g1f3' },
+        { multipv: 4, cp: -400, move: 'a2a3' },
+    ]
 
-        expect(pickBeginnerVarietyMove(startFen, 1, () => 0)).toBe('a2a3')
-        expect(pickBeginnerVarietyMove(startFen, 2, () => 0)).toBe('a2a3')
+    it('plays the engine move at every level above Novice', () => {
+        for (const difficulty of [3, 4, 5, 6, 7, 8] as const) {
+            expect(pickVarietyMove(difficulty, lines, 'e2e4', rolls(0, 0))).toBe('e2e4')
+        }
     })
 
-    it('leaves stronger levels on pure Stockfish selection', () => {
-        const startFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
-
-        expect(pickBeginnerVarietyMove(startFen, 3, () => 0)).toBeNull()
-        expect(pickBeginnerVarietyMove(startFen, 8, () => 0)).toBeNull()
+    it('plays the engine move most of the time at the weakest levels too', () => {
+        expect(pickVarietyMove(1, lines, 'e2e4', rolls(0.99, 0))).toBe('e2e4')
+        expect(pickVarietyMove(2, lines, 'e2e4', rolls(0.5, 0))).toBe('e2e4')
     })
 
-    it('skips variety when chance does not roll in or the FEN is invalid', () => {
-        const startFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+    it('varies within a window of the best line, never to a random legal move', () => {
+        // Beginner's window admits d4 and Nf3; the -4.00 a3 is out.
+        expect(pickVarietyMove(1, lines, 'e2e4', rolls(0, 0))).toBe('d2d4')
+        expect(pickVarietyMove(1, lines, 'e2e4', rolls(0, 0.99))).toBe('g1f3')
+        // Novice's narrower window admits d4 alone.
+        expect(pickVarietyMove(2, lines, 'e2e4', rolls(0, 0.99))).toBe('d2d4')
+    })
 
-        expect(pickBeginnerVarietyMove(startFen, 1, () => 0.99)).toBeNull()
-        expect(pickBeginnerVarietyMove('not a fen', 1, () => 0)).toBeNull()
+    it('keeps a mate out of the window in either direction', () => {
+        const mating = [
+            { multipv: 1, mate: 2, move: 'd1h5' },
+            { multipv: 2, cp: 40, move: 'e2e4' },
+        ]
+        expect(pickVarietyMove(1, mating, 'd1h5', rolls(0, 0))).toBe('d1h5')
+        const mated = [
+            { multipv: 1, cp: 10, move: 'e2e4' },
+            { multipv: 2, mate: -3, move: 'f2f3' },
+        ]
+        expect(pickVarietyMove(1, mated, 'e2e4', rolls(0, 0))).toBe('e2e4')
+    })
+
+    it('falls back to the engine move when there is nothing close enough to choose', () => {
+        const lopsided = [{ multipv: 1, cp: 500, move: 'e2e4' }, { multipv: 2, cp: -300, move: 'a2a3' }]
+        expect(pickVarietyMove(1, lopsided, 'e2e4', rolls(0, 0))).toBe('e2e4')
+        expect(pickVarietyMove(1, [], 'e2e4', rolls(0, 0))).toBe('e2e4')
+        expect(pickVarietyMove(1, lines, null, rolls(0, 0))).toBeNull()
+    })
+
+    it('asks the engine for the lines it needs', () => {
+        expect(aiMultiPv(1)).toBe(4)
+        expect(aiMultiPv(2)).toBe(4)
+        expect(aiMultiPv(3)).toBe(1)
+        expect(aiMultiPv(8)).toBe(1)
     })
 })
 

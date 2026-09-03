@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Chess, type Move } from 'chess.js'
 import {
     detectEngineCapabilities,
     profileById,
@@ -15,7 +14,9 @@ import {
     type TablebaseResult,
 } from '../engine/tablebase'
 import type { AiSearchHistory } from '../engine/playMode'
-import { buildPositionCommand } from '../engine/uci'
+import { buildPositionCommand, isUciMove } from '../engine/uci'
+import { scoreToCp } from '../engine/analysis'
+import { parseInfoLine, type EngineLine } from './useStockfishEngine'
 
 export type AiDifficulty = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 
@@ -94,10 +95,27 @@ export function aiMovetimeMs(difficulty: AiDifficulty, clock?: AiClockReading | 
     return Math.max(AI_MIN_MOVETIME_MS, Math.round(budget))
 }
 
-const BEGINNER_RANDOM_MOVE_CHANCE: Partial<Record<AiDifficulty, number>> = {
-    1: 0.38,
-    2: 0.20,
+/**
+ * How often the two weakest levels play something other than the engine's
+ * first choice, and how much worse that something may be.
+ *
+ * They used to play a uniformly random legal move that often -- at Beginner
+ * a hung queen every third move, which no 1320 does and nothing a learner can
+ * learn from. The engine is asked for four lines instead, and the alternative
+ * comes from those, no further below the best than the window allows.
+ * Stockfish's own strength limit already blunts the lines themselves; this
+ * only spreads the choice among them.
+ */
+const VARIETY: Partial<Record<AiDifficulty, { chance: number; windowCp: number; lines: number }>> = {
+    1: { chance: 0.38, windowCp: 180, lines: 4 },
+    2: { chance: 0.20, windowCp: 90, lines: 4 },
 }
+
+/** How many lines the opponent searches: enough to choose among at the weakest levels, one otherwise. */
+export function aiMultiPv(difficulty: AiDifficulty): number {
+    return VARIETY[difficulty]?.lines ?? 1
+}
+
 const EXACT_TABLEBASE_DIFFICULTY: AiDifficulty = 8
 const TABLEBASE_AI_TIMEOUT_MS = 2500
 const TABLEBASE_AI_ABORT_MESSAGE = 'AI tablebase request aborted.'
@@ -185,28 +203,40 @@ export function addStoppedSearchBestMoveAck(pendingStoppedSearches: number): num
     return Math.floor(pendingStoppedSearches) + 1
 }
 
-function moveToUci(move: Move): string {
-    return `${move.from}${move.to}${move.promotion ?? ''}`
-}
+/** One of the engine's lines, reduced to what the choice needs. */
+export type AiSearchLine = { multipv: number; cp?: number; mate?: number; move: string }
 
-export function pickBeginnerVarietyMove(
-    fen: string,
+/**
+ * The move a weak level actually plays, given the engine's lines and its
+ * first choice. Two rolls: whether to vary at all, then which alternative --
+ * uniformly among the lines within the window, the best excluded, because
+ * the point of the roll is to not play it. Anything above Novice, a search
+ * that reported nothing, or a window nothing falls inside, plays the engine
+ * move. A mate scores as the sentinel either way, so a line that mates or is
+ * mated sits far outside any window on its own.
+ */
+export function pickVarietyMove(
     difficulty: AiDifficulty,
+    lines: AiSearchLine[],
+    bestMove: string | null,
     random = Math.random,
 ): string | null {
-    const chance = BEGINNER_RANDOM_MOVE_CHANCE[difficulty]
-    if (!chance) return null
-    if (random() >= chance) return null
+    const variety = VARIETY[difficulty]
+    if (!variety || !bestMove) return bestMove
+    if (random() >= variety.chance) return bestMove
 
-    try {
-        const chess = new Chess(fen)
-        const moves = chess.moves({ verbose: true })
-        if (!moves.length) return null
-        const index = Math.min(moves.length - 1, Math.floor(random() * moves.length))
-        return moveToUci(moves[index]!)
-    } catch {
-        return null
-    }
+    const scored = lines.flatMap(line => {
+        const score = scoreToCp(line.cp, line.mate)
+        return typeof score === 'number' && isUciMove(line.move) ? [{ move: line.move, score }] : []
+    })
+    if (!scored.length) return bestMove
+    const top = scored.find(line => line.move === bestMove)?.score
+        ?? Math.max(...scored.map(line => line.score))
+    const alternatives = scored.filter(line => line.move !== bestMove && line.score >= top - variety.windowCp)
+    if (!alternatives.length) return bestMove
+
+    const index = Math.min(alternatives.length - 1, Math.floor(random() * alternatives.length))
+    return alternatives[index]!.move
 }
 
 export function pickExactTablebaseMove(result: TablebaseResult | null): string | null {
@@ -283,6 +313,8 @@ export function useAiPlayer(enabled = true) {
      */
     const appliedThreadsRef = useRef<number | null>(null)
     const awaitingReadyRef = useRef(0)
+    /** The lines of the search in flight, newest depth per rank, for the weak levels' choice. */
+    const searchLinesRef = useRef<Map<number, EngineLine>>(new Map())
     const [status, setStatus] = useState<AiStatus>('loading')
     const [profileName, setProfileName] = useState('Stockfish')
     /**
@@ -359,6 +391,9 @@ export function useAiPlayer(enabled = true) {
         for (const command of aiDifficultyCommands(difficulty)) {
             worker.postMessage(command)
         }
+        // The lines the weakest levels choose among. Unlike Threads this does
+        // not rebuild anything, so it needs no handshake of its own.
+        worker.postMessage(`setoption name MultiPV value ${aiMultiPv(difficulty)}`)
 
         const threads = aiThreadCount(profile, capabilities, difficulty)
         if (appliedThreadsRef.current === threads) return true
@@ -470,6 +505,14 @@ export function useAiPlayer(enabled = true) {
                     setStatus('ready')
                 }
 
+                if (line.startsWith('info ') && resolveRef.current) {
+                    const parsed = parseInfoLine(line)
+                    if (parsed?.pv[0]) {
+                        const held = searchLinesRef.current.get(parsed.multipv)
+                        if (!held || parsed.depth >= held.depth) searchLinesRef.current.set(parsed.multipv, parsed)
+                    }
+                }
+
                 if (line.startsWith('bestmove ')) {
                     const stoppedSearchAck = consumeStoppedSearchBestMove(ignoredBestMoveCountRef.current)
                     if (stoppedSearchAck.ignore) {
@@ -485,7 +528,10 @@ export function useAiPlayer(enabled = true) {
 
                     const parts = line.split(' ')
                     const move = parts[1] ?? null
-                    finishRequest(move === '(none)' ? null : move, 'ready')
+                    const bestMove = move === '(none)' ? null : move
+                    const searchLines = [...searchLinesRef.current.values()]
+                        .map(held => ({ multipv: held.multipv, cp: held.cp, mate: held.mate, move: held.pv[0]! }))
+                    finishRequest(pickVarietyMove(difficultyRef.current, searchLines, bestMove), 'ready')
                 }
             }
         }
@@ -571,8 +617,6 @@ export function useAiPlayer(enabled = true) {
                 if (exactMove) return exactMove
 
                 const worker = workerRef.current
-                const varietyMove = pickBeginnerVarietyMove(fen, difficulty)
-                if (varietyMove) return varietyMove
                 if (!worker || !isReadyRef.current || resolveRef.current) return null
                 if (ignoredBestMoveCountRef.current > 0) return null
 
@@ -605,6 +649,7 @@ export function useAiPlayer(enabled = true) {
                     // With the moves that led here, not just the position: the
                     // engine builds its repetition history from them, and
                     // without it cannot see that a position has occurred before.
+                    searchLinesRef.current = new Map()
                     worker.postMessage(buildPositionCommand(fen, history?.moves, history?.rootFen))
                     // Per docs: "go movetime N" is the clean way to get a single best move
                     worker.postMessage(`go movetime ${movetime}`)
