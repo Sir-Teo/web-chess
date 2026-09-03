@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_PERSISTED_SETTINGS,
+  defaultHashMb,
+  defaultPersistedSettings,
   loadPersistedSettings,
   persistSettings,
   resolveTheme,
   type PersistedAppSettings,
 } from './appSettings'
+import { recommendedHashMb } from './profiles'
 import { ANALYSIS_SETTINGS_STORAGE_KEY } from '../storageKeys'
 
 /** A localStorage stand-in, so nothing here depends on a browser. */
@@ -36,17 +39,41 @@ afterEach(() => {
 describe('reading settings back', () => {
   it('returns the defaults when nothing has ever been stored', () => {
     installStorage()
-    expect(loadPersistedSettings()).toEqual(DEFAULT_PERSISTED_SETTINGS)
+    expect(loadPersistedSettings()).toEqual(defaultPersistedSettings())
   })
 
   it('returns the defaults rather than throwing on a store full of nonsense', () => {
     installStorage('{{{ not json')
-    expect(loadPersistedSettings()).toEqual(DEFAULT_PERSISTED_SETTINGS)
+    expect(loadPersistedSettings()).toEqual(defaultPersistedSettings())
   })
 
   it('returns the defaults when storage itself refuses to be read', () => {
     installStorage(undefined, { getItem: () => { throw new Error('blocked') } })
-    expect(loadPersistedSettings()).toEqual(DEFAULT_PERSISTED_SETTINGS)
+    expect(loadPersistedSettings()).toEqual(defaultPersistedSettings())
+  })
+
+  /**
+   * The first visit is the one with no stored preference to respect, so the
+   * device's own limits are all there is to go on -- and it was the one path
+   * that ignored them. A corrupt stored Hash fell back to the sized value and
+   * a missing one did not, which is the same question answered two ways.
+   */
+  it('sizes Hash to the device on a first visit, not to the flat constant', () => {
+    installStorage()
+    expect(loadPersistedSettings().hashMb).toBe(defaultHashMb())
+    installStorage(stored({ hashMb: 4096 }))
+    expect(loadPersistedSettings().hashMb).toBe(defaultHashMb())
+  })
+
+  it('would hand a phone a smaller hash than the constant', () => {
+    const phone = {
+      sharedArrayBuffer: false,
+      crossOriginIsolated: false,
+      hardwareConcurrency: 8,
+      deviceMemoryGb: 4,
+      isMobile: true,
+    }
+    expect(recommendedHashMb(phone)).toBeLessThan(DEFAULT_PERSISTED_SETTINGS.hashMb)
   })
 
   it('keeps a value it recognises', () => {

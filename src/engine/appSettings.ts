@@ -134,6 +134,22 @@ export const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
   theme: 'dark',
 }
 
+/**
+ * The settings a browser that has never been here gets.
+ *
+ * Not `DEFAULT_PERSISTED_SETTINGS` itself, because one of its fields is not a
+ * constant: Hash has to be sized to the device. `recommendedHashMb` exists
+ * precisely so a phone is not handed 64 MB of transposition table on top of
+ * the engine's own WASM heap -- and every path into this module used it except
+ * the one that matters most. A corrupt stored value fell back to it, and
+ * "Reset saved workspace" used it, but a *first visit* took the flat 64 from
+ * the constant. That is the one visit with no reader preference to respect, so
+ * it is the one where the device's own limits are all there is to go on.
+ */
+export function defaultPersistedSettings(): PersistedAppSettings {
+  return { ...DEFAULT_PERSISTED_SETTINGS, hashMb: defaultHashMb() }
+}
+
 let cachedDefaultHashMb: number | null = null
 export function defaultHashMb(): number {
   if (cachedDefaultHashMb !== null) return cachedDefaultHashMb
@@ -222,11 +238,11 @@ export function normalizeOpeningSpeeds(value: unknown): OpeningSpeed[] {
 }
 
 export function loadPersistedSettings(): PersistedAppSettings {
-  if (typeof window === 'undefined') return DEFAULT_PERSISTED_SETTINGS
+  if (typeof window === 'undefined') return defaultPersistedSettings()
 
   try {
     const raw = window.localStorage.getItem(ANALYSIS_SETTINGS_STORAGE_KEY)
-    if (!raw) return DEFAULT_PERSISTED_SETTINGS
+    if (!raw) return defaultPersistedSettings()
 
     const parsed = JSON.parse(raw) as Record<string, unknown>
     const labCommandHistory = Array.isArray(parsed.labCommandHistory)
@@ -300,7 +316,7 @@ export function loadPersistedSettings(): PersistedAppSettings {
       theme: isThemePreference(parsed.theme) ? parsed.theme : DEFAULT_PERSISTED_SETTINGS.theme,
     }
   } catch {
-    return DEFAULT_PERSISTED_SETTINGS
+    return defaultPersistedSettings()
   }
 }
 
