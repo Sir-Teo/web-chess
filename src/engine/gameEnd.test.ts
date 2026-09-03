@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Chess } from 'chess.js'
-import { describeGameEnd } from './gameEnd'
+import { describeGameEnd, gameResultScore } from './gameEnd'
 
 function played(moves: string[]): Chess {
   const game = new Chess()
@@ -100,5 +100,14 @@ describe('what the caller can rely on', () => {
     for (const game of positions) {
       expect(describeGameEnd(game) !== null).toBe(game.isGameOver())
     }
+  })
+
+  it('prints the result the way a score line does', () => {
+    expect(gameResultScore('1-0')).toBe('1-0')
+    expect(gameResultScore('0-1')).toBe('0-1')
+    expect(gameResultScore('1/2-1/2')).toBe('½-½')
+    // The two travel together: whatever ended the game, its score prints.
+    const mated = played(['f3', 'e5', 'g4', 'Qh4#'])
+    expect(gameResultScore(describeGameEnd(mated)!.result)).toBe('0-1')
   })
 })

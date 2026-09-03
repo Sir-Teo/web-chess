@@ -382,6 +382,37 @@ the axis, since one bad value there poisons the whole scale rather than one
 point. This repo is safe from the scale half already, because the skip happens
 at the source and the series only ever holds finite numbers.
 
+## A finished position has no engine reading
+
+Stockfish answers a checkmated position with `info depth 0 score mate 0` and
+`bestmove (none)`. `scoreToCp` refuses a mate with no distance, because it is
+not a score, so nothing was ever recorded for the last position of a game
+that ended on the board. `buildReviewRows` had a fallback for exactly this --
+the replay knows the position is terminal and grades the mating move from
+the result -- but the two trend series, the eval bar and the Coach card read
+the evaluation map directly. Import a fool's mate and navigate to the end:
+the bar sat at an even split under the mated king, both graphs stopped one
+ply short, and the Coach card read "...".
+
+`terminalSnapshotForFen` gives the result as a reading, side-to-move like
+every engine score: the mate sentinel with a WDL of all losses, or level with
+all draws. The series take it where the map has nothing; `App` reads it
+behind the map for the board position. A FEN cannot show a repetition, so a
+game drawn that way is only caught by the replayed history -- that is the one
+ending the board-position fallback cannot see, and it lands on the final
+engine reading instead, which is level anyway.
+
+Two things about how it prints. The sentinel formats as `-100.00`, which is a
+number but not one anybody means, so a finished position prints its score
+line -- `0-1`, `½-½` -- on the bar and in the Position tile, and the Coach
+verdict is the ending rather than "completely winning · 100%". And the Depth
+tile says "Final": a mated king with seven men left is in the tablebase, and
+"TB exact" is a strange thing to say about it.
+
+The WDL series takes the final point only when it already has one. With WDL
+off nothing else in the game has a reading, and a graph of a single closing
+point would claim there was a trend to show.
+
 ## What `npm run verify` covers
 
 `npm run verify` runs typecheck, lint, the test suite and the build — every gate

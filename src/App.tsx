@@ -26,6 +26,7 @@ import {
   type ReviewSideFilter,
   recordEvaluation,
   engineLineToSnapshot,
+  terminalSnapshotForFen,
 } from './engine/analysis'
 import { historicalSampleGames, type HistoricalSampleGame, type HistoricalSampleFormat } from './assets/historicalSamples'
 import {
@@ -125,7 +126,7 @@ import {
   timeControlTag,
   type ClockState,
 } from './engine/chessClock'
-import { describeGameEnd } from './engine/gameEnd'
+import { describeGameEnd, gameResultScore } from './engine/gameEnd'
 import { describeCaptures, materialAdvantageLabel, materialBalance } from './engine/material'
 import {
   resignDisabledReason,
@@ -1482,15 +1483,37 @@ function App() {
   const coachCloudScore = currentCloudEval?.pvs[0]
     ? cloudLineToSideToMoveScore(fen, currentCloudEval.pvs[0])
     : null
-  const coachEvaluation = coachLine
+  /**
+   * The stored reading for the board position, or the result when there is
+   * none because the game is over.
+   *
+   * The engine answers a mated position with `score mate 0`, which is not a
+   * score, so the last position of a game never reached the map: the eval bar
+   * sat at an even split under the mated king and the Coach card read "...".
+   * The review rows had a fallback for exactly this; the bar and the card
+   * read the map directly and did not.
+   */
+  const currentEvaluation = useMemo(
+    () => evaluationsByFen.get(fen) ?? terminalSnapshotForFen(fen) ?? undefined,
+    [evaluationsByFen, fen],
+  )
+  /** How the game ended on the board, or null while it is still on. */
+  const boardEnding = describeGameEnd(game)
+  /**
+   * The score to print where a number would be. The terminal snapshot above
+   * carries the mate sentinel, which formats as "-100.00" -- a number, but
+   * not one anybody means under a checkmate.
+   */
+  const endingScore = boardEnding ? gameResultScore(boardEnding.result) : null
+  const coachEvaluation = endingScore ?? (coachLine
     ? formatWhitePovEvaluation(coachLine.fen ?? fen, coachLine.cp, coachLine.mate)
     : coachCloudScore
       ? formatWhitePovEvaluation(fen, coachCloudScore.cp, coachCloudScore.mate)
-      : evaluationsByFen.get(fen)
-        ? formatWhitePovEvaluation(fen, evaluationsByFen.get(fen)?.cp, evaluationsByFen.get(fen)?.mate)
+      : currentEvaluation
+        ? formatWhitePovEvaluation(fen, currentEvaluation.cp, currentEvaluation.mate)
         : tablebase.result
           ? tablebaseSummary(tablebase.result)
-          : '...'
+          : '...')
   /**
    * The same reading as `coachEvaluation`, in words.
    *
@@ -1501,12 +1524,15 @@ function App() {
    * cannot disagree with the trend graph beside it.
    */
   const coachVerdict = (() => {
+    // A finished game is described by how it finished. "White is completely
+    // winning · 100% for White" under a checkmate is true and beside the point.
+    if (boardEnding) return boardEnding.label
     const source = coachLine
       ? { fen: coachLine.fen ?? fen, cp: coachLine.cp, mate: coachLine.mate }
       : coachCloudScore
         ? { fen, cp: coachCloudScore.cp, mate: coachCloudScore.mate }
-        : evaluationsByFen.get(fen)
-          ? { fen, cp: evaluationsByFen.get(fen)!.cp, mate: evaluationsByFen.get(fen)!.mate }
+        : currentEvaluation
+          ? { fen, cp: currentEvaluation.cp, mate: currentEvaluation.mate }
           : null
     if (!source) return null
     return describeAdvantage(
@@ -1519,7 +1545,7 @@ function App() {
   const coachBestMove = selectCoachBestMove({
     engine: coachLine?.pv[0],
     cloud: currentCloudEval?.pvs[0]?.moves[0],
-    stored: evaluationsByFen.get(fen)?.bestMove,
+    stored: currentEvaluation?.bestMove,
     last: currentLastBestMove,
     tablebase: tablebaseTopMove,
   })
@@ -1529,16 +1555,17 @@ function App() {
     ? null
     : coachLine?.pv[1] ?? currentCloudEval?.pvs[0]?.moves[1] ?? currentLastPonderMove ?? null
   const coachReplyMoveText = ponderMoveLabel(fen, coachBestMove, coachReplyMove)
-  const coachDepth = coachLine?.depth ?? currentCloudEval?.depth ?? evaluationsByFen.get(fen)?.depth
+  const coachDepth = coachLine?.depth ?? currentCloudEval?.depth ?? currentEvaluation?.depth
   // A tile labelled Depth reports a depth or nothing. It used to fall back to
   // the engine status, so it read "analyzing" in a row of numbers -- and then,
   // once cloud evals arrived, it reported theirs as though this app had reached
   // 75 plies. It says whose depth it is.
   const coachSource = coachReadingSource({
+    gameOver: Boolean(boardEnding),
     hasEngineLine: Boolean(coachLine),
     hasCloudScore: Boolean(coachCloudScore),
-    hasStored: evaluationsByFen.has(fen),
-    storedPurpose: evaluationsByFen.get(fen)?.purpose,
+    hasStored: Boolean(currentEvaluation),
+    storedPurpose: currentEvaluation?.purpose,
     hasTablebase: Boolean(tablebase.result),
   })
   const coachDepthReading = describeCoachDepth(
@@ -5179,10 +5206,10 @@ function App() {
             )}
             <div className="board-wrap">
               {engineEnabled && showWdl && (() => {
-                const evalSnap = evaluationsByFen.get(fen)
-                const evalLabel = evalSnap
+                const evalSnap = currentEvaluation
+                const evalLabel = endingScore ?? (evalSnap
                   ? formatCompactWhitePovEvaluation(fen, evalSnap.cp, evalSnap.mate)
-                  : null
+                  : null)
                 return (
                   <div className="eval-column" aria-hidden="true">
                     <WdlBar fen={fen} evaluation={evalSnap} orientation={orientation} />

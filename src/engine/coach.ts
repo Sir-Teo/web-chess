@@ -37,9 +37,11 @@ export function isExactTablebaseCoachMove(
 }
 
 /** Who produced the reading the Coach card is showing. */
-export type CoachSource = 'tablebase' | 'engine' | 'cloud' | 'imported'
+export type CoachSource = 'result' | 'tablebase' | 'engine' | 'cloud' | 'imported'
 
 type CoachSourceInput = {
+  /** The game is over on the board, so the result is the reading. */
+  gameOver?: boolean
   /** A live line from the Stockfish running in this tab. */
   hasEngineLine: boolean
   /** A score from Lichess's cached analysis of this position. */
@@ -61,12 +63,16 @@ type CoachSourceInput = {
  * reporting that nothing had run.
  */
 export function coachReadingSource({
+  gameOver,
   hasEngineLine,
   hasCloudScore,
   storedPurpose,
   hasStored,
   hasTablebase,
 }: CoachSourceInput): CoachSource | null {
+  // Before everything, including a tablebase: a mated king is in every
+  // seven-piece table, and "TB exact" is a strange thing to say about it.
+  if (gameOver) return 'result'
   if (hasEngineLine) return 'engine'
   if (hasCloudScore) return 'cloud'
   if (hasStored) {
@@ -93,6 +99,13 @@ export function describeCoachDepth(
   depth: number | undefined,
   hasTablebase = false,
 ): CoachDepthReading {
+  if (source === 'result') {
+    return {
+      label: 'Final',
+      title: 'The game ended here. The result is the reading; there was nothing left to search.',
+    }
+  }
+
   if (hasTablebase || source === 'tablebase') {
     return {
       label: 'TB exact',

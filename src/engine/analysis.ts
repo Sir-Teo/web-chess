@@ -429,10 +429,25 @@ function toUci(move: Move): string {
   return `${move.from}${move.to}${move.promotion ?? ''}`
 }
 
+/**
+ * The reading a finished position gives without a search.
+ *
+ * Stockfish has nothing to say about a checkmate: it answers `score mate 0`,
+ * which `scoreToCp` refuses because a mate with no distance is not a score --
+ * so nothing was ever recorded for the last position of a game that ended in
+ * one. The review rows have long fallen back to this; the two trend series,
+ * the eval bar and the Coach card read the map directly and stopped one ply
+ * short, with the bar sitting at an even split under a mated king.
+ *
+ * Side-to-move point of view, like every engine score. The mated side has
+ * lost, so the score is the mate sentinel and the WDL is all losses; a draw
+ * is level and all draws. WDL is in permille, the way the engine reports it.
+ */
 function terminalEvaluationSnapshot(position: Chess): EvalSnapshot | null {
   if (position.isCheckmate()) {
     return {
       cp: -10000,
+      wdl: { w: 0, d: 0, l: 1000 },
       purpose: 'batch-review',
       mode: 'review',
     }
@@ -441,12 +456,27 @@ function terminalEvaluationSnapshot(position: Chess): EvalSnapshot | null {
   if (position.isDraw()) {
     return {
       cp: 0,
+      wdl: { w: 0, d: 1000, l: 0 },
       purpose: 'batch-review',
       mode: 'review',
     }
   }
 
   return null
+}
+
+/**
+ * {@link terminalEvaluationSnapshot} for a position given as a FEN, or null
+ * when the game is still on -- or the FEN is not one. A FEN cannot show a
+ * repetition, so a game drawn that way is only caught by the replayed
+ * history; that is the one ending this cannot see.
+ */
+export function terminalSnapshotForFen(fen: string): EvalSnapshot | null {
+  try {
+    return terminalEvaluationSnapshot(new Chess(fen))
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -1023,7 +1053,9 @@ export function buildWinrateSeries(
   }
 
   for (const ply of plies) {
-    const snapshot = evaluationsByFen.get(ply.afterFen)
+    // The move that ended the game has no engine reading and never will; the
+    // result is the reading. Same fallback `buildReviewRows` makes.
+    const snapshot = evaluationsByFen.get(ply.afterFen) ?? ply.terminal
     const cp = snapshot ? scoreToCp(snapshot.cp, snapshot.mate) : undefined
     if (!isFiniteNumber(cp)) continue
 
@@ -1059,7 +1091,12 @@ export function buildWdlSeries(
   }
 
   for (const ply of plies) {
+    // The result stands in for the missing engine reading, as above -- but
+    // only once the series has a point to follow. With WDL off nothing else
+    // in the game has one, and a graph of a single final point would claim
+    // there was a WDL trend to show.
     const wdl = evaluationsByFen.get(ply.afterFen)?.wdl
+      ?? (series.length > 0 ? ply.terminal?.wdl : undefined)
     if (!wdl) continue
 
     const normalized = normalizeWhitePovWdl(ply.afterFen, wdl)

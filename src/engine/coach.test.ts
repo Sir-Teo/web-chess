@@ -99,4 +99,30 @@ describe('describeCoachDepth', () => {
     expect(describeCoachDepth(null, undefined).label).toBe('...')
     expect(describeCoachDepth('engine', undefined).label).toBe('...')
   })
+
+  it('calls a finished game final, even where a tablebase has the position', () => {
+    // A mated king with seven men on the board is in the tablebase, and the
+    // engine says `mate 0` about it. Neither is what happened.
+    expect(describeCoachDepth('result', undefined, true).label).toBe('Final')
+    expect(describeCoachDepth('result', 16).title).toContain('ended')
+  })
+})
+
+describe('a finished game as a Coach source', () => {
+  it('outranks every reading, because the result is the reading', () => {
+    expect(coachReadingSource({
+      gameOver: true,
+      hasEngineLine: true,
+      hasCloudScore: true,
+      hasStored: true,
+      storedPurpose: 'batch-review',
+      hasTablebase: true,
+    })).toBe('result')
+  })
+
+  it('changes nothing while the game is on', () => {
+    const live = { gameOver: false, hasEngineLine: false, hasCloudScore: false, hasStored: false, hasTablebase: false }
+    expect(coachReadingSource(live)).toBeNull()
+    expect(coachReadingSource({ ...live, hasEngineLine: true })).toBe('engine')
+  })
 })

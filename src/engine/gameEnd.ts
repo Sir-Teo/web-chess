@@ -21,6 +21,16 @@ export type GameEnd = {
 }
 
 /**
+ * The result as a score line reads it -- "1-0", "0-1", "½-½" -- for the
+ * places that print a number for a live position and would otherwise print
+ * the mate sentinel: "-100" on the eval bar under a checkmate is a number,
+ * but not one anybody means.
+ */
+export function gameResultScore(result: GameEndResult): string {
+  return result === '1/2-1/2' ? '½-½' : result
+}
+
+/**
  * The ending for a finished position, or null while the game is still on.
  *
  * Order is deliberate. Checkmate and stalemate describe the side to move

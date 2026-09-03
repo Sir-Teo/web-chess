@@ -27,6 +27,7 @@ import {
   engineLineToSnapshot,
   pvLineMoves,
   describeAdvantage,
+  terminalSnapshotForFen,
 } from './analysis'
 
 describe('review analysis helpers', () => {
@@ -179,6 +180,54 @@ describe('review analysis helpers', () => {
     expect(isTerminalPositionFen(game.fen())).toBe(true)
     expect(isTerminalPositionFen(beforeMateFen)).toBe(false)
     expect(isTerminalPositionFen('not a fen')).toBe(false)
+  })
+
+  it('ends the trend graphs on the move that ended the game', () => {
+    const game = new Chess()
+    const rootFen = game.fen()
+    const moves = [game.move('f3')!, game.move('e5')!, game.move('g4')!]
+    const beforeMateFen = game.fen()
+    moves.push(game.move('Qh4#')!)
+
+    // What the engine leaves behind: a reading for every position it could
+    // search, and nothing for the mate, which it answers with `mate 0`.
+    const evaluations = new Map([
+      [rootFen, { cp: 30, depth: 16, wdl: { w: 300, d: 500, l: 200 } }],
+      [beforeMateFen, { cp: -10000, mate: -1, depth: 16, wdl: { w: 0, d: 0, l: 1000 } }],
+    ])
+
+    const winrate = buildWinrateSeries(moves, evaluations, rootFen)
+    expect(winrate.at(-1)).toMatchObject({ index: 4, label: '2... Qh4#' })
+    expect(winrate.at(-1)?.whiteWinrate).toBeLessThan(1)
+
+    const wdl = buildWdlSeries(moves, evaluations, rootFen)
+    expect(wdl.at(-1)).toMatchObject({ index: 4, label: '2... Qh4#', white: 0, draw: 0, black: 100 })
+  })
+
+  it('does not invent a WDL graph out of the final position alone', () => {
+    const game = new Chess()
+    const rootFen = game.fen()
+    const moves = [game.move('f3')!, game.move('e5')!, game.move('g4')!, game.move('Qh4#')!]
+
+    // WDL off: every reading is a bare score. One point at the end would
+    // claim there was a trend to show.
+    const evaluations = new Map([[rootFen, { cp: 30, depth: 16 }]])
+    expect(buildWdlSeries(moves, evaluations, rootFen)).toEqual([])
+    // The winrate series has no such problem: every reading carries a score.
+    expect(buildWinrateSeries(moves, evaluations, rootFen).map(point => point.label))
+      .toEqual(['Start', '2... Qh4#'])
+  })
+
+  it('reads the result off a finished position', () => {
+    const mated = new Chess()
+    for (const san of ['f3', 'e5', 'g4', 'Qh4#']) mated.move(san)
+    expect(terminalSnapshotForFen(mated.fen())).toMatchObject({ cp: -10000, wdl: { w: 0, d: 0, l: 1000 } })
+
+    const stalemate = 'k7/8/1Q6/8/8/8/8/K7 b - - 0 1'
+    expect(terminalSnapshotForFen(stalemate)).toMatchObject({ cp: 0, wdl: { w: 0, d: 1000, l: 0 } })
+
+    expect(terminalSnapshotForFen(new Chess().fen())).toBeNull()
+    expect(terminalSnapshotForFen('not a fen')).toBeNull()
   })
 
   it('includes finite mate evaluations in the winrate graph', () => {
