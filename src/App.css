@@ -2789,6 +2789,13 @@ button.critical-moment-row {
   .accuracy-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  /* The players' names ellipsize to a stray "C." beside the result at this
+     width. The result is the fact the strip is there for; the names are in
+     the library row and the PGN headers. */
+  .board-meta-game>span {
+    display: none;
+  }
 }
 
 .review-chips {
@@ -3606,6 +3613,14 @@ button.critical-moment-row {
     min-height: 1.85rem;
     padding: 0.22rem 0.38rem;
     font-size: 0.68rem;
+  }
+
+  /* In Play mode the strip's status is the game mode, which the selected
+     pill above the board and the bar below it both already say. At a phone's
+     width it was the thing that pushed the quality pill off the right edge:
+     "Human vs Human · EXCEL" with the rest clipped. */
+  .app-shell[data-workspace-mode="play"] .board-meta-status {
+    display: none;
   }
 
   .board-meta-practice button {
