@@ -24,8 +24,14 @@ export const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, curren
         const qualityLabel = REVIEW_LABELS[row.quality]
         const impactLabel = reviewImpactLabel(row.deltaCp)
         const confidenceLabel = reviewConfidenceLabel(row.confidence, row.evalDepth)
-        const bestMoveHint =
-          row.bestMove && row.bestMove !== row.uci ? `Best ${row.bestMoveSan ?? row.bestMove}` : null
+        // Only from a search deep enough to grade the move. A row that is
+        // still Pending because its reading came from the 70ms import sweep
+        // was printing that sweep's choice as "Best e4" beside 1. d4 -- a
+        // recommendation from evidence the review itself refuses to grade on.
+        const backedByReview = row.confidence === 'standard' || row.confidence === 'deep'
+        const bestMoveHint = backedByReview && row.bestMove && row.bestMove !== row.uci
+          ? `Best ${row.bestMoveSan ?? row.bestMove}`
+          : null
         const visibleBestMoveHint = hideBestMoves ? null : bestMoveHint
         // What the mover had left when they played it, where the game carries
         // it. Half the blunders in a real game are explained by this number and
