@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { lichessAnalysisUrl, lichessGameUrl, lichessPositionUrl } from './externalLinks'
+import { chessComPositionUrl, lichessAnalysisUrl, lichessGameUrl, lichessPositionUrl } from './externalLinks'
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 const AFTER_E4 = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1'
@@ -38,5 +38,17 @@ describe('the link for what is on the board', () => {
     // from a FEN goes as the position it has reached.
     expect(lichessAnalysisUrl({ rootFen: AFTER_E4, sanMoves: ['e5', 'Nf3'], fen: 'r1b1k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1' }))
       .toBe('https://lichess.org/analysis/standard/r1b1k2r/8/8/8/8/8/8/R3K2R_w_KQkq_-_0_1')
+  })
+})
+
+describe('a chess.com link to a position', () => {
+  it('carries the FEN percent-encoded in the query', () => {
+    expect(chessComPositionUrl('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1'))
+      .toBe('https://www.chess.com/analysis?fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F4P3%2F8%2FPPPP1PPP%2FRNBQKBNR%20b%20KQkq%20e3%200%201')
+  })
+
+  it('normalises the whitespace a pasted FEN can carry', () => {
+    expect(chessComPositionUrl('  8/8/8/8/8/8/8/K6k   w  - - 0 1 '))
+      .toBe('https://www.chess.com/analysis?fen=8%2F8%2F8%2F8%2F8%2F8%2F8%2FK6k%20w%20-%20-%200%201')
   })
 })

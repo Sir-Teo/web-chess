@@ -33,7 +33,7 @@ import {
 } from '../engine/positionSetup'
 import { buildFenShareUrl } from '../engine/shareLink'
 import { MAX_SHARED_GAME_CHARS, buildGameShareUrl } from '../engine/shareGame'
-import { lichessAnalysisUrl } from '../engine/externalLinks'
+import { chessComPositionUrl, lichessAnalysisUrl } from '../engine/externalLinks'
 import { IconDownload, IconClipboard, IconUpload } from './icons'
 import { fenTextForShareLink } from './pgnDialogHelpers'
 import { MAX_PGN_IMPORT_BYTES, PGN_IMPORT_LIMIT_MESSAGE, pgnImportLengthError } from './pgnImportLimits'
@@ -730,6 +730,15 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         : 'Open this position on the Lichess analysis board'}
                                 >
                                     Open in Lichess ↗
+                                </a>
+                                {' · '}
+                                <a
+                                    href={chessComPositionUrl(currentFen)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title="Open this position on the chess.com analysis board"
+                                >
+                                    Open in chess.com ↗
                                 </a>
                             </p>
                         </div>

@@ -111,7 +111,7 @@ import {
 } from './engine/premove'
 import { moveSoundFor } from './engine/moveSound'
 import { hasSiblingVariations, siblingVariation } from './engine/moveTree'
-import { lichessAnalysisUrl } from './engine/externalLinks'
+import { chessComPositionUrl, lichessAnalysisUrl } from './engine/externalLinks'
 import { BOARD_THEMES, boardThemeById } from './engine/boardThemes'
 import {
   createClock,
@@ -4017,6 +4017,10 @@ function App() {
     })
     window.open(url, '_blank', 'noopener,noreferrer')
   }, [currentPathNodes, currentRootFen, fen])
+  /** The position only: chess.com's route has no documented way to carry a line. */
+  const openInChessCom = useCallback(() => {
+    window.open(chessComPositionUrl(fen), '_blank', 'noopener,noreferrer')
+  }, [fen])
 
   const paletteCommands = useMemo<Command[]>(() => [
     { id: 'new-game', label: 'New game', shortcut: 'N', keywords: ['restart', 'reset'], run: openNewGameDialog },
@@ -4040,6 +4044,13 @@ function App() {
       hint: 'This line, on the Lichess analysis board',
       keywords: ['lichess', 'external', 'explorer', 'study', 'second opinion'],
       run: openInLichess,
+    },
+    {
+      id: 'open-chess-com',
+      label: 'Open in chess.com',
+      hint: 'This position, on the chess.com analysis board',
+      keywords: ['chess.com', 'chesscom', 'external', 'second opinion'],
+      run: openInChessCom,
     },
     { id: 'library', label: 'Library', hint: 'Saved games', keywords: ['save', 'open', 'backup'],
       run: openLibraryDialog },
@@ -4124,7 +4135,7 @@ function App() {
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
   ], [atVariationFork, copyFen, copyPgn, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast,
-      goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, openInLichess, requestHint, openLibraryDialog,
+      goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, openInChessCom, openInLichess, requestHint, openLibraryDialog,
       openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger,
       reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason, workspaceMode])
 

@@ -38,6 +38,22 @@ export function lichessGameUrl(sanMoves: string[]): string {
 }
 
 /**
+ * The same position on chess.com's analysis board.
+ *
+ * A query parameter, percent-encoded, which the board reads and then
+ * rewrites with pluses. Undocumented -- the forum threads on it are an
+ * unanswered request and a thread that never touches URLs -- so it was
+ * checked in a real browser rather than believed: the pawn landed on e4,
+ * e2 was empty, and the panel named the King's Pawn Opening. Position
+ * only, because that route has no documented way to carry a line.
+ */
+export const CHESS_COM_ANALYSIS_URL = 'https://www.chess.com/analysis'
+
+export function chessComPositionUrl(fen: string): string {
+  return `${CHESS_COM_ANALYSIS_URL}?fen=${encodeURIComponent(fen.trim().replace(/\s+/g, ' '))}`
+}
+
+/**
  * The link for what is on the board: the line when it began at the initial
  * position and has moves, otherwise the position it has reached.
  */
