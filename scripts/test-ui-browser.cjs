@@ -79,6 +79,8 @@ const SCENARIO = ${JSON.stringify(scenario)};
   // where the device can afford them, and this is how the suite can say which
   // path it actually exercised rather than assuming.
   window.__engineCount = 0;
+  // How many times each position has been searched, across every worker.
+  window.__fenSearches = {};
 
   function scoreFor(fen) {
     // Deterministic pseudo-eval in [-120, 120], stable for a given position.
@@ -109,6 +111,26 @@ const SCENARIO = ${JSON.stringify(scenario)};
       if (SCENARIO === 'blunder-nudge') {
         return this.searches >= 2 ? { cp: 330, move: 'b8c6' } : { cp: 30, move: 'e7e5' };
       }
+      /**
+       * The second look at a position disagrees violently with the first.
+       *
+       * That is what browsing after a review really does -- it re-searches one
+       * half of a graded pair far deeper -- and it is the input that used to
+       * rewrite a finished report. Counted per position and shared across every
+       * engine, because the review pool and the panel's engine are different
+       * workers looking at the same board.
+       */
+      if (SCENARIO === 'review-drift') {
+        const seen = window.__fenSearches[this.fen] || 0;
+        // Deeper as well as different. shouldReplaceEvaluationSnapshot only
+        // lets a new reading replace a stored one when it searched further,
+        // which is the real shape of this: the review runs at a fixed depth and
+        // browsing ponders past it. Same depth would be quietly discarded, and
+        // a scenario that cannot change the map cannot test a freeze.
+        return seen > 0
+          ? { cp: -900, move: 'e2e4', depths: [28, 34] }
+          : { cp: scoreFor(this.fen), move: 'e2e4', depths: [16, 22] };
+      }
       return { cp: scoreFor(this.fen), move: 'e2e4' };
     }
     addEventListener(type, listener) {
@@ -132,10 +154,16 @@ const SCENARIO = ${JSON.stringify(scenario)};
       }, 0);
     }
     emitInfo() {
-      const { cp, move } = this.scriptedLine();
-      this.send('info depth 16 seldepth 20 multipv 1 score cp ' + cp +
+      const { cp, move, depths } = this.scriptedLine();
+      const [shallow, deep] = depths || [16, 22];
+      // Counted here rather than in scriptedLine, which finishSearch also
+      // calls: incrementing there made one search look like two.
+      if (SCENARIO === 'review-drift') {
+        window.__fenSearches[this.fen] = (window.__fenSearches[this.fen] || 0) + 1;
+      }
+      this.send('info depth ' + shallow + ' seldepth ' + (shallow + 4) + ' multipv 1 score cp ' + cp +
                 ' nodes 120000 nps 900000 hashfull 45 tbhits 0 time 130 wdl 400 400 200 pv ' + move + ' e7e5');
-      this.send('info depth 22 seldepth 26 multipv 1 score cp ' + cp +
+      this.send('info depth ' + deep + ' seldepth ' + (deep + 4) + ' multipv 1 score cp ' + cp +
                 ' nodes 400000 nps 900000 hashfull 127 tbhits 3 time 420 wdl 400 400 200 pv ' + move + ' e7e5');
       if (SCENARIO === 'bounded-last') {
         // A fail-high re-search at the same depth, with more nodes behind it,
@@ -549,6 +577,76 @@ async function checkBlunderIsPointedOut(browser) {
   }
 }
 
+
+/**
+ * A finished review is a report, and a report does not move while you read it.
+ *
+ * It did. Stepping back through one real game's faults turned nought blunders
+ * into two and took 1.9 points off the accuracy, with no move played. The cause
+ * is not that the second look is worse: a grade is the difference between two
+ * evaluations, and browsing re-takes one half of that pair far deeper than the
+ * half beside it, so the difference becomes the gap in depth rather than
+ * anything the move did.
+ *
+ * The `review-drift` engine makes that condition certain instead of likely --
+ * every *second* search of a position answers -9.00 -- so navigating after the
+ * review would re-grade every move it lands on. Only the browser tier can cover
+ * this: the freeze lives in App state, between the review runner and the rows.
+ */
+async function checkReviewReportHoldsStill(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript('review-drift'))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+    await page.waitForFunction(() => window.__uciBestmoves >= 1, null, { timeout: 20000 })
+
+    // Deliberately off book. A line the opening table knows is graded "Book"
+    // whatever the engine says, so 1.e4 e5 2.Nf3 Nc6 produced a report of four
+    // Book moves and nothing an evaluation could move -- a test that passed
+    // without exercising anything.
+    for (const [from, to] of [['a2', 'a3'], ['h7', 'h6'], ['a3', 'a4'], ['h6', 'h5'], ['a1', 'a3'], ['h8', 'h6']]) {
+      await page.click('#chessboard-square-' + from)
+      await page.click('#chessboard-square-' + to)
+      await page.waitForTimeout(250)
+    }
+
+    await page.getByRole('button', { name: 'Review', exact: true }).first().click()
+    await page.getByRole('button', { name: /review game/i }).first().click()
+    // The report is settled when nothing is left pending.
+    await page.waitForFunction(
+      () => /Pending 0/.test(document.querySelector('.review-chips')?.textContent || ''),
+      null, { timeout: 30000 })
+    const reported = await page.evaluate(() =>
+      document.querySelector('.review-chips').textContent.replace(/\s+/g, ' ').trim())
+    // Counted from here, not from boot: positions are searched while the moves
+    // are played and again by the review, and neither of those is the thing
+    // this check is about.
+    await page.evaluate(() => { window.__searchesAtReport = { ...window.__fenSearches } })
+
+    // Walk the line. Every position landed on is searched a second time, and
+    // every second search answers -9.00.
+    for (const name of ['Go to first position', 'Go to next move', 'Go to next move', 'Go to last position']) {
+      await page.getByRole('button', { name }).click()
+      await page.waitForTimeout(700)
+    }
+    const researched = await page.evaluate(() => Object.keys(window.__fenSearches)
+      .filter(fen => window.__fenSearches[fen] > (window.__searchesAtReport[fen] || 0)).length)
+    assert(researched > 0,
+      'no position was searched again after the report, so this check never exercised the drift it exists for')
+
+    const afterBrowsing = await page.evaluate(() =>
+      document.querySelector('.review-chips').textContent.replace(/\s+/g, ' ').trim())
+    assert(afterBrowsing === reported,
+      `the report changed while it was read: "${reported}" became "${afterBrowsing}"`)
+    console.log(`  review report: holds still after ${researched} positions were re-searched and disagreed`)
+  } finally {
+    await context.close()
+  }
+}
 
 /**
  * Cross-origin isolation on a host that does not send the headers.
@@ -1453,6 +1551,7 @@ async function main() {
     await checkBoundedScoreIsIgnored(browser)
     await checkPlayedMoveBecomesTheGame(browser)
     await checkBlunderIsPointedOut(browser)
+    await checkReviewReportHoldsStill(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)
     await checkAutomaticAnalysisIsReused(browser)
     await checkOpeningTableStaysOutOfBoot(browser)
