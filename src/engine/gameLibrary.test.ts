@@ -13,10 +13,12 @@ import {
   getLibraryStats,
   getUniqueGameName,
   libraryGameMatchesQuery,
+  libraryImportNote,
   mergeLibraryBackup,
   normalizeLibraryGames,
   parseLibraryBackup,
   parsePgnHeaders,
+  pgnVariantName,
   sortLibraryGames,
   suggestGameName,
 } from './gameLibrary'
@@ -458,5 +460,46 @@ describe('exporting the library as a PGN database', () => {
     for (const part of splitPgnGames(createLibraryPgn(games))) {
       expect(pgnImportContentError(part), part).toBeNull()
     }
+  })
+})
+
+describe('pgnVariantName', () => {
+  it('names a variant this board does not play', () => {
+    expect(pgnVariantName('[Variant "Chess960"]\n[SetUp "1"]\n\n1. e4 *')).toBe('Chess960')
+    expect(pgnVariantName('[Variant "Crazyhouse"]\n\n1. e4 *')).toBe('Crazyhouse')
+  })
+
+  // Lichess tags ordinary chess that starts somewhere else "From Position",
+  // and standard games "Standard"; neither is a variant for this purpose.
+  it.each([
+    ['no tag', '[Event "x"]\n\n1. e4 *'],
+    ['Standard', '[Variant "Standard"]\n\n1. e4 *'],
+    ['From Position', '[Variant "From Position"]\n\n1. e4 *'],
+    ['Chess', '[Variant "Chess"]\n\n1. e4 *'],
+    ['empty', '[Variant ""]\n\n1. e4 *'],
+  ])('is null for %s', (_label, pgn) => {
+    expect(pgnVariantName(pgn)).toBeNull()
+  })
+})
+
+describe('libraryImportNote with variants', () => {
+  it('names skipped variants rather than calling them unreadable', () => {
+    expect(libraryImportNote({ added: 7, unreadable: 0, omitted: 0, variants: { Chess960: 3 } }))
+      .toBe('Added 7 games to the library; 3 Chess960 games skipped.')
+  })
+
+  it('lists two variants rather than totalling them', () => {
+    expect(libraryImportNote({ added: 1, unreadable: 0, omitted: 0, variants: { Chess960: 2, Crazyhouse: 1 } }))
+      .toBe('Added 1 game to the library; 2 Chess960 games skipped, 1 Crazyhouse game skipped.')
+  })
+
+  it('still reports genuinely unreadable games alongside them', () => {
+    expect(libraryImportNote({ added: 4, unreadable: 1, omitted: 0, variants: { Chess960: 1 } }))
+      .toBe('Added 4 games to the library; 1 Chess960 game skipped, 1 game could not be read.')
+  })
+
+  it('is unchanged when nothing was skipped', () => {
+    expect(libraryImportNote({ added: 3, unreadable: 0, omitted: 0, variants: {} }))
+      .toBe('Added 3 games to the library.')
   })
 })

@@ -74,6 +74,28 @@ export function parsePgnHeaders(pgn: string): Record<string, string> {
   return headers
 }
 
+/**
+ * The variant a game is played under, when it is not the one this board plays.
+ *
+ * Chess960 is the case that matters: a chess.com archive mixes them in with
+ * the standard games, and chess.js rejects their Shredder-FEN castling rights
+ * ("HAha" rather than "KQkq") with "Invalid FEN". The importer therefore
+ * counted three of a reader's own ten games as unreadable, which is true of
+ * the parser and untrue of the games -- they are fine, and this board does not
+ * play them. Saying which is the difference between a file that looks corrupt
+ * and a board that has limits.
+ *
+ * "From Position" and "Standard" are Lichess's tags for ordinary chess that
+ * happens to start somewhere else, so they are not variants for this purpose.
+ */
+const STANDARD_VARIANTS = new Set(['', 'standard', 'chess', 'normal', 'from position'])
+
+export function pgnVariantName(pgn: string): string | null {
+  const variant = (parsePgnHeaders(pgn).Variant ?? '').trim()
+  return STANDARD_VARIANTS.has(variant.toLowerCase()) ? null : variant
+}
+
+
 export function extractLibraryMetadata(pgn: string): LibraryGameMetadata {
   const headers = parsePgnHeaders(pgn)
   return {
@@ -337,10 +359,18 @@ export function libraryImportNote(counts: {
   added: number
   unreadable: number
   omitted: number
+  /** Games this board does not play, named so they do not read as damaged. */
+  variants?: Record<string, number>
 }): string | null {
   const plural = (count: number) => (count === 1 ? 'game' : 'games')
   const parts: string[] = []
 
+  // Named, and by name: "3 Chess960 games" tells the reader both that nothing
+  // is wrong with their file and what this board would have to learn to open
+  // them. Two variants in one file are listed rather than totalled.
+  for (const [variant, count] of Object.entries(counts.variants ?? {}).sort()) {
+    if (count > 0) parts.push(`${count} ${variant} ${plural(count)} skipped`)
+  }
   if (counts.unreadable > 0) {
     parts.push(`${counts.unreadable} ${plural(counts.unreadable)} could not be read`)
   }

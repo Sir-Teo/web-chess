@@ -13,7 +13,7 @@ import {
   parseLibraryBackup,
   suggestGameName,
 } from '../engine/gameLibrary'
-import { libraryImportNote } from '../engine/gameLibrary'
+import { libraryImportNote, pgnVariantName } from '../engine/gameLibrary'
 import { parsePgnMoveTree } from '../engine/pgn'
 import { loadLibraryGames, saveLibraryGames } from '../engine/gameLibraryStorage'
 
@@ -112,12 +112,21 @@ export function useGameLibrary() {
 
     const names = gamesRef.current.map(game => game.name)
     const additions: LibraryGame[] = []
+    const variants: Record<string, number> = {}
     let unreadable = 0
     let omitted = 0
 
     for (const pgn of pgns) {
       const text = pgn?.trim() ?? ''
       if (!text || text.length > MAX_LIBRARY_PGN_LENGTH) { unreadable++; continue }
+      // Asked before parsing, not after it fails: a Chess960 game is refused by
+      // chess.js for its castling rights, and counting it as unreadable told a
+      // reader their own archive was damaged when it was this board's limit.
+      const variant = pgnVariantName(text)
+      if (variant) {
+        variants[variant] = (variants[variant] ?? 0) + 1
+        continue
+      }
       try {
         if (!parsePgnMoveTree(text).moves.length) { unreadable++; continue }
       } catch {
@@ -137,12 +146,14 @@ export function useGameLibrary() {
         ok: false,
         error: omitted > 0
           ? `The library is full at ${MAX_LIBRARY_GAMES} games, so none of those could be added.`
+          : Object.keys(variants).length > 0
+          ? `Those are all ${Object.keys(variants).sort().join(' and ')} games, which this board does not play.`
           : 'No readable game was found in that file.',
       }
     }
 
     commit([...additions, ...gamesRef.current])
-    return { ok: true, note: libraryImportNote({ added: additions.length, unreadable, omitted }) ?? undefined }
+    return { ok: true, note: libraryImportNote({ added: additions.length, unreadable, omitted, variants }) ?? undefined }
   }, [commit])
 
   const importBackup = useCallback((json: string): LibraryWriteResult => {
