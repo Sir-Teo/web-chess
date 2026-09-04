@@ -91,6 +91,8 @@ export type PersistedAppSettings = {
   soundEnabled: boolean
   /** Whether a game against the engine points out a mistake as it is made. */
   blunderNudges: boolean
+  /** Hide the pieces and play from memory. */
+  blindfold: boolean
   timeControlId: string
   boardThemeId: string
   theme: ThemePreference
@@ -129,6 +131,7 @@ export const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
   topMoveArrowCount: 3,
   soundEnabled: true,
   blunderNudges: true,
+  blindfold: false,
   timeControlId: 'unlimited',
   boardThemeId: 'classic',
   theme: 'dark',
@@ -307,6 +310,9 @@ export function loadPersistedSettings(): PersistedAppSettings {
       blunderNudges: typeof parsed.blunderNudges === 'boolean'
         ? parsed.blunderNudges
         : DEFAULT_PERSISTED_SETTINGS.blunderNudges,
+      blindfold: typeof parsed.blindfold === 'boolean'
+        ? parsed.blindfold
+        : DEFAULT_PERSISTED_SETTINGS.blindfold,
       timeControlId: isTimeControlPresetId(parsed.timeControlId)
         ? parsed.timeControlId
         : DEFAULT_PERSISTED_SETTINGS.timeControlId,

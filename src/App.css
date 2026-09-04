@@ -5471,3 +5471,36 @@ button.hint-btn {
     animation: none;
   }
 }
+
+/* ── Blindfold ─────────────────────────────────────────
+   The pieces are made transparent rather than removed. They still have to be
+   picked up and dragged, and an element that is not rendered cannot be — so
+   this is `opacity`, not `visibility` (which stops hit-testing) and not a board
+   drawn without pieces.
+
+   Scoped to `[data-piece]` inside the stage, so the promotion chooser's pieces
+   — a control, not the board — stay visible: being unable to see which piece
+   you are promoting to is not part of playing blindfold. */
+.board-stage.blindfold [data-piece] {
+  opacity: 0;
+}
+
+/* The board keeps its own focus ring, so a keyboard player can still tell
+   where they are without being able to see what is there. */
+.board-stage.blindfold [data-piece]:focus-visible {
+  opacity: 0.35;
+}
+
+.board-blindfold-pill {
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-family: var(--font-heading);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}

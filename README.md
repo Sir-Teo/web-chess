@@ -204,6 +204,15 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   game is a 166-character link and a 120-ply one is under 1,200. Refused rather
   than truncated past 8,000 characters, and a link that has been edited or cut
   short plays as far as it really goes instead of being thrown away.
+- **Blindfold**: A switch in Settings hides the pieces and leaves everything
+  else — the coordinates, the move list, the opening name, the clock, whose
+  move it is. The pieces are drawn transparent rather than left unrendered,
+  because they still have to be picked up and dragged and a piece that is not
+  there cannot be. A pill in the strip above the board says BLINDFOLD, which is
+  the one thing standing between a training mode and "the pieces have gone".
+  The accessible names are deliberately untouched: a blindfold is a thing you
+  choose, and enforcing it by taking the board away from a screen reader would
+  take it from someone who did not choose it.
 - **Board themes**: Five schemes in Settings. Each ships its own coordinate ink
   rather than reusing one: the coordinates are drawn inside the squares, and an
   ink chosen by eye is how a board ends up with rank numbers nobody can read on

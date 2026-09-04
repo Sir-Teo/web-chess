@@ -539,6 +539,16 @@ function App() {
   const [topMoveArrowCount, setTopMoveArrowCount] = useState<number>(persistedSettings.topMoveArrowCount)
   const [soundEnabled, setSoundEnabled] = useState<boolean>(persistedSettings.soundEnabled)
   const [blunderNudges, setBlunderNudges] = useState<boolean>(persistedSettings.blunderNudges)
+  /**
+   * Blindfold: the pieces are drawn transparent rather than removed.
+   *
+   * They still have to be picked up and dragged, and an element that is not
+   * there cannot be — so this is `opacity`, not `visibility` or a piece the
+   * board never renders. The accessible names are untouched on purpose: a
+   * blindfold is a thing you choose, and taking the board away from a screen
+   * reader to enforce it would be taking it away from someone who did not.
+   */
+  const [blindfold, setBlindfold] = useState<boolean>(persistedSettings.blindfold)
   // Read by the AI loop, which must not re-install when the switch changes.
   const blunderNudgesRef = useRef(blunderNudges)
   blunderNudgesRef.current = blunderNudges
@@ -2045,6 +2055,7 @@ function App() {
     setShowTopMoveArrows(DEFAULT_PERSISTED_SETTINGS.showTopMoveArrows)
     setTopMoveArrowCount(DEFAULT_PERSISTED_SETTINGS.topMoveArrowCount)
     setBlunderNudges(DEFAULT_PERSISTED_SETTINGS.blunderNudges)
+    setBlindfold(DEFAULT_PERSISTED_SETTINGS.blindfold)
     setTheme(DEFAULT_PERSISTED_SETTINGS.theme)
     setOpeningPrefetchTick(0)
     setEngineLabError(null)
@@ -2319,6 +2330,7 @@ function App() {
       topMoveArrowCount,
       soundEnabled,
       blunderNudges,
+      blindfold,
       timeControlId,
       boardThemeId,
       theme,
@@ -2348,6 +2360,7 @@ function App() {
     topMoveArrowCount,
     soundEnabled,
     blunderNudges,
+    blindfold,
     timeControlId,
     boardThemeId,
     theme,
@@ -5128,6 +5141,17 @@ function App() {
                 </label>
                 <label
                   className="switch-control"
+                  title="Hide the pieces and play from memory. The move list, the coordinates and the last move stay."
+                >
+                  <input
+                    type="checkbox"
+                    checked={blindfold}
+                    onChange={event => setBlindfold(event.target.checked)}
+                  />
+                  <span>Blindfold</span>
+                </label>
+                <label
+                  className="switch-control"
                   title="In a game against the engine, say so when a move gives up a lot, with the take-back one click away."
                 >
                   <input
@@ -5642,7 +5666,7 @@ function App() {
         {/* ── Board ── */}
         <section
           id="chessboard-stage"
-          className="board-stage"
+          className={`board-stage ${blindfold ? 'blindfold' : ''}`}
           aria-label="Chessboard"
           aria-hidden={appModalOpen ? true : undefined}
           inert={appModalOpen ? true : undefined}
@@ -5709,6 +5733,14 @@ function App() {
                 <ChessClock state={clock} paused={paused} orientation={orientation} />
               )}
               <span className="board-meta-status">{workspaceMode === 'analysis' ? status : gameModeLabel}</span>
+              {/* An empty board with nothing saying why is a bug report. This
+                  is the one thing standing between "a training mode" and
+                  "the pieces have gone". */}
+              {blindfold && (
+                <span className="board-blindfold-pill" title="The pieces are hidden. Turn Blindfold off in Settings.">
+                  Blindfold
+                </span>
+              )}
               {!reviewPractice && currentMoveQuality && (
                 <span className={`board-quality-pill quality-${currentMoveQuality}`}>
                   {REVIEW_LABELS[currentMoveQuality]}
