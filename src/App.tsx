@@ -1112,6 +1112,14 @@ function App() {
 
   const startBatchReview = useCallback(() => {
     if (!engineEnabled) return
+    // A review already in flight is replaced, not doubled. The button turns
+    // into Stop while one runs, but the command palette's "Review game" does
+    // not, and running it again started a second pool on top of the first:
+    // eight engines, four of them unreachable, and the older pool later
+    // reporting the review finished while the newer one was still working.
+    // Measured at 8 live workers and 0 terminated before this line existed.
+    reviewPoolRunRef.current?.cancel()
+    reviewPoolRunRef.current = null
     // The line being read, not the game's main line -- see `reviewLineNodes`.
     const nodes = reviewLineNodesRef.current
     if (nodes.length <= 1) return
