@@ -649,6 +649,76 @@ async function checkReviewReportHoldsStill(browser) {
 }
 
 /**
+ * A drill leaves the line exactly as it found it.
+ *
+ * This is the property that makes drilling safe to do on a saved game: a wrong
+ * move is judged and undone before anything is recorded, and a correct one
+ * re-walks a move the tree already has, because `addMove` de-dupes by UCI. Get
+ * either half wrong and a practice session quietly rewrites the repertoire it
+ * was practising — filling it with the moves you were trying *not* to play.
+ *
+ * Compared through the exported PGN rather than the tree, because that is what
+ * the library stores and what leaves the app.
+ */
+async function checkDrillLeavesTheLineAlone(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+    await page.waitForFunction(() => window.__uciBestmoves >= 1, null, { timeout: 20000 })
+
+    for (const [from, to] of [['e2', 'e4'], ['e7', 'e5'], ['g1', 'f3']]) {
+      await page.click('#chessboard-square-' + from)
+      await page.click('#chessboard-square-' + to)
+      await page.waitForTimeout(200)
+    }
+    const pgnNow = () => page.evaluate(() => {
+      const tree = document.querySelector('.mtree-scroll')
+      return tree ? tree.textContent.replace(/\s+/g, '') : ''
+    })
+    const before = await pgnNow()
+    assert(before.includes('e4') && before.includes('Nf3'),
+      `the line was not built, so this check has nothing to protect: "${before}"`)
+
+    await page.click('.drill-row button[aria-label="Drill this line as White"]')
+    await page.waitForTimeout(600)
+
+    // The wrong moves are the whole point, and the line is checked straight
+    // after them: a drill that records what you got wrong is caught here rather
+    // than three moves later when the board has drifted too far to tell.
+    for (const [from, to] of [['d2', 'd4'], ['b1', 'c3']]) {
+      await page.click('#chessboard-square-' + from)
+      await page.click('#chessboard-square-' + to)
+      await page.waitForTimeout(250)
+    }
+    const afterMisses = await pgnNow()
+    assert(afterMisses === before,
+      `a wrong move was recorded: "${before}" became "${afterMisses}"`)
+    const missed = await page.evaluate(() => document.querySelector('.drill-card')?.innerText.replace(/\s+/g, ' ') || '')
+    assert(/Not the line/.test(missed),
+      `the wrong moves were not judged, so nothing was exercised: "${missed}"`)
+
+    await page.click('#chessboard-square-e2')
+    await page.click('#chessboard-square-e4')
+    await page.waitForTimeout(300)
+    const drillState = await page.evaluate(() => document.querySelector('.drill-card')?.innerText.replace(/\s+/g, ' ') || '')
+    assert(/move 2 of 2/.test(drillState),
+      `the drill did not advance on the right move: "${drillState}"`)
+
+    const after = await pgnNow()
+    assert(after === before,
+      `drilling changed the line: "${before}" became "${after}"`)
+    console.log('  drill: two wrong moves and a right one leave the line byte for byte')
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * Cross-origin isolation on a host that does not send the headers.
  *
  * Multi-threaded Stockfish needs `SharedArrayBuffer`, which browsers only
@@ -1552,6 +1622,7 @@ async function main() {
     await checkPlayedMoveBecomesTheGame(browser)
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
+    await checkDrillLeavesTheLineAlone(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)
     await checkAutomaticAnalysisIsReused(browser)
     await checkOpeningTableStaysOutOfBoot(browser)
