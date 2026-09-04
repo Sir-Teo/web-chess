@@ -64,6 +64,22 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
     // line is a discarded analysis. Reset whenever the reader moves, so the
     // armed state never outlives the move it was armed for.
     const [deleteArmed, setDeleteArmed] = useState(false)
+    /**
+     * What the note field is showing, as opposed to what the tree is storing.
+     *
+     * `setNodeComment` normalises a whitespace-only note to no note at all,
+     * which is right for storage -- a comment of three spaces should not reach
+     * the PGN -- and wrong for a controlled input. Typing a space into an empty
+     * note stored nothing, React re-rendered the field from the stored value,
+     * and the space vanished under the caret. Measured: " " came back "", while
+     * " good" came back " good", so only a note *beginning* with a space lost
+     * a character, which is a small bug and still a keystroke thrown away.
+     *
+     * The draft follows the selected move rather than the stored comment, so
+     * choosing another move loads its note and typing in this one is left
+     * alone. Same split `EngineOptionControl` makes for a spin input.
+     */
+    const [commentDraft, setCommentDraft] = useState('')
     const scrollRef = useRef<HTMLDivElement>(null)
     const commentId = useId()
 
@@ -82,6 +98,13 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
     // Auto-scroll current node into view
     useEffect(() => {
         setDeleteArmed(false)
+    }, [current.id])
+
+    // Deliberately keyed on the move, not on its comment: re-reading the stored
+    // value on every keystroke is what swallowed the space to begin with.
+    useEffect(() => {
+        setCommentDraft(tree.getNode(current.id)?.comment ?? '')
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [current.id])
 
     useEffect(() => {
@@ -327,8 +350,11 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
                             <textarea
                                 id={commentId}
                                 className="mtree-comment-input"
-                                value={current.comment ?? ''}
-                                onChange={event => tree.setNodeComment(current.id, event.target.value)}
+                                value={commentDraft}
+                                onChange={event => {
+                                    setCommentDraft(event.target.value)
+                                    tree.setNodeComment(current.id, event.target.value)
+                                }}
                                 rows={3}
                                 placeholder="Add a note"
                             />
