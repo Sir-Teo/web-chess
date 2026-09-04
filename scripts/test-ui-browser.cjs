@@ -337,6 +337,60 @@ async function checkAutomaticAnalysisIsReused(browser) {
 
 
 /**
+ * The opening table stays out of the boot path.
+ *
+ * `eco.json` is the largest thing the app ships after the engine, so both hooks
+ * that read it are gated and share one lazily-loaded copy. That sharing is the
+ * trap: whichever gate opens first pulls the table for the other, so a gate
+ * that is wrong makes the careful one next to it decorative. The review's Book
+ * label used to be enabled on `engineEnabled` alone, which is true at boot for
+ * anyone whose last session was in analysis mode -- so the table landed in the
+ * boot path of the app's most common user, to grade a board with no moves on
+ * it.
+ *
+ * Seeding `workspaceMode: 'analysis'` is what makes this a returning user; a
+ * fresh profile boots into Play, where the engine is off and the bug hides.
+ * The second half matters as much as the first: the cheapest way to pass the
+ * first assertion is to never load the table at all.
+ */
+async function checkOpeningTableStaysOutOfBoot(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const page = await context.newPage()
+  const ecoRequests = () =>
+    page.evaluate(() => performance.getEntriesByType('resource')
+      .filter(entry => /\/eco[-.]/.test(entry.name)).length)
+
+  try {
+    await page.addInitScript(() => {
+      localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis' }))
+    })
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.waitForSelector('#chessboard-square-e2')
+    await page.waitForFunction(() => (window.__uciCommands || []).length > 0, null, { timeout: 20000 })
+
+    assert(await ecoRequests() === 0,
+           'the opening table was fetched at boot, with no move on the board to name')
+
+    await page.click('#chessboard-square-e2')
+    await page.click('#chessboard-square-e4')
+    await page.waitForFunction(() => performance.getEntriesByType('resource')
+      .some(entry => /\/eco[-.]/.test(entry.name)), null, { timeout: 20000 })
+
+    // The name it loaded for, so this cannot pass on a request that 404s.
+    const eco = page.locator('text=/\\bB0\\d\\b/').first()
+    await eco.waitFor({ timeout: 20000 })
+
+    console.log('  opening table: not fetched at boot, fetched once a move needs naming')
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * The engine's last word before a stop is a bound, not a value.
  *
  * `score cp 900 lowerbound` means "at least 900", and it arrives from an
@@ -1401,6 +1455,7 @@ async function main() {
     await checkBlunderIsPointedOut(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)
     await checkAutomaticAnalysisIsReused(browser)
+    await checkOpeningTableStaysOutOfBoot(browser)
     await checkCrossOriginIsolationIsRestored(browser)
 
     console.log('Browser UI checks passed.')

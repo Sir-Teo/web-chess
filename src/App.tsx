@@ -847,9 +847,14 @@ function App() {
   const openingFenPath = useMemo(() => currentPathNodes.map(n => n.fen), [currentPathNodes])
   const shouldLoadOpeningNames = currentPathNodes.length > 1
   const opening = useOpening(openingFenPath, shouldLoadOpeningNames)
-  // For the review's Book label: the same table the opening name reads,
-  // loaded whenever the engine is, which is the only time a review can run.
-  const isBookPosition = useOpeningBook(engineEnabled)
+  // For the review's Book label: the same table the opening name reads, and
+  // literally the same lazily-loaded copy -- so this gate has to hold its end
+  // too. Enabled on the engine alone it pulls the whole table into the boot
+  // path of anyone who was last in analysis mode, for a board with nothing on
+  // it to grade, defeating the gate above. A review reads the line forward from
+  // the root rather than the path the user has navigated, so the wait is on the
+  // tree holding a move, not on having stepped into one.
+  const isBookPosition = useOpeningBook(engineEnabled && gameTree.root.children.length > 0)
   const canGoBack = currentPathNodes.length > 1
   const canGoForward = gameTree.current.children.length > 0
   const appModalOpen = showNewGameDialog || showPgnDialog || showLibraryDialog || autoSaveRecovery !== null
