@@ -1,8 +1,11 @@
 # Architecture
 
-Web Chess is a single-page React app with the engine in a Web Worker. Game
+Web Chess is a single-page React app with its engines in Web Workers. Game
 state, analysis results and every setting live on the main thread; Stockfish
-runs in a worker so the board stays responsive while it searches.
+runs in a worker so the board stays responsive while it searches. There is
+more than one: the panel's analysis engine, a separate one for the opponent
+you play against, and — for the length of a game review on a machine that can
+afford it — a short-lived pool of them.
 
 Structured to mirror [web-katrain's `docs/architecture.md`][katrain], so the
 three sibling apps can be read against each other. The third is
@@ -21,10 +24,16 @@ flowchart LR
   App --> Tree["useGameTree"]
   App --> Engine["useStockfishEngine"]
   Engine <--> Worker["Stockfish worker (UCI)"]
+  App --> Ai["useAiPlayer"]
+  Ai <--> AiWorker["Opponent worker (UCI)"]
+  App --> Pool["runReviewPool"]
+  Pool <--> PoolWorkers["Review workers, 2-4, for one review"]
   App --> Cloud["Lichess services"]
   App --> Storage["localStorage / IndexedDB"]
   Tree --> App
   Engine --> App
+  Ai --> App
+  Pool --> App
 ```
 
 ## Main Thread
@@ -88,6 +97,55 @@ clamping the value to limit fingerprinting, and Chromium 148 was observed here
 reporting `32`. A threshold at 8 therefore sorts identical hardware differently
 depending on the browser — the same desktop got four threads in one and eight
 in another. Below 4 is a constraint under either behaviour; 8GB is not.
+
+## The review pool
+
+A review is the slowest thing the app does, and its positions are independent
+of one another, so the wall clock is a scheduling choice rather than a fact
+about the work. On a machine that can afford it, `runReviewPool` boots two to
+four engines of its own for the length of one review and gives each a
+contiguous run of the game.
+
+Measured on an 83-move blitz game at depth 16, same session, same game:
+
+| | wall clock | overall | ACPL | evaluated |
+| --- | --- | --- | --- | --- |
+| one engine | 105.5s | 93.4 | 20 | 83/83 |
+| four engines | 21.0s | 93.1 | 19 | 83/83 |
+
+Five times faster, and the grades differ by less than two single-engine runs
+of the same game differ from each other — a multi-threaded search is not
+deterministic, and an earlier single-engine run came out at 94.7 and ACPL 17.
+
+The sizing in `engine/reviewPool.ts` is built around the costs rather than
+around core count, and each one is a reason the answer is not "one engine per
+core":
+
+- Each engine owns a transposition table, and adjacent positions in a game
+  transpose heavily. So the queue is split into **contiguous** blocks rather
+  than round-robin — an engine given moves 1-20 keeps its own table warm,
+  while one given every fourth position never does — and the reader's Hash is
+  **divided** rather than multiplied, because four engines at the setting they
+  chose would be four times the memory they asked for.
+- Threads are divided for the same reason. Four engines on two threads each is
+  the CPU of one on eight, spent on four positions instead of one.
+- Each engine is a WASM instance with its own heap and about a second of boot,
+  so a queue under twelve never earns them back.
+
+A phone, too few cores, a build with no threads, or a Hash too small to divide
+all keep the single engine — and so does a pool that will not boot, since no
+result is reported until an engine has answered, so the fallback starts from
+clean. That fallback hands the queue to the single-engine effect in a promise
+callback, which is why `batchReviewTick` exists: the effect depends on the
+engine's status and the search settings, and none of them move at that moment.
+Without the tick the queue sat full, the engine sat ready, and the button sat
+at "Reviewing 0%" for as long as anyone waited.
+
+The engines live exactly as long as the review. Every way out of one
+terminates them — finishing, Stop, leaving Analysis, and starting another
+review over the top, which was the one that leaked: the button becomes Stop
+while a review runs, but the command palette's "Review game" does not, and
+running it again measured eight live engines and none terminated.
 
 ## Evaluations
 

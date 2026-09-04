@@ -34,6 +34,32 @@ decided by the workspace mode, and no unit test in this repo can drive that.
 Verified by mutation: putting the bug back makes it fail with the broken PGN in
 the message.
 
+It is also the only tier that can measure **contrast**, for the same kind of
+reason. The token tests in `accentContrast`, `qualityChipContrast`,
+`textLadderContrast` and `reviewPalette` guard the palette, and a palette can
+be entirely correct while a token is used somewhere its contrast was never
+checked. Twenty-two sweeps now measure every text node against what is
+actually painted behind it — six surfaces in two themes on the desktop,
+including the dialogs, plus the resting panel and Settings in two themes at
+both narrow viewports.
+
+Nine contrast defects turned up in one sitting, and every one was a value that
+was correct in one theme, one state, one file or one viewport and not the
+others. The last three were found by the sweep rather than by hand: the review
+move list printing grades in the colour sized for a 5px dot, the Coach card
+carrying a dark-theme gradient literal that dragged it to a mid grey on the
+light theme, and the engine line's move numbers, which only fail at the narrow
+layout where the panel goes full width.
+
+Three things the sweep has to get right, each of which it got wrong first and
+caught by failing: alpha layers are gathered out to the first opaque one and
+painted back to front, not composited while climbing; transitions are finished
+before anything is read, because the theme is applied in an effect and a colour
+read mid-switch is the old one; and a gradient is measured against its own
+stops rather than stepped past, which read a dark label on a bright teal button
+as 1.01:1. Each sweep asserts a floor on how many elements it measured, because
+the first version passed cleanly over sixteen.
+
 The last row used to read "no" for the deploy *and* for `ci.yml`, because
 `ci.yml` was pull-request-only -- so nothing browser-level ever ran against
 `main`. `ci.yml` now also runs on pushes to `main`, which closes that.
