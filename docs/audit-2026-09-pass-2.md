@@ -116,6 +116,16 @@ last ten games said "3 games could not be read". They were Fischer Random:
 category for "a game this board does not play", so it used the one for damage.
 Now named and counted separately.
 
+**A drill outlived its game.** Found by crossing a new feature against a flow it
+was not built with. Because a drill and a new game both start from the initial
+position, a drill left running stayed *live*: start a new game after drilling
+and your first move was silently refused unless it happened to be the line's,
+with nothing on screen to say why. That also produced a stranger symptom chased
+first — a freshly started drill opening with "Not the line. Try again." already
+showing — because the moves meant to build the new line had been eaten, so there
+was no line, `startDrill` bailed on its own guard, and the previous drill's miss
+count was what stayed up. Two bugs that looked like three.
+
 **"W/D/B progression graph"**, under a panel headed WDL. B reads as Black, which
 is a different axis entirely.
 
@@ -144,6 +154,36 @@ account rather than documentation:
   year and month and then discarded; the URL actually fetched is rebuilt from the
   username the app already holds. A list of addresses from a remote service is
   not a list of addresses to fetch.
+
+**Drill a line from memory.** The other half of opening preparation: the explorer
+says what is played and the review says what went wrong, but neither asks you to
+*produce* a move, and a repertoire you can recognise is not one you can play.
+`Drill this line · White / Black` puts the board back at the top of the line you
+are standing in and asks for it.
+
+Three behaviours make it a drill rather than a replay. The line answers back, so
+a correct move advances two plies and you are asked your own next move rather
+than your opponent's reply. A wrong move is judged before anything is recorded
+and then undone, so a drill cannot fill the tree with the moves you were trying
+not to play — pinned in the browser suite, and the check is verified by the
+mutation that actually produces that bug. And the answer appears after two
+misses, which is review practice's threshold, because it is the same promise.
+
+Not a new subsystem, which is the point: `addMove` de-dupes by UCI, so replaying
+a line navigates the existing tree. A repertoire line is a line in the game tree,
+which means it is also a game in the library, which means it already imports,
+exports, saves and shares.
+
+**Blindfold.** The pieces are drawn transparent rather than left unrendered —
+they still have to be picked up and dragged, which also rules out
+`visibility: hidden` — and everything else stays. The accessible names are
+untouched on purpose: a blindfold is a thing you choose, and enforcing it by
+taking the board from a screen reader would take it from someone who did not.
+
+**A random colour.** The dialog had White and Black, so the default was White
+every game, and a player who only ever has the first move never practises the
+half of chess that starts a tempo down. What was *asked for* is remembered
+rather than what it rolled: a random button that forgets is worse than none.
 
 ---
 
@@ -199,6 +239,23 @@ refusal to answer a finished game, `aiDifficultyCommands`' handling of
 `UCI_Elo` versus `Skill Level`, and the ECO table's en-passant convention, which
 matches `chess.js`'s.
 
+Later passes added: premoves against the engine (the piece holds while it thinks
+and lands the instant the reply arrives); the auto-save round trip for a timed
+game, where the clock comes back *stopped at the committed bank* rather than at
+the live-ticking display, because the reader was not thinking while the page was
+shut; and the engine-choice matrix in `profiles.ts`, whose two thresholds have to
+agree with `recommendedThreadCount` or a machine is given the threaded build and
+then a single thread. All three were already right; the last is now tests rather
+than a coincidence, at 97.9% of statements from 77%.
+
+A hostile-input sweep was extended to the readers that had none. The sweep
+covered every reader a *position* arrives through but not the one a *game*
+arrives through — the more expensive of the two by its own account, since
+`shareGame.ts` replays every move on a real board where the FEN reader rejects on
+the rank count first. Fifty-four cases, including a two-hundred-thousand
+character hash and a response nested two hundred deep. Nothing fell over, which
+is the result worth having from a net.
+
 ---
 
 ## A number worth knowing
@@ -229,12 +286,13 @@ Then the line was 1.e4 e5 2.Nf3 Nc6 — entirely in the opening table, so every
 move graded *Book* whatever the engine said, and no evaluation could move a
 single tally.
 
-`npm run verify`: 1303 passed, 1 skipped, 97 files. Browser suite: green,
-including the 22 contrast sweeps.
+`npm run verify`: 1360 passed, 1 skipped, from 1219 at the start. Browser suite:
+green, including the 22 contrast sweeps and two new App-level checks — the frozen
+review report and the drill's invariance — both verified by mutation.
 
 ## What I did not do, and why
 
-**Publishing or pushing.** Sixteen commits sit on local `main`. Outward-facing,
+**Publishing or pushing.** Twenty-seven commits sit on local `main`. Outward-facing,
 so it waits.
 
 **The two untidy FENs.** Castling rights with no rook to castle, and an
