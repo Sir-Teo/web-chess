@@ -892,10 +892,20 @@ const MOVE_ACCURACY_SCALE = 103.1668
 const MOVE_ACCURACY_DECAY = 0.04354
 const MOVE_ACCURACY_OFFSET = 3.1669
 
+/**
+ * Lichess adds a point to the curve's output before clamping, and calls it an
+ * "uncertainty bonus (due to imperfect analysis)". Without it every move here
+ * scored a point below the same move on Lichess, and a flawless game read
+ * 99.99 rather than 100 -- the curve at a zero loss is 99.9999, not 100.
+ */
+const MOVE_ACCURACY_UNCERTAINTY_BONUS = 1
+
 export function accuracyFromWinPercentLoss(winPercentLoss: number): number {
   if (!isFiniteNumber(winPercentLoss)) return 0
   const loss = Math.max(0, Math.min(100, winPercentLoss))
-  const accuracy = MOVE_ACCURACY_SCALE * Math.exp(-MOVE_ACCURACY_DECAY * loss) - MOVE_ACCURACY_OFFSET
+  const accuracy = MOVE_ACCURACY_SCALE * Math.exp(-MOVE_ACCURACY_DECAY * loss)
+    - MOVE_ACCURACY_OFFSET
+    + MOVE_ACCURACY_UNCERTAINTY_BONUS
   return Math.max(0, Math.min(100, accuracy))
 }
 

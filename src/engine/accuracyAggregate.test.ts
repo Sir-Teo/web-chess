@@ -4,6 +4,7 @@ import {
     MAX_WINDOW,
     MIN_WEIGHT,
     MIN_WINDOW,
+    HARMONIC_ACCURACY_FLOOR,
     aggregateAccuracy,
     harmonicMean,
     standardDeviation,
@@ -53,18 +54,43 @@ describe('accuracy aggregation', () => {
         const evenly = aggregateAccuracy(accuracies, flat) as number
         const weighted = aggregateAccuracy(accuracies, sharpOnTheSecondMove) as number
 
-        expect(evenly).toBeCloseTo(75, 5)
+        // The weighted half of an even weighting is the plain mean, 75; the
+        // harmonic half of the same pair is 69.7, and the score is their mean.
+        expect(weightedMean(accuracies, flat)).toBeCloseTo(75, 5)
+        expect(evenly).toBeCloseTo(72.33, 2)
         expect(weighted).toBeLessThan(evenly)
     })
 
-    it('leaves the harmonic mean available but out of the score', () => {
-        // The published method averages the weighted mean with the harmonic
-        // mean; that half is not shipped, because one near-zero move drags it
-        // to zero and the upstream floor is unknown. This pins the decision so
-        // it is not reintroduced by accident.
-        const withZero = [90, 90, 0]
-        expect(harmonicMean(withZero) as number).toBeLessThan(1)
-        expect(aggregateAccuracy(withZero, [1, 1, 1]) as number).toBeCloseTo(60, 0)
+    it('floors each accuracy at a point before taking its reciprocal', () => {
+        // Lichess's floor, from `Maths.harmonicMean` in lichess-org/scalalib:
+        // `1 / Math.max(1, v)`. Without it a single move scoring zero makes the
+        // whole game zero however well the rest was played, which is why this
+        // half of the published method was left out here for a while.
+        expect(HARMONIC_ACCURACY_FLOOR).toBe(1)
+        expect(harmonicMean([90, 90, 0])).toBeCloseTo(harmonicMean([90, 90, 1]) as number, 10)
+        expect(harmonicMean([90, 90, 0]) as number).toBeGreaterThan(0)
+    })
+
+    it('lets one catastrophe carry weight a plain mean would average away', () => {
+        // The reason the harmonic half exists. Both games have the same total
+        // loss spread differently: one bad move, or four mediocre ones.
+        const oneDisaster = [95, 95, 95, 95, 95, 95, 95, 95, 95, 9.5]
+        const spreadAround = Array.from({ length: 10 }, () => 86.45)
+        const flat = Array.from({ length: 10 }, () => 1)
+
+        expect(weightedMean(oneDisaster, flat)).toBeCloseTo(weightedMean(spreadAround, flat) as number, 1)
+        expect(aggregateAccuracy(oneDisaster, flat) as number)
+            .toBeLessThan(aggregateAccuracy(spreadAround, flat) as number)
+    })
+
+    it('scores a long game with one blunder in it like a long game, not a short one', () => {
+        // A short fixture reads harshly under this method -- three moves of
+        // 90/90/0 come out near 31 -- and that is true of Lichess too. What
+        // matters is that a game of ordinary length does not.
+        const realistic = [...Array.from({ length: 39 }, () => 95), 9.5]
+        const flat = Array.from({ length: 40 }, () => 1)
+        expect(aggregateAccuracy(realistic, flat) as number).toBeGreaterThan(80)
+        expect(aggregateAccuracy(realistic, flat) as number).toBeLessThan(90)
     })
 
 it('clamps the window at both ends, so short and long games both behave', () => {

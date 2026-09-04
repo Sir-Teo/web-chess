@@ -18,18 +18,22 @@
  *    standard deviation of winning chances over a window of nearby positions.
  *    A move played while the evaluation is swinging counts for more than one
  *    played in a dead-drawn rook ending.
- * Lichess also averages that weighted mean with the *harmonic* mean of the
- * per-move accuracies, to stop a single catastrophe being averaged away. That
- * half is deliberately not implemented here, and the reason is worth writing
- * down. The harmonic mean is unbounded in its sensitivity to small values:
- * a move scoring near zero -- which the per-move curve does return, for a
- * hundred-point drop in winning chances -- contributes an enormous reciprocal
- * and drags the whole game towards zero. On a six-move fixture ending in mate
- * it produced a game score of 31 where every other reading of that game was in
- * the eighties. Lichess must floor the inputs somewhere to avoid that, and
- * without their source in front of me any floor here would be a number I made
- * up. Weighting is the half that can be justified from first principles, so it
- * is the half that ships; the other can be added when the floor is known.
+ *  - Average that weighted mean with the *harmonic* mean of the per-move
+ *    accuracies, which is what stops a single catastrophe being averaged away
+ *    by fifty quiet moves.
+ *
+ * The harmonic half used to be left out, because the reciprocal of a move
+ * scoring near zero drags the whole game towards zero and the floor Lichess
+ * must apply was not known here. It is `Math.max(1, v)`, in
+ * `Maths.harmonicMean` in lichess-org/scalalib -- each accuracy is floored at
+ * one point before its reciprocal is taken. That is now what this does.
+ *
+ * The floor does not make the harmonic mean gentle, and it is not meant to.
+ * Three moves scoring 90, 90 and 0 still aggregate to about 31, which is what
+ * made the omission look right on a six-move fixture. On a game of ordinary
+ * length it behaves: 39 moves at 95 and one at 9.5 -- a blunder that throws
+ * half the winning chances away -- comes out at 85, where the plain mean says
+ * 93. Short games read harshly under this method on Lichess too.
  *
  * The constants are Lichess's; the standard-deviation convention (population,
  * not sample) is ours, and nothing here has been checked against their output
@@ -103,28 +107,40 @@ export function weightedMean(values: number[], weights: number[]): number | null
 }
 
 /**
- * Kept, tested, and not currently used by `aggregateAccuracy` -- see the note
- * at the top of this file. It is here so the second half of the published
- * method is one call away once its input floor is settled.
+ * The reciprocal mean, with Lichess's floor.
+ *
+ * `Math.max(1, value)` is theirs, not a guess: without it a move scoring zero
+ * contributes an infinite reciprocal and the game accuracy is zero whatever
+ * else was played. One point is low enough to hurt and finite enough to be a
+ * number.
  */
+export const HARMONIC_ACCURACY_FLOOR = 1
+
 export function harmonicMean(values: number[]): number | null {
     let total = 0
     let count = 0
     for (const value of values) {
         if (!isFiniteNumber(value)) continue
-        total += 1 / Math.max(value, 0.01)
+        total += 1 / Math.max(HARMONIC_ACCURACY_FLOOR, value)
         count += 1
     }
     return count > 0 ? count / total : null
 }
 
 /**
- * The game accuracy for one player: the volatility-weighted mean of their
- * per-move accuracies. See the note above on the harmonic half.
+ * The game accuracy for one player: the mean of the volatility-weighted mean
+ * and the harmonic mean of their per-move accuracies.
+ *
+ * Both halves are needed and they pull in opposite directions. The weighting
+ * says a move played while the game was swinging counts for more than one
+ * played in a dead rook ending; the harmonic mean says the worst move you
+ * played is not something fifty quiet ones can average away. Either alone
+ * scores a game with one catastrophe in it far too kindly.
  */
 export function aggregateAccuracy(accuracies: number[], weights: number[]): number | null {
     if (accuracies.length === 0) return null
     const weighted = weightedMean(accuracies, weights)
-    if (weighted === null) return null
-    return Math.max(0, Math.min(100, weighted))
+    const harmonic = harmonicMean(accuracies)
+    if (weighted === null || harmonic === null) return null
+    return Math.max(0, Math.min(100, (weighted + harmonic) / 2))
 }

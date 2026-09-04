@@ -395,10 +395,12 @@ describe('review analysis helpers', () => {
       pendingMoves: 1,
     })
     // These rows carry no winPercentBefore, so there is no swing to weight by
-    // and every weight is the floor — which makes the aggregate the plain mean
-    // it was before. That is the honest behaviour for rows with no evaluation
-    // series behind them; the weighting only bites on a real review.
-    expect(summary.overall).toBeCloseTo(72.4, 1)
+    // and every weight is the floor; the weighting only bites on a real review.
+    // The harmonic half still does its work: the plain mean of 96.7 and 48.0 is
+    // 72.4, and pairing it with their harmonic mean of 64.2 gives 68.3. A side
+    // with a single move is untouched, because one value is its own mean either
+    // way.
+    expect(summary.overall).toBeCloseTo(68.3, 1)
     expect(summary.white).toBeCloseTo(96.7, 1)
     expect(summary.black).toBeCloseTo(48.0, 1)
     expect(summary.averageCentipawnLoss).toBe(115)
