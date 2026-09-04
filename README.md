@@ -128,7 +128,10 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   practice. It is per side, because the same line is one thing to know as White
   and a different thing as Black. Deliberately not a new subsystem: a repertoire
   line here is a line in the game tree, which means it is also a game in the
-  library, which means it already imports, exports, saves and shares.
+  library, which means it already imports, exports, saves and shares — load a
+  saved game and its line is drillable as it stands. All three commands are in
+  the command palette too, each saying why it is unavailable rather than
+  greying out in silence.
 - **Practice critical moments**: In Coach mode, a critical mistake becomes a
   playable retry. Engine answers and candidate arrows are hidden, wrong moves
   snap back without adding junk variations, and the answer appears after two

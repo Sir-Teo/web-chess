@@ -3294,6 +3294,15 @@ function App() {
     clearBoardSelection()
   }, [clearBoardSelection])
 
+  const drillLineForSide = (side: 'white' | 'black'): DrillLine | null =>
+    drillableLine ? { moves: drillableLine.moves, side, rootTurn: drillableLine.rootTurn } : null
+  const drillWhiteReason = drillableLine
+    ? drillUnavailableReason(drillLineForSide('white')!)
+    : 'There is no line on the board to drill.'
+  const drillBlackReason = drillableLine
+    ? drillUnavailableReason(drillLineForSide('black')!)
+    : 'There is no line on the board to drill.'
+
   const applyHumanMove = useCallback(
     (from: Square, to: Square, promotion?: PromotionPiece) => {
       const beforeFen = game.fen()
@@ -4625,9 +4634,34 @@ function App() {
       disabled: Boolean(playFromHereDisabledReason),
       run: playFromCurrentPosition,
     },
+    {
+      id: 'drill-white',
+      label: 'Drill this line as White',
+      hint: drillWhiteReason ?? 'Play the line back from memory',
+      keywords: ['repertoire', 'opening', 'memory', 'practice', 'train', 'prepare'],
+      disabled: Boolean(drillWhiteReason),
+      run: () => startDrill('white'),
+    },
+    {
+      id: 'drill-black',
+      label: 'Drill this line as Black',
+      hint: drillBlackReason ?? 'Play the line back from memory',
+      keywords: ['repertoire', 'opening', 'memory', 'practice', 'train', 'prepare'],
+      disabled: Boolean(drillBlackReason),
+      run: () => startDrill('black'),
+    },
+    {
+      id: 'drill-stop',
+      label: 'Stop drilling',
+      hint: drill ? 'Leave the line where it is' : 'No drill is running',
+      keywords: ['repertoire', 'exit', 'end', 'memory'],
+      disabled: !drill,
+      run: endDrill,
+    },
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
-  ], [atVariationFork, copyFen, copyPgn, goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast,
+  ], [atVariationFork, copyFen, copyPgn, drill, drillBlackReason, drillWhiteReason, endDrill, startDrill,
+    goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast,
       goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
       previousReviewFaultRow, requestHint, openLibraryDialog,
       openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger,
@@ -4976,14 +5010,6 @@ function App() {
     </div>
   )
 
-  const drillLineForSide = (side: 'white' | 'black'): DrillLine | null =>
-    drillableLine ? { moves: drillableLine.moves, side, rootTurn: drillableLine.rootTurn } : null
-  const drillWhiteReason = drillableLine
-    ? drillUnavailableReason(drillLineForSide('white')!)
-    : 'There is no line on the board to drill.'
-  const drillBlackReason = drillableLine
-    ? drillUnavailableReason(drillLineForSide('black')!)
-    : 'There is no line on the board to drill.'
 
   const drillCard = drill && (() => {
     const { done, total } = drillProgress(drill.line, drill.ply)
