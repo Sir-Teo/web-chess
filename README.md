@@ -159,6 +159,18 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   reads, the whole library saves as one PGN database that Lichess, chess.com,
   SCID and ChessBase all open. It round-trips: the file it writes is one the
   database import above reads straight back.
+- **Fetch your own games by username**: Type a Lichess or chess.com name on the
+  Import tab and the last ten games — or up to fifty — arrive in the paste box,
+  newest first, with no sign-in and no file to find. Both sites publish a
+  player's games publicly and both allow the request from a browser. The result
+  lands in the same box a pasted file does, so everything after it is the code
+  that already ran for a paste. A chess.com month is walked back up to six
+  months for a player who has not played lately, and the games are sorted by
+  their own timestamps rather than trusted in file order: a July archive holds
+  daily games that *finished* in July and started in June, out of order among
+  themselves. A game in a variant this board does not play — Chess960 is the
+  common one in a chess.com archive — is named and counted rather than reported
+  as damaged.
 - **Import a whole database**: Paste or open a PGN file with many games in it —
   which is what Lichess and chess.com hand you — and add the lot to the library
   in one go, each named from its own headers. A game in the file that will not
