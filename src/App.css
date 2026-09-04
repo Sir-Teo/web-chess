@@ -1794,8 +1794,14 @@ body.resizing * {
   margin-bottom: var(--space-md);
   border: 1px solid rgba(63, 185, 80, 0.22);
   border-radius: var(--radius-md);
+  /* Tokens, not literals. The dark end of this was `rgba(17, 19, 25, 0.34)`
+     -- near-black, written when there was only one theme -- so on the light
+     one it dragged the card to a mid grey and left its own dark text at
+     3.1:1. The Coach card is the surface Coach mode exists for. `--bg-inset`
+     is the token for a well: a little black on a dark surface and a little
+     ink on a light one, which is the whole reason it is a token. */
   background:
-    linear-gradient(180deg, rgba(45, 212, 191, 0.10), rgba(17, 19, 25, 0.34)),
+    linear-gradient(180deg, var(--accent-subtle), var(--bg-inset)),
     var(--bg-card);
   padding: 0.68rem;
 }
@@ -2772,8 +2778,9 @@ button.critical-moment-row {
   min-width: 0;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
+  /* The same dark-theme literal, in the tile beside it; see `.coach-card`. */
   background:
-    linear-gradient(180deg, rgba(45, 212, 191, 0.08), rgba(13, 16, 23, 0.18)),
+    linear-gradient(180deg, var(--accent-subtle), var(--bg-inset)),
     var(--bg-card);
   padding: 0.48rem 0.5rem;
 }

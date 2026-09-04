@@ -661,16 +661,16 @@ async function checkCrossOriginIsolationIsRestored(browser) {
  *   - Transitions have to be finished first. The theme is applied in an
  *     effect, so switching it is an animation, and a computed colour read
  *     mid-transition is the *old* colour.
- *   - A gradient cannot be sampled from the CSSOM. Skipping every element under
- *     one is not an option -- this app paints most of its panels that way, and
- *     the strict version measured 16 elements out of hundreds, which is a
- *     green tick over nothing. So a gradient layer is stepped past and the
- *     opaque colour beneath it used instead. The app's gradients are shallow
- *     glass fills whose ends bracket that colour, and for the one that matters
- *     -- the shell, #f7f8fa to #eef0f3 over a #eef0f3 body -- the substitute is
- *     the darker end, so the reading errs low and this gate errs toward
- *     flagging rather than hiding. The count is reported so the approximation
- *     is visible rather than implied.
+ *   - A gradient has to be measured against its own colour stops, not stepped
+ *     past. Skipping every element under one is not an option -- this app
+ *     paints most of its panels that way, and that version measured 16
+ *     elements out of hundreds, a green tick over nothing. Stepping past one
+ *     is not an option either: it is harmless for a shallow glass fill over an
+ *     opaque panel, and completely wrong for a gradient-*filled* button, where
+ *     the colour beneath is the panel rather than the fill the text sits on.
+ *     That read "Copy PGN" -- dark ink on a bright teal button -- as 1.01:1.
+ *     So the stops are parsed and the worst of them is the reading, which is
+ *     the same thing a reader's eye does with the least legible part of it.
  */
 function contrastProbe() {
   function parse(value) {
@@ -699,26 +699,70 @@ function contrastProbe() {
     const second = luminance(b)
     return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05)
   }
-  function backgroundOf(element) {
+  /** Every colour a gradient names, or null when it names none. */
+  function gradientStops(image) {
+    if (!image || image === 'none') return null
+    const found = [...image.matchAll(/rgba?\([^)]+\)/g)].map(match => parse(match[0])).filter(Boolean)
+    return found.length ? found : null
+  }
+
+  function themeGround() {
+    return document.documentElement.dataset.theme === 'light'
+      ? { r: 255, g: 255, b: 255, a: 1 }
+      : { r: 8, g: 9, b: 11, a: 1 }
+  }
+
+  /** Flatten a stack of translucent layers, outermost last, onto a ground. */
+  function flatten(layers, ground) {
+    let base = ground
+    for (let index = layers.length - 1; index >= 0; index -= 1) base = over(layers[index], base)
+    return base
+  }
+
+  /**
+   * The opaque colour under `node`, counting its own background-color. Used as
+   * the ground a translucent gradient stop is painted onto -- most of this
+   * app's gradients are translucent, so compositing a stop onto anything else
+   * (grey, say) invents a colour nothing on screen has.
+   */
+  function solidGroundFrom(node) {
     const layers = []
-    let node = element
-    let gradients = 0
-    while (node && node.nodeType === 1) {
-      const style = getComputedStyle(node)
-      if (style.backgroundImage && style.backgroundImage !== 'none') gradients += 1
-      const background = parse(style.backgroundColor)
+    let current = node
+    while (current && current.nodeType === 1) {
+      const background = parse(getComputedStyle(current).backgroundColor)
       if (background && background.a > 0) {
         layers.push(background)
         if (background.a >= 0.999) break
       }
+      current = current.parentElement
+    }
+    const ground = layers.length && layers[layers.length - 1].a >= 0.999 ? layers.pop() : themeGround()
+    return flatten(layers, ground)
+  }
+
+  /**
+   * Every ground the text could be sitting on. One entry for a flat colour,
+   * one per stop for a gradient -- the caller takes the worst.
+   */
+  function backgroundsOf(element) {
+    const above = []
+    let node = element
+    while (node && node.nodeType === 1) {
+      const style = getComputedStyle(node)
+      const stops = gradientStops(style.backgroundImage)
+      if (stops) {
+        const ground = solidGroundFrom(node)
+        return { bases: stops.map(stop => flatten(above, over(stop, ground))), onGradient: true }
+      }
+      const background = parse(style.backgroundColor)
+      if (background && background.a > 0) {
+        above.push(background)
+        if (background.a >= 0.999) break
+      }
       node = node.parentElement
     }
-    const light = document.documentElement.dataset.theme === 'light'
-    let base = layers.length && layers[layers.length - 1].a >= 0.999
-      ? layers.pop()
-      : (light ? { r: 255, g: 255, b: 255, a: 1 } : { r: 8, g: 9, b: 11, a: 1 })
-    for (let index = layers.length - 1; index >= 0; index -= 1) base = over(layers[index], base)
-    return { base, gradients }
+    const ground = above.length && above[above.length - 1].a >= 0.999 ? above.pop() : themeGround()
+    return { bases: [flatten(above, ground)], onGradient: false }
   }
 
   const failures = []
@@ -734,13 +778,15 @@ function contrastProbe() {
     if (element.closest('[inert],[aria-hidden="true"]')) continue
     const ink = parse(style.color)
     if (!ink) continue
-    const { base, gradients } = backgroundOf(element)
-    if (gradients) unverified += 1
+    const { bases, onGradient } = backgroundsOf(element)
+    if (onGradient) unverified += 1
     checked += 1
     const size = Number.parseFloat(style.fontSize)
     const bold = Number.parseInt(style.fontWeight, 10) >= 700
     const floor = (size >= 24 || (size >= 18.66 && bold)) ? 3 : 4.5
-    const measured = ratio(over(ink, base), base)
+    // The worst ground it could be sitting on, which is the one a reader
+    // struggles with.
+    const measured = Math.min(...bases.map(base => ratio(over(ink, base), base)))
     if (measured >= floor) continue
     failures.push({
       text: text.slice(0, 30),
@@ -754,7 +800,15 @@ function contrastProbe() {
   return { failures, unverified, checked }
 }
 
-async function assertContrast(page, label) {
+/**
+ * `minimum` is how many elements this surface should yield before a pass means
+ * anything. It is per-surface because a dialog legitimately holds far less
+ * text than a panel -- New Game measures 22 -- and a single global floor is
+ * either too low to catch a probe that measured nothing or too high to let a
+ * dialog through. The first version of this sweep passed cleanly over 16
+ * elements, which is the failure this number exists to make impossible.
+ */
+async function assertContrast(page, label, minimum = 40) {
   // Nothing is measurable until the transitions have finished; see contrastProbe.
   await page.evaluate(() => {
     for (const animation of document.getAnimations()) {
@@ -763,14 +817,14 @@ async function assertContrast(page, label) {
   })
   await page.waitForTimeout(250)
   const result = await page.evaluate(contrastProbe)
-  assert(result.checked > 40,
-    `${label}: the contrast probe only measured ${result.checked} elements, so a pass proves nothing`)
+  assert(result.checked >= minimum,
+    `${label}: the contrast probe only measured ${result.checked} elements (expected at least ${minimum}), so a pass proves nothing`)
   const described = result.failures
     .map(row => `${row.selector} "${row.text}" ${row.contrast}:1 < ${row.floor} at ${row.px}px (${row.ink})`)
     .join('; ')
   assert(result.failures.length === 0, `${label}: text under its contrast floor: ${described}`)
   console.log(`  contrast (${label}): ${result.checked} measured, 0 under the floor`
-    + ` (${result.unverified} sat on a gradient and used the colour beneath it)`)
+    + ` (${result.unverified} on a gradient, measured against its worst stop)`)
 }
 
 async function main() {
@@ -1045,54 +1099,7 @@ async function main() {
         await practicePrompt.waitFor({ state: 'detached', timeout: 5000 })
         console.log('  practice: Coach hides the answer and opens a playable retry position')
 
-        // Contrast, on the surfaces a reader actually lands on, in both
-        // themes. A hand pass found six of these in one sitting and every one
-        // was a value correct in one theme or one state and not the other, so
-        // the sweep runs twice and covers a dialog as well as the panels.
-        await page.getByRole('button', { name: 'Analyze', exact: true }).first().click()
-        await page.waitForTimeout(400)
-        await assertContrast(page, 'dark / analyze')
-        await page.getByRole('button', { name: 'Review', exact: true }).first().click()
-        await page.waitForTimeout(400)
-        await assertContrast(page, 'dark / review')
 
-        const openSettings = async () => {
-          await page.getByRole('button', { name: /open settings/i }).click()
-          await page.locator('.settings-body').waitFor({ timeout: 5000 })
-        }
-        // Escape rather than the Done button: the dialog's own focus hook
-        // closes on it, and it needs nothing to be hittable.
-        const closeSettings = async () => {
-          await page.keyboard.press('Escape')
-          await page.locator('.settings-body').waitFor({ state: 'detached', timeout: 5000 })
-        }
-        /**
-         * Scoped to the theme group, because "Light" and "Dark" are ordinary
-         * enough words to collide, and asserted afterwards -- a sweep labelled
-         * "light" that ran against the dark theme would pass and prove nothing.
-         */
-        const chooseTheme = async (name) => {
-          await page.locator(`[aria-labelledby="app-theme-label"] button`, { hasText: new RegExp(`^${name}$`) }).click()
-          await page.waitForFunction(
-            expected => document.documentElement.dataset.theme === expected,
-            name.toLowerCase(), { timeout: 5000 },
-          )
-        }
-
-        await openSettings()
-        await assertContrast(page, 'dark / settings')
-        await chooseTheme('Light')
-        await assertContrast(page, 'light / settings')
-        await closeSettings()
-        await assertContrast(page, 'light / review')
-        await page.getByRole('button', { name: 'Analyze', exact: true }).first().click()
-        await page.waitForTimeout(400)
-        await assertContrast(page, 'light / analyze')
-
-        // Back to the theme the rest of the suite expects.
-        await openSettings()
-        await chooseTheme('Dark')
-        await closeSettings()
 
       }
 
@@ -1170,6 +1177,101 @@ async function main() {
         assert(/3 TB hits/.test(telemetry || ''),
           `desktop: Pro telemetry omitted tablebase hits: ${telemetry}`)
         await page.getByRole('button', { name: 'Coach', exact: true }).click()
+
+        // Contrast, on the surfaces a reader actually lands on, in both
+        // themes. A hand pass found six of these in one sitting and every one
+        // was a value correct in one theme or one state and not the other, so
+        // the sweep runs twice and covers a dialog as well as the panels.
+        const openSettings = async () => {
+          await page.getByRole('button', { name: /open settings/i }).click()
+          await page.locator('.settings-body').waitFor({ timeout: 5000 })
+        }
+        // Escape rather than the Done button: the dialog's own focus hook
+        // closes on it, and it needs nothing to be hittable.
+        const closeSettings = async () => {
+          await page.keyboard.press('Escape')
+          await page.locator('.settings-body').waitFor({ state: 'detached', timeout: 5000 })
+        }
+        /**
+         * Scoped to the theme group, because "Light" and "Dark" are ordinary
+         * enough words to collide, and asserted afterwards -- a sweep labelled
+         * "light" that ran against the dark theme would pass and prove nothing.
+         */
+        const chooseTheme = async (name) => {
+          await page.locator(`[aria-labelledby="app-theme-label"] button`, { hasText: new RegExp(`^${name}$`) }).click()
+          await page.waitForFunction(
+            expected => document.documentElement.dataset.theme === expected,
+            name.toLowerCase(), { timeout: 5000 },
+          )
+        }
+
+        /**
+         * The surfaces a reader actually lands on. The dialogs are in here
+         * because two of the seven defects this sweep exists for were in them
+         * -- the New Game dialog's selected time control and the PGN dialog's
+         * Lichess link -- and a gate that never opens a dialog would have
+         * found neither.
+         */
+        const openDialog = async (label, panel) => {
+          await page.getByRole('button', { name: label }).first().click()
+          await page.locator(panel).waitFor({ timeout: 5000 })
+        }
+        const closeDialog = async (panel) => {
+          await page.keyboard.press('Escape')
+          await page.locator(panel).waitFor({ state: 'detached', timeout: 5000 })
+        }
+        const sweepSurfaces = async (theme) => {
+          await page.getByRole('button', { name: 'Analyze', exact: true }).first().click()
+          await page.waitForTimeout(300)
+          await assertContrast(page, `${theme} / analyze`)
+
+          await page.getByRole('button', { name: 'Review', exact: true }).first().click()
+          await page.waitForTimeout(300)
+          await assertContrast(page, `${theme} / review`)
+
+          await openDialog(/start new game/i, '.new-game-dialog')
+          await assertContrast(page, `${theme} / new game`, 15)
+          await closeDialog('.new-game-dialog')
+
+          // Export, not the Import tab it opens on: the defect that put this
+          // dialog in the sweep was the "Open in Lichess" link, which only
+          // exists on Export. A gate pointed at the wrong tab would have
+          // missed the one thing it was written for.
+          await openDialog(/pgn and fen/i, '.pgn-dialog')
+          await page.locator('.pgn-dialog').getByRole('button', { name: 'Export', exact: true }).click()
+          await page.waitForTimeout(300)
+          await assertContrast(page, `${theme} / pgn export`, 12)
+          await closeDialog('.pgn-dialog')
+
+          // The empty shelf, which is what this suite's browser has: nine text
+          // nodes and no rows. It does not reach the favourite star or the
+          // status line, whose inks only appear once something is saved.
+          await openDialog(/saved games library/i, '.library-dialog')
+          await assertContrast(page, `${theme} / library`, 8)
+          await closeDialog('.library-dialog')
+
+          await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+          await page.waitForTimeout(400)
+          await assertContrast(page, `${theme} / play`, 20)
+          await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+          await page.waitForTimeout(400)
+        }
+
+        await openSettings()
+        await assertContrast(page, 'dark / settings', 30)
+        await closeSettings()
+        await sweepSurfaces('dark')
+
+        await openSettings()
+        await chooseTheme('Light')
+        await assertContrast(page, 'light / settings', 30)
+        await closeSettings()
+        await sweepSurfaces('light')
+
+        // Back to the theme and tab the rest of the suite expects.
+        await openSettings()
+        await chooseTheme('Dark')
+        await closeSettings()
       }
 
       // Every aria-controls has to lead somewhere. The one accepted exception
