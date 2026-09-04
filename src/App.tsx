@@ -3294,6 +3294,19 @@ function App() {
     clearBoardSelection()
   }, [clearBoardSelection])
 
+  /**
+   * A drill belongs to the analysis board and does not follow you out of it.
+   *
+   * Its card is only drawn there, but the interception in `applyHumanMove` is
+   * not mode-aware — so a drill left running while you started a game would sit
+   * invisibly behind the board rejecting moves that were not the line. Leaving
+   * Analysis is as clear an "I am done with this" as pressing Stop.
+   */
+  useEffect(() => {
+    if (workspaceMode === 'analysis') return
+    setDrill(null)
+  }, [workspaceMode])
+
   const drillLineForSide = (side: 'white' | 'black'): DrillLine | null =>
     drillableLine ? { moves: drillableLine.moves, side, rootTurn: drillableLine.rootTurn } : null
   const drillWhiteReason = drillableLine
@@ -3972,7 +3985,8 @@ function App() {
       game.load(rootFen)
       setFen(game.fen())
       setEvaluationsByFen(new Map())
-    setFrozenReview(null)
+      setFrozenReview(null)
+      setDrill(null)
       setClock(null)
       setResignedBy(null)
       setPremove(null)
@@ -4187,7 +4201,8 @@ function App() {
       gameTree.reset(rootFen)
       setPgnHeaders({})
       setEvaluationsByFen(new Map())
-    setFrozenReview(null)
+      setFrozenReview(null)
+      setDrill(null)
       setClock(null)
       setResignedBy(null)
       setPremove(null)
@@ -4243,6 +4258,7 @@ function App() {
     newGame()
     setEvaluationsByFen(new Map())
     setFrozenReview(null)
+    setDrill(null)
     setClock(null)
     setResignedBy(null)
     setPremove(null)
@@ -4354,7 +4370,8 @@ function App() {
       setFen(startFen)
       cancelPendingAiMove()
       setEvaluationsByFen(new Map())
-    setFrozenReview(null)
+      setFrozenReview(null)
+      setDrill(null)
       setClock(null)
       setResignedBy(null)
       setPremove(null)
