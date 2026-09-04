@@ -94,9 +94,22 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   narrowing to Black's middlegame steps Black's middlegame mistakes, and the
   label says where you are — "Mistake 3 of 11". Nothing wraps: at either end
   the button says there is none rather than jumping to the far end of the game.
-  Both are in the command palette too. The count can fall as you step, and that
-  is the review working: landing on a fault searches its position deeper, and a
-  deeper reading sometimes exonerates the move.
+  Both are in the command palette too, and the count holds still while you
+  walk it: the report is scored from the evaluations the review pass itself
+  produced, so "Mistake 3 of 11" is still out of eleven by the time you reach
+  the last one.
+- **A review that holds still**: A report whose numbers move while you read it
+  is not a report, and these moved — stepping back through one game's faults
+  turned nought blunders into two and took 1.9 points off the accuracy, with no
+  move played. The cause was not that the second look was worse: a grade is the
+  difference between two evaluations, and browsing a position re-took one half
+  of that pair far deeper than the half beside it, so the difference became the
+  gap in depth rather than anything the move did. The tallies, the accuracy, the
+  critical moments and the stepper are now scored from the map as it stood when
+  the pass finished. Only those: the eval bar, the Coach card and both graphs
+  still read the live engine, because deepening those is the point of browsing.
+  The snapshot belongs to the line it was taken for, so a line you never
+  reviewed reads live rather than reporting itself as unevaluated.
 - **Practice critical moments**: In Coach mode, a critical mistake becomes a
   playable retry. Engine answers and candidate arrows are hidden, wrong moves
   snap back without adding junk variations, and the answer appears after two
