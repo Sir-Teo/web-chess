@@ -34,6 +34,15 @@ import {
 import { buildFenShareUrl } from '../engine/shareLink'
 import { MAX_SHARED_GAME_CHARS, buildGameShareUrl } from '../engine/shareGame'
 import { chessComPositionUrl, lichessAnalysisUrl } from '../engine/externalLinks'
+import {
+    ARCHIVE_SOURCES,
+    DEFAULT_ARCHIVE_GAMES,
+    MAX_ARCHIVE_GAMES,
+    clampArchiveGameCount,
+    normalizeArchiveUsername,
+    type ArchiveSource,
+} from '../engine/gameArchives'
+import { fetchArchiveGames } from '../engine/archiveFetch'
 import { IconDownload, IconClipboard, IconUpload } from './icons'
 import { fenTextForShareLink } from './pgnDialogHelpers'
 import { MAX_PGN_IMPORT_BYTES, PGN_IMPORT_LIMIT_MESSAGE, pgnImportLengthError } from './pgnImportLimits'
@@ -91,6 +100,11 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const [setup, setSetup] = useState<PositionSetup>(() => parsePositionSetupFen(currentFen) ?? createStartingPositionSetup())
     const [selectedSetupPiece, setSelectedSetupPiece] = useState<SetupPiece | null>('P')
     const [shareLinkFallback, setShareLinkFallback] = useState('')
+    const [archiveSource, setArchiveSource] = useState<ArchiveSource>('lichess')
+    const [archiveUsername, setArchiveUsername] = useState('')
+    const [archiveCount, setArchiveCount] = useState(DEFAULT_ARCHIVE_GAMES)
+    const [archiveBusy, setArchiveBusy] = useState(false)
+    const archiveAbortRef = useRef<AbortController | null>(null)
     const panelRef = useRef<HTMLDivElement>(null)
     const importFileInputRef = useRef<HTMLInputElement>(null)
     const wasOpenRef = useRef(false)
@@ -101,6 +115,8 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const exportTextId = useId()
     const halfmoveId = useId()
     const fullmoveId = useId()
+    const archiveUserId = useId()
+    const archiveCountId = useId()
 
     const resetFeedback = useCallback(() => {
         setError(null)
@@ -130,6 +146,61 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         }
         setError(result.error ?? 'Could not import that PGN.')
     }
+
+    const archiveSourceInfo = ARCHIVE_SOURCES.find(source => source.id === archiveSource) ?? ARCHIVE_SOURCES[0]
+    const archiveUsernameValid = normalizeArchiveUsername(archiveUsername) !== null
+
+    /**
+     * Fetch the reader's own recent games into the box below.
+     *
+     * The result is dropped into the same textarea a pasted file lands in, so
+     * everything downstream -- the multi-game notice, the "add them all to the
+     * library" offer, the single-game import -- is the code that already runs
+     * for a paste. Nothing here knows what a library is.
+     */
+    const handleFetchArchive = useCallback(async () => {
+        const username = normalizeArchiveUsername(archiveUsername)
+        if (!username) {
+            setStatus(null)
+            setError('That is not a username. Type the name, or paste a link to the profile page.')
+            return
+        }
+
+        archiveAbortRef.current?.abort()
+        const controller = new AbortController()
+        archiveAbortRef.current = controller
+        resetFeedback()
+        setArchiveBusy(true)
+        try {
+            const games = await fetchArchiveGames(archiveSource, username, archiveCount, { signal: controller.signal })
+            if (controller.signal.aborted) return
+            if (games.length === 0) {
+                setError(`${archiveSourceInfo.label} has no public games for “${username}”.`)
+                return
+            }
+            const text = games.join('\n\n')
+            const limitError = pgnImportLengthError(text)
+            if (limitError) {
+                setError(limitError)
+                return
+            }
+            setImportText(text)
+            setImportFileName(`${username} · ${archiveSourceInfo.label}`)
+            setStatus(`Fetched ${games.length} ${games.length === 1 ? 'game' : 'games'} for ${username}.`)
+        } catch (fetchError) {
+            if (controller.signal.aborted) return
+            setError(fetchError instanceof Error ? fetchError.message : 'Those games could not be fetched.')
+        } finally {
+            if (archiveAbortRef.current === controller) {
+                archiveAbortRef.current = null
+                setArchiveBusy(false)
+            }
+        }
+    }, [archiveCount, archiveSource, archiveSourceInfo.label, archiveUsername, resetFeedback])
+
+    // A fetch outlives the dialog otherwise, and finishes into a component that
+    // is no longer on screen.
+    useEffect(() => () => archiveAbortRef.current?.abort(), [])
 
     const handleImportDatabase = () => {
         if (!databaseGames || !onImportManyToLibrary) return
@@ -440,7 +511,67 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
 
                     {tab === 'import' && (
                         <div className="dialog-section">
-                            <label className="dialog-label" htmlFor={importTextId}>Paste Portable Game Notation</label>
+                            <span className="dialog-label" id={`${archiveUserId}-label`}>Bring in your own games</span>
+                            <div className="archive-fetch">
+                                <div className="archive-source-row" role="group" aria-label="Where to fetch games from">
+                                    {ARCHIVE_SOURCES.map(source => (
+                                        <button
+                                            key={source.id}
+                                            type="button"
+                                            className={`archive-source-btn ${archiveSource === source.id ? 'selected' : ''}`}
+                                            aria-pressed={archiveSource === source.id}
+                                            onClick={() => setArchiveSource(source.id)}
+                                        >
+                                            {source.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="archive-fetch-row">
+                                    <input
+                                        id={archiveUserId}
+                                        className="archive-input"
+                                        type="text"
+                                        inputMode="text"
+                                        autoComplete="off"
+                                        spellCheck={false}
+                                        placeholder={archiveSourceInfo.placeholder}
+                                        aria-label={`Your ${archiveSourceInfo.label} username`}
+                                        value={archiveUsername}
+                                        onChange={event => {
+                                            setArchiveUsername(event.target.value)
+                                            setError(null)
+                                        }}
+                                        onKeyDown={event => {
+                                            if (event.key !== 'Enter') return
+                                            event.preventDefault()
+                                            void handleFetchArchive()
+                                        }}
+                                    />
+                                    <div className="archive-count">
+                                        <label htmlFor={archiveCountId}>Games</label>
+                                        <input
+                                            id={archiveCountId}
+                                            type="number"
+                                            min={1}
+                                            max={MAX_ARCHIVE_GAMES}
+                                            value={archiveCount}
+                                            onChange={event => setArchiveCount(clampArchiveGameCount(Number(event.target.value)))}
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="btn-start archive-fetch-btn"
+                                        onClick={() => void handleFetchArchive()}
+                                        disabled={archiveBusy || !archiveUsernameValid}
+                                    >
+                                        {archiveBusy ? 'Fetching…' : 'Fetch'}
+                                    </button>
+                                </div>
+                                <p className="archive-hint">
+                                    Public games, no sign-in. They land in the box below, newest first.
+                                </p>
+                            </div>
+                            <label className="dialog-label archive-paste-label" htmlFor={importTextId}>Or paste Portable Game Notation</label>
                             <div className="dialog-quick-actions">
                                 <input
                                     ref={importFileInputRef}
