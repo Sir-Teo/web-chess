@@ -117,6 +117,18 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   still read the live engine, because deepening those is the point of browsing.
   The snapshot belongs to the line it was taken for, so a line you never
   reviewed reads live rather than reporting itself as unevaluated.
+- **Drill a line from memory**: Opening preparation, which the explorer and the
+  review between them could describe but never *ask* for — and a repertoire you
+  can recognise is not one you can play. `Drill this line · White / Black` on
+  the Analyze tab puts the board back at the top of the line you are standing
+  in and asks you to produce it. The line answers back, so you are asked your
+  next move rather than your opponent's reply; a wrong move snaps back and is
+  never recorded, so a drill cannot fill the tree with the moves you were trying
+  not to play; and the answer appears after two misses, as it does in review
+  practice. It is per side, because the same line is one thing to know as White
+  and a different thing as Black. Deliberately not a new subsystem: a repertoire
+  line here is a line in the game tree, which means it is also a game in the
+  library, which means it already imports, exports, saves and shares.
 - **Practice critical moments**: In Coach mode, a critical mistake becomes a
   playable retry. Engine answers and candidate arrows are hidden, wrong moves
   snap back without adding junk variations, and the answer appears after two

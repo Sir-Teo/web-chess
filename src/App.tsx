@@ -152,6 +152,15 @@ import {
 } from './engine/boardMarks'
 import { coachReadingSource, describeCoachDepth, isExactTablebaseCoachMove, selectCoachBestMove, selectCoachLineSource } from './engine/coach'
 import { isReviewPracticeAnswer } from './engine/reviewPractice'
+import {
+  type DrillLine,
+  drillProgress,
+  drillUnavailableReason,
+  expectedDrillMove,
+  isDrillTurn,
+  judgeDrillMove,
+  opponentMovesFrom,
+} from './engine/lineDrill'
 import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage } from './engine/labCommands'
 import { aiSearchHistory, defaultOrientationForGameMode, describePlayEngine, hintDisabledReason, sideToMoveColor, takebackDisabledReason, takebackPlyCount, judgeMoveBetweenSearches, type AiSearchReading, type MoveJudgement } from './engine/playMode'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
@@ -639,6 +648,16 @@ function App() {
   // has actually switched and the analysis engine is up.
   const [pendingGameReview, setPendingGameReview] = useState(false)
   const [reviewPractice, setReviewPractice] = useState<ReviewPracticeState | null>(null)
+  /**
+   * Playing a line from memory. Null when no drill is running.
+   *
+   * `rootFen` is kept so the drill can be restarted, and so a move judged
+   * against the wrong position is impossible: the line is a list of moves from
+   * one place, and if the board is not that place the drill is over.
+   */
+  const [drill, setDrill] = useState<
+    { line: DrillLine; rootFen: string; expectedFen: string; ply: number; misses: number; revealed: boolean } | null
+  >(null)
   const [importSweepProgress, setImportSweepProgress] = useState<ImportSweepProgress>({ done: 0, total: 0 })
   const skipFullAnalyzeFenRef = useRef<string | null>(null)
   const importSweepQueueRef = useRef<ImportSweepTarget[]>([])
@@ -3194,6 +3213,82 @@ function App() {
     setLegalTargets([])
   }, [])
 
+  /**
+   * Walk a run of UCI moves onto the board, the way `playPvLine` does.
+   *
+   * `addMove` de-dupes by UCI, so replaying moves that are already in the tree
+   * navigates the existing line rather than growing a second copy of it — which
+   * is what makes a drill of a saved line leave that line exactly as it was.
+   */
+  const playDrillMoves = useCallback((moves: string[]) => {
+    let landed: Move | null = null
+    for (const uci of moves) {
+      let move: Move | null
+      try {
+        move = game.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })
+      } catch {
+        break
+      }
+      if (!move) break
+      gameTree.addMove(move, game.fen())
+      landed = move
+    }
+    if (landed) playMoveSound(landed)
+    setFen(game.fen())
+    return landed
+  }, [game, gameTree, playMoveSound])
+
+  /**
+   * The line on the board, as something that can be drilled.
+   *
+   * The line the reader is standing in rather than the game's main line, for
+   * the same reason the review follows that line: a variation is a repertoire
+   * line as much as the game is.
+   */
+  const drillableLine = useMemo(() => {
+    const root = currentLineNodes[0]
+    if (!root) return null
+    const moves = currentLineNodes.slice(1).map(node => node.uci).filter((uci): uci is string => Boolean(uci))
+    let rootTurn: 'w' | 'b' = 'w'
+    try {
+      rootTurn = new Chess(root.fen).turn()
+    } catch {
+      return null
+    }
+    return { rootFen: root.fen, moves, rootTurn }
+  }, [currentLineNodes])
+
+  const startDrill = useCallback((side: 'white' | 'black') => {
+    if (!drillableLine) return
+    const line: DrillLine = { moves: drillableLine.moves, side, rootTurn: drillableLine.rootTurn }
+    if (drillUnavailableReason(line)) return
+
+    cancelStaleBackgroundAnalysis()
+    stop()
+    setReviewPractice(null)
+    setHintMove(null)
+    // Back to the top of the line, then play whatever the opponent owns before
+    // the first question.
+    gameTree.navigateTo(currentLineNodes[0]!.id)
+    game.load(drillableLine.rootFen)
+    const opening = opponentMovesFrom(line, 0)
+    playDrillMoves(opening)
+    setDrill({
+      line,
+      rootFen: drillableLine.rootFen,
+      expectedFen: game.fen(),
+      ply: opening.length,
+      misses: 0,
+      revealed: false,
+    })
+    clearBoardSelection()
+  }, [cancelStaleBackgroundAnalysis, clearBoardSelection, currentLineNodes, drillableLine, game, gameTree, playDrillMoves, stop])
+
+  const endDrill = useCallback(() => {
+    setDrill(null)
+    clearBoardSelection()
+  }, [clearBoardSelection])
+
   const applyHumanMove = useCallback(
     (from: Square, to: Square, promotion?: PromotionPiece) => {
       const beforeFen = game.fen()
@@ -3204,6 +3299,25 @@ function App() {
         return false
       }
       if (!move) return false
+
+      // A drill judges before anything is recorded, for the same reason review
+      // practice does: a move that is not the line should leave no trace.
+      // Judged against the position the drill is *asking from*, exactly as
+      // review practice keys on its own `beforeFen`. Navigate away mid-drill and
+      // the moves you play there are ordinary moves again, not wrong answers.
+      const activeDrill = drill && drill.expectedFen === beforeFen && isDrillTurn(drill.line, drill.ply)
+        ? drill
+        : null
+      if (activeDrill) {
+        const judged = judgeDrillMove(activeDrill.line, activeDrill.ply, activeDrill.misses, move)
+        if (!judged.correct) {
+          game.undo()
+          setDrill(previous => (previous ? { ...previous, misses: judged.misses, revealed: judged.revealed } : previous))
+          clearBoardSelection()
+          setPendingPromotion(null)
+          return false
+        }
+      }
 
       const activePractice = reviewPractice
         && reviewPractice.beforeFen === beforeFen
@@ -3254,11 +3368,21 @@ function App() {
           }
           : previous)
       }
+      if (activeDrill) {
+        const judged = judgeDrillMove(activeDrill.line, activeDrill.ply, activeDrill.misses, move)
+        // The line answers back, so the reader is asked their next move rather
+        // than their opponent's reply.
+        const reply = opponentMovesFrom(activeDrill.line, activeDrill.ply + 1)
+        if (reply.length) playDrillMoves(reply)
+        setDrill(previous => (previous
+          ? { ...previous, ply: judged.ply, expectedFen: game.fen(), misses: 0, revealed: false }
+          : previous))
+      }
       clearBoardSelection()
       setPendingPromotion(null)
       return true
     },
-    [cancelStaleBackgroundAnalysis, clearBoardSelection, game, gameTree, registerMovePlayed, reviewPractice, stop, workspaceMode],
+    [cancelStaleBackgroundAnalysis, clearBoardSelection, drill, game, gameTree, playDrillMoves, registerMovePlayed, reviewPractice, stop, workspaceMode],
   )
 
   /**
@@ -4847,6 +4971,47 @@ function App() {
     </div>
   )
 
+  const drillLineForSide = (side: 'white' | 'black'): DrillLine | null =>
+    drillableLine ? { moves: drillableLine.moves, side, rootTurn: drillableLine.rootTurn } : null
+  const drillWhiteReason = drillableLine
+    ? drillUnavailableReason(drillLineForSide('white')!)
+    : 'There is no line on the board to drill.'
+  const drillBlackReason = drillableLine
+    ? drillUnavailableReason(drillLineForSide('black')!)
+    : 'There is no line on the board to drill.'
+
+  const drillCard = drill && (() => {
+    const { done, total } = drillProgress(drill.line, drill.ply)
+    const expected = expectedDrillMove(drill.line, drill.ply)
+    const answerSan = drill.revealed && expected ? uciToSan(drill.expectedFen, expected) ?? expected : null
+    const finished = done >= total
+    return (
+      <section className="panel-card drill-card" aria-label="Line drill">
+        <h3><span className="section-icon"><IconSwords /></span> Drill</h3>
+        <p className="drill-progress" role="status">
+          {finished
+            ? `Line complete — ${total} ${total === 1 ? 'move' : 'moves'} from memory.`
+            : `Playing ${drill.line.side === 'white' ? 'White' : 'Black'} · move ${done + 1} of ${total}`}
+        </p>
+        {!finished && drill.misses > 0 && (
+          <p className="drill-miss panel-copy small">
+            {answerSan
+              ? `Not the line. It plays ${answerSan}.`
+              : 'Not the line. Try again.'}
+          </p>
+        )}
+        <div className="inline-actions">
+          <button type="button" className="btn-cancel" onClick={() => startDrill(drill.line.side)}>
+            Restart
+          </button>
+          <button type="button" className="btn-cancel" onClick={endDrill}>
+            {finished ? 'Done' : 'Stop drilling'}
+          </button>
+        </div>
+      </section>
+    )
+  })()
+
   const playFromHereRow = (
     <div className="inline-actions play-from-here-row">
       <button
@@ -4860,6 +5025,37 @@ function App() {
           : 'Play from this position against the engine'}
       >
         <IconSwords /> Play from here
+      </button>
+    </div>
+  )
+
+  {/* Its own row: three buttons across squeezed "Play from here" to its
+      minimum, and the two are different offers -- take this position against
+      the engine, or play this whole line back from memory. */}
+  const drillRow = (
+    <div className="inline-actions drill-row">
+      <span className="drill-row-label">Drill this line</span>
+      {/* Per side, because a repertoire is: the same line is one thing to know
+          as White and a different thing to know as Black. */}
+      <button
+        type="button"
+        className="drill-btn"
+        onClick={() => startDrill('white')}
+        disabled={Boolean(drillWhiteReason)}
+        title={drillWhiteReason ?? 'Play this line from memory as White'}
+        aria-label={drillWhiteReason ? `Drill as White unavailable. ${drillWhiteReason}` : 'Drill this line as White'}
+      >
+        White
+      </button>
+      <button
+        type="button"
+        className="drill-btn"
+        onClick={() => startDrill('black')}
+        disabled={Boolean(drillBlackReason)}
+        title={drillBlackReason ?? 'Play this line from memory as Black'}
+        aria-label={drillBlackReason ? `Drill as Black unavailable. ${drillBlackReason}` : 'Drill this line as Black'}
+      >
+        Black
       </button>
     </div>
   )
@@ -6187,6 +6383,8 @@ function App() {
                       change, and at the panel's default 320px a three-way split
                       cut the label off mid-word. */}
                   {playFromHereRow}
+                  {drillRow}
+                  {drillCard}
                   {experienceToggle}
                   <div className="coach-card">
                     <h3><span className="section-icon"><IconKing /></span> Coach</h3>
@@ -6634,6 +6832,8 @@ function App() {
                     </button>
                   </div>
                   {playFromHereRow}
+                  {drillRow}
+                  {drillCard}
                   {experienceToggle}
                   <div className="review-scaffold">
                     <h3><span className="section-icon"><IconBarChart /></span> Review</h3>
