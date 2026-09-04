@@ -83,6 +83,8 @@ import { type LibraryWriteResult, useGameLibrary } from './hooks/useGameLibrary'
 import { FEN_PARSE_ERROR, validateFenForAnalysis } from './engine/fen'
 import { buildImportSweepTargets, countImportSweepCandidates, type ImportSweepTarget } from './engine/importSweep'
 import { type BatchReviewTarget, planBatchReview } from './engine/batchReview'
+import { planReviewPool } from './engine/reviewPool'
+import { runReviewPool, type ReviewPoolRun } from './engine/reviewPoolRunner'
 import {
   normalizeOptionalIntegerInput,
   normalizeRequiredIntegerInput,
@@ -1047,6 +1049,12 @@ function App() {
     : 0
   const batchReviewQueueRef = useRef<BatchReviewTarget[]>([])
   const activeBatchReviewRef = useRef<BatchReviewTarget | null>(null)
+  /**
+   * The pooled review in flight, when there is one. While this is set the
+   * single-engine effect below stands down entirely: the pool owns its own
+   * engines and the shared one is free for the panel.
+   */
+  const reviewPoolRunRef = useRef<ReviewPoolRun | null>(null)
   const tablebase = useTablebase({
     fen,
     enabled: workspaceMode === 'analysis',
@@ -1069,6 +1077,8 @@ function App() {
   })
 
   const clearBatchReview = useCallback(() => {
+    reviewPoolRunRef.current?.cancel()
+    reviewPoolRunRef.current = null
     batchReviewQueueRef.current = []
     activeBatchReviewRef.current = null
     setIsBatchReviewing(false)
@@ -1079,6 +1089,13 @@ function App() {
     clearBatchReview()
     stop()
   }, [clearBatchReview, stop])
+
+  // A pool holds real engines. Leaving them running past an unmount would leak
+  // four WASM instances and every thread under them.
+  useEffect(() => () => {
+    reviewPoolRunRef.current?.cancel()
+    reviewPoolRunRef.current = null
+  }, [])
 
   const cancelStaleBackgroundAnalysis = useCallback(() => {
     const hadImportSweep = importSweepProgress.total > 0
@@ -1112,14 +1129,75 @@ function App() {
       return
     }
 
-    batchReviewQueueRef.current = targets
     activeBatchReviewRef.current = null
     setIsBatchReviewing(true)
     stop()
-  }, [clearImportSweep, engineEnabled, evaluationsByFen, searchDepth, stop])
+
+    /**
+     * Several engines at once where the device can afford them.
+     *
+     * A review is the slowest thing this app does and every position in it is
+     * independent, so the wall clock is a scheduling choice. `planReviewPool`
+     * decides whether the trade is worth making on this machine -- it divides
+     * the reader's Hash rather than multiplying it, and falls back to one
+     * engine on a phone, a short queue, or anything it cannot size.
+     */
+    const poolPlan = planReviewPool({
+      profile: activeProfile,
+      capabilities,
+      queueLength: targets.length,
+      hashMb,
+      })
+    if (poolPlan.workers <= 1) {
+      batchReviewQueueRef.current = targets
+      return
+    }
+
+    // Nothing is queued for the shared engine: while the pool runs, the effect
+    // below sees an empty queue and a live pool and stands down.
+    batchReviewQueueRef.current = []
+    const run = runReviewPool({
+      targets,
+      plan: poolPlan,
+      profile: activeProfile,
+      depth: searchDepth,
+      showWdl,
+      callbacks: {
+        onResult: (fen, snapshot) => {
+          setEvaluationsByFen(previous => recordEvaluation(previous, fen, snapshot))
+        },
+        onProgress: () => {
+          setBatchReviewProgress(previous => ({
+            total: previous.total,
+            done: Math.min(previous.total, previous.done + 1),
+          }))
+        },
+      },
+    })
+    reviewPoolRunRef.current = run
+    run.done
+      .then(() => {
+        if (reviewPoolRunRef.current !== run) return
+        reviewPoolRunRef.current = null
+        setIsBatchReviewing(false)
+      })
+      .catch(() => {
+        // The engines would not start. Hand the whole queue to the shared one
+        // rather than reporting a review that never ran: nothing has been
+        // recorded yet, because a result is only reported once an engine has
+        // answered.
+        if (reviewPoolRunRef.current !== run) return
+        run.cancel()
+        reviewPoolRunRef.current = null
+        batchReviewQueueRef.current = targets
+        setBatchReviewProgress({ done: plan.done, total: plan.total })
+      })
+  }, [activeProfile, capabilities, clearImportSweep, engineEnabled, evaluationsByFen, hashMb, searchDepth, showWdl, stop])
 
   useEffect(() => {
     if (!isBatchReviewing) return
+    // The pool owns its own engines and reports its own progress.
+    if (reviewPoolRunRef.current) return
 
     if (!engineEnabled || status === 'disabled' || status === 'error') {
       batchReviewQueueRef.current = []

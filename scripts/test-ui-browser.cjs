@@ -75,6 +75,10 @@ const SCENARIO = ${JSON.stringify(scenario)};
   const NativeWorker = window.Worker;
   window.__uciCommands = [];
   window.__uciBestmoves = 0;
+  // How many engines the app constructed. A game review runs several at once
+  // where the device can afford them, and this is how the suite can say which
+  // path it actually exercised rather than assuming.
+  window.__engineCount = 0;
 
   function scoreFor(fen) {
     // Deterministic pseudo-eval in [-120, 120], stable for a given position.
@@ -85,6 +89,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
 
   class FakeStockfish {
     constructor() {
+      window.__engineCount += 1;
       this.onmessage = null;
       this.onerror = null;
       this.listeners = [];
@@ -873,6 +878,16 @@ async function main() {
 
         console.log(`  review: ${summary.moves} moves, overall ${summary.overall}, ` +
                     `white ${summary.white}, black ${summary.black}, ACPL ${summary.acpl}`)
+
+        // Which path the review took. A pooled review boots engines of its own,
+        // so more than one construction means the pool ran; one means this
+        // runner sized itself down to the shared engine. Both are correct and
+        // both must produce the numbers asserted above -- the point of saying
+        // it is that a suite which silently only ever exercised one of them
+        // would look exactly like this one.
+        const engines = await page.evaluate(() => window.__engineCount || 0)
+        assert(engines >= 1, 'desktop: the review ran without constructing an engine')
+        console.log(`  review engines: ${engines} (${engines > 1 ? 'pooled' : 'single'})`)
 
         // Coach turns a critical moment into a board exercise rather than
         // playing the answer for the reader. The answer must disappear before

@@ -75,6 +75,16 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   per engine now, so what you set is what searches.
 - **Search diagnostics for pros**: Pro mode reports ordinary and selective depth, nodes, NPS, transposition-table occupancy, tablebase hits, and elapsed time from Stockfish's live UCI output, so Hash and Syzygy settings can be judged from evidence rather than guesswork.
 - **Game review, of the line you are on**: Import a PGN, run a review pass, filter critical moments by side, inspect accuracy, and jump from a review row back to the board. The review follows the branch the board is standing in, so a variation can be reviewed like the game — and when that is not the main line it says so. Accuracy and move labels are scored on winning chances rather than raw centipawns, so an imprecision in a decided game is not called a blunder. The labels are the ones readers arrive knowing: *Book* while a sound move stays in the opening table, *Best* for the engine's own move and nothing else, *Excellent* for one that gave up almost nothing, then Good, Inaccuracy, Mistake and Blunder — so a row never reads "Best e4" beside a move it also calls Best. A best-move hint appears only once a search deep enough to grade the move has run; the 70 ms import sweep's choice is not one.
+- **A review that uses the whole machine**: the positions in a game review are
+  independent of one another, so on a desktop the review runs several engines
+  at once instead of walking the line one search at a time. Measured on an
+  83-move blitz game at depth 16, same session, same game: **105s on one engine,
+  21s on four** — five times faster, with the accuracy summary landing within
+  0.3 points and the same 83 of 83 positions evaluated. The engines divide the
+  Hash you set rather than multiplying it, and take a contiguous run of the
+  game each so their transposition tables stay warm. A phone, a short queue, a
+  machine with few cores, or a Hash too small to divide all keep the single
+  engine, which is also what a failed boot falls back to.
 - **Step through every mistake**: `‹ Previous` and `Next ›` under the review's
   quality counts walk the board from one inaccuracy, mistake or blunder to the
   next, landing on the position each was played *from* — the one with the
