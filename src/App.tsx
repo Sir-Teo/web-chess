@@ -3267,6 +3267,11 @@ function App() {
     stop()
     setReviewPractice(null)
     setHintMove(null)
+    // Face the side being drilled. Producing Black's moves from White's side of
+    // the board is a second puzzle on top of the one being practised, and every
+    // trainer turns it round. Left turned round afterwards: having studied
+    // Black's repertoire, Black's view is the one to keep.
+    setOrientation(side)
     // Back to the top of the line, then play whatever the opponent owns before
     // the first question.
     gameTree.navigateTo(currentLineNodes[0]!.id)
@@ -4985,15 +4990,27 @@ function App() {
     const expected = expectedDrillMove(drill.line, drill.ply)
     const answerSan = drill.revealed && expected ? uciToSan(drill.expectedFen, expected) ?? expected : null
     const finished = done >= total
+    // The drill stays armed while the reader looks somewhere else -- a move
+    // played there is an ordinary move and coming back resumes -- but a card
+    // reading "move 1 of 3" over a board that is not being asked anything is
+    // the app claiming to wait for something it is not.
+    const awayFromLine = !finished && drill.expectedFen !== fen
     return (
       <section className="panel-card drill-card" aria-label="Line drill">
         <h3><span className="section-icon"><IconSwords /></span> Drill</h3>
         <p className="drill-progress" role="status">
           {finished
             ? `Line complete — ${total} ${total === 1 ? 'move' : 'moves'} from memory.`
-            : `Playing ${drill.line.side === 'white' ? 'White' : 'Black'} · move ${done + 1} of ${total}`}
+            : awayFromLine
+              ? `Paused at move ${done + 1} of ${total} — the board has moved off the line.`
+              : `Playing ${drill.line.side === 'white' ? 'White' : 'Black'} · move ${done + 1} of ${total}`}
         </p>
-        {!finished && drill.misses > 0 && (
+        {awayFromLine && (
+          <p className="drill-miss panel-copy small">
+            Go back to where you left it, or restart.
+          </p>
+        )}
+        {!finished && !awayFromLine && drill.misses > 0 && (
           <p className="drill-miss panel-copy small">
             {answerSan
               ? `Not the line. It plays ${answerSan}.`
