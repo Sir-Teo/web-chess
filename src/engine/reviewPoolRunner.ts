@@ -55,18 +55,38 @@ function createEngine(profile: EngineProfile): Engine {
   const created = createStockfishWorker(profile)
   const worker = created.worker
   const lines: string[] = []
-  const waiters: Array<{ predicate: (line: string) => boolean; resolve: () => void }> = []
+  const waiters: Array<{
+    predicate: (line: string) => boolean
+    resolve: () => void
+    fail: (error: Error) => void
+  }> = []
   let failure: Error | null = null
+
+  /**
+   * A dead engine has to reach the waiters, not just the next caller to ask.
+   *
+   * `failure` used to be recorded and left there. Nothing matches the
+   * predicate after that, so a worker that died with a wait outstanding sat
+   * until that wait's own timeout -- 20s for a boot, 60s for a `bestmove` --
+   * before the block rejected and `App` could fall back to the shared engine.
+   * A pool that stalls for a minute before giving up is slower than the single
+   * engine it replaced, which is the entire point of it.
+   */
+  const failWaiters = (error: Error) => {
+    for (const waiter of waiters.splice(0)) waiter.fail(error)
+  }
 
   worker.onmessage = (event: MessageEvent<unknown>) => {
     if (typeof event.data !== 'string') return
     for (const raw of event.data.split(/\r?\n/g)) {
       const line = raw.trim()
       if (!line) continue
+      lines.push(line)
       if (line.startsWith('__BOOT_ERROR__:')) {
         failure = new Error(line.replace('__BOOT_ERROR__:', '').trim() || 'Engine bootstrap failed.')
+        failWaiters(failure)
+        continue
       }
-      lines.push(line)
       for (let index = waiters.length - 1; index >= 0; index -= 1) {
         if (waiters[index]!.predicate(line)) {
           waiters.splice(index, 1)[0]!.resolve()
@@ -76,6 +96,7 @@ function createEngine(profile: EngineProfile): Engine {
   }
   worker.onerror = () => {
     failure = new Error('Engine worker error.')
+    failWaiters(failure)
   }
 
   let terminated = false
@@ -101,11 +122,21 @@ function createEngine(profile: EngineProfile): Engine {
           clearTimeout(timer)
           resolve()
         }
-        waiters.push({ predicate, resolve: settle })
+        const fail = (error: Error) => {
+          clearTimeout(timer)
+          reject(error)
+        }
+        waiters.push({ predicate, resolve: settle, fail })
       }),
     terminate: () => {
       if (terminated) return
       terminated = true
+      // Same reason as `failWaiters`, for the deliberate case: a cancelled
+      // review must not leave `done` pending on a search that can no longer
+      // answer. Every `cancel()` site clears `reviewPoolRunRef` first, so the
+      // rejection this produces is discarded by the staleness guard rather
+      // than mistaken for an engine giving out.
+      failWaiters(failure ?? new Error('Engine terminated.'))
       try { worker.postMessage('quit') } catch { /* already gone */ }
       try { worker.terminate() } catch { /* already gone */ }
       if (created.blobUrl) URL.revokeObjectURL(created.blobUrl)

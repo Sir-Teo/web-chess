@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { snapshotFromSearchLines } from './reviewPoolRunner'
 
 /**
@@ -75,5 +75,104 @@ describe('the snapshot a pooled search leaves behind', () => {
     it('refuses an info line with no score at all', () => {
       expect(snapshotFromSearchLines(['info depth 3 multipv 1 nodes 400 pv e2e4'], 0)).toBeNull()
     })
+  })
+})
+
+/**
+ * What a pool does when an engine gives out.
+ *
+ * The pool exists to be faster than the shared engine, and the way it can fail
+ * that goal without failing a test is to take a long time to notice it is
+ * broken. `App` only falls back once `done` rejects, so every second between
+ * an engine dying and that rejection is a second the review is doing nothing
+ * at all -- and the waits here are 20s and 60s, either of which is longer than
+ * the whole single-engine review the pool replaced.
+ *
+ * These drive `createEngine` through a fake worker rather than asserting on
+ * the timeout constants, because the bug was never in the constants: a
+ * recorded `failure` matched no predicate, so nothing woke the waiter that
+ * was already parked. Timers stay real and the assertions are immediate, so a
+ * regression shows up as the suite hanging on a 20s wait, not as a pass.
+ */
+describe('a pooled engine that gives out', () => {
+  class FakeWorker {
+    onmessage: ((event: MessageEvent<unknown>) => void) | null = null
+    onerror: ((event: unknown) => void) | null = null
+    sent: string[] = []
+    terminated = false
+    postMessage(command: string) { this.sent.push(command) }
+    terminate() { this.terminated = true }
+    emit(text: string) { this.onmessage?.({ data: text } as MessageEvent<unknown>) }
+  }
+
+  const workers: FakeWorker[] = []
+
+  beforeEach(() => {
+    workers.length = 0
+    vi.resetModules()
+    vi.doMock('./stockfishWorker', () => ({
+      createStockfishWorker: () => {
+        const worker = new FakeWorker()
+        workers.push(worker)
+        return { worker, blobUrl: undefined }
+      },
+    }))
+  })
+
+  afterEach(() => { vi.doUnmock('./stockfishWorker') })
+
+  const runOnePosition = async () => {
+    const { runReviewPool } = await import('./reviewPoolRunner')
+    const run = runReviewPool({
+      targets: [{ fen: 'startpos-fen', historyMoves: [], rootFen: 'startpos-fen' }] as never,
+      plan: { workers: 1, threadsPerWorker: 1, hashMbPerWorker: 16 },
+      profile: { id: 'x', name: 'x', workerPath: 'x', strength: 'lite', requiresIsolation: false, source: 'local' } as never,
+      depth: 16,
+      showWdl: false,
+      callbacks: { onResult: () => {}, onProgress: () => {} },
+    })
+    // One microtask turn, so `runBlock` has reached its first `await`.
+    await Promise.resolve()
+    await Promise.resolve()
+    return run
+  }
+
+  it('rejects as soon as the engine reports a boot error, not at the boot timeout', async () => {
+    const run = await runOnePosition()
+    expect(workers).toHaveLength(1)
+
+    workers[0]!.emit('__BOOT_ERROR__: wasm refused to load')
+
+    await expect(run.done).rejects.toThrow(/wasm refused to load/)
+  })
+
+  it('rejects as soon as the worker errors, not at the search timeout', async () => {
+    const run = await runOnePosition()
+    workers[0]!.emit('uciok')
+    await Promise.resolve()
+    workers[0]!.emit('readyok')
+    await Promise.resolve()
+
+    workers[0]!.onerror?.({})
+
+    await expect(run.done).rejects.toThrow(/worker error/i)
+  })
+
+  /**
+   * Cancelling has to settle `done` too. It used to leave the block parked on
+   * a `bestmove` the terminated worker could never send, so an unmount or a
+   * restarted review held the promise for a further 60s.
+   */
+  it('settles when cancelled rather than waiting out the search it abandoned', async () => {
+    const run = await runOnePosition()
+    workers[0]!.emit('uciok')
+    await Promise.resolve()
+    workers[0]!.emit('readyok')
+    await Promise.resolve()
+
+    run.cancel()
+
+    await expect(run.done).rejects.toThrow()
+    expect(workers[0]!.terminated).toBe(true)
   })
 })
