@@ -195,6 +195,28 @@ describe('flagging', () => {
     expect(flagPgnResult('b')).toBe('1-0')
   })
 
+  // Step mode holds the engine on move until the reader lets it go. The clock
+  // has to be held with it: time nobody is allowed to use is not time anybody
+  // should be charged for. `pauseClock` then `startSide` is the shape, and the
+  // order matters -- restarting before the search is what keeps the increment,
+  // which is only paid for a move made on a running clock.
+  it('holds and hands back a clock without losing the increment', () => {
+    const control = { initialMs: 180_000, incrementMs: 2_000 }
+    let clock = startSide(createClock(control), 'b', 0)
+
+    // Held while the engine waits to be stepped: six seconds pass, none spent.
+    const held = pauseClock(clock, 6_000)
+    expect(held.blackMs).toBe(174_000)
+    expect(remainingMs(held, 'b', 60_000)).toBe(174_000)
+
+    // Let go, searches for two seconds, moves: the search is charged, and the
+    // increment lands because the clock was running when the move was made.
+    clock = startSide(held, 'b', 60_000)
+    clock = moveMade(clock, 'b', 62_000)
+    expect(clock.blackMs).toBe(174_000 - 2_000 + 2_000)
+    expect(clock.running).toBe('w')
+  })
+
   // FIDE 6.9. The flag is a loss unless the opponent could not have mated, and
   // then it is a draw -- which is what every other board rules, so a win here
   // would be this app disagreeing with all of them about a finished game.

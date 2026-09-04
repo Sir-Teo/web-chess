@@ -4517,6 +4517,10 @@ function App() {
     pausedRef.current = false
     setPaused(false)
     aiMoveScheduledRef.current = false
+    // The clock was held while the engine waited to be let go; give the time
+    // back before it searches, so the search is on its own clock and the move
+    // it makes still earns its increment.
+    setClock(previous => (previous && !previous.flagged ? startSide(previous, currentTurn, Date.now()) : previous))
     setStepRequestTick(tick => tick + 1)
   }, [game, gameMode, playerColor])
 
@@ -4796,6 +4800,33 @@ function App() {
   const canStepAiMove = playEngineActive && !game.isGameOver() && !endedOffBoard && (
     gameMode === 'ai-vs-ai' || (gameMode === 'human-vs-ai' && game.turn() !== playerColor[0])
   )
+  /**
+   * The engine is on move and Step mode is holding it there.
+   *
+   * `isAiThinking` separates "waiting to be let go" from "already searching":
+   * once Step has been pressed, the engine owns its time again.
+   */
+  const awaitingAiStep = canStepAiMove && aiSpeed === 'step' && !isAiThinking && !paused
+
+  /**
+   * Step mode holds the game, so it has to hold the clock.
+   *
+   * Otherwise the side waiting to be stepped is charged for time it is not
+   * allowed to use: play a move in a timed game against the engine, choose
+   * Step, and do nothing — its clock runs out and you win a game you never
+   * played. Measured before the fix at six seconds lost in six seconds waited.
+   *
+   * The same rule `pause` already follows, and for the reason written there: a
+   * pause that left the clock running would be worse than no pause at all.
+   * `handleStep` hands the time back, so the engine's own search is still on
+   * its own clock and its increment still lands -- an increment is only paid
+   * for a move made *on* the clock, so restarting it before the search rather
+   * than after the move is what keeps that true.
+   */
+  useEffect(() => {
+    if (!awaitingAiStep) return
+    setClock(previous => (previous && previous.running !== null ? pauseClock(previous, Date.now()) : previous))
+  }, [awaitingAiStep, clock])
   const boardInputLocked = isBoardInputLocked({
     workspaceMode,
     gameMode,
