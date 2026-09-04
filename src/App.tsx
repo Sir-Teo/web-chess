@@ -116,7 +116,7 @@ import {
 import { moveSoundFor } from './engine/moveSound'
 import { hasSiblingVariations, siblingVariation } from './engine/moveTree'
 import { chessComPositionUrl, lichessAnalysisUrl } from './engine/externalLinks'
-import { BOARD_THEMES, boardThemeById } from './engine/boardThemes'
+import { BOARD_THEMES, boardThemeById, moveHintStyle } from './engine/boardThemes'
 import {
   createClock,
   flagPgnResult,
@@ -5669,12 +5669,9 @@ function App() {
                           Object.entries(markedSquares).map(([square, color]) => [square, squareMarkStyle(color)]),
                         ),
                         ...(selectedSquare ? { [selectedSquare]: { backgroundColor: 'rgba(255,215,0,0.55)', boxShadow: 'inset 0 0 0 3px rgba(255,200,0,0.9)' } } : {}),
-                        ...Object.fromEntries(legalTargets.map(sq => [sq, {
-                          background: game.get(sq)
-                            ? 'radial-gradient(circle, rgba(255,100,0,0.5) 60%, transparent 60%)'
-                            : 'radial-gradient(circle, rgba(0,0,0,0.25) 28%, transparent 28%)',
-                          borderRadius: '50%',
-                        }])),
+                        ...Object.fromEntries(
+                          legalTargets.map(sq => [sq, moveHintStyle(boardTheme, Boolean(game.get(sq)))]),
+                        ),
                       },
                       arrows,
                       arrowOptions: BOARD_ARROW_OPTIONS,

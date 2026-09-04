@@ -81,3 +81,82 @@ export function contrastRatio(a: string, b: string): number {
   const darker = Math.min(first, second)
   return (lighter + 0.05) / (darker + 0.05)
 }
+
+/**
+ * WCAG 1.4.11 for a graphical object you need in order to understand the
+ * content. The move hints are exactly that: they are the only thing on the
+ * board saying where the piece you picked up may go.
+ */
+export const BOARD_MOVE_HINT_MIN_CONTRAST = 3
+
+/**
+ * How solid a move hint is drawn.
+ *
+ * The hints used to be one hardcoded pair for all five schemes — a 25% black
+ * dot for a quiet move and a half-opacity orange disc for a capture. Measured
+ * against the squares they are drawn on, the dot came out between 1.6:1 and
+ * 1.8:1 and the capture disc between 1.01:1 and 1.16:1 on the dark squares, so
+ * neither cleared the bar on any scheme. Same defect the coordinates had, and
+ * for the same reason — one value picked by eye against one board — one layer
+ * further down, where the contrast sweep cannot see it because a square has no
+ * text in it to measure.
+ *
+ * What that ratio does *not* mean, and it is worth writing down because the
+ * number invites the wrong conclusion: the orange disc was not invisible. It
+ * failed a luminance criterion while carrying its difference in hue, and
+ * `colorVision.distanceAsSeen` puts it 24 to 57 ΔE from its square even
+ * simulated for protanopia — plainly visible, to everyone. The quiet dot is the
+ * one that was genuinely faint, at 13.5 to 16.9 ΔE.
+ *
+ * So the case for changing them is not that they could not be seen. It is that
+ * a hint should not depend on hue to be seen at all, that the orange was close
+ * to the amber this board already spends on "the move that was played", and
+ * that five schemes sharing two values picked against one of them is how the
+ * coordinates went wrong. The pair below clears 3:1 on every scheme *and* sits
+ * 33 to 36 ΔE from its square.
+ *
+ * The hint reuses the scheme's own `ink` rather than adding a sixth pair of
+ * hand-picked colours: it is the one colour per scheme already proven to clear
+ * AA against the *darker* square, which is the harder of the two, so at this
+ * alpha it clears the graphical bar against both. 0.72 is the lowest round
+ * value that does it for every scheme; the tests compute that rather than
+ * trust it.
+ */
+export const BOARD_MOVE_HINT_ALPHA = 0.72
+
+/** `#rrggbb` for `foreground` at `alpha` painted over an opaque `background`. */
+export function compositeOver(background: string, foreground: string, alpha: number): string {
+  const parse = (hex: string) => {
+    const value = Number.parseInt(hex.slice(1), 16)
+    return [(value >> 16) & 255, (value >> 8) & 255, value & 255]
+  }
+  const back = parse(background)
+  const front = parse(foreground)
+  const blend = (index: number) => Math.round(alpha * front[index] + (1 - alpha) * back[index])
+  return `#${[0, 1, 2].map(index => blend(index).toString(16).padStart(2, '0')).join('')}`
+}
+
+/** The move hints' colour for a scheme, ready to drop into a gradient. */
+export function moveHintColor(theme: BoardTheme): string {
+  const value = Number.parseInt(theme.ink.slice(1), 16)
+  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${BOARD_MOVE_HINT_ALPHA})`
+}
+
+/**
+ * Where a piece may go, and where it may take.
+ *
+ * Two shapes rather than two colours: a filled dot for a quiet move and a ring
+ * in the square's corners for a capture, which is what Lichess and chess.com
+ * both draw. Shape carries the difference, so the pair survives being read by
+ * someone who cannot separate the hues — and neither of them has to borrow a
+ * colour from the board's existing language, where green already means "the
+ * engine likes this", amber the move that was played and violet a threat.
+ */
+export function moveHintStyle(theme: BoardTheme, capture: boolean): { background: string } {
+  const color = moveHintColor(theme)
+  return {
+    background: capture
+      ? `radial-gradient(circle, transparent 0 78%, ${color} 78%)`
+      : `radial-gradient(circle, ${color} 28%, transparent 28%)`,
+  }
+}
