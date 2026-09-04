@@ -184,6 +184,7 @@ import {
 } from './engine/appSettings'
 import { ANALYSIS_SETTINGS_STORAGE_KEY } from './storageKeys'
 import type { GameMode, PlayerColor } from './components/NewGameDialog'
+import type { SideChoice } from './engine/sideChoice'
 import { WatchControls } from './components/WatchControls'
 import { AI_SPEED_MS, type AiSpeed } from './components/aiSpeed'
 import { WdlBar } from './components/WdlBar'
@@ -675,6 +676,13 @@ function App() {
   const [autoSaveCopyLabel, setAutoSaveCopyLabel] = useState('Copy PGN')
   const [gameMode, setGameMode] = useState<GameMode>('human-vs-human')
   const [playerColor, setPlayerColor] = useState<PlayerColor>('white')
+  /**
+   * What the New Game dialog was last set to, which is not the same as the
+   * colour being played: "Random" resolves to a side the moment Start is
+   * pressed, and the dialog has to reopen on Random rather than on whatever it
+   * rolled last time.
+   */
+  const [sideChoice, setSideChoice] = useState<SideChoice>('white')
   const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>(4)
   const [isAiThinking, setIsAiThinking] = useState(false)
   const aiMoveScheduledRef = useRef(false)
@@ -4169,9 +4177,10 @@ function App() {
   )
 
   const handleNewGameStart = useCallback(
-    ({ mode, playerColor: color, difficulty, timeControlId: chosenTimeControlId }: {
+    ({ mode, playerColor: color, sideChoice: chosenSide, difficulty, timeControlId: chosenTimeControlId }: {
       mode: GameMode
       playerColor: PlayerColor
+      sideChoice: SideChoice
       difficulty: AiDifficulty
       timeControlId: string
     }) => {
@@ -4181,6 +4190,10 @@ function App() {
       setWorkspaceMode('play')
       setGameMode(mode)
       setPlayerColor(color)
+      // What was asked for, not what it rolled: a reader who wants Random wants
+      // it again next game, and re-selecting it every time is the whole reason
+      // a "random" button that forgets is worse than none.
+      setSideChoice(chosenSide)
       setAiDifficulty(difficulty)
       setAiPlayerDifficulty(difficulty)
 
@@ -5853,10 +5866,10 @@ function App() {
         <Suspense fallback={<DialogLoadingFallback label={dialogLoadingLabel} />}>
           {showNewGameDialog && (
             <NewGameDialog
-              key={`${gameMode}-${playerColor}-${aiDifficulty}-${timeControlId}`}
+              key={`${gameMode}-${sideChoice}-${aiDifficulty}-${timeControlId}`}
               open
               initialMode={gameMode}
-              initialPlayerColor={playerColor}
+              initialSideChoice={sideChoice}
               initialDifficulty={aiDifficulty}
               initialTimeControlId={timeControlId}
               onStart={handleNewGameStart}

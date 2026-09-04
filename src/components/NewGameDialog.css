@@ -1047,3 +1047,19 @@
         min-height: 44px;
     }
 }
+
+/* Random shows both kings overlapped: the picture of the choice, one of these,
+   decided when Start is pressed. Sized against the single king beside it so the
+   three buttons keep one row height. */
+.color-piece.random {
+    display: inline-flex;
+    align-items: center;
+}
+
+.color-piece.random svg:first-child {
+    margin-right: -0.42em;
+}
+
+.color-piece.random svg:last-child {
+    color: var(--text-tertiary);
+}

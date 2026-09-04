@@ -7,6 +7,13 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 ### Playing
 
 - **Play and watch modes**: Play human vs human, human vs Stockfish, or AI vs AI with adjustable difficulty, pause/resume controls, speed control, and single-step playback. At *Maximum* the opponent searches on every thread the device can spare — the levels below it are capped by Elo, where extra threads buy nothing — and the panel says so. The two weakest levels vary their play by choosing among the engine's own top lines within a small window of the best, not by playing a random legal move: a Beginner that hangs its queen every third move is not one a learner can learn from. With a clock, a takeback, premoves and a resign button below, a game against the engine is a game rather than a position trainer.
+- **Either colour, or whichever**: The New Game dialog offered White or Black,
+  so the default was White every game — and a player who only ever has the first
+  move never practises the half of chess that starts a tempo down. Random is the
+  third button, it is rolled when Start is pressed rather than when the board
+  appears, and it stays selected for the next game: a random button that forgets
+  is worse than none, because re-picking it every time is the thing you wanted
+  automated.
 - **A clock**: Pick a time control when you start a game — bullet through
   classical, or none, which stays the default. Both clocks sit in the strip
   above the board, the side to move is highlighted, tenths appear under ten

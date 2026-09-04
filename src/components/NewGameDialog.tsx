@@ -3,13 +3,17 @@ import { useModalFocus } from '../hooks/useModalFocus'
 import type { AiDifficulty } from '../hooks/useAiPlayer'
 import { DIFFICULTY_LABELS } from '../hooks/useAiPlayer'
 import { TIME_CONTROL_PRESETS } from '../engine/chessClock'
+import { SIDE_CHOICES, resolveSideChoice, type SideChoice } from '../engine/sideChoice'
 
 export type GameMode = 'human-vs-human' | 'human-vs-ai' | 'ai-vs-ai'
 export type PlayerColor = 'white' | 'black'
 
 type NewGameConfig = {
     mode: GameMode
+    /** The colour actually played -- Random is already resolved. */
     playerColor: PlayerColor
+    /** What was asked for, so the dialog can open on Random again. */
+    sideChoice: SideChoice
     difficulty: AiDifficulty
     timeControlId: string
 }
@@ -17,7 +21,7 @@ type NewGameConfig = {
 type Props = {
     open: boolean
     initialMode: GameMode
-    initialPlayerColor: PlayerColor
+    initialSideChoice: SideChoice
     initialDifficulty: AiDifficulty
     initialTimeControlId: string
     onStart: (config: NewGameConfig) => void
@@ -49,14 +53,14 @@ const MODE_OPTIONS: { value: GameMode; icon: React.ReactNode; label: string; des
 export function NewGameDialog({
     open,
     initialMode,
-    initialPlayerColor,
+    initialSideChoice,
     initialDifficulty,
     initialTimeControlId,
     onStart,
     onCancel,
 }: Props) {
     const [mode, setMode] = useState<GameMode>(initialMode)
-    const [playerColor, setPlayerColor] = useState<PlayerColor>(initialPlayerColor)
+    const [sideChoice, setSideChoice] = useState<SideChoice>(initialSideChoice)
     const [difficulty, setDifficulty] = useState<AiDifficulty>(initialDifficulty)
     const [timeControlId, setTimeControlId] = useState<string>(initialTimeControlId)
     const panelRef = useRef<HTMLDivElement>(null)
@@ -65,7 +69,9 @@ export function NewGameDialog({
     const timeControlLabelId = useId()
 
     const handleStart = () => {
-        onStart({ mode, playerColor, difficulty, timeControlId })
+        // Rolled here rather than where the game starts, so the dialog closing
+        // and the board appearing are one decision and not two.
+        onStart({ mode, playerColor: resolveSideChoice(sideChoice), sideChoice, difficulty, timeControlId })
     }
 
     const showColorPicker = mode === 'human-vs-ai'
@@ -74,10 +80,10 @@ export function NewGameDialog({
     useEffect(() => {
         if (!open) return
         setMode(initialMode)
-        setPlayerColor(initialPlayerColor)
+        setSideChoice(initialSideChoice)
         setDifficulty(initialDifficulty)
         setTimeControlId(initialTimeControlId)
-    }, [initialDifficulty, initialMode, initialPlayerColor, initialTimeControlId, open])
+    }, [initialDifficulty, initialMode, initialSideChoice, initialTimeControlId, open])
 
     useModalFocus(open, panelRef, onCancel, { initialFocus: '[data-selected-mode="true"]' })
 
@@ -146,24 +152,26 @@ export function NewGameDialog({
                         <div className="dialog-section">
                             <p className="dialog-label">Play as</p>
                             <div className="color-picker">
-                                <button
-                                    type="button"
-                                    className={`color-btn ${playerColor === 'white' ? 'selected' : ''}`}
-                                    onClick={() => setPlayerColor('white')}
-                                    aria-pressed={playerColor === 'white'}
-                                >
-                                    <span className="color-piece"><IconKing /></span>
-                                    White
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`color-btn ${playerColor === 'black' ? 'selected' : ''}`}
-                                    onClick={() => setPlayerColor('black')}
-                                    aria-pressed={playerColor === 'black'}
-                                >
-                                    <span className="color-piece dark"><IconKing /></span>
-                                    Black
-                                </button>
+                                {SIDE_CHOICES.map(({ id, label }) => (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        className={`color-btn ${sideChoice === id ? 'selected' : ''}`}
+                                        onClick={() => setSideChoice(id)}
+                                        aria-pressed={sideChoice === id}
+                                    >
+                                        {/* Random gets both kings, which is the picture of the
+                                            choice: one of these, decided when you press Start. */}
+                                        {id === 'random' ? (
+                                            <span className="color-piece random" aria-hidden="true">
+                                                <IconKing /><IconKing />
+                                            </span>
+                                        ) : (
+                                            <span className={`color-piece ${id === 'black' ? 'dark' : ''}`}><IconKing /></span>
+                                        )}
+                                        {label}
+                                    </button>
+                                ))}
                             </div>
                         </div>
                     )}
