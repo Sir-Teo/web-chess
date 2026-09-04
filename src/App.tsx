@@ -1047,6 +1047,16 @@ function App() {
   const batchReviewPercent = batchReviewProgress.total > 0
     ? Math.round((batchReviewProgress.done / batchReviewProgress.total) * 100)
     : 0
+  /**
+   * Bumped to re-enter the single-engine review effect when something outside
+   * its dependencies has changed what it should do. Only the pool's fallback
+   * needs it: that hands the queue back in a promise callback, and the effect
+   * depends on the engine's status and the search settings, none of which move
+   * at that moment -- so without this the queue sat full, the engine sat ready,
+   * and the button sat at "Reviewing 0%" for as long as anyone waited.
+   * Same shape as `aiReadyTick` and `stepRequestTick`.
+   */
+  const [batchReviewTick, setBatchReviewTick] = useState(0)
   const batchReviewQueueRef = useRef<BatchReviewTarget[]>([])
   const activeBatchReviewRef = useRef<BatchReviewTarget | null>(null)
   /**
@@ -1199,6 +1209,7 @@ function App() {
         reviewPoolRunRef.current = null
         batchReviewQueueRef.current = targets
         setBatchReviewProgress({ done: plan.done, total: plan.total })
+        setBatchReviewTick(tick => tick + 1)
       })
   }, [activeProfile, capabilities, clearImportSweep, engineEnabled, evaluationsByFen, hashMb, searchDepth, showWdl, stop])
 
@@ -1206,6 +1217,8 @@ function App() {
     if (!isBatchReviewing) return
     // The pool owns its own engines and reports its own progress.
     if (reviewPoolRunRef.current) return
+    // Read only to re-enter this effect; see `batchReviewTick`.
+    void batchReviewTick
 
     if (!engineEnabled || status === 'disabled' || status === 'error') {
       batchReviewQueueRef.current = []
@@ -1245,6 +1258,7 @@ function App() {
     })
   }, [
     analyze,
+    batchReviewTick,
     engineEnabled,
     hashMb,
     isBatchReviewing,
