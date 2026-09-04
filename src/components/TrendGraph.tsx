@@ -276,7 +276,7 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
     return (
       <div className="empty-state">
         <span className="empty-state-icon" aria-hidden="true"><IconBarChart /></span>
-        <p>Analyze moves with WDL enabled to build the W/D/B progression graph.</p>
+        <p>Analyze moves with WDL enabled to build the W/D/L progression graph.</p>
       </div>
     )
   }
