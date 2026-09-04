@@ -3216,8 +3216,11 @@ button.critical-moment-row {
   border-left-color: var(--quality-good) !important;
 }
 
+/* The word, not the border above it: same split as the review chips. A border
+   is not read and keeps the dot palette; the grade spelled out at 10.6px has
+   AA to clear, and light's Good reads 3.76:1 on a review row without this. */
 .quality-good .move-quality {
-  color: var(--quality-good);
+  color: var(--quality-good-ink);
 }
 
 .quality-inaccuracy {
@@ -3241,7 +3244,7 @@ button.critical-moment-row {
 }
 
 .quality-blunder .move-quality {
-  color: var(--quality-blunder);
+  color: var(--quality-blunder-ink);
 }
 
 /* ═══════════════════════════════════════════════════
