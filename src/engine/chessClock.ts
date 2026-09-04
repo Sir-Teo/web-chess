@@ -251,12 +251,28 @@ export function timeControlTag(control: TimeControl): string {
   return increment > 0 ? `${seconds}+${increment}` : String(seconds)
 }
 
-/** The result line for a game that ended on the clock. */
-export function flagResultLabel(flagged: ClockSide): string {
-  return flagged === 'w' ? 'White flagged · Black wins on time' : 'Black flagged · White wins on time'
+/**
+ * The result line for a game that ended on the clock.
+ *
+ * `opponentCanMate` is FIDE 6.9: a flag loses, *unless* the side still on the
+ * clock could not checkmate by any series of legal moves, and then it is a
+ * draw. `hasMatingMaterial` in `matingMaterial.ts` answers it from the final
+ * position; it defaults to true here so that a caller with no position to hand
+ * gets the ordinary ruling rather than a wrong draw.
+ *
+ * The draw says why. "Draw" alone under a clock that just hit zero reads as a
+ * bug, and the rule is one most players meet for the first time by losing a
+ * game they thought they had won.
+ */
+export function flagResultLabel(flagged: ClockSide, opponentCanMate = true): string {
+  const survivor = flagged === 'w' ? 'Black' : 'White'
+  const loser = flagged === 'w' ? 'White' : 'Black'
+  if (!opponentCanMate) return `${loser} flagged · Draw: ${survivor} cannot checkmate`
+  return `${loser} flagged · ${survivor} wins on time`
 }
 
 /** The PGN Result tag for a game that ended on the clock. */
-export function flagPgnResult(flagged: ClockSide): '1-0' | '0-1' {
+export function flagPgnResult(flagged: ClockSide, opponentCanMate = true): '1-0' | '0-1' | '1/2-1/2' {
+  if (!opponentCanMate) return '1/2-1/2'
   return flagged === 'w' ? '0-1' : '1-0'
 }

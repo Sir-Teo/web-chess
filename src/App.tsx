@@ -133,6 +133,7 @@ import {
 } from './engine/chessClock'
 import { describeGameEnd, gameResultScore } from './engine/gameEnd'
 import { describeCaptures, materialAdvantageLabel, materialBalance } from './engine/material'
+import { hasMatingMaterial } from './engine/matingMaterial'
 import {
   resignDisabledReason,
   resignPgnResult,
@@ -2418,6 +2419,25 @@ function App() {
       return null
     }
   }, [mainLineNodes])
+  /**
+   * Whether the side that did *not* flag could still have mated — FIDE 6.9.
+   *
+   * A flag is the one ending that the position does not decide on its own, and
+   * the one exception to that: a clock running out loses, unless the opponent
+   * "cannot checkmate by any possible series of legal moves", which makes it a
+   * draw. Every other board enforces this, so a bare king awarded the win on
+   * time here would be a result no other program agrees with.
+   *
+   * Read from the end of the main line rather than from `game`: the flag falls
+   * at the live position, and by the time anyone reads this label the board may
+   * have been navigated somewhere else entirely.
+   */
+  const flagSurvivorCanMate = useMemo(() => {
+    if (!clockFlagged) return true
+    const finalFen = mainLineNodes[mainLineNodes.length - 1]?.fen
+    if (!finalFen) return true
+    return hasMatingMaterial(finalFen, clockFlagged === 'w' ? 'b' : 'w')
+  }, [clockFlagged, mainLineNodes])
   // How far into the game the opening book is consulted: the prefetch loop, the
   // row list and the summary line all have to agree on this number.
   const reviewBookPrefixLength = Math.min(reviewLineUciMoves.length, REVIEW_BOOK_PREFETCH_LIMIT)
@@ -2792,9 +2812,9 @@ function App() {
   useEffect(() => {
     if (!clockFlagged) return
     cancelPendingAiMove()
-    const result = flagPgnResult(clockFlagged)
+    const result = flagPgnResult(clockFlagged, flagSurvivorCanMate)
     setPgnHeaders(previous => (previous.Result === result ? previous : { ...previous, Result: result }))
-  }, [cancelPendingAiMove, clockFlagged, setPgnHeaders])
+  }, [cancelPendingAiMove, clockFlagged, flagSurvivorCanMate, setPgnHeaders])
 
   const resignGame = useCallback(() => {
     const side = resigningSide({ gameMode, playerColor, turn: game.turn() })
@@ -4635,7 +4655,7 @@ function App() {
   const atMainLineEnd = mainLineNodes.length > 1
     && gameTree.current.id === mainLineNodes[mainLineNodes.length - 1].id
   const gameResultLabel = clockFlagged
-    ? flagResultLabel(clockFlagged)
+    ? flagResultLabel(clockFlagged, flagSurvivorCanMate)
     : resignedBy
     ? resignResultLabel(resignedBy)
     : describeGameEnd(game)?.label

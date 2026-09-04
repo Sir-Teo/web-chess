@@ -194,6 +194,16 @@ describe('flagging', () => {
     expect(flagPgnResult('w')).toBe('0-1')
     expect(flagPgnResult('b')).toBe('1-0')
   })
+
+  // FIDE 6.9. The flag is a loss unless the opponent could not have mated, and
+  // then it is a draw -- which is what every other board rules, so a win here
+  // would be this app disagreeing with all of them about a finished game.
+  it('draws instead when the side left on the clock could not have mated', () => {
+    expect(flagResultLabel('w', false)).toBe('White flagged · Draw: Black cannot checkmate')
+    expect(flagResultLabel('b', false)).toBe('Black flagged · Draw: White cannot checkmate')
+    expect(flagPgnResult('w', false)).toBe('1/2-1/2')
+    expect(flagPgnResult('b', false)).toBe('1/2-1/2')
+  })
 })
 
 describe('lowTimeThresholdMs', () => {
