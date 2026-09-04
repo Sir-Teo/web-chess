@@ -74,6 +74,11 @@
   --graph-axis: rgba(240, 246, 252, 0.35);
   --graph-white: #f0f6fc;
   --graph-white-glow: rgba(240, 246, 252, 0.3);
+  /* The dashed line marking where in the game you are. It was written inline
+     in the SVG as `rgba(255, 255, 255, 0.8)` -- the value this keeps, so the
+     dark theme is unchanged -- which on a light card is white on white: 1.11:1,
+     the graph's main affordance, invisible. */
+  --graph-cursor: rgba(255, 255, 255, 0.8);
   --graph-draw: #ffb86c;
   --graph-black: #58a6ff;
 
@@ -229,6 +234,7 @@
   --graph-axis: rgba(15, 23, 42, 0.42);
   --graph-white: #334155;
   --graph-white-glow: rgba(51, 65, 85, 0.22);
+  --graph-cursor: rgba(15, 23, 42, 0.75);
   --graph-draw: #b45309;
   --graph-black: #1d4ed8;
 

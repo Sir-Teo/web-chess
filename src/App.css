@@ -3348,6 +3348,23 @@ button.critical-moment-row {
   font-family: inherit;
 }
 
+/* The tick marks under the axis and the dashed line marking where in the game
+   you are. Both were inline `stroke` attributes carrying dark-theme literals,
+   so on a light card they measured 1.01:1 and 1.11:1 -- the second being the
+   graph's main affordance. Non-text, so the contrast sweep cannot see them;
+   found by reading the component. */
+.graph-tick-line {
+  stroke: var(--graph-axis);
+  stroke-width: 1;
+}
+
+.graph-cursor-line {
+  stroke: var(--graph-cursor);
+  stroke-width: 2;
+  stroke-dasharray: 4 4;
+  pointer-events: none;
+}
+
 /* The pointer's ply, and what the graph knows about it. The stroke behind the
    text is what keeps it legible over the curve and the gridlines. */
 .graph-hover-line {

@@ -226,7 +226,7 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
               const x = toX(p.index)
               return (
                 <g key={`x-${p.index}`}>
-                  <line x1={x} x2={x} y1={height - padBottom} y2={height - padBottom + 6} stroke="rgba(240, 246, 252, 0.2)" strokeWidth="1" />
+                  <line x1={x} x2={x} y1={height - padBottom} y2={height - padBottom + 6} className="graph-tick-line" />
                   <text x={x} y={height - padBottom + 20} className="graph-grid-text" textAnchor="middle">{formatGraphAxisLabel(p)}</text>
                 </g>
               )
@@ -240,10 +240,7 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
               x2={currentLineX}
               y1={padTop}
               y2={height - padBottom}
-              stroke="rgba(255, 255, 255, 0.8)"
-              strokeWidth="2"
-              strokeDasharray="4 4"
-              style={{ pointerEvents: 'none' }}
+              className="graph-cursor-line"
             />
           )}
           {readoutIndex !== null && (
@@ -351,7 +348,7 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
               const x = toX(p.index)
               return (
                 <g key={`wdl-x-${p.index}`}>
-                  <line x1={x} x2={x} y1={height - padBottom} y2={height - padBottom + 6} stroke="rgba(240, 246, 252, 0.2)" strokeWidth="1" />
+                  <line x1={x} x2={x} y1={height - padBottom} y2={height - padBottom + 6} className="graph-tick-line" />
                   <text x={x} y={height - padBottom + 20} className="graph-grid-text" textAnchor="middle">{formatGraphAxisLabel(p)}</text>
                 </g>
               )
@@ -365,10 +362,7 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
               x2={currentLineX}
               y1={padTop}
               y2={height - padBottom}
-              stroke="rgba(255, 255, 255, 0.8)"
-              strokeWidth="2"
-              strokeDasharray="4 4"
-              style={{ pointerEvents: 'none' }}
+              className="graph-cursor-line"
             />
           )}
           {readoutIndex !== null && (
