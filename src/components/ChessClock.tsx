@@ -100,7 +100,22 @@ export const ChessClock = memo(function ChessClock({ state, paused, orientation 
           </span>
         )
       })}
-      {paused && running !== null && <span className="clock-paused" role="status">Paused</span>}
+      {/*
+        Read from the clock, not from `paused`. `paused` means "the reader
+        stopped the AI", and step mode sets it after every engine move while
+        the clock keeps running -- so a condition of `paused && running !== null`
+        showed the badge in the one state where the clock was *not* paused, and
+        hid it in the state it exists for: `pauseClock` clears `running`, so a
+        real pause never satisfied it. Both halves were measured in the browser:
+        Space stopped the clock and showed nothing, step mode showed "Paused"
+        over a clock counting down from 2:55 to 2:52.
+
+        A flagged or finished game also has no side counting, and neither is a
+        pause; `paused` is what tells those apart, so it stays in the condition.
+      */}
+      {paused && running === null && !state.flagged && (
+        <span className="clock-paused" role="status">Paused</span>
+      )}
     </div>
   )
 })
