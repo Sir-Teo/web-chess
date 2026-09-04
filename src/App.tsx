@@ -1053,6 +1053,32 @@ function App() {
 
   // ── Batch Review ─────────────────────────────────────
   const [isBatchReviewing, setIsBatchReviewing] = useState(false)
+  /**
+   * The evaluations a finished review was scored from, and the line it scored.
+   *
+   * A review is a report of a pass, and a report whose numbers move while you
+   * read it is not one. They did move: stepping through the faults of a
+   * finished review turned nought blunders into two and took 1.9 points off the
+   * accuracy, without a move being played.
+   *
+   * The cause is not that a later search is worse. It is that a grade is the
+   * difference between two evaluations, and browsing replaces one of the pair.
+   * `buildReviewRows` computes `-after - before`; visit the position after the
+   * move and its reading is re-taken far deeper than the one before it, so the
+   * difference is then mostly the gap in depth rather than anything the move
+   * did. Comparing a depth-16 reading with a depth-30 one manufactures faults.
+   *
+   * So the report is built from the map as it stood when the pass finished.
+   * Only the report: the eval bar, the Coach card and both graphs still read
+   * the live map, because deepening those is the whole point of browsing.
+   *
+   * Held with the line it was taken for. Walk into a different line and the
+   * freeze does not apply to it -- that line was not the one reviewed, and its
+   * rows should read live until it is.
+   */
+  const [frozenReview, setFrozenReview] = useState<
+    { lineEndId: string; evaluations: Map<string, EvalSnapshot> } | null
+  >(null)
   const [batchReviewProgress, setBatchReviewProgress] = useState({ done: 0, total: 0 })
   // A percentage, because the Evaluated tile beside it shows a fraction of a
   // different thing — moves on the visible side, against this button's engine
@@ -1152,10 +1178,18 @@ function App() {
     const targets = plan.queue
     clearImportSweep()
     setBatchReviewProgress({ done: plan.done, total: plan.total })
+    // The rows read live while a pass is running, so they fill in as it goes.
+    setFrozenReview(null)
     if (!targets.length) {
       batchReviewQueueRef.current = []
       activeBatchReviewRef.current = null
       setIsBatchReviewing(false)
+      // Every position was already evaluated, so the pass is over before it
+      // began -- and a report that never ran is still a report.
+      setFrozenReview({
+        lineEndId: nodes[nodes.length - 1]!.id,
+        evaluations: new Map(evaluationsByFenRef.current),
+      })
       stop()
       return
     }
@@ -2442,9 +2476,48 @@ function App() {
   // row list and the summary line all have to agree on this number.
   const reviewBookPrefixLength = Math.min(reviewLineUciMoves.length, REVIEW_BOOK_PREFETCH_LIMIT)
 
+  /**
+   * Take the snapshot the moment a pass stops running.
+   *
+   * Keyed on the flag rather than done in either completion handler, because
+   * there are three ways a pass ends -- the pool resolving, the shared engine
+   * draining its queue, and the engine going away -- and all three clear this
+   * one flag. A review that was interrupted is still frozen: the rows it did
+   * produce are a report of what it got through, and leaving those live is the
+   * behaviour this exists to remove.
+   */
+  const wasBatchReviewingRef = useRef(false)
+  useEffect(() => {
+    if (isBatchReviewing) {
+      wasBatchReviewingRef.current = true
+      return
+    }
+    if (!wasBatchReviewingRef.current) return
+    wasBatchReviewingRef.current = false
+    const nodes = reviewLineNodesRef.current
+    const lineEndId = nodes[nodes.length - 1]?.id
+    if (!lineEndId) return
+    setFrozenReview({ lineEndId, evaluations: new Map(evaluationsByFenRef.current) })
+  }, [isBatchReviewing])
+
+  /**
+   * The map the report is scored from: the frozen one when it belongs to the
+   * line on screen, the live one otherwise.
+   *
+   * `currentLineNodes` walks the path forward along first children, so its last
+   * node is stable while the reader navigates *within* the reviewed line and
+   * changes as soon as they leave it. That is exactly the identity wanted here.
+   */
+  const reviewEvaluations = useMemo(() => {
+    const lineEndId = reviewLineNodes[reviewLineNodes.length - 1]?.id
+    return frozenReview && lineEndId === frozenReview.lineEndId
+      ? frozenReview.evaluations
+      : evaluationsByFen
+  }, [evaluationsByFen, frozenReview, reviewLineNodes])
+
   const reviewRows = useMemo(
-    () => buildReviewRows(reviewLineMoves, evaluationsByFen, currentRootFen, { isBookPosition }),
-    [currentRootFen, evaluationsByFen, isBookPosition, reviewLineMoves],
+    () => buildReviewRows(reviewLineMoves, reviewEvaluations, currentRootFen, { isBookPosition }),
+    [currentRootFen, isBookPosition, reviewEvaluations, reviewLineMoves],
   )
   const visibleReviewRows = useMemo(
     () => filterReviewRowsBySide(reviewRows, reviewSideFilter),
@@ -3740,6 +3813,7 @@ function App() {
       game.load(rootFen)
       setFen(game.fen())
       setEvaluationsByFen(new Map())
+    setFrozenReview(null)
       setClock(null)
       setResignedBy(null)
       setPremove(null)
@@ -3954,6 +4028,7 @@ function App() {
       gameTree.reset(rootFen)
       setPgnHeaders({})
       setEvaluationsByFen(new Map())
+    setFrozenReview(null)
       setClock(null)
       setResignedBy(null)
       setPremove(null)
@@ -4008,6 +4083,7 @@ function App() {
 
     newGame()
     setEvaluationsByFen(new Map())
+    setFrozenReview(null)
     setClock(null)
     setResignedBy(null)
     setPremove(null)
@@ -4114,6 +4190,7 @@ function App() {
       setFen(startFen)
       cancelPendingAiMove()
       setEvaluationsByFen(new Map())
+    setFrozenReview(null)
       setClock(null)
       setResignedBy(null)
       setPremove(null)
