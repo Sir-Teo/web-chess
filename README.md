@@ -189,7 +189,12 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   ink chosen by eye is how a board ends up with rank numbers nobody can read on
   the dark squares. Every ink clears WCAG AA against its own dark square and is
   no less legible than the original pair's, both computed in the tests rather
-  than asserted in a comment.
+  than asserted in a comment. The move hints — the dots showing where a piece
+  you picked up can go — are drawn in that same ink, for the same reason: they
+  used to be one black dot and one orange disc shared by all five boards, and
+  neither cleared the 3:1 a graphical object needs on any of them. A capture is
+  told from a quiet move by shape, a ring against a dot, so the pair still reads
+  when the hue does not.
 - **A light theme**: Dark is the app's own look and the default; Settings
   offers Light, and System to follow the OS. The same token names draw both,
   so no stylesheet knows which theme it is drawing — the highlights, scrims
