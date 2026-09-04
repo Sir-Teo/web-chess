@@ -196,3 +196,119 @@ describe('whether the library will survive a reload', () => {
     expect(libraryStorageIsDurable()).toBe(false)
   })
 })
+
+/**
+ * What happens to the fallback once IndexedDB starts working again.
+ *
+ * `indexedDbFailed` is session state, so a browser that refuses IndexedDB for
+ * one session and allows it the next is the ordinary case, not an exotic one:
+ * quota pressure, a blocked upgrade, an eviction under storage pressure. The
+ * writer always stores the whole library at once, so whenever the fallback
+ * holds anything it holds a *complete* snapshot, written at a moment when
+ * IndexedDB had refused -- which makes it strictly newer than whatever
+ * IndexedDB still has.
+ *
+ * These tests use a fake IndexedDB rather than deleting it, which is what the
+ * rest of this file does and why none of these paths had ever run.
+ */
+describe('recovering games the fallback is still holding', () => {
+  type Row = Record<string, unknown>
+
+  /** Just enough of IndexedDB for open/getAll/clear/put, answering off-thread. */
+  function stubIndexedDb(rows: Row[] = []) {
+    const store = new Map<string, Row>()
+    for (const row of rows) store.set(String(row.id), row)
+
+    const later = (run: () => void) => { setTimeout(run, 0) }
+
+    const makeRequest = <T>(resolveWith: () => T) => {
+      const request = { onsuccess: null, onerror: null, result: undefined, error: null } as unknown as
+        IDBRequest<T> & { onsuccess: (() => void) | null }
+      later(() => {
+        ;(request as { result: T }).result = resolveWith()
+        request.onsuccess?.()
+      })
+      return request
+    }
+
+    const objectStore = {
+      getAll: () => makeRequest(() => [...store.values()]),
+      put: (row: Row) => { store.set(String(row.id), row) },
+      clear: () => { store.clear() },
+      createIndex: () => {},
+    }
+
+    const db = {
+      objectStoreNames: { contains: () => true },
+      createObjectStore: () => objectStore,
+      transaction: () => {
+        const tx = { objectStore: () => objectStore, oncomplete: null, onerror: null, onabort: null, error: null }
+        later(() => { (tx.oncomplete as (() => void) | null)?.() })
+        return tx as unknown as IDBTransaction
+      },
+      close: () => {},
+    }
+
+    const factory = {
+      open: () => makeRequest(() => db as unknown as IDBDatabase),
+    }
+    Object.defineProperty(globalThis, 'indexedDB', { value: factory, configurable: true, writable: true })
+    return { store }
+  }
+
+  it('hands back the stranded snapshot instead of the emptier store', async () => {
+    // Session one: IndexedDB is gone, so the save lands in localStorage.
+    const { entries } = stubLocalStorage()
+    await saveLibraryGames([createLibraryGame('Rescued', PGN, 1)])
+    expect(entries.get(LIBRARY_FALLBACK_STORAGE_KEY)).toBeTruthy()
+
+    // Session two: a fresh module, and IndexedDB works again -- but is empty,
+    // because the write that mattered never reached it.
+    resetLibraryStorageState()
+    stubIndexedDb([])
+
+    const loaded = await loadLibraryGames()
+    expect(loaded.map(game => game.name)).toEqual(['Rescued'])
+  })
+
+  it('moves the rescued snapshot into IndexedDB and lets go of the fallback', async () => {
+    const { entries } = stubLocalStorage()
+    await saveLibraryGames([createLibraryGame('Rescued', PGN, 1)])
+
+    resetLibraryStorageState()
+    const { store } = stubIndexedDb([])
+    await loadLibraryGames()
+
+    // Carried across, so the next load needs no rescue...
+    expect([...store.values()].map(row => (row as { name: string }).name)).toEqual(['Rescued'])
+    // ...and released, or a stale snapshot would shadow every later save.
+    expect(entries.get(LIBRARY_FALLBACK_STORAGE_KEY)).toBeFalsy()
+  })
+
+  /**
+   * The other direction, and the reason the rescue compares rather than
+   * assumes. If `clearFallback` ever fails -- a store that reads but refuses
+   * writes -- the leftover snapshot would otherwise win every later load and
+   * roll the library back to whatever it held on the day IndexedDB broke.
+   */
+  it('ignores a fallback the store has since overtaken, and lets go of it', async () => {
+    const { entries } = stubLocalStorage()
+    await saveLibraryGames([createLibraryGame('Stale', PGN, 1)])
+
+    resetLibraryStorageState()
+    stubIndexedDb([createLibraryGame('Newer', PGN, 5) as unknown as Row])
+
+    const loaded = await loadLibraryGames()
+    expect(loaded.map(game => game.name)).toEqual(['Newer'])
+    expect(entries.get(LIBRARY_FALLBACK_STORAGE_KEY)).toBeFalsy()
+  })
+
+  it('leaves a healthy store alone when the fallback is empty', async () => {
+    stubLocalStorage()
+    resetLibraryStorageState()
+    stubIndexedDb([createLibraryGame('Already there', PGN, 1) as unknown as Row])
+
+    const loaded = await loadLibraryGames()
+    expect(loaded.map(game => game.name)).toEqual(['Already there'])
+  })
+})

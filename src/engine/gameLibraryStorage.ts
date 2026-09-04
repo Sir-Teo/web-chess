@@ -119,6 +119,55 @@ function saveFallback(games: LibraryGame[]): void {
   }
 }
 
+function clearFallback(): void {
+  memoryGames = null
+  const storage = getLocalStorage()
+  if (!storage) return
+  try {
+    storage.removeItem(LIBRARY_FALLBACK_STORAGE_KEY)
+  } catch {
+    // Left behind, which `rescueStrandedFallback` is written to survive.
+  }
+}
+
+function newestUpdate(games: LibraryGame[]): number {
+  let newest = Number.NEGATIVE_INFINITY
+  for (const game of games) if (game.updatedAt > newest) newest = game.updatedAt
+  return newest
+}
+
+/**
+ * Games the fallback is still holding from a session where IndexedDB refused.
+ *
+ * `indexedDbFailed` is session state, so refusing one session and working the
+ * next is ordinary -- quota pressure, a blocked upgrade, an eviction. Without
+ * this, that second session read an IndexedDB that never received the write,
+ * got back an emptier library than the user saved, and left the real snapshot
+ * sitting unread in localStorage. Silent, and after a "Saved to the library."
+ *
+ * The writer stores the whole library at once, so both sides are complete
+ * snapshots and the newer one wins outright. Compared rather than assumed: if
+ * clearing the fallback ever fails, the stale copy must not then shadow every
+ * save that came after it.
+ */
+async function rescueStrandedFallback(fromIndexedDb: LibraryGame[]): Promise<LibraryGame[]> {
+  const stranded = loadFallback()
+  if (!stranded.length) return fromIndexedDb
+
+  if (newestUpdate(stranded) <= newestUpdate(fromIndexedDb)) {
+    clearFallback()
+    return fromIndexedDb
+  }
+
+  try {
+    await saveToIndexedDb(stranded)
+    clearFallback()
+  } catch {
+    indexedDbFailed = true
+  }
+  return stranded
+}
+
 let indexedDbFailed = false
 
 /** Exposed so tests can start from a known state. */
@@ -163,7 +212,7 @@ export async function loadLibraryGames(): Promise<LibraryGame[]> {
   try {
     const games = await loadFromIndexedDb()
     indexedDbFailed = false
-    return games
+    return await rescueStrandedFallback(games)
   } catch {
     indexedDbFailed = true
     return loadFallback()
