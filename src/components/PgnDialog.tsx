@@ -275,6 +275,11 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     }
 
     const handleCopy = async () => {
+        // Resets first, like the two link copies do. Without it a failed game
+        // link left `shareLinkFallback` set, and a failed PGN copy after it
+        // showed that stale link under "select the game link" -- an answer to
+        // a question the reader had stopped asking.
+        resetFeedback()
         try {
             await navigator.clipboard.writeText(exportText)
             setCopyStatus('pgn-copied')
@@ -715,8 +720,30 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                 readOnly
                                 value={exportText}
                             />
+                            {/* Two buttons on this tab can fail, and they fail
+                                differently. The PGN is already in the box above, so
+                                "select the text" is a real instruction for it. The
+                                game link is not: it was built, stored in
+                                `shareLinkFallback`, and -- until this branch existed
+                                -- rendered only on the FEN tab, so a reader whose
+                                clipboard was blocked got told to copy text that did
+                                not contain the link they asked for, and had no way
+                                to reach it at all. */}
                             {copyStatus === 'failed' && (
-                                <p className="dialog-error" role="alert">Clipboard access failed. Select the text and copy it manually.</p>
+                                shareLinkFallback ? (
+                                    <div className="dialog-share-fallback" role="alert">
+                                        <p className="dialog-error">Clipboard access failed. Select the game link and copy it manually.</p>
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            value={shareLinkFallback}
+                                            aria-label="Game link fallback"
+                                            onFocus={event => event.currentTarget.select()}
+                                        />
+                                    </div>
+                                ) : (
+                                    <p className="dialog-error" role="alert">Clipboard access failed. Select the text and copy it manually.</p>
+                                )
                             )}
                             {/* Under the output rather than in the button row, which
                                 already holds four actions at the dialog's width. */}
