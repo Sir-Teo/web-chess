@@ -2528,8 +2528,13 @@ button.pv-move:focus-visible {
   }
 }
 
+/* One rung above the quietest text, because these sit inside a button on the
+   Lines panel rather than on the panel itself, and that ground is lighter than
+   the one `--text-muted` was measured against: 3.51:1 in the dark theme at the
+   narrow layout, where the panel is full width. The same trade the preset card
+   and the time control make. */
 .pv-move-number {
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   font-weight: 500;
   margin-right: 0.1rem;
 }

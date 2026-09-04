@@ -827,6 +827,31 @@ async function assertContrast(page, label, minimum = 40) {
     + ` (${result.unverified} on a gradient, measured against its worst stop)`)
 }
 
+async function openSettings(page) {
+  await page.getByRole('button', { name: /open settings/i }).click()
+  await page.locator('.settings-body').waitFor({ timeout: 5000 })
+}
+
+// Escape rather than the Done button: the dialog's own focus hook closes on
+// it, and it needs nothing to be hittable.
+async function closeSettings(page) {
+  await page.keyboard.press('Escape')
+  await page.locator('.settings-body').waitFor({ state: 'detached', timeout: 5000 })
+}
+
+/**
+ * Scoped to the theme group, because "Light" and "Dark" are ordinary enough
+ * words to collide, and asserted afterwards -- a sweep labelled "light" that
+ * ran against the dark theme would pass and prove nothing.
+ */
+async function chooseTheme(page, name) {
+  await page.locator('[aria-labelledby="app-theme-label"] button', { hasText: new RegExp(`^${name}$`) }).click()
+  await page.waitForFunction(
+    expected => document.documentElement.dataset.theme === expected,
+    name.toLowerCase(), { timeout: 5000 },
+  )
+}
+
 async function main() {
 
   const { chromium } = require('playwright')
@@ -1182,29 +1207,6 @@ async function main() {
         // themes. A hand pass found six of these in one sitting and every one
         // was a value correct in one theme or one state and not the other, so
         // the sweep runs twice and covers a dialog as well as the panels.
-        const openSettings = async () => {
-          await page.getByRole('button', { name: /open settings/i }).click()
-          await page.locator('.settings-body').waitFor({ timeout: 5000 })
-        }
-        // Escape rather than the Done button: the dialog's own focus hook
-        // closes on it, and it needs nothing to be hittable.
-        const closeSettings = async () => {
-          await page.keyboard.press('Escape')
-          await page.locator('.settings-body').waitFor({ state: 'detached', timeout: 5000 })
-        }
-        /**
-         * Scoped to the theme group, because "Light" and "Dark" are ordinary
-         * enough words to collide, and asserted afterwards -- a sweep labelled
-         * "light" that ran against the dark theme would pass and prove nothing.
-         */
-        const chooseTheme = async (name) => {
-          await page.locator(`[aria-labelledby="app-theme-label"] button`, { hasText: new RegExp(`^${name}$`) }).click()
-          await page.waitForFunction(
-            expected => document.documentElement.dataset.theme === expected,
-            name.toLowerCase(), { timeout: 5000 },
-          )
-        }
-
         /**
          * The surfaces a reader actually lands on. The dialogs are in here
          * because two of the seven defects this sweep exists for were in them
@@ -1257,21 +1259,21 @@ async function main() {
           await page.waitForTimeout(400)
         }
 
-        await openSettings()
+        await openSettings(page)
         await assertContrast(page, 'dark / settings', 30)
-        await closeSettings()
+        await closeSettings(page)
         await sweepSurfaces('dark')
 
-        await openSettings()
-        await chooseTheme('Light')
+        await openSettings(page)
+        await chooseTheme(page, 'Light')
         await assertContrast(page, 'light / settings', 30)
-        await closeSettings()
+        await closeSettings(page)
         await sweepSurfaces('light')
 
         // Back to the theme and tab the rest of the suite expects.
-        await openSettings()
-        await chooseTheme('Dark')
-        await closeSettings()
+        await openSettings(page)
+        await chooseTheme(page, 'Dark')
+        await closeSettings(page)
       }
 
       // Every aria-controls has to lead somewhere. The one accepted exception
@@ -1297,6 +1299,27 @@ async function main() {
       // dialog is not mounted -- the very shape of the bug this check exists
       // for would have gone unexamined.
       await assertNoDanglingControls('at rest')
+
+      /**
+       * Contrast at the narrow sizes, which the desktop sweep says nothing
+       * about. Most colour is viewport-independent, but not all of it: the
+       * Settings panel carries copy that exists *only* on a touch pointer --
+       * the two paragraphs explaining that drawing arrows needs a mouse -- and
+       * no sweep had ever measured them. The board has no game here, so this
+       * covers the resting panel and Settings rather than the review.
+       */
+      if (viewport.name !== 'desktop') {
+        await assertContrast(page, `${viewport.name} / dark`, 20)
+        await openSettings(page)
+        await assertContrast(page, `${viewport.name} / dark settings`, 25)
+        await chooseTheme(page, 'Light')
+        await assertContrast(page, `${viewport.name} / light settings`, 25)
+        await closeSettings(page)
+        await assertContrast(page, `${viewport.name} / light`, 20)
+        await openSettings(page)
+        await chooseTheme(page, 'Dark')
+        await closeSettings(page)
+      }
 
       // The palette has a button as well as a chord, and the button is the
       // only route a phone has -- there is no Cmd key on a touch keyboard, so
