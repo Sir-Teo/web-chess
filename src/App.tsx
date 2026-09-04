@@ -637,6 +637,13 @@ function App() {
 
   // ── Evaluations ──────────────────────────────────────
   const [evaluationsByFen, setEvaluationsByFen] = useState<Map<string, EvalSnapshot>>(new Map())
+  /**
+   * The evaluation map as it stands right now, for the callbacks that run
+   * outside a render -- the review pool's fallback, which has to know what the
+   * pool managed to finish before it failed. Same shape as `gameTreeRef`.
+   */
+  const evaluationsByFenRef = useRef(evaluationsByFen)
+  evaluationsByFenRef.current = evaluationsByFen
   const [pgnHeaders, setPgnHeaders] = useState<Record<string, string>>({})
 
   // ── Game mode ────────────────────────────────────────
@@ -1200,15 +1207,40 @@ function App() {
         setIsBatchReviewing(false)
       })
       .catch(() => {
-        // The engines would not start. Hand the whole queue to the shared one
-        // rather than reporting a review that never ran: nothing has been
-        // recorded yet, because a result is only reported once an engine has
-        // answered.
+        /**
+         * An engine gave out. Hand what is left to the shared one rather than
+         * reporting a review that stopped halfway.
+         *
+         * Re-planned rather than re-queued. This used to hand back the
+         * original targets, reasoning that nothing could have been recorded
+         * yet because a result is only reported once an engine has answered.
+         * That reasoning holds for a boot failure and not in general: an
+         * engine that gives out *mid*-review leaves the others' results in the
+         * map, and re-queueing the lot would search finished positions again
+         * and hand the progress bar a `done` from before the review started.
+         *
+         * Honest about the evidence: the boot cases are measured -- every
+         * engine failing, and two of four failing, both recover and finish all
+         * 83 positions -- and both take this branch before anything is
+         * recorded, so they cannot tell the two versions apart. The case this
+         * distinguishes is an engine dying after it has answered, which needs
+         * a worker error or a 60s search timeout and which I could not stage
+         * in a browser. It rests on reading the code, not on a measurement.
+         * `planBatchReview` already knows how to tell a finished position from
+         * an unfinished one, and reads the live map rather than the one this
+         * closure captured, so it is the right answer either way.
+         */
         if (reviewPoolRunRef.current !== run) return
         run.cancel()
         reviewPoolRunRef.current = null
-        batchReviewQueueRef.current = targets
-        setBatchReviewProgress({ done: plan.done, total: plan.total })
+        const remaining = planBatchReview(
+          reviewLineNodesRef.current,
+          gameTreeRef.current.root.fen,
+          evaluationsByFenRef.current,
+          searchDepth,
+        )
+        batchReviewQueueRef.current = remaining.queue
+        setBatchReviewProgress({ done: remaining.done, total: remaining.total })
         setBatchReviewTick(tick => tick + 1)
       })
   }, [activeProfile, capabilities, clearImportSweep, engineEnabled, evaluationsByFen, hashMb, searchDepth, showWdl, stop])
