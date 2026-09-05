@@ -67,12 +67,20 @@ export function planReviewPool(input: {
   // already; a second WASM heap is the last thing it needs.
   if (input.capabilities.isMobile) return single
 
-  const threads = recommendedThreadCount(input.profile, input.capabilities)
+  // Multiple single-threaded WASM instances need no SharedArrayBuffer: each
+  // owns its memory and can search an independent position on another core.
+  // Keep low-memory devices on one heap even when they report many cores.
+  if (typeof input.capabilities.deviceMemoryGb === 'number' && input.capabilities.deviceMemoryGb <= 4) return single
+
   const cores = Math.max(1, Math.floor(input.capabilities.hardwareConcurrency || 1))
   if (cores < 4) return single
+  const threaded = input.profile.requiresIsolation
+  const threads = threaded
+    ? recommendedThreadCount(input.profile, input.capabilities)
+    : Math.min(8, Math.floor(cores * 0.75))
 
   // One engine per pair of usable threads, so each still gets more than one.
-  const byThreads = Math.floor(threads / 2)
+  const byThreads = threaded ? Math.floor(threads / 2) : threads
   const byCores = Math.floor(cores / 2)
   const workers = Math.min(MAX_POOL_WORKERS, Math.max(1, Math.min(byThreads, byCores)))
   if (workers < 2) return single
@@ -84,7 +92,7 @@ export function planReviewPool(input: {
 
   return {
     workers,
-    threadsPerWorker: Math.max(1, Math.floor(threads / workers)),
+    threadsPerWorker: threaded ? Math.max(1, Math.floor(threads / workers)) : 1,
     hashMbPerWorker,
   }
 }

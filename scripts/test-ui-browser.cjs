@@ -477,6 +477,30 @@ async function checkTypedMoveEntry(browser) {
   }
 }
 
+async function checkSingleThreadReviewPool(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 })
+      Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 })
+      localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ engineProfile: 'lite-single-local', hashMb: 64 }))
+    })
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+    await page.getByRole('button', { name: /^Load / }).first().click()
+    await page.waitForFunction(() => /Browser QA, White/.test(document.body.innerText))
+    await page.getByRole('button', { name: 'Review', exact: true }).first().click()
+    await page.getByRole('button', { name: /^review game$/i }).first().click()
+    await page.waitForFunction(() => /Pending 0/.test(document.querySelector('.review-chips')?.textContent || ''))
+    const result = await page.evaluate(() => ({ workers: window.__engineCount, commands: window.__uciCommands }))
+    assert(result.workers > 1, 'single-thread profile reviewed serially despite the available cores')
+    assert(!result.commands.some(c => /^setoption name Threads value [2-9]/.test(c)), 'a single-thread engine was given multiple threads')
+    console.log(`  single-thread profile: review finished using ${result.workers - 1} independent pool workers`)
+  } finally { await context.close() }
+}
+
 async function checkBoundedScoreIsIgnored(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const page = await context.newPage()
@@ -1812,6 +1836,7 @@ async function main() {
     }
 
     await checkTypedMoveEntry(browser)
+    await checkSingleThreadReviewPool(browser)
     await checkBoundedScoreIsIgnored(browser)
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)

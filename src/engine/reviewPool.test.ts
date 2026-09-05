@@ -78,13 +78,8 @@ describe('sizing a review pool', () => {
       }
     })
 
-    /**
-     * The single-threaded build gets one thread whatever the machine has, so
-     * there is no thread budget to divide and no reason to think two of it
-     * would be faster than one.
-     */
-    it('on a build that cannot use threads at all', () => {
-      const plan = planReviewPool({ profile: single, capabilities: desktop(), queueLength: LONG_QUEUE, hashMb: 64 })
+    it('on a low-memory device, even with many cores', () => {
+      const plan = planReviewPool({ profile: single, capabilities: desktop({ deviceMemoryGb: 4 }), queueLength: LONG_QUEUE, hashMb: 64 })
       expect(plan.workers).toBe(1)
     })
 
@@ -98,6 +93,22 @@ describe('sizing a review pool', () => {
       expect(plan.workers).toBe(1)
       expect(plan.hashMbPerWorker).toBe(MIN_HASH_MB_PER_WORKER)
     })
+  })
+
+  it('uses independent single-thread workers without cross-origin isolation', () => {
+    const plan = planReviewPool({
+      profile: single,
+      capabilities: desktop({ sharedArrayBuffer: false, crossOriginIsolated: false }),
+      queueLength: LONG_QUEUE,
+      hashMb: 64,
+    })
+    expect(plan).toEqual({ workers: 4, threadsPerWorker: 1, hashMbPerWorker: 16 })
+  })
+
+  it('leaves a core free on four-core desktops with single-thread builds', () => {
+    const plan = planReviewPool({ profile: single, capabilities: desktop({ hardwareConcurrency: 4 }), queueLength: LONG_QUEUE, hashMb: 64 })
+    expect(plan.workers).toBe(2)
+    expect(plan.threadsPerWorker).toBe(1)
   })
 
   it('leaves the hash the reader chose alone when it falls back', () => {
