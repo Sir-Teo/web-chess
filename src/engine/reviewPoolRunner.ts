@@ -1,4 +1,4 @@
-import { parseInfoLine } from '../hooks/useStockfishEngine'
+import { parseInfoLine, shouldReplaceLiveLine } from '../hooks/useStockfishEngine'
 import type { EvalSnapshot } from './analysis'
 import { scoreToCp } from './analysis'
 import type { BatchReviewTarget } from './batchReview'
@@ -159,7 +159,7 @@ export function snapshotFromSearchLines(lines: string[], searchedAt: number): Ev
     const parsed = parseInfoLine(line)
     if (!parsed || parsed.multipv !== 1) continue
     if (typeof scoreToCp(parsed.cp, parsed.mate) !== 'number') continue
-    if (!best || parsed.depth >= best.depth) best = parsed
+    if ((!best || parsed.depth >= best.depth) && shouldReplaceLiveLine(best ?? undefined, parsed)) best = parsed
   }
   if (!best) return null
   const cp = scoreToCp(best.cp, best.mate)

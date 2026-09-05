@@ -52,6 +52,20 @@ describe('the snapshot a pooled search leaves behind', () => {
     expect(snapshotFromSearchLines(bounded, 0)?.scoreBound).toBe('lowerbound')
   })
 
+  it.each(['lowerbound', 'upperbound'])('keeps an exact score when a later %s arrives at the same depth', bound => {
+    const lines = [...SEARCH, `info depth 16 multipv 1 score cp 900 ${bound} nodes 1000000 pv e2e4`]
+    expect(snapshotFromSearchLines(lines, 0)).toMatchObject({ cp: 28, depth: 16, bestMove: 'd2d4' })
+    expect(snapshotFromSearchLines(lines, 0)?.scoreBound).toBeUndefined()
+  })
+
+  it('accepts a deeper bound and then the exact re-search that resolves it', () => {
+    const lines = [...SEARCH, 'info depth 17 score cp 90 lowerbound pv e2e4']
+    expect(snapshotFromSearchLines(lines, 0)).toMatchObject({ cp: 90, depth: 17, scoreBound: 'lowerbound' })
+    lines.push('info depth 17 score cp 95 pv e2e4')
+    expect(snapshotFromSearchLines(lines, 0)).toMatchObject({ cp: 95, depth: 17 })
+    expect(snapshotFromSearchLines(lines, 0)?.scoreBound).toBeUndefined()
+  })
+
   it('carries WDL through when the engine was asked for it', () => {
     const withWdl = ['info depth 16 multipv 1 score cp 28 wdl 300 600 100 pv d2d4']
     expect(snapshotFromSearchLines(withWdl, 0)?.wdl).toEqual({ w: 300, d: 600, l: 100 })
