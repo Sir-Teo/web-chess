@@ -924,6 +924,15 @@ async function checkCrossOriginIsolationIsRestored(browser) {
   const page = await context.newPage()
   try {
     const bare = `http://127.0.0.1:${BARE_PORT}/web-chess/`
+    // Seed origin-wide caches before this app's worker can activate.
+    await page.route('**/cache-seed', route => route.fulfill({ contentType: 'text/html', body: '<title>Cache seed</title>' }))
+    await page.goto(`http://127.0.0.1:${BARE_PORT}/cache-seed`)
+    await page.evaluate(async () => {
+      for (const name of ['web-katrain-v1:runtime', 'unrelated-app', 'web-chess-v0:runtime', 'web-chess-v10:runtime']) {
+        const cache = await caches.open(name)
+        await cache.put('/sentinel', new Response('keep me'))
+      }
+    })
     await page.goto(bare, { waitUntil: 'domcontentloaded' })
 
     // The worker registers and reloads the page once; give it that round trip.
@@ -940,6 +949,12 @@ async function checkCrossOriginIsolationIsRestored(browser) {
     assert(state.isolated,
       'the page is not cross-origin isolated: multi-threaded Stockfish is unreachable on GitHub Pages')
     assert(state.sharedArrayBuffer, 'SharedArrayBuffer is missing even though the page reports isolation')
+    const cacheNames = await page.evaluate(() => caches.keys())
+    assert(cacheNames.includes('web-katrain-v1:runtime') && cacheNames.includes('unrelated-app'),
+      'activating Web Chess deleted another app’s offline cache')
+    assert(!cacheNames.includes('web-chess-v0:runtime') && !cacheNames.includes('web-chess-v10:runtime'),
+      'obsolete Web Chess caches survived activation')
+    console.log('  cache ownership: sibling apps preserved; obsolete chess caches removed')
     console.log('  headerless host: service worker restored cross-origin isolation')
 
     // A Range request must be served correctly through the worker, and no

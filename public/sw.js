@@ -37,6 +37,7 @@
  */
 const CACHE_VERSION = 'web-chess-v1';
 const CACHE_NAME = `${CACHE_VERSION}:runtime`;
+const CACHE_PREFIX = 'web-chess-';
 
 /**
  * How long a reader waits for the network before a cached copy beats a blank
@@ -97,7 +98,10 @@ self.addEventListener('activate', (event) => {
     caches
       .keys()
       .then((keys) => Promise.all(
-        keys.filter((key) => !key.startsWith(CACHE_VERSION)).map((key) => caches.delete(key))
+        // CacheStorage belongs to the origin, not this worker's /web-chess/
+        // scope. Other GitHub Pages apps keep their offline data here too.
+        keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
+          .map((key) => caches.delete(key))
       ))
       .then(() => self.clients.claim())
   );
