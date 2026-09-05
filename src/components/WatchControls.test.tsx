@@ -29,6 +29,46 @@ function renderWatchControls(overrides: Partial<Parameters<typeof WatchControls>
 }
 
 describe('WatchControls', () => {
+    it('offers autoplay where no engine is playing and there are moves ahead', () => {
+        const html = renderWatchControls({ aiActive: false, canGoForward: true, canAutoplay: true, onAutoplayToggle: noop })
+
+        expect(html).toContain('Autoplay the moves')
+        // The speed row waits until something is moving at it.
+        expect(html).not.toContain('Autoplay speed')
+        expect(html).not.toContain('Pause AI')
+    })
+
+    it('turns the autoplay control into Stop while it runs, with the speed beside it', () => {
+        const html = renderWatchControls({ aiActive: false, canGoForward: false, canAutoplay: false, autoplay: true, onAutoplayToggle: noop })
+
+        expect(html).toContain('Stop autoplay')
+        expect(html).toContain('aria-pressed="true"')
+        expect(html).toContain('Autoplay speed')
+        // Step is the engine's, not the replay's.
+        expect(html).not.toContain('Set autoplay speed to Step')
+    })
+
+    it('keeps the control at the end of the line, disabled like Next', () => {
+        const html = renderWatchControls({ aiActive: false, canGoForward: false, canAutoplay: true, onAutoplayToggle: noop })
+
+        expect(html).toContain('Autoplay the moves')
+        expect(html).toContain('disabled=""')
+    })
+
+    it('offers nothing to replay on an empty board', () => {
+        const html = renderWatchControls({ aiActive: false, canGoForward: false, canAutoplay: false, onAutoplayToggle: noop })
+
+        expect(html).not.toContain('Autoplay')
+        expect(html).not.toContain('Speed')
+    })
+
+    it('never shows the replay beside the engine controls', () => {
+        const html = renderWatchControls({ aiActive: true, canGoForward: true, canAutoplay: true, onAutoplayToggle: noop })
+
+        expect(html).not.toContain('Autoplay')
+        expect(html).toContain('Pause AI')
+    })
+
     it('shows the step action whenever step speed is active', () => {
         const html = renderWatchControls({ aiSpeed: 'step', canStep: true, stepMode: true })
 

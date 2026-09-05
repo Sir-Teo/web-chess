@@ -21,6 +21,18 @@ type Props = {
     // speed
     aiSpeed: AiSpeed
     onSpeedChange: (s: AiSpeed) => void
+    /**
+     * Replaying a line on its own: the moves already on the board, stepped
+     * through at the chosen speed. Offered wherever the engine is not playing
+     * -- an imported game, a finished one, a pass-and-play game being looked
+     * back over -- because a game you can only replay with a held-down arrow
+     * key is a game you cannot watch. `canAutoplay` is whether there is a game
+     * to replay at all; at its end the button stays, disabled like Next beside
+     * it, rather than vanishing under the pointer.
+     */
+    autoplay?: boolean
+    canAutoplay?: boolean
+    onAutoplayToggle?: () => void
 }
 
 const SPEEDS: { id: AiSpeed; label: string }[] = [
@@ -47,7 +59,13 @@ export function WatchControls({
     onStep,
     aiSpeed,
     onSpeedChange,
+    autoplay = false,
+    canAutoplay = false,
+    onAutoplayToggle,
 }: Props) {
+    // The engine's controls and the replay's are never both on offer: one
+    // plays moves, the other walks the ones already there.
+    const replayOffered = !aiActive && Boolean(onAutoplayToggle) && (canAutoplay || autoplay)
     return (
         <div className="watch-controls">
             {/* ── Navigation ── */}
@@ -92,16 +110,38 @@ export function WatchControls({
                 </div>
             )}
 
-            {/* ── Speed selector (AI only) ── */}
-            {aiActive && (
-                <div className="wc-speed" aria-label="AI speed">
+            {/* ── Autoplay (no engine playing) ── */}
+            {replayOffered && (
+                <div className="wc-play">
+                    <button
+                        type="button"
+                        className={`wc-btn ${autoplay ? 'wc-btn-pause' : 'wc-btn-resume'}`}
+                        onClick={onAutoplayToggle}
+                        disabled={!autoplay && !canGoForward}
+                        title={autoplay ? 'Stop autoplay (Space)' : 'Play through the moves (Space)'}
+                        aria-label={autoplay ? 'Stop autoplay' : 'Autoplay the moves'}
+                        aria-pressed={autoplay}
+                        aria-keyshortcuts="Space"
+                        data-testid="autoplay-btn"
+                    >
+                        {autoplay ? <><IconPause /> Stop</> : <><IconPlay /> Autoplay</>}
+                    </button>
+                </div>
+            )}
+
+            {/* ── Speed selector (AI, or a replay in progress) ──
+                Only while a replay runs: on a phone the pills are a second
+                row of the bottom bar, and a row for a speed nothing is
+                moving at is space taken from the board. */}
+            {(aiActive || autoplay) && (
+                <div className="wc-speed" aria-label={aiActive ? 'AI speed' : 'Autoplay speed'}>
                     <span className="wc-speed-label">Speed</span>
-                    {SPEEDS.map(({ id, label }) => (
+                    {SPEEDS.filter(({ id }) => aiActive || id !== 'step').map(({ id, label }) => (
                         <button
                             key={id}
                             type="button"
                             className={`wc-speed-pill ${aiSpeed === id ? 'wc-speed-active' : ''}`}
-                            aria-label={`Set AI speed to ${label}`}
+                            aria-label={`Set ${aiActive ? 'AI' : 'autoplay'} speed to ${label}`}
                             aria-pressed={aiSpeed === id}
                             onClick={() => onSpeedChange(id)}
                         >

@@ -626,6 +626,48 @@ async function checkKeepSearchingIsUnbounded(browser) {
 }
 
 /**
+ * Autoplay is the Next button on a timer, offered wherever no engine is on
+ * move. Two moves are played pass-and-play, the board goes to Analysis and
+ * back to the start, and autoplay is expected to walk to the end of the line
+ * on its own and then switch itself off.
+ */
+async function checkAutoplayWalksTheLine(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+
+    const play = async (from, to) => {
+      await page.click(`#chessboard-square-${from}`)
+      await page.click(`#chessboard-square-${to}`)
+      await page.waitForTimeout(150)
+    }
+    await play('e2', 'e4')
+    await play('e7', 'e5')
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+    await page.keyboard.press('Home')
+    await page.waitForFunction(() => /Move 1/.test(document.querySelector('.board-meta-move')?.textContent || ''), null, { timeout: 5000 })
+
+    await page.getByRole('button', { name: 'Autoplay the moves' }).click()
+    // The speed row appears once something is moving at it.
+    await page.getByRole('button', { name: 'Set autoplay speed to Fast' }).click()
+    await page.waitForFunction(() => /e5/.test(document.querySelector('.mtree-chip-active')?.textContent || ''), null, { timeout: 10000 })
+    // At the end of the line it turns itself off.
+    await page.getByRole('button', { name: 'Autoplay the moves' }).waitFor({ timeout: 5000 })
+    assert(await page.getByRole('button', { name: 'Stop autoplay' }).count() === 0,
+      'autoplay stayed on after reaching the end of the line')
+    console.log('  autoplay: walked to the end of the line and stopped')
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * The nudge in Play mode. The opponent's search after the human's second
  * move scores 300cp higher than after the first, and the Play Focus card
  * should say which move did it and what it cost, with the take-back one
@@ -1716,6 +1758,7 @@ async function main() {
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)
     await checkKeepSearchingIsUnbounded(browser)
+    await checkAutoplayWalksTheLine(browser)
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkDrillLeavesTheLineAlone(browser)

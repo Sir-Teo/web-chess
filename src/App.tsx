@@ -195,7 +195,7 @@ import { ANALYSIS_SETTINGS_STORAGE_KEY } from './storageKeys'
 import type { GameMode, PlayerColor } from './components/NewGameDialog'
 import type { SideChoice } from './engine/sideChoice'
 import { WatchControls } from './components/WatchControls'
-import { AI_SPEED_MS, type AiSpeed } from './components/aiSpeed'
+import { AI_SPEED_MS, AUTOPLAY_MS, type AiSpeed } from './components/aiSpeed'
 import { WdlBar } from './components/WdlBar'
 import { HorizontalWdlBar } from './components/HorizontalWdlBar'
 import { EngineOptionControl } from './components/EngineOptionControl'
@@ -401,7 +401,7 @@ const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['T'], action: 'Show what the opponent threatens (Analysis mode)' },
   { keys: ['Z'], action: 'Take back your last move (Play mode)' },
   { keys: ['H'], action: 'Ask the engine for a hint (Play mode)' },
-  { keys: ['Space'], action: 'Pause or resume the AI (Play mode)' },
+  { keys: ['Space'], action: 'Pause or resume the AI (Play mode) · autoplay the moves (otherwise)' },
   { keys: [commandPaletteShortcutLabel()], action: 'Open the command palette' },
 ]
 
@@ -775,6 +775,16 @@ function App() {
     aiSpeedRef.current = s
   }, [])
 
+  /**
+   * Walking the moves already on the board, one every `AUTOPLAY_MS`.
+   *
+   * Nothing here plays a move: it is the Next button on a timer, which is
+   * why it is safe wherever the engine is not on move. It stops on its own
+   * at the end of the line, and whenever the reader takes over -- a move
+   * played, a game started or imported, the engine put on the board.
+   */
+  const [autoplay, setAutoplay] = useState(false)
+
   // ── Pause state ──────────────────────────────────────
   const [paused, setPaused] = useState(false)
   const pausedRef = useRef(false)
@@ -997,6 +1007,16 @@ function App() {
   }, [navigateAndPonder])
   const atVariationFork = hasSiblingVariations(gameTree.nodesSnapshot, gameTree.current.id)
 
+  useEffect(() => {
+    if (!autoplay) return
+    if (!canGoForward) {
+      setAutoplay(false)
+      return
+    }
+    const timer = window.setTimeout(goNext, AUTOPLAY_MS[aiSpeed])
+    return () => window.clearTimeout(timer)
+  }, [aiSpeed, autoplay, canGoForward, goNext])
+
   /**
    * Assigned on every render so the global keydown handler, installed well
    * before `requestThreat` is declared, can reach the current one without
@@ -1070,11 +1090,18 @@ function App() {
         e.preventDefault()
         requestHintRef.current()
       }
-      if (e.key === ' ' && workspaceMode === 'play') {
+      if (e.key === ' ') {
         if (tag === 'BUTTON') return
         e.preventDefault()
-        if (pausedRef.current) resume()
-        else pause()
+        if (workspaceMode === 'play') {
+          // A game: Space holds it, clock and engine both.
+          if (pausedRef.current) resume()
+          else pause()
+          return
+        }
+        // Nothing is on move in Analysis, so Space walks the moves that are
+        // already there.
+        setAutoplay(value => !value)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -1400,6 +1427,10 @@ function App() {
   ])
 
   const aiEnabled = workspaceMode === 'play' && (gameMode === 'human-vs-ai' || gameMode === 'ai-vs-ai')
+  // The engine taking the board is the end of a replay.
+  useEffect(() => {
+    if (aiEnabled) setAutoplay(false)
+  }, [aiEnabled])
   const aiPlayer = useAiPlayer(aiEnabled)
   const aiPlayerStatus = aiPlayer.status
   const cancelAiRequest = aiPlayer.cancelRequest
@@ -3410,6 +3441,8 @@ function App() {
       restoreBoardFocusRef.current = to
       // A new move answers the nudge about the last one, whichever way.
       setBlunderNudge(null)
+      // And takes the board back from a replay.
+      setAutoplay(false)
 
       cancelStaleBackgroundAnalysis()
       stop()
@@ -4028,6 +4061,7 @@ function App() {
       setEvaluationsByFen(new Map())
       setFrozenReview(null)
       setDrill(null)
+      setAutoplay(false)
       setClock(null)
       setResignedBy(null)
       setPremove(null)
@@ -4244,6 +4278,7 @@ function App() {
       setEvaluationsByFen(new Map())
       setFrozenReview(null)
       setDrill(null)
+      setAutoplay(false)
       setClock(null)
       setResignedBy(null)
       setPremove(null)
@@ -4300,6 +4335,7 @@ function App() {
     setEvaluationsByFen(new Map())
     setFrozenReview(null)
     setDrill(null)
+    setAutoplay(false)
     setClock(null)
     setResignedBy(null)
     setPremove(null)
@@ -4413,6 +4449,7 @@ function App() {
       setEvaluationsByFen(new Map())
       setFrozenReview(null)
       setDrill(null)
+      setAutoplay(false)
       setClock(null)
       setResignedBy(null)
       setPremove(null)
@@ -4562,6 +4599,13 @@ function App() {
     window.open(chessComPositionUrl(fen), '_blank', 'noopener,noreferrer')
   }, [fen])
 
+  const toggleAutoplay = useCallback(() => setAutoplay(value => !value), [])
+  const autoplayReason = aiEnabled
+    ? 'The engine is playing; pause it instead.'
+    : !canGoForward && !autoplay
+      ? 'No moves ahead of this position.'
+      : null
+
   const paletteCommands = useMemo<Command[]>(() => [
     { id: 'new-game', label: 'New game', shortcut: 'N', keywords: ['restart', 'reset'], run: openNewGameDialog },
     { id: 'flip-board', label: 'Flip board', shortcut: 'F', keywords: ['orientation', 'rotate', 'side'],
@@ -4652,6 +4696,15 @@ function App() {
       keywords: ['audio', 'sound', 'mute', 'quiet'],
       run: () => setSoundEnabled(value => !value),
     },
+    {
+      id: 'autoplay',
+      label: autoplay ? 'Stop autoplay' : 'Autoplay the moves',
+      shortcut: 'Space',
+      hint: autoplayReason ?? 'Step through the moves on a timer',
+      keywords: ['replay', 'play through', 'watch', 'animate', 'auto'],
+      disabled: Boolean(autoplayReason),
+      run: toggleAutoplay,
+    },
     { id: 'go-first', label: 'Go to first position', shortcut: 'Home', keywords: ['start', 'beginning'], run: goFirst },
     { id: 'go-last', label: 'Go to last position', shortcut: 'End', keywords: ['end', 'latest'], run: goLast },
     {
@@ -4726,10 +4779,10 @@ function App() {
     },
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
-  ], [analysisExperience, atVariationFork, continuousAnalysis, copyFen, copyPgn, drill, drillBlackReason, drillWhiteReason, endDrill, startDrill,
+  ], [analysisExperience, atVariationFork, autoplay, autoplayReason, continuousAnalysis, copyFen, copyPgn, drill, drillBlackReason, drillWhiteReason, endDrill, startDrill,
     goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast,
       goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
-      previousReviewFaultRow, requestHint, openLibraryDialog,
+      previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay,
       openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger,
       reviewFaultCount, reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason, workspaceMode])
 
@@ -7486,6 +7539,9 @@ function App() {
               onStep={handleStep}
               aiSpeed={aiSpeed}
               onSpeedChange={handleSpeedChange}
+              autoplay={autoplay}
+              canAutoplay={!playEngineActive && mainLineNodes.length > 1}
+              onAutoplayToggle={toggleAutoplay}
             />
 
             <div className="bottom-status-row">
