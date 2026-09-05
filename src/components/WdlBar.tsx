@@ -1,8 +1,10 @@
 import './WdlBar.css'
-import { normalizeWhitePovWdl, type EvalSnapshot } from '../engine/analysis'
+import type { EvalSnapshot } from '../engine/analysis'
+import { evalBarSplit } from '../engine/evalBar'
 
 /** Shown until the engine has an opinion: an even split, as 333/334/333 was. */
 const EVEN_SPLIT = { white: 33.3, draw: 33.4, black: 33.3 }
+
 
 type Props = {
     fen: string
@@ -11,9 +13,11 @@ type Props = {
 }
 
 export function WdlBar({ fen, evaluation, orientation }: Props) {
-    const { white: whitePct, draw: drawPct, black: blackPct } =
-        (evaluation?.wdl && normalizeWhitePovWdl(fen, evaluation.wdl)) || EVEN_SPLIT
-    const label = `Win chances: White ${whitePct.toFixed(1)}%, Draw ${drawPct.toFixed(1)}%, Black ${blackPct.toFixed(1)}%`
+    const split = evalBarSplit(fen, evaluation)
+    const { white: whitePct, draw: drawPct, black: blackPct } = split ?? EVEN_SPLIT
+    const label = split && split.draw === 0
+        ? `Win chances: White ${whitePct.toFixed(1)}%, Black ${blackPct.toFixed(1)}%`
+        : `Win chances: White ${whitePct.toFixed(1)}%, Draw ${drawPct.toFixed(1)}%, Black ${blackPct.toFixed(1)}%`
 
     // We want White on bottom normally, Black on top.
     // When flipped (orientation === 'black'), we invert this structure.

@@ -4944,7 +4944,7 @@ function App() {
     stageHeight,
     leftPanelWidth: layoutLeftWidth,
     rightPanelWidth: rightWidth,
-    showEvalColumn: engineEnabled && showWdl,
+    showEvalColumn: engineEnabled,
   })
   const notationFontSize = `${notationFontSizePx}px`
   // The strip says what the position is. Once the game is over there is no side
@@ -5757,8 +5757,12 @@ function App() {
                       <label className="switch-control">
                         <input type="checkbox" checked={showWdl}
                           onChange={e => setShowWdl(e.target.checked)} />
-                        <span>Show WDL values</span>
+                        <span>Show win/draw/loss splits (UCI_ShowWDL)</span>
                       </label>
+                      <p className="panel-copy small">
+                        The evaluation bar stays either way; this adds the draw band to it, the
+                        split under each engine line, and the WDL trend graph.
+                      </p>
                       <p className="panel-copy small">
                         The engine profile, what the browser supports, and the UCI
                         options live together in Analysis → Engine Lab.
@@ -6033,7 +6037,11 @@ function App() {
               </div>
             )}
             <div className="board-wrap">
-              {engineEnabled && showWdl && (() => {
+              {/* Whenever the engine is on, whatever the WDL switch says. The
+                  column used to go with that switch, so turning off the
+                  win/draw/loss detail -- a Pro reading -- took the evaluation
+                  bar itself away, which is the one reading a beginner has. */}
+              {engineEnabled && (() => {
                 const evalSnap = currentEvaluation
                 const evalLabel = endingScore ?? (evalSnap
                   ? formatCompactWhitePovEvaluation(fen, evalSnap.cp, evalSnap.mate)
