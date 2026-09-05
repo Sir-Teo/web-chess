@@ -948,6 +948,50 @@ a window nothing falls inside, plays the engine move.
 `MultiPV` is sent with the strength options on every handshake; unlike
 `Threads` it rebuilds nothing, so it needs no `isready` of its own.
 
+## The evaluation bar draws from the score when there is no split
+
+`WdlBar` only ever drew from a WDL split and fell back to an even three-way
+split without one. Three readings carry a score and no split: a Lichess
+cloud evaluation, an `[%eval]` read out of a PGN, and a search with
+`UCI_ShowWDL` off. The first is the common case -- in every ordinary opening
+the cloud reading outranks the local depth-16 search on depth, so the stored
+snapshot was the cloud one, and the bar sat at 33/33/33 beside a label
+reading +0.2. Measured on the start position.
+
+`engine/evalBar.ts` gives the bar its split: the WDL when there is one,
+otherwise White's winning chances on `winPercentFromCp` -- the same curve the
+trend graph and the accuracy read -- with no draw band, because nothing
+measured one, and a full bar for a forced mate. The column follows the engine
+alone now rather than the WDL switch, which used to take the whole bar away
+when a Pro reading was turned off.
+
+## Keep searching, and autoplay
+
+Two things the bottom of the panel and the bottom bar gained in the third
+pass, both built from pieces that already existed.
+
+**Keep searching** (`continuousAnalysis`, Pro only) turns the automatic
+search and the move-list ponder into `go infinite`. Nothing new runs: a new
+position replaces the search through `flushPendingAnalyze`, Stop stops it,
+`suspendsWhileHidden` parks it, and `reusableAnalysisCacheKey` never cached
+an infinite search. Pro only twice over -- Coach mode is never left running
+the machine, and a persisted switch behind a view that does not show it is a
+setting nobody can find to turn off. The import sweep and the review keep
+their bounded searches, because both count a position as done when the
+engine goes ready.
+
+**Autoplay** is `goNext` on a `setTimeout`, at `AUTOPLAY_MS` for the chosen
+speed pill. That is why it is safe wherever the engine is not on move: it
+navigates, it never plays. It turns itself off at the end of the line and
+whenever the reader takes over -- a move made, a game started or imported,
+the engine put on the board. In Analysis, Space toggles it; in Play mode
+Space still pauses the game, which a pass-and-play clock depends on.
+
+One thing worth knowing from building it: the Browser pane keeps
+`document.hidden` true, and an infinite search is parked while hidden, so
+with the switch on nothing is analysed in the pane at all. Anything about
+either feature has to be measured headlessly; see the third audit pass.
+
 ## A light theme, from the tokens
 
 The app was dark-only, with `color-scheme: dark` in the root and the meta
@@ -1041,6 +1085,14 @@ the opponent's clock, because that is what a move does. A fool's mate therefore
 left the loser's clock running down to zero and flagging, replacing "Checkmate"
 with "flagged on time" — and a stalemate would have turned a draw into a loss.
 `moveEndedGame` is the same bank-and-increment followed by a stop.
+
+**The clock follows the turn.** `moveMade` presses the clock for the other
+side, and a takeback put the turn back without telling it: measured in a 3+2
+pass-and-play game, "White to move" over Black's face counting down. Against
+the engine the two-ply takeback hid it, since undoing both moves lands on the
+side the clock was already running for. `takebackMove` now makes the same
+handover `resume` does -- no refund, and not for a game that has ended off
+the board.
 
 **State queued against a position has to die with the position.** A premove is
 a move for a position that has not happened yet, and the effect that plays it

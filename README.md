@@ -38,7 +38,9 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   were asked to move from — both plies when the engine has replied, one when it
   has not, and disabled with a reason when there is nothing of yours to undo.
   The move you took back stays in the game as a variation, and the clock is not
-  refunded.
+  refunded — but it does follow the turn back: a move presses the clock for
+  the other side, and a takeback used to leave it there, so "White to move"
+  sat over Black's clock counting down.
 - **Who is up material**: A pill in the strip above the board reads "White +3"
   whenever the material is uneven, with what each side has taken spelled out in
   words for the tooltip and the screen reader. Counted from the position the
@@ -73,6 +75,24 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 ### Studying
 
 - **Beginner and pro analysis**: Coach mode keeps the right panel focused on plain-language move guidance — it opens with the evaluation *in words*, "Black is slightly better · 46% for White", rather than with `-0.48` — while Pro mode exposes MultiPV, WDL, cloud evals, opening stats, tablebase moves, and UCI controls.
+- **Keep searching**: The automatic analysis stops at the depth slider, which
+  on a desktop is over in a second. Pro mode has a switch under the Coach/Pro
+  toggle that asks for `go infinite` instead, so the depth climbs for as long
+  as you look; a new position replaces the search, Stop stops it, and a hidden
+  tab parks it and resumes it when you come back. Pro only, because Coach mode
+  is never left running the machine.
+- **An evaluation bar that never goes blank**: The bar beside the board draws
+  the engine's win/draw/loss split when it has one, and White's winning chances
+  from the score when it does not — a Lichess cloud evaluation, an `[%eval]`
+  read from a PGN and a search with WDL off all have a number and no split, and
+  the bar used to sit at an even three-way split under every one of them,
+  which in the opening was most of the time. The bar stays whatever the WDL
+  switch says; the switch adds the draw band and the WDL graph.
+- **Autoplay**: A play button beside the move navigation walks the moves on
+  the board at the speed pills' pace, wherever no engine is on move — an
+  imported game, a finished one, a pass-and-play game looked back over. It
+  stops at the end of the line or the moment you take over. `Space` toggles it
+  in Analysis; in Play mode `Space` still pauses the game.
 - **Engine settings that stay set**: `Threads` is the setting that decides how
   much of the machine a search gets, and the app picks a default for the
   device. That default used to reassert itself: raise Threads to 12 in the
@@ -169,7 +189,8 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
   gone from all of them. The move list shows the branch you are standing in
   however deep you have gone, and says how much of it is still folded away.
   `↑` and `↓` step between the lines at a fork, the way they do in every
-  desktop GUI; anywhere else they are the browser's and scroll.
+  desktop GUI; anywhere else they are the browser's and scroll. `End` goes to
+  the end of the line you are standing in, not the game's.
 - **Every variation, however deep, and the glyphs on it**: The move list
   draws a variation inside a variation in brackets within its row, numbered
   the way a PGN is, so an annotated game reads on screen as it does on paper.
@@ -364,7 +385,9 @@ review pass, a saved-game library — for Go and xiangqi:
 current as things land here.
 [`docs/cross-app-learning-plan.md`](docs/cross-app-learning-plan.md) compares the
 three and tracks what is worth moving between them.
-[`docs/architecture.md`](docs/architecture.md) covers this app on its own.
+[`docs/architecture.md`](docs/architecture.md) covers this app on its own, and
+[`docs/audit-2026-09-pass-3.md`](docs/audit-2026-09-pass-3.md) is the latest
+audit pass, including the measurements behind the numbers above.
 
 ## License
 
