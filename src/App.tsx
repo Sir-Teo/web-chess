@@ -1862,15 +1862,12 @@ function App() {
    * not one anybody means under a checkmate.
    */
   const endingScore = boardEnding ? gameResultScore(boardEnding.result) : null
-  const coachEvaluation = endingScore ?? (coachLine
-    ? formatWhitePovEvaluation(coachLine.fen ?? fen, coachLine.cp, coachLine.mate)
-    : coachCloudScore
-      ? formatWhitePovEvaluation(fen, coachCloudScore.cp, coachCloudScore.mate)
-      : currentEvaluation
-        ? formatWhitePovEvaluation(fen, currentEvaluation.cp, currentEvaluation.mate)
-        : tablebase.result
-          ? tablebaseSummary(tablebase.result)
-          : '...')
+  // The position has one authoritative reading, shared with the bar and graph.
+  // A shallower local search may still offer a useful candidate line below.
+  const coachPositionScore = currentEvaluation ?? coachLine ?? coachCloudScore
+  const coachEvaluation = endingScore ?? (coachPositionScore
+    ? formatWhitePovEvaluation(fen, coachPositionScore.cp, coachPositionScore.mate)
+    : tablebase.result ? tablebaseSummary(tablebase.result) : '...')
   /**
    * The same reading as `coachEvaluation`, in words.
    *
@@ -1884,17 +1881,11 @@ function App() {
     // A finished game is described by how it finished. "White is completely
     // winning · 100% for White" under a checkmate is true and beside the point.
     if (boardEnding) return boardEnding.label
-    const source = coachLine
-      ? { fen: coachLine.fen ?? fen, cp: coachLine.cp, mate: coachLine.mate }
-      : coachCloudScore
-        ? { fen, cp: coachCloudScore.cp, mate: coachCloudScore.mate }
-        : currentEvaluation
-          ? { fen, cp: currentEvaluation.cp, mate: currentEvaluation.mate }
-          : null
+    const source = coachPositionScore
     if (!source) return null
     return describeAdvantage(
-      typeof source.cp === 'number' ? normalizeWhitePovCp(source.fen, source.cp) : undefined,
-      typeof source.mate === 'number' ? normalizeWhitePovMate(source.fen, source.mate) : undefined,
+      typeof source.cp === 'number' ? normalizeWhitePovCp(fen, source.cp) : undefined,
+      typeof source.mate === 'number' ? normalizeWhitePovMate(fen, source.mate) : undefined,
     )
   })()
 
@@ -1912,15 +1903,15 @@ function App() {
     ? null
     : coachLine?.pv[1] ?? currentCloudEval?.pvs[0]?.moves[1] ?? currentLastPonderMove ?? null
   const coachReplyMoveText = ponderMoveLabel(fen, coachBestMove, coachReplyMove)
-  const coachDepth = coachLine?.depth ?? currentCloudEval?.depth ?? currentEvaluation?.depth
+  const coachDepth = currentEvaluation ? currentEvaluation.depth : coachLine?.depth ?? currentCloudEval?.depth
   // A tile labelled Depth reports a depth or nothing. It used to fall back to
   // the engine status, so it read "analyzing" in a row of numbers -- and then,
   // once cloud evals arrived, it reported theirs as though this app had reached
   // 75 plies. It says whose depth it is.
   const coachSource = coachReadingSource({
     gameOver: Boolean(boardEnding),
-    hasEngineLine: Boolean(coachLine),
-    hasCloudScore: Boolean(coachCloudScore),
+    hasEngineLine: !currentEvaluation && Boolean(coachLine),
+    hasCloudScore: !currentEvaluation && Boolean(coachCloudScore),
     hasStored: Boolean(currentEvaluation),
     storedPurpose: currentEvaluation?.purpose,
     hasTablebase: Boolean(tablebase.result),
@@ -1928,7 +1919,7 @@ function App() {
   const coachDepthReading = describeCoachDepth(
     coachSource,
     coachDepth,
-    coachBestMoveIsTablebase || Boolean(tablebase.result),
+    !coachPositionScore && Boolean(tablebase.result),
   )
   const engineTelemetry = engineTelemetryLabel(coachLine)
   const coachTablebaseLine = tablebaseTopMove
@@ -6588,7 +6579,7 @@ function App() {
                     )}
                     <div className="coach-grid">
                       <div>
-                        <span>Position</span>
+                        <span>Position{coachSource === 'cloud' ? ' · cloud' : coachSource === 'imported' ? ' · PGN' : ''}</span>
                         <strong>{coachEvaluation}</strong>
                       </div>
                       <div>
@@ -6600,10 +6591,13 @@ function App() {
                         <strong title={coachReplyMove ?? undefined}>{coachReplyMoveText}</strong>
                       </div>
                       <div title={coachDepthReading.title}>
-                        <span>Depth</span>
+                        <span>Position depth</span>
                         <strong>{coachDepthReading.label}</strong>
                       </div>
                     </div>
+                    {coachLine && !boardEnding && !coachBestMoveIsTablebase && (
+                      <p className="panel-copy small coach-line-source">Candidate line · local engine D{coachLine.depth}</p>
+                    )}
                     {/* The Coach line is the one a beginner is most likely to
                         want to see played out, and it was the same dead text as
                         the Pro panel's. Same buttons, shorter line. */}

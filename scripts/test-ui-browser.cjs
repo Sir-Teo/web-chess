@@ -81,6 +81,10 @@ const SCENARIO = ${JSON.stringify(scenario)};
     if (url.hostname === 'lichess.org' && url.pathname.startsWith('/game/export/')) {
       return Promise.resolve(new Response(${JSON.stringify(SAMPLE_PGN)}, { headers: { 'Content-Type': 'application/x-chess-pgn' } }));
     }
+    if (SCENARIO === 'cloud-score' && url.pathname === '/api/cloud-eval') {
+      return Promise.resolve(new Response(JSON.stringify({ fen: url.searchParams.get('fen'), depth: 40, knodes: 1000,
+        pvs: [{ cp: 600, moves: 'e2e4 e7e5' }] }), { headers: { 'Content-Type': 'application/json' } }));
+    }
     if (url.hostname === 'lichess.org' || url.hostname.endsWith('.lichess.ovh')) {
       return Promise.resolve(new Response('{"error":"No fixture"}', { status: 404, headers: { 'Content-Type': 'application/json' } }));
     }
@@ -498,6 +502,26 @@ async function checkSingleThreadReviewPool(browser) {
     assert(result.workers > 1, 'single-thread profile reviewed serially despite the available cores')
     assert(!result.commands.some(c => /^setoption name Threads value [2-9]/.test(c)), 'a single-thread engine was given multiple threads')
     console.log(`  single-thread profile: review finished using ${result.workers - 1} independent pool workers`)
+  } finally { await context.close() }
+}
+
+async function checkCoachUsesPositionScore(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript('cloud-score'))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+    await page.waitForFunction(() => /D40 cloud/.test(document.querySelector('.coach-grid')?.textContent || ''))
+    await page.waitForFunction(() => /D22/.test(document.querySelector('.coach-line-source')?.textContent || ''))
+    const score = await page.locator('.coach-grid > div').first().locator('strong').innerText()
+    const bar = await page.locator('.eval-bar-label').innerText()
+    assert(Number.parseFloat(score) === 6 && Number.parseFloat(bar) === 6,
+      `Coach (${score}) and the bar (${bar}) disagree about the position`)
+    assert((await page.locator('.coach-grid').innerText()).includes('cloud'), 'cached position source is not labeled')
+    assert((await page.locator('.coach-line-source').innerText()).includes('local engine D22'),
+      'the local candidate was mislabeled with the cloud depth')
+    console.log('  Coach: cloud position score agrees with the bar; local candidate depth is labeled separately')
   } finally { await context.close() }
 }
 
@@ -1837,6 +1861,7 @@ async function main() {
 
     await checkTypedMoveEntry(browser)
     await checkSingleThreadReviewPool(browser)
+    await checkCoachUsesPositionScore(browser)
     await checkBoundedScoreIsIgnored(browser)
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)
