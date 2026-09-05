@@ -428,6 +428,41 @@ async function checkOpeningTableStaysOutOfBoot(browser) {
  * sequence through the real UI, which is the thing a unit test on the
  * comparison function cannot do.
  */
+async function checkTypedMoveEntry(browser) {
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+      await page.locator('.move-entry summary').click()
+      const input = page.locator('.move-entry input')
+      await input.fill('e4')
+      await input.press('Enter')
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e4')?.getAttribute('aria-label')?.includes('White pawn'))
+      assert(await input.evaluate(el => document.activeElement === el), 'typing a move lost input focus')
+      assert(await input.inputValue() === '', 'the previous move remained in the input')
+      await input.fill('e7e5')
+      await input.press('Enter')
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e5')?.getAttribute('aria-label')?.includes('Black pawn'))
+      await input.fill('e5')
+      await input.press('Enter')
+      assert(await page.locator('.move-entry [role="alert"]').count() === 1, 'illegal input was not explained')
+      assert((await page.locator('#chessboard-square-e4').getAttribute('aria-label')).includes('White pawn'), 'illegal input changed the board')
+      await input.fill('Nf3')
+      await input.press('Enter')
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-f3')?.getAttribute('aria-label')?.includes('White knight'))
+      // Navigating to a position clears the draft without submitting it there.
+      await input.fill('Nc6')
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      assert(await input.inputValue() === '', 'navigation left a draft for a different position')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'expanded move input overflows')
+      console.log(`  typed moves (${width}px): SAN, UCI, invalid input, focus and navigation OK`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkBoundedScoreIsIgnored(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const page = await context.newPage()
@@ -1769,6 +1804,7 @@ async function main() {
                   `board ${board.width}x${board.height} OK`)
     }
 
+    await checkTypedMoveEntry(browser)
     await checkBoundedScoreIsIgnored(browser)
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)

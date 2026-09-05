@@ -200,6 +200,7 @@ import { WdlBar } from './components/WdlBar'
 import { HorizontalWdlBar } from './components/HorizontalWdlBar'
 import { EngineOptionControl } from './components/EngineOptionControl'
 import { MoveListTree } from './components/MoveListTree'
+import { MoveEntry } from './components/MoveEntry'
 import { ReviewMoveList } from './components/ReviewMoveList'
 import { WdlProgressGraph, WinrateGraph } from './components/TrendGraph'
 import { useElementHeight } from './hooks/useElementWidth'
@@ -6425,6 +6426,10 @@ function App() {
               )}
             </header>
             <div className="panel-content">
+              {workspaceMode === 'analysis' && analysisTab !== 'engine-lab' && (
+                <MoveEntry fen={fen} disabled={Boolean(pendingPromotion)}
+                  onMove={move => applyHumanMove(move.from, move.to, move.promotion as PromotionPiece | undefined)} />
+              )}
               {workspaceMode === 'play' && (
                 <>
                   {/* The end of a game is where "how did I do?" gets asked, and
