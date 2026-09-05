@@ -581,6 +581,51 @@ async function checkTakebackHandsTheClockBack(browser) {
 }
 
 /**
+ * The Pro view's "keep searching" switch turns the automatic analysis into an
+ * unbounded search. Off, a move lands and the engine is asked for `go depth
+ * 16`; on, it is asked for `go infinite` and left there until the board moves.
+ * The switch is a persisted setting read at boot, so both halves are checked
+ * by loading with it stored each way and reading the `go` the fake engine
+ * received after one move.
+ */
+async function checkKeepSearchingIsUnbounded(browser) {
+  const goAfterMove = async (continuousAnalysis) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript((stored) => {
+        window.localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify(stored))
+      }, { workspaceMode: 'analysis', analysisExperience: 'pro', continuousAnalysis })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const startFresh = page.getByRole('button', { name: /start fresh/i })
+      if (await startFresh.count()) await startFresh.first().click()
+      await page.waitForFunction(() => window.__uciCommands.some(c => c.startsWith('go ')), null, { timeout: 15000 })
+
+      const before = await page.evaluate(() => window.__uciCommands.filter(c => c.startsWith('go ')).length)
+      await page.click('#chessboard-square-e2')
+      await page.click('#chessboard-square-e4')
+      await page.waitForFunction(
+        (count) => window.__uciCommands.filter(c => c.startsWith('go ')).length > count,
+        before,
+        { timeout: 15000 },
+      )
+      // The debounce can add one more; the last `go` is the settled one.
+      await page.waitForTimeout(400)
+      return await page.evaluate(() => window.__uciCommands.filter(c => c.startsWith('go ')).pop())
+    } finally {
+      await context.close()
+    }
+  }
+
+  const bounded = await goAfterMove(false)
+  assert(/^go depth \d+$/.test(bounded), `with the switch off the move was searched as "${bounded}"`)
+  const unbounded = await goAfterMove(true)
+  assert(unbounded === 'go infinite', `with the switch on the move was searched as "${unbounded}"`)
+  console.log(`  keep searching: off asks for "${bounded}", on asks for "${unbounded}"`)
+}
+
+/**
  * The nudge in Play mode. The opponent's search after the human's second
  * move scores 300cp higher than after the first, and the Play Focus card
  * should say which move did it and what it cost, with the take-back one
@@ -1670,6 +1715,7 @@ async function main() {
     await checkBoundedScoreIsIgnored(browser)
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)
+    await checkKeepSearchingIsUnbounded(browser)
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkDrillLeavesTheLineAlone(browser)

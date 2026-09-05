@@ -37,6 +37,13 @@ afterEach(() => {
 })
 
 describe('reading settings back', () => {
+  it('keeps the continuous-analysis switch, and defaults it off', () => {
+    installStorage(stored({ continuousAnalysis: true }))
+    expect(loadPersistedSettings().continuousAnalysis).toBe(true)
+    installStorage(stored({ continuousAnalysis: 'yes' }))
+    expect(loadPersistedSettings().continuousAnalysis).toBe(false)
+  })
+
   it('returns the defaults when nothing has ever been stored', () => {
     installStorage()
     expect(loadPersistedSettings()).toEqual(defaultPersistedSettings())

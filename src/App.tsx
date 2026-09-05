@@ -546,6 +546,20 @@ function App() {
   const [showBoardArrows, setShowBoardArrows] = useState<boolean>(persistedSettings.showBoardArrows)
   const [showTopMoveArrows, setShowTopMoveArrows] = useState<boolean>(persistedSettings.showTopMoveArrows)
   const [topMoveArrowCount, setTopMoveArrowCount] = useState<number>(persistedSettings.topMoveArrowCount)
+  /**
+   * Keep the engine on the position until the board moves.
+   *
+   * The automatic search stops at the depth slider -- sixteen by default --
+   * which on a desktop is over in a second, and the panel then sits at D16
+   * while the reader looks. Lichess and every desktop GUI run the engine
+   * until told otherwise; that is what a reader with the Pro view expects,
+   * and what this switch gives them. Only in Pro: Coach mode is never left
+   * running the machine, and a persisted switch behind a view that does not
+   * show it would be a setting nobody could find to turn off. Everything an
+   * unbounded search needs is already there: a new position replaces it,
+   * Stop stops it, and a hidden tab parks it and resumes it.
+   */
+  const [continuousAnalysis, setContinuousAnalysis] = useState<boolean>(persistedSettings.continuousAnalysis)
   const [soundEnabled, setSoundEnabled] = useState<boolean>(persistedSettings.soundEnabled)
   const [blunderNudges, setBlunderNudges] = useState<boolean>(persistedSettings.blunderNudges)
   /**
@@ -1641,6 +1655,7 @@ function App() {
   }, [])
 
   // ── Auto-analyze ─────────────────────────────────────
+  const keepSearching = continuousAnalysis && analysisExperience === 'pro'
   useEffect(() => {
     if (!engineEnabled) return
     if (isImportingGame) return
@@ -1667,12 +1682,17 @@ function App() {
       return
     }
 
+    // Until the board moves, or to the slider's depth: see `continuousAnalysis`.
+    const autoLimits: UciGoLimits = keepSearching
+      ? { infinite: true }
+      : { depth: searchDepth }
+
     if (pendingPonderFen && pendingPonderFen === fen) {
       analyze({
         fen,
         purpose: 'review-ponder',
-        mode: 'custom',
-        limits: { depth: Math.max(searchDepth, MOVE_PONDER_MIN_DEPTH) },
+        mode: keepSearching ? 'infinite' : 'custom',
+        limits: keepSearching ? autoLimits : { depth: Math.max(searchDepth, MOVE_PONDER_MIN_DEPTH) },
         multiPv,
         hashMb,
         showWdl,
@@ -1693,8 +1713,8 @@ function App() {
     analyze({
       fen: settledAnalysisTarget.fen,
       purpose: 'auto',
-      mode: 'custom',
-      limits: { depth: searchDepth },
+      mode: keepSearching ? 'infinite' : 'custom',
+      limits: autoLimits,
       multiPv,
       hashMb,
       showWdl,
@@ -1711,6 +1731,7 @@ function App() {
     hashMb,
     isBatchReviewing,
     isImportingGame,
+    keepSearching,
     multiPv,
     pendingPonderFen,
     pendingShallowAnalyzeFen,
@@ -2090,6 +2111,7 @@ function App() {
     setShowBoardArrows(DEFAULT_PERSISTED_SETTINGS.showBoardArrows)
     setShowTopMoveArrows(DEFAULT_PERSISTED_SETTINGS.showTopMoveArrows)
     setTopMoveArrowCount(DEFAULT_PERSISTED_SETTINGS.topMoveArrowCount)
+    setContinuousAnalysis(DEFAULT_PERSISTED_SETTINGS.continuousAnalysis)
     setBlunderNudges(DEFAULT_PERSISTED_SETTINGS.blunderNudges)
     setBlindfold(DEFAULT_PERSISTED_SETTINGS.blindfold)
     setTheme(DEFAULT_PERSISTED_SETTINGS.theme)
@@ -2364,6 +2386,7 @@ function App() {
       showBoardArrows,
       showTopMoveArrows,
       topMoveArrowCount,
+      continuousAnalysis,
       soundEnabled,
       blunderNudges,
       blindfold,
@@ -2372,6 +2395,7 @@ function App() {
       theme,
     })
   }, [
+    continuousAnalysis,
     workspaceMode,
     activePreset,
     analysisTab,
@@ -4615,6 +4639,14 @@ function App() {
       run: () => requestThreatRef.current(),
     },
     {
+      id: 'toggle-keep-searching',
+      label: continuousAnalysis ? 'Stop searching once the depth is reached' : 'Keep searching until the board moves',
+      hint: analysisExperience === 'pro' ? 'Automatic analysis, in the Pro view' : 'Pro view only',
+      keywords: ['infinite', 'engine', 'depth', 'continuous', 'analysis'],
+      disabled: analysisExperience !== 'pro',
+      run: () => setContinuousAnalysis(value => !value),
+    },
+    {
       id: 'toggle-sound',
       label: soundEnabled ? 'Turn move sounds off' : 'Turn move sounds on',
       keywords: ['audio', 'sound', 'mute', 'quiet'],
@@ -4694,7 +4726,7 @@ function App() {
     },
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
-  ], [atVariationFork, copyFen, copyPgn, drill, drillBlackReason, drillWhiteReason, endDrill, startDrill,
+  ], [analysisExperience, atVariationFork, continuousAnalysis, copyFen, copyPgn, drill, drillBlackReason, drillWhiteReason, endDrill, startDrill,
     goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast,
       goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
       previousReviewFaultRow, requestHint, openLibraryDialog,
@@ -5044,6 +5076,25 @@ function App() {
     </div>
   )
 
+
+  /**
+   * The switch behind `continuousAnalysis`, drawn under the Coach/Pro toggle
+   * on both analysis tabs and only in Pro, for the reason given there.
+   */
+  const keepSearchingSwitch = analysisExperience === 'pro' && (
+    <label
+      className="switch-control keep-searching-switch"
+      title="Search the position until the board moves, instead of stopping at the depth slider. Stop still stops it, and a hidden tab pauses it."
+    >
+      <input
+        type="checkbox"
+        checked={continuousAnalysis}
+        onChange={event => setContinuousAnalysis(event.target.checked)}
+        data-testid="keep-searching"
+      />
+      <span>Keep searching until the board moves</span>
+    </label>
+  )
 
   const drillCard = drill && (() => {
     const { done, total } = drillProgress(drill.line, drill.ply)
@@ -6471,6 +6522,7 @@ function App() {
                   {drillRow}
                   {drillCard}
                   {experienceToggle}
+                  {keepSearchingSwitch}
                   <div className="coach-card">
                     <h3><span className="section-icon"><IconKing /></span> Coach</h3>
                     {analysisExperience === 'beginner' && coachVerdict && (
@@ -6920,6 +6972,7 @@ function App() {
                   {drillRow}
                   {drillCard}
                   {experienceToggle}
+                  {keepSearchingSwitch}
                   <div className="review-scaffold">
                     <h3><span className="section-icon"><IconBarChart /></span> Review</h3>
                     {/* The reviewed line is the branch on the board, and when

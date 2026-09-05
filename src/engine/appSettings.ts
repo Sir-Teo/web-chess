@@ -88,6 +88,12 @@ export type PersistedAppSettings = {
   showBoardArrows: boolean
   showTopMoveArrows: boolean
   topMoveArrowCount: number
+  /**
+   * Whether the automatic analysis keeps searching until the board moves,
+   * rather than stopping at the depth slider. A Pro reading: Coach mode is
+   * never left running the machine.
+   */
+  continuousAnalysis: boolean
   soundEnabled: boolean
   /** Whether a game against the engine points out a mistake as it is made. */
   blunderNudges: boolean
@@ -129,6 +135,7 @@ export const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
   showBoardArrows: true,
   showTopMoveArrows: true,
   topMoveArrowCount: 3,
+  continuousAnalysis: false,
   soundEnabled: true,
   blunderNudges: true,
   blindfold: false,
@@ -304,6 +311,9 @@ export function loadPersistedSettings(): PersistedAppSettings {
         ? parsed.showTopMoveArrows
         : DEFAULT_PERSISTED_SETTINGS.showTopMoveArrows,
       topMoveArrowCount: normalizeInteger(parsed.topMoveArrowCount, 1, 5, DEFAULT_PERSISTED_SETTINGS.topMoveArrowCount),
+      continuousAnalysis: typeof parsed.continuousAnalysis === 'boolean'
+        ? parsed.continuousAnalysis
+        : DEFAULT_PERSISTED_SETTINGS.continuousAnalysis,
       soundEnabled: typeof parsed.soundEnabled === 'boolean'
         ? parsed.soundEnabled
         : DEFAULT_PERSISTED_SETTINGS.soundEnabled,
