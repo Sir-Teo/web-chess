@@ -950,11 +950,20 @@ function App() {
   }, [gameTree, navigateAndPonder])
 
   const goLast = useCallback(() => {
-    // Walk first-child chain to tip
-    const nodes = gameTree.mainLine()
-    const tip = nodes[nodes.length - 1]
-    if (tip) navigateAndPonder(gameTree.navigateTo(tip.id))
-  }, [gameTree, navigateAndPonder])
+    // The tip of the line the board is standing in, not the game's. It used
+    // to walk the main line, so End pressed inside a variation left the line
+    // being read and landed on the last move of a different one -- while the
+    // button beside it was enabled by whether *this* line goes on. Lichess and
+    // every desktop GUI take End to the end of the current line.
+    const tree = gameTreeRef.current
+    let tip = tree.current
+    for (;;) {
+      const next = tip.children[0] ? tree.getNode(tip.children[0]) : undefined
+      if (!next) break
+      tip = next
+    }
+    if (tip.id !== tree.current.id) navigateAndPonder(tree.navigateTo(tip.id))
+  }, [navigateAndPonder])
 
   /**
    * Step to the variation beside this one at the same fork -- what ↑ and ↓
@@ -1453,6 +1462,14 @@ function App() {
     // the reader find the pause control before they can try again.
     pausedRef.current = false
     setPaused(false)
+    // The clock follows the turn. A move hands the clock to the opponent and a
+    // takeback hands the turn back, but nothing here told the clock: measured
+    // in a 3+2 pass-and-play game, "White to move" over Black's clock counting
+    // down. Same handover `resume` makes, and no refund -- the think that was
+    // spent stays spent, the way a takeback works everywhere else.
+    if (!endedOffBoardRef.current) {
+      setClock(previous => (previous && !previous.flagged ? startSide(previous, chess.turn(), Date.now()) : previous))
+    }
   }, [cancelPendingAiMove, game, gameMode, playerColor, syncGameToNode])
   takebackMoveRef.current = takebackMove
 

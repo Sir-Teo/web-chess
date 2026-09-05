@@ -532,6 +532,55 @@ async function checkPlayedMoveBecomesTheGame(browser) {
 }
 
 /**
+ * A takeback hands the turn back, and the clock has to follow it.
+ *
+ * A move presses the clock for the opponent; taking that move back put the
+ * turn back with the reader and left the opponent's clock counting. Measured
+ * in a 3+2 pass-and-play game: "White to move" in the strip, Black's face
+ * marked running and losing seconds. Against the engine the two-ply takeback
+ * hid it -- undoing both moves lands on the same side the clock was already
+ * running for -- so pass and play is where it shows, and where it is checked.
+ */
+async function checkTakebackHandsTheClockBack(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    await page.getByRole('button', { name: 'Start new game' }).click()
+    await page.locator('.new-game-dialog').waitFor({ timeout: 10000 })
+    await page.locator('.mode-card', { hasText: 'Human vs Human' }).click()
+    await page.locator('.time-control-card', { hasText: '3 + 2' }).click()
+    await page.locator('.btn-start').click()
+    await page.locator('.chess-clock').waitFor({ timeout: 10000 })
+
+    await page.click('#chessboard-square-e2')
+    await page.click('#chessboard-square-e4')
+    await page.waitForFunction(() => /Black to move/.test(document.body.innerText), null, { timeout: 10000 })
+
+    const runningFaces = async () => page.evaluate(() =>
+      [...document.querySelectorAll('.clock-face.running')].map(face => face.classList.contains('clock-white') ? 'w' : 'b'))
+    assert((await runningFaces()).join() === 'b',
+      `after 1. e4 the running clock should be Black's, got [${await runningFaces()}]`)
+
+    await page.getByRole('button', { name: /^Take back/ }).click()
+    await page.waitForFunction(() => /White to move/.test(document.body.innerText), null, { timeout: 10000 })
+    await page.waitForTimeout(300)
+
+    const after = await runningFaces()
+    assert(after.join() === 'w',
+      `after taking 1. e4 back it is White to move, but the running clock is [${after}]`)
+    console.log(`  takeback: the clock follows the turn back`)
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * The nudge in Play mode. The opponent's search after the human's second
  * move scores 300cp higher than after the first, and the Play Focus card
  * should say which move did it and what it cost, with the take-back one
@@ -1620,6 +1669,7 @@ async function main() {
 
     await checkBoundedScoreIsIgnored(browser)
     await checkPlayedMoveBecomesTheGame(browser)
+    await checkTakebackHandsTheClockBack(browser)
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkDrillLeavesTheLineAlone(browser)
