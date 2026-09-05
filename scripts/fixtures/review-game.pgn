@@ -1,0 +1,9 @@
+[Event "Deterministic browser QA fixture"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Browser QA, White"]
+[Black "Browser QA, Black"]
+[Result "*"]
+
+1. e3 b5 2. b3 e5 3. Ke2 Qf6 4. d3 Na6 5. Kd2 Qd8 6. Kc3 g6 7. e4 Nb8 8. Ba3 a5 9. f4 Bh6 10. Bc5 Qh4 11. Qe2 Qxf4 12. a3 Bg5 13. h4 Qxf1 14. Qd1 d5 15. Qe2 f5 16. Bb4 d4+ 17. Kb2 Qf4 18. Nd2 fxe4 19. Bd6 Nh6 20. Nb1 Qh2 21. Qf1 Qxg2 22. h5 Qe2 23. Qxe2 Ra6 24. Nd2 Be3 25. Ka2 Bxd2 26. Qf2 Nd7 27. c4 Nb6 28. Bb4 Na8 29. Ne2 Rg8 30. Rh3 a4 31. c5 Bc1 32. Qf1 Rf6 33. Nxc1 Rd6 34. Qe1 Ng4 35. Rf3 g5 36. h6 Nf2 37. Kb2 Bf5 38. Qf1 Ra6 39. Be1 Ng4 40. Rg3 Ne3 41. Kb1 Bd7 42. b4 Rd6 43. cxd6 c5 44. Rg1 Nxf1 45. bxc5 Rg6 46. c6 Ne3 47. Ne2 Re6 48. Kb2 Nc7 49. cxd7+ Kd8 50. Nc1 Ned5 51. dxc7+ Nxc7 52. Ra2 Ra6 53. Bg3 Re6 54. Re1 Rd6 55. Kc2 Rxd7 56. Kd2 Rd6 57. Rxe4 g4 58. Rxg4 Ne8 *

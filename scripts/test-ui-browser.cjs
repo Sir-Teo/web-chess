@@ -27,6 +27,7 @@ const PORT = Number(process.env.UI_TEST_PORT || 4319)
 const BARE_PORT = PORT + 1
 const BASE = `http://127.0.0.1:${PORT}/web-chess/`
 const ROOT = path.resolve(__dirname, '..')
+const SAMPLE_PGN = fs.readFileSync(path.join(__dirname, 'fixtures/review-game.pgn'), 'utf8')
 
 function fail(message) {
   throw new Error(message)
@@ -72,6 +73,19 @@ function fakeEngineScript(scenario = 'normal') {
   return `
 const SCENARIO = ${JSON.stringify(scenario)};
 (() => {
+  // Deterministic engine checks must not depend on Lichess uptime or let a
+  // live cloud score override the scripted evaluation being tested.
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const url = new URL(typeof input === 'string' ? input : input.url || String(input), location.href);
+    if (url.hostname === 'lichess.org' && url.pathname.startsWith('/game/export/')) {
+      return Promise.resolve(new Response(${JSON.stringify(SAMPLE_PGN)}, { headers: { 'Content-Type': 'application/x-chess-pgn' } }));
+    }
+    if (url.hostname === 'lichess.org' || url.hostname.endsWith('.lichess.ovh')) {
+      return Promise.resolve(new Response('{"error":"No fixture"}', { status: 404, headers: { 'Content-Type': 'application/json' } }));
+    }
+    return nativeFetch(input, init);
+  };
   const NativeWorker = window.Worker;
   window.__uciCommands = [];
   window.__uciBestmoves = 0;
@@ -1400,20 +1414,13 @@ async function main() {
         // clicking Review first leaves nothing for Review Game to act on. The
         // header carries the players once the PGN is in the tree.
         //
-        // This is the one step that needs a third party: the sample games are
-        // fetched from lichess.org. When that is rate-limiting, the app queues
-        // the request behind its backoff and loads perfectly well half a minute
-        // later -- so the bare "waitForFunction: Timeout" this used to fail
-        // with pointed at nothing and cost twenty minutes to diagnose. Say what
-        // it depends on instead.
+        // The real import path, with a local PGN fixture supplied by the fake
+        // engine harness. Remote availability is checked separately.
         await page.waitForFunction(
-          () => /Carlsen/.test(document.body.innerText) && /\bMove\s+\d\d/.test(document.body.innerText),
+          () => /Browser QA, White/.test(document.body.innerText) && /\bMove\s+\d\d/.test(document.body.innerText),
           null, { timeout: 25000 })
           .catch(() => fail(
-            'the sample game did not load within 25s. This step fetches it from lichess.org: '
-            + 'if that is rate-limiting this IP or unreachable, the app queues behind its own '
-            + 'backoff and this wait expires first. Re-run in a few minutes before reading it '
-            + 'as a regression.',
+            'the local sample PGN fixture did not load within 25s.',
           ))
 
         await page.getByRole('button', { name: 'Review', exact: true }).first().click()
