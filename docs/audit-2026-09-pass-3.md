@@ -105,7 +105,10 @@ every other board puts beside the result, which here meant a trip through
 the dialog -- and *Import or fetch a game* to the empty analysis board -- and, once a
 game is in, *Review this game* on the Analyze tab it landed on, since the
 review is the reason most games are brought here and it sat a tab switch
-and a button away with nothing saying so. Offered until the pass has run. The difficulty
+and a button away with nothing saying so. Offered until the pass has run. And
+the tab's title now says what the tab is doing -- "Your move", "Engine
+thinking", the result, the players of an imported game -- where it read
+"Web Chess" whatever was on the board. The difficulty
 descriptions were rewritten to say what each level plays like and the Elo it
 asks for -- "Perfect for learning chess basics" was describing a 1320, which
 the *Refuted* section below is about. Checked in the browser suite: stored

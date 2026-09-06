@@ -5149,6 +5149,24 @@ function App() {
   const importedGameTitle = [importedPlayers, knownPgnHeader(pgnHeaders.Event), importedResult]
     .filter(Boolean).join(' · ')
   const moveNumberLabel = `Move ${(linePreview?.fen ?? fen).split(/\s+/)[5] ?? '1'}`
+  /**
+   * The tab's title says what the tab is doing. It read "Web Chess" whatever
+   * was on the board, so a reader who had switched away to wait for the
+   * engine could not see it had moved, and a tab holding Aronian--Carlsen
+   * was indistinguishable from one holding a blank board. The result first,
+   * because a finished game is what a tab left open is most likely holding.
+   */
+  useEffect(() => {
+    const parts: string[] = []
+    if (gameResultLabel) {
+      parts.push(gameResultLabel.split(' · ').pop() ?? gameResultLabel)
+    } else if (workspaceMode === 'play' && gameMode === 'human-vs-ai') {
+      parts.push(game.turn() === playerColorToTurn(playerColor) ? 'Your move' : 'Engine thinking')
+    }
+    if (importedPlayers) parts.push(importedPlayers)
+    parts.push('Web Chess')
+    document.title = parts.join(' · ')
+  }, [fen, game, gameMode, gameResultLabel, importedPlayers, playerColor, workspaceMode])
   // Counted from the game's own root rather than the standard array, so a
   // position pasted in as a FEN does not open fourteen captures down.
   const material = useMemo(
