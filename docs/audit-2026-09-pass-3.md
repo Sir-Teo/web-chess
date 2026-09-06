@@ -102,7 +102,10 @@ gives way to the opponent panel the moment a game begins, and does not come
 back for an empty board once a game has been asked for this visit. The same
 reading of the product added *Play again* to the result card -- the rematch
 every other board puts beside the result, which here meant a trip through
-the dialog -- and *Import or fetch a game* to the empty analysis board. The difficulty
+the dialog -- and *Import or fetch a game* to the empty analysis board -- and, once a
+game is in, *Review this game* on the Analyze tab it landed on, since the
+review is the reason most games are brought here and it sat a tab switch
+and a button away with nothing saying so. Offered until the pass has run. The difficulty
 descriptions were rewritten to say what each level plays like and the Elo it
 asks for -- "Perfect for learning chess basics" was describing a 1320, which
 the *Refuted* section below is about. Checked in the browser suite: stored

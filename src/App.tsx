@@ -6718,6 +6718,23 @@ function App() {
                       Stop. Those two are engine commands and this is a mode
                       change, and at the panel's default 320px a three-way split
                       cut the label off mid-word. */}
+                  {/* The review is the reason most games are brought here, and
+                      from this tab it was a tab switch and a button away with
+                      nothing saying so. One press, offered until it has run. */}
+                  {!reviewGameDisabledReason && !isBatchReviewing && !frozenReview && (
+                    <div className="inline-actions review-offer-row">
+                      <button
+                        type="button"
+                        className="review-offer-btn"
+                        onClick={reviewFinishedGame}
+                        title="Grade every move, find the turning points, and score the accuracy"
+                        aria-label="Review this game: grade every move and score the accuracy"
+                        data-testid="review-offer"
+                      >
+                        <IconBarChart /> Review this game
+                      </button>
+                    </div>
+                  )}
                   {playFromHereRow}
                   {drillRow}
                   {drillCard}

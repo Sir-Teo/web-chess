@@ -842,6 +842,13 @@ async function checkMoveTimesAreGraphed(browser) {
     assert(bars.total === 10 && bars.white === 5, `expected 10 bars, 5 of them White's; drew ${bars.total} and ${bars.white}`)
     assert(/47s/.test(bars.heading), `the longest think should read 47s, the heading read "${bars.heading}"`)
     console.log('  move times: ten timed moves drawn, longest think 47s')
+
+    // The imported game is offered a review from the tab it landed on.
+    await page.getByTestId('review-offer').click()
+    await page.waitForFunction(() => /Evaluated10\/10/.test((document.querySelector('.accuracy-summary')?.textContent || '').replace(/\s+/g, '')), null, { timeout: 15000 })
+    assert(await page.locator('.analysis-tab-btn.active', { hasText: 'Review' }).count() === 1,
+      'the review offer did not land on the Review tab')
+    console.log('  review offer: one press from Analyze reviewed all ten moves')
   } finally {
     await context.close()
   }
