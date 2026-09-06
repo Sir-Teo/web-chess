@@ -770,6 +770,43 @@ async function checkAutoplayWalksTheLine(browser) {
 }
 
 /**
+ * A move typed by name lands through the same path a drag takes, and lands
+ * in the forms people type: a lowercase piece letter, a from-to pair. An
+ * illegal one is refused beside the field with the text kept for correction.
+ */
+async function checkTypedMoveLands(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => {
+      window.localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis' }))
+    })
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    await page.locator('.move-entry summary').click()
+    const field = page.locator('.move-entry input')
+    await field.fill('nf3')
+    await field.press('Enter')
+    await page.waitForFunction(() => /Nf3/.test(document.querySelector('.mtree-chip-active')?.textContent || ''), null, { timeout: 5000 })
+
+    await field.fill('e7e5')
+    await field.press('Enter')
+    await page.waitForFunction(() => /e5/.test(document.querySelector('.mtree-chip-active')?.textContent || ''), null, { timeout: 5000 })
+
+    await field.fill('Nf3')
+    await field.press('Enter')
+    await page.locator('.move-entry [role="alert"]').waitFor({ timeout: 5000 })
+    assert(await field.inputValue() === 'Nf3', 'the refused text was cleared instead of kept for correction')
+    console.log('  typed move: nf3 and e7e5 landed, a repeated Nf3 was refused and kept')
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * The nudge in Play mode. The opponent's search after the human's second
  * move scores 300cp higher than after the first, and the Play Focus card
  * should say which move did it and what it cost, with the take-back one
@@ -1872,6 +1909,7 @@ async function main() {
     await checkTakebackHandsTheClockBack(browser)
     await checkKeepSearchingIsUnbounded(browser)
     await checkAutoplayWalksTheLine(browser)
+    await checkTypedMoveLands(browser)
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkDrillLeavesTheLineAlone(browser)

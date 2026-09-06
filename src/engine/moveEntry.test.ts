@@ -1,9 +1,40 @@
 import { describe, expect, it } from 'vitest'
 import { Chess } from 'chess.js'
-import { parseMoveEntry } from './moveEntry'
+import { normalizeMoveEntry, parseMoveEntry } from './moveEntry'
 
 const start = new Chess().fen()
 describe('typed move entry', () => {
+  /**
+   * The forms people type, which the strict parser refuses as typed -- and
+   * then told them to use `Nf3`, which is what they thought they had done.
+   */
+  it.each([
+    ['nf3', 'Nf3'],
+    ['0-0', 'O-O'],
+    ['o-o-o', 'O-O-O'],
+    ['e8q', 'e8=Q'],
+    ['e8=q+', 'e8=Q+'],
+    ['kf1', 'Kf1'],
+    ['exd8q', 'exd8=Q'],
+  ])('straightens %s into %s', (input, expected) => {
+    expect(normalizeMoveEntry(input)).toBe(expected)
+  })
+
+  it('leaves a lowercase b alone, because bxc3 is a pawn move', () => {
+    expect(normalizeMoveEntry('bxc3')).toBe('bxc3')
+    expect(normalizeMoveEntry('Bxc3')).toBe('Bxc3')
+  })
+
+  it('plays the loose forms', () => {
+    expect(parseMoveEntry(start, 'nf3')).toMatchObject({ from: 'g1', to: 'f3', san: 'Nf3' })
+    expect(parseMoveEntry(start, 'e2-e4')).toMatchObject({ san: 'e4' })
+    const promoting = '7k/P7/8/8/8/8/8/7K w - - 0 1'
+    expect(parseMoveEntry(promoting, 'a8q')?.promotion).toBe('q')
+    expect(parseMoveEntry(promoting, 'a7-a8=n')?.promotion).toBe('n')
+    const castling = 'r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1'
+    expect(parseMoveEntry(castling, '0-0-0')?.san).toBe('O-O-O')
+  })
+
   it.each(['e4', ' e2e4 ', 'E2E4'])('accepts %s', input => {
     expect(parseMoveEntry(start, input)).toMatchObject({ from: 'e2', to: 'e4', san: 'e4' })
   })

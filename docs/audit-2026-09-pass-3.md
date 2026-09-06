@@ -148,9 +148,15 @@ Still missing, in rough order of what each audience would notice, and left
 for a pass with time to measure them:
 
 - A move-times graph from the `[%clk]` the review list already shows.
-- Keyboard move entry in analysis.
 - A weaker floor for the opponent; see *Refuted* for what does not work.
 - Touch gestures for arrows and marks.
+
+One I listed here first and then found: keyboard move entry exists, folded
+under "Enter a move by name" at the top of the analysis panel. I had built a
+second one before noticing, which is the cost of a control that hides behind
+a summary. The duplicate is gone; what stayed is that the existing field now
+takes the forms people type -- `nf3`, `0-0`, `e8q` -- where before it refused
+each of them and told the reader to type `Nf3`, which they thought they had.
 
 ---
 
