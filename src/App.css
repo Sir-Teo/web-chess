@@ -5628,3 +5628,25 @@ button.hint-btn {
 .start-card-row:last-child {
   margin-bottom: 0;
 }
+
+/* Stacked, one action a row: side by side at the panel's width the primary
+   button wrapped its label onto two lines. */
+.game-over-card .game-over-actions {
+  display: grid;
+  grid-auto-flow: row;
+  grid-template-columns: 1fr;
+  gap: 0.4rem;
+}
+
+.game-over-card .game-over-actions > button {
+  width: 100%;
+  margin: 0;
+}
+
+.game-over-again-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 40px;
+}

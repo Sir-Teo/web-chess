@@ -98,7 +98,11 @@ Human vs AI, the level and the side on every visit. The Play panel now opens
 on a Start card: *Play Stockfish* on the level, side and clock used last time
 (now persisted, with Random kept as Random), one press and no dialog; the
 dialog itself; pass and play; the PGN dialog; the analysis board. The card
-gives way to the opponent panel the moment a game begins. The difficulty
+gives way to the opponent panel the moment a game begins, and does not come
+back for an empty board once a game has been asked for this visit. The same
+reading of the product added *Play again* to the result card -- the rematch
+every other board puts beside the result, which here meant a trip through
+the dialog -- and *Import or fetch a game* to the empty analysis board. The difficulty
 descriptions were rewritten to say what each level plays like and the Elo it
 asks for -- "Perfect for learning chess basics" was describing a 1320, which
 the *Refuted* section below is about. Checked in the browser suite: stored

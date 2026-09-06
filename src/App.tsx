@@ -786,6 +786,12 @@ function App() {
    * played, a game started or imported, the engine put on the board.
    */
   const [autoplay, setAutoplay] = useState(false)
+  /**
+   * Whether a game has been started this visit. The Start card is for the
+   * board as it loads; once a game has been asked for, an empty board is a
+   * game at move one and the card would be offering to start it again.
+   */
+  const [gameStarted, setGameStarted] = useState(false)
 
   // ── Pause state ──────────────────────────────────────
   const [paused, setPaused] = useState(false)
@@ -4450,6 +4456,7 @@ function App() {
       cancelSampleLoad()
       setShowNewGameDialog(false)
       cancelPendingAiMove()
+      setGameStarted(true)
       setWorkspaceMode('play')
       setGameMode(mode)
       setPlayerColor(color)
@@ -4528,6 +4535,21 @@ function App() {
       timeControlId,
     })
   }, [aiDifficulty, handleNewGameStart, sideChoice, timeControlId])
+  /**
+   * Another game on the same terms: the mode that just finished, the level,
+   * side and clock as chosen. The result card offered a review and nothing
+   * else, so the rematch every other board puts beside the result meant a
+   * trip through the dialog.
+   */
+  const playAgain = useCallback(() => {
+    handleNewGameStart({
+      mode: gameMode,
+      playerColor: resolveSideChoice(sideChoice),
+      sideChoice,
+      difficulty: aiDifficulty,
+      timeControlId,
+    })
+  }, [aiDifficulty, gameMode, handleNewGameStart, sideChoice, timeControlId])
   const quickStartSummary = [
     DIFFICULTY_LABELS[aiDifficulty],
     `as ${SIDE_CHOICES.find(choice => choice.id === sideChoice)?.label ?? 'White'}`,
@@ -4560,6 +4582,7 @@ function App() {
     cancelStaleBackgroundAnalysis()
     setSettingsOpen(false)
 
+    setGameStarted(true)
     setWorkspaceMode('play')
     setGameMode('human-vs-ai')
     setPlayerColor(humanColor)
@@ -6515,24 +6538,36 @@ function App() {
                           ? 'Run a review to see the accuracy for both sides and the moves that turned it.'
                           : 'Start a new game to play again.'}
                       </p>
-                      {mainLineNodes.length > 1 && (
+                      <div className="inline-actions game-over-actions">
+                        {mainLineNodes.length > 1 && (
+                          <button
+                            type="button"
+                            className="btn-primary game-over-review-btn"
+                            onClick={reviewFinishedGame}
+                            disabled={pendingGameReview}
+                            aria-label="Review this finished game"
+                          >
+                            <IconBarChart /> {pendingGameReview ? 'Starting review...' : 'Review this game'}
+                          </button>
+                        )}
                         <button
                           type="button"
-                          className="btn-primary game-over-review-btn"
-                          onClick={reviewFinishedGame}
-                          disabled={pendingGameReview}
-                          aria-label="Review this finished game"
+                          className="game-over-again-btn"
+                          onClick={playAgain}
+                          title={`Another ${gameModeLabel} game on the same settings`}
+                          aria-label={`Play again: another ${gameModeLabel} game on the same settings`}
+                          data-testid="play-again"
                         >
-                          <IconBarChart /> {pendingGameReview ? 'Starting review...' : 'Review this game'}
+                          <IconRefresh /> Play again
                         </button>
-                      )}
+                      </div>
                     </div>
                   )}
                   {/* The first screen. An empty board used to sit beside a
                       paragraph about the engine being on standby; a player
                       who opens the app wants a game, and a returning one
                       wants the game they had last time. */}
-                  {mainLineNodes.length <= 1 && !gameResultLabel && !playEngineActive && (
+                  {mainLineNodes.length <= 1 && !gameResultLabel && !playEngineActive && !gameStarted && (
                     <div className="start-card" data-testid="start-card">
                       <h3><span className="section-icon"><IconPlay /></span> Start</h3>
                       <button
@@ -6811,6 +6846,22 @@ function App() {
                       </p>
                     )}
                   </div>
+                  {/* An empty analysis board is a board waiting for a game. The
+                      PGN icon in the top bar is one way in; a reader who has
+                      just arrived should not have to find it. */}
+                  {mainLineNodes.length <= 1 && (
+                    <div className="right-section analyze-move-card">
+                      <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
+                      <p className="panel-copy small">
+                        Play moves on the board, type one above, or bring a game in.
+                      </p>
+                      <div className="inline-actions">
+                        <button type="button" onClick={openPgnDialog} title="Paste a PGN, fetch your Lichess or chess.com games, or set up a position">
+                          <IconDownload /> Import or fetch a game
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   {mainLineNodes.length > 1 && (
                     <div className="right-section analyze-move-card">
                       <h3><span className="section-icon"><IconSwords /></span> Moves</h3>

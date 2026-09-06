@@ -874,7 +874,14 @@ async function checkResignationEndsTakeback(browser) {
     assert(await takeback.isDisabled(), 'Take back stayed enabled after a resignation')
     const label = await takeback.getAttribute('aria-label')
     assert(/game is over/i.test(label || ''), `Take back's reason read "${label}"`)
-    console.log('  resignation: take back is off, with the reason')
+
+    // And the result card offers another game on the same terms.
+    await page.getByTestId('play-again').click()
+    await page.waitForFunction(() => /White to move/.test(document.querySelector('.turn-pill')?.textContent || '')
+      && document.querySelectorAll('.mtree-chip').length === 0, null, { timeout: 5000 })
+    assert(await page.locator('.gc-pill-active', { hasText: 'Human vs Human' }).count() === 1,
+      'Play again changed the game mode')
+    console.log('  resignation: take back is off, with the reason; Play again starts afresh')
   } finally {
     await context.close()
   }

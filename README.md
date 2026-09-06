@@ -9,7 +9,10 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 - **A first screen with something to do**: An empty board opens on a Start
   card — *Play Stockfish* on the level, side and clock you chose last time,
   one press and no dialog; *Choose settings* for the dialog; *Pass and play*;
-  *Analyze a game*; the analysis board. The level, side and clock are
+  *Analyze a game*; the analysis board. When a game ends, the result card
+  offers *Play again* on the same terms beside the review, and an empty
+  analysis board offers *Import or fetch a game* where the move list will be.
+  The level, side and clock are
   remembered between visits, and Random stays Random rather than becoming
   whichever it rolled. The difficulty dialog says what each level plays like
   and the Elo it asks the engine for, because the gentlest is about 1320 — a
