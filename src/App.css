@@ -3412,6 +3412,16 @@ button.critical-moment-row {
   filter: drop-shadow(0 0 3px rgba(88, 166, 255, 0.35));
 }
 
+.graph-bar-white {
+  fill: var(--graph-white);
+  opacity: 0.9;
+}
+
+.graph-bar-black {
+  fill: var(--graph-black);
+  opacity: 0.9;
+}
+
 .graph-point {
   fill: var(--accent);
   stroke: var(--bg-base);

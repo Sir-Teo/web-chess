@@ -807,6 +807,47 @@ async function checkTypedMoveLands(browser) {
 }
 
 /**
+ * A PGN with clock readings draws a move-times graph: one bar per timed move,
+ * White's above the midline and Black's below, and the longest think named.
+ * 5. O-O here took 47 seconds -- 2:15 to 1:30 with a two-second increment.
+ */
+async function checkMoveTimesAreGraphed(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+    const textarea = page.locator('.dialog-panel textarea').first()
+    await textarea.waitFor({ timeout: 10000 })
+    await textarea.fill([
+      '[Event "Clock test"]',
+      '[TimeControl "180+2"]',
+      '',
+      '1. e4 {[%clk 0:02:58]} e5 {[%clk 0:02:55]} 2. Nf3 {[%clk 0:02:50]} Nc6 {[%clk 0:02:40]}',
+      '3. Bb5 {[%clk 0:02:20]} a6 {[%clk 0:02:38]} 4. Ba4 {[%clk 0:02:15]} Nf6 {[%clk 0:02:30]}',
+      '5. O-O {[%clk 0:01:30]} Be7 {[%clk 0:02:28]} *',
+    ].join('\n'))
+    await page.getByRole('button', { name: /Import & Analyze/ }).click()
+    await page.locator('.graph-bar').first().waitFor({ timeout: 10000 })
+
+    const bars = await page.evaluate(() => ({
+      total: document.querySelectorAll('.graph-bar').length,
+      white: document.querySelectorAll('.graph-bar-white').length,
+      heading: [...document.querySelectorAll('.section-heading')].map(h => h.textContent).find(t => /Move Times/.test(t || '')) || '',
+    }))
+    assert(bars.total === 10 && bars.white === 5, `expected 10 bars, 5 of them White's; drew ${bars.total} and ${bars.white}`)
+    assert(/47s/.test(bars.heading), `the longest think should read 47s, the heading read "${bars.heading}"`)
+    console.log('  move times: ten timed moves drawn, longest think 47s')
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * The nudge in Play mode. The opponent's search after the human's second
  * move scores 300cp higher than after the first, and the Play Focus card
  * should say which move did it and what it cost, with the take-back one
@@ -1910,6 +1951,7 @@ async function main() {
     await checkKeepSearchingIsUnbounded(browser)
     await checkAutoplayWalksTheLine(browser)
     await checkTypedMoveLands(browser)
+    await checkMoveTimesAreGraphed(browser)
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkDrillLeavesTheLineAlone(browser)

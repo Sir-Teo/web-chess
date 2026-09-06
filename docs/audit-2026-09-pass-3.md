@@ -3,7 +3,7 @@
 A third sweep, after [the first](audit-2026-09.md) and [the second](audit-2026-09-pass-2.md),
 with the brief widened: bugs, the largest remaining performance gains, what a
 strong player still lacks here and what a beginner does, and the interface
-itself. Four commits on `main`, none pushed.
+itself. Seven commits on `main`, none pushed.
 
 The same convention: **measured**, **reasoned**, or **refuted**. The refuted
 entry cost the most time and is the one most worth keeping.
@@ -91,6 +91,17 @@ never held infinite searches. Pro only for two reasons: Coach mode is never
 left running the machine, and a persisted switch behind a view that does not
 show it would be a setting nobody could find to turn off.
 
+**Move times, as a graph.** The review list has printed the clock beside
+each move since the clock landed, which is the right place for one reading
+and the wrong place for the shape of sixty. `engine/moveTimes.ts` turns the
+line's `[%clk]` readings into seconds spent -- the same side's previous
+reading, less this one, plus the increment from the `TimeControl` header,
+skipping a side's first move when there is no header to start it from --
+and a third card in the left panel draws them as bars, White up and Black
+down, with the longest think named. It needs no engine, so it fills live in
+a timed game and works in Play mode too. Checked with a ten-move 3+2 PGN
+whose 5. O-O took 47 seconds.
+
 **Autoplay.** The only way to watch a game here was a held-down arrow key. A
 play button beside the move navigation, wherever no engine is on move, walks
 the moves already on the board at the speed pills' pace and switches itself
@@ -147,7 +158,6 @@ now never goes blank, and autoplay.
 Still missing, in rough order of what each audience would notice, and left
 for a pass with time to measure them:
 
-- A move-times graph from the `[%clk]` the review list already shows.
 - A weaker floor for the opponent; see *Refuted* for what does not work.
 - Touch gestures for arrows and marks.
 
@@ -170,7 +180,7 @@ DOM query the check uses before the fix existed.
 
 ## What I did not do, and why
 
-**Pushing.** Four more commits on local `main`, still outward-facing.
+**Pushing.** Seven more commits on local `main`, still outward-facing.
 
 **Shipping the ladder.** See *Refuted*: a change that measured as a coin
 toss is not an improvement, however good the reasoning behind it.

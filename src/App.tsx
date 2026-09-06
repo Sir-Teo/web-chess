@@ -202,11 +202,12 @@ import { EngineOptionControl } from './components/EngineOptionControl'
 import { MoveListTree } from './components/MoveListTree'
 import { MoveEntry } from './components/MoveEntry'
 import { ReviewMoveList } from './components/ReviewMoveList'
-import { WdlProgressGraph, WinrateGraph } from './components/TrendGraph'
+import { MoveTimesGraph, WdlProgressGraph, WinrateGraph } from './components/TrendGraph'
+import { buildMoveTimeSeries, formatMoveTime, parseTimeControlTag } from './engine/moveTimes'
 import { useElementHeight } from './hooks/useElementWidth'
 import { useModalFocus } from './hooks/useModalFocus'
 import { useMoveSound } from './hooks/useMoveSound'
-import { IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlag, IconFlip, IconDownload, IconClipboard, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp, IconChevronLeft, IconChevronRight } from './components/icons'
+import { IconClock, IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlag, IconFlip, IconDownload, IconClipboard, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp, IconChevronLeft, IconChevronRight } from './components/icons'
 import { isPlainShortcut, isTypingTarget } from './components/shortcutKeys'
 import { CommandPaletteDialog } from './components/CommandPaletteDialog'
 import type { Command } from './components/commandPalette'
@@ -2908,6 +2909,25 @@ function App() {
   )
 
   const showEvaluationGraphs = engineEnabled || winratePoints.length > 0 || wdlPoints.length > 0
+
+  /**
+   * How long each move took, from the clock readings the line carries -- a
+   * timed game here, or a PGN's [%clk]. Drawn wherever there is something to
+   * draw, in either workspace: the shape of a game's clock is as much a fact
+   * about it as the shape of its evaluation, and unlike the evaluation it
+   * needs no engine.
+   */
+  const moveTimePoints = useMemo(
+    () => buildMoveTimeSeries(currentLineNodes, parseTimeControlTag(pgnHeaders.TimeControl)),
+    [currentLineNodes, pgnHeaders.TimeControl],
+  )
+  const longestThink = useMemo(
+    () => moveTimePoints.reduce<(typeof moveTimePoints)[number] | null>(
+      (longest, point) => (!longest || point.seconds > longest.seconds ? point : longest),
+      null,
+    ),
+    [moveTimePoints],
+  )
 
   // ── Move quality → annotate tree nodes ───────────────
   const setTreeNodeQualities = gameTree.setNodeQualities
@@ -5971,6 +5991,27 @@ function App() {
                 )}
               </section>
               </>)}
+              {moveTimePoints.length > 0 && (
+                <section className="analytics-card">
+                  <header className="section-heading">
+                    <h3><span className="section-icon"><IconClock /></span> Move Times</h3>
+                    {longestThink && (
+                      <strong title={`Longest think: ${longestThink.label}`}>{formatMoveTime(longestThink.seconds)}</strong>
+                    )}
+                  </header>
+                  <MoveTimesGraph
+                    points={moveTimePoints}
+                    currentIndex={currentPathNodes.length - 1}
+                    lastPlyIndex={currentLineMoves.length}
+                    onNavigate={navigateToGraphPoint}
+                  />
+                  <div className="graph-legend wdl">
+                    <span className="wdl-white-label">White up</span>
+                    <span className="wdl-black-label">Black down</span>
+                    {longestThink && <strong>Longest {longestThink.label}</strong>}
+                  </div>
+                </section>
+              )}
               <section className="sample-library-card">
                 <header className="sample-library-head">
                   <h3><span className="section-icon"><IconKing /></span> Historical Library</h3>

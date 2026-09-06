@@ -1,7 +1,8 @@
 import { memo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { WdlPoint, WinratePoint } from '../engine/analysis'
+import { formatMoveTime, type MoveTimePoint } from '../engine/moveTimes'
 import { useElementWidth } from '../hooks/useElementWidth'
-import { describeWdlPosition, describeWinratePosition, formatGraphAxisLabel, formatWdlReadout, formatWinrateReadout } from './graphLabels'
+import { describeWdlPosition, describeWinratePosition, formatGraphAxisLabel, formatGraphPositionLabel, formatWdlReadout, formatWinrateReadout } from './graphLabels'
 import {
   GRAPH_FALLBACK_WIDTH,
   GRAPH_HEIGHT,
@@ -15,7 +16,7 @@ import {
   graphTickStep,
   graphWidthForIndex,
 } from './graphLayout'
-import { IconBarChart, IconTrendingUp } from './icons'
+import { IconBarChart, IconTrendingUp, IconClock } from './icons'
 
 type WinrateGraphProps = {
   points: WinratePoint[]
@@ -373,6 +374,146 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
               height={height}
               padBottom={padBottom}
               text={formatWdlReadout(readoutPoint, readoutIndex)}
+            />
+          )}
+        </svg>
+      </div>
+    </div>
+  )
+})
+
+type MoveTimesGraphProps = {
+  points: MoveTimePoint[]
+  currentIndex?: number
+  /** See {@link WinrateGraphProps}. */
+  lastPlyIndex?: number
+  onNavigate?: (index: number) => void
+}
+
+/** The readout for a move-time bar, or for a ply that has no reading. */
+function formatMoveTimeReadout(point: MoveTimePoint | undefined, index: number): string {
+  if (index <= 0) return 'Start'
+  if (!point) return `Move ${index} · no clock`
+  return `${point.label} · ${formatMoveTime(point.seconds)}`
+}
+
+function describeMoveTimePosition(point: MoveTimePoint | undefined, index: number): string {
+  const where = formatGraphPositionLabel(point, index)
+  return point
+    ? `${where}, ${point.side === 'w' ? 'White' : 'Black'} spent ${formatMoveTime(point.seconds)}`
+    : where
+}
+
+/**
+ * How long each move took, White's bars up from the midline and Black's
+ * down, the way Lichess draws it. The review list prints the clock beside
+ * each move; this is the same evidence as a shape -- the long think before a
+ * blunder, the flurry of instant moves in time trouble -- which is what a
+ * reader wants to see at a glance rather than read off sixty rows.
+ *
+ * Bars rather than a line, because a move's time is a quantity of its own,
+ * not a reading of a position that flows into the next.
+ */
+export const MoveTimesGraph = memo(function MoveTimesGraph({ points, currentIndex, lastPlyIndex, onNavigate }: MoveTimesGraphProps) {
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null)
+  const [focused, setFocused] = useState(false)
+  if (points.length === 0) {
+    return (
+      <div className="empty-state">
+        <span className="empty-state-icon" aria-hidden="true"><IconClock /></span>
+        <p>Move times appear for a timed game, or a PGN with clock readings.</p>
+      </div>
+    )
+  }
+
+  const {
+    maxIndex, width, height, padLeft, padRight, padTop, padBottom,
+    innerWidth, innerHeight, toX, xTickStep, isNavigable, selectedIndex, handleClick, handleKeyDown, indexAtClientX,
+  } = trendGraphGeometry(points, available, currentIndex, onNavigate, lastPlyIndex)
+
+  // One scale for both sides, so a bar can be read against any other.
+  const longest = Math.max(1, ...points.map(point => point.seconds))
+  const midY = padTop + innerHeight / 2
+  const halfHeight = innerHeight / 2 - 2
+  const barHeight = (seconds: number) => Math.max(1, (seconds / longest) * halfHeight)
+  // As wide as the plies allow, never wider than a step between them.
+  const barWidth = Math.max(1.5, Math.min(7, (maxIndex > 0 ? innerWidth / maxIndex : innerWidth) * 0.7))
+
+  const selectedPoint = points.find(point => point.index === selectedIndex)
+  const readoutIndex = hoverIndex ?? (focused && isNavigable ? selectedIndex : null)
+  const readoutPoint = readoutIndex === null ? undefined : points.find(point => point.index === readoutIndex)
+  const currentLineX = currentIndex !== undefined && maxIndex > 0 ? toX(selectedIndex) : null
+
+  return (
+    <div className="graph-wrap" aria-label="Move times graph">
+      <div className="graph-scroll" ref={scrollRef}>
+        <svg
+          className="winrate-graph"
+          width={width}
+          viewBox={`0 0 ${width} ${height}`}
+          role={isNavigable ? 'slider' : 'img'}
+          tabIndex={isNavigable ? 0 : undefined}
+          aria-label={isNavigable ? 'Move times navigator' : 'Move times graph'}
+          aria-valuemin={isNavigable ? 0 : undefined}
+          aria-valuemax={isNavigable ? maxIndex : undefined}
+          aria-valuenow={isNavigable ? selectedIndex : undefined}
+          aria-valuetext={isNavigable ? describeMoveTimePosition(selectedPoint, selectedIndex) : undefined}
+          onClick={handleClick}
+          onKeyDown={handleKeyDown}
+          onMouseMove={maxIndex > 0 ? e => setHoverIndex(indexAtClientX(e.currentTarget, e.clientX)) : undefined}
+          onMouseLeave={() => setHoverIndex(null)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          style={{ cursor: isNavigable ? 'pointer' : 'default' }}
+        >
+          {/* The scale, once at each end: White's longest think reads at the
+              top, Black's at the bottom, and the midline is zero for both. */}
+          <line x1={padLeft} x2={width - padRight} y1={midY} y2={midY} className="graph-grid-line" />
+          <text x={padLeft - 8} y={padTop + 4} className="graph-grid-text" textAnchor="end">{formatMoveTime(longest)}</text>
+          <text x={padLeft - 8} y={midY + 4} className="graph-grid-text" textAnchor="end">0</text>
+          <text x={padLeft - 8} y={height - padBottom + 4} className="graph-grid-text" textAnchor="end">{formatMoveTime(longest)}</text>
+
+          {points.map(point => {
+            const x = toX(point.index) - barWidth / 2
+            const h = barHeight(point.seconds)
+            return (
+              <rect
+                key={`mt-${point.index}`}
+                x={x}
+                y={point.side === 'w' ? midY - h : midY}
+                width={barWidth}
+                height={h}
+                className={`graph-bar ${point.side === 'w' ? 'graph-bar-white' : 'graph-bar-black'}`}
+              />
+            )
+          })}
+
+          {points.map((p) => {
+            if (p.index > 0 && p.index % xTickStep === 0) {
+              const x = toX(p.index)
+              return (
+                <g key={`mt-x-${p.index}`}>
+                  <line x1={x} x2={x} y1={height - padBottom} y2={height - padBottom + 6} className="graph-tick-line" />
+                  <text x={x} y={height - padBottom + 20} className="graph-grid-text" textAnchor="middle">{formatGraphAxisLabel(p)}</text>
+                </g>
+              )
+            }
+            return null
+          })}
+
+          {currentLineX !== null && (
+            <line x1={currentLineX} x2={currentLineX} y1={padTop} y2={height - padBottom} className="graph-cursor-line" />
+          )}
+          {readoutIndex !== null && (
+            <GraphReadout
+              x={toX(readoutIndex)}
+              padLeft={padLeft}
+              padTop={padTop}
+              height={height}
+              padBottom={padBottom}
+              text={formatMoveTimeReadout(readoutPoint, readoutIndex)}
             />
           )}
         </svg>

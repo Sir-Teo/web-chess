@@ -75,6 +75,9 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 ### Studying
 
 - **Beginner and pro analysis**: Coach mode keeps the right panel focused on plain-language move guidance — it opens with the evaluation *in words*, "Black is slightly better · 46% for White", rather than with `-0.48` — while Pro mode exposes MultiPV, WDL, cloud evals, opening stats, tablebase moves, and UCI controls.
+- **Type a move**: "Enter a move by name" at the top of the analysis panel
+  takes `Nf3`, `e2e4` or `O-O` — and the forms people actually type, `nf3`,
+  `0-0`, `e8q`, which it used to refuse while telling you to type `Nf3`.
 - **Keep searching**: The automatic analysis stops at the depth slider, which
   on a desktop is over in a second. Pro mode has a switch under the Coach/Pro
   toggle that asks for `go infinite` instead, so the depth climbs for as long
@@ -161,7 +164,12 @@ A browser chess app for playing, importing, and reviewing games with Stockfish-p
 - **Time trouble, in the review**: A move's clock reading rides with it — read
   from `[%clk]` on import, recorded from the running clock in a timed game, and
   written back out. So a review of a real blitz game shows *0:07* beside the
-  blunder, which is the explanation the centipawns never carry.
+  blunder, which is the explanation the centipawns never carry. The same
+  readings draw a **Move Times** graph in the left panel — White's thinks up
+  from the midline, Black's down, the longest named — so the long think before
+  a blunder and the flurry of instant moves in time trouble read at a glance
+  rather than off sixty rows. It needs no engine, so it fills live during a
+  timed game too.
 - **Steppable engine lines**: Click any move in a principal variation — in the
   Lines panel or the Coach card — and the board walks into the line up to that
   move. It lands as a variation like any other, so it can be reviewed, promoted
