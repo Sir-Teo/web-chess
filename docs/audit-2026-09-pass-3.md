@@ -136,10 +136,27 @@ fine, one with six blunders. The reason is quiescence search -- even at depth
 one the engine resolves every capture, so it never hangs a piece, and the
 Skill Level randomisation only picks among its top four lines. Reverted, and
 the second pass's reasoning stands: the Elo limit is the right tool, and its
-floor is the floor. What remains below 1320 is a deliberate, bounded blunder
-layer -- a wider window in `pickVarietyMove` at a higher chance -- which would
-need the same measurement before it could be claimed, or an engine with
-negative skill levels, which Lichess has and this app does not.
+floor is the floor.
+
+**Neither does a wider blunder window.** The remaining lever was the one the
+second pass built: `pickVarietyMove` chooses among the engine's own lines
+within a window of the best. Widened for Beginner from 180cp among four
+lines at a 38% chance to 400cp among six at 45%, and measured the same way,
+six old games against four new:
+
+| Beginner, 60 plies each | accuracy |
+| --- | --- |
+| Elo 1320, 180cp window (before) | 83.4, 83.8, 89.0, 93.3, 83.5, 84.1 |
+| Elo 1320, 400cp window | 75.8, 78.4, 86.0, 90.2 |
+
+The first two new games sat below every old one and the next two sat inside
+the old range. A 4-point difference of means under a 15-point spread is not
+a result, and one old Novice game came in at 76.6 with four blunders on the
+unchanged code -- the noise in a sixty-ply self-play game is larger than
+either lever's effect. Reverted as well. What is left below 1320 is an
+engine with negative skill levels, which Lichess has and this app does not,
+or a measurement with far more games than an evening allows. The two
+attempts are recorded so the next pass does not spend the time again.
 
 ---
 
