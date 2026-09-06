@@ -331,7 +331,13 @@ npm run test:ui:browser
 serves it, and drives Chromium with a fake Stockfish injected in place of the
 real worker — so a review runs end to end, deterministically, in seconds and
 with no WASM. The technique is borrowed from web-xiangqi, which has had it
-longer.
+longer. Network fixtures keep public-service outages from failing regressions.
+The real-WASM review benchmark is separate: start Vite on port 4324 and run
+`node scripts/benchmark-review-browser.cjs`.
+
+Analysis also supports keyboard move entry: open **Enter a move by name** and
+type SAN (`Nf3`) or UCI (`g1f3`). Independent single-thread engines can now pool
+long desktop reviews; the latest audit records the measured speedup and limits.
 
 `npm run audit` uses `--audit-level=moderate`, matching the sibling apps. A bare
 `npm audit` fails on any severity, which once blocked a release over a single
@@ -386,7 +392,7 @@ current as things land here.
 [`docs/cross-app-learning-plan.md`](docs/cross-app-learning-plan.md) compares the
 three and tracks what is worth moving between them.
 [`docs/architecture.md`](docs/architecture.md) covers this app on its own, and
-[`docs/audit-2026-09-pass-3.md`](docs/audit-2026-09-pass-3.md) is the latest
+[`docs/audit-2026-09-05.md`](docs/audit-2026-09-05.md) is the latest
 audit pass, including the measurements behind the numbers above.
 
 ## License
