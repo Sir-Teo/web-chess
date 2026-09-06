@@ -5570,3 +5570,61 @@ button.hint-btn {
   color: var(--text-tertiary);
   margin-right: auto;
 }
+
+/* The first screen's start card: one primary action, the alternatives under it. */
+.start-card {
+  margin-bottom: var(--space-md);
+  padding: 0.65rem;
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+
+.start-card h3 {
+  margin: 0 0 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text-tertiary);
+  font-size: 0.63rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.start-card-primary {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem 0.45rem;
+  min-height: 44px;
+  margin-bottom: 0.45rem;
+}
+
+.start-card-summary {
+  flex-basis: 100%;
+  font-size: 0.68rem;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.start-card-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+.start-card-row button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+.start-card-row:last-child {
+  margin-bottom: 0;
+}

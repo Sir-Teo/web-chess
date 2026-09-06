@@ -3,6 +3,7 @@ import type { AnalyzeMode } from './uci'
 import type { OpeningDatabaseSource, OpeningSpeed } from './openingExplorer'
 import { isBoardThemeId } from './boardThemes'
 import { isTimeControlPresetId } from './chessClock'
+import { isSideChoice, type SideChoice } from './sideChoice'
 import { ANALYSIS_SETTINGS_STORAGE_KEY } from '../storageKeys'
 
 /**
@@ -102,6 +103,15 @@ export type PersistedAppSettings = {
   timeControlId: string
   boardThemeId: string
   theme: ThemePreference
+  /**
+   * The last game asked for: its difficulty and side. With the time control
+   * above, that is everything the New Game dialog needs to open on what was
+   * chosen last time -- and everything a one-click "Play Stockfish" needs to
+   * start a game without the dialog. What was *asked for*: Random stays
+   * Random rather than becoming whichever it rolled.
+   */
+  lastDifficulty: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
+  lastSideChoice: SideChoice
 }
 
 export const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
@@ -142,6 +152,8 @@ export const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
   timeControlId: 'unlimited',
   boardThemeId: 'classic',
   theme: 'dark',
+  lastDifficulty: 4,
+  lastSideChoice: 'white',
 }
 
 /**
@@ -330,6 +342,8 @@ export function loadPersistedSettings(): PersistedAppSettings {
         ? parsed.boardThemeId
         : DEFAULT_PERSISTED_SETTINGS.boardThemeId,
       theme: isThemePreference(parsed.theme) ? parsed.theme : DEFAULT_PERSISTED_SETTINGS.theme,
+      lastDifficulty: normalizeInteger(parsed.lastDifficulty, 1, 8, DEFAULT_PERSISTED_SETTINGS.lastDifficulty) as PersistedAppSettings['lastDifficulty'],
+      lastSideChoice: isSideChoice(parsed.lastSideChoice) ? parsed.lastSideChoice : DEFAULT_PERSISTED_SETTINGS.lastSideChoice,
     }
   } catch {
     return defaultPersistedSettings()

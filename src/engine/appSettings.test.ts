@@ -37,6 +37,13 @@ afterEach(() => {
 })
 
 describe('reading settings back', () => {
+  it('remembers the last game asked for, within the ladder', () => {
+    installStorage(stored({ lastDifficulty: 7, lastSideChoice: 'random' }))
+    expect(loadPersistedSettings()).toMatchObject({ lastDifficulty: 7, lastSideChoice: 'random' })
+    installStorage(stored({ lastDifficulty: 12, lastSideChoice: 'green' }))
+    expect(loadPersistedSettings()).toMatchObject({ lastDifficulty: 4, lastSideChoice: 'white' })
+  })
+
   it('keeps the continuous-analysis switch, and defaults it off', () => {
     installStorage(stored({ continuousAnalysis: true }))
     expect(loadPersistedSettings().continuousAnalysis).toBe(true)

@@ -193,7 +193,7 @@ import {
 } from './engine/appSettings'
 import { ANALYSIS_SETTINGS_STORAGE_KEY } from './storageKeys'
 import type { GameMode, PlayerColor } from './components/NewGameDialog'
-import type { SideChoice } from './engine/sideChoice'
+import { SIDE_CHOICES, resolveSideChoice, type SideChoice } from './engine/sideChoice'
 import { WatchControls } from './components/WatchControls'
 import { AI_SPEED_MS, AUTOPLAY_MS, type AiSpeed } from './components/aiSpeed'
 import { WdlBar } from './components/WdlBar'
@@ -727,8 +727,8 @@ function App() {
    * pressed, and the dialog has to reopen on Random rather than on whatever it
    * rolled last time.
    */
-  const [sideChoice, setSideChoice] = useState<SideChoice>('white')
-  const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>(4)
+  const [sideChoice, setSideChoice] = useState<SideChoice>(persistedSettings.lastSideChoice)
+  const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>(persistedSettings.lastDifficulty)
   const [isAiThinking, setIsAiThinking] = useState(false)
   const aiMoveScheduledRef = useRef(false)
   const gameModeRef = useRef<GameMode>('human-vs-human')
@@ -2420,9 +2420,13 @@ function App() {
       timeControlId,
       boardThemeId,
       theme,
+      lastDifficulty: aiDifficulty,
+      lastSideChoice: sideChoice,
     })
   }, [
+    aiDifficulty,
     continuousAnalysis,
+    sideChoice,
     workspaceMode,
     activePreset,
     analysisTab,
@@ -4498,6 +4502,39 @@ function App() {
   )
 
   /**
+   * A game against the engine on the settings used last time, with no dialog.
+   *
+   * The first screen was an empty pass-and-play board and a paragraph saying
+   * the engine was on standby. A returning player wants the game they had
+   * yesterday -- same level, same side, same clock -- and had to open the
+   * dialog and pick all three again to get it. The dialog is one click away
+   * for anyone who wants something else.
+   */
+  const quickStartAgainstEngine = useCallback(() => {
+    handleNewGameStart({
+      mode: 'human-vs-ai',
+      playerColor: resolveSideChoice(sideChoice),
+      sideChoice,
+      difficulty: aiDifficulty,
+      timeControlId,
+    })
+  }, [aiDifficulty, handleNewGameStart, sideChoice, timeControlId])
+  const quickStartPassAndPlay = useCallback(() => {
+    handleNewGameStart({
+      mode: 'human-vs-human',
+      playerColor: 'white',
+      sideChoice,
+      difficulty: aiDifficulty,
+      timeControlId,
+    })
+  }, [aiDifficulty, handleNewGameStart, sideChoice, timeControlId])
+  const quickStartSummary = [
+    DIFFICULTY_LABELS[aiDifficulty],
+    `as ${SIDE_CHOICES.find(choice => choice.id === sideChoice)?.label ?? 'White'}`,
+    timeControlPresetById(timeControlId)?.control ? timeControlPresetById(timeControlId)!.label : 'no clock',
+  ].join(' · ')
+
+  /**
    * Hand the position on the board to Play mode and take the move.
    *
    * The gap this closes: New Game always resets to the starting position, so
@@ -6491,16 +6528,51 @@ function App() {
                       )}
                     </div>
                   )}
+                  {/* The first screen. An empty board used to sit beside a
+                      paragraph about the engine being on standby; a player
+                      who opens the app wants a game, and a returning one
+                      wants the game they had last time. */}
+                  {mainLineNodes.length <= 1 && !gameResultLabel && !playEngineActive && (
+                    <div className="start-card" data-testid="start-card">
+                      <h3><span className="section-icon"><IconPlay /></span> Start</h3>
+                      <button
+                        type="button"
+                        className="btn-primary start-card-primary"
+                        onClick={quickStartAgainstEngine}
+                        aria-label={`Play Stockfish: ${quickStartSummary}`}
+                        data-testid="quick-start"
+                      >
+                        <IconBot /> Play Stockfish
+                        <span className="start-card-summary">{quickStartSummary}</span>
+                      </button>
+                      <div className="inline-actions start-card-row">
+                        <button type="button" onClick={openNewGameDialog} title="Choose the level, side and clock">
+                          <IconSettings /> Choose settings
+                        </button>
+                        <button type="button" onClick={quickStartPassAndPlay} title="Two players on this device">
+                          <IconUsers /> Pass and play
+                        </button>
+                      </div>
+                      <div className="inline-actions start-card-row">
+                        <button type="button" onClick={openPgnDialog} title="Paste a PGN, fetch your games, or set up a position">
+                          <IconDownload /> Analyze a game
+                        </button>
+                        <button type="button" onClick={() => handleWorkspaceModeChange('analysis')} title="The engine, the review and a library of famous games">
+                          <IconSearch /> Analysis board
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <div className="engine-lab-card">
-                    <h3><span className="section-icon"><IconSwords /></span> Play Focus</h3>
-                    <p
-                      className={`panel-copy small${playEngineActive && playEngineReport.failed ? ' error-copy' : ''}`}
-                      role={playEngineActive && playEngineReport.failed ? 'alert' : undefined}
-                    >
-                      {playEngineActive
-                        ? playEngineReport.message
-                        : 'Analysis engine is on standby. Use this view for clean gameplay and move navigation.'}
-                    </p>
+                    <h3><span className="section-icon"><IconSwords /></span> {playEngineActive ? 'Opponent' : 'Game'}</h3>
+                    {playEngineActive && (
+                      <p
+                        className={`panel-copy small${playEngineReport.failed ? ' error-copy' : ''}`}
+                        role={playEngineReport.failed ? 'alert' : undefined}
+                      >
+                        {playEngineReport.message}
+                      </p>
+                    )}
                     <label className="switch-control">
                       <input
                         type="checkbox"

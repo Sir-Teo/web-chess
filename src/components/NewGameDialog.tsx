@@ -31,15 +31,21 @@ type Props = {
 import { IconUsers, IconBot, IconZap, IconSwords, IconKing, IconPlay } from './icons'
 import './NewGameDialog.css'
 
+/**
+ * What each level plays like, with the Elo the engine is asked for. The
+ * number is the honest part: Stockfish's gentlest setting is about 1320,
+ * a club player, and a learner deciding which level to face deserves to know
+ * that before losing to it. The words say what the number feels like.
+ */
 const DIFFICULTY_DESCRIPTIONS: Record<AiDifficulty, string> = {
-    1: 'Perfect for learning chess basics',
-    2: 'Casual friendly play',
-    3: 'Club-level competition',
-    4: 'A solid challenge',
-    5: 'Strong tactical play',
-    6: 'Near-master strength',
-    7: 'Grandmaster class',
-    8: 'Maximum engine strength',
+    1: 'The gentlest the engine goes · about 1320 Elo',
+    2: 'Casual club play · about 1500 Elo',
+    3: 'Steady club player · about 1700 Elo',
+    4: 'Strong club player · about 1900 Elo',
+    5: 'Expert · about 2100 Elo',
+    6: 'Master strength · about 2300 Elo',
+    7: 'Grandmaster strength · about 2600 Elo',
+    8: 'Full strength, every core the machine can spare',
 }
 
 import * as React from 'react'

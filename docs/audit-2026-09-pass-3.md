@@ -91,6 +91,20 @@ Two things worth knowing that came out of measuring:
 
 ## New
 
+**A first screen.** Read as a product, the largest gap was the first thing a
+reader saw: an empty pass-and-play board beside a paragraph saying the engine
+was on standby, and a returning player had to open the dialog and re-pick
+Human vs AI, the level and the side on every visit. The Play panel now opens
+on a Start card: *Play Stockfish* on the level, side and clock used last time
+(now persisted, with Random kept as Random), one press and no dialog; the
+dialog itself; pass and play; the PGN dialog; the analysis board. The card
+gives way to the opponent panel the moment a game begins. The difficulty
+descriptions were rewritten to say what each level plays like and the Elo it
+asks for -- "Perfect for learning chess basics" was describing a 1320, which
+the *Refuted* section below is about. Checked in the browser suite: stored
+as Master, Black, 3+2, a fresh load says so on the button and one press
+starts that game with `UCI_Elo 2600` and the engine to move.
+
 **Keep searching until the board moves.** The automatic analysis stopped at
 the depth slider, sixteen by default, which on a desktop is over in about a
 second; the panel then sat at D16 for as long as the reader looked. A switch

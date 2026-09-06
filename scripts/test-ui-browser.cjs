@@ -881,6 +881,47 @@ async function checkResignationEndsTakeback(browser) {
 }
 
 /**
+ * The first screen offers a game on the settings used last time, with no
+ * dialog. Stored as Master, Black, 3+2, a fresh load should say so on the
+ * button and one press should start a game against the engine with those
+ * settings -- the engine to move first, since the reader is Black.
+ */
+async function checkQuickStartRemembersTheLastGame(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => {
+      window.localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'play', lastDifficulty: 7, lastSideChoice: 'black', timeControlId: '3+2',
+      }))
+    })
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    const quick = page.getByTestId('quick-start')
+    const label = await quick.getAttribute('aria-label')
+    assert(/Master · as Black · 3 \+ 2/.test(label || ''), `the quick start read "${label}"`)
+    await quick.click()
+
+    await page.locator('.chess-clock').waitFor({ timeout: 10000 })
+    await page.waitForFunction(() => window.__uciCommands.some(c => /^go .*movetime/.test(c)), null, { timeout: 15000 })
+    const state = await page.evaluate(() => ({
+      pills: [...document.querySelectorAll('.gc-pill-active')].map(p => p.textContent.trim()),
+      elo: window.__uciCommands.find(c => /UCI_Elo/.test(c)),
+      card: Boolean(document.querySelector('[data-testid=start-card]')),
+    }))
+    assert(state.pills.includes('Human vs AI'), `the quick start left the mode at ${state.pills.join(', ')}`)
+    assert(state.elo === 'setoption name UCI_Elo value 2600', `the opponent was set to "${state.elo}", not Master`)
+    assert(!state.card, 'the start card stayed up after the game began')
+    console.log('  quick start: a Master, Black, 3+2 game from one press')
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * The nudge in Play mode. The opponent's search after the human's second
  * move scores 300cp higher than after the first, and the Play Focus card
  * should say which move did it and what it cost, with the take-back one
@@ -1986,6 +2027,7 @@ async function main() {
     await checkTypedMoveLands(browser)
     await checkMoveTimesAreGraphed(browser)
     await checkResignationEndsTakeback(browser)
+    await checkQuickStartRemembersTheLastGame(browser)
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkDrillLeavesTheLineAlone(browser)
