@@ -30,6 +30,16 @@ on. It now walks the current node's first-child chain, which is what Lichess
 and every desktop GUI mean by End. **Measured** by building a sideline and
 pressing it.
 
+**Take back stayed live after a resignation.** **Measured** in a pass-and-play
+game: 1. e4, Resign, Confirm, Take back -- e4 came off the board and left a
+locked position under a strip still reading "Black resigned · White wins",
+with nothing to do but New Game. A flag and a resignation are the two endings
+that leave every move legal, which is why the board lock is told about them
+separately; the takeback rule never was. It now says "The game is over." for
+either. A checkmate is deliberately still undoable, because taking back the
+losing move is what a beginner wants after one and the position unlocks on
+its own.
+
 **The evaluation bar went blank in the opening.** **Measured** on the start
 position with the engine at depth 16: the label read +0.2 and the bar sat at
 an even three-way split. The bar only ever drew from a WDL split; a Lichess
