@@ -6,7 +6,17 @@
 .move-entry summary { cursor: pointer; padding: 0.65rem 0; }
 .move-entry form { display: grid; gap: 0.4rem; padding-bottom: 0.5rem; }
 .move-entry-row { display: flex; gap: 0.4rem; }
-.move-entry-row input { min-width: 0; width: 100%; }
+.move-entry-row input {
+  min-width: 0;
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font: inherit;
+}
+.move-entry-row input::placeholder { color: var(--text-secondary); opacity: 1; }
 .move-entry-row button { flex-shrink: 0; }
-.move-entry-row input, .move-entry-row button { min-height: 2.75rem; }
+.panel .move-entry-row input, .panel .move-entry-row button { min-height: 2.75rem; }
 .move-entry p { margin: 0; line-height: 1.5; }

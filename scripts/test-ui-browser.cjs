@@ -436,23 +436,16 @@ async function checkOpeningTableStaysOutOfBoot(browser) {
   }
 }
 
-/**
- * The engine's last word before a stop is a bound, not a value.
- *
- * `score cp 900 lowerbound` means "at least 900", and it arrives from an
- * aspiration re-search with more nodes behind it than the exact line it
- * follows. The app used to compare the two on node count and keep the bound,
- * so a position evaluated at +3 was displayed at +9. This drives that exact
- * sequence through the real UI, which is the thing a unit test on the
- * comparison function cannot do.
- */
 async function checkTypedMoveEntry(browser) {
-  for (const width of [1280, 375]) {
+  for (const [width, theme] of [[1280, 'Dark'], [375, 'Dark'], [1280, 'Light'], [375, 'Light']]) {
     const context = await browser.newContext({ viewport: { width, height: 812 } })
     const page = await context.newPage()
     try {
       await page.addInitScript(fakeEngineScript())
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await openSettings(page)
+      await chooseTheme(page, theme)
+      await closeSettings(page)
       await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
       await page.locator('.move-entry summary').click()
       const input = page.locator('.move-entry input')
@@ -476,7 +469,9 @@ async function checkTypedMoveEntry(browser) {
       await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
       assert(await input.inputValue() === '', 'navigation left a draft for a different position')
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'expanded move input overflows')
-      console.log(`  typed moves (${width}px): SAN, UCI, invalid input, focus and navigation OK`)
+      assert(await input.evaluate(el => el.getBoundingClientRect().height >= 44), 'move input is shorter than its touch target')
+      await assertContrast(page, `${theme} / expanded move entry / ${width}px`, 15)
+      console.log(`  typed moves (${width}px, ${theme}): SAN, UCI, invalid input, focus and navigation OK`)
     } finally { await context.close() }
   }
 }
@@ -525,6 +520,16 @@ async function checkCoachUsesPositionScore(browser) {
   } finally { await context.close() }
 }
 
+/**
+ * The engine's last word before a stop is a bound, not a value.
+ *
+ * `score cp 900 lowerbound` means "at least 900", and it arrives from an
+ * aspiration re-search with more nodes behind it than the exact line it
+ * follows. The app used to compare the two on node count and keep the bound,
+ * so a position evaluated at +3 was displayed at +9. This drives that exact
+ * sequence through the real UI, which is the thing a unit test on the
+ * comparison function cannot do.
+ */
 async function checkBoundedScoreIsIgnored(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const page = await context.newPage()
