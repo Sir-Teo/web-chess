@@ -848,6 +848,39 @@ async function checkMoveTimesAreGraphed(browser) {
 }
 
 /**
+ * A resignation ends the game, and Take back has to know. It did not: the
+ * button stayed live, undid the move, and left a locked board under a strip
+ * still reading "Black resigned". Measured by hand before the fix.
+ */
+async function checkResignationEndsTakeback(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+    await page.click('#chessboard-square-e2')
+    await page.click('#chessboard-square-e4')
+    await page.waitForFunction(() => /Black to move/.test(document.body.innerText), null, { timeout: 5000 })
+
+    await page.getByRole('button', { name: 'Resign the game' }).click()
+    await page.getByRole('button', { name: 'Confirm resignation' }).click()
+    await page.waitForFunction(() => /resigned/.test(document.querySelector('.turn-pill')?.textContent || ''), null, { timeout: 5000 })
+
+    const takeback = page.getByRole('button', { name: /^Take back/ })
+    assert(await takeback.isDisabled(), 'Take back stayed enabled after a resignation')
+    const label = await takeback.getAttribute('aria-label')
+    assert(/game is over/i.test(label || ''), `Take back's reason read "${label}"`)
+    console.log('  resignation: take back is off, with the reason')
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * The nudge in Play mode. The opponent's search after the human's second
  * move scores 300cp higher than after the first, and the Play Focus card
  * should say which move did it and what it cost, with the take-back one
@@ -1952,6 +1985,7 @@ async function main() {
     await checkAutoplayWalksTheLine(browser)
     await checkTypedMoveLands(browser)
     await checkMoveTimesAreGraphed(browser)
+    await checkResignationEndsTakeback(browser)
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkDrillLeavesTheLineAlone(browser)

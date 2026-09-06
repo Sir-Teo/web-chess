@@ -246,3 +246,17 @@ describe('judging the human move between two of the opponent searches', () => {
     expect(judgeMoveBetweenSearches(at(30), at())).toBeNull()
   })
 })
+
+describe('takeback after a game ended off the board', () => {
+  it('refuses a takeback once a side has resigned or flagged', () => {
+    expect(takebackDisabledReason({ gameMode: 'human-vs-human', pliesPlayed: 1, plies: 1, endedOffBoard: true }))
+      .toBe('The game is over.')
+    expect(takebackDisabledReason({ gameMode: 'human-vs-ai', pliesPlayed: 4, plies: 2, endedOffBoard: true }))
+      .toBe('The game is over.')
+  })
+
+  it('still allows one while the game is on, checkmate included', () => {
+    expect(takebackDisabledReason({ gameMode: 'human-vs-human', pliesPlayed: 1, plies: 1 })).toBeNull()
+    expect(takebackDisabledReason({ gameMode: 'human-vs-human', pliesPlayed: 1, plies: 1, endedOffBoard: false })).toBeNull()
+  })
+})

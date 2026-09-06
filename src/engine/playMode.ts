@@ -106,12 +106,23 @@ export function takebackDisabledReason({
   gameMode,
   pliesPlayed,
   plies,
+  endedOffBoard = false,
 }: {
   gameMode: PlayGameMode
   pliesPlayed: number
   plies: number
+  /**
+   * A flag or a resignation. Either ends the game while leaving a position
+   * every move is still legal in, and a takeback then produced a dead end:
+   * the move came off the board, the board stayed locked, and the strip
+   * went on reading "Black resigned". A checkmate is deliberately not here
+   * -- taking back the losing move is the one thing a beginner wants after
+   * one, and the position unlocks on its own once the mate is gone.
+   */
+  endedOffBoard?: boolean
 }): string | null {
   if (gameMode === 'ai-vs-ai') return 'Nothing to take back — both sides are the engine.'
+  if (endedOffBoard) return 'The game is over.'
   if (pliesPlayed <= 0) return 'No moves have been played yet.'
   if (plies <= 0) return 'There is no move of yours to take back.'
   return null

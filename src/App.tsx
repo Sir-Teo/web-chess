@@ -1498,6 +1498,8 @@ function App() {
       turn: game.turn() === 'w' ? 'white' : 'black',
     })
     if (plies <= 0) return
+    // A flag or a resignation ended the game; see takebackDisabledReason.
+    if (endedOffBoardRef.current) return
 
     const target = line[line.length - 1 - plies]
     if (!target) return
@@ -1586,6 +1588,7 @@ function App() {
     gameMode,
     pliesPlayed: currentPathNodes.length - 1,
     plies: takebackPlies,
+    endedOffBoard: Boolean(endedOffBoard),
   })
 
 
