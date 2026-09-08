@@ -7,15 +7,9 @@ name: CI
 # that -- a pull request gets one run, and the merge gets a separate run on
 # different content.
 #
-# The comment this replaces said a push to main was "already covered by the
-# deploy workflow, which runs the same gates". That was false, and it is the
-# gap this trigger closes: the deploy runs audit, lint, unit tests and the
-# build, but no deploy in any of the three sibling repos runs a browser suite.
-# Those live only here, so without a push trigger nothing browser-level ever
-# ran against main.
-#
-# This workflow deploys nothing. If it goes red the site still publishes, which
-# is the reason the browser suites belong here rather than in the deploy.
+# This workflow verifies pull requests and main without deploying. The Pages
+# workflow also runs the browser gate before uploading its own build, so a
+# failure there prevents publishing even though these workflows run separately.
 on:
   pull_request:
   push:

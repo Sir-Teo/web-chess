@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   deploy:
+    timeout-minutes: 25
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -32,12 +33,19 @@ jobs:
         run: npm ci
       - name: Audit dependencies
         run: npm run audit
-      - name: Lint
-        run: npm run lint
-      - name: Test
-        run: npm test -- --run
-      - name: Build
-        run: npm run build
+      - name: Verify
+        run: npm run verify
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-chromium-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright (Chromium)
+        run: npx playwright install --with-deps chromium
+      # Verify the exact build that is about to be uploaded. A separate CI
+      # workflow can fail independently and cannot gate this deployment.
+      - name: Browser UI checks
+        run: npm run test:ui:browser
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
