@@ -1,0 +1,20 @@
+.autosave-warning {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.8rem;
+}
+
+.autosave-warning p {
+  flex: 1 1 22rem;
+  margin: 0;
+}
+
+.autosave-warning button {
+  min-height: 44px;
+}

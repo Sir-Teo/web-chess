@@ -208,8 +208,8 @@ export function writeAutoSavedGame(
     }
     const serialized = JSON.stringify(snapshot)
     if (serializedByteLength(serialized) > AUTO_SAVE_MAX_BYTES) {
-      // A stale snapshot that no longer matches the board is worse than none.
-      removeStorage(AUTO_SAVED_GAME_KEY, storage)
+      // Keep the last successful recovery. The UI reports that the latest
+      // changes are unsaved and offers a full PGN download.
       return 'too-large'
     }
     return writeStorage(AUTO_SAVED_GAME_KEY, serialized, storage) ? 'saved' : 'failed'

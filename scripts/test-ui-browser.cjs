@@ -476,6 +476,46 @@ async function checkTypedMoveEntry(browser) {
   }
 }
 
+async function checkAutosaveFailure(browser) {
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => {
+        const nativeSet = Storage.prototype.setItem
+        window.__denyAutosave = true
+        Storage.prototype.setItem = function (key, value) {
+          if (window.__denyAutosave && key === 'webchess:auto-saved-game:v1') {
+            throw new DOMException('Quota exceeded', 'QuotaExceededError')
+          }
+          return nativeSet.call(this, key, value)
+        }
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+      await page.locator('.move-entry summary').click()
+      const input = page.locator('.move-entry input')
+      await input.fill('e4')
+      await input.press('Enter')
+      await page.locator('.autosave-warning').waitFor()
+      assert((await page.locator('.autosave-warning').innerText()).includes('Latest changes are not saved'), 'autosave failure is silent')
+      const downloadEvent = page.waitForEvent('download')
+      await page.getByRole('button', { name: 'Download recovery PGN' }).click()
+      const download = await downloadEvent
+      const pgn = fs.readFileSync(await download.path(), 'utf8')
+      assert(pgn.includes('1. e4'), 'recovery download omitted the move that could not be saved')
+      assert(await page.locator('.autosave-warning').isVisible(), 'download falsely cleared the storage warning')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'recovery warning overflows')
+      await page.evaluate(() => { window.__denyAutosave = false })
+      await page.getByRole('button', { name: 'Retry autosave' }).click()
+      await page.locator('.autosave-warning').waitFor({ state: 'detached' })
+      assert(await page.evaluate(() => JSON.parse(localStorage.getItem('webchess:auto-saved-game:v1')).pgn.includes('1. e4')), 'retry did not persist the game')
+      console.log(`  autosave (${width}px): denied storage is visible, PGN downloads, retry recovers`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkSingleThreadReviewPool(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const page = await context.newPage()
@@ -2031,6 +2071,7 @@ async function main() {
     }
 
     await checkTypedMoveEntry(browser)
+    await checkAutosaveFailure(browser)
     await checkSingleThreadReviewPool(browser)
     await checkCoachUsesPositionScore(browser)
     await checkBoundedScoreIsIgnored(browser)

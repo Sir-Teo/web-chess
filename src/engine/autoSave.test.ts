@@ -51,12 +51,13 @@ describe('writing and reading back', () => {
     expect(writeAutoSavedGame('   ', 5, storage, 4)).toBe('empty')
   })
 
-  it('forgets a snapshot too big to be worth keeping', () => {
+  it('preserves the last successful recovery when the new game is too large', () => {
     const { storage, entries } = stubStorage()
     writeAutoSavedGame(PGN, 3, storage, 1)
 
     expect(writeAutoSavedGame('x'.repeat(AUTO_SAVE_MAX_BYTES + 10), 3, storage, 2)).toBe('too-large')
-    expect(entries.has(AUTO_SAVED_GAME_KEY)).toBe(false)
+    expect(entries.has(AUTO_SAVED_GAME_KEY)).toBe(true)
+    expect(readAutoSavedGame(storage)?.pgn).toBe(PGN)
   })
 
   it('reports a storage that refuses the write', () => {

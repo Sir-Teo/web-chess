@@ -73,12 +73,14 @@ import { PhaseAccuracy } from './components/PhaseAccuracy'
 import {
   type AutoSavedGame,
   type AutoSavedPlay,
+  type AutoSaveWriteResult,
   autoSaveDelayMs,
   clearAutoSavedGame,
   readAutoSavedGame,
   writeAutoSavedGame,
 } from './engine/autoSave'
 import { AutoSaveRecoveryDialog } from './components/AutoSaveRecoveryDialog'
+import { AutoSaveStatus } from './components/AutoSaveStatus'
 import { type LibraryWriteResult, useGameLibrary } from './hooks/useGameLibrary'
 import { FEN_PARSE_ERROR, validateFenForAnalysis } from './engine/fen'
 import { buildImportSweepTargets, countImportSweepCandidates, type ImportSweepTarget } from './engine/importSweep'
@@ -719,6 +721,8 @@ function App() {
   const [autoSaveRecovery, setAutoSaveRecovery] = useState<AutoSavedGame | null>(null)
   const [autoSaveRestoreError, setAutoSaveRestoreError] = useState<string | null>(null)
   const [autoSaveCopyLabel, setAutoSaveCopyLabel] = useState('Copy PGN')
+  const [autoSaveResult, setAutoSaveResult] = useState<AutoSaveWriteResult | null>(null)
+  const [autoSaveRetry, setAutoSaveRetry] = useState(0)
   const [gameMode, setGameMode] = useState<GameMode>('human-vs-human')
   const [playerColor, setPlayerColor] = useState<PlayerColor>('white')
   /**
@@ -4189,9 +4193,10 @@ function App() {
       const plies = mainLineNodes.length - 1
       if (plies <= 0) {
         clearAutoSavedGame()
+        setAutoSaveResult('empty')
         return
       }
-      writeAutoSavedGame(
+      setAutoSaveResult(writeAutoSavedGame(
         exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot),
         plies,
         undefined,
@@ -4209,10 +4214,22 @@ function App() {
         // Only for a game being played. An imported PGN under analysis has no
         // side to take, and restoring one into Play mode would invent one.
         playSessionRef.current,
-      )
+      ))
     }, delay)
     return () => window.clearTimeout(timeout)
-  }, [autoSaveRecovery, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
+  }, [autoSaveRecovery, autoSaveRetry, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
+
+  const downloadRecoveryPgn = useCallback(() => {
+    const pgn = exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
+    const url = URL.createObjectURL(new Blob([pgn], { type: 'application/x-chess-pgn;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `web-chess-recovery-${new Date().toISOString().slice(0, 10)}.pgn`
+    document.body.append(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 0)
+  }, [mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
 
   const dismissAutoSaveRecovery = useCallback(() => {
     clearAutoSavedGame()
@@ -5994,6 +6011,11 @@ function App() {
           <span className="resize-pill horizontal" />
         </div>
       </section>
+
+      <div inert={backgroundUiHidden ? true : undefined} aria-hidden={backgroundUiHidden ? true : undefined}>
+        <AutoSaveStatus result={autoSaveResult} onDownload={downloadRecoveryPgn}
+          onRetry={() => setAutoSaveRetry(value => value + 1)} />
+      </div>
 
       <div
         className="main-container"
