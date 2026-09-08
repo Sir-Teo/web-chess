@@ -8,7 +8,7 @@
  * retrying IndexedDB for the rest of the session.
  */
 
-import { type LibraryGame, normalizeLibraryGames } from './gameLibrary'
+import { MAX_LIBRARY_GAMES, type LibraryGame, normalizeLibraryGames } from './gameLibrary'
 
 const DB_NAME = 'web-chess-library'
 const DB_VERSION = 1
@@ -86,6 +86,59 @@ async function saveToIndexedDb(games: LibraryGame[]): Promise<void> {
     store.clear()
     for (const game of games) store.put(game)
     await transactionDone(tx)
+  } finally {
+    db.close()
+  }
+}
+
+/** Apply only this tab's changes, preserving unrelated changes from other tabs.
+ * A deletion wins over a stale edit; edits to different fields can coexist.
+ */
+export function mergeLibraryChanges(current: LibraryGame[], before: LibraryGame[], after: LibraryGame[]): LibraryGame[] {
+  const previous = new Map(before.map(game => [game.id, game]))
+  const next = new Map(after.map(game => [game.id, game]))
+  const merged = current.filter(game => !previous.has(game.id) || next.has(game.id)).map(game => {
+    const old = previous.get(game.id)
+    const changed = next.get(game.id)
+    if (!old || !changed) return game
+    return {
+      ...game,
+      ...(changed.name !== old.name ? { name: changed.name } : {}),
+      ...(changed.favorite !== old.favorite ? { favorite: changed.favorite } : {}),
+      ...(changed.pgn !== old.pgn ? {
+        pgn: changed.pgn, metadata: changed.metadata, size: changed.size, moveCount: changed.moveCount,
+      } : {}),
+      updatedAt: Math.max(game.updatedAt, changed.updatedAt),
+    }
+  })
+  const ids = new Set(current.map(game => game.id))
+  const added = after.filter(game => !previous.has(game.id) && !ids.has(game.id))
+  // Never evict existing games when two tabs race for the final free slot.
+  return [...added.slice(0, Math.max(0, MAX_LIBRARY_GAMES - merged.length)), ...merged]
+}
+
+async function patchIndexedDb(before: LibraryGame[], after: LibraryGame[]): Promise<LibraryGame[]> {
+  const db = await openLibraryDb()
+  try {
+    const tx = db.transaction(GAME_STORE, 'readwrite')
+    const done = transactionDone(tx)
+    const store = tx.objectStore(GAME_STORE)
+    let result: LibraryGame[] = []
+    // Keep reads and writes in the same transaction. IndexedDB serializes
+    // overlapping readwrite transactions across tabs.
+    const request = store.getAll()
+    request.onsuccess = () => {
+      const current = normalizeLibraryGames(request.result)
+      result = mergeLibraryChanges(current, before, after)
+      const retained = new Set(result.map(game => game.id))
+      const existing = new Map(current.map(game => [game.id, game]))
+      for (const game of current) if (!retained.has(game.id)) store.delete(game.id)
+      for (const game of result) {
+        if (JSON.stringify(existing.get(game.id)) !== JSON.stringify(game)) store.put(game)
+      }
+    }
+    await done
+    return result
   } finally {
     db.close()
   }
@@ -231,4 +284,33 @@ export async function saveLibraryGames(games: LibraryGame[]): Promise<void> {
     indexedDbFailed = true
     saveFallback(normalized)
   }
+}
+
+/** Normal UI writes must supply their original snapshot, never replace the store. */
+export async function saveLibraryChanges(before: LibraryGame[], after: LibraryGame[]): Promise<LibraryGame[]> {
+  const normalized = normalizeLibraryGames(after)
+  let justFailed = false
+  if (getIndexedDb() && !indexedDbFailed) {
+    try {
+      return await patchIndexedDb(before, normalized)
+    } catch {
+      indexedDbFailed = true
+      justFailed = true
+    }
+  }
+  const write = () => {
+    const current = loadFallback()
+    // If IndexedDB has just failed, retain this tab's known games as well.
+    const ids = new Set(current.map(game => game.id))
+    const baseline = justFailed ? [...current, ...before.filter(game => !ids.has(game.id))] : current
+    const result = mergeLibraryChanges(baseline, before, normalized)
+    saveFallback(result)
+    return result
+  }
+  // localStorage has no transactions. Web Locks serialize its read/modify/write
+  // across tabs in browsers supporting the fallback's concurrency guarantee.
+  if (typeof navigator !== 'undefined' && navigator.locks) {
+    return navigator.locks.request('web-chess-library-write', write)
+  }
+  return write()
 }

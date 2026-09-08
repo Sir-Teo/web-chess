@@ -18,6 +18,7 @@ type Props = {
     open: boolean
     games: LibraryGame[]
     loaded: boolean
+    writeError?: string | null
     /** Empty when there is no game worth saving yet. */
     currentPgn: string
     suggestedName: string
@@ -69,6 +70,7 @@ export function LibraryDialog({
     open,
     games,
     loaded,
+    writeError,
     currentPgn,
     suggestedName,
     onClose,
@@ -352,8 +354,9 @@ export function LibraryDialog({
                             this tab closes. Export the library to keep them.
                         </p>
                     )}
+                    {writeError && <p className="dialog-error" role="alert">{writeError}</p>}
                     {error && <p className="dialog-error" role="alert">{error}</p>}
-                    {status && <p className="library-status" role="status">{status}</p>}
+                    {status && !writeError && <p className="library-status" role="status">{status}</p>}
                 </div>
 
                 <div className="dialog-actions">

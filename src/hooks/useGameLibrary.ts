@@ -15,7 +15,7 @@ import {
 } from '../engine/gameLibrary'
 import { libraryImportNote, pgnVariantName } from '../engine/gameLibrary'
 import { parsePgnMoveTree } from '../engine/pgn'
-import { loadLibraryGames, saveLibraryGames } from '../engine/gameLibraryStorage'
+import { loadLibraryGames, saveLibraryChanges } from '../engine/gameLibraryStorage'
 
 /**
  * `note` is for a write that succeeded but not entirely as asked -- a backup
@@ -37,6 +37,9 @@ export const LIBRARY_PGN_TOO_LONG_ERROR = 'That game is too long to save.'
 export function useGameLibrary() {
   const [games, setGames] = useState<LibraryGame[]>([])
   const [loaded, setLoaded] = useState(false)
+  const [writeError, setWriteError] = useState<string | null>(null)
+  const pendingWrites = useRef(Promise.resolve())
+  const writeVersion = useRef(0)
   // Writes are fire-and-forget, so keep the latest list for callers that fire
   // twice before React has re-rendered.
   const gamesRef = useRef<LibraryGame[]>([])
@@ -53,10 +56,26 @@ export function useGameLibrary() {
   }, [])
 
   const commit = useCallback((next: LibraryGame[]) => {
+    const before = gamesRef.current
+    const version = ++writeVersion.current
     const normalized = normalizeLibraryGames(next)
+    setWriteError(null)
     gamesRef.current = normalized
     setGames(normalized)
-    void saveLibraryGames(normalized)
+    pendingWrites.current = pendingWrites.current.then(async () => {
+      const stored = await saveLibraryChanges(before, normalized)
+      const storedIds = new Set(stored.map(game => game.id))
+      const beforeIds = new Set(before.map(game => game.id))
+      if (normalized.some(game => !beforeIds.has(game.id) && !storedIds.has(game.id))) {
+        setWriteError('Another tab filled the library. Some new games could not be saved. Export your current game before closing it.')
+      }
+      if (writeVersion.current === version) {
+        gamesRef.current = stored
+        setGames(stored)
+      }
+    }).catch(() => {
+      setWriteError('The library could not be saved. Export a backup before closing this tab.')
+    })
     return normalized
   }, [])
 
@@ -181,6 +200,7 @@ export function useGameLibrary() {
   return {
     games,
     loaded,
+    writeError,
     saveGame,
     importGames,
     renameGame,

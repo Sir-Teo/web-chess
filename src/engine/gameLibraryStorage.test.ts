@@ -4,6 +4,8 @@ import {
   LIBRARY_FALLBACK_STORAGE_KEY,
   libraryStorageIsDurable,
   loadLibraryGames,
+  mergeLibraryChanges,
+  saveLibraryChanges,
   resetLibraryStorageState,
   saveLibraryGames,
 } from './gameLibraryStorage'
@@ -310,5 +312,37 @@ describe('recovering games the fallback is still holding', () => {
 
     const loaded = await loadLibraryGames()
     expect(loaded.map(game => game.name)).toEqual(['Already there'])
+  })
+})
+
+
+describe('changes from stale library tabs', () => {
+  const a = createLibraryGame('A', PGN, 1, 'a')
+  const b = createLibraryGame('B', PGN, 2, 'b')
+
+  it('keeps additions made by both tabs', async () => {
+    stubLocalStorage()
+    await saveLibraryChanges([], [a])
+    await saveLibraryChanges([], [b])
+    expect((await loadLibraryGames()).map(game => game.id).sort()).toEqual(['a', 'b'])
+  })
+
+  it('merges independent fields on the same game', () => {
+    const current = [{ ...a, name: 'Renamed', updatedAt: 5 }]
+    expect(mergeLibraryChanges(current, [a], [{ ...a, favorite: true }])[0])
+      .toMatchObject({ name: 'Renamed', favorite: true, updatedAt: 5 })
+  })
+
+  it('does not resurrect deleted games through a stale edit or unrelated save', () => {
+    expect(mergeLibraryChanges([], [a], [{ ...a, name: 'Stale rename' }, b])).toEqual([b])
+  })
+
+  it('deletes only games the tab knew about', () => {
+    expect(mergeLibraryChanges([a, b], [a], [])).toEqual([b])
+  })
+
+  it('never evicts another game when concurrent additions reach the cap', () => {
+    const full = Array.from({ length: 500 }, (_, i) => ({ ...a, id: `saved-${i}` }))
+    expect(mergeLibraryChanges(full, [], [b])).toEqual(full)
   })
 })
