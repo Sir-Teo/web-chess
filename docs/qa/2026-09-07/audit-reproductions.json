@@ -1,0 +1,14 @@
+{
+  "backupChars": 8161664,
+  "originalGames": 17,
+  "restoredGames": 0,
+  "retainedComment": "My plan",
+  "crossTabNames": [
+    "From B"
+  ],
+  "repetition": {
+    "sameFen": true,
+    "first": true,
+    "second": false
+  }
+}

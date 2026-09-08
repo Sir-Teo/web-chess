@@ -2,6 +2,9 @@
 
 A browser chess app for playing, importing, and reviewing games with Stockfish-powered analysis.
 
+The [September 2026 audit](docs/audit-2026-09-08.md) records the latest fixes,
+real-engine performance measurements, browser QA, and prioritized beginner/pro study roadmap.
+
 ## Features
 
 ### Playing
