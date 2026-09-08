@@ -1143,3 +1143,44 @@ describe('splitting a database file into its games', () => {
     }
   })
 })
+
+
+describe('lossless study directives', () => {
+  it('retains drawings and unknown commands across repeated exports and variations', () => {
+    let text = '{ [%csl Ra1] } 1. e4 { [%cal Ge2e4] [%csl Ge4] [%vendor opaque] My plan } (1. d4 { [%cal Rd2d4] Alternative }) e5 *'
+    for (let round = 0; round < 3; round++) {
+      const parsed = parsePgnMoveTree(text)
+      expect(parsed.rootCommands).toEqual(['[%csl Ra1]'])
+      expect(parsed.moves[0].comment).toBe('My plan')
+      expect(parsed.moves[0].pgnCommands).toEqual(['[%cal Ge2e4]', '[%csl Ge4]', '[%vendor opaque]'])
+      expect(parsed.moves[1].pgnCommands).toEqual(['[%cal Rd2d4]'])
+      const root = makeNode('root', parsed.rootFen, null, null, [], undefined, { pgnCommands: parsed.rootCommands })
+      const nodes = new Map<string, GameNode>([[root.id, root]])
+      const append = (entries: typeof parsed.moves, parent: GameNode) => {
+        for (const entry of entries) {
+          const node = makeNode(`n${nodes.size}`, entry.fen, entry.move, parent.id, [], undefined, {
+            comment: entry.comment, pgnCommands: entry.pgnCommands,
+          })
+          nodes.set(node.id, node)
+          parent.children.push(node.id)
+          append(entry.children ?? [], node)
+        }
+      }
+      append(parsed.moves, root)
+      const line = [root]
+      while (line.at(-1)!.children.length) line.push(nodes.get(line.at(-1)!.children[0])!)
+      text = exportAnnotatedPgn(line, parsed.evaluations, parsed.headers, nodes)
+      expect(text.match(/\[%vendor opaque\]/g)).toHaveLength(1)
+      const withoutComments = exportAnnotatedPgn(line, parsed.evaluations, {}, nodes, { includeComments: false })
+      expect(withoutComments).not.toContain('[%cal')
+      expect(withoutComments).not.toContain('[%csl')
+      expect(withoutComments).not.toContain('[%vendor')
+    }
+  })
+
+  it('keeps recognized engine and clock tags in their existing typed fields', () => {
+    const entry = parsePgnMoveTree('1. e4 { [%eval 0.2] [%clk 0:03:00] [%wcbest e7e5] [%cal Ge2e4] } *').moves[0]
+    expect(entry.clockMs).toBe(180000)
+    expect(entry.pgnCommands).toEqual(['[%cal Ge2e4]'])
+  })
+})

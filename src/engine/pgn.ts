@@ -324,6 +324,18 @@ function isGeneratedCommentPart(part: string): boolean {
     return GENERATED_COMMENT_PATTERNS.some(pattern => pattern.test(part))
 }
 
+/** Keep study drawings and extension tags separate from editable prose. */
+function preservedPgnCommands(comment: string | undefined): string[] | undefined {
+    const commands = (comment?.match(PGN_COMMAND_PATTERN) ?? [])
+        .filter(command => !/^\[%(?:eval|clk|wcbest)\s/i.test(command))
+    return commands.length ? commands : undefined
+}
+
+function exportPgnCommands(commands: string[] | undefined): string[] {
+    // Comments cannot contain braces, even for unrecognised third-party tags.
+    return (commands ?? []).map(command => sanitizePgnCommentText(command)).filter((command): command is string => !!command)
+}
+
 function humanCommentFromPgnComment(comment: string | undefined): string | undefined {
     if (!comment) return undefined
 
@@ -448,6 +460,7 @@ function rootCommentForExport(
 
     const preserved = options.includeComments ? sanitizePgnCommentText(root?.comment) : undefined
     if (preserved) parts.push(preserved)
+    if (options.includeComments) parts.push(...exportPgnCommands(root?.pgnCommands))
 
     return parts.length ? `{ ${parts.join('; ')} }` : null
 }
@@ -475,6 +488,8 @@ function commentForNode(
     if (options.includeComments && preservedComment) {
         commentParts.push(preservedComment)
     }
+
+    if (options.includeComments) commentParts.push(...exportPgnCommands(node.pgnCommands))
 
     const beforeEvaluation = evaluationsByFen.get(parentFen)
     if (options.includeEngineAnnotations && beforeEvaluation?.bestMove && beforeEvaluation.bestMove !== node.uci) {
@@ -562,26 +577,29 @@ export function rootFenFromPgnHeaders(headers: Record<string, string>): string {
 type FirstMoveNode = {
     node: ParsedPgnNode
     leadingComment?: string
+    leadingCommands?: string[]
 }
 
 function joinPgnComments(parts: Array<string | undefined>): string | undefined {
     return sanitizePgnCommentText(parts.filter(Boolean).join('; '))
 }
 
-function firstMoveNode(node: ParsedPgnNode, leadingComment?: string): FirstMoveNode | null {
+function firstMoveNode(node: ParsedPgnNode, leadingComment?: string, leadingCommands: string[] = []): FirstMoveNode | null {
     const nextLeadingComment = !node.move
         ? joinPgnComments([leadingComment, humanCommentFromPgnComment(node.comment)])
         : leadingComment
 
+    const commands = node.move ? leadingCommands : [...leadingCommands, ...(preservedPgnCommands(node.comment) ?? [])]
     if (node.move) {
         return {
             node,
+            leadingCommands: commands,
             leadingComment: nextLeadingComment,
         }
     }
 
     for (const variation of node.variations) {
-        const child = firstMoveNode(variation, nextLeadingComment)
+        const child = firstMoveNode(variation, nextLeadingComment, commands)
         if (child) return child
     }
     return null
@@ -611,6 +629,7 @@ function buildImportEntry(
         move,
         fen: nextPosition.fen(),
         comment: joinPgnComments([first.leadingComment, humanCommentFromPgnComment(moveNode.comment)]),
+        pgnCommands: [...(first.leadingCommands ?? []), ...(preservedPgnCommands(moveNode.comment) ?? [])],
         clockMs: clockMsFromComment(moveNode.comment),
         suffix: normalizePgnSuffix(moveNode.suffix),
         nags: normalizePgnNags(moveNode.nag),
@@ -679,6 +698,7 @@ export function reorderPgnAnnotations(pgnText: string): string {
 export function parsePgnMoveTree(pgnText: string): {
     headers: Record<string, string>
     rootFen: string
+    rootCommands?: string[]
     moves: GameTreeImportEntry[]
     evaluations: Map<string, EvalSnapshot>
     result?: string
@@ -710,6 +730,7 @@ export function parsePgnMoveTree(pgnText: string): {
     return {
         headers,
         rootFen,
+        rootCommands: preservedPgnCommands(parsed.root.comment),
         moves,
         evaluations,
         result: parsed.result,

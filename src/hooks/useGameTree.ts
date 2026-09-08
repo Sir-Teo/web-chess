@@ -19,6 +19,8 @@ export type GameNode = {
     parent: string | null
     children: string[]
     comment?: string
+    /** Imported PGN directives not interpreted by the engine (arrows, squares, extensions). */
+    pgnCommands?: string[]
     suffix?: string
     nags?: string[]
     quality?: ReviewLabel
@@ -36,6 +38,8 @@ export type GameTreeImportEntry = {
     move: Move
     fen: string
     comment?: string
+    /** Imported PGN directives not interpreted by the engine (arrows, squares, extensions). */
+    pgnCommands?: string[]
     suffix?: string
     nags?: string[]
     clockMs?: number
@@ -213,6 +217,7 @@ export function useGameTree(startFen?: string) {
                 parent: parent.id,
                 children: [],
                 comment: entry.comment,
+                pgnCommands: entry.pgnCommands,
                 suffix: entry.suffix,
                 nags: entry.nags,
                 clockMs: entry.clockMs,
@@ -227,9 +232,10 @@ export function useGameTree(startFen?: string) {
         return parent.id
     }, [publishTree])
 
-    const loadTree = useCallback((entries: GameTreeImportEntry[], startFen?: string): string => {
+    const loadTree = useCallback((entries: GameTreeImportEntry[], startFen?: string, rootCommands?: string[]): string => {
         const nextTree = makeTree(startFen)
         const root = nextTree.nodes.get(nextTree.rootId)!
+        root.pgnCommands = rootCommands
 
         const appendEntries = (parent: GameNode, childEntries: GameTreeImportEntry[]): GameNode | null => {
             let firstLineLeaf: GameNode | null = null
@@ -245,6 +251,7 @@ export function useGameTree(startFen?: string) {
                     parent: parent.id,
                     children: [],
                     comment: entry.comment,
+                    pgnCommands: entry.pgnCommands,
                     suffix: entry.suffix,
                     nags: entry.nags,
                     clockMs: entry.clockMs,

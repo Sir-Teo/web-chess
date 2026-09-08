@@ -4114,7 +4114,7 @@ function App() {
       setPgnHeaders(importedGame.headers)
 
       const mainLineEntries = flattenPgnMainLine(importedGame.moves)
-      gameTree.loadTree(importedGame.moves, rootFen)
+      gameTree.loadTree(importedGame.moves, rootFen, importedGame.rootCommands)
 
       const finalFen = mainLineEntries.at(-1)?.fen ?? rootFen
       game.load(finalFen)

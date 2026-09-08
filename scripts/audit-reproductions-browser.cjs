@@ -38,6 +38,7 @@ async function main() {
         backupChars: backups.reduce((sum, part) => sum + part.length, 0), backupParts: backups.length, originalGames: games.length,
         restoredGames: backups.flatMap(part => lib.parseLibraryBackup(part)).length,
         retainedComment: annotated.moves[0]?.comment,
+        retainedCommands: annotated.moves[0]?.pgnCommands,
       }
     })
     const repeated = new Chess()
