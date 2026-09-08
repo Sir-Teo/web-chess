@@ -69,5 +69,7 @@ describe('formatMoveTime', () => {
     expect(formatMoveTime(14.6)).toBe('15s')
     expect(formatMoveTime(65)).toBe('1:05')
     expect(formatMoveTime(760)).toBe('12:40')
+    expect(formatMoveTime(119.9)).toBe('2:00')
+    expect(formatMoveTime(3599.5)).toBe('60:00')
   })
 })

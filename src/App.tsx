@@ -81,6 +81,7 @@ import {
 } from './engine/autoSave'
 import { AutoSaveRecoveryDialog } from './components/AutoSaveRecoveryDialog'
 import { AutoSaveStatus } from './components/AutoSaveStatus'
+import { AnalysisGuide } from './components/AnalysisGuide'
 import { type LibraryWriteResult, useGameLibrary } from './hooks/useGameLibrary'
 import { FEN_PARSE_ERROR, validateFenForAnalysis } from './engine/fen'
 import { buildImportSweepTargets, countImportSweepCandidates, type ImportSweepTarget } from './engine/importSweep'
@@ -6594,6 +6595,7 @@ function App() {
                 <MoveEntry fen={fen} disabled={Boolean(pendingPromotion)}
                   onMove={move => applyHumanMove(move.from, move.to, move.promotion as PromotionPiece | undefined)} />
               )}
+              {workspaceMode === 'analysis' && analysisExperience === 'beginner' && analysisTab === 'analyze' && <AnalysisGuide />}
               {workspaceMode === 'play' && (
                 <>
                   {/* The end of a game is where "how did I do?" gets asked, and

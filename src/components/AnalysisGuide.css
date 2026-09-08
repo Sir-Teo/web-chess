@@ -1,0 +1,24 @@
+.analysis-guide {
+  margin: 0.5rem 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.analysis-guide summary {
+  padding: 0.7rem;
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.analysis-guide > div {
+  padding: 0 0.7rem 0.7rem;
+}
+
+.analysis-guide p {
+  margin: 0.65rem 0 0;
+}

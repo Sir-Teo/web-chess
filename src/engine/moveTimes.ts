@@ -85,7 +85,8 @@ export function buildMoveTimeSeries(nodes: GameNode[], control: TimeControl | nu
 export function formatMoveTime(seconds: number): string {
   const safe = Number.isFinite(seconds) ? Math.max(0, seconds) : 0
   if (safe < 60) return `${safe < 10 ? safe.toFixed(1) : Math.round(safe)}s`
-  const minutes = Math.floor(safe / 60)
-  const rest = Math.round(safe % 60)
+  const rounded = Math.round(safe)
+  const minutes = Math.floor(rounded / 60)
+  const rest = rounded % 60
   return `${minutes}:${String(rest).padStart(2, '0')}`
 }
