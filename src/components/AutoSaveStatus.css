@@ -17,4 +17,20 @@
 
 .autosave-warning button {
   min-height: 44px;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.autosave-warning button:hover {
+  background: var(--bg-card-hover);
+}
+
+.autosave-warning button:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
 }

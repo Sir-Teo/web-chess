@@ -528,7 +528,7 @@ async function checkEngineStartupTimeout(browser) {
 }
 
 async function checkAutosaveFailure(browser) {
-  for (const width of [1280, 375]) {
+  for (const [width, theme] of [[1280, 'Dark'], [375, 'Dark'], [1280, 'Light'], [375, 'Light']]) {
     const context = await browser.newContext({ viewport: { width, height: 812 } })
     const page = await context.newPage()
     try {
@@ -544,6 +544,9 @@ async function checkAutosaveFailure(browser) {
         }
       })
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await openSettings(page)
+      await chooseTheme(page, theme)
+      await closeSettings(page)
       await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
       await page.locator('.move-entry summary').click()
       const input = page.locator('.move-entry input')
@@ -557,12 +560,13 @@ async function checkAutosaveFailure(browser) {
       const pgn = fs.readFileSync(await download.path(), 'utf8')
       assert(pgn.includes('1. e4'), 'recovery download omitted the move that could not be saved')
       assert(await page.locator('.autosave-warning').isVisible(), 'download falsely cleared the storage warning')
+      await assertContrast(page, `${theme} / recovery warning / ${width}px`, 15)
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'recovery warning overflows')
       await page.evaluate(() => { window.__denyAutosave = false })
       await page.getByRole('button', { name: 'Retry autosave' }).click()
       await page.locator('.autosave-warning').waitFor({ state: 'detached' })
       assert(await page.evaluate(() => JSON.parse(localStorage.getItem('webchess:auto-saved-game:v1')).pgn.includes('1. e4')), 'retry did not persist the game')
-      console.log(`  autosave (${width}px): denied storage is visible, PGN downloads, retry recovers`)
+      console.log(`  autosave (${width}px, ${theme}): denied storage is visible, PGN downloads, retry recovers`)
     } finally { await context.close() }
   }
 }
