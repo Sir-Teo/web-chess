@@ -6,6 +6,7 @@ import type { EngineProfile } from './profiles'
 import { createStockfishWorker } from './stockfishWorker'
 import { buildPositionCommand } from './uci'
 import { splitReviewQueue, type ReviewPoolPlan } from './reviewPool'
+import { engineStartupTimeoutMs } from './engineStartup'
 
 /**
  * Running a game review across several engines at once.
@@ -21,8 +22,6 @@ import { splitReviewQueue, type ReviewPoolPlan } from './reviewPool'
  * `splitReviewQueue` preserves inside each block, for the transposition table.
  */
 
-/** How long to wait for one engine to answer `uci` and `isready` before giving up. */
-const BOOT_TIMEOUT_MS = 20_000
 /** A single depth-16 search is well under a second; this is a stuck engine, not a slow one. */
 const SEARCH_TIMEOUT_MS = 60_000
 
@@ -211,7 +210,7 @@ export function runReviewPool(input: {
     if (cancelled) { engine.terminate(); return }
 
     engine.send('uci')
-    await engine.await(line => line === 'uciok', BOOT_TIMEOUT_MS, 'uciok')
+    await engine.await(line => line === 'uciok', engineStartupTimeoutMs(input.profile), 'uciok')
     engine.send(`setoption name Threads value ${input.plan.threadsPerWorker}`)
     engine.send(`setoption name Hash value ${input.plan.hashMbPerWorker}`)
     engine.send('setoption name MultiPV value 1')
@@ -221,7 +220,7 @@ export function runReviewPool(input: {
     // answers. The same hang `useStockfishEngine` documents.
     engine.lines.length = 0
     engine.send('isready')
-    await engine.await(line => line === 'readyok', BOOT_TIMEOUT_MS, 'readyok')
+    await engine.await(line => line === 'readyok', engineStartupTimeoutMs(input.profile), 'readyok')
 
     for (const target of block) {
       if (cancelled) return

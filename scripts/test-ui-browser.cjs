@@ -97,6 +97,11 @@ const SCENARIO = ${JSON.stringify(scenario)};
   // where the device can afford them, and this is how the suite can say which
   // path it actually exercised rather than assuming.
   window.__engineCount = 0;
+  window.__terminatedEngines = 0;
+  if (SCENARIO.startsWith('silent-')) {
+    const nativeTimeout = window.setTimeout;
+    window.setTimeout = (callback, delay, ...args) => nativeTimeout(callback, delay === 30000 ? 300 : delay, ...args);
+  }
   // How many times each position has been searched, across every worker.
   window.__fenSearches = {};
 
@@ -110,6 +115,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
   class FakeStockfish {
     constructor() {
       window.__engineCount += 1;
+      this.ordinal = window.__engineCount;
       this.onmessage = null;
       this.onerror = null;
       this.listeners = [];
@@ -201,6 +207,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
     postMessage(command) {
       const text = String(command);
       window.__uciCommands.push(text);
+      if (SCENARIO === 'silent-all' || (SCENARIO === 'silent-first' && this.ordinal === 1)) return;
       if (text === 'uci') {
         this.send('id name Fake Stockfish');
         this.send('option name Threads type spin default 1 min 1 max 8');
@@ -226,6 +233,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
       if (text === 'stop') { this.finishSearch(); return; }
     }
     terminate() {
+      window.__terminatedEngines += 1;
       if (this.finishTimer) clearTimeout(this.finishTimer);
       this.listeners.length = 0;
     }
@@ -473,6 +481,43 @@ async function checkTypedMoveEntry(browser) {
       await assertContrast(page, `${theme} / expanded move entry / ${width}px`, 15)
       console.log(`  typed moves (${width}px, ${theme}): SAN, UCI, invalid input, focus and navigation OK`)
     } finally { await context.close() }
+  }
+}
+
+async function checkEngineStartupTimeout(browser) {
+  for (const mode of ['analysis', 'play']) {
+    for (const scenario of ['silent-first', 'silent-all']) {
+      const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+      const page = await context.newPage()
+      try {
+        await page.addInitScript(fakeEngineScript(scenario))
+        await page.addInitScript(() => {
+          Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 })
+          Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 })
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ engineProfile: 'lite-multi-local' }))
+        })
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        if (mode === 'analysis') {
+          await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+        } else {
+          await page.getByRole('button', { name: 'Human vs AI', exact: true }).click()
+        }
+        if (scenario === 'silent-first') {
+          await page.waitForFunction(() => window.__engineCount >= 2 && window.__uciCommands.includes('isready'))
+          await page.waitForFunction(() => document.querySelector('.bottom-status-row .status.ready, .bottom-status-row .status.analyzing'))
+          // The fallback's own watchdog must be cleared once it answers.
+          await page.waitForTimeout(400)
+          assert(await page.locator('.bottom-status-row .status.ready, .bottom-status-row .status.analyzing').count() === 1, 'ready fallback was later killed by its startup timer')
+          assert(await page.evaluate(() => window.__terminatedEngines >= 1), 'timed-out worker was not terminated')
+          assert(!await page.locator('.engine-error-copy').count(), 'successful fallback left an engine error')
+        } else {
+          const error = mode === 'analysis' ? page.locator('.engine-error-copy') : page.locator('#analysis-panel [role="alert"]')
+          await error.waitFor()
+          assert((await error.innerText()).length > 20, 'startup failure has no explanation')
+        }
+        console.log(`  startup (${mode}, ${scenario}): ${scenario === 'silent-first' ? 'fallback answered' : 'failure is visible'}`)
+      } finally { await context.close() }
+    }
   }
 }
 
@@ -1574,6 +1619,19 @@ async function main() {
   try {
     await waitForHttp(BASE, 30000)
     browser = await chromium.launch()
+    const focusedChecks = {
+      startup: checkEngineStartupTimeout,
+      autosave: checkAutosaveFailure,
+      resources: checkSingleThreadReviewPool,
+      continuous: checkKeepSearchingIsUnbounded,
+    }
+    if (process.env.UI_TEST_ONLY) {
+      const check = focusedChecks[process.env.UI_TEST_ONLY]
+      if (!check) throw new Error(`Unknown UI_TEST_ONLY: ${process.env.UI_TEST_ONLY}`)
+      await check(browser)
+      console.log('Focused browser UI checks passed.')
+      return
+    }
 
     const scenario = 'normal'
     // Landscape phone is included because it is the size layouts break at and
@@ -2079,6 +2137,7 @@ async function main() {
 
     await checkTypedMoveEntry(browser)
     await checkAutosaveFailure(browser)
+    await checkEngineStartupTimeout(browser)
     await checkSingleThreadReviewPool(browser)
     await checkCoachUsesPositionScore(browser)
     await checkBoundedScoreIsIgnored(browser)
@@ -2116,7 +2175,7 @@ async function main() {
 main().then(
   () => process.exit(0),
   error => {
-    console.error(error.message)
+    console.error(error.stack || error.message)
     process.exit(1)
   },
 )

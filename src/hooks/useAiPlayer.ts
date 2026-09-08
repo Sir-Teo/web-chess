@@ -8,6 +8,7 @@ import {
     type EngineProfile,
 } from '../engine/profiles'
 import { createStockfishWorker } from '../engine/stockfishWorker'
+import { engineStartupTimeoutMs } from '../engine/engineStartup'
 import {
     fetchTablebase,
     isTablebaseEligible,
@@ -480,6 +481,7 @@ export function useAiPlayer(enabled = true) {
         })
 
         const failWorker = () => {
+            clearTimeout(startupTimer)
             isReadyRef.current = false
             ignoredBestMoveCountRef.current = 0
             cancelTablebaseRequest()
@@ -501,7 +503,7 @@ export function useAiPlayer(enabled = true) {
         }
 
         worker.onmessage = (event: MessageEvent<unknown>) => {
-            if (!active) return
+            if (!active || workerRef.current !== worker) return
             if (typeof event.data !== 'string') return
             const lines = event.data.split(/\r?\n/g).map(line => line.trim()).filter(Boolean)
 
@@ -522,6 +524,7 @@ export function useAiPlayer(enabled = true) {
                     // from what it was actually sent.
                     applyStrength(worker, difficultyRef.current, profile, capabilities)
                     if (awaitingReadyRef.current > 0) continue
+                    clearTimeout(startupTimer)
                     isReadyRef.current = true
                     setStatus('ready')
                     releaseReadyWaiters()
@@ -569,10 +572,14 @@ export function useAiPlayer(enabled = true) {
             failWorker()
         }
 
+        const startupTimer = setTimeout(() => {
+            if (active && workerRef.current === worker) failWorker()
+        }, engineStartupTimeoutMs(profile))
         worker.postMessage('uci')
 
         return () => {
             active = false
+            clearTimeout(startupTimer)
             try { worker?.postMessage('quit') } catch { /* already gone */ }
             worker?.terminate()
             workerRef.current = null

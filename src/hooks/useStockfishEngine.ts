@@ -9,6 +9,7 @@ import {
   type EngineProfileId,
 } from '../engine/profiles'
 import { createStockfishWorker } from '../engine/stockfishWorker'
+import { engineStartupTimeoutMs } from '../engine/engineStartup'
 import { buildAnalyzeCommand, buildNewGameCommands, changedSetOptions, engineOptionValueToString, optionKey, parseBestMoveLine, parseSetOptionCommand, type AnalyzeMode, type AnalyzePurpose, type AnalyzeRequest, type UciGoLimits } from '../engine/uci'
 import { engineBootFailureMessage } from '../engine/engineBootError'
 import { withBoundedMapEntry } from './cacheLimit'
@@ -873,6 +874,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     }
 
     const failWorker = (reason: string, queueMessage: string) => {
+      clearTimeout(startupTimer)
       isReadyRef.current = false
       isSearchingRef.current = false
       stopRequestedRef.current = false
@@ -943,7 +945,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     })
 
     worker.onmessage = (event: MessageEvent<unknown>) => {
-      if (currentSession !== bootSessionRef.current) return
+      if (currentSession !== bootSessionRef.current || workerRef.current !== worker) return
       if (typeof event.data !== 'string') return
       const lines = normalizeWorkerLines(event.data)
       for (const line of lines) {
@@ -977,6 +979,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         }
 
         if (line === 'readyok') {
+          clearTimeout(startupTimer)
           isReadyRef.current = true
           // A default, applied once per worker; see shouldApplyRecommendedThreads.
           if (shouldApplyRecommendedThreads(
@@ -1072,9 +1075,17 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       )
     }
 
+    const startupTimer = setTimeout(() => {
+      if (currentSession !== bootSessionRef.current || workerRef.current !== worker) return
+      failWorker(
+        `${profile.name} did not finish starting. Check your connection or reload to retry.`,
+        'Engine startup timed out.',
+      )
+    }, engineStartupTimeoutMs(profile))
     send('uci')
 
     return () => {
+      clearTimeout(startupTimer)
       try {
         worker.postMessage('quit')
       } catch {
