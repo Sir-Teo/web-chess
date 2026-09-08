@@ -6,6 +6,8 @@ import {
   backupMergeNote,
   countPgnMoves,
   createLibraryBackup,
+  createLibraryBackupParts,
+  MAX_LIBRARY_BACKUP_LENGTH,
   createLibraryGame,
   createLibraryPgn,
   extractLibraryMetadata,
@@ -501,5 +503,27 @@ describe('libraryImportNote with variants', () => {
   it('is unchanged when nothing was skipped', () => {
     expect(libraryImportNote({ added: 3, unreadable: 0, omitted: 0, variants: {} }))
       .toBe('Added 3 games to the library.')
+  })
+})
+
+
+describe('multipart library backups', () => {
+  it('round-trips the formerly rejected 17-game annotated library', () => {
+    const pgn = '1. e4 { ' + 'a'.repeat(480_000) + ' } *'
+    const games = Array.from({ length: 17 }, (_, i) => createLibraryGame(`Game ${i}`, pgn, 1, `g${i}`))
+    const parts = createLibraryBackupParts(games)
+    expect(parts).toHaveLength(2)
+    expect(parts.every(part => part.length <= MAX_LIBRARY_BACKUP_LENGTH)).toBe(true)
+    expect(parts.flatMap(part => parseLibraryBackup(part))).toEqual(games)
+    expect(() => createLibraryBackup(games)).toThrow('multipart')
+  })
+
+  it('counts JSON escaping and retains all 500 games', () => {
+    const pgn = '1. e4 { ' + '\n\t"\\♞'.repeat(3000) + ' } *'
+    const games = Array.from({ length: 500 }, (_, i) => createLibraryGame(`Game ${i}`, pgn, 1, `g${i}`))
+    const parts = createLibraryBackupParts(games)
+    expect(parts.length).toBeGreaterThan(1)
+    expect(parts.every(part => part.length <= MAX_LIBRARY_BACKUP_LENGTH)).toBe(true)
+    expect(parts.flatMap(part => parseLibraryBackup(part))).toEqual(games)
   })
 })

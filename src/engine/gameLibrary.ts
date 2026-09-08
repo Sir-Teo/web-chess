@@ -450,19 +450,39 @@ export function createLibraryPgn(games: LibraryGame[]): string {
   return text ? `${text}\n` : ''
 }
 
+function backupRecord({ id, name, pgn, createdAt, updatedAt, favorite }: LibraryGame) {
+  return { id, name, pgn, createdAt, updatedAt, favorite }
+}
+
+/** Each part is an ordinary backup, independently importable in any order. */
+export function createLibraryBackupParts(games: LibraryGame[]): string[] {
+  const prefix = `{"format":"${LIBRARY_BACKUP_FORMAT}","version":${LIBRARY_BACKUP_VERSION},"games":[`
+  const suffix = ']}'
+  const parts: string[] = []
+  let records: string[] = []
+  let length = prefix.length + suffix.length
+  for (const game of games) {
+    const record = JSON.stringify(backupRecord(game))
+    if (prefix.length + record.length + suffix.length > MAX_LIBRARY_BACKUP_LENGTH) {
+      throw new Error('A game is too large for a library backup.')
+    }
+    const size = record.length + (records.length ? 1 : 0)
+    if (length + size > MAX_LIBRARY_BACKUP_LENGTH) {
+      parts.push(prefix + records.join(',') + suffix)
+      records = []
+      length = prefix.length + suffix.length
+    }
+    length += record.length + (records.length ? 1 : 0)
+    records.push(record)
+  }
+  if (records.length || !parts.length) parts.push(prefix + records.join(',') + suffix)
+  return parts
+}
+
 export function createLibraryBackup(games: LibraryGame[]): string {
-  return JSON.stringify({
-    format: LIBRARY_BACKUP_FORMAT,
-    version: LIBRARY_BACKUP_VERSION,
-    games: games.map(({ id, name, pgn, createdAt, updatedAt, favorite }) => ({
-      id,
-      name,
-      pgn,
-      createdAt,
-      updatedAt,
-      favorite,
-    })),
-  })
+  const parts = createLibraryBackupParts(games)
+  if (parts.length > 1) throw new Error('This library needs a multipart backup. Use createLibraryBackupParts.')
+  return parts[0]
 }
 
 export function parseLibraryBackup(json: string, now = 0): LibraryGame[] {

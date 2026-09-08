@@ -6494,6 +6494,7 @@ function App() {
               games={library.games}
               loaded={library.loaded}
               writeError={library.writeError}
+              saving={library.saving}
               currentPgn={libraryPgn}
               suggestedName={librarySuggestedName}
               onClose={closeLibraryDialog}

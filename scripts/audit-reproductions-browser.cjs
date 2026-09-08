@@ -20,10 +20,10 @@ async function main() {
       window.auditSnapshot = await window.auditStore.loadLibraryGames()
     }
     await Promise.all([a.evaluate(setup), b.evaluate(setup)])
-    await a.evaluate(async () => window.auditStore.saveLibraryGames([
+    await a.evaluate(async () => window.auditStore.saveLibraryChanges(window.auditSnapshot, [
       ...window.auditSnapshot, window.auditLibrary.createLibraryGame('From A', '1. e4 *', 1, 'a'),
     ]))
-    await b.evaluate(async () => window.auditStore.saveLibraryGames([
+    await b.evaluate(async () => window.auditStore.saveLibraryChanges(window.auditSnapshot, [
       ...window.auditSnapshot, window.auditLibrary.createLibraryGame('From B', '1. d4 *', 2, 'b'),
     ]))
     const crossTabNames = await a.evaluate(async () => (await window.auditStore.loadLibraryGames()).map(game => game.name))
@@ -32,11 +32,11 @@ async function main() {
       const pgn = await import(new URL('src/engine/pgn.ts', location.href).href)
       const game = '1. e4 { ' + 'a'.repeat(480000) + ' } *'
       const games = Array.from({ length: 17 }, (_, i) => lib.createLibraryGame('Game ' + i, game, 1, 'g' + i))
-      const backup = lib.createLibraryBackup(games)
+      const backups = lib.createLibraryBackupParts(games)
       const annotated = pgn.parsePgnMoveTree('1. e4 { [%cal Ge2e4] [%csl Ge4] My plan } *')
       return {
-        backupChars: backup.length, originalGames: games.length,
-        restoredGames: lib.parseLibraryBackup(backup).length,
+        backupChars: backups.reduce((sum, part) => sum + part.length, 0), backupParts: backups.length, originalGames: games.length,
+        restoredGames: backups.flatMap(part => lib.parseLibraryBackup(part)).length,
         retainedComment: annotated.moves[0]?.comment,
       }
     })

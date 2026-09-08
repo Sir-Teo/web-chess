@@ -3,7 +3,7 @@ import {
   MAX_LIBRARY_GAMES,
   MAX_LIBRARY_PGN_LENGTH,
   type LibraryGame,
-  createLibraryBackup,
+  createLibraryBackupParts,
   backupMergeNote,
   createLibraryGame,
   createLibraryPgn,
@@ -37,6 +37,7 @@ export const LIBRARY_PGN_TOO_LONG_ERROR = 'That game is too long to save.'
 export function useGameLibrary() {
   const [games, setGames] = useState<LibraryGame[]>([])
   const [loaded, setLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [writeError, setWriteError] = useState<string | null>(null)
   const pendingWrites = useRef(Promise.resolve())
   const writeVersion = useRef(0)
@@ -60,6 +61,7 @@ export function useGameLibrary() {
     const version = ++writeVersion.current
     const normalized = normalizeLibraryGames(next)
     setWriteError(null)
+    setSaving(true)
     gamesRef.current = normalized
     setGames(normalized)
     pendingWrites.current = pendingWrites.current.then(async () => {
@@ -75,6 +77,8 @@ export function useGameLibrary() {
       }
     }).catch(() => {
       setWriteError('The library could not be saved. Export a backup before closing this tab.')
+    }).finally(() => {
+      if (writeVersion.current === version) setSaving(false)
     })
     return normalized
   }, [])
@@ -114,7 +118,7 @@ export function useGameLibrary() {
 
   const clearLibrary = useCallback(() => { commit([]) }, [commit])
 
-  const exportBackup = useCallback(() => createLibraryBackup(gamesRef.current), [])
+  const exportBackup = useCallback(() => createLibraryBackupParts(gamesRef.current), [])
 
   /** The same games as a PGN database, which every other chess program reads. */
   const exportPgn = useCallback(() => createLibraryPgn(gamesRef.current), [])
@@ -201,6 +205,7 @@ export function useGameLibrary() {
     games,
     loaded,
     writeError,
+    saving,
     saveGame,
     importGames,
     renameGame,

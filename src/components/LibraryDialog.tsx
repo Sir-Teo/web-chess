@@ -19,6 +19,7 @@ type Props = {
     games: LibraryGame[]
     loaded: boolean
     writeError?: string | null
+    saving?: boolean
     /** Empty when there is no game worth saving yet. */
     currentPgn: string
     suggestedName: string
@@ -29,7 +30,7 @@ type Props = {
     onRename: (id: string, name: string) => void
     onDelete: (id: string) => void
     onToggleFavorite: (id: string) => void
-    onExportBackup: () => string
+    onExportBackup: () => string | string[]
     /**
      * The library as a PGN database. The backup is JSON and only this app
      * reads it; a PGN opens anywhere.
@@ -71,6 +72,7 @@ export function LibraryDialog({
     games,
     loaded,
     writeError,
+    saving = false,
     currentPgn,
     suggestedName,
     onClose,
@@ -89,6 +91,8 @@ export function LibraryDialog({
     const [sort, setSort] = useState<LibrarySort>('recent')
     const [error, setError] = useState<string | null>(null)
     const [status, setStatus] = useState<string | null>(null)
+    const [backupParts, setBackupParts] = useState<string[]>([])
+    const [downloadedParts, setDownloadedParts] = useState<number[]>([])
     const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null)
     const [visibleLimit, setVisibleLimit] = useState(PAGE_SIZE)
     const panelRef = useRef<HTMLDivElement>(null)
@@ -168,9 +172,22 @@ export function LibraryDialog({
     }
 
     const handleExport = () => {
-        download(onExportBackup(), `web-chess-library-${today()}.json`, 'application/json')
-        setError(null)
-        setStatus(`Exported ${stats.count} ${stats.count === 1 ? 'game' : 'games'}.`)
+        try {
+            const result = onExportBackup()
+            const parts = typeof result === 'string' ? [result] : result
+            setDownloadedParts([])
+            setBackupParts(parts.length > 1 ? parts : [])
+            if (parts.length === 1) {
+                download(parts[0], `web-chess-library-${today()}.json`, 'application/json')
+            }
+            setError(null)
+            setStatus(parts.length > 1
+                ? `Your library needs ${parts.length} backup files. Download every part below. To restore the full library, import each part.`
+                : `Exported ${stats.count} ${stats.count === 1 ? 'game' : 'games'}.`)
+        } catch {
+            setStatus(null)
+            setError('The backup could not be prepared. Export PGN to keep a copy of your games.')
+        }
     }
 
     const handleImportFile = async (file: File | undefined) => {
@@ -356,7 +373,21 @@ export function LibraryDialog({
                     )}
                     {writeError && <p className="dialog-error" role="alert">{writeError}</p>}
                     {error && <p className="dialog-error" role="alert">{error}</p>}
-                    {status && !writeError && <p className="library-status" role="status">{status}</p>}
+                    {saving && <p className="library-status" role="status">Saving library changes…</p>}
+                    {status && !writeError && !saving && <p className="library-status" role="status">{status}</p>}
+                    {backupParts.length > 0 && (
+                        <div className="library-backup-parts" aria-label="Backup files">
+                            {backupParts.map((part, index) => (
+                                <button type="button" className="btn-cancel" key={index} onClick={() => {
+                                    download(part, `web-chess-library-${today()}-part-${index + 1}-of-${backupParts.length}.json`, 'application/json')
+                                    setDownloadedParts(previous => previous.includes(index) ? previous : [...previous, index])
+                                }}>
+                                    <IconDownload /> {downloadedParts.includes(index) ? 'Download again' : 'Download'} part {index + 1} of {backupParts.length}
+                                </button>
+                            ))}
+                            <p className="library-hint">{downloadedParts.length} of {backupParts.length} downloads started. Keep all parts together.</p>
+                        </div>
+                    )}
                 </div>
 
                 <div className="dialog-actions">
