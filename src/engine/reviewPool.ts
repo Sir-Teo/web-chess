@@ -59,8 +59,19 @@ export function planReviewPool(input: {
   queueLength: number
   /** The reader's Hash setting, which the pool divides rather than multiplies. */
   hashMb: number
+  /** User-selected Threads for a threaded engine; otherwise the device default. */
+  threadBudget?: number
+  /** Upper bound on independent engines, including single-thread profiles. */
+  maxWorkers?: number
 }): ReviewPoolPlan {
-  const single: ReviewPoolPlan = { workers: 1, threadsPerWorker: 1, hashMbPerWorker: input.hashMb }
+  const threaded = input.profile.requiresIsolation
+  const configuredThreads = Number.isFinite(input.threadBudget)
+    ? Math.max(1, Math.floor(input.threadBudget!))
+    : recommendedThreadCount(input.profile, input.capabilities)
+  const single: ReviewPoolPlan = { workers: 1, threadsPerWorker: threaded ? configuredThreads : 1, hashMbPerWorker: input.hashMb }
+  const maxWorkers = Number.isFinite(input.maxWorkers)
+    ? Math.max(1, Math.min(MAX_POOL_WORKERS, Math.floor(input.maxWorkers!)))
+    : MAX_POOL_WORKERS
 
   if (input.queueLength < MIN_QUEUE_FOR_POOL) return single
   // A phone runs one engine at a time and is told so by `recommendedThreadCount`
@@ -74,15 +85,17 @@ export function planReviewPool(input: {
 
   const cores = Math.max(1, Math.floor(input.capabilities.hardwareConcurrency || 1))
   if (cores < 4) return single
-  const threaded = input.profile.requiresIsolation
   const threads = threaded
-    ? recommendedThreadCount(input.profile, input.capabilities)
+    ? configuredThreads
     : Math.min(8, Math.floor(cores * 0.75))
 
   // One engine per pair of usable threads, so each still gets more than one.
   const byThreads = threaded ? Math.floor(threads / 2) : threads
   const byCores = Math.floor(cores / 2)
-  const workers = Math.min(MAX_POOL_WORKERS, Math.max(1, Math.min(byThreads, byCores)))
+  // A 32 MB budget can sustain two 16 MB tables. Choosing four workers first
+  // and rejecting their 8 MB tables used to disable all parallelism here.
+  const byHash = Math.floor(input.hashMb / MIN_HASH_MB_PER_WORKER)
+  const workers = Math.max(1, Math.min(maxWorkers, byThreads, byCores, byHash))
   if (workers < 2) return single
 
   const hashMbPerWorker = Math.floor(input.hashMb / workers)

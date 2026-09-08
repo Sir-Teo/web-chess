@@ -72,6 +72,7 @@ export type PersistedAppSettings = {
   mateTarget: number
   multiPv: number
   hashMb: number
+  reviewMaxWorkers: number
   showWdl: boolean
   limitNodes: number | null
   searchMovesInput: string
@@ -128,6 +129,7 @@ export const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
   mateTarget: 4,
   multiPv: 2,
   hashMb: 64,
+  reviewMaxWorkers: 4,
   showWdl: true,
   limitNodes: null,
   searchMovesInput: '',
@@ -298,6 +300,7 @@ export function loadPersistedSettings(): PersistedAppSettings {
       mateTarget: normalizeInteger(parsed.mateTarget, MATE_TARGET_BOUNDS.min, MATE_TARGET_BOUNDS.max, MATE_TARGET_BOUNDS.fallback),
       multiPv: normalizeInteger(parsed.multiPv, 1, 5, DEFAULT_PERSISTED_SETTINGS.multiPv),
       hashMb: normalizeInteger(parsed.hashMb, 16, 512, defaultHashMb()),
+      reviewMaxWorkers: normalizeInteger(parsed.reviewMaxWorkers, 1, 4, DEFAULT_PERSISTED_SETTINGS.reviewMaxWorkers),
       showWdl: typeof parsed.showWdl === 'boolean' ? parsed.showWdl : DEFAULT_PERSISTED_SETTINGS.showWdl,
       limitNodes: normalizeOptionalPositiveInteger(parsed.limitNodes, LIMIT_NODES_BOUNDS.max),
       searchMovesInput: DEFAULT_PERSISTED_SETTINGS.searchMovesInput,

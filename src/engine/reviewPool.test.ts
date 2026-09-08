@@ -113,7 +113,33 @@ describe('sizing a review pool', () => {
 
   it('leaves the hash the reader chose alone when it falls back', () => {
     const plan = planReviewPool({ profile: multi, capabilities: desktop(), queueLength: 2, hashMb: 128 })
-    expect(plan).toEqual({ workers: 1, threadsPerWorker: 1, hashMbPerWorker: 128 })
+    expect(plan).toEqual({ workers: 1, threadsPerWorker: 8, hashMbPerWorker: 128 })
+  })
+
+  it('uses fewer workers instead of abandoning parallelism at smaller hash sizes', () => {
+    for (const profile of [single, multi]) {
+      for (const [hashMb, workers] of [[32, 2], [48, 3]]) {
+        const plan = planReviewPool({ profile, capabilities: desktop(), queueLength: LONG_QUEUE, hashMb: hashMb! })
+        expect(plan.workers).toBe(workers)
+        expect(plan.hashMbPerWorker).toBe(16)
+      }
+    }
+  })
+
+  it('respects the selected total thread budget for threaded profiles', () => {
+    for (const threadBudget of [1, 2, 3, 4, 6, 8, 12]) {
+      const plan = planReviewPool({ profile: multi, capabilities: desktop(), queueLength: LONG_QUEUE, hashMb: 64, threadBudget })
+      expect(plan.workers * plan.threadsPerWorker).toBeLessThanOrEqual(threadBudget)
+    }
+  })
+
+  it('lets the user limit independent engines for either profile', () => {
+    for (const profile of [single, multi]) {
+      for (const maxWorkers of [1, 2, 3]) {
+        const plan = planReviewPool({ profile, capabilities: desktop(), queueLength: LONG_QUEUE, hashMb: 64, maxWorkers })
+        expect(plan.workers).toBe(maxWorkers)
+      }
+    }
   })
 })
 

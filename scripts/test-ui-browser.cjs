@@ -517,15 +517,16 @@ async function checkAutosaveFailure(browser) {
 }
 
 async function checkSingleThreadReviewPool(browser) {
+  for (const [hashMb, maxWorkers, expectedWorkers] of [[64, 4, 4], [32, 4, 2], [64, 1, 0]]) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const page = await context.newPage()
   try {
     await page.addInitScript(fakeEngineScript())
-    await page.addInitScript(() => {
+    await page.addInitScript(({ hashMb, maxWorkers }) => {
       Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 })
       Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 })
-      localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ engineProfile: 'lite-single-local', hashMb: 64 }))
-    })
+      localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ engineProfile: 'lite-single-local', hashMb, reviewMaxWorkers: maxWorkers }))
+    }, { hashMb, maxWorkers })
     await page.goto(BASE, { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
     await page.getByRole('button', { name: /^Load / }).first().click()
@@ -534,10 +535,16 @@ async function checkSingleThreadReviewPool(browser) {
     await page.getByRole('button', { name: /^review game$/i }).first().click()
     await page.waitForFunction(() => /Pending 0/.test(document.querySelector('.review-chips')?.textContent || ''))
     const result = await page.evaluate(() => ({ workers: window.__engineCount, commands: window.__uciCommands }))
-    assert(result.workers > 1, 'single-thread profile reviewed serially despite the available cores')
+    assert(result.workers === expectedWorkers + 1, `review used ${result.workers - 1} workers for ${hashMb} MB / limit ${maxWorkers}; expected ${expectedWorkers}`)
     assert(!result.commands.some(c => /^setoption name Threads value [2-9]/.test(c)), 'a single-thread engine was given multiple threads')
-    console.log(`  single-thread profile: review finished using ${result.workers - 1} independent pool workers`)
+    await openSettings(page)
+    await page.locator('.advanced-settings > summary').filter({ hasText: 'Advanced engine options' }).click()
+    await page.getByLabel('Maximum review engines').selectOption('2')
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('webchess:analysis-settings:v1')).reviewMaxWorkers === 2)
+    assert((await page.locator('.review-resource-plan').innerText()).includes('2 engines'), 'review resource summary disagrees with the worker limit')
+    console.log(`  single-thread profile: ${hashMb} MB / limit ${maxWorkers}, ${result.workers - 1} pool workers; resource control persists`)
   } finally { await context.close() }
+  }
 }
 
 async function checkCoachUsesPositionScore(browser) {

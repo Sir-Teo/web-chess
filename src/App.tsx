@@ -513,6 +513,7 @@ function App() {
   const [searchDepth, setSearchDepth] = useState(persistedSettings.searchDepth)
   const [multiPv, setMultiPv] = useState(persistedSettings.multiPv)
   const [hashMb, setHashMb] = useState(persistedSettings.hashMb)
+  const [reviewMaxWorkers, setReviewMaxWorkers] = useState(persistedSettings.reviewMaxWorkers)
   const [showWdl, setShowWdl] = useState(persistedSettings.showWdl)
   const [autoAnalyze, setAutoAnalyze] = useState(persistedSettings.autoAnalyze)
   const [engineProfile, setEngineProfile] = useState<EngineProfileId>(persistedSettings.engineProfile)
@@ -1149,6 +1150,11 @@ function App() {
     lastPonderMoveFen,
   } = useStockfishEngine(engineProfile, engineEnabled)
   const analysisStatusAnnouncement = `${engineName}. ${status}. ${analysisExperience === 'beginner' ? 'Coach view' : 'Pro view'}.`
+  const reviewThreadBudget = Number(options.find(option => option.name === 'Threads')?.currentValue) || undefined
+  const reviewResourcePlan = planReviewPool({
+    profile: activeProfile, capabilities, queueLength: 12, hashMb,
+    threadBudget: reviewThreadBudget, maxWorkers: reviewMaxWorkers,
+  })
 
   // ── Batch Review ─────────────────────────────────────
   const [isBatchReviewing, setIsBatchReviewing] = useState(false)
@@ -1311,7 +1317,9 @@ function App() {
       capabilities,
       queueLength: targets.length,
       hashMb,
-      })
+      threadBudget: reviewThreadBudget,
+      maxWorkers: reviewMaxWorkers,
+    })
     if (poolPlan.workers <= 1) {
       batchReviewQueueRef.current = targets
       return
@@ -1382,7 +1390,7 @@ function App() {
         setBatchReviewProgress({ done: remaining.done, total: remaining.total })
         setBatchReviewTick(tick => tick + 1)
       })
-  }, [activeProfile, capabilities, clearImportSweep, engineEnabled, evaluationsByFen, hashMb, searchDepth, showWdl, stop])
+  }, [activeProfile, capabilities, clearImportSweep, engineEnabled, evaluationsByFen, hashMb, reviewMaxWorkers, reviewThreadBudget, searchDepth, showWdl, stop])
 
   useEffect(() => {
     if (!isBatchReviewing) return
@@ -2119,6 +2127,7 @@ function App() {
     setSearchDepth(DEFAULT_PERSISTED_SETTINGS.searchDepth)
     setMultiPv(DEFAULT_PERSISTED_SETTINGS.multiPv)
     setHashMb(defaultHashMb())
+    setReviewMaxWorkers(DEFAULT_PERSISTED_SETTINGS.reviewMaxWorkers)
     setShowWdl(DEFAULT_PERSISTED_SETTINGS.showWdl)
     setAutoAnalyze(DEFAULT_PERSISTED_SETTINGS.autoAnalyze)
     setEngineProfile(DEFAULT_PERSISTED_SETTINGS.engineProfile)
@@ -2408,6 +2417,7 @@ function App() {
       hashMb,
       showWdl,
       limitNodes: optionalIntegerInputToNullable(limitNodes, LIMIT_NODES_BOUNDS),
+      reviewMaxWorkers,
       searchMovesInput: DEFAULT_PERSISTED_SETTINGS.searchMovesInput,
       useClockLimits,
       whiteTimeMs: normalizeRequiredIntegerInput(whiteTimeMs, CLOCK_TIME_BOUNDS),
@@ -2448,6 +2458,7 @@ function App() {
     engineProfile,
     expertModeEnabled,
     hashMb,
+    reviewMaxWorkers,
     labCommandHistory,
     limitNodes,
     mateTarget,
@@ -5968,6 +5979,24 @@ function App() {
                           onChange={e => setHashMb(Number(e.target.value))} />
                         <strong>{hashMb} MB</strong>
                       </label>
+                      <label className="engine-option-row">
+                        <span>Review engines</span>
+                        <select aria-label="Maximum review engines" value={reviewMaxWorkers}
+                          disabled={isBatchReviewing}
+                          onChange={e => setReviewMaxWorkers(Number(e.target.value))}>
+                          <option value={1}>1 · sequential</option>
+                          <option value={2}>Up to 2</option>
+                          <option value={3}>Up to 3</option>
+                          <option value={4}>Up to 4 · automatic</option>
+                        </select>
+                      </label>
+                      <p className="panel-copy small review-resource-plan">
+                        Long reviews: up to {reviewResourcePlan.workers} {reviewResourcePlan.workers === 1 ? 'engine' : 'engines'},
+                        {' '}{reviewResourcePlan.threadsPerWorker} {reviewResourcePlan.threadsPerWorker === 1 ? 'thread' : 'threads'} each,
+                        {' '}{reviewResourcePlan.hashMbPerWorker} MB hash each. Short reviews use one engine.
+                        {' '}Each extra engine also needs memory for its network and board state.
+                        {activeProfile.requiresIsolation && ' The total stays within Threads in Engine Lab.'}
+                      </p>
                       <label className="switch-control">
                         <input type="checkbox" checked={showWdl}
                           onChange={e => setShowWdl(e.target.checked)} />
