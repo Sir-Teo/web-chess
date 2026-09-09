@@ -6487,18 +6487,27 @@ function App() {
                 </button>
               </span>
             </div>
-            {opening && (
-              <div
-                className="board-opening-label fade-in-slide"
-                aria-label={`Opening ${opening.eco}: ${opening.name}`}
-                title={`${opening.eco} ${opening.name}`}
-              >
-                <div className="opening-pill">
-                  <strong>{opening.eco}</strong>
-                  <span>{opening.name}</span>
-                </div>
+            {/* The row is here from the first paint, named or not.
+                Rendered only once an opening had a name, it arrived between a
+                player's first move and their second and pushed the board 29px
+                down the screen at 375x812 -- under the finger already reaching
+                for it, two thirds of a square -- 19px at 1440x900, and on a
+                landscape phone 4px past the bottom of the stage it had been
+                measured for, where the container clips rather than scrolls.
+                Held open it costs no board on any of the three: the stage had
+                the room all along, and now it is spent at the first paint
+                instead of on the second move. */}
+            <div
+              className={`board-opening-label${opening ? ' fade-in-slide' : ' is-empty'}`}
+              aria-label={opening ? `Opening ${opening.eco}: ${opening.name}` : undefined}
+              title={opening ? `${opening.eco} ${opening.name}` : undefined}
+              aria-hidden={opening ? undefined : true}
+            >
+              <div className="opening-pill">
+                <strong>{opening ? opening.eco : ' '}</strong>
+                <span>{opening ? opening.name : ''}</span>
               </div>
-            )}
+            </div>
             <div className="board-wrap">
               {/* Whenever the engine is on, whatever the WDL switch says. The
                   column used to go with that switch, so turning off the

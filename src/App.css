@@ -787,6 +787,14 @@ body.resizing * {
   min-width: 0;
 }
 
+/* Holding the row open before there is anything to put in it. `visibility`
+   rather than `display`, so the pill still measures itself: the row's height is
+   the pill's height, and a height guessed at here would be a board that moves
+   by the difference the first time an opening is named. */
+.board-opening-label.is-empty .opening-pill {
+  visibility: hidden;
+}
+
 .opening-pill {
   display: inline-flex;
   align-items: center;
@@ -4360,6 +4368,16 @@ button.critical-moment-row {
     width: auto;
     max-width: none;
     padding: var(--stage-pad-y) var(--stage-pad-x);
+  }
+
+  /* Height is the scarce axis here -- the bar above already folds back to one
+     row for it -- and this is the one layout where the stage had no room to
+     spare for the opening's name: arriving after the first move it pushed the
+     board 4px past the bottom of a container that clips. Not drawn at all, so
+     the board keeps its full 197px. The name is still in the panel beside it,
+     where there is width to spare. */
+  .board-opening-label {
+    display: none;
   }
 
   .right,
