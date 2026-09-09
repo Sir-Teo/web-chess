@@ -3151,7 +3151,12 @@ function App() {
     }
 
     if (currentBoardMove) {
-      list.push({ startSquare: currentBoardMove.from, endSquare: currentBoardMove.to, color: 'rgba(255, 170, 0, 0.8)' })
+      // Lighter than the arrows below it, because it is the only one drawn over
+      // a square that already says the same thing. At 0.8 it crossed whatever
+      // stood between the two squares -- a knight move to d7 hid the bishop on
+      // c8 and the queen on d8 -- to repeat a reading the two rings had already
+      // given. It still carries the direction; it no longer costs two pieces.
+      list.push({ startSquare: currentBoardMove.from, endSquare: currentBoardMove.to, color: 'rgba(255, 170, 0, 0.55)' })
     }
 
     // A retry that draws the engine answer on the board is only theatre. Keep
