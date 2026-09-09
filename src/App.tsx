@@ -5088,18 +5088,32 @@ function App() {
     // a different mode or a different workspace.
   }, [cancelPendingAiMove, cancelStaleBackgroundAnalysis, clearBoardSelection, playerColor, workspaceMode])
 
+  /*
+   * Every one of these is a press on a list *inside* the panel, and the stacked
+   * layout puts the board above the panel -- so the thing the press changes is
+   * the one thing off the screen while it is made. `goToReviewFault` already
+   * says this ("jumping to a mistake that stays off-screen is a jump the reader
+   * cannot see") and so does the practice button; these three did not, which is
+   * what made the review list useless on a phone. Measured at 375x812 after a
+   * review: tapping a move left the board 816px above the fold with none of it
+   * visible, and scrolled *further* from it, because the only thing that moved
+   * was the list. On a desktop the reveal returns before it does anything.
+   */
   const navigateMoveListAndPause = useCallback((chess: Chess) => {
     navigateAndPause(chess)
-  }, [navigateAndPause])
+    requestBoardReveal()
+  }, [navigateAndPause, requestBoardReveal])
 
   const navigateMoveListAndPonder = useCallback((chess: Chess) => {
     navigateAndPonder(chess)
-  }, [navigateAndPonder])
+    requestBoardReveal()
+  }, [navigateAndPonder, requestBoardReveal])
 
   const navigateReviewNode = useCallback((node: GameNode) => {
     setReviewPractice(null)
     navigateAndPonder(gameTreeRef.current.navigateTo(node.id))
-  }, [navigateAndPonder])
+    requestBoardReveal()
+  }, [navigateAndPonder, requestBoardReveal])
 
   const startReviewPractice = useCallback((
     beforeNode: GameNode,
@@ -7737,6 +7751,10 @@ function App() {
                                 onClick={() => {
                                   if (!beforeNode) return
                                   navigateAndPonder(gameTree.navigateTo(beforeNode.id))
+                                  // Same list, same layout, same reason as the
+                                  // review list above: the position it moves to
+                                  // is above the panel it was pressed in.
+                                  requestBoardReveal()
                                 }}
                               >
                                 <span className="critical-moment-move">
