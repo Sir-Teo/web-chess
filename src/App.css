@@ -288,6 +288,9 @@ body.resizing * {
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
     scroll-snap-type: x proximity;
+    /* Same reason as the board's strip: a group appearing at the head of the
+       row must not scroll the row to keep the old one still. */
+    overflow-anchor: none;
   }
 
   .top .mobile-modes-wrapper::-webkit-scrollbar {
@@ -3836,7 +3839,18 @@ button.critical-moment-row {
     overflow-y: hidden;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity;
+    /* Two pixels a gap, which is what the clock was short by at 320px: with
+       the desktop's 0.5rem it ended 4px past the edge and a blitz player read
+       a faded last digit. */
+    gap: 0.38rem;
+    /* No snapping, and no anchoring. Both exist to hold a position across a
+       change, and every change to this row is a pill appearing or leaving --
+       so both of them held the wrong thing. Snapped, the row re-snapped to
+       whatever it had last snapped to, and a 3+2 game at 320px opened already
+       52px along with the clock half off the left edge. There is nothing here
+       to hold: five readings, and the one that matters is at the start. */
+    scroll-snap-type: none;
+    overflow-anchor: none;
   }
 
   /* Both sideways strips wear the same edges. See `--edge-lead` above.
@@ -3885,7 +3899,6 @@ button.critical-moment-row {
   /* Nothing in the row gives up width any more; the row gives up its end. */
   .board-meta-flow>* {
     flex: none;
-    scroll-snap-align: start;
   }
 
   /* The two that were written to absorb the squeeze have nothing left to
@@ -3897,20 +3910,41 @@ button.critical-moment-row {
     flex: none;
   }
 
-  /* Last, so the end that scrolls out of reach is the one the strip can most
-     afford to lose: an imported game's players are in the tab's title and in
-     the panel, and its result is already in the turn pill once the game is
-     over. Everything before them is a reading of the position on the screen. */
-  .board-meta-flow>.board-meta-opening {
+  /* Ordered by what a reader cannot play without, because the row is longer
+     than the strip and the end of it is a scroll away.
+
+     The clock goes first with the turn pill, ahead of the move number, and
+     that ordering is the whole point of this block: in a 3+2 game at 375px the
+     clock sat at 167..277 in a 276px window and at 320px half of it was off
+     the screen, behind a move number the move list gives anyway. A clock you
+     have to scroll to is not a clock.
+
+     Then the readings about the position, then the two the strip can most
+     afford to lose -- an imported game's players are in the tab's title and in
+     the panel, and its result is in the turn pill once the game is over. */
+  /* Ahead of everything, including whose move it is -- which the running face
+     of the clock says too, and which tolerates a faded last letter where a
+     seconds digit does not. First, the clock ended 4px past the edge at 320px
+     with another 20 inside the fade; here it starts at 0 and is crisp to the
+     last digit at every width. */
+  .board-meta-flow>.chess-clock {
+    order: -1;
+  }
+
+  .board-meta-flow>.board-meta-move {
     order: 1;
   }
 
-  .board-meta-flow>.board-meta-material {
+  .board-meta-flow>.board-meta-opening {
     order: 2;
   }
 
-  .board-meta-flow>.board-meta-game {
+  .board-meta-flow>.board-meta-material {
     order: 3;
+  }
+
+  .board-meta-flow>.board-meta-game {
+    order: 4;
     max-width: 11rem;
   }
 
