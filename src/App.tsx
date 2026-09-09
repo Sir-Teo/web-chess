@@ -56,6 +56,7 @@ import { narrativeTagToneClass, narrativeTags } from './engine/narrativeTags'
 import type { ReviewPhaseFilter } from './engine/analysis'
 import { reviewImpactLabel } from './engine/reviewImpact'
 import { reviewFaultPosition, reviewFaults, stepToReviewFault } from './engine/reviewNavigation'
+import { normalizeSpinOptionInput } from './engine/options'
 import { topArrowColor } from './engine/arrowColors'
 import { bestMoveLabel, ponderMoveLabel } from './engine/moveLabels'
 import {
@@ -1150,6 +1151,34 @@ function App() {
     lastBestMoveFen,
     lastPonderMoveFen,
   } = useStockfishEngine(engineProfile, engineEnabled)
+  // These three UCI options are also inputs to every app analysis request.
+  // Show and edit their persisted values in both places so a later search
+  // cannot silently restore a different setting.
+  const labOptions = useMemo(() => options.map(option => {
+    if (option.name === 'Hash') return { ...option, min: 16, max: 512, currentValue: String(hashMb) }
+    if (option.name === 'MultiPV') return { ...option, min: 1, max: 5, currentValue: String(multiPv) }
+    if (option.name === 'UCI_ShowWDL') return { ...option, currentValue: String(showWdl) }
+    return option
+  }), [hashMb, multiPv, options, showWdl])
+
+  const setLabOption = useCallback((name: string, value?: string | number | boolean) => {
+    let applied = value
+    if (name === 'Hash' || name === 'MultiPV') {
+      const option = labOptions.find(option => option.name === name)
+      applied = normalizeSpinOptionInput({ ...option, defaultValue: option?.currentValue }, String(value ?? ''))
+      if (name === 'Hash') setHashMb(applied)
+      else {
+        setMultiPv(applied)
+        setActivePreset(null)
+      }
+    } else if (name === 'UCI_ShowWDL') {
+      applied = value === true || value === 'true'
+      setShowWdl(applied)
+    }
+    setOption(name, applied)
+    return applied
+  }, [labOptions, setOption])
+
   const analysisStatusAnnouncement = `${engineName}. ${status}. ${analysisExperience === 'beginner' ? 'Coach view' : 'Pro view'}.`
   const reviewThreadBudget = Number(options.find(option => option.name === 'Threads')?.currentValue) || undefined
   const reviewResourcePlan = planReviewPool({
@@ -2359,6 +2388,22 @@ function App() {
         return
       }
 
+      const managedOption = trimmed.match(/^setoption\s+name\s+(Hash|MultiPV|UCI_ShowWDL)\s+value\s+(.+)$/i)
+      if (managedOption) {
+        const name = labOptions.find(option => option.name.toLowerCase() === managedOption[1].toLowerCase())?.name
+        const value = managedOption[2].trim().toLowerCase()
+        if (!name || (name === 'UCI_ShowWDL' ? !['true', 'false'].includes(value) : !Number.isFinite(Number(value)))) {
+          setEngineLabError('Use a number for Hash/MultiPV, or true/false for UCI_ShowWDL.')
+          return
+        }
+        const applied = setLabOption(name, value)
+        setEngineLabOutputLines([`> ${trimmed}`, `Saved analysis setting: ${name} = ${String(applied)}`])
+        setEngineLabCopyStatus('idle')
+        setEngineLabCommand('')
+        setLabCommandHistory(previous => [trimmed, ...previous.filter(item => item !== trimmed)].slice(0, 20))
+        return
+      }
+
       setLabCommandHistory(previous => [trimmed, ...previous.filter(item => item !== trimmed)].slice(0, 20))
       const startTime = performance.now()
       const outputLines = [`> ${trimmed}`]
@@ -2380,7 +2425,7 @@ function App() {
         setEngineLabError(error instanceof Error ? error.message : String(error))
       }
     },
-    [engineEnabled, expertModeEnabled, sendCommand, status],
+    [engineEnabled, expertModeEnabled, labOptions, sendCommand, setLabOption, status],
   )
 
   const clearLabConsole = useCallback(() => {
@@ -5974,7 +6019,7 @@ function App() {
                     <div className="advanced-section">
                       <label className="control">
                         <span>Hash</span>
-                        <input type="range" min={16} max={512} step={16} value={hashMb}
+                        <input type="range" min={16} max={512} step={1} value={hashMb}
                           aria-label="Engine hash size"
                           aria-valuetext={`${hashMb} megabytes`}
                           onChange={e => setHashMb(Number(e.target.value))} />
@@ -7735,17 +7780,17 @@ function App() {
                   <div className="engine-lab-card">
                     <h3><span className="section-icon"><IconSettings /></span> Engine options</h3>
                     <div className="engine-options">
-                      {options.map(option => (
+                      {labOptions.map(option => (
                         <EngineOptionControl
                           key={option.name}
                           option={option}
                           disabled={status === 'analyzing'}
-                          onSetOption={setOption}
+                          onSetOption={setLabOption}
                         />
                       ))}
                     </div>
                     <p className="panel-copy small">
-                      Discovered from UCI handshake; applied immediately.
+                      Hash (16–512 MB), MultiPV (1–5), and UCI_ShowWDL share your saved analysis settings. Other options apply to this engine session.
                       {status === 'analyzing' && ' Locked while a search is running.'}
                     </p>
                   </div>

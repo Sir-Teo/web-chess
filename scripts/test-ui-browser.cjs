@@ -571,6 +571,58 @@ async function checkAutosaveFailure(browser) {
   }
 }
 
+async function checkLabSettingsStayInSync(browser) {
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => {
+        const key = 'webchess:analysis-settings:v1'
+        if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+          hashMb: 64, multiPv: 2, showWdl: true,
+        }))
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const hash = page.getByRole('spinbutton', { name: 'Hash', exact: true })
+      await hash.waitFor()
+      assert(await hash.inputValue() === '64', 'Lab did not show saved Hash before analysis')
+      await hash.fill('72')
+      await hash.press('Tab')
+      const pv = page.getByRole('spinbutton', { name: 'MultiPV', exact: true })
+      await pv.fill('3')
+      await pv.press('Tab')
+      await page.getByRole('checkbox', { name: 'UCI_ShowWDL', exact: true }).uncheck()
+      await page.waitForFunction(() => {
+        const settings = JSON.parse(localStorage.getItem('webchess:analysis-settings:v1'))
+        return settings.hashMb === 72 && settings.multiPv === 3 && settings.showWdl === false
+      })
+      await page.getByRole('button', { name: 'Analyze', exact: true }).first().click()
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.waitForFunction(() => window.__uciCommands.some(command => command.startsWith('go ')))
+      const commands = await page.evaluate(() => window.__uciCommands)
+      for (const [name, value] of [['Hash', '72'], ['MultiPV', '3'], ['UCI_ShowWDL', 'false']]) {
+        assert(commands.filter(command => command.startsWith(`setoption name ${name} value `)).at(-1) === `setoption name ${name} value ${value}`,
+          `analysis overwrote Lab setting ${name}`)
+      }
+      await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await hash.waitFor()
+      assert(await hash.inputValue() === '72' && await pv.inputValue() === '3', 'Lab values did not persist across reload')
+      assert(!await page.getByRole('checkbox', { name: 'UCI_ShowWDL', exact: true }).isChecked(), 'WDL did not persist')
+      const input = page.getByPlaceholder('go depth 16', { exact: true })
+      await input.fill('setoption name Hash value 96')
+      await input.press('Enter')
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('webchess:analysis-settings:v1')).hashMb === 96)
+      assert(await hash.inputValue() === '96', 'console bypassed shared setting state')
+      await assertContrast(page, `Engine Lab shared settings / ${width}px`, 15)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'Engine Lab overflows the viewport')
+      console.log(`  Engine Lab (${width}px): shared settings, next search, reload, and console updates agree`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkSingleThreadReviewPool(browser) {
   for (const [hashMb, maxWorkers, expectedWorkers] of [[64, 4, 4], [32, 4, 2], [64, 1, 0]]) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
@@ -1633,6 +1685,7 @@ async function main() {
       startup: checkEngineStartupTimeout,
       autosave: checkAutosaveFailure,
       resources: checkSingleThreadReviewPool,
+      lab: checkLabSettingsStayInSync,
       continuous: checkKeepSearchingIsUnbounded,
     }
     if (process.env.UI_TEST_ONLY) {
@@ -2148,6 +2201,7 @@ async function main() {
     await checkTypedMoveEntry(browser)
     await checkAutosaveFailure(browser)
     await checkEngineStartupTimeout(browser)
+    await checkLabSettingsStayInSync(browser)
     await checkSingleThreadReviewPool(browser)
     await checkCoachUsesPositionScore(browser)
     await checkBoundedScoreIsIgnored(browser)
