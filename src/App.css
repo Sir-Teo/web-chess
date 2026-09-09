@@ -288,9 +288,6 @@ body.resizing * {
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
     scroll-snap-type: x proximity;
-    /* Fade the trailing edge so a scrolled-off group is discoverable. */
-    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 1.25rem), transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 1.25rem), transparent 100%);
   }
 
   .top .mobile-modes-wrapper::-webkit-scrollbar {
@@ -3840,8 +3837,45 @@ button.critical-moment-row {
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
     scroll-snap-type: x proximity;
-    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 1.25rem), transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 1.25rem), transparent 100%);
+  }
+
+  /* Both sideways strips wear the same edges. See `--edge-lead` above.
+
+     The mask is written so that the values a browser with no scroll timelines
+     leaves in place -- no fade at the start, a fade at the end -- are exactly
+     what this used to draw unconditionally. Nothing is lost there; the two
+     edges only start moving where something can move them. */
+  .top .mobile-modes-wrapper,
+  .board-meta-flow {
+    --edge-w: 1.25rem;
+    /* What a browser with no scroll timelines draws: the static trailing fade
+       this used to have, unconditionally. */
+    --edge-lead: 0;
+    --edge-trail: 1;
+    mask-image: linear-gradient(to right,
+        rgba(0, 0, 0, calc(1 - var(--edge-lead))) 0,
+        #000 var(--edge-w),
+        #000 calc(100% - var(--edge-w)),
+        rgba(0, 0, 0, calc(1 - var(--edge-trail))) 100%);
+    -webkit-mask-image: linear-gradient(to right,
+        rgba(0, 0, 0, calc(1 - var(--edge-lead))) 0,
+        #000 var(--edge-w),
+        #000 calc(100% - var(--edge-w)),
+        rgba(0, 0, 0, calc(1 - var(--edge-trail))) 100%);
+  }
+
+  @supports (animation-timeline: scroll()) {
+    .top .mobile-modes-wrapper,
+    .board-meta-flow {
+      /* Neither edge, until the scroll position says otherwise. A strip whose
+         items all fit has no timeline to run, so the animations contribute
+         nothing and this is what is left -- which is the right answer for a
+         row with nothing to scroll to, and the one the old fade got wrong. */
+      --edge-trail: 0;
+      animation: edge-lead-in linear both, edge-trail-out linear both;
+      animation-timeline: scroll(self inline), scroll(self inline);
+      animation-range: 0 1.25rem, calc(100% - 1.25rem) 100%;
+    }
   }
 
   .board-meta-flow::-webkit-scrollbar {
@@ -5436,6 +5470,45 @@ button.takeback-btn {
   justify-content: center;
   gap: 0.35rem;
   font-weight: 600;
+}
+
+/* ── The edges of a strip that scrolls sideways ────────────────────────────
+   Two of them: the mode groups in the top bar, and the readings in the board's
+   own strip. Both hold their items at their natural width and let the row run
+   past the end rather than squeezing anything, so both need an edge that says
+   the row goes on.
+
+   What was there faded the trailing edge and nothing else, always. Which is
+   half right and half wrong at once: scrolled to the end it still promised
+   more to the right, and scrolled anywhere at all it said nothing about the
+   items now off the left -- and the leading edge is the one a reader is most
+   likely to have forgotten about, because they put the row there themselves.
+
+   Each edge is a number the scroll position drives, and the mask reads both.
+   Nothing here runs off the main thread's timers: `scroll()` is the scroller's
+   own progress, so the fades track a finger exactly. */
+@property --edge-lead {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+@property --edge-trail {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+/* Faded once the row has been pushed off its start, and not before. */
+@keyframes edge-lead-in {
+  from { --edge-lead: 0; }
+  to { --edge-lead: 1; }
+}
+
+/* Faded until the end of the row is on the screen. */
+@keyframes edge-trail-out {
+  from { --edge-trail: 1; }
+  to { --edge-trail: 0; }
 }
 
 /* Pointer-specific settings copy.
