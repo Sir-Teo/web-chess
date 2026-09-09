@@ -120,7 +120,7 @@ import {
 import { moveSoundFor } from './engine/moveSound'
 import { hasSiblingVariations, siblingVariation } from './engine/moveTree'
 import { chessComPositionUrl, lichessAnalysisUrl } from './engine/externalLinks'
-import { BOARD_THEMES, boardThemeById, moveHintStyle } from './engine/boardThemes'
+import { BOARD_THEMES, boardThemeById, moveHintStyle, notationHalo } from './engine/boardThemes'
 import {
   createClock,
   flagPgnResult,
@@ -440,8 +440,12 @@ const NOTATION_BASE_STYLE = {
   pointerEvents: 'none' as const,
 }
 
-function notationStyle(color: string) {
-  return { color }
+/**
+ * A coordinate, and the ring that keeps it off the piece it shares a square
+ * with. See {@link notationHalo}.
+ */
+function notationStyle(color: string, squareColor: string) {
+  return { color, textShadow: notationHalo(squareColor) }
 }
 
 function uniqueSquares(squares: Square[]): Square[] {
@@ -6424,8 +6428,8 @@ function App() {
                       },
                       arrows,
                       arrowOptions: BOARD_ARROW_OPTIONS,
-                      darkSquareNotationStyle: notationStyle(boardTheme.ink),
-                      lightSquareNotationStyle: notationStyle(boardTheme.ink),
+                      darkSquareNotationStyle: notationStyle(boardTheme.ink, boardTheme.dark),
+                      lightSquareNotationStyle: notationStyle(boardTheme.ink, boardTheme.light),
                       alphaNotationStyle: { ...NOTATION_BASE_STYLE, bottom: 2, right: 3, fontSize: notationFontSize },
                       numericNotationStyle: { ...NOTATION_BASE_STYLE, top: 2, left: 3, fontSize: notationFontSize },
                       allowDrawingArrows: !isPreviewingLine,

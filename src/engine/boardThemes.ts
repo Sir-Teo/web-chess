@@ -51,6 +51,33 @@ export const BOARD_THEMES: BoardTheme[] = [
 
 export const DEFAULT_BOARD_THEME_ID = 'classic'
 
+/**
+ * The ring drawn behind a coordinate, in the colour of the square it sits on.
+ *
+ * The ink above is measured against the squares, and that is the whole of the
+ * contrast story only for an *empty* square. Every coordinate on a starting
+ * board is on a square with a piece on it: the file letters run along the rank
+ * nearest the reader, under the back rank, and the rank digits up the file
+ * beside it. Measured in the pane at 375px, where a square is 43px and the
+ * coordinate 11px, the `c` under the c1 bishop was unreadable and `b`, `f` and
+ * `g` sat on the knights' outlines — dark ink on a piece's black outline, which
+ * is a ratio near 1 whatever the square underneath measures.
+ *
+ * A one-pixel ring of the square's own colour, painted behind the glyph by
+ * `text-shadow`, separates it from whatever it lands on without moving the
+ * coordinates outside the board or changing either colour. On an empty square
+ * it is invisible, because the ring is the square.
+ */
+export function notationHalo(squareColor: string): string {
+  return [
+    `1px 0 0 ${squareColor}`,
+    `-1px 0 0 ${squareColor}`,
+    `0 1px 0 ${squareColor}`,
+    `0 -1px 0 ${squareColor}`,
+    `0 0 2px ${squareColor}`,
+  ].join(', ')
+}
+
 export function boardThemeById(id: string): BoardTheme {
   return BOARD_THEMES.find(theme => theme.id === id)
     ?? BOARD_THEMES.find(theme => theme.id === DEFAULT_BOARD_THEME_ID)!

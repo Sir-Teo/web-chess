@@ -13,6 +13,7 @@ import {
   isBoardThemeId,
   moveHintColor,
   moveHintStyle,
+  notationHalo,
   relativeLuminance,
 } from './boardThemes'
 
@@ -98,6 +99,35 @@ describe('board themes', () => {
     expect(isBoardThemeId('ocean')).toBe(true)
     expect(isBoardThemeId('teal')).toBe(false)
     expect(isBoardThemeId(null)).toBe(false)
+  })
+})
+
+describe('coordinate halo', () => {
+  /**
+   * The ink clears AA against both squares; the piece standing on the square is
+   * what it has to survive, and a piece's outline is black whatever the scheme.
+   * The ring is the square's own colour, so it reads as a gap rather than a
+   * second colour on the board.
+   */
+  it('rings the glyph in the colour of the square it is drawn on', () => {
+    for (const theme of BOARD_THEMES) {
+      const onDark = notationHalo(theme.dark)
+      const onLight = notationHalo(theme.light)
+      expect(onDark).not.toBe(onLight)
+      for (const offset of ['1px 0 0', '-1px 0 0', '0 1px 0', '0 -1px 0']) {
+        expect(onDark, theme.id).toContain(`${offset} ${theme.dark}`)
+        expect(onLight, theme.id).toContain(`${offset} ${theme.light}`)
+      }
+      // Every layer is the square, so on an empty square the ring is invisible.
+      expect(onDark.split(', ').every(layer => layer.endsWith(theme.dark)), theme.id).toBe(true)
+    }
+  })
+
+  /** Four sides, or the glyph is only half separated from what is under it. */
+  it('closes the ring on all four sides', () => {
+    const layers = notationHalo('#000000').split(', ')
+    expect(layers).toHaveLength(5)
+    expect(layers.filter(layer => layer.startsWith('0 0 '))).toHaveLength(1)
   })
 })
 
