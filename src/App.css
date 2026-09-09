@@ -614,7 +614,22 @@ body.resizing * {
   white-space: nowrap;
 }
 
-.board-meta-strip>span {
+/*
+ * Everything the strip *says*, in one row that can be longer than the strip.
+ *
+ * Nested rather than laid out directly, so the controls after it can be pinned
+ * where they are always reachable while the readings scroll between them --
+ * which is the arrangement the top bar already uses, and for the same reason.
+ */
+.board-meta-flow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.board-meta-flow>span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -623,18 +638,18 @@ body.resizing * {
 /* Whose turn it is, the move number and the engine status are short and must
    never clip; the game's players are the long, truncation-tolerant item, so
    they absorb the squeeze. */
-.board-meta-strip>.turn-pill,
-.board-meta-strip>.board-meta-move,
-.board-meta-strip>.board-meta-status {
+.board-meta-flow>.turn-pill,
+.board-meta-flow>.board-meta-move,
+.board-meta-flow>.board-meta-status {
   flex: none;
 }
 
-.board-meta-strip>.board-meta-game {
+.board-meta-flow>.board-meta-game {
   flex: 1 1 auto;
   justify-content: flex-end;
 }
 
-.board-meta-strip>.board-meta-practice {
+.board-meta-flow>.board-meta-practice {
   flex: 1 1 auto;
   display: flex;
   align-items: center;
@@ -793,6 +808,38 @@ body.resizing * {
    by the difference the first time an opening is named. */
 .board-opening-label.is-empty .opening-pill {
   visibility: hidden;
+}
+
+/* The same reading inside the strip, for the one layout that cannot spare a
+   row for it. Which of the two is drawn is decided in `App.tsx`, so only one
+   of them is ever in the document -- two, with one hidden, is how a check for
+   "the opening's code" comes to find the invisible copy first. */
+.board-meta-opening {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  max-width: 13rem;
+  overflow: hidden;
+  color: var(--text-secondary);
+}
+
+.board-meta-opening>span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-meta-opening>strong {
+  flex: none;
+  padding: 0.08rem 0.34rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  background: var(--glass-4);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  color: var(--text-primary);
 }
 
 .opening-pill {
@@ -3781,11 +3828,77 @@ button.critical-moment-row {
     font-size: 0.68rem;
   }
 
-  /* In Play mode the strip's status is the game mode, which the selected
-     pill above the board and the bar below it both already say. At a phone's
-     width it was the thing that pushed the quality pill off the right edge:
-     "Human vs Human · EXCEL" with the rest clipped. */
-  .app-shell[data-workspace-mode="play"] .board-meta-status {
+  /* Six readings and a control do not fit a 375px row, and at 320px they do
+     not come close. Left to shrink, a flex row takes the width out of whichever
+     item gives it up: the result of an imported game was drawn as "·0" at
+     375px, and at 320px both it and a button were 0px wide. The readings keep
+     their own widths and the row scrolls, which is the same trade the top bar
+     makes above it -- and the trailing fade is what says so. */
+  .board-meta-flow {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 1.25rem), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 1.25rem), transparent 100%);
+  }
+
+  .board-meta-flow::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Nothing in the row gives up width any more; the row gives up its end. */
+  .board-meta-flow>* {
+    flex: none;
+    scroll-snap-align: start;
+  }
+
+  /* The two that were written to absorb the squeeze have nothing left to
+     absorb: the row is longer than the strip and scrolls. Still the first
+     things to leave the screen, but whole, and reachable by scrolling rather
+     than drawn as a fragment of themselves. */
+  .board-meta-flow>.board-meta-game,
+  .board-meta-flow>.board-meta-practice {
+    flex: none;
+  }
+
+  /* Last, so the end that scrolls out of reach is the one the strip can most
+     afford to lose: an imported game's players are in the tab's title and in
+     the panel, and its result is already in the turn pill once the game is
+     over. Everything before them is a reading of the position on the screen. */
+  .board-meta-flow>.board-meta-opening {
+    order: 1;
+  }
+
+  .board-meta-flow>.board-meta-material {
+    order: 2;
+  }
+
+  .board-meta-flow>.board-meta-game {
+    order: 3;
+    max-width: 11rem;
+  }
+
+  /* Narrower than it would like: at its full 13rem the opening was longer than
+     the rest of the row put together and pushed everything after it out of
+     sight. Cut here it still says which opening -- "C95 Ruy Lopez: Cl..." --
+     which is the part a reader wants from it, and the whole name is a scroll
+     away, in the panel, and in the title. */
+  .board-meta-opening {
+    max-width: 8.5rem;
+  }
+
+  /* The last place the strip still repeated the status. It is already hidden
+     on a desktop and on a phone on its side, both because the panel header and
+     the bottom bar state it beside each other, and in Play mode here, where it
+     had pushed the quality pill off the right edge -- "Human vs Human · EXCEL"
+     with the rest clipped. That left Analysis in portrait, where the panel
+     header sits directly under the board saying it with a coloured dot and a
+     capital letter, and scrolls with the strip rather than staying put, so the
+     strip's copy buys no availability either. Fifty-nine pixels, which is what
+     the row needed to fit a 320px phone. */
+  .board-meta-status {
     display: none;
   }
 
@@ -4373,9 +4486,9 @@ button.critical-moment-row {
   /* Height is the scarce axis here -- the bar above already folds back to one
      row for it -- and this is the one layout where the stage had no room to
      spare for the opening's name: arriving after the first move it pushed the
-     board 4px past the bottom of a container that clips. Not drawn at all, so
-     the board keeps its full 197px. The name is still in the panel beside it,
-     where there is width to spare. */
+     board 4px past the bottom of a container that clips. Neither the row nor
+     the strip's copy of it, so the board keeps its full 197px. The name is
+     still in the panel beside it, where there is width to spare. */
   .board-opening-label {
     display: none;
   }
@@ -5439,7 +5552,7 @@ button.hint-btn {
 
 /* Who is up material. `flex: none` for the same reason the move number has it:
    it is short, it must never clip, and the players' names absorb the squeeze. */
-.board-meta-strip>.board-meta-material {
+.board-meta-flow>.board-meta-material {
   flex: none;
   color: var(--text-secondary);
 }
@@ -5692,8 +5805,11 @@ button.hint-btn {
    The mode is offered only where there is no right button to put the two
    gestures on. A mouse already has both, and would be given a mode that costs
    it the ability to move a piece. */
+/* Pinned past the end of the readings, never in the row that scrolls: a button
+   the strip has squeezed to nothing is not a button. */
 .board-draw-controls {
   display: none;
+  flex: none;
 }
 
 .board-draw-layer {

@@ -109,7 +109,7 @@ import {
 import { isBoardSquare } from './engine/boardAccessibility'
 import { BOARD_A11Y_SYNC_MAX_RETRIES, syncRenderedBoardAccessibility } from './components/boardAccessibilitySync'
 import { isBoardInputLocked, isPromotionMove } from './engine/boardInput'
-import { boardSizing, isMobileViewport } from './engine/boardSizing'
+import { boardSizing, isLandscapePhoneViewport, isMobileViewport } from './engine/boardSizing'
 import {
   applyPremove,
   canPremove,
@@ -526,6 +526,22 @@ function App() {
    * window drag, to answer a question that changes twice.
    */
   const isMobileLayout = isMobileViewport(viewport)
+  /**
+   * Where the opening's name goes, and it is only ever in one of the two.
+   *
+   * A phone held upright cannot spare a centred row of its own for it -- 32px,
+   * which is the difference between the panel under the board showing its one
+   * button whole and showing the top half of it -- so it joins the strip, which
+   * was going to be drawn anyway and already scrolls. A phone on its side gets
+   * neither: height is the scarce axis there and the panel beside the board
+   * names the opening already.
+   *
+   * Chosen here rather than by two `display: none` rules over one pair of
+   * elements, because both copies would then be in the document at once, and
+   * anything looking for "the opening's code" finds the hidden one first.
+   */
+  const openingInStrip = isMobileLayout && !isLandscapePhoneViewport(viewport)
+  const openingOnItsOwnRow = !isMobileLayout
   // The stage is sized by the row it sits in, never by the board inside it, so
   // it is safe to measure and size the board from.
   const stageHeight = useElementHeight(boardStageRef, viewport.height)
@@ -6388,6 +6404,14 @@ function App() {
         >
           <div className="board-layout">
             <div className="board-meta-strip" aria-label="Current game state">
+              {/* What the strip says scrolls; what it offers to press does not.
+                  The same split the top bar makes, and for the same reason: at
+                  375px this row already holds six things, and a flex row with
+                  nowhere to put the seventh takes the width out of whichever
+                  item will give it up -- which is how the result of an imported
+                  game came to be drawn as "·0" and, at 320px, how a button
+                  ended up 0px wide. */}
+              <div className="board-meta-flow">
               <span className={`turn-pill ${previewChess
                 ? previewChess.turn() === 'w' ? 'white' : 'black'
                 : gameResultLabel ? 'final' : game.turn() === 'w' ? 'white' : 'black'}`}>
@@ -6459,6 +6483,25 @@ function App() {
                   {REVIEW_LABELS[currentMoveQuality]}
                 </span>
               )}
+              {/* The opening's name, for a phone held upright, where it joins
+                  this row instead of taking one of its own. A row of its own
+                  costs 32px there, which is the difference between the panel
+                  under the board showing its one button whole and showing the
+                  top half of it; this row was already going to exist, already
+                  scrolls, and is already where the readings about the position
+                  are. The centred row below is the desktop's, and only one of
+                  the two is ever in the document. */}
+              {opening && openingInStrip && (
+                <span
+                  className="board-meta-opening"
+                  aria-label={`Opening ${opening.eco}: ${opening.name}`}
+                  title={`${opening.eco} ${opening.name}`}
+                >
+                  <strong>{opening.eco}</strong>
+                  <span>{opening.name}</span>
+                </span>
+              )}
+              </div>
               {/* Only where there is no right button to put these on. A mouse
                   has both gestures already and would gain a mode that costs it
                   the ability to move a piece. */}
@@ -6497,6 +6540,7 @@ function App() {
                 Held open it costs no board on any of the three: the stage had
                 the room all along, and now it is spent at the first paint
                 instead of on the second move. */}
+            {openingOnItsOwnRow && (
             <div
               className={`board-opening-label${opening ? ' fade-in-slide' : ' is-empty'}`}
               aria-label={opening ? `Opening ${opening.eco}: ${opening.name}` : undefined}
@@ -6508,6 +6552,7 @@ function App() {
                 <span>{opening ? opening.name : ''}</span>
               </div>
             </div>
+            )}
             <div className="board-wrap">
               {/* Whenever the engine is on, whatever the WDL switch says. The
                   column used to go with that switch, so turning off the
