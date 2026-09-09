@@ -6053,8 +6053,9 @@ function App() {
                         <span>Show win/draw/loss splits (UCI_ShowWDL)</span>
                       </label>
                       <p className="panel-copy small">
-                        The evaluation bar stays either way; this adds the draw band to it, the
-                        split under each engine line, and the WDL trend graph.
+                        The evaluation bar stays either way, and always reads the score; this
+                        marks the drawn share on it, adds the split under each engine line,
+                        and draws the WDL trend graph.
                       </p>
                       <p className="panel-copy small">
                         The engine profile, what the browser supports, and the UCI

@@ -21,9 +21,20 @@
     z-index: 3;
 }
 
+/* Same ramp as the vertical bar, laid on its side: light at White's end. */
 .hw-draw {
-    background: linear-gradient(to right, #64748b, #94a3b8);
+    background: linear-gradient(to right, #94a3b8, #64748b);
+    box-shadow:
+        inset 1px 0 0 rgba(255, 255, 255, 0.45),
+        inset -1px 0 0 rgba(0, 0, 0, 0.55);
     z-index: 2;
+}
+
+.horizontal-wdl-bar.is-flipped .hw-draw {
+    background: linear-gradient(to right, #64748b, #94a3b8);
+    box-shadow:
+        inset 1px 0 0 rgba(0, 0, 0, 0.55),
+        inset -1px 0 0 rgba(255, 255, 255, 0.45);
 }
 
 .hw-black {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { evalBarSplit } from './evalBar'
+import { evalBarSplit, evalBarWhiteShare } from './evalBar'
 import { winPercentFromCp } from './analysis'
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
@@ -38,6 +38,51 @@ describe('evalBarSplit', () => {
   it('has nothing to say without a reading', () => {
     expect(evalBarSplit(START, undefined)).toBeNull()
     expect(evalBarSplit(START, { cp: Number.NaN })).toBeNull()
+  })
+})
+
+describe('evalBarWhiteShare', () => {
+  /**
+   * The whole point of the separate figure. Stockfish calls the start position
+   * roughly `wdl 83 912 5`, and drawing that split literally gave White 8% of
+   * the bar beside a "+0.4" label and a "53% for White" verdict.
+   */
+  it('draws the score, not the split, when a reading carries both', () => {
+    const evaluation = { cp: 37, wdl: { w: 83, d: 912, l: 5 } }
+    expect(evalBarSplit(START, evaluation)!.white).toBeCloseTo(8.3, 6)
+    expect(evalBarWhiteShare(START, evaluation)).toBeCloseTo(winPercentFromCp(37), 6)
+    expect(evalBarWhiteShare(START, evaluation)!).toBeGreaterThan(50)
+  })
+
+  /** The same curve the winrate card, the trend graph and the accuracy read. */
+  it('is the winning chances the rest of the screen prints', () => {
+    for (const cp of [-800, -120, 0, 37, 250, 900]) {
+      expect(evalBarWhiteShare(START, { cp })).toBeCloseTo(winPercentFromCp(cp), 6)
+    }
+  })
+
+  it('reads the score from the side to move', () => {
+    expect(evalBarWhiteShare(BLACK_TO_MOVE, { cp: 100 })!).toBeLessThan(50)
+  })
+
+  it('fills the bar for the side with a forced mate, whatever the split says', () => {
+    expect(evalBarWhiteShare(START, { cp: 10000, mate: 3, wdl: { w: 0, d: 1000, l: 0 } })).toBe(100)
+    expect(evalBarWhiteShare(BLACK_TO_MOVE, { cp: 10000, mate: 3 })).toBe(0)
+  })
+
+  /**
+   * The one shape that leaves the curve nothing to work from. The expected
+   * score is the same quantity by another route: wins plus half the draws.
+   */
+  it('falls back to the expected score when the score is not a number', () => {
+    const nan = Number.NaN
+    expect(evalBarWhiteShare(START, { cp: nan, wdl: { w: 200, d: 600, l: 200 } })).toBeCloseTo(50, 6)
+    expect(evalBarWhiteShare(START, { cp: nan, wdl: { w: 500, d: 400, l: 100 } })).toBeCloseTo(70, 6)
+  })
+
+  it('has nothing to say without a reading', () => {
+    expect(evalBarWhiteShare(START, undefined)).toBeNull()
+    expect(evalBarWhiteShare(START, { cp: Number.NaN })).toBeNull()
   })
 })
 
