@@ -101,7 +101,7 @@ export function mergeLibraryChanges(current: LibraryGame[], before: LibraryGame[
     const old = previous.get(game.id)
     const changed = next.get(game.id)
     if (!old || !changed) return game
-    return {
+    const updated = {
       ...game,
       ...(changed.name !== old.name ? { name: changed.name } : {}),
       ...(changed.favorite !== old.favorite ? { favorite: changed.favorite } : {}),
@@ -110,6 +110,10 @@ export function mergeLibraryChanges(current: LibraryGame[], before: LibraryGame[
       } : {}),
       updatedAt: Math.max(game.updatedAt, changed.updatedAt),
     }
+    // PGN-derived fields only change with the PGN. Retain object identity for
+    // unchanged rows so the writer need not serialize large comments twice.
+    return updated.name === game.name && updated.favorite === game.favorite
+      && updated.pgn === game.pgn && updated.updatedAt === game.updatedAt ? game : updated
   })
   const ids = new Set(current.map(game => game.id))
   const added = after.filter(game => !previous.has(game.id) && !ids.has(game.id))
@@ -134,7 +138,7 @@ async function patchIndexedDb(before: LibraryGame[], after: LibraryGame[]): Prom
       const existing = new Map(current.map(game => [game.id, game]))
       for (const game of current) if (!retained.has(game.id)) store.delete(game.id)
       for (const game of result) {
-        if (JSON.stringify(existing.get(game.id)) !== JSON.stringify(game)) store.put(game)
+        if (existing.get(game.id) !== game) store.put(game)
       }
     }
     await done

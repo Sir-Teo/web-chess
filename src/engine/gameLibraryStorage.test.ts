@@ -341,6 +341,13 @@ describe('changes from stale library tabs', () => {
     expect(mergeLibraryChanges([a, b], [a], [])).toEqual([b])
   })
 
+  it('retains unchanged row identity so large PGNs need no serialization to detect writes', () => {
+    const stored = [{ ...a, updatedAt: 5 }, b]
+    const merged = mergeLibraryChanges(stored, [a, b], [a, { ...b, favorite: true }])
+    expect(merged[0]).toBe(stored[0])
+    expect(merged[1]).not.toBe(stored[1])
+  })
+
   it('never evicts another game when concurrent additions reach the cap', () => {
     const full = Array.from({ length: 500 }, (_, i) => ({ ...a, id: `saved-${i}` }))
     expect(mergeLibraryChanges(full, [], [b])).toEqual(full)
