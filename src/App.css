@@ -3719,6 +3719,25 @@ button.critical-moment-row {
     -webkit-overflow-scrolling: touch;
   }
 
+  /* A header row whose whole content is the word already lit in the tab pills
+     directly above it. Measured at 375x812 it cost 41px of the ~120 the panel
+     has under the board, which was the difference between the Start card's
+     button being whole and being cut across. The heading stays in the
+     accessibility tree, the way the brand does, because it is what says where
+     this panel begins. */
+  .panel-header-title-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    min-height: 0;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    clip-path: inset(50%);
+    border: 0;
+  }
+
   .top {
     position: relative !important;
     top: auto !important;

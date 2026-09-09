@@ -6600,7 +6600,13 @@ function App() {
             inert={rightPanelCollapsed ? true : undefined}
             style={{ opacity: rightPanelCollapsed ? 0 : 1 }}
           >
-            <header className="panel-header analysis-header">
+            {/* In Play mode the header holds nothing but its own title, which
+                is the word already lit in the tab pills above. On a phone that
+                row costs the panel 41px of the ~120 it has above the fold —
+                enough to cut the one button the panel is there for. Marked so
+                the stylesheet can take it back; the heading itself stays for
+                anything reading the document's structure. */}
+            <header className={`panel-header analysis-header${workspaceMode === 'analysis' ? '' : ' panel-header-title-only'}`}>
               <h2>{workspaceMode === 'analysis' ? 'Analysis' : 'Play'}</h2>
               {workspaceMode === 'analysis' && (
                 <div className="analysis-tab-strip">
