@@ -155,6 +155,12 @@ import {
   toggleSquareMark,
   type SquareMarks,
 } from './engine/boardMarks'
+import {
+  type DrawnArrow,
+  resolveTouchDraw,
+  squareAtPoint,
+  toggleDrawnArrow,
+} from './engine/touchDraw'
 import { coachReadingSource, describeCoachDepth, isExactTablebaseCoachMove, selectCoachBestMove, selectCoachLineSource } from './engine/coach'
 import { isReviewPracticeAnswer } from './engine/reviewPractice'
 import {
@@ -212,7 +218,7 @@ import { buildMoveTimeSeries, formatMoveTime, parseTimeControlTag } from './engi
 import { useElementHeight } from './hooks/useElementWidth'
 import { useModalFocus } from './hooks/useModalFocus'
 import { useMoveSound } from './hooks/useMoveSound'
-import { IconClock, IconBot, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlag, IconFlip, IconDownload, IconClipboard, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp, IconChevronLeft, IconChevronRight } from './components/icons'
+import { IconClock, IconBot, IconDraw, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlag, IconFlip, IconDownload, IconClipboard, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp, IconChevronLeft, IconChevronRight } from './components/icons'
 import { isPlainShortcut, isTypingTarget } from './components/shortcutKeys'
 import { CommandPaletteDialog } from './components/CommandPaletteDialog'
 import type { Command } from './components/commandPalette'
@@ -766,6 +772,19 @@ function App() {
   // Squares the reader right-clicked. Arrows they drag are the library's own
   // state; only the squares are ours, because it has no notion of them.
   const [markedSquares, setMarkedSquares] = useState<SquareMarks>({})
+  /**
+   * Drawing on a screen with no right button. See `engine/touchDraw.ts` for why
+   * it is a mode rather than a gesture.
+   *
+   * The arrows are ours here where a mouse's are the library's, because the
+   * library only ever builds one from a right press, and nothing on a phone
+   * produces one. Not persisted: it is a thing the reader is doing, not a thing
+   * they have set, and a board that would not move pieces on the next visit
+   * because of a switch thrown last week is a bug report.
+   */
+  const [touchDrawing, setTouchDrawing] = useState(false)
+  const [drawnArrows, setDrawnArrows] = useState<DrawnArrow[]>([])
+  const [drawInProgress, setDrawInProgress] = useState<{ from: string; to: string | null } | null>(null)
   /** A move queued while the engine is thinking. One at a time, like everywhere else. */
   const [premove, setPremove] = useState<Premove | null>(null)
   /** The move a hint suggested, and whether one is being searched for. */
@@ -3033,9 +3052,12 @@ function App() {
 
   // The board is told to clear its drawn arrows when the position changes; the
   // squares have to follow, or a mark from two moves ago outlives the arrow it
-  // was drawn beside.
+  // was drawn beside. Arrows drawn with a finger are ours to clear for the same
+  // reason -- the library never knew about them, so it cannot clear them either.
   useEffect(() => {
     setMarkedSquares(marks => (hasSquareMarks(marks) ? {} : marks))
+    setDrawnArrows(arrows => (arrows.length ? [] : arrows))
+    setDrawInProgress(null)
   }, [fen])
 
   /**
@@ -3225,6 +3247,25 @@ function App() {
 
     return list
   }, [activeThreat, currentBoardMove, engineEnabled, fen, hintMove, linePreview, lines, reviewPractice, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
+
+  /**
+   * What the board is handed: everything the engine has to say, and then the
+   * reader's own arrows over it.
+   *
+   * Theirs are not gated on the board-arrows switch. That switch is about what
+   * the app draws unasked; an arrow the reader drew themselves is not that, and
+   * on a mouse it is not gated either, because it lives inside the library.
+   *
+   * The one being dragged is drawn with them, so the gesture shows where it is
+   * going rather than only where it went.
+   */
+  const boardArrows = useMemo(() => {
+    const dragging = drawInProgress?.to && drawInProgress.to !== drawInProgress.from
+      ? [{ startSquare: drawInProgress.from, endSquare: drawInProgress.to, color: MARK_COLORS.primary }]
+      : []
+    if (!drawnArrows.length && !dragging.length) return arrows
+    return [...arrows, ...drawnArrows, ...dragging]
+  }, [arrows, drawInProgress, drawnArrows])
 
   const playSound = useMoveSound(soundEnabled)
   /**
@@ -3756,6 +3797,63 @@ function App() {
     },
     [],
   )
+
+  /**
+   * The same two gestures with a finger, inside the drawing mode.
+   *
+   * The layer these run on covers the board exactly, so it takes the press
+   * before the library sees it -- which is what keeps a drag from picking a
+   * piece up -- and its own rectangle is what the square is read out of. The
+   * pointer is captured on the way down so a finger that leaves the board still
+   * reports where it went up, which is how the gesture can be abandoned.
+   */
+  const drawSquareFrom = useCallback((event: React.PointerEvent<HTMLDivElement>) => (
+    squareAtPoint(
+      { x: event.clientX, y: event.clientY },
+      event.currentTarget.getBoundingClientRect(),
+      orientation,
+    )
+  ), [orientation])
+
+  const handleDrawPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const square = drawSquareFrom(event)
+    if (!square) return
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setDrawInProgress({ from: square, to: square })
+  }, [drawSquareFrom])
+
+  const handleDrawPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    setDrawInProgress(current => {
+      if (!current) return current
+      const square = drawSquareFrom(event)
+      return square === current.to ? current : { ...current, to: square }
+    })
+  }, [drawSquareFrom])
+
+  const handleDrawPointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const started = drawInProgress
+    setDrawInProgress(null)
+    if (!started) return
+    const gesture = resolveTouchDraw(started.from, drawSquareFrom(event))
+    if (!gesture) return
+    if (gesture.kind === 'mark') {
+      setMarkedSquares(marks => toggleSquareMark(marks, gesture.square, MARK_COLORS.primary))
+      return
+    }
+    setDrawnArrows(arrows => toggleDrawnArrow(arrows, gesture.from, gesture.to, MARK_COLORS.primary))
+  }, [drawInProgress, drawSquareFrom])
+
+  /** A finger lifted outside the window, or the gesture taken over by the OS. */
+  const handleDrawPointerCancel = useCallback(() => setDrawInProgress(null), [])
+
+  const clearDrawings = useCallback(() => {
+    setMarkedSquares(marks => (hasSquareMarks(marks) ? {} : marks))
+    setDrawnArrows(arrows => (arrows.length ? [] : arrows))
+    setDrawInProgress(null)
+  }, [])
+
+  const hasDrawings = drawnArrows.length > 0 || hasSquareMarks(markedSquares)
 
   const onSquareClick = useCallback((square: Square) => {
     if (pendingPromotion) return
@@ -5785,8 +5883,11 @@ function App() {
                   move or left click.
                 </p>
                 <p className="panel-copy small pointer-coarse-only">
-                  Drawing arrows and marking squares needs a mouse — they are on the right button, and
-                  there is no touch equivalent yet.
+                  Press <strong>Draw</strong> beside the board, then drag from square to square for an
+                  arrow or tap a square to mark it. Drawing the same one again takes it away, and lifting
+                  your finger off the board abandons it. Your marks are blue, so nothing the engine draws
+                  can be mistaken for them; they clear on your next move. Press Draw again to move pieces.
+                  The other two colours are on a mouse, where they are modifier keys.
                 </p>
                 {/* Hover has no touch equivalent either, but the click it
                     replaces does, so the coarse-pointer copy says what to press
@@ -6358,6 +6459,33 @@ function App() {
                   {REVIEW_LABELS[currentMoveQuality]}
                 </span>
               )}
+              {/* Only where there is no right button to put these on. A mouse
+                  has both gestures already and would gain a mode that costs it
+                  the ability to move a piece. */}
+              <span className="board-draw-controls">
+                {hasDrawings && (
+                  <button
+                    type="button"
+                    className="board-draw-clear"
+                    onClick={clearDrawings}
+                    title="Clear your arrows and marks"
+                  >
+                    Clear
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={`board-draw-toggle${touchDrawing ? ' active' : ''}`}
+                  aria-pressed={touchDrawing}
+                  onClick={() => setTouchDrawing(value => !value)}
+                  title={touchDrawing
+                    ? 'Drawing: drag for an arrow, tap to mark. Turn off to move pieces again.'
+                    : 'Draw arrows and mark squares with your finger'}
+                >
+                  <IconDraw aria-hidden="true" />
+                  <span>{touchDrawing ? 'Drawing' : 'Draw'}</span>
+                </button>
+              </span>
             </div>
             {opening && (
               <div
@@ -6390,10 +6518,26 @@ function App() {
               })()}
               <div className="board-area" onKeyDown={handleBoardKeyDown}>
                 <div
-                  className={`board-surface${isPreviewingLine ? ' previewing' : ''}`}
+                  className={`board-surface${isPreviewingLine ? ' previewing' : ''}${touchDrawing ? ' drawing' : ''}`}
                   aria-hidden={promotionDialogOpen ? true : undefined}
                   inert={promotionDialogOpen ? true : undefined}
                 >
+                  {/* Over the board exactly, so it takes the press before the
+                      library can start dragging a piece with it, and so its own
+                      rectangle is the one the square is read out of. Only while
+                      the mode is on: at every other moment the board is a board.
+                      Not previewing a line, where nothing the reader draws
+                      belongs to the position on the screen. */}
+                  {touchDrawing && !isPreviewingLine && renderedBoardWidth > 0 && (
+                    <div
+                      className="board-draw-layer"
+                      onPointerDown={handleDrawPointerDown}
+                      onPointerMove={handleDrawPointerMove}
+                      onPointerUp={handleDrawPointerUp}
+                      onPointerCancel={handleDrawPointerCancel}
+                      onContextMenu={event => event.preventDefault()}
+                    />
+                  )}
                   {/* react-chessboard measures its own container and throws
                       "Square width not found" from <Piece2> when that container
                       has no width, which takes the whole app to the error
@@ -6449,7 +6593,7 @@ function App() {
                           legalTargets.map(sq => [sq, moveHintStyle(boardTheme, Boolean(game.get(sq)))]),
                         ),
                       },
-                      arrows,
+                      arrows: boardArrows,
                       arrowOptions: BOARD_ARROW_OPTIONS,
                       darkSquareNotationStyle: notationStyle(boardTheme.ink, boardTheme.dark),
                       lightSquareNotationStyle: notationStyle(boardTheme.ink, boardTheme.light),

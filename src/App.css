@@ -5669,3 +5669,61 @@ button.hint-btn {
   gap: 0.35rem;
   min-height: 40px;
 }
+
+/* ── Drawing with a finger ──────────────────────────────────────────────────
+   The mode is offered only where there is no right button to put the two
+   gestures on. A mouse already has both, and would be given a mode that costs
+   it the ability to move a piece. */
+.board-draw-controls {
+  display: none;
+}
+
+.board-draw-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  /* The browser must not claim the drag for a scroll or a zoom before the
+     first pointermove arrives, or the arrow is abandoned mid-gesture. */
+  touch-action: none;
+  cursor: crosshair;
+}
+
+/* The board says which mode it is in, because the cost of guessing wrong is a
+   move that does not happen. */
+.board-surface.drawing {
+  position: relative;
+  border-radius: 12px;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.85);
+}
+
+@media (pointer: coarse) {
+  .board-draw-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-left: auto;
+  }
+
+  .board-draw-controls button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-height: 2.25rem;
+    padding: 0 0.55rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-pill);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  /* The switch wears the colour it draws in, so the mode and its marks are
+     plainly the same thing. */
+  .board-draw-toggle.active {
+    border-color: rgba(59, 130, 246, 0.85);
+    background: rgba(59, 130, 246, 0.16);
+    color: #93c5fd;
+  }
+}
