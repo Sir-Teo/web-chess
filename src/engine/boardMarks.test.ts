@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest'
+import { BOARD_THEMES, compositeOver, contrastRatio } from './boardThemes'
+import { type ColorVision, distanceAsSeen } from './colorVision'
 import {
+  LAST_MOVE_COLOR,
+  LAST_MOVE_RING_ALPHA,
+  LAST_MOVE_WASH_ALPHA,
   MARK_COLORS,
   hasSquareMarks,
+  lastMoveSquareStyle,
   markColorForModifiers,
   squareMarkStyle,
   toggleSquareMark,
 } from './boardMarks'
+
+const VISIONS: ColorVision[] = ['normal', 'protan', 'deutan', 'tritan']
 
 describe('board mark colours', () => {
   it('gives a bare right-click the primary colour', () => {
@@ -72,5 +80,57 @@ describe('hasSquareMarks', () => {
   it('is false for an empty set and true once anything is marked', () => {
     expect(hasSquareMarks({})).toBe(false)
     expect(hasSquareMarks({ e4: MARK_COLORS.primary })).toBe(true)
+  })
+})
+
+describe('the move that was played', () => {
+  /**
+   * The hard case, and the reason the ring exists. The default scheme's squares
+   * are a cream and a brown, so amber laid over them as a wash barely moves the
+   * colour: measured over all five schemes and all three colour visions, the
+   * strongest wash worth drawing reaches ΔE 13 and 1.14:1. An edge does not
+   * have that problem, because it separates by shape.
+   */
+  it('rings the squares in a line every scheme can carry', () => {
+    let worst = Infinity
+    let where = ''
+    for (const theme of BOARD_THEMES) {
+      for (const [tag, square] of [['light', theme.light], ['dark', theme.dark]] as const) {
+        for (const vision of VISIONS) {
+          const seen = distanceAsSeen(LAST_MOVE_COLOR, square, vision)
+          if (seen < worst) {
+            worst = seen
+            where = `${theme.id} ${tag} square, ${vision}`
+          }
+        }
+      }
+    }
+    // The bar the move hints are held to, which the wash below cannot reach.
+    expect(worst, `worst is ${worst.toFixed(1)} on the ${where}`).toBeGreaterThan(15)
+  })
+
+  /** What a wash alone would be, so the reason for the ring stays on record. */
+  it('cannot lean on the wash, on the scheme most boards are set to', () => {
+    const classic = BOARD_THEMES.find(theme => theme.id === 'classic')!
+    for (const square of [classic.light, classic.dark]) {
+      const washed = compositeOver(square, LAST_MOVE_COLOR, LAST_MOVE_WASH_ALPHA)
+      expect(contrastRatio(washed, square)).toBeLessThan(1.2)
+      expect(distanceAsSeen(washed, square, 'tritan')).toBeLessThan(15)
+    }
+  })
+
+  /** Light enough to read the piece through, which is the arrow's weakness. */
+  it('fills in behind the ring without hiding what is on the square', () => {
+    const style = lastMoveSquareStyle()
+    expect(style.boxShadow).toContain(`inset 0 0 0 3px ${LAST_MOVE_COLOR}`)
+    expect(style.backgroundColor).toBe(`${LAST_MOVE_COLOR}38`)
+    // The hex alpha and the documented figure are the same number.
+    expect(Number.parseInt('38', 16) / 255).toBeCloseTo(LAST_MOVE_WASH_ALPHA, 2)
+    expect(LAST_MOVE_RING_ALPHA).toBe(1)
+  })
+
+  /** Amber is the board's word for this, and nothing else here may take it. */
+  it('keeps amber to itself', () => {
+    expect(Object.values(MARK_COLORS)).not.toContain(LAST_MOVE_COLOR)
   })
 })

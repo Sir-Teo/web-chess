@@ -149,6 +149,7 @@ import { ChessClock } from './components/ChessClock'
 import {
   MARK_COLORS,
   hasSquareMarks,
+  lastMoveSquareStyle,
   markColorForModifiers,
   squareMarkStyle,
   toggleSquareMark,
@@ -431,6 +432,15 @@ const PREVIEW_SQUARE_STYLE = {
   boxShadow: 'inset 0 0 0 3px rgba(63, 185, 80, 0.85)',
   backgroundColor: 'rgba(63, 185, 80, 0.22)',
 }
+
+/**
+ * The two squares of the move that reached this position. See
+ * {@link lastMoveSquareStyle} for why it is a ring over a wash.
+ *
+ * Lowest of the square styles, so a premove, a mark, the selected square and a
+ * legal-move hint each still win the square they are on.
+ */
+const LAST_MOVE_SQUARE_STYLE = lastMoveSquareStyle()
 
 const NOTATION_BASE_STYLE = {
   position: 'absolute' as const,
@@ -6410,6 +6420,13 @@ function App() {
                         [linePreview.uci.slice(0, 2) as Square]: PREVIEW_SQUARE_STYLE,
                         [linePreview.uci.slice(2, 4) as Square]: PREVIEW_SQUARE_STYLE,
                       } : {
+                        // What was just played, under everything else.
+                        ...(currentBoardMove
+                          ? {
+                            [currentBoardMove.from as Square]: LAST_MOVE_SQUARE_STYLE,
+                            [currentBoardMove.to as Square]: LAST_MOVE_SQUARE_STYLE,
+                          }
+                          : {}),
                         // The piece stays where it is and both squares light up:
                         // nothing has been played, and pretending otherwise
                         // would show a position that does not exist.

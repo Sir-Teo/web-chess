@@ -72,3 +72,42 @@ export function hasSquareMarks(marks: SquareMarks): boolean {
   for (const _square in marks) return true
   return false
 }
+
+/**
+ * The move that was played, on the two squares it used.
+ *
+ * The board had no such thing. The only answer to "what was just played" was
+ * the amber arrow, drawn only while board arrows are on, so turning them off
+ * left a board with no memory of its own last move -- including under the
+ * blindfold, whose copy promises that the last move stays. Every other board
+ * marks the two squares, and marks them whether or not anything else is drawn.
+ *
+ * Amber is forced by the board's own language, and it is also the hardest
+ * colour to spend here: the default scheme's squares are a cream and a brown,
+ * so an amber *wash* on them barely moves. Measured over all five schemes and
+ * all three colour visions, the strongest wash worth drawing reaches ΔE 13 and
+ * a contrast ratio of 1.14 -- visible, but not something to rest a reading on.
+ *
+ * So the ring carries it and the wash only fills in behind: a solid amber line
+ * is ΔE 22.8 at worst, past the bar the move hints are held to, because an
+ * edge separates by shape and does not depend on the square it is drawn over.
+ * The wash stays light enough to read the piece through, which is the arrow's
+ * weakness on a phone-sized board.
+ *
+ * Ring and wash together is what a premove and a previewed move already look
+ * like here; the colour is what says which of the three this one is.
+ */
+export const LAST_MOVE_COLOR = '#ffaa00'
+
+/** How solid the ring is. Solid, because it is the reading, not the wash. */
+export const LAST_MOVE_RING_ALPHA = 1
+
+/** How much of the square the wash fills in. Light: the piece has to read. */
+export const LAST_MOVE_WASH_ALPHA = 0.22
+
+export function lastMoveSquareStyle(): { boxShadow: string; backgroundColor: string } {
+  return {
+    boxShadow: `inset 0 0 0 3px ${LAST_MOVE_COLOR}`,
+    backgroundColor: `${LAST_MOVE_COLOR}38`,
+  }
+}
