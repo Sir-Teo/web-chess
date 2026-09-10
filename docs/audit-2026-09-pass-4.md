@@ -4,7 +4,7 @@ A fourth sweep, after [the first](audit-2026-09.md),
 [the second](audit-2026-09-pass-2.md) and [the third](audit-2026-09-pass-3.md).
 The brief this time was narrower and, it turned out, deeper: the interface on a
 phone and on a desktop, read side by side at 320, 375, 390, 844×390, 1280 and
-1440, in both themes and at 100%, 150% and 200% text. Seventeen commits of
+1440, in both themes and at 100%, 150% and 200% text. Eighteen commits of
 changes, pushed, and this record.
 
 The same convention: **measured**, **reasoned**, or **refuted**. The refuted
@@ -189,6 +189,25 @@ The shared *game* half of the hash already handled this well: `replaySharedGame`
 plays a truncated link as far as it really goes rather than throwing it away.
 This is the position half catching up.
 
+**The phone buried each tab's content under the controls it shares.**
+**Measured** at 375×812 with a game loaded: the Analyze tab put 391px of shared
+controls between the tab a reader had just pressed and the content it is for,
+and the Review tab 285px — against a container about 526px tall, so the Coach
+card opened with 135px of itself showing. Engine Lab, which shares none of
+them, starts its content at 13px.
+
+The two rows that *leave* the analysis rather than read it — "Play from here"
+and "Drill this line" — now sit under the reading on a phone instead of over
+it. Analyze's content starts at 286px and Review's at 180px, which roughly
+doubles what opens on the screen. Nothing moves on a desktop, where there was
+room for all of it.
+
+Chosen in `App.tsx` off `isMobileLayout` rather than with `order` in the
+stylesheet. `order` would have left the focus order following the old one, and
+traded a density problem for an accessibility one — which is the reason this
+entry sat in *Left undone* for six commits, until it turned out both rows were
+already extracted as variables and the move was four lines.
+
 ---
 
 ## New
@@ -285,18 +304,6 @@ ellipsises, the tag renders as text, and the dialog overflows at neither size.
 ---
 
 ## Left undone
-
-**The panel's density on a phone.** **Measured** at 375×812 with a game loaded:
-the Analyze tab puts 391px of shared controls between the tab you pressed and
-the content it is for, and the Review tab 285px — "Enter a move by name", "How
-to read this analysis", "Play from here", "Drill this line", Coach/Pro. Engine
-Lab, by contrast, starts its content at 13px. The fix is to move the two
-collapsed `<details>` and the two secondary action rows below the content, and
-the tempting way to do it is `order` in the stylesheet — which divorces the
-focus order from the visual one and trades a density problem for an
-accessibility one. It wants a DOM change, and a DOM change to that panel is
-larger than the rest of this pass put together. Left for a pass with room for
-it.
 
 **A bare username pasted into the PGN box.** It still gets the generic parse
 error. The dialog has a username field two rows above it, so the intent is

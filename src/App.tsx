@@ -5542,6 +5542,21 @@ function App() {
   {/* Its own row: three buttons across squeezed "Play from here" to its
       minimum, and the two are different offers -- take this position against
       the engine, or play this whole line back from memory. */}
+  /**
+   * The two rows that leave the analysis rather than read it.
+   *
+   * On a desktop they sit under the tab's own button, where there is room for
+   * everything. On a phone they sit under the reading instead. Measured at
+   * 375x812 with a game loaded: the Analyze tab put 391px of shared controls
+   * between the tab a reader had just pressed and the content it is for, and
+   * the Review tab 285px -- against a container about 526px tall, so the Coach
+   * card opened with 135px of itself showing. Engine Lab, which has no shared
+   * controls at all, starts its content at 13px.
+   *
+   * Chosen here rather than with `order` in the stylesheet, which would leave
+   * the focus order following the old one and trade a density problem for an
+   * accessibility one.
+   */
   const drillRow = (
     <div className="inline-actions drill-row">
       <span className="drill-row-label">Drill this line</span>
@@ -7113,8 +7128,8 @@ function App() {
                       </button>
                     </div>
                   )}
-                  {playFromHereRow}
-                  {drillRow}
+                  {!isMobileLayout && playFromHereRow}
+                  {!isMobileLayout && drillRow}
                   {drillCard}
                   {experienceToggle}
                   {keepSearchingSwitch}
@@ -7241,6 +7256,8 @@ function App() {
                       </p>
                     )}
                   </div>
+                  {isMobileLayout && playFromHereRow}
+                  {isMobileLayout && drillRow}
                   {/* An empty analysis board is a board waiting for a game. The
                       PGN icon in the top bar is one way in; a reader who has
                       just arrived should not have to find it. */}
@@ -7582,8 +7599,8 @@ function App() {
                       )}
                     </button>
                   </div>
-                  {playFromHereRow}
-                  {drillRow}
+                  {!isMobileLayout && playFromHereRow}
+                  {!isMobileLayout && drillRow}
                   {drillCard}
                   {experienceToggle}
                   {keepSearchingSwitch}
@@ -7738,6 +7755,8 @@ function App() {
                       </div>
                     )}
                   </div>
+                  {isMobileLayout && playFromHereRow}
+                  {isMobileLayout && drillRow}
                   <div className="critical-moments-card">
                     <h3><span className="section-icon"><IconAlert /></span> Critical Moments</h3>
                     {criticalReviewRows.length > 0 ? (
