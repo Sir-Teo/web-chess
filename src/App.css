@@ -1029,6 +1029,36 @@ input[type="checkbox"] {
   max-width: 100%;
 }
 
+/* ── High contrast ─────────────────────────────────────
+   Windows' high-contrast mode replaces every background and border with the
+   reader's own palette and drops box-shadows entirely. Almost all of this app
+   is better for it — **measured** at 1440×900 with `forced-colors: active`, the
+   bars, buttons, panels, the Coach card, the move list, the library and both
+   graphs all render and read correctly, because their meaning is in their text
+   and their SVG strokes, which the mode leaves alone.
+
+   Two places are not, and both for the same reason: the colour *is* the
+   reading, so replacing it deletes the content rather than restyling it.
+
+   The board loses its squares. All 64 measure `rgb(255, 255, 255)` — light,
+   dark, and the two the last move was played between. What is left is a piece
+   diagram on a blank field: no light or dark complex, no way to see which
+   bishop is which, and no memory of the last move, whose ring is a box-shadow
+   and whose wash is a background. A chessboard's colours are not decoration.
+
+   The evaluation bar loses its fill and keeps only its "+0.4" label, so the
+   one reading a beginner has becomes a number they have to interpret.
+
+   `forced-color-adjust: none` is the mechanism the spec provides for exactly
+   this, and it is inherited, so one declaration on each covers the squares, the
+   coordinates, the marks and the bar's two halves. Everything around them stays
+   in the reader's palette, which is the point: this opts out the two elements
+   whose colours carry meaning, not the app. */
+.board-surface,
+.eval-column {
+  forced-color-adjust: none;
+}
+
 /* Each piece is an SVG left `display: inline` inside the draggable wrapper the
    board library gives it, so the wrapper's box is a *line* box: the SVG plus
    the strut's descender under it. That is 7px at every board size — the leading

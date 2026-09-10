@@ -1219,6 +1219,60 @@ async function checkReviewReportHoldsStill(browser) {
  * the library stores and what leaves the app.
  */
 /**
+ * The board still has squares in Windows high contrast.
+ *
+ * `forced-colors: active` replaces every background and border with the
+ * reader's palette and drops box-shadows. Almost all of this app is better for
+ * it -- its meaning lives in text and in SVG strokes, which the mode leaves
+ * alone. The board is the exception: **measured** before the fix, all 64
+ * squares came back `rgb(255, 255, 255)`, light, dark and the two the last move
+ * was played between, leaving a piece diagram on a blank field with no light or
+ * dark complex and no memory of the last move. The evaluation bar lost its fill
+ * the same way and kept only its number.
+ *
+ * Asserted as "are these two different", not against particular colours: the
+ * point is that the checkerboard survives, and the schemes are free to change.
+ */
+async function checkHighContrastKeepsTheBoard(browser) {
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 800 }, forcedColors: 'active',
+  })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('.board-surface').waitFor({ timeout: 10000 })
+
+    const board = await page.evaluate(() => {
+      const at = name => getComputedStyle(document.querySelector(`[data-square="${name}"]`)).backgroundColor
+      // a1 is dark and a2 light in every scheme, whichever way the board faces.
+      return { forced: matchMedia('(forced-colors: active)').matches, dark: at('a1'), light: at('a2') }
+    })
+    assert(board.forced, 'the high-contrast context did not take, so this check proves nothing')
+    assert(board.dark !== board.light,
+      `high contrast flattened the board: a1 and a2 are both ${board.dark}`)
+
+    // And the bar that answers "who is better" keeps its two halves.
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+    await page.locator('.eval-column .wdl-bar').waitFor({ timeout: 20000 })
+    const bar = await page.evaluate(() => {
+      const el = document.querySelector('.eval-column .wdl-bar')
+      const white = document.querySelector('.eval-column .wdl-white')
+      const s = getComputedStyle(el)
+      return { adjust: s.forcedColorAdjust, height: Math.round(el.getBoundingClientRect().height),
+               whiteShare: white ? Math.round(white.getBoundingClientRect().height) : 0 }
+    })
+    assert(bar.adjust === 'none',
+      `the evaluation bar is drawn in the forced palette (forced-color-adjust: ${bar.adjust})`)
+    assert(bar.whiteShare > 0 && bar.whiteShare < bar.height,
+      `the evaluation bar shows ${bar.whiteShare}px of ${bar.height}px for White, which is not a reading`)
+    console.log('  high contrast: the board keeps its squares and the evaluation bar its halves')
+  } finally { await context.close() }
+}
+
+/**
  * Every square answers a finger, at the narrowest width the app supports.
  *
  * 320px is what `body { min-width: 320px }` claims, and it was the one size
@@ -2481,6 +2535,7 @@ async function main() {
     await checkDrillLeavesTheLineAlone(browser)
     await checkDrawModeEndsWithItsPurpose(browser)
     await checkEverySquareAnswersAFinger(browser)
+    await checkHighContrastKeepsTheBoard(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)
     await checkAutomaticAnalysisIsReused(browser)
     await checkOpeningTableStaysOutOfBoot(browser)
