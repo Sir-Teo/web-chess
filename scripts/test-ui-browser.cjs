@@ -1787,6 +1787,67 @@ async function main() {
       assert(/^[a-h][1-8], /.test(boardLabels.sample || ''),
         `${viewport.name}: a square label reads "${boardLabels.sample}"`)
 
+      /**
+       * And every piece's box is its square, which is not the same question as
+       * whether the art looks right.
+       *
+       * The board library leaves each piece's SVG `display: inline` inside the
+       * draggable wrapper it gives it, so the wrapper's box is a line box: the
+       * art plus the strut's descender under it. The art is square and
+       * top-aligned, so nothing looks wrong -- but the box is what the browser
+       * focuses and scrolls to, and it stood 7px past the bottom of its square
+       * at every board size, the leading coming from the font rather than the
+       * board.
+       *
+       * Two consequences, which is why this is measured on the running page
+       * rather than asserted over a stylesheet: the focus ring on a near-rank
+       * piece was clipped by the board's own edge, and tabbing to one scrolled
+       * the board's `overflow: hidden` grid down 7px to reveal a box that did
+       * not fit -- the whole board shifting under the reader, with the far rank
+       * sliced off the top.
+       *
+       * Asserted at every viewport because a board that agrees at one size can
+       * disagree at another: the overhang is a constant, so it is a larger share
+       * of a small square, and the landscape phone has the smallest squares the
+       * app draws.
+       */
+      const pieceBoxes = await page.evaluate(() => {
+        const off = []
+        for (const piece of document.querySelectorAll('[data-square] [data-piece]')) {
+          const square = piece.closest('[data-square]')
+          const sr = square.getBoundingClientRect()
+          const pr = piece.getBoundingClientRect()
+          const overhang = Math.max(Math.abs(pr.bottom - sr.bottom), Math.abs(pr.top - sr.top))
+          if (overhang > 0.5) off.push(`${square.getAttribute('data-square')} by ${overhang.toFixed(1)}px`)
+        }
+        const grid = document.querySelector('.board-surface')?.firstElementChild
+        return {
+          off: off.slice(0, 4),
+          counted: document.querySelectorAll('[data-square] [data-piece]').length,
+          spill: grid ? grid.scrollHeight - grid.clientHeight : null,
+        }
+      })
+      assert(pieceBoxes.counted === 32,
+        `${viewport.name}: ${pieceBoxes.counted} pieces on the board, not 32`)
+      assert(pieceBoxes.off.length === 0,
+        `${viewport.name}: pieces standing outside their square: ${pieceBoxes.off.join(', ')}`)
+      assert(pieceBoxes.spill === 0,
+        `${viewport.name}: the board clips ${pieceBoxes.spill}px of its own content`)
+
+      // Which the board proves by holding still while a near-rank piece takes
+      // focus -- the symptom a reader would actually have seen.
+      const shiftOnFocus = await page.evaluate(async () => {
+        const grid = document.querySelector('.board-surface').firstElementChild
+        const before = grid.scrollTop
+        document.querySelector('[data-square="a1"] [role="button"]')?.focus()
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        const after = grid.scrollTop
+        document.activeElement?.blur()
+        return after - before
+      })
+      assert(shiftOnFocus === 0,
+        `${viewport.name}: focusing a near-rank piece scrolled the board ${shiftOnFocus}px`)
+
       // The whole point of the tier: a review, driven through the UI, against
       // an engine that answers the same way every time. Desktop only -- the
       // mobile layout reaches the same code through a different set of taps,

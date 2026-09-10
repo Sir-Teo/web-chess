@@ -1010,6 +1010,27 @@ body.resizing * {
   max-width: 100%;
 }
 
+/* Each piece is an SVG left `display: inline` inside the draggable wrapper the
+   board library gives it, so the wrapper's box is a *line* box: the SVG plus
+   the strut's descender under it. That is 7px at every board size — the leading
+   comes from the inherited font, not from the board — and it makes every
+   piece's box 7px taller than the square it sits in.
+
+   The art is unaffected (the SVG is square and top-aligned), but the box is
+   what the browser focuses, and the overhang shows in two places. Tabbing to a
+   piece on the near rank scrolls the board's own clipped grid down by 7px to
+   reveal a box that is 7px past its bottom edge -- **measured** at 1440x900 and
+   375x812: `scrollTop` 0 -> 7 and the whole board shifting up under the reader,
+   with the far rank sliced off the top. And on that rank the focus ring's
+   bottom edge is clipped away, so the one piece a keyboard player most needs to
+   see marked is the one drawn without a full ring.
+
+   `display: block` on the SVG is the whole fix: no line box, no strut, no
+   descender, and the wrapper measures the square exactly. */
+[data-piece]>svg {
+  display: block;
+}
+
 /* Eval bar + score label wrapper */
 .eval-bar-label {
   position: absolute;
