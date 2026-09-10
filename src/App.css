@@ -2501,8 +2501,11 @@ button.opening-move-row {
 
 .engine-lab-output {
   margin: 0;
-  min-height: 140px;
-  max-height: 260px;
+  /* Lines of a log, so it is measured in the reader's line and not in pixels
+     fixed at one text size. Same figures at 100%; more of the log at 200%,
+     where a box that stayed 140px tall showed half as much of it. */
+  min-height: 8.75rem;
+  max-height: 16.25rem;
   overflow: auto;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
@@ -2555,7 +2558,7 @@ button.opening-move-row {
 }
 
 .analyze-move-card .mtree-scroll {
-  height: 180px;
+  height: 11.25rem;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2563,7 +2566,8 @@ button.opening-move-row {
    ═══════════════════════════════════════════════════ */
 .pv-list {
   margin-top: var(--space-md);
-  min-height: 250px;
+  /* Room for the engine's lines, in lines. */
+  min-height: 15.625rem;
 }
 
 .pv-list article {
@@ -2869,8 +2873,11 @@ button.critical-moment-row {
 .review-book-list {
   display: grid;
   gap: 0.28rem;
-  /* Allocate space for 14 rows mapping so the UI below doesn't jump */
-  min-height: 400px;
+  /* Allocate space for 14 rows mapping so the UI below doesn't jump -- and
+     fourteen rows is fourteen of the reader's rows, not of a 16px reader's, or
+     the space stops matching the thing it was reserved for and the UI jumps
+     again at any other text size. */
+  min-height: 25rem;
   align-content: start;
 }
 
@@ -5092,8 +5099,14 @@ button.wc-speed-pill {
 /* ═══════════════════════════════════════════════════
    Move List Tree
    ═══════════════════════════════════════════════════ */
+/* The window onto the game, measured in rows of it.
+   **Measured** at 1440x900 with a game loaded: 180px held 5.6 rows at 100% text
+   and 5 at 200%, and on a 375px phone at 200% it held two -- a reader who has
+   asked for larger text gets a third as much of the game in the same box, while
+   every other box on the page grows with them. rem at the 16px baseline, so
+   nothing moves at 100% and the window keeps its rows at every size. */
 .mtree-scroll {
-  height: 260px;
+  height: 16.25rem;
   overflow-y: auto;
   outline: none;
   padding: 0.1rem 0;
