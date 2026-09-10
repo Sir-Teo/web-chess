@@ -2312,6 +2312,105 @@ async function checkThePromotionChooserCanBeHit(browser) {
 }
 
 /**
+ * A notice fits the screen, and is in front of the bar it lands on.
+ *
+ * The notices are sentences. "That shared link could not be read — showing the
+ * starting position." draws 428px wide, and the region holding it was a point
+ * in the middle of the window that its contents grew out of in both
+ * directions, with `white-space: nowrap` and no width. **Measured** at 320x568:
+ * 54px off the left edge and 54px off the right, first word and last, and
+ * nothing on the page able to scroll them back.
+ *
+ * Behind that was a worse one. The region is `z-index: 40` and `.panel.bottom`
+ * is `z-index: 200` on a phone, and they overlap: at 320x568 and 390x844 a
+ * screenshot of that corner had no notice in it at all. Every message the app
+ * raises reached a screen reader through `aria-live` and no sighted phone
+ * reader whatsoever.
+ *
+ * Two probes had to be thrown away before this one. `elementFromPoint` names
+ * whatever is underneath whether the notice is in front or not, because the
+ * region is `pointer-events: none` and hit-testing steps straight past it.
+ * Comparing the pixels of that rectangle with the notice up and again once it
+ * has gone is no better: the bar is glass, so a notice hidden behind it still
+ * changes what bleeds through, and the comparison passes with the fix backed
+ * out while a screenshot of the same rectangle shows nothing but the bar.
+ *
+ * So the rule is worked out properly. Paint order between two elements is
+ * decided where their branches part, by the z-index each carries into that
+ * shared stacking context -- its own, unless an ancestor below the branch
+ * point starts a context, in which case that ancestor's is what counts.
+ */
+async function checkANoticeIsSeenAndFits(browser) {
+  for (const [w, h] of [[320, 568], [360, 640], [390, 844], [1440, 900]]) {
+    const context = await browser.newContext({ viewport: { width: w, height: h } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      // A share link carrying something unreadable: the longest thing the app
+      // says, raised without any interaction to time.
+      await page.goto(`${BASE}#game=~~~~notreal~~~~`, { waitUntil: 'domcontentloaded' })
+      const startFresh = page.getByRole('button', { name: /start fresh/i })
+      if (await startFresh.count()) await startFresh.first().click()
+      await page.locator('.app-notice').waitFor({ timeout: 20000 })
+      await page.waitForTimeout(300)
+
+      const seen = await page.evaluate(() => {
+        const zOf = el => Number(getComputedStyle(el).zIndex) || 0
+        const startsContext = el => {
+          const c = getComputedStyle(el)
+          return (c.position !== 'static' && c.zIndex !== 'auto') || c.transform !== 'none' ||
+            c.filter !== 'none' || (c.backdropFilter && c.backdropFilter !== 'none') ||
+            c.isolation === 'isolate' || Number(c.opacity) < 1 || c.mixBlendMode !== 'normal' ||
+            (c.contain && /paint|layout|strict|content/.test(c.contain))
+        }
+        const chainOf = el => { const out = []; for (let n = el; n; n = n.parentElement) out.push(n); return out }
+        // What this element carries into the stacking context it shares with
+        // the other: its own z-index, unless something below the branch point
+        // starts a context, in which case the outermost such ancestor decides.
+        const carriedInto = (el, common) => {
+          let z = zOf(el)
+          for (let n = el.parentElement; n && n !== common; n = n.parentElement) {
+            if (startsContext(n)) z = zOf(n)
+          }
+          return z
+        }
+        const region = document.querySelector('.app-notice-region')
+        const note = document.querySelector('.app-notice')
+        const r = note.getBoundingClientRect()
+        const regionChain = chainOf(region)
+        const behind = []
+        for (const panel of document.querySelectorAll('.panel')) {
+          const q = panel.getBoundingClientRect()
+          const overlaps = r.left < q.right && r.right > q.left && r.top < q.bottom && r.bottom > q.top
+          if (!overlaps) continue
+          const common = chainOf(panel).find(n => regionChain.includes(n))
+          const mine = carriedInto(region, common)
+          const theirs = carriedInto(panel, common)
+          if (theirs >= mine) {
+            behind.push({ panel: String(panel.className).slice(0, 20), theirs, mine, common: String(common.className).slice(0, 16) })
+          }
+        }
+        return {
+          text: note.textContent.trim(),
+          left: Math.round(r.left), right: Math.round(r.right),
+          width: Math.round(r.width), win: window.innerWidth,
+          behind,
+        }
+      })
+
+      assert(/could not be read/.test(seen.text), `the notice reads "${seen.text}"`)
+      assert(seen.left >= 0 && seen.right <= seen.win,
+        `at ${w}x${h} the notice runs from ${seen.left} to ${seen.right} in a ${seen.win}px window -- ` +
+        `${Math.max(0, -seen.left)}px off the left and ${Math.max(0, seen.right - seen.win)}px off the right, ` +
+        'with nothing able to scroll it back')
+      assert(seen.behind.length === 0,
+        `at ${w}x${h} the notice lands on ${JSON.stringify(seen.behind)} and is drawn behind it`)
+    } finally { await context.close() }
+  }
+  console.log('  notice: the longest message fits 320px and is drawn in front of the bar it lands on')
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -3524,6 +3623,7 @@ async function main() {
     await checkADroppedPgnIsTaken(browser)
     await checkBackClosesTheSheet(browser)
     await checkThePromotionChooserCanBeHit(browser)
+    await checkANoticeIsSeenAndFits(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)

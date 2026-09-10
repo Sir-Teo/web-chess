@@ -5982,24 +5982,41 @@ button.hint-btn {
    commands that would otherwise finish in silence. Floated over the board
    rather than parked in a panel, because the command was run from the
    palette and the reader may be looking anywhere. */
+/* Spans the window and centres what is in it, rather than being a point in the
+   middle that whatever it holds grows out of in both directions. The notices
+   are sentences -- "That shared link could not be read — showing the starting
+   position." is 428px wide -- and centred on a 320px phone that one lost 54px
+   off each end, first word and last, with nothing able to scroll it back. */
 .app-notice-region {
   position: fixed;
-  left: 50%;
+  left: 0;
+  right: 0;
   bottom: 3.4rem;
-  transform: translateX(-50%);
-  z-index: 40;
+  /* Above the bars it sits on. At 40 it was under `.panel.bottom`, which is
+     `z-index: 200` on a phone: measured at 320x568 and 390x844, the thing
+     painted in the middle of the notice was `.wc-nav`, and a screenshot of
+     that corner has no notice in it at all. Every message the app raises --
+     "FEN copied", "That shared link was cut short" -- reached a screen reader
+     through `aria-live` and no sighted phone reader at all. Below the dialogs
+     at 3000, which a status line has no business covering. */
+  z-index: 2100;
+  display: flex;
+  justify-content: center;
+  padding-inline: 1rem;
   pointer-events: none;
 }
 
 .app-notice {
-  display: inline-block;
+  max-width: 32rem;
   padding: 0.42rem 0.85rem;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-default);
   background: var(--bg-elevated);
   color: var(--text-primary);
   font-size: 0.8rem;
-  white-space: nowrap;
+  line-height: 1.35;
+  text-align: center;
+  text-wrap: balance;
   box-shadow: var(--shadow-md);
   animation: app-notice-in 160ms ease-out;
 }

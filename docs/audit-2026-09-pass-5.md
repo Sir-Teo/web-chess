@@ -603,6 +603,45 @@ across two different parents is only meaningful while nothing between the stage
 and the shell starts a stacking context, and the check says so and fails if
 that stops being true.
 
+**Every notice the app raised was invisible on a phone.** Two faults on the
+same six-second message, both **measured** on `#game=` carrying something
+unreadable — the longest sentence the app says.
+
+The first is width. `.app-notice` was `white-space: nowrap` with no maximum,
+inside a region that was a point in the middle of the window its contents grew
+out of in both directions. "That shared link could not be read — showing the
+starting position." draws **428px**. In a 320px window that is **54px off the
+left edge and 54px off the right**, first word and last, with nothing on the
+page able to scroll them back; 34px each end at 360px, 19px at 390px. The
+region now spans the window and centres what it holds, and the notice wraps
+inside a 32rem cap: 288px at 320px, 358px at 390px, still one line at 1440px.
+
+The second is worse. The region is `z-index: 40`; `.panel.bottom` is
+`z-index: 200` on a phone, and the notice lands on it. So it was **drawn behind
+the bar** — a screenshot of that corner at 320x568 has the four navigation
+buttons in it and no notice at all. Every message the app raises — "FEN
+copied", "That shared link was cut short — showing the 6 moves that survived
+it" — reached a screen reader through `aria-live` and no sighted phone reader
+whatsoever. At 2100 it is in front, and still under the dialogs at 3000.
+
+**Three probes were wrong before one was right**, all on the second half.
+`elementFromPoint` named `.wc-nav` with the fix in and with it out, because the
+region is `pointer-events: none` and hit-testing steps straight past it — that
+one was believed for a whole run on the strength of agreeing with a screenshot
+once. Comparing the notice's rectangle with it up and again once it had gone
+passed both ways too: the top 3px of the notice clear the bar even when the
+rest is behind it. Tightening the clip to the middle of the notice **still**
+passed both ways, because the bar is glass — a notice hidden behind it changes
+what bleeds through, while the screenshot of that same rectangle shows nothing
+but the bar.
+
+What is asserted now is paint order worked out properly: where two elements'
+branches part, each carries into that shared stacking context its own z-index,
+unless an ancestor below the branch point starts a context, in which case that
+ancestor's is what counts. It reads `panel.bottom(200 vs 40) → HIDDEN` at both
+phone sizes and `in front` at 1440x900, which is exactly what the screenshots
+show.
+
 ---
 
 ## Refuted
