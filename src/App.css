@@ -136,6 +136,25 @@ body.resizing * {
   box-sizing: border-box;
 }
 
+/* A tick box is a square, and it grows with the reader's text like everything
+   else here does.
+   Neither was true. It had no size at all outside the phone's media query, so a
+   desktop got the user agent's 13px -- **measured** unchanged at 100% and at
+   200% text, a 13px box beside text twice its old size. And where the phone did
+   size it, it sized it in one axis only: `width` is a hint a flex item gives up,
+   and the label beside it wraps, so at 200% text on a 375px phone the five
+   boxes in Settings measured 23x42, 26x42, 42x42, 42x42 and 20x42 -- tall thin
+   rectangles, a different shape on every row, by how many lines the label next
+   to it took.
+   The label is what a reader presses (it wraps the input, so the whole row is
+   the target, which is why this is shape rather than reach), but the box is what
+   they read the state off. */
+input[type="checkbox"] {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .panel button:hover {
     background: var(--bg-card-hover);
@@ -4530,6 +4549,7 @@ button.critical-moment-row {
     border-radius: 8px;
   }
 
+  /* Bigger for a finger. Square and unsqueezable from the base rule. */
   input[type="checkbox"] {
     width: 1.3rem;
     height: 1.3rem;
