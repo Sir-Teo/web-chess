@@ -2234,6 +2234,69 @@ async function main() {
       await page.keyboard.press('Escape')
       await page.locator('.library-dialog').waitFor({ state: 'detached', timeout: 5000 })
 
+      /**
+       * And the two bars, whose only other control is a 14px strip with a 3px
+       * pill in it -- no shortcut and no menu item, so a reader who never finds
+       * the strip never learns the bars fold. Checked here rather than trusted
+       * because the value is in the outcome, not the row: collapsing the top bar
+       * is worth 70px of board on a 1440px desktop, which is the width of a
+       * whole rank.
+       *
+       * What is asserted is that the bar gives its space back, which is the
+       * thing that once went wrong here: a transform slid it out of view and
+       * left its full height reserved, so folding it bought a blank band rather
+       * than a bigger board. The board itself is only asserted not to shrink,
+       * because whether it *grows* depends on which axis binds -- 667px to
+       * 737px at 1440x900, where height binds, and 546px unchanged at the
+       * 1280x800 this runs at, where the two panels decide the width.
+       *
+       * On a phone the bars have no handle at all, so the command is disabled
+       * with its reason rather than hidden -- the same courtesy the Pro-only
+       * commands get, and the same thing asserted about them. That the search
+       * still narrows to one row there is part of the assertion: the reason is
+       * matched along with the label, so a reason carrying "top" -- "Desktop
+       * only" did -- pulls the bottom bar's row in beside it.
+       */
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k')
+      await page.locator('[data-command-input]').fill('top bar')
+      const barRows = await page.locator('[data-command-id]').allTextContents()
+      assert(barRows.length === 1 && /top bar/i.test(barRows[0]),
+        `${viewport.name}: typing "top bar" left ${barRows.length} commands: ${barRows.join(', ')}`)
+      const barRow = page.locator('[data-command-id]').first()
+      const barDisabled = await barRow.getAttribute('aria-disabled')
+      if (viewport.name === 'desktop') {
+        assert(barDisabled !== 'true', 'desktop: the top bar command is disabled where the bar folds')
+        const boardBefore = (await page.locator('.board-surface').boundingBox()).width
+        const barBefore = (await page.locator('.top').boundingBox()).height
+        await page.keyboard.press('Enter')
+        await page.waitForFunction(() => document.querySelector('.top')?.classList.contains('hidden'),
+          null, { timeout: 5000 })
+        const barAfter = (await page.locator('.top').boundingBox()).height
+        assert(barBefore > 20 && barAfter <= 2,
+          `desktop: the folded top bar still reserves ${Math.round(barAfter)}px of the ${Math.round(barBefore)}px it had`)
+        const boardAfter = (await page.locator('.board-surface').boundingBox()).width
+        assert(boardAfter >= boardBefore,
+          `desktop: folding the top bar shrank the board to ${Math.round(boardAfter)}px, from ${Math.round(boardBefore)}px`)
+
+        // And back, by the same route: a command that cannot undo itself is a
+        // trap, and the strip that could is invisible once the bar is gone.
+        await page.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k')
+        await page.locator('[data-command-input]').fill('top bar')
+        const backRows = await page.locator('[data-command-id]').allTextContents()
+        assert(backRows.length === 1 && /expand/i.test(backRows[0]),
+          `desktop: with the bar folded the command reads "${backRows.join(', ')}"`)
+        await page.keyboard.press('Enter')
+        await page.waitForFunction(() => !document.querySelector('.top')?.classList.contains('hidden'),
+          null, { timeout: 5000 })
+      } else {
+        assert(barDisabled === 'true',
+          `${viewport.name}: the top bar command is offered where the bar has no handle`)
+        assert(/wider window/i.test(barRows[0]),
+          `${viewport.name}: the disabled top bar command gives no reason: "${barRows[0]}"`)
+        await page.keyboard.press('Escape')
+        await page.locator('[data-command-palette]').waitFor({ state: 'detached', timeout: 5000 })
+      }
+
       // Command+F must reach the browser. It used to flip the board and call
       // preventDefault(), so Find could not be opened on this page at all.
       const chords = await page.evaluate(() => {

@@ -5090,9 +5090,45 @@ function App() {
       disabled: !drill,
       run: endDrill,
     },
+    /*
+     * The two bars are the only things in the app whose one and only control is
+     * a 14px strip -- no shortcut, no menu item, and a 32x3px pill as the whole
+     * of the affordance. The strip is a real button (named, focusable, and
+     * activated from the keyboard), so this is not about reach; it is that a
+     * feature whose only handle is a hairline between two panels is a feature
+     * most readers will never find, and the one they most want when the board
+     * is short of height.
+     *
+     * Named the way the strip names itself, so searching "top bar" finds the
+     * same words the handle carries. Disabled rather than hidden on a phone,
+     * where the bars have no handle at all (`display: none !important`) and
+     * cannot be collapsed -- the same courtesy the Pro-only commands get.
+     *
+     * The reason avoids the word "desktop", which reads well and searches
+     * badly: it carries "top", so on a phone -- where every row wears its
+     * reason -- typing "top bar" matched the bottom bar's row too. It is also
+     * the truer word, because the condition is the window's width and a narrow
+     * one on a desktop folds nothing either.
+     */
+    {
+      id: 'toggle-top-bar',
+      label: topPanelOpen ? 'Collapse top bar' : 'Expand top bar',
+      hint: isMobileLayout ? 'Needs a wider window' : 'The modes and actions above the board',
+      keywords: ['hide', 'show', 'bar', 'collapse', 'expand', 'room', 'space', 'chrome', 'fullscreen'],
+      disabled: isMobileLayout,
+      run: () => setTopPanelOpen(value => !value),
+    },
+    {
+      id: 'toggle-bottom-bar',
+      label: bottomPanelOpen ? 'Collapse bottom bar' : 'Expand bottom bar',
+      hint: isMobileLayout ? 'Needs a wider window' : 'The move navigation and status below the board',
+      keywords: ['hide', 'show', 'bar', 'collapse', 'expand', 'room', 'space', 'chrome', 'fullscreen'],
+      disabled: isMobileLayout,
+      run: () => setBottomPanelOpen(value => !value),
+    },
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
-  ], [analysisExperience, atVariationFork, autoplay, autoplayReason, continuousAnalysis, copyFen, copyPgn, drill, drillBlackReason, drillWhiteReason, endDrill, startDrill,
+  ], [analysisExperience, atVariationFork, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyPgn, drill, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
     goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast,
       goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
       previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay,
