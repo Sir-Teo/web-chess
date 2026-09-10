@@ -316,6 +316,36 @@ exempts them by shape rather than by name, counts the exemption, and asserts the
 count is not zero, so an exemption that stopped matching fails rather than
 hiding a real target.
 
+**A fetch that is never answered now gives up.** The engine has had a startup
+timeout for a long time -- "did not finish starting. Check your connection or
+reload to retry" -- and the network calls beside it had none. **Measured**
+against a host that accepts the connection and then says nothing: "Fetching…"
+stayed on screen at 400ms, at 1.5s, at 4s and at 9s, and would have stayed for
+as long as anyone was willing to look at it.
+
+Everything around that was already right, which is why it took a hanging host to
+find. The button reads "Fetching…" and disables itself, a Cancel appears, Escape
+closes the dialog, closing it aborts the request, and the board stays entirely
+usable throughout -- a move played during the hang measured 176ms, which is the
+compile and nothing to do with the fetch. The one gap was that the only way out
+was dismissing the dialog, which takes whatever else had been typed into it.
+
+Twenty seconds now, at the one place both sources go through, with the site
+named: "Lichess did not answer in time. Try again, or ask for fewer games."
+Verified end to end against the hanging host: "Fetching…" at 2s and 10s, and at
+21s the button is back and the sentence is on screen.
+
+Two things in the writing of it are worth more than the timeout. It is a
+**race**, not a bare signal: a requester that ignores its signal -- a stub, or a
+transport without support -- would otherwise hang for ever with the timeout
+attached and doing nothing. And the timeout is checked **before** the
+abort-passthrough, because a timeout cancels the request in flight and so comes
+back *as* an abort; read the other way round, every timeout would be mistaken
+for a reader changing their mind and the panel would say nothing at all. The
+first version had that order wrong, and the only reason it showed was a test
+stub written to honour its signal the way a real `fetch` does. A stub that
+ignored the signal made the same test hang and pass nothing.
+
 **A fetch that comes back with no games said it had fetched one.** The third
 error surface, and the one that talks to the network. Five of its six answers
 are the best writing in the app: a 404 gives "Lichess has no player called

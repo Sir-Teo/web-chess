@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { MAX_CHESSCOM_MONTHS, archiveUnreachableMessage, fetchArchiveGames } from './archiveFetch'
+import { MAX_CHESSCOM_MONTHS, archiveTimedOutMessage, archiveUnreachableMessage, fetchArchiveGames } from './archiveFetch'
 import { resetLichessFetchQueueForTests } from './lichessQueue'
 
 const game = (tag: string, date = '2026.07.15', time = '17:03:21') =>
@@ -172,5 +172,56 @@ describe('a fetch that comes back with no games says so', () => {
     const mixed = `a note from a proxy\n\n${game('kept')}`
     const games = await fetchArchiveGames('lichess', 'someplayer', 5, answering(mixed))
     expect(tagsOf(games)).toEqual(['kept'])
+  })
+})
+
+/**
+ * A host that accepts the connection and then says nothing.
+ *
+ * The engine has had a startup timeout for a long time and the network calls
+ * beside it had none, so "Fetching…" stayed on screen for as long as a reader
+ * was willing to look at it, and the only way out was dismissing the dialog --
+ * which takes whatever else had been typed into it with it.
+ */
+describe('a fetch that is never answered gives up', () => {
+  // Honours the signal, the way a real `fetch` does. A stub that ignores it
+  // never settles, and the abort case below then proves nothing except that
+  // the test can time out.
+  const neverAnswers = (_url: string, init: RequestInit) => new Promise<Response>((_, reject) => {
+    init.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+  })
+
+  it('says so rather than waiting for ever', async () => {
+    await expect(fetchArchiveGames('lichess', 'someplayer', 3, {
+      requesters: { lichess: neverAnswers },
+      timeoutMs: 40,
+    })).rejects.toThrow(archiveTimedOutMessage('lichess'))
+  })
+
+  it('names the site it was waiting on', async () => {
+    await expect(fetchArchiveGames('chesscom', 'someplayer', 3, {
+      requesters: { chesscom: neverAnswers },
+      timeoutMs: 40,
+    })).rejects.toThrow(/Chess\.com did not answer in time/)
+  })
+
+  it('leaves a reader who changed their mind alone', async () => {
+    // An abort is not a failure, and must not come back as one.
+    const controller = new AbortController()
+    const pending = fetchArchiveGames('lichess', 'someplayer', 3, {
+      requesters: { lichess: neverAnswers },
+      timeoutMs: 5_000,
+      signal: controller.signal,
+    })
+    controller.abort()
+    await expect(pending).rejects.not.toThrow(archiveTimedOutMessage('lichess'))
+  })
+
+  it('does not fire for an answer that arrives in time', async () => {
+    const games = await fetchArchiveGames('lichess', 'someplayer', 3, {
+      requesters: { lichess: async () => ok(game('quick')) },
+      timeoutMs: 5_000,
+    })
+    expect(tagsOf(games)).toEqual(['quick'])
   })
 })

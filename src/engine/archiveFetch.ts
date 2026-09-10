@@ -51,6 +51,26 @@ export type FetchArchiveOptions = {
   signal?: AbortSignal
   /** Overridden by the tests, which have no network. */
   requesters?: Partial<Record<ArchiveSource, ArchiveRequester>>
+  /** Overridden by the tests, which cannot wait twenty seconds. */
+  timeoutMs?: number
+}
+
+/**
+ * How long one request may take before the panel gives up on it.
+ *
+ * The engine has had a startup timeout for a long time -- "did not finish
+ * starting. Check your connection or reload to retry" -- and the network calls
+ * beside it had none. A host that accepts a connection and then says nothing
+ * leaves "Fetching…" on screen for as long as the reader is willing to look at
+ * it, and the only way out is dismissing the whole dialog, which takes whatever
+ * else was typed into it. Twenty seconds is far longer than a good answer and
+ * far shorter than forever.
+ */
+export const ARCHIVE_REQUEST_TIMEOUT_MS = 20_000
+
+export function archiveTimedOutMessage(source: ArchiveSource): string {
+  const site = source === 'lichess' ? 'Lichess' : 'Chess.com'
+  return `${site} did not answer in time. Try again, or ask for fewer games.`
 }
 
 const defaultRequesters: Record<ArchiveSource, ArchiveRequester> = {
@@ -71,14 +91,42 @@ async function request(
   accept: string,
 ): Promise<Response> {
   const requester = options.requesters?.[source] ?? defaultRequesters[source]
+  const limit = options.timeoutMs ?? ARCHIVE_REQUEST_TIMEOUT_MS
+  // Its own controller, so the timeout can cancel the request in flight and the
+  // reader's own abort still passes straight through untouched.
+  const controller = new AbortController()
+  const abortFromCaller = () => controller.abort()
+  options.signal?.addEventListener('abort', abortFromCaller)
+  let timedOut = false
+  let timer: ReturnType<typeof setTimeout> | undefined
   try {
-    return await requester(url, { headers: { Accept: accept }, signal: options.signal })
+    // Raced rather than left to the signal: a requester that ignores the signal
+    // -- a stub, or a transport that does not support it -- would otherwise
+    // hang for ever and the timeout would do nothing at all.
+    return await Promise.race([
+      requester(url, { headers: { Accept: accept }, signal: controller.signal }),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          timedOut = true
+          controller.abort()
+          reject(new Error(archiveTimedOutMessage(source)))
+        }, limit)
+      }),
+    ])
   } catch (error) {
+    // Checked before the abort passthrough, and it has to be: a timeout cancels
+    // the request in flight, so the rejection that comes back is an abort. Read
+    // the other way round, every timeout would surface as "the reader changed
+    // their mind" and the panel would say nothing at all.
+    if (timedOut) throw new Error(archiveTimedOutMessage(source))
     if (options.signal?.aborted || isLichessAbortError(error)) throw error
     // `fetchLichessResource` has already turned a dropped connection into a
     // sentence; anything raw from `fetch` still reads "Failed to fetch".
     if (error instanceof Error && error.message.includes('could not be reached')) throw error
     throw new Error(archiveUnreachableMessage(source))
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+    options.signal?.removeEventListener('abort', abortFromCaller)
   }
 }
 
