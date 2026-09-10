@@ -805,12 +805,51 @@ app's own import: the dialog opens in ~0.5s, renders 100 rows a page, filters
 on every keystroke without a keystroke costing more than 80ms, and scrolling
 the whole list holds at a 52ms worst frame -- all at 4x CPU.
 
+**The heaviest thing the app does, while it is being used.** A full game review
+of 120 plies, with the **real** Stockfish rather than the harness's fake one,
+walked through with the arrow keys the whole time it ran:
+
+| | left alone | walked, 4x CPU | walked, 6x CPU, phone |
+|---|---|---|---|
+| review finished in | 4.1s | 6.8s | 6.6s |
+| worst interaction | 24ms | 120ms | **168ms** |
+| worst frame gap | 29ms | 107ms | 164ms |
+| arrow presses that moved the board | — | 14 of 15 | 11 of 12 |
+
+Nothing over the 200ms an interaction is allowed, at any of them, and the review
+does not slow down for being used. The environment was checked before the
+numbers were believed: cross-origin isolated, `SharedArrayBuffer` present, the
+service worker controlling, the engine reporting ready, no console errors.
+
+**Three probes were wrong before that table was.** The first `done` detector
+matched the word "Review" on the button that starts a review, so a run "finished"
+in 300ms. The second waited on the accuracy panel but the review had never
+started: `/^Review/` matches the *tab*, and the button on it is "Review Game" —
+which is why the UCI trace showed 28 searches in the first ten seconds and then
+silence for thirty, and why the panel read 0/120 after a full minute. Only the
+trace made it obvious that nothing was running at all.
+
 **Motion the reader asked not to see.** With `prefers-reduced-motion: reduce`
 emulated, every element on the board, the PGN dialog, the library and the
 command palette was swept for a computed animation or transition longer than
 50ms: **zero**, on all four, and none of them outside `.app-shell`, which is
 what the blanket rule is scoped to. The same sweep with the preference off
 finds 56 to 68, so it discriminates.
+
+**The win/draw/loss bar, and the clock's low-time warning.** Both were suspected
+of leaning on hue and neither does. The WDL bar's three segments are white,
+grey and near-black — a luminance ramp, safe by construction. The clock's low
+state changes the reading from `--text-heading` to `--warning`, which measures
+**46.5 to 84.6** across every colour vision, and the reading picks up tenths
+below ten seconds besides. `--warning` and `--danger` do converge on the light
+theme (**5.4** for deutan), so "low" and "flagged" are close — but a flagged
+clock reads `0:00.0` and the game is over, which is not a colour.
+
+**Two tabs fighting over one game.** The library patches IndexedDB by diff
+rather than replacing it, and serialises the `localStorage` fallback through a
+Web Lock. The auto-save is one slot by design, but a second tab cannot empty it
+by accident: the write effect returns while a recovery prompt is up, and the
+prompt is raised before the first debounced write.
 
 **The meta strip's clipped move number.** In landscape the strip is the board's
 width, 203px, and its two remaining readings want 138px in the 120px left
@@ -1220,6 +1259,16 @@ expensive failure.
 ---
 
 ## Limits, recorded rather than fixed
+
+**A review is choppy while it runs, even though it stays usable.** The numbers
+above pass, and underneath them the page spends **4,760ms of a 6,642ms review
+inside long tasks** at 6x CPU — 72% of the time, worst single task 329ms,
+median frame gap 59ms, which is about 17fps. Interactions still land in 168ms
+because the tasks are many and short rather than one long one. The cost is
+main-thread work per engine message across a five-engine pool: UCI parsing and
+a React state update for each `info` line. Batching those is a real piece of
+work and the operation is bounded at about seven seconds, so it is written down
+rather than started.
 
 **Two arrow meanings that measure close.** The same sweep put the hint's green
 **5.9** from the played move's amber for protan vision on the dusk board, and
