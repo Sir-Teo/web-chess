@@ -35,7 +35,13 @@ describe('sample PGN client', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toContain('/game/export/A2cM3wqU?')
-    expect(options.signal).toBe(controller.signal)
+    // Wrapped rather than passed straight through, so the queue can give up on
+    // a request that is never answered without cancelling the reader's own.
+    // "does not return text when the request is aborted during parsing" below
+    // drives a real abort through the same path, which is what identity here
+    // was standing in for.
+    expect(options.signal).toBeInstanceOf(AbortSignal)
+    expect(controller.signal.aborted).toBe(false)
     expect(options.headers).toEqual({ Accept: 'application/x-chess-pgn' })
   })
 

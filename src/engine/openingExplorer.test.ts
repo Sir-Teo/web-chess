@@ -138,7 +138,13 @@ describe('opening explorer client', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect(options.signal).toBe(controller.signal)
+    // A signal reaches `fetch`, but not the caller's own object: the queue
+    // wraps it so a request that is never answered can be given up on without
+    // cancelling the reader's. That an abort still reaches the request is what
+    // matters, and "does not cache a response aborted during parsing" below
+    // already drives it end to end, which is a better check than identity was.
+    expect(options.signal).toBeInstanceOf(AbortSignal)
+    expect(controller.signal.aborted).toBe(false)
   })
 
   it('does not cache a response aborted during parsing', async () => {

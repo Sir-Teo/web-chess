@@ -236,3 +236,65 @@ describe('when Lichess cannot be reached at all', () => {
     expect(response.status).toBe(503)
   })
 })
+
+/**
+ * One silent socket used to stop everything.
+ *
+ * This queue is serial -- every request chains off the one before -- so a
+ * request that never settles never lets the next one start. Measured in the
+ * browser against a host that accepts the connection and says nothing: one
+ * hanging `/api/cloud-eval`, and after it navigating asked for nothing and
+ * pressing Fetch sent no request at all. Cloud scores, the opening explorer,
+ * the tablebase and the archive fetch all come through here.
+ */
+describe('a request that is never answered does not hold the queue', () => {
+  const neverAnswers = (_input: RequestInfo | URL, init: RequestInit = {}) =>
+    new Promise<Response>((_, reject) => {
+      init.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+    })
+
+  it('gives up and says which endpoint it was waiting on', async () => {
+    const original = globalThis.fetch
+    globalThis.fetch = neverAnswers as typeof fetch
+    try {
+      await expect(fetchLichessResource('https://lichess.org/api/cloud-eval', {}, 'Cloud eval', 30))
+        .rejects.toThrow(/Cloud eval did not answer in time/)
+    } finally {
+      globalThis.fetch = original
+    }
+  })
+
+  it('lets the next request through once it has', async () => {
+    const original = globalThis.fetch
+    let calls = 0
+    globalThis.fetch = ((input: RequestInfo | URL, init: RequestInit = {}) => {
+      calls += 1
+      return calls === 1
+        ? neverAnswers(input, init)
+        : Promise.resolve({ ok: true, status: 200, headers: new Headers(), text: async () => 'second' } as Response)
+    }) as typeof fetch
+    try {
+      await expect(fetchLichessResource('https://lichess.org/api/cloud-eval', {}, 'Cloud eval', 30))
+        .rejects.toThrow(/did not answer in time/)
+      // The point of the whole thing: the queue moved on.
+      const second = await fetchLichessResource('https://lichess.org/api/opening', {}, 'Opening explorer', 5_000)
+      expect(await second.text()).toBe('second')
+      expect(calls).toBe(2)
+    } finally {
+      globalThis.fetch = original
+    }
+  })
+
+  it('still lets a caller who changed their mind through as an abort', async () => {
+    const original = globalThis.fetch
+    globalThis.fetch = neverAnswers as typeof fetch
+    try {
+      const controller = new AbortController()
+      const pending = fetchLichessResource('https://lichess.org/api/cloud-eval', { signal: controller.signal }, 'Cloud eval', 5_000)
+      controller.abort()
+      await expect(pending).rejects.not.toThrow(/did not answer in time/)
+    } finally {
+      globalThis.fetch = original
+    }
+  })
+})

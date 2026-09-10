@@ -316,6 +316,40 @@ exempts them by shape rather than by name, counts the exemption, and asserts the
 count is not zero, so an exemption that stopped matching fails rather than
 hiding a real target.
 
+**One silent socket stopped every Lichess feature in the app.** The timeout
+added for the archive fetch was an instance of a class, so the class was swept:
+cloud evaluations, the tablebase and the opening explorer all had **no request
+timeout either**, and all three go through one `fetch` in `lichessQueue`.
+
+That queue is **serial** -- every request chains off the one before -- so a
+request that never settles never lets the next one start. **Measured** in the
+browser against a host that accepts the connection and then says nothing: one
+hanging `/api/cloud-eval` at 3.5s, and after it, navigating four plies asked for
+**nothing**, and pressing Fetch sent **no request at all** -- the button sat at
+"Fetching…" while its request waited behind a cloud evaluation that would never
+arrive. Not one panel stuck: every one of them, until the page was reloaded.
+
+Ten seconds now, at that one `fetch`, shorter than the archive's twenty because
+these are small JSON reads and each is holding the queue while it waits. Same
+shape as the archive's: a race rather than a bare signal, and the timeout
+checked before the abort passthrough. Measured after: the first request gives up
+at 13.5s and the next goes out immediately, the second at 23.5s and the archive
+request goes out behind it. The features recover instead of being dead until
+reload.
+
+**Two existing tests had to change and both were asserting the wrong thing.**
+They pinned the caller's `AbortSignal` as being *the same object* handed to
+`fetch` -- which the queue can no longer do, because it needs its own controller
+to cancel a request without cancelling the reader's. Identity was standing in
+for behaviour, and the behaviour it stood for is already driven end to end by
+the test directly beneath each of them ("does not cache a response aborted
+during parsing", "does not return text when the request is aborted during
+parsing"), both of which still pass untouched. The first replacement written for
+them was also wrong -- it aborted *after* the request had resolved, by which
+time the listener is deliberately gone -- which is worth writing down as the
+same lesson one more time: a test that cannot fail for the reason it names is
+not a test.
+
 **A fetch that is never answered now gives up.** The engine has had a startup
 timeout for a long time -- "did not finish starting. Check your connection or
 reload to retry" -- and the network calls beside it had none. **Measured**

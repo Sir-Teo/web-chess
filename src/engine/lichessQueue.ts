@@ -120,6 +120,29 @@ export function lichessUnreachableMessage(what: string): string {
 }
 
 /**
+ * How long one request may take before this queue stops waiting for it.
+ *
+ * This matters more than a timeout usually does, because the queue is serial:
+ * every request chains off the one before, so a request that never settles
+ * never lets the next one start. **Measured** against a host that accepts the
+ * connection and then says nothing: one hanging `/api/cloud-eval` at 3.5s, and
+ * after it, navigating four plies asked for nothing and pressing Fetch sent no
+ * request at all -- the button sat at "Fetching…" while its request waited
+ * behind a cloud evaluation that would never arrive. Cloud scores, the opening
+ * explorer, the tablebase and the archive fetch all come through here, so one
+ * silent socket stopped every one of them until the page was reloaded.
+ *
+ * Shorter than the archive's own twenty seconds, and deliberately: these are
+ * small JSON reads that a working host answers in well under a second, and
+ * every one of them is holding the queue while it waits.
+ */
+export const LICHESS_REQUEST_TIMEOUT_MS = 10_000
+
+export function lichessTimedOutMessage(what: string): string {
+  return `${what} did not answer in time. The board and the local engine keep working without it.`
+}
+
+/**
  * @param label What to call this endpoint if it cannot be reached at all. Most
  * panels prefix the message with their own name — "Cloud eval: ..." — so the
  * plain "Lichess" is right for those; only a panel that renders the message
@@ -129,6 +152,7 @@ export function fetchLichessResource(
   input: RequestInfo | URL,
   init: RequestInit = {},
   label = 'Lichess',
+  timeoutMs = LICHESS_REQUEST_TIMEOUT_MS,
 ): Promise<Response> {
   const signal = init.signal
   const run = async () => {
@@ -137,11 +161,37 @@ export function fetchLichessResource(
     if (backoffWait) await backoffWait
     if (signal?.aborted) throw abortError(signal)
     let response: Response
+    // Its own controller, so the timeout can cancel the request in flight while
+    // the caller's own abort still passes through untouched.
+    const controller = new AbortController()
+    const abortFromCaller = () => controller.abort()
+    signal?.addEventListener('abort', abortFromCaller)
+    let timedOut = false
+    let timer: ReturnType<typeof setTimeout> | undefined
     try {
-      response = await fetch(input, init)
+      // Raced rather than left to the signal alone: a transport that ignores it
+      // would otherwise hold the queue for ever with a timeout attached and
+      // doing nothing.
+      response = await Promise.race([
+        fetch(input, { ...init, signal: controller.signal }),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            timedOut = true
+            controller.abort()
+            reject(new Error(lichessTimedOutMessage(label)))
+          }, timeoutMs)
+        }),
+      ])
     } catch (error) {
+      // Before the abort passthrough, and it has to be: the timeout cancels the
+      // request, so what comes back is an abort. The other way round, every
+      // timeout would read as the caller changing its mind.
+      if (timedOut) throw new Error(lichessTimedOutMessage(label))
       if (signal?.aborted || isLichessAbortError(error)) throw error
       throw new Error(lichessUnreachableMessage(label))
+    } finally {
+      if (timer !== undefined) clearTimeout(timer)
+      signal?.removeEventListener('abort', abortFromCaller)
     }
     recordRateLimit(response)
     return response
