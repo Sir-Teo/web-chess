@@ -316,6 +316,32 @@ exempts them by shape rather than by name, counts the exemption, and asserts the
 count is not zero, so an exemption that stopped matching fails rather than
 hiding a real target.
 
+**And a refused FEN says which field is wrong.** The same reading, one tab
+over. This one starts from a better place: "Invalid FEN: kings cannot be
+adjacent or missing" and "Invalid FEN: the side that is not to move is already
+in check, which no legal game can reach" are two of the best sentences in the
+app, and every bad input correctly disabled the button rather than failing after
+a press.
+
+But a bad side-to-move and a pawn on the last rank both came back with "Failed
+to parse FEN. Check piece placement, side to move, castling rights, and
+counters" -- four fields named, and no indication which. chess.js had already
+said: `side-to-move is invalid`, `some pawns are on the edge rows`, `castling
+availability is invalid`, `en-passant square is invalid`. All of it was thrown
+away except a `/king/i` test. It is passed through now, in the same "Invalid
+FEN:" shape the file's own two sentences use, with a full stop added because
+those end in one and chess.js's do not.
+
+One of the nine is deliberately *not* passed through, and finding out why was
+the useful part. "Must contain six space-delimited fields" is what chess.js says
+about text that is not a FEN at all, and a **test written in an earlier pass
+pinned prose to the general message** -- `'not a fen at all'` must answer
+"Failed to parse FEN". That pin is right: telling someone who typed a sentence
+about space-delimited fields is worse than a message that at least lists what a
+FEN is made of. The failing test was the thing that said so, and the rule it
+forced -- name a field only when a field is what is wrong -- is better than the
+one it replaced.
+
 **A refused paste now says which move refused it.** Ten kinds of bad input were
 fed to the import box and the message read back. Two of them are as good as this
 app gets: a FEN pasted into the PGN box answers "That is a FEN — one position,

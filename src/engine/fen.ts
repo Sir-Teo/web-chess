@@ -41,6 +41,41 @@ function findKingSquares(fen: string): { black: BoardSquare | null; white: Board
   return { black, white }
 }
 
+/**
+ * What to tell a reader about a FEN that failed the syntax check.
+ *
+ * chess.js already says which field is wrong, in the same shape as the two
+ * messages this file writes itself -- "Invalid FEN: side-to-move is invalid",
+ * "Invalid FEN: some pawns are on the edge rows", "Invalid FEN: castling
+ * availability is invalid". All of it was being thrown away for
+ * `FEN_PARSE_ERROR`, which names four fields and leaves the reader to work out
+ * which one. Only `/king/i` survived, because that is the one case this file
+ * has a better sentence for.
+ *
+ * Passed through rather than translated: inventing a phrasing for each of the
+ * nine would be a table to keep in step with a dependency, and these are
+ * already written for readers. If a future version stops using the prefix, this
+ * falls back to the message that was shown before rather than to something
+ * worse.
+ *
+ * One of them is not passed through. "Must contain six space-delimited fields"
+ * is what chess.js says about text that is not a FEN at all -- prose, a
+ * sentence, half a paste -- and telling someone who typed "not a fen at all"
+ * about space-delimited fields is worse than the general message, which at
+ * least lists what a FEN is made of. That case is the reason the general
+ * message exists, and a test written before this one pins it.
+ */
+const FEN_WRONG_SHAPE_ENTIRELY = /six space-delimited fields/i
+
+function fenSyntaxUserError(reason: string | undefined): string {
+  if (!reason) return FEN_PARSE_ERROR
+  if (/king/i.test(reason)) return FEN_KING_PLACEMENT_ERROR
+  if (FEN_WRONG_SHAPE_ENTIRELY.test(reason)) return FEN_PARSE_ERROR
+  if (!reason.startsWith('Invalid FEN:')) return FEN_PARSE_ERROR
+  // The sentences here end in a full stop; chess.js's do not.
+  return /[.!?]$/.test(reason) ? reason : `${reason}.`
+}
+
 export function hasLegalKingPlacement(fen: string): boolean {
   const { black, white } = findKingSquares(fen)
   if (!black || !white) return false
@@ -92,10 +127,7 @@ export function validateFenForAnalysis(fenText: string): FenValidationResult {
   if (looksLikeGame(trimmed)) return { ok: false, error: FEN_LOOKS_LIKE_GAME_ERROR }
   const syntax = validateFen(trimmed)
   if (!syntax.ok) {
-    return {
-      ok: false,
-      error: /king/i.test(syntax.error ?? '') ? FEN_KING_PLACEMENT_ERROR : FEN_PARSE_ERROR,
-    }
+    return { ok: false, error: fenSyntaxUserError(syntax.error) }
   }
 
   try {

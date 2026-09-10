@@ -89,3 +89,56 @@ describe('a wrong paste in the FEN box', () => {
       .toEqual({ ok: false, error: FEN_PARSE_ERROR })
   })
 })
+
+/**
+ * A refused FEN says which field is wrong.
+ *
+ * chess.js already names it -- "side-to-move is invalid", "some pawns are on
+ * the edge rows", "castling availability is invalid" -- and all of it was being
+ * thrown away for one sentence that names four fields and leaves the reader to
+ * work out which. The two cases this file has better words for keep them.
+ */
+describe('a refused FEN says which field is wrong', () => {
+  const reason = (fen: string) => {
+    const result = validateFenForAnalysis(fen)
+    return result.ok ? '(accepted)' : result.error
+  }
+
+  it('names the side-to-move field', () => {
+    expect(reason('7k/8/8/8/8/8/8/K7 x - - 0 1')).toMatch(/side-to-move/i)
+  })
+
+  it('names a pawn standing on the last rank', () => {
+    expect(reason('P6k/8/8/8/8/8/8/K7 w - - 0 1')).toMatch(/pawn/i)
+  })
+
+  it('names the castling field', () => {
+    expect(reason('7k/8/8/8/8/8/8/K7 w XYZ - 0 1')).toMatch(/castling/i)
+  })
+
+  it('keeps the two sentences this file writes better itself', () => {
+    expect(reason('8/8/8/8/8/8/8/8 w - - 0 1')).toBe(FEN_KING_PLACEMENT_ERROR)
+    expect(reason('R6k/8/8/8/8/8/8/K7 w - - 0 1')).toBe(FEN_OPPONENT_IN_CHECK_ERROR)
+  })
+
+  it('ends the borrowed sentences the way its own ones end', () => {
+    expect(reason('7k/8/8/8/8/8/8/K7 x - - 0 1')).toMatch(/\.$/)
+  })
+
+  it('still accepts a legal position', () => {
+    expect(validateFenForAnalysis('7k/P7/8/8/8/8/8/K7 w - - 0 1').ok).toBe(true)
+  })
+
+  /**
+   * Text that is not a FEN at all keeps the general message. chess.js calls
+   * this "must contain six space-delimited fields", which is true and useless
+   * to someone who typed a sentence; the general message at least says what a
+   * FEN is made of. Pinned before this change, and still pinned.
+   */
+  it('does not name a field when nothing about the text is a field', () => {
+    expect(validateFenForAnalysis('not a fen at all'))
+      .toEqual({ ok: false, error: FEN_PARSE_ERROR })
+    expect(validateFenForAnalysis('7k/8/8/8/8/8/8/K7 w'))
+      .toEqual({ ok: false, error: FEN_PARSE_ERROR })
+  })
+})
