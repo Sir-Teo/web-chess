@@ -141,3 +141,36 @@ describe('fetchArchiveGames · chess.com', () => {
     })).rejects.toThrow('Chess.com has no player called “nobody”.')
   })
 })
+
+/**
+ * A 200 is not a game.
+ *
+ * `splitPgnGames` hands back any non-empty chunk, so a body with nothing
+ * game-shaped in it came back as one game and the panel reported "Fetched 1
+ * game" over whatever the text was. A captive portal answering a fetch with its
+ * sign-in page is the ordinary way to get one, and the reader was told the
+ * fetch had worked and shown a login form in the paste box.
+ */
+describe('a fetch that comes back with no games says so', () => {
+  const answering = (body: string) => ({ requesters: { lichess: async () => ok(body) } })
+
+  it('counts nothing when the body is not a game', async () => {
+    expect(await fetchArchiveGames('lichess', 'someplayer', 5, answering('not a pgn at all'))).toEqual([])
+  })
+
+  it('counts nothing for a sign-in page served with a 200', async () => {
+    const portal = '<!doctype html><html><body><h1>Sign in to continue</h1></body></html>'
+    expect(await fetchArchiveGames('lichess', 'someplayer', 5, answering(portal))).toEqual([])
+  })
+
+  it('still returns a real game', async () => {
+    const games = await fetchArchiveGames('lichess', 'someplayer', 5, answering(game('real')))
+    expect(tagsOf(games)).toEqual(['real'])
+  })
+
+  it('keeps the games and drops only the chaff when a body holds both', async () => {
+    const mixed = `a note from a proxy\n\n${game('kept')}`
+    const games = await fetchArchiveGames('lichess', 'someplayer', 5, answering(mixed))
+    expect(tagsOf(games)).toEqual(['kept'])
+  })
+})

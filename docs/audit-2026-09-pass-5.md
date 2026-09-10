@@ -316,6 +316,36 @@ exempts them by shape rather than by name, counts the exemption, and asserts the
 count is not zero, so an exemption that stopped matching fails rather than
 hiding a real target.
 
+**A fetch that comes back with no games said it had fetched one.** The third
+error surface, and the one that talks to the network. Five of its six answers
+are the best writing in the app: a 404 gives "Lichess has no player called
+“someplayer”", a 500 gives "Lichess is having trouble right now. Try again
+shortly", a 429 names the rate limit and the minute to wait, an empty archive
+says there are no public games, and a dropped connection says "Lichess could not
+be reached. Check your connection — the board and the local engine keep working
+without it", which answers the question a reader actually has.
+
+The sixth was wrong. A **200 carrying something that is not a game** -- served
+with a PGN content type, which is what a captive portal's sign-in page looks
+like when it answers a fetch -- was reported as **"Fetched 1 game for
+someplayer"**, and the text was pasted into the box as though it were the game.
+`splitPgnGames` hands back any non-empty chunk it finds, and one chunk of
+anything counts as one game.
+
+Anything without a tag pair or a numbered move in it is not a game, and
+`looksLikeGame` already knew how to say so -- it is what the FEN tab uses to
+tell a game from a position. Filtered at the one place both sources come back
+through, a body of nothing now yields no games, and the panel's existing
+sentence for that fires instead.
+
+Two things about the tests for it. They were written first against a `requester`
+stub that does not exist -- the file's own option is `requesters`, keyed by
+site -- and every one of them passed four games back regardless of the body,
+which is the "measuring nothing" failure in its test-writing form. And the case
+that matters is not the obvious one: a body holding a proxy's note *and* a real
+game keeps the game and drops the note, which a filter written slightly
+differently would have thrown away whole.
+
 **And a refused FEN says which field is wrong.** The same reading, one tab
 over. This one starts from a better place: "Invalid FEN: kings cannot be
 adjacent or missing" and "Invalid FEN: the side that is not to move is already

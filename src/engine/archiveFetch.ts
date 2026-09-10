@@ -15,6 +15,7 @@
  */
 
 import { fetchLichessResource, isLichessAbortError } from './lichessQueue'
+import { looksLikeGame } from './pastedText'
 import { splitPgnGames } from './pgn'
 import {
   archiveErrorMessage,
@@ -132,5 +133,13 @@ export async function fetchArchiveGames(
   const games = source === 'lichess'
     ? await fetchLichessGames(username, count, options)
     : await fetchChessComGames(username, count, options)
-  return latestGamesFromPgn(games, count)
+  // A 200 is not a game. `splitPgnGames` hands back any non-empty chunk it
+  // finds, so a body with no games in it came back as one game and the panel
+  // said "Fetched 1 game for someplayer" over whatever the text was -- a
+  // sign-in page from a captive portal is the ordinary way to get one, and the
+  // reader is then told the fetch worked and shown a login form in the paste
+  // box. Anything that does not carry a tag pair or a numbered move is not a
+  // game, and an answer made only of those is no games at all, which the panel
+  // already has a sentence for.
+  return latestGamesFromPgn(games.filter(looksLikeGame), count)
 }
