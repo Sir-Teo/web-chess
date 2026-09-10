@@ -316,6 +316,39 @@ exempts them by shape rather than by name, counts the exemption, and asserts the
 count is not zero, so an exemption that stopped matching fails rather than
 hiding a real target.
 
+**The library survives having its storage taken away, and says so only when it
+should.** Three ways of breaking storage, all measured in the browser.
+
+Three malformed records written straight into the object store -- one missing
+every field, one with a number where the PGN goes and a string where the date
+goes, one with nulls -- and after a reload the library reads **"5 games · 580
+ply · 3.8 KB"**: the bad rows are validated out on read, the count is right, and
+nothing crashes.
+
+`localStorage` made to throw on access, which is how a locked-down context
+behaves: the board keeps working and an alert appears reading "Latest changes
+are not saved for recovery. Browser storage could not save this game. Download a
+PGN before closing this tab", with **Download recovery PGN** and **Retry
+autosave** beside it. The problem, the consequence, and two ways out.
+
+`indexedDB` made to throw: the library still saves, and the saved game is
+**still there after a reload** -- there is a real fallback, so "Saved to the
+library" is a promise it can keep. And with **both** gone, the save still
+succeeds, and *now* a warning appears: "This browser is not letting the page
+store data, so saved games last only until this tab closes. Export the library
+to keep them." A reload then finds nothing, exactly as promised. The warning is
+absent in the case above it, because there the save really was durable. The
+sentence tracks the truth rather than the API.
+
+The probe took three attempts to be worth anything, which is the part worth
+keeping. The first "blocked" stub called the native `open` and fired an extra
+error event beside it, so the real request still succeeded -- a save went
+through while the probe reported the store was blocked. It was caught by the
+result being too good: a save cannot succeed against a store that is not there.
+The second attempt could not tell its own stub from a working browser. Only the
+third checked, from inside the page, that reading `window.indexedDB` actually
+threw before believing anything that came after it.
+
 **The two long local operations are both well made.** Having swept the network
 for calls that can hang, the same question was put to the work the app does
 without a network. A **116-position review** at 4x CPU reports 16/116, then
