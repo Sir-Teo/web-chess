@@ -316,6 +316,35 @@ exempts them by shape rather than by name, counts the exemption, and asserts the
 count is not zero, so an exemption that stopped matching fails rather than
 hiding a real target.
 
+**Three more states read, and all three of the things that looked wrong were
+right.** The reading lens that found the two cards above was pointed at the
+states nothing had rendered before -- a finished review, the Engine Lab, and a
+timed game against the engine -- and this time it caught only itself.
+
+In a live game the bottom bar grows a row reading "Pause" and "SPEED · Slow ·
+Normal · Fast · Step", which looks exactly like the autoplay cluster appearing
+where no autoplay is running. The accessible names say what it is: **"Pause AI"**
+and **"Set AI speed to Slow"**. The visible text is truncated and the row beside
+it disambiguates, so a reader has more to go on than a screenshot does.
+
+The Engine Lab's `bench` and `perft 3` are drawn in the danger colour under an
+unchecked "Enable expert commands" box, which reads like two live buttons
+styled as a warning. They are **disabled**, and they carry the reason -- "Expert
+mode only: these commands take the engine over for a while" -- and ticking the
+box enables them. `d` and `eval` beside them are live, and against the real
+engine they return a board diagram and NNUE piece values.
+
+And running a command grows two more buttons labelled `d` and `eval`, which
+reads like the quick row having been duplicated. They are a **re-run history**
+in `.lab-history-list`, and at 32px they are under the bar -- on a **desktop**,
+where 44px is not the bar. At 375px they clear it, which is the scoping every
+other rule of its kind in this app uses.
+
+Worth keeping for the shape of it: the history chips only exist *after* a
+command has been run, so no static sweep could ever have seen them. The check
+that found them ran the commands first. A control that a sweep cannot reach
+until it has interacted is invisible to a sweep that does not.
+
 **An inaccuracy called a mistake.** The review card's chips grade every move —
 Book, Best, Excellent, Good, Inaccuracy, Mistake, Blunder — and the row beneath
 them steps through the ones worth revisiting, which is the last three added up.
