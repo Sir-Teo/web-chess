@@ -65,3 +65,23 @@ export function looksLikeGameUrl(text: string): boolean {
         return false
     }
 }
+
+/**
+ * Whether what was pasted is a game rather than a position.
+ *
+ * The mirror of {@link looksLikeFen}, for the FEN box, which answered a pasted
+ * game with "Check piece placement, side to move, castling rights, and
+ * counters" -- four things a game does not have.
+ *
+ * A position wins the tie, so a FEN is never read as a game. After that it is
+ * the two marks a game carries and a FEN cannot: a `[Tag "value"]` header, or
+ * a move number, which is a digit followed by a dot. A FEN's own numbers are
+ * its halfmove and fullmove counters, and neither is ever followed by one.
+ */
+export function looksLikeGame(text: string): boolean {
+    const trimmed = text.trim()
+    if (!trimmed) return false
+    if (looksLikeFen(trimmed)) return false
+    if (/\[[A-Za-z0-9_]+\s+"/.test(trimmed)) return true
+    return /(?:^|\s)\d+\.(?:\.\.)?\s*[A-Za-z]/.test(trimmed)
+}

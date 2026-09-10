@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { looksLikeFen, looksLikeGameUrl } from './pastedText'
+import { looksLikeFen, looksLikeGame, looksLikeGameUrl } from './pastedText'
 
 /**
  * Telling a position from a game, so a FEN pasted into the PGN box gets an
@@ -63,5 +63,30 @@ describe('looksLikeGameUrl', () => {
     // A game whose comment happens to hold a link is a game.
     expect(looksLikeGameUrl('1. e4 {see https://lichess.org/x3kPqR2a} e5 *')).toBe(false)
     expect(looksLikeGameUrl('lichess.org/x3kPqR2a'), 'no scheme').toBe(false)
+  })
+})
+
+describe('looksLikeGame', () => {
+  it('recognises a game by its headers or its move numbers', () => {
+    expect(looksLikeGame('[Event "T"]\n\n1. e4 e5 1-0')).toBe(true)
+    expect(looksLikeGame('1. e4 e5 2. Nf3 Nc6')).toBe(true)
+    expect(looksLikeGame('1.e4 e5')).toBe(true)
+    expect(looksLikeGame('1... e5 2. Nf3')).toBe(true)
+    expect(looksLikeGame('[Site "?"]')).toBe(true)
+  })
+
+  /** A position wins the tie, so a FEN is never read as a game. */
+  it('never calls a position a game', () => {
+    expect(looksLikeGame('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')).toBe(false)
+    // The fullmove counter is a number, and no number in a FEN carries a dot.
+    expect(looksLikeGame('8/8/8/8/8/8/4K3/6k1 b - - 12 34')).toBe(false)
+    expect(looksLikeGame('r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq -')).toBe(false)
+  })
+
+  it('leaves anything that is neither alone', () => {
+    expect(looksLikeGame('')).toBe(false)
+    expect(looksLikeGame('   ')).toBe(false)
+    expect(looksLikeGame('DrNykterstein')).toBe(false)
+    expect(looksLikeGame('just some words')).toBe(false)
   })
 })

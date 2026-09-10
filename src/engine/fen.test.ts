@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FEN_KING_PLACEMENT_ERROR, FEN_OPPONENT_IN_CHECK_ERROR, FEN_PARSE_ERROR, hasLegalKingPlacement, opponentIsInCheck, validateFenForAnalysis } from './fen'
+import { FEN_KING_PLACEMENT_ERROR, FEN_LOOKS_LIKE_GAME_ERROR, FEN_LOOKS_LIKE_URL_ERROR, FEN_OPPONENT_IN_CHECK_ERROR, FEN_PARSE_ERROR, hasLegalKingPlacement, opponentIsInCheck, validateFenForAnalysis } from './fen'
 
 describe('FEN validation helpers', () => {
   it('accepts separated kings and rejects adjacent kings', () => {
@@ -59,5 +59,33 @@ describe('opponentIsInCheck', () => {
     expect(opponentIsInCheck('')).toBe(false)
     expect(opponentIsInCheck('8/8/8/8/8/8/8/8')).toBe(false)
     expect(opponentIsInCheck('nonsense x - - 0 1')).toBe(false)
+  })
+})
+
+/**
+ * What it is, before what is wrong with it. A game and a link are both things
+ * this box cannot take, and neither has piece placement to check -- so the
+ * parse error was describing four fields the reader had not pasted.
+ */
+describe('a wrong paste in the FEN box', () => {
+  it('names a game rather than blaming its piece placement', () => {
+    expect(validateFenForAnalysis('[Event "T"]\n\n1. e4 e5 1-0'))
+      .toEqual({ ok: false, error: FEN_LOOKS_LIKE_GAME_ERROR })
+    expect(validateFenForAnalysis('1. e4 e5 2. Nf3'))
+      .toEqual({ ok: false, error: FEN_LOOKS_LIKE_GAME_ERROR })
+  })
+
+  it('names a link rather than blaming its castling rights', () => {
+    expect(validateFenForAnalysis('https://lichess.org/x3kPqR2a'))
+      .toEqual({ ok: false, error: FEN_LOOKS_LIKE_URL_ERROR })
+  })
+
+  /** And a real FEN still gets the answers it always got. */
+  it('leaves every FEN judgement where it was', () => {
+    expect(validateFenForAnalysis('8/8/8/8/8/8/4K3/6k1 w - - 0 1').ok).toBe(true)
+    expect(validateFenForAnalysis('8/8/8/8/8/8/4K3/8 w - - 0 1'))
+      .toEqual({ ok: false, error: FEN_KING_PLACEMENT_ERROR })
+    expect(validateFenForAnalysis('not a fen at all'))
+      .toEqual({ ok: false, error: FEN_PARSE_ERROR })
   })
 })

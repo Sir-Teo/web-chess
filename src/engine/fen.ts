@@ -1,8 +1,11 @@
 import { Chess, validateFen } from 'chess.js'
+import { looksLikeGame, looksLikeGameUrl } from './pastedText'
 
 export const FEN_PARSE_ERROR = 'Failed to parse FEN. Check piece placement, side to move, castling rights, and counters.'
 export const FEN_KING_PLACEMENT_ERROR = 'Invalid FEN: kings cannot be adjacent or missing.'
 export const FEN_OPPONENT_IN_CHECK_ERROR = 'Invalid FEN: the side that is not to move is already in check, which no legal game can reach. Check the side to move.'
+export const FEN_LOOKS_LIKE_GAME_ERROR = 'That is a game, not one position. Import it from the Import tab above.'
+export const FEN_LOOKS_LIKE_URL_ERROR = 'That is a link, not a position. Open it and copy the FEN from the board there.'
 
 export type FenValidationResult =
   | { ok: true; fen: string }
@@ -83,6 +86,10 @@ export function opponentIsInCheck(fen: string): boolean {
 
 export function validateFenForAnalysis(fenText: string): FenValidationResult {
   const trimmed = fenText.trim()
+  // What it is, before what is wrong with it: a game and a link are both
+  // things this box cannot take, and neither has piece placement to check.
+  if (looksLikeGameUrl(trimmed)) return { ok: false, error: FEN_LOOKS_LIKE_URL_ERROR }
+  if (looksLikeGame(trimmed)) return { ok: false, error: FEN_LOOKS_LIKE_GAME_ERROR }
   const syntax = validateFen(trimmed)
   if (!syntax.ok) {
     return {
