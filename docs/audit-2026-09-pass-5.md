@@ -751,6 +751,33 @@ It lives in `boardMarks` now, beside the last-move style, and is held to the
 same bar plus one the others did not need: that it is not the last move, not
 the ink, not the preview and not a mark.
 
+**The candidate scale's two ends were one colour.** Same lens, one surface
+along. The arrows the engine draws run red for a bad move to green for the
+best, and red-to-green is the pair a red-green deficiency takes away — the
+module knew, and answered it with **faintness**: `alpha = 0.5 + 0.4t`, "so the
+best move reads first even in monochrome". `arrowColors.test.ts` pins the
+scale's shape, its ends and its monotonicity. It never measured that.
+
+**Measured**, both ends painted on both squares of all five schemes:
+
+| | worst ΔE |
+|---|---|
+| the two ends, ordinary vision | 39.0 |
+| the two ends, deutan (forest board) | **2.8** |
+| best vs 75cp worse, deutan (classic) | 4.7 |
+| 75cp vs 150cp worse, protan (classic) | 3.4 |
+
+Best move and blunder, one colour, on a scale whose only job is telling them
+apart. Fading is the reason rather than the cure: at 0.5 over a mid square a
+bright `#f85149` moves *toward* the square, and the square's luminance sits
+between the two ends. Only 1.04:1 separated them in plain luminance.
+
+The red end is `#601010` now and the range is `0.7 + 0.25t`. **26.0** apart at
+worst across every scheme and vision, and **2.36:1** in luminance, so the
+ordering survives with no colour vision at all — a worse move now recedes by
+being dark rather than by fading into the board, which is what the comment
+always said it was doing.
+
 ---
 
 ## Refuted
@@ -1193,6 +1220,24 @@ expensive failure.
 ---
 
 ## Limits, recorded rather than fixed
+
+**Two arrow meanings that measure close.** The same sweep put the hint's green
+**5.9** from the played move's amber for protan vision on the dusk board, and
+the threat's violet **11.4** from a mid-scale candidate for tritan on forest.
+Both are under the 15 the square indicators are held to. Neither was changed:
+the amber arrow is drawn between two squares already wearing amber rings and
+is deliberately the faintest thing on the board — its own comment says it
+"still carries the direction; it no longer costs two pieces" — so the reading
+does not rest on it, and the violet threat is the only arrow that ever points
+at the side not to move. Written down because the next colour added to this
+board has to fit through a gap that is already narrow, not because either is
+known to mislead anybody.
+
+**The best-move arrow on the forest board.** Green on green: the hint's
+`#3fb950` measures **7.5** from the forest scheme's light square. Arrows are
+shapes with edges across several squares rather than fills, so figure and
+ground are carried by form -- but it is the narrowest reading in the arrow
+sweep and belongs on the record.
 
 **Two timing tests fail under load.** `__fuzz.test.ts > survives: many braces`
 bounds one parse at an absolute 1000ms, and `importRobustness.test.ts > grows
