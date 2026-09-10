@@ -483,6 +483,19 @@ const NOTICE_HOLD_MS = 2400
  */
 const NOTICE_EXPLAIN_MS = 6000
 const SHARED_LINK_UNREADABLE = 'That shared link could not be read — showing the starting position.'
+
+/**
+ * A link that carried more than it could give.
+ *
+ * Playing as far as a damaged link really goes is deliberate -- `decodeSharedGame`
+ * says so, and showing six moves of eight beats showing none. What was missing is
+ * the sentence: **measured** on a link cut short the way a chat app cuts one, the
+ * board came up with six of the eight moves and said nothing at all, so whoever
+ * opened it had no reason to think anything was gone. The unreadable case has had
+ * a notice all along; this is the same case one degree less broken.
+ */
+const sharedLinkTruncated = (shown: number) =>
+  `That shared link was cut short — showing the ${shown} ${shown === 1 ? 'move' : 'moves'} that survived it.`
 const PGN_POSITION_ONLY_NOTICE = 'That game has no moves — its position is on the board.'
 
 function loadSharedFenFromUrl(): string | null {
@@ -4646,9 +4659,12 @@ function App() {
    * `replaySharedGame` stops at the first move the position will not take —
    * rather than being thrown away whole.
    */
-  const loadSharedGame = useCallback((shared: { rootFen: string; moves: string[] }): boolean => {
+  const loadSharedGame = useCallback((shared: { rootFen: string; moves: string[]; carried?: number }): boolean => {
     const played = replaySharedGame(shared)
     if (!played.length) return false
+    // Two ways to lose the end of a link: a token the decoder could not read
+    // (a cut lands mid-move) and a move the position will not take.
+    const lost = Math.max(shared.carried ?? shared.moves.length, shared.moves.length) - played.length
 
     cancelSampleLoad()
     cancelPendingAiMove()
@@ -4679,9 +4695,11 @@ function App() {
     setFen(finalFen)
     setPendingPonderFen(finalFen)
     requestBoardReveal()
+    // After the load, or the load clears it.
+    if (lost > 0) announce(sharedLinkTruncated(played.length), NOTICE_EXPLAIN_MS)
     return true
   }, [
-    cancelPendingAiMove, cancelSampleLoad, cancelStaleBackgroundAnalysis, clearBatchReview,
+    announce, cancelPendingAiMove, cancelSampleLoad, cancelStaleBackgroundAnalysis, clearBatchReview,
     clearBoardSelection, clearImportSweep, game, gameTree, newGame, requestBoardReveal, setPgnHeaders,
   ])
 

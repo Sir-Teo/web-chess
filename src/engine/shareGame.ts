@@ -42,6 +42,8 @@ export type SharedGame = {
   rootFen: string
   /** Validated UCI, in order. Not yet checked against the position. */
   moves: string[]
+  /** How many move tokens the link held, before any were discarded. */
+  carried?: number
 }
 
 function toBase64Url(text: string): string {
@@ -96,8 +98,14 @@ export function decodeSharedGame(encoded: string): SharedGame | null {
     return null
   }
 
-  const moves = normalizeUciMoves(text.slice(separator + 1).split(/\s+/g).filter(Boolean))
-  return { rootFen: position.fen(), moves }
+  // Counted before normalising, because that is where a cut link loses its
+  // tail: "…g1f3 b8c" is two tokens and one move, and by the time the caller
+  // sees `moves` the difference is gone. Without this the replay below cannot
+  // tell a link that ended from a link that was cut, and the reader is shown
+  // half a game with nothing said about the other half.
+  const tokens = text.slice(separator + 1).split(/\s+/g).filter(Boolean)
+  const moves = normalizeUciMoves(tokens)
+  return { rootFen: position.fen(), moves, carried: tokens.length }
 }
 
 export type ReplayedSharedMove = {

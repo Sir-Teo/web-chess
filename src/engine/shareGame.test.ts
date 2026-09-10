@@ -121,3 +121,50 @@ describe('a link this app did not write', () => {
     expect(replaySharedGame({ rootFen: 'nonsense', moves: ['e2e4'] })).toEqual([])
   })
 })
+
+/**
+ * A link that carried more than it could give.
+ *
+ * Playing as far as a damaged link really goes is deliberate, and showing six
+ * moves of eight beats showing none. What was missing was the sentence: a link
+ * cut short the way a chat app cuts one came up with six of eight moves and
+ * said nothing, so whoever opened it had no reason to think anything was gone.
+ *
+ * The loss happens at *decode*, not at replay: "…g1f3 b8c" is two tokens and
+ * one move, and by the time a caller sees `moves` the difference is gone. So
+ * the count of what arrived is kept beside what could be read.
+ */
+describe('a cut link says how much of it survived', () => {
+  const game = ['e2e4', 'e7e5', 'g1f3', 'b8c6']
+
+  it('reports the same count as it read when nothing was lost', () => {
+    const decoded = decodeSharedGame(encodeSharedGame(new Chess().fen(), game))!
+    expect(decoded.moves).toEqual(game)
+    expect(decoded.carried).toBe(game.length)
+  })
+
+  it('counts a move token it could not read', () => {
+    const whole = encodeSharedGame(new Chess().fen(), game)
+    // Cut inside the last move, which is what a truncated link looks like once
+    // it has been base64-decoded.
+    // Not every cut length decodes -- base64 needs whole groups -- so this
+    // takes the first that both decodes and has lost something, rather than
+    // trimming until it stops decoding and asserting on the wreckage.
+    let decoded = null
+    for (let i = 1; i < 20 && !decoded; i++) {
+      const attempt = decodeSharedGame(whole.slice(0, whole.length - i))
+      if (attempt && attempt.moves.length < game.length) decoded = attempt
+    }
+    expect(decoded).not.toBeNull()
+    expect(decoded!.moves.length).toBeLessThan(game.length)
+    // The point: what arrived is still known, so a caller can tell that
+    // something was dropped rather than that the game simply ended there.
+    expect(decoded!.carried).toBeGreaterThan(decoded!.moves.length)
+  })
+
+  it('does not claim a loss for a game that really is that short', () => {
+    const short = decodeSharedGame(encodeSharedGame(new Chess().fen(), ['e2e4']))!
+    expect(short.moves).toEqual(['e2e4'])
+    expect(short.carried).toBe(1)
+  })
+})

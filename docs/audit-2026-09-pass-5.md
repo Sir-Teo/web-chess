@@ -385,6 +385,29 @@ them was also wrong -- it aborted *after* the request had resolved, by which
 time the listener is deliberately gone -- which is worth writing down as the
 same lesson one more time: a test that cannot fail for the reason it names is
 not a test.
+**A shared link cut short showed half a game and said nothing.** A game link
+was copied, opened the way somebody receiving it would, and then damaged six
+ways. The intact link brings back exactly what was sent, and a link whose
+payload is corrupted or replaced answers "That shared link could not be read —
+showing the starting position". But a link **cut short** — which is what a chat
+app does to a long URL, and the failure this app's `hashCarriesShare` work was
+about — came up with **six of eight moves, three of eight, six of eight**, and
+said nothing at all. Whoever opened it had no reason to think anything was
+missing.
+
+Playing as far as a damaged link really goes is deliberate and right; the
+decoder says so in its own words, and six moves beat none. The gap was the
+sentence. It is there now: "That shared link was cut short — showing the 6 moves
+that survived it", and an intact link still says nothing.
+
+Finding where to detect it took two tries. The obvious signal -- the replay
+stopping before the end of the decoded moves -- never fires, because the loss
+happens one step earlier: `"…g1f3 b8c"` is two tokens and one move, and the
+normaliser drops the broken one before the replay ever sees it. The decoder now
+keeps the count of what arrived beside the count of what it could read, which
+is the only place the difference still exists.
+
+---
 
 ## Refuted
 
