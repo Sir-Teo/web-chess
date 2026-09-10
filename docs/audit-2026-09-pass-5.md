@@ -316,6 +316,29 @@ exempts them by shape rather than by name, counts the exemption, and asserts the
 count is not zero, so an exemption that stopped matching fails rather than
 hiding a real target.
 
+**Everything else that is shown twice agrees.** The winrate card was found by
+eye, so the class it belongs to was then swept on purpose: every quantity this
+app displays in more than one place, read at six plies of a 58-move game and
+compared. The evaluation, on the bar and in the coach: -0.9/-0.87, +0.1/+0.07,
++1.4/+1.44, +3.1/+3.10, -2.0/-2.02, -2.0/-1.96 — agreeing to the rounding. The
+best move, in the coach and in the status bar: the same at every ply. The
+winrate, after the fix below: the same at every ply. And the review report
+checked against itself — overall **95.8** against a White of 95.3 and a Black of
+96.3, whose mean is 95.8; **116 grades over 116 moves**, adding up exactly;
+116 review rows for 116 chips.
+
+So the card was the only one of its kind within reach, which is worth knowing:
+the value of the sweep is not that it found a second, but that it says there
+isn't one.
+
+**One thing recorded and not changed.** The coach renders search depth as
+`D22`, which is also a valid ECO code — and this app prints ECO codes two cards
+away, in the same letter-and-two-digits shape. The regex written to find ECO
+codes in this sweep matched the depth, which is weak evidence but not nothing.
+Under its own "POSITION DEPTH" heading it is unambiguous, and `D${depth}` was
+written deliberately, so it stays; noted because the next reader to see `D22`
+beside `A00` deserves to know it was looked at.
+
 **A reading that did not follow the board.** The winrate card's two numbers —
 the one in its heading and the one beside "White win chance" — took
 `winratePoints[length - 1]`, the last ply of the line, whatever ply was being
