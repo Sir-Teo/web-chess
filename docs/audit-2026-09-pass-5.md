@@ -778,6 +778,44 @@ ordering survives with no colour vision at all — a worse move now recedes by
 being dark rather than by fading into the board, which is what the comment
 always said it was doing.
 
+**A review redrew the whole report once per position.** Recorded as a limit one
+pass earlier and then measured properly rather than guessed at. The guess was
+"UCI parsing and a state update per `info` line"; **long-animation-frame
+attribution** said otherwise, and named the cost exactly:
+
+```
+4028ms   58x   event-listener MessagePort.onmessage   react · At
+  68ms         style and layout, all of it
+```
+
+React rendering, from its own scheduler, and almost no layout. The pool reports
+each finished position straight into `setEvaluationsByFen`, and that map is read
+by the move list, the graph, the accuracy summary and the export — so 120
+positions is 120 renders of all of it.
+
+Results are collected and handed over on the same **100ms** beat the live
+analysis lines have always used, which is shorter than the frame a reader could
+have seen the difference in. Every path that ends a review hands the buffer over
+first — including the one where an engine gives out, because that path re-plans
+from the live map and would otherwise search positions already answered.
+
+Measured at 6x CPU on a phone, walking the game with the arrow keys while a
+120-ply review runs:
+
+| | before | after |
+|---|---|---|
+| median frame gap | 59ms (~17fps) | **16ms (~60fps)** |
+| frames over 100ms | 13 | **1** |
+| worst frame gap | 164ms | 103ms |
+| worst interaction | 168ms | **88ms** |
+| long frames / their total | 60 / 4654ms | **28 / 2262ms** |
+| the review itself | 6642ms | **5435ms** |
+
+The report is unchanged to the digit: 116 moves, overall 95.8, white 95.3,
+black 96.3, ACPL 10. Those existing checks are the guard that matters here —
+they assert every position evaluated and every label counted, which is exactly
+what a dropped flush would break.
+
 ---
 
 ## Refuted
@@ -1259,16 +1297,6 @@ expensive failure.
 ---
 
 ## Limits, recorded rather than fixed
-
-**A review is choppy while it runs, even though it stays usable.** The numbers
-above pass, and underneath them the page spends **4,760ms of a 6,642ms review
-inside long tasks** at 6x CPU — 72% of the time, worst single task 329ms,
-median frame gap 59ms, which is about 17fps. Interactions still land in 168ms
-because the tasks are many and short rather than one long one. The cost is
-main-thread work per engine message across a five-engine pool: UCI parsing and
-a React state update for each `info` line. Batching those is a real piece of
-work and the operation is bounded at about seven seconds, so it is written down
-rather than started.
 
 **Two arrow meanings that measure close.** The same sweep put the hint's green
 **5.9** from the played move's amber for protan vision on the dusk board, and

@@ -486,6 +486,13 @@ const NOTICE_HOLD_MS = 2400
  * why the board is not what was expected, and have to be read to be acted on.
  */
 const NOTICE_EXPLAIN_MS = 6000
+
+/**
+ * How often a running review hands its results to React. The same beat the
+ * engine's live lines use, and shorter than the frame a reader could have seen
+ * the difference in.
+ */
+const REVIEW_RESULT_FLUSH_INTERVAL_MS = 100
 const SHARED_LINK_UNREADABLE = 'That shared link could not be read — showing the starting position.'
 
 /**
@@ -740,6 +747,58 @@ function App() {
   // has actually switched and the analysis engine is up.
   const [pendingGameReview, setPendingGameReview] = useState(false)
   const [reviewPractice, setReviewPractice] = useState<ReviewPracticeState | null>(null)
+
+  // ── What a running review hands back ─────────────────
+  /**
+   * A pool of five engines finishing a position each is five React renders,
+   * and `evaluationsByFen` is read by the move list, the graph, the accuracy
+   * summary and the export -- so each one re-renders all of it.
+   *
+   * **Measured** with long-animation-frame attribution, a 120-ply review at 6x
+   * CPU: 4,654ms of long frames, of which **4,028ms across 58 frames** was
+   * React rendering from its own scheduler, and only 68ms style and layout.
+   * The results are collected here and handed over on the same 100ms beat the
+   * live analysis lines already use, which is under the frame the reader could
+   * have seen them in anyway.
+   */
+  const reviewFlushRef = useRef<{ results: Array<[string, EvalSnapshot]>; done: number; timer: number | null }>(
+    { results: [], done: 0, timer: null },
+  )
+
+  const flushReviewResults = useCallback(() => {
+    const buffer = reviewFlushRef.current
+    if (buffer.timer !== null) {
+      window.clearTimeout(buffer.timer)
+      buffer.timer = null
+    }
+    if (!buffer.results.length && buffer.done === 0) return
+    const results = buffer.results
+    const done = buffer.done
+    buffer.results = []
+    buffer.done = 0
+    if (results.length) {
+      setEvaluationsByFen(previous => {
+        let next = previous
+        for (const [fen, snapshot] of results) next = recordEvaluation(next, fen, snapshot)
+        return next
+      })
+    }
+    if (done > 0) {
+      setBatchReviewProgress(previous => ({
+        total: previous.total,
+        done: Math.min(previous.total, previous.done + done),
+      }))
+    }
+  }, [])
+
+  const scheduleReviewFlush = useCallback(() => {
+    const buffer = reviewFlushRef.current
+    if (buffer.timer !== null) return
+    buffer.timer = window.setTimeout(() => {
+      buffer.timer = null
+      flushReviewResults()
+    }, REVIEW_RESULT_FLUSH_INTERVAL_MS)
+  }, [flushReviewResults])
   /**
    * Playing a line from memory. Null when no drill is running.
    *
@@ -1348,6 +1407,7 @@ function App() {
   const clearBatchReview = useCallback(() => {
     reviewPoolRunRef.current?.cancel()
     reviewPoolRunRef.current = null
+    flushReviewResults()
     batchReviewQueueRef.current = []
     activeBatchReviewRef.current = null
     setIsBatchReviewing(false)
@@ -1364,6 +1424,7 @@ function App() {
   useEffect(() => () => {
     reviewPoolRunRef.current?.cancel()
     reviewPoolRunRef.current = null
+    flushReviewResults()
   }, [])
 
   const cancelStaleBackgroundAnalysis = useCallback(() => {
@@ -1389,6 +1450,7 @@ function App() {
     // Measured at 8 live workers and 0 terminated before this line existed.
     reviewPoolRunRef.current?.cancel()
     reviewPoolRunRef.current = null
+    flushReviewResults()
     // The line being read, not the game's main line -- see `reviewLineNodes`.
     const nodes = reviewLineNodesRef.current
     if (nodes.length <= 1) return
@@ -1440,6 +1502,7 @@ function App() {
       return
     }
 
+    flushReviewResults()
     // Nothing is queued for the shared engine: while the pool runs, the effect
     // below sees an empty queue and a live pool and stands down.
     batchReviewQueueRef.current = []
@@ -1451,19 +1514,20 @@ function App() {
       showWdl,
       callbacks: {
         onResult: (fen, snapshot) => {
-          setEvaluationsByFen(previous => recordEvaluation(previous, fen, snapshot))
+          reviewFlushRef.current.results.push([fen, snapshot])
+          scheduleReviewFlush()
         },
         onProgress: () => {
-          setBatchReviewProgress(previous => ({
-            total: previous.total,
-            done: Math.min(previous.total, previous.done + 1),
-          }))
+          reviewFlushRef.current.done += 1
+          scheduleReviewFlush()
         },
       },
     })
     reviewPoolRunRef.current = run
     run.done
       .then(() => {
+        // Whatever is still buffered, before anything reads the totals.
+        flushReviewResults()
         if (reviewPoolRunRef.current !== run) return
         reviewPoolRunRef.current = null
         setIsBatchReviewing(false)
@@ -1490,8 +1554,12 @@ function App() {
          * in a browser. It rests on reading the code, not on a measurement.
          * `planBatchReview` already knows how to tell a finished position from
          * an unfinished one, and reads the live map rather than the one this
-         * closure captured, so it is the right answer either way.
+         * closure captured, so it is the right answer either way -- which is
+         * why the buffered results are handed over first. Left in the buffer
+         * they are not in the live map yet, and the re-plan would search
+         * positions that are already answered.
          */
+        flushReviewResults()
         if (reviewPoolRunRef.current !== run) return
         run.cancel()
         reviewPoolRunRef.current = null
