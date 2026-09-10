@@ -2043,6 +2043,71 @@ async function checkABigFileIsDescribedNotShown(browser) {
 }
 
 /**
+ * A PGN dragged onto the window is taken, not followed.
+ *
+ * The app had no drag handling at all. Measured before the fix, dragging a
+ * `.pgn` over the board: `dragenter` and two `dragover` events arrive,
+ * cancelable and uncancelled, and then **no `drop` event is delivered** --
+ * an uncancelled `dragover` is how a page refuses a drop, and what a browser
+ * does with a file no page wanted is open it in place of the page. A reader
+ * who tried the obvious thing next to an "Open PGN File" button lost the
+ * screen they were on.
+ *
+ * The assertion is the drop event itself. It cannot be delivered unless
+ * something cancelled the `dragover` before it, so a run where the file lands
+ * in the dialog is a run where the browser was not going to navigate.
+ */
+async function checkADroppedPgnIsTaken(browser) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+    await page.evaluate(() => {
+      window.__drops = 0
+      window.addEventListener('drop', () => { window.__drops++ }, true)
+    })
+
+    const client = await context.newCDPSession(page)
+    const file = path.join(__dirname, 'fixtures', 'opera-game.pgn')
+    const box = await page.locator('.board-wrap').boundingBox()
+    const at = { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) }
+    const data = { items: [], files: [file], dragOperationsMask: 1 }
+    for (const type of ['dragEnter', 'dragOver', 'drop']) {
+      await client.send('Input.dispatchDragEvent', { type, ...at, data })
+    }
+
+    await page.locator('.dialog-file-name').waitFor({ timeout: 15000 }).catch(() => {})
+    await page.waitForTimeout(400)
+    const after = await page.evaluate(() => ({
+      drops: window.__drops,
+      chip: document.querySelector('.dialog-file-name')?.textContent?.trim() || null,
+      chars: document.querySelector('textarea.input-textarea')?.value.length ?? -1,
+      onImportTab: [...document.querySelectorAll('.mode-card')]
+        .some(b => b.getAttribute('aria-pressed') === 'true' && /Import/.test(b.textContent || '')),
+      url: location.href,
+      stillTheApp: Boolean(document.querySelector('#chessboard-square-e2')),
+    }))
+
+    assert(after.drops === 1,
+      `${after.drops} drop events reached the page -- an uncancelled dragover refuses the drop, ` +
+      'and the browser then opens the file in place of the app')
+    assert(after.chip === 'opera-game.pgn',
+      `the dialog names the dropped file as "${after.chip}"`)
+    assert(after.chars > 200, `the box holds ${after.chars} characters of the dropped game`)
+    assert(after.onImportTab, 'the dialog opened somewhere other than the tab that takes a game')
+    assert(after.stillTheApp && /web-chess/.test(after.url),
+      `the page is now ${after.url}`)
+
+    console.log(`  drop: a .pgn on the board opens the import dialog holding it (${after.chars} characters), app still there`)
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -3252,6 +3317,7 @@ async function main() {
     await checkTheReviewCardNamesItsSet(browser)
     await checkAFullLibraryStopsReadingTheFile(browser)
     await checkABigFileIsDescribedNotShown(browser)
+    await checkADroppedPgnIsTaken(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)

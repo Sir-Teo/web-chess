@@ -504,6 +504,33 @@ is exactly as long as it was; what changed is that the reader can see it is a
 wait. The guard reads the set of labels drawn across those frames and requires
 "Adding…" to be among them; without the two frames the set is empty.
 
+**Dragging a PGN onto the board took the reader off the page.** The app had no
+drag handling at all — no `dragover`, no `drop`, nothing in the source.
+**Measured** by listening at the window and dragging a `.pgn` over the board
+through the browser's own drag machinery: `dragenter` and two `dragover` events
+arrive, **cancelable and uncancelled**, and then **no `drop` event is delivered
+at all**. That is the whole mechanism. An uncancelled `dragover` is how a page
+refuses a drop, so the browser keeps the file and does what it does with a file
+no page wanted: opens it, in place of the app. Next to a button that says "Open
+PGN File", dragging one onto the board is the obvious thing to try, and it lost
+the screen it was tried on.
+
+A drop is now taken. The dialog is opened with the file already read, rather
+than the board being changed behind the reader's back — a drop is a proposal,
+and the dialog is where proposals are looked at, and where the size limits, the
+"this file holds several" notice and the offer to keep them all already live.
+The picker and the window end up in the same function, so a dragged file meets
+exactly the same limits and messages as a chosen one: measured, a single game
+lands in the box (314 characters, named), a 30-game file lands with "Add 30
+games to the library" beside it, and a shopping list named `.txt` lands as its
+own 25 characters, all with the app still on screen.
+
+Only drags carrying files are taken, so a piece dragged across the board is
+untouched — the suite's two touch-drag checks pass unchanged. The guard asserts
+the **drop event itself**: it cannot be delivered unless something cancelled the
+`dragover` before it, so a run where the file reaches the dialog is a run where
+the browser was never going to navigate. Before the fix that count is zero.
+
 ---
 
 ## Refuted
@@ -939,6 +966,17 @@ expensive failure.
 ---
 
 ## Limits, recorded rather than fixed
+
+**Two timing tests fail under load.** `__fuzz.test.ts > survives: many braces`
+bounds one parse at an absolute 1000ms, and `importRobustness.test.ts > grows
+about linearly` divides a 400,000-character parse by a 50,000-character one and
+requires the ratio under 24. Both failed in one `npm run verify` during this
+pass — 1220ms, and a ratio of 187 — and both passed on their own immediately
+after, as did the full suite on a re-run. Nothing in that iteration touched the
+parser. The second is the more fragile: its denominator is a sub-millisecond
+measurement, so a single scheduling hiccup there moves the ratio by an order of
+magnitude. Recorded rather than changed, because a bound loosened to survive
+load stops guarding what it names.
 
 **On a phone the board was a dead zone for scrolling — and this entry was
 wrong.** It is left here with its correction because the reasoning failed in an

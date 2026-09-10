@@ -72,6 +72,10 @@ type PgnDialogProps = {
      * more than one game, which is what it always did.
      */
     onImportManyToLibrary?: (pgns: string[]) => ImportResult & { note?: string }
+    /** A PGN dragged onto the window, to be read as though it had been picked. */
+    droppedFile?: File | null
+    /** Called once that file has been taken, so the same drop is not read twice. */
+    onDroppedFileTaken?: () => void
 }
 
 type ImportResult = {
@@ -95,7 +99,7 @@ const SETUP_CASTLING_OPTIONS: Array<{ right: SetupCastlingRight; label: string; 
     { right: 'q', label: 'Black queenside', short: 'q' },
 ]
 
-export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, mainLineNodes, gameNodes, evaluations, pgnHeaders, onImportManyToLibrary }: PgnDialogProps) {
+export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, mainLineNodes, gameNodes, evaluations, pgnHeaders, onImportManyToLibrary, droppedFile, onDroppedFileTaken }: PgnDialogProps) {
     const [tab, setTab] = useState<'import' | 'fen' | 'export'>('import')
     const [importText, setImportText] = useState('')
     const [fenText, setFenText] = useState(currentFen)
@@ -250,16 +254,16 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         resetFeedback()
     }
 
-    const handleImportFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-        const input = event.currentTarget
-        const file = input.files?.[0]
-        if (!file) return
-
+    /**
+     * Take a file, whether it was picked or dropped. The picker and the window
+     * both end up here so a dragged file meets exactly the same limits, the
+     * same messages and the same offer as one chosen through the button.
+     */
+    const loadImportFile = useCallback(async (file: File) => {
         resetFeedback()
         if (file.size > MAX_PGN_IMPORT_BYTES) {
             setImportFileName(null)
             setError(PGN_IMPORT_LIMIT_MESSAGE)
-            input.value = ''
             return
         }
 
@@ -277,10 +281,30 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         } catch {
             setImportFileName(null)
             setError('Could not read that PGN file.')
+        }
+    }, [resetFeedback])
+
+    const handleImportFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+        const input = event.currentTarget
+        const file = input.files?.[0]
+        if (!file) return
+        try {
+            await loadImportFile(file)
         } finally {
+            // Cleared either way, so picking the same file twice is still a change.
             input.value = ''
         }
     }
+
+    // A file dropped on the window. The dialog is opened for it rather than the
+    // board being changed behind the reader's back: a drop is a proposal, and
+    // this is where proposals are looked at.
+    useEffect(() => {
+        if (!open || !droppedFile) return
+        setTab('import')
+        void loadImportFile(droppedFile)
+        onDroppedFileTaken?.()
+    }, [droppedFile, loadImportFile, onDroppedFileTaken, open])
 
     const setExportOption = (key: keyof PgnExportOptions, value: boolean) => {
         setExportOptions(options => ({ ...options, [key]: value }))

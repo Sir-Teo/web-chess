@@ -768,6 +768,7 @@ function App() {
   // ── Game mode ────────────────────────────────────────
   const [showNewGameDialog, setShowNewGameDialog] = useState(false)
   const [showPgnDialog, setShowPgnDialog] = useState(false)
+  const [droppedPgnFile, setDroppedPgnFile] = useState<File | null>(null)
   const [showLibraryDialog, setShowLibraryDialog] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   /**
@@ -4204,6 +4205,7 @@ function App() {
     setShowNewGameDialog(true)
   }, [rememberModalTrigger])
   openNewGameDialogRef.current = openNewGameDialog
+  const clearDroppedPgnFile = useCallback(() => setDroppedPgnFile(null), [])
   const openPgnDialog = useCallback(() => {
     rememberModalTrigger()
     setSettingsOpen(false)
@@ -4218,6 +4220,50 @@ function App() {
     setShowPgnDialog(false)
     setShowLibraryDialog(true)
   }, [rememberModalTrigger])
+
+  // ── A PGN dragged onto the window ────────────────────
+  /**
+   * Without this the browser keeps the file and leaves.
+   *
+   * Measured: dragging a `.pgn` over the board delivers a cancelable
+   * `dragover` that nothing cancels, so the drop is refused and no `drop`
+   * event is ever delivered -- the browser then does what it does with a file
+   * no page wanted, which is open it in place of the app. A reader who tried
+   * the obvious thing lost the screen they were on.
+   *
+   * The dialog is opened with the file in hand rather than the board being
+   * changed behind their back: a drop is a proposal, and the dialog is where
+   * proposals are looked at -- and where the size limits, the "this file holds
+   * several" notice and the offer to keep them all already live.
+   *
+   * Only drags carrying files are taken. Anything else -- text, a link, a
+   * piece being dragged across the board -- is left exactly as it was.
+   */
+  useEffect(() => {
+    const carriesFiles = (event: DragEvent) =>
+      Array.from(event.dataTransfer?.types ?? []).includes('Files')
+    const onDragOver = (event: DragEvent) => {
+      if (!carriesFiles(event)) return
+      // Cancelling `dragover` is the whole of it: an uncancelled one means the
+      // page has refused, and the drop never arrives to be prevented.
+      event.preventDefault()
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+    }
+    const onDrop = (event: DragEvent) => {
+      if (!carriesFiles(event)) return
+      event.preventDefault()
+      const file = event.dataTransfer?.files?.[0]
+      if (!file) return
+      setDroppedPgnFile(file)
+      openPgnDialog()
+    }
+    window.addEventListener('dragover', onDragOver)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      window.removeEventListener('dragover', onDragOver)
+      window.removeEventListener('drop', onDrop)
+    }
+  }, [openPgnDialog])
 
 
   const closeNewGameDialog = useCallback(() => {
@@ -7002,6 +7048,8 @@ function App() {
               evaluations={evaluationsByFen}
               pgnHeaders={pgnHeaders}
               onImportManyToLibrary={library.importGames}
+              droppedFile={droppedPgnFile}
+              onDroppedFileTaken={clearDroppedPgnFile}
             />
           )}
 
