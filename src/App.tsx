@@ -3529,6 +3529,15 @@ function App() {
       revealed: false,
     })
     clearBoardSelection()
+    // A drill asks the reader for a move. Measured at 375x812: the Drill button
+    // is far enough down the panel that reaching it leaves the board 889px
+    // above the top of the container with none of it on the screen, and
+    // starting from there scrolled further away -- so the board turned round,
+    // played the opponent's first moves and waited, out of sight. Every sibling
+    // that hands the board back to the reader already does this: `Play from
+    // here`, the practice button, and the review list. The setter rather than
+    // `requestBoardReveal`, which is declared further down.
+    setBoardRevealTick(tick => tick + 1)
   }, [cancelStaleBackgroundAnalysis, clearBoardSelection, currentLineNodes, drillableLine, game, gameTree, playDrillMoves, stop])
 
   const endDrill = useCallback(() => {
