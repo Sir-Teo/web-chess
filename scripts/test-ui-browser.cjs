@@ -2108,6 +2108,84 @@ async function checkADroppedPgnIsTaken(browser) {
 }
 
 /**
+ * Back closes the sheet, not the app.
+ *
+ * On a phone these dialogs fill the screen and read as pages, so Back is the
+ * gesture that gets tried on them. The app touched history nowhere at all, so
+ * it did what an app that ignores history does: measured at 390x844, Back with
+ * the PGN dialog, the library or the command palette open landed on the
+ * previous page with the game off the screen, and coming Forward again met the
+ * auto-save recovery prompt rather than the board.
+ *
+ * Both halves are asserted. Closing the sheet is the fix; still being able to
+ * leave is the thing a fix like this takes away if it is written carelessly,
+ * and a history trap is worse than the defect.
+ */
+async function checkBackClosesTheSheet(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    // Somewhere to go back to, the way a reader arrives from a link.
+    await page.goto('about:blank')
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+    // A move worth not losing, read off the board rather than off the page:
+    // the move list is not on screen at this width.
+    await page.locator('#chessboard-square-e2').click()
+    await page.waitForTimeout(150)
+    await page.locator('#chessboard-square-e4').click()
+    await page.waitForTimeout(700)
+    const squares = () => page.evaluate(() => ({
+      e2: document.querySelector('#chessboard-square-e2')?.innerHTML.length ?? -1,
+      e4: document.querySelector('#chessboard-square-e4')?.innerHTML.length ?? -1,
+    }))
+    const played = await squares()
+    assert(played.e4 > played.e2, `the move did not land: e2 ${played.e2}, e4 ${played.e4}`)
+
+    for (const [label, selector] of [
+      ['the PGN dialog', '[aria-label="Open PGN and FEN dialog"]'],
+      ['the library', 'button[aria-label*="ibrar" i]'],
+      ['the command palette', 'button[aria-label*="ommand" i]'],
+    ]) {
+      await page.locator(selector).first().click({ timeout: 10000 })
+      await page.waitForTimeout(500)
+      const opened = await page.evaluate(() =>
+        Boolean(document.querySelector('.dialog-panel, .command-palette, .settings-panel')))
+      assert(opened, `${label} did not open`)
+
+      await page.goBack({ timeout: 15000 }).catch(() => {})
+      await page.waitForTimeout(700)
+      const after = await page.evaluate(() => ({
+        overlay: Boolean(document.querySelector('.dialog-panel, .command-palette, .settings-panel')),
+        app: Boolean(document.querySelector('#chessboard-square-e2')),
+      }))
+      assert(after.app, `Back with ${label} open left the app`)
+      assert(!after.overlay, `Back with ${label} open did not close it`)
+      const board = await squares()
+      assert(board.e2 === played.e2 && board.e4 === played.e4,
+        `Back with ${label} open moved the board: e2 ${board.e2} was ${played.e2}, e4 ${board.e4} was ${played.e4}`)
+    }
+
+    // Closed the ordinary way, the pushed entry has to be spent too, or Back
+    // stops working for a reader who wants to leave.
+    await page.locator('[aria-label="Open PGN and FEN dialog"]').first().click()
+    await page.waitForTimeout(500)
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(800)
+    await page.goBack({ timeout: 15000 }).catch(() => {})
+    await page.waitForTimeout(800)
+    const left = await page.evaluate(() => Boolean(document.querySelector('#chessboard-square-e2')))
+    assert(!left, 'after opening and closing a sheet, Back no longer leaves the app -- that is a trap')
+
+    console.log('  back: closes the sheet and keeps the board; one more Back still leaves')
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -3318,6 +3396,7 @@ async function main() {
     await checkAFullLibraryStopsReadingTheFile(browser)
     await checkABigFileIsDescribedNotShown(browser)
     await checkADroppedPgnIsTaken(browser)
+    await checkBackClosesTheSheet(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)

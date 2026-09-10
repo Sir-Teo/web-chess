@@ -4290,6 +4290,62 @@ function App() {
     setShowLibraryDialog(false)
     restoreModalTriggerFocus()
   }, [restoreModalTriggerFocus])
+
+  // ── Back closes what is open ─────────────────────────
+  /**
+   * On a phone, Back is how a sheet is dismissed.
+   *
+   * Measured before this: with the PGN dialog, the library or the command
+   * palette open, Back left the app altogether -- the previous page, the game
+   * gone from the screen, and coming Forward again met the auto-save recovery
+   * prompt rather than the board. These sheets fill a phone's screen and read
+   * as pages, so the gesture that dismisses a page is the one that gets tried.
+   *
+   * One entry is pushed when the first sheet opens and taken back when the
+   * last one closes, so the count never grows: one more Back after that still
+   * leaves the app, which is the behaviour a trap would take away. The entry
+   * is only taken back if it is still the current one -- anything that pushed
+   * over it (a shared link followed from inside the app) keeps its own place.
+   *
+   * The auto-save prompt is deliberately not in this set. It is a question
+   * asked before the reader has done anything, not a sheet they opened.
+   */
+  const overlayIsOpen = showNewGameDialog || showPgnDialog || showLibraryDialog ||
+    showCommandPalette || settingsOpen
+  const closeEveryOverlay = useCallback(() => {
+    setShowNewGameDialog(false)
+    setShowPgnDialog(false)
+    setShowLibraryDialog(false)
+    setShowCommandPalette(false)
+    setSettingsOpen(false)
+    restoreModalTriggerFocus()
+  }, [restoreModalTriggerFocus])
+  const overlayHistoryRef = useRef(false)
+
+  useEffect(() => {
+    if (overlayIsOpen === overlayHistoryRef.current) return
+    if (overlayIsOpen) {
+      overlayHistoryRef.current = true
+      window.history.pushState({ webChessOverlay: true }, '')
+      return
+    }
+    overlayHistoryRef.current = false
+    if ((window.history.state as { webChessOverlay?: boolean } | null)?.webChessOverlay) {
+      window.history.back()
+    }
+  }, [overlayIsOpen])
+
+  useEffect(() => {
+    const onPopState = () => {
+      // Cleared first: closing the sheets runs the effect above, which must
+      // see that this entry has already been spent rather than spend another.
+      if (!overlayHistoryRef.current) return
+      overlayHistoryRef.current = false
+      closeEveryOverlay()
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [closeEveryOverlay])
   const handleSettingsToggle = (event: SyntheticEvent<HTMLDetailsElement>) => {
     const nextOpen = event.currentTarget.open
     setSettingsOpen(nextOpen)

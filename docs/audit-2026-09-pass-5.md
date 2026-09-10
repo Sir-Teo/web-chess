@@ -531,6 +531,33 @@ the **drop event itself**: it cannot be delivered unless something cancelled the
 `dragover` before it, so a run where the file reaches the dialog is a run where
 the browser was never going to navigate. Before the fix that count is zero.
 
+**Back left the app instead of closing the sheet.** The app touched browser
+history nowhere at all — no `pushState`, no `popstate`, nothing in the source —
+so it did what an app that ignores history does. **Measured** at 390x844 with a
+move played on the board and each of three sheets open in turn:
+
+| open | Back lands on | the sheet | the app |
+|---|---|---|---|
+| the PGN dialog | `about:blank` | gone | gone |
+| the library | `about:blank` | gone | gone |
+| the command palette | `about:blank` | gone | gone |
+
+Coming Forward again met the auto-save recovery prompt rather than the board.
+On a phone these sheets fill the screen and read as pages, so Back is exactly
+the gesture that gets tried on them — and it took the reader out of the app,
+mid-game, three times out of three.
+
+One history entry is now pushed when the first sheet opens and taken back when
+the last one closes. Back closes the sheet and the board is left byte for byte
+where it was (e2 and e4 measured before and after). The entry is only taken
+back when it is still the current one, so anything that pushed over it — a
+shared link followed from inside the app — keeps its place.
+
+Both halves are guarded, because the careless version of this fix is worse than
+the defect it fixes: after a sheet is opened and closed the ordinary way, **one
+more Back still leaves the app**. A history trap would pass every assertion
+about closing sheets.
+
 ---
 
 ## Refuted
