@@ -180,10 +180,28 @@ tapped with 3px of drift throughout: a7 lit its one legal target, a8 raised the
 picker, and Queen played `a8=Q+` and closed it. Its five choices are 65x91px at
 the smallest, well past the 44px the rest of this app is held to.
 
-**Nothing is slow on a low-end phone either.** The fourth pass's sizes were
-measured at 4x CPU; the whole interaction set was swept again at **6x** with a
-116-ply game loaded, and **0 of 14** interactions passed 200ms. The worst is
-opening the library at 120ms, and all but three are under 100ms.
+**Nothing is slow on a low-end phone either — and two rows of the first table
+were measuring nothing.** The whole interaction set was swept at **6x** CPU with
+a 116-ply game loaded. The first version reported 0 of 14 over 200ms with a
+worst of 120ms, and two of its rows were no-ops: importing a game lands on its
+*last* position, so the two `ArrowRight` presses moved nothing and timed an app
+that had been asked to do nothing.
+
+Re-run from the first move, with a fingerprint of the app taken before and after
+every interaction — the current ply, the board, the orientation, which dialog is
+up, which tab is lit, where the move list is scrolled — and each one required to
+have changed something: **13 of 14 verifiably did work**, and the worst is
+**128ms**. Higher than the number it replaces, on interactions that actually
+happened, and still comfortably inside the 200ms bar. The fourteenth is a move
+played into a position that had been navigated away from, which is the probe's
+limit rather than the app's.
+
+This is the fourth time in this pass a reading has been retracted for measuring
+nothing, and by now the shape is clear enough to state as a rule: **a latency
+number is only worth as much as the proof that the interaction did something.**
+An event fires, an entry is recorded and a duration is printed whether or not
+the app moved. The fingerprint costs one `evaluate` per step and turns the whole
+class of failure into a visible line of output.
 
 **There is no cheap way to ship less JavaScript.** Time to a playable board is
 2054ms behind 4G and 5855ms behind 3G, gated by 193kB of script, so the main
