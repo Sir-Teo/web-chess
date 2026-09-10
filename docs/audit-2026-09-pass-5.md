@@ -316,6 +316,25 @@ exempts them by shape rather than by name, counts the exemption, and asserts the
 count is not zero, so an exemption that stopped matching fails rather than
 hiding a real target.
 
+**An inaccuracy called a mistake.** The review card's chips grade every move —
+Book, Best, Excellent, Good, Inaccuracy, Mistake, Blunder — and the row beneath
+them steps through the ones worth revisiting, which is the last three added up.
+It called them mistakes. **Measured** on the sample game: the chips read
+"Inaccuracy 6" and "Mistake 2", and one line below them the row read **"8
+mistakes"**. Two numbers, one word, in the same card. Stepping into it then read
+"Mistake 3 of 8" over a move the card itself had graded an inaccuracy.
+
+The code had always known better: the count behind the row is
+`reviewFaultCount`, and the comment directly above it calls them faults. Only
+the words a reader sees said otherwise. They are "costly moves" now, in the card
+and in the two palette commands, with `mistake` kept as a search keyword because
+it is what someone will type even though it is not what the set is.
+
+What the guard asserts is the *relationship*, not the wording: whatever the row
+calls them, its number has to be the three grades added up, and it must not
+borrow the name of one of them. A check on the literal string would go green the
+day somebody wrote "8 mistake s".
+
 **Everything else that is shown twice agrees.** The winrate card was found by
 eye, so the class it belongs to was then swept on purpose: every quantity this
 app displays in more than one place, read at six plies of a 58-move game and

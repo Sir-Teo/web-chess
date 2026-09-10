@@ -5117,21 +5117,23 @@ function App() {
     },
     {
       id: 'next-mistake',
-      label: 'Next mistake',
+      label: 'Next costly move',
       hint: reviewFaultCount > 0
-        ? `${countLabel(reviewFaultCount, 'mistake')} in the reviewed line`
+        ? `${countLabel(reviewFaultCount, 'costly move')} in the reviewed line`
         : 'Run Review Game first',
-      keywords: ['blunder', 'inaccuracy', 'error', 'jump', 'skip', 'review'],
+      // `mistake` stays a keyword: it is what a reader will type, even though
+      // it is not what the set is.
+      keywords: ['mistake', 'blunder', 'inaccuracy', 'error', 'jump', 'skip', 'review'],
       disabled: !nextReviewFaultRow,
       run: () => goToReviewFault(1),
     },
     {
       id: 'previous-mistake',
-      label: 'Previous mistake',
+      label: 'Previous costly move',
       hint: reviewFaultCount > 0
-        ? `${countLabel(reviewFaultCount, 'mistake')} in the reviewed line`
+        ? `${countLabel(reviewFaultCount, 'costly move')} in the reviewed line`
         : 'Run Review Game first',
-      keywords: ['blunder', 'inaccuracy', 'error', 'jump', 'back', 'review'],
+      keywords: ['mistake', 'blunder', 'inaccuracy', 'error', 'jump', 'back', 'review'],
       disabled: !previousReviewFaultRow,
       run: () => goToReviewFault(-1),
     },
@@ -7893,11 +7895,20 @@ function App() {
                         coloured dot. Reads the filtered rows, so narrowing to
                         Black's middlegame steps Black's middlegame mistakes. */}
                     {reviewFaultCount > 0 && (
-                      <div className="review-jump-row" role="group" aria-label="Step through the mistakes">
+                      /* "Costly move" and not "mistake": this counts the
+                         inaccuracies, the mistakes *and* the blunders, and it
+                         sits directly under a chip reading "Mistake 2". At six
+                         inaccuracies and two mistakes the card said "Mistake 2"
+                         and "8 mistakes" one line apart, and the third of the
+                         eight the stepper walked to was an inaccuracy called a
+                         mistake. The code has always known better -- the count
+                         behind it is `reviewFaultCount` and the comment above
+                         calls them faults. */
+                      <div className="review-jump-row" role="group" aria-label="Step through the costly moves">
                         <span className="review-jump-count">
                           {reviewFaultAt
-                            ? `Mistake ${reviewFaultAt.index} of ${reviewFaultAt.total}`
-                            : countLabel(reviewFaultCount, 'mistake')}
+                            ? `Costly move ${reviewFaultAt.index} of ${reviewFaultAt.total}`
+                            : countLabel(reviewFaultCount, 'costly move')}
                         </span>
                         <div className="review-jump-actions">
                         <button

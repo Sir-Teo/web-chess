@@ -1795,6 +1795,72 @@ async function checkTheWinrateCardFollowsTheBoard(browser) {
 }
 
 /**
+ * The review card does not call an inaccuracy a mistake.
+ *
+ * The row that steps through the flagged moves counts inaccuracies, mistakes
+ * *and* blunders, and it sits directly under a chip reading "Mistake N".
+ * Measured on the sample game before the fix: the chips read "Inaccuracy 6"
+ * and "Mistake 2" and the row one line below read **"8 mistakes"** -- two
+ * numbers, one word, in the same card. Stepping into it then said "Mistake 3
+ * of 8" over a move the same card had graded an inaccuracy.
+ *
+ * What is asserted is the relationship rather than the wording: whatever the
+ * row calls the set, its count has to be the three grades added up, and it
+ * must not use the name of one of them. A check on the literal string would
+ * pass the day someone changed "mistakes" to "mistake s".
+ */
+async function checkTheReviewCardNamesItsSet(browser) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+    const textarea = page.locator('.dialog-panel textarea').first()
+    await textarea.waitFor({ timeout: 10000 })
+    await textarea.fill(SAMPLE_PGN)
+    await page.getByRole('button', { name: /Import & Analyze/ }).click()
+    await page.getByTestId('review-offer').click()
+    // The row only exists once the review has found something to step to, so
+    // waiting for it waits for the whole review. 116 positions takes a while
+    // even against a fake engine.
+    await page.locator('.review-jump-count').waitFor({ timeout: 60000 })
+    await page.waitForTimeout(700)
+
+    const card = await page.evaluate(() => {
+      const body = document.body.innerText.replace(/\s+/g, ' ')
+      const number = name => {
+        const found = body.match(new RegExp(`${name}\\s+(\\d+)\\b`))
+        return found ? Number(found[1]) : null
+      }
+      return {
+        inaccuracy: number('Inaccuracy'),
+        mistake: number('Mistake'),
+        blunder: number('Blunder'),
+        jump: (document.querySelector('.review-jump-count')?.textContent || '').trim(),
+      }
+    })
+
+    // The probe before the assertions: without grades there is nothing to add up.
+    assert(Number.isFinite(card.inaccuracy) && Number.isFinite(card.mistake) && Number.isFinite(card.blunder),
+      `could not read the grade chips (${JSON.stringify(card)})`)
+    assert(card.inaccuracy + card.mistake > 0,
+      'the sample game produced no inaccuracies or mistakes, so this proves nothing')
+
+    const counted = Number((card.jump.match(/(\d+)/) || [])[1])
+    assert(counted === card.inaccuracy + card.mistake + card.blunder,
+      `the row says "${card.jump}" but the chips add to ${card.inaccuracy + card.mistake + card.blunder}`)
+    assert(!/\bmistakes?\b/i.test(card.jump),
+      `the row says "${card.jump}", which is the name of one of the three grades it is adding up`)
+
+    console.log(`  review: the row reads "${card.jump}" for ${card.inaccuracy} inaccuracies, ${card.mistake} mistakes and ${card.blunder} blunders`)
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -3001,6 +3067,7 @@ async function main() {
     await checkTheBoardIsNotADeadZone(browser)
     await checkEveryControlIsFingerSized(browser)
     await checkTheWinrateCardFollowsTheBoard(browser)
+    await checkTheReviewCardNamesItsSet(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)
