@@ -8,18 +8,30 @@ given, and the app answering the reader who touches it.
 
 The fourth pass read this interface at a dozen sizes in a desktop browser and
 found thirty-four things. This one is mostly about what that method cannot
-reach. Four of its findings were invisible to it *by construction*: two because
-`vh` and `dvh` are the same number where no browser chrome retracts, one
+reach. Its first four findings were invisible to it *by construction*: two
+because `vh` and `dvh` are the same number where no browser chrome retracts, one
 because the first paint of a single-page app is not a thing you can see by
 looking at a page that has already loaded, and one because a synthetic click
 carries no pointer movement, so every test in this repo had been exercising the
 one case that always worked.
 
-Same convention: **measured**, **reasoned**, or **refuted**. The refuted
-section is again the longest, and again the one worth keeping — this time
-because the app turned out to be in good shape almost everywhere it was
-looked at, and knowing *which* everywhere is what stops the next pass
-re-deriving it.
+The rest came from three lenses that measurement does not have. **Rendering a
+state and reading it** — a card that reported the end of the game whatever ply
+was on the board, a row that called an inaccuracy a mistake. **Putting bad input
+in and reading the answer** — four different failures answering with one
+sentence. And **asking what happens when something never comes back** — a
+network call with no timeout, behind a queue that serialises every other one.
+
+Same convention: **measured**, **reasoned**, or **refuted**. The refuted section
+is again the longest, and again the one worth keeping — the app turned out to be
+in good shape almost everywhere it was looked at, and knowing *which* everywhere
+is what stops the next pass re-deriving it.
+
+One warning before the entries, earned four times over in this pass and written
+out again under *Method*: **a probe that reports nothing is not the same as
+nothing being there.** Four readings here were retracted after being published
+in an earlier draft of this file, each one a measurement that ran, printed a
+plausible number, and had measured nothing at all.
 
 ---
 
@@ -85,6 +97,295 @@ with hard stops is clean.
 
 ---
 
+**The same mistake, one axis over — and a fix that fixed nothing measurable.**
+Checking that the sheets still fit at the shorter heights `dvh` gives them —
+they do, the settings sheet holding at exactly 85% of the screen at 393x745,
+375x564, 360x540 and 320x480, everything scrolling, nothing stranded — turned
+up 5px of horizontal scroll at 320px wide, on a layout that has none at any
+other size. `100vw` is the viewport *including* a classic scrollbar, and five
+things were sized against it: the body's own cap, the phone shell's width and
+max-width, the settings backdrop, the lazy-dialog error toast, and the command
+palette. They are `100%` now, which is the room there is, and for a fixed
+element the initial containing block, which is the same thing. The unit was
+wrong and the change is right.
+
+**It did not fix the 5px, and the entry first written here said it had.** The
+verification behind that claim was a single pass over five sizes. Repeated
+eight times at each size it comes out **8/8 overflowing**, and against the
+build from *before* the change, **6/6 overflowing by the same 5px** — the fix
+changed nothing about the symptom that motivated it. What the 5px actually is:
+`documentElement.scrollWidth - clientWidth` equal, every time, to
+`window.innerWidth - clientWidth`, which is the scrollbar Playwright's mobile
+emulation draws. With emulation off, the same probe on the same build reports
+**0/5** at both sizes. A real phone draws an overlay scrollbar and has none of
+this.
+
+So: a correct change, a false claim about it, and the thing that caught the
+false claim was repetition. One pass over five sizes read 0px; eight passes over
+one size read 5px every time. Nothing about the first run said it was the
+unreliable one.
+
+**The command palette was not made of things a finger can hit.** **Measured**
+at 375x564: its search field is 343x**21**px carrying `padding: 1px 2px`, which
+is the user agent's own and means it had never been given any, and its 33
+command rows come out at 42px — two short of the 44px every other control on a
+phone is held to. The fourth pass's sweep put `min-height: 44px` on fourteen
+selectors and every one of them is in App.css; this dialog's styles are in a
+file of their own, which is the whole reason it was missed. Now 44px for both,
+scoped to the same breakpoint as the other fourteen, since 44px is a touch
+standard and a mouse does not need it.
+
+That came out of a sweep of the overlays at 100%, 150% and 200% text on the two
+shortest phones — the pairing of the fourth pass's text sizes with the shorter
+sheets `dvh` now gives them, which nothing had put together. The sheets
+themselves are fine: at every text size and both sizes, nothing is stranded
+outside a scroller, no sheet is cut off at the top, the move-navigation bar
+stays on the screen, and the board's squares stay at or above 24px — 24.0 at
+100% and, because this layout is measured in `rem`, *larger* at 200%, 34.4px at
+320x480.
+
+Two other things the same sweep flagged were the false positive this repo
+already knows about. Five controls in the settings sheet measure 20.8px, and
+each is a tick box inside a `label` measuring **335x44** — the label is the
+target, the box is the picture of it. The rule about confirming a flagged
+element by hand paid for itself again: the same list held one real defect and
+five decoys, and only the wrapping label told them apart.
+
+**Nor was anything else styled outside App.css, nor two things inside it.**
+The palette was the first thread; pulling it gave a sweep of every surface this
+app opens, at 375x667, with the two decoys filtered rather than ignored. What
+it found, all measured: the library's search field 343x**32**, its four sort
+buttons at 32, its rename field and Save at 36, its per-row actions at 30 — a
+dialog with its own stylesheet, exactly like the palette — and then two that
+are in App.css and were missed for having their own selector. The bottom bar's
+four navigation buttons and Autoplay come out at **40px**, from a rule asking
+for `2.5rem`; that is the row this pass rescued from behind the URL bar in its
+first commit, and it was four pixels short the whole time. And the Draw switch
+is 61x**36**, from a rule inside `@media (pointer: coarse)` — a rule whose
+entire audience is fingers — asking for 2.25rem.
+
+Raising the bar was measured before it was done, because it costs board: 46 to
+50px of bar, and the squares lose between nothing and half a pixel at 375x667,
+375x564, 360x540, 320x568 and 320x480. Neither of the two sizes already sitting
+on the fourth pass's 24px floor moves off it, the bar never wraps, and the
+navigation stays on the screen at every size. Afterwards, 132 controls across
+five surfaces all clear 44px.
+
+The guard is a sweep and not a list of selectors, because a list of selectors is
+what let this happen. It counts what it filtered and asserts that the count is
+not zero, so a decoy filter that stopped matching would fail rather than quietly
+pass everything.
+
+**And four more on the surfaces that sweep had not reached.** Widening it to
+the import dialog's tabs and the analysis panel, at 375 *and* 320: the archive
+count's field is 50x**27** — its wrapper had already been given 44px and the
+field inside it left at 27, so what a finger lands on was a third short of what
+the stylesheet appears to promise; "Enter a move by name" is a 331x**39**
+disclosure; and the position-setup palette's thirteen buttons are **36px wide**
+at 320, from `repeat(7, minmax(0, 1fr))` in 275px of room. That last one is the
+sharpest of the set, because the rule directly beneath it had already raised the
+same buttons to 44px *tall*: the same control was finger-sized one way and not
+the other, in adjacent lines. `repeat(auto-fit, minmax(44px, 1fr))` takes five
+columns at 320 and six at 375, and stops being a number that has to be right.
+
+The fourth finding is not one. The two export links, "Open in Lichess" and "Open
+in chess.com", are 15px tall and sit inline in a paragraph either side of a
+separator — which is the exception **2.5.8** names, and giving them 44px would
+break the sentence to satisfy a rule that does not ask for it. The sweep
+exempts them by shape rather than by name, counts the exemption, and asserts the
+count is not zero, so an exemption that stopped matching fails rather than
+hiding a real target.
+
+**A reading that did not follow the board.** The winrate card's two numbers —
+the one in its heading and the one beside "White win chance" — took
+`winratePoints[length - 1]`, the last ply of the line, whatever ply was being
+looked at. **Measured** on a 58-move game at five positions: the coach beside it
+read 42%, 22%, 45%, 30% and 46%, and the card read **42.1% at every one of
+them**, which is the value at the end of the game. A reader stepping back
+through a collapse watched the coach fall to 22% while the panel above it went
+on saying White had a 42% chance.
+
+The graph *between* those two numbers was already right. It takes `currentIndex`
+and lights the point it belongs to, and it carries a comment about a reader
+scrubbing with the arrow keys having "nothing to read on screen" — so the lesson
+had been learned one element over and not applied to the card wrapped around it.
+The highlighted dot and the number under it were two different plies of the same
+game.
+
+What the guard asserts is the *pair agreeing at four plies*, not the card's
+value: a card frozen on the last ply agrees with the coach there and nowhere
+else, so any check on a single position would have passed the defect. It also
+asserts the value moved at all, since a card that never changes would agree with
+itself forever. This is the fourth pass's own finding — a reading that disagreed
+with everything beside it — in a different card, found the same way: by putting
+two numbers that describe one position next to each other and reading both.
+
+**An inaccuracy called a mistake.** The review card's chips grade every move —
+Book, Best, Excellent, Good, Inaccuracy, Mistake, Blunder — and the row beneath
+them steps through the ones worth revisiting, which is the last three added up.
+It called them mistakes. **Measured** on the sample game: the chips read
+"Inaccuracy 6" and "Mistake 2", and one line below them the row read **"8
+mistakes"**. Two numbers, one word, in the same card. Stepping into it then read
+"Mistake 3 of 8" over a move the card itself had graded an inaccuracy.
+
+The code had always known better: the count behind the row is
+`reviewFaultCount`, and the comment directly above it calls them faults. Only
+the words a reader sees said otherwise. They are "costly moves" now, in the card
+and in the two palette commands, with `mistake` kept as a search keyword because
+it is what someone will type even though it is not what the set is.
+
+What the guard asserts is the *relationship*, not the wording: whatever the row
+calls them, its number has to be the three grades added up, and it must not
+borrow the name of one of them. A check on the literal string would go green the
+day somebody wrote "8 mistake s".
+
+**A refused paste now says which move refused it.** Ten kinds of bad input were
+fed to the import box and the message read back. Two of them are as good as this
+app gets: a FEN pasted into the PGN box answers "That is a FEN — one position,
+not a game. Load it from the FEN tab above", and a link answers "That is a link
+to a game, not the game." Both name what is wrong and what to do instead, and
+both refuse before the button is even enabled.
+
+Four others -- prose, a game cut off mid-move, a move that cannot be played, and
+a huge repeated string -- all came back with the same sentence: "Failed to parse
+PGN. Check the move text, headers, and move numbers." Three things to check, no
+clue which, on failures that are nothing like each other.
+
+The parser knew more than that for two of the four. A paste cut off mid-move --
+"1. e4 e5 2. Nf" and nothing after it, which is what half a copied game looks
+like -- throws `Invalid move: Nf`, with the offending token in it. It could not
+get out because the messages a reader is allowed to see are matched **exactly**
+against a fixed set, and this one is different every time. Matched by prefix
+instead, the same paste now answers *"Nf" is not a legal move where it appears.
+Everything before it read fine, so start there.*
+
+The other two keep the general message and should: text that is not move-shaped
+fails chess.js's grammar rather than any move, and there is no move to name. The
+prefix belongs to a dependency, so it is matched deliberately loosely -- if the
+wording ever changes this stops matching and the message falls back to the one
+that was shown before, which is the thing being improved on rather than
+something worse.
+
+**And a refused FEN says which field is wrong.** The same reading, one tab
+over. This one starts from a better place: "Invalid FEN: kings cannot be
+adjacent or missing" and "Invalid FEN: the side that is not to move is already
+in check, which no legal game can reach" are two of the best sentences in the
+app, and every bad input correctly disabled the button rather than failing after
+a press.
+
+But a bad side-to-move and a pawn on the last rank both came back with "Failed
+to parse FEN. Check piece placement, side to move, castling rights, and
+counters" -- four fields named, and no indication which. chess.js had already
+said: `side-to-move is invalid`, `some pawns are on the edge rows`, `castling
+availability is invalid`, `en-passant square is invalid`. All of it was thrown
+away except a `/king/i` test. It is passed through now, in the same "Invalid
+FEN:" shape the file's own two sentences use, with a full stop added because
+those end in one and chess.js's do not.
+
+One of the nine is deliberately *not* passed through, and finding out why was
+the useful part. "Must contain six space-delimited fields" is what chess.js says
+about text that is not a FEN at all, and a **test written in an earlier pass
+pinned prose to the general message** -- `'not a fen at all'` must answer
+"Failed to parse FEN". That pin is right: telling someone who typed a sentence
+about space-delimited fields is worse than a message that at least lists what a
+FEN is made of. The failing test was the thing that said so, and the rule it
+forced -- name a field only when a field is what is wrong -- is better than the
+one it replaced.
+
+**A fetch that comes back with no games said it had fetched one.** The third
+error surface, and the one that talks to the network. Five of its six answers
+are the best writing in the app: a 404 gives "Lichess has no player called
+“someplayer”", a 500 gives "Lichess is having trouble right now. Try again
+shortly", a 429 names the rate limit and the minute to wait, an empty archive
+says there are no public games, and a dropped connection says "Lichess could not
+be reached. Check your connection — the board and the local engine keep working
+without it", which answers the question a reader actually has.
+
+The sixth was wrong. A **200 carrying something that is not a game** -- served
+with a PGN content type, which is what a captive portal's sign-in page looks
+like when it answers a fetch -- was reported as **"Fetched 1 game for
+someplayer"**, and the text was pasted into the box as though it were the game.
+`splitPgnGames` hands back any non-empty chunk it finds, and one chunk of
+anything counts as one game.
+
+Anything without a tag pair or a numbered move in it is not a game, and
+`looksLikeGame` already knew how to say so -- it is what the FEN tab uses to
+tell a game from a position. Filtered at the one place both sources come back
+through, a body of nothing now yields no games, and the panel's existing
+sentence for that fires instead.
+
+Two things about the tests for it. They were written first against a `requester`
+stub that does not exist -- the file's own option is `requesters`, keyed by
+site -- and every one of them passed four games back regardless of the body,
+which is the "measuring nothing" failure in its test-writing form. And the case
+that matters is not the obvious one: a body holding a proxy's note *and* a real
+game keeps the game and drops the note, which a filter written slightly
+differently would have thrown away whole.
+
+**A fetch that is never answered now gives up.** The engine has had a startup
+timeout for a long time -- "did not finish starting. Check your connection or
+reload to retry" -- and the network calls beside it had none. **Measured**
+against a host that accepts the connection and then says nothing: "Fetching…"
+stayed on screen at 400ms, at 1.5s, at 4s and at 9s, and would have stayed for
+as long as anyone was willing to look at it.
+
+Everything around that was already right, which is why it took a hanging host to
+find. The button reads "Fetching…" and disables itself, a Cancel appears, Escape
+closes the dialog, closing it aborts the request, and the board stays entirely
+usable throughout -- a move played during the hang measured 176ms, which is the
+compile and nothing to do with the fetch. The one gap was that the only way out
+was dismissing the dialog, which takes whatever else had been typed into it.
+
+Twenty seconds now, at the one place both sources go through, with the site
+named: "Lichess did not answer in time. Try again, or ask for fewer games."
+Verified end to end against the hanging host: "Fetching…" at 2s and 10s, and at
+21s the button is back and the sentence is on screen.
+
+Two things in the writing of it are worth more than the timeout. It is a
+**race**, not a bare signal: a requester that ignores its signal -- a stub, or a
+transport without support -- would otherwise hang for ever with the timeout
+attached and doing nothing. And the timeout is checked **before** the
+abort-passthrough, because a timeout cancels the request in flight and so comes
+back *as* an abort; read the other way round, every timeout would be mistaken
+for a reader changing their mind and the panel would say nothing at all. The
+first version had that order wrong, and the only reason it showed was a test
+stub written to honour its signal the way a real `fetch` does. A stub that
+ignored the signal made the same test hang and pass nothing.
+
+**One silent socket stopped every Lichess feature in the app.** The timeout
+added for the archive fetch was an instance of a class, so the class was swept:
+cloud evaluations, the tablebase and the opening explorer all had **no request
+timeout either**, and all three go through one `fetch` in `lichessQueue`.
+
+That queue is **serial** -- every request chains off the one before -- so a
+request that never settles never lets the next one start. **Measured** in the
+browser against a host that accepts the connection and then says nothing: one
+hanging `/api/cloud-eval` at 3.5s, and after it, navigating four plies asked for
+**nothing**, and pressing Fetch sent **no request at all** -- the button sat at
+"Fetching…" while its request waited behind a cloud evaluation that would never
+arrive. Not one panel stuck: every one of them, until the page was reloaded.
+
+Ten seconds now, at that one `fetch`, shorter than the archive's twenty because
+these are small JSON reads and each is holding the queue while it waits. Same
+shape as the archive's: a race rather than a bare signal, and the timeout
+checked before the abort passthrough. Measured after: the first request gives up
+at 13.5s and the next goes out immediately, the second at 23.5s and the archive
+request goes out behind it. The features recover instead of being dead until
+reload.
+
+**Two existing tests had to change and both were asserting the wrong thing.**
+They pinned the caller's `AbortSignal` as being *the same object* handed to
+`fetch` -- which the queue can no longer do, because it needs its own controller
+to cancel a request without cancelling the reader's. Identity was standing in
+for behaviour, and the behaviour it stood for is already driven end to end by
+the test directly beneath each of them ("does not cache a response aborted
+during parsing", "does not return text when the request is aborted during
+parsing"), both of which still pass untouched. The first replacement written for
+them was also wrong -- it aborted *after* the request had resolved, by which
+time the listener is deliberately gone -- which is worth writing down as the
+same lesson one more time: a test that cannot fail for the reason it names is
+not a test.
+
 ## Refuted
 
 Each of these was gone looking for, measured, and not found. Ordered by how
@@ -131,7 +432,7 @@ chose was a control's *existence*, and a control that is always rendered can
 never say what state the app is in. The class the app puts on its own status
 row can.
 
-**Nothing drops a move, however fast it is asked to.****Nothing drops a move, however fast it is asked to.** A 116-ply game scrubbed
+**Nothing drops a move, however fast it is asked to.** A 116-ply game scrubbed
 forward at 120ms, 33ms (key repeat) and zero gaps, by arrow key and by tapping
 the button, at 4x CPU: 12 of 12, 20 of 20, 20 of 20, 12 of 12, 20 of 20. No
 input is coalesced away and no animation swallows one.
@@ -255,34 +556,6 @@ at a time, and this file holds several. Add them all to the library, or paste a
 single game" — beside a button reading "Add 60 games to the library". The count
 is in the label.
 
-**The same mistake, one axis over — and a fix that fixed nothing measurable.**
-Checking that the sheets still fit at the shorter heights `dvh` gives them —
-they do, the settings sheet holding at exactly 85% of the screen at 393x745,
-375x564, 360x540 and 320x480, everything scrolling, nothing stranded — turned
-up 5px of horizontal scroll at 320px wide, on a layout that has none at any
-other size. `100vw` is the viewport *including* a classic scrollbar, and five
-things were sized against it: the body's own cap, the phone shell's width and
-max-width, the settings backdrop, the lazy-dialog error toast, and the command
-palette. They are `100%` now, which is the room there is, and for a fixed
-element the initial containing block, which is the same thing. The unit was
-wrong and the change is right.
-
-**It did not fix the 5px, and the entry first written here said it had.** The
-verification behind that claim was a single pass over five sizes. Repeated
-eight times at each size it comes out **8/8 overflowing**, and against the
-build from *before* the change, **6/6 overflowing by the same 5px** — the fix
-changed nothing about the symptom that motivated it. What the 5px actually is:
-`documentElement.scrollWidth - clientWidth` equal, every time, to
-`window.innerWidth - clientWidth`, which is the scrollbar Playwright's mobile
-emulation draws. With emulation off, the same probe on the same build reports
-**0/5** at both sizes. A real phone draws an overlay scrollbar and has none of
-this.
-
-So: a correct change, a false claim about it, and the thing that caught the
-false claim was repetition. One pass over five sizes read 0px; eight passes over
-one size read 5px every time. Nothing about the first run said it was the
-unreliable one.
-
 **Handing the empty squares to the browser costs nothing, and breaks nothing.**
 Two things had to be checked about the change above, because both would have
 been introduced by it rather than found by it. `:has()` is re-evaluated as the
@@ -295,26 +568,6 @@ which is exactly the one now handed to the browser — tapped with 0, 2, 4, 6, 8
 and 10px of drift, straight down and diagonally, the move landed every time.
 The guard now covers that second tap at 8px, which is where a drag takes hold
 and so where a pan would if one were going to.
-
-**And four more on the surfaces that sweep had not reached.** Widening it to
-the import dialog's tabs and the analysis panel, at 375 *and* 320: the archive
-count's field is 50x**27** — its wrapper had already been given 44px and the
-field inside it left at 27, so what a finger lands on was a third short of what
-the stylesheet appears to promise; "Enter a move by name" is a 331x**39**
-disclosure; and the position-setup palette's thirteen buttons are **36px wide**
-at 320, from `repeat(7, minmax(0, 1fr))` in 275px of room. That last one is the
-sharpest of the set, because the rule directly beneath it had already raised the
-same buttons to 44px *tall*: the same control was finger-sized one way and not
-the other, in adjacent lines. `repeat(auto-fit, minmax(44px, 1fr))` takes five
-columns at 320 and six at 375, and stops being a number that has to be right.
-
-The fourth finding is not one. The two export links, "Open in Lichess" and "Open
-in chess.com", are 15px tall and sit inline in a paragraph either side of a
-separator — which is the exception **2.5.8** names, and giving them 44px would
-break the sentence to satisfy a rule that does not ask for it. The sweep
-exempts them by shape rather than by name, counts the exemption, and asserts the
-count is not zero, so an exemption that stopped matching fails rather than
-hiding a real target.
 
 **The library survives having its storage taken away, and says so only when it
 should.** Three ways of breaking storage, all measured in the browser.
@@ -364,153 +617,6 @@ row count. There is a **"Show 100 more"** button under the list, the header
 reads **"200 games · 23200 ply · 154.0 KB"**, and searching for the two
 hundredth game by name finds it. The total, the page and the way to the rest are
 all on screen; only the first probe was not.
-
-**One silent socket stopped every Lichess feature in the app.** The timeout
-added for the archive fetch was an instance of a class, so the class was swept:
-cloud evaluations, the tablebase and the opening explorer all had **no request
-timeout either**, and all three go through one `fetch` in `lichessQueue`.
-
-That queue is **serial** -- every request chains off the one before -- so a
-request that never settles never lets the next one start. **Measured** in the
-browser against a host that accepts the connection and then says nothing: one
-hanging `/api/cloud-eval` at 3.5s, and after it, navigating four plies asked for
-**nothing**, and pressing Fetch sent **no request at all** -- the button sat at
-"Fetching…" while its request waited behind a cloud evaluation that would never
-arrive. Not one panel stuck: every one of them, until the page was reloaded.
-
-Ten seconds now, at that one `fetch`, shorter than the archive's twenty because
-these are small JSON reads and each is holding the queue while it waits. Same
-shape as the archive's: a race rather than a bare signal, and the timeout
-checked before the abort passthrough. Measured after: the first request gives up
-at 13.5s and the next goes out immediately, the second at 23.5s and the archive
-request goes out behind it. The features recover instead of being dead until
-reload.
-
-**Two existing tests had to change and both were asserting the wrong thing.**
-They pinned the caller's `AbortSignal` as being *the same object* handed to
-`fetch` -- which the queue can no longer do, because it needs its own controller
-to cancel a request without cancelling the reader's. Identity was standing in
-for behaviour, and the behaviour it stood for is already driven end to end by
-the test directly beneath each of them ("does not cache a response aborted
-during parsing", "does not return text when the request is aborted during
-parsing"), both of which still pass untouched. The first replacement written for
-them was also wrong -- it aborted *after* the request had resolved, by which
-time the listener is deliberately gone -- which is worth writing down as the
-same lesson one more time: a test that cannot fail for the reason it names is
-not a test.
-
-**A fetch that is never answered now gives up.** The engine has had a startup
-timeout for a long time -- "did not finish starting. Check your connection or
-reload to retry" -- and the network calls beside it had none. **Measured**
-against a host that accepts the connection and then says nothing: "Fetching…"
-stayed on screen at 400ms, at 1.5s, at 4s and at 9s, and would have stayed for
-as long as anyone was willing to look at it.
-
-Everything around that was already right, which is why it took a hanging host to
-find. The button reads "Fetching…" and disables itself, a Cancel appears, Escape
-closes the dialog, closing it aborts the request, and the board stays entirely
-usable throughout -- a move played during the hang measured 176ms, which is the
-compile and nothing to do with the fetch. The one gap was that the only way out
-was dismissing the dialog, which takes whatever else had been typed into it.
-
-Twenty seconds now, at the one place both sources go through, with the site
-named: "Lichess did not answer in time. Try again, or ask for fewer games."
-Verified end to end against the hanging host: "Fetching…" at 2s and 10s, and at
-21s the button is back and the sentence is on screen.
-
-Two things in the writing of it are worth more than the timeout. It is a
-**race**, not a bare signal: a requester that ignores its signal -- a stub, or a
-transport without support -- would otherwise hang for ever with the timeout
-attached and doing nothing. And the timeout is checked **before** the
-abort-passthrough, because a timeout cancels the request in flight and so comes
-back *as* an abort; read the other way round, every timeout would be mistaken
-for a reader changing their mind and the panel would say nothing at all. The
-first version had that order wrong, and the only reason it showed was a test
-stub written to honour its signal the way a real `fetch` does. A stub that
-ignored the signal made the same test hang and pass nothing.
-
-**A fetch that comes back with no games said it had fetched one.** The third
-error surface, and the one that talks to the network. Five of its six answers
-are the best writing in the app: a 404 gives "Lichess has no player called
-“someplayer”", a 500 gives "Lichess is having trouble right now. Try again
-shortly", a 429 names the rate limit and the minute to wait, an empty archive
-says there are no public games, and a dropped connection says "Lichess could not
-be reached. Check your connection — the board and the local engine keep working
-without it", which answers the question a reader actually has.
-
-The sixth was wrong. A **200 carrying something that is not a game** -- served
-with a PGN content type, which is what a captive portal's sign-in page looks
-like when it answers a fetch -- was reported as **"Fetched 1 game for
-someplayer"**, and the text was pasted into the box as though it were the game.
-`splitPgnGames` hands back any non-empty chunk it finds, and one chunk of
-anything counts as one game.
-
-Anything without a tag pair or a numbered move in it is not a game, and
-`looksLikeGame` already knew how to say so -- it is what the FEN tab uses to
-tell a game from a position. Filtered at the one place both sources come back
-through, a body of nothing now yields no games, and the panel's existing
-sentence for that fires instead.
-
-Two things about the tests for it. They were written first against a `requester`
-stub that does not exist -- the file's own option is `requesters`, keyed by
-site -- and every one of them passed four games back regardless of the body,
-which is the "measuring nothing" failure in its test-writing form. And the case
-that matters is not the obvious one: a body holding a proxy's note *and* a real
-game keeps the game and drops the note, which a filter written slightly
-differently would have thrown away whole.
-
-**And a refused FEN says which field is wrong.** The same reading, one tab
-over. This one starts from a better place: "Invalid FEN: kings cannot be
-adjacent or missing" and "Invalid FEN: the side that is not to move is already
-in check, which no legal game can reach" are two of the best sentences in the
-app, and every bad input correctly disabled the button rather than failing after
-a press.
-
-But a bad side-to-move and a pawn on the last rank both came back with "Failed
-to parse FEN. Check piece placement, side to move, castling rights, and
-counters" -- four fields named, and no indication which. chess.js had already
-said: `side-to-move is invalid`, `some pawns are on the edge rows`, `castling
-availability is invalid`, `en-passant square is invalid`. All of it was thrown
-away except a `/king/i` test. It is passed through now, in the same "Invalid
-FEN:" shape the file's own two sentences use, with a full stop added because
-those end in one and chess.js's do not.
-
-One of the nine is deliberately *not* passed through, and finding out why was
-the useful part. "Must contain six space-delimited fields" is what chess.js says
-about text that is not a FEN at all, and a **test written in an earlier pass
-pinned prose to the general message** -- `'not a fen at all'` must answer
-"Failed to parse FEN". That pin is right: telling someone who typed a sentence
-about space-delimited fields is worse than a message that at least lists what a
-FEN is made of. The failing test was the thing that said so, and the rule it
-forced -- name a field only when a field is what is wrong -- is better than the
-one it replaced.
-
-**A refused paste now says which move refused it.** Ten kinds of bad input were
-fed to the import box and the message read back. Two of them are as good as this
-app gets: a FEN pasted into the PGN box answers "That is a FEN — one position,
-not a game. Load it from the FEN tab above", and a link answers "That is a link
-to a game, not the game." Both name what is wrong and what to do instead, and
-both refuse before the button is even enabled.
-
-Four others -- prose, a game cut off mid-move, a move that cannot be played, and
-a huge repeated string -- all came back with the same sentence: "Failed to parse
-PGN. Check the move text, headers, and move numbers." Three things to check, no
-clue which, on failures that are nothing like each other.
-
-The parser knew more than that for two of the four. A paste cut off mid-move --
-"1. e4 e5 2. Nf" and nothing after it, which is what half a copied game looks
-like -- throws `Invalid move: Nf`, with the offending token in it. It could not
-get out because the messages a reader is allowed to see are matched **exactly**
-against a fixed set, and this one is different every time. Matched by prefix
-instead, the same paste now answers *"Nf" is not a legal move where it appears.
-Everything before it read fine, so start there.*
-
-The other two keep the general message and should: text that is not move-shaped
-fails chess.js's grammar rather than any move, and there is no move to name. The
-prefix belongs to a dependency, so it is matched deliberately loosely -- if the
-wording ever changes this stops matching and the message falls back to the one
-that was shown before, which is the thing being improved on rather than
-something worse.
 
 **The header's "+N" is the material, and it is right.** Computed from the
 board's own labels at seven plies of the sample game and compared with the badge
@@ -571,25 +677,6 @@ command has been run, so no static sweep could ever have seen them. The check
 that found them ran the commands first. A control that a sweep cannot reach
 until it has interacted is invisible to a sweep that does not.
 
-**An inaccuracy called a mistake.** The review card's chips grade every move —
-Book, Best, Excellent, Good, Inaccuracy, Mistake, Blunder — and the row beneath
-them steps through the ones worth revisiting, which is the last three added up.
-It called them mistakes. **Measured** on the sample game: the chips read
-"Inaccuracy 6" and "Mistake 2", and one line below them the row read **"8
-mistakes"**. Two numbers, one word, in the same card. Stepping into it then read
-"Mistake 3 of 8" over a move the card itself had graded an inaccuracy.
-
-The code had always known better: the count behind the row is
-`reviewFaultCount`, and the comment directly above it calls them faults. Only
-the words a reader sees said otherwise. They are "costly moves" now, in the card
-and in the two palette commands, with `mistake` kept as a search keyword because
-it is what someone will type even though it is not what the set is.
-
-What the guard asserts is the *relationship*, not the wording: whatever the row
-calls them, its number has to be the three grades added up, and it must not
-borrow the name of one of them. A check on the literal string would go green the
-day somebody wrote "8 mistake s".
-
 **Everything else that is shown twice agrees.** The winrate card was found by
 eye, so the class it belongs to was then swept on purpose: every quantity this
 app displays in more than one place, read at six plies of a 58-move game and
@@ -604,89 +691,6 @@ checked against itself — overall **95.8** against a White of 95.3 and a Black 
 So the card was the only one of its kind within reach, which is worth knowing:
 the value of the sweep is not that it found a second, but that it says there
 isn't one.
-
-**One thing recorded and not changed.** The coach renders search depth as
-`D22`, which is also a valid ECO code — and this app prints ECO codes two cards
-away, in the same letter-and-two-digits shape. The regex written to find ECO
-codes in this sweep matched the depth, which is weak evidence but not nothing.
-Under its own "POSITION DEPTH" heading it is unambiguous, and `D${depth}` was
-written deliberately, so it stays; noted because the next reader to see `D22`
-beside `A00` deserves to know it was looked at.
-
-**A reading that did not follow the board.** The winrate card's two numbers —
-the one in its heading and the one beside "White win chance" — took
-`winratePoints[length - 1]`, the last ply of the line, whatever ply was being
-looked at. **Measured** on a 58-move game at five positions: the coach beside it
-read 42%, 22%, 45%, 30% and 46%, and the card read **42.1% at every one of
-them**, which is the value at the end of the game. A reader stepping back
-through a collapse watched the coach fall to 22% while the panel above it went
-on saying White had a 42% chance.
-
-The graph *between* those two numbers was already right. It takes `currentIndex`
-and lights the point it belongs to, and it carries a comment about a reader
-scrubbing with the arrow keys having "nothing to read on screen" — so the lesson
-had been learned one element over and not applied to the card wrapped around it.
-The highlighted dot and the number under it were two different plies of the same
-game.
-
-What the guard asserts is the *pair agreeing at four plies*, not the card's
-value: a card frozen on the last ply agrees with the coach there and nowhere
-else, so any check on a single position would have passed the defect. It also
-asserts the value moved at all, since a card that never changes would agree with
-itself forever. This is the fourth pass's own finding — a reading that disagreed
-with everything beside it — in a different card, found the same way: by putting
-two numbers that describe one position next to each other and reading both.
-
-**Nor was anything else styled outside App.css, nor two things inside it.**
-The palette was the first thread; pulling it gave a sweep of every surface this
-app opens, at 375x667, with the two decoys filtered rather than ignored. What
-it found, all measured: the library's search field 343x**32**, its four sort
-buttons at 32, its rename field and Save at 36, its per-row actions at 30 — a
-dialog with its own stylesheet, exactly like the palette — and then two that
-are in App.css and were missed for having their own selector. The bottom bar's
-four navigation buttons and Autoplay come out at **40px**, from a rule asking
-for `2.5rem`; that is the row this pass rescued from behind the URL bar in its
-first commit, and it was four pixels short the whole time. And the Draw switch
-is 61x**36**, from a rule inside `@media (pointer: coarse)` — a rule whose
-entire audience is fingers — asking for 2.25rem.
-
-Raising the bar was measured before it was done, because it costs board: 46 to
-50px of bar, and the squares lose between nothing and half a pixel at 375x667,
-375x564, 360x540, 320x568 and 320x480. Neither of the two sizes already sitting
-on the fourth pass's 24px floor moves off it, the bar never wraps, and the
-navigation stays on the screen at every size. Afterwards, 132 controls across
-five surfaces all clear 44px.
-
-The guard is a sweep and not a list of selectors, because a list of selectors is
-what let this happen. It counts what it filtered and asserts that the count is
-not zero, so a decoy filter that stopped matching would fail rather than quietly
-pass everything.
-
-**The command palette was not made of things a finger can hit.** **Measured**
-at 375x564: its search field is 343x**21**px carrying `padding: 1px 2px`, which
-is the user agent's own and means it had never been given any, and its 33
-command rows come out at 42px — two short of the 44px every other control on a
-phone is held to. The fourth pass's sweep put `min-height: 44px` on fourteen
-selectors and every one of them is in App.css; this dialog's styles are in a
-file of their own, which is the whole reason it was missed. Now 44px for both,
-scoped to the same breakpoint as the other fourteen, since 44px is a touch
-standard and a mouse does not need it.
-
-That came out of a sweep of the overlays at 100%, 150% and 200% text on the two
-shortest phones — the pairing of the fourth pass's text sizes with the shorter
-sheets `dvh` now gives them, which nothing had put together. The sheets
-themselves are fine: at every text size and both sizes, nothing is stranded
-outside a scroller, no sheet is cut off at the top, the move-navigation bar
-stays on the screen, and the board's squares stay at or above 24px — 24.0 at
-100% and, because this layout is measured in `rem`, *larger* at 200%, 34.4px at
-320x480.
-
-Two other things the same sweep flagged were the false positive this repo
-already knows about. Five controls in the settings sheet measure 20.8px, and
-each is a tick box inside a `label` measuring **335x44** — the label is the
-target, the box is the picture of it. The rule about confirming a flagged
-element by hand paid for itself again: the same list held one real defect and
-five decoys, and only the wrapping label told them apart.
 
 **Every stop on the keyboard announces itself.** Fifty distinct controls
 reached by tabbing through the app at 1280x900, each compared against a
@@ -856,6 +860,14 @@ reachable, and the move-navigation bar is on the screen. Two of them land on
 than a coincidence. Nothing went under it.
 
 ---
+
+**One thing recorded and not changed.** The coach renders search depth as
+`D22`, which is also a valid ECO code — and this app prints ECO codes two cards
+away, in the same letter-and-two-digits shape. The regex written to find ECO
+codes in this sweep matched the depth, which is weak evidence but not nothing.
+Under its own "POSITION DEPTH" heading it is unambiguous, and `D${depth}` was
+written deliberately, so it stays; noted because the next reader to see `D22`
+beside `A00` deserves to know it was looked at.
 
 ## Method
 
