@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FEN_KING_PLACEMENT_ERROR, FEN_OPPONENT_IN_CHECK_ERROR, FEN_PARSE_ERROR, hasLegalKingPlacement, opponentIsInCheck, validateFenForAnalysis } from './fen'
+import { FEN_KING_PLACEMENT_ERROR, FEN_OPPONENT_IN_CHECK_ERROR, FEN_PARSE_ERROR, hasLegalKingPlacement, looksLikeFen, opponentIsInCheck, validateFenForAnalysis } from './fen'
 
 describe('FEN validation helpers', () => {
   it('accepts separated kings and rejects adjacent kings', () => {
@@ -59,5 +59,46 @@ describe('opponentIsInCheck', () => {
     expect(opponentIsInCheck('')).toBe(false)
     expect(opponentIsInCheck('8/8/8/8/8/8/8/8')).toBe(false)
     expect(opponentIsInCheck('nonsense x - - 0 1')).toBe(false)
+  })
+})
+
+/**
+ * Telling a position from a game, so a FEN pasted into the PGN box gets an
+ * answer about FENs. Shape rather than validity: what the reader needs to hear
+ * is which of the two things they pasted, and a FEN with a bad castling field
+ * is still the one they meant.
+ */
+describe('looksLikeFen', () => {
+  it('recognises the FENs a reader actually pastes', () => {
+    expect(looksLikeFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')).toBe(true)
+    // Lichess hands out four fields; chess.com pads to six. Both are FENs.
+    expect(looksLikeFen('r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq -')).toBe(true)
+    expect(looksLikeFen('8/8/8/8/8/8/4K3/6k1 b - - 12 34')).toBe(true)
+    expect(looksLikeFen('  8/8/8/8/8/8/4K3/6k1 w - - 0 1  ')).toBe(true)
+  })
+
+  /** Still the FEN they meant, and still not a game. */
+  it('does not ask the FEN to be valid first', () => {
+    expect(looksLikeFen('8/8/8/8/8/8/8/8 w ZZZZ - 0 1')).toBe(true)
+    expect(looksLikeFen('pppppppp/pppppppp/pppppppp/pppppppp/pppppppp/pppppppp/pppppppp/pppppppp w - - 0 1')).toBe(true)
+  })
+
+  it('is not fooled by a game, however short', () => {
+    expect(looksLikeFen('1. e4 e5 2. Nf3 Nc6 *')).toBe(false)
+    expect(looksLikeFen('[Event "T"]\n\n1. e4 e5 1-0')).toBe(false)
+    expect(looksLikeFen('')).toBe(false)
+    expect(looksLikeFen('   ')).toBe(false)
+    expect(looksLikeFen('this is not a pgn at all, just words')).toBe(false)
+  })
+
+  /** A board is eight ranks, the side to move is one of two, and it is one line. */
+  it('holds to the shape', () => {
+    expect(looksLikeFen('8/8/8/8/8/8/4K3 w - - 0 1'), 'seven ranks').toBe(false)
+    expect(looksLikeFen('8/8/8/8/8/8/8/4K3/6k1 w - - 0 1'), 'nine ranks').toBe(false)
+    expect(looksLikeFen('8/8/8/8/8/8/4K3/6k1 x - - 0 1'), 'no side to move').toBe(false)
+    expect(looksLikeFen('8/8/8/8/8/8/4K3/6k1'), 'placement alone').toBe(false)
+    expect(looksLikeFen('8/8/8/8/8/8/4K3/6k1 w - - 0 1 extra'), 'too many fields').toBe(false)
+    expect(looksLikeFen('8/8/8/8/8/8/4K3/6k1\nw - - 0 1'), 'across two lines').toBe(false)
+    expect(looksLikeFen('8/8/8/8/8/8/4K3/6X1 w - - 0 1'), 'a letter no piece uses').toBe(false)
   })
 })
