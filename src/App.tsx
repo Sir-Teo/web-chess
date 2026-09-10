@@ -98,7 +98,7 @@ import {
 } from './engine/numericInput'
 import { engineProfiles, type EngineProfileId } from './engine/profiles'
 import { fetchSamplePgn } from './engine/samplePgn'
-import { parseFenShareHash } from './engine/shareLink'
+import { hashCarriesShare, parseFenShareHash } from './engine/shareLink'
 import { parseGameShareHash, replaySharedGame } from './engine/shareGame'
 import { nullMoveProbe } from './engine/threats'
 import {
@@ -474,6 +474,14 @@ function playerColorToTurn(color: PlayerColor): 'w' | 'b' {
 
 
 
+/** How long a receipt stays up. Long enough to read, short enough to ignore. */
+const NOTICE_HOLD_MS = 2400
+/**
+ * Not a receipt: an explanation of why the board is not the one the reader was
+ * sent, which they have to read to act on. Held longer for that reason.
+ */
+const SHARED_LINK_UNREADABLE = 'That shared link could not be read — showing the starting position.'
+
 function loadSharedFenFromUrl(): string | null {
   if (typeof window === 'undefined') return null
   const sharedFen = parseFenShareHash(window.location.hash)
@@ -746,13 +754,13 @@ function App() {
    */
   const [notice, setNotice] = useState<string | null>(null)
   const noticeTimerRef = useRef<number | null>(null)
-  const announce = useCallback((text: string) => {
+  const announce = useCallback((text: string, holdMs = NOTICE_HOLD_MS) => {
     setNotice(text)
     if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current)
     noticeTimerRef.current = window.setTimeout(() => {
       noticeTimerRef.current = null
       setNotice(null)
-    }, 2400)
+    }, holdMs)
   }, [])
   useEffect(() => () => {
     if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current)
@@ -4594,7 +4602,14 @@ function App() {
       const sharedGame = parseGameShareHash(window.location.hash)
       if (sharedGame && loadSharedGame(sharedGame)) return
       const sharedFen = loadSharedFenFromUrl()
-      if (!sharedFen) return
+      if (!sharedFen) {
+        // A link that carried something and gave nothing. Measured on a
+        // truncated `#fen=`, which is what a chat app makes of a long link:
+        // the board dropped to the starting position in Play mode and said
+        // nothing, so the reader is left thinking the sender got it wrong.
+        if (hashCarriesShare(window.location.hash)) announce(SHARED_LINK_UNREADABLE, 6000)
+        return
+      }
       setShowPgnDialog(false)
       setShowNewGameDialog(false)
       setShowLibraryDialog(false)

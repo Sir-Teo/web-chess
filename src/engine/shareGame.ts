@@ -24,7 +24,7 @@ import { normalizeUciMoves } from './uci'
  * client carries without complaint.
  */
 
-const GAME_HASH_KEY = 'game'
+export const GAME_HASH_KEY = 'game'
 const PAYLOAD_SEPARATOR = '|'
 
 /**
