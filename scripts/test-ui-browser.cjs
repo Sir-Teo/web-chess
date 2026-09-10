@@ -1639,6 +1639,7 @@ async function checkEveryControlIsFingerSized(browser) {
       const found = []
       let checked = 0
       let labelled = 0
+      let inline = 0
       let onTheBoard = 0
       for (const el of document.querySelectorAll('button, [role="button"], summary, input, select, textarea, a[href]')) {
         const box = el.getBoundingClientRect()
@@ -1657,26 +1658,47 @@ async function checkEveryControlIsFingerSized(browser) {
           // The box is the picture of the control; the label is the control.
           if (Math.min(outer.width, outer.height) >= 44) { labelled++; continue }
         }
+        // WCAG 2.5.8 exempts a target inline in a sentence, and the two export
+        // links are exactly that -- "Open in Lichess" and "Open in chess.com"
+        // sit in a paragraph either side of a separator. Giving them 44px would
+        // break the sentence to satisfy a rule that does not ask for it.
+        if (el.tagName === 'A' && getComputedStyle(el).display === 'inline' && el.closest('p')) {
+          inline++
+          continue
+        }
         found.push(`${Math.round(box.width)}x${Math.round(box.height)} ` +
           `${el.tagName.toLowerCase()}.${String(el.className || '').split(/\s+/)[0]} ` +
           `"${(el.getAttribute('aria-label') || el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 24)}"`)
       }
-      return { found: [...new Set(found)], checked, labelled, onTheBoard }
+      return { found: [...new Set(found)], checked, labelled, inline, onTheBoard }
     })
 
     const surfaces = [
-      ['the board', null],
-      ['the library', '[aria-label^="Open saved games library"]'],
-      ['the command palette', '[aria-label^="Open command palette"]'],
-      ['New Game', '[aria-label^="Start new game"]'],
-      ['the settings sheet', 'summary[aria-label*="settings" i]'],
+      ['the board', null, null],
+      ['the library', '[aria-label^="Open saved games library"]', null],
+      ['the command palette', '[aria-label^="Open command palette"]', null],
+      ['New Game', '[aria-label^="Start new game"]', null],
+      ['the settings sheet', 'summary[aria-label*="settings" i]', null],
+      ['the import dialog', '[aria-label^="Open PGN and FEN dialog"]', null],
+      // The tabs of that dialog are separate surfaces: the position setup's
+      // palette is only laid out on one of them, and it is where the width was
+      // wrong while the height beside it was right.
+      ['its FEN tab', null, 'FEN'],
+      ['its Export tab', null, 'Export'],
     ]
     let swept = 0
     let decoys = 0
-    for (const [name, trigger] of surfaces) {
+    let inlineLinks = 0
+    let openDialog = false
+    for (const [name, trigger, tab] of surfaces) {
       if (trigger) {
         await page.locator(trigger).first().click()
         await page.waitForTimeout(900)
+        openDialog = true
+      }
+      if (tab) {
+        await page.locator('.dialog-panel button', { hasText: new RegExp(`^${tab}$`) }).first().click()
+        await page.waitForTimeout(700)
       }
       const result = await sweep()
       assert(result.checked >= 10,
@@ -1685,15 +1707,20 @@ async function checkEveryControlIsFingerSized(browser) {
         `${name}: ${result.found.length} controls a finger cannot comfortably hit:\n      ${result.found.join('\n      ')}`)
       swept += result.checked
       decoys += result.labelled
-      if (trigger) {
+      inlineLinks += result.inline
+      const last = surfaces[surfaces.indexOf(surfaces.find(entry => entry[0] === name)) + 1]
+      if (openDialog && (!last || last[2] === null)) {
         await page.keyboard.press('Escape')
         await page.waitForTimeout(600)
+        openDialog = false
       }
     }
     // The filters have to be doing something, or they are hiding the sweep.
     assert(decoys > 0, 'no tick box was filtered by its label; the decoy filter may have stopped matching')
+    assert(inlineLinks > 0, 'no inline link was filtered; the 2.5.8 exemption may have stopped matching')
 
-    console.log(`  targets: ${swept} controls across ${surfaces.length} surfaces all clear 44px (${decoys} tick boxes cleared by their label)`)
+    console.log(`  targets: ${swept} controls across ${surfaces.length} surfaces all clear 44px ` +
+      `(${decoys} cleared by their label, ${inlineLinks} inline links exempt under 2.5.8)`)
   } finally { await context.close() }
 }
 

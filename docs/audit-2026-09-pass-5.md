@@ -256,6 +256,26 @@ and 10px of drift, straight down and diagonally, the move landed every time.
 The guard now covers that second tap at 8px, which is where a drag takes hold
 and so where a pan would if one were going to.
 
+**And four more on the surfaces that sweep had not reached.** Widening it to
+the import dialog's tabs and the analysis panel, at 375 *and* 320: the archive
+count's field is 50x**27** — its wrapper had already been given 44px and the
+field inside it left at 27, so what a finger lands on was a third short of what
+the stylesheet appears to promise; "Enter a move by name" is a 331x**39**
+disclosure; and the position-setup palette's thirteen buttons are **36px wide**
+at 320, from `repeat(7, minmax(0, 1fr))` in 275px of room. That last one is the
+sharpest of the set, because the rule directly beneath it had already raised the
+same buttons to 44px *tall*: the same control was finger-sized one way and not
+the other, in adjacent lines. `repeat(auto-fit, minmax(44px, 1fr))` takes five
+columns at 320 and six at 375, and stops being a number that has to be right.
+
+The fourth finding is not one. The two export links, "Open in Lichess" and "Open
+in chess.com", are 15px tall and sit inline in a paragraph either side of a
+separator — which is the exception **2.5.8** names, and giving them 44px would
+break the sentence to satisfy a rule that does not ask for it. The sweep
+exempts them by shape rather than by name, counts the exemption, and asserts the
+count is not zero, so an exemption that stopped matching fails rather than
+hiding a real target.
+
 **Nor was anything else styled outside App.css, nor two things inside it.**
 The palette was the first thread; pulling it gave a sweep of every surface this
 app opens, at 375x667, with the two decoys filtered rather than ignored. What

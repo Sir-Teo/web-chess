@@ -441,8 +441,14 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    /* As many columns as fit at a finger's width, rather than seven whatever
+       the width is. **Measured** at 320px, where the palette has 275px to work
+       in: seven columns came out **36px** each -- the height beside it had
+       already been raised to 44 and the width had not, so the same button was
+       finger-sized one way and not the other. `auto-fit` gives five columns of
+       52px there and six at 375px, over three rows instead of two. */
     .fen-setup-palette {
-        grid-template-columns: repeat(7, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
     }
 
     .fen-piece-btn {
@@ -1051,6 +1057,12 @@
 
     .archive-count {
         flex: 1 1 auto;
+        min-height: 44px;
+    }
+
+    /* The wrapper above was given 44px and the field inside it was left at 27,
+       so what a finger actually lands on was a third short. */
+    .archive-count input {
         min-height: 44px;
     }
 

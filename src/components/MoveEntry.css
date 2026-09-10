@@ -4,6 +4,17 @@
   color: var(--text-secondary);
 }
 .move-entry summary { cursor: pointer; padding: 0.65rem 0; }
+
+/* A disclosure a finger opens. Measured at 375x667: 331x39, five short of the
+   bar every other control on a phone is held to. Not one of 2.5.8's inline
+   exceptions -- it is a block of its own, not a link inside a sentence. */
+@media (max-width: 900px) {
+  .move-entry summary {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+}
 .move-entry form { display: grid; gap: 0.4rem; padding-bottom: 0.5rem; }
 .move-entry-row { display: flex; gap: 0.4rem; }
 .move-entry-row input {
