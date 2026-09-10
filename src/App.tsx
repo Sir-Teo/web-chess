@@ -5758,10 +5758,18 @@ function App() {
       >
         <div className="panel-inner">
           <div className="panel-content compact-grid">
-            <div className="app-brand" aria-hidden={settingsOpen ? true : undefined}>
+            {/* The page's one top-level heading. The stylesheet has said so in
+                three places since long before this -- it resets the UA heading
+                size and margins here, drops the brand column on a phone because
+                "the <h1> is visually hidden", and hides it there with a
+                clip-path rather than `display: none` precisely so a phone is
+                not "left with no top-level heading at all". None of that was
+                true: the element was a <div>, so the document had no h1 and its
+                outline opened on an h3. */}
+            <h1 className="app-brand" aria-hidden={settingsOpen ? true : undefined}>
               <span className="app-brand-icon"><IconKing /></span>
               <span className="app-brand-text">Web Chess</span>
-            </div>
+            </h1>
             <div
               className="mobile-actions"
               aria-hidden={settingsOpen ? true : undefined}
