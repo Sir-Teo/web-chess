@@ -1725,6 +1725,76 @@ async function checkEveryControlIsFingerSized(browser) {
 }
 
 /**
+ * The winrate card reads the position on the board.
+ *
+ * Its two numbers took `winratePoints[length - 1]` -- the last ply of the line,
+ * whatever was being looked at. Measured on a 58-move game at five plies before
+ * the fix: the coach beside it read 42%, 22%, 45%, 30% and 46% for those
+ * positions and the card read **42.1% every time**, which is the last one. The
+ * graph between them was already right, taking `currentIndex` and lighting the
+ * point it belongs to -- so the highlighted dot and the number under it were
+ * two different plies of the same game.
+ *
+ * What is asserted is the pair agreeing at several plies, not the card's value,
+ * because a card that agreed with the coach only at the end -- which is exactly
+ * the defect -- would pass a check on any single position. The two are rounded
+ * differently, the coach to a whole number and the card to a tenth, so they are
+ * compared within one point.
+ */
+async function checkTheWinrateCardFollowsTheBoard(browser) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+    const textarea = page.locator('.dialog-panel textarea').first()
+    await textarea.waitFor({ timeout: 10000 })
+    await textarea.fill(SAMPLE_PGN)
+    await page.getByRole('button', { name: /Import & Analyze/ }).click()
+    await page.locator('.graph-legend').first().waitFor({ timeout: 15000 })
+    await page.waitForTimeout(800)
+
+    const readPair = () => page.evaluate(() => {
+      const legend = [...document.querySelectorAll('.graph-legend')]
+        .find(el => /White win chance/i.test(el.textContent || ''))
+      const card = legend ? Number((legend.textContent || '').match(/([\d.]+)%/)?.[1]) : null
+      const coach = Number((document.body.innerText.replace(/\s+/g, ' ')
+        .match(/(\d+)% for White/) || [])[1])
+      return { card, coach }
+    })
+
+    // Import lands on the last position, where "Go to last position" is
+    // disabled, so the walk is backwards from there rather than reset each time.
+    const seen = []
+    let at = 0
+    for (const back of [0, 6, 12, 24]) {
+      for (let step = at; step < back; step++) {
+        await page.keyboard.press('ArrowLeft')
+        await page.waitForTimeout(60)
+      }
+      at = back
+      await page.waitForTimeout(700)
+      const pair = await readPair()
+      assert(Number.isFinite(pair.card) && Number.isFinite(pair.coach),
+        `${back} plies back: could not read both numbers (card ${pair.card}, coach ${pair.coach})`)
+      assert(Math.abs(pair.card - pair.coach) <= 1,
+        `${back} plies back: the card says ${pair.card}% and the coach says ${pair.coach}% for the same position`)
+      seen.push(pair.card)
+    }
+    // A card frozen on the last ply agrees with the coach there and nowhere
+    // else, so the check is only worth anything if the value actually moved.
+    assert(new Set(seen).size > 1,
+      `the card read ${seen[0]}% at every ply, so this proves nothing about it following the board`)
+
+    console.log(`  winrate: the card follows the board (${seen.map(v => v + '%').join(', ')}) and agrees with the coach at each`)
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -2930,6 +3000,7 @@ async function main() {
     await checkATapSurvivesTheFingerThatMakesIt(browser)
     await checkTheBoardIsNotADeadZone(browser)
     await checkEveryControlIsFingerSized(browser)
+    await checkTheWinrateCardFollowsTheBoard(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)

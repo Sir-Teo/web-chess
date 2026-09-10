@@ -316,6 +316,30 @@ exempts them by shape rather than by name, counts the exemption, and asserts the
 count is not zero, so an exemption that stopped matching fails rather than
 hiding a real target.
 
+**A reading that did not follow the board.** The winrate card's two numbers —
+the one in its heading and the one beside "White win chance" — took
+`winratePoints[length - 1]`, the last ply of the line, whatever ply was being
+looked at. **Measured** on a 58-move game at five positions: the coach beside it
+read 42%, 22%, 45%, 30% and 46%, and the card read **42.1% at every one of
+them**, which is the value at the end of the game. A reader stepping back
+through a collapse watched the coach fall to 22% while the panel above it went
+on saying White had a 42% chance.
+
+The graph *between* those two numbers was already right. It takes `currentIndex`
+and lights the point it belongs to, and it carries a comment about a reader
+scrubbing with the arrow keys having "nothing to read on screen" — so the lesson
+had been learned one element over and not applied to the card wrapped around it.
+The highlighted dot and the number under it were two different plies of the same
+game.
+
+What the guard asserts is the *pair agreeing at four plies*, not the card's
+value: a card frozen on the last ply agrees with the coach there and nowhere
+else, so any check on a single position would have passed the defect. It also
+asserts the value moved at all, since a card that never changes would agree with
+itself forever. This is the fourth pass's own finding — a reading that disagreed
+with everything beside it — in a different card, found the same way: by putting
+two numbers that describe one position next to each other and reading both.
+
 **Nor was anything else styled outside App.css, nor two things inside it.**
 The palette was the first thread; pulling it gave a sweep of every surface this
 app opens, at 375x667, with the two decoys filtered rather than ignored. What
