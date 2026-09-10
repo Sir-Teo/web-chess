@@ -186,8 +186,40 @@ where scrolling plainly works — `Input.synthesizeScrollGesture` with
 `gestureSourceType: 'touch'` is the call that goes through the real gesture
 pipeline, and hand-rolled `Input.dispatchTouchEvent` sequences are not.
 
+**A returning reader waits for nothing, and the connection stops mattering.**
+Every load measured until now had been a first one. Measured across three
+visits and then offline, at 4x CPU: first visit 906ms to paint and 1973ms to a
+move behind 4G, 2724ms and 5825ms behind 3G — and **every visit after that
+129ms to paint, 391ms to a move, on either connection**, with all five assets
+served off the network by the worker. Offline is 112ms. The connection only
+decides the first visit; after that the numbers are identical on 3G and 4G
+because neither is being used. That is the frame the cold-load work above
+belongs in: it is a first impression being bought, not a daily cost.
+
+**The clock keeps time.** The app's one real-time surface, sampled every 40ms
+for twelve seconds in a 3+2 game at 4x CPU: twelve changes, gaps of 969 to
+1010ms, no second skipped and none shown twice, and **zero drift** — eleven
+seconds lost off the face over eleven seconds of wall clock. The paused side
+held at 3:01 throughout, increment included.
+
+**The library does not care how much is in it.** Ninety saved games, seeded
+through the app's own multi-game import: opening it costs 362ms the first time
+— that is the lazy chunk arriving, not the games — and **103ms at thirty games
+and 93ms at ninety**. Every row is in the DOM, unvirtualised, and scrolling
+sixty of them produced 87 frames with **none** over 33ms. Nothing here needs
+virtualising.
+
+**And a multi-game paste is handled better than it was asked to be.** Pasting
+sixty games disables Import & Analyze and says why — "The board takes one game
+at a time, and this file holds several. Add them all to the library, or paste a
+single game" — beside a button reading "Add 60 games to the library". The count
+is in the label.
+
 That is four probes in this pass that produced a false result before a true
-one, on top of the four the fourth pass recorded. The rule this repo already
+one, on top of the four the fourth pass recorded. A fifth was this pass's own
+measurement rather than its subject: the library's open cost first read 2434ms
+because a two-second settle had been left inside the stopwatch. The real number
+is a twenty-sixth of that. The rule this repo already
 had — confirm one flagged element by hand before acting on the list — has now
 earned a second half: confirm one *unflagged* element too, because a probe that
 silently reports nothing is the more expensive failure.
