@@ -569,6 +569,18 @@ fit the room and keep squares a finger can hit, and this app picks the squares.
 Recorded here rather than left silent, because it is the one size where the
 sweep's own standard is not met.
 
+**A small phone on its side gets squares under 24px, and the same floor cannot
+save it.** **Measured** at 568×320: a 127px board, so 16px squares. The floor
+that fixed portrait works because the container scrolls there — the board runs
+past the fold and the reader can reach it. Landscape clips instead
+(`overflow: hidden`, so the panels beside the board keep their room), so a
+floored board there would simply have its last rank cut off, which is worse than
+a small one. 844×390, the common landscape phone, measures 24.6px squares and
+clears the bar by half a pixel. Everything a reader could reach at 568×320 was
+still reachable — **measured** with the same press test, no square unanswered —
+so this is a limit rather than a defect, and it is the size at which this layout
+runs out.
+
 ---
 
 ## Method
