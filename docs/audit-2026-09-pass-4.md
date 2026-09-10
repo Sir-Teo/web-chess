@@ -4,13 +4,14 @@ A fourth sweep, after [the first](audit-2026-09.md),
 [the second](audit-2026-09-pass-2.md) and [the third](audit-2026-09-pass-3.md).
 The brief this time was narrower and, it turned out, deeper: the interface on a
 phone and on a desktop, read side by side at 320, 375, 390, 844×390, 1280 and
-1440, in both themes and at 100%, 150% and 200% text. Nineteen commits of
-changes, pushed, and this record.
+1440, in both themes and at 100%, 150% and 200% text, and at 320×480, 360×640
+and 375×667 once it became clear the short phones were where the layout gave
+way. Twenty-nine commits of changes, pushed, and this record.
 
 The same convention: **measured**, **reasoned**, or **refuted**. The refuted
-section is the longest of the four passes' and the one most worth keeping: two
-of its entries are my own mistakes, one of which I had shipped, and three more
-are defects I went looking for, measured, and did not find.
+section is by some way the longest of the four passes' and the one most worth
+keeping: two of its entries are my own mistakes, one of which I had shipped, and
+the rest are defects I went looking for, measured, and did not find.
 
 The third pass left two things open. One of them — touch gestures for arrows
 and marks — is done here. The other, a weaker floor for the opponent, is
@@ -22,9 +23,12 @@ untouched and its *Refuted* section still stands.
 
 Ordered by what each cost. The first five are on both platforms, then the
 phone, where every row is already full, then the two import boxes and the
-shared link, which are neither platform's in particular, and last the drill,
-which asks the reader a question and so has the most to lose by being out of
-sight.
+shared link, which are neither platform's in particular, then the drill, which
+asks the reader a question and so has the most to lose by being out of sight —
+and last the five found after that, under their own headings, because each took
+more than a paragraph to say. The worst of the pass is among them and was the
+last thing found, which is the argument for the pass having gone on as long as
+it did.
 
 **The evaluation bar disagreed with everything beside it.** **Measured** on the
 start position at 1440×900 and 375×812: the bar gave White 8% of its height,
@@ -248,6 +252,144 @@ scrolled off the end of it.
 
 ---
 
+### The narrowest phone could not make the first move
+
+The worst of the pass, and the last found. `body { min-width: 320px }` is the
+width this app claims to support, and at 320×568 the board opened with three
+ranks below the fold of the scrolling container — both ranks of the reader's
+own pieces among them. **Measured** by asking the page what it hands a press at
+each square's centre: a tap on e2 landed on `div.panel-content`. A game could
+not be started until the reader thought to scroll a board that looked complete.
+360×640 lost rank 1 the same way.
+
+Two causes, and both had to go.
+
+**The top bar took 42% of the screen.** The three game-mode pills wrapped, so
+their group stood 99px tall with "AI vs AI" alone on the second line stretched
+to 280px, and the bar measured 236px against the 189px the same bar measures at
+375px. One scrolling row now — which is what that wrapper was already built for,
+with the overflow, the scroll-snap and the edge fades that say a row goes on.
+`min-width: max-content` on the pills is what makes that safe: they still grow
+to share a row that fits and refuse to shrink below their label when it does
+not, so the row overflows into the scroll rather than truncating the mode a
+player is reading. With `nowrap` alone all three clip at 320px, which is the
+thing the rules around them exist to prevent.
+
+**And the board took a share of the screen rather than the room.** Its height
+cap was `max(300, 0.46 × viewport height)`, which describes a phone whose bars
+leave room for it; at 320×568 they leave 235px and that floor drew 294. The room
+could not be read from the stage — on a phone the stage is `flex: none` and
+takes its height from the board inside it, so it can only report what was
+already drawn, and capping by it chases its own tail. The container between the
+two bars is `flex: 1`, so its height *is* the room and nothing the board does
+changes it.
+
+Down to a point. A phone short enough to need squares under 24px cannot have
+both a board that fits and one a finger can hit; `MIN_TOUCH_BOARD_PX` picks the
+squares — eight of 24px, WCAG 2.5.8's target minimum — and lets the board run
+past the fold as it did everywhere before. 320×480 is that case and is tested as
+one.
+
+**Measured** after: 216px at 320×568 and 288px at 360×640, every square
+answering a press at both; 375×667, 375×812 and 390×844 unchanged to the pixel,
+where the width has always been the smaller cap.
+
+### Every piece stood 7px outside its square
+
+Not visible, and it moved the board. The board library leaves each piece's SVG
+`display: inline` inside the draggable wrapper it gives it, so the wrapper's box
+is a *line* box — the art plus the strut's descender under it. **Measured** at
+six sizes from 320×568 to 1440×900: 7px at every one of them, because the
+leading comes from the inherited font and not from the board.
+
+The art is right, which is why it survived: the SVG is square, top-aligned and
+exactly the square's size. The box is what the browser focuses and scrolls to.
+Tabbing to a piece on the near rank scrolled the board's own `overflow: hidden`
+grid down 7px to reveal a box that did not fit — `scrollTop` 0 → 7, the whole
+board shifting up under the reader with the far rank sliced off the top, and
+back again on reaching rank 8. And on that rank the focus ring's bottom edge was
+clipped away by the board's edge, so the piece a keyboard player is most likely
+to be on was the one drawn without a full ring. `display: block` on the SVG is
+the whole fix.
+
+### A drawing mode that outlived the board it was drawn on
+
+Draw eats presses by design: while it is on a tap is an arrow, not a move. That
+is right while the reader is annotating and a trap the moment the app hands the
+board back to be moved in — and nothing turned it off but its own button.
+**Measured** at 375×812: switching to Play left it on and e2–e4 moved nothing; a
+new game left it on; and a drill started with it on sat asking for a move that
+no tap could make, its own pill reading "Drill · 1/2" for as long as the reader
+kept trying. The board's blue ring was the only thing that said why, and the
+control is `pointer: coarse` only — so this was a phone's trap, on the device
+where Draw is the only route to an arrow at all.
+
+The state itself had already argued the point. It is not persisted, because "a
+board that would not move pieces on the next visit because of a switch thrown
+last week is a bug report". This was that bug report over a shorter span.
+
+**And a drill taking the board is the end of a replay**, the same way the engine
+taking it is — the app says so in those words on the effect that stops autoplay
+for the AI. **Measured** at 1440×900 with autoplay running: pressing Drill gave
+a drill that broke itself, opening at "Playing White · move 1 of 4" and reading
+"Paused … the board has moved off the line" 2.5 seconds later while the replay
+kept stepping. Only the replay already running: pressing Autoplay *during* a
+drill is the reader leaving the line on purpose, which the paused card already
+explains and offers a Restart from.
+
+### A game that was a position
+
+A study chapter — `[SetUp "1"]`, `[FEN …]`, `*` — was refused with "PGN import
+needs at least one legal move", and the dialog stayed open. The reader is
+pointed at move text that was never going to exist, and the one thing the file
+did contain, which this app has a board for, was thrown away. Puzzle exports and
+tactics trainers all ship that shape.
+
+A game with no moves really is nothing when its root is the starting position,
+so that refusal stands. With a position in the headers the position is the
+import. Reading a bare `!moves.length` as "there was no move text" is safe
+because every other way of having none throws before that line — an illegal move
+raises "Invalid move: Qh5", unparseable text raises the grammar error, and a
+malformed header raises from `rootFenFromPgnHeaders` — and all three are pinned
+in tests beside the new behaviour rather than trusted, since the change rests on
+them.
+
+Said out loud on import, because an empty move list after pressing Import
+otherwise reads as an import that failed.
+
+### Three things a screen reader was told wrongly
+
+**The page had no `h1`.** The brand was a `<div>`, so the document's outline
+opened on an h3 — **measured** at three sizes: zero `h1` elements, first heading
+"h3 Historical Library". The stylesheet had said otherwise in three places for a
+long time: it resets the UA heading size and margins because "It is the page's
+`<h1>`", the phone's grid drops the brand column because "the `<h1>` is visually
+hidden on phones", and the phone hides it with a clip-path rather than
+`display: none` because that "would leave a phone with no top-level heading at
+all". The care taken to keep the phone's heading in the accessibility tree was
+keeping a `<div>` there. One tag, and the element's box is identical to the
+pixel afterwards — which is what those resets were always for.
+
+**The analysis panel was an unnamed landmark.** An `<aside>` is a landmark
+whether or not it is named, and the computed accessibility tree read: main "",
+region "Chessboard", complementary "" — an empty row for the panel holding every
+reading in the app. Named from the heading it already carries rather than a
+second string invented for a screen reader, so it says "Analysis" or "Play" with
+whichever the panel is showing and cannot drift from the word on the screen. The
+left panel is deliberately left alone: an unnamed `<section>` is not exposed as a
+landmark at all, so it adds no empty row.
+
+**A tick box was not a square.** **Measured** at 200% text on a 375px phone: the
+five boxes in Settings came out 23×42, 26×42, 42×42, 42×42 and 20×42 — a
+different rectangle on every row, decided by how many lines the label beside it
+wrapped to. `width` is a hint a flex item gives up, and the only axis that held
+was the height. And on a desktop, 13×13 at both 100% and 200% text: there was no
+rule outside the phone's media query, so it stayed the user agent's size while
+the text beside it doubled. Everything else here is rem-based for exactly this
+reason. One rem, unshrinkable, with the phone's 1.3rem kept for a finger.
+
+---
+
 ## New
 
 **Arrows and marks with a finger.** Settings had said it plainly since the marks
@@ -283,6 +425,27 @@ number driven by the scroller's own progress, so the fades track a finger
 exactly and `prefers-reduced-motion` leaves them alone — there is no duration
 for it to cut, which was **measured** rather than assumed. A browser with no
 scroll timelines gets exactly what this used to draw.
+
+**The folding bars, in the palette.** The top and bottom bars were the only
+things in the app whose one and only control is a 14px strip with a 32×3px pill
+in it — no shortcut, no menu item, and nothing in the palette, which carries
+everything else this app does. A feature whose only handle is a hairline between
+two panels is one most readers never find, and it is the one they most want when
+the board is short of height: **measured** at 1440×900, folding the top bar
+takes the board from 667px to 737px, the width of a whole rank.
+
+The strip is a proper button already — named, focusable, activated from the
+keyboard — so this is discovery rather than reach. Named the way the strip names
+itself, so a search for "top bar" finds the words the handle carries, and the
+label flips to Expand once the bar is folded: a command that cannot undo itself
+is a trap, and the strip that could undo it is invisible with the bar gone.
+
+Disabled with its reason on a phone, where the bars have no handle at all. The
+reason is "Needs a wider window" rather than "Desktop only", because the palette
+matches the reason along with the label and "Desktop" carries "top" — with it,
+typing "top bar" on a phone pulled the bottom bar's row in beside the one asked
+for. It is also the truer word: the condition is the window's width, and a
+narrow window on a desktop folds nothing either.
 
 ---
 
@@ -339,6 +502,44 @@ build does not call them.
 falls back to the suggested one, a duplicate becomes "Short (2)", a long one
 ellipsises, the tag renders as text, and the dialog overflows at neither size.
 
+**The landscape strip is not wider than the board it labels.** It measured 241px
+against a 197px board with a game loaded, which the stylesheet forbids in as many
+words — "as wide as the board it labels, never wider". Four candidate caps
+changed nothing, which is the clue: `.board-wrap` measures 241 too. The
+difference is the evaluation column, which appears when the engine does and is
+44px of board row. The strip is the width of the row, and the row is right.
+
+**The drill's verdict passes its contrast floor.** The pill was added to a strip
+no contrast sweep visits with a drill running, so its four tones had never been
+measured anywhere. Run with the suite's own probe over a whole drill in both
+themes: 173–183 elements measured, 0 under the floor, in every state.
+
+**The browser's toolbar tint matches the page.** `theme-color` follows the
+resolved theme already, and the values are within four parts in 255 of what is
+actually painted at the top of the page — `#0b0d11` against `#0d1117` dark,
+`#f7f8fa` against `#f3f4f6` light. Nothing a reader can see.
+
+**The promotion chooser is sound at 320px.** All four choices on screen at 48×91
+with their labels whole, a 214×34 Cancel, and a translucent ground so the
+position is still readable behind it.
+
+**Every empty state carries its copy.** The Library says "Play or import a game
+to have something to save" over "Nothing saved yet"; the three analysis tabs and
+the Play panel all open with content rather than a blank column.
+
+**Blindfold outliving a mode change is not the same bug as Draw.** It survives
+every transition Draw was just stopped from surviving — and should: it is a
+setting the reader keeps, it is persisted on purpose, and it hides pieces rather
+than eating presses. A blindfold drill is an exercise, not a trap.
+
+**A 150-move game is fine at both sizes.** Imported in 1.4s to 300 move nodes
+and 1,646 DOM nodes, nothing spilling sideways, ten keyboard steps in 2.2s.
+
+**Every dialog holds at 200% text.** Settings, PGN, Library and New Game at
+375×812 and 1440×900: nothing off-screen, nothing clipped, no horizontal page
+scroll. The only thing under 24px in any of them was the tick box, which is a
+bug entry above.
+
 ---
 
 ## Left undone
@@ -351,6 +552,22 @@ wrong is worse than the generic answer. Left alone deliberately.
 **A weaker floor for the opponent.** Untouched. The third pass's *Refuted*
 section is still the state of the art: the `UCI_Elo` limit is the right tool and
 its floor is the floor.
+
+**The bars' 14px strips are still 14px.** Under WCAG 2.5.8's 24px, and the
+spacing exception does not save them: the horizontal strip crosses the vertical
+one, so a 24px circle on either meets another target. Growing them is not free —
+at 1440×900 the clear band between the bar's buttons and the board's own strip
+is 28px, so a 24px handle would sit 4px from the buttons above it and touch the
+strip below, and that clearance is not something to spend on a control that now
+has a full-size route beside it. The palette command is that route, and it is
+also 2.5.8's own answer: a control of the required size that does the same
+thing.
+
+**A phone shorter than about 500px still scrolls to its back rank.** Deliberate,
+and the reasoning is in the bug entry above: below that the board cannot both
+fit the room and keep squares a finger can hit, and this app picks the squares.
+Recorded here rather than left silent, because it is the one size where the
+sweep's own standard is not met.
 
 ---
 
@@ -368,20 +585,28 @@ evaluation bar's boundary against the curve the rest of the screen prints; the
 horizontal WDL bar's ramp direction; the scrolling strips' two edges, the strips
 they name and their fallback; `touchDraw` over all sixty-four squares in both
 orientations; the three paste detectors, including every FEN judgement pinned
-unchanged beside them; and `hashCarriesShare` over the shapes a chat app makes
-of a link.
+unchanged beside them; `hashCarriesShare` over the shapes a chat app makes of a
+link; the position-only import beside the three ways of having no usable moves
+that must still throw; the tick box's two axes coming from one rem in both
+breakpoints; and the phone board against the room it has, down to the floor
+where squares stop being tappable.
 
-Nine of the nineteen carry no unit test, and eight of those for one reason:
-where a reading sits on a phone, and whether the board is on the screen when it
-asks for a move, are not facts a module can answer — only a laid-out page can.
-The ninth is the last-move arrow's opacity, which is a judgement about what a
-translucent shape does to the pieces under it; a screenshot answers that and a
-number does not.
+Where a defect was about a laid-out page rather than a value, the guard went
+into the browser suite instead, and each was confirmed to fail without its fix
+rather than assumed to: every piece measured against its square at all three
+viewports and the board asked to hold still while a near-rank piece takes focus
+("pieces standing outside their square: a8 by 7.0px"); the two folding bars
+searched for, run and undone from the palette; Draw asked to end at the move
+into Play and to still be available there ("Draw mode survived the move into
+Play"); a drill started during a replay ("the replay kept running into a drill
+that had just started"); and every square asked what the page hands a press at
+its centre, at 320×568, 360×640 and 375×812 ("320×568: 24 squares a finger
+cannot reach").
 
-The last two — the drill's reveal and its verdict pill — were checked by walking
-a whole drill at 375×812 and reading the pill's text, tone, spoken label and
-position in the strip after every move, because those four can only be wrong
-together.
+The rest carry no test of their own, and for one reason: where a reading sits on
+a phone is not a fact a module can answer. The exception is the last-move
+arrow's opacity, which is a judgement about what a translucent shape does to the
+pieces under it — a screenshot answers that and a number does not.
 
 Everything above was measured in a real browser at a real size. Nothing in this
 pass was found by reading the code.
