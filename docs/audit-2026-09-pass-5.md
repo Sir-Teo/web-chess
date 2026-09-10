@@ -215,14 +215,42 @@ at a time, and this file holds several. Add them all to the library, or paste a
 single game" — beside a button reading "Add 60 games to the library". The count
 is in the label.
 
-That is four probes in this pass that produced a false result before a true
-one, on top of the four the fourth pass recorded. A fifth was this pass's own
-measurement rather than its subject: the library's open cost first read 2434ms
-because a two-second settle had been left inside the stopwatch. The real number
-is a twenty-sixth of that. The rule this repo already
-had — confirm one flagged element by hand before acting on the list — has now
-earned a second half: confirm one *unflagged* element too, because a probe that
-silently reports nothing is the more expensive failure.
+**A long session does not wear the app down.** Six rounds of three hundred
+navigations, twelve mode switches, eighteen dialogs opened and closed, and a
+flip apiece, at 4x CPU with a 116-ply game loaded, garbage collected before each
+reading: the heap stayed at **11MB throughout**, the DOM settled at 1267
+elements after the first round and never moved again, and the touch listener
+count held at nine. Every one of the nine sampled interactions came out
+**faster** worn than fresh -- 8 to 24ms faster, which is the JIT and not an
+improvement. Nothing accumulates.
+
+**Nor does a tree full of branches.** A game carrying forty variations, each
+with a nested sub-branch of its own -- 520 chips and 1164 elements in the move
+list, 2158 on the page -- at 4x CPU: every interaction at or under **104ms**,
+and scrolling the tree produced 92 frames with **none** over 33ms.
+
+That is six probes in this pass that produced a false result before a true one,
+on top of the four the fourth pass recorded. Two of the six were the pass's own
+measurement rather than its subject, and both are worth the space.
+
+The library's open cost first read 2434ms, because a two-second settle had been
+left inside the stopwatch. The real number is a twenty-sixth of that.
+
+And the variation-tree generator written to feed the sweep above placed the
+inner branch at the same ply as the outer one — `(1. d4 d5 (1. d4 Nf6 …))`,
+which asks for d4 to be played twice — so the app refused the file, quite
+rightly. What makes that one instructive is what nearly happened next: chess.js
+loads the same text without complaint, which reads as an interoperability
+defect in this app until you count the plies it hands back and find it discards
+recursive variations rather than validating them. The corroborating tool was
+the misleading part, not the probe. Written correctly, `(1. d4 d5 (1… Nf6 …))`,
+this app takes nesting two deep, three deep, off a black move, and three
+siblings on one move.
+
+The rule this repo already had — confirm one flagged element by hand before
+acting on the list — has now earned a second half: confirm one *unflagged*
+element too, because a probe that silently reports nothing is the more
+expensive failure.
 
 ---
 
