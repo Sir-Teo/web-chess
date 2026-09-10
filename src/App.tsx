@@ -5531,6 +5531,25 @@ function App() {
     )
   })()
 
+  /**
+   * What the strip says while a drill is running, from the same three numbers
+   * the card reads. Short, because the strip is a row of pills and this one
+   * has to fit beside the turn: the card below carries the whole sentence and
+   * the buttons.
+   */
+  const drillStripStatus = (() => {
+    if (!drill) return null
+    const { done, total } = drillProgress(drill.line, drill.ply)
+    if (done >= total) return { tone: 'correct', label: 'Drill · done', spoken: `Drill complete, ${total} ${total === 1 ? 'move' : 'moves'} from memory.` }
+    if (drill.expectedFen !== fen) {
+      return { tone: 'away', label: `Drill · paused ${done + 1}/${total}`, spoken: `Drill paused at move ${done + 1} of ${total}. The board has moved off the line.` }
+    }
+    if (drill.misses > 0) {
+      return { tone: 'retry', label: `Not the line · ${done + 1}/${total}`, spoken: `Not the line. Try again: move ${done + 1} of ${total}.` }
+    }
+    return { tone: 'ready', label: `Drill · ${done + 1}/${total}`, spoken: `Drilling move ${done + 1} of ${total}.` }
+  })()
+
   const playFromHereRow = (
     <div className="inline-actions play-from-here-row">
       <button
@@ -6499,6 +6518,28 @@ function App() {
                     {reviewPractice.status === 'correct' ? 'Done' : 'Exit'}
                   </button>
                 </div>
+              )}
+              {/* A drill says everything it has to say in a card down the
+                  panel, which on a phone is below the fold. Measured at
+                  375x812: a wrong move was refused with "Not the line. Try
+                  again." in a card nobody could see, so the piece snapped back
+                  and the strip still read "White to move · Move 1" -- exactly
+                  what it said before the move. A rejection with no reason on
+                  the screen is the app refusing to say why.
+
+                  The same slot the review's practice uses, and for the same
+                  reason: a mode that judges the reader's moves has to report
+                  from where the moves are made. The card keeps the controls
+                  and the detail; this is the verdict. */}
+              {drill && drillStripStatus && (
+                <span
+                  className={`board-meta-drill ${drillStripStatus.tone}`}
+                  role="status"
+                  aria-live="polite"
+                  aria-label={drillStripStatus.spoken}
+                >
+                  {drillStripStatus.label}
+                </span>
               )}
               {/* The board is showing a position the game has not reached, and
                   it has to say so: without this the only difference between a

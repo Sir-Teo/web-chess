@@ -685,6 +685,37 @@ body.resizing * {
   font-weight: 800;
 }
 
+/* The drill's verdict, in the strip above the board it judges. Tones borrowed
+   from the review's practice, which is the same job: neutral while it waits,
+   the inaccuracy amber when a move was not the line, the best-move green when
+   the line is done. */
+.board-meta-drill {
+  flex: none;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  padding: 0.12rem 0.44rem;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.board-meta-drill.ready {
+  color: var(--info);
+  border-color: color-mix(in srgb, var(--info) 42%, transparent);
+}
+
+.board-meta-drill.retry,
+.board-meta-drill.away {
+  color: var(--quality-inaccuracy);
+  border-color: color-mix(in srgb, var(--quality-inaccuracy) 42%, transparent);
+}
+
+.board-meta-drill.correct {
+  color: var(--quality-best);
+  border-color: color-mix(in srgb, var(--quality-best) 42%, transparent);
+}
+
 .board-quality-pill {
   flex: 0 0 auto;
   border: 1px solid var(--border-default);
@@ -3931,6 +3962,12 @@ button.critical-moment-row {
      last digit at every width. */
   .board-meta-flow>.chess-clock {
     order: -1;
+  }
+
+  /* With the clock, ahead of the move number: while a drill is running it is
+     the reading the reader is acting on. */
+  .board-meta-flow>.board-meta-drill {
+    order: 0;
   }
 
   .board-meta-flow>.board-meta-move {
