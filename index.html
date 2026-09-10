@@ -44,7 +44,9 @@
     }
 
     .boot-board {
-      width: min(93vw, 26rem);
+      /* Against the column it sits in, which is the room there is; `93vw`
+         would count a classic scrollbar that is not part of it. */
+      width: min(93%, 26rem);
       aspect-ratio: 1;
       border-radius: 6px;
       border: 1px solid rgba(255, 255, 255, 0.08);

@@ -1,6 +1,9 @@
 .command-palette {
     max-width: 32rem;
-    width: min(32rem, calc(100vw - 2rem));
+    /* Against the backdrop it sits in, which is the room there is, rather than
+       `100vw`, which is that plus a classic scrollbar. Measured: the backdrop
+       is exactly `documentElement.clientWidth` at 320, 360, 390 and 1440. */
+    width: min(32rem, calc(100% - 2rem));
 }
 
 .command-palette-input {

@@ -215,6 +215,31 @@ at a time, and this file holds several. Add them all to the library, or paste a
 single game" — beside a button reading "Add 60 games to the library". The count
 is in the label.
 
+**The same mistake, one axis over.** Checking that the sheets still fit at the
+shorter heights `dvh` gives them — they do, the settings sheet holding at
+exactly 85% of the screen at 393x745, 375x564, 360x540 and 320x480, everything
+scrolling, nothing stranded — turned up **5px of horizontal scroll at 320px
+wide**, on a layout that has none at any other size. `100vw` is the viewport
+*including* a classic scrollbar: measured under mobile emulation,
+`documentElement.clientWidth` was 320 against a `window.innerWidth` of 325, and
+five things were sized against the larger number — the body's own cap, the
+phone shell's width and max-width, the settings backdrop, the lazy-dialog error
+toast, and the command palette. `100%` is the room there is, and for a fixed
+element it is the initial containing block, which is the same thing. Measured
+after: **0px of horizontal overflow at 320x480, 320x568, 360x540, 390x844 and
+1440x900**, with the shell's width exactly `clientWidth` at each.
+
+The guard for it is the height sweep's mirror, and it caught something the
+sweep's author had written three commits earlier: the boot skeleton's board was
+`min(93vw, 26rem)`. Harmless there — 93% of 325 is still inside 320 — but the
+unit was wrong for the same reason, and `min(93%, 26rem)` is what it meant.
+
+Worth separating from the finding: what *first* drew attention to 320px was a
+root that scrolled 7-8px vertically, and that turned out to be an artifact.
+It reproduced only under mobile emulation, and the size at which it appeared
+moved between runs — 320x480 in one, 320x568 in the next. The horizontal
+overflow underneath it was real and is fixed; the vertical one was the harness.
+
 **Handing the empty squares to the browser costs nothing, and breaks nothing.**
 Two things had to be checked about the change above, because both would have
 been introduced by it rather than found by it. `:has()` is re-evaluated as the

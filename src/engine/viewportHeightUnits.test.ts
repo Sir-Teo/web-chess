@@ -95,6 +95,44 @@ function dynamicPartner(css: string, declaration: Declaration): string | null {
   return null
 }
 
+/**
+ * The same mistake, one axis over.
+ *
+ * `100vw` is the viewport *including* a classic scrollbar, so a box told to be
+ * that wide is a few pixels wider than the room it has, and the page overflows
+ * sideways by exactly that much. **Measured** under mobile emulation at 320px
+ * wide before the fix: `documentElement.clientWidth` 320 against a
+ * `window.innerWidth` of 325, and 5px of horizontal scroll on a layout that has
+ * none at any other size. `100%` is the room there is -- and for a fixed
+ * element it is the initial containing block, which is the same thing.
+ */
+function widthsInViewportUnits(sheet: string, css: string): Declaration[] {
+  const found: Declaration[] = []
+  code(css).forEach((text, index) => {
+    const match = text.match(/(^|[\s;{])(max-width|min-width|width)\s*:\s*([^;}]+)/)
+    if (match && /\d\s*vw\b/.test(match[3])) {
+      found.push({ sheet, line: index + 1, property: match[2], text: text.trim() })
+    }
+  })
+  return found
+}
+
+describe('widths are measured against the room there is', () => {
+  it('uses no viewport width unit anywhere', () => {
+    const offenders = SHEETS.flatMap(([name, css]) => widthsInViewportUnits(name, css))
+      .map(d => `${d.sheet}:${d.line}  ${d.text}`)
+    expect(offenders, `these widths include a scrollbar that is not there:\n${offenders.join('\n')}`)
+      .toEqual([])
+  })
+
+  it('still finds the sheets it means to sweep', () => {
+    // The probe before the assertion: the sweep above passes trivially if the
+    // stylesheets never arrived.
+    expect(SHEETS.every(([, css]) => css.length > 100)).toBe(true)
+    expect(SHEETS).toHaveLength(6)
+  })
+})
+
 describe('viewport heights are measured against the visible screen', () => {
   it('finds the declarations it means to check', () => {
     // The probe before the assertion: a sweep that matched nothing would let

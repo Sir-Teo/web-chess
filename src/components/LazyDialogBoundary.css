@@ -4,7 +4,9 @@
   bottom: 1.25rem;
   transform: translateX(-50%);
   z-index: 60;
-  max-width: min(30rem, calc(100vw - 2rem));
+  /* Fixed, so `100%` is the initial containing block; `100vw` would add a
+     classic scrollbar's width to the room this toast thinks it has. */
+  max-width: min(30rem, calc(100% - 2rem));
   padding: 0.6rem 0.9rem;
   border: 1px solid var(--danger);
   border-radius: var(--radius-md);

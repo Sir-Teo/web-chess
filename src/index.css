@@ -285,7 +285,12 @@ body {
   background: var(--bg-base);
   scroll-behavior: smooth;
   overflow-x: hidden;
-  max-width: 100vw;
+  /* `100vw` is the viewport *including* a classic scrollbar, so on any browser
+     that draws one this cap is a few pixels wider than the room there is, and
+     the page it is meant to protect from overflowing overflows by exactly that
+     much. `100%` is the room there is. Same mistake as `vh` for a height, one
+     axis over. */
+  max-width: 100%;
 }
 
 ::selection {
