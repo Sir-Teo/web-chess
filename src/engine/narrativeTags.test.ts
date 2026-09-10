@@ -115,6 +115,46 @@ describe('describing the arc of a game', () => {
   })
 })
 
+/**
+ * The label is the headline and the title is the story, and on a touch screen
+ * the title is not a tooltip — it is written under the chips, because a `title`
+ * is nothing at all there. So the title has to be worth writing down: a
+ * sentence, and one that says more than the label repeated.
+ *
+ * "Wire-to-wire" and "Missed win" are jargon, and neither says *who*; every
+ * title does.
+ */
+describe('the sentence behind each label', () => {
+  const everyShape = [
+    narrativeTags(series([50, 55, 60, 65, 70, 80, 90]), '1-0'),
+    narrativeTags(series([50, 40, 20, 25, 40, 70, 90]), '1-0'),
+    narrativeTags(series([50, 60, 88, 92, 70, 30, 8]), '0-1'),
+    narrativeTags(series([50, 52, 48, 51, 49, 53, 47]), '1/2-1/2'),
+    narrativeTags(series([50, 55, 45, 52, 48, 56, 62]), '1-0'),
+  ].flat()
+
+  it('produces something to test', () => {
+    expect(everyShape.length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('gives every tag a sentence, not a restatement of its label', () => {
+    for (const tag of everyShape) {
+      expect(tag.title, tag.id).toMatch(/\.$/)
+      expect(tag.title.split(' ').length, `${tag.id} is not a sentence`).toBeGreaterThan(3)
+      expect(tag.title.toLowerCase(), `${tag.id} only repeats its label`)
+        .not.toBe(tag.label.toLowerCase())
+    }
+  })
+
+  /** The thing the label cannot carry: which side the story is about. */
+  it('names a side wherever the shape has one', () => {
+    for (const tag of everyShape) {
+      if (tag.id === 'draw') continue
+      expect(tag.title, tag.id).toMatch(/White|Black/)
+    }
+  })
+})
+
 describe('tone classes', () => {
   it('gives each tone a distinct class', () => {
     const classes = (['good', 'bad', 'neutral'] as const).map(narrativeTagToneClass)

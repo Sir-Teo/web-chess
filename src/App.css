@@ -2995,6 +2995,14 @@ button.critical-moment-row {
   gap: 0.28rem;
 }
 
+/* Reads as the caption to the chips above it, because that is what it is. */
+.review-chip-notes {
+  margin: 0.3rem 0 0;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+}
+
 .review-chips span {
   padding: 0.2rem 0.5rem;
   border-radius: var(--radius-pill);

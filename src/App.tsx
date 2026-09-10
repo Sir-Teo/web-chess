@@ -7904,6 +7904,19 @@ function App() {
                         ))}
                       </div>
                     )}
+                    {/* The sentence behind the label, where there is no hover to
+                        reveal it. "Wire-to-wire" and "Missed win" are the
+                        review's headline and they are jargon; the sentence in
+                        the tooltip is the story, and it names the side —
+                        "White led from the opening on" — which the label never
+                        does. A `title` is nothing at all on a touch screen, so
+                        on one the sentence is simply written down, the same
+                        fine/coarse pair the board's gestures already use. */}
+                    {gameNarrativeTags.length > 0 && (
+                      <p className="review-chip-notes pointer-coarse-only">
+                        {gameNarrativeTags.map(tag => tag.title).join(' ')}
+                      </p>
+                    )}
                     {reportedReviewRows.length > 0 ? (
                       <ReviewMoveList
                         rows={reportedReviewRows}
