@@ -745,7 +745,20 @@
         line-height: 1.22;
     }
 
+    /* Wrapping, because a row of actions that does not fit has to go somewhere
+       and every other answer loses one. These are right-aligned, so an
+       overflowing row runs off the *left* edge: measured on the PGN dialog's
+       Export tab at 320x568, four buttons wanted 343px of a 320px screen and
+       Close sat at x=-39 with its own centre off the screen — half a button,
+       and the half a reader aims at was the missing half.
+
+       Only here, where the screen is narrow enough to need it. A flex row wraps
+       at its items' natural width rather than shrinking them first, so wrapping
+       everywhere would take the desktop footer from one row to two — 30px of a
+       dialog whose row was never cut. The Library's five buttons keep their own
+       rule at every width, which is its own layout's business. */
     .dialog-actions {
+        flex-wrap: wrap;
         position: sticky;
         bottom: 0;
         padding-left: 1rem;

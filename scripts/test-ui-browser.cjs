@@ -1219,6 +1219,59 @@ async function checkReviewReportHoldsStill(browser) {
  * the library stores and what leaves the app.
  */
 /**
+ * A dialog's actions stay on the screen at the narrowest width.
+ *
+ * The row is right-aligned, so when it does not fit it runs off the *left*
+ * edge rather than the right — measured on the PGN dialog's Export tab at
+ * 320x568, where four buttons wanted 343px of a 320px screen: Close sat at
+ * x=-39 with its own centre off the screen, so a press aimed at the middle of
+ * the button landed on nothing.
+ *
+ * All three tabs, because they carry different numbers of actions and only the
+ * one with four ever overflowed.
+ */
+async function checkDialogActionsStayOnScreen(browser) {
+  const context = await browser.newContext({
+    viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true,
+  })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('[aria-label="Open PGN and FEN dialog"]').first().click()
+    await page.locator('.dialog-actions').first().waitFor({ timeout: 10000 })
+
+    const offScreen = tab => page.evaluate(() => {
+      const cut = []
+      for (const row of document.querySelectorAll('.dialog-actions')) {
+        if (row.getBoundingClientRect().height < 2) continue
+        for (const button of row.children) {
+          const box = button.getBoundingClientRect()
+          if (box.width < 2) continue
+          if (box.left < -0.5 || box.right > window.innerWidth + 0.5) {
+            cut.push(`"${(button.textContent || '').trim().slice(0, 20)}" [${Math.round(box.left)}..${Math.round(box.right)}]`)
+          }
+        }
+      }
+      return cut
+    })
+
+    for (const tab of [null, 'FEN', 'Export']) {
+      if (tab) {
+        await page.getByRole('button', { name: tab, exact: true }).first().click()
+        await page.waitForTimeout(300)
+      }
+      const cut = await offScreen(tab)
+      assert(cut.length === 0,
+        `320x568, ${tab ?? 'Import'} tab: dialog actions past the screen edge: ${cut.join(', ')}`)
+    }
+    console.log('  dialog actions: every button on screen at 320px, on all three tabs')
+  } finally { await context.close() }
+}
+
+/**
  * The board still has squares in Windows high contrast.
  *
  * `forced-colors: active` replaces every background and border with the
@@ -2536,6 +2589,7 @@ async function main() {
     await checkDrawModeEndsWithItsPurpose(browser)
     await checkEverySquareAnswersAFinger(browser)
     await checkHighContrastKeepsTheBoard(browser)
+    await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)
     await checkAutomaticAnalysisIsReused(browser)
     await checkOpeningTableStaysOutOfBoot(browser)
