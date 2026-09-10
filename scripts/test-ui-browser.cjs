@@ -1219,6 +1219,66 @@ async function checkReviewReportHoldsStill(browser) {
  * the library stores and what leaves the app.
  */
 /**
+ * Every square answers a finger, at the narrowest width the app supports.
+ *
+ * 320px is what `body { min-width: 320px }` claims, and it was the one size
+ * where the board did not fit the room the two bars left it. Measured before
+ * the fix at 320x568: the board opened at 294px in a 235px container, so ranks
+ * 1, 2 and 3 sat below the fold of the scroller -- both ranks of the reader's
+ * own pieces among them. A tap on e2 landed on `div.panel-content`, and the
+ * first move of a game could not be made until the reader thought to scroll a
+ * board that looked complete.
+ *
+ * Asked as "what does the page hand a press at this point", because that is the
+ * question a finger asks; a rectangle inside the viewport is not the same thing
+ * when something else is painted over it. 360x640 goes with it as the size that
+ * lost only rank 1, which a check on the narrowest size alone would have let
+ * back in.
+ */
+async function checkEverySquareAnswersAFinger(browser) {
+  for (const [width, height] of [[320, 568], [360, 640], [375, 812]]) {
+    const context = await browser.newContext({
+      viewport: { width, height }, isMobile: true, hasTouch: true,
+    })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const startFresh = page.getByRole('button', { name: /start fresh/i })
+      if (await startFresh.count()) await startFresh.first().click()
+      await page.locator('.board-surface').waitFor({ timeout: 10000 })
+      await page.waitForTimeout(600)
+
+      const unreachable = await page.evaluate(() => {
+        const surface = document.querySelector('.board-surface')
+        const missed = []
+        for (const square of document.querySelectorAll('[data-square]')) {
+          const box = square.getBoundingClientRect()
+          const x = box.left + box.width / 2
+          const y = box.top + box.height / 2
+          if (y < 0 || y > window.innerHeight || x < 0 || x > window.innerWidth) {
+            missed.push(`${square.getAttribute('data-square')} off-screen`)
+            continue
+          }
+          const hit = document.elementFromPoint(x, y)
+          if (!hit || !surface.contains(hit)) {
+            missed.push(`${square.getAttribute('data-square')} -> ${hit ? hit.tagName.toLowerCase() + '.' + String(hit.className).trim().split(/\s+/)[0] : 'nothing'}`)
+          }
+        }
+        const board = surface.getBoundingClientRect()
+        return { missed: missed.slice(0, 6), count: missed.length, board: Math.round(board.width) }
+      })
+      assert(unreachable.count === 0,
+        `${width}x${height}: ${unreachable.count} squares a finger cannot reach: ${unreachable.missed.join(', ')}`)
+      // Squares a finger can actually hit, which is the other half of fitting.
+      assert(unreachable.board / 8 >= 24,
+        `${width}x${height}: the board fits at ${unreachable.board}px, but its squares are ${(unreachable.board / 8).toFixed(1)}px`)
+      console.log(`  reach (${width}x${height}): all 64 squares answer a press, at ${Math.round(unreachable.board / 8)}px a square`)
+    } finally { await context.close() }
+  }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -2420,6 +2480,7 @@ async function main() {
     await checkReviewReportHoldsStill(browser)
     await checkDrillLeavesTheLineAlone(browser)
     await checkDrawModeEndsWithItsPurpose(browser)
+    await checkEverySquareAnswersAFinger(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)
     await checkAutomaticAnalysisIsReused(browser)
     await checkOpeningTableStaysOutOfBoot(browser)

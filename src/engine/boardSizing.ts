@@ -37,6 +37,16 @@ export const MOBILE_BREAKPOINT_PX = 900
 export const MIN_DESKTOP_BOARD_PX = 260
 /** Nor grows past this, however wide. */
 export const MAX_BOARD_PX = 800
+/**
+ * The smallest board a finger is still owed: eight squares of 24px, which is
+ * WCAG 2.5.8's target minimum.
+ *
+ * A phone short enough to need less than this cannot have both a board that
+ * fits the screen and squares that can be hit, and the choice is made here in
+ * favour of hitting them -- the board runs past the fold and the container
+ * scrolls, which is what it did at every size before.
+ */
+export const MIN_TOUCH_BOARD_PX = 8 * 24
 
 export type BoardViewport = {
   width: number
@@ -51,6 +61,16 @@ export type BoardSizingInput = {
   viewport: BoardViewport
   /** The stage's measured height: the space the board actually has. */
   stageHeight: number
+  /**
+   * The scrolling container the stage sits in, measured.
+   *
+   * On a phone the stage is `flex: none` and its height comes from the board
+   * inside it, so {@link stageHeight} answers "how tall did we draw it" rather
+   * than "how much room is there" -- it cannot cap anything without chasing its
+   * own tail. The container is `flex: 1` between the two bars, so its height is
+   * the room, and nothing the board does changes it.
+   */
+  containerHeight: number
   leftPanelWidth: number
   rightPanelWidth: number
   /** The evaluation column sits in flow beside the board when it is shown. */
@@ -114,6 +134,7 @@ export function boardHeightBudget(viewport: BoardViewport, stageHeight: number):
 export function boardSizing({
   viewport,
   stageHeight,
+  containerHeight,
   leftPanelWidth,
   rightPanelWidth,
   showEvalColumn,
@@ -125,11 +146,25 @@ export function boardSizing({
   // Mobile prefers finger-friendly squares while respecting narrow screens: a
   // share of the viewport height, unless the phone is on its side, where the
   // measured budget is all there is.
+  //
+  // The share is a preference and the container is the fact. `0.46 * height`
+  // with a 300px floor describes a phone whose bars leave room for it, and the
+  // narrowest ones do not: measured at 320x568, the top bar takes 236px of the
+  // screen and the bottom one 97, leaving 235 for a board the floor drew at
+  // 294. Three ranks opened below the fold of the scroller -- including both
+  // ranks of the reader's own pieces, so the first move of a game could not be
+  // made without scrolling first, on the narrowest width the app claims to
+  // support. Capping by the room fixes it at 216px there and changes nothing at
+  // 375px and up, where the width has always been the smaller cap.
+  const roomForBoard = boardHeightBudget(viewport, containerHeight)
   const mobileWidth = Math.min(
     Math.max(0, viewport.width - viewport.scrollbar - chromeWidth),
     isLandscapePhoneViewport(viewport)
       ? heightBudget
-      : Math.max(300, Math.round(viewport.height * 0.46)),
+      : Math.max(
+        MIN_TOUCH_BOARD_PX,
+        Math.min(Math.max(300, Math.round(viewport.height * 0.46)), roomForBoard),
+      ),
   )
 
   const width = Math.floor(mobile

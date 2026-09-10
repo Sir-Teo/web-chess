@@ -556,6 +556,13 @@ function App() {
   // The stage is sized by the row it sits in, never by the board inside it, so
   // it is safe to measure and size the board from.
   const stageHeight = useElementHeight(boardStageRef, viewport.height)
+  /**
+   * The room the stage has, which is not the same question as how tall it is.
+   * On a phone the stage takes its height from the board inside it, so it can
+   * only ever report what was already drawn; the container between the two bars
+   * is the number that says how much there is. See `boardSizing`.
+   */
+  const containerHeight = useElementHeight(mainContainerRef, viewport.height)
   const hasAutoOpenedAnalysisLeftRef = useRef(initialWorkspaceMode === 'analysis')
 
   // ── Engine settings ──────────────────────────────────
@@ -5441,6 +5448,7 @@ function App() {
   const { rendered: renderedBoardWidth, notationFontSizePx } = boardSizing({
     viewport,
     stageHeight,
+    containerHeight,
     leftPanelWidth: layoutLeftWidth,
     rightPanelWidth: rightWidth,
     showEvalColumn: engineEnabled,
