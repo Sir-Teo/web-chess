@@ -1007,6 +1007,42 @@ input[type="checkbox"] {
   margin: 0 auto;
 }
 
+/*
+ * A touch that starts on an empty square can never become a drag, so it has no
+ * reason to hold the browser back.
+ *
+ * `touch-action: none` on the whole board is what the drag sensor asks for, and
+ * on a phone it costs the reader most of the page. **Measured** at 390x844 with
+ * a game on: `.main-container` holds 1061px of content in 558px, and of
+ * thirteen sample heights down it only three scroll -- one strip above the
+ * board and two below. The board is the biggest thing on the screen and the
+ * natural place to put a thumb, and it answered a swipe with nothing.
+ *
+ * Only a square with a piece on it can start a drag. Handing the rest back to
+ * the browser costs nothing and is not a race: `touch-action` is intersected
+ * from the touched element up through its ancestors, so a piece's `none` still
+ * wins wherever a drag could actually begin, and the decision is made at
+ * touch-down rather than raced out over the first few pixels. Measured with a
+ * finger that starts slowly, 2px at a time: eight of eight drags in eight
+ * directions still play, three of three taps still select, all eight sampled
+ * empty squares scroll, and none of the six sampled squares holding a piece
+ * does.
+ *
+ * Behind `@supports` because without `:has()` there is no way to say "a square
+ * with a piece on it", and a browser that ignored only the second rule would
+ * hand the whole board to the scroller -- which is the one outcome worse than
+ * the dead zone this fixes.
+ */
+@supports selector(:has(*)) {
+  .board-wrap {
+    touch-action: pan-y;
+  }
+
+  .board-wrap [data-square]:has([data-piece], svg, img) {
+    touch-action: none;
+  }
+}
+
 /* Evaluation column: in flow beside the board so it can never be clipped */
 .eval-column {
   position: relative;

@@ -1465,6 +1465,108 @@ async function checkATapSurvivesTheFingerThatMakesIt(browser) {
 }
 
 /**
+ * The board is not a dead zone for the thumb.
+ *
+ * `touch-action: none` over the whole board is what the drag sensor asks for,
+ * and on a phone it costs the reader most of the page. Measured at 390x844 with
+ * a game on: `.main-container` holds 1061px of content in 558px, and of
+ * thirteen sample heights down it only three scrolled -- one strip above the
+ * board and two below. Only a square with a piece on it can start a drag, so
+ * the rest is handed back to the browser.
+ *
+ * What is pinned here is the rule rather than the gesture. `touch-action` is
+ * intersected from the touched element up through its ancestors, so three
+ * values decide the whole behaviour: the board pannable, a square with a piece
+ * on it not, and an empty square left alone. A scroll driven through
+ * `Input.synthesizeScrollGesture` was the first version of this check and had
+ * to go: it needs the compositor, and in a suite that has opened and closed a
+ * context for every check before this one the gesture reports success and
+ * scrolls nothing. That failure looks exactly like the defect, which is worse
+ * than not testing it here. The gesture itself was measured against this build
+ * outside the suite -- eight of eight empty squares scrolling, none of six
+ * squares holding a piece.
+ *
+ * The drag *is* driven, with real touch events, because it is the thing the
+ * three values exist to protect and `dispatchTouchEvent` needs no compositor.
+ */
+async function checkTheBoardIsNotADeadZone(browser) {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true,
+  })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    const passAndPlay = page.locator('button', { hasText: /Pass and play/ })
+    if (await passAndPlay.count()) await passAndPlay.first().click()
+    await page.locator('.board-surface').waitFor({ timeout: 10000 })
+    await page.waitForTimeout(600)
+
+    const rule = await page.evaluate(() => {
+      const touchAction = selector => {
+        const el = document.querySelector(selector)
+        return el ? getComputedStyle(el).touchAction : null
+      }
+      const main = document.querySelector('.main-container')
+      return {
+        hasSelector: CSS.supports('selector(:has(*))'),
+        withPiece: document.querySelectorAll('.board-wrap [data-square]:has([data-piece], svg, img)').length,
+        squares: document.querySelectorAll('.board-wrap [data-square]').length,
+        wrap: touchAction('.board-wrap'),
+        occupied: touchAction('#chessboard-square-e2'),
+        empty: touchAction('#chessboard-square-e4'),
+        emptyLabel: document.querySelector('#chessboard-square-e4')?.getAttribute('aria-label') || '',
+        scrollable: main ? main.scrollHeight - main.clientHeight : 0,
+      }
+    })
+
+    assert(rule.hasSelector, 'this Chromium has no :has(), so the rule under test cannot apply')
+    // The probe before the assertions: a selector matching every square or none
+    // would let all three pass while saying nothing.
+    assert(rule.squares === 64, `expected 64 squares, found ${rule.squares}`)
+    assert(rule.withPiece === 32,
+      `at the start position 32 squares hold a piece; the selector matched ${rule.withPiece}`)
+    assert(/empty/i.test(rule.emptyLabel), `e4 was meant to be empty and reads "${rule.emptyLabel}"`)
+    assert(rule.scrollable > 100,
+      `this check is about a page taller than its window; .main-container has ${rule.scrollable}px to scroll`)
+
+    assert(rule.wrap === 'pan-y', `the board should be pannable and computes touch-action: ${rule.wrap}`)
+    assert(rule.occupied === 'none',
+      `a square holding a piece must keep the gesture for the drag; e2 computes ${rule.occupied}`)
+    assert(rule.empty !== 'none',
+      `an empty square cannot start a drag and should not block a scroll; e4 computes ${rule.empty}`)
+
+    // And the thing those three exist to protect.
+    const client = await context.newCDPSession(page)
+    const squareAt = square => page.evaluate(name => {
+      const box = document.querySelector('#chessboard-square-' + name).getBoundingClientRect()
+      return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) }
+    }, square)
+    const before = await page.evaluate(() => document.querySelectorAll('.mtree-chip').length)
+    const from = await squareAt('e2')
+    const to = await squareAt('e4')
+    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x, y: from.y, id: 1 }] })
+    await page.waitForTimeout(50)
+    for (let step = 1; step <= 12; step++) {
+      await client.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x: Math.round(from.x + (to.x - from.x) * step / 12),
+          y: Math.round(from.y + (to.y - from.y) * step / 12), id: 1 }],
+      })
+      await page.waitForTimeout(16)
+    }
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    await page.waitForTimeout(500)
+    const after = await page.evaluate(() => document.querySelectorAll('.mtree-chip').length)
+    assert(after > before, 'dragging a piece stopped playing a move once empty squares could scroll')
+
+    console.log('  thumb: the board pans, a square with a piece on it keeps the drag, and the drag still plays')
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -2668,6 +2770,7 @@ async function main() {
     await checkDrawModeEndsWithItsPurpose(browser)
     await checkEverySquareAnswersAFinger(browser)
     await checkATapSurvivesTheFingerThatMakesIt(browser)
+    await checkTheBoardIsNotADeadZone(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)
