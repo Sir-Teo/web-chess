@@ -6934,8 +6934,17 @@ function App() {
         />
 
         {/* ── Right panel ── */}
+        {/* An <aside> is a landmark whether or not it is named, and this one was
+            not: a reader listing the page's landmarks was offered "complementary"
+            with nothing after it, for the panel holding every reading in the app.
+            Named from the heading it already carries rather than from a second
+            string invented for the purpose, so the landmark says "Analysis" or
+            "Play" -- whichever the panel is currently showing. The left panel
+            needs no such thing: an unnamed <section> is not exposed as a landmark
+            at all, so it adds no empty row to that list. */}
         <aside
           id="analysis-panel"
+          aria-labelledby="analysis-panel-title"
           className={`panel right ${rightPanelCollapsed ? 'panel-collapsed' : ''}`}
           ref={analysisPanelRef}
           aria-hidden={appModalOpen || promotionDialogOpen ? true : undefined}
@@ -6972,7 +6981,7 @@ function App() {
                 the stylesheet can take it back; the heading itself stays for
                 anything reading the document's structure. */}
             <header className={`panel-header analysis-header${workspaceMode === 'analysis' ? '' : ' panel-header-title-only'}`}>
-              <h2>{workspaceMode === 'analysis' ? 'Analysis' : 'Play'}</h2>
+              <h2 id="analysis-panel-title">{workspaceMode === 'analysis' ? 'Analysis' : 'Play'}</h2>
               {workspaceMode === 'analysis' && (
                 <div className="analysis-tab-strip">
                   {([
