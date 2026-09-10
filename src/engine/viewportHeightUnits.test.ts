@@ -5,6 +5,8 @@ import INDEX_CSS from '../index.css?raw'
 import COMMAND_PALETTE_CSS from '../components/CommandPaletteDialog.css?raw'
 import LIBRARY_CSS from '../components/LibraryDialog.css?raw'
 import NEW_GAME_CSS from '../components/NewGameDialog.css?raw'
+// The boot skeleton is styled in the document, so its heights are in here too.
+import INDEX_HTML from '../../index.html?raw'
 
 /**
  * Every height in this app is a share of the screen a reader can see.
@@ -45,6 +47,7 @@ const SHEETS: ReadonlyArray<readonly [string, string]> = [
   ['CommandPaletteDialog.css', COMMAND_PALETTE_CSS],
   ['LibraryDialog.css', LIBRARY_CSS],
   ['NewGameDialog.css', NEW_GAME_CSS],
+  ['index.html', INDEX_HTML],
 ]
 
 type Declaration = { sheet: string; line: number; property: string; text: string }
@@ -97,7 +100,7 @@ describe('viewport heights are measured against the visible screen', () => {
     // The probe before the assertion: a sweep that matched nothing would let
     // every case below pass without reading a single declaration.
     const all = SHEETS.flatMap(([name, css]) => staticViewportHeights(name, css))
-    expect(all.length).toBeGreaterThanOrEqual(11)
+    expect(all.length).toBeGreaterThanOrEqual(12)
     expect(new Set(all.map(d => d.sheet)).size).toBe(SHEETS.length)
   })
 

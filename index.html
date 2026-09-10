@@ -12,6 +12,77 @@
   <meta name="description"
     content="Web Chess — play, analyze and review your games with Stockfish right in the browser." />
   <title>Web Chess</title>
+  <style>
+    /* Painted with this file, so it needs nothing that is still downloading.
+       The board arrives when 214kB of stylesheet and JavaScript have landed
+       and React has mounted: measured on the production build at 390x844,
+       1651ms behind a 4G connection and 5446ms behind a 3G one, every one of
+       them a blank screen with no brand, no shape and no sign of progress.
+       The colours are the app's own defaults, and the page is already dark
+       before its stylesheet by way of the color-scheme meta above, so nothing
+       here changes what a reader sees once the real thing is up.
+
+       React's createRoot replaces everything inside #root on its first render,
+       so this needs no script to take it away.
+
+       The delay is the point of the opacity: a warm cache paints the real
+       board in about 110ms, and a skeleton that flashed by underneath it would
+       be worse than the nothing it replaces. 150ms clears that and no more --
+       the clock does not start until the render-blocking stylesheet has landed
+       and styles first resolve, so every millisecond of it is taken off the
+       far end, where the wait actually is. */
+    .boot {
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.25rem;
+      opacity: 0;
+      animation: boot-in 0.25s ease 0.15s forwards;
+    }
+
+    .boot-board {
+      width: min(93vw, 26rem);
+      aspect-ratio: 1;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background-color: rgba(255, 255, 255, 0.02);
+      /* One conic gradient with hard stops, not the two 45deg ones the recipe
+         for a checkerboard usually gives: those paint triangles, and at this
+         contrast the seam down every square reads as a bevel rather than as a
+         board. A cone quartered at a tile of 2x2 squares is an eighth of the
+         board each way. */
+      background-image: conic-gradient(
+        rgba(255, 255, 255, 0.05) 0 25%,
+        transparent 0 50%,
+        rgba(255, 255, 255, 0.05) 0 75%,
+        transparent 0);
+      background-size: 25% 25%;
+    }
+
+    .boot-name {
+      margin: 0;
+      font: 600 0.95rem/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(242, 243, 245, 0.42);
+      animation: boot-pulse 1.8s ease-in-out infinite;
+    }
+
+    @keyframes boot-in {
+      to { opacity: 1; }
+    }
+
+    @keyframes boot-pulse {
+      50% { color: rgba(242, 243, 245, 0.78); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .boot-name { animation: none; }
+    }
+  </style>
   <script type="module">
     // Registered for two reasons now: cross-origin isolation, which is what
     // makes multi-threaded Stockfish reachable on a host that cannot send
@@ -79,7 +150,12 @@
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <div class="boot" aria-hidden="true">
+      <div class="boot-board"></div>
+      <p class="boot-name">Web Chess</p>
+    </div>
+  </div>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 
