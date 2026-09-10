@@ -3,7 +3,8 @@ import { parse as parsePgn } from 'chess.js/src/pgn.js'
 import type { Node as ParsedPgnNode } from 'chess.js/src/node'
 import type { GameNode, GameTreeImportEntry } from '../hooks/useGameTree'
 import type { EvalSnapshot } from './analysis'
-import { hasLegalKingPlacement, looksLikeFen } from './fen'
+import { hasLegalKingPlacement } from './fen'
+import { looksLikeFen, looksLikeGameUrl } from './pastedText'
 
 const INITIAL_FEN = new Chess().fen()
 const PGN_TAG_NAME_PATTERN = /^[A-Za-z0-9_]+$/
@@ -25,11 +26,13 @@ export const PGN_EMPTY_IMPORT_ERROR = 'Paste a PGN game or choose a .pgn file be
 export const PGN_MULTIPLE_GAMES_ERROR = 'The board takes one game at a time, and this file holds several. Add them all to the library, or paste a single game.'
 export const PGN_NO_MOVES_IMPORT_ERROR = 'PGN import needs at least one legal move.'
 export const PGN_LOOKS_LIKE_FEN_ERROR = 'That is a FEN — one position, not a game. Load it from the FEN tab above.'
+export const PGN_LOOKS_LIKE_URL_ERROR = 'That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.'
 const PGN_IMPORT_USER_ERRORS = new Set([
     PGN_EMPTY_IMPORT_ERROR,
     PGN_MULTIPLE_GAMES_ERROR,
     PGN_NO_MOVES_IMPORT_ERROR,
     PGN_LOOKS_LIKE_FEN_ERROR,
+    PGN_LOOKS_LIKE_URL_ERROR,
 ])
 
 const QUALITY_EXPORT_LABELS: Record<NonNullable<GameNode['quality']>, string> = {
@@ -171,6 +174,7 @@ export function splitPgnGames(pgnText: string): string[] {
 
 export function pgnImportContentError(pgnText: string): string | null {
     if (!pgnText.trim()) return PGN_EMPTY_IMPORT_ERROR
+    if (looksLikeGameUrl(pgnText)) return PGN_LOOKS_LIKE_URL_ERROR
     if (looksLikeFen(pgnText)) return PGN_LOOKS_LIKE_FEN_ERROR
     return hasMultiplePgnGames(pgnText) ? PGN_MULTIPLE_GAMES_ERROR : null
 }

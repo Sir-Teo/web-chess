@@ -38,34 +38,6 @@ function findKingSquares(fen: string): { black: BoardSquare | null; white: Board
   return { black, white }
 }
 
-/**
- * Whether what was pasted is a position rather than a game.
- *
- * A FEN in the PGN box is the commonest wrong paste there is -- a position is
- * the thing chess sites hand you to copy -- and the parser's answer to it was
- * "Failed to parse PGN. Check the move text, headers, and move numbers", which
- * describes a game the reader did not paste and sends them looking for a fault
- * in the one thing they got right. The dialog they are standing in has a FEN
- * tab two rows above the box.
- *
- * Shape, not validity: a FEN with nine ranks or a bad castling field is still
- * a FEN the reader meant, and "that is a FEN" is the useful half of the answer
- * either way. One line, a board of eight ranks in the pieces' own letters, and
- * a side to move -- which is the least a thing has to look like before calling
- * it a FEN is more helpful than calling it a broken game.
- */
-export function looksLikeFen(text: string): boolean {
-    const trimmed = text.trim()
-    if (!trimmed || /[\r\n]/.test(trimmed)) return false
-    const fields = trimmed.split(/\s+/)
-    if (fields.length < 2 || fields.length > 6) return false
-    const [placement, sideToMove] = fields
-    if (sideToMove !== 'w' && sideToMove !== 'b') return false
-    const ranks = placement.split('/')
-    if (ranks.length !== 8) return false
-    return ranks.every(rank => /^[prnbqkPRNBQK1-8]+$/.test(rank))
-}
-
 export function hasLegalKingPlacement(fen: string): boolean {
   const { black, white } = findKingSquares(fen)
   if (!black || !white) return false
