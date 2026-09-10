@@ -4,7 +4,7 @@ A fourth sweep, after [the first](audit-2026-09.md),
 [the second](audit-2026-09-pass-2.md) and [the third](audit-2026-09-pass-3.md).
 The brief this time was narrower and, it turned out, deeper: the interface on a
 phone and on a desktop, read side by side at 320, 375, 390, 844×390, 1280 and
-1440, in both themes and at 100%, 150% and 200% text. Eighteen commits of
+1440, in both themes and at 100%, 150% and 200% text. Nineteen commits of
 changes, pushed, and this record.
 
 The same convention: **measured**, **reasoned**, or **refuted**. The refuted
@@ -21,8 +21,10 @@ untouched and its *Refuted* section still stands.
 ## What a reader could not see
 
 Ordered by what each cost. The first five are on both platforms, then the
-phone, where every row is already full, and last the two import boxes and the
-shared link, which are neither platform's in particular.
+phone, where every row is already full, then the two import boxes and the
+shared link, which are neither platform's in particular, and last the drill,
+which asks the reader a question and so has the most to lose by being out of
+sight.
 
 **The evaluation bar disagreed with everything beside it.** **Measured** on the
 start position at 1440×900 and 375×812: the bar gave White 8% of its height,
@@ -208,6 +210,42 @@ traded a density problem for an accessibility one — which is the reason this
 entry sat in *Left undone* for six commits, until it turned out both rows were
 already extracted as variables and the move was four lines.
 
+**A drill started out of sight.** Starting one turns the board round, plays the
+opponent's moves up to the first question, and waits for the reader to answer
+it. **Measured** at 375×812: the Drill button sits far enough down the panel
+that reaching it leaves the board 889px above the top of the container with none
+of it on the screen, and starting from there scrolled 154px *further* away. The
+board then sat waiting for a move nobody could see it asking for.
+
+Every sibling that hands the board back already reveals it — "Play from here",
+the review's practice button, and the review list since the ninth commit of this
+pass. `startDrill` was the one that did not, which is the pattern of the phone's
+remaining defects: not a missing mechanism, a caller that forgot to use the one
+already there.
+
+**And then refused moves without saying why.** A drill judges every move and
+says so in a card down the panel, which on a phone is below the fold.
+**Measured** at 375×812: playing d4 against a line that opens 1.e4 was refused
+with "Not the line. Try again." in a card nobody could see. The piece snapped
+back, and the strip above the board still read "White to move · Move 1" —
+exactly what it said before the move. A rejection with no reason anywhere on the
+screen is the app declining to explain itself.
+
+The review's practice mode had already answered this: it reports from the
+board's own strip, because a mode that judges the reader's moves has to report
+from where the moves are made. The drill now does the same, off the same three
+numbers the card reads, in the tones the review already uses, and ahead of the
+move number — while a drill runs, its verdict is the reading being acted on.
+Short, because the strip is a row of pills and this one shares the row with the
+turn: measured at 113..232 of a 276px row and fully visible. The card keeps the
+whole sentence, the revealed answer, and the Restart and Stop buttons.
+
+**Measured** over a whole drill afterwards, on the line `1. e4 e5 2. Nf3 Nc6`:
+the pill reads "Drill · 1/2" on start, "Not the line · 1/2" after d4, "Drill ·
+2/2" after e4, and "Drill · done" on Nf3 — each in its own tone, each carrying
+the sentence for a screen reader, and each wholly inside the strip rather than
+scrolled off the end of it.
+
 ---
 
 ## New
@@ -332,6 +370,18 @@ they name and their fallback; `touchDraw` over all sixty-four squares in both
 orientations; the three paste detectors, including every FEN judgement pinned
 unchanged beside them; and `hashCarriesShare` over the shapes a chat app makes
 of a link.
+
+Nine of the nineteen carry no unit test, and eight of those for one reason:
+where a reading sits on a phone, and whether the board is on the screen when it
+asks for a move, are not facts a module can answer — only a laid-out page can.
+The ninth is the last-move arrow's opacity, which is a judgement about what a
+translucent shape does to the pieces under it; a screenshot answers that and a
+number does not.
+
+The last two — the drill's reveal and its verdict pill — were checked by walking
+a whole drill at 375×812 and reading the pill's text, tone, spoken label and
+position in the strip after every move, because those four can only be wrong
+together.
 
 Everything above was measured in a real browser at a real size. Nothing in this
 pass was found by reading the code.
