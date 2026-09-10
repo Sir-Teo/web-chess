@@ -4,11 +4,13 @@ A fourth sweep, after [the first](audit-2026-09.md),
 [the second](audit-2026-09-pass-2.md) and [the third](audit-2026-09-pass-3.md).
 The brief this time was narrower and, it turned out, deeper: the interface on a
 phone and on a desktop, read side by side at 320, 375, 390, 844×390, 1280 and
-1440, in both themes. Eleven commits of changes, pushed, and this record.
+1440, in both themes and at 100%, 150% and 200% text. Seventeen commits of
+changes, pushed, and this record.
 
-The same convention: **measured**, **reasoned**, or **refuted**. Two entries
-in the refuted section cost real time and are the ones most worth keeping,
-because both were my own mistakes and one of them I had shipped.
+The same convention: **measured**, **reasoned**, or **refuted**. The refuted
+section is the longest of the four passes' and the one most worth keeping: two
+of its entries are my own mistakes, one of which I had shipped, and three more
+are defects I went looking for, measured, and did not find.
 
 The third pass left two things open. One of them — touch gestures for arrows
 and marks — is done here. The other, a weaker floor for the opponent, is
@@ -18,8 +20,9 @@ untouched and its *Refuted* section still stands.
 
 ## What a reader could not see
 
-Ordered by what each cost. The first five are on both platforms; the rest are
-the phone, where every row is already full.
+Ordered by what each cost. The first five are on both platforms, then the
+phone, where every row is already full, and last the two import boxes and the
+shared link, which are neither platform's in particular.
 
 **The evaluation bar disagreed with everything beside it.** **Measured** on the
 start position at 1440×900 and 375×812: the bar gave White 8% of its height,
@@ -124,6 +127,68 @@ too. Three presses on lists inside the panel did not: the review list, the
 Critical Moments rows, and the move tree in all three places it is drawn, which
 is every remaining way to move the board from the panel.
 
+**Four of the top bar's six controls disappeared at a larger text size.** The
+board sizing is rem-based on purpose — "at 150% text the old fixed pixel
+allowances were outgrown by the bars they were guessing at" — and the five icon
+buttons grow with it too. `justify-self: center` sizes a grid item to its
+content and centres it, so past about 125% the group was wider than the bar and
+hung out of both ends into a panel that clips. **Measured** at 375×812: at a
+20px root "New game" was 7px off the left edge; at 24px it sat at −46..20, two
+thirds of it gone; at 32px it and Flip were off the screen entirely while
+Commands was cut off the right. WCAG 1.4.4 asks for 200%. `max-width` holds the
+group inside its column and it scrolls there, wearing the same edges as the two
+strips below it — checked by scrolling to each button and clicking it, all five
+reachable at 16, 24 and 32px roots, all still 44px.
+
+Two rules in that block were dead and are why it took two tries: a `gap` and a
+button size on a plain `.mobile-actions` selector that same-specificity rules
+further down the file beat on source order. The first fix set `flex-shrink` on
+what turned out to be a *grid* item, and did nothing at all.
+
+**Both import boxes described the thing the reader had not pasted.** A position
+is what chess sites hand you to copy and a share link is one click, so a FEN or
+a URL in the PGN box are the two commonest wrong pastes there are — and both
+were answered with "Failed to parse PGN. Check the move text, headers, and move
+numbers", a fault in move numbers that were never there. The FEN box had the
+same fault mirrored: a game or a link pasted there was told to check its piece
+placement, side to move, castling rights and counters, four fields a game does
+not have. Each sent the reader hunting for a fault in the one thing they got
+right, while the tab they wanted sat a row or two above the box.
+
+Each box now says which of the three things it is. The detectors are
+deliberately shallow — telling a FEN from a game from a link needs no parser,
+and a FEN with a bad castling field is still the FEN the reader meant, so
+validity stays the other validator's job. A position wins the tie against a
+game, so a FEN is never misread as one. They land in the existing content
+checks, so the dialogs' live validation picks them up for free: the message
+appears as the text is pasted, the box is marked invalid, and the button
+disables before anything is pressed.
+
+Not fetching the link. The single-game endpoint exists here — the historical
+samples use it — but it is Lichess-only, and a chess.com link would have to fail
+differently after promising the same thing, which is a worse answer than a true
+sentence.
+
+**A mangled shared link said nothing at all.** **Measured** on the four shapes a
+link arrives in after a chat app has had it — truncated mid-FEN, a board with
+seven ranks, a position with no kings, and plain words — every one dropped the
+app to the starting position in Play mode in silence. The reader followed a link
+somebody sent them, got the default board, and is left to conclude the sender
+got it wrong. The cause is that both parsers answer `null` to "there was nothing
+here" and to "there was something here and it did not work", and those want
+different answers; `hashCarriesShare` tells them apart on the key alone. An
+empty `#fen=` stays silent, because a key with nothing after it is a stray
+character rather than a share.
+
+The message is held for six seconds rather than the receipt's 2.4. Every other
+notice is a receipt for something the reader just did — "FEN copied" — and can
+be missed without cost; this one explains why the board is not the one they were
+promised, and they have to read it to act on it.
+
+The shared *game* half of the hash already handled this well: `replaySharedGame`
+plays a truncated link as far as it really goes rather than throwing it away.
+This is the position half catching up.
+
 ---
 
 ## New
@@ -197,6 +262,26 @@ code found the invisible copy first and waited for it to become visible.
 `App.tsx` picks which one exists now, and only one of them is ever in the
 document.
 
+**The top bar's focus rings were not missing.** A tab-order probe reported
+eleven controls with no visible focus indicator, which would have been a WCAG
+2.4.7 failure across the whole bar. The probe looked at `outline` and
+`box-shadow`; the ring is drawn as a `border-color` change, and a screenshot
+shows it plainly. The 32 board tab stops beside them are not a defect either —
+the two skip links at the top of the tab order are exactly the standard answer,
+and they are already there.
+
+**Cloud evaluation and the tablebase were not failing silently.** Routing every
+`lichess.org` request to an abort and then to a 429 produced no visible
+complaint — because it produced no requests: both are opt-in, and neither had
+been turned on. Their error paths carry explicit messages, including the
+rate-limit one. Nothing to fix, and the measurement only says that the default
+build does not call them.
+
+**The Library needed nothing.** Five saves at both sizes with the awkward names
+— blank, duplicated, far too long, and a `<script>` tag. A whitespace-only name
+falls back to the suggested one, a duplicate becomes "Short (2)", a long one
+ellipsises, the tag renders as text, and the dialog overflows at neither size.
+
 ---
 
 ## Left undone
@@ -212,6 +297,11 @@ focus order from the visual one and trades a density problem for an
 accessibility one. It wants a DOM change, and a DOM change to that panel is
 larger than the rest of this pass put together. Left for a pass with room for
 it.
+
+**A bare username pasted into the PGN box.** It still gets the generic parse
+error. The dialog has a username field two rows above it, so the intent is
+guessable — but a single word could be anything, and a detector that guesses
+wrong is worse than the generic answer. Left alone deliberately.
 
 **A weaker floor for the opponent.** Untouched. The third pass's *Refuted*
 section is still the state of the art: the `UCI_Elo` limit is the right tool and
@@ -230,8 +320,11 @@ New tests, all computing their numbers rather than trusting them: the
 coordinates' ring against every scheme; the last-move ring's ΔE against every
 scheme and colour vision, beside the wash that would not have done; the
 evaluation bar's boundary against the curve the rest of the screen prints; the
-horizontal WDL bar's ramp direction; the scrolling strips' two edges and their
-fallback; and `touchDraw` over all sixty-four squares in both orientations.
+horizontal WDL bar's ramp direction; the scrolling strips' two edges, the strips
+they name and their fallback; `touchDraw` over all sixty-four squares in both
+orientations; the three paste detectors, including every FEN judgement pinned
+unchanged beside them; and `hashCarriesShare` over the shapes a chat app makes
+of a link.
 
 Everything above was measured in a real browser at a real size. Nothing in this
 pass was found by reading the code.
