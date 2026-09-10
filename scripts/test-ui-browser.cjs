@@ -2186,6 +2186,132 @@ async function checkBackClosesTheSheet(browser) {
 }
 
 /**
+ * The promotion chooser can be hit, and can be seen.
+ *
+ * Nothing had ever checked it: it exists only between a pawn reaching the last
+ * rank and the piece being chosen, so the suite's sweep of every control never
+ * met it. **Measured** on a white pawn on b7, promoting at five sizes: the
+ * Cancel button was 34px tall everywhere -- the one target in the app under
+ * the 44px floor the rest is swept against -- and sideways on a phone the four
+ * piece buttons were **31px wide at 844x390 and 27px at 667x375**, because the
+ * chooser is sized by the board and the board is 203px wide there.
+ *
+ * Widening it to the window in landscape then put it *behind* the analysis
+ * column, which `elementFromPoint` cheerfully denied: the press still landed,
+ * because hit-testing put the chooser on top, while the screenshot showed a
+ * sliver with a "Q" in it. `.board-stage` is `position: relative; z-index: 1`
+ * and `.panel` is `z-index: 4`, so nothing inside the stage can paint above a
+ * panel at any z-index of its own. The stage is lifted while the chooser is up.
+ *
+ * The visibility half is asserted as the rule that decides paint order:
+ * wherever the chooser overlaps a panel, the stage it lives in has to sit
+ * above that panel. Comparing pixels was tried first and is worthless here --
+ * the panels re-render when the position changes, so the rectangle differs
+ * between "chooser up" and "chooser gone" whether or not anything of the
+ * chooser was ever drawn in it. It passed with the fix backed out.
+ */
+async function checkThePromotionChooserCanBeHit(browser) {
+  // A white pawn one square from promoting, kings far apart.
+  const FEN = '8/1P6/8/k7/8/8/8/7K w - - 0 1'
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+    const client = await context.newCDPSession(page)
+
+    const openChooser = async () => {
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      await page.locator('.dialog-panel').waitFor({ timeout: 15000 })
+      await page.getByRole('button', { name: /^FEN$/ }).click()
+      await page.waitForTimeout(300)
+      await page.locator('.dialog-section textarea').first().fill(FEN)
+      await page.waitForTimeout(250)
+      await page.getByRole('button', { name: /Load & Analyze/i }).first().click()
+      await page.waitForTimeout(1200)
+      await page.locator('#chessboard-square-b7').click()
+      await page.waitForTimeout(200)
+      await page.locator('#chessboard-square-b8').click()
+      await page.locator('.promotion-chooser').waitFor({ timeout: 15000 })
+      await page.waitForTimeout(500)
+    }
+
+    for (const [w, h] of [[1440, 900], [390, 844], [320, 568], [844, 390], [667, 375]]) {
+      await page.setViewportSize({ width: w, height: h })
+      await page.waitForTimeout(300)
+      await openChooser()
+
+      const buttons = await page.evaluate(() =>
+        [...document.querySelectorAll('.promotion-chooser button')].map(b => {
+          const r = b.getBoundingClientRect()
+          return {
+            label: (b.getAttribute('aria-label') || b.textContent || '').trim().slice(0, 20),
+            w: Math.round(r.width), h: Math.round(r.height),
+            x: Math.round(r.left), y: Math.round(r.top),
+          }
+        }))
+      assert(buttons.length === 5, `the chooser has ${buttons.length} buttons, not four pieces and a cancel`)
+      for (const b of buttons) {
+        assert(b.w >= 44 && b.h >= 44,
+          `at ${w}x${h} "${b.label}" is ${b.w}x${b.h} -- under the 44px this app holds every other control to, ` +
+          'on the press that decides what a pawn becomes')
+      }
+
+      // Where the chooser overlaps a panel, the stage has to paint above it.
+      // Only where it overlaps: inside the board, which is everywhere but
+      // landscape, the stage sitting under the panels is correct and asserting
+      // otherwise would fail on a layout that is fine.
+      const clashes = await page.evaluate(() => {
+        const shell = document.querySelector('.app-shell')
+        const stage = document.querySelector('.board-stage')
+        const zOf = el => Number(getComputedStyle(el).zIndex) || 0
+        // The stage and the panels are not siblings -- .panel.bottom hangs off
+        // the shell while .panel.left hangs off .main-container -- so a flat
+        // comparison of their z-indexes is only meaningful while nothing
+        // between them and the shell starts a stacking context of its own.
+        const starts = el => {
+          const s = getComputedStyle(el)
+          return (s.position !== 'static' && s.zIndex !== 'auto') || s.transform !== 'none' ||
+            s.filter !== 'none' || (s.backdropFilter && s.backdropFilter !== 'none') ||
+            s.isolation === 'isolate' || Number(s.opacity) < 1 || s.mixBlendMode !== 'normal' ||
+            (s.willChange && /transform|opacity|filter/.test(s.willChange)) ||
+            (s.contain && /paint|layout|strict|content/.test(s.contain))
+        }
+        const between = []
+        for (let el = stage.parentElement; el && el !== shell; el = el.parentElement) {
+          if (starts(el)) between.push(String(el.className).slice(0, 24))
+        }
+        const chooser = document.querySelector('.promotion-chooser').getBoundingClientRect()
+        const out = { flatComparison: between.length === 0, between, clashes: [] }
+        for (const panel of document.querySelectorAll('.panel')) {
+          const r = panel.getBoundingClientRect()
+          const overlaps = chooser.left < r.right && chooser.right > r.left &&
+            chooser.top < r.bottom && chooser.bottom > r.top
+          if (overlaps && zOf(panel) >= zOf(stage)) {
+            out.clashes.push({ panel: String(panel.className).slice(0, 24), panelZ: zOf(panel), stageZ: zOf(stage) })
+          }
+        }
+        return out
+      })
+      assert(clashes.flatComparison,
+        `${JSON.stringify(clashes.between)} now starts a stacking context between the board stage and the ` +
+        'shell, so comparing the stage and the panels by z-index alone proves nothing')
+      assert(clashes.clashes.length === 0,
+        `at ${w}x${h} the chooser reaches over ${JSON.stringify(clashes.clashes)} -- everything inside the ` +
+        'stage paints under a panel with a higher z-index, whatever the chooser asks for itself')
+
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(400)
+    }
+
+    console.log('  promotion: every choice clears 44px at five sizes, and is painted where it is pressed')
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -3397,6 +3523,7 @@ async function main() {
     await checkABigFileIsDescribedNotShown(browser)
     await checkADroppedPgnIsTaken(browser)
     await checkBackClosesTheSheet(browser)
+    await checkThePromotionChooserCanBeHit(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)

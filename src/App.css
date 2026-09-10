@@ -1245,7 +1245,10 @@ input[type="checkbox"] {
 
 .promotion-cancel {
   grid-column: 1 / -1;
-  min-height: 34px;
+  /* 44px like every other control here. At 34 it was the one target in the
+     chooser under the floor the rest of the app is swept against, and it is
+     the one pressed by somebody who has just moved a pawn they meant to keep. */
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4758,6 +4761,34 @@ button.critical-moment-row {
 @media (max-width: 900px) and (max-height: 520px) and (orientation: landscape) {
   :root {
     --stage-pad-y: 0.5rem;
+  }
+
+  /* The chooser is sized by the window here, not by the board.
+     Sideways on a phone the board is 203px wide, so four columns inside it are
+     31px each -- measured at 844x390, and 27px at 667x375, for the press that
+     decides what a pawn becomes. Fixed to the window it is the same 420px it
+     is everywhere else, and each choice is 94px. */
+  .promotion-overlay {
+    position: fixed;
+    /* Widening it to the window is what makes this necessary. At 169px it sat
+       inside the board and cleared the panels by geometry alone; at 420px it
+       runs under them. Measured with the z-index left at 6: still clickable,
+       because hit-testing put it on top, and painted behind the analysis
+       column, so what a reader saw was a sliver with a "Q" in it. 3000 is
+       where this app's other dialogs sit, which is what this is. */
+    z-index: 3000;
+    border-radius: 0;
+  }
+
+  /* And the stage has to come up with it. `.board-stage` is `position:
+     relative; z-index: 1` and `.panel` is `z-index: 4`, so everything inside
+     the stage paints under the panels whatever its own z-index -- measured
+     with the overlay at 3000, still drawn behind the analysis column. Only
+     while the chooser is up, so nothing else about the stacking of the board
+     against the panels changes. 2500 covers the top bar at 2000 the way a
+     modal should, and stays under the dialogs at 3000. */
+  .board-stage.promoting {
+    z-index: 2500;
   }
 
   .main-container {

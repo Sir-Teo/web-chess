@@ -558,6 +558,51 @@ the defect it fixes: after a sheet is opened and closed the ordinary way, **one
 more Back still leaves the app**. A history trap would pass every assertion
 about closing sheets.
 
+**The promotion chooser was too small to hit, sideways.** Nothing had ever
+checked it: it exists only between a pawn reaching the last rank and the piece
+being chosen, so the suite's sweep of every control has never met it.
+**Measured** on a white pawn on b7 at five sizes:
+
+| viewport | each piece | Cancel |
+|---|---|---|
+| 1440x900 | 94x91 | 398x**34** |
+| 390x844 | 65x91 | 284x**34** |
+| 320x568 | 48x91 | 214x**34** |
+| 844x390 | **31**x91 | 147x**34** |
+| 667x375 | **27**x91 | 134x**34** |
+
+Cancel was under the 44px floor everywhere — the one target in the app the
+sweep could not see — and sideways on a phone the four piece buttons were 31px
+and 27px wide, because the chooser is sized by the board and the board is 203px
+wide there. That is the press that decides what a pawn becomes.
+
+Cancel is 44px, and in landscape the chooser is sized by the window instead of
+by the board: 94px a choice at both landscape sizes, everything else unchanged.
+Everything the chooser already did well it still does — it appears in under
+450ms, sits wholly on screen at every size, opens with focus on Queen, and
+Escape puts the pawn back on b7.
+
+**Widening it put it behind the analysis column**, and two probes in a row said
+otherwise. `elementFromPoint` reported the buttons on top and a real click
+landed on them — hit-testing did put the chooser first — while the screenshot
+showed a sliver with a "Q" in it and the panel over the rest. `.board-stage` is
+`position: relative; z-index: 1` and `.panel` is `z-index: 4`, so nothing
+inside the stage paints above a panel whatever z-index it asks for; the
+overlay's own 3000 changed nothing at all. The stage is lifted to 2500 while a
+promotion is pending, and only then.
+
+Comparing **pixels** was the second wrong answer. Capturing the same rectangle
+with the chooser up and again once it is gone, and requiring them to differ,
+passes with the fix backed out: the panels re-render when the position changes,
+so that rectangle differs either way. What is asserted instead is the rule that
+decides paint order — wherever the chooser overlaps a panel, the stage must sit
+above it — which fires at 844x390 and 667x375, names both panels, and stays
+silent at 390x844 where the chooser is inside the board and the stage being
+underneath is correct. It is guarded in turn: a flat comparison of z-indexes
+across two different parents is only meaningful while nothing between the stage
+and the shell starts a stacking context, and the check says so and fails if
+that stops being true.
+
 ---
 
 ## Refuted
@@ -584,6 +629,13 @@ except the two skip links, which are off it until they are focused.
 app's own import: the dialog opens in ~0.5s, renders 100 rows a page, filters
 on every keystroke without a keystroke costing more than 80ms, and scrolling
 the whole list holds at a 52ms worst frame -- all at 4x CPU.
+
+**Motion the reader asked not to see.** With `prefers-reduced-motion: reduce`
+emulated, every element on the board, the PGN dialog, the library and the
+command palette was swept for a computed animation or transition longer than
+50ms: **zero**, on all four, and none of them outside `.app-shell`, which is
+what the blanket rule is scoped to. The same sweep with the preference off
+finds 56 to 68, so it discriminates.
 
 **The meta strip's clipped move number.** In landscape the strip is the board's
 width, 203px, and its two remaining readings want 138px in the 120px left

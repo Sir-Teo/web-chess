@@ -6718,7 +6718,7 @@ function App() {
         {/* ── Board ── */}
         <section
           id="chessboard-stage"
-          className={`board-stage ${blindfold ? 'blindfold' : ''}`}
+          className={`board-stage ${blindfold ? 'blindfold' : ''} ${pendingPromotion ? 'promoting' : ''}`}
           aria-label="Chessboard"
           aria-hidden={appModalOpen ? true : undefined}
           inert={appModalOpen ? true : undefined}
