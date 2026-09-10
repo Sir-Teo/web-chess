@@ -4249,8 +4249,21 @@ button.critical-moment-row {
     justify-content: center;
   }
 
+  /* Three long labels, one row, and the wrapper scrolls when they do not fit.
+     Wrapping instead cost a whole row of the bar on the narrowest phone the app
+     supports -- **measured** at 320x568: the group stood 99px tall with "AI vs
+     AI" alone on the second line stretched to 280px, and the bar 236px of a
+     568px screen. One row brings it to 189px, which is what the same bar
+     measures at 375px, and hands those 47px to the board.
+     `min-width: max-content` on the pills is what makes it safe: they still
+     grow to share a row that fits, and refuse to shrink below their label when
+     it does not, so the row overflows into the scroll the wrapper already has
+     rather than truncating the mode a player is reading. Without it all three
+     clip at 320px, which is the thing the rules around this one exist to stop.
+     Nothing moves at 375px and up, where the group has always been one row. */
   .top-mode-pills[aria-label="Game mode"] {
     flex-basis: 17rem;
+    flex-wrap: nowrap;
   }
 
   .app-shell[data-workspace-mode="analysis"] .top-mode-pills[aria-label="Game mode"] {
@@ -4259,7 +4272,7 @@ button.critical-moment-row {
 
   .top-mode-pills[aria-label="Game mode"] .gc-pill {
     flex: 1 1 auto;
-    min-width: 0;
+    min-width: max-content;
     padding-left: 0.35rem;
     padding-right: 0.35rem;
     text-align: center;
