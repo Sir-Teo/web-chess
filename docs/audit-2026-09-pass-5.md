@@ -448,6 +448,28 @@ looking odd — they looked entirely plausible. Every fixture since is checked
 against `parsePgnMoveTree` before it is measured with, and the checker is itself
 shown rejecting the bad one.
 
+**"Up to 5 MB" refused a 4.86 MB file.** Two ceilings guard the import and they
+were not the same number: the file is checked at `5 * 1024 * 1024` bytes, and
+the text it decodes to at a round `5_000_000` characters — 4.77 MiB. A PGN is
+one byte a character, so everything in the 243 KB between them passed the size
+check, was read into memory in full, and was then refused by a sentence naming
+a limit it was under. **Measured**: a 5,100,051-byte export, 4.86 MB by the
+reader's own file manager, answered "PGN import supports one game up to 5 MB.
+Choose a smaller file." There is no smaller file to choose and no way to work
+out what would be small enough.
+
+The character ceiling is now the byte ceiling, so the sentence is true: a
+5,120,020-byte file that used to be turned away now opens (15,145 games, offered
+to the library), and a 5,300,090-byte one is still refused, which is what "up to
+5 MB" means. UTF-8 spends at least one byte a character, so this gate never lets
+through anything the byte gate would have caught.
+
+Both existing tests for the limit passed throughout, and could not have done
+anything else: each builds its input out of `MAX_PGN_IMPORT_CHARS` and so moves
+with it, however far it drifts from the size the reader is told about. The guard
+added is measured against the *sentence* — it reads the number out of the
+message and requires a file of exactly that size to be accepted.
+
 ---
 
 ## Refuted
