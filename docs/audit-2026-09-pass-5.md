@@ -285,11 +285,22 @@ a condition another pass then changed, and nothing connected the two. Every
 entry in this section is a claim about the app *as it stands*, and this one
 stopped being true the moment a different commit landed.
 
-**One blocking touch listener, and it is not ours.** react-chessboard's dnd-kit
-`TouchSensor.setup()` registers a *noop* `touchmove` on `window` with
-`passive: false` — its documented workaround so `preventDefault()` works in
-dynamically added handlers on iOS Safari. Removing it would break dragging a
-piece.
+**One blocking touch listener, and it costs nothing measurable.**
+react-chessboard's dnd-kit `TouchSensor.setup()` registers a *noop* `touchmove`
+on `window` with `passive: false` — its documented workaround so
+`preventDefault()` works in dynamically added handlers on iOS Safari. Removing
+it would break dragging a piece, so it stays; the question was what it costs.
+Until the board could scroll at all there was no surface to measure it on.
+Now there is: swiping up from an empty square, eight times each way, the touch
+reaches the scroller in a median **40ms as shipped and 41ms with every touch
+listener forced passive** — no difference.
+
+The case where a blocking listener costs the most, a main thread already busy,
+**cannot be measured with this instrument at all**: any `setInterval` spinning
+on the thread stops `Input.synthesizeScrollGesture` from scrolling anything, in
+every configuration, at 12ms of work in every 60 as readily as at 40. That is
+recorded rather than reported as a result, because "nothing scrolled" reads
+identically to the defect.
 
 **The engine reboots on every switch into Analysis.** **Measured** with the
 real engine: 484, 461, 460, 459ms, four times running. Keeping it warm across
@@ -300,6 +311,17 @@ reader is told it is loading while it happens.
 **A phone shorter than about 500px still scrolls to its back rank**, and **a
 small phone on its side gets squares under 24px**. Both carried over unchanged
 from the fourth pass, where the reasoning is.
+
+They were re-measured here, because sizing the shell in `dvh` gives the board
+*less* room than the fourth pass had: on a phone showing its chrome the shell is
+now the 60 to 115px shorter thing it always should have been. A headless
+viewport of H is exactly what `dvh` resolves to, so the small height is how that
+phone is reproduced. The board does shrink — 367 to 343px on an iPhone 15, 307
+to 212 on an SE, 288 to 192 on a small Android, 216 to 192 at 320 wide — and at
+every one of those heights the squares are **24px or more**, the back rank is
+reachable, and the move-navigation bar is on the screen. Two of them land on
+24.0px exactly, which is the floor from the fourth pass doing its job rather
+than a coincidence. Nothing went under it.
 
 ---
 
