@@ -4,6 +4,8 @@ import { Chess } from 'chess.js'
 import { type EvalSnapshot, buildReviewRows as buildReviewRowsForTest } from './analysis'
 import {
   PGN_EMPTY_IMPORT_ERROR,
+  PGN_INVALID_MOVE_ERROR_PREFIX,
+  PGN_LOOKS_LIKE_FEN_ERROR,
   PGN_MULTIPLE_GAMES_ERROR,
   PGN_NO_MOVES_IMPORT_ERROR,
   clockCommentValue,
@@ -14,6 +16,7 @@ import {
   hasMultiplePgnGames,
   parsePgnMoveTree,
   pgnImportContentError,
+  pgnImportUserErrorMessage,
   reorderPgnAnnotations,
   rootFenFromPgnHeaders,
   splitPgnGames,
@@ -1230,4 +1233,62 @@ describe('lossless study directives', () => {
     expect(entry.clockMs).toBe(180000)
     expect(entry.pgnCommands).toEqual(['[%cal Ge2e4]'])
   })
+})
+
+/**
+ * A refused paste says which move refused it.
+ *
+ * Every other reason this dialog turns a paste away names the thing that is
+ * wrong and what to do instead -- a FEN, a link, several games in one file. A
+ * move the parser could not play said "Failed to parse PGN. Check the move
+ * text, headers, and move numbers", which is three things to check and no clue
+ * which, on the one failure where the parser knew the exact answer.
+ *
+ * It could not say so because the messages a reader is allowed to see are
+ * matched exactly against a fixed set, and this one carries the move in it and
+ * so is different every time.
+ */
+describe('a PGN that breaks on a move says which one', () => {
+    it('names the move in the message a reader sees', () => {
+        const message = pgnImportUserErrorMessage(new Error(`${PGN_INVALID_MOVE_ERROR_PREFIX}Qh9`))
+        expect(message).not.toBeNull()
+        expect(message).toContain('Qh9')
+    })
+
+    it('comes back for a real paste, not just a hand-made error', () => {
+        // Half a copied game, which is what this failure looks like in the wild.
+        let thrown: unknown = null
+        try {
+            parsePgnMoveTree('[Event "x"]\n\n1. e4 e5 2. Nf')
+        } catch (error) {
+            thrown = error
+        }
+        expect(thrown).toBeInstanceOf(Error)
+        expect(pgnImportUserErrorMessage(thrown)).toContain('Nf')
+    })
+
+    it('leaves text that is not move-shaped to the general message', () => {
+        // Nothing here names a move, so there is nothing better to say than
+        // what was already being said.
+        let thrown: unknown = null
+        try {
+            parsePgnMoveTree('hello, this is not a chess game at all')
+        } catch (error) {
+            thrown = error
+        }
+        expect(thrown).toBeInstanceOf(Error)
+        expect(pgnImportUserErrorMessage(thrown)).toBeNull()
+    })
+
+    it('does not quote back a whole paste dressed as a move', () => {
+        const long = 'x'.repeat(400)
+        const message = pgnImportUserErrorMessage(new Error(`${PGN_INVALID_MOVE_ERROR_PREFIX}${long}`))
+        expect(message!.length).toBeLessThan(140)
+        expect(message).toContain('…')
+    })
+
+    it('leaves the other refusals exactly as they were', () => {
+        expect(pgnImportUserErrorMessage(new Error(PGN_LOOKS_LIKE_FEN_ERROR))).toBe(PGN_LOOKS_LIKE_FEN_ERROR)
+        expect(pgnImportUserErrorMessage(new Error('something internal'))).toBeNull()
+    })
 })

@@ -316,6 +316,33 @@ exempts them by shape rather than by name, counts the exemption, and asserts the
 count is not zero, so an exemption that stopped matching fails rather than
 hiding a real target.
 
+**A refused paste now says which move refused it.** Ten kinds of bad input were
+fed to the import box and the message read back. Two of them are as good as this
+app gets: a FEN pasted into the PGN box answers "That is a FEN — one position,
+not a game. Load it from the FEN tab above", and a link answers "That is a link
+to a game, not the game." Both name what is wrong and what to do instead, and
+both refuse before the button is even enabled.
+
+Four others -- prose, a game cut off mid-move, a move that cannot be played, and
+a huge repeated string -- all came back with the same sentence: "Failed to parse
+PGN. Check the move text, headers, and move numbers." Three things to check, no
+clue which, on failures that are nothing like each other.
+
+The parser knew more than that for two of the four. A paste cut off mid-move --
+"1. e4 e5 2. Nf" and nothing after it, which is what half a copied game looks
+like -- throws `Invalid move: Nf`, with the offending token in it. It could not
+get out because the messages a reader is allowed to see are matched **exactly**
+against a fixed set, and this one is different every time. Matched by prefix
+instead, the same paste now answers *"Nf" is not a legal move where it appears.
+Everything before it read fine, so start there.*
+
+The other two keep the general message and should: text that is not move-shaped
+fails chess.js's grammar rather than any move, and there is no move to name. The
+prefix belongs to a dependency, so it is matched deliberately loosely -- if the
+wording ever changes this stops matching and the message falls back to the one
+that was shown before, which is the thing being improved on rather than
+something worse.
+
 **The header's "+N" is the material, and it is right.** Computed from the
 board's own labels at seven plies of the sample game and compared with the badge
 beside the move number: **6, 4, 5, 3, 3, 3 — matching every time**, and no badge

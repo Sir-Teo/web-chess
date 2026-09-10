@@ -27,6 +27,44 @@ export const PGN_MULTIPLE_GAMES_ERROR = 'The board takes one game at a time, and
 export const PGN_NO_MOVES_IMPORT_ERROR = 'PGN import needs at least one legal move.'
 export const PGN_LOOKS_LIKE_FEN_ERROR = 'That is a FEN — one position, not a game. Load it from the FEN tab above.'
 export const PGN_LOOKS_LIKE_URL_ERROR = 'That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.'
+
+/**
+ * The move a game broke on, carried in the thrown message.
+ *
+ * Every other reason a paste is refused says what is wrong with it and what to
+ * do instead. A move the parser cannot play said only "Failed to parse PGN.
+ * Check the move text, headers, and move numbers" -- three things to check and
+ * no clue which. The parser has always known the answer; it just could not get
+ * it out, because the messages a reader is allowed to see are matched exactly
+ * against a fixed set and this one is different every time.
+ */
+export const PGN_INVALID_MOVE_ERROR_PREFIX = 'Invalid move in PGN: '
+
+/**
+ * chess.js's own way of saying the same thing, which is the one a reader
+ * actually reaches.
+ *
+ * A move this parser cannot play is usually rejected before it gets here: a
+ * paste cut off mid-move -- "1. e4 e5 2. Nf" and nothing after it, which is what
+ * half a copied game looks like -- comes back as `Invalid move: Nf` from the
+ * library. Text that is not move-shaped at all fails the grammar instead and
+ * has nothing to name, so it keeps the general message.
+ *
+ * Matching a dependency's wording is brittle on purpose: if it ever changes,
+ * this stops matching and the message falls back to the one that was shown
+ * before, which is the behaviour being improved on rather than something worse.
+ */
+const CHESS_JS_INVALID_MOVE_PREFIX = 'Invalid move: '
+
+/** The longest move text worth quoting back; a paste can put anything here. */
+const QUOTED_MOVE_LIMIT = 20
+
+export function pgnInvalidMoveUserMessage(moveSan: string): string {
+    const trimmed = moveSan.trim()
+    const quoted = trimmed.length > QUOTED_MOVE_LIMIT ? `${trimmed.slice(0, QUOTED_MOVE_LIMIT)}…` : trimmed
+    return `"${quoted}" is not a legal move where it appears. Everything before it read fine, so start there.`
+}
+
 const PGN_IMPORT_USER_ERRORS = new Set([
     PGN_EMPTY_IMPORT_ERROR,
     PGN_MULTIPLE_GAMES_ERROR,
@@ -181,6 +219,12 @@ export function pgnImportContentError(pgnText: string): string | null {
 
 export function pgnImportUserErrorMessage(error: unknown): string | null {
     if (!(error instanceof Error)) return null
+    for (const prefix of [PGN_INVALID_MOVE_ERROR_PREFIX, CHESS_JS_INVALID_MOVE_PREFIX]) {
+        // The app's own prefix is checked first: it also begins "Invalid move".
+        if (error.message.startsWith(prefix)) {
+            return pgnInvalidMoveUserMessage(error.message.slice(prefix.length))
+        }
+    }
     return PGN_IMPORT_USER_ERRORS.has(error.message) ? error.message : null
 }
 
@@ -630,7 +674,7 @@ function buildImportEntry(
 
     const nextPosition = new Chess(position.fen())
     const move = nextPosition.move(moveSan)
-    if (!move) throw new Error(`Invalid move in PGN: ${moveSan}`)
+    if (!move) throw new Error(`${PGN_INVALID_MOVE_ERROR_PREFIX}${moveSan}`)
 
     const importedEvaluation = evaluationFromComment(nextPosition.fen(), moveNode.comment)
     if (importedEvaluation) {
