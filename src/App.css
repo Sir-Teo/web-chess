@@ -4525,13 +4525,20 @@ button.critical-moment-row {
   }
 
   /* "Play" and "Analysis" read on their own; dropping the decorative icons buys
-     the width that keeps the whole bar visible without scrolling. */
+     the width that keeps the whole bar visible without scrolling.
+     44px rather than the 2.5rem this used to ask for, which came out at 40 --
+     four short of what every other control on a phone here is held to, on the
+     row that *is* the navigation. **Measured** at 375x667, 375x564, 360x540,
+     320x568 and 320x480: the bar goes from 46 to 50px tall, never wraps, and
+     the board's squares lose between nothing and half a pixel. Neither of the
+     two sizes already sitting on the 24px floor moves off it. */
   .watch-controls button.wc-btn {
-    min-width: 2.5rem;
-    min-height: 2.5rem;
+    min-width: 44px;
+    min-height: 44px;
     padding: 0.35rem 0.55rem;
     font-size: 1.15rem;
   }
+
 
   .watch-controls {
     flex-wrap: wrap;
@@ -6190,11 +6197,16 @@ button.hint-btn {
     margin-left: auto;
   }
 
+  /* This whole block only exists for a coarse pointer, so its entire audience
+     is fingers -- and it asked for 2.25rem, which is 36px. **Measured** at
+     375x667 before: 61x36, eight short of the bar every other control on a
+     phone is held to, on the switch that decides whether a press draws an
+     arrow or moves a piece. */
   .board-draw-controls button {
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    min-height: 2.25rem;
+    min-height: 44px;
     padding: 0 0.55rem;
     border: 1px solid var(--border-default);
     border-radius: var(--radius-pill);

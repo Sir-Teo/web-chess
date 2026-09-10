@@ -1595,22 +1595,29 @@ async function checkTheBoardIsNotADeadZone(browser) {
 }
 
 /**
- * The command palette is made of things a finger can hit.
+ * Every control a finger has to hit is a finger wide.
  *
- * The 44px sweep ran over App.css and this dialog's styles are in a file of
- * their own, so it was missed. Measured at 375x564 before the fix: the search
- * field was 343x21 carrying `padding: 1px 2px`, which is the user agent's own
- * and means it had never been given any, and the command rows came out at 42px
- * -- two short of the bar every other control on a phone is held to.
+ * The fourth pass put `min-height: 44px` on fourteen selectors and **every one
+ * of them is in App.css**, so anything styled elsewhere was never in that
+ * sweep, and two things styled *inside* App.css were missed for having their
+ * own selector. Measured at 375x667 before this: the command palette's search
+ * field 343x**21** carrying the user agent's own padding, its 33 rows at 42px,
+ * the library's search 343x**32**, its four sort buttons at 32, its rename
+ * field and Save at 36, its per-row actions at 30, the bottom bar's four
+ * navigation buttons and Autoplay at **40**, and the Draw switch at 36 -- that
+ * last one from a rule inside `@media (pointer: coarse)`, which is to say a
+ * rule whose entire audience is fingers, asking for 2.25rem.
  *
- * The rows are asserted as a set rather than one of them, because they are
- * generated from a list and a single sampled row says nothing about the rest.
- * Desktop is deliberately not checked: 44px is a touch standard, and every
- * other rule of its kind in this app is scoped to the phone breakpoint too.
+ * So the check is a sweep rather than a list of selectors: a list is what let
+ * this happen. Two things are filtered rather than ignored, because both look
+ * exactly like a defect and neither is one -- a tick box of 20.8px inside a
+ * 335x44 label is a 335x44 target, and a piece inside its square is not a
+ * target at all, the square is, and the board has a floor of its own at 24px.
+ * Both filters are counted and printed so a future reader can see them working.
  */
-async function checkThePaletteIsFingerSized(browser) {
+async function checkEveryControlIsFingerSized(browser) {
   const context = await browser.newContext({
-    viewport: { width: 375, height: 564 }, isMobile: true, hasTouch: true,
+    viewport: { width: 375, height: 667 }, isMobile: true, hasTouch: true,
   })
   const page = await context.newPage()
   try {
@@ -1618,33 +1625,75 @@ async function checkThePaletteIsFingerSized(browser) {
     await page.goto(BASE, { waitUntil: 'domcontentloaded' })
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
+    const passAndPlay = page.locator('button', { hasText: /Pass and play/ })
+    if (await passAndPlay.count()) await passAndPlay.first().click()
     await page.locator('.board-surface').waitFor({ timeout: 10000 })
-    await page.getByRole('button', { name: /Open command palette/ }).click()
-    await page.locator('.command-palette').waitFor({ timeout: 10000 })
-    await page.waitForTimeout(400)
+    await page.waitForTimeout(600)
+    for (const [from, to] of [['e2', 'e4'], ['e7', 'e5']]) {
+      await page.click(`#chessboard-square-${from}`)
+      await page.click(`#chessboard-square-${to}`)
+      await page.waitForTimeout(250)
+    }
 
-    const sizes = await page.evaluate(() => {
-      const input = document.querySelector('.command-palette-input')
-      const rows = [...document.querySelectorAll('.command-palette-button')]
-      return {
-        input: input ? Math.round(input.getBoundingClientRect().height) : null,
-        inputWidth: input ? Math.round(input.getBoundingClientRect().width) : null,
-        rows: rows.length,
-        shortest: rows.length ? Math.min(...rows.map(r => r.getBoundingClientRect().height)) : null,
-        under: rows.filter(r => r.getBoundingClientRect().height < 44).length,
+    const sweep = () => page.evaluate(() => {
+      const found = []
+      let checked = 0
+      let labelled = 0
+      let onTheBoard = 0
+      for (const el of document.querySelectorAll('button, [role="button"], summary, input, select, textarea, a[href]')) {
+        const box = el.getBoundingClientRect()
+        if (box.width < 2 || box.height < 2) continue
+        if (box.bottom < 0 || box.top > window.innerHeight) continue
+        // A piece is not a target; its square is, and the board's floor is 24px.
+        if (el.closest('.board-surface') || /^[a-h][1-8],/.test(el.getAttribute('aria-label') || '')) {
+          onTheBoard++
+          continue
+        }
+        checked++
+        if (Math.min(box.width, box.height) >= 44) continue
+        const label = el.closest('label')
+        if (label) {
+          const outer = label.getBoundingClientRect()
+          // The box is the picture of the control; the label is the control.
+          if (Math.min(outer.width, outer.height) >= 44) { labelled++; continue }
+        }
+        found.push(`${Math.round(box.width)}x${Math.round(box.height)} ` +
+          `${el.tagName.toLowerCase()}.${String(el.className || '').split(/\s+/)[0]} ` +
+          `"${(el.getAttribute('aria-label') || el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 24)}"`)
       }
+      return { found: [...new Set(found)], checked, labelled, onTheBoard }
     })
 
-    // The probe before the assertions: an empty palette would pass every one.
-    assert(sizes.input !== null, 'the command palette has no search field')
-    assert(sizes.rows >= 5, `the palette listed ${sizes.rows} commands; there is nothing to measure`)
+    const surfaces = [
+      ['the board', null],
+      ['the library', '[aria-label^="Open saved games library"]'],
+      ['the command palette', '[aria-label^="Open command palette"]'],
+      ['New Game', '[aria-label^="Start new game"]'],
+      ['the settings sheet', 'summary[aria-label*="settings" i]'],
+    ]
+    let swept = 0
+    let decoys = 0
+    for (const [name, trigger] of surfaces) {
+      if (trigger) {
+        await page.locator(trigger).first().click()
+        await page.waitForTimeout(900)
+      }
+      const result = await sweep()
+      assert(result.checked >= 10,
+        `${name}: only ${result.checked} controls were on screen, so this swept nothing`)
+      assert(result.found.length === 0,
+        `${name}: ${result.found.length} controls a finger cannot comfortably hit:\n      ${result.found.join('\n      ')}`)
+      swept += result.checked
+      decoys += result.labelled
+      if (trigger) {
+        await page.keyboard.press('Escape')
+        await page.waitForTimeout(600)
+      }
+    }
+    // The filters have to be doing something, or they are hiding the sweep.
+    assert(decoys > 0, 'no tick box was filtered by its label; the decoy filter may have stopped matching')
 
-    assert(sizes.input >= 44,
-      `the palette's search field is ${sizes.input}px tall, under the 44px a finger is given everywhere else`)
-    assert(sizes.under === 0,
-      `${sizes.under} of ${sizes.rows} command rows are under 44px, the shortest ${Math.round(sizes.shortest)}px`)
-
-    console.log(`  palette: a ${sizes.inputWidth}x${sizes.input} search field and ${sizes.rows} rows, none under 44px`)
+    console.log(`  targets: ${swept} controls across ${surfaces.length} surfaces all clear 44px (${decoys} tick boxes cleared by their label)`)
   } finally { await context.close() }
 }
 
@@ -2853,7 +2902,7 @@ async function main() {
     await checkEverySquareAnswersAFinger(browser)
     await checkATapSurvivesTheFingerThatMakesIt(browser)
     await checkTheBoardIsNotADeadZone(browser)
-    await checkThePaletteIsFingerSized(browser)
+    await checkEveryControlIsFingerSized(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)

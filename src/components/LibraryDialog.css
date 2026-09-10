@@ -220,3 +220,33 @@
     gap: 0.4rem;
     min-height: 44px;
 }
+
+/*
+ * A finger's worth of height for the controls in here.
+ *
+ * Same story as the command palette: the fourth pass's 44px sweep put
+ * `min-height: 44px` on fourteen selectors and every one of them is in App.css,
+ * so a dialog with its own stylesheet was never in it. This file does know the
+ * number -- `.library-backup-parts .btn-cancel` carries it -- which is what
+ * makes the rest of it an omission rather than a decision. **Measured** at
+ * 375x667: the search field 343x**32**, the four sort buttons 53-59x**32**, the
+ * rename field 260x**36**, its Save 75x**36**, and the per-row actions 30px.
+ *
+ * The list scrolls, so the only thing this costs is scrolling a little sooner.
+ */
+@media (max-width: 640px) {
+    .library-toolbar input[type='search'],
+    .library-sort button,
+    .library-save-row input,
+    .library-save-row .btn-start,
+    .library-row-actions .btn-cancel,
+    .library-favorite {
+        min-height: 44px;
+    }
+
+    /* Square, so the star is as easy to hit sideways as it is downwards. */
+    .library-favorite {
+        min-width: 44px;
+    }
+}
+

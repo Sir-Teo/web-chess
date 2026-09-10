@@ -256,6 +256,31 @@ and 10px of drift, straight down and diagonally, the move landed every time.
 The guard now covers that second tap at 8px, which is where a drag takes hold
 and so where a pan would if one were going to.
 
+**Nor was anything else styled outside App.css, nor two things inside it.**
+The palette was the first thread; pulling it gave a sweep of every surface this
+app opens, at 375x667, with the two decoys filtered rather than ignored. What
+it found, all measured: the library's search field 343x**32**, its four sort
+buttons at 32, its rename field and Save at 36, its per-row actions at 30 — a
+dialog with its own stylesheet, exactly like the palette — and then two that
+are in App.css and were missed for having their own selector. The bottom bar's
+four navigation buttons and Autoplay come out at **40px**, from a rule asking
+for `2.5rem`; that is the row this pass rescued from behind the URL bar in its
+first commit, and it was four pixels short the whole time. And the Draw switch
+is 61x**36**, from a rule inside `@media (pointer: coarse)` — a rule whose
+entire audience is fingers — asking for 2.25rem.
+
+Raising the bar was measured before it was done, because it costs board: 46 to
+50px of bar, and the squares lose between nothing and half a pixel at 375x667,
+375x564, 360x540, 320x568 and 320x480. Neither of the two sizes already sitting
+on the fourth pass's 24px floor moves off it, the bar never wraps, and the
+navigation stays on the screen at every size. Afterwards, 132 controls across
+five surfaces all clear 44px.
+
+The guard is a sweep and not a list of selectors, because a list of selectors is
+what let this happen. It counts what it filtered and asserts that the count is
+not zero, so a decoy filter that stopped matching would fail rather than quietly
+pass everything.
+
 **The command palette was not made of things a finger can hit.** **Measured**
 at 375x564: its search field is 343x**21**px carrying `padding: 1px 2px`, which
 is the user agent's own and means it had never been given any, and its 33
