@@ -6,7 +6,9 @@ The brief this time was narrower and, it turned out, deeper: the interface on a
 phone and on a desktop, read side by side at 320, 375, 390, 844×390, 1280 and
 1440, in both themes and at 100%, 150% and 200% text, and at 320×480, 360×640
 and 375×667 once it became clear the short phones were where the layout gave
-way. Twenty-nine commits of changes, pushed, and this record.
+way — and, late on, at 1920, 2560 and 3440, in Windows high contrast, and with
+every control asked what the page hands a press at its centre. Thirty-four
+commits of changes, pushed, and this record.
 
 The same convention: **measured**, **reasoned**, or **refuted**. The refuted
 section is by some way the longest of the four passes' and the one most worth
@@ -25,10 +27,9 @@ Ordered by what each cost. The first five are on both platforms, then the
 phone, where every row is already full, then the two import boxes and the
 shared link, which are neither platform's in particular, then the drill, which
 asks the reader a question and so has the most to lose by being out of sight —
-and last the five found after that, under their own headings, because each took
-more than a paragraph to say. The worst of the pass is among them and was the
-last thing found, which is the argument for the pass having gone on as long as
-it did.
+and last the ten found after that, under their own headings, because each took
+more than a paragraph to say. The worst of the pass is among them and was found
+late, which is the argument for the pass having gone on as long as it did.
 
 **The evaluation bar disagreed with everything beside it.** **Measured** on the
 start position at 1440×900 and 375×812: the bar gave White 8% of its height,
@@ -388,6 +389,91 @@ rule outside the phone's media query, so it stayed the user agent's size while
 the text beside it doubled. Everything else here is rem-based for exactly this
 reason. One rem, unshrinkable, with the phone's 1.3rem kept for a finger.
 
+### In high contrast there was no board
+
+Windows' high-contrast mode replaces every background and border with the
+reader's palette and drops box-shadows. **Measured** at 1440×900 with
+`forced-colors: active`: all 64 squares came back `rgb(255, 255, 255)` — light,
+dark, and the two the last move was played between. What was left was a piece
+diagram on a blank field. No light or dark complex, no way to see which bishop
+is which, and no memory of the last move, whose ring is a box-shadow the mode
+drops and whose wash is a background it overrides. The evaluation bar lost its
+fill the same way and kept only its "+0.4", so the one reading a beginner has
+became a number to interpret.
+
+The rest of the app is *better* for that mode and is left alone: the bars,
+buttons, panels, the Coach card, the move list, the library and both graphs all
+render and read correctly, because their meaning is in text and in SVG strokes,
+which forced colours leave alone. These two are different in kind — the colour
+*is* the reading, so replacing it deletes the content rather than restyling it.
+`forced-color-adjust: none` is what the spec provides for exactly this, and it
+inherits, so one declaration on each covers the squares, the coordinates, the
+marks, the arrows and the bar's two halves.
+
+### A dialog's Close button, half off the screen
+
+The actions row is right-aligned, so when it does not fit it runs off the *left*
+edge rather than the right. **Measured** on the PGN dialog's Export tab at
+320×568: four buttons want 343px of a 320px screen, and Close sat at x=−39 with
+its own centre off the screen, so a press aimed at the middle of the button
+landed on nothing. Found by a click the browser automation refused to make,
+which is the same refusal a finger would have discovered the hard way.
+
+Wrapping is the only answer that keeps all four — they are already 80px tall
+with their labels broken over two lines inside them, so there is nothing left to
+squeeze. Scoped to the narrow block where that footer is already special-cased:
+a flex row wraps at its items' natural width rather than shrinking them first,
+so wrapping everywhere would take the desktop footer from one row to two, 30px
+of a dialog whose row was never cut.
+
+### The desktop layout came apart on a wide monitor
+
+Past a point a wider window is not more room, it is more distance. The board
+stops growing at `MAX_BOARD_PX`, so every pixel past that went into the gap
+around it while the two panels stayed pinned to the far edges. **Measured** with
+a game loaded: at 1920 the board sits 257px from the left panel and 223px from
+the right, which reads as breathing room; at 2560 those are 577 and 543; at
+3440, 1017 and 983 — the Coach card and the winrate graph a metre apart on a
+real monitor, the board marooned between them, and the reader's eyes crossing
+the whole screen to compare two readings of one position.
+
+The middle column is capped at the width it already has on a 1920 screen and the
+three centre. 1280, 1440 and 1920 are unchanged to the pixel; 2560 and 3440 get
+exactly the gaps the widest ordinary desktop has. The board stays 800px: that
+cap is its own decision, and a wide monitor is not a reason for a bigger board —
+it is a reason not to scatter what is around it.
+
+### Boxes measured in rows of text, measured in pixels
+
+Five boxes are "space for N lines" written as a pixel height: the move list in
+two places, the engine's principal variations, the review's book rows and the
+Engine Lab's log. Each was sized for a 16px reader, so each held fewer lines the
+larger the reader's text got — the opposite of every other measurement here, and
+the opposite of what one of them says it is for: *"Allocate space for 14 rows so
+the UI below doesn't jump"*. Fourteen rows is fourteen of the reader's rows, or
+the space stops matching the thing it was reserved for.
+
+**Measured** on the move list at 1440×900: 180px held 5.6 rows at 100% text, 5
+at 150% and 5 at 200%; on a 375px phone at 200% it held two. A reader who asked
+for larger text got a third as much of the game through the same window, while
+the rows inside it grew as they should. rem at the 16px baseline: identical at
+100%, 10 rows at 200%.
+
+### The review's headline, in a tooltip a phone cannot show
+
+The summary chips are the one-line story of a reviewed game — "Wire-to-wire",
+"Missed win", "Comeback", "Nail-biter" — and the sentence behind each lived only
+in a `title`, which is nothing at all on a touch screen. The sentence is not a
+paraphrase of the label either: it names the side, which no label does. "White
+led from the opening on." "Black reached a winning position and lost."
+
+Written under the chips on a coarse pointer and hidden on a fine one, where the
+tooltip already says it — the same pair the board's gestures and the keyboard
+list already use. The invariant it rests on is pinned in `narrativeTags`: across
+five shapes of game every title ends in a full stop, runs to more than three
+words, is not its own label restated, and names a side wherever the shape has
+one.
+
 ---
 
 ## New
@@ -540,6 +626,47 @@ and 1,646 DOM nodes, nothing spilling sideways, ten keyboard steps in 2.2s.
 scroll. The only thing under 24px in any of them was the tick box, which is a
 bug entry above.
 
+**Focus comes back to the button that opened the dialog.** All five — PGN,
+Library, New Game, Settings, the command palette — at both sizes: focus moves
+inside on open and returns to the exact opener on close, every time.
+
+**A game can be played from the keyboard alone.** Focus a piece and it reads
+"e2, White pawn"; Enter makes it "e2, White pawn, selected"; the legal
+destinations become focusable and read "e4, empty square, legal move target";
+Enter there plays the move and focus follows the piece. Nothing to add.
+
+**No control anywhere is under 24px.** Swept across Play, all three analysis
+tabs and every dialog at 320px and 375px, counting a control inside a clickable
+label as the size of the label. Nothing.
+
+**Nothing else is cut off by a screen edge.** The same question the dialog
+footer failed, asked of every control on every surface at 320, 375, 844×390 and
+1280, discounting anything a scroller can bring back: the footer was the only
+one.
+
+**Rotating a phone leaves nothing behind.** Portrait to landscape and back, at
+375×812 and 320×568, five times over: the board returns to exactly its previous
+size, every square still answers a press, and no page error is raised.
+
+**A share link round-trips.** A 300-ply game makes a 2,113-character link that
+reopens in a clean browser with all 300 plies at move 151. The producer already
+refuses a game past the decoder's bound, with a message naming the PGN as the
+way to send it instead.
+
+**The panels scroll rather than clip, at every window height.** 1280×600 up to
+1920×1080: content of 1,340px in windows from 370 to 850, always `overflow-y:
+auto`, never clipped.
+
+**The clock's low-time state is not colour alone.** The amber is emphasis on a
+number that already says 0:07, and the spoken label reads the time too.
+
+**The analysis panel's header at 200% text is arithmetic, not a defect.** At
+1440×900 it takes 327px of the panel's 475 — the three tabs stack one per row,
+54px each, where they share one 32px row at 100%. Nothing is lost: the panel
+scrolls, every tab is reachable, and stacked tabs are comfortable targets. This
+is what 200% text costs on a 900px-tall window, and redesigning it on a hunch
+would have been the wrong call.
+
 ---
 
 ## Left undone
@@ -611,9 +738,13 @@ viewports and the board asked to hold still while a near-rank piece takes focus
 searched for, run and undone from the palette; Draw asked to end at the move
 into Play and to still be available there ("Draw mode survived the move into
 Play"); a drill started during a replay ("the replay kept running into a drill
-that had just started"); and every square asked what the page hands a press at
-its centre, at 320×568, 360×640 and 375×812 ("320×568: 24 squares a finger
-cannot reach").
+that had just started"); every square asked what the page hands a press at its
+centre, at 320×568, 360×640 and 375×812 ("320×568: 24 squares a finger cannot
+reach"); the board asked whether its light and dark squares are still different
+colours in a forced-colours context ("high contrast flattened the board: a1 and
+a2 are both rgb(255, 255, 255)"); and every button in a dialog's actions row
+asked to be inside the screen at 320px, on all three of that dialog's tabs
+(`"Close" [-39..30]`).
 
 The rest carry no test of their own, and for one reason: where a reading sits on
 a phone is not a fact a module can answer. The exception is the last-move
