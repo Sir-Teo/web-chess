@@ -316,6 +316,22 @@ exempts them by shape rather than by name, counts the exemption, and asserts the
 count is not zero, so an exemption that stopped matching fails rather than
 hiding a real target.
 
+**The two long local operations are both well made.** Having swept the network
+for calls that can hang, the same question was put to the work the app does
+without a network. A **116-position review** at 4x CPU reports 16/116, then
+92/116, then 116/116, and carries a stopper the whole time labelled **"Stop game
+review. 20 of 116"** -- the count is in the button, so the thing that says how
+far it has got is the same thing that stops it. **Adding 200 games** to the
+library takes under a second, which is why it needs no stopper at all, and the
+number it reports is true: the dialog says 200, the object store holds 200.
+
+The library shows 100 of them, and that had every appearance of half a
+collection being unreachable until the probe was made to look at more than the
+row count. There is a **"Show 100 more"** button under the list, the header
+reads **"200 games · 23200 ply · 154.0 KB"**, and searching for the two
+hundredth game by name finds it. The total, the page and the way to the rest are
+all on screen; only the first probe was not.
+
 **One silent socket stopped every Lichess feature in the app.** The timeout
 added for the archive fetch was an instance of a class, so the class was swept:
 cloud evaluations, the tablebase and the opening explorer all had **no request
