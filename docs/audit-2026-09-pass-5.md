@@ -256,17 +256,34 @@ expensive failure.
 
 ## Limits, recorded rather than fixed
 
-**On a phone the board is a dead zone for scrolling.** **Measured** at 390x844
-with a game on: `.main-container` holds 1061px of content in 558px, and of
-thirteen sample heights down it only three scroll — one strip above the board
-and two below. The board's drag sensor claims every touch that starts on it and
-prevents the default, so the swipe never reaches the scroller. `touch-action`
-is *not* the cause: the hit elements compute `auto`, and forcing `.board-wrap`
-to `pan-y` frees nothing. Nothing is unreachable, since the strips do scroll,
-and every resolution costs more than it buys — an activation *delay* would make
-moving a piece a press-and-hold, and react-chessboard does not expose its
-sensors to ask for one. This is what a board being a manipulation surface
-costs, and every other board on the web pays it.
+**On a phone the board was a dead zone for scrolling — and this entry was
+wrong.** It is left here with its correction because the reasoning failed in an
+instructive way. **Measured** at 390x844 with a game on: `.main-container`
+holds 1061px of content in 558px, and of thirteen sample heights down it only
+three scrolled — one strip above the board and two below.
+
+The conclusion drawn at the time was that `touch-action` was not the cause,
+because forcing `.board-wrap` to `pan-y` freed nothing. That measurement was
+taken while a drag still took hold after **1px** of movement, so the sensor had
+claimed every gesture before the browser could look at it. Once
+`dragActivationDistance` was 8, the same experiment read differently — and the
+honest fix is narrower than `pan-y` on the whole board anyway.
+
+Only a square with a piece on it can start a drag. Handing the rest back is not
+a race: `touch-action` is intersected from the touched element up through its
+ancestors, so a piece's `none` still wins wherever a drag could actually begin,
+and it is settled at touch-down rather than fought out over the first few
+pixels. Measured with a finger that starts slowly, 2px at a time: eight of
+eight drags in eight directions still play, three of three taps still select,
+all eight sampled empty squares scroll, and none of the six sampled squares
+holding a piece does. Behind `@supports selector(:has(*))`, because a browser
+that ignored only the second rule would hand the whole board to the scroller,
+which is worse than the dead zone.
+
+The lesson is not about touch. A limit recorded in one pass was measured under
+a condition another pass then changed, and nothing connected the two. Every
+entry in this section is a claim about the app *as it stands*, and this one
+stopped being true the moment a different commit landed.
 
 **One blocking touch listener, and it is not ours.** react-chessboard's dnd-kit
 `TouchSensor.setup()` registers a *noop* `touchmove` on `window` with
