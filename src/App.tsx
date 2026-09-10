@@ -477,10 +477,13 @@ function playerColorToTurn(color: PlayerColor): 'w' | 'b' {
 /** How long a receipt stays up. Long enough to read, short enough to ignore. */
 const NOTICE_HOLD_MS = 2400
 /**
- * Not a receipt: an explanation of why the board is not the one the reader was
- * sent, which they have to read to act on. Held longer for that reason.
+ * How long a notice that *explains* something stays up. A receipt can be missed
+ * without cost -- "FEN copied" for something the reader just did. These two say
+ * why the board is not what was expected, and have to be read to be acted on.
  */
+const NOTICE_EXPLAIN_MS = 6000
 const SHARED_LINK_UNREADABLE = 'That shared link could not be read — showing the starting position.'
+const PGN_POSITION_ONLY_NOTICE = 'That game has no moves — its position is on the board.'
 
 function loadSharedFenFromUrl(): string | null {
   if (typeof window === 'undefined') return null
@@ -4335,12 +4338,16 @@ function App() {
       cancelPendingAiMove()
       setIsImportingGame(false)
       requestBoardReveal()
+      // A study chapter or puzzle export carries a position and no moves. It is
+      // loaded rather than refused, and said out loud, because an empty move
+      // list after pressing Import otherwise reads as an import that failed.
+      if (!mainLineEntries.length) announce(PGN_POSITION_ONLY_NOTICE, NOTICE_EXPLAIN_MS)
       return { ok: true }
     } catch (error) {
       setIsImportingGame(false)
       return { ok: false, error: pgnImportUserErrorMessage(error) ?? 'Failed to parse PGN. Check the move text, headers, and move numbers.' }
     }
-  }, [cancelPendingAiMove, cancelSampleLoad, clearBatchReview, clearBoardSelection, clearImportSweep, engineEnabled, game, gameTree, newGame, requestBoardReveal, setPgnHeaders])
+  }, [announce, cancelPendingAiMove, cancelSampleLoad, clearBatchReview, clearBoardSelection, clearImportSweep, engineEnabled, game, gameTree, newGame, requestBoardReveal, setPgnHeaders])
 
   const handleAnalysisPgnImport = useCallback(
     (pgnText: string) => handlePgnImport(pgnText, { analyzeAfterLoad: true }),
@@ -4616,7 +4623,7 @@ function App() {
         // truncated `#fen=`, which is what a chat app makes of a long link:
         // the board dropped to the starting position in Play mode and said
         // nothing, so the reader is left thinking the sender got it wrong.
-        if (hashCarriesShare(window.location.hash)) announce(SHARED_LINK_UNREADABLE, 6000)
+        if (hashCarriesShare(window.location.hash)) announce(SHARED_LINK_UNREADABLE, NOTICE_EXPLAIN_MS)
         return
       }
       setShowPgnDialog(false)

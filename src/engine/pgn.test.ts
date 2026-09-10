@@ -639,6 +639,53 @@ describe('PGN import preflight', () => {
     expect(() => parsePgnMoveTree(headerOnlyPgn)).toThrow(PGN_NO_MOVES_IMPORT_ERROR)
   })
 
+  /**
+   * The same file with a position in its headers is not nothing: it is a
+   * position, which is the one thing in it, and this is the shape a study
+   * chapter, a puzzle export and a tactics trainer all ship. Refusing it for
+   * having no moves threw away the whole file and pointed the reader at move
+   * text that was never going to exist.
+   */
+  describe('a game that carries a position and no moves', () => {
+    const MATE_IN_ONE = '6k1/5ppp/8/8/8/8/5PPP/4R1K1 w - - 0 1'
+    const positionOnly = (fen: string) => `[Event "Puzzle"]\n[Result "*"]\n[SetUp "1"]\n[FEN "${fen}"]\n\n*\n`
+
+    it('imports the position', () => {
+      const tree = parsePgnMoveTree(positionOnly(MATE_IN_ONE))
+      expect(tree.rootFen).toBe(MATE_IN_ONE)
+      expect(tree.moves).toEqual([])
+      expect(tree.headers.Event).toBe('Puzzle')
+    })
+
+    /** A FEN header that only restates the start is still an empty game. */
+    it('still refuses one that sets up the starting position', () => {
+      const start = new Chess().fen()
+      expect(() => parsePgnMoveTree(positionOnly(start))).toThrow(PGN_NO_MOVES_IMPORT_ERROR)
+    })
+
+    /**
+     * And never swallows move text. Every other route to "no usable moves"
+     * throws before the no-moves check is reached, which is what makes reading
+     * it as "there was no move text" safe -- so each route is pinned here
+     * rather than trusted.
+     */
+    it('refuses a set-up game whose moves do not work', () => {
+      expect(() => parsePgnMoveTree(`[SetUp "1"]\n[FEN "${MATE_IN_ONE}"]\n\n1. Qh5 *\n`))
+        .toThrow(/Invalid move/i)
+      expect(() => parsePgnMoveTree(`[SetUp "1"]\n[FEN "${MATE_IN_ONE}"]\n\n1. zz9 *\n`))
+        .toThrow()
+      expect(() => parsePgnMoveTree('[SetUp "1"]\n[FEN "not a position"]\n\n*\n')).toThrow()
+    })
+
+    /** The legal move still imports as a move, not as a bare position. */
+    it('imports the moves when there are any', () => {
+      const tree = parsePgnMoveTree(`[SetUp "1"]\n[FEN "${MATE_IN_ONE}"]\n\n1. Re8# *\n`)
+      expect(tree.rootFen).toBe(MATE_IN_ONE)
+      expect(tree.moves).toHaveLength(1)
+      expect(tree.moves[0].move.san).toBe('Re8#')
+    })
+  })
+
   it('gives database-style multi-game files a clear one-game-at-a-time error', () => {
     const multiGamePgn = `
 [Event "Game one"]

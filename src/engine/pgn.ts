@@ -737,7 +737,17 @@ export function parsePgnMoveTree(pgnText: string): {
         evaluations,
         humanCommentFromPgnComment(parsed.root.comment),
     )
-    if (!moves.length) throw new Error(PGN_NO_MOVES_IMPORT_ERROR)
+    // A game with no moves is nothing -- unless its headers set up a position,
+    // in which case the position is what was pasted and refusing it throws away
+    // the only thing in the file. Studies, puzzle exports and tactics trainers
+    // all ship this shape: `[SetUp "1"]`, `[FEN ...]`, and `*`.
+    //
+    // Safe to read a bare `!moves.length` as "there was no move text", because
+    // every other way of having no usable moves has already thrown by here: an
+    // illegal one raises "Invalid move: Qh5", unparseable text raises the
+    // grammar error, and a malformed header raises from
+    // `rootFenFromPgnHeaders`. So this cannot quietly drop moves somebody wrote.
+    if (!moves.length && rootFen === INITIAL_FEN) throw new Error(PGN_NO_MOVES_IMPORT_ERROR)
 
     return {
         headers,
