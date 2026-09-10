@@ -3088,6 +3088,32 @@ function App() {
   }, [fen])
 
   /**
+   * And the drawing *mode* ends where the board's purpose changes.
+   *
+   * Draw eats presses by design: while it is on, a tap is an arrow and not a
+   * move, which is right while the reader is annotating and a trap the moment
+   * the app hands the board back to be moved in. Measured at 375x812 with Draw
+   * on: switching to Play left it on and e2-e4 did nothing; a new game left it
+   * on; and a drill started with it on sat asking for a move that no tap could
+   * make, its own pill reading "Drill · 1/2" for as long as the reader kept
+   * trying. The blue ring round the board is the only thing that said why.
+   *
+   * The state above already says a mode that stops the board moving must not
+   * outlive the session that threw it -- "a board that would not move pieces on
+   * the next visit because of a switch thrown last week is a bug report". This
+   * is the same bug report over a shorter span.
+   *
+   * Off the transition, not the toggle: `drillRunning` is a boolean rather than
+   * the drill object, so this fires when a drill begins and not on every move
+   * inside one. Turning Draw on *within* Play or a drill is left alone -- that
+   * is a deliberate press against a board wearing the ring.
+   */
+  const drillRunning = drill !== null
+  useEffect(() => {
+    if (workspaceMode === 'play' || drillRunning) setTouchDrawing(false)
+  }, [workspaceMode, drillRunning])
+
+  /**
    * Notice a flag.
    *
    * Nothing else can: the display is derived from `Date.now()` inside the clock
@@ -4725,6 +4751,11 @@ function App() {
       setIsImportingGame(false)
       setPendingPromotion(null)
       clearBoardSelection()
+      // Beside the selection, for the same reason: a fresh game is a board to
+      // move in, and Draw would eat the first tap. The effect that ends the
+      // mode on a change of purpose cannot see this one -- a new game started
+      // from Play stays in Play, so there is no transition for it to watch.
+      setTouchDrawing(false)
       pausedRef.current = false
       setPaused(false)
       gameTree.reset()

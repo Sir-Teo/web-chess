@@ -1218,6 +1218,62 @@ async function checkReviewReportHoldsStill(browser) {
  * Compared through the exported PGN rather than the tree, because that is what
  * the library stores and what leaves the app.
  */
+/**
+ * Draw mode ends where the board's purpose changes.
+ *
+ * The mode eats presses by design -- a tap is an arrow, not a move -- which is
+ * right while the reader is annotating and a trap the moment the app hands the
+ * board back to be moved in. Measured at 375x812 before the fix: with Draw on
+ * in Analysis, switching to Play left it on and e2-e4 did nothing; a new game
+ * left it on; and a drill started with it on sat asking for a move that no tap
+ * could make.
+ *
+ * Needs its own context: the control is `pointer: coarse` only, so it does not
+ * exist in the suite's ordinary viewports, and the trap it guards is a phone's.
+ * What is asserted is the outcome rather than the flag -- the move has to land,
+ * because a toggle reading "Draw" over a board that still eats presses would
+ * pass a check on the flag alone.
+ */
+async function checkDrawModeEndsWithItsPurpose(browser) {
+  const context = await browser.newContext({
+    viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true,
+  })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+    await page.waitForFunction(() => window.__uciBestmoves >= 1, null, { timeout: 20000 })
+
+    const toggle = page.locator('.board-draw-toggle')
+    assert(await toggle.count() === 1, 'the phone has no Draw control, so this check has nothing to exercise')
+    await toggle.click()
+    await page.waitForFunction(() => document.querySelector('.board-draw-toggle')?.getAttribute('aria-pressed') === 'true',
+      null, { timeout: 5000 })
+
+    // Into Play, which is a board to move in.
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await page.waitForTimeout(600)
+    const pressed = await toggle.getAttribute('aria-pressed')
+    assert(pressed !== 'true', 'Draw mode survived the move into Play')
+    await page.click('#chessboard-square-e2')
+    await page.click('#chessboard-square-e4')
+    await page.waitForTimeout(400)
+    const moved = await page.evaluate(() => !!document.querySelector('[data-square="e4"] [data-piece]'))
+    assert(moved, 'the first move of a new game was eaten by a drawing mode')
+
+    // And a deliberate press inside Play is left alone: this ends the mode on a
+    // change of purpose, not on every render.
+    await toggle.click()
+    await page.waitForTimeout(400)
+    assert(await toggle.getAttribute('aria-pressed') === 'true',
+      'Draw could not be turned on inside Play, so the mode is unusable where it was asked for')
+    console.log('  draw mode: ends at the move into Play, and can still be turned on there')
+  } finally { await context.close() }
+}
+
 async function checkDrillLeavesTheLineAlone(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const page = await context.newPage()
@@ -2340,6 +2396,7 @@ async function main() {
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkDrillLeavesTheLineAlone(browser)
+    await checkDrawModeEndsWithItsPurpose(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)
     await checkAutomaticAnalysisIsReused(browser)
     await checkOpeningTableStaysOutOfBoot(browser)
