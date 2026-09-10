@@ -191,6 +191,27 @@ input[type="checkbox"] {
   outline: none;
 }
 
+/* The board is the one surface where the ring lands on a colour the reader
+   picked rather than one the app did, and a chessboard is two of them.
+   Measured on the default scheme with `--info`: **2.68:1** on the light square
+   and **1.17:1** on the dark in the dark theme -- under the 3:1 a focus
+   indicator owes, on all 64 squares -- and 2.13:1 on the dark square in the
+   light theme. No single colour clears 3:1 against both a cream and a mid-brown
+   except a near-black one, and `boardThemes.ts` already holds every scheme's
+   ink to 4.5:1 against its own dark square for the coordinates. So the ring
+   borrows it, and moves with the board the reader chose. */
+.app-shell .board-wrap [data-square]:focus-visible,
+.app-shell .board-wrap [data-square] *:focus-visible {
+  outline-color: var(--board-ink, #101218);
+  /* Inside the square rather than 2px outside it. Outside, the ring lies on
+     the neighbours, and the squares after it in the grid paint straight over
+     it -- screenshotted on d5, the top and left edges drawn and the right and
+     bottom gone. Inside, it is whole, it is never clipped by the board's edge
+     on a back-rank piece, and it sits on the one colour its ink is proven
+     against. */
+  outline-offset: -3px;
+}
+
 /* Primary button */
 .btn-primary {
   background: linear-gradient(180deg, #38dcc8, #16b6a8) !important;

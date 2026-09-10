@@ -671,6 +671,48 @@ with the two fixes backed out it reports `app-notice-region 94% under
 deliberately buried element and requires itself to find it before it reports
 anything at all.
 
+**The keyboard's place on the board could not be seen.** The app draws one
+focus ring for everything: `outline: 2px solid var(--info)`. On every surface
+but one it lands on a colour the app chose. The board is the exception — it
+lands on a colour the *reader* chose, and a chessboard is two of them.
+**Measured**, worst square of each scheme, with `--info`:
+
+| scheme | dark theme | light theme |
+|---|---|---|
+| Classic | **1.17:1** | 2.13:1 |
+| Ocean | **1.38:1** | — |
+| Forest | **1.34:1** | — |
+| Slate | **1.01:1** | — |
+| Dusk | **1.28:1** | — |
+
+Every one under the 3:1 a focus indicator owes, and Slate's 1.01:1 is a ring
+that is not there at all. This is the app's central surface and the one it is
+for; keyboard play is a documented feature with its own checks.
+
+No single colour clears 3:1 against both a cream and a mid-brown except a
+near-black one — and `boardThemes.ts` already keeps one per scheme, holding
+every ink to **4.5:1 against its own dark square** so the coordinates can be
+read on it. The ring borrows it, and moves with the board the reader picked:
+**5.0:1 at worst**, across all five schemes and both page themes.
+
+It is drawn **inside** the square, not 2px outside it. Outside, the ring lies
+on the neighbours, and the squares after it in the grid paint straight over it
+— screenshotted on d5, the top and left edges drawn and the right and bottom
+gone. Inside it is whole, it is never clipped by the board's own edge on a
+back-rank piece, and it sits on the one colour its ink is measured against.
+
+Beside it, every control the keyboard reaches was swept for a visible change on
+focus: 55 on the board, 90 on the FEN tab and its setup board, 13 on Export, 20
+in the command palette, 52 on a phone — **none silent**. Three faults had to be
+cleared out of that sweep first. `element.focus()` does not set
+`:focus-visible`, so the rules never apply and what comes back is plain
+`currentColor` — which is how this probe once reported the page's text colour
+as the board's focus ring. A dialog that focuses its own search box hands back
+that box's focused styles as its baseline, and the box then reads as a control
+with no ring at all. And `outline-offset` moving from 0 to 2px while
+`outline-style` is `none` paints nothing, which let a planted button with
+`outline: none !important` through the sweep twice.
+
 ---
 
 ## Refuted

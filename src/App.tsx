@@ -1,5 +1,5 @@
 import { Chess, type Move, type Square } from 'chess.js'
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type SyntheticEvent } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type SyntheticEvent } from 'react'
 import { Chessboard, defaultArrowOptions } from 'react-chessboard'
 import {
   buildWdlSeries,
@@ -6898,7 +6898,14 @@ function App() {
               </div>
             </div>
             )}
-            <div className="board-wrap">
+            <div
+              className="board-wrap"
+              /* The board's own ink, so the focus ring can be drawn in it. Every
+                 scheme in `boardThemes` is held to 4.5:1 for its ink against its
+                 own dark square, which is the one colour proven to show on both
+                 squares of whichever board the reader picked. */
+              style={{ '--board-ink': boardTheme.ink } as CSSProperties}
+            >
               {/* Whenever the engine is on, whatever the WDL switch says. The
                   column used to go with that switch, so turning off the
                   win/draw/loss detail -- a Pro reading -- took the evaluation

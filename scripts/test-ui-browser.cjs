@@ -2619,6 +2619,187 @@ async function checkNothingIsDrawnBehindSomethingElse(browser) {
 }
 
 /**
+ * Focus can be seen, including on the board.
+ *
+ * Two things, both about the same ring. Every control reached by Tab has to
+ * look different when it is focused; and on the board that ring lands on a
+ * colour the reader picked rather than one the app did.
+ *
+ * **Measured** on the default scheme with the app's `--info` ring: **2.68:1**
+ * on the light square and **1.17:1** on the dark in the dark theme -- under the
+ * 3:1 a focus indicator owes, on all 64 squares -- and 2.13:1 on the dark square
+ * in the light theme. No single colour clears 3:1 against both a cream and a
+ * mid-brown except a near-black one, and `boardThemes.ts` already holds every
+ * scheme's ink to 4.5:1 against its own dark square for the coordinates, so the
+ * ring borrows it.
+ *
+ * Three things this check had to learn the hard way. `element.focus()` does not
+ * set `:focus-visible`, so the rules never apply and what is read back is plain
+ * `currentColor` -- the page's text colour, reported once as the board's focus
+ * ring. A dialog that focuses its own search box hands back that box's focused
+ * styles as its baseline, and the box then reads as a control with no ring at
+ * all. And `outline-offset` moving while `outline-style` is `none` paints
+ * nothing, which let a planted button with `outline: none !important` through.
+ */
+async function checkFocusCanBeSeen(browser) {
+  const TAG_FOCUSABLE = () => {
+    // Nothing focused first, or a dialog that focuses its own search box hands
+    // back that box's focused styles as the baseline for it.
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur()
+    const paints = c => (c.outlineStyle === 'none' || c.outlineStyle === 'hidden' || parseFloat(c.outlineWidth) === 0
+      ? 'nothing' : `${c.outlineStyle} ${c.outlineWidth} ${c.outlineColor} ${c.outlineOffset}`)
+    let i = 0
+    const styles = {}
+    const focusable = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
+    for (const el of document.querySelectorAll(focusable)) {
+      const r = el.getBoundingClientRect()
+      if (r.width < 4 || r.height < 4) continue
+      const c = getComputedStyle(el)
+      if (c.visibility === 'hidden' || c.display === 'none') continue
+      const key = String(i++)
+      el.setAttribute('data-fsweep', key)
+      styles[key] = { outline: paints(c), shadow: c.boxShadow, border: `${c.borderColor} ${c.borderWidth}`, bg: c.backgroundColor, color: c.color }
+    }
+    window.__fsweep = styles
+    return Object.keys(styles).length
+  }
+  const READ_FOCUSED = () => {
+    const el = document.activeElement
+    if (!el || el === document.body) return null
+    const c = getComputedStyle(el)
+    const paints = (el.outlineStyle === 'none')
+    return {
+      key: el.getAttribute('data-fsweep'),
+      outline: c.outlineStyle === 'none' || c.outlineStyle === 'hidden' || parseFloat(c.outlineWidth) === 0
+        ? 'nothing' : `${c.outlineStyle} ${c.outlineWidth} ${c.outlineColor} ${c.outlineOffset}`,
+      shadow: c.boxShadow, border: `${c.borderColor} ${c.borderWidth}`, bg: c.backgroundColor, color: c.color,
+      label: (el.getAttribute('aria-label') || el.textContent || el.tagName).trim().slice(0, 30),
+      ignore: paints,
+    }
+  }
+
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+    const sweep = async (label, tabs) => {
+      await page.evaluate(TAG_FOCUSABLE)
+      const silent = []
+      const seen = new Set()
+      for (let i = 0; i < tabs; i++) {
+        await page.keyboard.press('Tab')
+        await page.waitForTimeout(120)
+        const now = await page.evaluate(READ_FOCUSED)
+        if (!now || now.key === null || seen.has(now.key)) continue
+        seen.add(now.key)
+        const before = await page.evaluate(k => window.__fsweep[k], now.key)
+        if (!before) continue
+        const changed = ['outline', 'shadow', 'border', 'bg', 'color'].some(f => before[f] !== now[f])
+        if (!changed) silent.push(now.label)
+      }
+      return { reached: seen.size, silent }
+    }
+
+    // Control: a button that deliberately shows nothing on focus has to be
+    // found, or this sweep is reporting that it did not look.
+    await page.evaluate(() => {
+      const style = document.createElement('style')
+      style.textContent = '.planted-silent, .planted-silent:focus, .planted-silent:focus-visible { outline: none !important; box-shadow: none !important; border: 1px solid #333 !important; background: #222 !important; color: #ddd !important; }'
+      document.head.appendChild(style)
+      const b = document.createElement('button')
+      b.textContent = 'silent on focus'
+      b.className = 'planted-silent'
+      b.style.cssText = 'position:fixed;left:10px;top:120px;z-index:5000;width:120px;height:30px'
+      document.querySelector('.app-shell').prepend(b)
+    })
+    await page.waitForTimeout(200)
+    const control = await sweep('control', 6)
+    assert(control.silent.some(label => /silent on focus/.test(label)),
+      'a button that shows nothing when focused was not found, so this sweep is measuring nothing')
+    await page.evaluate(() => document.querySelector('.planted-silent')?.remove())
+    await page.waitForTimeout(200)
+
+    const board = await sweep('the board', 60)
+    assert(board.silent.length === 0,
+      `nothing changes when these are focused: ${board.silent.join(', ')}`)
+
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+    await page.locator('.dialog-panel').waitFor({ timeout: 15000 })
+    await page.waitForTimeout(400)
+    const dialog = await sweep('the PGN dialog', 24)
+    assert(dialog.silent.length === 0,
+      `nothing changes when these are focused: ${dialog.silent.join(', ')}`)
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(400)
+
+    // And the ring against the board it lands on, for every scheme.
+    const RING_CONTRAST = () => {
+      const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }
+      const lum = ([r, g, b]) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+      const parse = c => {
+        const m = String(c).match(/rgba?\(([^)]+)\)/)
+        if (!m) return null
+        const p = m[1].split(',').map(parseFloat)
+        return p.length > 3 && p[3] < 0.95 ? null : [p[0], p[1], p[2]]
+      }
+      const ratio = (a, b) => {
+        const [x, y] = [lum(a) + 0.05, lum(b) + 0.05]
+        return Math.round((Math.max(x, y) / Math.min(x, y)) * 100) / 100
+      }
+      const el = document.activeElement
+      const square = el && el.closest ? el.closest('[data-square]') : null
+      if (!square) return { why: 'the keyboard is not on a square' }
+      if (!el.matches(':focus-visible')) return { why: 'focused without :focus-visible, so no ring rule applies' }
+      const ring = parse(getComputedStyle(el).outlineColor)
+      if (!ring) return { why: 'the ring has no solid colour' }
+      const colours = new Map()
+      for (const sq of document.querySelectorAll('[data-square]')) {
+        const bg = parse(getComputedStyle(sq).backgroundColor)
+        if (bg) colours.set(bg.join(','), bg)
+      }
+      return {
+        ring: `rgb(${ring.join(', ')})`,
+        worst: [...colours.values()].reduce((low, bg) => Math.min(low, ratio(ring, bg)), 99),
+      }
+    }
+
+    for (const theme of ['classic', 'ocean', 'forest', 'slate', 'dusk']) {
+      await page.evaluate(t => {
+        const raw = localStorage.getItem('webchess:analysis-settings:v1')
+        const settings = raw ? JSON.parse(raw) : {}
+        settings.boardThemeId = t
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify(settings))
+      }, theme)
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      const again = page.getByRole('button', { name: /start fresh/i })
+      if (await again.count()) await again.first().click()
+      await page.locator('[data-square]').first().waitFor({ timeout: 20000 })
+      await page.evaluate(() => document.activeElement?.blur?.())
+      // Reached with the keyboard: `element.focus()` does not set
+      // `:focus-visible`, and the ring rules then never apply at all.
+      let onSquare = false
+      for (let i = 0; i < 40 && !onSquare; i++) {
+        await page.keyboard.press('Tab')
+        await page.waitForTimeout(60)
+        onSquare = await page.evaluate(() => Boolean(document.activeElement?.closest?.('[data-square]')))
+      }
+      const measured = await page.evaluate(RING_CONTRAST)
+      assert(!measured.why, `${theme}: could not measure the ring -- ${measured.why}`)
+      assert(measured.worst >= 3,
+        `${theme}: the focus ring ${measured.ring} is ${measured.worst}:1 against a square it lands on, ` +
+        'under the 3:1 an indicator owes')
+    }
+
+    console.log('  focus: every control shows it, and the board ring clears 3:1 on all five schemes')
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -3833,6 +4014,7 @@ async function main() {
     await checkThePromotionChooserCanBeHit(browser)
     await checkANoticeIsSeenAndFits(browser)
     await checkNothingIsDrawnBehindSomethingElse(browser)
+    await checkFocusCanBeSeen(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)
