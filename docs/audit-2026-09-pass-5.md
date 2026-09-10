@@ -491,12 +491,53 @@ The guard opens two files, one either side of the ceiling. Only checking the big
 one would pass just as well for a rule that hid the text at any size and took
 the paste box away from the case it exists for.
 
+**Three seconds at a button that still looked unpressed.** What is left after
+the two fixes above is the honest cost of the work: parsing the 500 games the
+library keeps, 3.1s at 4x CPU, on the thread that draws. **Measured** by
+sampling the button's own label on every frame the browser got to draw between
+the press and the answer: **there were none**. The label never changed, nothing
+else moved, and the first sign that the press had registered was the result.
+
+The press now sets the label to "Adding…", disables the button, and waits two
+animation frames before starting — long enough for that to be painted. The wait
+is exactly as long as it was; what changed is that the reader can see it is a
+wait. The guard reads the set of labels drawn across those frames and requires
+"Adding…" to be among them; without the two frames the set is empty.
+
 ---
 
 ## Refuted
 
 Each of these was gone looking for, measured, and not found. Ordered by how
 plausible it had seemed.
+
+**The Export tab's four options.** All four were suspected of being decoration
+after a first probe showed three of them changing nothing. They were measured
+against a game that could not tell them apart -- no variations, no comments, no
+glyphs -- and the fourth "change" was the engine's evaluations still arriving.
+Re-measured against a game built to hold all four (33 plies, a side line at
+every move, a comment and a glyph on each), from 20,189 characters: Variations
+drops 17,337, Comments 14,409, Engine evals 1,768, Glyphs 777, and every one
+comes back byte for byte. Worst toggle 88ms at 6x CPU.
+
+**Rotating a phone.** 390x844 to 844x390 and back, plus 320x568, 1440x900 and
+a drag across the 900px breakpoint: the board resizes with the window every
+time (374 to 203 to 374, 687 on a desktop), no long task, longest frozen frame
+**29ms**, no sideways overflow at any size, and nothing left off the screen
+except the two skip links, which are off it until they are focused.
+
+**The library at the cap it now reaches easily.** 500 games in, through the
+app's own import: the dialog opens in ~0.5s, renders 100 rows a page, filters
+on every keystroke without a keystroke costing more than 80ms, and scrolling
+the whole list holds at a 52ms worst frame -- all at 4x CPU.
+
+**The meta strip's clipped move number.** In landscape the strip is the board's
+width, 203px, and its two remaining readings want 138px in the 120px left
+beside the Draw button, so "Move 1" is drawn as "Mov". It is not a defect: the
+row is deliberately a scroller below 900px, with a fade at its edge to say so,
+and the reasoning is written into the rule -- the readings keep their own
+widths rather than shrinking each other to nothing, which is what they did at
+320px before. Nothing was changed.
 
 **The first move of a game is not slow app code.** It costs a 135ms long task
 and it is the worst repeatable interaction in the app, so it was chased to the

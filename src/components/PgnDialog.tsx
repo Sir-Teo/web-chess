@@ -110,6 +110,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const [archiveUsername, setArchiveUsername] = useState('')
     const [archiveCount, setArchiveCount] = useState(DEFAULT_ARCHIVE_GAMES)
     const [archiveBusy, setArchiveBusy] = useState(false)
+    const [databaseBusy, setDatabaseBusy] = useState(false)
     const archiveAbortRef = useRef<AbortController | null>(null)
     const panelRef = useRef<HTMLDivElement>(null)
     const importFileInputRef = useRef<HTMLInputElement>(null)
@@ -208,17 +209,34 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     // is no longer on screen.
     useEffect(() => () => archiveAbortRef.current?.abort(), [])
 
-    const handleImportDatabase = () => {
-        if (!databaseGames || !onImportManyToLibrary) return
-        const result = onImportManyToLibrary(databaseGames)
-        if (!result.ok) {
-            setError(result.error ?? 'Those games could not be added.')
-            return
+    /**
+     * Keep every game in the file.
+     *
+     * Reading them is the most expensive thing in this dialog -- each is parsed
+     * before it is stored, which is 3.1s for the 500 the library holds on a
+     * phone's processor -- and it happens on the thread that draws. So the
+     * label is changed and the browser given two frames to paint it before the
+     * work starts: without that the press produced three seconds of a frozen
+     * screen with a button still looking as though it had not been pressed, and
+     * the first sign of anything happening was the answer.
+     */
+    const handleImportDatabase = async () => {
+        if (!databaseGames || !onImportManyToLibrary || databaseBusy) return
+        setDatabaseBusy(true)
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        try {
+            const result = onImportManyToLibrary(databaseGames)
+            if (!result.ok) {
+                setError(result.error ?? 'Those games could not be added.')
+                return
+            }
+            setError(null)
+            setStatus(result.note ?? `Added ${databaseGames.length} games to the library.`)
+            setImportText('')
+            setImportFileName(null)
+        } finally {
+            setDatabaseBusy(false)
         }
-        setError(null)
-        setStatus(result.note ?? `Added ${databaseGames.length} games to the library.`)
-        setImportText('')
-        setImportFileName(null)
     }
 
     const handlePickImportFile = () => {
@@ -330,12 +348,6 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const canCopyShareLink = fenShareValidation.ok
     const canImportPgn = Boolean(importText.trim()) && !importContentError
     /**
-     * The games in a pasted database file. Derived from the text rather than
-     * set when Import is pressed, because a content error disables Import --
-     * so the offer has to appear the moment the file is recognised, which is
-     * also when the reader is looking for it.
-     */
-    /**
      * A file too big for the box it landed in.
      *
      * Only the file path: a textarea lays out every character it holds, and
@@ -346,6 +358,12 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
      */
     const loadedFileIsTooBigToShow = importTextIsTooBigToShow(importText, importFileName !== null)
 
+    /**
+     * The games in a pasted database file. Derived from the text rather than
+     * set when Import is pressed, because a content error disables Import --
+     * so the offer has to appear the moment the file is recognised, which is
+     * also when the reader is looking for it.
+     */
     const databaseGames = useMemo(
         () => (onImportManyToLibrary && importContentError === PGN_MULTIPLE_GAMES_ERROR
             ? splitPgnGames(importText)
@@ -645,8 +663,15 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                             {error && <p className="dialog-error" role="alert">{error}</p>}
                             {databaseGames && databaseGames.length > 1 && (
                                 <div className="dialog-database-offer">
-                                    <button type="button" className="btn-start" onClick={handleImportDatabase}>
-                                        Add {databaseGames.length.toLocaleString()} games to the library
+                                    <button
+                                        type="button"
+                                        className="btn-start"
+                                        onClick={() => void handleImportDatabase()}
+                                        disabled={databaseBusy}
+                                    >
+                                        {databaseBusy
+                                            ? 'Adding…'
+                                            : `Add ${databaseGames.length.toLocaleString()} games to the library`}
                                     </button>
                                 </div>
                             )}

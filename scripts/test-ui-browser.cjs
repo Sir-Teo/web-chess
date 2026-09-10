@@ -1908,6 +1908,21 @@ async function checkAFullLibraryStopsReadingTheFile(browser) {
     const offered = (await offer.textContent()).trim()
     assert(/560/.test(offered), `the offer reads "${offered}", so the file did not split into 560 games`)
 
+    // Every frame the browser actually gets to draw, and the label it drew. The
+    // work is 3.1s on the thread that paints, so unless the press yields a frame
+    // first, nothing is drawn between the press and the answer.
+    await page.evaluate(() => {
+      window.__frames = []
+      const tick = () => {
+        const b = document.querySelector('.dialog-database-offer button')
+        if (b) window.__frames.push(b.textContent.trim())
+        requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    })
+    await page.waitForTimeout(200)
+    await page.evaluate(() => { window.__frames.length = 0 })
+
     const started = Date.now()
     await offer.click()
     const status = page.locator('.library-status')
@@ -1924,7 +1939,13 @@ async function checkAFullLibraryStopsReadingTheFile(browser) {
     assert(/60 games left out/.test(note),
       `it said "${note}" rather than counting the 60 games past the cap as left out`)
 
-    console.log(`  database: 560 games, 500 kept, the other 60 never parsed (${took}ms)`)
+    const drawn = await page.evaluate(() => [...new Set(window.__frames)])
+    assert(drawn.some(label => /Adding/.test(label)),
+      `the button read ${JSON.stringify(drawn)} across every frame drawn between the press and the answer -- ` +
+      'the reader waited seconds at a button that still looked unpressed')
+
+    console.log(`  database: 560 games, 500 kept, the other 60 never parsed (${took}ms, ` +
+      'and the button said "Adding…" first)')
   } finally { await context.close() }
 }
 
