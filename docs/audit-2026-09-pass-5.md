@@ -316,6 +316,36 @@ exempts them by shape rather than by name, counts the exemption, and asserts the
 count is not zero, so an exemption that stopped matching fails rather than
 hiding a real target.
 
+**The header's "+N" is the material, and it is right.** Computed from the
+board's own labels at seven plies of the sample game and compared with the badge
+beside the move number: **6, 4, 5, 3, 3, 3 — matching every time**, and no badge
+at all at the ply where material is level, which is the better half of the
+design. It reads oddly next to an evaluation of -0.9, and that is only because
+the two measure different things.
+
+**A drill reads correctly.** Started for White at ply 40 and given a wrong move:
+the header badge reads "Not the line · 1/58", the card reads "Playing White ·
+move 1 of 58" and "Not the line. Try again.", the eval bar reads -2.2 against
+the coach's -2.23, and the winrate card reads 30.6% against the coach's "31% for
+White". Every number in the state agrees with every other. The engine's arrow is
+still drawn during a drill, which looks like it is giving the answer away and is
+not: the drill follows the game's line and the arrow is the engine's own
+opinion, which is a different move.
+
+**"Stop" is enabled with nothing to stop, and that is the right call.** It is
+the one transient control in this app that is not disabled when it cannot act --
+the navigation before a move exists, Hint before an engine, Take back and
+Resign before a move, `bench` behind its expert box are all disabled, most of
+them with the reason in the label. **Measured**: `Stop` is enabled before a
+search, during one, and after, and pressing it while idle changes nothing.
+
+The reason to leave it is in a number from earlier in this pass. A default
+search ends in about 150ms -- polled every 90ms, `status analyzing` appears in
+one sample out of forty-four -- so a Stop that disabled itself outside the
+search would spend almost all its time disabled and flicker on for a frame at a
+time. A control that cannot be pressed because it is only enabled for 150ms is
+worse than one that is always enabled and sometimes does nothing.
+
 **Three more states read, and all three of the things that looked wrong were
 right.** The reading lens that found the two cards above was pointed at the
 states nothing had rendered before -- a finished review, the Engine Lab, and a
