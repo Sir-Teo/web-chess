@@ -1929,6 +1929,99 @@ async function checkAFullLibraryStopsReadingTheFile(browser) {
 }
 
 /**
+ * A database is described, not poured into the paste box.
+ *
+ * A textarea lays out every character it holds, visible or not. Measured at 4x
+ * CPU: 220 KB costs 73ms of layout, 900 KB costs 299ms and 4.9 MB costs 1639ms
+ * -- spent on the twelve lines of a 15,000-game export that fit on screen, in a
+ * box whose contents nobody can read, edit or scroll to any purpose. Opening
+ * that file took 2404ms end to end before the reader could do anything;
+ * describing it instead takes 720ms.
+ *
+ * The small file is checked as well as the big one. A rule that hid the text
+ * whatever its size would pass every assertion about the big one and take the
+ * paste box away from the case it exists for.
+ */
+async function checkABigFileIsDescribedNotShown(browser) {
+  const OPERA = '1. e4 e5 2. Nf3 d6 3. d4 Bg4 4. dxe5 Bxf3 5. Qxf3 dxe5 6. Bc4 Nf6 7. Qb3 Qe7 ' +
+    '8. Nc3 c6 9. Bg5 b5 10. Nxb5 cxb5 11. Bxb5+ Nbd7 12. O-O-O Rd8 13. Rxd7 Rxd7 14. Rd1 Qe6 ' +
+    '15. Bxd7+ Nxd7 16. Qb8+ Nxb8 17. Rd8# 1-0'
+  const game = i => `[Event "Game ${i}"]\n[Site "Paris"]\n[Date "2026.01.01"]\n` +
+    `[White "W${i}"]\n[Black "B${i}"]\n[Result "1-0"]\n\n${OPERA}\n`
+  const database = n => Array.from({ length: n }, (_u, i) => game(i + 1)).join('\n')
+  // 512,000 characters is the ceiling -- the largest single game the library
+  // takes -- so one file has to sit either side of it by a clear margin.
+  const big = database(2200)
+  const small = database(40)
+
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+    await page.locator('.dialog-panel textarea').first().waitFor({ timeout: 10000 })
+
+    const open = async (text, name) => {
+      await page.locator('input[type=file].dialog-file-input')
+        .setInputFiles({ name, mimeType: 'application/x-chess-pgn', buffer: Buffer.from(text, 'utf8') })
+      await page.waitForFunction(() => Boolean(document.querySelector('.dialog-file-name')),
+        null, { timeout: 30000 })
+      await page.waitForTimeout(300)
+      return page.evaluate(() => ({
+        boxChars: document.querySelector('textarea.input-textarea')?.value.length ?? -1,
+        summary: document.querySelector('.dialog-file-summary p')?.textContent?.trim() || null,
+        chip: document.querySelector('.dialog-file-name')?.textContent?.trim() || null,
+        offer: document.querySelector('.dialog-database-offer button')?.textContent?.trim() || null,
+      }))
+    }
+
+    assert(big.length > 512_000 && small.length < 512_000,
+      `the two files are ${big.length} and ${small.length} characters, which do not straddle the ceiling`)
+
+    const shown = await open(small, 'a-few-games.pgn')
+    assert(shown.boxChars === small.length,
+      `a ${Math.round(small.length / 1024)} KB file left ${shown.boxChars} characters in the box ` +
+      'rather than its own text -- the box has stopped doing the job it exists for')
+    assert(shown.summary === null, `a small file was described as "${shown.summary}" instead of shown`)
+
+    // Emptied through the box itself, the way a reader would, so the next file
+    // lands on the same state a fresh dialog would have.
+    await page.evaluate(() => {
+      const ta = document.querySelector('textarea.input-textarea')
+      Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(ta, '')
+      ta.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await page.waitForTimeout(200)
+
+    const described = await open(big, 'a-whole-database.pgn')
+    assert(described.boxChars === -1,
+      `a ${Math.round(big.length / 1024)} KB file put ${described.boxChars} characters into a textarea, ` +
+      'every one of which the browser lays out to show twelve lines of')
+    assert(described.summary && /2,200 games/.test(described.summary),
+      `it stands in for the box with "${described.summary}", which does not say what the file holds`)
+    assert(described.chip === 'a-whole-database.pgn',
+      `the file name reads "${described.chip}"`)
+    assert(described.offer && /2,200 games/.test(described.offer),
+      `the offer reads "${described.offer}" -- the way to keep the file has to survive not showing it`)
+
+    await page.locator('.dialog-file-summary button').click()
+    await page.waitForTimeout(300)
+    const cleared = await page.evaluate(() => ({
+      boxChars: document.querySelector('textarea.input-textarea')?.value.length ?? -1,
+      chip: document.querySelector('.dialog-file-name')?.textContent?.trim() || null,
+    }))
+    assert(cleared.boxChars === 0 && cleared.chip === null,
+      `Clear left the box at ${cleared.boxChars} characters and the chip at "${cleared.chip}"`)
+
+    console.log(`  import box: ${Math.round(small.length / 1024)} KB shown, ` +
+      `${Math.round(big.length / 1024)} KB described ("${described.summary}"), Clear gives the box back`)
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -3137,6 +3230,7 @@ async function main() {
     await checkTheWinrateCardFollowsTheBoard(browser)
     await checkTheReviewCardNamesItsSet(browser)
     await checkAFullLibraryStopsReadingTheFile(browser)
+    await checkABigFileIsDescribedNotShown(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)

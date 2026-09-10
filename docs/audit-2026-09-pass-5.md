@@ -470,6 +470,27 @@ with it, however far it drifts from the size the reader is told about. The guard
 added is measured against the *sentence* — it reads the number out of the
 message and requires a file of exactly that size to be accepted.
 
+**The paste box was given a database to lay out.** A textarea lays out every
+character it holds, seen or not. **Measured** at 4x CPU, setting a value on a
+600x240 box: 220 KB costs **73ms**, 900 KB **299ms**, 4.9 MB **1639ms** — all of
+it spent on the twelve lines of a 15,000-game export that fit on the screen, in
+a box whose contents nobody can read, edit or scroll to any purpose. Opening a
+4.88 MB file took **2404ms** end to end before the reader could do anything with
+it. Everything else in that path is cheap by comparison: scanning the text for a
+second game is 1ms, splitting 4.67 MB into 17,228 entries 29ms.
+
+Past the largest single game the library will take — `MAX_LIBRARY_PGN_LENGTH`,
+so anything the box is still useful for is still shown — a loaded file is now
+described instead: "2,200 games · 667 KB · too much to show here", with the file
+name above it, the offer below it, and a **Clear** that gives the box back. The
+same 4.88 MB file opens in **720ms**. A paste is deliberately left alone: the
+browser has already laid it out before React hears about it, so replacing it
+would take the reader's own text off the screen and save nothing.
+
+The guard opens two files, one either side of the ceiling. Only checking the big
+one would pass just as well for a rule that hid the text at any size and took
+the paste box away from the case it exists for.
+
 ---
 
 ## Refuted

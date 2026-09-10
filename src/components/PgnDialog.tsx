@@ -45,7 +45,13 @@ import {
 import { fetchArchiveGames } from '../engine/archiveFetch'
 import { IconDownload, IconClipboard, IconUpload } from './icons'
 import { fenTextForShareLink } from './pgnDialogHelpers'
-import { MAX_PGN_IMPORT_BYTES, PGN_IMPORT_LIMIT_MESSAGE, pgnImportLengthError } from './pgnImportLimits'
+import {
+    MAX_PGN_IMPORT_BYTES,
+    PGN_IMPORT_LIMIT_MESSAGE,
+    describeImportSize,
+    importTextIsTooBigToShow,
+    pgnImportLengthError,
+} from './pgnImportLimits'
 
 // Using existing styles from NewGameDialog to maintain design consistency
 import './NewGameDialog.css'
@@ -220,6 +226,12 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         importFileInputRef.current?.click()
     }
 
+    const handleClearImport = () => {
+        setImportText('')
+        setImportFileName(null)
+        resetFeedback()
+    }
+
     const handleImportFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
         const input = event.currentTarget
         const file = input.files?.[0]
@@ -323,6 +335,17 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
      * so the offer has to appear the moment the file is recognised, which is
      * also when the reader is looking for it.
      */
+    /**
+     * A file too big for the box it landed in.
+     *
+     * Only the file path: a textarea lays out every character it holds, and
+     * pouring a 15,000-game export into one cost 2.4s of frozen screen to show
+     * twelve lines of text nobody can read or edit. What the reader needs from
+     * a database -- its name, how many games are in it, and the offer to keep
+     * them -- is on screen either way.
+     */
+    const loadedFileIsTooBigToShow = importTextIsTooBigToShow(importText, importFileName !== null)
+
     const databaseGames = useMemo(
         () => (onImportManyToLibrary && importContentError === PGN_MULTIPLE_GAMES_ERROR
             ? splitPgnGames(importText)
@@ -587,29 +610,43 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                     <span className="dialog-file-name" title={importFileName}>{importFileName}</span>
                                 )}
                             </div>
-                            <textarea
-                                id={importTextId}
-                                className="input-textarea"
-                                placeholder="[Event &quot;FIDE World Cup 2023&quot;]..."
-                                value={importText}
-                                onChange={e => {
-                                    const nextText = e.target.value
-                                    const limitError = pgnImportLengthError(nextText)
-                                    if (limitError) {
-                                        setError(limitError)
-                                        return
-                                    }
-                                    setImportText(nextText)
-                                    setImportFileName(null)
-                                    setError(nextText.trim() ? pgnImportContentError(nextText) : null)
-                                }}
-                                aria-invalid={Boolean(error)}
-                            />
+                            {loadedFileIsTooBigToShow ? (
+                                <div className="dialog-file-summary">
+                                    <p>
+                                        {databaseGames
+                                            ? `${databaseGames.length.toLocaleString()} games`
+                                            : 'One game'}
+                                        {` · ${describeImportSize(importText.length)} · too much to show here.`}
+                                    </p>
+                                    <button type="button" className="btn-cancel" onClick={handleClearImport}>
+                                        Clear
+                                    </button>
+                                </div>
+                            ) : (
+                                <textarea
+                                    id={importTextId}
+                                    className="input-textarea"
+                                    placeholder="[Event &quot;FIDE World Cup 2023&quot;]..."
+                                    value={importText}
+                                    onChange={e => {
+                                        const nextText = e.target.value
+                                        const limitError = pgnImportLengthError(nextText)
+                                        if (limitError) {
+                                            setError(limitError)
+                                            return
+                                        }
+                                        setImportText(nextText)
+                                        setImportFileName(null)
+                                        setError(nextText.trim() ? pgnImportContentError(nextText) : null)
+                                    }}
+                                    aria-invalid={Boolean(error)}
+                                />
+                            )}
                             {error && <p className="dialog-error" role="alert">{error}</p>}
                             {databaseGames && databaseGames.length > 1 && (
                                 <div className="dialog-database-offer">
                                     <button type="button" className="btn-start" onClick={handleImportDatabase}>
-                                        Add {databaseGames.length} games to the library
+                                        Add {databaseGames.length.toLocaleString()} games to the library
                                     </button>
                                 </div>
                             )}

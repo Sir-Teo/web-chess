@@ -67,6 +67,34 @@
     white-space: nowrap;
 }
 
+/* Stands in for the paste box when a loaded file is too big to show in one:
+   what the file is, and the way back to an empty box. */
+.dialog-file-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.8rem;
+    border: 1px dashed var(--border-default);
+    border-radius: 8px;
+    background: var(--bg-inset);
+}
+
+.dialog-file-summary p {
+    margin: 0;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.dialog-file-summary .btn-cancel {
+    flex: none;
+    padding: 0.42rem 0.7rem;
+    font-size: 0.74rem;
+    min-height: 36px;
+}
+
 .dialog-share-fallback {
     display: grid;
     gap: 0.45rem;
@@ -780,6 +808,7 @@
 
 @media (max-width: 620px) {
     .dialog-quick-actions .btn-cancel,
+    .dialog-file-summary .btn-cancel,
     .dialog-actions .btn-cancel,
     .dialog-actions .btn-start,
     .dialog-export-options .dialog-check-option,
