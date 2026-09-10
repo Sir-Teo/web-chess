@@ -1595,6 +1595,60 @@ async function checkTheBoardIsNotADeadZone(browser) {
 }
 
 /**
+ * The command palette is made of things a finger can hit.
+ *
+ * The 44px sweep ran over App.css and this dialog's styles are in a file of
+ * their own, so it was missed. Measured at 375x564 before the fix: the search
+ * field was 343x21 carrying `padding: 1px 2px`, which is the user agent's own
+ * and means it had never been given any, and the command rows came out at 42px
+ * -- two short of the bar every other control on a phone is held to.
+ *
+ * The rows are asserted as a set rather than one of them, because they are
+ * generated from a list and a single sampled row says nothing about the rest.
+ * Desktop is deliberately not checked: 44px is a touch standard, and every
+ * other rule of its kind in this app is scoped to the phone breakpoint too.
+ */
+async function checkThePaletteIsFingerSized(browser) {
+  const context = await browser.newContext({
+    viewport: { width: 375, height: 564 }, isMobile: true, hasTouch: true,
+  })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('.board-surface').waitFor({ timeout: 10000 })
+    await page.getByRole('button', { name: /Open command palette/ }).click()
+    await page.locator('.command-palette').waitFor({ timeout: 10000 })
+    await page.waitForTimeout(400)
+
+    const sizes = await page.evaluate(() => {
+      const input = document.querySelector('.command-palette-input')
+      const rows = [...document.querySelectorAll('.command-palette-button')]
+      return {
+        input: input ? Math.round(input.getBoundingClientRect().height) : null,
+        inputWidth: input ? Math.round(input.getBoundingClientRect().width) : null,
+        rows: rows.length,
+        shortest: rows.length ? Math.min(...rows.map(r => r.getBoundingClientRect().height)) : null,
+        under: rows.filter(r => r.getBoundingClientRect().height < 44).length,
+      }
+    })
+
+    // The probe before the assertions: an empty palette would pass every one.
+    assert(sizes.input !== null, 'the command palette has no search field')
+    assert(sizes.rows >= 5, `the palette listed ${sizes.rows} commands; there is nothing to measure`)
+
+    assert(sizes.input >= 44,
+      `the palette's search field is ${sizes.input}px tall, under the 44px a finger is given everywhere else`)
+    assert(sizes.under === 0,
+      `${sizes.under} of ${sizes.rows} command rows are under 44px, the shortest ${Math.round(sizes.shortest)}px`)
+
+    console.log(`  palette: a ${sizes.inputWidth}x${sizes.input} search field and ${sizes.rows} rows, none under 44px`)
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -2799,6 +2853,7 @@ async function main() {
     await checkEverySquareAnswersAFinger(browser)
     await checkATapSurvivesTheFingerThatMakesIt(browser)
     await checkTheBoardIsNotADeadZone(browser)
+    await checkThePaletteIsFingerSized(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)

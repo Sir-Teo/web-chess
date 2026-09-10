@@ -84,3 +84,23 @@
     opacity: 0.65;
 }
 
+/*
+ * A finger's worth of height for the two things this dialog is made of.
+ *
+ * The 44px sweep ran over App.css, and these styles are not in it, so the
+ * palette was missed. **Measured** at 375x564: the search field is 343x21 with
+ * `padding: 1px 2px` -- the user agent's own, meaning it had never been given
+ * any -- which is a target a fifth the height of everything else this app is
+ * held to on a phone. The command rows come out at 42px, two short of the same
+ * bar. Both are the only sizes in here a finger has to hit.
+ */
+@media (max-width: 900px) {
+    .command-palette-input {
+        min-height: 44px;
+        padding: 0.5rem 0.625rem;
+    }
+
+    .command-palette-button {
+        min-height: 44px;
+    }
+}

@@ -256,6 +256,32 @@ and 10px of drift, straight down and diagonally, the move landed every time.
 The guard now covers that second tap at 8px, which is where a drag takes hold
 and so where a pan would if one were going to.
 
+**The command palette was not made of things a finger can hit.** **Measured**
+at 375x564: its search field is 343x**21**px carrying `padding: 1px 2px`, which
+is the user agent's own and means it had never been given any, and its 33
+command rows come out at 42px — two short of the 44px every other control on a
+phone is held to. The fourth pass's sweep put `min-height: 44px` on fourteen
+selectors and every one of them is in App.css; this dialog's styles are in a
+file of their own, which is the whole reason it was missed. Now 44px for both,
+scoped to the same breakpoint as the other fourteen, since 44px is a touch
+standard and a mouse does not need it.
+
+That came out of a sweep of the overlays at 100%, 150% and 200% text on the two
+shortest phones — the pairing of the fourth pass's text sizes with the shorter
+sheets `dvh` now gives them, which nothing had put together. The sheets
+themselves are fine: at every text size and both sizes, nothing is stranded
+outside a scroller, no sheet is cut off at the top, the move-navigation bar
+stays on the screen, and the board's squares stay at or above 24px — 24.0 at
+100% and, because this layout is measured in `rem`, *larger* at 200%, 34.4px at
+320x480.
+
+Two other things the same sweep flagged were the false positive this repo
+already knows about. Five controls in the settings sheet measure 20.8px, and
+each is a tick box inside a `label` measuring **335x44** — the label is the
+target, the box is the picture of it. The rule about confirming a flagged
+element by hand paid for itself again: the same list held one real defect and
+five decoys, and only the wrapping label told them apart.
+
 **A long session does not wear the app down.** Six rounds of three hundred
 navigations, twelve mode switches, eighteen dialogs opened and closed, and a
 flip apiece, at 4x CPU with a 116-ply game loaded, garbage collected before each
