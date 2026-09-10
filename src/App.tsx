@@ -6859,6 +6859,23 @@ function App() {
                       numericNotationStyle: { ...NOTATION_BASE_STYLE, top: 2, left: 3, fontSize: notationFontSize },
                       allowDrawingArrows: !isPreviewingLine,
                       allowDragging: !isPreviewingLine && (!boardInputLocked || premoveAllowed),
+                      // How far a finger may wander before it is a drag rather
+                      // than a tap. The default is 1px, and no finger is that
+                      // still: **measured** at 390x844, tapping the e2 pawn
+                      // with 1px of drift lit no legal targets at all, where a
+                      // perfectly motionless tap lit two. What the reader got
+                      // for a tap was a drag that picked the pawn up and put it
+                      // back on its own square -- which lands in `onPieceDrop`
+                      // below, clears the selection, and swallows the click
+                      // that would have made one. Tap to select, the way this
+                      // board is documented to work, was reachable only with a
+                      // mouse. 8px is where Android itself draws the line --
+                      // `ViewConfiguration.getScaledTouchSlop()` is 8dp, and
+                      // below it the platform does not call a movement a drag
+                      // either -- and it is under a fifth of a square on the
+                      // narrowest phone this app supports, so a deliberate drag
+                      // still takes hold almost at once.
+                      dragActivationDistance: 8,
                       showAnimations: !reduceMotion,
                       darkSquareStyle: { backgroundColor: boardTheme.dark },
                       lightSquareStyle: { backgroundColor: boardTheme.light },

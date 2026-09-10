@@ -1386,6 +1386,85 @@ async function checkEverySquareAnswersAFinger(browser) {
 }
 
 /**
+ * A tap survives the finger that makes it.
+ *
+ * `dragActivationDistance` decides how far a pointer may wander before
+ * react-chessboard calls it a drag rather than a tap, and its default is
+ * **1px**. No finger is that still. Measured at 390x844 before the fix:
+ * tapping the e2 pawn with 1px of drift lit no legal targets at all, where a
+ * perfectly motionless tap lit two -- and 2, 3, 5, 8 and 12px did the same
+ * nothing. What the reader got instead was a drag that picked the pawn up and
+ * put it back on its own square, which lands in `onPieceDrop`, clears the
+ * selection, and swallows the click that would have made one. Tap to select,
+ * which is how this board is documented to work, was reachable only with a
+ * mouse.
+ *
+ * Both ends are asserted, because either alone is passable and wrong: a tap
+ * that drifts a few pixels has to select, and a drag has to still be a drag.
+ * The gap between them is 8px, which is where Android draws the same line.
+ *
+ * Real touch events rather than `click()`: a synthetic click carries no
+ * pointer movement at all, so it lands in the one case that always worked and
+ * proves nothing.
+ */
+async function checkATapSurvivesTheFingerThatMakesIt(browser) {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true,
+  })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    const passAndPlay = page.locator('button', { hasText: /Pass and play/ })
+    if (await passAndPlay.count()) await passAndPlay.first().click()
+    await page.locator('.board-surface').waitFor({ timeout: 10000 })
+    await page.waitForTimeout(600)
+
+    const client = await context.newCDPSession(page)
+    const centre = square => page.evaluate(name => {
+      const box = document.querySelector('#chessboard-square-' + name).getBoundingClientRect()
+      return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) }
+    }, square)
+    const litTargets = () => page.evaluate(() => [...document.querySelectorAll('[id^="chessboard-square-"]')]
+      .filter(el => /legal move target/i.test(el.getAttribute('aria-label') || '')).length)
+    const plies = () => page.evaluate(() => document.querySelectorAll('.mtree-chip').length)
+
+    async function press(from, to, steps) {
+      const a = await centre(from)
+      const b = to ? await centre(to) : null
+      await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: a.x, y: a.y, id: 1 }] })
+      await page.waitForTimeout(40)
+      for (let i = 1; i <= steps.length; i++) {
+        const drift = steps[i - 1]
+        const x = b ? Math.round(a.x + (b.x - a.x) * i / steps.length) : a.x + drift
+        const y = b ? Math.round(a.y + (b.y - a.y) * i / steps.length) : a.y + drift
+        await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y, id: 1 }] })
+        await page.waitForTimeout(16)
+      }
+      await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+      await page.waitForTimeout(450)
+    }
+
+    // A tap with an ordinary finger's drift still selects.
+    await press('e2', null, [1, 2, 3])
+    const lit = await litTargets()
+    assert(lit > 0, `a tap that drifted 3px lit ${lit} legal targets; the pawn was never selected`)
+    const before = await plies()
+    await press('e4', null, [1, 2, 3])
+    assert(await plies() > before, 'the second tap did not play the move the first one set up')
+
+    // And a drag is still a drag.
+    const beforeDrag = await plies()
+    await press('e7', 'e5', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    assert(await plies() > beforeDrag, 'dragging a piece across the board no longer plays a move')
+
+    console.log(`  tap: a finger drifting 3px still selects (${lit} targets lit), and a drag still drags`)
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -2588,6 +2667,7 @@ async function main() {
     await checkDrillLeavesTheLineAlone(browser)
     await checkDrawModeEndsWithItsPurpose(browser)
     await checkEverySquareAnswersAFinger(browser)
+    await checkATapSurvivesTheFingerThatMakesIt(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)
