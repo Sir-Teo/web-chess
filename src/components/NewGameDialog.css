@@ -361,6 +361,7 @@
     flex: 1 1 auto;
     min-height: 0;
     max-height: min(74vh, 720px);
+    max-height: min(74dvh, 720px);
     overflow-y: auto;
 }
 
@@ -707,6 +708,7 @@
 
     .dialog-body {
         max-height: 78vh;
+        max-height: 78dvh;
     }
 
     .dialog-header,

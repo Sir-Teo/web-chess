@@ -13,6 +13,7 @@
     margin: 0.5rem 0 0;
     padding: 0;
     max-height: min(24rem, 50vh);
+    max-height: min(24rem, 50dvh);
     overflow-y: auto;
 }
 

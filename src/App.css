@@ -573,6 +573,7 @@ input[type="checkbox"] {
   width: 340px;
   /* Slightly narrower for mobile friendliness */
   max-height: 72vh;
+  max-height: 72dvh;
   overflow-y: auto;
   padding: var(--space-lg);
   border-radius: var(--radius-md);
@@ -4357,8 +4358,14 @@ button.critical-moment-row {
     transform: none;
     width: 100%;
     max-width: 100%;
-    /* Prevent blowout here */
+    /* Prevent blowout here -- against the screen the reader can see. `85vh`
+       is 85% of the *large* viewport, which at 390x844 behind iOS Safari's
+       ~115px of chrome is 717px of a 729px screen: 98%, not 85%, and a
+       12px strip of app left showing instead of 127px. A sheet that fills
+       the screen has stopped being a sheet. The backdrop directly above
+       already measures itself the right way. */
     max-height: 85vh;
+    max-height: 85dvh;
     z-index: 1000;
     box-shadow:
       0 -12px 48px rgba(0, 0, 0, 0.6),
@@ -4622,6 +4629,7 @@ button.critical-moment-row {
 
   .engine-options {
     max-height: 40vh;
+    max-height: 40dvh;
     padding: 0.6rem;
   }
 

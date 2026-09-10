@@ -83,6 +83,7 @@
     flex-direction: column;
     gap: 0.35rem;
     max-height: 42vh;
+    max-height: 42dvh;
     overflow-y: auto;
 }
 
@@ -198,6 +199,7 @@
 
     .library-list {
         max-height: 50vh;
+        max-height: 50dvh;
     }
 }
 
