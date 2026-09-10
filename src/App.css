@@ -301,13 +301,13 @@ body.resizing * {
     scroll-snap-align: start;
   }
 
-  .mobile-actions {
+  /* `.top` because the plain-class rule further down the file would otherwise
+     win on source order and this would be dead -- which it was, along with a
+     2.1rem button size that the 2.75rem touch-target rule has always
+     overridden. The tighter gap is 11px across the group, which is what it
+     needed to stop scrolling at 320px. */
+  .top .mobile-actions {
     gap: 0.2rem;
-  }
-
-  .mobile-actions button {
-    width: 2.1rem;
-    height: 2.1rem;
   }
 
   .top .settings-menu {
@@ -3860,6 +3860,7 @@ button.critical-moment-row {
      what this used to draw unconditionally. Nothing is lost there; the two
      edges only start moving where something can move them. */
   .top .mobile-modes-wrapper,
+  .top .mobile-actions,
   .board-meta-flow {
     --edge-w: 1.25rem;
     /* What a browser with no scroll timelines draws: the static trailing fade
@@ -3880,6 +3881,7 @@ button.critical-moment-row {
 
   @supports (animation-timeline: scroll()) {
     .top .mobile-modes-wrapper,
+    .top .mobile-actions,
     .board-meta-flow {
       /* Neither edge, until the scroll position says otherwise. A strip whose
          items all fit has no timeline to run, so the animations contribute
@@ -4083,10 +4085,33 @@ button.critical-moment-row {
     overflow-x: visible;
   }
 
+  /* Centred while the five buttons fit, and no wider than its column when they
+     do not. They grow with the reader's text size, and `justify-self: center`
+     sizes an item to its content and centres it -- so past about 125% the
+     group was wider than the bar and hung out of both ends of it, into a
+     panel that clips. Measured at 375px: at a 20px root "New game" was 7px off
+     the left edge; at 24px it sat at -46..20, two thirds of it gone; at 32px
+     it and Flip were off the screen entirely and Commands was cut off the
+     right. Four of the bar's six controls unreachable, at the text size a
+     reader chose because they needed it.
+
+     `max-width` holds it inside the column and the group scrolls within
+     whatever room that is, the way the mode strip below it does -- so nothing
+     is ever unreachable, and the bar keeps its height, which at 200% text is
+     the scarcer of the two. */
   .mobile-actions {
     grid-area: actions;
     justify-self: center;
     min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overflow-anchor: none;
+  }
+
+  .mobile-actions::-webkit-scrollbar {
+    display: none;
   }
 
   .top .compact-grid .mobile-actions button {

@@ -3,10 +3,11 @@ import { describe, expect, it } from 'vitest'
 import CSS from '../App.css?raw'
 
 /**
- * The edges of the two strips that scroll sideways on a phone: the mode groups
- * in the top bar, and the readings in the board's own strip. Both hold their
- * items at their natural width and let the row run past the end rather than
- * squeezing anything, so both need an edge that says the row goes on.
+ * The edges of the three strips that scroll sideways on a phone: the board
+ * actions and the mode groups in the top bar, and the readings in the board's
+ * own strip. All three hold their items at their natural width and let the row
+ * run past the end rather than squeezing anything, so all three need an edge
+ * that says the row goes on.
  *
  * Three things have to stay true, and none of them is visible in a diff:
  *
@@ -26,11 +27,33 @@ function block(selector: string): string {
   return CSS.slice(start, CSS.indexOf('}', start))
 }
 
-/** Both strips are styled by one rule; this is the selector that names them. */
-const EDGE_RULE = `.top .mobile-modes-wrapper,
-  .board-meta-flow {`
+/**
+ * All three strips are styled by one rule. Found by the declaration only this
+ * rule carries, so adding a fourth strip to the selector list does not break
+ * the test that guards the other three -- the list itself is asserted below.
+ */
+const EDGE_RULE_MARK = '--edge-w: 1.25rem'
+
+/** Every strip that wears these edges. Named so a new one has to be added here. */
+const STRIPS = ['.top .mobile-modes-wrapper', '.top .mobile-actions', '.board-meta-flow']
+
+function edgeRule(): string {
+  const mark = CSS.indexOf(EDGE_RULE_MARK)
+  expect(mark, 'the shared edge rule is gone').toBeGreaterThanOrEqual(0)
+  const open = CSS.lastIndexOf('{', mark)
+  return CSS.slice(CSS.lastIndexOf('}', open) + 1, CSS.indexOf('}', mark))
+}
 
 describe('the fading edges of a sideways strip', () => {
+  /** A strip that scrolls sideways and is not in the list gets no edges. */
+  it('paints every strip that scrolls sideways', () => {
+    const rule = edgeRule()
+    for (const strip of STRIPS) expect(rule, strip).toContain(strip)
+    const supports = CSS.indexOf('@supports (animation-timeline: scroll())')
+    const inside = CSS.slice(supports, CSS.indexOf('\n  }', supports))
+    for (const strip of STRIPS) expect(inside, strip).toContain(strip)
+  })
+
   it('drives both edges from the scroll position, not from a timer', () => {
     const supports = CSS.indexOf('@supports (animation-timeline: scroll())')
     expect(supports, 'the scroll-timeline block is gone').toBeGreaterThanOrEqual(0)
@@ -55,7 +78,7 @@ describe('the fading edges of a sideways strip', () => {
    * is how opaque it is.
    */
   it('reads both edges in the mask it paints', () => {
-    const rule = block(EDGE_RULE)
+    const rule = edgeRule()
     for (const property of ['mask-image', '-webkit-mask-image']) {
       const declaration = rule.slice(rule.indexOf(`${property}:`))
       expect(declaration, property).toContain('calc(1 - var(--edge-lead))')
@@ -69,7 +92,7 @@ describe('the fading edges of a sideways strip', () => {
    * lost there, and the edges only start moving where something can move them.
    */
   it('falls back to the fade it replaced', () => {
-    const rule = block(EDGE_RULE)
+    const rule = edgeRule()
     expect(rule).toContain('--edge-lead: 0')
     expect(rule).toContain('--edge-trail: 1')
   })
