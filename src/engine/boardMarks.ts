@@ -111,3 +111,40 @@ export function lastMoveSquareStyle(): { boxShadow: string; backgroundColor: str
     backgroundColor: `${LAST_MOVE_COLOR}38`,
   }
 }
+
+/**
+ * The square whose piece has been picked up.
+ *
+ * This was a gold ring, written inline beside the board rather than here, and
+ * it was the one square style in the app never measured. Gold and the
+ * last-move orange are two different things and looked like one: measured with
+ * {@link distanceAsSeen}, the two rings over the same square are **3.6** apart
+ * for deutan vision on the dusk board and **4.6** on ocean, on a scale this
+ * module's own comment calls "around 2 is only side by side". A reader with
+ * ordinary colour vision sees 16.3 and would never notice — which is roughly
+ * eleven men in twelve, and none of the twelfth.
+ *
+ * The colour was picked by measuring, not by eye. Blue and cyan looked right
+ * and are not: they land 3.1 from the magenta mark for protan vision, which is
+ * the same mistake one hue over. What is left, once the last-move orange, the
+ * board's ink, the preview green and the three mark colours have their room, is
+ * dark: this is the same amber family the board already speaks, taken down
+ * until it separates by **lightness** rather than by hue -- which is the one
+ * axis every kind of colour vision keeps. Worst reading of the forty is 26.2,
+ * and it is the only candidate that also clears 2.5:1 in plain luminance, so it
+ * shows to a reader with no colour vision at all.
+ */
+export const SELECTED_SQUARE_COLOR = '#6b3a00'
+
+/** Solid, like the last move's: the ring is the reading. */
+export const SELECTED_SQUARE_RING_ALPHA = 1
+
+/** Heavier than the last move's, because this one is the square being acted on. */
+export const SELECTED_SQUARE_WASH_ALPHA = 0.3
+
+export function selectedSquareStyle(): { boxShadow: string; backgroundColor: string } {
+  return {
+    boxShadow: `inset 0 0 0 3px ${SELECTED_SQUARE_COLOR}`,
+    backgroundColor: `${SELECTED_SQUARE_COLOR}4d`,
+  }
+}

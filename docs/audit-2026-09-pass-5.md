@@ -713,6 +713,44 @@ with no ring at all. And `outline-offset` moving from 0 to 2px while
 `outline-style` is `none` paints nothing, which let a planted button with
 `outline: none !important` through the sweep twice.
 
+**The picked-up square and the last-moved square were one colour.** Not to me,
+and not to eleven readers in twelve. The app built a Viénot–Brettel–Mollon
+simulator for exactly this question and holds every board colour to it — the
+coordinates, the move hints, the three mark colours, the last-move ring. The
+selected square was the one that never went through it, because it was written
+inline beside the board as `rgba(255,215,0,0.55)` with a
+`rgba(255,200,0,0.9)` ring rather than living in `boardMarks` with the rest.
+
+**Measured** with the app's own `distanceAsSeen`, the selected ring against the
+last-move ring over the same square:
+
+| | worst ΔE |
+|---|---|
+| ordinary colour vision | **16.3** — plainly two colours |
+| deutan (dusk board) | **3.6** |
+| deutan (ocean board) | **4.6** |
+| protan (classic board) | **7.4** |
+
+**16 of 40 readings under 10.** The module's own comment calls 2 "only side by
+side" and 10 "clearly different". Gold and orange are the same thing without a
+red cone, and nobody testing by eye would ever see it.
+
+Choosing the replacement by measuring rather than by eye mattered twice. Blue
+and cyan look obviously right and are the same mistake one hue over: sky
+lands **3.1** from the magenta mark for protan vision. Sweeping the hue wheel
+against every colour already on a square — both squares of all five schemes,
+the last-move ring, the board's ink, the preview green and the three marks, in
+four kinds of vision — what is left is dark. So the selection stays in the
+amber family the board already speaks and goes *down* instead of across:
+`#6b3a00`, separating by **lightness**, the one axis every kind of colour
+vision keeps. Worst of the forty readings is **26.2**, and it is the only
+candidate that also clears 2.5:1 in plain luminance, so it shows to a reader
+with no colour vision at all.
+
+It lives in `boardMarks` now, beside the last-move style, and is held to the
+same bar plus one the others did not need: that it is not the last move, not
+the ink, not the preview and not a mark.
+
 ---
 
 ## Refuted

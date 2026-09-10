@@ -3,6 +3,8 @@ import { BOARD_THEMES, compositeOver, contrastRatio } from './boardThemes'
 import { type ColorVision, distanceAsSeen } from './colorVision'
 import {
   LAST_MOVE_COLOR,
+  SELECTED_SQUARE_COLOR,
+  SELECTED_SQUARE_RING_ALPHA,
   LAST_MOVE_RING_ALPHA,
   LAST_MOVE_WASH_ALPHA,
   MARK_COLORS,
@@ -107,6 +109,63 @@ describe('the move that was played', () => {
     }
     // The bar the move hints are held to, which the wash below cannot reach.
     expect(worst, `worst is ${worst.toFixed(1)} on the ${where}`).toBeGreaterThan(15)
+  })
+
+  /**
+   * The selected square and the last-moved square mean different things and
+   * were drawn as one colour.
+   *
+   * Gold, written inline beside the board rather than in this module, was the
+   * only square style never measured. Over the same square the two rings sit
+   * **3.6** apart for deutan vision on the dusk board and **4.6** on ocean --
+   * this module treats 2 as "only side by side" -- while ordinary colour vision
+   * reads 16.3 and would never notice. Both halves are pinned: the ring has to
+   * be visible on every square of every scheme, and it has to be a different
+   * thing from the last move on all of them.
+   */
+  it('tells the picked-up square from the last-moved one, however colour is seen', () => {
+    let fromSquare = Infinity
+    let fromLastMove = Infinity
+    let where = ''
+    for (const theme of BOARD_THEMES) {
+      for (const [tag, square] of [['light', theme.light], ['dark', theme.dark]] as const) {
+        const selected = compositeOver(square, SELECTED_SQUARE_COLOR, SELECTED_SQUARE_RING_ALPHA)
+        const lastMove = compositeOver(square, LAST_MOVE_COLOR, LAST_MOVE_RING_ALPHA)
+        for (const vision of VISIONS) {
+          fromSquare = Math.min(fromSquare, distanceAsSeen(selected, square, vision))
+          const apart = distanceAsSeen(selected, lastMove, vision)
+          if (apart < fromLastMove) {
+            fromLastMove = apart
+            where = `${theme.id} ${tag} square, ${vision}`
+          }
+        }
+      }
+    }
+    // The bar every other square indicator here is held to.
+    expect(fromSquare, `only ${fromSquare.toFixed(1)} from the square it is on`).toBeGreaterThan(15)
+    expect(fromLastMove, `only ${fromLastMove.toFixed(1)} from the last-move ring on the ${where}`)
+      .toBeGreaterThan(15)
+  })
+
+  /**
+   * And apart from everything else already drawn on a square: the board's own
+   * ink, which the coordinates, the move hints and the focus ring all use, and
+   * the three colours a reader marks squares with.
+   */
+  it('is not any of the other things a square can be wearing', () => {
+    for (const theme of BOARD_THEMES) {
+      for (const square of [theme.light, theme.dark]) {
+        const selected = compositeOver(square, SELECTED_SQUARE_COLOR, SELECTED_SQUARE_RING_ALPHA)
+        for (const vision of VISIONS) {
+          expect(distanceAsSeen(selected, theme.ink, vision),
+            `${theme.id}: the selection reads as the board's ink to ${vision} vision`).toBeGreaterThan(15)
+          for (const mark of Object.values(MARK_COLORS)) {
+            expect(distanceAsSeen(selected, compositeOver(square, mark, 0.9), vision),
+              `${theme.id}: the selection reads as a ${mark} mark to ${vision} vision`).toBeGreaterThan(5)
+          }
+        }
+      }
+    }
   })
 
   /** What a wash alone would be, so the reason for the ring stays on record. */

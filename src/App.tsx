@@ -150,6 +150,7 @@ import {
   MARK_COLORS,
   hasSquareMarks,
   lastMoveSquareStyle,
+  selectedSquareStyle,
   markColorForModifiers,
   squareMarkStyle,
   toggleSquareMark,
@@ -447,6 +448,9 @@ const PREVIEW_SQUARE_STYLE = {
  * legal-move hint each still win the square they are on.
  */
 const LAST_MOVE_SQUARE_STYLE = lastMoveSquareStyle()
+
+/** The square the reader has picked a piece up from. See {@link selectedSquareStyle}. */
+const SELECTED_SQUARE_STYLE = selectedSquareStyle()
 
 const NOTATION_BASE_STYLE = {
   position: 'absolute' as const,
@@ -6994,7 +6998,7 @@ function App() {
                         ...Object.fromEntries(
                           Object.entries(markedSquares).map(([square, color]) => [square, squareMarkStyle(color)]),
                         ),
-                        ...(selectedSquare ? { [selectedSquare]: { backgroundColor: 'rgba(255,215,0,0.55)', boxShadow: 'inset 0 0 0 3px rgba(255,200,0,0.9)' } } : {}),
+                        ...(selectedSquare ? { [selectedSquare]: SELECTED_SQUARE_STYLE } : {}),
                         ...Object.fromEntries(
                           legalTargets.map(sq => [sq, moveHintStyle(boardTheme, Boolean(game.get(sq)))]),
                         ),
