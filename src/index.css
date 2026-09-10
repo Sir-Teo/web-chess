@@ -298,7 +298,10 @@ body {
 }
 
 .app-error-shell {
+  /* Same reasoning as `.app-shell`: the height a reader can see, not the one
+     the chrome would leave behind if it retracted. */
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 1rem;

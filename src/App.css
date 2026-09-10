@@ -4,8 +4,14 @@
 .app-shell {
   position: relative;
   width: 100%;
+  /* The height a reader can actually see. `vh` is the *large* viewport -- the
+     height a phone browser has once its chrome has retracted -- and this shell
+     does not scroll, so sizing it that way puts its last band permanently
+     behind the URL bar. Nothing on the page scrolls the root either, so that
+     chrome never retracts and the band never comes back. `vh` first, for a
+     browser that has no `dvh`. */
   height: 100vh;
-  /* Full viewport height */
+  height: 100dvh;
   font-family: var(--font-body);
   background:
     linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-base) 52%, var(--bg-base) 100%);
@@ -3874,6 +3880,7 @@ button.critical-moment-row {
 
   .app-shell {
     height: 100vh;
+    height: 100dvh;
     width: 100vw;
     max-width: 100vw;
     overflow: hidden;
