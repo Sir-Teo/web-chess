@@ -215,30 +215,33 @@ at a time, and this file holds several. Add them all to the library, or paste a
 single game" — beside a button reading "Add 60 games to the library". The count
 is in the label.
 
-**The same mistake, one axis over.** Checking that the sheets still fit at the
-shorter heights `dvh` gives them — they do, the settings sheet holding at
-exactly 85% of the screen at 393x745, 375x564, 360x540 and 320x480, everything
-scrolling, nothing stranded — turned up **5px of horizontal scroll at 320px
-wide**, on a layout that has none at any other size. `100vw` is the viewport
-*including* a classic scrollbar: measured under mobile emulation,
-`documentElement.clientWidth` was 320 against a `window.innerWidth` of 325, and
-five things were sized against the larger number — the body's own cap, the
-phone shell's width and max-width, the settings backdrop, the lazy-dialog error
-toast, and the command palette. `100%` is the room there is, and for a fixed
-element it is the initial containing block, which is the same thing. Measured
-after: **0px of horizontal overflow at 320x480, 320x568, 360x540, 390x844 and
-1440x900**, with the shell's width exactly `clientWidth` at each.
+**The same mistake, one axis over — and a fix that fixed nothing measurable.**
+Checking that the sheets still fit at the shorter heights `dvh` gives them —
+they do, the settings sheet holding at exactly 85% of the screen at 393x745,
+375x564, 360x540 and 320x480, everything scrolling, nothing stranded — turned
+up 5px of horizontal scroll at 320px wide, on a layout that has none at any
+other size. `100vw` is the viewport *including* a classic scrollbar, and five
+things were sized against it: the body's own cap, the phone shell's width and
+max-width, the settings backdrop, the lazy-dialog error toast, and the command
+palette. They are `100%` now, which is the room there is, and for a fixed
+element the initial containing block, which is the same thing. The unit was
+wrong and the change is right.
 
-The guard for it is the height sweep's mirror, and it caught something the
-sweep's author had written three commits earlier: the boot skeleton's board was
-`min(93vw, 26rem)`. Harmless there — 93% of 325 is still inside 320 — but the
-unit was wrong for the same reason, and `min(93%, 26rem)` is what it meant.
+**It did not fix the 5px, and the entry first written here said it had.** The
+verification behind that claim was a single pass over five sizes. Repeated
+eight times at each size it comes out **8/8 overflowing**, and against the
+build from *before* the change, **6/6 overflowing by the same 5px** — the fix
+changed nothing about the symptom that motivated it. What the 5px actually is:
+`documentElement.scrollWidth - clientWidth` equal, every time, to
+`window.innerWidth - clientWidth`, which is the scrollbar Playwright's mobile
+emulation draws. With emulation off, the same probe on the same build reports
+**0/5** at both sizes. A real phone draws an overlay scrollbar and has none of
+this.
 
-Worth separating from the finding: what *first* drew attention to 320px was a
-root that scrolled 7-8px vertically, and that turned out to be an artifact.
-It reproduced only under mobile emulation, and the size at which it appeared
-moved between runs — 320x480 in one, 320x568 in the next. The horizontal
-overflow underneath it was real and is fixed; the vertical one was the harness.
+So: a correct change, a false claim about it, and the thing that caught the
+false claim was repetition. One pass over five sizes read 0px; eight passes over
+one size read 5px every time. Nothing about the first run said it was the
+unreliable one.
 
 **Handing the empty squares to the browser costs nothing, and breaks nothing.**
 Two things had to be checked about the change above, because both would have
