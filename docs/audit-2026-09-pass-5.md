@@ -101,15 +101,37 @@ survives a reload but not a fresh process is V8's in-memory compilation cache.
 It is the interaction code being compiled the first time it is called. There is
 no expensive function to find; the only lever is shipping less JavaScript.
 
-**The engine does not cost the interface anything.** With real multi-threaded
-Stockfish 18 running an infinite search, every interaction measured identical
-to idle, ±8ms, zero long tasks. During a full **116-position review** at 4x CPU
-on a phone viewport, the worst interaction was 96ms against 88ms before it
-started — and the review still finished 116/116 in about seven seconds while
-being clicked through the whole time. The worker architecture keeps the main
-thread free.
+**The engine does not cost the interface anything — and the first measurement
+of that was worthless.** The claim is right; how it was first reached was not,
+and the failure is a good one to have written down.
 
-**Nothing drops a move, however fast it is asked to.** A 116-ply game scrubbed
+The original sweep compared "engine idle" with "engine searching" and told the
+two apart by whether a **Stop analysis** button existed. That button exists
+while the engine is idle. And the default search finishes in about 150ms:
+polled every 90ms after pressing Run analysis, `status analyzing` appears in
+**one sample out of forty-four** and `ready` in the other forty-three. So the
+sweep compared idle with idle, forty times over, and every delta it printed was
+noise reported as a result.
+
+Re-measured with the state asserted rather than assumed — `continuousAnalysis`
+seeded on so the search does not end, and `.status.analyzing` counted at every
+step of the sweep. Engine verifiably searching, **6 of 7 samples**: every
+interaction between 24 and 72ms. Engine verifiably idle, **0 of 7**: 16 to
+32ms. Both are far inside the 200ms bar, and the gap between them is tens of
+milliseconds.
+
+The conclusion had a second leg all along, which is why it survives: a full
+**116-position review** at 4x CPU on a phone viewport, whose running was never
+in doubt because it finished 116/116 while being clicked through, kept the
+worst interaction at 96ms against 88ms before it started. That is the
+measurement the claim rests on now.
+
+What made the first version fail is worth more than the number: the signal it
+chose was a control's *existence*, and a control that is always rendered can
+never say what state the app is in. The class the app puts on its own status
+row can.
+
+**Nothing drops a move, however fast it is asked to.****Nothing drops a move, however fast it is asked to.** A 116-ply game scrubbed
 forward at 120ms, 33ms (key repeat) and zero gaps, by arrow key and by tapping
 the button, at 4x CPU: 12 of 12, 20 of 20, 20 of 20, 12 of 12, 20 of 20. No
 input is coalesced away and no animation swallows one.
@@ -351,6 +373,15 @@ the palette's search box do not even need it — both re-centre on their own, to
 y=96 and y=92. What this instrument cannot reproduce is the browser's own
 scroll, so what is recorded is that the room to do it exists, not that the
 browser did it.
+
+**Turning animation off does not turn the feedback off.** Under
+`prefers-reduced-motion: reduce`, seven indicators lose their animation by
+`!important` -- the analysing bar, the thinking dots, the lazy-dialog spinner,
+the pulsing primary button and three status glyphs -- which raises a fair
+question about whether a reader who asks for less motion is still told the
+engine is working. They are: the status row carries the class `analyzing` and
+the word "analyzing", and neither is an animation. The bar's `active` class
+lands at the same moment. Nothing about the signal depends on something moving.
 
 **A long session does not wear the app down.** Six rounds of three hundred
 navigations, twelve mode switches, eighteen dialogs opened and closed, and a
