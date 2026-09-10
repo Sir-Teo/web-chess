@@ -2411,6 +2411,214 @@ async function checkANoticeIsSeenAndFits(browser) {
 }
 
 /**
+ * Nothing the app draws is drawn behind something else.
+ *
+ * Two faults in this pass were the same fault: a layer the right size, in the
+ * right place, painted underneath. The promotion chooser sat under the analysis
+ * column at 844x390, and every notice sat under the bottom bar on a phone. Both
+ * were found by looking at a screenshot, and both survived probes that said
+ * they were fine, so the rule is written down once here and swept.
+ *
+ * Paint order between two elements is decided where their branches part, by the
+ * z-index each carries into that shared stacking context -- its own, unless an
+ * ancestor below the branch point starts a context, in which case that
+ * ancestor's is what counts. Coverage is sampled on a grid rather than compared
+ * rectangle by rectangle: the chooser was covered by two panels with half each,
+ * which no pairwise comparison ever sees. A scrim is judged by what it holds,
+ * or a full-window overlay reads as something nothing can cover.
+ *
+ * The control plants a deliberately buried element and requires the sweep to
+ * find it. A sweep that reports nothing is worth nothing without it -- and this
+ * one has been run against both fixes backed out, where it reports
+ * "app-notice-region 94% under .panel.bottom" and "promotion-chooser 92% under
+ * .panel-inner".
+ */
+const BURIED_SWEEP = () => {
+  const zOf = el => Number(getComputedStyle(el).zIndex) || 0
+  const startsContext = el => {
+    const c = getComputedStyle(el)
+    return (c.position !== 'static' && c.zIndex !== 'auto') || c.transform !== 'none' ||
+      c.filter !== 'none' || (c.backdropFilter && c.backdropFilter !== 'none') ||
+      c.isolation === 'isolate' || Number(c.opacity) < 1 || c.mixBlendMode !== 'normal' ||
+      (c.contain && /paint|layout|strict|content/.test(c.contain))
+  }
+  const chainOf = el => { const out = []; for (let n = el; n; n = n.parentElement) out.push(n); return out }
+  const carriedInto = (el, common) => {
+    let z = zOf(el)
+    for (let n = el.parentElement; n && n !== common; n = n.parentElement) if (startsContext(n)) z = zOf(n)
+    return z
+  }
+  const name = el => (String(el.className) ? '.' + String(el.className).split(/\s+/).slice(0, 2).join('.') : el.tagName)
+  const visible = el => {
+    const c = getComputedStyle(el)
+    if (c.display === 'none' || c.visibility === 'hidden' || Number(c.opacity) === 0) return false
+    const r = el.getBoundingClientRect()
+    return r.width > 12 && r.height > 8 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth
+  }
+  const opaque = el => {
+    const c = getComputedStyle(el)
+    const bg = c.backgroundColor
+    if (!bg || bg === 'transparent' || /rgba\([^)]*,\s*0(\.\d+)?\)/.test(bg)) {
+      // A blurred backdrop hides text as well as paint does.
+      return Boolean(c.backdropFilter && c.backdropFilter !== 'none')
+    }
+    const m = bg.match(/rgba?\(([^)]+)\)/)
+    if (!m) return false
+    const parts = m[1].split(',').map(v => parseFloat(v))
+    return parts.length < 4 || parts[3] >= 0.85
+  }
+  const inItsScroller = el => {
+    for (let n = el.parentElement; n; n = n.parentElement) {
+      const s = getComputedStyle(n)
+      if (!/auto|scroll/.test(s.overflowY + s.overflowX)) continue
+      if (n.scrollHeight <= n.clientHeight + 2 && n.scrollWidth <= n.clientWidth + 2) continue
+      const box = n.getBoundingClientRect()
+      const r = el.getBoundingClientRect()
+      // Below the fold of something that scrolls is not buried; it is waiting.
+      return r.top >= box.top - 1 && r.bottom <= box.bottom + 1
+    }
+    return true
+  }
+
+  const positioned = [...document.querySelectorAll('*')].filter(el => {
+    const c = getComputedStyle(el)
+    if (!/fixed|absolute|sticky/.test(c.position)) return false
+    if (!visible(el) || !inItsScroller(el)) return false
+    return (el.textContent || '').trim().length > 0 || el.querySelector('svg, img')
+  })
+  const layers = positioned.map(el => {
+    const r = el.getBoundingClientRect()
+    if ((r.width * r.height) / (innerWidth * innerHeight) < 0.5) return el
+    const inner = [...el.children].find(c => visible(c) && (c.textContent || '').trim())
+    return inner || el
+  })
+  const coverers = [...document.querySelectorAll('*')].filter(el => visible(el) && opaque(el))
+
+  const buried = []
+  for (const layer of layers) {
+    const r = layer.getBoundingClientRect()
+    const layerChain = chainOf(layer)
+    const above = coverers.filter(other => {
+      if (other === layer || layer.contains(other) || other.contains(layer)) return false
+      const common = chainOf(other).find(n => layerChain.includes(n))
+      if (!common) return false
+      const mine = carriedInto(layer, common)
+      const theirs = carriedInto(other, common)
+      if (theirs > mine) return true
+      if (theirs < mine) return false
+      return Boolean(layer.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING)
+    }).map(el => ({ el, r: el.getBoundingClientRect() }))
+    if (!above.length) continue
+    let hit = 0, total = 0
+    const names = new Set()
+    for (let i = 1; i <= 12; i++) {
+      for (let j = 1; j <= 8; j++) {
+        const x = r.left + (r.width * i) / 13
+        const y = r.top + (r.height * j) / 9
+        total++
+        const over = above.find(a => x >= a.r.left && x <= a.r.right && y >= a.r.top && y <= a.r.bottom)
+        if (over) { hit++; names.add(name(over.el)) }
+      }
+    }
+    const share = Math.round((hit / total) * 100)
+    if (share < 80) continue
+    buried.push({
+      layer: name(layer), text: (layer.textContent || '').trim().slice(0, 30),
+      under: [...names].slice(0, 3).join(' + '), share,
+    })
+  }
+  return buried
+}
+
+async function checkNothingIsDrawnBehindSomethingElse(browser) {
+  // Dimming what is behind a modal is the point of a modal.
+  const ALLOWED = /backdrop/
+  const PROMOTION_FEN = '8/1P6/8/k7/8/8/8/7K w - - 0 1'
+  const found = []
+
+  for (const [w, h] of [[320, 568], [844, 390], [1440, 900]]) {
+    const context = await browser.newContext({ viewport: { width: w, height: h } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const startFresh = page.getByRole('button', { name: /start fresh/i })
+      if (await startFresh.count()) await startFresh.first().click()
+      await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+      const sweep = async label => {
+        await page.waitForTimeout(400)
+        for (const row of await page.evaluate(BURIED_SWEEP)) {
+          if (ALLOWED.test(row.under)) continue
+          found.push({ at: `${w}x${h}`, state: label, ...row })
+        }
+      }
+
+      if (w === 320) {
+        // The control, once: a sweep that reports nothing is worth nothing
+        // unless it can report something.
+        await page.evaluate(() => {
+          const planted = document.createElement('div')
+          planted.className = 'planted-under-the-bar'
+          planted.textContent = 'buried on purpose'
+          planted.style.cssText = 'position:fixed;left:20px;bottom:20px;width:200px;height:30px;z-index:1;background:#f0f'
+          document.querySelector('.app-shell').appendChild(planted)
+        })
+        await page.waitForTimeout(300)
+        const control = await page.evaluate(BURIED_SWEEP)
+        assert(control.some(row => /planted/.test(row.layer)),
+          'a deliberately buried element was not found, so this sweep is measuring nothing')
+        await page.evaluate(() => document.querySelector('.planted-under-the-bar')?.remove())
+        await page.waitForTimeout(200)
+      }
+
+      await sweep('the board')
+      for (const [label, selector] of [
+        ['the PGN dialog', '[aria-label="Open PGN and FEN dialog"]'],
+        ['the settings sheet', 'button[aria-label*="etting" i], summary[aria-label*="etting" i]'],
+      ]) {
+        const opener = page.locator(selector).first()
+        if (!(await opener.count())) continue
+        await opener.click({ timeout: 10000 }).catch(() => {})
+        await page.waitForTimeout(600)
+        await sweep(label)
+        await page.keyboard.press('Escape')
+        await page.waitForTimeout(400)
+      }
+
+      if (w === 844) {
+        await page.locator('[aria-label="Open PGN and FEN dialog"]').first().click()
+        await page.locator('.dialog-panel').waitFor({ timeout: 15000 })
+        await page.getByRole('button', { name: /^FEN$/ }).click()
+        await page.waitForTimeout(300)
+        await page.locator('.dialog-section textarea').first().fill(PROMOTION_FEN)
+        await page.waitForTimeout(250)
+        await page.getByRole('button', { name: /Load & Analyze/i }).first().click()
+        await page.waitForTimeout(1200)
+        await page.locator('#chessboard-square-b7').click()
+        await page.waitForTimeout(200)
+        await page.locator('#chessboard-square-b8').click()
+        await page.locator('.promotion-chooser').waitFor({ timeout: 15000 })
+        await sweep('the promotion chooser')
+        await page.keyboard.press('Escape')
+        await page.waitForTimeout(300)
+      }
+
+      await page.goto(`${BASE}#game=~~~~notreal~~~~`, { waitUntil: 'domcontentloaded' })
+      const fresh2 = page.getByRole('button', { name: /start fresh/i })
+      if (await fresh2.count()) await fresh2.first().click()
+      await page.locator('.app-notice').waitFor({ timeout: 20000 }).catch(() => {})
+      await sweep('a notice showing')
+    } finally { await context.close() }
+  }
+
+  assert(found.length === 0,
+    'drawn behind something else: ' + found.map(f =>
+      `${f.at} ${f.state}: ${f.layer} "${f.text}" ${f.share}% under ${f.under}`).join('; '))
+  console.log('  layers: nothing the app draws is buried, across five states and three sizes')
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -3624,6 +3832,7 @@ async function main() {
     await checkBackClosesTheSheet(browser)
     await checkThePromotionChooserCanBeHit(browser)
     await checkANoticeIsSeenAndFits(browser)
+    await checkNothingIsDrawnBehindSomethingElse(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)

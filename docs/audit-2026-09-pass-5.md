@@ -642,6 +642,35 @@ ancestor's is what counts. It reads `panel.bottom(200 vs 40) → HIDDEN` at both
 phone sizes and `in front` at 1440x900, which is exactly what the screenshots
 show.
 
+**The same fault twice, so it is swept for now.** The promotion chooser under
+the analysis column and every notice under the bottom bar are one defect: a
+layer the right size, in the right place, painted underneath. Both were found
+by looking at a screenshot, and both survived probes that said they were fine.
+So the rule is written down once and run over the app.
+
+The sweep collects every positioned element with something to show, works out
+what paints above it by the branch-point rule, and samples a 12x8 grid inside
+it to see how much is covered. Three things it needs, each learned from a case
+it got wrong first:
+
+- **Sampled, not compared.** The chooser was covered by two panels with half
+  each, and a pairwise "does this rectangle cover 80% of that one" never sees
+  it. With sampling it reads 92%.
+- **A scrim is judged by what it holds.** `.promotion-overlay` is the whole
+  window, so as a layer nothing can cover it; the thing that has to be seen is
+  the chooser inside it.
+- **Below the fold is not buried.** A panel header at the bottom of a scroller
+  is waiting, not hidden. Without that the sweep's one finding was a `.panel
+  .right` header at 320x568 that scrolling brings straight into view.
+
+Run over the board, the PGN dialog, the settings sheet, the promotion chooser
+and a notice, at 320x568, 844x390 and 1440x900: **nothing is buried** except an
+eval-bar reading under a modal backdrop, which is what a backdrop is for. Run
+with the two fixes backed out it reports `app-notice-region 94% under
+.panel.bottom` and `promotion-chooser 92% under .panel-inner`, and it plants a
+deliberately buried element and requires itself to find it before it reports
+anything at all.
+
 ---
 
 ## Refuted
