@@ -327,6 +327,31 @@ target, the box is the picture of it. The rule about confirming a flagged
 element by hand paid for itself again: the same list held one real defect and
 five decoys, and only the wrapping label told them apart.
 
+**Every stop on the keyboard announces itself.** Fifty distinct controls
+reached by tabbing through the app at 1280x900, each compared against a
+snapshot of its own resting style rather than against its neighbour: **fifty of
+fifty** changed something visible — an outline, a shadow, a border or a
+background. Driven by real Tab presses rather than a forced pseudo-state,
+because Tab is what a keyboard reader does and it is the only thing that puts
+Chrome into the modality where `:focus-visible` applies.
+
+**And everything visible can be reached.** Of 22 controls on screen at 1280x900
+and 17 at 375x667, every one that Tab never reached was `disabled` — the
+navigation buttons before a move exists, the hint, the take-back and the
+resignation. A disabled control not taking focus is the platform working.
+
+**The on-screen keyboard is survivable.** Android hands a page a shorter
+viewport when the keyboard opens, and at 375x340 with the import dialog's
+textarea focused the field sits at y=397..577 — entirely below the fold, which
+is the shape of a real defect: typing into a box you cannot see. It is not one.
+`.dialog-body` is a working scroller (194px of 579), `scrollIntoView` puts the
+field back at y=64..244, and scrolling the focused editable into view on a
+viewport change is what the browser itself does. The library's rename field and
+the palette's search box do not even need it — both re-centre on their own, to
+y=96 and y=92. What this instrument cannot reproduce is the browser's own
+scroll, so what is recorded is that the room to do it exists, not that the
+browser did it.
+
 **A long session does not wear the app down.** Six rounds of three hundred
 navigations, twelve mode switches, eighteen dialogs opened and closed, and a
 flip apiece, at 4x CPU with a 116-ply game loaded, garbage collected before each
