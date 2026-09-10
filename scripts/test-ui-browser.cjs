@@ -1298,8 +1298,31 @@ async function checkDrillLeavesTheLineAlone(browser) {
     assert(before.includes('e4') && before.includes('Nf3'),
       `the line was not built, so this check has nothing to protect: "${before}"`)
 
+    /*
+     * Started while a replay is running, because that is where it broke: the
+     * drill opened correctly and then watched autoplay walk the board off its
+     * own line. Measured at 1440x900 before the fix -- "Playing White · move 1
+     * of 4" became "Paused ... the board has moved off the line" 2.5s later,
+     * with nothing the reader did having moved the board.
+     *
+     * From the root, since autoplay stops itself at the end of a line and would
+     * otherwise prove nothing here.
+     */
+    await page.keyboard.press('Home')
+    await page.waitForTimeout(300)
+    await page.getByRole('button', { name: /autoplay/i }).first().click()
+    await page.waitForFunction(() => !!document.querySelector('[aria-label*="Stop autoplay" i]'),
+      null, { timeout: 5000 })
+
     await page.click('.drill-row button[aria-label="Drill this line as White"]')
     await page.waitForTimeout(600)
+    assert(await page.locator('[aria-label*="Stop autoplay" i]').count() === 0,
+      'the replay kept running into a drill that had just started')
+    // Long enough for a replay to have stepped, if one were still going.
+    await page.waitForTimeout(1800)
+    const heldOnTheLine = await page.evaluate(() => document.querySelector('.drill-card')?.innerText.replace(/\s+/g, ' ') || '')
+    assert(/move 1 of/.test(heldOnTheLine) && !/Paused/.test(heldOnTheLine),
+      `a drill started during a replay did not hold its position: "${heldOnTheLine}"`)
 
     // The wrong moves are the whole point, and the line is checked straight
     // after them: a drill that records what you got wrong is caught here rather

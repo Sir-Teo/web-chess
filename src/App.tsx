@@ -3114,6 +3114,26 @@ function App() {
   }, [workspaceMode, drillRunning])
 
   /**
+   * A drill taking the board is the end of a replay, the same way the engine
+   * taking it is -- see the `aiEnabled` effect above, which says so in those
+   * words. Both play the moves a drill exists to ask the reader for.
+   *
+   * Measured at 1440x900 without this: with autoplay running, starting a drill
+   * gave a drill that broke itself. It opened correctly ("Playing White · move
+   * 1 of 4"), and 2.5 seconds later read "Paused at move 1 of 4 — the board has
+   * moved off the line" while autoplay kept stepping. Nothing the reader did
+   * moved the board; they had just asked for a drill.
+   *
+   * Only the replay that was *already* running. Pressing Autoplay during a
+   * drill is the reader moving the board off the line deliberately, which is
+   * what the navigation buttons do too, and the drill's paused card explains
+   * that case and offers a Restart.
+   */
+  useEffect(() => {
+    if (drillRunning) setAutoplay(false)
+  }, [drillRunning])
+
+  /**
    * Notice a flag.
    *
    * Nothing else can: the display is derived from `Date.now()` inside the clock
