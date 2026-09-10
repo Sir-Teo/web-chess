@@ -215,6 +215,19 @@ at a time, and this file holds several. Add them all to the library, or paste a
 single game" — beside a button reading "Add 60 games to the library". The count
 is in the label.
 
+**Handing the empty squares to the browser costs nothing, and breaks nothing.**
+Two things had to be checked about the change above, because both would have
+been introduced by it rather than found by it. `:has()` is re-evaluated as the
+DOM changes and the board changes on every move, so sixteen moves were played
+against the shipped build and against the same build with the `@supports`
+condition falsified: **median interaction 24ms either way**, p90 32 against
+40ms, one long frame each, and no long frame reporting more than 1ms of style
+and layout. And the second tap of a two-tap move lands on an *empty* square,
+which is exactly the one now handed to the browser — tapped with 0, 2, 4, 6, 8
+and 10px of drift, straight down and diagonally, the move landed every time.
+The guard now covers that second tap at 8px, which is where a drag takes hold
+and so where a pan would if one were going to.
+
 **A long session does not wear the app down.** Six rounds of three hundred
 navigations, twelve mode switches, eighteen dialogs opened and closed, and a
 flip apiece, at 4x CPU with a 116-ply game loaded, garbage collected before each

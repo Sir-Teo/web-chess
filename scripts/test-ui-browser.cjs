@@ -1538,31 +1538,59 @@ async function checkTheBoardIsNotADeadZone(browser) {
     assert(rule.empty !== 'none',
       `an empty square cannot start a drag and should not block a scroll; e4 computes ${rule.empty}`)
 
-    // And the thing those three exist to protect.
+    // And the two things those three values exist to protect.
     const client = await context.newCDPSession(page)
     const squareAt = square => page.evaluate(name => {
       const box = document.querySelector('#chessboard-square-' + name).getBoundingClientRect()
       return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) }
     }, square)
-    const before = await page.evaluate(() => document.querySelectorAll('.mtree-chip').length)
+    const plies = () => page.evaluate(() => document.querySelectorAll('.mtree-chip').length)
+
+    async function touch(steps) {
+      await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: steps[0].x, y: steps[0].y, id: 1 }] })
+      await page.waitForTimeout(50)
+      for (const point of steps.slice(1)) {
+        await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: point.x, y: point.y, id: 1 }] })
+        await page.waitForTimeout(16)
+      }
+      await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+      await page.waitForTimeout(500)
+    }
+
     const from = await squareAt('e2')
     const to = await squareAt('e4')
-    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x, y: from.y, id: 1 }] })
-    await page.waitForTimeout(50)
-    for (let step = 1; step <= 12; step++) {
-      await client.send('Input.dispatchTouchEvent', {
-        type: 'touchMove',
-        touchPoints: [{ x: Math.round(from.x + (to.x - from.x) * step / 12),
-          y: Math.round(from.y + (to.y - from.y) * step / 12), id: 1 }],
-      })
-      await page.waitForTimeout(16)
-    }
-    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
-    await page.waitForTimeout(500)
-    const after = await page.evaluate(() => document.querySelectorAll('.mtree-chip').length)
-    assert(after > before, 'dragging a piece stopped playing a move once empty squares could scroll')
 
-    console.log('  thumb: the board pans, a square with a piece on it keeps the drag, and the drag still plays')
+    // A drag, which is why a square holding a piece keeps the gesture.
+    const beforeDrag = await plies()
+    await touch([from, ...Array.from({ length: 12 }, (_, i) => ({
+      x: Math.round(from.x + (to.x - from.x) * (i + 1) / 12),
+      y: Math.round(from.y + (to.y - from.y) * (i + 1) / 12),
+    }))])
+    assert(await plies() > beforeDrag, 'dragging a piece stopped playing a move once empty squares could scroll')
+
+    // And the second tap of a two-tap move, which lands on an empty square --
+    // the one this rule hands to the browser. 8px of drift is where a drag
+    // would take hold, so it is where a pan would too if one were going to.
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    const again = page.getByRole('button', { name: /start fresh/i })
+    if (await again.count()) await again.first().click()
+    const replay = page.locator('button', { hasText: /Pass and play/ })
+    if (await replay.count()) await replay.first().click()
+    await page.locator('.board-surface').waitFor({ timeout: 10000 })
+    await page.waitForTimeout(600)
+
+    const pick = await squareAt('e2')
+    await touch([pick, { x: pick.x + 1, y: pick.y + 1 }, { x: pick.x + 2, y: pick.y + 2 }, { x: pick.x + 3, y: pick.y + 3 }])
+    const lit = await page.evaluate(() => [...document.querySelectorAll('[id^="chessboard-square-"]')]
+      .filter(el => /legal move target/i.test(el.getAttribute('aria-label') || '')).length)
+    assert(lit > 0, `tapping the pawn lit ${lit} legal targets`)
+    const beforeTap = await plies()
+    const target = await squareAt('e4')
+    await touch([target, { x: target.x, y: target.y + 3 }, { x: target.x, y: target.y + 6 }, { x: target.x, y: target.y + 8 }])
+    assert(await plies() > beforeTap,
+      'a tap on the destination square drifted 8px and the move did not land; the browser took it for a pan')
+
+    console.log('  thumb: the board pans, a piece keeps the drag, and both the drag and the second tap still play')
   } finally { await context.close() }
 }
 
