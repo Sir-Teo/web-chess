@@ -4795,6 +4795,29 @@ button.critical-moment-row {
    Left rail fills its column
    ═══════════════════════════════════════════════════ */
 @media (min-width: 901px) {
+  /* Past a point, a wider window is not more room — it is more distance.
+     The board stops growing at `MAX_BOARD_PX`, so everything past that width
+     went into the gap around it while the two panels stayed pinned to the far
+     edges. **Measured** with a game loaded: at 1920 the board sits 257px from
+     the left panel and 223px from the right, which reads as breathing room; at
+     2560 those are 577 and 543; at 3440, 1017 and 983, with the Coach card and
+     the winrate graph a metre apart on a real monitor and the board marooned
+     between them.
+
+     Capping the middle column at the width it already has on a 1920 screen, and
+     centring the three of them, stops the spread without moving anything below
+     that: 1280, 1440 and 1920 are unchanged to the pixel, and 2560 and 3440 get
+     the same 257/223 the widest ordinary desktop has, with the surplus outside
+     the layout where it belongs. The board is still 800px — that cap is its
+     own decision, and a bigger board is not what a wide monitor is for. */
+  .main-container {
+    justify-content: center;
+  }
+
+  .board-stage {
+    max-width: 80rem;
+  }
+
   /* An empty graph in the rail is a placeholder, not a destination. It says
      what will fill it on one line and leaves the column to the library, which
      is the only thing there to act on before a game exists. */
