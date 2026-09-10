@@ -1,5 +1,10 @@
 # Audit — September 2026, third pass
 
+> A [fourth pass](audit-2026-09-pass-4.md) followed this one and closed the
+> first of the two things left open below — touch gestures for arrows and
+> marks. The second, a weaker floor for the opponent, is still where *Refuted*
+> leaves it.
+
 A third sweep, after [the first](audit-2026-09.md) and [the second](audit-2026-09-pass-2.md),
 with the brief widened: bugs, the largest remaining performance gains, what a
 strong player still lacks here and what a beginner does, and the interface
