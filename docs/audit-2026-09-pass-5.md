@@ -401,6 +401,31 @@ engine is working. They are: the status row carries the class `analyzing` and
 the word "analyzing", and neither is an animation. The bar's `active` class
 lands at the same moment. Nothing about the signal depends on something moving.
 
+**The deeper actions are quick too, and this time with proof of work.** Twelve
+of them at 6x CPU on a phone -- playing a move, the reply, a third, taking one
+back, starting autoplay, navigating, switching into Analysis, opening the
+library, saving a game to it, closing it -- each required to have changed the
+app's fingerprint before its latency counts. All twelve did work and **none
+passed 200ms**; the worst is the first move at 192ms, which is the compile
+above, and the rest sit between 16 and 136ms.
+
+**Branching costs what the first move costs, once.** Playing an alternative at
+ply 8 of a 116-ply game builds a variation -- 116 chips to 117, no variations to
+one -- and the first one measures **240ms** at 6x CPU, which is over the bar.
+The second, third and fourth measure **96, 88 and 88ms**. That is the same
+signature as the board's first move and the same cause: the path is being
+compiled, not the tree being slow to mutate.
+
+Two things in that sweep looked like defects and were the probe. Autoplay
+appeared to have no way to stop -- the click timed out -- and in fact **"Stop
+autoplay" is right there** the moment it starts, beside three speed controls;
+the selector had matched something else that was not actionable. And a loop
+that clicked each piece and read its legal targets found *nothing selectable*
+anywhere on the board, because a React state change is not visible inside the
+evaluation that caused it. One click per call, and the same loop finds a move
+immediately. That quirk was already written down in this repo's notes, which is
+the more useful half of the story.
+
 **A long session does not wear the app down.** Six rounds of three hundred
 navigations, twelve mode switches, eighteen dialogs opened and closed, and a
 flip apiece, at 4x CPU with a 116-ply game loaded, garbage collected before each
