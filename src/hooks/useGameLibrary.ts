@@ -139,7 +139,12 @@ export function useGameLibrary() {
     let unreadable = 0
     let omitted = 0
 
-    for (const pgn of pgns) {
+    for (const [index, pgn] of pgns.entries()) {
+      // Asked before the file is read rather than after: every game still had
+      // its whole move tree built before this loop found there was nowhere to
+      // put it, so opening a 14,000-game database cost a minute of frozen
+      // screen to keep 500 games. What is left is counted, not parsed.
+      if (additions.length >= room) { omitted = pgns.length - index; break }
       const text = pgn?.trim() ?? ''
       if (!text || text.length > MAX_LIBRARY_PGN_LENGTH) { unreadable++; continue }
       // Asked before parsing, not after it fails: a Chess960 game is refused by
@@ -156,7 +161,6 @@ export function useGameLibrary() {
         unreadable++
         continue
       }
-      if (additions.length >= room) { omitted++; continue }
       const name = getUniqueGameName(
         suggestGameName(text),
         [...names, ...additions.map(item => item.name)],

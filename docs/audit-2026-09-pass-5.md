@@ -407,6 +407,47 @@ normaliser drops the broken one before the replay ever sees it. The decoder now
 keeps the count of what arrived beside the count of what it could read, which
 is the only place the difference still exists.
 
+**Opening a games database froze the app for a minute.** "Open PGN File" invites
+a database, and that is exactly how Lichess and chess.com hand games over — by
+the thousand, in one file. **Measured** at 4x CPU on the production build,
+pressing "Add N games to the library" on an empty library that holds 500:
+
+| the file | the button offered | frozen for |
+|---|---|---|
+| 500 games, 0.16 MB | Add 500 games | 2.5s |
+| 2,000 games, 0.64 MB | Add 2000 games | **9.2s** |
+| 14,276 games, 4.60 MB | Add 14276 games | **64.7s** |
+
+Not slow — *stopped*. Nothing painted, nothing answered, for sixty-five seconds
+of a one-press action, on a screen still showing a button that looked pressable.
+The cost was flatly linear in the size of the **file**, which is the tell: every
+game in it had its whole move tree built by `parsePgnMoveTree` before the loop
+reached the line asking whether there was anywhere to put it. 13,776 of those
+14,276 parses were thrown away the instant they finished.
+
+The check moved ahead of the read, and what is past the cap is now counted
+rather than parsed. All three sizes are flat at **~3.1s**, which is the honest
+price of parsing the 500 games actually kept — 626ms unthrottled, and the only
+thing left in the profile (the variant check is 1ms, naming 5ms, building the
+records 4ms). What the reader is told afterwards is unchanged, word for word:
+"Added 500 games to the library; 13776 games left out — the library holds 500."
+
+The guard counts rather than times, because a stopwatch assertion is a machine's
+opinion. Its file is 520 playable games followed by 40 with illegal movetext:
+reading the whole thing reaches the broken ones and names them, stopping at the
+cap never sees them. Before the fix the app said "40 games could not be read, 20
+games left out"; after it, "60 games left out". A note that can name those games
+as unreadable is proof the file was read long past the point of any use — at any
+speed, on any machine.
+
+The first fixture measured with was **worse than useless**: its movetext had an
+illegal `22. Bxh5` in it, so all 500 games came back "No readable game was found
+in that file" and the timings were of parses failing rather than parses
+succeeding. It was caught by the app's answer being wrong, not by the numbers
+looking odd — they looked entirely plausible. Every fixture since is checked
+against `parsePgnMoveTree` before it is measured with, and the checker is itself
+shown rejecting the bad one.
+
 ---
 
 ## Refuted

@@ -1861,6 +1861,74 @@ async function checkTheReviewCardNamesItsSet(browser) {
 }
 
 /**
+ * A database is read until the library is full, and no further.
+ *
+ * "Open PGN File" invites a database, and Lichess and chess.com hand them over
+ * by the thousand. Every game in the file used to have its whole move tree
+ * built before the loop asked whether there was anywhere to put it, so a
+ * 14,276-game export cost 64.7s of frozen screen at 4x CPU to keep the 500
+ * games the library holds; 2,000 games cost 9.2s. Stopping at the cap made all
+ * three sizes flat at ~3.1s -- the price of parsing 500 games, not the file.
+ *
+ * Asserted by counting rather than by clock. The file here is 520 playable
+ * games followed by 40 with illegal movetext: reading the whole thing reaches
+ * the broken ones and reports them as unreadable, and stopping at the cap
+ * never sees them and reports the tail as left out. So the note naming games
+ * that "could not be read" is proof the file was read past the point of any
+ * use, at any speed and on any machine.
+ */
+async function checkAFullLibraryStopsReadingTheFile(browser) {
+  const OPERA = '1. e4 e5 2. Nf3 d6 3. d4 Bg4 4. dxe5 Bxf3 5. Qxf3 dxe5 6. Bc4 Nf6 7. Qb3 Qe7 ' +
+    '8. Nc3 c6 9. Bg5 b5 10. Nxb5 cxb5 11. Bxb5+ Nbd7 12. O-O-O Rd8 13. Rxd7 Rxd7 14. Rd1 Qe6 ' +
+    '15. Bxd7+ Nxd7 16. Qb8+ Nxb8 17. Rd8# 1-0'
+  const playable = i => `[Event "Good ${i}"]\n[Site "Paris"]\n[Date "2026.01.01"]\n` +
+    `[White "W${i}"]\n[Black "B${i}"]\n[Result "1-0"]\n\n${OPERA}\n`
+  const broken = i => `[Event "Broken ${i}"]\n[Site "Nowhere"]\n[Date "2026.01.01"]\n` +
+    `[White "W${i}"]\n[Black "B${i}"]\n[Result "*"]\n\n1. e4 e5 2. Qz9 Kx7 *\n`
+  const parts = []
+  for (let i = 1; i <= 520; i++) parts.push(playable(i))
+  for (let i = 1; i <= 40; i++) parts.push(broken(i))
+  const database = parts.join('\n')
+
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+    const textarea = page.locator('.dialog-panel textarea').first()
+    await textarea.waitFor({ timeout: 10000 })
+    await textarea.fill(database)
+
+    const offer = page.locator('.dialog-database-offer button')
+    await offer.waitFor({ timeout: 15000 })
+    const offered = (await offer.textContent()).trim()
+    assert(/560/.test(offered), `the offer reads "${offered}", so the file did not split into 560 games`)
+
+    const started = Date.now()
+    await offer.click()
+    const status = page.locator('.library-status')
+    await status.waitFor({ timeout: 180000 })
+    await page.waitForFunction(() => /Added/.test(document.querySelector('.library-status')?.textContent || ''),
+      null, { timeout: 180000 })
+    const took = Date.now() - started
+    const note = (await status.textContent()).trim()
+
+    assert(/Added 500 games/.test(note), `it said "${note}" rather than filling the library`)
+    assert(!/could not be read/i.test(note),
+      `it said "${note}" -- it only knows those games are broken because it parsed them, ` +
+      'and it had no room left for any of them')
+    assert(/60 games left out/.test(note),
+      `it said "${note}" rather than counting the 60 games past the cap as left out`)
+
+    console.log(`  database: 560 games, 500 kept, the other 60 never parsed (${took}ms)`)
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -3068,6 +3136,7 @@ async function main() {
     await checkEveryControlIsFingerSized(browser)
     await checkTheWinrateCardFollowsTheBoard(browser)
     await checkTheReviewCardNamesItsSet(browser)
+    await checkAFullLibraryStopsReadingTheFile(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)
