@@ -147,6 +147,51 @@ up nothing at all: `\bvh\b` cannot match `72vh`, because a digit and a `v` are
 both word characters and there is no boundary between them. It is now pinned by
 a count before anything is asserted from it.
 
+**Focus does everything it should.** All five overlays — the settings sheet,
+the command palette, New Game, the library, and PGN/FEN — opened from the
+keyboard move focus inside, hold it there (Tab pressed twelve times escaped
+none of them), close on Escape, and hand focus back to the control that opened
+them.
+
+**Promotion survives a finger too.** On the position `7k/P7/8/8/8/8/8/7K w`,
+tapped with 3px of drift throughout: a7 lit its one legal target, a8 raised the
+picker, and Queen played `a8=Q+` and closed it. Its five choices are 65x91px at
+the smallest, well past the 44px the rest of this app is held to.
+
+**Nothing is slow on a low-end phone either.** The fourth pass's sizes were
+measured at 4x CPU; the whole interaction set was swept again at **6x** with a
+116-ply game loaded, and **0 of 14** interactions passed 200ms. The worst is
+opening the library at 120ms, and all but three are under 100ms.
+
+**There is no cheap way to ship less JavaScript.** Time to a playable board is
+2054ms behind 4G and 5855ms behind 3G, gated by 193kB of script, so the main
+chunk's 303kB was attributed back to its sources through the build's own
+sourcemap. **`src/App.tsx` is 121kB of it — 40%** — and nothing else reaches
+12kB: `useStockfishEngine` 12kB, `analysis` 10kB, `pgn` 9kB, `TrendGraph` 9kB,
+`icons` 9kB, and a long tail under that. There is no module to make lazy that
+would matter. The only lever is the one the first pass already named and
+already judged: splitting App itself, which is maintenance work rather than a
+promised speedup.
+
+Two more probes had to be un-found. A press-feedback sweep reported that **ten
+of eleven controls did nothing under a finger**, which would have been a real
+defect on a phone, where there is no hover and `-webkit-tap-highlight-color` is
+`transparent`. It was wrong: forcing the pseudo-state with CDP
+`CSS.forcePseudoState` shows `transform: scale(0.96)` arriving on every one of
+them, from a single rule that covers `button`, `.wc-btn`, `.gc-pill`,
+`.mode-pill`, `.analysis-tab-btn` and `summary`. Synthesised touch events do not
+set `:active` in headless Chromium; that is the probe's limit, not the app's.
+And a synthesised touch swipe reports that nothing scrolls anywhere, including
+where scrolling plainly works — `Input.synthesizeScrollGesture` with
+`gestureSourceType: 'touch'` is the call that goes through the real gesture
+pipeline, and hand-rolled `Input.dispatchTouchEvent` sequences are not.
+
+That is four probes in this pass that produced a false result before a true
+one, on top of the four the fourth pass recorded. The rule this repo already
+had — confirm one flagged element by hand before acting on the list — has now
+earned a second half: confirm one *unflagged* element too, because a probe that
+silently reports nothing is the more expensive failure.
+
 ---
 
 ## Limits, recorded rather than fixed
