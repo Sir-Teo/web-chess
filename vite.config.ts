@@ -1,6 +1,7 @@
 // vitest/config re-exports Vite's defineConfig with the `test` field typed.
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
+import { deferStylesheets } from './src/engine/indexHtml'
 
 const crossOriginIsolationHeaders = {
   'Cross-Origin-Opener-Policy': 'same-origin',
@@ -9,7 +10,12 @@ const crossOriginIsolationHeaders = {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), {
+    // See `deferStylesheets`: the boot skeleton could not paint until the whole
+    // stylesheet had landed, which was 2724ms behind a 3G connection.
+    name: 'defer-stylesheet',
+    transformIndexHtml: (html: string) => deferStylesheets(html),
+  }],
   base: '/web-chess/',
   build: {
     rollupOptions: {

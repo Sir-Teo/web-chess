@@ -917,6 +917,39 @@ command palette was swept for a computed animation or transition longer than
 what the blanket rule is scoped to. The same sweep with the preference off
 finds 56 to 68, so it discriminates.
 
+**The boot skeleton could not paint until the whole stylesheet had landed.**
+The skeleton exists to put a board-shaped placeholder up before the JavaScript
+arrives, and a render-blocking `<link rel="stylesheet">` held the first paint
+behind all 113 kB of it. **Measured** at 390x844, cold cache, 4x CPU: first
+contentful paint at **2724ms behind 3G** and 957ms behind 4G, against a sheet
+that arrived at 2561ms and 776ms. The skeleton was drawing the instant it was
+allowed to and not a moment sooner.
+
+This pass had already recorded that floor as deliberate, in
+`bootSkeleton.test.ts`: making the sheet non-blocking "would trade this for the
+app itself flashing unstyled". That was reasoning, not a measurement, and the
+`media="print"` trick also drops the sheet's fetch priority, which is a real way
+for the script to overtake it. Both were worth testing rather than believing.
+
+| 390x844, cold, 4x CPU | blocking | non-blocking |
+|---|---|---|
+| first paint, 3G | 2724ms | **642 / 669 / 654ms** |
+| first paint, 4G | 957ms | **382ms** |
+| stylesheet applies, 3G | 2561ms | 2652ms |
+| app renders, 3G | 5457ms | 5457ms |
+| app renders, 4G | 1622ms | 1599ms |
+| drew before its styles | no | **no**, in four runs |
+
+Neither fear survives. The sheet's own arrival moves by 90ms, so the priority
+drop costs almost nothing, and the app cannot overtake it: its script is more
+than four times the size of its stylesheet, and lands **2.8 seconds later** on
+3G and 0.8 seconds later on 4G. **Two seconds of blank screen removed on 3G**,
+and the comment that argued against it is corrected rather than left standing.
+
+A `<noscript>` copy carries the sheet where the `onload` cannot fire, and the
+transform is a function with its own tests rather than a regex in the build
+config -- including that it leaves `modulepreload` and `manifest` links alone.
+
 **PGN headers, which are whatever a downloaded file says.** Five games
 imported, at 1440x900 and 390x844: ordinary names, 300-character names, a
 single unbroken 300-character word, headers full of markup, and emoji with

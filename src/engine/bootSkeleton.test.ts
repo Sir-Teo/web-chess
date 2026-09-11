@@ -15,9 +15,15 @@ import MAIN from '../main.tsx?raw'
  *
  * A board-shaped placeholder styled from a `<style>` in the head paints as
  * soon as the render-blocking stylesheet lands, which is 764ms behind 4G and
- * 2522ms behind 3G. Measured after: **956ms** and **2688ms**. What is left is
- * the stylesheet's own arrival, and that floor is deliberate -- making the
- * sheet non-blocking would trade this for the app itself flashing unstyled.
+ * 2522ms behind 3G. Measured after: **956ms** and **2688ms**.
+ *
+ * That last floor is gone, and the reasoning recorded here for keeping it was
+ * wrong. It said making the sheet non-blocking "would trade this for the app
+ * itself flashing unstyled"; measured rather than reasoned, the app's script is
+ * more than four times the size of its stylesheet and lands long after it -- on
+ * 3G the sheet applies at 2652ms and the app renders at 5457ms, and no run of
+ * it drew unstyled. See `deferStylesheets`, and first paint at **654ms on 3G**
+ * instead of 2724ms.
  *
  * Two things hold it up, and both are pinned here because breaking either
  * leaves no error anywhere:
