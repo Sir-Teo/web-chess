@@ -92,6 +92,19 @@ const DEFAULT_EXPORT_OPTIONS: Required<PgnExportOptions> = {
     includeGlyphs: true,
 }
 
+/**
+ * What an unusable username is told, whether it is typed at or pressed at.
+ *
+ * The Fetch button turns itself off for one, which is right and was the whole
+ * of it: measured by typing "two words", a forty-character name and
+ * "erik?tab=games" into the field and then leaving it, nothing was said while
+ * typing, nothing was said on blur, and `aria-invalid` was never set. A reader
+ * with a mouse had a dead button and no reason for it anywhere, and a reader on
+ * a screen reader had a field that never announced itself as wrong. The
+ * sentence existed already -- it was only reachable by pressing Enter.
+ */
+const ARCHIVE_USERNAME_ERROR = 'That is not a username. Type the name, or paste a link to the profile page.'
+
 const SETUP_CASTLING_OPTIONS: Array<{ right: SetupCastlingRight; label: string; short: string }> = [
     { right: 'K', label: 'White kingside', short: 'K' },
     { right: 'Q', label: 'White queenside', short: 'Q' },
@@ -114,6 +127,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const [archiveUsername, setArchiveUsername] = useState('')
     const [archiveCount, setArchiveCount] = useState(DEFAULT_ARCHIVE_GAMES)
     const [archiveBusy, setArchiveBusy] = useState(false)
+    const [archiveUsernameBlurred, setArchiveUsernameBlurred] = useState(false)
     const [databaseBusy, setDatabaseBusy] = useState(false)
     const archiveAbortRef = useRef<AbortController | null>(null)
     const panelRef = useRef<HTMLDivElement>(null)
@@ -160,6 +174,10 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
 
     const archiveSourceInfo = ARCHIVE_SOURCES.find(source => source.id === archiveSource) ?? ARCHIVE_SOURCES[0]
     const archiveUsernameValid = normalizeArchiveUsername(archiveUsername) !== null
+    /** Something is typed, it cannot be used, and the reader has moved on from it. */
+    const archiveUsernameUnusable = archiveUsernameBlurred
+        && archiveUsername.trim().length > 0
+        && !archiveUsernameValid
 
     /**
      * Fetch the reader's own recent games into the box below.
@@ -173,7 +191,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         const username = normalizeArchiveUsername(archiveUsername)
         if (!username) {
             setStatus(null)
-            setError('That is not a username. Type the name, or paste a link to the profile page.')
+            setError(ARCHIVE_USERNAME_ERROR)
             return
         }
 
@@ -602,10 +620,17 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         placeholder={archiveSourceInfo.placeholder}
                                         aria-label={`Your ${archiveSourceInfo.label} username`}
                                         value={archiveUsername}
+                                        // Only after the reader has left it: saying "that is not a
+                                        // username" after the first letter of one is worse than saying
+                                        // nothing.
+                                        aria-invalid={archiveUsernameUnusable || undefined}
+                                        aria-describedby={archiveUsernameUnusable ? `${archiveUserId}-error` : undefined}
                                         onChange={event => {
                                             setArchiveUsername(event.target.value)
+                                            setArchiveUsernameBlurred(false)
                                             setError(null)
                                         }}
+                                        onBlur={() => setArchiveUsernameBlurred(true)}
                                         onKeyDown={event => {
                                             if (event.key !== 'Enter') return
                                             event.preventDefault()
@@ -632,9 +657,15 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         {archiveBusy ? 'Fetching…' : 'Fetch'}
                                     </button>
                                 </div>
-                                <p className="archive-hint">
-                                    Public games, no sign-in. They land in the box below, newest first.
-                                </p>
+                                {archiveUsernameUnusable ? (
+                                    <p className="dialog-error" id={`${archiveUserId}-error`} role="alert">
+                                        {ARCHIVE_USERNAME_ERROR}
+                                    </p>
+                                ) : (
+                                    <p className="archive-hint">
+                                        Public games, no sign-in. They land in the box below, newest first.
+                                    </p>
+                                )}
                             </div>
                             <label className="dialog-label archive-paste-label" htmlFor={importTextId}>Or paste Portable Game Notation</label>
                             <div className="dialog-quick-actions">

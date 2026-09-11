@@ -2800,6 +2800,70 @@ async function checkFocusCanBeSeen(browser) {
 }
 
 /**
+ * A button that will not work says why.
+ *
+ * The archive row turns Fetch off for a username it cannot use, which is right
+ * and was the whole of it. **Measured** by typing "two words", a forty-character
+ * name and "erik?tab=games" into the field and then leaving it: nothing was said
+ * while typing, nothing on blur, and `aria-invalid` was never set. A reader with
+ * a mouse had a dead button and no reason for it anywhere; the sentence existed
+ * but was reachable only by pressing Enter, which is the one route a mouse does
+ * not take.
+ *
+ * Both directions are asserted. Saying it while the reader is still typing the
+ * first letter of a good name would be worse than saying nothing, so the check
+ * requires silence until the field is left, and requires the message to go away
+ * again for a name that works.
+ */
+async function checkADeadFetchButtonSaysWhy(browser) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+    await page.locator('.dialog-panel').waitFor({ timeout: 15000 })
+
+    const field = page.locator('.dialog-panel input.archive-input').first()
+    await field.waitFor({ timeout: 10000 })
+    const look = () => page.evaluate(() => ({
+      error: document.querySelector('.dialog-panel .dialog-error')?.textContent?.trim() || null,
+      invalid: document.querySelector('.dialog-panel input.archive-input')?.getAttribute('aria-invalid') || null,
+      hint: document.querySelector('.archive-hint') ? 'shown' : 'gone',
+      fetchOff: [...document.querySelectorAll('button')]
+        .find(b => /^Fetch$/.test((b.textContent || '').trim()))?.disabled ?? 'no button',
+    }))
+
+    await field.fill('two words')
+    await page.waitForTimeout(250)
+    const typing = await look()
+    assert(typing.error === null,
+      `while still typing it already says "${typing.error}", which a reader halfway through a good name would see`)
+    assert(typing.fetchOff === true, 'Fetch is not turned off for a username that cannot be used')
+
+    await page.locator('.dialog-panel').first().click({ position: { x: 5, y: 5 } })
+    await page.waitForTimeout(350)
+    const left = await look()
+    assert(left.error && /not a username/i.test(left.error),
+      `after leaving the field it says ${JSON.stringify(left.error)} -- a reader with a mouse has a dead ` +
+      'button and nowhere to find out why')
+    assert(left.invalid === 'true', 'the field never announces itself as invalid')
+
+    await field.fill('penguingm1')
+    await page.locator('.dialog-panel').first().click({ position: { x: 5, y: 5 } })
+    await page.waitForTimeout(350)
+    const fixed = await look()
+    assert(fixed.error === null && fixed.invalid === null && fixed.hint === 'shown',
+      `a usable name still reads ${JSON.stringify(fixed)}`)
+    assert(fixed.fetchOff === false, 'Fetch stayed off for a username that can be used')
+
+    console.log('  archive: an unusable username says so once the field is left, and stops when it is fixed')
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -4015,6 +4079,7 @@ async function main() {
     await checkANoticeIsSeenAndFits(browser)
     await checkNothingIsDrawnBehindSomethingElse(browser)
     await checkFocusCanBeSeen(browser)
+    await checkADeadFetchButtonSaysWhy(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)

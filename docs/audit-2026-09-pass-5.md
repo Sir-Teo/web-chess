@@ -917,6 +917,16 @@ command palette was swept for a computed animation or transition longer than
 what the blanket rule is scoped to. The same sweep with the preference off
 finds 56 to 68, so it discriminates.
 
+**The command palette.** Opened, searched and driven from the keyboard. It
+matches without case (`FLIP`), through a typo'd space (`fl ip` still finds Flip
+board), and on keywords rather than only labels — `mistake` reaches the costly
+-move commands, which is the alias added earlier in this pass. Nothing matching
+answers "No commands match"; a whitespace-only query lists everything rather
+than nothing; Enter runs the highlighted command and closes. A command whose
+prerequisite is unmet carries the reason on its own row ("Run Review Game
+first"), is `aria-disabled`, and pressing Enter on it does nothing and leaves
+the palette open rather than closing as though it had worked.
+
 **The win/draw/loss bar, and the clock's low-time warning.** Both were suspected
 of leaning on hue and neither does. The WDL bar's three segments are white,
 grey and near-black — a luminance ramp, safe by construction. The clock's low
@@ -1451,6 +1461,31 @@ codes in this sweep matched the depth, which is weak evidence but not nothing.
 Under its own "POSITION DEPTH" heading it is unambiguous, and `D${depth}` was
 written deliberately, so it stays; noted because the next reader to see `D22`
 beside `A00` deserves to know it was looked at.
+
+**A button that would not work, and would not say why.** The archive row turns
+Fetch off for a username it cannot use, which is right and was the whole of it.
+**Measured** by typing into the field and then leaving it:
+
+| typed | Fetch | while typing | after leaving the field |
+|---|---|---|---|
+| `penguingm1` | on | — | — |
+| `@penguingm1` | on | — | — |
+| `https://lichess.org/@/penguingm1` | on | — | — |
+| `https://www.chess.com/member/erik` | on | — | — |
+| `two words` | **off** | nothing | **nothing** |
+| forty characters | **off** | nothing | **nothing** |
+| `erik?tab=games` | **off** | nothing | **nothing** |
+
+`aria-invalid` was never set either. A reader with a mouse had a dead button and
+nowhere to find out why; a reader on a screen reader had a field that never
+announced itself as wrong. The sentence existed already — "That is not a
+username. Type the name, or paste a link to the profile page." — and was
+reachable only by pressing Enter, which is the one route a mouse does not take.
+
+It is said now once the field is left, and not before: telling somebody they
+have not typed a username after the first letter of a good one is worse than
+saying nothing. Both directions are guarded — silence while typing, the
+sentence on blur, and the sentence gone again the moment the name works.
 
 **Three ways to get the kings wrong, one sentence for all of them.** The setup
 board is the last surface in this app never read end to end, so six positions
