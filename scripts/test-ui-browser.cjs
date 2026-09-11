@@ -3274,6 +3274,108 @@ async function checkASavedGameComesBack(browser) {
 }
 
 /**
+ * A link shared is the game that arrives.
+ *
+ * The last way a game leaves this app. The *broken* case is already covered --
+ * `checkANoticeIsSeenAndFits` opens a `#game=` carrying nonsense -- and the
+ * working one was not: no test had ever copied a link and opened it.
+ *
+ * Both links, because they carry different things: `#game=` the moves, `#fen=`
+ * the position. Compared by asking the app for its own FEN rather than by
+ * diffing the board's markup -- the two squares of the last move wear a
+ * highlight on the board it was played on and none on a board that was handed
+ * the position, so identical positions differ by exactly two squares, which is
+ * how this check first reported a defect that was not there.
+ *
+ * `about:blank` between the two openings: the links differ only in their hash,
+ * and a navigation between them is same-document and never reloads.
+ */
+async function checkASharedLinkCarriesTheGame(browser) {
+  const MOVES = [['e2', 'e4'], ['e7', 'e5'], ['g1', 'f3'], ['b8', 'c6']]
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => {
+      window.__copied = []
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        get: () => ({ writeText: text => { window.__copied.push(String(text)); return Promise.resolve() } }),
+      })
+    })
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+    const passAndPlay = page.getByRole('button', { name: /Pass and play/i }).first()
+    if (await passAndPlay.count()) { await passAndPlay.click(); await page.waitForTimeout(1200) }
+    for (const [from, to] of MOVES) {
+      await page.locator(`#chessboard-square-${from}`).click()
+      await page.waitForTimeout(140)
+      await page.locator(`#chessboard-square-${to}`).click()
+      await page.waitForTimeout(420)
+    }
+    await page.waitForTimeout(600)
+
+    // The app's own reading of where it is, which is what a link has to carry.
+    const currentFen = async () => {
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      await page.locator('.dialog-panel').waitFor({ timeout: 15000 })
+      await page.getByRole('button', { name: /^FEN$/ }).click()
+      await page.waitForTimeout(500)
+      const fen = (await page.locator('.dialog-section textarea').first().inputValue()).trim()
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(300)
+      return fen
+    }
+    // By visible text: these buttons' accessible names are their aria-labels
+    // ("Copy a link to this whole game"), so a role query on the text misses.
+    const copyFrom = async (tab, text) => {
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      await page.locator('.dialog-panel').waitFor({ timeout: 15000 })
+      await page.getByRole('button', { name: tab }).click()
+      await page.waitForTimeout(400)
+      const button = page.locator('.dialog-panel button', { hasText: text }).first()
+      await button.waitFor({ timeout: 10000 })
+      await button.click()
+      await page.waitForTimeout(600)
+      const link = await page.evaluate(() => window.__copied[window.__copied.length - 1] || null)
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(300)
+      return link
+    }
+
+    const sourceFen = await currentFen()
+    const gameLink = await copyFrom(/^Export$/, /Copy Game Link/i)
+    const fenLink = await copyFrom(/^FEN$/, /Copy Share Link/i)
+    assert(gameLink && gameLink.includes('#game='), `the game link is ${JSON.stringify(gameLink)}`)
+    assert(fenLink && fenLink.includes('#fen='), `the position link is ${JSON.stringify(fenLink)}`)
+
+    const openAndRead = async link => {
+      await page.goto('about:blank')
+      await page.waitForTimeout(200)
+      await page.goto(link, { waitUntil: 'domcontentloaded' })
+      const again = page.getByRole('button', { name: /start fresh/i })
+      if (await again.count()) await again.first().click()
+      await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+      await page.waitForTimeout(1500)
+      return currentFen()
+    }
+
+    const fromGame = await openAndRead(gameLink)
+    assert(fromGame === sourceFen,
+      `the game link arrived on a different position:\n  sent ${sourceFen}\n  got  ${fromGame}`)
+
+    const fromFen = await openAndRead(fenLink)
+    assert(fromFen === sourceFen,
+      `the position link arrived on a different position:\n  sent ${sourceFen}\n  got  ${fromFen}`)
+
+    console.log(`  share: both links arrive on the position they were copied from (${gameLink.length} characters)`)
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -4494,6 +4596,7 @@ async function main() {
     await checkAnExportedGameComesBack(browser)
     await checkAnInterruptedGameComesBack(browser)
     await checkASavedGameComesBack(browser)
+    await checkASharedLinkCarriesTheGame(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)

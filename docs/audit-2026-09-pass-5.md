@@ -917,7 +917,7 @@ command palette was swept for a computed animation or transition longer than
 what the blanket rule is scoped to. The same sweep with the preference off
 finds 56 to 68, so it discriminates.
 
-**Four ways a game leaves this app and comes back, and none of them was
+**Five ways a game leaves this app and comes back, and none of them was
 checked end to end.** Each is unit-tested a layer down and no test had ever
 driven the whole thing through the buttons a reader presses. They are all sound,
 and all four are guarded now:
@@ -929,6 +929,18 @@ and all four are guarded now:
 | a reviewed game exported | `116/116`, 117 graph points and 238 labels return, nothing re-run |
 | autosave → reload → Restore | the position back square for square, in ~810ms of exposure |
 | library Save → Load | a game with side lines back byte for byte |
+| a copied link opened | both `#game=` and `#fen=` arrive on the position they were copied from |
+
+The share check reported a defect twice before it reported the truth, and both
+times the probe was at fault. Comparing boards by the markup in each square
+conflates the position with its decoration: the two squares of the last move
+wear a highlight on the board it was played on and none on a board handed the
+position, so two identical positions differ by exactly two squares — and those
+two squares are the last move's, which reads precisely like a link arriving one
+ply short. Asked instead for the app's own FEN, the link's position and the
+opened position are the same string. The other was the hash trap already on this
+record: two links that differ only after the `#` are a same-document navigation,
+and the second never reloads.
 
 The library row's controls are worth a note on the way past: they are icon-only
 and every one names its game — "Load My annotated game", "Rename…", "Delete…" —
