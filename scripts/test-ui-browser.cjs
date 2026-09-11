@@ -3082,6 +3082,106 @@ async function checkAnExportedGameComesBack(browser) {
 }
 
 /**
+ * A game interrupted is a game that comes back.
+ *
+ * The flow a reader reaches by accident -- a closed tab, a phone reclaiming
+ * memory, a crash. `checkAutosaveFailure` above covers the path where storage
+ * is *denied*; nothing covered the ordinary one, where it works: no test had
+ * ever played moves, reloaded the page, and pressed Restore.
+ *
+ * Both branches, because each is a way to lose a game. Restore has to bring the
+ * position back exactly; Start fresh has to actually discard, and a game that
+ * comes back after being discarded is the same defect wearing the other face.
+ *
+ * The write is timed too. It is debounced at 700ms and `autoSaveDelayMs` adds a
+ * deadline for the case where engine churn keeps resetting the timer -- without
+ * which a game could go unwritten for as long as a search runs. Measured, every
+ * move lands in about 810ms; this allows 3s before calling it a regression.
+ */
+async function checkAnInterruptedGameComesBack(browser) {
+  const MOVES = [['e2', 'e4'], ['e7', 'e5'], ['g1', 'f3']]
+  const AUTOSAVE_KEY = 'webchess:auto-saved-game:v1'
+
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+
+    const savedMoves = () => page.evaluate(key => {
+      const raw = localStorage.getItem(key)
+      if (!raw) return null
+      try { return JSON.parse(raw).moveCount } catch { return -1 }
+    }, AUTOSAVE_KEY)
+    const squares = () => page.evaluate(() => {
+      const out = {}
+      for (const square of document.querySelectorAll('[data-square]')) {
+        out[square.getAttribute('data-square')] = square.innerHTML.length
+      }
+      return out
+    })
+    // Pass and play: against an engine every second move is its own, and a
+    // check that clicks one is measuring a refusal.
+    const playThree = async () => {
+      const passAndPlay = page.getByRole('button', { name: /Pass and play/i }).first()
+      if (await passAndPlay.count()) { await passAndPlay.click(); await page.waitForTimeout(1200) }
+      for (const [from, to] of MOVES) {
+        await page.locator(`#chessboard-square-${from}`).click()
+        await page.waitForTimeout(150)
+        await page.locator(`#chessboard-square-${to}`).click()
+        await page.waitForTimeout(450)
+      }
+    }
+
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const first = page.getByRole('button', { name: /start fresh/i })
+    if (await first.count()) await first.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+    await playThree()
+
+    const started = Date.now()
+    await page.waitForFunction(key => {
+      const raw = localStorage.getItem(key)
+      if (!raw) return false
+      try { return JSON.parse(raw).moveCount === 3 } catch { return false }
+    }, AUTOSAVE_KEY, { timeout: 3000 }).catch(() => {})
+    const saved = await savedMoves()
+    assert(saved === 3,
+      `three moves were played and ${saved} reached storage within ${Date.now() - started}ms -- ` +
+      'a reader who closes the tab loses whatever never got written')
+    const before = await squares()
+
+    // Restore.
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    const restore = page.getByRole('button', { name: /^restore$/i }).first()
+    await restore.waitFor({ timeout: 20000 })
+    await restore.click()
+    await page.waitForTimeout(1500)
+    const after = await squares()
+    assert(JSON.stringify(after) === JSON.stringify(before),
+      'the game came back on a different position than it left on')
+
+    // Discard.
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    const fresh = page.getByRole('button', { name: /start fresh/i }).first()
+    await fresh.waitFor({ timeout: 20000 })
+    await fresh.click()
+    await page.waitForTimeout(1200)
+    assert(await savedMoves() === null, 'Start fresh left the game in storage')
+    const reset = await squares()
+    assert(reset['e2'] > reset['e4'], 'Start fresh left the played moves on the board')
+
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+    await page.waitForTimeout(1200)
+    const offeredAgain = await page.evaluate(() =>
+      [...document.querySelectorAll('button')].some(b => /^restore$/i.test((b.textContent || '').trim())))
+    assert(!offeredAgain, 'a game that was discarded was offered back on the next visit')
+
+    console.log('  recovery: three moves survive a reload, and a discarded game stays discarded')
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -4300,6 +4400,7 @@ async function main() {
     await checkADeadFetchButtonSaysWhy(browser)
     await checkTheLibrarySurvivesABackup(browser)
     await checkAnExportedGameComesBack(browser)
+    await checkAnInterruptedGameComesBack(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)

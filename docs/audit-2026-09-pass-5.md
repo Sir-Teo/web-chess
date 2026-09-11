@@ -917,6 +917,24 @@ command palette was swept for a computed animation or transition longer than
 what the blanket rule is scoped to. The same sweep with the preference off
 finds 56 to 68, so it discriminates.
 
+**And the flow a reader reaches by accident had none.** A closed tab, a phone
+reclaiming memory, a crash. `checkAutosaveFailure` covers the path where storage
+is *denied*; nothing covered the ordinary one, where it works — no test had ever
+played moves, reloaded the page and pressed Restore.
+
+**Measured**: every move reaches storage in **~810ms**, five moves running, which
+is the 700ms debounce plus the polling granularity. After a reload the prompt
+offers Restore and Start fresh; Restore brings the position back **square for
+square**; Start fresh clears the slot, resets the board, and a second reload does
+not offer the discarded game again. Both branches are guarded, because each is a
+way to lose a game.
+
+Two of this check's own failures were its own doing, and both are the same
+mistake: it clicked "Play Stockfish" and then tried to move for Black. Every
+second move was the engine's, the clicks were refusals, and `moveCount: 1` after
+three moves looked exactly like an autosave dropping writes. The guard uses pass
+and play and says why.
+
 **Exporting a game had no end-to-end check either.** `exportAnnotatedPgn` and
 `parsePgnMoveTree` are each tested, and no test had ever sent one's output
 through the other — which is the whole point of the Export tab. **Measured** on
