@@ -1452,6 +1452,42 @@ Under its own "POSITION DEPTH" heading it is unambiguous, and `D${depth}` was
 written deliberately, so it stays; noted because the next reader to see `D22`
 beside `A00` deserves to know it was looked at.
 
+## One measurement, five times
+
+The graph-memo fix was tried twice and reverted twice, and the second time is
+the one worth writing down.
+
+The first attempt — splitting the winrate graph's static half into its own memo
+— measured no change, and the reason was found: the array it memoised on was
+new on every navigation. Holding the line steady fixed that, and the split was
+re-applied. A single run then read **68ms a press down to 43ms**, a 37%
+improvement, and it was believed.
+
+Run five times instead of once, on the same build, walking 20 plies each time:
+
+| | five walks, ms of long frames | median |
+|---|---|---|
+| with the split | 597, 789, 1091, 1152, 2958 | **1091ms** |
+| without it | 553, 553, 806, 1347, 2919 | **806ms** |
+
+The spread inside one build is larger than the difference between the two
+builds, and the build *without* the split has the lower median. The 37% was
+noise. The split is reverted; the claim is withdrawn.
+
+What makes the line-identity fix in the entry above different is not a better
+number but a different **kind** of number: 25 long frames became 0, and a
+120-ply game stopped costing more per press than a 12-ply one. Step changes,
+not margins. Anything that has to be argued from a single run against a spread
+this wide is not a result yet — and this rig was already known to be noisy
+enough to fail two timing tests in one `npm run verify`, which is recorded a few
+sections up and should have been the warning.
+
+The sister graphs were left alone for a related reason: neither the WDL nor the
+move-times graph had any data to draw in anything measurable here — the WDL
+panel renders its empty state, with 0 circles and 0 paths, under both the real
+engine and the fake one — so the same split could not have been weighed there
+either.
+
 ## Method
 
 Everything above was measured on the **production** build. The second pass had
