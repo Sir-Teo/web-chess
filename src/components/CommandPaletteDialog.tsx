@@ -59,7 +59,7 @@ export function CommandPaletteDialog({ open, commands, onClose }: Props) {
     }
 
     const onKeyDown = (event: React.KeyboardEvent) => {
-        if (ranked.length === 0) return
+        if (event.nativeEvent.isComposing || ranked.length === 0) return
         if (event.key === 'ArrowDown') {
             event.preventDefault()
             setActiveIndex(index => (index + 1) % ranked.length)
@@ -68,8 +68,6 @@ export function CommandPaletteDialog({ open, commands, onClose }: Props) {
             event.preventDefault()
             setActiveIndex(index => (index - 1 + ranked.length) % ranked.length)
         }
-        if (event.key === 'Home') { event.preventDefault(); setActiveIndex(0) }
-        if (event.key === 'End') { event.preventDefault(); setActiveIndex(ranked.length - 1) }
         if (event.key === 'Enter') {
             event.preventDefault()
             runCommand(ranked[activeIndex])
@@ -85,7 +83,6 @@ export function CommandPaletteDialog({ open, commands, onClose }: Props) {
                 aria-modal="true"
                 aria-labelledby={titleId}
                 onClick={event => event.stopPropagation()}
-                onKeyDown={onKeyDown}
             >
                 <header className="dialog-header">
                     <h2 id={titleId}>Commands</h2>
@@ -106,6 +103,7 @@ export function CommandPaletteDialog({ open, commands, onClose }: Props) {
                         placeholder="Type a command…"
                         maxLength={MAX_SEARCH_QUERY_LENGTH}
                         value={query}
+                        onKeyDown={onKeyDown}
                         onChange={event => { setQuery(event.target.value); setActiveIndex(0) }}
                     />
 
@@ -138,6 +136,7 @@ export function CommandPaletteDialog({ open, commands, onClose }: Props) {
                                         type="button"
                                         className="command-palette-button"
                                         disabled={command.disabled}
+                                        onFocus={() => setActiveIndex(index)}
                                         onMouseEnter={() => setActiveIndex(index)}
                                         onClick={() => runCommand(command)}
                                     >

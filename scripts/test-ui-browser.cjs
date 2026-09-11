@@ -4355,6 +4355,52 @@ async function chooseTheme(page, name) {
   )
 }
 
+async function checkCommandPaletteKeyboard(browser) {
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const opener = page.getByTestId('command-palette-btn')
+      await opener.click()
+      const square = page.locator('#chessboard-square-a1')
+      const before = await square.boundingBox()
+      await page.keyboard.press('Tab')
+      await page.keyboard.press('Tab')
+      assert(await page.locator('[data-command-id="flip-board"] button').evaluate(el => el === document.activeElement), 'Tab did not reach Flip board')
+      await page.keyboard.press('Enter')
+      await page.waitForFunction(() => !document.querySelector('[role="dialog"]'))
+      const after = await square.boundingBox()
+      assert(Math.abs(after.x - before.x) > 100, 'Enter did not flip the board')
+      assert(await opener.evaluate(el => el === document.activeElement), 'palette did not return focus to its opener')
+
+      await opener.click()
+      const input = page.getByRole('combobox', { name: 'Search commands' })
+      const initial = await input.getAttribute('aria-activedescendant')
+      await input.press('ArrowDown')
+      assert(await input.getAttribute('aria-activedescendant') !== initial, 'ArrowDown did not select another command')
+      await input.press('ArrowUp')
+      assert(await input.getAttribute('aria-activedescendant') === initial, 'ArrowUp did not restore the selection')
+      await input.fill('board')
+      const selected = await input.getAttribute('aria-activedescendant')
+      await input.press('Home')
+      assert(await input.evaluate(el => el.selectionStart === 0), 'Home did not move the search caret to the start')
+      await input.press('End')
+      assert(await input.evaluate(el => el.selectionStart === el.value.length), 'End did not move the search caret to the end')
+      assert(await input.getAttribute('aria-activedescendant') === selected, 'editing the search moved the command selection')
+      await input.fill('flip')
+      await input.dispatchEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true })
+      assert(await input.isVisible(), 'confirming IME composition ran a command')
+      await input.press('Enter')
+      await page.waitForFunction(() => !document.querySelector('[role="dialog"]'))
+      const restored = await square.boundingBox()
+      assert(Math.abs(restored.x - before.x) < 1, 'Enter in the search did not run the matching command')
+      console.log(`  command keyboard (${width}px): Tab activates the focused button; search editing and Enter work`)
+    } finally { await context.close() }
+  }
+}
+
 async function main() {
 
   const { chromium } = require('playwright')
@@ -4395,6 +4441,7 @@ async function main() {
       resources: checkSingleThreadReviewPool,
       lab: checkLabSettingsStayInSync,
       continuous: checkKeepSearchingIsUnbounded,
+      'palette-keyboard': checkCommandPaletteKeyboard,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
@@ -5030,6 +5077,7 @@ async function main() {
                   `board ${board.width}x${board.height} OK`)
     }
 
+    await checkCommandPaletteKeyboard(browser)
     await checkTypedMoveEntry(browser)
     await checkAutosaveFailure(browser)
     await checkEngineStartupTimeout(browser)
