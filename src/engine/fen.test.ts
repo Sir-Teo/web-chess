@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FEN_KING_PLACEMENT_ERROR, FEN_LOOKS_LIKE_GAME_ERROR, FEN_LOOKS_LIKE_URL_ERROR, FEN_OPPONENT_IN_CHECK_ERROR, FEN_PARSE_ERROR, hasLegalKingPlacement, opponentIsInCheck, validateFenForAnalysis } from './fen'
+import { FEN_KINGS_ADJACENT_ERROR, FEN_LOOKS_LIKE_GAME_ERROR, FEN_LOOKS_LIKE_URL_ERROR, FEN_NO_BLACK_KING_ERROR, FEN_NO_KINGS_ERROR, FEN_NO_WHITE_KING_ERROR, FEN_OPPONENT_IN_CHECK_ERROR, FEN_PARSE_ERROR, hasLegalKingPlacement, kingPlacementError, opponentIsInCheck, validateFenForAnalysis } from './fen'
 
 describe('FEN validation helpers', () => {
   it('accepts separated kings and rejects adjacent kings', () => {
@@ -19,7 +19,7 @@ describe('FEN validation helpers', () => {
     })
     expect(validateFenForAnalysis('8/8/8/8/8/8/4K3/8 w - - 0 1')).toEqual({
       ok: false,
-      error: FEN_KING_PLACEMENT_ERROR,
+      error: FEN_NO_BLACK_KING_ERROR,
     })
     expect(validateFenForAnalysis('not a fen')).toEqual({
       ok: false,
@@ -84,7 +84,7 @@ describe('a wrong paste in the FEN box', () => {
   it('leaves every FEN judgement where it was', () => {
     expect(validateFenForAnalysis('8/8/8/8/8/8/4K3/6k1 w - - 0 1').ok).toBe(true)
     expect(validateFenForAnalysis('8/8/8/8/8/8/4K3/8 w - - 0 1'))
-      .toEqual({ ok: false, error: FEN_KING_PLACEMENT_ERROR })
+      .toEqual({ ok: false, error: FEN_NO_BLACK_KING_ERROR })
     expect(validateFenForAnalysis('not a fen at all'))
       .toEqual({ ok: false, error: FEN_PARSE_ERROR })
   })
@@ -117,8 +117,45 @@ describe('a refused FEN says which field is wrong', () => {
   })
 
   it('keeps the two sentences this file writes better itself', () => {
-    expect(reason('8/8/8/8/8/8/8/8 w - - 0 1')).toBe(FEN_KING_PLACEMENT_ERROR)
+    expect(reason('8/8/8/8/8/8/8/8 w - - 0 1')).toBe(FEN_NO_KINGS_ERROR)
     expect(reason('R6k/8/8/8/8/8/8/K7 w - - 0 1')).toBe(FEN_OPPONENT_IN_CHECK_ERROR)
+  })
+
+  /**
+   * Three faults, three sentences.
+   *
+   * **Measured** by building each position on the setup board a square at a
+   * time: an empty board, a board with one king, and two kings side by side all
+   * answered "Invalid FEN: kings cannot be adjacent or missing" -- two faults
+   * named at once, neither of them necessarily the one in front of the reader.
+   * chess.js had the better half of it already ("missing white king"), and a
+   * `/king/i` catch-all in this file was throwing that away, which is the exact
+   * swap the rest of `fenSyntaxUserError` exists to undo.
+   */
+  it('says which king fault a position has', () => {
+    expect(reason('8/8/8/8/8/8/8/8 w - - 0 1')).toBe(FEN_NO_KINGS_ERROR)
+    expect(reason('4k3/8/8/8/8/8/8/8 w - - 0 1')).toBe(FEN_NO_WHITE_KING_ERROR)
+    expect(reason('8/8/8/8/8/8/8/4K3 w - - 0 1')).toBe(FEN_NO_BLACK_KING_ERROR)
+    expect(reason('8/8/8/8/8/8/4k3/4K3 w - - 0 1')).toBe(FEN_KINGS_ADJACENT_ERROR)
+  })
+
+  /** And the checker underneath says the same four things. */
+  it('reports the fault directly too, and nothing for a legal placement', () => {
+    expect(kingPlacementError('8/8/8/8/8/8/8/8 w - - 0 1')).toBe(FEN_NO_KINGS_ERROR)
+    expect(kingPlacementError('4k3/8/8/8/8/8/8/8 w - - 0 1')).toBe(FEN_NO_WHITE_KING_ERROR)
+    expect(kingPlacementError('8/8/8/8/8/8/8/4K3 w - - 0 1')).toBe(FEN_NO_BLACK_KING_ERROR)
+    expect(kingPlacementError('8/8/8/8/8/8/4k3/4K3 w - - 0 1')).toBe(FEN_KINGS_ADJACENT_ERROR)
+    expect(kingPlacementError('8/8/8/8/8/8/4K3/6k1 w - - 0 1')).toBeNull()
+  })
+
+  /**
+   * The general message still wins for text that is not a position at all.
+   * Prose has no kings either, and "neither side has a king" is the same
+   * mistake as "six space-delimited fields" answered to a pasted sentence.
+   */
+  it('does not answer prose with a king fault', () => {
+    expect(reason('not a fen at all')).toBe(FEN_PARSE_ERROR)
+    expect(reason('hello world this is not a position')).toBe(FEN_PARSE_ERROR)
   })
 
   it('ends the borrowed sentences the way its own ones end', () => {

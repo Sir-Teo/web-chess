@@ -1452,6 +1452,43 @@ Under its own "POSITION DEPTH" heading it is unambiguous, and `D${depth}` was
 written deliberately, so it stays; noted because the next reader to see `D22`
 beside `A00` deserves to know it was looked at.
 
+**Three ways to get the kings wrong, one sentence for all of them.** The setup
+board is the last surface in this app never read end to end, so six positions
+were built on it a square at a time and it was asked what it thought:
+
+| built | said |
+|---|---|
+| an empty board | *kings cannot be adjacent or missing* |
+| one king only | *kings cannot be adjacent or missing* |
+| two kings side by side | *kings cannot be adjacent or missing* |
+| a pawn on the first rank | *some pawns are on the edge rows* |
+| nine white pawns | nothing — accepted |
+| a legal position | nothing — accepted |
+
+Two faults named in one sentence, neither of them necessarily the one in front
+of the reader. `hasLegalKingPlacement` knew the difference and threw it away at
+the `return`, and `fen.ts` already says why that is worth not doing — it is the
+same criticism it makes of `FEN_PARSE_ERROR`, which "names four fields and
+leaves the reader to work out which one".
+
+**The catch-all was the wrong way round.** chess.js answers a kingless board
+`Invalid FEN: missing white king` and a one-king board `missing black king` —
+already precise, already written for readers, and exactly what the rest of
+`fenSyntaxUserError` exists to pass through. A `/king/i` branch was replacing
+both with the vaguer sentence. This file's own checker runs first now, because
+it is the only one that knows adjacency as well, and each of the three faults
+has its own words.
+
+Ordering mattered and the existing tests caught it: asking the king checker
+first answered `not a fen at all` with "neither side has a king", because prose
+has no kings either. That is the same mistake as answering prose with "six
+space-delimited fields", which a test written before this one already pinned.
+The shape check goes first.
+
+Two of the six answers were left alone. "Some pawns are on the edge rows" is
+chess.js's, passed through by the policy above. Nine white pawns is accepted,
+and should be: it is a position to analyse, not a game to referee.
+
 ## One measurement, five times
 
 The graph-memo fix was tried twice and reverted twice, and the second time is
