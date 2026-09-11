@@ -917,6 +917,29 @@ command palette was swept for a computed animation or transition longer than
 what the blanket rule is scoped to. The same sweep with the preference off
 finds 56 to 68, so it discriminates.
 
+**Every disabled control in the app.** Swept across the board and all three
+dialog tabs, asking each one whether a reason is reachable from it. The pattern
+turns out to be a good one, and it is in the **label**: "Take back unavailable.
+No moves have been played yet", "Hint unavailable. Hints need an engine — start
+a game against the computer", "Copy game link unavailable. Play or import a game
+first". The navigation arrows are the exception and do not need one — being
+unable to go back from the start of a game explains itself. The archive's Fetch
+button was the one outlier, and is the entry above.
+
+**A clipboard that refuses.** All three copy paths, with `writeText` rejecting
+the way a browser without permission does: "Clipboard access failed. Select the
+text and copy it manually" for the PGN, "…The current FEN is in the text box"
+for the FEN, and for the share link the same sentence **plus a box holding the
+link**, since that is the one whose text is not already on screen.
+
+**Four ways a game can end.** Played into each from a position one move away:
+**Checkmate · White wins** with 1-0, **Stalemate · Draw**, **Insufficient
+material · Draw** and **Fifty-move rule · Draw**, each with ½-½. Every one names
+the specific ending rather than reporting that the game is over. And a finished
+position is not analysed: after mate, with the real engine, the best move reads
+"...", the lines panel says "Start analysis to see principal variation lines
+here" rather than holding stale ones, and the bar reads 1-0.
+
 **The command palette.** Opened, searched and driven from the keyboard. It
 matches without case (`FLIP`), through a typo'd space (`fl ip` still finds Flip
 board), and on keywords rather than only labels — `mistake` reaches the costly
