@@ -917,6 +917,30 @@ command palette was swept for a computed animation or transition longer than
 what the blanket rule is scoped to. The same sweep with the preference off
 finds 56 to 68, so it discriminates.
 
+**PGN headers, which are whatever a downloaded file says.** Five games
+imported, at 1440x900 and 390x844: ordinary names, 300-character names, a
+single unbroken 300-character word, headers full of markup, and emoji with
+right-to-left script. **Page overflow was 0px in every one**, nothing was left
+off screen without something to scroll it, and the markup renders as text —
+`<script>alert(1)</script>` appears literally and no alert fires.
+
+The squeeze lands where the stylesheet says it should. With a 300-character
+White name the players line takes the hit, clipping at 404px with an ellipsis,
+while the turn pill keeps its 98px, the move number its 41px, the result its
+60px and the quality pill its 41px. That is the rule written in `App.css` —
+"the game's players are the long, truncation-tolerant item, so they absorb the
+squeeze" — doing exactly what it says against input designed to break it.
+
+**A tab left open across a deploy.** The worker calls `skipWaiting` and
+`clients.claim`, and purges the old caches, so a running page can later ask for
+a lazy chunk that no longer exists. `LazyDialogBoundary` already contains that:
+the failure stops at the dialog instead of replacing the board, and says "That
+dialog could not be loaded. Reload the page to get it back — the game on the
+board is unaffected." A proactive "new version available" prompt was considered
+and not built: the failure it would pre-empt is already contained and explained,
+and interrupting somebody mid-game to offer a reload is more surface than that
+is worth.
+
 **Every disabled control in the app.** Swept across the board and all three
 dialog tabs, asking each one whether a reason is reachable from it. The pattern
 turns out to be a good one, and it is in the **label**: "Take back unavailable.
