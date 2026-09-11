@@ -4401,6 +4401,42 @@ async function checkCommandPaletteKeyboard(browser) {
   }
 }
 
+async function checkCommandPaletteLayout(browser) {
+  for (const [width, height, scale] of [[320, 568, 1], [375, 812, 1], [768, 1024, 1], [844, 390, 1], [1280, 800, 1], [320, 568, 2], [1280, 800, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      if (scale !== 1) await page.addStyleTag({ content: `html { font-size: ${scale * 100}% !important; }` })
+      // Open this first: visiting another dialog can mask a missing shared stylesheet.
+      await page.getByTestId('command-palette-btn').click()
+      const input = page.getByRole('combobox', { name: 'Search commands' })
+      await input.fill('keep')
+      await page.waitForTimeout(300)
+      const layout = await page.locator('.command-palette').evaluate(panel => {
+        const box = panel.getBoundingClientRect()
+        const hint = panel.querySelector('.command-palette-hint')
+        const label = panel.querySelector('.command-palette-label')
+        const fits = el => el.getBoundingClientRect().width > 0 && el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1
+        return {
+          styled: getComputedStyle(panel).backgroundColor !== 'rgba(0, 0, 0, 0)',
+          onScreen: box.left >= 0 && box.right <= innerWidth + 1 && box.top >= 0 && box.bottom <= innerHeight + 1,
+          hintFits: fits(hint), labelFits: fits(label),
+          overflow: document.documentElement.scrollWidth > innerWidth,
+        }
+      })
+      assert(layout.styled, 'Commands opened without its dialog surface')
+      assert(layout.onScreen && !layout.overflow, `command dialog overflows at ${width}x${height}, ${scale}x`)
+      assert(layout.hintFits && layout.labelFits, `command name or disabled reason is clipped at ${width}x${height}, ${scale}x`)
+      await input.fill('settings')
+      await page.locator('[data-command-id="settings"] button').click()
+      await page.locator('.settings-body').waitFor({ state: 'visible' })
+      console.log(`  command layout (${width}x${height}, ${scale}x text): dialog, full label and reason fit; selection opens Settings`)
+    } finally { await context.close() }
+  }
+}
+
 async function main() {
 
   const { chromium } = require('playwright')
@@ -4442,6 +4478,7 @@ async function main() {
       lab: checkLabSettingsStayInSync,
       continuous: checkKeepSearchingIsUnbounded,
       'palette-keyboard': checkCommandPaletteKeyboard,
+      'palette-layout': checkCommandPaletteLayout,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
@@ -5078,6 +5115,7 @@ async function main() {
     }
 
     await checkCommandPaletteKeyboard(browser)
+    await checkCommandPaletteLayout(browser)
     await checkTypedMoveEntry(browser)
     await checkAutosaveFailure(browser)
     await checkEngineStartupTimeout(browser)

@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useModalFocus } from '../hooks/useModalFocus'
 import { MAX_SEARCH_QUERY_LENGTH } from '../engine/searchTerms'
 import { type Command, rankCommands, readRecentCommandIds, rememberCommandId } from './commandPalette'
+import './NewGameDialog.css'
 import './CommandPaletteDialog.css'
 
 type Props = {
@@ -142,9 +143,6 @@ export function CommandPaletteDialog({ open, commands, onClose }: Props) {
                                     >
                                         <span className="command-palette-label">{command.label}</span>
                                         {command.hint && (
-                                            // Titled because the hint is the reason a
-                                            // command is unavailable, and it is the
-                                            // first thing truncated at phone width.
                                             <span className="command-palette-hint" title={command.hint}>{command.hint}</span>
                                         )}
                                         {command.shortcut && <kbd className="command-palette-key">{command.shortcut}</kbd>}
