@@ -917,6 +917,33 @@ command palette was swept for a computed animation or transition longer than
 what the blanket rule is scoped to. The same sweep with the preference off
 finds 56 to 68, so it discriminates.
 
+**Exporting a game had no end-to-end check either.** `exportAnnotatedPgn` and
+`parsePgnMoveTree` are each tested, and no test had ever sent one's output
+through the other — which is the whole point of the Export tab. **Measured** on
+a game with a side line at every move, a comment on each and a glyph on each:
+the export carries 31 variations, 467 comments and 467 glyphs, and
+export → import → export comes back **byte for byte**.
+
+The analysis survives with it. A reviewed game exports **117 `[%eval]`
+commands**, and after re-importing, the Review tab reads `116/116 evaluated`
+with 117 graph points and 238 move labels — identical to the state before the
+export, with nothing re-run.
+
+**This nearly became a fix for a defect that does not exist.** Read on the
+Analysis tab, the re-imported game showed 117 graph points and *one* label
+instead of 238, which looks exactly like "the evaluations come back and the
+grades do not". `pgn.ts` even has the principle that would explain it, at the
+line that writes the engine's best move: "written as a command rather than the
+prose 'Best Nf3' beside it, **so it comes back as data**" — and the grade
+*is* written as prose, `Book`, `Excellent`, `Inaccuracy`, inside the comment. A
+`[%wcq]` extension to match `[%wcbest]` was the obvious next move.
+
+It would have been for nothing. `buildReviewRows` derives every grade from the
+evaluations rather than storing them, so the grades cannot be lost while the
+evaluations survive — and reading the body without switching to the Review tab
+measures which tab is open, not what the app knows. The guard switches tabs and
+says why.
+
 **Backing up a library had no end-to-end check at all.** The one flow in this
 app where a fault costs a reader their games: `mergeLibraryBackup` is
 unit-tested, and nothing had ever exported a backup through the button, cleared

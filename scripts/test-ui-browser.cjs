@@ -2976,6 +2976,112 @@ async function checkTheLibrarySurvivesABackup(browser) {
 }
 
 /**
+ * A game exported is a game that comes back, analysis and all.
+ *
+ * The Export tab exists to produce a PGN a reader can take away -- or bring
+ * back. Nothing had ever checked the second half: `exportAnnotatedPgn` and
+ * `parsePgnMoveTree` are each tested, and no test had ever sent one's output
+ * through the other.
+ *
+ * Two halves. The tree first: a game with a side line at every move, a comment
+ * on each and a glyph on each, exported, re-imported and exported again, which
+ * has to come back **byte for byte**. Engine evaluations are turned off for
+ * that comparison because they grow while the engine runs and two exports of a
+ * live tree are not comparable.
+ *
+ * Then the analysis. A reviewed game carries `[%eval]` per position, and the
+ * report is derived from those rather than stored beside them -- so the whole
+ * thing should return without re-running anything. Asserted on the Review tab
+ * and not the page: reading the body without switching first measures which tab
+ * is open, which is how this check first reported the labels as lost.
+ */
+async function checkAnExportedGameComesBack(browser) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+    const importPgn = async text => {
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      await page.locator('.dialog-panel textarea').first().waitFor({ timeout: 15000 })
+      await page.locator('input[type=file].dialog-file-input').setInputFiles({
+        name: 'game.pgn', mimeType: 'application/x-chess-pgn', buffer: Buffer.from(text, 'utf8'),
+      })
+      await page.waitForTimeout(500)
+      await page.getByRole('button', { name: /Import & Analyze/ }).click()
+      await page.waitForTimeout(2200)
+    }
+    const exportPgn = async ({ evaluations }) => {
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      await page.locator('.dialog-panel').waitFor({ timeout: 15000 })
+      await page.getByRole('button', { name: /^Export$/ }).click()
+      await page.waitForTimeout(400)
+      const evals = page.locator('.dialog-check-option', { hasText: /^Engine evals$/ }).locator('input')
+      if (await evals.count() && (await evals.isChecked()) !== evaluations) {
+        await evals.click()
+        await page.waitForTimeout(300)
+      }
+      const text = await page.locator('.dialog-section textarea').first().inputValue()
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(300)
+      return text
+    }
+
+    // A tree with something to lose: a side line at every move, each annotated.
+    await importPgn(SAMPLE_PGN)
+    const once = await exportPgn({ evaluations: false })
+    assert(once.length > 200, `the export is only ${once.length} characters`)
+    await importPgn(once)
+    const twice = await exportPgn({ evaluations: false })
+    assert(twice === once,
+      'a game exported, re-imported and exported again came back changed:\n' +
+      `  ${once.length} characters then ${twice.length}`)
+
+    // And the analysis, which is derived from the evaluations the file carries.
+    await importPgn(SAMPLE_PGN)
+    await page.getByRole('button', { name: 'Review', exact: true }).first().click()
+    await page.waitForTimeout(400)
+    const pro = page.getByRole('button', { name: 'Pro', exact: true }).first()
+    if (await pro.count()) await pro.click()
+    const start = page.getByRole('button', { name: /^review game$/i }).first()
+    await start.waitFor({ timeout: 10000 })
+    await start.click()
+    await page.waitForFunction(() => {
+      const match = document.body.innerText.match(/EVALUATED\s+(\d+)\s*\/\s*(\d+)/i)
+      return Boolean(match) && match[1] === match[2] && Number(match[2]) > 0
+    }, null, { timeout: 120000 })
+    await page.waitForTimeout(600)
+
+    const report = () => page.evaluate(() => ({
+      points: document.querySelectorAll('.winrate-graph circle').length,
+      evaluated: (document.body.innerText.match(/EVALUATED\s+(\d+)\s*\/\s*(\d+)/i) || []).slice(1).join('/') || null,
+    }))
+    const reviewed = await report()
+    assert(reviewed.points > 10 && reviewed.evaluated,
+      `the review did not produce a report to compare against: ${JSON.stringify(reviewed)}`)
+
+    const withEvals = await exportPgn({ evaluations: true })
+    assert(withEvals.includes('[%eval'), 'a reviewed game exported without its evaluations')
+
+    await importPgn(withEvals)
+    await page.getByRole('button', { name: 'Review', exact: true }).first().click()
+    await page.waitForTimeout(500)
+    const proAgain = page.getByRole('button', { name: 'Pro', exact: true }).first()
+    if (await proAgain.count()) await proAgain.click()
+    await page.waitForTimeout(600)
+    const back = await report()
+    assert(back.points === reviewed.points && back.evaluated === reviewed.evaluated,
+      `the report did not survive the round trip: ${JSON.stringify(reviewed)} became ${JSON.stringify(back)}`)
+
+    console.log(`  export: a game comes back byte for byte, and its report with it (${back.evaluated}, ${back.points} points)`)
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -4193,6 +4299,7 @@ async function main() {
     await checkFocusCanBeSeen(browser)
     await checkADeadFetchButtonSaysWhy(browser)
     await checkTheLibrarySurvivesABackup(browser)
+    await checkAnExportedGameComesBack(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)
