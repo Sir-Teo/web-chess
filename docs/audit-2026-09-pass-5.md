@@ -1298,6 +1298,43 @@ expensive failure.
 
 ## Limits, recorded rather than fixed
 
+**Walking a long game costs more the longer the game is, and memoising the
+graph does not help.** **Measured** at 6x CPU with long-animation-frame
+attribution, pressing ArrowLeft through a game in **Play** mode, where the
+analysis panel is not on screen at all:
+
+| game | work per press | worst interaction |
+|---|---|---|
+| 12 plies | **0ms** — no long frames at all | 48ms |
+| 120 plies | **54ms** | 80ms |
+
+Same board, same mode, same everything else. In Analysis it is 132ms a press
+with the engine stopped and 180ms with it running, of which the keydown handler
+itself is 55-71ms in every state — React treats a key as a discrete event and
+flushes the render inside the handler, so that figure is the re-render. Worst
+interaction stays under the 200ms an interaction is allowed, at every size
+measured, which is why this is a limit and not a defect.
+
+Counting the DOM at both lengths, the only thing that grows with the game is an
+SVG graph: 27 circles to 81, 81 nodes under `[class*=graph]` to 141. Each graph
+is `memo`ed on `points` **and** `currentIndex`, and `currentIndex` changes on
+every arrow key.
+
+**Splitting the static half out was tried and reverted.** `WinrateSeries` --
+the gradient, grid, area, line, every circle and every axis tick, taking none of
+the props that move -- measured **no improvement whatsoever**: 68 to 78ms a
+press in Play, 180 to 205ms in Analysis, which is noise in the wrong direction.
+The reason is upstream of the graph: `points` comes from `winratePoints`, which
+memoises on `currentLineMoves`, which maps over `currentLineNodes`, which is a
+fresh array on every navigation. The memo could never have held. Recorded with
+the negative result attached, because the next attempt at this should start at
+the line data and not at the graph.
+
+**Sitting still while the engine thinks costs nothing.** Checked in the same
+sweep, with the engine confirmed searching rather than assumed to be: **0 long
+frames over 10 seconds** at 6x CPU. The 100ms coalescing the live lines already
+do is enough.
+
 **Two arrow meanings that measure close.** The same sweep put the hint's green
 **5.9** from the played move's amber for protan vision on the dusk board, and
 the threat's violet **11.4** from a mid-scale candidate for tritan on forest.
