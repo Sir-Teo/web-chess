@@ -177,7 +177,7 @@ import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage } from './e
 import { aiSearchHistory, defaultOrientationForGameMode, describePlayEngine, hintDisabledReason, sideToMoveColor, takebackDisabledReason, takebackPlyCount, judgeMoveBetweenSearches, type AiSearchReading, type MoveJudgement } from './engine/playMode'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { DIFFICULTY_LABELS, useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
-import { useGameTree, type GameNode } from './hooks/useGameTree'
+import { sameNodeList, useGameTree, type GameNode } from './hooks/useGameTree'
 import { useOpening, useOpeningBook } from './hooks/useOpening'
 import { useCloudEvaluation } from './hooks/useCloudEvaluation'
 import { useOpeningExplorer } from './hooks/useOpeningExplorer'
@@ -493,6 +493,31 @@ const NOTICE_EXPLAIN_MS = 6000
  * the difference in.
  */
 const REVIEW_RESULT_FLUSH_INTERVAL_MS = 100
+
+/**
+ * Keep the previous list when the new one holds the same nodes.
+ *
+ * Navigating publishes `{ ...tree, currentId }` -- the same `nodes` Map, the
+ * same node objects, a different cursor. Every line derived from the tree
+ * therefore comes back **equal and new** on every arrow key, and each new
+ * identity invalidates the memo below it: the winrate series, the move-times
+ * series, the accuracy curve, and the graphs that plot them.
+ *
+ * **Measured** at 6x CPU in Play mode, where the analysis panel is not even on
+ * screen: a 12-ply game costs nothing measurable per arrow press and a 120-ply
+ * one costs 54ms, and the only thing in the DOM that grows with the game is an
+ * SVG graph with a point per move. Splitting the static half of that graph into
+ * its own memo was tried first and bought nothing at all, because the array it
+ * memoises on was new every time. This is the same fix one level up, where it
+ * can hold.
+ */
+function useStableNodeList(next: GameNode[]): GameNode[] {
+  const held = useRef(next)
+  const previous = held.current
+  if (previous !== next && sameNodeList(previous, next)) return previous
+  held.current = next
+  return next
+}
 const SHARED_LINK_UNREADABLE = 'That shared link could not be read — showing the starting position.'
 
 /**
@@ -2704,12 +2729,12 @@ function App() {
   }, [analysisTab, workspaceMode])
 
   // ── Derived move data ─────────────────────────────────
-  const mainLineNodes = useMemo(() => gameTree.mainLine(), [gameTree])
+  const mainLineNodes = useStableNodeList(useMemo(() => gameTree.mainLine(), [gameTree]))
 
   // The whole branch the board is standing in: the path down to the current
   // node, then its first-child chain to the tip. Equal to the main line
   // whenever the current node is on it, which is most of the time.
-  const currentLineNodes = useMemo(() => {
+  const currentLineNodes = useStableNodeList(useMemo(() => {
     const nodes = [...currentPathNodes]
     let cur = nodes[nodes.length - 1]
     while (cur && cur.children.length > 0) {
@@ -2722,7 +2747,7 @@ function App() {
       }
     }
     return nodes
-  }, [currentPathNodes, gameTree.nodesSnapshot])
+  }, [currentPathNodes, gameTree.nodesSnapshot]))
 
   const currentLineMoves = useMemo(
     () => currentLineNodes.slice(1).map(n => n.move!).filter(Boolean),

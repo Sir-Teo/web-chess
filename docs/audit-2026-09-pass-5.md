@@ -816,6 +816,49 @@ black 96.3, ACPL 10. Those existing checks are the guard that matters here —
 they assert every position evaluated and every label counted, which is exactly
 what a dropped flush would break.
 
+**Every arrow key rebuilt every graph, because the line was new each time.**
+Recorded as a limit one pass earlier, with a failed fix attached, and the failed
+fix is what found it. **Measured** at 6x CPU pressing ArrowLeft through a game
+in **Play** mode, where the analysis panel is not on screen at all:
+
+| game | work per press |
+|---|---|
+| 12 plies | 0ms — no long frames at all |
+| 120 plies | **54ms** |
+
+Same board, same mode. Counting the DOM at both lengths, the only thing that
+grew with the game was an SVG graph with a point per move.
+
+Splitting that graph's static half into its own memo bought **nothing** —
+measured, 68 to 78ms a press, noise in the wrong direction — and was reverted.
+The reason was one level up: `navigateTo` republishes the tree as
+`{ ...tree, currentId }`, the same `nodes` Map with every node object intact,
+so `mainLineNodes` and `currentLineNodes` come back **equal and new** on every
+key. Each new identity invalidated `currentLineMoves`, then `winratePoints`,
+then the graphs that plot them. The memo could never have held, whatever it was
+put on.
+
+Held at the source, a line rebuilt out of the same nodes keeps its identity:
+
+| at 6x CPU, per arrow press | before | after |
+|---|---|---|
+| Play mode | 68ms | **2ms** |
+| Analysis, engine stopped | 132ms | **68ms** |
+| Analysis, engine running | 180ms | 158ms |
+| worst interaction, Play | 80ms | 64ms |
+
+Play mode went from 1,635ms of long frames over 24 presses to **51ms**, and one
+long frame instead of 25. The 120-ply game now costs what the 12-ply one does:
+nothing measurable. What is left in Analysis is the engine's own re-renders,
+which are work the reader asked for.
+
+The comparison is by object identity and **not by id**, which is the whole
+correctness of it: anything that really changes a move replaces its node in a
+fresh Map, keeping the id, and a review labelling a move depends on that being
+seen. Both halves are guarded — a unit test for the comparison, and the
+suite's existing walk that asserts the winrate card follows the board at four
+positions, which is exactly what a line held too long would break.
+
 ---
 
 ## Refuted
@@ -1297,38 +1340,6 @@ expensive failure.
 ---
 
 ## Limits, recorded rather than fixed
-
-**Walking a long game costs more the longer the game is, and memoising the
-graph does not help.** **Measured** at 6x CPU with long-animation-frame
-attribution, pressing ArrowLeft through a game in **Play** mode, where the
-analysis panel is not on screen at all:
-
-| game | work per press | worst interaction |
-|---|---|---|
-| 12 plies | **0ms** — no long frames at all | 48ms |
-| 120 plies | **54ms** | 80ms |
-
-Same board, same mode, same everything else. In Analysis it is 132ms a press
-with the engine stopped and 180ms with it running, of which the keydown handler
-itself is 55-71ms in every state — React treats a key as a discrete event and
-flushes the render inside the handler, so that figure is the re-render. Worst
-interaction stays under the 200ms an interaction is allowed, at every size
-measured, which is why this is a limit and not a defect.
-
-Counting the DOM at both lengths, the only thing that grows with the game is an
-SVG graph: 27 circles to 81, 81 nodes under `[class*=graph]` to 141. Each graph
-is `memo`ed on `points` **and** `currentIndex`, and `currentIndex` changes on
-every arrow key.
-
-**Splitting the static half out was tried and reverted.** `WinrateSeries` --
-the gradient, grid, area, line, every circle and every axis tick, taking none of
-the props that move -- measured **no improvement whatsoever**: 68 to 78ms a
-press in Play, 180 to 205ms in Analysis, which is noise in the wrong direction.
-The reason is upstream of the graph: `points` comes from `winratePoints`, which
-memoises on `currentLineMoves`, which maps over `currentLineNodes`, which is a
-fresh array on every navigation. The memo could never have held. Recorded with
-the negative result attached, because the next attempt at this should start at
-the line data and not at the graph.
 
 **Sitting still while the engine thinks costs nothing.** Checked in the same
 sweep, with the engine confirmed searching rather than assumed to be: **0 long

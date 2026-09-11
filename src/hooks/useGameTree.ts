@@ -87,6 +87,24 @@ function makeTree(fen?: string): GameTree {
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Whether two derived lines hold the same nodes.
+ *
+ * By object identity, deliberately, and **not** by id. Navigating republishes
+ * the tree as `{ ...tree, currentId }` -- the same `nodes` Map, so every node
+ * object survives and a line rebuilt from it is equal and new. Anything that
+ * actually changes a move replaces its node in a fresh Map (see
+ * `setNodeQuality`), so the object differs and the line is new, which is what a
+ * review labelling a move depends on. Comparing ids would report those two
+ * cases as the same and hold a line that has changed under it.
+ */
+export function sameNodeList(a: readonly GameNode[], b: readonly GameNode[]): boolean {
+  if (a === b) return true
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i += 1) if (a[i] !== b[i]) return false
+  return true
+}
+
 export function useGameTree(startFen?: string) {
     const [treeState, setTreeState] = useState<GameTree>(() => makeTree(startFen))
     const treeRef = useRef<GameTree>(treeState)
