@@ -930,6 +930,15 @@ and all four are guarded now:
 | autosave → reload → Restore | the position back square for square, in ~810ms of exposure |
 | library Save → Load | a game with side lines back byte for byte |
 | a copied link opened | both `#game=` and `#fen=` arrive on the position they were copied from |
+| a setting changed → reload | kept, **and the board comes back wearing it** |
+
+The settings check asserts the board's own colour beside the checkbox, because
+the two halves fail differently: a control that reads back wrong is a
+persistence fault, and a control that reads back right while the board ignores
+it is a rehydration fault — and the second is the one a reader notices. It also
+requires the colour to have *changed* when the scheme was picked, so a check
+that could not tell a kept setting from an ignored one fails rather than
+passing.
 
 The share check reported a defect twice before it reported the truth, and both
 times the probe was at fault. Comparing boards by the markup in each square

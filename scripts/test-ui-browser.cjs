@@ -3376,6 +3376,104 @@ async function checkASharedLinkCarriesTheGame(browser) {
 }
 
 /**
+ * Settings a reader changed are the settings they come back to.
+ *
+ * `appSettings.test.ts` round-trips the stored object; nothing had ever changed
+ * a setting through the sheet, reloaded the page, and looked. The two halves
+ * fail differently: a control that reads back wrong is a persistence fault, and
+ * a control that reads back right while the board ignores it is a rehydration
+ * fault -- the second is the one a reader actually notices, so the board's own
+ * colour is checked beside the checkbox.
+ */
+async function checkSettingsSurviveAReload(browser) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+    const openSettings = async () => {
+      await page.locator('button[aria-label*="etting" i], summary[aria-label*="etting" i]').first().click()
+      await page.waitForTimeout(700)
+    }
+    const settings = () => page.evaluate(() => {
+      const out = {}
+      const panel = document.querySelector('.settings-body, .settings-menu') || document
+      for (const box of panel.querySelectorAll('input[type=checkbox]')) {
+        const name = box.getAttribute('aria-label') || box.closest('label')?.textContent?.trim().slice(0, 30)
+        if (name) out[name] = box.checked
+      }
+      for (const pill of panel.querySelectorAll('[aria-pressed]')) {
+        const name = (pill.getAttribute('aria-label') || pill.textContent || '').trim().slice(0, 26)
+        if (/board$/.test(name)) out[name] = pill.getAttribute('aria-pressed') === 'true'
+      }
+      return out
+    })
+    // What the reader sees, rather than what the checkbox claims.
+    const boardColour = () => page.evaluate(() => {
+      const square = document.querySelector('[data-square="d4"], [data-square]')
+      return square ? getComputedStyle(square).backgroundColor : null
+    })
+
+    await openSettings()
+    const before = await settings()
+    const colourBefore = await boardColour()
+    assert('Move sounds' in before && 'Blindfold' in before,
+      `the settings sheet did not offer the controls this check changes: ${JSON.stringify(Object.keys(before))}`)
+
+    // The board pills carry an aria-label; the checkboxes take their name from
+    // the <label> wrapped round them, so both routes are tried.
+    const press = async label => {
+      const byLabel = page.locator(`[aria-label="${label}"]`).first()
+      if (await byLabel.count()) {
+        await byLabel.click()
+      } else {
+        const wrapped = page.locator('.settings-body label, .settings-menu label', { hasText: label }).first()
+        assert(await wrapped.count() > 0, `no control called ${JSON.stringify(label)} in the settings sheet`)
+        await wrapped.click()
+      }
+      await page.waitForTimeout(400)
+    }
+    await press('Move sounds')
+    await press('Blindfold')
+    await press('Forest board')
+    await page.waitForTimeout(600)
+
+    const changed = await settings()
+    const colourChanged = await boardColour()
+    assert(changed['Move sounds'] !== before['Move sounds'], 'Move sounds did not change when pressed')
+    assert(changed['Blindfold'] !== before['Blindfold'], 'Blindfold did not change when pressed')
+    assert(changed['Forest board'] === true, 'the Forest board was not chosen')
+    assert(colourChanged !== colourBefore,
+      `the board still draws ${colourChanged} after a different scheme was chosen, so this check ` +
+      'cannot tell a kept setting from an ignored one')
+
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    const again = page.getByRole('button', { name: /start fresh/i })
+    if (await again.count()) await again.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+    await page.waitForTimeout(800)
+
+    const colourAfter = await boardColour()
+    assert(colourAfter === colourChanged,
+      `the board came back drawing ${colourAfter} instead of the chosen ${colourChanged}`)
+
+    await openSettings()
+    const after = await settings()
+    for (const key of ['Move sounds', 'Blindfold', 'Forest board', 'Classic board']) {
+      if (!(key in changed)) continue
+      assert(after[key] === changed[key],
+        `${key} was left ${changed[key]} and came back ${after[key]}`)
+    }
+
+    console.log('  settings: three changes survive a reload, and the board comes back wearing them')
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -4597,6 +4695,7 @@ async function main() {
     await checkAnInterruptedGameComesBack(browser)
     await checkASavedGameComesBack(browser)
     await checkASharedLinkCarriesTheGame(browser)
+    await checkSettingsSurviveAReload(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)
