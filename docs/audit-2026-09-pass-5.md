@@ -1821,3 +1821,38 @@ clears, and the styles being in the document rather than in the sheet they
 exist to pre-empt — beside its reduced-motion and `aria-hidden` behaviour; and
 in the browser suite, a tap that drifts 3px still selecting while a drag still
 drags.
+
+## 65. Every control answers to what it says
+
+A control with no accessible name is announced as "button" and is unusable by a
+screen reader; a control whose name drops the word printed on it cannot be
+reached by voice, because a voice user says what they read (WCAG 2.5.3). Nothing
+in the suite looked for either. Both now have a sweep, over nine surfaces --
+the board, the board with every section open, New Game, all three PGN tabs, the
+library, the command palette and the settings sheet, 860 controls in all.
+
+Named: clean, and the sweep was shown finding four controls unnamed four
+different ways (a bare button, an icon-only button, a loose input, a
+`role=button` div) while leaving two properly named ones alone.
+
+Label in name: one fault in the app. The palette button reads **Commands** and
+was named **"Open command palette"** -- the word never appears, so saying
+"Commands" reached nothing. It is now "Open the Commands palette", matching the
+Library button beside it, which already contained its own word.
+
+Two false readings on the way, both caught by the rule that a probe is not
+believed until it is planted:
+
+The first comparison kept punctuation, and reported nine faults on New Game
+alone -- "Human vs Human: Pass & play" against the same words without the colon.
+Reading a control's children back joins separate elements with a space, which
+invents and loses punctuation that was never on screen. Narrowed to words, all
+nine disappeared and the one real fault stayed.
+
+The second: forcing every `<details>` open to reach controls in collapsed
+sections also opened the settings sheet, whose `<details>` is driven by React
+state. Its toggle handler correctly marks the toolbar inert -- and the probe read
+that back as *a visible 110x35 "New game" button, painted at 161,17, that no
+keyboard or screen reader can touch*. A serious-looking defect entirely
+manufactured by the measurement. The sweep now leaves that one `<details>` alone
+and runs the expansion last.

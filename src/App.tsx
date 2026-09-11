@@ -6093,7 +6093,12 @@ function App() {
               <button
                 type="button"
                 onClick={openCommandPalette}
-                aria-label="Open command palette"
+                /* The word on the button has to be in the name too: a voice
+                   control user says what they read, and "Commands" appears
+                   nowhere in "Open command palette". Measured by sweeping every
+                   visible control on eight surfaces -- this was the only one,
+                   and the Library button beside it already gets it right. */
+                aria-label="Open the Commands palette"
                 aria-keyshortcuts={COMMAND_PALETTE_ARIA_KEYSHORTCUTS}
                 title={`Commands (${commandPaletteShortcutLabel()})`}
                 data-testid="command-palette-btn"

@@ -1676,7 +1676,7 @@ async function checkEveryControlIsFingerSized(browser) {
     const surfaces = [
       ['the board', null, null],
       ['the library', '[aria-label^="Open saved games library"]', null],
-      ['the command palette', '[aria-label^="Open command palette"]', null],
+      ['the command palette', '[aria-label^="Open the Commands palette"]', null],
       ['New Game', '[aria-label^="Start new game"]', null],
       ['the settings sheet', 'summary[aria-label*="settings" i]', null],
       ['the import dialog', '[aria-label^="Open PGN and FEN dialog"]', null],
@@ -2796,6 +2796,189 @@ async function checkFocusCanBeSeen(browser) {
     }
 
     console.log('  focus: every control shows it, and the board ring clears 3:1 on all five schemes')
+  } finally { await context.close() }
+}
+
+/**
+ * Every control answers to what it says.
+ *
+ * Two faults, both invisible to anyone using a mouse and an eye.
+ *
+ * A control with **no accessible name** is a button a screen reader announces as
+ * "button" -- unusable, and nothing in the suite looked for one. A control whose
+ * name **drops the word printed on it** is worse in a quieter way: someone
+ * driving the app by voice says what they read, and the command goes nowhere
+ * (WCAG 2.5.3). **Measured** across eight surfaces -- the board with every
+ * section open, New Game, all three PGN tabs, the library, the palette and the
+ * settings sheet -- which found the palette button reading "Commands" while
+ * named "Open command palette", the only one of roughly 120 controls to lose its
+ * own word. The Library button beside it already did this right.
+ *
+ * Both sweeps are planted before they are believed. The first gets four controls
+ * unnamed four different ways and two properly named ones; the second gets a
+ * name that drops the visible word and one that differs only in punctuation,
+ * because joining separate child elements invents and loses punctuation and a
+ * sweep that counted that would report nine faults on New Game alone -- which an
+ * earlier run of this did, before the comparison was narrowed to words.
+ */
+async function checkEveryControlAnswersToWhatItSays(browser) {
+  const UNNAMED = () => {
+    // Roughly the order a browser resolves a name in.
+    const nameOf = el => {
+      const by = el.getAttribute('aria-labelledby')
+      if (by) {
+        const text = by.split(/\s+/).map(id => document.getElementById(id)?.textContent?.trim() || '').join(' ').trim()
+        if (text) return text
+      }
+      const aria = el.getAttribute('aria-label')
+      if (aria && aria.trim()) return aria.trim()
+      if (/^(input|select|textarea)$/i.test(el.tagName)) {
+        if (el.id) {
+          const bound = document.querySelector(`label[for="${CSS.escape(el.id)}"]`)
+          if (bound?.textContent?.trim()) return bound.textContent.trim()
+        }
+        if (el.closest('label')?.textContent?.trim()) return el.closest('label').textContent.trim()
+        if (el.getAttribute('placeholder')?.trim()) return el.getAttribute('placeholder').trim()
+      }
+      if ((el.textContent || '').trim()) return el.textContent.trim()
+      if (el.querySelector('img[alt]')?.getAttribute('alt')?.trim()) return 'alt'
+      if (el.getAttribute('title')?.trim()) return el.getAttribute('title').trim()
+      return null
+    }
+    const out = []
+    const selector = 'button, a[href], input:not([type=hidden]), select, textarea, summary, [role=button], [role=slider], [role=tab], [role=option], [tabindex]:not([tabindex="-1"])'
+    for (const el of document.querySelectorAll(selector)) {
+      const r = el.getBoundingClientRect()
+      if (r.width < 3 || r.height < 3) continue
+      const c = getComputedStyle(el)
+      if (c.display === 'none' || c.visibility === 'hidden') continue
+      if (el.getAttribute('aria-hidden') === 'true' || el.closest('[aria-hidden="true"]')) continue
+      if (nameOf(el) !== null) continue
+      const cls = (typeof el.className === 'string' ? el.className : '').split(/\s+/)[0]
+      out.push(`<${el.tagName.toLowerCase()}>${cls ? `.${cls}` : ''}`)
+    }
+    return out
+  }
+
+  const LABEL_IN_NAME = () => {
+    // Words only. The punctuation between them is not what anyone says, and
+    // reading a control's children back joins them with a space, which is not
+    // the punctuation the name was written with.
+    const words = s => (s || '').replace(/[‘’']/g, "'").toLowerCase().replace(/[^a-z0-9']+/g, ' ').trim()
+    const out = []
+    for (const el of document.querySelectorAll('button, a[href], [role=button], summary, label')) {
+      const r = el.getBoundingClientRect()
+      if (r.width < 3 || r.height < 3) continue
+      const c = getComputedStyle(el)
+      if (c.display === 'none' || c.visibility === 'hidden') continue
+      if (el.getAttribute('aria-hidden') === 'true' || el.closest('[aria-hidden="true"]')) continue
+      const aria = el.getAttribute('aria-label')
+      if (!aria) continue
+      const visible = [...el.childNodes].map(n => {
+        if (n.nodeType === 3) return n.textContent
+        if (n.nodeType !== 1) return ''
+        const cs = getComputedStyle(n)
+        if (cs.display === 'none' || cs.visibility === 'hidden') return ''
+        if (n.getAttribute('aria-hidden') === 'true') return ''
+        return n.textContent
+      }).join(' ')
+      const said = words(visible)
+      // Nothing printed, or nothing printed that is a word: 2.5.3 has no claim.
+      if (!said || !/[a-z0-9]/.test(said)) continue
+      if (!words(aria).includes(said)) out.push(`reads "${said}" but is named "${aria}"`)
+    }
+    return out
+  }
+
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+    // Controls first: a sweep that reports nothing is worth nothing until it has
+    // been shown finding something.
+    const planted = await page.evaluate(([unnamed, labelled]) => {
+      const findUnnamed = new Function(`return (${unnamed})`)()
+      const findMismatch = new Function(`return (${labelled})`)()
+      const host = document.createElement('div')
+      host.style.cssText = 'position:fixed;left:4px;top:140px;z-index:5000'
+      host.innerHTML = `
+        <button class="plantA" style="width:40px;height:30px"></button>
+        <button class="plantB" style="width:40px;height:30px"><svg width="16" height="16"><rect width="16" height="16"/></svg></button>
+        <input class="plantC" style="width:60px;height:26px">
+        <div class="plantD" role="button" tabindex="0" style="width:40px;height:30px"></div>
+        <button class="plantE" style="width:40px;height:30px">named</button>
+        <button class="plantF" aria-label="also named" style="width:40px;height:30px"></button>
+        <button class="plantG" aria-label="Open the thing" style="width:60px;height:30px">Commence</button>
+        <button class="plantH" aria-label="Play Stockfish: hard" style="width:60px;height:30px">Play Stockfish <span>hard</span></button>`
+      document.body.appendChild(host)
+      const nameless = findUnnamed().filter(s => s.includes('plant')).map(s => s.replace(/^.*\.plant/, ''))
+      const mismatched = findMismatch().filter(s => /Open the thing|Play Stockfish: hard/.test(s))
+      host.remove()
+      return { nameless: nameless.sort(), mismatched, stillThere: findUnnamed().filter(s => s.includes('plant')).length }
+    }, [String(UNNAMED), String(LABEL_IN_NAME)])
+
+    assert(planted.nameless.join(',') === 'A,B,C,D',
+      `the unnamed sweep found ${planted.nameless.join(',') || 'nothing'} of the four unnamed plants (and must not flag the two named ones)`)
+    assert(planted.mismatched.length === 1 && /Open the thing/.test(planted.mismatched[0]),
+      `the label-in-name sweep should flag only the plant that drops its word, not the one differing by a colon; it flagged: ${planted.mismatched.join(' | ') || 'nothing'}`)
+    assert(planted.stillThere === 0, 'the plants outlived the check')
+
+    const surface = async (where) => {
+      await page.waitForTimeout(350)
+      const nameless = await page.evaluate(UNNAMED)
+      assert(nameless.length === 0, `on ${where}, a screen reader has no name for: ${nameless.join(', ')}`)
+      const mismatched = await page.evaluate(LABEL_IN_NAME)
+      assert(mismatched.length === 0, `on ${where}, voice control cannot reach: ${mismatched.join(' | ')}`)
+      return (await page.evaluate(() => document.querySelectorAll('button, a[href], input, select, textarea, summary, [role=button]').length))
+    }
+
+    let counted = await surface('the board')
+
+    await page.getByRole('button', { name: /new game/i }).first().click()
+    await page.waitForTimeout(500)
+    counted += await surface('New Game')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(300)
+
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+    await page.locator('.dialog-panel').waitFor({ timeout: 15000 })
+    counted += await surface('the PGN dialog, Import')
+    for (const tab of ['FEN', 'Export']) {
+      await page.getByRole('button', { name: new RegExp(`^${tab}$`) }).click()
+      counted += await surface(`the PGN dialog, ${tab}`)
+    }
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(300)
+
+    await page.locator('button[aria-label*="ibrar" i]').first().click()
+    counted += await surface('the library')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(300)
+
+    await page.locator('button[aria-label*="Commands palette" i]').first().click()
+    counted += await surface('the command palette')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(300)
+
+    await page.locator('button[aria-label*="etting" i], summary[aria-label*="etting" i]').first().click()
+    counted += await surface('the settings sheet')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(300)
+
+    // Collapsed panel sections hide controls from every sweep above, so open
+    // them -- all but the settings sheet, whose <details> is driven by React
+    // state. Forcing that one open fires its toggle handler, which correctly
+    // marks the whole toolbar inert, and an earlier version of this check read
+    // that back as a visible toolbar no keyboard could reach.
+    await page.evaluate(() => document.querySelectorAll('details:not(.settings-menu)').forEach(d => { d.open = true }))
+    counted += await surface('the board with every section open')
+
+    console.log(`  names: ${counted} controls over nine surfaces, every one named and every name keeping its own printed word`)
   } finally { await context.close() }
 }
 
@@ -4768,6 +4951,7 @@ async function main() {
     await checkANoticeIsSeenAndFits(browser)
     await checkNothingIsDrawnBehindSomethingElse(browser)
     await checkFocusCanBeSeen(browser)
+    await checkEveryControlAnswersToWhatItSays(browser)
     await checkADeadFetchButtonSaysWhy(browser)
     await checkTheLibrarySurvivesABackup(browser)
     await checkAnExportedGameComesBack(browser)
