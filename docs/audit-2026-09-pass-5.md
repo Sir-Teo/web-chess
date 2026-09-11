@@ -1517,6 +1517,24 @@ the switch would mean holding an idle WASM instance beside the one Play mode's
 own opponent uses, which is a phone's memory spent to save a toggle, and the
 reader is told it is loading while it happens.
 
+That memory was a hand-wave, and an attempt to put a number on it mostly failed.
+`performance.measureUserAgentSpecificMemory` is the right instrument and is
+**unavailable in this Chromium** even though the page is cross-origin isolated —
+it throws `SecurityError`. Reading each worker's `WebAssembly.Memory` from
+`page.workers()` is the obvious fallback and **hangs**: a Stockfish worker
+mid-search never yields to its event loop, so the evaluate never returns and
+takes the run with it. Both are worth knowing before anyone spends an hour on
+them again.
+
+What is knowable without either comes from the app's own configuration:
+`recommendedHashMb` gives a phone **16 MB**, not the 64 MB a desktop gets, so a
+second warm instance is that plus the engine's own code and net rather than
+anything like a doubling. The decision stands, but the figure it turns on is
+smaller than "a phone's memory" implies, and the shape a future attempt should
+take is a short keep-alive rather than a permanent second instance — the comment
+names a *toggle*, and a toggle is served by holding the engine for thirty
+seconds, not for ever.
+
 **A phone shorter than about 500px still scrolls to its back rank**, and **a
 small phone on its side gets squares under 24px**. Both carried over unchanged
 from the fourth pass, where the reasoning is.
