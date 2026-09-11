@@ -3182,6 +3182,98 @@ async function checkAnInterruptedGameComesBack(browser) {
 }
 
 /**
+ * A game saved is the game that comes back.
+ *
+ * The last of the four ways a game leaves this app and returns, and the one
+ * nothing covered at all: the library round trip. `saveGame` and the storage
+ * layer are unit-tested; no test had ever pressed Save, put a different game on
+ * the board, and pressed Load.
+ *
+ * The fixture carries what a plain move list would not miss: two variations, two
+ * comments and two glyphs. A tree flattened to its main line on the way through
+ * would still load a legal game of the right length, and only the side lines
+ * would be gone.
+ */
+async function checkASavedGameComesBack(browser) {
+  const ANNOTATED = '[Event "Round trip"]\n[Site "Paris"]\n[Date "2026.01.01"]\n' +
+    '[White "Morphy"]\n[Black "Allies"]\n[Result "1-0"]\n\n' +
+    '1. e4 e5 (1... c5 2. Nf3 d6 {the Sicilian instead}) 2. Nf3 d6 {Philidor} 3. d4 Bg4!? ' +
+    '(3... exd4 4. Nxd4) 4. dxe5 Bxf3 5. Qxf3 dxe5 6. Bc4 Nf6 7. Qb3 Qe7?! 8. Nc3 c6 1-0\n'
+
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+    const importPgn = async text => {
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      await page.locator('.dialog-panel textarea').first().waitFor({ timeout: 15000 })
+      await page.locator('input[type=file].dialog-file-input').setInputFiles({
+        name: 'game.pgn', mimeType: 'application/x-chess-pgn', buffer: Buffer.from(text, 'utf8'),
+      })
+      await page.waitForTimeout(500)
+      await page.getByRole('button', { name: /Import & Analyze/ }).click()
+      await page.waitForTimeout(2000)
+    }
+    // Engine evaluations off: they grow while the engine runs, and two exports
+    // of a live tree are not comparable.
+    const exportPgn = async () => {
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      await page.locator('.dialog-panel').waitFor({ timeout: 15000 })
+      await page.getByRole('button', { name: /^Export$/ }).click()
+      await page.waitForTimeout(400)
+      const evals = page.locator('.dialog-check-option', { hasText: /^Engine evals$/ }).locator('input')
+      if (await evals.count() && await evals.isChecked()) { await evals.click(); await page.waitForTimeout(300) }
+      const text = await page.locator('.dialog-section textarea').first().inputValue()
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(300)
+      return text
+    }
+    const openLibrary = async () => {
+      await page.locator('button[aria-label*="ibrar" i]').first().click()
+      await page.locator('.library-list, .library-hint').first().waitFor({ timeout: 20000 })
+      await page.waitForTimeout(400)
+    }
+
+    await importPgn(ANNOTATED)
+    const saved = await exportPgn()
+    assert((saved.match(/\(/g) || []).length >= 2 && (saved.match(/\{/g) || []).length >= 2,
+      `the fixture lost its side lines before it was even saved: ${saved.slice(0, 120)}`)
+
+    await openLibrary()
+    await page.locator('.library-save-row input').first().fill('Round trip game')
+    await page.locator('.library-save-row button').first().click()
+    await page.waitForTimeout(1000)
+    assert(/saved/i.test(await page.evaluate(() =>
+      document.querySelector('.library-status, .dialog-error')?.textContent || '')), 'the game was not saved')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(400)
+
+    // Something else on the board, so Load has work to do.
+    await importPgn(SAMPLE_PGN)
+    const other = await exportPgn()
+    assert(other !== saved, 'the board did not change, so loading proves nothing')
+
+    await openLibrary()
+    const load = page.locator('li.library-row button[aria-label^="Load "]').first()
+    await load.waitFor({ timeout: 10000 })
+    await load.click()
+    await page.waitForTimeout(1800)
+    const back = await exportPgn()
+    assert(back === saved,
+      'the saved game came back changed:\n' +
+      `  saved  ${saved.length} characters, ${(saved.match(/\(/g) || []).length} variations\n` +
+      `  loaded ${back.length} characters, ${(back.match(/\(/g) || []).length} variations`)
+
+    console.log(`  library: a game with side lines saved and loaded back byte for byte (${back.length} characters)`)
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -4401,6 +4493,7 @@ async function main() {
     await checkTheLibrarySurvivesABackup(browser)
     await checkAnExportedGameComesBack(browser)
     await checkAnInterruptedGameComesBack(browser)
+    await checkASavedGameComesBack(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)

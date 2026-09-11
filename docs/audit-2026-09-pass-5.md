@@ -917,6 +917,24 @@ command palette was swept for a computed animation or transition longer than
 what the blanket rule is scoped to. The same sweep with the preference off
 finds 56 to 68, so it discriminates.
 
+**Four ways a game leaves this app and comes back, and none of them was
+checked end to end.** Each is unit-tested a layer down and no test had ever
+driven the whole thing through the buttons a reader presses. They are all sound,
+and all four are guarded now:
+
+| | |
+|---|---|
+| library backup → restore | 8 games back byte for byte, twice over without doubling |
+| export → import | 31 variations, 467 comments, 467 glyphs; **byte for byte** |
+| a reviewed game exported | `116/116`, 117 graph points and 238 labels return, nothing re-run |
+| autosave → reload → Restore | the position back square for square, in ~810ms of exposure |
+| library Save → Load | a game with side lines back byte for byte |
+
+The library row's controls are worth a note on the way past: they are icon-only
+and every one names its game — "Load My annotated game", "Rename…", "Delete…" —
+which is why a probe looking for a button called "Load" found `["☆","","","✕"]`
+and nothing to press.
+
 **And the flow a reader reaches by accident had none.** A closed tab, a phone
 reclaiming memory, a crash. `checkAutosaveFailure` covers the path where storage
 is *denied*; nothing covered the ordinary one, where it works — no test had ever
