@@ -1856,3 +1856,65 @@ that back as *a visible 110x35 "New game" button, painted at 161,17, that no
 keyboard or screen reader can touch*. A serious-looking defect entirely
 manufactured by the measurement. The sweep now leaves that one `<details>` alone
 and runs the expansion last.
+
+## 66. A label is still a label at twice the text size
+
+WCAG 1.4.4 asks that text work at 200%, which is not a narrow window: the window
+keeps its width while every word doubles. Nothing in the suite looked. At 32px
+root, twelve things broke.
+
+Six button labels were cut mid-word -- "Choose settings" given 104px of the 170px
+it wanted, the other 66px behind `overflow: hidden` with `text-overflow: clip`.
+No ellipsis, no warning, on four start-card buttons plus Take back and Resign.
+The cause was `.inline-actions` as `grid-auto-flow: column` over
+`minmax(0, 1fr)`: an equal share of one row, free to shrink to nothing. It is a
+wrapping flex row with a content floor now, and the labels are allowed to wrap
+inside the buttons.
+
+Five more were an artefact of the probe, not the app: items in rows that scroll
+sideways by design, reported as "past the right edge" because the first version
+checked a guessed list of scroller classes instead of walking every ancestor.
+
+One was real and quiet: the second skip link, offset `left: 7.2rem` to clear the
+first, reached a right edge of 471px on a 375px phone -- a keyboard user's first
+landmark, 96px off the side. Measured by focusing each link: the unfocused one is
+`opacity: 0` and translated clear of the viewport, so the two are never on screen
+together and the offset guarded nothing.
+
+Four wrong fixes, each measuring as the same six pixel counts, which is the whole
+lesson of the iteration -- *identical numbers are a reading, and four identical
+readings are a reading about the premise*:
+
+1. `min-width: min(max-content, 100%)` on `.inline-actions > *`. `min()` takes
+   lengths and percentages, not intrinsic keywords: invalid, dropped in silence.
+2. The same moved to a selector that actually wins. `.panel button` sets
+   `min-width: 32px` at (0,1,1) and a child selector is (0,1,0).
+3. `min-width: auto`, which reads as "as wide as my content" and is not: a flex
+   item's automatic minimum is zero when its overflow is anything but `visible`,
+   and these buttons are `overflow: hidden` -- the same declaration that hides
+   the cut label.
+4. `min-width: max-content`, which fixed all six and made "Analyze a game" /
+   "Analysis board" stack at *normal* text: two 134px labels need 274px of a
+   272px row, so the buttons wrapped instead of the text. A row that was one
+   line for everybody became two, to help a reader at 200%.
+
+`min-content` -- the longest word, with the label free to wrap -- holds the row
+at every size. Normal-text layout measured byte-identical before and after:
+132/132, 151/151, 272, 133/133, all on one row.
+
+`.start-card-row` also had to lose its own `display: grid` with
+`grid-template-columns: 1fr 1fr`, which came later in the file than
+`.inline-actions` and so had been quietly governing these buttons all along. And
+the narrow-screen rule asking for one button per row was inert from the day it
+was written: with `grid-auto-flow: column`, items 2..N go into implicit columns
+that `grid-template-columns` never names. Measured at 375px -- the pairs sat side
+by side at 151px each.
+
+Eleven of twelve fixed, no regression at normal text, and a planted guard over
+both viewports, board and dialog, normal and 200%.
+
+**Still cut:** Resign on a 375px phone at 200% text, 116px of the 125px it wants.
+Its floor is a 44px touch-target minimum that outranks the content floor, and
+three probes failed to find the rule that sets it -- no rule in any stylesheet
+matches it and no inline style sets it. Named in the guard rather than hidden
+under a tolerance.

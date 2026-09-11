@@ -403,9 +403,13 @@ input[type="checkbox"] {
   transition: transform 140ms ease, opacity 140ms ease;
 }
 
-.skip-links a:nth-child(2) {
-  left: 7.2rem;
-}
+/* Both skip links sit in the same place, because only one is ever on screen.
+   The second was offset by `left: 7.2rem` to clear the first. **Measured** by
+   focusing each: the unfocused one is `opacity: 0` and translated clear of the
+   viewport, so the two are never visible together and the offset guards nothing
+   -- while at 200% text it scales to 230px, putting "Skip to analysis" at a right
+   edge of 471px on a 375px phone. 96px of a keyboard user's first landmark off
+   the side of the screen, to avoid an overlap that cannot happen. */
 
 .skip-links a:focus-visible {
   transform: translateY(0);
@@ -1905,12 +1909,29 @@ input[type="checkbox"] {
 /* ═══════════════════════════════════════════════════
    Analysis inline actions
    ═══════════════════════════════════════════════════ */
+/* Shares the row evenly, but never at the cost of the word on the button.
+   The same fix `.analysis-tab-strip` below already carries, for the same reason.
+
+   Was `grid-auto-flow: column` with `grid-auto-columns: minmax(0, 1fr)`: an equal
+   share of one row, and that share free to shrink to nothing. **Measured** at the
+   200% text size WCAG 1.4.4 asks for -- "Choose settings" wants 170px, was given
+   104px, and lost 66px of itself behind `overflow: hidden` with `text-overflow:
+   clip`. A hard edge mid-word, no ellipsis, on four buttons of the start card
+   plus Take back and Resign.
+
+   Flex with `wrap` and a content floor. `max-content` means a button is never
+   narrower than its own label; `min()` caps that at the row, so a label longer
+   than the panel cannot push the panel open; `flex: 1 1 0` shares what is left,
+   which is what the `1fr` was for. Labels that stop fitting on one line move to
+   the next instead of being cut. */
 .inline-actions {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
   margin-bottom: var(--space-md);
+}
+.inline-actions > * {
+  flex: 1 1 0;
 }
 
 /* Nothing gave these buttons padding, so the panel's primary action sat at the
@@ -1919,6 +1940,38 @@ input[type="checkbox"] {
 .inline-actions button {
   min-height: 2rem;
   padding: 0.4rem 0.7rem;
+  /* A flex item's own `min-width: auto` already means "never narrower than my
+     content" -- that automatic minimum is what keeps a wrapping row honest, and
+     it is all `.analysis-tab-strip` below needs. These buttons lost it because
+     `.panel button` near the top of this file replaces it with `min-width: 32px`,
+     so it is restored by name.
+
+     Here rather than on `.inline-actions > *` because `.panel button` is (0,1,1)
+     and a child selector is (0,1,0); measured with the floor there first, and all
+     six labels were still cut by exactly the same pixel counts. This selector
+     ties and comes later, so it wins.
+
+     `min-content` -- the longest single word -- and not `max-content`, the whole
+     label on one line. With `max-content` the six clipped labels were fixed and
+     "Analyze a game" / "Analysis board" started stacking at *normal* text size:
+     two words of 134px need 274px in a 272px row, so the buttons wrapped instead
+     of the text, and a row that was one line for everybody became two. Measured
+     both ways. The label is allowed to wrap inside the button now, so the floor
+     only has to hold the longest word, which leaves the row intact at every text
+     size and costs height only where height is the honest answer.
+
+     Not `auto`, which looks like the same thing and is not: a flex item's
+     automatic minimum size is its content *unless* its overflow is anything but
+     `visible`, in which case the spec makes it zero. These buttons are `overflow:
+     hidden` -- the very declaration that hides the cut label -- so `auto`
+     resolves to 0 here and holds nothing open. Measured: `min-width: auto` in the
+     bundle, computing to `auto` on the button, all six labels cut by exactly the
+     pixels they were before.
+
+     Nor `min(max-content, 100%)`, the first attempt: `min()` takes lengths and
+     percentages, not intrinsic keywords, so that declaration was invalid and
+     dropped in silence -- the same six numbers a third time. */
+  min-width: min-content;
 }
 
 /* Running analysis is a cancel action, so the button drops the emerald "go"
@@ -4617,10 +4670,16 @@ button.critical-moment-row {
     display: none !important;
   }
 
-  .preset-grid,
-  .inline-actions {
+  .preset-grid {
     grid-template-columns: 1fr;
   }
+
+  /* `.inline-actions` was in this selector, asking for one button per row.
+     **Measured** at 375px: the pairs sat side by side at 151px each, two to a
+     row, because `grid-auto-flow: column` puts items 2..N in *implicit* columns
+     that `grid-template-columns` never names -- the rule had no effect from the
+     day it was written. It is a flex row now and wraps on its own when the
+     labels need the space, which is what this was reaching for. */
 
   .inline-actions button {
     min-height: 2.5rem;
@@ -6187,9 +6246,15 @@ button.hint-btn {
   opacity: 0.85;
 }
 
+/* Only the gap and the margin. The `display: grid` with `grid-template-columns:
+   1fr 1fr` that used to be here is what actually cut these labels: it pinned two
+   equal columns whatever the text size, and it outranked nothing -- it simply came
+   later in the file than `.inline-actions`, so the flex row there never reached
+   this element. Measured: the parent still read `display: grid` with tracks of
+   105.703px and 105.719px after `.inline-actions` was made to wrap, and the six
+   labels were cut by the same pixels. This row is only ever used together with
+   `.inline-actions`, which now supplies the wrapping row. */
 .start-card-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 0.4rem;
   margin-bottom: 0.4rem;
 }
@@ -6200,7 +6265,12 @@ button.hint-btn {
   justify-content: center;
   gap: 0.35rem;
   min-height: 40px;
-  white-space: nowrap;
+  /* `nowrap` here is what turned a long label into a cut one: with nowhere to
+     break, "Choose settings" needed 170px of a 104px button at 200% text and the
+     other 66px went behind `overflow: hidden`. Two lines in a button that is
+     already `min-height: 40px` costs a reader nothing; a word sliced down the
+     middle costs them the label. */
+  white-space: normal;
 }
 
 .start-card-row:last-child {
