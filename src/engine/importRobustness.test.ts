@@ -66,9 +66,18 @@ describe('a file full of braces that is not really a PGN', () => {
       countPgnMoves(text)
       return performance.now() - t0
     }
+    // The median of several, not one of each. A ratio of two single readings is
+    // one GC pause away from a false alarm, and this test has raised two -- 187
+    // once and 24.36 against a bound of 24 -- neither of them a change to the
+    // parser. A quadratic implementation is ~64x in every run, so the median
+    // catches it exactly as well as a single reading does, without the noise.
+    const medianOf = (n: number, runs = 5) => {
+      const times = Array.from({ length: runs }, () => measure(n)).sort((a, b) => a - b)
+      return times[Math.floor(times.length / 2)]!
+    }
     measure(50_000) // warm up, so the first run does not carry the JIT cost
-    const small = Math.max(measure(50_000), 0.5)
-    const large = measure(400_000)
+    const small = Math.max(medianOf(50_000), 0.5)
+    const large = medianOf(400_000)
     // Eight times the input. Linear would be ~8x; quadratic would be ~64x.
     expect(large / small).toBeLessThan(24)
   })

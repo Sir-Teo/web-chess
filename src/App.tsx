@@ -857,6 +857,8 @@ function App() {
   const [showNewGameDialog, setShowNewGameDialog] = useState(false)
   const [showPgnDialog, setShowPgnDialog] = useState(false)
   const [droppedPgnFile, setDroppedPgnFile] = useState<File | null>(null)
+  /** Set when the browser refuses to keep settings. See {@link persistSettings}. */
+  const [settingsAreKept, setSettingsAreKept] = useState(true)
   const [showLibraryDialog, setShowLibraryDialog] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   /**
@@ -2625,7 +2627,7 @@ function App() {
   }, [engineLabOutputLines])
 
   useEffect(() => {
-    persistSettings({
+    setSettingsAreKept(persistSettings({
       workspaceMode,
       autoAnalyze,
       engineProfile,
@@ -2666,7 +2668,7 @@ function App() {
       theme,
       lastDifficulty: aiDifficulty,
       lastSideChoice: sideChoice,
-    })
+    }))
   }, [
     aiDifficulty,
     continuousAnalysis,
@@ -6188,6 +6190,12 @@ function App() {
                     Done
                   </button>
                 </div>
+                {!settingsAreKept && (
+                  <p className="dialog-note settings-not-durable" role="status">
+                    This browser is not letting the page store data, so these settings last only
+                    until this tab closes.
+                  </p>
+                )}
                 <p className="panel-copy small command-summary">
                   Workspace: <strong>{workspaceMode === 'play' ? 'Play mode' : 'Analysis mode'}</strong>
                 </p>

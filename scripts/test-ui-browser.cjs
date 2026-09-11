@@ -3474,6 +3474,85 @@ async function checkSettingsSurviveAReload(browser) {
 }
 
 /**
+ * A browser that will not keep settings says so.
+ *
+ * `persistSettings` swallowed the failure -- "Ignore localStorage failures
+ * (private mode / quota)" -- so a browser that refuses storage reverted every
+ * setting on the next visit with nothing said anywhere. **Measured** with
+ * `setItem` throwing: choosing the Forest board repaints the squares, the
+ * reload comes back on Classic, and the settings sheet was silent. The library
+ * already treats the same condition as worth a sentence, and a setting is no
+ * less surprising to lose than a saved game.
+ *
+ * Both directions, because a warning that is always on is worse than none: an
+ * ordinary browser must not show it.
+ */
+async function checkSettingsSayWhenTheyCannotBeKept(browser) {
+  const notice = page => page.evaluate(() => {
+    const found = document.querySelector('.settings-not-durable')
+    return found ? found.textContent.replace(/\s+/g, ' ').trim() : null
+  })
+  const openSettings = async page => {
+    await page.locator('button[aria-label*="etting" i], summary[aria-label*="etting" i]').first().click()
+    await page.waitForTimeout(700)
+  }
+
+  for (const storageWorks of [true, false]) {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      if (!storageWorks) {
+        await page.addInitScript(() => {
+          Object.defineProperty(window, 'localStorage', {
+            configurable: true,
+            value: new Proxy(window.localStorage, {
+              get(target, prop) {
+                if (prop === 'setItem') {
+                  return () => { throw new DOMException('QuotaExceededError', 'QuotaExceededError') }
+                }
+                const value = target[prop]
+                return typeof value === 'function' ? value.bind(target) : value
+              },
+            }),
+          })
+        })
+      }
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const startFresh = page.getByRole('button', { name: /start fresh/i })
+      if (await startFresh.count()) await startFresh.first().click()
+      await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+      await openSettings(page)
+      await page.waitForTimeout(600)
+
+      const said = await notice(page)
+      if (storageWorks) {
+        assert(said === null,
+          `an ordinary browser was told ${JSON.stringify(said)}, which is a warning nobody needs`)
+      } else {
+        assert(said && /not letting the page store data/i.test(said),
+          `a browser refusing storage was told ${JSON.stringify(said)}`)
+        // And the setting really does not survive, which is what the sentence is about.
+        const pill = page.locator('[aria-label="Forest board"]').first()
+        await pill.click()
+        await page.waitForTimeout(500)
+        await page.reload({ waitUntil: 'domcontentloaded' })
+        const again = page.getByRole('button', { name: /start fresh/i })
+        if (await again.count()) await again.first().click()
+        await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+        await openSettings(page)
+        await page.waitForTimeout(500)
+        const forest = await page.evaluate(() =>
+          document.querySelector('[aria-label="Forest board"]')?.getAttribute('aria-pressed'))
+        assert(forest === 'false',
+          'the setting survived after all, so this check is not measuring a browser that refuses storage')
+      }
+    } finally { await context.close() }
+  }
+  console.log('  settings: a browser that will not keep them says so, and one that will stays quiet')
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -4696,6 +4775,7 @@ async function main() {
     await checkASavedGameComesBack(browser)
     await checkASharedLinkCarriesTheGame(browser)
     await checkSettingsSurviveAReload(browser)
+    await checkSettingsSayWhenTheyCannotBeKept(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)

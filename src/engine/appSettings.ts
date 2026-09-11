@@ -353,11 +353,27 @@ export function loadPersistedSettings(): PersistedAppSettings {
   }
 }
 
-export function persistSettings(settings: PersistedAppSettings) {
-  if (typeof window === 'undefined') return
+/**
+ * Whether the settings were actually kept.
+ *
+ * The failure used to be swallowed here, and a browser that refuses storage
+ * then reverted every setting on the next visit with nothing said. **Measured**
+ * with `setItem` throwing: choosing the Forest board repaints the squares, the
+ * reload comes back on Classic, and the settings sheet says nothing anywhere.
+ * The library already treats the same condition as worth a sentence -- "This
+ * browser is not letting the page store data, so saved games last only until
+ * this tab closes" -- and settings are no less surprising to lose.
+ *
+ * Still not thrown: a setting that cannot be stored has still been applied, and
+ * the session is worth having. The caller decides what to say about it.
+ */
+export function persistSettings(settings: PersistedAppSettings): boolean {
+  if (typeof window === 'undefined') return false
   try {
     window.localStorage.setItem(ANALYSIS_SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+    return true
   } catch {
-    // Ignore localStorage failures (private mode / quota).
+    // Private mode, a quota, or a browser told not to keep anything.
+    return false
   }
 }

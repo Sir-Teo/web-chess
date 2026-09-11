@@ -917,6 +917,22 @@ command palette was swept for a computed animation or transition longer than
 what the blanket rule is scoped to. The same sweep with the preference off
 finds 56 to 68, so it discriminates.
 
+**A browser that would not keep settings said nothing about it.**
+`persistSettings` swallowed the failure — "Ignore localStorage failures (private
+mode / quota)" — and nothing anywhere surfaced it. **Measured** with `setItem`
+throwing: choosing the Forest board repaints the squares, the reload comes back
+on Classic with Forest unpressed, and the settings sheet is **silent**. The
+library already treats the same condition as worth a sentence — "This browser is
+not letting the page store data, so saved games last only until this tab
+closes" — and a setting is no less surprising to lose than a saved game.
+
+It says so now, in the same voice and in the sheet where the reader is changing
+them. Still not thrown: a setting that cannot be stored has still been applied,
+and the session is worth having. Both directions are guarded, because a warning
+that is always on is worse than none — an ordinary browser must stay quiet, and
+the blocked one has to genuinely fail to keep the setting or the check is
+measuring nothing.
+
 **Five ways a game leaves this app and comes back, and none of them was
 checked end to end.** Each is unit-tested a layer down and no test had ever
 driven the whole thing through the buttons a reader presses. They are all sound,
@@ -1561,16 +1577,19 @@ shapes with edges across several squares rather than fills, so figure and
 ground are carried by form -- but it is the narrowest reading in the arrow
 sweep and belongs on the record.
 
-**Two timing tests fail under load.** `__fuzz.test.ts > survives: many braces`
-bounds one parse at an absolute 1000ms, and `importRobustness.test.ts > grows
-about linearly` divides a 400,000-character parse by a 50,000-character one and
-requires the ratio under 24. Both failed in one `npm run verify` during this
-pass — 1220ms, and a ratio of 187 — and both passed on their own immediately
-after, as did the full suite on a re-run. Nothing in that iteration touched the
-parser. The second is the more fragile: its denominator is a sub-millisecond
-measurement, so a single scheduling hiccup there moves the ratio by an order of
-magnitude. Recorded rather than changed, because a bound loosened to survive
-load stops guarding what it names.
+**One timing test still fails under load; the other was fixed.**
+`__fuzz.test.ts > survives: many braces` bounds one parse at an absolute 1000ms
+and was measured at 1220ms once, under load, passing on its own immediately
+after.
+
+`importRobustness.test.ts > grows about linearly` raised two false alarms — a
+ratio of 187 against a bound of 24, and later 24.36 against the same bound —
+neither of them a change to the parser. Twice is evidence, and the fix was not
+to loosen the bound, which would stop it guarding what it names: it takes the
+**median of five runs** at each size instead of one. A quadratic implementation
+is ~64x in every run, so the median catches it exactly as well, without
+depending on no GC pause landing in either of two readings. Six consecutive runs
+pass.
 
 **On a phone the board was a dead zone for scrolling — and this entry was
 wrong.** It is left here with its correction because the reasoning failed in an
