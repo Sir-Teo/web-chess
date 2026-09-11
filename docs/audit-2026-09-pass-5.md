@@ -917,6 +917,29 @@ command palette was swept for a computed animation or transition longer than
 what the blanket rule is scoped to. The same sweep with the preference off
 finds 56 to 68, so it discriminates.
 
+**Backing up a library had no end-to-end check at all.** The one flow in this
+app where a fault costs a reader their games: `mergeLibraryBackup` is
+unit-tested, and nothing had ever exported a backup through the button, cleared
+the library and put it back. Driven through the app — games imported as a PGN
+database, the backup taken as a real download, the restore through the same file
+input a reader uses:
+
+| | |
+|---|---|
+| 8 games out and back | **same 8, byte for byte**, favourites included |
+| the same backup restored again | 8, *"Every game in that backup is already in the library"* |
+| restored onto six other games | 12, nothing doubled |
+| a PGN fed to the backup importer | *"That file is not a web-chess library backup"* |
+| truncated JSON | the same sentence, nothing lost |
+
+Nothing to fix, and now guarded. The guard checks the **message** as well as the
+count, which turned out to be the half that matters: with
+`mergeLibraryBackup`'s duplicate check deliberately broken, the count still
+reads 8 — something downstream dedupes as well — and only the sentence changes,
+from "already in the library" to "Backup imported". A count-only check would
+have passed over it. It also asserts the library really was emptied before the
+restore, because a restore into a library that was never cleared proves nothing.
+
 **The boot skeleton could not paint until the whole stylesheet had landed.**
 The skeleton exists to put a board-shaped placeholder up before the JavaScript
 arrives, and a render-blocking `<link rel="stylesheet">` held the first paint

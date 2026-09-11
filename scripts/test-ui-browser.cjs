@@ -2864,6 +2864,118 @@ async function checkADeadFetchButtonSaysWhy(browser) {
 }
 
 /**
+ * A library backed up is a library that comes back.
+ *
+ * The one flow in this app where a fault costs a reader their games, and it had
+ * no end-to-end check at all -- `mergeLibraryBackup` is unit-tested, but nothing
+ * had ever exported a backup through the button, cleared the library and put it
+ * back. Everything here is driven through the app: the games arrive by importing
+ * a PGN database, the backup arrives as a real download, and the restore goes
+ * through the same file input a reader would use.
+ *
+ * Re-importing is checked as well as importing. A backup restored on top of the
+ * games it came from must not double them, which is the failure that would look
+ * like success until somebody counted.
+ */
+async function checkTheLibrarySurvivesABackup(browser) {
+  const OPERA = '1. e4 e5 2. Nf3 d6 3. d4 Bg4 4. dxe5 Bxf3 5. Qxf3 dxe5 6. Bc4 Nf6 7. Qb3 Qe7 ' +
+    '8. Nc3 c6 9. Bg5 b5 10. Nxb5 cxb5 11. Bxb5+ Nbd7 12. O-O-O Rd8 13. Rxd7 Rxd7 14. Rd1 Qe6 ' +
+    '15. Bxd7+ Nxd7 16. Qb8+ Nxb8 17. Rd8# 1-0'
+  const game = i => `[Event "Backup ${i}"]\n[Site "Paris"]\n[Date "2026.01.01"]\n` +
+    `[White "White ${i}"]\n[Black "Black ${i}"]\n[Result "1-0"]\n\n${OPERA}\n`
+  const SEEDED = 8
+
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+    const openLibrary = async () => {
+      await page.locator('button[aria-label*="ibrar" i]').first().click()
+      await page.locator('.library-list, .library-hint').first().waitFor({ timeout: 20000 })
+      await page.waitForTimeout(400)
+    }
+    const rows = () => page.evaluate(() => [...document.querySelectorAll('li.library-row')]
+      .map(row => row.textContent.replace(/\s+/g, ' ').trim()).sort())
+    const note = () => page.evaluate(() =>
+      document.querySelector('.library-status, .dialog-error')?.textContent?.trim() || '')
+
+    // The games arrive the way a reader's do.
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+    await page.locator('.dialog-panel textarea').first().waitFor({ timeout: 15000 })
+    const database = Array.from({ length: SEEDED }, (_u, i) => game(i + 1)).join('\n')
+    await page.locator('input[type=file].dialog-file-input').setInputFiles({
+      name: 'seed.pgn', mimeType: 'application/x-chess-pgn', buffer: Buffer.from(database, 'utf8'),
+    })
+    await page.locator('.dialog-database-offer button').waitFor({ timeout: 30000 })
+    await page.evaluate(() => setTimeout(() => document.querySelector('.dialog-database-offer button').click(), 0))
+    await page.waitForFunction(() => /Added/.test(document.querySelector('.library-status')?.textContent || ''),
+      null, { timeout: 120000 })
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(400)
+
+    await openLibrary()
+    const before = await rows()
+    assert(before.length === SEEDED, `seeded ${before.length} games, expected ${SEEDED}`)
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 30000 }),
+      page.getByRole('button', { name: /export backup/i }).first().click(),
+    ])
+    const backup = fs.readFileSync(await download.path(), 'utf8')
+    assert(backup.includes('web-chess-library'), 'the exported file is not a library backup')
+
+    // Take the library away, the way losing a device does.
+    await page.evaluate(async () => {
+      for (const key of Object.keys(localStorage)) if (/librar/i.test(key)) localStorage.removeItem(key)
+      await new Promise(resolve => {
+        const request = indexedDB.deleteDatabase('web-chess-library')
+        request.onsuccess = resolve; request.onerror = resolve; request.onblocked = resolve
+      })
+    })
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    const again = page.getByRole('button', { name: /start fresh/i })
+    if (await again.count()) await again.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+    await openLibrary()
+    assert((await rows()).length === 0, 'the library was not actually cleared, so the restore proves nothing')
+
+    const restore = async (name, mimeType, body) => {
+      await page.locator('input[type=file]').last().setInputFiles({ name, mimeType, buffer: Buffer.from(body, 'utf8') })
+      await page.waitForTimeout(1500)
+    }
+
+    await restore('backup.json', 'application/json', backup)
+    const after = await rows()
+    assert(after.length === SEEDED,
+      `${before.length} games went into the backup and ${after.length} came out`)
+    assert(JSON.stringify(after) === JSON.stringify(before),
+      'the games came back changed:\n  before ' + JSON.stringify(before.slice(0, 2)) +
+      '\n  after  ' + JSON.stringify(after.slice(0, 2)))
+
+    // The failure that would look like success until somebody counted.
+    await restore('backup.json', 'application/json', backup)
+    const twice = await rows()
+    assert(twice.length === SEEDED,
+      `restoring the same backup twice left ${twice.length} games, so it doubled them`)
+    assert(/already in the library/i.test(await note()),
+      `restoring it twice said ${JSON.stringify(await note())} rather than saying they were already there`)
+
+    // And something that is not a backup at all.
+    await restore('notabackup.pgn', 'application/x-chess-pgn', game(99))
+    assert(/not a web-chess library backup/i.test(await note()),
+      `a PGN fed to the backup importer said ${JSON.stringify(await note())}`)
+    assert((await rows()).length === SEEDED, 'a file that is not a backup changed the library')
+
+    console.log(`  backup: ${SEEDED} games out and back byte for byte, twice over without doubling`)
+  } finally { await context.close() }
+}
+
+/**
  * Draw mode ends where the board's purpose changes.
  *
  * The mode eats presses by design -- a tap is an arrow, not a move -- which is
@@ -4080,6 +4192,7 @@ async function main() {
     await checkNothingIsDrawnBehindSomethingElse(browser)
     await checkFocusCanBeSeen(browser)
     await checkADeadFetchButtonSaysWhy(browser)
+    await checkTheLibrarySurvivesABackup(browser)
     await checkHighContrastKeepsTheBoard(browser)
     await checkDialogActionsStayOnScreen(browser)
     await checkHiddenAnalysisPausesAndResumes(browser)
