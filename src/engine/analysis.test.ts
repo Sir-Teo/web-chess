@@ -1,5 +1,6 @@
 import { Chess } from 'chess.js'
 import { describe, expect, it, vi } from 'vitest'
+import recordedTraceJson from '../../scripts/fixtures/analysis-stockfish-18.json?raw'
 import type { EngineLine } from '../hooks/useStockfishEngine'
 import { parseInfoLine } from '../hooks/useStockfishEngine'
 import {
@@ -1166,6 +1167,73 @@ describe('turning an engine line into a snapshot', () => {
 
 describe('pvLineMoves', () => {
   const START = new Chess().fen()
+
+  it('matches a fresh legal replay throughout changing recorded Stockfish output', () => {
+    const trace = JSON.parse(recordedTraceJson) as { fen: string; events: { line: string }[] }
+    for (const { line } of trace.events) {
+      const pv = line.split(' pv ')[1].split(' ')
+      for (const limit of [6, 8]) {
+        const expected = new Chess(trace.fen)
+        const moves = pvLineMoves(trace.fen, pv, limit)
+        expect(moves).toHaveLength(Math.min(pv.length, limit))
+        for (const [index, uci] of pv.slice(0, limit).entries()) {
+          const moveNumber = expected.moveNumber()
+          const side = expected.turn()
+          const played = expected.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })
+          expect(moves[index]).toEqual({
+            index, uci, san: played.san, fenAfter: expected.fen(),
+            prefix: side === 'w' ? `${moveNumber}.` : index === 0 ? `${moveNumber}...` : null,
+            numbered: `${moveNumber}${side === 'w' ? '.' : '...'} ${played.san}`,
+          })
+        }
+      }
+    }
+  })
+
+  it('replays only new moves when a line grows or changes its continuation', () => {
+    const fen = START.replace('0 1', '0 77')
+    const prefix = ['e2e4', 'e7e5', 'g1f3', 'b8c6']
+    const first = pvLineMoves(fen, prefix)
+    const replay = vi.spyOn(Chess.prototype, 'move')
+    try {
+      const extended = pvLineMoves(fen, [...prefix, 'f1b5', 'a7a6'])
+      expect(replay).toHaveBeenCalledTimes(2)
+      expect(extended.slice(0, 4)).toEqual(first)
+      expect(extended.slice(4).map(move => move.numbered)).toEqual(['79. Bb5', '79... a6'])
+      replay.mockClear()
+      const changed = pvLineMoves(fen, [...prefix, 'f1c4'])
+      expect(replay).toHaveBeenCalledTimes(1)
+      expect(changed.at(-1)?.san).toBe('Bc4')
+      expect(new Chess(changed.at(-1)!.fenAfter).get('c4')).toMatchObject({ type: 'b', color: 'w' })
+      // Shortening a cached prefix needs no move generation either.
+      replay.mockClear()
+      expect(pvLineMoves(fen, prefix, 2)).toEqual(first.slice(0, 2))
+      expect(replay).not.toHaveBeenCalled()
+    } finally { replay.mockRestore() }
+  })
+
+  it('keeps castling and en passant rights separate across otherwise matching boards', () => {
+    const castle = 'r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 15'
+    expect(pvLineMoves(castle, ['e1g1'])[0].san).toBe('O-O')
+    expect(pvLineMoves(castle.replace('KQkq', '-'), ['e1g1'])).toEqual([])
+    const ep = '4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 30'
+    const first = pvLineMoves(ep, ['e5d6'])
+    expect(first[0].san).toBe('exd6')
+    expect(new Chess(first[0].fenAfter).get('d5')).toBeUndefined()
+    expect(pvLineMoves(ep.replace('d6', '-'), ['e5d6'])).toEqual([])
+  })
+
+  it('continues from a cached promotion without confusing the promoted piece', () => {
+    const fen = '8/P6k/8/8/8/8/7K/8 w - - 0 42'
+    pvLineMoves(fen, ['a7a8q'])
+    const queen = pvLineMoves(fen, ['a7a8q', 'h7g6'])
+    const knight = pvLineMoves(fen, ['a7a8n', 'h7g6'])
+    expect(queen[0].san).toBe('a8=Q')
+    expect(knight[0].san).toBe('a8=N')
+    expect(queen[1].numbered).toBe('42... Kg6')
+    expect(new Chess(queen[1].fenAfter).get('a8')?.type).toBe('q')
+    expect(new Chess(knight[1].fenAfter).get('a8')?.type).toBe('n')
+  })
 
   it('reuses matching displayed moves across new engine lines and both renderers', () => {
     const pv = ['d2d4', 'd7d5', 'c2c4', 'e7e6']

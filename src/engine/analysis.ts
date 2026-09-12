@@ -138,6 +138,20 @@ export type PvMove = Readonly<{
 const PV_CACHE_LIMIT = 128
 const pvCache = new Map<string, readonly PvMove[]>()
 
+type PvStep = Readonly<{
+  uci: string
+  san: string
+  fenAfter: string
+  moveNumber: number
+  sideToMove: 'w' | 'b'
+}>
+// Changing PVs often share their first moves, and Coach displays a shorter
+// prefix of the same line as Pro. Reuse each legal transition as well as whole
+// lines. Full FEN preserves castling, en passant and move counters; no mutable
+// Chess instance or history is retained. Bound memory during infinite searches.
+const PV_STEP_CACHE_LIMIT = 1024
+const pvStepCache = new Map<string, PvStep>()
+
 /**
  * The principal variation as moves rather than as a sentence.
  *
@@ -159,35 +173,47 @@ export function pvLineMoves(fen: string, pv: string[], maxMoves = 8): readonly P
   const cached = pvCache.get(key)
   if (cached) return cached
 
-  let replay: Chess
-  try {
-    replay = new Chess(fen)
-  } catch {
-    return []
-  }
-
+  let replay: Chess | null = null
+  let currentFen = fen
   const moves: PvMove[] = []
   for (const [index, uci] of selectedMoves.entries()) {
     if (uci.length < 4) break
 
-    const moveNumber = replay.moveNumber()
-    const sideToMove = replay.turn()
-
-    let move: Move | undefined
-    try {
-      move = replay.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })
-    } catch {
-      break
+    const stepKey = `${currentFen}|${uci}`
+    let step = pvStepCache.get(stepKey)
+    if (step) {
+      // A hit advances currentFen without advancing the replay. Reconstruct
+      // only if a later move needs calculation, at that move's exact position.
+      replay = null
+    } else {
+      try {
+        replay ??= new Chess(currentFen)
+        const moveNumber = replay.moveNumber()
+        const sideToMove = replay.turn()
+        const move = replay.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })
+        step = Object.freeze({
+          uci: `${move.from}${move.to}${move.promotion ?? ''}`,
+          san: move.san,
+          fenAfter: replay.fen(),
+          moveNumber,
+          sideToMove,
+        })
+      } catch {
+        break
+      }
+      pvStepCache.set(stepKey, step)
+      if (pvStepCache.size > PV_STEP_CACHE_LIMIT) pvStepCache.delete(pvStepCache.keys().next().value!)
     }
-    if (!move) break
 
+    const { moveNumber, sideToMove } = step
+    currentFen = step.fenAfter
     moves.push(Object.freeze({
       index,
-      uci: `${move.from}${move.to}${move.promotion ?? ''}`,
-      san: move.san,
+      uci: step.uci,
+      san: step.san,
       prefix: sideToMove === 'w' ? `${moveNumber}.` : index === 0 ? `${moveNumber}...` : null,
-      numbered: `${moveNumber}${sideToMove === 'w' ? '.' : '...'} ${move.san}`,
-      fenAfter: replay.fen(),
+      numbered: `${moveNumber}${sideToMove === 'w' ? '.' : '...'} ${step.san}`,
+      fenAfter: step.fenAfter,
     }))
   }
 
