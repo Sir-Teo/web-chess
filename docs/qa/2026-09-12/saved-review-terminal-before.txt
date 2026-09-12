@@ -1,0 +1,28 @@
+
+ RUN  v4.1.11 /Users/teo/Developer/web-chess
+
+ ❯ src/engine/savedReviews.test.ts (6 tests | 1 failed) 19ms
+     × saves completed games and positions requiring no engine work 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/savedReviews.test.ts > portable, isolated saved reviews > saves completed games and positions requiring no engine work
+Error: This review could not be saved. Export its PGN before closing it; saved reviews support up to 2,048 plies and 512 KB each.
+ ❯ createSavedReview src/engine/savedReviews.ts:139:21
+    137|     evaluated: report.evaluations.size, evaluations: [...report.evalua…
+    138|   })
+    139|   if (!saved) throw new Error('This review could not be saved. Export …
+       |                     ^
+    140|   return saved
+    141| }
+ ❯ fixture src/engine/savedReviews.test.ts:19:17
+ ❯ src/engine/savedReviews.test.ts:59:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Start at  11:58:43
+   Duration  172ms (transform 73ms, setup 0ms, import 91ms, tests 19ms, environment 0ms)
+

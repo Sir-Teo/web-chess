@@ -1,0 +1,20 @@
+First full browser run after bb23668, before the selector fix in ddac226. Failure excerpt:
+
+  Coach: cloud position score agrees with the bar; local candidate depth is labeled separately
+  bounded score: eval bar reads -2.2, not the bound
+  candidate search (1280px, known position): preserves position/export, labels candidates, and clears the restriction on the next search
+  candidate search (375px, known position): preserves position/export, labels candidates, and clears the restriction on the next search
+  candidate search (375px, unevaluated position): preserves position/export, labels candidates, and clears the restriction on the next search
+  evaluation provenance (1280px): actual worker identity, retained score after engine switch, review source, deeper replacement, and optional PGN metadata
+  evaluation provenance (375px): actual worker identity, retained score after engine switch, review source, deeper replacement, and optional PGN metadata
+  PV reuse (1280px): focus previews and restores the board; repeated search keeps the line clickable; export contains both committed plies
+  PV reuse (375px): focus previews and restores the board; repeated search keeps the line clickable; export contains both committed plies
+locator.scrollIntoViewIfNeeded: Error: strict mode violation: locator('.review-report-actions') resolved to 2 elements:
+    1) <div class="review-report-actions">…</div> aka getByText('Fresh review Export review')
+    2) <div class="review-report-actions">…</div> aka locator('div').filter({ hasText: /^Save review$/ })
+
+Call log:
+[2m  - waiting for locator('.review-report-actions')[22m
+
+    at checkReviewUsesSelectedEngine (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:926:54)
+    at async main (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:5859:5)
