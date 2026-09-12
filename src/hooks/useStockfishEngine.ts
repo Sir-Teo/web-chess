@@ -164,9 +164,9 @@ export function suspendsWhileHidden(request: AnalyzeRequest): boolean {
 
 
 function firstWord(input: string): string {
-  const trimmed = input.trim()
-  const index = trimmed.indexOf(' ')
-  return index >= 0 ? trimmed.slice(0, index) : trimmed
+  // UCI accepts tabs as token separators too. Keep the payload unchanged,
+  // including option values, while recognizing who owns the replies.
+  return input.trim().split(/\s+/, 1)[0] ?? ''
 }
 
 function hasNoReply(command: string): boolean {

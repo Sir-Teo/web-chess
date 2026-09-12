@@ -3367,16 +3367,16 @@ async function checkConsoleSearchOwnership(browser) {
       assert(await page.evaluate(() => !window.__uciCommands.some(command => command.startsWith('go'))), 'console sent work before startup completed')
       await page.evaluate(() => window.__releaseConsoleReady())
       await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
-      const startConsoleSearch = async () => {
+      const startConsoleSearch = async (separator = ' ') => {
         await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
-        await command.fill('position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+        await command.fill(`position${separator}fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1`)
         await command.press('Enter')
         await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
-        await command.fill('go movetime 4000')
+        await command.fill(`go${separator}movetime${separator}4000`)
         await command.press('Enter')
         await page.getByLabel('UCI console output', { exact: true }).filter({ hasText: 'score cp 900' }).waitFor()
       }
-      await startConsoleSearch()
+      await startConsoleSearch('\t')
       const consoleStatus = await page.locator('.bottom .status').textContent()
       assert(consoleStatus === 'analyzing', `console search reports ${consoleStatus}`)
       assert((await page.getByText('Active: go movetime 4000', { exact: true }).count()) === 1, 'active console command is missing')
@@ -3393,7 +3393,7 @@ async function checkConsoleSearchOwnership(browser) {
         && document.querySelector('.bottom .status')?.textContent === 'ready')
       const handoff = await page.evaluate(() => {
         const commands = window.__uciCommands
-        const firstGo = commands.indexOf('go movetime 4000')
+        const firstGo = commands.indexOf('go\tmovetime\t4000')
         const nextPosition = commands.findIndex((command, index) => index > firstGo && command.startsWith('position'))
         return { between: commands.slice(firstGo + 1, nextPosition), overlapping: window.__positionDuringSearch,
           leaked: window.__consoleScoreLeaked, lines: document.querySelector('.pv-list')?.textContent }
@@ -3401,12 +3401,12 @@ async function checkConsoleSearchOwnership(browser) {
       assert(handoff.between.filter(command => command === 'stop').length === 1 && !handoff.overlapping,
         `new board position reached a busy engine: ${JSON.stringify(handoff)}`)
       assert(!handoff.leaked && !handoff.lines.includes('D40'), 'late console scores entered managed analysis')
-      const priorLines = await page.locator('.pv-list').innerText()
+      const priorLines = await page.locator('.pv-list').textContent()
       await startConsoleSearch()
       await page.getByRole('button', { name: 'Analyze', exact: true }).click()
       await page.getByRole('button', { name: 'Stop analysis', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
-      assert(await page.locator('.pv-list').innerText() === priorLines, 'stopping console work changed retained board readings')
+      assert(await page.locator('.pv-list').textContent() === priorLines, 'stopping console work changed retained board readings')
       await page.screenshot({ path: `/tmp/web-chess-console-search-${width}.png` })
       await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
       await command.fill('position startpos')
@@ -3418,7 +3418,7 @@ async function checkConsoleSearchOwnership(browser) {
       await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready'
         && document.querySelector('[aria-label="UCI command"]')?.value === '')
       assert(errors.length === 0, `console search page errors: ${errors.join('; ')}`)
-      console.log(`  console search (${width}px): startup guard, busy status, stop/acknowledge before new position, isolated late scores, working Stop and completed perft`)
+      console.log(`  console search (${width}px): startup guard, tab/space commands, busy status, stop/acknowledge before new position, isolated late scores, working Stop and completed perft`)
     } finally { await context.close() }
   }
 }

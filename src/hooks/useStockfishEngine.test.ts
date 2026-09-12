@@ -117,6 +117,7 @@ describe('Stockfish command queue safety', () => {
   it('sends stop only for timed-out UCI search commands', () => {
     expect(shouldStopTimedOutSearchCommand('go infinite')).toBe(true)
     expect(shouldStopTimedOutSearchCommand('go depth 30')).toBe(true)
+    expect(shouldStopTimedOutSearchCommand('  go\tmovetime\t120000  ')).toBe(true)
 
     expect(shouldStopTimedOutSearchCommand('bench')).toBe(false)
     expect(shouldStopTimedOutSearchCommand('perft 5')).toBe(false)

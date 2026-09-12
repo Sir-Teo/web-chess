@@ -57,10 +57,11 @@ async function main() {
             await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
             const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
             result.stage = 'console to board handoff'
-            await command.fill('position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+            await command.fill('position\tfen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
             await command.press('Enter')
             await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
-            await page.getByRole('button', { name: '5s search', exact: true }).click()
+            await command.fill('go\tmovetime\t5000')
+            await command.press('Enter')
             await page.waitForFunction(() => window.__consoleEvents.some(event => event.kind === 'received' && event.line.startsWith('info depth ')))
             assert.equal(await page.locator('.bottom .status').textContent(), 'analyzing')
             await page.getByRole('button', { name: 'Analyze', exact: true }).click()
@@ -69,7 +70,7 @@ async function main() {
             await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready'
               && document.querySelector('.pv-list article')?.textContent.includes('D12'))
             const events = await page.evaluate(() => window.__consoleEvents)
-            const rawGo = events.findIndex(event => event.kind === 'sent' && event.line === 'go movetime 5000')
+            const rawGo = events.findIndex(event => event.kind === 'sent' && event.line === 'go\tmovetime\t5000')
             const stop = events.findIndex((event, i) => i > rawGo && event.kind === 'sent' && event.line === 'stop')
             const oldBestmove = events.findIndex((event, i) => i > rawGo && event.kind === 'received' && event.line.startsWith('bestmove '))
             const nextPosition = events.findIndex((event, i) => i > rawGo && event.kind === 'sent' && event.line.startsWith('position '))
