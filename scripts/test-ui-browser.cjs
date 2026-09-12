@@ -3051,6 +3051,116 @@ async function checkReadingSpace(browser) {
   }
 }
 
+async function checkShortDesktopWindow(browser) {
+  const visible = async (target, label) => {
+    await target.focus()
+    const geometry = await target.evaluate(async el => {
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      const r = el.getBoundingClientRect()
+      return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: innerWidth, height: innerHeight,
+        scroll: document.querySelector('.app-shell').scrollTop, parent: el.parentElement.className,
+        parentY: el.parentElement.getBoundingClientRect().y, parentHeight: el.parentElement.getBoundingClientRect().height,
+        cssTop: getComputedStyle(el).top, cssBottom: getComputedStyle(el).bottom,
+        hit: el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)) }
+    })
+    assert(geometry.top >= 0 && geometry.bottom <= geometry.height + 1 && geometry.left >= 0
+      && geometry.right <= geometry.width + 1 && geometry.hit, `${label} cannot be fully reached: ${JSON.stringify(geometry)}`)
+  }
+  for (const [width, height] of [[901, 360], [1280, 480], [1600, 600]]) for (const experience of ['beginner', 'pro']) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(experience => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: experience, autoAnalyze: false, analysisTab: 'review',
+        engineProfile: 'lite-single-local', reviewMaxWorkers: 1,
+      })), experience)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.setViewportSize({ width, height })
+      await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
+      await page.waitForTimeout(400)
+      assert(await page.locator('.app-shell').getAttribute('data-scroll-chrome') === 'true', 'short enlarged window kept both bars fixed')
+      assert(await page.locator('.main-container').evaluate(el => Math.abs(el.getBoundingClientRect().height - innerHeight) < 1), 'the workspace still receives only a sliver of height')
+      await visible(page.getByRole('button', { name: 'Review Game', exact: true }), 'Review Game')
+      for (const square of ['a8', 'h1']) await visible(page.locator(`[data-square="${square}"] [role="button"]`), `${square} piece`)
+      for (const control of await page.locator('.top .mobile-actions button, .top .gc-pill, .top .settings-menu > summary').all()) {
+        await visible(control, await control.getAttribute('aria-label') || await control.innerText())
+      }
+      await page.getByRole('button', { name: 'Open settings', exact: true }).click()
+      await page.getByRole('dialog', { name: 'Settings', exact: true }).waitFor()
+      await visible(page.getByRole('dialog', { name: 'Settings', exact: true }).getByRole('checkbox').first(), 'Settings checkbox')
+      await page.keyboard.press('Escape')
+      for (const control of await page.locator('.bottom .watch-controls button:not([disabled]), .bottom .engine-details-trigger').all()) {
+        await visible(control, await control.getAttribute('aria-label') || await control.innerText())
+      }
+      for (const bar of ['top', 'bottom']) {
+        const collapse = page.getByRole('button', { name: `Collapse ${bar} bar`, exact: true })
+        await visible(collapse, `Collapse ${bar}`)
+        await collapse.press('Enter')
+        const expand = page.getByRole('button', { name: `Expand ${bar} bar`, exact: true })
+        await visible(expand, `Expand ${bar}`)
+        await expand.press('Enter')
+      }
+      for (const bar of ['top', 'bottom']) {
+        const collapse = page.getByRole('button', { name: `Collapse ${bar} bar`, exact: true })
+        await visible(collapse, `Collapse both: ${bar}`)
+        await collapse.press('Enter')
+      }
+      for (const square of ['a8', 'h1']) await visible(page.locator(`[data-square="${square}"] [role="button"]`), `${square} with both bars collapsed`)
+      for (const bar of ['top', 'bottom']) {
+        const expand = page.getByRole('button', { name: `Expand ${bar} bar`, exact: true })
+        await visible(expand, `Restore both: ${bar}`)
+        await expand.press('Enter')
+      }
+      await page.getByRole('button', { name: /^Go to move .*e4/ }).first().click()
+      await page.waitForTimeout(200)
+      assert(await page.locator('.board-surface').evaluate(el => {
+        const r = el.getBoundingClientRect()
+        return r.top >= 0 && r.bottom <= innerHeight + 1 && r.left >= 0 && r.right <= innerWidth
+      }), 'move navigation did not reveal the whole board')
+      await page.screenshot({ path: `/tmp/web-chess-short-window-${width}-${experience}.png` })
+      if (experience === 'beginner') {
+        await page.getByRole('button', { name: /^Load / }).first().click()
+        await page.getByRole('button', { name: 'Review', exact: true }).click()
+        await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+        await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+        await page.getByRole('button', { name: /^Practice the position before / }).first().click()
+        const practice = page.locator('[data-review-practice]')
+        await practice.waitFor()
+        await visible(practice.getByRole('button', { name: 'Exit', exact: true }), 'Practice Exit')
+        await practice.getByRole('button', { name: 'Exit', exact: true }).click()
+      }
+      await page.getByRole('button', { name: 'Start new game', exact: true }).click()
+      const dialog = page.getByRole('dialog', { name: 'New Game', exact: true })
+      await dialog.getByRole('button', { name: /^Human vs Human:/ }).click()
+      await dialog.getByRole('button', { name: /^3 \+ 2:/ }).click()
+      await dialog.getByRole('button', { name: 'Start Game', exact: true }).click()
+      await page.getByRole('group', { name: 'Clocks', exact: true }).waitFor()
+      for (const clock of await page.locator('.clock-face').all()) {
+        await clock.scrollIntoViewIfNeeded()
+        assert(await clock.evaluate(el => {
+          const r = el.getBoundingClientRect()
+          return r.top >= 0 && r.bottom <= innerHeight && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+        }), 'a clock is hidden in the short Play workspace')
+      }
+      await page.evaluate(() => { document.documentElement.style.fontSize = '16px' })
+      await page.waitForTimeout(400)
+      assert(await page.locator('.app-shell').getAttribute('data-scroll-chrome') === null, 'restoring normal text left the bars detached')
+      assert(await page.locator('.app-shell').evaluate(el => el.scrollTop === 0), 'restoring the fixed workspace retained an old scroll offset')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth || document.documentElement.scrollHeight > innerHeight), 'short-window layout overflowed the document')
+      assert(errors.length === 0, `short-window page errors: ${errors.join('; ')}`)
+      console.log(`  short window (${width}×${height}, ${experience}): complete focused controls, all board corners, move reveal, bars, settings, clocks${experience === 'beginner' ? ', practice' : ''}; 200% → 100% text restores the fixed layout`)
+    } catch (error) {
+      await page.screenshot({ path: `/tmp/web-chess-short-window-${width}-${experience}-failure.png` }).catch(() => {})
+      throw error
+    } finally { await context.close() }
+  }
+}
+
 async function checkCompactToolbar(browser) {
   for (const width of [901, 1280, 1440]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -6291,6 +6401,7 @@ async function main() {
       'observed-layout': checkObservedLayout,
       'narrow-desktop': checkNarrowDesktopLayout,
       'compact-toolbar': checkCompactToolbar,
+      'short-window': checkShortDesktopWindow,
       'compact-footer': checkCompactFooter,
       'reading-space': checkReadingSpace,
       'opening-layout': checkOpeningLayout,
@@ -6976,6 +7087,7 @@ async function main() {
     await checkObservedLayout(browser)
     await checkNarrowDesktopLayout(browser)
     await checkCompactToolbar(browser)
+    await checkShortDesktopWindow(browser)
     await checkCompactFooter(browser)
     await checkReadingSpace(browser)
     await checkOpeningLayout(browser)

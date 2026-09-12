@@ -6487,6 +6487,34 @@ button.hint-btn {
   }
 }
 
+.app-shell[data-scroll-chrome="true"] {
+  overflow-y: auto;
+  scroll-padding-block: 8px;
+}
+
+.app-shell[data-scroll-chrome="true"] .main-container {
+  /* Let the bars scroll away when they would leave only a sliver of workspace.
+     A viewport of content keeps native focus scrolling useful in each panel. */
+  flex: none;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.app-shell[data-scroll-chrome="true"] .dialog-panel {
+  overflow-y: auto;
+  scroll-padding-block: 8px;
+}
+
+.app-shell[data-scroll-chrome="true"] .dialog-panel > :is(.dialog-header, .dialog-body, .dialog-actions) {
+  flex: none;
+}
+
+.app-shell[data-scroll-chrome="true"] .dialog-panel > .dialog-body {
+  /* Enlarged headings and actions must not squeeze the form to zero height. */
+  max-height: none;
+  overflow: visible;
+}
+
 /* Keep desktop modes and actions in two rows when text or window height makes
    the full toolbar too tall. The single h1 stays in the accessibility tree. */
 .app-shell[data-compact-chrome="true"] .top .app-brand {
