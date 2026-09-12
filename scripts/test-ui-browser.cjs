@@ -133,6 +133,9 @@ const SCENARIO = ${JSON.stringify(scenario)};
      * consecutive searches, which is the one input the Play-mode nudge needs.
      */
     scriptedLine() {
+      if (SCENARIO === 'board-canvas') {
+        return { cp: 35, move: window.__boardArrowPhase === 2 ? 'd2d4' : 'e2e4' };
+      }
       if (SCENARIO === 'review-source') {
         return this.reviewProducer === 'full'
           ? { cp: 0, move: 'e2e4', depths: [16, 22] }
@@ -206,6 +209,9 @@ const SCENARIO = ${JSON.stringify(scenario)};
                 ' nodes 120000 nps 900000 hashfull 45 tbhits 0 time 130 wdl ' + wdl + ' pv ' + move + ' e7e5');
       this.send('info depth ' + deep + ' seldepth ' + (deep + 4) + ' multipv 1 score cp ' + cp +
                 ' nodes 400000 nps 900000 hashfull 127 tbhits 3 time 420 wdl ' + wdl + ' pv ' + move + ' e7e5');
+      if (SCENARIO === 'board-canvas') {
+        this.send('info depth 22 multipv 2 score cp ' + (window.__boardArrowPhase ? -200 : 30) + ' nodes 400000 time 420 pv g1f3 d7d5');
+      }
       if (SCENARIO === 'bounded-last') {
         // A fail-high re-search at the same depth, with more nodes behind it,
         // arriving after the exact line and before the search is stopped. This
@@ -2059,6 +2065,57 @@ async function checkTheWinrateCardFollowsTheBoard(browser) {
     assert(await page.locator('.analytics-card .graph-legend').count() === 0, 'an unscored position borrowed a different move’s graph reading')
     console.log('  graph gaps: an unscored new branch keeps the plots without borrowing the root’s readings')
   } finally { await context.close() }
+}
+
+/** Board visuals and input stay current across engine and navigation changes. */
+async function checkBoardCanvas(browser) {
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('board-canvas'))
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false,
+        showBoardArrows: true, showTopMoveArrows: true, multiPv: 2,
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      const secondArrow = page.locator('.board-surface path[marker-end*="-g1-f3"]')
+      await secondArrow.waitFor()
+      const firstColor = await secondArrow.getAttribute('stroke')
+      await page.evaluate(() => { window.__boardArrowPhase = 1 })
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.waitForFunction(color => {
+        const arrow = document.querySelector('.board-surface path[marker-end*="-g1-f3"]')
+        return arrow && arrow.getAttribute('stroke') !== color
+      }, firstColor)
+      await page.evaluate(() => { window.__boardArrowPhase = 2 })
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      // A vertical SVG path has a zero-width geometric bounding box even
+      // though its stroke is visible, so wait for the painted path's presence.
+      const bestArrow = page.locator('.board-surface path[marker-end*="-d2-d4"]')
+      await bestArrow.waitFor({ state: 'attached' })
+      assert(await bestArrow.evaluate(el => el.ownerSVGElement.getBoundingClientRect().width > 0), 'new arrow has no visible SVG canvas')
+      assert(await page.locator('.board-surface path[marker-end*="-e2-e4"]').count() === 0, 'board kept the previous best-move arrow')
+      await page.getByRole('button', { name: 'Flip board', exact: true }).click()
+      const flipped = await page.locator('#chessboard-square-a1').boundingBox()
+      await page.getByRole('button', { name: 'Flip board', exact: true }).click()
+      const restored = await page.locator('#chessboard-square-a1').boundingBox()
+      assert(flipped.x > restored.x + 100, 'board memoization swallowed orientation changes')
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e4')?.getAttribute('aria-label')?.includes('White pawn'))
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e2')?.getAttribute('aria-label')?.includes('White pawn'))
+      await page.locator('#chessboard-square-d2').click()
+      await page.locator('#chessboard-square-d4').click()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-d4')?.getAttribute('aria-label')?.includes('White pawn'))
+      assert(await page.locator('[id^="chessboard-square-"]').count() === 64, 'board lost squares after navigating and branching')
+      await page.locator('.board-surface').scrollIntoViewIfNeeded()
+      await page.screenshot({ path: `/tmp/web-chess-board-canvas-${width}.png` })
+      console.log(`  board canvas (${width}px): changed arrow colors/moves, orientation, e2-e4, navigation and a new d2-d4 branch stay current`)
+    } finally { await context.close() }
+  }
 }
 
 /** Model explanations are reachable beside charts in both experiences. */
@@ -4969,6 +5026,7 @@ async function main() {
       'graph-readings': checkTheWinrateCardFollowsTheBoard,
       'observed-layout': checkObservedLayout,
       'graph-guide': checkGraphEstimateGuide,
+      'board-canvas': checkBoardCanvas,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
@@ -5636,6 +5694,7 @@ async function main() {
     await checkEveryControlIsFingerSized(browser)
     await checkTheWinrateCardFollowsTheBoard(browser)
     await checkObservedLayout(browser)
+    await checkBoardCanvas(browser)
     await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)
     await checkAFullLibraryStopsReadingTheFile(browser)

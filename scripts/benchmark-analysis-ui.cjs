@@ -15,6 +15,8 @@ const output = process.env.BENCH_OUTPUT || '/tmp/web-chess-analysis-profile'
 const samples = Number(process.env.BENCH_SAMPLES || 3)
 const width = Number(process.env.BENCH_WIDTH || 1280)
 const cpuRate = Number(process.env.BENCH_CPU_RATE || 4)
+const flipIntervalMs = Number(process.env.BENCH_FLIP_MS ?? 500)
+const reducedMotion = process.env.BENCH_REDUCED_MOTION === '1'
 const durationMs = 6000
 const pgn = fs.readFileSync(path.join(__dirname, 'fixtures/review-game.pgn'), 'utf8')
 
@@ -134,7 +136,7 @@ async function main() {
   const results = []
   try {
     for (let sample = 0; sample < samples; sample++) {
-      const context = await browser.newContext({ viewport: { width, height: 900 } })
+      const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: reducedMotion ? 'reduce' : 'no-preference' })
       const page = await context.newPage()
       const errors = []
       page.on('pageerror', error => errors.push(error.message))
@@ -160,7 +162,7 @@ async function main() {
       await client.send('Profiler.setSamplingInterval', { interval: 1000 })
       const before = Object.fromEntries((await client.send('Performance.getMetrics')).metrics.map(item => [item.name, item.value]))
       await client.send('Profiler.start')
-      const observed = await page.evaluate(async duration => {
+      const observed = await page.evaluate(async ({ duration, flipInterval }) => {
         const longTasks = []
         const observer = new PerformanceObserver(list => list.getEntries().forEach(entry => longTasks.push(entry.duration)))
         observer.observe({ type: 'longtask' })
@@ -170,19 +172,19 @@ async function main() {
           if (worker) { worker.info(); updates++ }
         }, 100)
         const flips = []
-        const inputTimer = setInterval(() => {
+        const inputTimer = flipInterval > 0 ? setInterval(() => {
           const start = performance.now()
           const flip = document.querySelector('button[aria-label="Flip board"]')
           if (!flip) throw new Error('Missing board flip control')
           flip.click()
           requestAnimationFrame(() => requestAnimationFrame(() => flips.push(performance.now() - start)))
-        }, 500)
+        }, flipInterval) : null
         await new Promise(resolve => setTimeout(resolve, duration))
         clearInterval(timer)
-        clearInterval(inputTimer)
+        if (inputTimer !== null) clearInterval(inputTimer)
         observer.disconnect()
         return { updates, longTasks, flipToTwoFramesMs: flips }
-      }, durationMs)
+      }, { duration: durationMs, flipInterval: flipIntervalMs })
       const { profile } = await client.send('Profiler.stop')
       const after = Object.fromEntries((await client.send('Performance.getMetrics')).metrics.map(item => [item.name, item.value]))
       const metrics = Object.fromEntries(['TaskDuration', 'ScriptDuration', 'LayoutDuration', 'RecalcStyleDuration', 'LayoutCount', 'RecalcStyleCount'].map(key => [key, after[key] - before[key]]))
@@ -199,7 +201,8 @@ async function main() {
       commit: execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim(),
       sourceDiff: execFileSync('git', ['diff', '--', 'src'], { encoding: 'utf8' }),
       productionAssets: fs.readdirSync(path.join(__dirname, '../dist/assets')).filter(file => file.endsWith('.js')),
-      base, width, cpuRate, durationMs, workload: '116-ply game, five legal PVs, telemetry every 100ms, board flip every 500ms; production build, main thread only', results,
+      base, width, cpuRate, durationMs, flipIntervalMs, reducedMotion,
+      workload: `116-ply game, five legal PVs, telemetry every 100ms, ${flipIntervalMs > 0 ? `board flip every ${flipIntervalMs}ms` : 'no board flips'}; production build, main thread only`, results,
     }, null, 2) + '\n')
     await browser.close()
   }

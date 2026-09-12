@@ -1,6 +1,7 @@
 import { Chess, type Move, type Square } from 'chess.js'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type SyntheticEvent } from 'react'
-import { Chessboard, defaultArrowOptions } from 'react-chessboard'
+import type { PieceDropHandlerArgs } from 'react-chessboard'
+import { BoardCanvas } from './components/BoardCanvas'
 import {
   buildWdlSeries,
   buildWinrateSeries,
@@ -123,7 +124,7 @@ import {
 import { moveSoundFor } from './engine/moveSound'
 import { hasSiblingVariations, siblingVariation } from './engine/moveTree'
 import { chessComPositionUrl, lichessAnalysisUrl } from './engine/externalLinks'
-import { BOARD_THEMES, boardThemeById, moveHintStyle, notationHalo } from './engine/boardThemes'
+import { BOARD_THEMES, boardThemeById } from './engine/boardThemes'
 import {
   createClock,
   flagPgnResult,
@@ -152,10 +153,7 @@ import { ChessClock } from './components/ChessClock'
 import {
   MARK_COLORS,
   hasSquareMarks,
-  lastMoveSquareStyle,
-  selectedSquareStyle,
   markColorForModifiers,
-  squareMarkStyle,
   toggleSquareMark,
   type SquareMarks,
 } from './engine/boardMarks'
@@ -386,20 +384,6 @@ function resultLabel(result: HistoricalSampleGame['result']): string {
   return 'Draw'
 }
 
-// Defaults draw a 1/5-square arrow from square centre, which buries the piece it
-// points at. Narrower, and started at the base of the piece, keeps both readable.
-const BOARD_ARROW_OPTIONS = {
-  ...defaultArrowOptions,
-  arrowWidthDenominator: 7,
-  arrowStartOffset: 0.32,
-  // Arrows the reader drags with the right button. The library's amber default
-  // is the colour this board already uses for the move that was played, so a
-  // drawn arrow would have claimed to be something it is not.
-  color: MARK_COLORS.primary,
-  secondaryColor: MARK_COLORS.alternate,
-  tertiaryColor: MARK_COLORS.tertiary,
-}
-
 /**
  * What Settings tells the reader they can press. It is the only place in the
  * app that answers the question, so anything the keydown handler claims and
@@ -421,55 +405,6 @@ const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['Space'], action: 'Pause or resume the AI (Play mode) · autoplay the moves (otherwise)' },
   { keys: [commandPaletteShortcutLabel()], action: 'Open the command palette' },
 ]
-
-/**
- * A queued premove. Its own colour again: amber is the move that was played,
- * violet the threat, red-to-green the engine's candidates, and blue the
- * reader's own marks — so a move the reader has *committed to* takes the one
- * shape none of those use, a dashed ring in the mark family's blue.
- */
-const PREMOVE_SQUARE_STYLE = {
-  boxShadow: `inset 0 0 0 4px ${MARK_COLORS.primary}`,
-  backgroundColor: 'rgba(59, 130, 246, 0.28)',
-}
-
-/**
- * The two squares of a move being previewed. Green, because a previewed move is
- * one the engine put in a line -- the same thing the candidate arrows and the
- * hint mean -- rather than anything the reader claimed about the square.
- */
-const PREVIEW_SQUARE_STYLE = {
-  boxShadow: 'inset 0 0 0 3px rgba(63, 185, 80, 0.85)',
-  backgroundColor: 'rgba(63, 185, 80, 0.22)',
-}
-
-/**
- * The two squares of the move that reached this position. See
- * {@link lastMoveSquareStyle} for why it is a ring over a wash.
- *
- * Lowest of the square styles, so a premove, a mark, the selected square and a
- * legal-move hint each still win the square they are on.
- */
-const LAST_MOVE_SQUARE_STYLE = lastMoveSquareStyle()
-
-/** The square the reader has picked a piece up from. See {@link selectedSquareStyle}. */
-const SELECTED_SQUARE_STYLE = selectedSquareStyle()
-
-const NOTATION_BASE_STYLE = {
-  position: 'absolute' as const,
-  fontWeight: 700,
-  lineHeight: 1,
-  userSelect: 'none' as const,
-  pointerEvents: 'none' as const,
-}
-
-/**
- * A coordinate, and the ring that keeps it off the piece it shares a square
- * with. See {@link notationHalo}.
- */
-function notationStyle(color: string, squareColor: string) {
-  return { color, textShadow: notationHalo(squareColor) }
-}
 
 function uniqueSquares(squares: Square[]): Square[] {
   return Array.from(new Set(squares))
@@ -3972,7 +3907,7 @@ function App() {
     [clearBoardSelection],
   )
 
-  const onPieceDrop = (sourceSquare: Square, targetSquare: Square, pieceType: string) => {
+  const onPieceDrop = useCallback((sourceSquare: Square, targetSquare: Square, pieceType: string) => {
     if (pendingPromotion) return false
     if (sourceSquare === targetSquare) return false
     if (premoveAllowed) {
@@ -3997,7 +3932,14 @@ function App() {
     }
 
     return applyHumanMove(sourceSquare, targetSquare)
-  }
+  }, [applyHumanMove, beginPromotion, endedOffBoard, game, gameMode, isAiThinking, paused, pendingPromotion, playerColor, premoveAllowed, workspaceMode])
+
+  const handleBoardDrop = useCallback(({ sourceSquare, targetSquare, piece }: PieceDropHandlerArgs) => {
+    if (!targetSquare) return false
+    setSelectedSquare(null)
+    setLegalTargets([])
+    return onPieceDrop(sourceSquare as Square, targetSquare as Square, piece.pieceType)
+  }, [onPieceDrop])
 
   /**
    * The reader's own square marks, on the right button.
@@ -7084,85 +7026,26 @@ function App() {
                       preview, which is what turned a documented curiosity into
                       a guard. */}
                   {renderedBoardWidth > 0 && (
-                  <Chessboard
-                    options={{
-                      position: linePreview ? linePreview.fen : fen,
-                      boardOrientation: orientation,
-                      onPieceDrop: ({ sourceSquare, targetSquare, piece }) => {
-                        if (!targetSquare) return false
-                        setSelectedSquare(null)
-                        setLegalTargets([])
-                        return onPieceDrop(sourceSquare as Square, targetSquare as Square, piece.pieceType)
-                      },
-                      onSquareClick: ({ square }) => onSquareClick(square as Square),
-                      onSquareMouseDown: handleSquareMouseDown,
-                      onSquareMouseUp: handleSquareMouseUp,
-                      squareStyles: linePreview ? {
-                        // Nothing the reader put on the board belongs to a
-                        // position they are only looking at. The two squares of
-                        // the previewed move do.
-                        [linePreview.uci.slice(0, 2) as Square]: PREVIEW_SQUARE_STYLE,
-                        [linePreview.uci.slice(2, 4) as Square]: PREVIEW_SQUARE_STYLE,
-                      } : {
-                        // What was just played, under everything else.
-                        ...(currentBoardMove
-                          ? {
-                            [currentBoardMove.from as Square]: LAST_MOVE_SQUARE_STYLE,
-                            [currentBoardMove.to as Square]: LAST_MOVE_SQUARE_STYLE,
-                          }
-                          : {}),
-                        // The piece stays where it is and both squares light up:
-                        // nothing has been played, and pretending otherwise
-                        // would show a position that does not exist.
-                        ...(premove
-                          ? {
-                            [premove.from]: PREMOVE_SQUARE_STYLE,
-                            [premove.to]: PREMOVE_SQUARE_STYLE,
-                          }
-                          : {}),
-                        ...Object.fromEntries(
-                          Object.entries(markedSquares).map(([square, color]) => [square, squareMarkStyle(color)]),
-                        ),
-                        ...(selectedSquare ? { [selectedSquare]: SELECTED_SQUARE_STYLE } : {}),
-                        ...Object.fromEntries(
-                          legalTargets.map(sq => [sq, moveHintStyle(boardTheme, Boolean(game.get(sq)))]),
-                        ),
-                      },
-                      arrows: boardArrows,
-                      arrowOptions: BOARD_ARROW_OPTIONS,
-                      darkSquareNotationStyle: notationStyle(boardTheme.ink, boardTheme.dark),
-                      lightSquareNotationStyle: notationStyle(boardTheme.ink, boardTheme.light),
-                      alphaNotationStyle: { ...NOTATION_BASE_STYLE, bottom: 2, right: 3, fontSize: notationFontSize },
-                      numericNotationStyle: { ...NOTATION_BASE_STYLE, top: 2, left: 3, fontSize: notationFontSize },
-                      allowDrawingArrows: !isPreviewingLine,
-                      allowDragging: !isPreviewingLine && (!boardInputLocked || premoveAllowed),
-                      // How far a finger may wander before it is a drag rather
-                      // than a tap. The default is 1px, and no finger is that
-                      // still: **measured** at 390x844, tapping the e2 pawn
-                      // with 1px of drift lit no legal targets at all, where a
-                      // perfectly motionless tap lit two. What the reader got
-                      // for a tap was a drag that picked the pawn up and put it
-                      // back on its own square -- which lands in `onPieceDrop`
-                      // below, clears the selection, and swallows the click
-                      // that would have made one. Tap to select, the way this
-                      // board is documented to work, was reachable only with a
-                      // mouse. 8px is where Android itself draws the line --
-                      // `ViewConfiguration.getScaledTouchSlop()` is 8dp, and
-                      // below it the platform does not call a movement a drag
-                      // either -- and it is under a fifth of a square on the
-                      // narrowest phone this app supports, so a deliberate drag
-                      // still takes hold almost at once.
-                      dragActivationDistance: 8,
-                      showAnimations: !reduceMotion,
-                      darkSquareStyle: { backgroundColor: boardTheme.dark },
-                      lightSquareStyle: { backgroundColor: boardTheme.light },
-                      boardStyle: {
-                        width: `${renderedBoardWidth}px`,
-                        maxWidth: '100%',
-                        borderRadius: 12,
-                        boxShadow: '0 8px 40px rgba(0, 0, 0, 0.60), 0 2px 8px rgba(0, 0, 0, 0.40)',
-                      },
-                    }}
+                  <BoardCanvas
+                    position={linePreview ? linePreview.fen : fen}
+                    orientation={orientation}
+                    width={renderedBoardWidth}
+                    notationFontSize={notationFontSize}
+                    theme={boardTheme}
+                    previewMove={linePreview?.uci}
+                    lastMove={currentBoardMove}
+                    premove={premove}
+                    markedSquares={markedSquares}
+                    selectedSquare={selectedSquare}
+                    legalTargets={legalTargets}
+                    arrows={boardArrows}
+                    allowDrawingArrows={!isPreviewingLine}
+                    allowDragging={!isPreviewingLine && (!boardInputLocked || premoveAllowed)}
+                    reduceMotion={reduceMotion}
+                    onPieceDrop={handleBoardDrop}
+                    onSquareClick={onSquareClick}
+                    onSquareMouseDown={handleSquareMouseDown}
+                    onSquareMouseUp={handleSquareMouseUp}
                   />
                   )}
                 </div>
