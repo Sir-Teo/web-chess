@@ -17,6 +17,7 @@ export type ReviewSnapshot = {
   finishedAt: number
   total: number
   complete: boolean
+  reused: number
 }
 
 export type ReviewSession = {
@@ -40,10 +41,11 @@ export function createReviewSession(
   liveEvaluations: Map<string, EvalSnapshot>,
   previous: ReviewSnapshot | null,
   now = Date.now(),
+  reuseExisting = true,
 ): ReviewSession {
   const lineEndId = nodes.at(-1)?.id ?? ''
-  const candidates = new Map(liveEvaluations)
-  if (previous?.lineEndId === lineEndId) {
+  const candidates = reuseExisting ? new Map(liveEvaluations) : new Map<string, EvalSnapshot>()
+  if (reuseExisting && previous?.lineEndId === lineEndId) {
     for (const [fen, reading] of previous.evaluations) {
       if (sameEvaluationEngine(settings.engine, reading.engine) && isReviewEvaluationSufficient(reading, settings.depth)) {
         candidates.set(fen, reading)
@@ -73,5 +75,6 @@ export function snapshotReviewSession(session: ReviewSession, now = Date.now()):
     lineEndId: session.lineEndId, evaluations: new Map(session.evaluations), settings: session.settings,
     startedAt: session.startedAt, finishedAt: now, total: session.total,
     complete: [...session.targetFens].every(fen => session.evaluations.has(fen)),
+    reused: session.reused,
   }
 }

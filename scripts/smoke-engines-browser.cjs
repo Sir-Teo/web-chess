@@ -75,9 +75,24 @@ async function main() {
           await page.locator('#chessboard-square-e4').click()
           await page.waitForFunction(() => document.querySelector('#chessboard-square-e4')?.getAttribute('aria-label')?.includes('White pawn'))
           assert.equal(await page.locator('[id^="chessboard-square-"]').count(), 64)
+
+          stage = 'game review and export'
+          await page.getByRole('button', { name: 'Review', exact: true }).click()
+          await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+          await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+          assert.match(await page.getByTestId('review-run-summary').innerText(), /Completed review/)
+          await page.getByRole('button', { name: 'Fresh review', exact: true }).click()
+          await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+          assert.match(await page.getByTestId('review-run-summary').innerText(), /Completed review.*0 positions reused/)
+          const download = page.waitForEvent('download')
+          await page.getByRole('button', { name: 'Export review', exact: true }).click()
+          const pgn = fs.readFileSync(await (await download).path(), 'utf8')
+          assert.equal([...pgn.matchAll(/\[%eval /g)].length, 2)
+          assert.ok(pgn.includes('[WebChessReviewStatus "complete"]'))
+          assert.ok(pgn.includes('[WebChessReviewDepth "12"]'))
           assert.deepEqual(errors, [])
           results.push({ browser: name, width, status: 'passed', source, positionScore: before,
-            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4'] })
+            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'game review', 'fresh review', 'review PGN download'] })
         } catch (error) {
           results.push({ browser: name, width, status: 'failed', stage, error: String(error), pageErrors: errors })
           await page.screenshot({ path: path.join(output, `${name}-${width}-failure.png`) }).catch(() => {})

@@ -71,4 +71,14 @@ describe('a review owns the readings it grades', () => {
     expect(remaining.done).toBe(1)
     expect(remaining.queue.map(target => target.fen)).not.toContain(root)
   })
+
+  it('can explicitly re-search every position without discarding the prior report', () => {
+    const cached = new Map(nodes.map(node => [node.fen, reading()]))
+    const earlier = snapshotReviewSession(createReviewSession(nodes, root, settings, cached, null))
+    const fresh = createReviewSession(nodes, root, settings, cached, earlier, 30, false)
+    expect(fresh.queue).toHaveLength(nodes.length)
+    expect(fresh.reused).toBe(0)
+    expect(fresh.evaluations.size).toBe(0)
+    expect(earlier.evaluations.size).toBe(nodes.length)
+  })
 })

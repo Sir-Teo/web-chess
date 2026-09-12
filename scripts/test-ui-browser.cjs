@@ -836,7 +836,7 @@ async function checkPvPreviewAndCommit(browser) {
   }
 }
 
-async function checkReviewUsesSelectedEngine(browser) {
+async function checkReviewUsesSelectedEngine(browser, controls = false) {
   for (const [width, workers, failPool] of [[1280, 4, false], [375, 1, false], [1280, 4, true]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 } })
     const page = await context.newPage()
@@ -887,6 +887,28 @@ async function checkReviewUsesSelectedEngine(browser) {
       await page.getByRole('button', { name: 'Review Game', exact: true }).click()
       await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
       assert(await page.evaluate(() => window.__fullReviewSearches) === before, 'unchanged review did not reuse its own completed readings')
+      if (controls) {
+        await page.getByRole('button', { name: 'Fresh review', exact: true }).click()
+        await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+        assert(await page.evaluate(() => window.__fullReviewSearches) >= before + 117, 'Fresh review skipped previously evaluated positions')
+        assert((await page.getByTestId('review-run-summary').innerText()).includes('0 positions reused'), 'fresh review reports reused positions')
+        const downloaded = page.waitForEvent('download')
+        await page.getByRole('button', { name: 'Export review', exact: true }).click()
+        const pgn = fs.readFileSync(await (await downloaded).path(), 'utf8')
+        const scores = [...pgn.matchAll(/\[%eval\s+([^\]]+)\]/g)]
+        assert(scores.length === 117 && scores.every(match => Number(match[1]) === 0), 'review export used the older, deeper shared position scores')
+        assert([...pgn.matchAll(/\[%wcengine\s+([^\]]+)\]/g)].every(match => JSON.parse(decodeURIComponent(match[1]))[0] === 'full-single-cdn'),
+          'exported review lost its actual producer')
+        assert(pgn.includes('[WebChessReviewStatus "complete"]') && pgn.includes('[WebChessReviewReused "0"]'), 'export omitted review provenance')
+        await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
+        await page.locator('.review-report-actions').scrollIntoViewIfNeeded()
+        for (const button of await page.locator('.review-report-actions button').all()) {
+          const size = await button.evaluate(el => ({ height: el.getBoundingClientRect().height, width: el.clientWidth, content: el.scrollWidth }))
+          assert(size.height >= 44 && size.content <= size.width + 1, `review action clips at 200% text: ${JSON.stringify(size)}`)
+        }
+        await page.screenshot({ path: `/tmp/web-chess-review-controls-${width}${failPool ? '-fallback' : ''}.png` })
+        console.log(`  review controls (${width}px): fresh search, exact report PGN download, and 200% text fit`)
+      }
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'review source overflows the viewport')
       console.log(`  review engine (${width}px, limit ${workers}${failPool ? ', mid-search pool failure' : ''}): switched engine searches the full game, report excludes deeper old scores, completed readings are reusable`)
     } finally { await context.close() }
@@ -4799,6 +4821,7 @@ async function main() {
       'evaluation-source': checkEvaluationEngineProvenance,
       'pv-reuse': checkPvPreviewAndCommit,
       'review-source': checkReviewUsesSelectedEngine,
+      'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
@@ -5447,7 +5470,7 @@ async function main() {
     await checkCandidateSearchKeepsPositionScore(browser)
     await checkEvaluationEngineProvenance(browser)
     await checkPvPreviewAndCommit(browser)
-    await checkReviewUsesSelectedEngine(browser)
+    await checkReviewUsesSelectedEngine(browser, true)
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)
     await checkKeepSearchingIsUnbounded(browser)

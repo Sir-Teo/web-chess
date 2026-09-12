@@ -99,6 +99,7 @@ import {
 import { engineProfiles, type EngineProfileId } from './engine/profiles'
 import { evaluationEngine, evaluationSourceLabel, sameEvaluationEngine } from './engine/evaluationSource'
 import { createReviewSession, recordReviewResult, snapshotReviewSession, type ReviewSession, type ReviewSnapshot } from './engine/reviewSession'
+import { exportReviewPgn } from './engine/reviewPgn'
 import { fetchSamplePgn } from './engine/samplePgn'
 import { hashCarriesShare, parseFenShareHash } from './engine/shareLink'
 import { parseGameShareHash, replaySharedGame } from './engine/shareGame'
@@ -1484,7 +1485,7 @@ function App() {
     if (hadImportSweep || hadBatchReview) stop()
   }, [clearBatchReview, clearImportSweep, importSweepProgress.total, isBatchReviewing, stop])
 
-  const startBatchReview = useCallback(() => {
+  const startBatchReview = useCallback((options?: { fresh: boolean }) => {
     if (!engineEnabled || (status !== 'ready' && status !== 'analyzing')) return
     // A review already in flight is replaced, not doubled. The button turns
     // into Stop while one runs, but the command palette's "Review game" does
@@ -1503,7 +1504,7 @@ function App() {
     const previous = reviewSessionRef.current ? snapshotReviewSession(reviewSessionRef.current) : frozenReview
     const session = createReviewSession(nodes, rootFen, {
       engine: evaluationEngine(activeProfile, engineName), depth: searchDepth, hashMb, showWdl,
-    }, evaluationsByFenRef.current, previous)
+    }, evaluationsByFenRef.current, previous, Date.now(), !options?.fresh)
     reviewSessionRef.current = session
     const targets = session.queue
     clearImportSweep()
@@ -2879,6 +2880,21 @@ function App() {
     () => buildReviewRows(reviewLineMoves, reviewEvaluations, currentRootFen, { isBookPosition }),
     [currentRootFen, isBookPosition, reviewEvaluations, reviewLineMoves],
   )
+  const downloadReview = useCallback(() => {
+    if (!currentReviewReport) return
+    const pgn = exportReviewPgn(reviewLineNodes, currentReviewReport, {
+      ...pgnHeaders, Result: reviewsAVariation ? '*' : pgnHeaders.Result ?? '*',
+    }, reviewRows.map(row => row.quality))
+    if (!pgn) return
+    const url = URL.createObjectURL(new Blob([pgn], { type: 'application/x-chess-pgn;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `web-chess-review-${new Date(currentReviewReport.finishedAt).toISOString().slice(0, 10)}.pgn`
+    document.body.append(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 0)
+  }, [currentReviewReport, pgnHeaders, reviewLineNodes, reviewRows, reviewsAVariation])
   const visibleReviewRows = useMemo(
     () => filterReviewRowsBySide(reviewRows, reviewSideFilter),
     [reviewRows, reviewSideFilter],
@@ -8057,7 +8073,7 @@ function App() {
                     <button
                       type="button"
                       className={`batch-review-btn ${isBatchReviewing ? 'btn-primary pulsing' : ''}`}
-                      onClick={isBatchReviewing ? stopBatchReview : startBatchReview}
+                      onClick={isBatchReviewing ? stopBatchReview : () => startBatchReview()}
                       disabled={Boolean(reviewGameDisabledReason)}
                       title={reviewGameDisabledReason ?? undefined}
                       aria-label={reviewGameButtonLabel}
@@ -8076,10 +8092,24 @@ function App() {
                   {keepSearchingSwitch}
                   <div className="review-scaffold">
                     <h3><span className="section-icon"><IconBarChart /></span> Review</h3>
+                    {analysisExperience === 'pro' && (
+                      <div className="review-report-actions">
+                        <button type="button" onClick={() => startBatchReview({ fresh: true })}
+                          disabled={isBatchReviewing || Boolean(reviewGameDisabledReason)}
+                          title={reviewGameDisabledReason ?? `Re-search every position at depth ${searchDepth}, including already analyzed positions.`}>
+                          <IconSearch /> Fresh review
+                        </button>
+                        <button type="button" onClick={downloadReview}
+                          disabled={isBatchReviewing || !currentReviewReport}
+                          title={currentReviewReport ? 'Download the reviewed line with this report’s scores and engine identity.' : 'Review this line first.'}>
+                          <IconDownload /> Export review
+                        </button>
+                      </div>
+                    )}
                     {currentReviewReport && !isBatchReviewing && (
                       <p className="panel-copy small" data-testid="review-run-summary">
                         {currentReviewReport.complete ? 'Completed review' : 'Partial review'}
-                        {' · '}Target depth {currentReviewReport.settings.depth}
+                        {analysisExperience === 'pro' && ` · Target depth ${currentReviewReport.settings.depth} · ${currentReviewReport.reused} positions reused`}
                         {!currentReviewReport.complete && '. Run Review Game to finish the remaining positions.'}
                       </p>
                     )}
