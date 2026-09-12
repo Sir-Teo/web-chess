@@ -2,11 +2,15 @@
  * Production UI profiling with controlled UCI telemetry; this does not measure
  * Stockfish search speed or field INP. Build with `npm run build -- --sourcemap`
  * and preview on port 4336, then run this script. No result is a test threshold.
+ * Set BENCH_TRACE=scripts/fixtures/analysis-stockfish-18.json to replay changing
+ * lines at their recorded timings. Refresh with capture-analysis-trace.cjs
+ * against the dev server; no live engine runs during the measured interval.
  */
 const { chromium } = require('playwright')
 const { Chess } = require('chess.js')
 const { SourceMap } = require('node:module')
 const { execFileSync } = require('node:child_process')
+const { createHash } = require('node:crypto')
 const fs = require('node:fs')
 const path = require('node:path')
 
@@ -17,8 +21,34 @@ const width = Number(process.env.BENCH_WIDTH || 1280)
 const cpuRate = Number(process.env.BENCH_CPU_RATE || 4)
 const flipIntervalMs = Number(process.env.BENCH_FLIP_MS ?? 500)
 const reducedMotion = process.env.BENCH_REDUCED_MOTION === '1'
-const durationMs = 6000
 const pgn = fs.readFileSync(path.join(__dirname, 'fixtures/review-game.pgn'), 'utf8')
+const tracePath = process.env.BENCH_TRACE
+const trace = tracePath ? JSON.parse(fs.readFileSync(tracePath, 'utf8')) : null
+const durationMs = trace?.durationMs ?? 6000
+
+function validateTrace() {
+  if (!trace) return
+  const board = new Chess()
+  board.loadPgn(pgn)
+  if (trace.fixtureSha256 !== createHash('sha256').update(pgn).digest('hex') || trace.fen !== board.fen()) {
+    throw new Error('Stockfish trace does not match the benchmark game')
+  }
+  if (!Number.isFinite(durationMs) || durationMs <= 0 || trace.events.length < 10) throw new Error('Invalid trace duration or event count')
+  let previousTime = -1
+  const uniquePvs = new Set()
+  for (const event of trace.events) {
+    if (!Number.isFinite(event.atMs) || event.atMs < previousTime || event.atMs > durationMs || !event.line.startsWith('info ')) {
+      throw new Error('Invalid trace event')
+    }
+    previousTime = event.atMs
+    const pv = event.line.split(' pv ')[1]
+    if (!pv) throw new Error('Trace event has no PV')
+    uniquePvs.add(pv)
+    const replay = new Chess(trace.fen)
+    for (const move of pv.split(' ')) replay.move({ from: move.slice(0, 2), to: move.slice(2, 4), promotion: move[4] })
+  }
+  if (uniquePvs.size < 10) throw new Error('Trace does not exercise changing PVs')
+}
 
 function fixturePositions() {
   const game = new Chess()
@@ -130,6 +160,7 @@ function profileSummary(profile) {
 }
 
 async function main() {
+  validateTrace()
   fs.mkdirSync(output, { recursive: true })
   const positions = fixturePositions()
   const browser = await chromium.launch()
@@ -162,12 +193,18 @@ async function main() {
       await client.send('Profiler.setSamplingInterval', { interval: 1000 })
       const before = Object.fromEntries((await client.send('Performance.getMetrics')).metrics.map(item => [item.name, item.value]))
       await client.send('Profiler.start')
-      const observed = await page.evaluate(async ({ duration, flipInterval }) => {
+      const observed = await page.evaluate(async ({ duration, flipInterval, trace }) => {
         const longTasks = []
         const observer = new PerformanceObserver(list => list.getEntries().forEach(entry => longTasks.push(entry.duration)))
         observer.observe({ type: 'longtask' })
         let updates = 0
-        const timer = setInterval(() => {
+        const worker = window.__benchmarkWorkers.findLast(item => item.searching && item.multiPv === 5)
+        if (trace && worker?.fen !== trace.fen) throw new Error('Trace position is not active')
+        const traceTimers = trace ? trace.events.map(event => setTimeout(() => {
+          worker.send(event.line)
+          updates++
+        }, event.atMs)) : []
+        const timer = trace ? null : setInterval(() => {
           const worker = window.__benchmarkWorkers.findLast(item => item.searching && item.multiPv === 5)
           if (worker) { worker.info(); updates++ }
         }, 100)
@@ -180,11 +217,12 @@ async function main() {
           requestAnimationFrame(() => requestAnimationFrame(() => flips.push(performance.now() - start)))
         }, flipInterval) : null
         await new Promise(resolve => setTimeout(resolve, duration))
-        clearInterval(timer)
+        if (timer !== null) clearInterval(timer)
+        traceTimers.forEach(clearTimeout)
         if (inputTimer !== null) clearInterval(inputTimer)
         observer.disconnect()
         return { updates, longTasks, flipToTwoFramesMs: flips }
-      }, { duration: durationMs, flipInterval: flipIntervalMs })
+      }, { duration: durationMs, flipInterval: flipIntervalMs, trace })
       const { profile } = await client.send('Profiler.stop')
       const after = Object.fromEntries((await client.send('Performance.getMetrics')).metrics.map(item => [item.name, item.value]))
       const metrics = Object.fromEntries(['TaskDuration', 'ScriptDuration', 'LayoutDuration', 'RecalcStyleDuration', 'LayoutCount', 'RecalcStyleCount'].map(key => [key, after[key] - before[key]]))
@@ -192,7 +230,7 @@ async function main() {
       const result = { sample: sample + 1, metrics, observed, errors, topFrames: profileSummary(profile) }
       results.push(result)
       console.log(JSON.stringify(result))
-      if (errors.length || observed.updates < 30) throw new Error('Fixture did not run a valid telemetry workload')
+      if (errors.length || (trace ? observed.updates !== trace.events.length : observed.updates < 30)) throw new Error('Fixture did not run a valid telemetry workload')
       await page.screenshot({ path: path.join(output, `sample-${sample + 1}.png`) })
       await context.close()
     }
@@ -202,7 +240,8 @@ async function main() {
       sourceDiff: execFileSync('git', ['diff', '--', 'src'], { encoding: 'utf8' }),
       productionAssets: fs.readdirSync(path.join(__dirname, '../dist/assets')).filter(file => file.endsWith('.js')),
       base, width, cpuRate, durationMs, flipIntervalMs, reducedMotion,
-      workload: `116-ply game, five legal PVs, telemetry every 100ms, ${flipIntervalMs > 0 ? `board flip every ${flipIntervalMs}ms` : 'no board flips'}; production build, main thread only`, results,
+      trace: trace ? { ...trace, events: undefined, path: tracePath, eventCount: trace.events.length, uniquePvs: new Set(trace.events.map(event => event.line.split(' pv ')[1])).size } : null,
+      workload: `116-ply game, five legal PVs, ${trace ? 'recorded Stockfish output at original timings' : 'telemetry every 100ms'}, ${flipIntervalMs > 0 ? `board flip every ${flipIntervalMs}ms` : 'no board flips'}; production build, main thread only`, results,
     }, null, 2) + '\n')
     await browser.close()
   }
