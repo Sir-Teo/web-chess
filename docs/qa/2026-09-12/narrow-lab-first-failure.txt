@@ -1,0 +1,16 @@
+Full browser gate after 6ca1046. Investigated and reproduced as an intermediate stale input commit, then fixed in 66422bd.
+
+  autosave (1280px, Light): denied storage is visible, PGN downloads, retry recovers
+  contrast (Light / recovery warning / 375px): 160 measured, 0 under the floor (138 on a gradient, measured against its worst stop)
+  autosave (375px, Light): denied storage is visible, PGN downloads, retry recovers
+  startup (analysis, silent-first): fallback answered
+  startup (analysis, silent-all): failure is visible
+  startup (play, silent-first): fallback answered
+  startup (play, silent-all): failure is visible
+  contrast (Engine Lab shared settings / 1280px): 120 measured, 0 under the floor (103 on a gradient, measured against its worst stop)
+  Engine Lab (1280px): shared settings, next search, reload, and console updates agree
+Error: console bypassed shared setting state
+    at fail (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:33:9)
+    at assert (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:37:19)
+    at checkLabSettingsStayInSync (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:660:7)
+    at async main (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:6463:5)

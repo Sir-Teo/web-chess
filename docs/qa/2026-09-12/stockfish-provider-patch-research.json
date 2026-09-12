@@ -1,0 +1,31 @@
+{
+  "checkedOn": "2026-09-12",
+  "npmReportedGitHeads": {
+    "18.0.7": "32d4b5ae40c01db88219bfbe2b82dbe6dec93832",
+    "18.0.8": "93c994592dcf3b4b21052ab925e9b534df9c0918"
+  },
+  "comparisonUrl": "https://api.github.com/repos/nmrugg/stockfish.js/compare/32d4b5ae40c01db88219bfbe2b82dbe6dec93832...93c994592dcf3b4b21052ab925e9b534df9c0918",
+  "totalCommits": 10,
+  "changedFiles": [
+    "build.js",
+    "examples/README.md",
+    "examples/get-engine.js",
+    "examples/index.html",
+    "examples/loadEngine.js",
+    "examples/server.js",
+    "package.json",
+    "scripts/prepack.js",
+    "src/emscripten/extern-post.js",
+    "src/emscripten/extern-pre.js",
+    "src/emscripten/wasm-makefile.mk"
+  ],
+  "scope": "Compared npm-reported source refs and reviewed the browser-loader and example documentation patches. Published binary contents and startup performance have not been compared.",
+  "nextChecks": [
+    "throttled and interrupted downloads",
+    "WASM MIME handling",
+    "warm and offline caches",
+    "boot failure propagation",
+    "published binary identity and startup measurements"
+  ],
+  "sourceRefCaveat": "The package.json at the npm-reported 18.0.7 gitHead says 18.0.6. Published artifact inspection is still required."
+}

@@ -1,0 +1,76 @@
+{
+  "sourceCommit": "66422bd15e9f068cd0f4fabbd08104ef524d07a4",
+  "scope": "Production Chromium at 200% root text with live deterministic Pro telemetry and reduced motion. Geometry only; no speed claim.",
+  "results": [
+    {
+      "width": 901,
+      "height": 812,
+      "rootTextPx": "32px",
+      "top": {
+        "x": 0,
+        "y": 0,
+        "width": 901,
+        "height": 422.546875
+      },
+      "bottom": {
+        "x": 0,
+        "y": 548.515625,
+        "width": 901,
+        "height": 263.484375
+      },
+      "main": {
+        "x": 0,
+        "y": 422.546875,
+        "width": 901,
+        "height": 125.96875
+      },
+      "stage": {
+        "x": 227,
+        "y": 422.546875,
+        "width": 446,
+        "height": 125.96875
+      },
+      "analysisHeader": {
+        "x": 674,
+        "y": 422.546875,
+        "width": 227,
+        "height": 326.9375
+      }
+    },
+    {
+      "width": 1280,
+      "height": 812,
+      "rootTextPx": "32px",
+      "top": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 238.203125
+      },
+      "bottom": {
+        "x": 0,
+        "y": 598.59375,
+        "width": 1280,
+        "height": 213.40625
+      },
+      "main": {
+        "x": 0,
+        "y": 238.203125,
+        "width": 1280,
+        "height": 360.390625
+      },
+      "stage": {
+        "x": 320,
+        "y": 238.203125,
+        "width": 640,
+        "height": 360.390625
+      },
+      "analysisHeader": {
+        "x": 961,
+        "y": 238.203125,
+        "width": 319,
+        "height": 326.9375
+      }
+    }
+  ]
+}

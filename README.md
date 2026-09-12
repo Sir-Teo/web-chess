@@ -100,6 +100,11 @@ given, and the app answering the reader who touches it.
 ### Studying
 
 - **Beginner and pro analysis**: Coach mode keeps the right panel focused on plain-language move guidance — it opens with the evaluation *in words*, "Black is slightly better · 46% for White", rather than with `-0.48` — while Pro mode exposes MultiPV, WDL, cloud evals, opening stats, tablebase moves, and UCI controls.
+- **Room for the board on smaller desktops**: Above the stacked layout, side
+  panels share the available space to keep the board's full width visible. Enlarging
+  text updates that allowance too. Panel widths return to your preferences when
+  the window widens; dragging or using the resize handles' arrow keys adjusts
+  the visible boundaries.
 - **Type a move**: "Enter a move by name" at the top of the analysis panel
   takes `Nf3`, `e2e4` or `O-O` — and the forms people actually type, `nf3`,
   `0-0`, `e8q`, which it used to refuse while telling you to type `Nf3`.

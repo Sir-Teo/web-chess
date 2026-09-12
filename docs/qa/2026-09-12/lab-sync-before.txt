@@ -1,0 +1,30 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 176 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-e8sueYWE.js   59.52 kB
+dist/assets/LibraryDialog-1a6sktfW.css        3.40 kB │ gzip:   0.97 kB
+dist/assets/index-CRFrd2X_.css              118.01 kB │ gzip:  21.85 kB
+dist/assets/NewGameDialog-oav5SSVo.js         4.26 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-B6pAL44e.js         7.58 kB │ gzip:   2.81 kB
+dist/assets/PgnDialog-BJSSzPHJ.js            23.90 kB │ gzip:   7.95 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-BjSUTq5d.js               341.71 kB │ gzip: 109.70 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 656ms
+Error: console persisted a setting while its control showed another value: [{"stored":"96","displayed":"72"}]
+    at fail (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:33:9)
+    at assert (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:37:19)
+    at checkLabSettingsStayInSync (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:677:9)
+    at async main (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:5853:7)
