@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { GameNode } from '../hooks/useGameTree'
 import { createReviewSession, recordReviewResult, snapshotReviewSession } from './reviewSession'
 import { createSavedReview, readSavedReview, restoreSavedReview, reviewLineKey, savedReviewSummary } from './savedReviews'
+import { createReviewBackup, parseReviewBackup, planReviewImport } from './reviewBackup'
 
 function fixture(moves = ['Nf3', 'Nf6', 'g3'], rootFen?: string, depth = 16) {
   const game = new Chess(rootFen)
@@ -72,6 +73,33 @@ describe('portable, isolated saved reviews', () => {
       expect(saved.complete).toBe(true)
       expect(readSavedReview(saved)).not.toBeNull()
     }
+  })
+
+  it('saves only searched positions in a repetition and preserves legacy complete and partial reports', () => {
+    const { line, saved } = fixture(['Nf3', 'Nf6', 'Ng1', 'Ng8', 'Nf3', 'Nf6', 'Ng1', 'Ng8'])
+    const finalFen = line.at(-1)!.fen
+    expect(saved).toMatchObject({ total: 8, evaluated: 8, complete: true })
+    expect(saved.evaluations.some(([fen]) => fen === finalFen)).toBe(false)
+    const legacy = { ...saved, id: 'legacy', total: 9, evaluated: 9, reused: 9,
+      evaluations: [...saved.evaluations, [finalFen, { ...saved.evaluations[0][1], cp: 900 }] as typeof saved.evaluations[number]] }
+    const partial = { ...legacy, id: 'legacy-partial', evaluated: 8, reused: 8, complete: false, evaluations: saved.evaluations }
+    for (const original of [saved, legacy, partial]) {
+      const opened = readSavedReview(JSON.parse(JSON.stringify(original)))!
+      expect(opened).toEqual(original)
+      expect(restoreSavedReview(opened, line)).toMatchObject({ total: original.total, reused: original.reused, complete: original.complete })
+    }
+    const backup = createReviewBackup([saved, legacy, partial], 30)
+    const restored = parseReviewBackup(backup.text)
+    expect(restored).toEqual([saved, legacy, partial])
+    expect(planReviewImport([], restored).added).toHaveLength(3)
+    expect(planReviewImport(restored, restored).skipped).toBe(3)
+    const resumed = createReviewSession(line, line[0].fen, saved.settings, new Map(), restoreSavedReview(partial, line), 40)
+    expect(resumed).toMatchObject({ total: 8, reused: 8, queue: [] })
+    expect(snapshotReviewSession(resumed, 50).complete).toBe(true)
+    expect(readSavedReview({ ...legacy, evaluations: [...saved.evaluations, [finalFen, { ...legacy.evaluations.at(-1)![1], depth: 1 }]] })).toBeNull()
+    expect(readSavedReview({ ...saved, total: 9, complete: false })).not.toBeNull()
+    expect(readSavedReview({ ...saved, total: 7 })).toBeNull()
+    expect(readSavedReview({ ...saved, evaluated: 8, evaluations: [legacy.evaluations.at(-1)!, ...saved.evaluations.slice(1)] })).toBeNull()
   })
 
   it('rejects damaged settings, incompatible schemas and mismatched histories', () => {

@@ -78,10 +78,27 @@ function describeEnd(game: Chess, repeated: boolean): GameEnd | null {
 export function describeGameEndFromPath(path: readonly { fen: string }[]): GameEnd | null {
   const last = path.at(-1)
   if (!last) return null
-  const key = last.fen.split(' ').slice(0, 4).join(' ')
+  const key = repetitionKey(last.fen)
   let occurrences = 0
   for (const node of path) {
-    if (node.fen.split(' ').slice(0, 4).join(' ') === key) occurrences++
+    if (repetitionKey(node.fen) === key) occurrences++
   }
   return describeEnd(new Chess(last.fen), occurrences >= 3)
+}
+
+function repetitionKey(fen: string): string {
+  return fen.split(' ').slice(0, 4).join(' ')
+}
+
+/** Full FENs whose own prefix reaches threefold repetition, in one pass. */
+export function repetitionFensOnPath(path: readonly { fen: string }[]): Set<string> {
+  const counts = new Map<string, number>()
+  const repeated = new Set<string>()
+  for (const node of path) {
+    const key = repetitionKey(node.fen)
+    const count = (counts.get(key) ?? 0) + 1
+    counts.set(key, count)
+    if (count >= 3) repeated.add(node.fen)
+  }
+  return repeated
 }

@@ -88,4 +88,32 @@ describe('planning a review', () => {
         expect(plan.total).toBe(mated.length - 1)
         expect(plan.queue.map((t: BatchReviewTarget) => t.fen)).not.toContain(mated.at(-1)!.fen)
     })
+
+    it('does not search or reuse a known repetition, but keeps the same FEN in another history', () => {
+        const repeated = lineOf(['Nf3', 'Nf6', 'Ng1', 'Ng8', 'Nf3', 'Nf6', 'Ng1', 'Ng8'])
+        const other = lineOf(['Nf3', 'Nf6', 'Nc3', 'Nc6', 'Ng1', 'Ng8', 'Nb1', 'Nb8'])
+        const finalFen = repeated.at(-1)!.fen
+        expect(other.at(-1)!.fen).toBe(finalFen)
+        const plan = planBatchReview(repeated, repeated[0].fen, new Map(), 18)
+        expect(plan.total).toBe(8)
+        expect(plan.queue.map(target => target.fen)).not.toContain(finalFen)
+        expect(plan.queue.at(-1)!.historyMoves).toHaveLength(7)
+        const readings = new Map(repeated.map(node => [node.fen, deep(30)] as const))
+        const reused = planBatchReview(repeated, repeated[0].fen, readings, 18)
+        expect(reused).toMatchObject({ total: 8, done: 8, queue: [] })
+        expect(reused.reused.has(finalFen)).toBe(false)
+        expect(readings.has(finalFen)).toBe(true)
+        const different = planBatchReview(other, other[0].fen, new Map(), 18)
+        expect(different.total).toBe(9)
+        expect(different.queue.at(-1)!.fen).toBe(finalFen)
+    })
+
+    it('keeps the full move history when analyzing a continuation past a draw', () => {
+        const continued = lineOf(['Nf3', 'Nf6', 'Ng1', 'Ng8', 'Nf3', 'Nf6', 'Ng1', 'Ng8', 'e4'])
+        const plan = planBatchReview(continued, continued[0].fen, new Map(), 18)
+        expect(plan.total).toBe(9)
+        expect(plan.queue.map(target => target.fen)).not.toContain(continued[8].fen)
+        expect(plan.queue.at(-1)!).toMatchObject({ fen: continued[9].fen,
+            historyMoves: ['g1f3', 'g8f6', 'f3g1', 'f6g8', 'g1f3', 'g8f6', 'f3g1', 'f6g8', 'e2e4'] })
+    })
 })

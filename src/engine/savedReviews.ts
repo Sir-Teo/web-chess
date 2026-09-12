@@ -4,6 +4,7 @@ import { decodeEvaluationEngine, encodeEvaluationEngine, sameEvaluationEngine } 
 import { flattenPgnMainLine, parsePgnMoveTree } from './pgn'
 import { exportReviewPgn } from './reviewPgn'
 import type { ReviewSettings, ReviewSnapshot } from './reviewSession'
+import { reviewTargetFens } from './batchReview'
 
 export const MAX_SAVED_REVIEWS = 50
 export const MAX_SAVED_REVIEW_BYTES = 512 * 1024
@@ -108,10 +109,14 @@ export function readSavedReview(value: unknown): SavedReview | null {
       fen: node.fen, uci: node.move.from + node.move.to + (node.move.promotion ?? ''),
     }))]
     if (reviewLineKey(line) !== summary.lineKey) return null
-    // Review planning does not search checkmate, stalemate or drawn FENs.
-    // Their known result is derived again when the report is displayed.
-    const targets = new Set(line.filter(node => !isTerminalPositionFen(node.fen)).map(node => node.fen))
-    if (targets.size !== summary.total) return null
+    let targets = reviewTargetFens(line)
+    if (targets.size !== summary.total) {
+      // Older version-1 runs searched repetition endpoints. Preserve their
+      // exact readings, completion and reuse counts as historical work; only
+      // the old, strictly validated target set can qualify for this fallback.
+      targets = new Set(line.filter(node => !isTerminalPositionFen(node.fen)).map(node => node.fen))
+      if (targets.size !== summary.total) return null
+    }
     const seen = new Set<string>()
     const evaluations: SavedReview['evaluations'] = []
     for (const pair of value.evaluations) {

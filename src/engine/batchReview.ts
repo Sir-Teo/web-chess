@@ -13,6 +13,7 @@
 import type { ImportSweepTarget } from './importSweep'
 import { type EvalSnapshot, isReviewEvaluationSufficient, isTerminalPositionFen } from './analysis'
 import { sameEvaluationEngine, type EvaluationEngine } from './evaluationSource'
+import { repetitionFensOnPath } from './gameEnd'
 
 export type BatchReviewTarget = ImportSweepTarget
 
@@ -50,6 +51,12 @@ export function buildBatchReviewTargets(
   })
 }
 
+/** Canonical positions that need an engine reading, shared by planning and reports. */
+export function reviewTargetFens(nodes: readonly { fen: string }[]): Set<string> {
+  const repeated = repetitionFensOnPath(nodes)
+  return new Set(nodes.filter(node => !repeated.has(node.fen) && !isTerminalPositionFen(node.fen)).map(node => node.fen))
+}
+
 /**
  * What a review of this line still has to do.
  *
@@ -65,8 +72,9 @@ export function planBatchReview(
   minDepth: number,
   engine?: EvaluationEngine,
 ): BatchReviewPlan {
+  const targets = reviewTargetFens(nodes)
   const searchable = buildBatchReviewTargets(nodes, rootFen)
-    .filter(target => !isTerminalPositionFen(target.fen))
+    .filter(target => targets.has(target.fen))
   const reused = new Map<string, EvalSnapshot>()
   const queue = searchable.filter(target => {
     const reading = evaluations.get(target.fen)

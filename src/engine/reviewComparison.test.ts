@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest'
 import type { GameNode } from '../hooks/useGameTree'
 import { compareReviews, comparisonScore, comparisonWdl } from './reviewComparison'
 import type { ReviewSnapshot } from './reviewSession'
-import { reviewLineKey, type SavedReview } from './savedReviews'
+import { createSavedReview, reviewLineKey, type SavedReview } from './savedReviews'
+import { createReviewSession, recordReviewResult, snapshotReviewSession } from './reviewSession'
 
 function fixture() {
   const game = new Chess()
@@ -63,5 +64,26 @@ describe('review comparisons', () => {
     const { line, open, saved } = fixture()
     expect(compareReviews(line, open, { ...saved, lineKey: 'another' })).toBeNull()
     expect(compareReviews(line, { ...open, lineEndId: 'other' }, saved)).toBeNull()
+  })
+
+  it('does not count a legacy repetition score as a missing or changed reading', () => {
+    const { line, open } = fixture()
+    const game = new Chess()
+    line.splice(1)
+    for (const san of ['Nf3', 'Nf6', 'Ng1', 'Ng8', 'Nf3', 'Nf6', 'Ng1', 'Ng8']) {
+      const move = game.move(san)
+      line.push({ id: String(line.length), fen: game.fen(), uci: move.from + move.to, san, move, parent: line.at(-1)!.id, children: [] })
+    }
+    const session = createReviewSession(line, line[0].fen, open.settings, new Map(), null, 1)
+    for (const node of line) recordReviewResult(session, node.fen, { cp: 20, depth: 16, engine: open.settings.engine })
+    const current = snapshotReviewSession(session, 2)
+    const saved = createSavedReview(line, current, {}, [], 'draw')
+    saved.total = saved.evaluated = 9
+    saved.evaluations.push([line.at(-1)!.fen, { cp: 900, depth: 16, engine: open.settings.engine }])
+    const compared = compareReviews(line, current, saved)!
+    expect(compared).toMatchObject({ paired: 8, missingOpen: 0, missingSaved: 0, changedScores: 0 })
+    expect(compared.rows).toHaveLength(8)
+    expect(compared.rows.at(-1)!.label).toBe('4. Ng1')
+    expect(saved.evaluations.at(-1)![1].cp).toBe(900)
   })
 })

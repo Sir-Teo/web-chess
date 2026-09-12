@@ -1518,6 +1518,83 @@ async function checkSavedReviewEndings(browser) {
   }
 }
 
+async function checkRepetitionReviewCompatibility(browser) {
+  const pgn = '1. e4 e5 2. Nc3 Nc6 3. g3 g6 4. Nf3 Nf6 5. Ng1 Ng8 6. Nf3 Nf6 7. Ng1 Ng8 1/2-1/2'
+  const game = new (require('chess.js').Chess)()
+  game.loadPgn(pgn)
+  const finalFen = game.fen()
+  const expected = game.history().length
+  const downloadBackup = async page => {
+    const download = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Export review backup', exact: true }).click()
+    return JSON.parse(fs.readFileSync(await (await download).path(), 'utf8'))
+  }
+  for (const [width, workers] of [[1280, 4], [375, 1]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('requested-depth'))
+      await page.addInitScript(workers => {
+        Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 })
+        Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 })
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro',
+          autoAnalyze: false, searchDepth: 6, hashMb: 128, engineProfile: 'lite-single-local', reviewMaxWorkers: workers }))
+      }, workers)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.dialog-section textarea').first().fill(pgn)
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      const countSearches = () => page.evaluate(() => window.__uciCommands.filter(command => command.startsWith('go depth 6')).length)
+      const before = await countSearches()
+      await page.getByRole('button', { name: 'Fresh review', exact: true }).click()
+      await page.getByTestId('review-run-summary').filter({ hasText: 'Completed review' }).waitFor()
+      assert(await countSearches() - before === expected, `review searched ${await countSearches() - before} positions instead of ${expected}`)
+      assert(await page.evaluate(() => window.__engineCount) === (workers === 4 ? 5 : 1), 'the intended serial/pool path did not run')
+      await page.getByRole('button', { name: 'Save review', exact: true }).click()
+      await page.getByText('Review saved on this device.', { exact: false }).waitFor()
+      const backup = await downloadBackup(page)
+      const modern = backup.reviews[0]
+      assert(modern.total === expected && modern.evaluated === expected && !modern.evaluations.some(([fen]) => fen === finalFen), 'the saved report counts the known ending')
+      const legacy = { ...structuredClone(modern), id: 'legacy-complete', title: 'Legacy complete', total: expected + 1,
+        evaluated: expected + 1, reused: expected + 1,
+        evaluations: [...modern.evaluations, [finalFen, { ...modern.evaluations[0][1], cp: 900 }]] }
+      const partial = { ...structuredClone(modern), id: 'legacy-partial', title: 'Legacy partial', total: expected + 1,
+        reused: expected, complete: false }
+      const chooser = page.waitForEvent('filechooser')
+      await page.getByRole('button', { name: 'Import review backup', exact: true }).click()
+      await (await chooser).setFiles({ name: 'legacy-reviews.json', mimeType: 'application/json',
+        buffer: Buffer.from(JSON.stringify({ ...backup, reviews: [legacy, partial] })) })
+      await page.getByText('Imported 2', { exact: false }).waitFor()
+      await page.getByLabel('Choose a saved review').selectOption(legacy.id)
+      await page.getByRole('button', { name: 'Use saved review', exact: true }).click()
+      await page.getByText('Saved review opened.', { exact: false }).waitFor()
+      assert((await page.getByTestId('review-run-summary').innerText()).includes(`Completed review · Target depth 6 · ${expected + 1} positions reused`), 'legacy work counts were rewritten')
+      assert(await page.locator('.eval-bar-label').innerText() === '½-½', 'legacy endpoint score overrides the known draw')
+      await page.getByLabel('Choose a saved review').selectOption(modern.id)
+      await page.getByRole('button', { name: 'Compare with open review', exact: true }).click()
+      const compared = await page.getByTestId('review-comparison-summary').innerText()
+      assert(compared.includes(`${expected}/${expected} positions`) && compared.includes('0 score changes')
+        && compared.includes('Missing: 0 in open · 0 in saved'), `legacy ending creates a false comparison difference: ${compared}`)
+      await page.getByRole('button', { name: 'Close comparison', exact: true }).click()
+      await page.getByLabel('Choose a saved review').selectOption(partial.id)
+      await page.getByRole('button', { name: 'Use saved review', exact: true }).click()
+      await page.getByTestId('review-run-summary').filter({ hasText: 'Partial review' }).waitFor()
+      const resumeBefore = await countSearches()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+      await page.getByTestId('review-run-summary').filter({ hasText: 'Completed review' }).waitFor()
+      assert(await countSearches() === resumeBefore, 'resuming searched the known draw or lost reusable readings')
+      const restoredBackup = await downloadBackup(page)
+      const byId = values => [...values].sort((a, b) => a.id.localeCompare(b.id))
+      require('node:assert/strict').deepEqual(byId(restoredBackup.reviews), byId([modern, legacy, partial]))
+      assert(errors.length === 0, `repetition review page errors: ${errors.join('; ')}`)
+      console.log(`  repetition review (${width}px, ${workers} workers): ${expected} engine searches, draw omitted; old complete/partial runs open, compare and back up unchanged; resume needs no search`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkReviewAtRequestedDepth(browser) {
   for (const [width, workers] of [[1280, 4], [375, 1]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 } })
@@ -6157,6 +6234,7 @@ async function main() {
       'saved-reviews': async browser => { await checkSavedReviews(browser); await checkSavedReviewStorage(browser); await checkSavedReviewEndings(browser) },
       'saved-endings': checkSavedReviewEndings,
       'repetition': checkRepetitionEndings,
+      'repetition-review': checkRepetitionReviewCompatibility,
       'review-backup-export': checkReviewBackupExport,
       'review-backup-import': checkReviewBackupImport,
       'review-depth': checkReviewAtRequestedDepth,
@@ -6824,6 +6902,7 @@ async function main() {
     await checkSavedReviewStorage(browser)
     await checkSavedReviewEndings(browser)
     await checkRepetitionEndings(browser)
+    await checkRepetitionReviewCompatibility(browser)
     await checkReviewBackupExport(browser)
     await checkReviewBackupImport(browser)
     await checkReviewAtRequestedDepth(browser)

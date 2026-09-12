@@ -1,7 +1,8 @@
 import type { GameNode } from '../hooks/useGameTree'
-import { formatWhitePovEvaluation, isTerminalPositionFen, normalizeWhitePovCp, normalizeWhitePovWdl, type EvalSnapshot } from './analysis'
+import { formatWhitePovEvaluation, normalizeWhitePovCp, normalizeWhitePovWdl, type EvalSnapshot } from './analysis'
 import type { ReviewSnapshot } from './reviewSession'
 import { reviewLineKey, type SavedReview } from './savedReviews'
+import { reviewTargetFens } from './batchReview'
 
 export type ReviewComparisonRow = {
   node: GameNode
@@ -18,9 +19,10 @@ export type ReviewComparisonRow = {
 export function compareReviews(line: GameNode[], open: ReviewSnapshot, saved: SavedReview) {
   if (open.lineEndId !== line.at(-1)?.id || saved.lineKey !== reviewLineKey(line)) return null
   const previous = new Map(saved.evaluations)
+  const targets = reviewTargetFens(line)
   const rows: ReviewComparisonRow[] = []
   for (const [index, node] of line.entries()) {
-    if (isTerminalPositionFen(node.fen)) continue
+    if (!targets.has(node.fen)) continue
     const current = open.evaluations.get(node.fen)
     const earlier = previous.get(node.fen)
     const paired = Boolean(current && earlier)
