@@ -1,0 +1,64 @@
+
+> web-chess@1.0.0 test
+> vitest run src/engine/batchReview.test.ts src/engine/savedReviews.test.ts
+
+
+ RUN  v4.1.11 /Users/teo/Developer/web-chess
+
+ ❯ src/engine/batchReview.test.ts (10 tests | 1 failed) 8ms
+     × does not search or reuse a known repetition, but keeps the same FEN in another history 3ms
+ ❯ src/engine/savedReviews.test.ts (8 tests | 1 failed) 25ms
+     × saves only searched positions in a repetition and preserves legacy complete and partial reports 5ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/batchReview.test.ts > planning a review > does not search or reuse a known repetition, but keeps the same FEN in another history
+AssertionError: expected 9 to be 8 // Object.is equality
+
+- Expected
++ Received
+
+- 8
++ 9
+
+ ❯ src/engine/batchReview.test.ts:98:28
+     96|         expect(other.at(-1)!.fen).toBe(finalFen)
+     97|         const plan = planBatchReview(repeated, repeated[0].fen, new Ma…
+     98|         expect(plan.total).toBe(8)
+       |                            ^
+     99|         expect(plan.queue.map(target => target.fen)).not.toContain(fin…
+    100|         expect(plan.queue.at(-1)!.historyMoves).toHaveLength(7)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/engine/savedReviews.test.ts > portable, isolated saved reviews > saves only searched positions in a repetition and preserves legacy complete and partial reports
+AssertionError: expected { id: 'saved-one', …(12) } to match object { total: 8, evaluated: 8, …(1) }
+(14 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "complete": true,
+-   "evaluated": 8,
+-   "total": 8,
++   "evaluated": 9,
++   "total": 9,
+  }
+
+ ❯ src/engine/savedReviews.test.ts:81:19
+     79|     const { line, saved } = fixture(['Nf3', 'Nf6', 'Ng1', 'Ng8', 'Nf3'…
+     80|     const finalFen = line.at(-1)!.fen
+     81|     expect(saved).toMatchObject({ total: 8, evaluated: 8, complete: tr…
+       |                   ^
+     82|     expect(saved.evaluations.some(([fen]) => fen === finalFen)).toBe(f…
+     83|     const legacy = { ...saved, id: 'legacy', total: 9, evaluated: 9, r…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 16 passed (18)
+   Start at  15:54:16
+   Duration  159ms (transform 105ms, setup 0ms, import 136ms, tests 33ms, environment 0ms)
+
