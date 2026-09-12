@@ -2961,7 +2961,10 @@ async function checkCompactFooter(browser) {
       if (experience === 'pro') {
         assert((await popup.innerText()).includes('go ') && (await popup.innerText()).includes('nps'), 'Pro command or telemetry disappeared')
       }
-      await page.keyboard.press('Tab')
+      // macOS WebKit uses Option-Tab for all clickable controls unless the
+      // user's full keyboard navigation setting is enabled.
+      const nextControlKey = process.platform === 'darwin' && browser.browserType().name() === 'webkit' ? 'Alt+Tab' : 'Tab'
+      await page.keyboard.press(nextControlKey)
       assert(await popup.getByRole('button', { name: 'Close', exact: true }).evaluate(el => el === document.activeElement), 'Tab did not enter engine details')
       await page.keyboard.press('Escape')
       await page.waitForFunction(() => !document.querySelector('.engine-details-popover')?.matches(':popover-open'))
