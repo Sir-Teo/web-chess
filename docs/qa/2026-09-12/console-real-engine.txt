@@ -1,0 +1,6 @@
+chromium 1280px: real console stop/ack handoff, D12 board search, perft 8902, five-second search and retained board lines passed
+chromium 375px: real console stop/ack handoff, D12 board search, perft 8902, five-second search and retained board lines passed
+firefox 1280px: real console stop/ack handoff, D12 board search, perft 8902, five-second search and retained board lines passed
+firefox 375px: real console stop/ack handoff, D12 board search, perft 8902, five-second search and retained board lines passed
+webkit 1280px: real console stop/ack handoff, D12 board search, perft 8902, five-second search and retained board lines passed
+webkit 375px: real console stop/ack handoff, D12 board search, perft 8902, five-second search and retained board lines passed

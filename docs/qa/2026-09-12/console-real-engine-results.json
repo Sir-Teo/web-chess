@@ -1,0 +1,3811 @@
+{
+  "sourceCommit": "4e12059f3d11fa9bd4274fd0f56accae6a637c9f",
+  "dirty": true,
+  "base": "http://127.0.0.1:4336/web-chess/",
+  "results": [
+    {
+      "browser": "chromium",
+      "width": 1280,
+      "stage": "passed",
+      "errors": [],
+      "boardLines": " Lines#1D12+0.301.e4e52.Nc3Nf63.Nf3e2e4 e7e5 b1c3 g8f6 g1f3#2D12+0.251.d4d52.Nf3e63.Bf4c54.e3Nc6d2d4 d7d5 g1f3 e7e6 c1f4 c7c5 e2e3 b8c6Expected reply: e5",
+      "perftOutput": "> go perft 3\ninfo string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))\ninfo string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback.\na2a3: 380\nb2b3: 420\nc2c3: 420\nd2d3: 539\ne2e3: 599\nf2f3: 380\ng2g3: 420\nh2h3: 380\na2a4: 420\nb2b4: 421\nc2c4: 441\nd2d4: 560\ne2e4: 600\nf2f4: 401\ng2g4: 421\nh2h4: 420\nb1a3: 400\nb1c3: 440\ng1f3: 440\ng1h3: 400\nNodes searched: 8902",
+      "events": [
+        {
+          "kind": "sent",
+          "line": "uci"
+        },
+        {
+          "kind": "received",
+          "line": "Stockfish 18 Lite WASM by the Stockfish developers (see AUTHORS file)"
+        },
+        {
+          "kind": "received",
+          "line": "id name Stockfish 18 Lite WASM"
+        },
+        {
+          "kind": "received",
+          "line": "id author the Stockfish developers (see AUTHORS file)"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "received",
+          "line": "option name Threads type spin default 1 min 1 max 1"
+        },
+        {
+          "kind": "received",
+          "line": "option name Hash type spin default 16 min 1 max 33554432"
+        },
+        {
+          "kind": "received",
+          "line": "option name Clear Hash type button"
+        },
+        {
+          "kind": "received",
+          "line": "option name Ponder type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name MultiPV type spin default 1 min 1 max 256"
+        },
+        {
+          "kind": "received",
+          "line": "option name Skill Level type spin default 20 min 0 max 20"
+        },
+        {
+          "kind": "received",
+          "line": "option name Move Overhead type spin default 10 min 0 max 5000"
+        },
+        {
+          "kind": "received",
+          "line": "option name nodestime type spin default 0 min 0 max 10000"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_Chess960 type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_LimitStrength type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_Elo type spin default 1320 min 1320 max 3190"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_ShowWDL type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name EvalFile type string default nn-9067e33176e8.nnue"
+        },
+        {
+          "kind": "received",
+          "line": "option name EvalFileSmall type string default <empty>"
+        },
+        {
+          "kind": "received",
+          "line": "uciok"
+        },
+        {
+          "kind": "sent",
+          "line": "isready"
+        },
+        {
+          "kind": "received",
+          "line": "readyok"
+        },
+        {
+          "kind": "sent",
+          "line": "position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        },
+        {
+          "kind": "sent",
+          "line": "go movetime 5000"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 1 score cp 623 nodes 20 nps 6666 hashfull 0 time 3 pv b1a3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 3 multipv 1 score cp 802 nodes 45 nps 15000 hashfull 0 time 3 pv b1a3 a7a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 4 multipv 1 score cp 800 nodes 72 nps 24000 hashfull 0 time 3 pv b1a3 a7a6 e2e3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 5 multipv 1 score cp 809 nodes 97 nps 32333 hashfull 0 time 3 pv b1a3 e7e6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 8 multipv 1 score cp 791 nodes 129 nps 43000 hashfull 0 time 3 pv b1a3 e7e6 a3b5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 8 multipv 1 score cp 840 nodes 169 nps 56333 hashfull 0 time 3 pv b1a3 e8d8 a3b5 a7a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 8 multipv 1 score cp 738 nodes 275 nps 68750 hashfull 0 time 4 pv b1a3 a7a6 e2e3 g8f6 e3e4 f6e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 12 multipv 1 score cp 858 nodes 453 nps 113250 hashfull 0 time 4 pv b1c3 f7f5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 11 multipv 1 score cp 741 nodes 691 nps 172750 hashfull 0 time 4 pv b1a3 g8f6 b2b3 d7d5 e2e3 a7a5 f1b5 c8d7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 12 multipv 1 score cp 765 nodes 1118 nps 223600 hashfull 0 time 5 pv b1c3 g8f6 b2b3 d7d5 c3b5 b8a6 e2e3 b7b6 h2h4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 13 multipv 1 score cp 775 nodes 1639 nps 273166 hashfull 0 time 6 pv a2a4 a7a5 a1a3 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 13 multipv 1 score cp 731 nodes 3584 nps 448000 hashfull 0 time 8 pv a2a4 a7a5 a1a3 d7d5 e2e3 g8f6 h2h4 c8d7 a3a1 b8a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 19 multipv 1 score cp 727 nodes 12736 nps 909714 hashfull 3 time 14 pv b1c3 d7d5 d2d4 a7a5 e2e3 g8f6 g1f3 h7h5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 16 multipv 1 score cp 749 nodes 18280 nps 1015555 hashfull 5 time 18 pv b1c3 d7d5 d2d4 g8f6 g1f3 a7a5 e2e3 h7h5 a2a4 b8a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 25 multipv 1 score cp 710 nodes 76067 nps 1435226 hashfull 29 time 53 pv d2d4 d7d5 b1c3 g8f6 h2h4 e7e5 c3b5 b8a6 d4e5 c8d7"
+        },
+        {
+          "kind": "sent",
+          "line": "stop"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 16 seldepth 20 multipv 1 score cp 713 nodes 131426 nps 1564595 hashfull 49 time 84 pv d2d4 d7d5 c1f4 e7e5 d4e5 f8c5 a2a4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 17 seldepth 20 multipv 1 score cp 713 nodes 140989 nps 1566544 hashfull 53 time 90 pv d2d4 d7d5 c1f4 e7e5 d4e5 f8c5 a2a4"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove d2d4 ponder d7d5"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name Hash value 64"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name MultiPV value 2"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name UCI_ShowWDL value true"
+        },
+        {
+          "kind": "sent",
+          "line": "position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        },
+        {
+          "kind": "sent",
+          "line": "go depth 12"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 1 score cp 26 wdl 55 937 8 nodes 39 nps 39000 hashfull 0 time 1 pv e2e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 2 score cp -2 wdl 20 957 23 nodes 39 nps 39000 hashfull 0 time 1 pv g2g3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 3 multipv 1 score cp -9 wdl 15 955 30 nodes 639 nps 639000 hashfull 0 time 1 pv d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 9 multipv 2 score cp -10 wdl 15 955 30 nodes 639 nps 639000 hashfull 0 time 1 pv a2a4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 6 multipv 1 score cp -6 wdl 17 956 27 nodes 772 nps 772000 hashfull 0 time 1 pv e2e4 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 6 multipv 2 score cp -7 wdl 17 956 27 nodes 772 nps 772000 hashfull 0 time 1 pv d2d4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 9 multipv 1 score cp -8 wdl 16 956 28 nodes 1269 nps 1269000 hashfull 0 time 1 pv d2d4 d7d5 c1f4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 6 multipv 2 score cp -14 wdl 13 952 35 nodes 1269 nps 1269000 hashfull 0 time 1 pv g1f3 d7d6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 7 multipv 1 score cp -1 wdl 20 958 22 nodes 2630 nps 2630000 hashfull 0 time 1 pv g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 9 multipv 2 score cp -7 wdl 16 956 28 nodes 2630 nps 2630000 hashfull 0 time 1 pv d2d4 d7d5 c1f4 b8c6 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 10 multipv 1 score cp 5 wdl 26 957 17 nodes 3501 nps 1750500 hashfull 0 time 2 pv d2d4 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 7 multipv 2 score cp -4 wdl 18 958 24 nodes 3501 nps 1750500 hashfull 0 time 2 pv g1f3 d7d5 d2d4 b8c6 c1f4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 12 multipv 1 score cp 5 wdl 25 957 18 nodes 4914 nps 1638000 hashfull 0 time 3 pv d2d4 d7d5 e2e3 g8f6 g1f3 c8f5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 12 multipv 2 score cp 2 wdl 23 958 19 nodes 4914 nps 1638000 hashfull 0 time 3 pv g1f3 d7d5 d2d4 g8f6 c1f4 b8c6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 10 multipv 1 score cp 21 wdl 47 944 9 nodes 6408 nps 1602000 hashfull 0 time 4 pv g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 10 multipv 2 score cp 12 wdl 33 954 13 nodes 6408 nps 1602000 hashfull 0 time 4 pv d2d4 d7d5 g1f3 c8g4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 14 multipv 1 score cp 23 wdl 49 942 9 nodes 12426 nps 1775142 hashfull 1 time 7 pv d2d4 d7d5 c1f4 g8f6 g1f3 c8g4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 14 multipv 2 score cp 20 wdl 44 946 10 nodes 12426 nps 1775142 hashfull 1 time 7 pv e2e4 d7d5 e4d5 d8d5 d2d4 e7e5 g1f3 e5d4 d1d4 d5d4 f3d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 13 multipv 1 score cp 29 wdl 62 931 7 nodes 15659 nps 1739888 hashfull 1 time 9 pv g1f3 d7d5 d2d4 g8f6 e2e3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 12 multipv 2 score cp 24 wdl 51 940 9 nodes 15659 nps 1739888 hashfull 1 time 9 pv d2d4 d7d5 c1f4 g8f6 e2e3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 17 multipv 1 score cp 30 wdl 63 930 7 nodes 29434 nps 1731411 hashfull 1 time 17 pv e2e4 e7e6 g1f3 d7d5 e4e5 d5d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 14 multipv 2 score cp 27 wdl 57 935 8 nodes 29434 nps 1731411 hashfull 1 time 17 pv d2d4 d7d5 e2e3 c8d7 c2c4 e7e6 g1f3 g8f6 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 17 multipv 1 score cp 30 wdl 63 930 7 nodes 56511 nps 1822935 hashfull 3 time 31 pv e2e4 e7e5 b1c3 g8f6 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 21 multipv 2 score cp 25 wdl 54 938 8 nodes 56511 nps 1822935 hashfull 3 time 31 pv d2d4 d7d5 g1f3 e7e6 c1f4 c7c5 e2e3 b8c6 c2c3 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove e2e4 ponder e7e5"
+        },
+        {
+          "kind": "sent",
+          "line": "position startpos"
+        },
+        {
+          "kind": "sent",
+          "line": "go perft 3"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "a2a3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "b2b3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "c2c3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "d2d3: 539"
+        },
+        {
+          "kind": "received",
+          "line": "e2e3: 599"
+        },
+        {
+          "kind": "received",
+          "line": "f2f3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "g2g3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "h2h3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "a2a4: 420"
+        },
+        {
+          "kind": "received",
+          "line": "b2b4: 421"
+        },
+        {
+          "kind": "received",
+          "line": "c2c4: 441"
+        },
+        {
+          "kind": "received",
+          "line": "d2d4: 560"
+        },
+        {
+          "kind": "received",
+          "line": "e2e4: 600"
+        },
+        {
+          "kind": "received",
+          "line": "f2f4: 401"
+        },
+        {
+          "kind": "received",
+          "line": "g2g4: 421"
+        },
+        {
+          "kind": "received",
+          "line": "h2h4: 420"
+        },
+        {
+          "kind": "received",
+          "line": "b1a3: 400"
+        },
+        {
+          "kind": "received",
+          "line": "b1c3: 440"
+        },
+        {
+          "kind": "received",
+          "line": "g1f3: 440"
+        },
+        {
+          "kind": "received",
+          "line": "g1h3: 400"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "received",
+          "line": "Nodes searched: 8902"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "sent",
+          "line": "go movetime 5000"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 4 multipv 1 score cp 30 wdl 63 930 7 nodes 42 nps 42000 hashfull 0 time 1 pv e2e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 2 score cp 25 wdl 54 938 8 nodes 42 nps 42000 hashfull 0 time 1 pv d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 3 multipv 1 score cp 30 wdl 63 930 7 nodes 99 nps 99000 hashfull 0 time 1 pv e2e4 e7e5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 9 multipv 2 score cp 25 wdl 54 938 8 nodes 99 nps 99000 hashfull 0 time 1 pv d2d4 d7d5 g1f3 e7e6 c1f4 c7c5 e2e3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 4 multipv 1 score cp 30 wdl 63 930 7 nodes 146 nps 146000 hashfull 0 time 1 pv e2e4 e7e5 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 4 multipv 2 score cp 25 wdl 54 938 8 nodes 146 nps 146000 hashfull 0 time 1 pv d2d4 d7d5 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 5 multipv 1 score cp 30 wdl 63 930 7 nodes 198 nps 198000 hashfull 0 time 1 pv e2e4 e7e5 b1c3 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 5 multipv 2 score cp 25 wdl 54 938 8 nodes 198 nps 198000 hashfull 0 time 1 pv d2d4 d7d5 g1f3 e7e6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 6 multipv 1 score cp 30 wdl 63 930 7 nodes 260 nps 260000 hashfull 0 time 1 pv e2e4 e7e5 b1c3 g8f6 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 6 multipv 2 score cp 25 wdl 54 938 8 nodes 260 nps 260000 hashfull 0 time 1 pv d2d4 d7d5 g1f3 e7e6 c1f4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 14 multipv 1 score cp 31 wdl 66 927 7 nodes 440 nps 440000 hashfull 0 time 1 pv e2e4 d7d5 e4d5 d8d5 b1c3 d5e6 g1e2 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 8 multipv 2 score cp 25 wdl 54 938 8 nodes 440 nps 440000 hashfull 0 time 1 pv d2d4 d7d5 g1f3 e7e6 c1f4 c7c5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 12 multipv 1 score cp 34 wdl 73 921 6 nodes 943 nps 943000 hashfull 0 time 1 pv e2e4 e7e5 b1c3 g8f6 d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 11 multipv 2 score cp 25 wdl 54 938 8 nodes 943 nps 943000 hashfull 0 time 1 pv d2d4 d7d5 g1f3 e7e6 c1f4 c7c5 e2e3 b8c6 c2c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 15 multipv 1 score cp 28 wdl 59 934 7 nodes 4915 nps 1228750 hashfull 0 time 4 pv e2e4 e7e6 d2d4 d7d5 e4d5 e6d5 f1d3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 26 multipv 2 score cp 20 wdl 44 946 10 nodes 4915 nps 1228750 hashfull 0 time 4 pv d2d4 d7d5 g1f3 e7e6 e2e3 g8f6 c2c4 f8e7 f1e2 d5c4 e1g1"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 14 multipv 1 score cp 28 wdl 59 934 7 nodes 6608 nps 1321600 hashfull 0 time 5 pv e2e4 e7e6 d2d4 d7d5 e4d5 e6d5 f1d3 f8d6 d1e2 d8e7 c1g5 e7e2 g1e2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 16 multipv 2 score cp 21 wdl 45 945 10 nodes 6608 nps 1321600 hashfull 0 time 5 pv d2d4 d7d5 g1f3 e7e6 e2e3 g8f6 c2c4 c7c5 b1c3 b8c6 f1e2 c5d4 e3d4 d5c4 e2c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 17 multipv 1 score cp 29 wdl 62 931 7 nodes 8475 nps 1695000 hashfull 0 time 5 pv e2e4 c7c5 d2d4 c5d4 d1d4 e7e6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 16 multipv 2 score cp 20 wdl 45 945 10 nodes 8475 nps 1695000 hashfull 0 time 5 pv d2d4 d7d5 g1f3 e7e6 e2e3 g8f6 c2c4 f8e7 f1e2 d5c4 e2c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 14 multipv 1 score cp 29 wdl 62 931 7 nodes 11252 nps 1607428 hashfull 0 time 7 pv e2e4 e7e6 d2d4 d7d5 e4d5 e6d5 f1d3 f8d6 b1c3 g8f6 d1e2 c8e6 c1g5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 17 multipv 2 score cp 20 wdl 45 945 10 nodes 11252 nps 1607428 hashfull 0 time 7 pv d2d4 d7d5 g1f3 e7e6 e2e3 c7c5 c2c4 b8c6 b1c3 g8f6 f1e2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 15 multipv 1 score cp 29 wdl 62 931 7 nodes 12918 nps 1614750 hashfull 0 time 8 pv e2e4 e7e6 d2d4 d7d5 e4d5 e6d5 f1d3 f8d6 b1c3 g8f6 d1e2 c8e6 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 17 multipv 2 score cp 22 wdl 48 943 9 nodes 12918 nps 1614750 hashfull 0 time 8 pv d2d4 d7d5 g1f3 e7e6 e2e3 c7c5 c2c4 b8c6 f1e2 c5d4 e3d4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 19 multipv 1 score cp 30 wdl 64 929 7 nodes 21235 nps 1769583 hashfull 0 time 12 pv e2e4 e7e5 d2d4 e5d4 d1d4 b8c6 d4d1 d7d6 g1f3 f8e7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 20 multipv 2 score cp 21 wdl 47 944 9 nodes 21235 nps 1769583 hashfull 0 time 12 pv d2d4 d7d5 e2e3 e7e6 f1e2 g8f6 g1f3 f8e7 c2c4 e8g8 e1g1 c7c6 h2h3 a7a5 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 24 multipv 1 score cp 28 wdl 59 934 7 nodes 65743 nps 1730078 hashfull 6 time 38 pv e2e4 e7e5 g1f3 d7d5 f3e5 f8d6 d2d4 d5e4 b1c3 g8f6 f1c4 e8g8 e1g1 b8c6 f2f4 e4f3 e5c6 b7c6 d1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 23 multipv 2 score cp 21 wdl 46 944 10 nodes 65743 nps 1730078 hashfull 6 time 38 pv d2d4 g8f6 e2e3 e7e6 g1f3 d7d5 f1e2 f8e7 e1g1 c7c5 c2c4 b8c6 c4d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 20 multipv 1 score cp 28 wdl 59 934 7 nodes 97855 nps 1779181 hashfull 10 time 55 pv e2e4 e7e5 g1f3 d7d5 f3e5 f8d6 d2d4 d5e4 b1c3 g8f6 f1c4 e8g8 e1g1 b8c6 f2f4 e4f3 e5c6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 24 multipv 2 score cp 23 wdl 49 942 9 nodes 97855 nps 1779181 hashfull 10 time 55 pv d2d4 g8f6 c2c4 e7e6 g1f3 f8e7 e2e3 e8g8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 16 seldepth 28 multipv 1 score cp 31 wdl 67 927 6 nodes 171692 nps 1807284 hashfull 18 time 95 pv e2e4 e7e5 g1f3 d7d5 f3e5 f8d6 d2d4 d5e4 b1c3 g8f6 c1g5 e8g8 g5f6 d8f6 c3e4 f6h4 f1d3 f8e8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 16 seldepth 24 multipv 2 score cp 25 wdl 53 939 8 nodes 171692 nps 1807284 hashfull 18 time 95 pv d2d4 g8f6 c2c4 e7e6 g1f3 d7d5 e2e3 f8e7 f1d3 e8g8 e1g1 c7c5 b2b3 b7b6 c1b2 c8b7 c4d5 f6d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 17 seldepth 28 multipv 1 score cp 41 wdl 95 901 4 nodes 275792 nps 1790857 hashfull 27 time 154 pv e2e4 e7e5 g1f3 g8f6 d2d4 e5d4 e4e5 f6e4 d1d4 d7d5 e5d6 e4d6 d4c3 b8c6 f1d3 d8f6 e1g1 c8e6 c3f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 17 seldepth 21 multipv 2 score cp 25 wdl 53 939 8 nodes 275792 nps 1790857 hashfull 27 time 154 pv d2d4 g8f6 c2c4 e7e6 g1f3 d7d5 e2e3 f8e7 f1e2 e8g8 e1g1 c7c5 d4c5 d5c4 e2c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 18 seldepth 30 multipv 1 score cp 36 wdl 80 915 5 nodes 629442 nps 1788187 hashfull 63 time 352 pv e2e4 e7e6 d2d4 d7d5 e4e5 c7c5 c2c3 b8c6 g1f3 c8d7 f1e2 c5d4 c3d4 g8e7 e1g1 e7f5 b1c3 f8e7 g2g4 f5h4 f3h4 e7h4 f2f4 d8b6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 18 seldepth 26 multipv 2 score cp 25 wdl 52 940 8 nodes 629442 nps 1788187 hashfull 63 time 352 pv d2d4 d7d5 e2e3 g8f6 g1f3 e7e6 f1e2 c7c5 e1g1 b8c6 c2c4 d5c4 e2c4 f8e7 b1c3 e8g8 d4c5 e7c5 d1e2 h7h6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 19 seldepth 40 multipv 1 score cp 33 wdl 72 922 6 nodes 904239 nps 1738921 hashfull 92 time 520 pv e2e4 e7e6 d2d4 d7d5 e4e5 c7c5 c2c3 b8c6 g1f3 d8b6 a2a3 c5c4 f1e2 c6a5 b1d2 g8e7 e1g1 c8d7 f1e1"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 19 seldepth 29 multipv 2 score cp 23 wdl 49 942 9 nodes 904239 nps 1738921 hashfull 92 time 520 pv d2d4 d7d5 c1f4 g8f6 g1f3 c8f5 c2c4 e7e6 d1b3 f8d6 f4d6 c7d6 b1c3 b8c6 c4d5 e6d5 c3d5 f6d5 b3d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 20 seldepth 31 multipv 1 score cp 35 wdl 76 918 6 nodes 1175399 nps 1713409 hashfull 118 time 686 pv e2e4 e7e6 g1f3 d7d5 e4e5 c7c5 c2c3 d5d4 g2g3 b8c6 f1g2 b7b6 d2d3 c8b7 b1a3 g8e7 e1g1 d8d7 f1e1 h7h6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 20 seldepth 28 multipv 2 score cp 26 wdl 55 937 8 nodes 1175399 nps 1713409 hashfull 118 time 686 pv d2d4 g8f6 c2c4 e7e6 b1c3 f8b4 e2e3 e8g8 f1d3 d7d5 g1f3 d5c4 d3c4 b7b6 e1g1 c7c5 d1e2 b4c3 b2c3 c8b7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 21 seldepth 39 multipv 1 score cp 38 wdl 85 910 5 nodes 1589664 nps 1701995 hashfull 152 time 934 pv e2e4 e7e6 b1c3 d7d5 d2d4 g8f6 e4e5 f6d7 f2f4 c7c5 g1f3 b8c6 c1e3 a7a6 d1d2 f8e7 a2a3 e8g8 g2g4 c5d4 f3d4 d8c7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 21 seldepth 33 multipv 2 score cp 23 wdl 50 941 9 nodes 1589664 nps 1701995 hashfull 152 time 934 pv d2d4 g8f6 c2c4 e7e6 g1f3 d7d5 b1c3 c7c5 c4d5 c5d4 d1d4 e6d5 c1g5 f8e7 a1d1 e8g8 d4d2 b8c6 e2e3 c8e6 f1e2 d8a5 e1g1"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 22 seldepth 43 multipv 1 score cp 37 wdl 82 913 5 nodes 2389896 nps 1660803 hashfull 224 time 1439 pv e2e4 e7e6 b1c3 d7d5 d2d4 g8f6 e4e5 f6d7 c3e2 c7c5 c2c3 d8a5 g1f3 b8c6 c1d2 a5b6 h2h4 b6b2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 22 seldepth 34 multipv 2 score cp 33 wdl 70 924 6 nodes 2389896 nps 1659650 hashfull 224 time 1440 pv d2d4 d7d5 c2c4 e7e6 g1f3 g8f6 g2g3 d5c4 f1g2 c7c5 d1a4 c8d7 a4c4 c5d4 f3d4 d8b6 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 23 seldepth 37 multipv 1 score cp 36 wdl 79 916 5 nodes 3636216 nps 1636460 hashfull 339 time 2222 pv d2d4 d7d5 c2c4 c7c6 b1c3 g8f6 e2e3 g7g6 g1f3 f8g7 h2h3 e8g8 f1d3 d5c4 d3c4 b7b5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 23 seldepth 41 multipv 2 score cp 35 wdl 75 919 6 nodes 3636216 nps 1636460 hashfull 339 time 2222 pv e2e4 e7e6 d2d4 d7d5 e4e5 c7c5 c2c3 b8c6 g1f3 d8b6 a2a3 c5c4 f1e2 c6a5 b1d2 c8d7 a1b1 g8h6 e1g1 h6f5 h2h4 f8e7 h4h5 e8c8 f1e1 h7h6 g2g4 f5h4 f3h4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 24 seldepth 41 multipv 1 score cp 35 wdl 75 919 6 nodes 4712810 nps 1627351 hashfull 435 time 2896 pv e2e4 e7e6 d2d4 d7d5 e4e5 c7c5 c2c3 b8c6 g1f3 d8b6 a2a3 c5c4 f1e2 c6a5 b1d2 c8d7 a1b1 g8h6 e1g1 h6f5 h2h4 f8e7 h4h5 e8c8 f1e1 h7h6 g2g4 f5h4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 24 seldepth 34 multipv 2 score cp 32 wdl 69 925 6 nodes 4712810 nps 1627351 hashfull 435 time 2896 pv d2d4 d7d5 c2c4 e7e6 b1c3 f8e7 c4d5 e6d5 c1f4 g8f6 e2e3 c7c6 f1d3 e8g8 d1c2 g7g6 f4h6 f8e8 g1f3 c8g4 f3e5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 25 seldepth 44 multipv 1 score cp 40 wdl 92 903 5 nodes 6260153 nps 1615106 hashfull 554 time 3876 pv e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 b7b5 a4b3 g8f6 d2d4 c6d4 f3d4 e5d4 e4e5 f8b4 c2c3 d4c3 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 25 seldepth 38 multipv 2 score cp 33 wdl 71 923 6 nodes 6260153 nps 1615106 hashfull 554 time 3876 pv d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 c4d5 e6d5 c1g5 f8e7 e2e3 e8g8 f1d3 f8e8 g1e2 b8d7 d1c2 c7c6 g5f4 g7g6 h2h3 d7b6 e1g1 f6h5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 26 seldepth 46 multipv 1 score cp 41 upperbound wdl 94 902 4 nodes 8015781 nps 1603156 hashfull 673 time 5000 pv e2e4 e7e5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 25 seldepth 38 multipv 2 score cp 33 wdl 71 923 6 nodes 8015781 nps 1603156 hashfull 673 time 5000 pv d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 c4d5 e6d5 c1g5 f8e7 e2e3 e8g8 f1d3 f8e8 g1e2 b8d7 d1c2 c7c6 g5f4 g7g6 h2h3 d7b6 e1g1 f6h5"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove e2e4 ponder e7e5"
+        }
+      ]
+    },
+    {
+      "browser": "chromium",
+      "width": 375,
+      "stage": "passed",
+      "errors": [],
+      "boardLines": " Lines#1D12+0.241.e4e62.Nf3d53.exd5exd54.d4Nf6e2e4 e7e6 g1f3 d7d5 e4d5 e6d5 d2d4 g8f6#2D12+0.161.d4d52.e3Nf63.c4e64.Nf3Be7d2d4 d7d5 e2e3 g8f6 c2c4 e7e6 g1f3 f8e7Expected reply: e6",
+      "perftOutput": "> go perft 3\ninfo string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))\ninfo string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback.\na2a3: 380\nb2b3: 420\nc2c3: 420\nd2d3: 539\ne2e3: 599\nf2f3: 380\ng2g3: 420\nh2h3: 380\na2a4: 420\nb2b4: 421\nc2c4: 441\nd2d4: 560\ne2e4: 600\nf2f4: 401\ng2g4: 421\nh2h4: 420\nb1a3: 400\nb1c3: 440\ng1f3: 440\ng1h3: 400\nNodes searched: 8902",
+      "events": [
+        {
+          "kind": "sent",
+          "line": "uci"
+        },
+        {
+          "kind": "received",
+          "line": "Stockfish 18 Lite WASM by the Stockfish developers (see AUTHORS file)"
+        },
+        {
+          "kind": "received",
+          "line": "id name Stockfish 18 Lite WASM"
+        },
+        {
+          "kind": "received",
+          "line": "id author the Stockfish developers (see AUTHORS file)"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "received",
+          "line": "option name Threads type spin default 1 min 1 max 1"
+        },
+        {
+          "kind": "received",
+          "line": "option name Hash type spin default 16 min 1 max 33554432"
+        },
+        {
+          "kind": "received",
+          "line": "option name Clear Hash type button"
+        },
+        {
+          "kind": "received",
+          "line": "option name Ponder type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name MultiPV type spin default 1 min 1 max 256"
+        },
+        {
+          "kind": "received",
+          "line": "option name Skill Level type spin default 20 min 0 max 20"
+        },
+        {
+          "kind": "received",
+          "line": "option name Move Overhead type spin default 10 min 0 max 5000"
+        },
+        {
+          "kind": "received",
+          "line": "option name nodestime type spin default 0 min 0 max 10000"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_Chess960 type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_LimitStrength type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_Elo type spin default 1320 min 1320 max 3190"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_ShowWDL type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name EvalFile type string default nn-9067e33176e8.nnue"
+        },
+        {
+          "kind": "received",
+          "line": "option name EvalFileSmall type string default <empty>"
+        },
+        {
+          "kind": "received",
+          "line": "uciok"
+        },
+        {
+          "kind": "sent",
+          "line": "isready"
+        },
+        {
+          "kind": "received",
+          "line": "readyok"
+        },
+        {
+          "kind": "sent",
+          "line": "position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        },
+        {
+          "kind": "sent",
+          "line": "go movetime 5000"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 1 score cp 623 nodes 20 nps 6666 hashfull 0 time 3 pv b1a3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 3 multipv 1 score cp 802 nodes 45 nps 15000 hashfull 0 time 3 pv b1a3 a7a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 4 multipv 1 score cp 800 nodes 72 nps 24000 hashfull 0 time 3 pv b1a3 a7a6 e2e3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 5 multipv 1 score cp 809 nodes 97 nps 32333 hashfull 0 time 3 pv b1a3 e7e6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 8 multipv 1 score cp 791 nodes 129 nps 43000 hashfull 0 time 3 pv b1a3 e7e6 a3b5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 8 multipv 1 score cp 840 nodes 169 nps 56333 hashfull 0 time 3 pv b1a3 e8d8 a3b5 a7a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 8 multipv 1 score cp 738 nodes 275 nps 68750 hashfull 0 time 4 pv b1a3 a7a6 e2e3 g8f6 e3e4 f6e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 12 multipv 1 score cp 858 nodes 453 nps 113250 hashfull 0 time 4 pv b1c3 f7f5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 11 multipv 1 score cp 741 nodes 691 nps 172750 hashfull 0 time 4 pv b1a3 g8f6 b2b3 d7d5 e2e3 a7a5 f1b5 c8d7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 12 multipv 1 score cp 765 nodes 1118 nps 279500 hashfull 0 time 4 pv b1c3 g8f6 b2b3 d7d5 c3b5 b8a6 e2e3 b7b6 h2h4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 13 multipv 1 score cp 775 nodes 1639 nps 327800 hashfull 0 time 5 pv a2a4 a7a5 a1a3 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 13 multipv 1 score cp 731 nodes 3584 nps 512000 hashfull 0 time 7 pv a2a4 a7a5 a1a3 d7d5 e2e3 g8f6 h2h4 c8d7 a3a1 b8a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 19 multipv 1 score cp 727 nodes 12736 nps 909714 hashfull 3 time 14 pv b1c3 d7d5 d2d4 a7a5 e2e3 g8f6 g1f3 h7h5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 16 multipv 1 score cp 749 nodes 18280 nps 1075294 hashfull 5 time 17 pv b1c3 d7d5 d2d4 g8f6 g1f3 a7a5 e2e3 h7h5 a2a4 b8a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 25 multipv 1 score cp 710 nodes 76067 nps 1491509 hashfull 29 time 51 pv d2d4 d7d5 b1c3 g8f6 h2h4 e7e5 c3b5 b8a6 d4e5 c8d7"
+        },
+        {
+          "kind": "sent",
+          "line": "stop"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 16 seldepth 20 multipv 1 score cp 713 nodes 131426 nps 1602756 hashfull 49 time 82 pv d2d4 d7d5 c1f4 e7e5 d4e5 f8c5 a2a4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 17 seldepth 20 multipv 1 score cp 713 nodes 144786 nps 1608733 hashfull 54 time 90 pv d2d4 d7d5 c1f4 e7e5 d4e5 f8c5 a2a4"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove d2d4 ponder d7d5"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name Hash value 64"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name MultiPV value 2"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name UCI_ShowWDL value true"
+        },
+        {
+          "kind": "sent",
+          "line": "position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        },
+        {
+          "kind": "sent",
+          "line": "go depth 12"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 1 score cp 26 wdl 55 937 8 nodes 39 nps 39000 hashfull 0 time 1 pv e2e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 2 score cp -2 wdl 20 957 23 nodes 39 nps 39000 hashfull 0 time 1 pv g2g3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 3 multipv 1 score cp -8 wdl 15 956 29 nodes 977 nps 977000 hashfull 0 time 1 pv d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 4 multipv 2 score cp -26 wdl 8 936 56 nodes 977 nps 977000 hashfull 0 time 1 pv g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 6 multipv 1 score cp -14 wdl 12 952 36 nodes 1735 nps 1735000 hashfull 0 time 1 pv d2d4 d7d5 g2g3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 8 multipv 2 score cp -27 wdl 8 935 57 nodes 1735 nps 1735000 hashfull 0 time 1 pv g1f3 d7d6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 8 multipv 1 score cp -5 wdl 18 957 25 nodes 2540 nps 2540000 hashfull 0 time 1 pv d2d4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 7 multipv 2 score cp -16 wdl 11 950 39 nodes 2540 nps 2540000 hashfull 0 time 1 pv e2e4 d7d5 e4d5 d8d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 8 multipv 1 score cp -6 wdl 17 957 26 nodes 3286 nps 1643000 hashfull 0 time 2 pv e2e4 d7d6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 9 multipv 2 score cp -7 wdl 16 956 28 nodes 3286 nps 1643000 hashfull 0 time 2 pv d2d4 g8f6 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 9 multipv 1 score cp -4 wdl 18 958 24 nodes 3921 nps 1960500 hashfull 0 time 2 pv d2d4 g8f6 g1f3 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 10 multipv 2 score cp -8 wdl 16 956 28 nodes 3921 nps 1960500 hashfull 0 time 2 pv e2e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 10 multipv 1 score cp 0 wdl 21 958 21 nodes 4929 nps 2464500 hashfull 0 time 2 pv d2d4 g8f6 g1f3 d7d5 e2e3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 9 multipv 2 score cp -4 wdl 18 957 25 nodes 4929 nps 2464500 hashfull 0 time 2 pv e2e4 d7d6 d2d4 g8f6 f1b5 c8d7 b5d7 d8d7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 10 multipv 1 score cp 4 wdl 24 958 18 nodes 8523 nps 1704600 hashfull 0 time 5 pv d2d4 g8f6 g1f3 d7d5 e2e3 h7h5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 9 multipv 2 score cp 2 wdl 22 958 20 nodes 8523 nps 1704600 hashfull 0 time 5 pv g2g3 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 11 multipv 1 score cp 18 wdl 41 948 11 nodes 11562 nps 1927000 hashfull 0 time 6 pv d2d4 g8f6 e2e3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 11 multipv 2 score cp 4 wdl 24 958 18 nodes 11562 nps 1927000 hashfull 0 time 6 pv e2e3 d7d6 d2d4 e7e5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 11 multipv 1 score cp 29 wdl 62 931 7 nodes 16457 nps 1828555 hashfull 0 time 9 pv d2d4 g8f6 g1f3 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 11 multipv 2 score cp 19 wdl 43 947 10 nodes 16457 nps 1828555 hashfull 0 time 9 pv e2e3 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 14 multipv 1 score cp 27 wdl 58 934 8 nodes 45473 nps 1894708 hashfull 3 time 24 pv e2e4 e7e6 g1f3 d7d5 e4d5 e6d5 d2d4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 19 multipv 2 score cp 15 wdl 38 950 12 nodes 45473 nps 1894708 hashfull 3 time 24 pv d2d4 g8f6 e2e3 e7e6 c2c4 d7d5 g1f3 c7c5 d4c5 f8c5 c4d5 e6d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 20 multipv 1 score cp 24 wdl 51 940 9 nodes 61089 nps 1851181 hashfull 4 time 33 pv e2e4 e7e6 g1f3 d7d5 e4d5 e6d5 d2d4 g8f6 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 20 multipv 2 score cp 16 wdl 38 950 12 nodes 61089 nps 1851181 hashfull 4 time 33 pv d2d4 d7d5 e2e3 g8f6 c2c4 e7e6 g1f3 f8e7 b1c3 c7c6 f1d3 d5c4 d3c4 b7b5 c4e2"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove e2e4 ponder e7e6"
+        },
+        {
+          "kind": "sent",
+          "line": "position startpos"
+        },
+        {
+          "kind": "sent",
+          "line": "go perft 3"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "a2a3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "b2b3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "c2c3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "d2d3: 539"
+        },
+        {
+          "kind": "received",
+          "line": "e2e3: 599"
+        },
+        {
+          "kind": "received",
+          "line": "f2f3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "g2g3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "h2h3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "a2a4: 420"
+        },
+        {
+          "kind": "received",
+          "line": "b2b4: 421"
+        },
+        {
+          "kind": "received",
+          "line": "c2c4: 441"
+        },
+        {
+          "kind": "received",
+          "line": "d2d4: 560"
+        },
+        {
+          "kind": "received",
+          "line": "e2e4: 600"
+        },
+        {
+          "kind": "received",
+          "line": "f2f4: 401"
+        },
+        {
+          "kind": "received",
+          "line": "g2g4: 421"
+        },
+        {
+          "kind": "received",
+          "line": "h2h4: 420"
+        },
+        {
+          "kind": "received",
+          "line": "b1a3: 400"
+        },
+        {
+          "kind": "received",
+          "line": "b1c3: 440"
+        },
+        {
+          "kind": "received",
+          "line": "g1f3: 440"
+        },
+        {
+          "kind": "received",
+          "line": "g1h3: 400"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "received",
+          "line": "Nodes searched: 8902"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "sent",
+          "line": "go movetime 5000"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 4 multipv 1 score cp 24 wdl 51 940 9 nodes 42 nps 42000 hashfull 0 time 1 pv e2e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 2 score cp 16 wdl 38 950 12 nodes 42 nps 42000 hashfull 0 time 1 pv d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 3 multipv 1 score cp 24 wdl 51 940 9 nodes 118 nps 118000 hashfull 0 time 1 pv e2e4 e7e6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 14 multipv 2 score cp 16 wdl 38 950 12 nodes 118 nps 118000 hashfull 0 time 1 pv d2d4 d7d5 e2e3 g8f6 c2c4 e7e6 g1f3 f8e7 b1c3 c7c6 f1d3 d5c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 5 multipv 1 score cp 16 wdl 39 950 11 nodes 278 nps 278000 hashfull 0 time 1 pv e2e4 d7d5 e4d5 d8d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 8 multipv 2 score cp 16 wdl 38 950 12 nodes 278 nps 278000 hashfull 0 time 1 pv d2d4 d7d5 e2e3 g8f6 c2c4 e7e6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 5 multipv 1 score cp 16 wdl 39 950 11 nodes 369 nps 369000 hashfull 0 time 1 pv e2e4 d7d5 e4d5 d8d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 7 multipv 2 score cp 16 wdl 38 950 12 nodes 369 nps 369000 hashfull 0 time 1 pv d2d4 d7d5 e2e3 g8f6 c2c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 6 multipv 1 score cp 19 wdl 43 947 10 nodes 472 nps 472000 hashfull 0 time 1 pv e2e4 d7d5 e4d5 d8d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 7 multipv 2 score cp 16 wdl 38 950 12 nodes 472 nps 472000 hashfull 0 time 1 pv d2d4 d7d5 e2e3 g8f6 c2c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 10 multipv 1 score cp 25 wdl 52 940 8 nodes 915 nps 915000 hashfull 0 time 1 pv e2e4 e7e6 d2d4 d7d5 e4e5 c7c5 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 8 multipv 2 score cp 16 wdl 38 950 12 nodes 915 nps 915000 hashfull 0 time 1 pv d2d4 d7d5 e2e3 g8f6 c2c4 e7e6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 9 multipv 1 score cp 25 wdl 52 940 8 nodes 1046 nps 1046000 hashfull 0 time 1 pv e2e4 e7e6 d2d4 d7d5 e4e5 c7c5 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 9 multipv 2 score cp 16 wdl 38 950 12 nodes 1046 nps 1046000 hashfull 0 time 1 pv d2d4 d7d5 e2e3 g8f6 c2c4 e7e6 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 11 multipv 1 score cp 29 wdl 61 932 7 nodes 1988 nps 1988000 hashfull 0 time 1 pv e2e4 e7e6 d2d4 d7d5 e4d5 e6d5 f1d3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 12 multipv 2 score cp 16 wdl 38 950 12 nodes 1988 nps 1988000 hashfull 0 time 1 pv d2d4 d7d5 e2e3 g8f6 c2c4 e7e6 g1f3 f8e7 b1c3 c7c6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 22 multipv 1 score cp 27 wdl 57 935 8 nodes 11237 nps 1605285 hashfull 0 time 7 pv e2e4 e7e5 g1f3 d7d5 f3e5 g8f6 d2d4 f6e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 15 multipv 2 score cp 16 wdl 39 950 11 nodes 11237 nps 1605285 hashfull 0 time 7 pv d2d4 d7d5 e2e3 g8f6 c2c4 e7e6 g1f3 f8e7 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 13 multipv 1 score cp 26 wdl 56 936 8 nodes 17267 nps 1726700 hashfull 0 time 10 pv e2e4 e7e6 d2d4 d7d5 e4d5 e6d5 f1d3 f8d6 d1e2 g8e7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 21 multipv 2 score cp 17 wdl 40 949 11 nodes 17267 nps 1726700 hashfull 0 time 10 pv d2d4 d7d5 e2e3 g8f6 c2c4 e7e6 g1f3 f8e7 f1d3 d5c4 d3c4 c7c5 e1g1 c5d4 e3d4 e8g8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 19 multipv 1 score cp 25 wdl 52 940 8 nodes 25756 nps 1717066 hashfull 1 time 15 pv e2e4 e7e6 d2d4 d7d5 e4d5 e6d5 f1d3 f8d6 g1f3 d8e7 c1e3 g8f6 e1g1"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 17 multipv 2 score cp 16 wdl 38 950 12 nodes 25756 nps 1717066 hashfull 1 time 15 pv d2d4 d7d5 e2e3 g8f6 f1e2 e7e6 g1f3 f8e7 e1g1 c7c5 d4c5 e7c5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 22 multipv 1 score cp 26 wdl 56 936 8 nodes 44025 nps 1761000 hashfull 2 time 25 pv e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 g8f6 b1c3 f8b4 d4c6 b4c3 b2c3 d7c6 d1d8 e8d8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 18 multipv 2 score cp 17 wdl 40 949 11 nodes 44025 nps 1761000 hashfull 2 time 25 pv e2e3 g8f6 d2d4 e7e6 f1e2 d7d5 g1f3 c7c5 e1g1 f8e7 c2c4 c5d4 e3d4 d5c4 e2c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 17 multipv 1 score cp 26 wdl 56 936 8 nodes 51978 nps 1792344 hashfull 3 time 29 pv e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 g8f6 b1c3 f8b4 d4c6 b4c3 b2c3 d7c6 d1d8 e8d8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 21 multipv 2 score cp 18 wdl 41 948 11 nodes 51978 nps 1792344 hashfull 3 time 29 pv e2e3 g8f6 d2d4 e7e6 f1e2 d7d5 g1f3 f8e7 c2c4 d5c4 e2c4 c7c5 e1g1 e8g8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 20 multipv 1 score cp 31 wdl 66 927 7 nodes 83451 nps 1814152 hashfull 4 time 46 pv e2e4 e7e6 d2d4 d7d5 b1c3 f8b4 f1d3 d5e4 d3e4 g8f6 e4f3 c7c5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 21 multipv 2 score cp 16 wdl 39 950 11 nodes 83451 nps 1814152 hashfull 4 time 46 pv e2e3 g8f6 d2d4 d7d5 g1f3 e7e6 f1d3 c7c5 e1g1 c5c4 d3e2 f8e7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 22 multipv 1 score cp 35 wdl 77 917 6 nodes 127434 nps 1820485 hashfull 8 time 70 pv e2e4 e7e5 g1f3 d7d5 f3e5 f8d6 d2d4 d5e4 b1c3 g8f6 f1b5 c7c6 b5c4 e8g8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 24 multipv 2 score cp 21 wdl 46 944 10 nodes 127434 nps 1820485 hashfull 8 time 70 pv e2e3 g8f6 d2d4 d7d5 g1f3 e7e6 f1d3 c7c5 e1g1 c5c4 d3e2 a7a6 a2a4 f8e7 b2b3 c4b3 c2c4 d5c4 e2c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 16 seldepth 23 multipv 1 score cp 36 wdl 78 917 5 nodes 189208 nps 1819307 hashfull 14 time 104 pv e2e4 e7e5 b1c3 g8f6 d2d4 e5d4 d1d4 b8c6 d4e3 c6b4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 16 seldepth 20 multipv 2 score cp 21 wdl 45 945 10 nodes 189208 nps 1819307 hashfull 14 time 104 pv e2e3 g8f6 d2d4 d7d5 g1f3 e7e6 f1d3 c7c5 b2b3 b8c6 e1g1 h7h6 c1b2 c5d4 f3d4 c6d4 b2d4 f8d6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 17 seldepth 36 multipv 1 score cp 38 wdl 85 910 5 nodes 347042 nps 1788876 hashfull 30 time 194 pv e2e4 e7e5 g1f3 d7d5 f3e5 f8d6 d2d4 d5e4 b1c3 g8f6 c1g5 e8g8 f2f4 e4f3 d1f3 h7h6 g5h4 g7g5 f1c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 17 seldepth 23 multipv 2 score cp 22 wdl 48 943 9 nodes 347042 nps 1779702 hashfull 30 time 195 pv e2e3 g8f6 d2d4 d7d5 g1f3 e7e6 f1d3 c7c5 b2b3 f8e7 d4c5 e8g8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 18 seldepth 30 multipv 1 score cp 36 wdl 79 916 5 nodes 593251 nps 1750002 hashfull 59 time 339 pv e2e4 e7e5 g1f3 b8c6 f1b5 g8f6 d2d3 f8d6 h2h3 h7h6 e1g1 a7a6 b5c6 d7c6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 18 seldepth 25 multipv 2 score cp 22 wdl 47 944 9 nodes 593251 nps 1750002 hashfull 59 time 339 pv g1f3 d7d5 c2c4 e7e6 e2e3 g8f6 d2d4 f8e7 f1e2 d5c4 e2c4 b7b6 e1g1 c8b7 b1c3 e8g8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 19 seldepth 29 multipv 1 score cp 33 wdl 72 922 6 nodes 853260 nps 1696341 hashfull 89 time 503 pv e2e4 e7e5 g1f3 g8f6 f3e5 d7d6 e5f3 f6e4 f1d3 e4f6 e1g1 d6d5 f1e1 f8e7 d3f1 e8g8 d2d4 c8f5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 19 seldepth 29 multipv 2 score cp 26 wdl 55 937 8 nodes 853260 nps 1696341 hashfull 89 time 503 pv g1f3 d7d5 d2d4 g8f6 e2e3 c8f5 c2c4 e7e6 d1b3 b7b6 c4d5 e6d5 b1c3 f8e7 f3h4 f5c8 f1d3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 20 seldepth 39 multipv 1 score cp 31 wdl 66 928 6 nodes 1201396 nps 1652539 hashfull 127 time 727 pv e2e4 e7e5 g1f3 g8f6 d2d4 f6e4 f1d3 d7d5 f3e5 b8d7 e5d7 c8d7 e1g1 d8f6 c1e3 e4d6 d1h5 e8c8 h5d5 d6f5 d3f5 f6f5 d5b3 d8e8 c2c4 f8d6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 20 seldepth 28 multipv 2 score cp 28 wdl 59 934 7 nodes 1201396 nps 1652539 hashfull 127 time 727 pv g1f3 d7d5 d2d4 c8f5 c2c4 e7e6 e2e3 f8e7 d1b3 b8c6 c1d2 a8b8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 21 seldepth 35 multipv 1 score cp 36 wdl 78 917 5 nodes 2175174 nps 1599392 hashfull 221 time 1360 pv g1f3 d7d5 d2d4 c8f5 c2c4 e7e6 g2g3 c7c6 f1g2 f8e7 e1g1 g8f6 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 21 seldepth 35 multipv 2 score cp 32 wdl 69 925 6 nodes 2175174 nps 1599392 hashfull 221 time 1360 pv e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 g8f6 d4c6 d7c6 d1d8 e8d8 f2f3 c8e6 b1c3 f6d7 c1e3 d8e8 f1e2 g7g6 e1c1"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 22 seldepth 37 multipv 1 score cp 41 wdl 93 902 5 nodes 3239530 nps 1624638 hashfull 322 time 1994 pv e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 g8f6 d4c6 d7c6 d1d8 e8d8 b1c3 f8d6 c1d2 d8e8 f2f3 c8e6 c3e2 f6d7 e2d4 a7a5 f3f4 d6c5 d4e6 f7e6 f1d3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 22 seldepth 34 multipv 2 score cp 37 wdl 81 914 5 nodes 3239530 nps 1624638 hashfull 322 time 1994 pv d2d4 d7d5 c2c4 e7e6 g1f3 g8f6 g2g3 c7c5 f1g2 d5c4 e1g1 b8c6 d4c5 d8d1 f1d1 f8c5 b1d2 c4c3 b2c3 e8g8 d2c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 23 seldepth 38 multipv 1 score cp 34 wdl 73 921 6 nodes 4773793 nps 1647271 hashfull 459 time 2898 pv e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 g8f6 d4c6 b7c6 f1d3 d7d5 e4e5 f6d7 e1g1 d7c5 f2f4 c5d3 d1d3 a7a5 d3c3 d8d7 f4f5 c8a6 f1f2 f8b4 c3h3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 23 seldepth 37 multipv 2 score cp 29 wdl 62 931 7 nodes 4773793 nps 1647271 hashfull 459 time 2898 pv d2d4 d7d5 c2c4 e7e6 g1f3 g8f6 b1c3 f8e7 g2g3 e8g8 f1g2 d5c4 f3e5 c7c5 d4c5 d8d1 c3d1 e7c5 e5c4 b8c6 e1g1 f8d8 d1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 24 seldepth 41 multipv 1 score cp 33 wdl 70 924 6 nodes 6587686 nps 1669459 hashfull 597 time 3946 pv e2e4 e7e6 d2d4 d7d5 b1d2 c7c5 g1f3 c5d4 e4d5 d8d5 f1c4 d5c5 d1e2 b8c6 e1g1 g8f6 d2b3 c5b6 f1d1 c8d7 b3d4 c6d4 d1d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 24 seldepth 39 multipv 2 score cp 28 wdl 59 934 7 nodes 6587686 nps 1669459 hashfull 597 time 3946 pv d2d4 g8f6 c2c4 e7e6 b1c3 f8b4 g1f3 b7b6 e2e3 e8g8 f1d3 c7c5 c1d2 d7d5 c4d5 e6d5 a2a3 b4c3 d2c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 25 seldepth 33 multipv 1 score cp 31 wdl 66 927 7 nodes 7264044 nps 1672971 hashfull 639 time 4342 pv e2e4 e7e6 b1c3 d7d5 d2d4 g8f6 e4e5 f6d7 f2f4 c7c5 g1f3 b8c6 c1e3 f8e7 d1d2 e8g8 d4c5 e7c5 e1c1 d8b6 e3c5 d7c5 g2g4 f8d8 f3d4 c6d4 d2d4 c8d7 f4f5 a8c8 f1g2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 25 seldepth 35 multipv 2 score cp 29 wdl 60 933 7 nodes 7264044 nps 1672971 hashfull 639 time 4342 pv d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 c4d5 e6d5 c1g5 f8e7 e2e3 e8g8 f1d3 f8e8 g1e2 b8d7 h2h3 c7c6 g5f4 d7f8 e1g1 f6h5 f4h2 e7d6 h2d6 d8d6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 26 seldepth 37 multipv 1 score cp 32 wdl 68 926 6 nodes 7925638 nps 1677738 hashfull 670 time 4724 pv e2e4 e7e6 b1c3 d7d5 d2d4 g8f6 e4e5 f6d7 f2f4 c7c5 g1f3 b8c6 c1e3 f8e7 d1d2 e8g8 d4c5 e7c5 e1c1 d8b6 e3c5 d7c5 c1b1 f8d8 d2e3 c8d7 f1e2 a8c8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 26 seldepth 42 multipv 2 score cp 29 wdl 62 931 7 nodes 7925638 nps 1677738 hashfull 670 time 4724 pv d2d4 d7d5 c2c4 e7e6 g1f3 g8f6 b1c3 f8e7 c1g5 e8g8 e2e3 h7h6 g5f6 e7f6 d1c2 c7c5 d4c5 d8a5 c4d5 e6d5 e1c1 f6c3 c2c3 a5a2 f1d3 f8d8 d3b1 a2a1 f3d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 27 seldepth 39 multipv 1 score cp 37 lowerbound wdl 82 913 5 nodes 8382859 nps 1676571 hashfull 687 time 5000 pv e2e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 27 seldepth 42 multipv 2 score cp 29 wdl 62 931 7 nodes 8382859 nps 1676571 hashfull 687 time 5000 pv d2d4 d7d5 c2c4 e7e6 g1f3 g8f6 b1c3 f8e7 c1g5 e8g8 e2e3 h7h6 g5f6 e7f6 d1c2 c7c5 d4c5 d8a5 c4d5 e6d5 e1c1 f6c3 c2c3 a5a2 f1d3 f8d8 d3b1 a2a1 f3d4"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove e2e4 ponder e7e6"
+        }
+      ]
+    },
+    {
+      "browser": "firefox",
+      "width": 1280,
+      "stage": "passed",
+      "errors": [],
+      "boardLines": " Lines#1D12+0.421.e4d52.exd5Qxd53.Nc3Qe6+4.Nge2g6e2e4 d7d5 e4d5 d8d5 b1c3 d5e6 g1e2 g7g6#2D12+0.261.d4d52.Nf3e63.Bf4Bd64.e3Bxf4d2d4 d7d5 g1f3 e7e6 c1f4 f8d6 e2e3 d6f4Expected reply: d5",
+      "perftOutput": "> go perft 3\ninfo string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))\ninfo string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback.\na2a3: 380\nb2b3: 420\nc2c3: 420\nd2d3: 539\ne2e3: 599\nf2f3: 380\ng2g3: 420\nh2h3: 380\na2a4: 420\nb2b4: 421\nc2c4: 441\nd2d4: 560\ne2e4: 600\nf2f4: 401\ng2g4: 421\nh2h4: 420\nb1a3: 400\nb1c3: 440\ng1f3: 440\ng1h3: 400\nNodes searched: 8902",
+      "events": [
+        {
+          "kind": "sent",
+          "line": "uci"
+        },
+        {
+          "kind": "received",
+          "line": "Stockfish 18 Lite WASM by the Stockfish developers (see AUTHORS file)"
+        },
+        {
+          "kind": "received",
+          "line": "id name Stockfish 18 Lite WASM"
+        },
+        {
+          "kind": "received",
+          "line": "id author the Stockfish developers (see AUTHORS file)"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "received",
+          "line": "option name Threads type spin default 1 min 1 max 1"
+        },
+        {
+          "kind": "received",
+          "line": "option name Hash type spin default 16 min 1 max 33554432"
+        },
+        {
+          "kind": "received",
+          "line": "option name Clear Hash type button"
+        },
+        {
+          "kind": "received",
+          "line": "option name Ponder type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name MultiPV type spin default 1 min 1 max 256"
+        },
+        {
+          "kind": "received",
+          "line": "option name Skill Level type spin default 20 min 0 max 20"
+        },
+        {
+          "kind": "received",
+          "line": "option name Move Overhead type spin default 10 min 0 max 5000"
+        },
+        {
+          "kind": "received",
+          "line": "option name nodestime type spin default 0 min 0 max 10000"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_Chess960 type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_LimitStrength type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_Elo type spin default 1320 min 1320 max 3190"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_ShowWDL type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name EvalFile type string default nn-9067e33176e8.nnue"
+        },
+        {
+          "kind": "received",
+          "line": "option name EvalFileSmall type string default <empty>"
+        },
+        {
+          "kind": "received",
+          "line": "uciok"
+        },
+        {
+          "kind": "sent",
+          "line": "isready"
+        },
+        {
+          "kind": "received",
+          "line": "readyok"
+        },
+        {
+          "kind": "sent",
+          "line": "position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        },
+        {
+          "kind": "sent",
+          "line": "go movetime 5000"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 1 score cp 623 nodes 20 nps 20000 hashfull 0 time 1 pv b1a3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 3 multipv 1 score cp 802 nodes 45 nps 45000 hashfull 0 time 1 pv b1a3 a7a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 4 multipv 1 score cp 800 nodes 72 nps 72000 hashfull 0 time 1 pv b1a3 a7a6 e2e3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 5 multipv 1 score cp 809 nodes 97 nps 97000 hashfull 0 time 1 pv b1a3 e7e6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 8 multipv 1 score cp 791 nodes 129 nps 129000 hashfull 0 time 1 pv b1a3 e7e6 a3b5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 8 multipv 1 score cp 840 nodes 169 nps 84500 hashfull 0 time 2 pv b1a3 e8d8 a3b5 a7a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 8 multipv 1 score cp 738 nodes 275 nps 137500 hashfull 0 time 2 pv b1a3 a7a6 e2e3 g8f6 e3e4 f6e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 12 multipv 1 score cp 858 nodes 453 nps 151000 hashfull 0 time 3 pv b1c3 f7f5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 11 multipv 1 score cp 741 nodes 691 nps 138200 hashfull 0 time 5 pv b1a3 g8f6 b2b3 d7d5 e2e3 a7a5 f1b5 c8d7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 12 multipv 1 score cp 765 nodes 1118 nps 186333 hashfull 0 time 6 pv b1c3 g8f6 b2b3 d7d5 c3b5 b8a6 e2e3 b7b6 h2h4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 13 multipv 1 score cp 775 nodes 1639 nps 182111 hashfull 0 time 9 pv a2a4 a7a5 a1a3 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 13 multipv 1 score cp 731 nodes 3584 nps 199111 hashfull 0 time 18 pv a2a4 a7a5 a1a3 d7d5 e2e3 g8f6 h2h4 c8d7 a3a1 b8a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 19 multipv 1 score cp 727 nodes 12736 nps 219586 hashfull 3 time 58 pv b1c3 d7d5 d2d4 a7a5 e2e3 g8f6 g1f3 h7h5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 16 multipv 1 score cp 749 nodes 18280 nps 220240 hashfull 5 time 83 pv b1c3 d7d5 d2d4 g8f6 g1f3 a7a5 e2e3 h7h5 a2a4 b8a6"
+        },
+        {
+          "kind": "sent",
+          "line": "stop"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 16 multipv 1 score cp 749 nodes 40208 nps 220923 hashfull 14 time 182 pv b1c3 d7d5 d2d4 g8f6 g1f3 a7a5 e2e3 h7h5 a2a4 b8a6"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove b1c3 ponder d7d5"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name Hash value 64"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name MultiPV value 2"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name UCI_ShowWDL value true"
+        },
+        {
+          "kind": "sent",
+          "line": "position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        },
+        {
+          "kind": "sent",
+          "line": "go depth 12"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 1 score cp -8 wdl 16 956 28 nodes 39 nps 39000 hashfull 0 time 1 pv e2e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 2 score cp -17 wdl 11 949 40 nodes 39 nps 39000 hashfull 0 time 1 pv a2a4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 5 multipv 1 score cp -7 wdl 16 957 27 nodes 189 nps 94500 hashfull 0 time 2 pv d2d4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 3 multipv 2 score cp -8 wdl 16 955 29 nodes 189 nps 94500 hashfull 0 time 2 pv e2e4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 5 multipv 1 score cp -12 wdl 13 954 33 nodes 627 nps 209000 hashfull 0 time 3 pv g2g3 d7d5 d2d4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 5 multipv 2 score cp -17 wdl 11 949 40 nodes 627 nps 209000 hashfull 0 time 3 pv e2e4 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 7 multipv 1 score cp -17 wdl 11 950 39 nodes 1256 nps 251200 hashfull 0 time 5 pv d2d4 d7d5 c1d2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 5 multipv 2 score cp -19 wdl 10 947 43 nodes 1256 nps 251200 hashfull 0 time 5 pv b2b4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 9 multipv 1 score cp -11 wdl 14 954 32 nodes 1818 nps 259714 hashfull 0 time 7 pv g1f3 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 7 multipv 2 score cp -15 wdl 12 951 37 nodes 1818 nps 259714 hashfull 0 time 7 pv d2d4 d7d5 e2e3 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 9 multipv 1 score cp -4 wdl 18 958 24 nodes 2331 nps 291375 hashfull 0 time 8 pv g1f3 d7d5 d2d4 g8f6 c1d2 a7a5 e2e3 c8g4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 9 multipv 2 score cp -10 wdl 14 955 31 nodes 2331 nps 291375 hashfull 0 time 8 pv d2d4 d7d5 e2e3 g8f6 c1d2 c8d7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 9 multipv 1 score cp 3 wdl 24 957 19 nodes 3329 nps 277416 hashfull 0 time 12 pv d2d4 d7d5 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 9 multipv 2 score cp 2 wdl 23 957 20 nodes 3329 nps 277416 hashfull 0 time 12 pv g1f3 d7d5 d2d4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 9 multipv 1 score cp 17 wdl 39 950 11 nodes 4347 nps 289800 hashfull 0 time 15 pv g1f3 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 10 multipv 2 score cp 14 wdl 35 952 13 nodes 4347 nps 289800 hashfull 0 time 15 pv d2d4 d7d5 g1f3 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 12 multipv 1 score cp 24 wdl 51 941 8 nodes 7100 nps 273076 hashfull 0 time 26 pv d2d4 d7d5 c1f4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 10 multipv 2 score cp 21 wdl 47 944 9 nodes 7100 nps 273076 hashfull 0 time 26 pv g1f3 d7d5 d2d4 e7e6 c1f4 f8d6 e2e3 d6f4 e3f4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 15 multipv 1 score cp 23 wdl 50 941 9 nodes 11857 nps 263488 hashfull 2 time 45 pv g1f3 d7d5 d2d4 e7e6 c2c4 f8e7 e2e3 g8f6 c4c5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 11 multipv 2 score cp 22 wdl 48 943 9 nodes 11857 nps 263488 hashfull 2 time 45 pv d2d4 d7d5 c1f4 b8c6 g1f3 e7e6 e2e3 f8d6 f1e2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 21 multipv 1 score cp 36 wdl 78 917 5 nodes 24190 nps 249381 hashfull 2 time 97 pv e2e4 e7e5 d2d4 e5d4 d1d4 b8c6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 14 multipv 2 score cp 23 wdl 50 941 9 nodes 24190 nps 246836 hashfull 2 time 98 pv d2d4 d7d5 c1f4 e7e6 e2e3 c8d7 g1f3 d7a4 a2a3 c7c5 f1e2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 14 multipv 1 score cp 42 wdl 96 900 4 nodes 56019 nps 248973 hashfull 6 time 225 pv e2e4 d7d5 e4d5 d8d5 b1c3 d5e6 g1e2 g7g6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 19 multipv 2 score cp 26 wdl 56 936 8 nodes 56019 nps 248973 hashfull 6 time 225 pv d2d4 d7d5 g1f3 e7e6 c1f4 f8d6 e2e3 d6f4 e3f4 d8d6 g2g3 d6b6"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove e2e4 ponder d7d5"
+        },
+        {
+          "kind": "sent",
+          "line": "position startpos"
+        },
+        {
+          "kind": "sent",
+          "line": "go perft 3"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "a2a3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "b2b3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "c2c3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "d2d3: 539"
+        },
+        {
+          "kind": "received",
+          "line": "e2e3: 599"
+        },
+        {
+          "kind": "received",
+          "line": "f2f3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "g2g3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "h2h3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "a2a4: 420"
+        },
+        {
+          "kind": "received",
+          "line": "b2b4: 421"
+        },
+        {
+          "kind": "received",
+          "line": "c2c4: 441"
+        },
+        {
+          "kind": "received",
+          "line": "d2d4: 560"
+        },
+        {
+          "kind": "received",
+          "line": "e2e4: 600"
+        },
+        {
+          "kind": "received",
+          "line": "f2f4: 401"
+        },
+        {
+          "kind": "received",
+          "line": "g2g4: 421"
+        },
+        {
+          "kind": "received",
+          "line": "h2h4: 420"
+        },
+        {
+          "kind": "received",
+          "line": "b1a3: 400"
+        },
+        {
+          "kind": "received",
+          "line": "b1c3: 440"
+        },
+        {
+          "kind": "received",
+          "line": "g1f3: 440"
+        },
+        {
+          "kind": "received",
+          "line": "g1h3: 400"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "received",
+          "line": "Nodes searched: 8902"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "sent",
+          "line": "go movetime 5000"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 6 multipv 1 score cp 42 wdl 96 900 4 nodes 44 nps 44000 hashfull 0 time 1 pv e2e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 2 score cp 26 wdl 56 936 8 nodes 44 nps 44000 hashfull 0 time 1 pv d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 4 multipv 1 score cp 42 wdl 96 900 4 nodes 145 nps 145000 hashfull 0 time 1 pv e2e4 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 11 multipv 2 score cp 26 wdl 56 936 8 nodes 145 nps 145000 hashfull 0 time 1 pv g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 5 multipv 1 score cp 42 wdl 96 900 4 nodes 251 nps 251000 hashfull 0 time 1 pv e2e4 d7d5 e4d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 6 multipv 2 score cp 28 wdl 60 933 7 nodes 251 nps 251000 hashfull 0 time 1 pv d2d4 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 5 multipv 1 score cp 42 wdl 96 900 4 nodes 350 nps 175000 hashfull 0 time 2 pv e2e4 d7d5 e4d5 d8d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 6 multipv 2 score cp 30 wdl 63 930 7 nodes 350 nps 175000 hashfull 0 time 2 pv d2d4 d7d5 g1f3 g8f6 c1f4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 6 multipv 1 score cp 42 wdl 96 900 4 nodes 600 nps 300000 hashfull 0 time 2 pv e2e4 d7d5 e4d5 d8d5 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 9 multipv 2 score cp 25 wdl 53 939 8 nodes 600 nps 300000 hashfull 0 time 2 pv g1f3 d7d5 d2d4 g8f6 c1f4 c7c6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 8 multipv 1 score cp 42 wdl 96 900 4 nodes 843 nps 281000 hashfull 0 time 3 pv e2e4 d7d5 e4d5 d8d5 b1c3 d5e6 g1e2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 8 multipv 2 score cp 24 wdl 51 940 9 nodes 843 nps 281000 hashfull 0 time 3 pv g1f3 d7d5 d2d4 g8f6 c1f4 c7c6 h2h3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 8 multipv 1 score cp 42 wdl 96 900 4 nodes 1341 nps 335250 hashfull 0 time 4 pv e2e4 d7d5 e4d5 d8d5 b1c3 d5e6 g1e2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 11 multipv 2 score cp 26 wdl 56 936 8 nodes 1341 nps 335250 hashfull 0 time 4 pv g1f3 d7d5 d2d4 e7e6 c1f4 f8d6 e2e3 d6f4 e3f4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 14 multipv 1 score cp 36 wdl 79 916 5 nodes 3816 nps 272571 hashfull 0 time 14 pv e2e4 d7d5 e4d5 d8d5 b1c3 d5e6 g1e2 e6b6 d2d4 g7g6 h2h3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 13 multipv 2 score cp 28 wdl 59 934 7 nodes 3816 nps 272571 hashfull 0 time 14 pv d2d4 d7d5 g1f3 e7e6 c1f4 g8f6 e2e3 f8d6 f1e2 e8g8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 17 multipv 1 score cp 36 wdl 79 916 5 nodes 8438 nps 272193 hashfull 0 time 31 pv e2e4 d7d5 e4d5 d8d5 b1c3 d5e6 g1e2 g7g6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 15 multipv 2 score cp 27 wdl 58 935 7 nodes 8438 nps 272193 hashfull 0 time 31 pv c2c4 e7e5 b1c3 g8f6 g1f3 b8c6 d2d4 e5d4 f3d4 c6d4 d1d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 16 multipv 1 score cp 40 wdl 90 905 5 nodes 10752 nps 268800 hashfull 0 time 40 pv e2e4 e7e5 b1c3 g8f6 g1f3 d7d5 c3d5 f6d5 e4d5 d8d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 12 multipv 2 score cp 27 wdl 58 935 7 nodes 10752 nps 268800 hashfull 0 time 40 pv c2c4 e7e5 b1c3 g8f6 g1f3 b8c6 d2d4 e5d4 f3d4 c6d4 d1d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 27 multipv 1 score cp 33 wdl 70 924 6 nodes 40509 nps 251608 hashfull 5 time 161 pv e2e4 e7e6 d2d4 d7d5 b1c3 g8f6 e4e5 f6d7 d1h5 c7c5 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 19 multipv 2 score cp 25 wdl 54 938 8 nodes 40509 nps 251608 hashfull 5 time 161 pv d2d4 d7d5 g1f3 e7e6 c1f4 c8d7 e2e3 f8d6 f1d3 g8e7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 21 multipv 1 score cp 40 wdl 90 905 5 nodes 68513 nps 244689 hashfull 7 time 280 pv e2e4 e7e6 d2d4 d7d5 b1c3 f8b4 e4d5 e6d5 f1d3 g8e7 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 21 multipv 2 score cp 22 wdl 48 943 9 nodes 68513 nps 244689 hashfull 7 time 280 pv d2d4 d7d5 g1f3 e7e6 c1f4 f8d6 e2e3 d6f4 e3f4 g8e7 d1d2 c8d7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 25 multipv 1 score cp 32 wdl 70 924 6 nodes 133516 nps 235893 hashfull 11 time 566 pv e2e4 e7e6 d2d4 d7d5 b1c3 g8f6 e4d5 f6d5 g1f3 f8b4 c1d2 b4c3 b2c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 21 multipv 2 score cp 20 wdl 44 946 10 nodes 133516 nps 235477 hashfull 11 time 567 pv d2d4 d7d5 g1f3 g8f6 c1f4 c8f5 e2e3 e7e6 f1e2 f8e7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 25 multipv 1 score cp 32 wdl 69 925 6 nodes 162439 nps 231394 hashfull 12 time 702 pv e2e4 e7e6 d2d4 d7d5 b1c3 g8f6 e4d5 e6d5 f1d3 b8c6 g1e2 f8d6 e1g1 e8g8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 22 multipv 2 score cp 18 wdl 41 948 11 nodes 162439 nps 231394 hashfull 12 time 702 pv d2d4 d7d5 g1f3 g8f6 e2e3 e7e6 c2c4 f8e7 f1e2 e8g8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 29 multipv 1 score cp 28 wdl 59 934 7 nodes 235378 nps 230989 hashfull 18 time 1019 pv e2e4 e7e6 d2d4 d7d5 b1c3 g8f6 e4e5 f6d7 c1e3 c7c5 f2f4 b8c6 g1f3 c5d4 f3d4 d8b6 f1e2 f8c5 c3a4 b6a5 c2c3 c5d4 e3d4 c6d4 d1d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 21 multipv 2 score cp 18 wdl 41 948 11 nodes 235378 nps 230989 hashfull 18 time 1019 pv g1f3 d7d5 d2d4 g8f6 c1f4 c8f5 e2e3 e7e6 f1d3 f5d3 d1d3 c7c5 e1g1 c5d4 e3d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 16 seldepth 32 multipv 1 score cp 35 wdl 75 919 6 nodes 328385 nps 228680 hashfull 24 time 1436 pv e2e4 e7e6 d2d4 d7d5 b1c3 g8f6 e4e5 f6d7 c1e3 c7c5 f2f4 b8c6 g1f3 c5d4 f3d4 f8c5 d1d2 e8g8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 16 seldepth 28 multipv 2 score cp 23 wdl 50 941 9 nodes 328385 nps 228680 hashfull 24 time 1436 pv g1f3 d7d5 d2d4 g8f6 g2g3 g7g6 c2c4 d5c4 f1g2 f8g7 e1g1 e8g8 d1a4 c8e6 b1c3 b8c6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 17 seldepth 28 multipv 1 score cp 36 wdl 80 915 5 nodes 540883 nps 224712 hashfull 47 time 2407 pv e2e4 c7c5 g1f3 b8c6 b1c3 e7e6 d2d4 c5d4 f3d4 g8f6 c1e3 f8b4 f1d3 b4c3 b2c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 17 seldepth 29 multipv 2 score cp 21 wdl 46 945 9 nodes 540883 nps 224712 hashfull 47 time 2407 pv g1f3 d7d5 d2d4 g8f6 c2c4 e7e6 b1c3 f8e7 c1f4 e8g8 e2e3 c7c5 d4c5 e7c5 f1d3 d5c4 d3c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 18 seldepth 37 multipv 1 score cp 42 wdl 98 898 4 nodes 823480 nps 221962 hashfull 72 time 3710 pv e2e4 e7e5 g1f3 g8f6 d2d4 e5d4 e4e5 f6e4 d1d4 d7d5 e5d6 e4d6 f1d3 c8e6 c1g5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 18 seldepth 31 multipv 2 score cp 29 wdl 61 932 7 nodes 823480 nps 221962 hashfull 72 time 3710 pv g1f3 d7d5 d2d4 g8f6 c2c4 e7e6 g2g3 d5c4 f1g2 c7c5 d1a4 b8c6 d4c5 f8c5 a4c4 d8b6 e1g1 e8g8 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 19 seldepth 42 multipv 1 score cp 39 wdl 89 906 5 nodes 1097668 nps 219445 hashfull 100 time 5002 pv e2e4 e7e6 d2d4 d7d5 b1c3 g8f6 e4e5 f6d7 f2f4 c7c5 g1f3 b8c6 c1e3 d8b6 d1d2 b6b2 a1b1 b2a3 c3b5 a3a2 b1d1 a8b8 f4f5 a2a5 d2a5 c6a5 f5e6 f7e6 b5c7 e8e7 d4c5 b7b6 c5b6 d7b6 d1a1 b6c4 e3a7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 19 seldepth 31 multipv 2 score cp 29 lowerbound wdl 60 933 7 nodes 1097668 nps 219445 hashfull 100 time 5002 pv d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove e2e4 ponder e7e6"
+        }
+      ]
+    },
+    {
+      "browser": "firefox",
+      "width": 375,
+      "stage": "passed",
+      "errors": [],
+      "boardLines": " Lines#1D12+0.431.e4e52.Nf3d53.Nxe5dxe44.d4exd3e2e4 e7e5 g1f3 d7d5 f3e5 d5e4 d2d4 e4d3#2D12+0.251.d4d52.Nf3Nf63.e3e64.Bd3Bd6d2d4 d7d5 g1f3 g8f6 e2e3 e7e6 f1d3 f8d6Expected reply: e5",
+      "perftOutput": "> go perft 3\ninfo string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))\ninfo string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback.\na2a3: 380\nb2b3: 420\nc2c3: 420\nd2d3: 539\ne2e3: 599\nf2f3: 380\ng2g3: 420\nh2h3: 380\na2a4: 420\nb2b4: 421\nc2c4: 441\nd2d4: 560\ne2e4: 600\nf2f4: 401\ng2g4: 421\nh2h4: 420\nb1a3: 400\nb1c3: 440\ng1f3: 440\ng1h3: 400\nNodes searched: 8902",
+      "events": [
+        {
+          "kind": "sent",
+          "line": "uci"
+        },
+        {
+          "kind": "received",
+          "line": "Stockfish 18 Lite WASM by the Stockfish developers (see AUTHORS file)"
+        },
+        {
+          "kind": "received",
+          "line": "id name Stockfish 18 Lite WASM"
+        },
+        {
+          "kind": "received",
+          "line": "id author the Stockfish developers (see AUTHORS file)"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "received",
+          "line": "option name Threads type spin default 1 min 1 max 1"
+        },
+        {
+          "kind": "received",
+          "line": "option name Hash type spin default 16 min 1 max 33554432"
+        },
+        {
+          "kind": "received",
+          "line": "option name Clear Hash type button"
+        },
+        {
+          "kind": "received",
+          "line": "option name Ponder type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name MultiPV type spin default 1 min 1 max 256"
+        },
+        {
+          "kind": "received",
+          "line": "option name Skill Level type spin default 20 min 0 max 20"
+        },
+        {
+          "kind": "received",
+          "line": "option name Move Overhead type spin default 10 min 0 max 5000"
+        },
+        {
+          "kind": "received",
+          "line": "option name nodestime type spin default 0 min 0 max 10000"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_Chess960 type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_LimitStrength type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_Elo type spin default 1320 min 1320 max 3190"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_ShowWDL type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name EvalFile type string default nn-9067e33176e8.nnue"
+        },
+        {
+          "kind": "received",
+          "line": "option name EvalFileSmall type string default <empty>"
+        },
+        {
+          "kind": "received",
+          "line": "uciok"
+        },
+        {
+          "kind": "sent",
+          "line": "isready"
+        },
+        {
+          "kind": "received",
+          "line": "readyok"
+        },
+        {
+          "kind": "sent",
+          "line": "position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        },
+        {
+          "kind": "sent",
+          "line": "go movetime 5000"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 1 score cp 623 nodes 20 nps 20000 hashfull 0 time 1 pv b1a3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 3 multipv 1 score cp 802 nodes 45 nps 45000 hashfull 0 time 1 pv b1a3 a7a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 4 multipv 1 score cp 800 nodes 72 nps 36000 hashfull 0 time 2 pv b1a3 a7a6 e2e3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 5 multipv 1 score cp 809 nodes 97 nps 48500 hashfull 0 time 2 pv b1a3 e7e6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 8 multipv 1 score cp 791 nodes 129 nps 64500 hashfull 0 time 2 pv b1a3 e7e6 a3b5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 8 multipv 1 score cp 840 nodes 169 nps 84500 hashfull 0 time 2 pv b1a3 e8d8 a3b5 a7a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 8 multipv 1 score cp 738 nodes 275 nps 91666 hashfull 0 time 3 pv b1a3 a7a6 e2e3 g8f6 e3e4 f6e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 12 multipv 1 score cp 858 nodes 453 nps 113250 hashfull 0 time 4 pv b1c3 f7f5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 11 multipv 1 score cp 741 nodes 691 nps 138200 hashfull 0 time 5 pv b1a3 g8f6 b2b3 d7d5 e2e3 a7a5 f1b5 c8d7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 12 multipv 1 score cp 765 nodes 1118 nps 186333 hashfull 0 time 6 pv b1c3 g8f6 b2b3 d7d5 c3b5 b8a6 e2e3 b7b6 h2h4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 13 multipv 1 score cp 775 nodes 1639 nps 182111 hashfull 0 time 9 pv a2a4 a7a5 a1a3 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 13 multipv 1 score cp 731 nodes 3584 nps 199111 hashfull 0 time 18 pv a2a4 a7a5 a1a3 d7d5 e2e3 g8f6 h2h4 c8d7 a3a1 b8a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 19 multipv 1 score cp 727 nodes 12736 nps 215864 hashfull 3 time 59 pv b1c3 d7d5 d2d4 a7a5 e2e3 g8f6 g1f3 h7h5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 16 multipv 1 score cp 749 nodes 18280 nps 220240 hashfull 5 time 83 pv b1c3 d7d5 d2d4 g8f6 g1f3 a7a5 e2e3 h7h5 a2a4 b8a6"
+        },
+        {
+          "kind": "sent",
+          "line": "stop"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 16 multipv 1 score cp 749 nodes 30488 nps 219338 hashfull 11 time 139 pv b1c3 d7d5 d2d4 g8f6 g1f3 a7a5 e2e3 h7h5 a2a4 b8a6"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove b1c3 ponder d7d5"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name Hash value 64"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name MultiPV value 2"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name UCI_ShowWDL value true"
+        },
+        {
+          "kind": "sent",
+          "line": "position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        },
+        {
+          "kind": "sent",
+          "line": "go depth 12"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 1 score cp -6 wdl 17 957 26 nodes 45 nps 45000 hashfull 0 time 1 pv b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 2 score cp -6 wdl 17 956 27 nodes 45 nps 45000 hashfull 0 time 1 pv e2e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 3 multipv 1 score cp -4 wdl 18 957 25 nodes 480 nps 240000 hashfull 0 time 2 pv d2d4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 3 multipv 2 score cp -32 wdl 6 926 68 nodes 480 nps 240000 hashfull 0 time 2 pv g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 4 multipv 1 score cp -9 wdl 15 955 30 nodes 845 nps 281666 hashfull 0 time 3 pv b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 7 multipv 2 score cp -10 wdl 15 955 30 nodes 845 nps 281666 hashfull 0 time 3 pv d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 7 multipv 1 score cp -8 wdl 16 956 28 nodes 1287 nps 321750 hashfull 0 time 4 pv d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 8 multipv 2 score cp -12 wdl 14 954 32 nodes 1287 nps 321750 hashfull 0 time 4 pv g2g3 d7d5 g1f3 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 9 multipv 1 score cp 2 wdl 23 958 19 nodes 1815 nps 302500 hashfull 0 time 6 pv d2d4 d7d5 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 8 multipv 2 score cp 0 wdl 21 958 21 nodes 1815 nps 302500 hashfull 0 time 6 pv g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 9 multipv 1 score cp 7 wdl 27 956 17 nodes 3134 nps 313400 hashfull 0 time 10 pv d2d4 d7d5 g1f3 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 9 multipv 2 score cp 6 wdl 27 956 17 nodes 3134 nps 313400 hashfull 0 time 10 pv e2e3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 10 multipv 1 score cp 13 wdl 34 953 13 nodes 4232 nps 302285 hashfull 0 time 14 pv g1f3 d7d5 d2d4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 9 multipv 2 score cp 10 wdl 30 955 15 nodes 4232 nps 302285 hashfull 0 time 14 pv d2d4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 9 multipv 1 score cp 22 wdl 48 943 9 nodes 6175 nps 308750 hashfull 0 time 20 pv d2d4 g8f6 g1f3 e7e6 c1f4 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 12 multipv 2 score cp 20 wdl 44 946 10 nodes 6175 nps 308750 hashfull 0 time 20 pv g1f3 d7d5 d2d4 e7e6 c1f4 f8d6 e2e3 d6f4 e3f4 a7a5 f1e2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 12 multipv 1 score cp 22 wdl 48 943 9 nodes 7041 nps 306130 hashfull 0 time 23 pv d2d4 d7d5 g1f3 e7e6 c1f4 f8d6 e2e3 d6f4 e3f4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 11 multipv 2 score cp 20 wdl 44 946 10 nodes 7041 nps 306130 hashfull 0 time 23 pv g1f3 d7d5 d2d4 e7e6 c1f4 f8d6 e2e3 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 14 multipv 1 score cp 29 wdl 60 933 7 nodes 15310 nps 268596 hashfull 2 time 57 pv e2e4 d7d5 e4d5 d8d5 b1c3 d5e5 g1e2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 12 multipv 2 score cp 21 wdl 46 944 10 nodes 15310 nps 263965 hashfull 2 time 58 pv d2d4 d7d5 g1f3 c8f5 a2a4 g8f6 a4a5 e7e6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 16 multipv 1 score cp 40 wdl 92 903 5 nodes 23855 nps 256505 hashfull 2 time 93 pv e2e4 d7d5 e4d5 d8d5 b1c3 d5e6 g1e2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 15 multipv 2 score cp 20 wdl 45 945 10 nodes 23855 nps 256505 hashfull 2 time 93 pv d2d4 d7d5 g1f3 g8f6 c1f4 c8f5 c2c4 e7e6 d1b3 f8d6 f4d6 c7d6 b3b7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 19 multipv 1 score cp 43 wdl 101 895 4 nodes 55676 nps 249668 hashfull 5 time 223 pv e2e4 e7e5 g1f3 d7d5 f3e5 d5e4 d2d4 e4d3 f1d3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 18 multipv 2 score cp 25 wdl 52 940 8 nodes 55676 nps 249668 hashfull 5 time 223 pv d2d4 d7d5 g1f3 g8f6 e2e3 e7e6 f1d3 f8d6 e1g1 e8g8 c2c4 d5c4 d3c4"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove e2e4 ponder e7e5"
+        },
+        {
+          "kind": "sent",
+          "line": "position startpos"
+        },
+        {
+          "kind": "sent",
+          "line": "go perft 3"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "a2a3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "b2b3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "c2c3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "d2d3: 539"
+        },
+        {
+          "kind": "received",
+          "line": "e2e3: 599"
+        },
+        {
+          "kind": "received",
+          "line": "f2f3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "g2g3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "h2h3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "a2a4: 420"
+        },
+        {
+          "kind": "received",
+          "line": "b2b4: 421"
+        },
+        {
+          "kind": "received",
+          "line": "c2c4: 441"
+        },
+        {
+          "kind": "received",
+          "line": "d2d4: 560"
+        },
+        {
+          "kind": "received",
+          "line": "e2e4: 600"
+        },
+        {
+          "kind": "received",
+          "line": "f2f4: 401"
+        },
+        {
+          "kind": "received",
+          "line": "g2g4: 421"
+        },
+        {
+          "kind": "received",
+          "line": "h2h4: 420"
+        },
+        {
+          "kind": "received",
+          "line": "b1a3: 400"
+        },
+        {
+          "kind": "received",
+          "line": "b1c3: 440"
+        },
+        {
+          "kind": "received",
+          "line": "g1f3: 440"
+        },
+        {
+          "kind": "received",
+          "line": "g1h3: 400"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "received",
+          "line": "Nodes searched: 8902"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "sent",
+          "line": "go movetime 5000"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 4 multipv 1 score cp 43 wdl 101 895 4 nodes 42 nps 42000 hashfull 0 time 1 pv e2e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 2 score cp 25 wdl 52 940 8 nodes 42 nps 42000 hashfull 0 time 1 pv d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 3 multipv 1 score cp 43 wdl 101 895 4 nodes 100 nps 100000 hashfull 0 time 1 pv e2e4 e7e5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 9 multipv 2 score cp 27 wdl 57 935 8 nodes 100 nps 100000 hashfull 0 time 1 pv d2d4 d7d5 g1f3 c8f5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 4 multipv 1 score cp 43 wdl 101 895 4 nodes 163 nps 163000 hashfull 0 time 1 pv e2e4 e7e5 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 4 multipv 2 score cp 27 wdl 57 935 8 nodes 163 nps 163000 hashfull 0 time 1 pv d2d4 d7d5 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 6 multipv 1 score cp 43 wdl 101 895 4 nodes 242 nps 242000 hashfull 0 time 1 pv e2e4 e7e5 g1f3 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 5 multipv 2 score cp 27 wdl 57 935 8 nodes 242 nps 242000 hashfull 0 time 1 pv d2d4 d7d5 g1f3 c8f5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 7 multipv 1 score cp 43 wdl 101 895 4 nodes 410 nps 205000 hashfull 0 time 2 pv e2e4 e7e5 g1f3 d7d5 f3e5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 7 multipv 2 score cp 22 wdl 49 942 9 nodes 410 nps 205000 hashfull 0 time 2 pv d2d4 d7d5 g1f3 c8f5 c2c4 d5c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 7 multipv 1 score cp 43 wdl 101 895 4 nodes 539 nps 269500 hashfull 0 time 2 pv e2e4 e7e5 g1f3 d7d5 f3e5 d5e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 7 multipv 2 score cp 22 wdl 48 943 9 nodes 539 nps 269500 hashfull 0 time 2 pv d2d4 d7d5 g1f3 c8f5 c2c4 d5c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 9 multipv 1 score cp 43 wdl 101 895 4 nodes 637 nps 318500 hashfull 0 time 2 pv e2e4 e7e5 g1f3 d7d5 f3e5 d5e4 d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 9 multipv 2 score cp 25 wdl 52 940 8 nodes 637 nps 318500 hashfull 0 time 2 pv d2d4 d7d5 g1f3 c8f5 c2c4 d5c4 e2e3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 12 multipv 1 score cp 46 wdl 113 883 4 nodes 4752 nps 279529 hashfull 0 time 17 pv e2e4 e7e6 d2d4 d7d5 b1c3 g8f6 e4e5 f6d7 f1d3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 15 multipv 2 score cp 16 wdl 39 950 11 nodes 4752 nps 279529 hashfull 0 time 17 pv d2d4 d7d5 g1f3 g8f6 c1f4 c8f5 e2e3 e7e6 f1d3 f5d3 c2d3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 10 multipv 1 score cp 46 wdl 113 883 4 nodes 8620 nps 278064 hashfull 0 time 31 pv e2e4 e7e6 d2d4 d7d5 b1c3 g8f6 e4e5 f6d7 f1d3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 14 multipv 2 score cp 22 wdl 49 942 9 nodes 8620 nps 278064 hashfull 0 time 31 pv g1f3 d7d5 d2d4 g8f6 c1f4 c8f5 e2e3 e7e6 f1d3 f5d3 c2d3 f8e7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 24 multipv 1 score cp 27 wdl 58 935 7 nodes 41217 nps 264211 hashfull 1 time 156 pv e2e4 e7e6 d2d4 d7d5 e4e5 c7c5 c2c3 b8c6 g1f3 c5d4 c3d4 d8b6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 20 multipv 2 score cp 20 wdl 45 945 10 nodes 41217 nps 264211 hashfull 1 time 156 pv d2d4 d7d5 c1f4 g8f6 e2e3 c8f5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 12 multipv 1 score cp 27 wdl 58 935 7 nodes 45475 nps 264389 hashfull 2 time 172 pv e2e4 e7e6 d2d4 d7d5 e4e5 c7c5 c2c3 b8c6 g1f3 c5d4 c3d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 13 multipv 2 score cp 20 wdl 45 945 10 nodes 45475 nps 264389 hashfull 2 time 172 pv d2d4 d7d5 c1f4 e7e6 e2e3 c7c5 g1f3 b8c6 f1e2 d8b6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 16 multipv 1 score cp 29 wdl 62 931 7 nodes 79979 nps 248381 hashfull 6 time 322 pv e2e4 e7e6 d2d4 d7d5 e4e5 c7c5 c2c3 b8c6 g1f3 d8b6 f1d3 c5d4 e1g1 d4c3 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 21 multipv 2 score cp 20 wdl 45 945 10 nodes 79979 nps 248381 hashfull 6 time 322 pv d2d4 g8f6 c1f4 d7d5 g1f3 c8f5 e2e3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 25 multipv 1 score cp 28 wdl 59 934 7 nodes 108755 nps 243299 hashfull 9 time 447 pv e2e4 e7e6 d2d4 d7d5 e4e5 c7c5 c2c3 d8b6 g1f3 b8c6 f1e2 c5d4 c3d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 20 multipv 2 score cp 24 wdl 51 941 8 nodes 108755 nps 243299 hashfull 9 time 447 pv d2d4 d7d5 c1f4 g8f6 e2e3 e7e6 g1f3 c7c5 f1e2 c5d4 e3d4 f8d6 f4d6 d8d6 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 25 multipv 1 score cp 27 wdl 57 935 8 nodes 160165 nps 236580 hashfull 13 time 677 pv e2e4 e7e6 d2d4 d7d5 b1c3 g8f6 c1g5 d5e4 c3e4 f8e7 g5f6 g7f6 c2c3 f6f5 e4d2 c7c5 d4c5 e7c5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 20 multipv 2 score cp 24 wdl 51 940 9 nodes 160165 nps 236580 hashfull 13 time 677 pv d2d4 d7d5 c1f4 e7e6 g1f3 c7c5 e2e3 b8c6 f1b5 c8d7 e1g1 g8f6 f1e1 a7a6 b5c6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 25 multipv 1 score cp 30 wdl 64 929 7 nodes 190436 nps 236272 hashfull 15 time 806 pv e2e4 e7e6 d2d4 d7d5 e4d5 e6d5 g1f3 b8c6 b1c3 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 18 multipv 2 score cp 27 wdl 57 935 8 nodes 190436 nps 236272 hashfull 15 time 806 pv d2d4 d7d5 c1f4 e7e6 e2e3 c7c5 g1f3 c5d4 e3d4 f8d6 f4d6 d8d6 c2c4 d5c4 f1c4 g8f6 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 16 seldepth 20 multipv 1 score cp 31 wdl 65 928 7 nodes 321518 nps 229655 hashfull 27 time 1400 pv e2e4 e7e6 d2d4 d7d5 e4d5 e6d5 g1f3 g8f6 f1d3 f8d6 e1g1 e8g8 f1e1 f8e8 c1g5 e8e1 d1e1 c8e6 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 16 seldepth 26 multipv 2 score cp 20 wdl 44 946 10 nodes 321518 nps 229655 hashfull 27 time 1400 pv d2d4 d7d5 g1f3 g8f6 c1f4 c8f5 e2e3 e7e6 f1d3 f5d3 d1d3 c7c5 d3b3 d8b6 e1g1"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 17 seldepth 28 multipv 1 score cp 29 wdl 61 932 7 nodes 410014 nps 229571 hashfull 35 time 1786 pv e2e4 e7e6 d2d4 d7d5 e4e5 c7c5 c2c3 d8b6 g1f3 b8c6 a2a3 c5d4 c3d4 g8e7 b1c3 e7f5 c3a4 b6c7 f1e2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 17 seldepth 25 multipv 2 score cp 22 wdl 47 944 9 nodes 410014 nps 229571 hashfull 35 time 1786 pv d2d4 d7d5 g1f3 g8f6 c1f4 c8f5 e2e3 e7e6 f1e2 h7h6 c2c4 f8b4 b1c3 d5c4 e2c4 e8g8 e1g1"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 18 seldepth 30 multipv 1 score cp 29 wdl 62 931 7 nodes 612254 nps 225341 hashfull 54 time 2717 pv e2e4 e7e6 d2d4 d7d5 e4e5 c7c5 c2c3 d8b6 g1f3 b8c6 f1d3 c5d4 e1g1 c8d7 f1e1 g8e7 c3d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 18 seldepth 29 multipv 2 score cp 27 wdl 57 935 8 nodes 612254 nps 225341 hashfull 54 time 2717 pv d2d4 g8f6 c1f4 d7d5 e2e3 e7e6 g1f3 f8e7 f1d3 c7c5 c2c3 c5c4 d3c2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 19 seldepth 36 multipv 1 score cp 31 wdl 67 927 6 nodes 826964 nps 224963 hashfull 74 time 3676 pv e2e4 e7e6 d2d4 d7d5 e4e5 c7c5 c2c3 d8b6 g1f3 b8c6 a2a3 c8d7 f1e2 c5d4 c3d4 g8e7 b1c3 e7f5 c3a4 b6d8 e1g1 h7h6 c1e3 f8e7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 19 seldepth 28 multipv 2 score cp 31 wdl 65 928 7 nodes 826964 nps 224963 hashfull 74 time 3676 pv d2d4 g8f6 c2c4 e7e6 b1c3 f8b4 g1f3 d7d5 e2e3 e8g8 f1d3 d5c4 d3c4 c7c5 e1g1 c5d4 e3d4 b4e7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 20 seldepth 36 multipv 1 score cp 31 wdl 67 927 6 nodes 1129337 nps 225596 hashfull 97 time 5006 pv e2e4 e7e6 d2d4 d7d5 b1c3 g8f6 e4e5 f6d7 f2f4 c7c5 g1f3 b8c6 c1e3 d8b6 c3b5 c5d4 b5d4 f8c5 c2c3 b6b2 d4b5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 19 seldepth 28 multipv 2 score cp 31 wdl 65 928 7 nodes 1129337 nps 225596 hashfull 97 time 5006 pv d2d4 g8f6 c2c4 e7e6 b1c3 f8b4 g1f3 d7d5 e2e3 e8g8 f1d3 d5c4 d3c4 c7c5 e1g1 c5d4 e3d4 b4e7"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove e2e4 ponder e7e6"
+        }
+      ]
+    },
+    {
+      "browser": "webkit",
+      "width": 1280,
+      "stage": "passed",
+      "errors": [],
+      "boardLines": " Lines#1D12+0.321.e4e52.Nf3d53.Nxe5dxe44.d4Be6e2e4 e7e5 g1f3 d7d5 f3e5 d5e4 d2d4 c8e6#2D12+0.191.d4Nf62.e3d53.c4e64.Nf3Be7d2d4 g8f6 e2e3 d7d5 c2c4 e7e6 g1f3 f8e7Expected reply: e5",
+      "perftOutput": "> go perft 3\ninfo string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))\ninfo string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback.\na2a3: 380\nb2b3: 420\nc2c3: 420\nd2d3: 539\ne2e3: 599\nf2f3: 380\ng2g3: 420\nh2h3: 380\na2a4: 420\nb2b4: 421\nc2c4: 441\nd2d4: 560\ne2e4: 600\nf2f4: 401\ng2g4: 421\nh2h4: 420\nb1a3: 400\nb1c3: 440\ng1f3: 440\ng1h3: 400\nNodes searched: 8902",
+      "events": [
+        {
+          "kind": "sent",
+          "line": "uci"
+        },
+        {
+          "kind": "received",
+          "line": "Stockfish 18 Lite WASM by the Stockfish developers (see AUTHORS file)"
+        },
+        {
+          "kind": "received",
+          "line": "id name Stockfish 18 Lite WASM"
+        },
+        {
+          "kind": "received",
+          "line": "id author the Stockfish developers (see AUTHORS file)"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "received",
+          "line": "option name Threads type spin default 1 min 1 max 1"
+        },
+        {
+          "kind": "received",
+          "line": "option name Hash type spin default 16 min 1 max 33554432"
+        },
+        {
+          "kind": "received",
+          "line": "option name Clear Hash type button"
+        },
+        {
+          "kind": "received",
+          "line": "option name Ponder type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name MultiPV type spin default 1 min 1 max 256"
+        },
+        {
+          "kind": "received",
+          "line": "option name Skill Level type spin default 20 min 0 max 20"
+        },
+        {
+          "kind": "received",
+          "line": "option name Move Overhead type spin default 10 min 0 max 5000"
+        },
+        {
+          "kind": "received",
+          "line": "option name nodestime type spin default 0 min 0 max 10000"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_Chess960 type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_LimitStrength type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_Elo type spin default 1320 min 1320 max 3190"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_ShowWDL type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name EvalFile type string default nn-9067e33176e8.nnue"
+        },
+        {
+          "kind": "received",
+          "line": "option name EvalFileSmall type string default <empty>"
+        },
+        {
+          "kind": "received",
+          "line": "uciok"
+        },
+        {
+          "kind": "sent",
+          "line": "isready"
+        },
+        {
+          "kind": "received",
+          "line": "readyok"
+        },
+        {
+          "kind": "sent",
+          "line": "position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        },
+        {
+          "kind": "sent",
+          "line": "go movetime 5000"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 1 score cp 623 nodes 20 nps 20000 hashfull 0 time 1 pv b1a3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 3 multipv 1 score cp 802 nodes 45 nps 22500 hashfull 0 time 2 pv b1a3 a7a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 4 multipv 1 score cp 800 nodes 72 nps 36000 hashfull 0 time 2 pv b1a3 a7a6 e2e3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 5 multipv 1 score cp 809 nodes 97 nps 48500 hashfull 0 time 2 pv b1a3 e7e6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 8 multipv 1 score cp 791 nodes 129 nps 64500 hashfull 0 time 2 pv b1a3 e7e6 a3b5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 8 multipv 1 score cp 840 nodes 169 nps 56333 hashfull 0 time 3 pv b1a3 e8d8 a3b5 a7a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 8 multipv 1 score cp 738 nodes 275 nps 91666 hashfull 0 time 3 pv b1a3 a7a6 e2e3 g8f6 e3e4 f6e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 12 multipv 1 score cp 858 nodes 453 nps 151000 hashfull 0 time 3 pv b1c3 f7f5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 11 multipv 1 score cp 741 nodes 691 nps 172750 hashfull 0 time 4 pv b1a3 g8f6 b2b3 d7d5 e2e3 a7a5 f1b5 c8d7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 12 multipv 1 score cp 765 nodes 1118 nps 279500 hashfull 0 time 4 pv b1c3 g8f6 b2b3 d7d5 c3b5 b8a6 e2e3 b7b6 h2h4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 13 multipv 1 score cp 775 nodes 1639 nps 327800 hashfull 0 time 5 pv a2a4 a7a5 a1a3 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 13 multipv 1 score cp 731 nodes 3584 nps 512000 hashfull 0 time 7 pv a2a4 a7a5 a1a3 d7d5 e2e3 g8f6 h2h4 c8d7 a3a1 b8a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 19 multipv 1 score cp 727 nodes 12736 nps 909714 hashfull 3 time 14 pv b1c3 d7d5 d2d4 a7a5 e2e3 g8f6 g1f3 h7h5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 16 multipv 1 score cp 749 nodes 18280 nps 1015555 hashfull 5 time 18 pv b1c3 d7d5 d2d4 g8f6 g1f3 a7a5 e2e3 h7h5 a2a4 b8a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 25 multipv 1 score cp 710 nodes 76067 nps 1584729 hashfull 29 time 48 pv d2d4 d7d5 b1c3 g8f6 h2h4 e7e5 c3b5 b8a6 d4e5 c8d7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 16 seldepth 20 multipv 1 score cp 713 nodes 131426 nps 1729289 hashfull 49 time 76 pv d2d4 d7d5 c1f4 e7e5 d4e5 f8c5 a2a4"
+        },
+        {
+          "kind": "sent",
+          "line": "stop"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 17 seldepth 20 multipv 1 score cp 713 nodes 157425 nps 1749166 hashfull 60 time 90 pv d2d4 d7d5 c1f4 e7e5 d4e5 f8c5 a2a4"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove d2d4 ponder d7d5"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name Hash value 64"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name MultiPV value 2"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name UCI_ShowWDL value true"
+        },
+        {
+          "kind": "sent",
+          "line": "position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        },
+        {
+          "kind": "sent",
+          "line": "go depth 12"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 1 score cp 26 wdl 55 937 8 nodes 39 nps 39000 hashfull 0 time 1 pv e2e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 2 score cp -2 wdl 20 957 23 nodes 39 nps 39000 hashfull 0 time 1 pv g2g3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 6 multipv 1 score cp -7 wdl 16 957 27 nodes 1053 nps 1053000 hashfull 0 time 1 pv d2d4 d7d5 a2a3 g8f6 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 5 multipv 2 score cp -39 wdl 5 908 87 nodes 1053 nps 1053000 hashfull 0 time 1 pv c2c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 7 multipv 1 score cp -20 wdl 10 946 44 nodes 1882 nps 941000 hashfull 0 time 2 pv d2d4 d7d5 g1f3 g8f6 e2e3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 7 multipv 2 score cp -20 wdl 10 946 44 nodes 1882 nps 941000 hashfull 0 time 2 pv g1f3 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 7 multipv 1 score cp -13 wdl 13 953 34 nodes 2276 nps 1138000 hashfull 0 time 2 pv e2e4 d7d5 e4d5 d8d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 5 multipv 2 score cp -13 wdl 13 952 35 nodes 2276 nps 1138000 hashfull 0 time 2 pv d2d4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 6 multipv 1 score cp 3 wdl 23 958 19 nodes 3364 nps 1682000 hashfull 0 time 2 pv g1f3 d7d6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 6 multipv 2 score cp -9 wdl 15 956 29 nodes 3364 nps 1121333 hashfull 0 time 3 pv d2d4 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 7 multipv 1 score cp 14 wdl 36 952 12 nodes 4236 nps 1412000 hashfull 0 time 3 pv g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 9 multipv 2 score cp 3 wdl 24 957 19 nodes 4236 nps 1412000 hashfull 0 time 3 pv d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 8 multipv 1 score cp 29 wdl 61 932 7 nodes 5214 nps 1738000 hashfull 0 time 3 pv g1f3 d7d6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 9 multipv 2 score cp 25 wdl 53 939 8 nodes 5214 nps 1738000 hashfull 0 time 3 pv d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 12 multipv 1 score cp 27 wdl 58 934 8 nodes 10181 nps 2036200 hashfull 0 time 5 pv d2d4 d7d5 g1f3 g8f6 c2c4 b8c6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 14 multipv 2 score cp 13 wdl 34 953 13 nodes 10181 nps 2036200 hashfull 0 time 5 pv g1f3 d7d5 d2d4 e7e6 c2c4 d5c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 17 multipv 1 score cp 19 wdl 43 947 10 nodes 17862 nps 1984666 hashfull 0 time 9 pv d2d4 d7d5 e2e3 g8f6 f1d3 e7e6 g1f3 f8e7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 14 multipv 2 score cp 19 wdl 43 947 10 nodes 17862 nps 1984666 hashfull 0 time 9 pv e2e4 d7d5 e4d5 d8d5 d2d4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 17 multipv 1 score cp 21 wdl 47 944 9 nodes 19849 nps 1984900 hashfull 1 time 10 pv e2e4 d7d5 e4d5 d8d5 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 11 multipv 2 score cp 20 wdl 45 945 10 nodes 19849 nps 1984900 hashfull 1 time 10 pv d2d4 g8f6 e2e3 e7e6 f1d3 a7a5 g1f3 d7d5 f3e5 f8d6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 16 multipv 1 score cp 32 wdl 70 924 6 nodes 28447 nps 2031928 hashfull 1 time 14 pv e2e4 d7d5 e4d5 d8d5 b1c3 d5e6 f1e2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 17 multipv 2 score cp 21 wdl 46 944 10 nodes 28447 nps 2031928 hashfull 1 time 14 pv d2d4 g8f6 e2e3 g7g6 g1f3 f8g7 f1d3 e8g8 e1g1"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 13 multipv 1 score cp 32 wdl 68 926 6 nodes 66990 nps 2030000 hashfull 4 time 33 pv e2e4 e7e5 g1f3 d7d5 f3e5 d5e4 d2d4 c8e6 f1c4 e6c4 e5c4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 23 multipv 2 score cp 19 wdl 42 948 10 nodes 66990 nps 2030000 hashfull 4 time 33 pv d2d4 g8f6 e2e3 d7d5 c2c4 e7e6 g1f3 f8e7 f1d3 d5c4 d3c4 c7c5 e1g1 c5d4 e3d4 e8g8 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove e2e4 ponder e7e5"
+        },
+        {
+          "kind": "sent",
+          "line": "position startpos"
+        },
+        {
+          "kind": "sent",
+          "line": "go perft 3"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "a2a3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "b2b3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "c2c3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "d2d3: 539"
+        },
+        {
+          "kind": "received",
+          "line": "e2e3: 599"
+        },
+        {
+          "kind": "received",
+          "line": "f2f3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "g2g3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "h2h3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "a2a4: 420"
+        },
+        {
+          "kind": "received",
+          "line": "b2b4: 421"
+        },
+        {
+          "kind": "received",
+          "line": "c2c4: 441"
+        },
+        {
+          "kind": "received",
+          "line": "d2d4: 560"
+        },
+        {
+          "kind": "received",
+          "line": "e2e4: 600"
+        },
+        {
+          "kind": "received",
+          "line": "f2f4: 401"
+        },
+        {
+          "kind": "received",
+          "line": "g2g4: 421"
+        },
+        {
+          "kind": "received",
+          "line": "h2h4: 420"
+        },
+        {
+          "kind": "received",
+          "line": "b1a3: 400"
+        },
+        {
+          "kind": "received",
+          "line": "b1c3: 440"
+        },
+        {
+          "kind": "received",
+          "line": "g1f3: 440"
+        },
+        {
+          "kind": "received",
+          "line": "g1h3: 400"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "received",
+          "line": "Nodes searched: 8902"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "sent",
+          "line": "go movetime 5000"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 1 score cp 39 wdl 89 906 5 nodes 49 nps 49000 hashfull 0 time 1 pv d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 5 multipv 2 score cp 32 wdl 68 926 6 nodes 49 nps 49000 hashfull 0 time 1 pv e2e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 7 multipv 1 score cp 32 wdl 68 926 6 nodes 189 nps 189000 hashfull 0 time 1 pv e2e4 e7e5 g1f3 d7d5 f3e5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 3 multipv 2 score cp 19 wdl 42 948 10 nodes 189 nps 189000 hashfull 0 time 1 pv d2d4 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 4 multipv 1 score cp 32 wdl 68 926 6 nodes 309 nps 309000 hashfull 0 time 1 pv e2e4 e7e5 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 15 multipv 2 score cp 31 wdl 65 928 7 nodes 309 nps 309000 hashfull 0 time 1 pv d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 6 multipv 1 score cp 32 wdl 68 926 6 nodes 441 nps 441000 hashfull 0 time 1 pv e2e4 e7e5 g1f3 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 5 multipv 2 score cp 16 wdl 39 950 11 nodes 441 nps 441000 hashfull 0 time 1 pv d2d4 g8f6 e2e3 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 7 multipv 1 score cp 32 wdl 68 926 6 nodes 503 nps 503000 hashfull 0 time 1 pv e2e4 e7e5 g1f3 d7d5 f3e5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 7 multipv 2 score cp 18 wdl 42 947 11 nodes 503 nps 503000 hashfull 0 time 1 pv d2d4 g8f6 e2e3 d7d5 c2c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 7 multipv 1 score cp 32 wdl 68 926 6 nodes 1483 nps 1483000 hashfull 0 time 1 pv e2e4 e7e5 g1f3 d7d5 f3e5 d5e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 12 multipv 2 score cp 7 wdl 27 956 17 nodes 1483 nps 1483000 hashfull 0 time 1 pv g1f3 d7d5 d2d4 c8f5 e2e3 e7e6 c2c4 g8f6 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 8 multipv 1 score cp 32 wdl 68 926 6 nodes 1842 nps 1842000 hashfull 0 time 1 pv e2e4 e7e5 g1f3 d7d5 f3e5 d5e4 d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 9 multipv 2 score cp 7 wdl 27 956 17 nodes 1842 nps 1842000 hashfull 0 time 1 pv g1f3 d7d5 d2d4 c8f5 e2e3 e7e6 c2c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 12 multipv 1 score cp 32 wdl 68 926 6 nodes 3006 nps 3006000 hashfull 0 time 1 pv e2e4 e7e5 g1f3 d7d5 f3e5 d5e4 d2d4 c8e6 f1c4 e6c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 12 multipv 2 score cp 4 wdl 25 957 18 nodes 3006 nps 3006000 hashfull 0 time 1 pv c2c4 g8f6 d2d4 e7e6 e2e3 d7d5 g1f3 f8e7 f1e2 d5c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 15 multipv 1 score cp 32 wdl 69 925 6 nodes 7977 nps 1994250 hashfull 0 time 4 pv e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 g8f6 b1c3 f8c5 d4c6 d7c6 d1d8 e8d8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 12 multipv 2 score cp 16 wdl 38 950 12 nodes 7977 nps 1994250 hashfull 0 time 4 pv g1f3 d7d5 d2d4 g8f6 c1f4 f6e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 12 multipv 1 score cp 32 wdl 69 925 6 nodes 13106 nps 1872285 hashfull 0 time 7 pv e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 g8f6 b1c3 f8c5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 17 multipv 2 score cp 15 wdl 36 952 12 nodes 13106 nps 1872285 hashfull 0 time 7 pv g1f3 d7d5 d2d4 c8f5 e2e3 e7e6 f1e2 g8f6 c2c4 f8b4 c1d2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 19 multipv 1 score cp 37 wdl 82 913 5 nodes 33255 nps 1956176 hashfull 0 time 17 pv e2e4 c7c5 g1f3 e7e6 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 15 multipv 2 score cp 20 wdl 44 946 10 nodes 33255 nps 1956176 hashfull 0 time 17 pv g1f3 g8f6 d2d4 d7d5 c1f4 c8f5 e2e3 e7e6 f1d3 f5d3 c2d3 f8d6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 20 multipv 1 score cp 37 wdl 82 913 5 nodes 70989 nps 1971916 hashfull 4 time 36 pv e2e4 e7e6 d2d4 d7d5 b1c3 d5e4 c3e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 22 multipv 2 score cp 20 wdl 45 945 10 nodes 70989 nps 1971916 hashfull 4 time 36 pv d2d4 d7d5 e2e3 g8f6 c2c4 e7e6 g1f3 f8e7 f1e2 d5c4 e1g1 c7c5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 24 multipv 1 score cp 41 wdl 94 902 4 nodes 114857 nps 2015035 hashfull 7 time 57 pv e2e4 e7e6 d2d4 d7d5 b1c3 f8b4 e4d5 e6d5 f1d3 g8f6 d1e2 d8e7 c1g5 e8g8 e1c1 e7e2 g1e2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 21 multipv 2 score cp 17 wdl 40 949 11 nodes 114857 nps 2015035 hashfull 7 time 57 pv d2d4 d7d5 e2e3 g8f6 c2c4 e7e6 g1f3 f8e7 f1e2 d5c4 e1g1 c7c5 d4c5 e8g8 e2c4 e7c5 h2h3 f8e8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 20 multipv 1 score cp 40 wdl 90 905 5 nodes 131758 nps 2027046 hashfull 9 time 65 pv e2e4 e7e5 b1c3 f8c5 g1f3 d7d6 c3a4 b8d7 d2d3 c5b6 a4b6 a7b6 f1e2 g8f6 e1g1 d7f8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 22 multipv 2 score cp 14 wdl 36 952 12 nodes 131758 nps 2027046 hashfull 9 time 65 pv d2d4 d7d5 e2e3 g8f6 c2c4 e7e6 g1f3 f8e7 f1e2 e8g8 e1g1 d5c4 b1c3 c7c5 e2c4 c5d4 e3d4 a7a6 a2a4 b8c6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 22 multipv 1 score cp 40 wdl 92 903 5 nodes 169772 nps 2045445 hashfull 11 time 83 pv e2e4 e7e6 d2d4 d7d5 b1c3 f8b4 e4d5 e6d5 f1d3 g8e7 g1e2 e8g8 c1g5 b4d6 e1g1"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 26 multipv 2 score cp 17 wdl 40 949 11 nodes 169772 nps 2045445 hashfull 11 time 83 pv d2d4 d7d5 e2e3 g8f6 c2c4 e7e6 g1f3 f8e7 b1c3 e8g8 f1e2 d5c4 e1g1 b7b5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 16 seldepth 27 multipv 1 score cp 43 wdl 100 896 4 nodes 271717 nps 2012718 hashfull 18 time 135 pv e2e4 e7e6 d2d4 d7d5 b1c3 f8b4 e4d5 e6d5 f1d3 b8c6 a2a3 b4e7 g1e2 g8f6 e1g1 e8g8 f1e1 f8e8 c1g5 c8g4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 16 seldepth 27 multipv 2 score cp 23 wdl 50 941 9 nodes 271717 nps 2012718 hashfull 18 time 135 pv d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 g1f3 f8e7 c1g5 h7h6 g5h4 f6e4 h4e7 d8e7 d1c2 e4c3 c2c3 d5c4 c3c4 e8g8 e2e3 f8d8 f1d3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 17 seldepth 28 multipv 1 score cp 39 wdl 88 907 5 nodes 413222 nps 2015717 hashfull 32 time 205 pv e2e4 e7e5 g1f3 g8f6 b1c3 b8c6 d2d4 e5d4 f3d4 f8c5 c1e3 c5d4 e3d4 e8g8 d4e3 f8e8 f1d3 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 17 seldepth 30 multipv 2 score cp 19 wdl 42 948 10 nodes 413222 nps 2015717 hashfull 32 time 205 pv d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 g1f3 f8b4 e2e3 e8g8 c1d2 b7b6 a1c1 c8b7 c4d5 b4c3 c1c3 f6d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 18 seldepth 25 multipv 1 score cp 39 wdl 87 908 5 nodes 592279 nps 2014554 hashfull 46 time 294 pv e2e4 e7e5 g1f3 g8f6 b1c3 f8b4 f3e5 e8g8 e5d3 b4c3 d2c3 f6e4 c1e3 d7d6 f1e2 f8e8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 18 seldepth 28 multipv 2 score cp 29 wdl 60 933 7 nodes 592279 nps 2014554 hashfull 46 time 294 pv d2d4 g8f6 c2c4 e7e6 b1c3 f8b4 c1g5 b4c3 b2c3 d7d6 e2e3 b7b6 e3e4 c8b7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 19 seldepth 28 multipv 1 score cp 38 wdl 86 909 5 nodes 714906 nps 2013819 hashfull 59 time 355 pv e2e4 e7e5 g1f3 g8f6 b1c3 f8b4 f3e5 e8g8 e5d3 b4c3 d2c3 f6e4 c1e3 d7d6 d3f4 f8e8 f1b5 c7c6 b5d3 e4f6 e1g1 b8d7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 19 seldepth 29 multipv 2 score cp 30 wdl 64 929 7 nodes 714906 nps 2013819 hashfull 59 time 355 pv d2d4 g8f6 c2c4 e7e6 b1c3 f8b4 g1f3 b7b6 g2g3 b4c3 b2c3 c8b7 f1g2 d7d6 e1g1 b8d7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 20 seldepth 23 multipv 1 score cp 38 wdl 86 909 5 nodes 929153 nps 2033157 hashfull 86 time 457 pv e2e4 e7e5 g1f3 g8f6 b1c3 f8b4 f3e5 e8g8 e5d3 b4c3 d2c3 f6e4 c1e3 d7d6 d3f4 f8e8 f1b5 c7c6 b5d3 e4f6 e1g1 b8d7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 20 seldepth 32 multipv 2 score cp 30 wdl 64 929 7 nodes 929153 nps 2033157 hashfull 86 time 457 pv d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 c1g5 f8e7 e2e3 e8g8 g1f3 b7b6 f1d3 d5c4 d3c4 c8b7 e1g1 b8d7 b2b3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 21 seldepth 34 multipv 1 score cp 43 wdl 101 895 4 nodes 1130399 nps 2007813 hashfull 104 time 563 pv e2e4 e7e5 g1f3 g8f6 f3e5 d7d6 e5f3 f6e4 d2d4 d6d5 f1d3 f8d6 e1g1 e8g8 c2c4 c7c6 f1e1 c8f5 c4d5 c6d5 b1c3 e4c3 b2c3 f5d3 d1d3 f8e8 c1g5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 21 seldepth 24 multipv 2 score cp 30 wdl 63 930 7 nodes 1130399 nps 2007813 hashfull 104 time 563 pv d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 c1g5 f8e7 e2e3 e8g8 g1f3 b7b6 c4d5 f6d5 g5e7 d8e7 c3d5 e6d5 a1c1 f8d8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 22 seldepth 35 multipv 1 score cp 39 wdl 88 907 5 nodes 1811829 nps 1931587 hashfull 171 time 938 pv e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 f8c5 d4b3 c5b6 a2a4 d8f6 d1e2 g8e7 a4a5 c6d4 b3d4 b6d4 c2c3 d4c5 c1e3 c5e3 e2e3 e8g8 f1e2 d7d5 b1d2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 22 seldepth 31 multipv 2 score cp 31 wdl 66 927 7 nodes 1811829 nps 1931587 hashfull 171 time 938 pv d2d4 d7d5 c2c4 e7e6 b1c3 f8e7 c1f4 g8f6 e2e3 e8g8 g1f3 b7b6 f1d3 d5c4 d3c4 f6d5 f4g3 d5c3 b2c3 c8b7 e1g1 b8d7 c4d3 c7c5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 23 seldepth 40 multipv 1 score cp 36 wdl 79 916 5 nodes 3234929 nps 1876408 hashfull 298 time 1724 pv e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 f8c5 d4b3 c5b6 b1c3 g8f6 c1g5 h7h6 g5h4 g7g5 h4g3 d8e7 d1e2 d7d6 e1c1 c8e6 c3d5 e6d5 e4d5 e7e2 f1e2 c6e5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 23 seldepth 38 multipv 2 score cp 29 wdl 61 932 7 nodes 3234929 nps 1876408 hashfull 298 time 1724 pv d2d4 d7d5 c2c4 e7e6 c4d5 e6d5 b1c3 g8f6 c1g5 c7c6 e2e3 f8d6 f1d3 e8g8 g1e2 f8e8 d1c2 h7h6 g5h4 b8d7 a1c1 d7b6 h2h3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 24 seldepth 38 multipv 1 score cp 33 wdl 72 922 6 nodes 4569546 nps 1825627 hashfull 409 time 2503 pv e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 f8c5 d4b3 c5b6 d1e2 d7d6 b1c3 a7a5 c3d5 a5a4 d5b6 c7b6 b3d2 g8f6 f2f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 24 seldepth 37 multipv 2 score cp 30 wdl 63 930 7 nodes 4569546 nps 1825627 hashfull 409 time 2503 pv d2d4 g8f6 c2c4 e7e6 g2g3 d7d5 f1g2 d5c4 d1a4 b8d7 a4c4 a7a6 c4c2 c7c5 d4c5 f8c5 g1f3 d8c7 b1c3 b7b5 c1f4 c7a7 e1g1"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 25 seldepth 43 multipv 1 score cp 38 wdl 84 911 5 nodes 6950994 nps 1713333 hashfull 600 time 4057 pv e2e4 e7e6 b1c3 d7d5 d2d4 g8f6 e4e5 f6d7 f2f4 c7c5 g1f3 b8c6 c1e3 a7a6 d1d2 b7b5 f4f5 c5d4 f3d4 c6d4 e3d4 f8c5 e1c1 e8g8 d4c5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 25 seldepth 37 multipv 2 score cp 30 wdl 65 928 7 nodes 6950994 nps 1713333 hashfull 600 time 4057 pv d2d4 g8f6 c2c4 e7e6 g2g3 d7d5 f1g2 d5c4 d1a4 b8d7 a4c4 a7a6 c4c2 c7c5 g1f3 c5d4 f3d4 d7e5 c1e3 f6d5 e3d2 d5b4 c2c3 b4d5 c3b3 f8c5 e1g1"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 26 seldepth 40 multipv 1 score cp 33 wdl 72 922 6 nodes 8408294 nps 1681658 hashfull 676 time 5000 pv d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 26 seldepth 42 multipv 2 score cp 31 wdl 66 928 6 nodes 8408294 nps 1681658 hashfull 676 time 5000 pv e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 g8f6 e1g1 f6e4 d2d4 b7b5 a4b3 d7d5 d4e5 c8e6 c2c3 f8e7 h2h3 e8g8 b3c2 d8d7 f1e1 a8e8 b1d2 f7f5 e5f6 e4f6 d2f1 e7d6 c1g5 d7f7"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove d2d4 ponder g8f6"
+        }
+      ]
+    },
+    {
+      "browser": "webkit",
+      "width": 375,
+      "stage": "passed",
+      "errors": [],
+      "boardLines": " Lines#1D12+0.361.e4e62.d4d53.Nc3dxe44.Nxe4Nf6e2e4 e7e6 d2d4 d7d5 b1c3 d5e4 c3e4 g8f6#2D12+0.341.d4d52.e3e63.c4c54.cxd5exd5d2d4 d7d5 e2e3 e7e6 c2c4 c7c5 c4d5 e6d5Expected reply: e6",
+      "perftOutput": "> go perft 3\ninfo string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))\ninfo string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback.\na2a3: 380\nb2b3: 420\nc2c3: 420\nd2d3: 539\ne2e3: 599\nf2f3: 380\ng2g3: 420\nh2h3: 380\na2a4: 420\nb2b4: 421\nc2c4: 441\nd2d4: 560\ne2e4: 600\nf2f4: 401\ng2g4: 421\nh2h4: 420\nb1a3: 400\nb1c3: 440\ng1f3: 440\ng1h3: 400\nNodes searched: 8902",
+      "events": [
+        {
+          "kind": "sent",
+          "line": "uci"
+        },
+        {
+          "kind": "received",
+          "line": "Stockfish 18 Lite WASM by the Stockfish developers (see AUTHORS file)"
+        },
+        {
+          "kind": "received",
+          "line": "id name Stockfish 18 Lite WASM"
+        },
+        {
+          "kind": "received",
+          "line": "id author the Stockfish developers (see AUTHORS file)"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "received",
+          "line": "option name Threads type spin default 1 min 1 max 1"
+        },
+        {
+          "kind": "received",
+          "line": "option name Hash type spin default 16 min 1 max 33554432"
+        },
+        {
+          "kind": "received",
+          "line": "option name Clear Hash type button"
+        },
+        {
+          "kind": "received",
+          "line": "option name Ponder type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name MultiPV type spin default 1 min 1 max 256"
+        },
+        {
+          "kind": "received",
+          "line": "option name Skill Level type spin default 20 min 0 max 20"
+        },
+        {
+          "kind": "received",
+          "line": "option name Move Overhead type spin default 10 min 0 max 5000"
+        },
+        {
+          "kind": "received",
+          "line": "option name nodestime type spin default 0 min 0 max 10000"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_Chess960 type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_LimitStrength type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_Elo type spin default 1320 min 1320 max 3190"
+        },
+        {
+          "kind": "received",
+          "line": "option name UCI_ShowWDL type check default false"
+        },
+        {
+          "kind": "received",
+          "line": "option name EvalFile type string default nn-9067e33176e8.nnue"
+        },
+        {
+          "kind": "received",
+          "line": "option name EvalFileSmall type string default <empty>"
+        },
+        {
+          "kind": "received",
+          "line": "uciok"
+        },
+        {
+          "kind": "sent",
+          "line": "isready"
+        },
+        {
+          "kind": "received",
+          "line": "readyok"
+        },
+        {
+          "kind": "sent",
+          "line": "position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        },
+        {
+          "kind": "sent",
+          "line": "go movetime 5000"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 1 score cp 623 nodes 20 nps 10000 hashfull 0 time 2 pv b1a3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 3 multipv 1 score cp 802 nodes 45 nps 15000 hashfull 0 time 3 pv b1a3 a7a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 4 multipv 1 score cp 800 nodes 72 nps 24000 hashfull 0 time 3 pv b1a3 a7a6 e2e3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 5 multipv 1 score cp 809 nodes 97 nps 32333 hashfull 0 time 3 pv b1a3 e7e6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 8 multipv 1 score cp 791 nodes 129 nps 43000 hashfull 0 time 3 pv b1a3 e7e6 a3b5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 8 multipv 1 score cp 840 nodes 169 nps 56333 hashfull 0 time 3 pv b1a3 e8d8 a3b5 a7a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 8 multipv 1 score cp 738 nodes 275 nps 68750 hashfull 0 time 4 pv b1a3 a7a6 e2e3 g8f6 e3e4 f6e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 12 multipv 1 score cp 858 nodes 453 nps 113250 hashfull 0 time 4 pv b1c3 f7f5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 11 multipv 1 score cp 741 nodes 691 nps 138200 hashfull 0 time 5 pv b1a3 g8f6 b2b3 d7d5 e2e3 a7a5 f1b5 c8d7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 12 multipv 1 score cp 765 nodes 1118 nps 223600 hashfull 0 time 5 pv b1c3 g8f6 b2b3 d7d5 c3b5 b8a6 e2e3 b7b6 h2h4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 13 multipv 1 score cp 775 nodes 1639 nps 273166 hashfull 0 time 6 pv a2a4 a7a5 a1a3 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 13 multipv 1 score cp 731 nodes 3584 nps 398222 hashfull 0 time 9 pv a2a4 a7a5 a1a3 d7d5 e2e3 g8f6 h2h4 c8d7 a3a1 b8a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 19 multipv 1 score cp 727 nodes 12736 nps 749176 hashfull 3 time 17 pv b1c3 d7d5 d2d4 a7a5 e2e3 g8f6 g1f3 h7h5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 16 multipv 1 score cp 749 nodes 18280 nps 870476 hashfull 5 time 21 pv b1c3 d7d5 d2d4 g8f6 g1f3 a7a5 e2e3 h7h5 a2a4 b8a6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 25 multipv 1 score cp 710 nodes 76067 nps 1435226 hashfull 29 time 53 pv d2d4 d7d5 b1c3 g8f6 h2h4 e7e5 c3b5 b8a6 d4e5 c8d7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 16 seldepth 20 multipv 1 score cp 713 nodes 131426 nps 1583445 hashfull 49 time 83 pv d2d4 d7d5 c1f4 e7e5 d4e5 f8c5 a2a4"
+        },
+        {
+          "kind": "sent",
+          "line": "stop"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 17 seldepth 20 multipv 1 score cp 713 nodes 142281 nps 1580900 hashfull 54 time 90 pv d2d4 d7d5 c1f4 e7e5 d4e5 f8c5 a2a4"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove d2d4 ponder d7d5"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name Hash value 64"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name MultiPV value 2"
+        },
+        {
+          "kind": "sent",
+          "line": "setoption name UCI_ShowWDL value true"
+        },
+        {
+          "kind": "sent",
+          "line": "position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        },
+        {
+          "kind": "sent",
+          "line": "go depth 12"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 1 score cp 26 wdl 55 937 8 nodes 39 nps 39000 hashfull 0 time 1 pv e2e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 2 score cp -2 wdl 20 957 23 nodes 39 nps 39000 hashfull 0 time 1 pv g2g3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 6 multipv 1 score cp -15 wdl 12 952 36 nodes 584 nps 584000 hashfull 0 time 1 pv d2d4 d7d5 a2a3 g8f6 g1f3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 3 multipv 2 score cp -19 wdl 10 948 42 nodes 584 nps 584000 hashfull 0 time 1 pv a2a3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 4 multipv 1 score cp -14 wdl 13 952 35 nodes 981 nps 981000 hashfull 0 time 1 pv d2d4 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 8 multipv 2 score cp -20 wdl 10 945 45 nodes 981 nps 981000 hashfull 0 time 1 pv e2e4 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 6 multipv 1 score cp -12 wdl 14 954 32 nodes 1524 nps 762000 hashfull 0 time 2 pv e2e4 d7d5 e4d5 d8d5 d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 8 multipv 2 score cp -15 wdl 12 950 38 nodes 1524 nps 762000 hashfull 0 time 2 pv e2e3 d7d5 d2d4 g8f6 c2c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 6 multipv 1 score cp -13 wdl 13 953 34 nodes 1712 nps 856000 hashfull 0 time 2 pv e2e4 d7d5 e4d5 d8d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 7 multipv 2 score cp -16 wdl 12 950 38 nodes 1712 nps 856000 hashfull 0 time 2 pv e2e3 d7d6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 8 multipv 1 score cp -10 wdl 15 955 30 nodes 2923 nps 974333 hashfull 0 time 3 pv d2d4 d7d5 e2e3 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 11 multipv 2 score cp -13 wdl 13 953 34 nodes 2923 nps 974333 hashfull 0 time 3 pv e2e3 d7d6 d2d4 g8f6 c2c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 8 multipv 1 score cp -3 wdl 19 957 24 nodes 4168 nps 1389333 hashfull 0 time 3 pv d2d4 d7d5 e2e3 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 11 multipv 2 score cp -12 wdl 13 954 33 nodes 4168 nps 1389333 hashfull 0 time 3 pv e2e4 d7d5 e4d5 d8d5 d2d4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 14 multipv 1 score cp 0 wdl 21 958 21 nodes 8083 nps 1616600 hashfull 0 time 5 pv e2e4 e7e6 d2d4 d7d5 e4d5 e6d5 h2h4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 13 multipv 2 score cp -2 wdl 19 958 23 nodes 8083 nps 1616600 hashfull 0 time 5 pv e2e3 e7e6 c2c4 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 18 multipv 1 score cp 10 wdl 31 955 14 nodes 12636 nps 1579500 hashfull 1 time 8 pv d2d4 d7d5 e2e3 g8f6 c2c4 d5c4 f1c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 11 multipv 2 score cp 2 wdl 23 958 19 nodes 12636 nps 1579500 hashfull 1 time 8 pv e2e4 e7e5 d2d4 e5d4 d1d4 b8c6 d4d1"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 13 multipv 1 score cp 16 wdl 39 950 11 nodes 16673 nps 1852555 hashfull 1 time 9 pv d2d4 d7d5 e2e3 e7e6 c2c4 g8f6 g1f3 c7c5 c4d5 e6d5 d4c5 f8c5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 13 multipv 2 score cp 10 wdl 31 955 14 nodes 16673 nps 1852555 hashfull 1 time 9 pv e2e4 e7e5 d2d4 e5d4 d1d4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 13 multipv 1 score cp 29 wdl 60 933 7 nodes 22223 nps 1851916 hashfull 1 time 12 pv d2d4 d7d5 e2e3 e7e6 c2c4 g8f6 c4c5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 15 multipv 2 score cp 22 wdl 47 944 9 nodes 22223 nps 1851916 hashfull 1 time 12 pv e2e4 e7e5 g1f3 d7d5 f3e5 d5e4 d2d4 f8d6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 20 multipv 1 score cp 36 wdl 79 916 5 nodes 45133 nps 1962304 hashfull 2 time 23 pv e2e4 e7e6 d2d4 d7d5 b1c3 d5e4 c3e4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 16 multipv 2 score cp 34 wdl 73 921 6 nodes 45133 nps 1962304 hashfull 2 time 23 pv d2d4 d7d5 e2e3 e7e6 c2c4 c7c5 c4d5 e6d5 d4c5 f8c5"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove e2e4 ponder e7e6"
+        },
+        {
+          "kind": "sent",
+          "line": "position startpos"
+        },
+        {
+          "kind": "sent",
+          "line": "go perft 3"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "a2a3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "b2b3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "c2c3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "d2d3: 539"
+        },
+        {
+          "kind": "received",
+          "line": "e2e3: 599"
+        },
+        {
+          "kind": "received",
+          "line": "f2f3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "g2g3: 420"
+        },
+        {
+          "kind": "received",
+          "line": "h2h3: 380"
+        },
+        {
+          "kind": "received",
+          "line": "a2a4: 420"
+        },
+        {
+          "kind": "received",
+          "line": "b2b4: 421"
+        },
+        {
+          "kind": "received",
+          "line": "c2c4: 441"
+        },
+        {
+          "kind": "received",
+          "line": "d2d4: 560"
+        },
+        {
+          "kind": "received",
+          "line": "e2e4: 600"
+        },
+        {
+          "kind": "received",
+          "line": "f2f4: 401"
+        },
+        {
+          "kind": "received",
+          "line": "g2g4: 421"
+        },
+        {
+          "kind": "received",
+          "line": "h2h4: 420"
+        },
+        {
+          "kind": "received",
+          "line": "b1a3: 400"
+        },
+        {
+          "kind": "received",
+          "line": "b1c3: 440"
+        },
+        {
+          "kind": "received",
+          "line": "g1f3: 440"
+        },
+        {
+          "kind": "received",
+          "line": "g1h3: 400"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "received",
+          "line": "Nodes searched: 8902"
+        },
+        {
+          "kind": "received",
+          "line": ""
+        },
+        {
+          "kind": "sent",
+          "line": "go movetime 5000"
+        },
+        {
+          "kind": "received",
+          "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+        },
+        {
+          "kind": "received",
+          "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 16 multipv 1 score cp 36 wdl 79 916 5 nodes 66 nps 66000 hashfull 0 time 1 pv e2e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 1 seldepth 2 multipv 2 score cp 34 wdl 73 921 6 nodes 66 nps 66000 hashfull 0 time 1 pv d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 3 multipv 1 score cp 36 wdl 79 916 5 nodes 142 nps 142000 hashfull 0 time 1 pv e2e4 e7e6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 2 seldepth 6 multipv 2 score cp 31 wdl 66 928 6 nodes 142 nps 142000 hashfull 0 time 1 pv d2d4 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 4 multipv 1 score cp 36 wdl 79 916 5 nodes 187 nps 187000 hashfull 0 time 1 pv e2e4 e7e6 d2d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 3 seldepth 4 multipv 2 score cp 31 wdl 66 928 6 nodes 187 nps 187000 hashfull 0 time 1 pv d2d4 d7d5 e2e3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 6 multipv 1 score cp 36 wdl 79 916 5 nodes 268 nps 268000 hashfull 0 time 1 pv e2e4 e7e6 d2d4 d7d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 4 seldepth 5 multipv 2 score cp 30 wdl 65 928 7 nodes 268 nps 268000 hashfull 0 time 1 pv d2d4 d7d5 e2e3 e7e6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 7 multipv 1 score cp 36 wdl 79 916 5 nodes 359 nps 359000 hashfull 0 time 1 pv e2e4 e7e6 d2d4 d7d5 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 5 seldepth 7 multipv 2 score cp 28 wdl 59 934 7 nodes 359 nps 359000 hashfull 0 time 1 pv d2d4 d7d5 e2e3 e7e6 c2c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 8 multipv 1 score cp 36 wdl 79 916 5 nodes 459 nps 459000 hashfull 0 time 1 pv e2e4 e7e6 d2d4 d7d5 b1c3 d5e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 6 seldepth 10 multipv 2 score cp 30 wdl 65 928 7 nodes 459 nps 459000 hashfull 0 time 1 pv d2d4 d7d5 e2e3 g8f6 c2c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 8 multipv 1 score cp 36 wdl 79 916 5 nodes 625 nps 625000 hashfull 0 time 1 pv e2e4 e7e6 d2d4 d7d5 b1c3 d5e4 c3e4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 7 seldepth 11 multipv 2 score cp 33 wdl 70 924 6 nodes 625 nps 625000 hashfull 0 time 1 pv d2d4 d7d5 e2e3 g8f6 c2c4 d5c4 f1c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 11 multipv 1 score cp 36 wdl 79 916 5 nodes 757 nps 757000 hashfull 0 time 1 pv e2e4 e7e6 d2d4 d7d5 b1c3 d5e4 c3e4 d8d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 8 seldepth 10 multipv 2 score cp 33 wdl 70 924 6 nodes 757 nps 757000 hashfull 0 time 1 pv d2d4 d7d5 e2e3 g8f6 c2c4 d5c4 f1c4 e7e5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 13 multipv 1 score cp 38 wdl 84 911 5 nodes 1906 nps 1906000 hashfull 0 time 1 pv e2e4 e7e6 d2d4 d7d5 b1c3 d5e4 c3e4 g8f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 9 seldepth 17 multipv 2 score cp 34 wdl 74 920 6 nodes 1906 nps 1906000 hashfull 0 time 1 pv d2d4 d7d5 e2e3 e7e6 c2c4 c7c5 c4d5 e6d5 d4c5 f8c5 f1b5 c8d7 d1d5 d7b5 d5c5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 16 multipv 1 score cp 41 wdl 94 902 4 nodes 25387 nps 1813357 hashfull 1 time 14 pv e2e4 e7e5 b1c3 f8c5 g1f3 d7d6 d2d4 e5d4 f3d4 g8f6 c1g5 c7c6 d4b3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 10 seldepth 20 multipv 2 score cp 18 wdl 41 948 11 nodes 25387 nps 1813357 hashfull 1 time 14 pv d2d3 d7d5 g1f3 g8f6 e2e3 e7e6 f1e2 f8d6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 12 multipv 1 score cp 39 wdl 89 906 5 nodes 32205 nps 1789166 hashfull 1 time 18 pv e2e4 c7c5 g1f3 e7e6 b1c3 b8c6 d2d4 c5d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 11 seldepth 15 multipv 2 score cp 9 wdl 30 955 15 nodes 32205 nps 1789166 hashfull 1 time 18 pv c2c4 e7e5 e2e3 g8f6 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 15 multipv 1 score cp 41 wdl 94 902 4 nodes 43465 nps 1811041 hashfull 2 time 24 pv e2e4 e7e5 b1c3 f8c5 g1f3 d7d6 d2d4 e5d4 f3d4 g8f6 c1g5 c7c6 d4b3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 12 seldepth 15 multipv 2 score cp 23 wdl 50 941 9 nodes 43465 nps 1811041 hashfull 2 time 24 pv d2d4 d7d5 g1f3 e7e6 g2g3 c7c5 f1g2 b8c6 d4c5 f8c5 e1g1"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 14 multipv 1 score cp 41 wdl 94 902 4 nodes 78180 nps 1818139 hashfull 7 time 43 pv e2e4 e7e5 b1c3 f8c5 g1f3 d7d6 d2d4 e5d4 f3d4 g8f6 c1g5 c7c6 d4b3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 13 seldepth 26 multipv 2 score cp 21 wdl 45 945 10 nodes 78180 nps 1818139 hashfull 7 time 43 pv d2d4 d7d5 g1f3 g8f6 g2g3 g7g6 f1g2 f8g7 e1g1 e8g8 c2c4 d5c4 f3e5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 19 multipv 1 score cp 40 wdl 92 903 5 nodes 127332 nps 1872529 hashfull 12 time 68 pv e2e4 e7e5 b1c3 f8c5 g1f3 d7d6 d2d4 e5d4 f3d4 g8f6 c1g5 h7h6 g5h4 b8c6 d4c6 b7c6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 14 seldepth 23 multipv 2 score cp 22 wdl 48 943 9 nodes 127332 nps 1872529 hashfull 12 time 68 pv d2d4 d7d5 g1f3 g8f6 e2e3 e7e6 f1e2 f8e7 e1g1 e8g8 c2c4 d5c4 b1c3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 26 multipv 1 score cp 39 wdl 89 906 5 nodes 218799 nps 1886198 hashfull 23 time 116 pv e2e4 e7e6 b1c3 d7d5 d2d4 f8b4 e4d5 e6d5 f1d3 g8f6 g1e2 e8g8 e1g1 f8e8 c1g5 b4e7 f1e1"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 15 seldepth 31 multipv 2 score cp 22 wdl 47 944 9 nodes 218799 nps 1886198 hashfull 23 time 116 pv d2d4 d7d5 g1f3 g8f6 e2e3 e7e6 f1e2 f8e7 e1g1 e8g8 c2c4 b7b6 b2b3 c8b7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 16 seldepth 30 multipv 1 score cp 35 wdl 76 918 6 nodes 365011 nps 1852847 hashfull 38 time 197 pv e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 g8f6 d4c6 d7c6 d1d8 e8d8 b1c3 f8d6 f1c4 d8e7 c1e3 b7b5 c4e2 a7a5 e1c1 a5a4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 16 seldepth 27 multipv 2 score cp 26 wdl 55 937 8 nodes 365011 nps 1852847 hashfull 38 time 197 pv d2d4 d7d5 g1f3 g8f6 c2c4 e7e6 b1c3 f8e7 c1g5 h7h6 g5f6 e7f6 e2e3 e8g8 d1c2 f6e7 f1d3 d5c4 d3c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 17 seldepth 31 multipv 1 score cp 36 wdl 79 916 5 nodes 528792 nps 1875148 hashfull 55 time 282 pv e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 g8f6 d4c6 d7c6 d1d8 e8d8 b1c3 f8d6 f1c4 g7g6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 17 seldepth 27 multipv 2 score cp 31 wdl 67 927 6 nodes 528792 nps 1875148 hashfull 55 time 282 pv d2d4 d7d5 c2c4 e7e6 g1f3 g8f6 b1c3 c7c5 c4d5 f6d5 e2e4 d5c3 b2c3 c5d4 c3d4 f8b4 c1d2 b4d2 d1d2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 18 seldepth 30 multipv 1 score cp 41 wdl 94 902 4 nodes 735368 nps 1843027 hashfull 73 time 399 pv e2e4 e7e5 g1f3 g8f6 d2d4 f6e4 f3e5 d7d5 b1d2 e4f2 e1f2 d8h4 g2g3 h4d4 f2g2 d4e5 f1b5 e8d8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 18 seldepth 32 multipv 2 score cp 32 wdl 68 926 6 nodes 735368 nps 1843027 hashfull 73 time 399 pv d2d4 d7d5 c2c4 e7e6 g1f3 g8f6 b1c3 f8e7 c1f4 c7c5 d4c5 e7c5 c4d5 e6d5 e2e3 e8g8 f1d3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 19 seldepth 31 multipv 1 score cp 39 wdl 89 906 5 nodes 905711 nps 1871303 hashfull 89 time 484 pv e2e4 e7e5 g1f3 g8f6 d2d4 f6e4 f3e5 d7d5 b1d2 f8d6 f1d3 d6e5 d4e5 e4c5 d2f3 c8g4 e1g1 c5d3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 19 seldepth 32 multipv 2 score cp 35 wdl 76 918 6 nodes 905711 nps 1871303 hashfull 89 time 484 pv d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 c4d5 e6d5 c1g5 f8b4 e2e3 h7h6 g5h4 c8f5 g1f3 e8g8 f1e2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 20 seldepth 35 multipv 1 score cp 42 wdl 97 899 4 nodes 1339425 nps 1829815 hashfull 133 time 732 pv e2e4 e7e5 g1f3 g8f6 d2d4 f6e4 f3e5 d7d5 f1d3 f8d6 e1g1 e8g8 b1c3 f7f5 f2f3 e4c3 b2c3 b8d7 f3f4 d7f6 c3c4 c7c5 c2c3 g8h8 c1b2 c8e6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 20 seldepth 33 multipv 2 score cp 35 wdl 77 917 6 nodes 1339425 nps 1829815 hashfull 133 time 732 pv d2d4 d7d5 c2c4 e7e6 b1c3 a7a6 c4d5 e6d5 c1f4 g8f6 e2e3 f8d6 f4d6 d8d6 f1d3 e8g8 a1c1 f8e8 g1e2 b8c6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 21 seldepth 36 multipv 1 score cp 43 wdl 101 895 4 nodes 1856485 nps 1818300 hashfull 185 time 1021 pv e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 g8f6 d4c6 d7c6 d1d8 e8d8 b1c3 f8b4 c1d2 c8e6 e1c1 d8e8 f2f3 b4d6 d2e3 h7h5 c3e2 f6d7 e2d4 e6a2"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 21 seldepth 32 multipv 2 score cp 34 wdl 73 921 6 nodes 1856485 nps 1818300 hashfull 185 time 1021 pv d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 c4d5 e6d5 c1g5 c7c6 e2e3 f8e7 f1d3 e8g8 g1e2 f8e8 e1g1 b8d7 a1c1 d7f8 d1c2 h7h6 g5h4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 22 seldepth 38 multipv 1 score cp 41 wdl 93 902 5 nodes 3594867 nps 1809193 hashfull 359 time 1987 pv e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 g8f6 d4c6 d7c6 d1d8 e8d8 b1c3 c8e6 f2f3 a7a5 c3e2 f8c5 c1d2 f6d7"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 22 seldepth 41 multipv 2 score cp 30 wdl 63 930 7 nodes 3594867 nps 1808283 hashfull 359 time 1988 pv d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 c1g5 f8e7 e2e3 e8g8 g1f3 h7h6 g5h4 f6e4 h4e7 d8e7 d1c2 e4f6 a1d1 d5c4 f1c4 c7c5 e1g1 a7a6 c4d3 b8c6 f3e5 c5d4 e5c6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 23 seldepth 41 multipv 1 score cp 39 wdl 88 907 5 nodes 4241024 nps 1815506 hashfull 415 time 2336 pv e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 g8f6 e1g1 f6e4 d2d4 b7b5 a4b3 d7d5 d4e5 c8e6 c2c3 f8e7 c1e3 c6a5 b3c2 a5c4 f3d4 c4b2 d4e6 f7e6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 23 seldepth 32 multipv 2 score cp 31 wdl 67 927 6 nodes 4241024 nps 1815506 hashfull 415 time 2336 pv d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 c1g5 f8e7 e2e3 e8g8 g1f3 h7h6 g5h4 f6e4 h4e7 d8e7 d1c2 e4f6 a1d1 d5c4 f1c4 c7c5 e1g1 c5d4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 24 seldepth 40 multipv 1 score cp 37 wdl 83 912 5 nodes 5053108 nps 1816358 hashfull 477 time 2782 pv e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 g8f6 e1g1 f6e4 d2d4 b7b5 a4b3 d7d5 d4e5 c8e6 c2c3 f8e7 b3c2 e6g4 f1e1 e8g8 b1d2 c6e5 d2e4 g4f3 g2f3 d5e4 c2e4 d8d1 e1d1 a8d8 c1f4 e7d6 f4g3"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 24 seldepth 42 multipv 2 score cp 29 wdl 62 931 7 nodes 5053108 nps 1816358 hashfull 477 time 2782 pv d2d4 d7d5 c2c4 e7e6 g1f3 g8f6 b1c3 f8e7 c1f4 e8g8 e2e3 c7c5 d4c5 e7c5 a2a3 b8c6 a1c1 c5e7 c4d5 f6d5 c3d5 d8d5 d1d5 e6d5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 25 seldepth 38 multipv 1 score cp 37 wdl 82 913 5 nodes 5407308 nps 1816361 hashfull 511 time 2977 pv e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 g8f6 e1g1 f6e4 d2d4 b7b5 a4b3 d7d5 d4e5 c8e6 c2c3 f8e7 b3c2 e6g4 f1e1 g4h5 d1d3 e8g8 b1d2 f7f5 e5f6 e4f6"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 25 seldepth 33 multipv 2 score cp 32 wdl 68 926 6 nodes 5407308 nps 1816361 hashfull 511 time 2977 pv d2d4 d7d5 c2c4 e7e6 g1f3 g8f6 b1c3 f8e7 c1f4 c7c5 d4c5 e8g8 e2e3 e7c5 a2a3 b8c6 a1c1 c5b6 f1e2 f8e8 e1g1"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 26 seldepth 49 multipv 1 score cp 38 wdl 86 909 5 nodes 7161793 nps 1812653 hashfull 628 time 3951 pv e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 g8f6 e1g1 f6e4 d2d4 b7b5 a4b3 d7d5 d4e5 c8e6 c2c3 f8e7 b3c2 e6g4 d1e1 g4f3 g2f3 e4c5 b2b4 c5a4 e1e2 d8d7 f1d1 a6a5 a2a3 a4b6 e2b5 a5b4 c3b4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 26 seldepth 35 multipv 2 score cp 30 wdl 64 929 7 nodes 7161793 nps 1812653 hashfull 628 time 3951 pv d2d4 d7d5 c2c4 e7e6 g1f3 g8f6 b1c3 c7c5 c4d5 c5d4 d1d4 e6d5 c1g5 f8e7 e2e3 b8c6 d4a4 c8d7 f1e2 f6e4 g5e7 e4c3 a4c2 c6e7 c2c3 e8g8 a1d1"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 27 seldepth 46 multipv 1 score cp 35 wdl 76 918 6 nodes 8626777 nps 1809686 hashfull 710 time 4767 pv e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 g8f6 d4c6 b7c6 f1d3 d7d5 e4e5 f6d7 e1g1 d7c5 f2f4 c5d3 d1d3 a7a5 d3c3 d8d7 f4f5 c8a6 f1f2 d5d4 c3a5 d7d5 a5c7 f8c5 c2c4 d5e4 f5f6 g7f6 f2f6 a6c4"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 27 seldepth 41 multipv 2 score cp 28 wdl 60 933 7 nodes 8626777 nps 1809686 hashfull 710 time 4767 pv d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 c1g5 f8e7 e2e3 e8g8 g1f3 b7b6 c4d5 f6d5 g5e7 d8e7 c3d5 e6d5 f1e2 e7b4 d1d2 b4d2 e1d2 f8d8"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 28 seldepth 49 multipv 1 score cp 33 upperbound wdl 72 922 6 nodes 9028830 nps 1805766 hashfull 730 time 5000 pv e2e4 e7e5"
+        },
+        {
+          "kind": "received",
+          "line": "info depth 27 seldepth 41 multipv 2 score cp 28 wdl 60 933 7 nodes 9028830 nps 1805766 hashfull 730 time 5000 pv d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 c1g5 f8e7 e2e3 e8g8 g1f3 b7b6 c4d5 f6d5 g5e7 d8e7 c3d5 e6d5 f1e2 e7b4 d1d2 b4d2 e1d2 f8d8"
+        },
+        {
+          "kind": "received",
+          "line": "bestmove e2e4 ponder e7e5"
+        }
+      ]
+    }
+  ]
+}

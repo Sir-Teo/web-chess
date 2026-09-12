@@ -1,0 +1,278 @@
+{
+  "base": "http://127.0.0.1:4336/web-chess/",
+  "sourceCommit": "c81dcac",
+  "snapshots": [
+    {
+      "label": "booted idle",
+      "status": [
+        "ready"
+      ],
+      "workers": 9,
+      "processes": [
+        {
+          "type": "browser",
+          "id": 15843,
+          "cpuTime": 0.130247,
+          "rssKiB": 112000
+        },
+        {
+          "type": "renderer",
+          "id": 15847,
+          "cpuTime": 0.390893,
+          "rssKiB": 574192
+        },
+        {
+          "type": "GPU",
+          "id": 15844,
+          "cpuTime": 0.163579,
+          "rssKiB": 79152
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 15845,
+          "cpuTime": 0.042986,
+          "rssKiB": 46976
+        }
+      ],
+      "mainWorkers": [
+        {
+          "url": "blob:http://127.0.0.1:4336/4f34a51f-8c94-4137-be2f-a45c3fcfc7e6#http%3A%2F%2F127.0.0.1%3A4336%2Fweb-chess%2Fengine%2Fstockfish-18-lite.wasm",
+          "heap": {
+            "usedSize": 592336,
+            "totalSize": 1835008,
+            "embedderHeapUsedSize": 773712,
+            "backingStorageSize": 34736
+          },
+          "memories": [
+            {
+              "bytes": 393936896,
+              "shared": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "after depth-12 search",
+      "status": [
+        "ready"
+      ],
+      "workers": 9,
+      "processes": [
+        {
+          "type": "browser",
+          "id": 15843,
+          "cpuTime": 0.145205,
+          "rssKiB": 116016
+        },
+        {
+          "type": "renderer",
+          "id": 15847,
+          "cpuTime": 0.852704,
+          "rssKiB": 678656
+        },
+        {
+          "type": "GPU",
+          "id": 15844,
+          "cpuTime": 0.272804,
+          "rssKiB": 86720
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 15845,
+          "cpuTime": 0.043784,
+          "rssKiB": 47136
+        }
+      ],
+      "mainWorkers": [
+        {
+          "url": "blob:http://127.0.0.1:4336/4f34a51f-8c94-4137-be2f-a45c3fcfc7e6#http%3A%2F%2F127.0.0.1%3A4336%2Fweb-chess%2Fengine%2Fstockfish-18-lite.wasm",
+          "heap": {
+            "usedSize": 571884,
+            "totalSize": 2359296,
+            "embedderHeapUsedSize": 601024,
+            "backingStorageSize": 34017
+          },
+          "memories": [
+            {
+              "bytes": 472776704,
+              "shared": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "engine disabled in Play",
+      "status": [
+        "standby"
+      ],
+      "workers": 9,
+      "processes": [
+        {
+          "type": "browser",
+          "id": 15843,
+          "cpuTime": 0.149888,
+          "rssKiB": 116080
+        },
+        {
+          "type": "renderer",
+          "id": 15847,
+          "cpuTime": 0.911288,
+          "rssKiB": 682576
+        },
+        {
+          "type": "GPU",
+          "id": 15844,
+          "cpuTime": 0.283376,
+          "rssKiB": 86256
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 15845,
+          "cpuTime": 0.043935,
+          "rssKiB": 47136
+        }
+      ],
+      "mainWorkers": [
+        {
+          "error": "Error: Runtime.getHeapUsage timed out",
+          "url": "blob:http://127.0.0.1:4336/4f34a51f-8c94-4137-be2f-a45c3fcfc7e6#http%3A%2F%2F127.0.0.1%3A4336%2Fweb-chess%2Fengine%2Fstockfish-18-lite.wasm"
+        }
+      ]
+    },
+    {
+      "label": "Play after 3 more seconds",
+      "status": [
+        "standby"
+      ],
+      "workers": 0,
+      "processes": [
+        {
+          "type": "browser",
+          "id": 15843,
+          "cpuTime": 0.154723,
+          "rssKiB": 116080
+        },
+        {
+          "type": "renderer",
+          "id": 15847,
+          "cpuTime": 0.929116,
+          "rssKiB": 280608
+        },
+        {
+          "type": "GPU",
+          "id": 15844,
+          "cpuTime": 0.284332,
+          "rssKiB": 74608
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 15845,
+          "cpuTime": 0.045022,
+          "rssKiB": 47200
+        }
+      ],
+      "mainWorkers": []
+    },
+    {
+      "label": "Analysis reopened",
+      "status": [
+        "ready"
+      ],
+      "workers": 9,
+      "processes": [
+        {
+          "type": "browser",
+          "id": 15843,
+          "cpuTime": 0.199553,
+          "rssKiB": 126448
+        },
+        {
+          "type": "renderer",
+          "id": 15847,
+          "cpuTime": 1.198418,
+          "rssKiB": 653360
+        },
+        {
+          "type": "GPU",
+          "id": 15844,
+          "cpuTime": 0.403237,
+          "rssKiB": 85632
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 15845,
+          "cpuTime": 0.064345,
+          "rssKiB": 47424
+        }
+      ],
+      "mainWorkers": [
+        {
+          "url": "blob:http://127.0.0.1:4336/c387d982-8c86-490a-bdb4-336ec40ab6a9#http%3A%2F%2F127.0.0.1%3A4336%2Fweb-chess%2Fengine%2Fstockfish-18-lite.wasm",
+          "heap": {
+            "usedSize": 591596,
+            "totalSize": 1835008,
+            "embedderHeapUsedSize": 710448,
+            "backingStorageSize": 34736
+          },
+          "memories": [
+            {
+              "bytes": 393936896,
+              "shared": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "second Play after 3 seconds",
+      "status": [
+        "standby"
+      ],
+      "workers": 0,
+      "processes": [
+        {
+          "type": "browser",
+          "id": 15843,
+          "cpuTime": 0.2093,
+          "rssKiB": 126480
+        },
+        {
+          "type": "renderer",
+          "id": 15847,
+          "cpuTime": 1.289031,
+          "rssKiB": 327568
+        },
+        {
+          "type": "GPU",
+          "id": 15844,
+          "cpuTime": 0.414272,
+          "rssKiB": 84576
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 15845,
+          "cpuTime": 0.06593,
+          "rssKiB": 47424
+        }
+      ],
+      "mainWorkers": []
+    }
+  ],
+  "commands": [
+    "uci",
+    "isready",
+    "setoption name Threads value 8",
+    "setoption name Hash value 64",
+    "setoption name MultiPV value 2",
+    "setoption name UCI_ShowWDL value true",
+    "position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+    "go depth 12",
+    "quit",
+    "uci",
+    "isready",
+    "setoption name Threads value 8",
+    "quit"
+  ]
+}

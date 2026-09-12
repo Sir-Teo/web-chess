@@ -1,0 +1,331 @@
+{
+  "sourceCommit": "939ab59",
+  "base": "http://127.0.0.1:4336/web-chess/",
+  "browserVersion": "151.0.7922.34",
+  "samples": [
+    {
+      "label": "one idle engine after boot",
+      "elapsedMs": 3004.2322090000007,
+      "rendererCpuSeconds": 0.010078000000000031,
+      "averageRendererCores": 0.0033546008759937464,
+      "rendererRssKiB": 573792,
+      "workers": 9,
+      "states": [
+        {
+          "visibility": "visible",
+          "status": "ready",
+          "commands": [
+            "uci",
+            "isready",
+            "setoption name Threads value 8"
+          ],
+          "windowId": 1
+        }
+      ],
+      "processes": [
+        {
+          "type": "browser",
+          "id": 22922,
+          "cpuTime": 0.127528,
+          "rssKiB": 112624
+        },
+        {
+          "type": "renderer",
+          "id": 22926,
+          "cpuTime": 0.39673,
+          "rssKiB": 573792
+        },
+        {
+          "type": "GPU",
+          "id": 22923,
+          "cpuTime": 0.166237,
+          "rssKiB": 79168
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 22924,
+          "cpuTime": 0.04232,
+          "rssKiB": 46960
+        }
+      ]
+    },
+    {
+      "label": "one infinite search",
+      "elapsedMs": 3006.4009159999996,
+      "rendererCpuSeconds": 24.445289,
+      "averageRendererCores": 8.131080878103353,
+      "rendererRssKiB": 704640,
+      "workers": 9,
+      "states": [
+        {
+          "visibility": "visible",
+          "status": "analyzing",
+          "commands": [
+            "uci",
+            "isready",
+            "setoption name Threads value 8",
+            "setoption name Hash value 64",
+            "setoption name MultiPV value 2",
+            "setoption name UCI_ShowWDL value true",
+            "position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            "go infinite"
+          ],
+          "telemetry": "D26 · SD47 · 49.8M nodes · 13.9M nps · Hash 99.9% · 3581 ms",
+          "windowId": 1
+        }
+      ],
+      "processes": [
+        {
+          "type": "browser",
+          "id": 22922,
+          "cpuTime": 0.166478,
+          "rssKiB": 116528
+        },
+        {
+          "type": "renderer",
+          "id": 22926,
+          "cpuTime": 33.192279,
+          "rssKiB": 704640
+        },
+        {
+          "type": "GPU",
+          "id": 22923,
+          "cpuTime": 3.826653,
+          "rssKiB": 86512
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 22924,
+          "cpuTime": 0.042408,
+          "rssKiB": 47024
+        }
+      ]
+    },
+    {
+      "label": "two infinite searches in separate visible windows",
+      "elapsedMs": 3082.2870000000003,
+      "rendererCpuSeconds": 47.40653699999999,
+      "averageRendererCores": 15.380312410881915,
+      "rendererRssKiB": 1403136,
+      "workers": 18,
+      "states": [
+        {
+          "visibility": "visible",
+          "status": "analyzing",
+          "commands": [
+            "uci",
+            "isready",
+            "setoption name Threads value 8",
+            "setoption name Hash value 64",
+            "setoption name MultiPV value 2",
+            "setoption name UCI_ShowWDL value true",
+            "position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            "go infinite"
+          ],
+          "telemetry": "D31 · SD50 · 95.2M nodes · 12.8M nps · Hash 100.0% · 7463 ms",
+          "windowId": 1
+        },
+        {
+          "visibility": "visible",
+          "status": "analyzing",
+          "commands": [
+            "uci",
+            "isready",
+            "setoption name Threads value 8",
+            "setoption name Hash value 64",
+            "setoption name MultiPV value 2",
+            "setoption name UCI_ShowWDL value true",
+            "position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            "go infinite"
+          ],
+          "telemetry": "D25 · SD47 · 40.9M nodes · 11.8M nps · Hash 99.9% · 3466 ms",
+          "windowId": 2
+        }
+      ],
+      "processes": [
+        {
+          "type": "browser",
+          "id": 22922,
+          "cpuTime": 0.279458,
+          "rssKiB": 130560
+        },
+        {
+          "type": "renderer",
+          "id": 23062,
+          "cpuTime": 31.552945,
+          "rssKiB": 663312
+        },
+        {
+          "type": "renderer",
+          "id": 22926,
+          "cpuTime": 67.153157,
+          "rssKiB": 739824
+        },
+        {
+          "type": "GPU",
+          "id": 22923,
+          "cpuTime": 8.29068,
+          "rssKiB": 112176
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 22924,
+          "cpuTime": 0.074673,
+          "rssKiB": 48256
+        }
+      ]
+    },
+    {
+      "label": "two stopped engines retained",
+      "elapsedMs": 3012.500333,
+      "rendererCpuSeconds": 0.019000000000005457,
+      "averageRendererCores": 0.006307053244732524,
+      "rendererRssKiB": 1403968,
+      "workers": 18,
+      "states": [
+        {
+          "visibility": "visible",
+          "status": "ready",
+          "commands": [
+            "uci",
+            "isready",
+            "setoption name Threads value 8",
+            "setoption name Hash value 64",
+            "setoption name MultiPV value 2",
+            "setoption name UCI_ShowWDL value true",
+            "position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            "go infinite",
+            "stop"
+          ],
+          "telemetry": "D32 · SD53 · 112.2M nodes · 12.5M nps · Hash 100.0% · 8989 ms",
+          "windowId": 1
+        },
+        {
+          "visibility": "visible",
+          "status": "ready",
+          "commands": [
+            "uci",
+            "isready",
+            "setoption name Threads value 8",
+            "setoption name Hash value 64",
+            "setoption name MultiPV value 2",
+            "setoption name UCI_ShowWDL value true",
+            "position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            "go infinite",
+            "stop"
+          ],
+          "telemetry": "D26 · SD53 · 54.3M nodes · 11.7M nps · Hash 100.0% · 4660 ms",
+          "windowId": 2
+        }
+      ],
+      "processes": [
+        {
+          "type": "browser",
+          "id": 22922,
+          "cpuTime": 0.338394,
+          "rssKiB": 133168
+        },
+        {
+          "type": "renderer",
+          "id": 23062,
+          "cpuTime": 35.73376,
+          "rssKiB": 661904
+        },
+        {
+          "type": "renderer",
+          "id": 22926,
+          "cpuTime": 71.102301,
+          "rssKiB": 742064
+        },
+        {
+          "type": "GPU",
+          "id": 22923,
+          "cpuTime": 9.001703,
+          "rssKiB": 113200
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 22924,
+          "cpuTime": 0.074673,
+          "rssKiB": 48256
+        }
+      ]
+    },
+    {
+      "label": "both engines released in Play",
+      "elapsedMs": 3005.4580829999977,
+      "rendererCpuSeconds": 0.0008579999999938082,
+      "averageRendererCores": 0.0002854806077140051,
+      "rendererRssKiB": 590896,
+      "workers": 0,
+      "states": [
+        {
+          "visibility": "visible",
+          "status": "standby",
+          "commands": [
+            "uci",
+            "isready",
+            "setoption name Threads value 8",
+            "setoption name Hash value 64",
+            "setoption name MultiPV value 2",
+            "setoption name UCI_ShowWDL value true",
+            "position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            "go infinite",
+            "stop",
+            "quit"
+          ],
+          "windowId": 1
+        },
+        {
+          "visibility": "visible",
+          "status": "standby",
+          "commands": [
+            "uci",
+            "isready",
+            "setoption name Threads value 8",
+            "setoption name Hash value 64",
+            "setoption name MultiPV value 2",
+            "setoption name UCI_ShowWDL value true",
+            "position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            "go infinite",
+            "stop",
+            "quit"
+          ],
+          "windowId": 2
+        }
+      ],
+      "processes": [
+        {
+          "type": "browser",
+          "id": 22922,
+          "cpuTime": 0.377543,
+          "rssKiB": 133280
+        },
+        {
+          "type": "renderer",
+          "id": 23062,
+          "cpuTime": 35.810783,
+          "rssKiB": 255936
+        },
+        {
+          "type": "renderer",
+          "id": 22926,
+          "cpuTime": 71.200672,
+          "rssKiB": 334960
+        },
+        {
+          "type": "GPU",
+          "id": 22923,
+          "cpuTime": 9.024223,
+          "rssKiB": 89840
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 22924,
+          "cpuTime": 0.08034,
+          "rssKiB": 48256
+        }
+      ]
+    }
+  ]
+}
