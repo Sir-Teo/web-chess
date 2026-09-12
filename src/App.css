@@ -6469,3 +6469,82 @@ button.hint-btn {
     color: #93c5fd;
   }
 }
+
+/* Keep desktop modes and actions in two rows when text or window height makes
+   the full toolbar too tall. The single h1 stays in the accessibility tree. */
+.app-shell[data-compact-chrome="true"] .top .app-brand {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
+  border: 0;
+}
+
+.app-shell[data-compact-chrome="true"] .top .panel-inner {
+  padding-block: calc(0.2rem + env(safe-area-inset-top)) 0.2rem;
+}
+
+.app-shell[data-compact-chrome="true"] .top .compact-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content max-content;
+  grid-template-areas: "actions workspace settings" "game game game";
+  gap: 0.3rem;
+  padding: 0.2rem 0.4rem;
+}
+
+.app-shell[data-compact-chrome="true"] .top .toolbar-divider,
+.app-shell[data-compact-chrome="true"] .top .btn-label {
+  display: none;
+}
+
+.app-shell[data-compact-chrome="true"] .top .mobile-modes-wrapper {
+  display: contents;
+}
+
+.app-shell[data-compact-chrome="true"] .top [data-mode-group="workspace"] {
+  grid-area: workspace;
+}
+
+.app-shell[data-compact-chrome="true"] .top [data-mode-group="game"] {
+  grid-area: game;
+  justify-self: center;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.app-shell[data-compact-chrome="true"] .top .gc-pill {
+  flex-shrink: 0;
+  min-height: 44px;
+}
+
+.app-shell[data-compact-chrome="true"] .top .mobile-actions {
+  grid-area: actions;
+  justify-self: start;
+  min-width: 0;
+  max-width: 100%;
+  gap: 0.2rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.app-shell[data-compact-chrome="true"] .top .mobile-actions button,
+.app-shell[data-compact-chrome="true"] .top .settings-menu > summary {
+  flex-shrink: 0;
+  width: max(44px, 1.6rem);
+  min-width: max(44px, 1.6rem);
+  height: max(44px, 1.6rem);
+  min-height: max(44px, 1.6rem);
+  padding: 0;
+}
+
+.app-shell[data-compact-chrome="true"] .top .settings-menu {
+  grid-area: settings;
+  margin: 0;
+}

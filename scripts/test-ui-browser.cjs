@@ -2856,6 +2856,69 @@ async function checkReadingSpace(browser) {
   }
 }
 
+async function checkCompactToolbar(browser) {
+  for (const width of [901, 1280, 1440]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(width => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, theme: width === 901 ? 'light' : 'dark',
+      })), width)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.bottom')?.textContent.includes('nps'))
+      for (const scale of [1, 2, 1]) {
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${16 * scale}px` }, scale)
+        await page.waitForTimeout(350)
+        const geometry = await page.evaluate(() => ({
+          height: document.querySelector('.top').getBoundingClientRect().height,
+          compact: document.querySelector('.app-shell').dataset.compactChrome === 'true',
+          overflow: document.documentElement.scrollWidth > innerWidth,
+          headingCount: document.querySelectorAll('h1').length,
+        }))
+        assert(!geometry.overflow && geometry.headingCount === 1, 'compact toolbar lost the heading or overflowed the document')
+        assert(geometry.compact === (scale === 2), `${width}px / ${scale}× chose the wrong toolbar layout`)
+        if (scale === 2) assert(geometry.height <= 215, `enlarged toolbar still takes too much height: ${geometry.height}`)
+        const controls = await page.locator('.top .mobile-actions button, .top .gc-pill, .top .settings-menu > summary').all()
+        assert(controls.length === 11, `expected all 11 top-bar controls, got ${controls.length}`)
+        for (const control of controls) {
+          await control.focus()
+          assert(await control.evaluate(el => {
+            const r = el.getBoundingClientRect(), top = document.querySelector('.top').getBoundingClientRect()
+            const text = document.createRange(); text.selectNodeContents(el)
+            const t = text.getBoundingClientRect()
+            return r.top >= top.top && r.bottom <= top.bottom + 1
+              && t.left >= r.left - 1 && t.right <= r.right + 1
+              && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+          }), `${width}px / ${scale}× hides a toolbar control or its label: ${await control.getAttribute('aria-label') || await control.innerText()}`)
+          if (scale === 2) assert(await control.evaluate(el => el.getBoundingClientRect().height >= 44), 'compact control is smaller than 44px')
+        }
+        // Each action is exercised at enlarged size, including modal dismissal.
+        if (scale === 2) {
+          for (const name of ['Start new game', 'Open PGN and FEN dialog', 'Open saved games library', 'Open the Commands palette', 'Open settings']) {
+            await page.getByRole('button', { name, exact: true }).click()
+            await page.getByRole('dialog').filter({ hasNot: page.locator('.lazy-dialog-spinner') }).waitFor()
+            await page.keyboard.press('Escape')
+            await page.getByRole('dialog').waitFor({ state: 'detached' })
+          }
+          await page.getByRole('button', { name: 'Human vs Human', exact: true }).click()
+          assert(await page.locator('.app-shell').getAttribute('data-workspace-mode') === 'play', 'game-mode button stopped switching to Play')
+          await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+          await page.getByRole('button', { name: 'Flip board', exact: true }).click()
+          await page.waitForFunction(() => document.querySelector('#chessboard-square-a1').getBoundingClientRect().x
+            > document.querySelector('#chessboard-square-h1').getBoundingClientRect().x)
+          await page.locator('.top').screenshot({ path: `/tmp/web-chess-compact-toolbar-${width}.png` })
+        }
+      }
+      assert(errors.length === 0, `compact toolbar page errors: ${errors.join('; ')}`)
+      console.log(`  compact toolbar (${width}px): 100% → 200% → 100%, eleven reachable controls, all dialogs, modes and Flip; enlarged top bar stays within 215px`)
+    } finally { await context.close() }
+  }
+}
+
 /** The full board must fit beside both panels immediately above the stack breakpoint. */
 async function checkNarrowDesktopLayout(browser) {
   for (const width of [901, 950, 1024]) for (const experience of ['beginner', 'pro']) {
@@ -5841,6 +5904,7 @@ async function main() {
       'graph-readings': checkTheWinrateCardFollowsTheBoard,
       'observed-layout': checkObservedLayout,
       'narrow-desktop': checkNarrowDesktopLayout,
+      'compact-toolbar': checkCompactToolbar,
       'reading-space': checkReadingSpace,
       'opening-layout': checkOpeningLayout,
       'graph-guide': checkGraphEstimateGuide,
@@ -6520,6 +6584,7 @@ async function main() {
     await checkTheWinrateCardFollowsTheBoard(browser)
     await checkObservedLayout(browser)
     await checkNarrowDesktopLayout(browser)
+    await checkCompactToolbar(browser)
     await checkReadingSpace(browser)
     await checkOpeningLayout(browser)
     await checkBoardCanvas(browser)

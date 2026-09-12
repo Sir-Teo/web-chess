@@ -530,6 +530,10 @@ function App() {
    * window drag, to answer a question that changes twice.
    */
   const isMobileLayout = isMobileViewport(viewport)
+  // Text enlargement can make a desktop toolbar as crowded as a phone's.
+  // Derive this from the viewport, not toolbar height, to avoid resize feedback.
+  const compactDesktopChrome = !isMobileLayout
+    && (viewport.width < 56.25 * viewport.rem || viewport.height < 30 * viewport.rem)
   const leftPanelUnavailable = workspaceMode === 'play'
   const fittedPanels = sidePanelSizing(viewport, { left: leftPanelUnavailable ? 0 : leftWidth, right: rightWidth }, engineEnabled)
   const layoutLeftWidth = fittedPanels.left
@@ -6029,7 +6033,7 @@ function App() {
 
   // ─────────────────────────────────────────────────────
   return (
-    <main className="app-shell" data-workspace-mode={workspaceMode}>
+    <main className="app-shell" data-workspace-mode={workspaceMode} data-compact-chrome={compactDesktopChrome || undefined}>
       <span className="rem-probe" ref={remProbeRef} aria-hidden="true" />
       <nav
         className="skip-links"
@@ -6168,7 +6172,7 @@ function App() {
                 aria-expanded={settingsOpen}
                 aria-haspopup="dialog"
               >
-                <span className="btn-icon"><IconSettings /></span> Settings
+                <span className="btn-icon"><IconSettings /></span> <span className="btn-label">Settings</span>
               </summary>
               {settingsOpen && (
                 <>
