@@ -133,6 +133,11 @@ const SCENARIO = ${JSON.stringify(scenario)};
      * consecutive searches, which is the one input the Play-mode nudge needs.
      */
     scriptedLine() {
+      if (SCENARIO === 'console-search') {
+        return this.fen.includes('rnb1kbnr')
+          ? { cp: 900, move: 'd2d4', depths: [38, 40] }
+          : { cp: 35, move: 'e2e4', depths: [14, 16] };
+      }
       if (SCENARIO === 'requested-depth') {
         const depth = Number(/\\bdepth (\\d+)/.exec(this.goCommand || '')?.[1] || 16);
         return { cp: scoreFor(this.fen), move: 'e2e4', depths: [depth, depth] };
@@ -250,9 +255,23 @@ const SCENARIO = ${JSON.stringify(scenario)};
         this.send('uciok');
         return;
       }
-      if (text === 'isready') { this.send('readyok'); return; }
-      if (text.startsWith('position')) { this.fen = text; return; }
+      if (text === 'isready') {
+        if (SCENARIO === 'console-search' && window.__holdConsoleReady) {
+          window.__releaseConsoleReady = () => { window.__holdConsoleReady = false; this.send('readyok'); };
+        } else this.send('readyok');
+        return;
+      }
+      if (text.startsWith('position')) {
+        if (SCENARIO === 'console-search' && this.searching) window.__positionDuringSearch = true;
+        this.fen = text;
+        return;
+      }
       if (text.startsWith('go')) {
+        if (SCENARIO === 'console-search' && text === 'go perft 3') {
+          this.send('e2e4: 600');
+          setTimeout(() => this.send('Nodes searched: 8902'), 15);
+          return;
+        }
         if (SCENARIO === 'review-source' && this.reviewProducer === 'full') window.__fullReviewSearches = (window.__fullReviewSearches || 0) + 1;
         this.goCommand = text;
         this.searching = true;
@@ -266,12 +285,17 @@ const SCENARIO = ${JSON.stringify(scenario)};
         this.emitInfo();
         // A search ends on its own, or early when the app says stop. Both
         // finish with a bestmove, which is what the app waits for.
-        if (SCENARIO !== 'hold-search' && !(SCENARIO === 'hold-infinite' && text === 'go infinite')) {
+        if (SCENARIO !== 'hold-search' && !(SCENARIO === 'hold-infinite' && text === 'go infinite')
+          && !(SCENARIO === 'console-search' && this.fen.includes('rnb1kbnr'))) {
           this.finishTimer = setTimeout(() => this.finishSearch(), 15);
         }
         return;
       }
-      if (text === 'stop') { this.finishSearch(); return; }
+      if (text === 'stop') {
+        if (SCENARIO === 'console-search' && this.searching && this.fen.includes('rnb1kbnr')) this.emitInfo();
+        this.finishSearch();
+        return;
+      }
     }
     terminate() {
       window.__terminatedEngines += 1;
@@ -3047,6 +3071,86 @@ async function checkReadingSpace(browser) {
       }
       assert(errors.length === 0, `reading-space page errors: ${errors.join('; ')}`)
       console.log(`  reading space (${width}px): 100% → 200% → 100% text without window resize preserves all ranks, visible keyboard focus and opening navigation; enlarged desktop header scrolls away`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkConsoleSearchOwnership(browser) {
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(() => {
+        window.__holdConsoleReady = true
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, analysisTab: 'engine-lab',
+          engineProfile: 'lite-single-local', analyzeMode: 'deep', searchDepth: 12, expertModeEnabled: true,
+        }))
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
+      await command.fill('go depth 12')
+      await command.press('Enter')
+      await page.getByText('Wait for the engine to finish starting before sending commands.', { exact: true }).waitFor()
+      assert(await page.evaluate(() => !window.__uciCommands.some(command => command.startsWith('go'))), 'console sent work before startup completed')
+      await page.evaluate(() => window.__releaseConsoleReady())
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      const startConsoleSearch = async () => {
+        await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+        await command.fill('position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+        await command.press('Enter')
+        await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+        await command.fill('go movetime 4000')
+        await command.press('Enter')
+        await page.getByLabel('UCI console output', { exact: true }).filter({ hasText: 'score cp 900' }).waitFor()
+      }
+      await startConsoleSearch()
+      const consoleStatus = await page.locator('.bottom .status').textContent()
+      assert(consoleStatus === 'analyzing', `console search reports ${consoleStatus}`)
+      assert((await page.getByText('Active: go movetime 4000', { exact: true }).count()) === 1, 'active console command is missing')
+      await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+      assert(await page.locator('.pv-list article').count() === 0, 'console position was assigned to the displayed board')
+      await page.evaluate(() => {
+        window.__consoleScoreLeaked = false
+        new MutationObserver(() => {
+          if (document.querySelector('.pv-list')?.textContent.includes('+9.00')) window.__consoleScoreLeaked = true
+        }).observe(document.querySelector('.pv-list'), { childList: true, subtree: true, characterData: true })
+      })
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.pv-list article')?.textContent.includes('+0.35')
+        && document.querySelector('.bottom .status')?.textContent === 'ready')
+      const handoff = await page.evaluate(() => {
+        const commands = window.__uciCommands
+        const firstGo = commands.indexOf('go movetime 4000')
+        const nextPosition = commands.findIndex((command, index) => index > firstGo && command.startsWith('position'))
+        return { between: commands.slice(firstGo + 1, nextPosition), overlapping: window.__positionDuringSearch,
+          leaked: window.__consoleScoreLeaked, lines: document.querySelector('.pv-list')?.textContent }
+      })
+      assert(handoff.between.filter(command => command === 'stop').length === 1 && !handoff.overlapping,
+        `new board position reached a busy engine: ${JSON.stringify(handoff)}`)
+      assert(!handoff.leaked && !handoff.lines.includes('D40'), 'late console scores entered managed analysis')
+      const priorLines = await page.locator('.pv-list').innerText()
+      await startConsoleSearch()
+      await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+      await page.getByRole('button', { name: 'Stop analysis', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      assert(await page.locator('.pv-list').innerText() === priorLines, 'stopping console work changed retained board readings')
+      await page.screenshot({ path: `/tmp/web-chess-console-search-${width}.png` })
+      await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      await command.fill('position startpos')
+      await command.press('Enter')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      await command.fill('go perft 3')
+      await command.press('Enter')
+      await page.getByLabel('UCI console output', { exact: true }).filter({ hasText: 'Nodes searched: 8902' }).waitFor()
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready'
+        && document.querySelector('[aria-label="UCI command"]')?.value === '')
+      assert(errors.length === 0, `console search page errors: ${errors.join('; ')}`)
+      console.log(`  console search (${width}px): startup guard, busy status, stop/acknowledge before new position, isolated late scores, working Stop and completed perft`)
     } finally { await context.close() }
   }
 }
@@ -6474,6 +6578,7 @@ async function main() {
       autosave: checkAutosaveFailure,
       resources: checkSingleThreadReviewPool,
       lab: checkLabSettingsStayInSync,
+      'console-search': checkConsoleSearchOwnership,
       continuous: checkKeepSearchingIsUnbounded,
       'palette-keyboard': checkCommandPaletteKeyboard,
       'palette-layout': checkCommandPaletteLayout,
@@ -7150,6 +7255,7 @@ async function main() {
     await checkAutosaveFailure(browser)
     await checkEngineStartupTimeout(browser)
     await checkLabSettingsStayInSync(browser)
+    await checkConsoleSearchOwnership(browser)
     await checkSingleThreadReviewPool(browser)
     await checkCoachUsesPositionScore(browser)
     await checkBoundedScoreIsIgnored(browser)

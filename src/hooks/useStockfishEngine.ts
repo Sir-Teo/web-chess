@@ -188,11 +188,12 @@ function commandKindFromLine(line: string): EngineCommandKind {
   return 'other'
 }
 
-function isQueuedCommandDone(item: QueuedCommand, line: string): boolean {
-  if (line === 'Unknown command') return true
+export function isQueuedCommandDone(item: Pick<QueuedCommand, 'command' | 'kind' | 'firstWord'>, line: string): boolean {
+  if (line.startsWith('Unknown command')) return true
   if (item.kind === 'uci' && line === 'uciok') return true
   if (item.kind === 'isready' && line === 'readyok') return true
   if (item.firstWord === 'go' && line.startsWith('bestmove ')) return true
+  if (/^go\s+perft(?:\s|$)/.test(item.command) && line.startsWith('Nodes searched:')) return true
   if (item.firstWord === 'd' && (line.startsWith('Legal uci moves') || line.startsWith('Key is') || line.startsWith('Checkers:'))) {
     return true
   }
@@ -398,6 +399,9 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const currentSearchIdRef = useRef<number>(0)
   const newGamePendingRef = useRef(false)
   const commandQueueRef = useRef<QueuedCommand[]>([])
+  // Console work owns the worker too, but its position and scores do not
+  // belong to the board. Keep its replies separate until completion/stop.
+  const rawWorkRef = useRef<QueuedCommand | null>(null)
   const nextCommandIdRef = useRef(0)
   const bootSessionRef = useRef(0)
   const liveLinesMapRef = useRef<Map<number, EngineLine>>(new Map())
@@ -482,6 +486,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       item.reject(new Error(message))
     }
     commandQueueRef.current = []
+    rawWorkRef.current = null
     setQueueLength(0)
   }, [])
 
@@ -576,11 +581,18 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       const trimmed = command.trim()
       if (!trimmed) return Promise.resolve([])
       if (!workerRef.current) return Promise.reject(new Error('Engine worker is not available.'))
+      if (trimmed !== 'stop') {
+        if (!isReadyRef.current) return Promise.reject(new Error('Wait for the engine to finish starting before sending commands.'))
+        if (isSearchingRef.current || commandQueueRef.current.length) {
+          return Promise.reject(new Error('Stop the active search or wait for the pending command before sending another command.'))
+        }
+      }
 
       // Through `sendRaw`, not `send`: this is the path the Engine Lab console
       // takes, and a `setoption` typed there has to reach the applied-options
       // record. It did not, which is what the comment on `sendRaw` promised.
       if (hasNoReply(trimmed)) {
+        if (trimmed === 'stop' && isSearchingRef.current) stopRequestedRef.current = true
         sendRaw(trimmed)
         return Promise.resolve([])
       }
@@ -618,6 +630,15 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
 
         commandQueueRef.current = [...commandQueueRef.current, item]
         setQueueLength(commandQueueRef.current.length)
+        if (first === 'go') {
+          rawWorkRef.current = item
+          isSearchingRef.current = true
+          stopRequestedRef.current = false
+          currentAnalysisRequestRef.current = null
+          currentAnalysisCacheKeyRef.current = null
+          setActiveGoCommand(trimmed)
+          setStatus('analyzing')
+        }
         send(trimmed)
       })
     },
@@ -958,6 +979,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       if (typeof event.data !== 'string') return
       const lines = normalizeWorkerLines(event.data)
       for (const line of lines) {
+        const rawWork = rawWorkRef.current
         dispatchQueuedLine(line)
 
         if (line.startsWith('__BOOT_ERROR__:')) {
@@ -967,6 +989,26 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
             `Engine bootstrap failed for ${profile.name}.`,
           )
           return
+        }
+
+        if (rawWork) {
+          // Capture ownership before resolving the command. A managed search
+          // may start below, but this reply still belongs to the console.
+          if (isQueuedCommandDone(rawWork, line)) {
+            rawWorkRef.current = null
+            isSearchingRef.current = false
+            stopRequestedRef.current = false
+            setActiveGoCommand('')
+            if (newGamePendingRef.current) {
+              newGamePendingRef.current = false
+              sendNewGameSync()
+            } else if (pendingAnalyzeRef.current) {
+              flushPendingAnalyze()
+            } else {
+              setStatus(value => value === 'error' ? value : 'ready')
+            }
+          }
+          continue
         }
 
         if (line.startsWith('id name ')) {
@@ -999,7 +1041,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
           )) {
             setOption('Threads', recommendedThreadCount(profile, capabilities))
           }
-          setStatus((value) => (value === 'error' ? value : 'ready'))
+          setStatus((value) => (value === 'error' ? value : isSearchingRef.current ? 'analyzing' : 'ready'))
           flushPendingAnalyze()
         }
 

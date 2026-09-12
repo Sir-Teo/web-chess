@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { profileById, recommendedThreadCount } from '../engine/profiles'
-import { parseInfoLine, parseOptionLine, profileRuntimeMessage, reusableAnalysisCacheKey, shouldApplyRecommendedThreads, shouldReplaceLiveLine, shouldStopTimedOutSearchCommand, suspendsWhileHidden } from './useStockfishEngine'
+import { isQueuedCommandDone, parseInfoLine, parseOptionLine, profileRuntimeMessage, reusableAnalysisCacheKey, shouldApplyRecommendedThreads, shouldReplaceLiveLine, shouldStopTimedOutSearchCommand, suspendsWhileHidden } from './useStockfishEngine'
 
 describe('Stockfish engine output parsing', () => {
   it('parses finite score, telemetry, WDL, and PV values from info lines', () => {
@@ -102,6 +102,18 @@ describe('Stockfish thread recommendations', () => {
 })
 
 describe('Stockfish command queue safety', () => {
+  it('waits for the final perft count without requiring a bestmove', () => {
+    const command = { command: 'go perft 3', firstWord: 'go', kind: 'go' as const }
+    expect(isQueuedCommandDone(command, 'e2e4: 600')).toBe(false)
+    expect(isQueuedCommandDone(command, 'Nodes searched: 8902')).toBe(true)
+    expect(isQueuedCommandDone({ ...command, command: 'go depth 12' }, 'Nodes searched: 8902')).toBe(false)
+  })
+
+  it('accepts an explanatory unknown-command reply', () => {
+    const command = { command: 'unsupported', firstWord: 'unsupported', kind: 'other' as const }
+    expect(isQueuedCommandDone(command, "Unknown command: 'unsupported'. Type help for more information.")).toBe(true)
+  })
+
   it('sends stop only for timed-out UCI search commands', () => {
     expect(shouldStopTimedOutSearchCommand('go infinite')).toBe(true)
     expect(shouldStopTimedOutSearchCommand('go depth 30')).toBe(true)
