@@ -274,6 +274,14 @@ given, and the app answering the reader who touches it.
 
 ### Throughout
 
+- **Room for enlarged text**: Desktop toolbars compact as text grows. Modes and
+  actions remain reachable; Engine details holds the full readings beside a
+  visible status button. The board accounts for its opening label, and keyboard
+  focus reveals complete pieces and transport controls when scrolling is needed.
+- **Dismiss slow-loading dialogs**: New Game, PGN and Library offer Cancel and
+  Escape while their code downloads. The board is available again immediately;
+  reopening can continue the same download.
+
 - **Export the library as PGN**: Alongside the JSON backup, which only this app
   reads, the whole library saves as one PGN database that Lichess, chess.com,
   SCID and ChessBase all open. It round-trips: the file it writes is one the

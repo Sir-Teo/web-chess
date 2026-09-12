@@ -1,0 +1,16 @@
+{
+  "source": "https://unpkg.com/stockfish@18.0.8/bin/stockfish-18-lite-single.js",
+  "sha256": "5243fd9b276cab7dfe3ad1d43ab9ead73568fac76468c614242977a210c4a391",
+  "bytes": 21429,
+  "handler": "function e(n){r.error(n),e(n)}",
+  "controllerErrorCalls": 8887,
+  "thrown": {
+    "name": "RangeError",
+    "message": "Maximum call stack size exceeded"
+  },
+  "streamError": {
+    "name": "TypeError",
+    "message": "Synthetic interrupted WASM response"
+  },
+  "scope": "Isolated published reader-error handler with a real ReadableStream controller. This does not measure full worker startup, search speed, or the installed 18.0.7 build."
+}

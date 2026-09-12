@@ -1,0 +1,76 @@
+{
+  "sourceCommit": "a5d05708dda466659b98b2c7beee476ea246acda",
+  "scope": "Production Chromium at 200% root text with live deterministic Pro telemetry and reduced motion. Geometry only; compare with enlarged-toolbar-space.json.",
+  "results": [
+    {
+      "width": 901,
+      "height": 812,
+      "rootTextPx": "32px",
+      "top": {
+        "x": 0,
+        "y": 0,
+        "width": 901,
+        "height": 206.5
+      },
+      "bottom": {
+        "x": 0,
+        "y": 692.109375,
+        "width": 901,
+        "height": 119.890625
+      },
+      "main": {
+        "x": 0,
+        "y": 206.5,
+        "width": 901,
+        "height": 485.609375
+      },
+      "stage": {
+        "x": 227,
+        "y": 206.5,
+        "width": 446,
+        "height": 485.609375
+      },
+      "analysisHeader": {
+        "x": 674,
+        "y": 206.5,
+        "width": 227,
+        "height": 326.9375
+      }
+    },
+    {
+      "width": 1280,
+      "height": 812,
+      "rootTextPx": "32px",
+      "top": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 206.5
+      },
+      "bottom": {
+        "x": 0,
+        "y": 692.109375,
+        "width": 1280,
+        "height": 119.890625
+      },
+      "main": {
+        "x": 0,
+        "y": 206.5,
+        "width": 1280,
+        "height": 485.609375
+      },
+      "stage": {
+        "x": 320,
+        "y": 206.5,
+        "width": 640,
+        "height": 485.609375
+      },
+      "analysisHeader": {
+        "x": 961,
+        "y": 206.5,
+        "width": 319,
+        "height": 326.9375
+      }
+    }
+  ]
+}
