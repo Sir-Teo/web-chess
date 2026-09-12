@@ -1499,10 +1499,10 @@ input[type="checkbox"] {
 
 .top.hidden .panel-inner,
 .bottom.hidden .panel-inner {
-  height: 0;
-  overflow: hidden;
-  opacity: 0;
-  pointer-events: none;
+  /* A zero-height border box still overflows by its borders. In WebKit a
+     resulting root scrollbar can cross the 900px breakpoint and hide the
+     handle needed to reopen the bar. Remove hidden content and its tab stops. */
+  display: none;
 }
 
 /* The handle is the only way back, so it stays live and legible. */
