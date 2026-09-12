@@ -937,6 +937,184 @@ async function checkReviewUsesSelectedEngine(browser, controls = false) {
   }
 }
 
+async function checkSavedReviews(browser) {
+  for (const [width, theme] of [[1280, 'dark'], [375, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('review-source'))
+      await page.addInitScript(theme => {
+        if (!localStorage.getItem('webchess:analysis-settings:v1')) localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', engineProfile: 'lite-single-local',
+          autoAnalyze: false, reviewMaxWorkers: 1, searchDepth: 16, theme,
+        }))
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: /^Load / }).first().click()
+      await page.waitForFunction(() => /Browser QA, White/.test(document.querySelector('.board-meta-game')?.textContent || ''))
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+      const originalSource = await page.getByTestId('review-engine-source').innerText()
+      const originalAccuracy = await page.locator('.accuracy-summary').innerText()
+      await page.getByRole('button', { name: 'Save review', exact: true }).click()
+      await page.getByText('Review saved on this device.', { exact: false }).waitFor()
+      await page.getByLabel('Choose a saved review').waitFor()
+      const liteId = await page.getByLabel('Choose a saved review').inputValue()
+      assert(liteId, 'save did not produce a selectable committed review')
+
+      await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      await page.evaluate(() => { window.__reviewProducer = 'full' })
+      await page.getByLabel('Engine profile in Engine Lab').selectOption('full-single-cdn')
+      await page.waitForFunction(() => document.body.innerText.includes('QA Full'))
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+      await page.getByRole('button', { name: 'Save review', exact: true }).click()
+      await page.getByText('Review saved on this device.', { exact: false }).waitFor()
+      await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 2)
+      const fullId = await page.getByLabel('Choose a saved review').inputValue()
+      assert(fullId !== liteId, 'a second engine overwrote the previous review')
+      await page.waitForFunction(() => localStorage.getItem('webchess:auto-saved-game:v1'))
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Restore', exact: true }).click()
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.locator('.saved-reviews summary').click()
+      await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 2)
+      await page.getByLabel('Choose a saved review').selectOption(liteId)
+      await page.getByRole('button', { name: 'Use saved review', exact: true }).click()
+      assert(await page.getByTestId('review-engine-source').innerText() === originalSource, 'reloaded Lite report borrowed the selected engine identity')
+      assert(await page.locator('.accuracy-summary').innerText() === originalAccuracy, 'reloaded Lite report changed its grades')
+      assert(await page.locator('.wdl-draw-label').innerText() === 'Draw 40.0%', 'saved WDL disappeared on reload')
+      await page.getByLabel('Choose a saved review').selectOption(fullId)
+      await page.getByRole('button', { name: 'Use saved review', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.wdl-draw-label')?.textContent === 'Draw 100.0%')
+      assert((await page.getByTestId('review-engine-source').innerText()).includes('QA Full'), 'Full saved report did not restore its own source')
+
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      await page.locator('#chessboard-square-d2').click()
+      await page.locator('#chessboard-square-d4').click()
+      await page.getByRole('button', { name: 'Open reviewed line', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.wdl-draw-label')?.textContent === 'Draw 100.0%')
+      const downloaded = page.waitForEvent('download')
+      await page.getByRole('button', { name: 'Export review', exact: true }).click()
+      const pgn = fs.readFileSync(await (await downloaded).path(), 'utf8')
+      assert([...pgn.matchAll(/\[%eval\s+([^\]]+)\]/g)].length === 117 && pgn.includes('[WebChessReviewStatus "complete"]'), 'reopened line did not export the complete saved report')
+      await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
+      await page.locator('.saved-reviews summary').scrollIntoViewIfNeeded()
+      const layout = await page.locator('.saved-reviews').evaluate(el => ({
+        overflow: document.documentElement.scrollWidth > innerWidth,
+        controls: [...el.querySelectorAll('button, select, summary')].map(control => ({
+          tag: control.tagName, height: control.getBoundingClientRect().height,
+          clips: control.tagName === 'BUTTON' && control.scrollWidth > control.clientWidth + 1,
+        })),
+      }))
+      assert(!layout.overflow && layout.controls.every(control => control.height >= 44 && !control.clips), `saved reviews fail at 200% text: ${JSON.stringify(layout)}`)
+      await page.screenshot({ path: `/tmp/web-chess-saved-reviews-${width}.png` })
+      await page.getByRole('button', { name: 'Delete saved review', exact: true }).click()
+      await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 1)
+      assert(await page.getByRole('button', { name: 'Export review', exact: true }).isEnabled(), 'deleting a stored copy removed the displayed report')
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Restore', exact: true }).click()
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.locator('.saved-reviews summary').click()
+      await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 1)
+      assert(await page.getByLabel('Choose a saved review').inputValue() === liteId, 'deleting one review removed the other or returned after reload')
+      assert(errors.length === 0, `saved review page errors: ${errors.join('; ')}`)
+      console.log(`  saved reviews (${width}px, ${theme}): two producers survive reload with exact grades/WDL; open another line, export, delete and 200% text fit`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkSavedReviewStorage(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 812 } })
+  await context.addInitScript(fakeEngineScript())
+  await context.addInitScript(() => {
+    if (!localStorage.getItem('webchess:analysis-settings:v1')) localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+      workspaceMode: 'analysis', analysisExperience: 'pro', engineProfile: 'lite-single-local', autoAnalyze: false, reviewMaxWorkers: 1,
+    }))
+  })
+  const page = await context.newPage()
+  try {
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    await page.locator('#chessboard-square-e2').click()
+    await page.locator('#chessboard-square-e4').click()
+    await page.getByRole('button', { name: 'Review', exact: true }).click()
+    await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+    await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+    await page.evaluate(() => {
+      window.__originalReviewTransaction = IDBDatabase.prototype.transaction
+      IDBDatabase.prototype.transaction = function (...args) {
+        if (this.name === 'web-chess-reviews' && args[1] === 'readwrite') throw new DOMException('QA quota failure', 'QuotaExceededError')
+        return window.__originalReviewTransaction.apply(this, args)
+      }
+    })
+    await page.getByRole('button', { name: 'Save review', exact: true }).click()
+    await page.getByText('The browser could not save this review.', { exact: false }).waitFor()
+    assert(await page.getByRole('button', { name: 'Export review', exact: true }).isEnabled(), 'failed storage removed the exportable report')
+    await page.evaluate(() => { IDBDatabase.prototype.transaction = window.__originalReviewTransaction })
+    await page.getByRole('button', { name: 'Save review', exact: true }).click()
+    await page.getByText('Review saved on this device.', { exact: false }).waitFor()
+    await page.getByLabel('Choose a saved review').waitFor()
+    const id = await page.getByLabel('Choose a saved review').inputValue()
+    const originalSource = await page.getByTestId('review-engine-source').innerText()
+    // Damage a reading, leaving list metadata intact: opening must refuse it.
+    await page.evaluate(id => new Promise((resolve, reject) => {
+      const request = indexedDB.open('web-chess-reviews', 1)
+      request.onsuccess = () => {
+        const db = request.result, tx = db.transaction('runs', 'readwrite'), store = tx.objectStore('runs')
+        const read = store.get(id)
+        read.onsuccess = () => { window.__originalSavedReview = structuredClone(read.result); read.result.evaluations[0][1].cp = NaN; store.put(read.result) }
+        tx.oncomplete = () => { db.close(); resolve() }
+        tx.onabort = () => reject(tx.error)
+      }
+    }), id)
+    await page.getByRole('button', { name: 'Use saved review', exact: true }).click()
+    await page.getByText('This saved review is missing or unreadable.', { exact: false }).waitFor()
+    assert(await page.getByTestId('review-engine-source').innerText() === originalSource, 'corrupt saved data replaced the open report')
+    // Prepare one free slot. The two pages save through the actual UI writer.
+    await page.evaluate(() => new Promise(resolve => {
+      const request = indexedDB.open('web-chess-reviews', 1)
+      request.onsuccess = () => {
+        const db = request.result, tx = db.transaction('runs', 'readwrite'), store = tx.objectStore('runs')
+        store.put(window.__originalSavedReview)
+        for (let i = 0; i < 48; i++) store.add({ ...window.__originalSavedReview, id: 'capacity-' + i })
+        tx.oncomplete = () => { db.close(); resolve() }
+      }
+    }))
+    await page.getByRole('button', { name: 'Use saved review', exact: true }).click()
+    await page.getByText('Saved review opened.', { exact: false }).waitFor()
+    const other = await context.newPage()
+    await other.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const recovery = other.getByRole('button', { name: 'Restore', exact: true })
+    // Wait for the app's recovery check before opening any controls.
+    await other.waitForFunction(() => document.querySelector('.board-surface'))
+    if (await recovery.count()) await recovery.click()
+    await other.getByRole('button', { name: 'Review', exact: true }).click()
+    await other.locator('.saved-reviews summary').click()
+    await other.getByLabel('Choose a saved review').selectOption(id)
+    await other.getByRole('button', { name: /^(Use saved review|Open reviewed line)$/ }).click()
+    await other.getByText('Saved review opened.', { exact: false }).waitFor()
+    await Promise.all([page, other].map(tab => tab.getByRole('button', { name: 'Save review', exact: true }).click()))
+    await Promise.all([page, other].map(tab => tab.waitForFunction(() => /Review saved on this device|Saved reviews is full/.test(document.querySelector('.saved-review-notice')?.textContent || ''))))
+    const messages = await Promise.all([page, other].map(tab => tab.locator('.saved-review-notice').innerText()))
+    assert(messages.filter(message => message.includes('Review saved on this device')).length === 1
+      && messages.filter(message => message.includes('Saved reviews is full')).length === 1, `two-tab capacity race misreported: ${JSON.stringify(messages)}`)
+    const count = await page.evaluate(() => new Promise(resolve => {
+      const request = indexedDB.open('web-chess-reviews', 1)
+      request.onsuccess = () => {
+        const db = request.result, tx = db.transaction('runs', 'readonly'), count = tx.objectStore('runs').count()
+        count.onsuccess = () => resolve(count.result)
+        tx.oncomplete = () => db.close()
+      }
+    }))
+    assert(count === 50, `two-tab save evicted or overfilled the store: ${count}`)
+    console.log('  saved review storage: quota failure is explicit and retryable; corrupt readings preserve the board; two tabs fill one free slot without eviction')
+  } finally { await context.close() }
+}
+
 async function checkBoundedScoreIsIgnored(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const page = await context.newPage()
@@ -5024,6 +5202,7 @@ async function main() {
       'pv-reuse': checkPvPreviewAndCommit,
       'review-source': checkReviewUsesSelectedEngine,
       'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
+      'saved-reviews': async browser => { await checkSavedReviews(browser); await checkSavedReviewStorage(browser) },
       'graph-readings': checkTheWinrateCardFollowsTheBoard,
       'observed-layout': checkObservedLayout,
       'graph-guide': checkGraphEstimateGuide,
@@ -5678,6 +5857,8 @@ async function main() {
     await checkEvaluationEngineProvenance(browser)
     await checkPvPreviewAndCommit(browser)
     await checkReviewUsesSelectedEngine(browser, true)
+    await checkSavedReviews(browser)
+    await checkSavedReviewStorage(browser)
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)
     await checkKeepSearchingIsUnbounded(browser)

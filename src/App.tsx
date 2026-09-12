@@ -101,6 +101,8 @@ import { engineProfiles, type EngineProfileId } from './engine/profiles'
 import { evaluationEngine, evaluationSourceLabel, sameEvaluationEngine } from './engine/evaluationSource'
 import { createReviewSession, recordReviewResult, snapshotReviewSession, type ReviewSession, type ReviewSnapshot } from './engine/reviewSession'
 import { exportReviewPgn } from './engine/reviewPgn'
+import { restoreSavedReview, reviewLineKey, type SavedReview } from './engine/savedReviews'
+import { SavedReviews } from './components/SavedReviews'
 import { fetchSamplePgn } from './engine/samplePgn'
 import { hashCarriesShare, parseFenShareHash } from './engine/shareLink'
 import { parseGameShareHash, replaySharedGame } from './engine/shareGame'
@@ -4594,6 +4596,21 @@ function App() {
     }
   }, [announce, cancelPendingAiMove, cancelSampleLoad, clearBatchReview, clearBoardSelection, clearImportSweep, engineEnabled, game, gameTree, newGame, requestBoardReveal, setPgnHeaders])
 
+  const openSavedReview = useCallback((saved: SavedReview) => {
+    const sameLine = saved.lineKey === reviewLineKey(reviewLineNodesRef.current)
+    if (!sameLine) {
+      const result = handlePgnImport(saved.pgn, { analyzeAfterLoad: false })
+      if (!result.ok) throw new Error(result.error)
+    }
+    const line = sameLine ? reviewLineNodesRef.current : gameTree.mainLine()
+    const restored = restoreSavedReview(saved, line)
+    if (!restored) throw new Error('The saved review does not match the loaded line.')
+    setFrozenReview(restored)
+    setReviewPractice(null)
+    setWorkspaceMode('analysis')
+    setAnalysisTab('review')
+  }, [gameTree, handlePgnImport])
+
   const handleAnalysisPgnImport = useCallback(
     (pgnText: string) => handlePgnImport(pgnText, { analyzeAfterLoad: true }),
     [handlePgnImport],
@@ -7985,6 +8002,11 @@ function App() {
                           <IconDownload /> Export review
                         </button>
                       </div>
+                    )}
+                    {analysisExperience === 'pro' && (
+                      <SavedReviews line={reviewLineNodes} report={currentReviewReport}
+                        headers={{ ...pgnHeaders, Result: reviewsAVariation ? '*' : pgnHeaders.Result ?? '*' }}
+                        qualities={reviewRows.map(row => row.quality)} busy={isBatchReviewing} onOpen={openSavedReview} />
                     )}
                     {currentReviewReport && !isBatchReviewing && (
                       <p className="panel-copy small" data-testid="review-run-summary">

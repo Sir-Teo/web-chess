@@ -1,0 +1,22 @@
+.saved-reviews { margin-bottom: 1rem; min-width: 0; }
+.saved-reviews details { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+.saved-reviews summary {
+  padding: 0.75rem;
+  min-height: 44px;
+  box-sizing: border-box;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+}
+.saved-reviews-content { display: grid; gap: 0.65rem; padding: 0 0.75rem 0.75rem; min-width: 0; }
+.saved-reviews label { font-size: 0.8rem; color: var(--text-secondary); }
+#saved-review-choice {
+  width: 100%; min-width: 0; min-height: 44px;
+  padding: 0.5rem;
+  font: inherit; font-size: 0.8rem;
+  color: var(--text-primary); background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+}
+.saved-review-description, .saved-review-notice { overflow-wrap: anywhere; }
+.saved-reviews .review-report-actions { margin-bottom: 0; }
+.saved-reviews > .review-report-actions, .saved-review-notice { margin-bottom: 0.75rem; }
