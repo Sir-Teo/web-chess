@@ -2144,6 +2144,7 @@ input[type="checkbox"] {
 }
 
 .coach-card {
+  container: coach / inline-size;
   margin-bottom: var(--space-md);
   border: 1px solid rgba(63, 185, 80, 0.22);
   border-radius: var(--radius-md);
@@ -2173,12 +2174,18 @@ input[type="checkbox"] {
 
 .coach-grid {
   display: grid;
-  /* Two columns at every width: auto-fit landed on three for most panel widths,
-     which left the fourth tile alone on a row of its own, and three fixed
-     columns clipped the evaluation to "+0…" at 150% text. */
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Keep every reading complete at enlarged text and narrow panel widths.
+     One column is also the fallback without container-query support. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.4rem;
   margin-bottom: 0.5rem;
+}
+
+@container coach (min-width: 13rem) {
+  .coach-grid {
+    /* Never add a third column that strands the fourth tile on its own row. */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .coach-grid div {

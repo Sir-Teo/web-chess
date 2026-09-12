@@ -1443,6 +1443,20 @@ async function checkRepetitionEndings(browser) {
       }
       await load(repeated)
       await assertDraw()
+      assert(await page.locator('.coach-grid').evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length) === 2, 'ordinary Coach readings lost their two-column layout')
+      await page.getByRole('button', { name: 'Coach', exact: true }).click()
+      await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
+      await page.waitForTimeout(350)
+      const enlargedReadings = await page.locator('.coach-grid strong').evaluateAll(elements => elements.map(element => {
+        const range = document.createRange()
+        range.selectNodeContents(element)
+        return { text: element.textContent, width: element.getBoundingClientRect().width, content: range.getBoundingClientRect().width }
+      }))
+      assert(enlargedReadings.every(reading => reading.content <= reading.width + 0.05), `Coach truncates its readings at 200% text: ${JSON.stringify(enlargedReadings)}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'enlarged Coach introduces document overflow')
+      await page.evaluate(() => { document.documentElement.style.fontSize = '' })
+      await page.waitForTimeout(350)
+      await page.getByRole('button', { name: 'Pro', exact: true }).click()
       await page.getByRole('button', { name: 'Go to previous move', exact: true }).click()
       assert(!(await page.locator('.play-from-here-btn').isDisabled()), 'previous unfinished position remains blocked')
       await page.getByRole('button', { name: 'Go to next move', exact: true }).click()
@@ -1464,7 +1478,7 @@ async function checkRepetitionEndings(browser) {
       await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
       await page.getByRole('button', { name: 'Go to next move', exact: true }).click()
       assert(!(await page.locator('.turn-pill').innerText()).includes('Threefold'), 'the main line inherited a variation’s repetition')
-      console.log(`  repetition (${width}px): import, navigation, charts and Play keep the draw; same-FEN histories and sibling lines stay separate`)
+      console.log(`  repetition (${width}px): import, navigation, charts and Play keep the draw; same-FEN histories and sibling lines stay separate; complete Coach readings at 200% text`)
     } finally { await context.close() }
   }
 }
