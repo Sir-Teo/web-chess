@@ -2462,6 +2462,57 @@ async function checkGraphEstimateGuide(browser) {
 }
 
 /** Sizing still follows a late graph mount, panel changes and phone rotation. */
+async function checkOpeningLayout(browser) {
+  for (const width of [1280, 375, 320]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, theme,
+      })), width === 375 ? 'light' : 'dark')
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const opening = page.locator('.opening-intel-card').filter({ has: page.getByRole('heading', { name: 'Opening Intel', exact: true }) })
+      await opening.waitFor()
+      for (const scale of [1, 2]) {
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${16 * scale}px` }, scale)
+        await opening.getByRole('button', { name: 'Lichess', exact: true }).click()
+        const rating = opening.getByLabel('Opening rating bucket', { exact: true })
+        await rating.waitFor()
+        const layout = await opening.evaluate(el => {
+          const card = el.getBoundingClientRect()
+          const rect = e => e.getBoundingClientRect()
+          const overlaps = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1
+            && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1
+          const controls = [...el.querySelectorAll('button, input, select')]
+          const outside = controls.filter(e => rect(e).left < card.left || rect(e).right > card.right + 1)
+          const heading = rect(el.querySelector('h3'))
+          const sourceOverlaps = [...el.querySelectorAll('.opening-source-toggle button')].some(button => overlaps(heading, rect(button)))
+          const labelOverlaps = [...el.querySelectorAll('.engine-option-row')].some(row => {
+            const range = document.createRange()
+            range.selectNodeContents(row.querySelector('span'))
+            return overlaps(rect(range), rect(row.querySelector('input, select')))
+          })
+          return { outside: outside.map(e => e.textContent || e.getAttribute('aria-label')), sourceOverlaps, labelOverlaps,
+            overflow: document.documentElement.scrollWidth > innerWidth }
+        })
+        assert(!layout.outside.length && !layout.sourceOverlaps && !layout.labelOverlaps && !layout.overflow,
+          `Opening Intel overlaps at ${width}px / ${scale}× text: ${JSON.stringify(layout)}`)
+        const token = opening.getByLabel('Lichess API token', { exact: true })
+        await token.fill('layout-fixture')
+        assert(await token.inputValue() === 'layout-fixture', 'reflowed token input cannot be edited')
+        await token.fill('')
+        await rating.selectOption({ index: 1 })
+        await opening.getByRole('button', { name: 'Masters', exact: true }).click()
+        assert(await opening.getByRole('button', { name: 'Masters', exact: true }).getAttribute('aria-pressed') === 'true', 'reflowed source button cannot be selected')
+        await opening.locator('h3').evaluate(el => el.scrollIntoView({ block: 'start' }))
+        await page.screenshot({ path: `/tmp/web-chess-opening-layout-${width}-${scale}.png` })
+      }
+      console.log(`  opening layout (${width}px): source controls stay inside the card; token/rating labels do not overlap their editable controls at 100% and 200% text`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkReadingSpace(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -5414,6 +5465,7 @@ async function main() {
       'graph-readings': checkTheWinrateCardFollowsTheBoard,
       'observed-layout': checkObservedLayout,
       'reading-space': checkReadingSpace,
+      'opening-layout': checkOpeningLayout,
       'graph-guide': checkGraphEstimateGuide,
       'board-canvas': checkBoardCanvas,
       'typed-moves': checkTypedMoveEntry,
@@ -6089,6 +6141,7 @@ async function main() {
     await checkTheWinrateCardFollowsTheBoard(browser)
     await checkObservedLayout(browser)
     await checkReadingSpace(browser)
+    await checkOpeningLayout(browser)
     await checkBoardCanvas(browser)
     await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)

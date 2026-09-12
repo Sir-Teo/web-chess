@@ -2434,9 +2434,23 @@ button.tablebase-move-row.compact {
 
 .opening-intel-head {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: flex-start;
   gap: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+
+/* These text fields need their own row in a narrow panel. An intrinsic-width
+   input beside a zero-minimum label can otherwise paint over the label when
+   text is enlarged, even though the document reports no horizontal overflow. */
+.opening-intel-card .engine-option-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.opening-intel-card .engine-option-row :is(input, select) {
+  width: 100%;
+  min-width: 0;
 }
 
 .opening-source-toggle,
