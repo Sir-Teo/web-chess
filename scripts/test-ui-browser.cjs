@@ -993,6 +993,39 @@ async function checkSavedReviews(browser) {
       await page.waitForFunction(() => document.querySelector('.wdl-draw-label')?.textContent === 'Draw 100.0%')
       assert((await page.getByTestId('review-engine-source').innerText()).includes('QA Full'), 'Full saved report did not restore its own source')
 
+      await page.getByLabel('Choose a saved review').selectOption(liteId)
+      await page.getByRole('button', { name: 'Compare with open review', exact: true }).click()
+      const comparison = page.getByRole('region', { name: 'Review comparison', exact: true })
+      await comparison.waitFor()
+      const summary = await page.getByTestId('review-comparison-summary').innerText()
+      assert(summary.includes('117/117 positions') && summary.includes('117 score changes') && summary.includes('117 WDL changes'), `comparison missed differences: ${summary}`)
+      assert((await page.getByTestId('review-engine-source').innerText()).includes('QA Full'), 'comparison replaced the open report with the saved one')
+      const firstValues = await comparison.locator('.comparison-positions li').first().locator('dd').allInnerTexts()
+      assert(firstValues[0].startsWith('0.00') && firstValues[1].startsWith('+') && firstValues[2].startsWith('-'), `comparison scores or subtraction are reversed: ${JSON.stringify(firstValues)}`)
+      await comparison.getByRole('button', { name: 'Show starting position', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e2 [data-piece="wP"]'))
+      if (width === 375) await page.waitForFunction(() => {
+        const box = document.querySelector('.board-surface').getBoundingClientRect()
+        return box.top >= 0 && box.top < innerHeight / 2
+      })
+      await comparison.getByRole('button', { name: 'Show position after 1. e3', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e3 [data-piece="wP"]'))
+      await comparison.getByRole('button', { name: 'Show 10 more positions', exact: true }).click()
+      assert(await comparison.locator('.comparison-positions li').count() === 20, 'comparison did not reveal the next ten positions')
+      await comparison.locator('.comparison-positions li').first().scrollIntoViewIfNeeded()
+      await page.screenshot({ path: `/tmp/web-chess-review-comparison-${width}.png` })
+      await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
+      const comparisonLayout = await comparison.evaluate(el => ({
+        overflow: document.documentElement.scrollWidth > innerWidth,
+        clipped: [...el.querySelectorAll('button')].filter(button => button.scrollWidth > button.clientWidth + 1 || button.getBoundingClientRect().height < 44).map(button => button.textContent),
+      }))
+      assert(!comparisonLayout.overflow && comparisonLayout.clipped.length === 0, `comparison fails at 200% text: ${JSON.stringify(comparisonLayout)}`)
+      await comparison.locator('.comparison-positions li').first().scrollIntoViewIfNeeded()
+      await page.screenshot({ path: `/tmp/web-chess-review-comparison-${width}-large.png` })
+      await comparison.getByRole('button', { name: 'Close comparison', exact: true }).click()
+      await page.evaluate(() => { document.documentElement.style.fontSize = '' })
+      await page.getByLabel('Choose a saved review').selectOption(fullId)
+
       await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
       await page.locator('#chessboard-square-d2').click()
       await page.locator('#chessboard-square-d4').click()
@@ -1023,7 +1056,7 @@ async function checkSavedReviews(browser) {
       await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 1)
       assert(await page.getByLabel('Choose a saved review').inputValue() === liteId, 'deleting one review removed the other or returned after reload')
       assert(errors.length === 0, `saved review page errors: ${errors.join('; ')}`)
-      console.log(`  saved reviews (${width}px, ${theme}): two producers survive reload with exact grades/WDL; open another line, export, delete and 200% text fit`)
+      console.log(`  saved reviews (${width}px, ${theme}): two producers survive reload; comparison keeps own scores/WDL and navigates; open another line, export, delete and 200% text fit`)
     } finally { await context.close() }
   }
 }

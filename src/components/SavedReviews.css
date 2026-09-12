@@ -19,4 +19,16 @@
 }
 .saved-review-description, .saved-review-notice { overflow-wrap: anywhere; }
 .saved-reviews .review-report-actions { margin-bottom: 0; }
+.saved-reviews .review-report-actions button { min-height: 44px; min-width: min-content; overflow-wrap: anywhere; }
 .saved-reviews > .review-report-actions, .saved-review-notice { margin-bottom: 0.75rem; }
+.review-comparison { border-top: 1px solid var(--border-subtle); padding-top: 0.75rem; min-width: 0; }
+.review-comparison h4 { margin: 0 0 0.75rem; }
+.review-comparison .panel-copy { overflow-wrap: anywhere; }
+.review-comparison .comparison-filter { display: flex; align-items: center; gap: 0.5rem; min-height: 44px; cursor: pointer; }
+.comparison-positions { display: grid; gap: 0.75rem; list-style: none; padding: 0; }
+.comparison-positions li { min-width: 0; padding: 0.6rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
+.review-comparison button.comparison-position { width: 100%; min-height: 44px; white-space: normal; text-align: left; color: var(--text-primary); }
+.comparison-positions dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.4rem; font-size: 0.75rem; }
+.comparison-positions dt, .comparison-positions dd { margin: 0; overflow-wrap: anywhere; }
+.comparison-positions dt { color: var(--text-secondary); }
+.comparison-positions dd { font-variant-numeric: tabular-nums; }

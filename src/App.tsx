@@ -8006,7 +8006,7 @@ function App() {
                     {analysisExperience === 'pro' && (
                       <SavedReviews line={reviewLineNodes} report={currentReviewReport}
                         headers={{ ...pgnHeaders, Result: reviewsAVariation ? '*' : pgnHeaders.Result ?? '*' }}
-                        qualities={reviewRows.map(row => row.quality)} busy={isBatchReviewing} onOpen={openSavedReview} />
+                        qualities={reviewRows.map(row => row.quality)} busy={isBatchReviewing} onOpen={openSavedReview} onNavigate={navigateReviewNode} />
                     )}
                     {currentReviewReport && !isBatchReviewing && (
                       <p className="panel-copy small" data-testid="review-run-summary">

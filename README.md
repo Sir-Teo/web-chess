@@ -170,8 +170,18 @@ given, and the app answering the reader who touches it.
   reviewed branch with its report's scores and engine identity, plus target
   depth, total hash budget, completion status and reuse count. Comments and
   clocks remain attached. Normal PGN export still exports the study's live
-  evaluations. The latest report stays in memory; saved run history and
-  comparisons are future work.
+  evaluations. Choose Save review to keep the report after this session.
+- **Saved reviews and comparisons**: In Pro, **Save review** keeps the report,
+  engine limits, WDL and reviewed branch on this device. Open **Saved reviews**
+  to reopen a run, delete its stored copy, or compare it with the open report
+  for the same line. Comparison shows scores from White's point of view,
+  best-move and WDL differences, missing readings and links back to positions.
+  Mate distances stay distinct from pawn-score changes. Up to 50 runs are
+  retained, with no automatic eviction (2,048 plies / 512 KB per run). These
+  records are separate from the game library and its backup; export review
+  PGNs for separate copies of the annotated lines. A failed browser write is
+  reported instead of claiming the review was saved.
+
 - **Drill a line from memory**: Opening preparation, which the explorer and the
   review between them could describe but never *ask* for — and a repertoire you
   can recognise is not one you can play. `Drill this line · White / Black` on
@@ -380,7 +390,8 @@ the additional browsers with `npx playwright install firefox webkit`). Override
 the URL with `SMOKE_URL`; results and screenshots go to `/tmp/web-chess-engine-smoke`
 unless `SMOKE_OUTPUT` is set. This checks desktop and phone layouts, real UCI
 analysis, engine identity, restricted candidates, Commands, board input,
-complete and fresh game reviews, review PGN downloads, and keyboard access to
+complete and fresh game reviews, review PGN downloads, saving/reopening reports,
+same-report comparisons, and keyboard access to
 the chart explanations.
 `node scripts/benchmark-pv-browser.cjs` measures repeated PV conversion alone
 against the same dev server; it is not an end-to-end speed benchmark.

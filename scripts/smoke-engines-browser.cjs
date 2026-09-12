@@ -93,6 +93,17 @@ async function main() {
           assert.equal([...pgn.matchAll(/\[%eval /g)].length, 2)
           assert.ok(pgn.includes('[WebChessReviewStatus "complete"]'))
           assert.ok(pgn.includes('[WebChessReviewDepth "12"]'))
+          stage = 'saved review and comparison'
+          const reviewSource = await page.getByTestId('review-engine-source').innerText()
+          await page.getByRole('button', { name: 'Save review', exact: true }).click()
+          await page.getByText('Review saved on this device.', { exact: false }).waitFor()
+          await page.getByRole('button', { name: 'Use saved review', exact: true }).click()
+          await page.getByText('Saved review opened.', { exact: false }).waitFor()
+          assert.equal(await page.getByTestId('review-engine-source').innerText(), reviewSource)
+          await page.getByRole('button', { name: 'Compare with open review', exact: true }).click()
+          await page.getByTestId('review-comparison-summary').waitFor()
+          assert.match(await page.getByTestId('review-comparison-summary').innerText(), /2\/2 positions.*0 score changes/s)
+          await page.getByRole('button', { name: 'Close comparison', exact: true }).click()
           stage = 'graph explanation'
           const guide = page.locator('.graph-estimate-guide')
           await guide.locator('summary').focus()
@@ -105,7 +116,7 @@ async function main() {
           assert.equal(await guide.getAttribute('open'), null)
           assert.deepEqual(errors, [])
           results.push({ browser: name, width, status: 'passed', source, positionScore: before,
-            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'game review', 'fresh review', 'review PGN download', 'keyboard chart explanation'] })
+            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'game review', 'fresh review', 'review PGN download', 'save and reopen review', 'same-report comparison', 'keyboard chart explanation'] })
         } catch (error) {
           results.push({ browser: name, width, status: 'failed', stage, error: String(error), pageErrors: errors })
           await page.screenshot({ path: path.join(output, `${name}-${width}-failure.png`) }).catch(() => {})

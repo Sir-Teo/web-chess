@@ -4,6 +4,7 @@ import { evaluationEngineLabel } from '../engine/evaluationSource'
 import { createSavedReview, reviewLineKey, type SavedReview, type SavedReviewSummary } from '../engine/savedReviews'
 import { deleteSavedReview, listSavedReviews, loadSavedReview, saveReview } from '../engine/savedReviewStorage'
 import type { ReviewSnapshot } from '../engine/reviewSession'
+import { ReviewComparison } from './ReviewComparison'
 import './SavedReviews.css'
 
 type Props = {
@@ -13,6 +14,7 @@ type Props = {
   qualities: Array<GameNode['quality']>
   busy: boolean
   onOpen: (saved: SavedReview) => void
+  onNavigate: (node: GameNode) => void
 }
 
 function failure(error: unknown, action: string): string {
@@ -20,7 +22,7 @@ function failure(error: unknown, action: string): string {
   return `The browser could not ${action}. Export the current review before closing this tab.`
 }
 
-export function SavedReviews({ line, report, headers, qualities, busy, onOpen }: Props) {
+export function SavedReviews({ line, report, headers, qualities, busy, onOpen, onNavigate }: Props) {
   const [runs, setRuns] = useState<SavedReviewSummary[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [loaded, setLoaded] = useState(false)
@@ -28,6 +30,7 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen }:
   const [working, setWorking] = useState(false)
   const [notice, setNotice] = useState('')
   const [lastSavedReport, setLastSavedReport] = useState<ReviewSnapshot | null>(null)
+  const [comparison, setComparison] = useState<{ report: ReviewSnapshot; saved: SavedReview } | null>(null)
   const loadingVersion = useRef(0)
   const details = useRef<HTMLDetailsElement>(null)
   const selected = runs.find(run => run.id === selectedId)
@@ -88,6 +91,17 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen }:
     finally { setWorking(false) }
   }
 
+  async function compare() {
+    if (!selected || !report || !sameLine || busy || working) return
+    setWorking(true)
+    try {
+      const saved = await loadSavedReview(selected.id)
+      setComparison({ saved, report })
+      setNotice('Comparison opened below. The current report is unchanged.')
+    } catch (error) { setNotice(failure(error, 'compare this review')) }
+    finally { setWorking(false) }
+  }
+
   return (
     <div className="saved-reviews">
       <div className="review-report-actions">
@@ -108,7 +122,7 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen }:
               <label htmlFor="saved-review-choice">Choose a saved review</label>
               <select id="saved-review-choice" value={selectedId} disabled={working} onChange={event => setSelectedId(event.target.value)}>
                 {runs.map(run => <option key={run.id} value={run.id}>
-                  {run.title} · {new Date(run.finishedAt).toLocaleString()} · D{run.settings.depth}{run.complete ? '' : ' · Partial'}
+                  {run.settings.engine.name} · D{run.settings.depth} · {run.title} · {new Date(run.finishedAt).toLocaleString()}{run.complete ? '' : ' · Partial'}
                 </option>)}
               </select>
               {selected && <>
@@ -125,7 +139,15 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen }:
                     {sameLine ? 'Use saved review' : 'Open reviewed line'}
                   </button>
                   <button type="button" disabled={working} onClick={() => { void remove() }}>Delete saved review</button>
+                  <button type="button" disabled={busy || working || !report || !sameLine} onClick={() => { void compare() }}
+                    title={sameLine && report ? 'Compare position readings with the report currently open.' : 'Open or review this same line first.'}>
+                    Compare with open review
+                  </button>
                 </div>
+                {comparison && comparison.report === report && comparison.saved.id === selectedId && sameLine && !busy && (
+                  <ReviewComparison key={`${comparison.saved.id}:${report.finishedAt}`} line={line} report={report}
+                    saved={comparison.saved} onNavigate={onNavigate} onClose={() => setComparison(null)} />
+                )}
               </>}
             </>}
           <p className="panel-copy small">Up to 50 reviews on this device. Saved reviews are separate from the game library and its backup.</p>
