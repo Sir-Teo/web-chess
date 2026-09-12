@@ -391,6 +391,9 @@ start `npm run preview -- --host 127.0.0.1 --port 4336`, then run
 fixed-rate UCI telemetry and board flips at 4× CPU throttle. Results and CPU
 profiles go to `/tmp/web-chess-analysis-profile`; `BENCH_URL`, `BENCH_OUTPUT`,
 `BENCH_WIDTH`, `BENCH_CPU_RATE` and `BENCH_SAMPLES` override its defaults.
+Set `BENCH_FLIP_MS=0` to isolate stationary telemetry updates, or another
+interval in milliseconds to change flip frequency. `BENCH_REDUCED_MOTION=1`
+profiles the reduced-motion preference.
 It measures main-thread UI work with a simulated engine, not Stockfish speed
 or field INP. Hold `dist/` fixed while profiling or running browser tests.
 

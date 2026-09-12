@@ -1,0 +1,441 @@
+{
+  "commit": "5da9ffe",
+  "sourceDiff": "diff --git a/src/App.tsx b/src/App.tsx\nindex a7642e0..4f6b022 100644\n--- a/src/App.tsx\n+++ b/src/App.tsx\n@@ -1,6 +1,7 @@\n import { Chess, type Move, type Square } from 'chess.js'\n import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type SyntheticEvent } from 'react'\n-import { Chessboard, defaultArrowOptions } from 'react-chessboard'\n+import type { PieceDropHandlerArgs } from 'react-chessboard'\n+import { BoardCanvas } from './components/BoardCanvas'\n import {\n   buildWdlSeries,\n   buildWinrateSeries,\n@@ -123,7 +124,7 @@ import {\n import { moveSoundFor } from './engine/moveSound'\n import { hasSiblingVariations, siblingVariation } from './engine/moveTree'\n import { chessComPositionUrl, lichessAnalysisUrl } from './engine/externalLinks'\n-import { BOARD_THEMES, boardThemeById, moveHintStyle, notationHalo } from './engine/boardThemes'\n+import { BOARD_THEMES, boardThemeById } from './engine/boardThemes'\n import {\n   createClock,\n   flagPgnResult,\n@@ -152,10 +153,7 @@ import { ChessClock } from './components/ChessClock'\n import {\n   MARK_COLORS,\n   hasSquareMarks,\n-  lastMoveSquareStyle,\n-  selectedSquareStyle,\n   markColorForModifiers,\n-  squareMarkStyle,\n   toggleSquareMark,\n   type SquareMarks,\n } from './engine/boardMarks'\n@@ -386,20 +384,6 @@ function resultLabel(result: HistoricalSampleGame['result']): string {\n   return 'Draw'\n }\n \n-// Defaults draw a 1/5-square arrow from square centre, which buries the piece it\n-// points at. Narrower, and started at the base of the piece, keeps both readable.\n-const BOARD_ARROW_OPTIONS = {\n-  ...defaultArrowOptions,\n-  arrowWidthDenominator: 7,\n-  arrowStartOffset: 0.32,\n-  // Arrows the reader drags with the right button. The library's amber default\n-  // is the colour this board already uses for the move that was played, so a\n-  // drawn arrow would have claimed to be something it is not.\n-  color: MARK_COLORS.primary,\n-  secondaryColor: MARK_COLORS.alternate,\n-  tertiaryColor: MARK_COLORS.tertiary,\n-}\n-\n /**\n  * What Settings tells the reader they can press. It is the only place in the\n  * app that answers the question, so anything the keydown handler claims and\n@@ -422,55 +406,6 @@ const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [\n   { keys: [commandPaletteShortcutLabel()], action: 'Open the command palette' },\n ]\n \n-/**\n- * A queued premove. Its own colour again: amber is the move that was played,\n- * violet the threat, red-to-green the engine's candidates, and blue the\n- * reader's own marks \u2014 so a move the reader has *committed to* takes the one\n- * shape none of those use, a dashed ring in the mark family's blue.\n- */\n-const PREMOVE_SQUARE_STYLE = {\n-  boxShadow: `inset 0 0 0 4px ${MARK_COLORS.primary}`,\n-  backgroundColor: 'rgba(59, 130, 246, 0.28)',\n-}\n-\n-/**\n- * The two squares of a move being previewed. Green, because a previewed move is\n- * one the engine put in a line -- the same thing the candidate arrows and the\n- * hint mean -- rather than anything the reader claimed about the square.\n- */\n-const PREVIEW_SQUARE_STYLE = {\n-  boxShadow: 'inset 0 0 0 3px rgba(63, 185, 80, 0.85)',\n-  backgroundColor: 'rgba(63, 185, 80, 0.22)',\n-}\n-\n-/**\n- * The two squares of the move that reached this position. See\n- * {@link lastMoveSquareStyle} for why it is a ring over a wash.\n- *\n- * Lowest of the square styles, so a premove, a mark, the selected square and a\n- * legal-move hint each still win the square they are on.\n- */\n-const LAST_MOVE_SQUARE_STYLE = lastMoveSquareStyle()\n-\n-/** The square the reader has picked a piece up from. See {@link selectedSquareStyle}. */\n-const SELECTED_SQUARE_STYLE = selectedSquareStyle()\n-\n-const NOTATION_BASE_STYLE = {\n-  position: 'absolute' as const,\n-  fontWeight: 700,\n-  lineHeight: 1,\n-  userSelect: 'none' as const,\n-  pointerEvents: 'none' as const,\n-}\n-\n-/**\n- * A coordinate, and the ring that keeps it off the piece it shares a square\n- * with. See {@link notationHalo}.\n- */\n-function notationStyle(color: string, squareColor: string) {\n-  return { color, textShadow: notationHalo(squareColor) }\n-}\n-\n function uniqueSquares(squares: Square[]): Square[] {\n   return Array.from(new Set(squares))\n }\n@@ -3972,7 +3907,7 @@ function App() {\n     [clearBoardSelection],\n   )\n \n-  const onPieceDrop = (sourceSquare: Square, targetSquare: Square, pieceType: string) => {\n+  const onPieceDrop = useCallback((sourceSquare: Square, targetSquare: Square, pieceType: string) => {\n     if (pendingPromotion) return false\n     if (sourceSquare === targetSquare) return false\n     if (premoveAllowed) {\n@@ -3997,7 +3932,14 @@ function App() {\n     }\n \n     return applyHumanMove(sourceSquare, targetSquare)\n-  }\n+  }, [applyHumanMove, beginPromotion, endedOffBoard, game, gameMode, isAiThinking, paused, pendingPromotion, playerColor, premoveAllowed, workspaceMode])\n+\n+  const handleBoardDrop = useCallback(({ sourceSquare, targetSquare, piece }: PieceDropHandlerArgs) => {\n+    if (!targetSquare) return false\n+    setSelectedSquare(null)\n+    setLegalTargets([])\n+    return onPieceDrop(sourceSquare as Square, targetSquare as Square, piece.pieceType)\n+  }, [onPieceDrop])\n \n   /**\n    * The reader's own square marks, on the right button.\n@@ -7084,85 +7026,26 @@ function App() {\n                       preview, which is what turned a documented curiosity into\n                       a guard. */}\n                   {renderedBoardWidth > 0 && (\n-                  <Chessboard\n-                    options={{\n-                      position: linePreview ? linePreview.fen : fen,\n-                      boardOrientation: orientation,\n-                      onPieceDrop: ({ sourceSquare, targetSquare, piece }) => {\n-                        if (!targetSquare) return false\n-                        setSelectedSquare(null)\n-                        setLegalTargets([])\n-                        return onPieceDrop(sourceSquare as Square, targetSquare as Square, piece.pieceType)\n-                      },\n-                      onSquareClick: ({ square }) => onSquareClick(square as Square),\n-                      onSquareMouseDown: handleSquareMouseDown,\n-                      onSquareMouseUp: handleSquareMouseUp,\n-                      squareStyles: linePreview ? {\n-                        // Nothing the reader put on the board belongs to a\n-                        // position they are only looking at. The two squares of\n-                        // the previewed move do.\n-                        [linePreview.uci.slice(0, 2) as Square]: PREVIEW_SQUARE_STYLE,\n-                        [linePreview.uci.slice(2, 4) as Square]: PREVIEW_SQUARE_STYLE,\n-                      } : {\n-                        // What was just played, under everything else.\n-                        ...(currentBoardMove\n-                          ? {\n-                            [currentBoardMove.from as Square]: LAST_MOVE_SQUARE_STYLE,\n-                            [currentBoardMove.to as Square]: LAST_MOVE_SQUARE_STYLE,\n-                          }\n-                          : {}),\n-                        // The piece stays where it is and both squares light up:\n-                        // nothing has been played, and pretending otherwise\n-                        // would show a position that does not exist.\n-                        ...(premove\n-                          ? {\n-                            [premove.from]: PREMOVE_SQUARE_STYLE,\n-                            [premove.to]: PREMOVE_SQUARE_STYLE,\n-                          }\n-                          : {}),\n-                        ...Object.fromEntries(\n-                          Object.entries(markedSquares).map(([square, color]) => [square, squareMarkStyle(color)]),\n-                        ),\n-                        ...(selectedSquare ? { [selectedSquare]: SELECTED_SQUARE_STYLE } : {}),\n-                        ...Object.fromEntries(\n-                          legalTargets.map(sq => [sq, moveHintStyle(boardTheme, Boolean(game.get(sq)))]),\n-                        ),\n-                      },\n-                      arrows: boardArrows,\n-                      arrowOptions: BOARD_ARROW_OPTIONS,\n-                      darkSquareNotationStyle: notationStyle(boardTheme.ink, boardTheme.dark),\n-                      lightSquareNotationStyle: notationStyle(boardTheme.ink, boardTheme.light),\n-                      alphaNotationStyle: { ...NOTATION_BASE_STYLE, bottom: 2, right: 3, fontSize: notationFontSize },\n-                      numericNotationStyle: { ...NOTATION_BASE_STYLE, top: 2, left: 3, fontSize: notationFontSize },\n-                      allowDrawingArrows: !isPreviewingLine,\n-                      allowDragging: !isPreviewingLine && (!boardInputLocked || premoveAllowed),\n-                      // How far a finger may wander before it is a drag rather\n-                      // than a tap. The default is 1px, and no finger is that\n-                      // still: **measured** at 390x844, tapping the e2 pawn\n-                      // with 1px of drift lit no legal targets at all, where a\n-                      // perfectly motionless tap lit two. What the reader got\n-                      // for a tap was a drag that picked the pawn up and put it\n-                      // back on its own square -- which lands in `onPieceDrop`\n-                      // below, clears the selection, and swallows the click\n-                      // that would have made one. Tap to select, the way this\n-                      // board is documented to work, was reachable only with a\n-                      // mouse. 8px is where Android itself draws the line --\n-                      // `ViewConfiguration.getScaledTouchSlop()` is 8dp, and\n-                      // below it the platform does not call a movement a drag\n-                      // either -- and it is under a fifth of a square on the\n-                      // narrowest phone this app supports, so a deliberate drag\n-                      // still takes hold almost at once.\n-                      dragActivationDistance: 8,\n-                      showAnimations: !reduceMotion,\n-                      darkSquareStyle: { backgroundColor: boardTheme.dark },\n-                      lightSquareStyle: { backgroundColor: boardTheme.light },\n-                      boardStyle: {\n-                        width: `${renderedBoardWidth}px`,\n-                        maxWidth: '100%',\n-                        borderRadius: 12,\n-                        boxShadow: '0 8px 40px rgba(0, 0, 0, 0.60), 0 2px 8px rgba(0, 0, 0, 0.40)',\n-                      },\n-                    }}\n+                  <BoardCanvas\n+                    position={linePreview ? linePreview.fen : fen}\n+                    orientation={orientation}\n+                    width={renderedBoardWidth}\n+                    notationFontSize={notationFontSize}\n+                    theme={boardTheme}\n+                    previewMove={linePreview?.uci}\n+                    lastMove={currentBoardMove}\n+                    premove={premove}\n+                    markedSquares={markedSquares}\n+                    selectedSquare={selectedSquare}\n+                    legalTargets={legalTargets}\n+                    arrows={boardArrows}\n+                    allowDrawingArrows={!isPreviewingLine}\n+                    allowDragging={!isPreviewingLine && (!boardInputLocked || premoveAllowed)}\n+                    reduceMotion={reduceMotion}\n+                    onPieceDrop={handleBoardDrop}\n+                    onSquareClick={onSquareClick}\n+                    onSquareMouseDown={handleSquareMouseDown}\n+                    onSquareMouseUp={handleSquareMouseUp}\n                   />\n                   )}\n                 </div>\n",
+  "productionAssets": [
+    "LibraryDialog-9R0WMdlP.js",
+    "NewGameDialog-Dy1DwAvV.js",
+    "PgnDialog-CUVSpvMy.js",
+    "chess-BgZTH1rp.js",
+    "eco-Y2BFBEFE.js",
+    "index-C3qPvoZN.js",
+    "react-CIDWvPgF.js"
+  ],
+  "base": "http://127.0.0.1:4336/web-chess/",
+  "width": 1280,
+  "cpuRate": 4,
+  "durationMs": 6000,
+  "flipIntervalMs": 0,
+  "reducedMotion": false,
+  "workload": "116-ply game, five legal PVs, telemetry every 100ms, no board flips; production build, main thread only",
+  "results": [
+    {
+      "sample": 1,
+      "metrics": {
+        "TaskDuration": 2.776617,
+        "ScriptDuration": 0.391939,
+        "LayoutDuration": 0.195595,
+        "RecalcStyleDuration": 0.126969,
+        "LayoutCount": 513,
+        "RecalcStyleCount": 510
+      },
+      "observed": {
+        "updates": 60,
+        "longTasks": [],
+        "flipToTwoFramesMs": []
+      },
+      "errors": [],
+      "topFrames": [
+        {
+          "frame": "(idle) :0",
+          "selfMs": 3469
+        },
+        {
+          "frame": "(program) :0",
+          "selfMs": 2312
+        },
+        {
+          "frame": "(garbage collector) :0",
+          "selfMs": 37
+        },
+        {
+          "frame": "App ../../src/App.tsx:484",
+          "selfMs": 34
+        },
+        {
+          "frame": "_moves ../../node_modules/chess.js/dist/esm/chess.js:2354",
+          "selfMs": 25
+        },
+        {
+          "frame": "buildReviewRows ../../src/engine/analysis.ts:700",
+          "selfMs": 24
+        },
+        {
+          "frame": "commitHostUpdate ../../node_modules/react-dom/cjs/react-dom-client.production.js:8725",
+          "selfMs": 18
+        },
+        {
+          "frame": "updateProperties ../../node_modules/react-dom/cjs/react-dom-client.production.js:13577",
+          "selfMs": 15
+        },
+        {
+          "frame": "load ../../node_modules/chess.js/dist/esm/chess.js:1836",
+          "selfMs": 9
+        },
+        {
+          "frame": "updateMemo ../../node_modules/react-dom/cjs/react-dom-client.production.js:5162",
+          "selfMs": 9
+        },
+        {
+          "frame": "(anonymous) :6",
+          "selfMs": 7
+        },
+        {
+          "frame": "get userAgentData :0",
+          "selfMs": 6
+        },
+        {
+          "frame": "renderWithHooks ../../node_modules/react-dom/cjs/react-dom-client.production.js:4333",
+          "selfMs": 6
+        },
+        {
+          "frame": "performUnitOfWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:11304",
+          "selfMs": 6
+        },
+        {
+          "frame": "updateElement ../../node_modules/react-dom/cjs/react-dom-client.production.js:3365",
+          "selfMs": 6
+        },
+        {
+          "frame": "Jt ../../node_modules/chess.js/dist/esm/chess.js:1313",
+          "selfMs": 5
+        },
+        {
+          "frame": "_put ../../node_modules/chess.js/dist/esm/chess.js:2081",
+          "selfMs": 5
+        },
+        {
+          "frame": "reconcileChildFibersImpl ../../node_modules/react-dom/cjs/react-dom-client.production.js:3793",
+          "selfMs": 5
+        },
+        {
+          "frame": "commitHookEffectListUnmount ../../node_modules/react-dom/cjs/react-dom-client.production.js:8593",
+          "selfMs": 5
+        },
+        {
+          "frame": "_makeMove ../../node_modules/chess.js/dist/esm/chess.js:2563",
+          "selfMs": 4
+        },
+        {
+          "frame": "reconcileChildrenArray ../../node_modules/react-dom/cjs/react-dom-client.production.js:3622",
+          "selfMs": 4
+        },
+        {
+          "frame": "validateFen ../../node_modules/chess.js/dist/esm/chess.js:1598",
+          "selfMs": 4
+        },
+        {
+          "frame": "queueMicrotask :0",
+          "selfMs": 4
+        },
+        {
+          "frame": "postMessage :0",
+          "selfMs": 4
+        },
+        {
+          "frame": "beginWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:7392",
+          "selfMs": 4
+        },
+        {
+          "frame": "setProp ../../node_modules/react-dom/cjs/react-dom-client.production.js:12957",
+          "selfMs": 4
+        },
+        {
+          "frame": "(anonymous) ../../node_modules/react-dom/cjs/react-dom-client.production.js:12455",
+          "selfMs": 4
+        },
+        {
+          "frame": "buildWinrateSeries ../../src/engine/analysis.ts:1103",
+          "selfMs": 4
+        },
+        {
+          "frame": "exportAnnotatedPgn ../../src/engine/pgn.ts:824",
+          "selfMs": 3
+        },
+        {
+          "frame": "_movePiece ../../node_modules/chess.js/dist/esm/chess.js:2557",
+          "selfMs": 3
+        }
+      ]
+    },
+    {
+      "sample": 2,
+      "metrics": {
+        "TaskDuration": 2.833312,
+        "ScriptDuration": 0.388544,
+        "LayoutDuration": 0.218195,
+        "RecalcStyleDuration": 0.143007,
+        "LayoutCount": 544,
+        "RecalcStyleCount": 539
+      },
+      "observed": {
+        "updates": 60,
+        "longTasks": [],
+        "flipToTwoFramesMs": []
+      },
+      "errors": [],
+      "topFrames": [
+        {
+          "frame": "(idle) :0",
+          "selfMs": 3405
+        },
+        {
+          "frame": "(program) :0",
+          "selfMs": 2406
+        },
+        {
+          "frame": "App ../../src/App.tsx:484",
+          "selfMs": 35
+        },
+        {
+          "frame": "(garbage collector) :0",
+          "selfMs": 24
+        },
+        {
+          "frame": "commitHostUpdate ../../node_modules/react-dom/cjs/react-dom-client.production.js:8725",
+          "selfMs": 19
+        },
+        {
+          "frame": "_moves ../../node_modules/chess.js/dist/esm/chess.js:2354",
+          "selfMs": 18
+        },
+        {
+          "frame": "buildReviewRows ../../src/engine/analysis.ts:700",
+          "selfMs": 12
+        },
+        {
+          "frame": "updateProperties ../../node_modules/react-dom/cjs/react-dom-client.production.js:13577",
+          "selfMs": 11
+        },
+        {
+          "frame": "_undoMove ../../node_modules/chess.js/dist/esm/chess.js:2685",
+          "selfMs": 9
+        },
+        {
+          "frame": "_makeMove ../../node_modules/chess.js/dist/esm/chess.js:2563",
+          "selfMs": 8
+        },
+        {
+          "frame": "validateFen ../../node_modules/chess.js/dist/esm/chess.js:1598",
+          "selfMs": 7
+        },
+        {
+          "frame": "_set ../../node_modules/chess.js/dist/esm/chess.js:2076",
+          "selfMs": 7
+        },
+        {
+          "frame": "updateInput ../../node_modules/react-dom/cjs/react-dom-client.production.js:1103",
+          "selfMs": 7
+        },
+        {
+          "frame": "reconcileChildrenArray ../../node_modules/react-dom/cjs/react-dom-client.production.js:3622",
+          "selfMs": 7
+        },
+        {
+          "frame": "_put ../../node_modules/chess.js/dist/esm/chess.js:2081",
+          "selfMs": 6
+        },
+        {
+          "frame": "commitMutationEffectsOnFiber ../../node_modules/react-dom/cjs/react-dom-client.production.js:9427",
+          "selfMs": 6
+        },
+        {
+          "frame": "performUnitOfWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:11304",
+          "selfMs": 6
+        },
+        {
+          "frame": "_movePiece ../../node_modules/chess.js/dist/esm/chess.js:2557",
+          "selfMs": 6
+        },
+        {
+          "frame": "commitBeforeMutationEffects ../../node_modules/react-dom/cjs/react-dom-client.production.js:8842",
+          "selfMs": 6
+        },
+        {
+          "frame": "renderWithHooks ../../node_modules/react-dom/cjs/react-dom-client.production.js:4333",
+          "selfMs": 6
+        },
+        {
+          "frame": "load ../../node_modules/chess.js/dist/esm/chess.js:1836",
+          "selfMs": 6
+        },
+        {
+          "frame": "useOpeningExplorer ../../src/hooks/useOpeningExplorer.ts:35",
+          "selfMs": 5
+        },
+        {
+          "frame": "buildWinrateSeries ../../src/engine/analysis.ts:1103",
+          "selfMs": 5
+        },
+        {
+          "frame": "updateElement ../../node_modules/react-dom/cjs/react-dom-client.production.js:3365",
+          "selfMs": 5
+        },
+        {
+          "frame": "isStalemate ../../node_modules/chess.js/dist/esm/chess.js:2270",
+          "selfMs": 5
+        },
+        {
+          "frame": "commitHookEffectListUnmount ../../node_modules/react-dom/cjs/react-dom-client.production.js:8593",
+          "selfMs": 4
+        },
+        {
+          "frame": "getRootNode :0",
+          "selfMs": 4
+        },
+        {
+          "frame": "_clear ../../node_modules/chess.js/dist/esm/chess.js:2107",
+          "selfMs": 4
+        },
+        {
+          "frame": "updateCallback ../../node_modules/react-dom/cjs/react-dom-client.production.js:5153",
+          "selfMs": 4
+        },
+        {
+          "frame": "pvLineMoves ../../src/engine/analysis.ts:156",
+          "selfMs": 4
+        }
+      ]
+    },
+    {
+      "sample": 3,
+      "metrics": {
+        "TaskDuration": 2.7173350000000003,
+        "ScriptDuration": 0.384474,
+        "LayoutDuration": 0.202839,
+        "RecalcStyleDuration": 0.127644,
+        "LayoutCount": 489,
+        "RecalcStyleCount": 486
+      },
+      "observed": {
+        "updates": 60,
+        "longTasks": [],
+        "flipToTwoFramesMs": []
+      },
+      "errors": [],
+      "topFrames": [
+        {
+          "frame": "(idle) :0",
+          "selfMs": 3554
+        },
+        {
+          "frame": "(program) :0",
+          "selfMs": 2283
+        },
+        {
+          "frame": "App ../../src/App.tsx:484",
+          "selfMs": 34
+        },
+        {
+          "frame": "_moves ../../node_modules/chess.js/dist/esm/chess.js:2354",
+          "selfMs": 23
+        },
+        {
+          "frame": "commitHostUpdate ../../node_modules/react-dom/cjs/react-dom-client.production.js:8725",
+          "selfMs": 18
+        },
+        {
+          "frame": "updateProperties ../../node_modules/react-dom/cjs/react-dom-client.production.js:13577",
+          "selfMs": 15
+        },
+        {
+          "frame": "(garbage collector) :0",
+          "selfMs": 13
+        },
+        {
+          "frame": "validateFen ../../node_modules/chess.js/dist/esm/chess.js:1598",
+          "selfMs": 10
+        },
+        {
+          "frame": "renderWithHooks ../../node_modules/react-dom/cjs/react-dom-client.production.js:4333",
+          "selfMs": 10
+        },
+        {
+          "frame": "reconcileChildrenArray ../../node_modules/react-dom/cjs/react-dom-client.production.js:3622",
+          "selfMs": 10
+        },
+        {
+          "frame": "_undoMove ../../node_modules/chess.js/dist/esm/chess.js:2685",
+          "selfMs": 9
+        },
+        {
+          "frame": "buildReviewRows ../../src/engine/analysis.ts:700",
+          "selfMs": 9
+        },
+        {
+          "frame": "_makeMove ../../node_modules/chess.js/dist/esm/chess.js:2563",
+          "selfMs": 6
+        },
+        {
+          "frame": "updateInput ../../node_modules/react-dom/cjs/react-dom-client.production.js:1103",
+          "selfMs": 6
+        },
+        {
+          "frame": "_put ../../node_modules/chess.js/dist/esm/chess.js:2081",
+          "selfMs": 5
+        },
+        {
+          "frame": "_movePiece ../../node_modules/chess.js/dist/esm/chess.js:2557",
+          "selfMs": 5
+        },
+        {
+          "frame": "commitBeforeMutationEffects ../../node_modules/react-dom/cjs/react-dom-client.production.js:8842",
+          "selfMs": 5
+        },
+        {
+          "frame": "setProp ../../node_modules/react-dom/cjs/react-dom-client.production.js:12957",
+          "selfMs": 5
+        },
+        {
+          "frame": "updateMemo ../../node_modules/react-dom/cjs/react-dom-client.production.js:5162",
+          "selfMs": 5
+        },
+        {
+          "frame": "WdlBar ../../src/components/WdlBar.tsx:15",
+          "selfMs": 5
+        },
+        {
+          "frame": "(anonymous) :6",
+          "selfMs": 5
+        },
+        {
+          "frame": "load ../../node_modules/chess.js/dist/esm/chess.js:1836",
+          "selfMs": 5
+        },
+        {
+          "frame": "_clear ../../node_modules/chess.js/dist/esm/chess.js:2107",
+          "selfMs": 4
+        },
+        {
+          "frame": "props ../../src/components/icons.tsx:149",
+          "selfMs": 4
+        },
+        {
+          "frame": "performUnitOfWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:11304",
+          "selfMs": 4
+        },
+        {
+          "frame": "summarizeBoard ../../src/engine/tablebase.ts:148",
+          "selfMs": 4
+        },
+        {
+          "frame": "uciToSan ../../src/engine/analysis.ts:211",
+          "selfMs": 4
+        },
+        {
+          "frame": "(anonymous) ../../src/components/TrendGraph.tsx:291",
+          "selfMs": 4
+        },
+        {
+          "frame": "validField ../../src/engine/evaluationSource.ts:37",
+          "selfMs": 3
+        },
+        {
+          "frame": "_set ../../node_modules/chess.js/dist/esm/chess.js:2076",
+          "selfMs": 3
+        }
+      ]
+    }
+  ],
+  "measuredSource": "ab1320e",
+  "measurementNote": "No board flips; five legal PVs with stable arrow geometry, rank and color. The after measurements preceded the commit that preserves this source."
+}
