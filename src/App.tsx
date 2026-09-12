@@ -4269,8 +4269,11 @@ function App() {
   }, [completePromotion, pendingPromotion])
 
   // ── New game ──────────────────────────────────────────
-  const rememberModalTrigger = useCallback(() => {
-    modalTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+  const rememberModalTrigger = useCallback((event?: SyntheticEvent<HTMLElement>) => {
+    // Safari can activate a button without focusing it. Pointer-opened dialogs
+    // must return to that button; shortcuts and drops retain the active element.
+    modalTriggerRef.current = event?.currentTarget
+      ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null)
   }, [])
 
   const restoreModalTriggerFocus = useCallback(() => {
@@ -4287,8 +4290,8 @@ function App() {
 
   // Wrapped rather than plain functions because the command palette memoises a
   // list that calls them; a new identity each render made that memo useless.
-  const openNewGameDialog = useCallback(() => {
-    rememberModalTrigger()
+  const openNewGameDialog = useCallback((event?: SyntheticEvent<HTMLElement>) => {
+    rememberModalTrigger(event)
     setSettingsOpen(false)
     setShowPgnDialog(false)
     setShowLibraryDialog(false)
@@ -4296,15 +4299,15 @@ function App() {
   }, [rememberModalTrigger])
   openNewGameDialogRef.current = openNewGameDialog
   const clearDroppedPgnFile = useCallback(() => setDroppedPgnFile(null), [])
-  const openPgnDialog = useCallback(() => {
-    rememberModalTrigger()
+  const openPgnDialog = useCallback((event?: SyntheticEvent<HTMLElement>) => {
+    rememberModalTrigger(event)
     setSettingsOpen(false)
     setShowNewGameDialog(false)
     setShowLibraryDialog(false)
     setShowPgnDialog(true)
   }, [rememberModalTrigger])
-  const openLibraryDialog = useCallback(() => {
-    rememberModalTrigger()
+  const openLibraryDialog = useCallback((event?: SyntheticEvent<HTMLElement>) => {
+    rememberModalTrigger(event)
     setSettingsOpen(false)
     setShowNewGameDialog(false)
     setShowPgnDialog(false)
