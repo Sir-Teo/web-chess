@@ -1,0 +1,31 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 178 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-CgwKS1an.js   59.83 kB
+dist/assets/LibraryDialog-1a6sktfW.css        3.40 kB │ gzip:   0.97 kB
+dist/assets/index-Yg0bZYMk.css              122.06 kB │ gzip:  22.47 kB
+dist/assets/NewGameDialog-BXSnc_QG.js         4.26 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-CVEIzNnt.js         7.58 kB │ gzip:   2.81 kB
+dist/assets/PgnDialog-C7OwZBnP.js            23.90 kB │ gzip:   7.95 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-CJYepOiZ.js               345.35 kB │ gzip: 111.16 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 670ms
+Error: Restore both: top cannot be fully reached: {"top":-2,"bottom":12,"left":0,"right":901,"width":901,"height":360,"scroll":2,"parent":"panel top hidden","parentY":-2,"parentHeight":1,"cssTop":"0px","cssBottom":"-14px","hit":true}
+    at fail (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:33:9)
+    at assert (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:37:19)
+    at visible (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:3066:5)
+    at async checkShortDesktopWindow (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:3116:9)
+    at async main (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:6415:7)

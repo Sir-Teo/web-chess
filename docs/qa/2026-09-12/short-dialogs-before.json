@@ -1,0 +1,488 @@
+[
+  {
+    "height": 360,
+    "rem": 32,
+    "label": "Engine details Close",
+    "rect": {
+      "y": 101.515625,
+      "bottom": 155.34375,
+      "x": 738.328125,
+      "right": 845.609375,
+      "height": 53.828125
+    },
+    "dialog": {
+      "y": 78.125,
+      "bottom": 232,
+      "height": 153.875
+    },
+    "hit": true
+  },
+  {
+    "height": 360,
+    "rem": 32,
+    "label": "New Game mode",
+    "rect": {
+      "y": 41.21875,
+      "bottom": 372.8125,
+      "x": 266.296875,
+      "right": 379.5,
+      "height": 331.59375
+    },
+    "dialog": {
+      "y": 32,
+      "bottom": 328,
+      "height": 296
+    },
+    "hit": true
+  },
+  {
+    "height": 360,
+    "rem": 32,
+    "label": "New Game Start",
+    "rect": {
+      "y": 188.375,
+      "bottom": 288.796875,
+      "x": 427.34375,
+      "right": 634.703125,
+      "height": 100.421875
+    },
+    "dialog": {
+      "y": 32,
+      "bottom": 328,
+      "height": 296
+    },
+    "hit": true
+  },
+  {
+    "height": 360,
+    "rem": 32,
+    "label": "PGN input",
+    "rect": {
+      "y": 137.984375,
+      "bottom": 317.984375,
+      "x": 266.296875,
+      "right": 634.703125,
+      "height": 180
+    },
+    "dialog": {
+      "y": 32,
+      "bottom": 328,
+      "height": 296
+    },
+    "hit": true
+  },
+  {
+    "height": 360,
+    "rem": 32,
+    "label": "FEN Load",
+    "rect": {
+      "y": 189.375,
+      "bottom": 288.5625,
+      "x": 427.34375,
+      "right": 634.703125,
+      "height": 99.1875
+    },
+    "dialog": {
+      "y": 32,
+      "bottom": 328,
+      "height": 296
+    },
+    "hit": true
+  },
+  {
+    "height": 360,
+    "rem": 32,
+    "label": "PGN Download",
+    "rect": {
+      "y": 134.421875,
+      "bottom": 289.015625,
+      "x": 139.71875,
+      "right": 319.921875,
+      "height": 154.59375
+    },
+    "dialog": {
+      "y": 32,
+      "bottom": 328,
+      "height": 296
+    },
+    "hit": true
+  },
+  {
+    "height": 360,
+    "rem": 32,
+    "label": "Library search",
+    "rect": {
+      "y": 151.296875,
+      "bottom": 207.890625,
+      "x": 186.296875,
+      "right": 714.703125,
+      "height": 56.59375
+    },
+    "dialog": {
+      "y": 32,
+      "bottom": 328,
+      "height": 296
+    },
+    "hit": true
+  },
+  {
+    "height": 360,
+    "rem": 32,
+    "label": "Commands search",
+    "rect": {
+      "y": 86.578125,
+      "bottom": 168.578125,
+      "x": 97,
+      "right": 804,
+      "height": 82
+    },
+    "dialog": {
+      "y": 32,
+      "bottom": 328,
+      "height": 296
+    },
+    "hit": true
+  },
+  {
+    "height": 360,
+    "rem": 32,
+    "label": "Commands selection",
+    "rect": {
+      "y": 234.578125,
+      "bottom": 316.578125,
+      "x": 97,
+      "right": 804,
+      "height": 82
+    },
+    "dialog": {
+      "y": 32,
+      "bottom": 328,
+      "height": 296
+    },
+    "hit": true
+  },
+  {
+    "height": 256,
+    "rem": 16,
+    "label": "Engine details Close",
+    "rect": {
+      "y": 109.1875,
+      "bottom": 153.1875,
+      "x": 816.0625,
+      "right": 872.8125,
+      "height": 44
+    },
+    "dialog": {
+      "y": 97,
+      "bottom": 192,
+      "height": 95
+    },
+    "hit": true
+  },
+  {
+    "height": 256,
+    "rem": 16,
+    "label": "New Game mode",
+    "rect": {
+      "y": 104.109375,
+      "bottom": 202.90625,
+      "x": 243.890625,
+      "right": 376.828125,
+      "height": 98.796875
+    },
+    "dialog": {
+      "y": 16,
+      "bottom": 240,
+      "height": 224
+    },
+    "hit": true
+  },
+  {
+    "height": 256,
+    "rem": 16,
+    "label": "New Game Start",
+    "rect": {
+      "y": 184.140625,
+      "bottom": 220.140625,
+      "x": 523.5,
+      "right": 657.109375,
+      "height": 36
+    },
+    "dialog": {
+      "y": 16,
+      "bottom": 240,
+      "height": 224
+    },
+    "hit": true
+  },
+  {
+    "height": 256,
+    "rem": 16,
+    "label": "PGN input",
+    "rect": {
+      "y": 106.703125,
+      "bottom": 286.703125,
+      "x": 243.890625,
+      "right": 657.109375,
+      "height": 180
+    },
+    "dialog": {
+      "y": 16,
+      "bottom": 240,
+      "height": 224
+    },
+    "hit": true
+  },
+  {
+    "height": 256,
+    "rem": 16,
+    "label": "FEN Load",
+    "rect": {
+      "y": 183.671875,
+      "bottom": 219.671875,
+      "x": 513.8125,
+      "right": 657.109375,
+      "height": 36
+    },
+    "dialog": {
+      "y": 16,
+      "bottom": 240,
+      "height": 224
+    },
+    "hit": true
+  },
+  {
+    "height": 256,
+    "rem": 16,
+    "label": "PGN Download",
+    "rect": {
+      "y": 168.34375,
+      "bottom": 219.9375,
+      "x": 320.296875,
+      "right": 424.484375,
+      "height": 51.59375
+    },
+    "dialog": {
+      "y": 16,
+      "bottom": 240,
+      "height": 224
+    },
+    "hit": true
+  },
+  {
+    "height": 256,
+    "rem": 16,
+    "label": "Library search",
+    "rect": {
+      "y": 181.5625,
+      "bottom": 213.5625,
+      "x": 163.890625,
+      "right": 491.5,
+      "height": 32
+    },
+    "dialog": {
+      "y": 16,
+      "bottom": 240,
+      "height": 224
+    },
+    "hit": true
+  },
+  {
+    "height": 256,
+    "rem": 16,
+    "label": "Commands search",
+    "rect": {
+      "y": 75.796875,
+      "bottom": 119.796875,
+      "x": 211.5,
+      "right": 689.5,
+      "height": 44
+    },
+    "dialog": {
+      "y": 16,
+      "bottom": 240,
+      "height": 224
+    },
+    "hit": true
+  },
+  {
+    "height": 256,
+    "rem": 16,
+    "label": "Commands selection",
+    "rect": {
+      "y": 167.390625,
+      "bottom": 209.390625,
+      "x": 211.5,
+      "right": 689.5,
+      "height": 42
+    },
+    "dialog": {
+      "y": 29.59375,
+      "bottom": 226.390625,
+      "height": 196.796875
+    },
+    "hit": true
+  },
+  {
+    "height": 256,
+    "rem": 32,
+    "label": "Engine details Close",
+    "rect": {
+      "y": 74.390625,
+      "bottom": 128.21875,
+      "x": 738.328125,
+      "right": 845.609375,
+      "height": 53.828125
+    },
+    "dialog": {
+      "y": 64,
+      "bottom": 128,
+      "height": 64
+    },
+    "hit": true
+  },
+  {
+    "height": 256,
+    "rem": 32,
+    "label": "New Game mode",
+    "rect": {
+      "y": 41.21875,
+      "bottom": 372.8125,
+      "x": 266.296875,
+      "right": 379.5,
+      "height": 331.59375
+    },
+    "dialog": {
+      "y": 32,
+      "bottom": 224,
+      "height": 192
+    },
+    "hit": true
+  },
+  {
+    "height": 256,
+    "rem": 32,
+    "label": "New Game Start",
+    "rect": {
+      "y": 84.375,
+      "bottom": 184.796875,
+      "x": 427.34375,
+      "right": 634.703125,
+      "height": 100.421875
+    },
+    "dialog": {
+      "y": 32,
+      "bottom": 224,
+      "height": 192
+    },
+    "hit": true
+  },
+  {
+    "height": 256,
+    "rem": 32,
+    "label": "PGN input",
+    "rect": {
+      "y": 85.984375,
+      "bottom": 265.984375,
+      "x": 266.296875,
+      "right": 634.703125,
+      "height": 180
+    },
+    "dialog": {
+      "y": 32,
+      "bottom": 224,
+      "height": 192
+    },
+    "hit": true
+  },
+  {
+    "height": 256,
+    "rem": 32,
+    "label": "FEN Load",
+    "rect": {
+      "y": 84.375,
+      "bottom": 183.5625,
+      "x": 427.34375,
+      "right": 634.703125,
+      "height": 99.1875
+    },
+    "dialog": {
+      "y": 32,
+      "bottom": 224,
+      "height": 192
+    },
+    "hit": true
+  },
+  {
+    "height": 256,
+    "rem": 32,
+    "label": "PGN Download",
+    "rect": {
+      "y": 50.421875,
+      "bottom": 205.015625,
+      "x": 139.71875,
+      "right": 319.921875,
+      "height": 154.59375
+    },
+    "dialog": {
+      "y": 32,
+      "bottom": 224,
+      "height": 192
+    },
+    "hit": true
+  },
+  {
+    "height": 256,
+    "rem": 32,
+    "label": "Library search",
+    "rect": {
+      "y": 99.296875,
+      "bottom": 155.890625,
+      "x": 186.296875,
+      "right": 714.703125,
+      "height": 56.59375
+    },
+    "dialog": {
+      "y": 32,
+      "bottom": 224,
+      "height": 192
+    },
+    "hit": true
+  },
+  {
+    "height": 256,
+    "rem": 32,
+    "label": "Commands search",
+    "rect": {
+      "y": -17.421875,
+      "bottom": 64.578125,
+      "x": 97,
+      "right": 804,
+      "height": 82
+    },
+    "dialog": {
+      "y": 32,
+      "bottom": 224,
+      "height": 192
+    },
+    "hit": false
+  },
+  {
+    "height": 256,
+    "rem": 32,
+    "label": "Commands selection",
+    "rect": {
+      "y": 130.578125,
+      "bottom": 212.578125,
+      "x": 97,
+      "right": 804,
+      "height": 82
+    },
+    "dialog": {
+      "y": 32,
+      "bottom": 224,
+      "height": 192
+    },
+    "hit": true
+  }
+]

@@ -1,0 +1,26 @@
+[
+  {
+    "label": "native focus",
+    "scroll": 2,
+    "y": -2,
+    "bottom": 12
+  },
+  {
+    "label": "scroll nearest",
+    "scroll": 0,
+    "y": 0,
+    "bottom": 14
+  },
+  {
+    "label": "margin then focus",
+    "scroll": 0,
+    "y": 0,
+    "bottom": 14
+  },
+  {
+    "label": "explicit zero",
+    "scroll": 0,
+    "y": 0,
+    "bottom": 14
+  }
+]
