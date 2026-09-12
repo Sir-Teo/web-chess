@@ -1,0 +1,28 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 174 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DUxLlINI.js   57.19 kB
+dist/assets/LibraryDialog-1a6sktfW.css        3.40 kB │ gzip:   0.97 kB
+dist/assets/index-BwwzPWpw.css              117.89 kB │ gzip:  21.83 kB
+dist/assets/NewGameDialog-C8VWq520.js         4.26 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-B3axT5nG.js         7.58 kB │ gzip:   2.81 kB
+dist/assets/PgnDialog-B55CH3yQ.js            23.90 kB │ gzip:   7.95 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-BoMcQgTn.js               340.09 kB │ gzip: 109.15 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 1.09s
+  review backup export (1280px): a native worker exports complete/partial runs with exact WDL, settings and timestamps; 200% text and download failure preserve the open report
+  review backup export (375px): a native worker exports complete/partial runs with exact WDL, settings and timestamps; 200% text and download failure preserve the open report
+Focused browser UI checks passed.

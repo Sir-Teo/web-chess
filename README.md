@@ -182,8 +182,12 @@ given, and the app answering the reader who touches it.
   best-move and WDL differences, missing readings and links back to positions.
   Mate distances stay distinct from pawn-score changes. Up to 50 runs are
   retained, with no automatic eviction (2,048 plies / 512 KB per run). These
-  records are separate from the game library and its backup; export review
-  PGNs for separate copies of the annotated lines. A failed browser write is
+  records are separate from the game library and its backup. **Export review
+  backup** downloads all saved runs as JSON, including full WDL and timestamps.
+  **Import review backup** restores them, skips identical runs and keeps
+  different runs even when their IDs conflict. It checks the whole file and
+  available space before adding anything; existing runs are never replaced.
+  Choose a restored run to open it on the board. A failed browser write is
   reported instead of claiming the review was saved.
 
 - **Drill a line from memory**: Opening preparation, which the explorer and the

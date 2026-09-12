@@ -1,0 +1,41 @@
+{
+  "base": "http://127.0.0.1:4336/web-chess/",
+  "sourceCommit": "d3bb8ff95cb0afa7f4809702fbccbe0e1f2638f3",
+  "records": 50,
+  "pliesPerRecord": 116,
+  "readingsPerRecord": 117,
+  "bytes": 1510648,
+  "viewport": {
+    "width": 1280,
+    "height": 812
+  },
+  "reducedMotion": true,
+  "cpuThrottle": 1,
+  "elapsedMs": 408.55999994277954,
+  "frameCount": 44,
+  "frameGapP95Ms": 10.295000000000016,
+  "maximumFrameGapMs": 41.329999999999984,
+  "longTasks": [],
+  "interactions": [
+    {
+      "ms": 35.105000019073486,
+      "completedWhileImporting": true
+    },
+    {
+      "ms": 30.229999899864197,
+      "completedWhileImporting": true
+    },
+    {
+      "ms": 30.074999928474426,
+      "completedWhileImporting": true
+    },
+    {
+      "ms": 30.544999957084656,
+      "completedWhileImporting": true
+    }
+  ],
+  "assets": [
+    "http://127.0.0.1:4336/web-chess/assets/index-a_FV7R0J.js"
+  ],
+  "limitation": "Synthetic saved scores; one local sample. Automation-to-two-frame timings include protocol and frame scheduling and are not field INP or search speed."
+}

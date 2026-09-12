@@ -1,0 +1,20 @@
+Full production browser gate at d3bb8ff; failed while measuring buttons in a closed details disclosure. Fixed in e117da8.
+
+  Engine Lab (375px): shared settings, next search, reload, and console updates agree
+  single-thread profile: 64 MB / limit 4, 4 pool workers; resource control persists
+  single-thread profile: 32 MB / limit 4, 2 pool workers; resource control persists
+  single-thread profile: 64 MB / limit 1, 0 pool workers; resource control persists
+  Coach: cloud position score agrees with the bar; local candidate depth is labeled separately
+  bounded score: eval bar reads -2.2, not the bound
+  candidate search (1280px, known position): preserves position/export, labels candidates, and clears the restriction on the next search
+  candidate search (375px, known position): preserves position/export, labels candidates, and clears the restriction on the next search
+  candidate search (375px, unevaluated position): preserves position/export, labels candidates, and clears the restriction on the next search
+  evaluation provenance (1280px): actual worker identity, retained score after engine switch, review source, deeper replacement, and optional PGN metadata
+  evaluation provenance (375px): actual worker identity, retained score after engine switch, review source, deeper replacement, and optional PGN metadata
+  PV reuse (1280px): focus previews and restores the board; repeated search keeps the line clickable; export contains both committed plies
+  PV reuse (375px): focus previews and restores the board; repeated search keeps the line clickable; export contains both committed plies
+Error: review action clips at 200% text: {"height":0,"width":216,"content":216}
+    at fail (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:33:9)
+    at assert (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:37:19)
+    at checkReviewUsesSelectedEngine (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:933:11)
+    at async main (/Users/teo/Developer/web-chess/scripts/test-ui-browser.cjs:6354:5)
