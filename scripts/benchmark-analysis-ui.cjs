@@ -15,6 +15,8 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const base = process.env.BENCH_URL || 'http://127.0.0.1:4336/web-chess/'
+// An isolated checkout may serve the comparison build on another preview port.
+const sourceRoot = process.env.BENCH_SOURCE_ROOT || path.join(__dirname, '..')
 const output = process.env.BENCH_OUTPUT || '/tmp/web-chess-analysis-profile'
 const samples = Number(process.env.BENCH_SAMPLES || 3)
 const width = Number(process.env.BENCH_WIDTH || 1280)
@@ -81,7 +83,7 @@ function fixturePositions() {
   return { byMoves, linesByFen }
 }
 
-function installFixture({ byMoves, linesByFen }) {
+function installFixture({ byMoves, linesByFen, traceFen }) {
   const nativeFetch = window.fetch.bind(window)
   window.fetch = (input, init) => {
     const url = new URL(typeof input === 'string' ? input : input.url, location.href)
@@ -110,8 +112,11 @@ function installFixture({ byMoves, linesByFen }) {
     info() {
       const tick = ++window.__benchmarkTick
       const lines = linesByFen[this.fen] || linesByFen[byMoves['']]
+      // Seed the traced position shallowly so recorded scores can replace it
+      // and update the review/graphs. A synthetic D24 hid a real D21 search.
+      const depth = this.fen === traceFen ? 1 : 24
       for (let i = 0; i < Math.min(this.multiPv, lines.length); i++) {
-        this.send(`info depth 24 seldepth 30 multipv ${i + 1} score cp ${30 - i * 12 + tick % 9} nodes ${tick * 100000} nps 1000000 hashfull ${tick % 900} time ${tick * 100} wdl 300 500 200 pv ${lines[i].join(' ')}`)
+        this.send(`info depth ${depth} seldepth 30 multipv ${i + 1} score cp ${30 - i * 12 + tick % 9} nodes ${tick * 100000} nps 1000000 hashfull ${tick % 900} time ${tick * 100} wdl 300 500 200 pv ${lines[i].join(' ')}`)
       }
     }
     finish() {
@@ -149,7 +154,7 @@ function profileSummary(profile) {
     const frame = frames.get(profile.samples[i])
     let label = `${frame.functionName || '(anonymous)'} ${frame.url}:${frame.lineNumber + 1}`
     if (frame.url.includes('/assets/')) {
-      const file = path.join(__dirname, '../dist/assets', path.basename(new URL(frame.url).pathname)) + '.map'
+      const file = path.join(sourceRoot, 'dist/assets', path.basename(new URL(frame.url).pathname)) + '.map'
       if (!maps.has(file)) maps.set(file, fs.existsSync(file) ? new SourceMap(JSON.parse(fs.readFileSync(file, 'utf8'))) : null)
       const source = maps.get(file)?.findEntry(frame.lineNumber, frame.columnNumber)
       if (source?.originalSource) label = `${source.name || frame.functionName || '(anonymous)'} ${source.originalSource}:${source.originalLine + 1}`
@@ -171,7 +176,7 @@ async function main() {
       const page = await context.newPage()
       const errors = []
       page.on('pageerror', error => errors.push(error.message))
-      await page.addInitScript(installFixture, positions)
+      await page.addInitScript(installFixture, { ...positions, traceFen: trace?.fen })
       await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
         workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false,
         multiPv: 5, continuousAnalysis: true, analyzeMode: 'infinite', showAdvancedAnalyze: true,
@@ -226,8 +231,15 @@ async function main() {
       const { profile } = await client.send('Profiler.stop')
       const after = Object.fromEntries((await client.send('Performance.getMetrics')).metrics.map(item => [item.name, item.value]))
       const metrics = Object.fromEntries(['TaskDuration', 'ScriptDuration', 'LayoutDuration', 'RecalcStyleDuration', 'LayoutCount', 'RecalcStyleCount'].map(key => [key, after[key] - before[key]]))
+      let finalPositionDepth = null
+      if (trace) {
+        const expectedDepth = Math.max(...trace.events.filter(event => /multipv 1 /.test(event.line)).map(event => Number(event.line.match(/\bdepth (\d+)/)[1])))
+        const depth = page.locator('.coach-grid > div').filter({ hasText: 'Position depth' }).getByText(`D${expectedDepth}`, { exact: true })
+        await depth.waitFor()
+        finalPositionDepth = await depth.innerText()
+      }
       fs.writeFileSync(path.join(output, `sample-${sample + 1}.cpuprofile`), JSON.stringify(profile))
-      const result = { sample: sample + 1, metrics, observed, errors, topFrames: profileSummary(profile) }
+      const result = { sample: sample + 1, metrics, observed, finalPositionDepth, errors, topFrames: profileSummary(profile) }
       results.push(result)
       console.log(JSON.stringify(result))
       if (errors.length || (trace ? observed.updates !== trace.events.length : observed.updates < 30)) throw new Error('Fixture did not run a valid telemetry workload')
@@ -236,9 +248,10 @@ async function main() {
     }
   } finally {
     fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({
-      commit: execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim(),
-      sourceDiff: execFileSync('git', ['diff', '--', 'src'], { encoding: 'utf8' }),
-      productionAssets: fs.readdirSync(path.join(__dirname, '../dist/assets')).filter(file => file.endsWith('.js')),
+      benchmarkCommit: execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: path.join(__dirname, '..'), encoding: 'utf8' }).trim(),
+      commit: execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: sourceRoot, encoding: 'utf8' }).trim(),
+      sourceDiff: execFileSync('git', ['diff', '--', 'src'], { cwd: sourceRoot, encoding: 'utf8' }),
+      productionAssets: fs.readdirSync(path.join(sourceRoot, 'dist/assets')).filter(file => file.endsWith('.js')),
       base, width, cpuRate, durationMs, flipIntervalMs, reducedMotion,
       trace: trace ? { ...trace, events: undefined, path: tracePath, eventCount: trace.events.length, uniquePvs: new Set(trace.events.map(event => event.line.split(' pv ')[1])).size } : null,
       workload: `116-ply game, five legal PVs, ${trace ? 'recorded Stockfish output at original timings' : 'telemetry every 100ms'}, ${flipIntervalMs > 0 ? `board flip every ${flipIntervalMs}ms` : 'no board flips'}; production build, main thread only`, results,
