@@ -504,8 +504,10 @@ function App() {
   const settingsBodyRef = useRef<HTMLDivElement>(null)
   const openingIntelRef = useRef<HTMLDivElement>(null)
   const mainContainerRef = useRef<HTMLDivElement>(null)
+  const remProbeRef = useRef<HTMLSpanElement>(null)
   const boardStageRef = useRef<HTMLElement>(null)
   const analysisPanelRef = useRef<HTMLElement>(null)
+  const analysisHeaderRef = useRef<HTMLElement>(null)
   const revealOpeningIntelRef = useRef(false)
   const [viewport, setViewport] = useState(readViewport)
   /**
@@ -553,6 +555,10 @@ function App() {
    * is the number that says how much there is. See `boardSizing`.
    */
   const containerHeight = useElementHeight(mainContainerRef, viewport.height)
+  // Measuring this header never changes its size: only whether it stays pinned.
+  const analysisHeaderHeight = useElementHeight(analysisHeaderRef, 0)
+  const scrollAnalysisHeader = !isMobileLayout && rightWidth > 0
+    && analysisHeaderHeight > containerHeight * 0.35
   const hasAutoOpenedAnalysisLeftRef = useRef(initialWorkspaceMode === 'analysis')
 
   // ── Engine settings ──────────────────────────────────
@@ -1860,11 +1866,18 @@ function App() {
       if (resizeFrame !== null) return
       resizeFrame = window.requestAnimationFrame(() => {
         resizeFrame = null
-        setViewport(readViewport())
+        const next = readViewport()
+        setViewport(previous => previous.width === next.width && previous.height === next.height
+          && previous.rem === next.rem && previous.scrollbar === next.scrollbar ? previous : next)
       })
     }
     window.addEventListener('resize', onResize)
+    // Text-only enlargement can change rem units without a window resize.
+    // Observe a unit-sized box, independent of the board we are sizing.
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(onResize)
+    if (remProbeRef.current) observer?.observe(remProbeRef.current)
     return () => {
+      observer?.disconnect()
       if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame)
       window.removeEventListener('resize', onResize)
     }
@@ -2255,8 +2268,8 @@ function App() {
     const revealOpeningIntel = () => {
       const openingIntel = openingIntelRef.current
       if (!openingIntel) return
-      const panelContent = openingIntel.closest('.panel-content') as HTMLElement | null
-      const scrollContainer = isMobileLayout ? mainContainerRef.current : panelContent
+      const panel = openingIntel.closest('.panel-inner') as HTMLElement | null
+      const scrollContainer = isMobileLayout ? mainContainerRef.current : panel
       if (!scrollContainer) {
         openingIntel.scrollIntoView({ block: 'start' })
         return
@@ -2264,7 +2277,8 @@ function App() {
 
       const containerRect = scrollContainer.getBoundingClientRect()
       const targetRect = openingIntel.getBoundingClientRect()
-      const top = scrollContainer.scrollTop + targetRect.top - containerRect.top - 12
+      const pinnedInset = Number.parseFloat(getComputedStyle(scrollContainer).scrollPaddingTop) || 0
+      const top = scrollContainer.scrollTop + targetRect.top - containerRect.top - pinnedInset - 12
       scrollContainer.scrollTo({
         top: Math.max(0, top),
         behavior: 'auto',
@@ -6011,6 +6025,7 @@ function App() {
   // ─────────────────────────────────────────────────────
   return (
     <main className="app-shell" data-workspace-mode={workspaceMode}>
+      <span className="rem-probe" ref={remProbeRef} aria-hidden="true" />
       <nav
         className="skip-links"
         aria-label="Skip links"
@@ -7204,11 +7219,11 @@ function App() {
         <aside
           id="analysis-panel"
           aria-labelledby="analysis-panel-title"
-          className={`panel right ${rightPanelCollapsed ? 'panel-collapsed' : ''}`}
+          className={`panel right ${scrollAnalysisHeader ? 'header-in-scroll' : ''} ${rightPanelCollapsed ? 'panel-collapsed' : ''}`}
           ref={analysisPanelRef}
           aria-hidden={appModalOpen || promotionDialogOpen ? true : undefined}
           inert={appModalOpen || promotionDialogOpen ? true : undefined}
-          style={{ width: rightWidth }}
+          style={{ width: rightWidth, '--analysis-header-offset': `${scrollAnalysisHeader ? 0 : analysisHeaderHeight + 8}px` } as CSSProperties}
           tabIndex={-1}
         >
           <div
@@ -7239,7 +7254,7 @@ function App() {
                 enough to cut the one button the panel is there for. Marked so
                 the stylesheet can take it back; the heading itself stays for
                 anything reading the document's structure. */}
-            <header className={`panel-header analysis-header${workspaceMode === 'analysis' ? '' : ' panel-header-title-only'}`}>
+            <header ref={analysisHeaderRef} className={`panel-header analysis-header${workspaceMode === 'analysis' ? '' : ' panel-header-title-only'}`}>
               <h2 id="analysis-panel-title">{workspaceMode === 'analysis' ? 'Analysis' : 'Play'}</h2>
               {workspaceMode === 'analysis' && (
                 <div className="analysis-tab-strip">

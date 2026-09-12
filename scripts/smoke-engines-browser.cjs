@@ -126,9 +126,43 @@ async function main() {
           assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
           await page.keyboard.press('Enter')
           assert.equal(await guide.getAttribute('open'), null)
+          stage = 'enlarged text and reading space'
+          await page.evaluate(() => {
+            document.documentElement.style.fontSize = '32px'
+            document.querySelector('.main-container').scrollTop = 0
+            document.querySelector('.right .panel-inner').scrollTop = 0
+          })
+          await page.waitForTimeout(400)
+          const boardFits = await page.evaluate(() => {
+            const board = document.querySelector('.board-surface').getBoundingClientRect()
+            const main = document.querySelector('.main-container').getBoundingClientRect()
+            const stage = document.querySelector('.board-stage')
+            return (board.bottom <= main.bottom + 1 || (getComputedStyle(stage).overflowY === 'auto' && stage.scrollHeight > stage.clientHeight))
+              && document.documentElement.scrollWidth <= innerWidth
+          })
+          assert.equal(boardFits, true, 'text-only enlargement clips the board without a way to reach it')
+          // With live engine statistics the enlarged footer wraps, so a small
+          // desktop may need to scroll its minimum-size board. Both ends must
+          // be reachable through native keyboard focus, not hidden by a bar.
+          for (const square of ['a8', 'h1']) {
+            const target = page.locator(`[data-square="${square}"] [role="button"]`)
+            await target.focus()
+            assert.equal(await target.evaluate(el => {
+              const r = el.getBoundingClientRect(), main = document.querySelector('.main-container').getBoundingClientRect()
+              return r.top >= main.top && r.bottom <= main.bottom + 1 && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+            }), true, `enlarged board square ${square} cannot be reached`)
+          }
+          await page.getByRole('button', { name: 'Review Game', exact: true }).focus()
+          const focusFits = await page.getByRole('button', { name: 'Review Game', exact: true }).evaluate(el => {
+            const rect = el.getBoundingClientRect(), main = document.querySelector('.main-container').getBoundingClientRect()
+            const header = document.querySelector('.analysis-header')
+            return rect.top >= main.top && rect.bottom <= main.bottom + 1 && getComputedStyle(header).position !== 'sticky'
+          })
+          assert.equal(focusFits, true, 'enlarged header obscures the focused review control')
+          await page.screenshot({ path: path.join(output, `${name}-${width}-large-text.png`) })
           assert.deepEqual(errors, [])
           results.push({ browser: name, width, status: 'passed', source, positionScore: before,
-            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'keyboard chart explanation'] })
+            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus'] })
         } catch (error) {
           results.push({ browser: name, width, status: 'failed', stage, error: String(error), pageErrors: errors })
           await page.screenshot({ path: path.join(output, `${name}-${width}-failure.png`) }).catch(() => {})

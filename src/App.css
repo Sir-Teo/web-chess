@@ -27,6 +27,14 @@ body.resizing {
   user-select: none;
 }
 
+.rem-probe {
+  position: absolute;
+  width: 1rem;
+  height: 1rem;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 body.resizing * {
   cursor: col-resize !important;
 }
@@ -1389,6 +1397,32 @@ input[type="checkbox"] {
 
 .left .panel-header {
   display: none;
+}
+
+/* One scroll container preserves the reading position when an enlarged header
+   stops being sticky. It must not reserve most of a short panel for controls. */
+@media (min-width: 901px) {
+  .right .panel-inner {
+    overflow-y: auto;
+    scroll-padding-top: var(--analysis-header-offset, 0px);
+    scroll-padding-bottom: 8px;
+  }
+
+  .right .panel-content {
+    flex: none;
+    overflow: visible;
+  }
+
+  .right .analysis-header {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    background: var(--bg-panel);
+  }
+
+  .right.header-in-scroll .analysis-header {
+    position: static;
+  }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -5037,6 +5071,16 @@ button.critical-moment-row {
 
   .board-stage {
     max-width: 80rem;
+    /* The minimum playable board can outgrow a short window, especially once
+       enlarged engine statistics wrap the footer. Auto margins center it when
+       it fits and become zero when it needs to scroll, keeping its top reachable. */
+    overflow: auto;
+    align-items: flex-start;
+    scroll-padding: 8px;
+  }
+
+  .board-stage .board-layout {
+    margin-block: auto;
   }
 
   /* An empty graph in the rail is a placeholder, not a destination. It says

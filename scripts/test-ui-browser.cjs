@@ -2462,6 +2462,88 @@ async function checkGraphEstimateGuide(browser) {
 }
 
 /** Sizing still follows a late graph mount, panel changes and phone rotation. */
+async function checkReadingSpace(browser) {
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'review', autoAnalyze: false,
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      const initialWidth = await page.locator('.board-surface').evaluate(el => el.getBoundingClientRect().width)
+      for (const scale of [1, 2, 1]) {
+        // Deliberately do not dispatch resize: text enlargement is independent
+        // of a viewport resize and previously left the board's rem budget stale.
+        await page.evaluate(scale => {
+          document.documentElement.style.fontSize = `${16 * scale}px`
+          document.querySelector('.main-container').scrollTop = 0
+          document.querySelector('.board-stage').scrollTop = 0
+          document.querySelector('.right .panel-inner').scrollTop = 0
+        }, scale)
+        await page.waitForTimeout(400)
+        const layout = await page.evaluate(() => {
+          const main = document.querySelector('.main-container').getBoundingClientRect()
+          const board = document.querySelector('.board-surface').getBoundingClientRect()
+          const header = document.querySelector('.analysis-header')
+          const stage = document.querySelector('.board-stage')
+          return { clipped: Math.max(0, board.bottom - main.bottom), width: board.width,
+            overflow: document.documentElement.scrollWidth > innerWidth,
+            boardCanScroll: getComputedStyle(stage).overflowY === 'auto' && stage.scrollHeight > stage.clientHeight,
+            headerPosition: getComputedStyle(header).position }
+        })
+        assert((layout.clipped <= 1 || (width > 900 && layout.width === 260 && layout.boardCanScroll)) && !layout.overflow,
+          `${width}px / ${scale}× text clips the board without a way to reach it: ${JSON.stringify(layout)}`)
+        assert(await page.locator('[id^="chessboard-square-"]').count() === 64, 'text resize lost board squares')
+        for (const square of ['a8', 'h1']) {
+          const target = page.locator(`[data-square="${square}"] [role="button"]`)
+          await target.focus()
+          assert(await target.evaluate(el => {
+            const r = el.getBoundingClientRect(), main = document.querySelector('.main-container').getBoundingClientRect()
+            return r.top >= main.top && r.bottom <= main.bottom + 1 && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+          }), `${width}px / ${scale}× text hides the focused ${square} piece`)
+        }
+        if (scale === 1) assert(Math.abs(initialWidth - layout.width) <= 1, 'restoring normal text left the board at its enlarged-text size')
+        if (width > 900) assert(layout.headerPosition === (scale === 1 ? 'sticky' : 'static'), 'analysis header reserves the reading space at the wrong size')
+        const review = page.getByRole('button', { name: 'Review Game', exact: true })
+        // Native focus scrolling must account for a sticky header, too.
+        await review.focus()
+        const focus = await review.evaluate(el => {
+          const r = el.getBoundingClientRect(), header = document.querySelector('.analysis-header')
+          const main = document.querySelector('.main-container').getBoundingClientRect()
+          const top = getComputedStyle(header).position === 'sticky' ? header.getBoundingClientRect().bottom : main.top
+          return { top: r.top, bottom: r.bottom, visibleTop: top, visibleBottom: main.bottom }
+        })
+        assert(focus.top >= focus.visibleTop - 1 && focus.bottom <= focus.visibleBottom + 1, `focused review control is obscured: ${JSON.stringify(focus)}`)
+        await page.getByRole('button', { name: 'Open Opening Intel', exact: true }).click()
+        const opening = page.locator('.opening-intel-card').filter({ has: page.getByRole('heading', { name: 'Opening Intel', exact: true }) })
+        await opening.waitFor()
+        await page.waitForTimeout(400)
+        const revealed = await opening.evaluate(el => {
+          const main = document.querySelector('.main-container').getBoundingClientRect()
+          const header = document.querySelector('.analysis-header')
+          const top = getComputedStyle(header).position === 'sticky' ? header.getBoundingClientRect().bottom : main.top
+          const heading = el.querySelector('h3').getBoundingClientRect()
+          return { top: heading.top, bottom: heading.bottom, visibleTop: top, visibleBottom: main.bottom,
+            headerBottom: header.getBoundingClientRect().bottom, mainTop: main.top }
+        })
+        assert(revealed.top >= revealed.visibleTop - 1 && revealed.bottom <= revealed.visibleBottom + 1,
+          `Opening Intel shortcut did not reveal its heading: ${JSON.stringify(revealed)}`)
+        if (width > 900 && scale === 2) assert(revealed.headerBottom <= revealed.mainTop, 'oversized header still occupies the reading viewport after scrolling')
+        await page.screenshot({ path: `/tmp/web-chess-reading-space-${width}-${scale}.png` })
+        await page.getByRole('button', { name: 'Review', exact: true }).click()
+      }
+      assert(errors.length === 0, `reading-space page errors: ${errors.join('; ')}`)
+      console.log(`  reading space (${width}px): 100% → 200% → 100% text without window resize preserves all ranks, visible keyboard focus and opening navigation; enlarged desktop header scrolls away`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkObservedLayout(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -5331,6 +5413,7 @@ async function main() {
       'review-depth': checkReviewAtRequestedDepth,
       'graph-readings': checkTheWinrateCardFollowsTheBoard,
       'observed-layout': checkObservedLayout,
+      'reading-space': checkReadingSpace,
       'graph-guide': checkGraphEstimateGuide,
       'board-canvas': checkBoardCanvas,
       'typed-moves': checkTypedMoveEntry,
@@ -6005,6 +6088,7 @@ async function main() {
     await checkEveryControlIsFingerSized(browser)
     await checkTheWinrateCardFollowsTheBoard(browser)
     await checkObservedLayout(browser)
+    await checkReadingSpace(browser)
     await checkBoardCanvas(browser)
     await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)
