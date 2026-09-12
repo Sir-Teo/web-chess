@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { normalizeSpinOptionInput } from '../engine/options'
 
 type EngineOptionControlProps = {
@@ -17,11 +17,16 @@ type EngineOptionControlProps = {
 
 export function EngineOptionControl({ option, onSetOption, disabled = false }: EngineOptionControlProps) {
   const optionValue = option.currentValue ?? option.defaultValue ?? ''
+  const [previousOptionValue, setPreviousOptionValue] = useState(optionValue)
   const [value, setValue] = useState(optionValue)
 
-  useEffect(() => {
+  // Keep an editable draft, but reset it before committing a changed external
+  // value. An effect briefly displayed the old setting after the new one had
+  // already been applied and persisted by the console or shared controls.
+  if (previousOptionValue !== optionValue) {
+    setPreviousOptionValue(optionValue)
     setValue(optionValue)
-  }, [optionValue])
+  }
 
   if (option.type === 'button') {
     return (

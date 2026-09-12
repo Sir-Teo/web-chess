@@ -35,8 +35,13 @@ async function main() {
               showAdvancedAnalyze: true, analyzeMode: 'deep', searchDepth: 12,
             }))
             window.__smokeBestmoves = 0
+            window.__smokeCommands = []
             const NativeWorker = Worker
             window.Worker = class extends NativeWorker {
+              postMessage(data, ...rest) {
+                if (typeof data === 'string') window.__smokeCommands.push(data)
+                return super.postMessage(data, ...rest)
+              }
               constructor(...args) {
                 super(...args)
                 this.addEventListener('message', event => {
@@ -80,6 +85,20 @@ async function main() {
           await page.locator('#chessboard-square-e4').click()
           await page.waitForFunction(() => document.querySelector('#chessboard-square-e4')?.getAttribute('aria-label')?.includes('White pawn'))
           assert.equal(await page.locator('[id^="chessboard-square-"]').count(), 64)
+
+          stage = 'shared engine options'
+          await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+          const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+          for (const value of ['96', '64']) {
+            const sentBefore = await page.evaluate(() => window.__smokeCommands.length)
+            await command.fill(`setoption name Hash value ${value}`)
+            await command.press('Enter')
+            await page.waitForFunction(({ value, sentBefore }) => {
+              const field = document.querySelector('input[aria-label="Hash"]')
+              return field?.value === value && window.__smokeCommands.slice(sentBefore).includes(`setoption name Hash value ${value}`)
+                && JSON.parse(localStorage.getItem('webchess:analysis-settings:v1')).hashMb === Number(value)
+            }, { value, sentBefore })
+          }
 
           stage = 'game review and export'
           await page.getByRole('button', { name: 'Review', exact: true }).click()
@@ -186,7 +205,7 @@ async function main() {
           await page.screenshot({ path: path.join(output, `${name}-${width}-large-text.png`) })
           assert.deepEqual(errors, [])
           results.push({ browser: name, width, status: 'passed', source, positionScore: before,
-            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus'] })
+            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'shared console options', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus'] })
         } catch (error) {
           results.push({ browser: name, width, status: 'failed', stage, error: String(error), pageErrors: errors })
           await page.screenshot({ path: path.join(output, `${name}-${width}-failure.png`) }).catch(() => {})

@@ -654,10 +654,37 @@ async function checkLabSettingsStayInSync(browser) {
       assert(await hash.inputValue() === '72' && await pv.inputValue() === '3', 'Lab values did not persist across reload')
       assert(!await page.getByRole('checkbox', { name: 'UCI_ShowWDL', exact: true }).isChecked(), 'WDL did not persist')
       const input = page.getByPlaceholder('go depth 16', { exact: true })
-      await input.fill('setoption name Hash value 96')
-      await input.press('Enter')
-      await page.waitForFunction(() => JSON.parse(localStorage.getItem('webchess:analysis-settings:v1')).hashMb === 96)
-      assert(await hash.inputValue() === '96', 'console bypassed shared setting state')
+      // Observe the actual control when the parent persists a changed setting.
+      // Waiting for a later paint hid an intermediate DOM commit with old text.
+      await page.evaluate(() => {
+        window.__labSettingSnapshots = []
+        const original = Storage.prototype.setItem
+        Storage.prototype.setItem = function(key, text) {
+          const result = original.call(this, key, text)
+          if (key === 'webchess:analysis-settings:v1') {
+            const hash = document.querySelector('input[aria-label="Hash"]')
+            if (hash) window.__labSettingSnapshots.push({ stored: String(JSON.parse(text).hashMb), displayed: hash.value })
+          }
+          return result
+        }
+      })
+      for (const value of ['96', '128', '96']) {
+        await page.evaluate(() => { window.__labSettingSnapshots = [] })
+        await input.fill(`setoption name Hash value ${value}`)
+        await input.press('Enter')
+        await page.waitForFunction(value => JSON.parse(localStorage.getItem('webchess:analysis-settings:v1')).hashMb === Number(value), value)
+        const snapshots = await page.evaluate(value => window.__labSettingSnapshots.filter(snapshot => snapshot.stored === value), value)
+        assert(snapshots.length > 0 && snapshots.every(snapshot => snapshot.displayed === value),
+          `console persisted a setting while its control showed another value: ${JSON.stringify(snapshots)}`)
+        assert(await hash.inputValue() === value, 'console bypassed shared setting state')
+      }
+      // A draft remains editable until blur even though external changes now
+      // update immediately, and clamping still uses the option's real limits.
+      await hash.fill('')
+      assert(await hash.inputValue() === '', 'synchronization prevented clearing a number while editing')
+      await hash.fill('999')
+      await hash.press('Tab')
+      assert(await hash.inputValue() === '512', 'edited Hash no longer respects its maximum')
       await assertContrast(page, `Engine Lab shared settings / ${width}px`, 15)
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'Engine Lab overflows the viewport')
       console.log(`  Engine Lab (${width}px): shared settings, next search, reload, and console updates agree`)
