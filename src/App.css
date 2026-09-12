@@ -6492,6 +6492,11 @@ button.hint-btn {
   scroll-padding-block: 8px;
 }
 
+.app-shell[data-scroll-chrome="true"] > :is(.top, .bottom) > .resize-handle {
+  /* Firefox's native focus scroll otherwise clips the collapsed top handle. */
+  scroll-margin-block: 8px;
+}
+
 .app-shell[data-scroll-chrome="true"] .main-container {
   /* Let the bars scroll away when they would leave only a sliver of workspace.
      A viewport of content keeps native focus scrolling useful in each panel. */
