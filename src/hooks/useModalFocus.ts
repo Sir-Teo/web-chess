@@ -69,6 +69,22 @@ export function useModalFocus(
     const getFocusable = () =>
       Array.from(panelEl.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(isFocusable)
 
+    const revealFocusedControl = (event: FocusEvent) => {
+      const target = event.target
+      if (!(target instanceof HTMLElement)) return
+      // A short dialog scrolls as one panel. Native focus in Firefox can leave
+      // a large choice partly clipped even when it fits in that panel.
+      const overflow = window.getComputedStyle(panelEl).overflowY
+      if (overflow !== 'auto' && overflow !== 'scroll') return
+      const rect = target.getBoundingClientRect()
+      const panel = panelEl.getBoundingClientRect()
+      if (rect.top < panel.top || rect.bottom > panel.bottom
+        || rect.left < panel.left || rect.right > panel.right) {
+        target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+      }
+    }
+    panelEl.addEventListener('focusin', revealFocusedControl)
+
     const preferredEl = initialFocus ? panelEl.querySelector<HTMLElement>(initialFocus) : null
     const preferred = preferredEl && isFocusable(preferredEl) ? preferredEl : null
     ;(preferred ?? getFocusable()[0])?.focus()
@@ -105,6 +121,7 @@ export function useModalFocus(
     document.addEventListener('keydown', onKeyDown)
     return () => {
       document.removeEventListener('keydown', onKeyDown)
+      panelEl.removeEventListener('focusin', revealFocusedControl)
       // Whatever opened the overlay may itself be gone by the time it closes —
       // a dialog opened from another dialog, a control the close re-rendered
       // away. Focusing a detached node silently drops focus to <body>.
