@@ -4001,6 +4001,8 @@ async function checkDrillLeavesTheLineAlone(browser) {
  */
 async function checkCrossOriginIsolationIsRestored(browser) {
   const dist = path.join(ROOT, 'dist')
+  const requestsByPath = new Map()
+  let removedAsset = null
   const types = {
     '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
     '.json': 'application/json', '.wasm': 'application/wasm', '.svg': 'image/svg+xml',
@@ -4008,6 +4010,11 @@ async function checkCrossOriginIsolationIsRestored(browser) {
   }
   const server = http.createServer((request, response) => {
     const url = new URL(request.url, `http://127.0.0.1:${BARE_PORT}`)
+    requestsByPath.set(url.pathname, (requestsByPath.get(url.pathname) || 0) + 1)
+    if (url.pathname === removedAsset) {
+      response.writeHead(404).end('removed by deployment')
+      return
+    }
     let filePath = decodeURIComponent(url.pathname).replace(/^\/web-chess\/?/, '') || 'index.html'
     if (filePath.endsWith('/')) filePath += 'index.html'
     const resolved = path.join(dist, filePath)
@@ -4038,7 +4045,9 @@ async function checkCrossOriginIsolationIsRestored(browser) {
         }
       }
 
-      response.writeHead(200, { 'Content-Type': contentType })
+      // Disable the HTTP cache so a saved request proves the service worker's
+      // policy, rather than the browser's own freshness heuristic.
+      response.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'no-store' })
       response.end(body)
     })
   })
@@ -4080,6 +4089,42 @@ async function checkCrossOriginIsolationIsRestored(browser) {
       'obsolete Web Chess caches survived activation')
     console.log('  cache ownership: sibling apps preserved; obsolete chess caches removed')
     console.log('  headerless host: service worker restored cross-origin isolation')
+
+    await page.locator('#chessboard-square-e2').waitFor()
+    const assetPaths = await page.evaluate(() =>
+      [...document.querySelectorAll('script[src], link[rel="stylesheet"], link[rel="modulepreload"]')]
+        .map(el => new URL(el.src || el.href).pathname)
+        .filter(url => url.includes('/assets/')))
+    assert(assetPaths.length >= 4, 'the cache check needs the production scripts and stylesheet')
+    await page.waitForFunction(async paths => {
+      const cache = await caches.open('web-chess-v1:runtime')
+      return (await Promise.all(paths.map(url => cache.match(url)))).every(Boolean)
+    }, assetPaths)
+    const before = assetPaths.reduce((sum, url) => sum + (requestsByPath.get(url) || 0), 0)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.locator('#chessboard-square-e2').waitFor()
+    const after = assetPaths.reduce((sum, url) => sum + (requestsByPath.get(url) || 0), 0)
+    assert(after === before, `warm reload requested ${after - before} unchanged build assets from the network`)
+    console.log(`  warm reload: ${assetPaths.length} cached build assets, zero network requests for them`)
+
+    // A previous tab can still need a saved chunk after a deployment removes
+    // its filename. A new hash must still fetch its own content.
+    removedAsset = assetPaths.find(url => url.endsWith('.js'))
+    const retained = await page.evaluate(async url => {
+      const response = await fetch(url)
+      return { status: response.status, bytes: (await response.text()).length }
+    }, removedAsset)
+    assert(retained.status === 200 && retained.bytes > 1000, 'a saved chunk was lost when its server copy disappeared')
+    removedAsset = null
+    const missingPath = '/web-chess/assets/not-built-12345678.js'
+    const missingStatus = await page.evaluate(async url => (await fetch(url)).status, missingPath)
+    assert(missingStatus === 404 && requestsByPath.get(missingPath) === 1,
+      'an unseen asset hash must go to the network, never use another build')
+    const documentBefore = requestsByPath.get('/web-chess/index.html') || 0
+    await page.evaluate(() => fetch('index.html'))
+    assert((requestsByPath.get('/web-chess/index.html') || 0) === documentBefore + 1,
+      'the mutable document stopped checking the network for new releases')
+    console.log('  deploy: a saved chunk survives removal; a new hash and the document still reach the network')
 
     // A Range request must be served correctly through the worker, and no
     // partial may land in the cache.
@@ -4474,6 +4519,8 @@ async function main() {
       'palette-keyboard': checkCommandPaletteKeyboard,
       'palette-layout': checkCommandPaletteLayout,
       'big-text': checkLabelsSurviveBigText,
+      targets: checkEveryControlIsFingerSized,
+      offline: checkCrossOriginIsolationIsRestored,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]

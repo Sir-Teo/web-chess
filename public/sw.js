@@ -17,10 +17,10 @@
  * carry the isolation headers too. Cache the *augmented* response, never the
  * raw one, or the first offline load quietly loses isolation.
  *
- * Strategy is network-first for everything, falling back to the cache. Not
- * cache-first: the engine assets are hashed and immutable so the HTTP cache
- * already makes repeat loads fast, while network-first means an online reader
- * can never be served a stale bundle after a deploy.
+ * Content-hashed Vite scripts and styles are served from cache when present:
+ * a new build gets a new filename. Documents and the version-named engine files
+ * still check the network first, falling back to the cache. This lets a new
+ * release reach returning readers without revalidating every unchanged chunk.
  *
  * The fallback is on a timeout, not only on failure. A network that fails is
  * the easy case and was always handled -- measured at 37ms to a working board.
@@ -162,6 +162,14 @@ function isCacheable(request, url) {
   return request.method === 'GET' && url.origin === self.location.origin;
 }
 
+function isImmutableBuildAsset(request, url) {
+  const assetsPath = new URL('assets/', self.registration.scope).pathname;
+  return isCacheable(request, url)
+    && !request.headers.has('Range')
+    && url.pathname.startsWith(assetsPath)
+    && /\/[^/]+-[\w-]{8}\.(?:js|css)$/.test(url.pathname);
+}
+
 async function respond(event) {
   const request = event.request;
   const url = new URL(request.url);
@@ -175,6 +183,16 @@ async function respond(event) {
   // its hash and query, and caching each of those separately would fill the
   // cache with copies of one document.
   const cacheKey = request.mode === 'navigate' ? APP_SHELL_URL : request;
+  const cachedResponse = cacheable
+    ? caches.open(CACHE_NAME).then((cache) => cache.match(cacheKey)).catch(() => undefined)
+    : Promise.resolve(undefined);
+
+  // Only these filenames encode their content. Keep a previously loaded chunk
+  // available to an old tab even after a deploy removes it from the server.
+  if (isImmutableBuildAsset(request, url)) {
+    const cached = await cachedResponse;
+    if (cached) return withIsolationHeaders(cached);
+  }
 
   const fromNetwork = fetch(networkRequest).then((response) => {
     const isolated = withIsolationHeaders(response);
@@ -200,10 +218,7 @@ async function respond(event) {
   // rejection here is the network error the reader should see.
   if (!cacheable) return fromNetwork;
 
-  const cached = await caches
-    .open(CACHE_NAME)
-    .then((cache) => cache.match(cacheKey))
-    .catch(() => undefined);
+  const cached = await cachedResponse;
   if (!cached) return fromNetwork;
 
   // Keep the fetch running whichever branch wins, so a reader served from the
