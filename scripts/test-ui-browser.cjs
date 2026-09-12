@@ -2061,6 +2061,62 @@ async function checkTheWinrateCardFollowsTheBoard(browser) {
   } finally { await context.close() }
 }
 
+/** Sizing still follows a late graph mount, panel changes and phone rotation. */
+async function checkObservedLayout(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+      workspaceMode: 'analysis', autoAnalyze: false,
+    })))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    assert(await page.locator('.winrate-graph').count() === 0, 'layout check requires an initially empty graph')
+    await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+    await page.locator('.winrate-graph').first().waitFor()
+    const graphFits = async () => {
+      await page.waitForFunction(() => [...document.querySelectorAll('.graph-scroll')].every(el => {
+        const svg = el.querySelector('svg')
+        return !svg || Math.abs(Number(svg.getAttribute('width')) - el.clientWidth) <= 1
+      }))
+      return page.locator('.winrate-graph').first().evaluate(el => Number(el.getAttribute('width')))
+    }
+    const initialWidth = await graphFits()
+    const resize = page.getByRole('separator', { name: 'Resize left panel' })
+    await resize.focus()
+    for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowRight')
+    await page.waitForFunction(initial => Number(document.querySelector('.winrate-graph')?.getAttribute('width')) > initial + 50, initialWidth)
+    const enlargedWidth = await graphFits()
+    assert(enlargedWidth > initialWidth + 50, 'graph did not follow the widened panel')
+    await page.keyboard.press('Home')
+    await page.keyboard.press('End')
+    await page.waitForFunction(initial => Math.abs(Number(document.querySelector('.winrate-graph')?.getAttribute('width')) - initial) <= 1, initialWidth)
+    assert(Math.abs(await graphFits() - initialWidth) <= 1, 'reopened panel retained a stale graph width')
+    for (const viewport of [{ width: 1440, height: 640 }, { width: 375, height: 812 }, { width: 844, height: 390 }, { width: 1280, height: 900 }]) {
+      await page.setViewportSize(viewport)
+      await page.waitForTimeout(400)
+      const geometry = await page.evaluate(() => {
+        const squares = [...document.querySelectorAll('[id^="chessboard-square-"]')].map(el => el.getBoundingClientRect())
+        return {
+          count: squares.length,
+          square: squares[0] && { width: squares[0].width, height: squares[0].height },
+          overflow: document.documentElement.scrollWidth > innerWidth,
+          left: Math.min(...squares.map(rect => rect.left)), right: Math.max(...squares.map(rect => rect.right)),
+        }
+      })
+      assert(geometry.count === 64 && geometry.square.width > 20 && Math.abs(geometry.square.width - geometry.square.height) < 1,
+        `board sizing failed after resize to ${viewport.width}×${viewport.height}: ${JSON.stringify(geometry)}`)
+      assert(!geometry.overflow && geometry.left >= 0 && geometry.right <= viewport.width + 1,
+        `board exceeded the resized viewport: ${JSON.stringify(geometry)}`)
+    }
+    await graphFits()
+    await page.locator('#chessboard-square-e2').click()
+    await page.locator('#chessboard-square-e4').click()
+    await page.waitForFunction(() => document.querySelector('#chessboard-square-e4')?.getAttribute('aria-label')?.includes('White pawn'))
+    console.log('  observed layout: late graphs, keyboard panel resize, collapse/reopen, phone rotation and e2-e4 remain correct')
+  } finally { await context.close() }
+}
+
 /**
  * The review card does not call an inaccuracy a mistake.
  *
@@ -4859,6 +4915,7 @@ async function main() {
       'review-source': checkReviewUsesSelectedEngine,
       'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
       'graph-readings': checkTheWinrateCardFollowsTheBoard,
+      'observed-layout': checkObservedLayout,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
@@ -5525,6 +5582,7 @@ async function main() {
     await checkTheBoardIsNotADeadZone(browser)
     await checkEveryControlIsFingerSized(browser)
     await checkTheWinrateCardFollowsTheBoard(browser)
+    await checkObservedLayout(browser)
     await checkTheReviewCardNamesItsSet(browser)
     await checkAFullLibraryStopsReadingTheFile(browser)
     await checkABigFileIsDescribedNotShown(browser)
