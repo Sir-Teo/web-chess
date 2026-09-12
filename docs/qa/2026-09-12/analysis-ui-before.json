@@ -1,0 +1,466 @@
+{
+  "commit": "138c3f6",
+  "base": "http://127.0.0.1:4336/web-chess/",
+  "width": 1280,
+  "cpuRate": 4,
+  "durationMs": 6000,
+  "workload": "116-ply game, five legal PVs, telemetry every 100ms, board flip every 500ms; production build, main thread only",
+  "results": [
+    {
+      "sample": 1,
+      "metrics": {
+        "TaskDuration": 3.548153,
+        "ScriptDuration": 0.704423,
+        "LayoutDuration": 0.295601,
+        "RecalcStyleDuration": 0.23645000000000002,
+        "LayoutCount": 660,
+        "RecalcStyleCount": 642
+      },
+      "observed": {
+        "updates": 60,
+        "longTasks": [],
+        "flipToTwoFramesMs": [
+          32.49500000476837,
+          50.93999993801117,
+          28.544999957084656,
+          26.87999999523163,
+          29.860000014305115,
+          24.110000014305115,
+          24.290000081062317,
+          42.40499997138977,
+          28.5900000333786,
+          25.165000081062317,
+          30.924999952316284
+        ]
+      },
+      "errors": [],
+      "topFrames": [
+        {
+          "frame": "(idle) :0",
+          "selfMs": 2722
+        },
+        {
+          "frame": "(program) :0",
+          "selfMs": 2663
+        },
+        {
+          "frame": "u ../../src/hooks/useElementWidth.ts:46",
+          "selfMs": 115
+        },
+        {
+          "frame": "App ../../src/App.tsx:549",
+          "selfMs": 56
+        },
+        {
+          "frame": "(garbage collector) :0",
+          "selfMs": 40
+        },
+        {
+          "frame": "updateProperties ../../node_modules/react-dom/cjs/react-dom-client.production.js:13577",
+          "selfMs": 35
+        },
+        {
+          "frame": "_moves ../../node_modules/chess.js/dist/esm/chess.js:2354",
+          "selfMs": 31
+        },
+        {
+          "frame": "commitHostUpdate ../../node_modules/react-dom/cjs/react-dom-client.production.js:8725",
+          "selfMs": 31
+        },
+        {
+          "frame": "updateFunctionComponent ../../node_modules/react-dom/cjs/react-dom-client.production.js:6489",
+          "selfMs": 24
+        },
+        {
+          "frame": "_movePiece ../../node_modules/chess.js/dist/esm/chess.js:2557",
+          "selfMs": 16
+        },
+        {
+          "frame": "(anonymous) ../../node_modules/react-chessboard/dist/index.esm.js:5350",
+          "selfMs": 16
+        },
+        {
+          "frame": "reconcileChildrenArray ../../node_modules/react-dom/cjs/react-dom-client.production.js:3622",
+          "selfMs": 13
+        },
+        {
+          "frame": "buildReviewRows ../../src/engine/analysis.ts:700",
+          "selfMs": 12
+        },
+        {
+          "frame": "setValueForStyle ../../node_modules/react-dom/cjs/react-dom-client.production.js:1273",
+          "selfMs": 12
+        },
+        {
+          "frame": "setProp ../../node_modules/react-dom/cjs/react-dom-client.production.js:12957",
+          "selfMs": 11
+        },
+        {
+          "frame": "performUnitOfWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:11304",
+          "selfMs": 11
+        },
+        {
+          "frame": "commitHookEffectListUnmount ../../node_modules/react-dom/cjs/react-dom-client.production.js:8593",
+          "selfMs": 9
+        },
+        {
+          "frame": "commitLayoutEffectOnFiber ../../node_modules/react-dom/cjs/react-dom-client.production.js:9008",
+          "selfMs": 9
+        },
+        {
+          "frame": "commitBeforeMutationEffects ../../node_modules/react-dom/cjs/react-dom-client.production.js:8842",
+          "selfMs": 8
+        },
+        {
+          "frame": "setValueForStyles ../../node_modules/react-dom/cjs/react-dom-client.production.js:1291",
+          "selfMs": 7
+        },
+        {
+          "frame": "updateElement ../../node_modules/react-dom/cjs/react-dom-client.production.js:3365",
+          "selfMs": 7
+        },
+        {
+          "frame": "postMessage :0",
+          "selfMs": 7
+        },
+        {
+          "frame": "updateEffect ../../node_modules/react-dom/cjs/react-dom-client.production.js:5100",
+          "selfMs": 7
+        },
+        {
+          "frame": "_undoMove ../../node_modules/chess.js/dist/esm/chess.js:2685",
+          "selfMs": 6
+        },
+        {
+          "frame": "(anonymous) ../../node_modules/react-chessboard/dist/index.esm.js:3136",
+          "selfMs": 6
+        },
+        {
+          "frame": "get userAgentData :0",
+          "selfMs": 6
+        },
+        {
+          "frame": "Bt ../../node_modules/react-chessboard/dist/index.esm.js:2773",
+          "selfMs": 6
+        },
+        {
+          "frame": "ChessboardProvider ../../node_modules/react-chessboard/dist/index.esm.js:4837",
+          "selfMs": 6
+        },
+        {
+          "frame": "useOpeningExplorer ../../src/hooks/useOpeningExplorer.ts:35",
+          "selfMs": 6
+        },
+        {
+          "frame": "commitMutationEffectsOnFiber ../../node_modules/react-dom/cjs/react-dom-client.production.js:9427",
+          "selfMs": 6
+        }
+      ]
+    },
+    {
+      "sample": 2,
+      "metrics": {
+        "TaskDuration": 3.554621,
+        "ScriptDuration": 0.722126,
+        "LayoutDuration": 0.305369,
+        "RecalcStyleDuration": 0.21854099999999999,
+        "LayoutCount": 649,
+        "RecalcStyleCount": 632
+      },
+      "observed": {
+        "updates": 60,
+        "longTasks": [],
+        "flipToTwoFramesMs": [
+          29.110000014305115,
+          31.62000000476837,
+          42.605000019073486,
+          28.040000081062317,
+          44.47500002384186,
+          25.019999980926514,
+          46.049999952316284,
+          29.985000014305115,
+          24.914999961853027,
+          27.75499999523163,
+          25.52999997138977
+        ]
+      },
+      "errors": [],
+      "topFrames": [
+        {
+          "frame": "(idle) :0",
+          "selfMs": 2696
+        },
+        {
+          "frame": "(program) :0",
+          "selfMs": 2662
+        },
+        {
+          "frame": "u ../../src/hooks/useElementWidth.ts:46",
+          "selfMs": 129
+        },
+        {
+          "frame": "App ../../src/App.tsx:549",
+          "selfMs": 48
+        },
+        {
+          "frame": "_moves ../../node_modules/chess.js/dist/esm/chess.js:2354",
+          "selfMs": 40
+        },
+        {
+          "frame": "updateProperties ../../node_modules/react-dom/cjs/react-dom-client.production.js:13577",
+          "selfMs": 37
+        },
+        {
+          "frame": "(garbage collector) :0",
+          "selfMs": 34
+        },
+        {
+          "frame": "commitHostUpdate ../../node_modules/react-dom/cjs/react-dom-client.production.js:8725",
+          "selfMs": 31
+        },
+        {
+          "frame": "updateFunctionComponent ../../node_modules/react-dom/cjs/react-dom-client.production.js:6489",
+          "selfMs": 25
+        },
+        {
+          "frame": "performUnitOfWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:11304",
+          "selfMs": 12
+        },
+        {
+          "frame": "_movePiece ../../node_modules/chess.js/dist/esm/chess.js:2557",
+          "selfMs": 11
+        },
+        {
+          "frame": "setProp ../../node_modules/react-dom/cjs/react-dom-client.production.js:12957",
+          "selfMs": 11
+        },
+        {
+          "frame": "buildReviewRows ../../src/engine/analysis.ts:700",
+          "selfMs": 10
+        },
+        {
+          "frame": "removeChild :0",
+          "selfMs": 10
+        },
+        {
+          "frame": "validateFen ../../node_modules/chess.js/dist/esm/chess.js:1598",
+          "selfMs": 9
+        },
+        {
+          "frame": "reconcileChildrenArray ../../node_modules/react-dom/cjs/react-dom-client.production.js:3622",
+          "selfMs": 9
+        },
+        {
+          "frame": "commitHookEffectListUnmount ../../node_modules/react-dom/cjs/react-dom-client.production.js:8593",
+          "selfMs": 9
+        },
+        {
+          "frame": "_undoMove ../../node_modules/chess.js/dist/esm/chess.js:2685",
+          "selfMs": 9
+        },
+        {
+          "frame": "setValueForStyle ../../node_modules/react-dom/cjs/react-dom-client.production.js:1273",
+          "selfMs": 9
+        },
+        {
+          "frame": "_put ../../node_modules/chess.js/dist/esm/chess.js:2081",
+          "selfMs": 8
+        },
+        {
+          "frame": "beginWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:7392",
+          "selfMs": 8
+        },
+        {
+          "frame": "updateMemo ../../node_modules/react-dom/cjs/react-dom-client.production.js:5162",
+          "selfMs": 8
+        },
+        {
+          "frame": "updateCallback ../../node_modules/react-dom/cjs/react-dom-client.production.js:5153",
+          "selfMs": 8
+        },
+        {
+          "frame": "commitMutationEffectsOnFiber ../../node_modules/react-dom/cjs/react-dom-client.production.js:9427",
+          "selfMs": 8
+        },
+        {
+          "frame": "updateElement ../../node_modules/react-dom/cjs/react-dom-client.production.js:3365",
+          "selfMs": 7
+        },
+        {
+          "frame": "commitBeforeMutationEffects ../../node_modules/react-dom/cjs/react-dom-client.production.js:8842",
+          "selfMs": 7
+        },
+        {
+          "frame": "setAttribute :0",
+          "selfMs": 7
+        },
+        {
+          "frame": "_pieceKey ../../node_modules/chess.js/dist/esm/chess.js:1978",
+          "selfMs": 7
+        },
+        {
+          "frame": "(anonymous) ../../node_modules/react-chessboard/dist/index.esm.js:5350",
+          "selfMs": 6
+        },
+        {
+          "frame": "dispatchEvent ../../node_modules/react-dom/cjs/react-dom-client.production.js:15297",
+          "selfMs": 6
+        }
+      ]
+    },
+    {
+      "sample": 3,
+      "metrics": {
+        "TaskDuration": 3.5189890000000004,
+        "ScriptDuration": 0.715192,
+        "LayoutDuration": 0.31405700000000003,
+        "RecalcStyleDuration": 0.238353,
+        "LayoutCount": 646,
+        "RecalcStyleCount": 627
+      },
+      "observed": {
+        "updates": 60,
+        "longTasks": [],
+        "flipToTwoFramesMs": [
+          48.63499999046326,
+          26.920000076293945,
+          26.615000009536743,
+          26.914999961853027,
+          25.925000071525574,
+          33.25999999046326,
+          44.88499999046326,
+          29.759999990463257,
+          24.52500009536743,
+          37.33499991893768,
+          24.789999961853027
+        ]
+      },
+      "errors": [],
+      "topFrames": [
+        {
+          "frame": "(idle) :0",
+          "selfMs": 2726
+        },
+        {
+          "frame": "(program) :0",
+          "selfMs": 2629
+        },
+        {
+          "frame": "u ../../src/hooks/useElementWidth.ts:46",
+          "selfMs": 121
+        },
+        {
+          "frame": "App ../../src/App.tsx:549",
+          "selfMs": 51
+        },
+        {
+          "frame": "(garbage collector) :0",
+          "selfMs": 34
+        },
+        {
+          "frame": "commitHostUpdate ../../node_modules/react-dom/cjs/react-dom-client.production.js:8725",
+          "selfMs": 30
+        },
+        {
+          "frame": "updateProperties ../../node_modules/react-dom/cjs/react-dom-client.production.js:13577",
+          "selfMs": 27
+        },
+        {
+          "frame": "_moves ../../node_modules/chess.js/dist/esm/chess.js:2354",
+          "selfMs": 25
+        },
+        {
+          "frame": "updateFunctionComponent ../../node_modules/react-dom/cjs/react-dom-client.production.js:6489",
+          "selfMs": 25
+        },
+        {
+          "frame": "setProp ../../node_modules/react-dom/cjs/react-dom-client.production.js:12957",
+          "selfMs": 21
+        },
+        {
+          "frame": "reconcileChildrenArray ../../node_modules/react-dom/cjs/react-dom-client.production.js:3622",
+          "selfMs": 15
+        },
+        {
+          "frame": "setValueForStyle ../../node_modules/react-dom/cjs/react-dom-client.production.js:1273",
+          "selfMs": 14
+        },
+        {
+          "frame": "_movePiece ../../node_modules/chess.js/dist/esm/chess.js:2557",
+          "selfMs": 12
+        },
+        {
+          "frame": "_undoMove ../../node_modules/chess.js/dist/esm/chess.js:2685",
+          "selfMs": 11
+        },
+        {
+          "frame": "buildReviewRows ../../src/engine/analysis.ts:700",
+          "selfMs": 11
+        },
+        {
+          "frame": "setValueForStyles ../../node_modules/react-dom/cjs/react-dom-client.production.js:1291",
+          "selfMs": 10
+        },
+        {
+          "frame": "_clear ../../node_modules/chess.js/dist/esm/chess.js:2107",
+          "selfMs": 9
+        },
+        {
+          "frame": "(anonymous) ../../node_modules/react-chessboard/dist/index.esm.js:3136",
+          "selfMs": 9
+        },
+        {
+          "frame": "commitLayoutEffectOnFiber ../../node_modules/react-dom/cjs/react-dom-client.production.js:9008",
+          "selfMs": 9
+        },
+        {
+          "frame": "setAttribute :0",
+          "selfMs": 9
+        },
+        {
+          "frame": "_put ../../node_modules/chess.js/dist/esm/chess.js:2081",
+          "selfMs": 8
+        },
+        {
+          "frame": "(anonymous) ../../node_modules/react-chessboard/dist/index.esm.js:5350",
+          "selfMs": 8
+        },
+        {
+          "frame": "useDroppable ../../node_modules/react-chessboard/dist/index.esm.js:3744",
+          "selfMs": 7
+        },
+        {
+          "frame": "load ../../node_modules/chess.js/dist/esm/chess.js:1836",
+          "selfMs": 7
+        },
+        {
+          "frame": "pvLineMoves ../../src/engine/analysis.ts:156",
+          "selfMs": 6
+        },
+        {
+          "frame": "completeWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:7955",
+          "selfMs": 6
+        },
+        {
+          "frame": "updateCallback ../../node_modules/react-dom/cjs/react-dom-client.production.js:5153",
+          "selfMs": 6
+        },
+        {
+          "frame": "performUnitOfWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:11304",
+          "selfMs": 6
+        },
+        {
+          "frame": "removeChild :0",
+          "selfMs": 6
+        },
+        {
+          "frame": "commitBeforeMutationEffects ../../node_modules/react-dom/cjs/react-dom-client.production.js:8842",
+          "selfMs": 6
+        }
+      ]
+    }
+  ],
+  "measuredSource": "138c3f6",
+  "sourceNote": "Before the sizing edit.",
+  "artifactNote": "Raw CPU profiles and screenshots are generated by the script; this checked-in summary retains all sample metrics and top frames."
+}

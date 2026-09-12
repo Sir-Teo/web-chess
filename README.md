@@ -129,6 +129,10 @@ given, and the app answering the reader who touches it.
   handshake and the handshake re-sent the recommendation. It is applied once
   per engine now, so what you set is what searches.
 - **Search diagnostics for pros**: Pro mode reports ordinary and selective depth, nodes, NPS, transposition-table occupancy, tablebase hits, and elapsed time from Stockfish's live UCI output, so Hash and Syzygy settings can be judged from evidence rather than guesswork.
+- **Understand the percentages**: A collapsed guide beside the charts explains
+  human-game Winrate estimates and Stockfish's win/draw/loss model, including
+  why a neutral 50% on one graph can accompany a high draw probability. It is
+  available in Coach and Pro, including Review, with links to both models.
 - **Game review, of the line you are on**: Import a PGN, run a review pass, filter critical moments by side, inspect accuracy, and jump from a review row back to the board. The review follows the branch the board is standing in, so a variation can be reviewed like the game — and when that is not the main line it says so. Accuracy and move labels are scored on winning chances rather than raw centipawns, so an imprecision in a decided game is not called a blunder. The labels are the ones readers arrive knowing: *Book* while a sound move stays in the opening table, *Best* for the engine's own move and nothing else, *Excellent* for one that gave up almost nothing, then Good, Inaccuracy, Mistake and Blunder — so a row never reads "Best e4" beside a move it also calls Best. A best-move hint appears only once a search deep enough to grade the move has run; the 70 ms import sweep's choice is not one.
 - **A review that uses the whole machine**: the positions in a game review are
   independent of one another, so on a desktop the review runs several engines
@@ -376,9 +380,19 @@ the additional browsers with `npx playwright install firefox webkit`). Override
 the URL with `SMOKE_URL`; results and screenshots go to `/tmp/web-chess-engine-smoke`
 unless `SMOKE_OUTPUT` is set. This checks desktop and phone layouts, real UCI
 analysis, engine identity, restricted candidates, Commands, board input,
-complete and fresh game reviews, and review PGN downloads.
+complete and fresh game reviews, review PGN downloads, and keyboard access to
+the chart explanations.
 `node scripts/benchmark-pv-browser.cjs` measures repeated PV conversion alone
 against the same dev server; it is not an end-to-end speed benchmark.
+
+For a controlled production UI profile, build with `npm run build -- --sourcemap`,
+start `npm run preview -- --host 127.0.0.1 --port 4336`, then run
+`node scripts/benchmark-analysis-ui.cjs`. It uses a full game, five legal PVs,
+fixed-rate UCI telemetry and board flips at 4× CPU throttle. Results and CPU
+profiles go to `/tmp/web-chess-analysis-profile`; `BENCH_URL`, `BENCH_OUTPUT`,
+`BENCH_WIDTH`, `BENCH_CPU_RATE` and `BENCH_SAMPLES` override its defaults.
+It measures main-thread UI work with a simulated engine, not Stockfish speed
+or field INP. Hold `dist/` fixed while profiling or running browser tests.
 
 Analysis also supports keyboard move entry: open **Enter a move by name** and
 type SAN (`Nf3`) or UCI (`g1f3`). Independent single-thread engines can now pool
