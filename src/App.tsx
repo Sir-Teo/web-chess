@@ -4422,6 +4422,10 @@ function App() {
     setSettingsOpen(false)
     restoreModalTriggerFocus()
   }, [restoreModalTriggerFocus])
+  const handleDialogLoadError = useCallback(() => {
+    closeEveryOverlay()
+    announce('That dialog could not be loaded. Reload the page to try again. Your game is still available.', 10000)
+  }, [announce, closeEveryOverlay])
   const overlayHistoryRef = useRef(false)
 
   useEffect(() => {
@@ -7197,7 +7201,10 @@ function App() {
           </div>
         </section>
 
-        <LazyDialogBoundary>
+        <LazyDialogBoundary
+          key={`${showNewGameDialog}:${showPgnDialog}:${showLibraryDialog}:${autoSaveRecovery !== null}`}
+          onError={handleDialogLoadError}
+        >
         <Suspense fallback={<DialogLoadingFallback label={dialogLoadingLabel} />}>
           {showNewGameDialog && (
             <NewGameDialog

@@ -1,7 +1,7 @@
 import { Component, type ReactNode } from 'react'
 import './LazyDialogBoundary.css'
 
-type Props = { children: ReactNode }
+type Props = { children: ReactNode; onError?: () => void }
 
 type State = { failed: boolean }
 
@@ -16,10 +16,9 @@ type State = { failed: boolean }
  * dialog opened after a release fails to fetch. web-katrain hit exactly that
  * and added the equivalent boundary; this is the same containment.
  *
- * It renders its own notice rather than reporting upward, because this app has
- * no general message channel and adding one for a single case is more surface
- * than the containment is worth. It stays failed until a reload: the missing
- * chunk would throw again on the next render and loop.
+ * Notify the owner so it can release the modal's inert background and report
+ * the failure. The owner keys this boundary by the open dialog: a failed chunk
+ * must not prevent another, healthy dialog from rendering.
  */
 export class LazyDialogBoundary extends Component<Props, State> {
   state: State = { failed: false }
@@ -30,6 +29,7 @@ export class LazyDialogBoundary extends Component<Props, State> {
 
   componentDidCatch(error: unknown) {
     console.warn('Dialog chunk failed to load; the rest of the app is unaffected.', error)
+    this.props.onError?.()
   }
 
   render() {

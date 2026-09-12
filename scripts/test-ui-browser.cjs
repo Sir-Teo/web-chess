@@ -4415,6 +4415,36 @@ async function chooseTheme(page, name) {
   )
 }
 
+async function checkDialogDownloadFailure(browser) {
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, serviceWorkers: 'block' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.route('**/assets/NewGameDialog-*.js', route => route.abort())
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.locator('#chessboard-square-e2').waitFor()
+      for (let attempt = 0; attempt < 2; attempt++) {
+        await page.getByRole('button', { name: 'Start new game', exact: true }).click()
+        await page.getByText(/That dialog could not be loaded/).first().waitFor()
+        assert(await page.locator('.panel.top').evaluate(el => !el.inert),
+          'a failed dialog download left the toolbar inert')
+        assert(await page.locator('.board-stage').evaluate(el => !el.inert),
+          'a failed dialog download left the board inert')
+      }
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e4 [data-piece="wP"]'))
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.getByRole('dialog', { name: 'PGN Import & Export', exact: true }).waitFor()
+      await page.locator('.dialog-panel button', { hasText: /^Export$/ }).click()
+      await page.getByRole('button', { name: /Copy PGN/ }).waitFor()
+      await page.keyboard.press('Escape')
+      console.log(`  failed dialog (${width}px): board stays playable after repeated failures; other dialogs still open`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkCommandPaletteKeyboard(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 812 } })
@@ -4555,6 +4585,7 @@ async function main() {
       'big-text': checkLabelsSurviveBigText,
       targets: checkEveryControlIsFingerSized,
       offline: checkCrossOriginIsolationIsRestored,
+      'dialog-download': checkDialogDownloadFailure,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
@@ -5192,6 +5223,7 @@ async function main() {
 
     await checkCommandPaletteKeyboard(browser)
     await checkCommandPaletteLayout(browser)
+    await checkDialogDownloadFailure(browser)
     await checkTypedMoveEntry(browser)
     await checkAutosaveFailure(browser)
     await checkEngineStartupTimeout(browser)
