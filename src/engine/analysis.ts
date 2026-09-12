@@ -339,6 +339,7 @@ function isShallowEvaluation(snapshot: EvalSnapshot): boolean {
 
 export function isReviewEvaluationSufficient(snapshot: EvalSnapshot | undefined, minDepth: number): boolean {
   if (!snapshot) return false
+  if (snapshot.scoreBound) return false
   if (!isFiniteNumber(scoreToCp(snapshot.cp, snapshot.mate))) return false
   if (isShallowEvaluation(snapshot)) return false
 

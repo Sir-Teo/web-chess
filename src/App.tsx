@@ -97,7 +97,8 @@ import {
   type NumericInputValue,
 } from './engine/numericInput'
 import { engineProfiles, type EngineProfileId } from './engine/profiles'
-import { evaluationSourceLabel } from './engine/evaluationSource'
+import { evaluationEngine, evaluationSourceLabel, sameEvaluationEngine } from './engine/evaluationSource'
+import { createReviewSession, recordReviewResult, snapshotReviewSession, type ReviewSession, type ReviewSnapshot } from './engine/reviewSession'
 import { fetchSamplePgn } from './engine/samplePgn'
 import { hashCarriesShare, parseFenShareHash } from './engine/shareLink'
 import { parseGameShareHash, replaySharedGame } from './engine/shareGame'
@@ -775,6 +776,7 @@ function App() {
   const [reviewPractice, setReviewPractice] = useState<ReviewPracticeState | null>(null)
 
   // ── What a running review hands back ─────────────────
+  const reviewSessionRef = useRef<ReviewSession | null>(null)
   /**
    * A pool of five engines finishing a position each is five React renders,
    * and `evaluationsByFen` is read by the move list, the graph, the accuracy
@@ -803,6 +805,11 @@ function App() {
     buffer.results = []
     buffer.done = 0
     if (results.length) {
+      const session = reviewSessionRef.current
+      if (session) {
+        for (const [fen, snapshot] of results) recordReviewResult(session, fen, snapshot)
+        setRunningReviewEvaluations(new Map(session.evaluations))
+      }
       setEvaluationsByFen(previous => {
         let next = previous
         for (const [fen, snapshot] of results) next = recordEvaluation(next, fen, snapshot)
@@ -1378,7 +1385,8 @@ function App() {
    * difference is then mostly the gap in depth rather than anything the move
    * did. Comparing a depth-16 reading with a depth-30 one manufactures faults.
    *
-   * So the report is built from the map as it stood when the pass finished.
+   * So the report is built from readings collected for that pass, independently
+   * of deeper readings that may remain in the shared position map.
    * Only the report: the eval bar, the Coach card and both graphs still read
    * the live map, because deepening those is the whole point of browsing.
    *
@@ -1386,9 +1394,8 @@ function App() {
    * freeze does not apply to it -- that line was not the one reviewed, and its
    * rows should read live until it is.
    */
-  const [frozenReview, setFrozenReview] = useState<
-    { lineEndId: string; evaluations: Map<string, EvalSnapshot> } | null
-  >(null)
+  const [frozenReview, setFrozenReview] = useState<ReviewSnapshot | null>(null)
+  const [runningReviewEvaluations, setRunningReviewEvaluations] = useState<Map<string, EvalSnapshot>>(new Map())
   const [batchReviewProgress, setBatchReviewProgress] = useState({ done: 0, total: 0 })
   // A percentage, because the Evaluated tile beside it shows a fraction of a
   // different thing — moves on the visible side, against this button's engine
@@ -1435,15 +1442,21 @@ function App() {
     }),
   })
 
+  const finishBatchReview = useCallback(() => {
+    flushReviewResults()
+    if (reviewSessionRef.current) setFrozenReview(snapshotReviewSession(reviewSessionRef.current))
+    reviewSessionRef.current = null
+    setIsBatchReviewing(false)
+  }, [flushReviewResults])
+
   const clearBatchReview = useCallback(() => {
     reviewPoolRunRef.current?.cancel()
     reviewPoolRunRef.current = null
-    flushReviewResults()
+    finishBatchReview()
     batchReviewQueueRef.current = []
     activeBatchReviewRef.current = null
-    setIsBatchReviewing(false)
     setBatchReviewProgress({ done: 0, total: 0 })
-  }, [])
+  }, [finishBatchReview])
 
   const stopBatchReview = useCallback(() => {
     clearBatchReview()
@@ -1456,7 +1469,7 @@ function App() {
     reviewPoolRunRef.current?.cancel()
     reviewPoolRunRef.current = null
     flushReviewResults()
-  }, [])
+  }, [flushReviewResults])
 
   const cancelStaleBackgroundAnalysis = useCallback(() => {
     const hadImportSweep = importSweepProgress.total > 0
@@ -1472,7 +1485,7 @@ function App() {
   }, [clearBatchReview, clearImportSweep, importSweepProgress.total, isBatchReviewing, stop])
 
   const startBatchReview = useCallback(() => {
-    if (!engineEnabled) return
+    if (!engineEnabled || (status !== 'ready' && status !== 'analyzing')) return
     // A review already in flight is replaced, not doubled. The button turns
     // into Stop while one runs, but the command palette's "Review game" does
     // not, and running it again started a second pool on top of the first:
@@ -1487,28 +1500,30 @@ function App() {
     if (nodes.length <= 1) return
 
     const rootFen = gameTreeRef.current.root.fen
-    const plan = planBatchReview(nodes, rootFen, evaluationsByFen, searchDepth)
-    const targets = plan.queue
+    const previous = reviewSessionRef.current ? snapshotReviewSession(reviewSessionRef.current) : frozenReview
+    const session = createReviewSession(nodes, rootFen, {
+      engine: evaluationEngine(activeProfile, engineName), depth: searchDepth, hashMb, showWdl,
+    }, evaluationsByFenRef.current, previous)
+    reviewSessionRef.current = session
+    const targets = session.queue
     clearImportSweep()
-    setBatchReviewProgress({ done: plan.done, total: plan.total })
+    setBatchReviewProgress({ done: session.reused, total: session.total })
+    setRunningReviewEvaluations(new Map(session.evaluations))
     // The rows read live while a pass is running, so they fill in as it goes.
     setFrozenReview(null)
     if (!targets.length) {
       batchReviewQueueRef.current = []
       activeBatchReviewRef.current = null
-      setIsBatchReviewing(false)
       // Every position was already evaluated, so the pass is over before it
       // began -- and a report that never ran is still a report.
-      setFrozenReview({
-        lineEndId: nodes[nodes.length - 1]!.id,
-        evaluations: new Map(evaluationsByFenRef.current),
-      })
+      finishBatchReview()
       stop()
       return
     }
 
     activeBatchReviewRef.current = null
     setIsBatchReviewing(true)
+    setBatchReviewTick(tick => tick + 1)
     stop()
 
     /**
@@ -1545,10 +1560,12 @@ function App() {
       showWdl,
       callbacks: {
         onResult: (fen, snapshot) => {
+          if (reviewSessionRef.current !== session) return
           reviewFlushRef.current.results.push([fen, snapshot])
           scheduleReviewFlush()
         },
         onProgress: () => {
+          if (reviewSessionRef.current !== session) return
           reviewFlushRef.current.done += 1
           scheduleReviewFlush()
         },
@@ -1557,57 +1574,42 @@ function App() {
     reviewPoolRunRef.current = run
     run.done
       .then(() => {
-        // Whatever is still buffered, before anything reads the totals.
-        flushReviewResults()
         if (reviewPoolRunRef.current !== run) return
         reviewPoolRunRef.current = null
-        setIsBatchReviewing(false)
+        finishBatchReview()
       })
       .catch(() => {
-        /**
-         * An engine gave out. Hand what is left to the shared one rather than
-         * reporting a review that stopped halfway.
-         *
-         * Re-planned rather than re-queued. This used to hand back the
-         * original targets, reasoning that nothing could have been recorded
-         * yet because a result is only reported once an engine has answered.
-         * That reasoning holds for a boot failure and not in general: an
-         * engine that gives out *mid*-review leaves the others' results in the
-         * map, and re-queueing the lot would search finished positions again
-         * and hand the progress bar a `done` from before the review started.
-         *
-         * Honest about the evidence: the boot cases are measured -- every
-         * engine failing, and two of four failing, both recover and finish all
-         * 83 positions -- and both take this branch before anything is
-         * recorded, so they cannot tell the two versions apart. The case this
-         * distinguishes is an engine dying after it has answered, which needs
-         * a worker error or a 60s search timeout and which I could not stage
-         * in a browser. It rests on reading the code, not on a measurement.
-         * `planBatchReview` already knows how to tell a finished position from
-         * an unfinished one, and reads the live map rather than the one this
-         * closure captured, so it is the right answer either way -- which is
-         * why the buffered results are handed over first. Left in the buffer
-         * they are not in the live map yet, and the re-plan would search
-         * positions that are already answered.
-         */
-        flushReviewResults()
+        // Resume from this session's accepted results, including the final
+        // buffered ones. The shared map may still prefer a deeper foreign
+        // reading, and cannot tell which targets this review completed.
         if (reviewPoolRunRef.current !== run) return
+        flushReviewResults()
         run.cancel()
         reviewPoolRunRef.current = null
         const remaining = planBatchReview(
-          reviewLineNodesRef.current,
-          gameTreeRef.current.root.fen,
-          evaluationsByFenRef.current,
-          searchDepth,
+          session.nodes,
+          session.rootFen,
+          session.evaluations,
+          session.settings.depth,
+          session.settings.engine,
         )
         batchReviewQueueRef.current = remaining.queue
         setBatchReviewProgress({ done: remaining.done, total: remaining.total })
         setBatchReviewTick(tick => tick + 1)
       })
-  }, [activeProfile, capabilities, clearImportSweep, engineEnabled, evaluationsByFen, hashMb, reviewMaxWorkers, reviewThreadBudget, searchDepth, showWdl, stop])
+  }, [activeProfile, capabilities, clearImportSweep, engineEnabled, engineName, finishBatchReview, flushReviewResults, frozenReview, hashMb, reviewMaxWorkers, reviewThreadBudget, scheduleReviewFlush, searchDepth, showWdl, status, stop])
 
   useEffect(() => {
     if (!isBatchReviewing) return
+    const session = reviewSessionRef.current
+    if (!session) return
+    if ((status === 'ready' || status === 'analyzing')
+      && !sameEvaluationEngine(session.settings.engine, evaluationEngine(activeProfile, engineName))) {
+      clearBatchReview()
+      stop()
+      announce('Review stopped because the engine changed. Run Review Game again to use the new engine.', NOTICE_EXPLAIN_MS)
+      return
+    }
     // The pool owns its own engines and reports its own progress.
     if (reviewPoolRunRef.current) return
     // Read only to re-enter this effect; see `batchReviewTick`.
@@ -1616,16 +1618,18 @@ function App() {
     if (!engineEnabled || status === 'disabled' || status === 'error') {
       batchReviewQueueRef.current = []
       activeBatchReviewRef.current = null
-      setIsBatchReviewing(false)
+      finishBatchReview()
       return
     }
 
     if (activeBatchReviewRef.current && status === 'ready') {
+      const target = activeBatchReviewRef.current
+      const line = lines.find(line => line.multipv === 1 && line.fen === target.fen && line.purpose === 'batch-review')
+      const recorded = engineLineToSnapshot(line, target.fen, Date.now())
+      if (recorded) reviewFlushRef.current.results.push([recorded.fen, recorded.snapshot])
+      reviewFlushRef.current.done += 1
+      flushReviewResults()
       activeBatchReviewRef.current = null
-      setBatchReviewProgress(previous => ({
-        total: previous.total,
-        done: Math.min(previous.total, previous.done + 1),
-      }))
     }
 
     if (status !== 'ready') return
@@ -1633,7 +1637,7 @@ function App() {
 
     const nextTarget = batchReviewQueueRef.current.shift()
     if (!nextTarget) {
-      setIsBatchReviewing(false)
+      finishBatchReview()
       return
     }
 
@@ -1642,22 +1646,27 @@ function App() {
       fen: nextTarget.fen,
       purpose: 'batch-review',
       mode: 'review',
-      limits: { depth: searchDepth },
+      limits: { depth: session.settings.depth },
       multiPv: 1,
-      hashMb,
-      showWdl,
+      hashMb: session.settings.hashMb,
+      showWdl: session.settings.showWdl,
       rootFen: nextTarget.rootFen,
       historyMoves: nextTarget.historyMoves,
     })
   }, [
     analyze,
+    activeProfile,
+    announce,
     batchReviewTick,
+    clearBatchReview,
     engineEnabled,
-    hashMb,
+    engineName,
+    finishBatchReview,
+    flushReviewResults,
     isBatchReviewing,
-    searchDepth,
-    showWdl,
+    lines,
     status,
+    stop,
   ])
 
   const aiEnabled = workspaceMode === 'play' && (gameMode === 'human-vs-ai' || gameMode === 'ai-vs-ai')
@@ -2844,29 +2853,7 @@ function App() {
   // row list and the summary line all have to agree on this number.
   const reviewBookPrefixLength = Math.min(reviewLineUciMoves.length, REVIEW_BOOK_PREFETCH_LIMIT)
 
-  /**
-   * Take the snapshot the moment a pass stops running.
-   *
-   * Keyed on the flag rather than done in either completion handler, because
-   * there are three ways a pass ends -- the pool resolving, the shared engine
-   * draining its queue, and the engine going away -- and all three clear this
-   * one flag. A review that was interrupted is still frozen: the rows it did
-   * produce are a report of what it got through, and leaving those live is the
-   * behaviour this exists to remove.
-   */
-  const wasBatchReviewingRef = useRef(false)
-  useEffect(() => {
-    if (isBatchReviewing) {
-      wasBatchReviewingRef.current = true
-      return
-    }
-    if (!wasBatchReviewingRef.current) return
-    wasBatchReviewingRef.current = false
-    const nodes = reviewLineNodesRef.current
-    const lineEndId = nodes[nodes.length - 1]?.id
-    if (!lineEndId) return
-    setFrozenReview({ lineEndId, evaluations: new Map(evaluationsByFenRef.current) })
-  }, [isBatchReviewing])
+  const currentReviewReport = frozenReview?.lineEndId === reviewLineNodes.at(-1)?.id ? frozenReview : null
 
   /**
    * The map the report is scored from: the frozen one when it belongs to the
@@ -2877,11 +2864,11 @@ function App() {
    * changes as soon as they leave it. That is exactly the identity wanted here.
    */
   const reviewEvaluations = useMemo(() => {
-    const lineEndId = reviewLineNodes[reviewLineNodes.length - 1]?.id
-    return frozenReview && lineEndId === frozenReview.lineEndId
-      ? frozenReview.evaluations
+    if (isBatchReviewing && reviewSessionRef.current?.lineEndId === reviewLineNodes.at(-1)?.id) return runningReviewEvaluations
+    return currentReviewReport
+      ? currentReviewReport.evaluations
       : evaluationsByFen
-  }, [evaluationsByFen, frozenReview, reviewLineNodes])
+  }, [currentReviewReport, evaluationsByFen, isBatchReviewing, reviewLineNodes, runningReviewEvaluations])
 
   const reviewSourceLabels = useMemo(() => [...new Set(reviewLineNodes.flatMap(node => {
     const evaluation = reviewEvaluations.get(node.fen)
@@ -2908,11 +2895,12 @@ function App() {
   reviewRowsRef.current = reportedReviewRows
   const reviewSummary = useMemo(() => summarizeReview(reportedReviewRows), [reportedReviewRows])
   const reviewAccuracy = useMemo(() => summarizeAccuracy(reportedReviewRows), [reportedReviewRows])
-  // Only rendered inside the analysis workspace, which is exactly when the
-  // engine is on, so the game length is the only thing left to check.
+  // A review records the identity of the worker, which must have finished booting.
   const reviewGameDisabledReason = reviewLineNodes.length <= 1
     ? 'Add moves or import a PGN before running review.'
-    : null
+    : status === 'loading' || status === 'disabled'
+      ? 'Wait for the engine to finish loading.'
+      : status === 'error' ? 'The engine could not start. Choose another engine in Engine Lab.' : null
   // Same shape as the reason above: shown rather than hidden, so a reader
   // looking for the button learns why it will not do anything.
   const playFromHereDisabledReason = game.isGameOver()
@@ -8088,6 +8076,13 @@ function App() {
                   {keepSearchingSwitch}
                   <div className="review-scaffold">
                     <h3><span className="section-icon"><IconBarChart /></span> Review</h3>
+                    {currentReviewReport && !isBatchReviewing && (
+                      <p className="panel-copy small" data-testid="review-run-summary">
+                        {currentReviewReport.complete ? 'Completed review' : 'Partial review'}
+                        {' · '}Target depth {currentReviewReport.settings.depth}
+                        {!currentReviewReport.complete && '. Run Review Game to finish the remaining positions.'}
+                      </p>
+                    )}
                     {analysisExperience === 'pro' && reviewSourceLabels.length > 0 && (
                       <p className="panel-copy small evaluation-source" data-testid="review-engine-source">
                         {reviewSourceLabels.length > 1 ? 'Mixed evaluation sources: ' : 'Evaluation source: '}

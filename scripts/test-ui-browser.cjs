@@ -116,6 +116,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
     constructor() {
       window.__engineCount += 1;
       this.ordinal = window.__engineCount;
+      this.reviewProducer = window.__reviewProducer || 'lite';
       this.onmessage = null;
       this.onerror = null;
       this.listeners = [];
@@ -132,6 +133,11 @@ const SCENARIO = ${JSON.stringify(scenario)};
      * consecutive searches, which is the one input the Play-mode nudge needs.
      */
     scriptedLine() {
+      if (SCENARIO === 'review-source') {
+        return this.reviewProducer === 'full'
+          ? { cp: 0, move: 'e2e4', depths: [16, 22] }
+          : { cp: 500 + scoreFor(this.fen), move: 'e2e4', depths: [28, 34] };
+      }
       if (SCENARIO === 'source-profile') {
         return this.ordinal === 1
           ? { cp: 35, move: 'e2e4', depths: [24, 30] }
@@ -210,6 +216,11 @@ const SCENARIO = ${JSON.stringify(scenario)};
     finishSearch() {
       if (!this.searching) return;
       this.searching = false;
+      if (SCENARIO === 'review-source' && this.reviewProducer === 'full') {
+        this.lastCompletedFen = this.fen;
+        window.__fullCompletedPositions ||= {};
+        window.__fullCompletedPositions[this.fen] = (window.__fullCompletedPositions[this.fen] || 0) + 1;
+      }
       if (this.finishTimer) { clearTimeout(this.finishTimer); this.finishTimer = null; }
       window.__uciBestmoves += 1;
       this.send('bestmove ' + this.scriptedLine().move + ' ponder e7e5');
@@ -219,7 +230,8 @@ const SCENARIO = ${JSON.stringify(scenario)};
       window.__uciCommands.push(text);
       if (SCENARIO === 'silent-all' || (SCENARIO === 'silent-first' && this.ordinal === 1)) return;
       if (text === 'uci') {
-        this.send('id name ' + (SCENARIO === 'source-profile' ? (this.ordinal === 1 ? 'QA Lite' : 'QA Full') : 'Fake Stockfish'));
+        this.send('id name ' + (SCENARIO === 'review-source' ? (this.reviewProducer === 'full' ? 'QA Full' : 'QA Lite')
+          : SCENARIO === 'source-profile' ? (this.ordinal === 1 ? 'QA Lite' : 'QA Full') : 'Fake Stockfish'));
         this.send('option name Threads type spin default 1 min 1 max 8');
         this.send('option name Hash type spin default 16 min 1 max 512');
         this.send('option name MultiPV type spin default 1 min 1 max 8');
@@ -230,9 +242,15 @@ const SCENARIO = ${JSON.stringify(scenario)};
       if (text === 'isready') { this.send('readyok'); return; }
       if (text.startsWith('position')) { this.fen = text; return; }
       if (text.startsWith('go')) {
+        if (SCENARIO === 'review-source' && this.reviewProducer === 'full') window.__fullReviewSearches = (window.__fullReviewSearches || 0) + 1;
         this.goCommand = text;
         this.searching = true;
         this.searches += 1;
+        if (SCENARIO === 'review-source' && this.ordinal === window.__failReviewWorker && this.searches === 2) {
+          window.__failedCompletedFen = this.lastCompletedFen;
+          setTimeout(() => this.onerror?.({ message: 'QA review worker failed after one result' }), 0);
+          return;
+        }
         this.emitInfo();
         // A search ends on its own, or early when the app says stop. Both
         // finish with a bestmove, which is what the app waits for.
@@ -814,6 +832,63 @@ async function checkPvPreviewAndCommit(browser) {
       const moves = exported.replace(/\[[^\]]*\]|\{[^}]*\}/g, '').replace(/\s+/g, ' ')
       assert(/1\. e4\s+(?:1\.\.\. )?e5/.test(moves), `preview did not commit the complete line: ${moves}`)
       console.log(`  PV reuse (${width}px): focus previews and restores the board; repeated search keeps the line clickable; export contains both committed plies`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkReviewUsesSelectedEngine(browser) {
+  for (const [width, workers, failPool] of [[1280, 4, false], [375, 1, false], [1280, 4, true]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('review-source'))
+      await page.addInitScript(workers => {
+        Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 })
+        Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 })
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', engineProfile: 'lite-single-local',
+          autoAnalyze: false, reviewMaxWorkers: workers, searchDepth: 16,
+        }))
+      }, workers)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: /^Load / }).first().click()
+      await page.waitForFunction(() => /Browser QA, White/.test(document.querySelector('.board-meta-game')?.textContent || ''))
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+      const firstReport = await page.evaluate(() => ({
+        chips: document.querySelector('.review-chips')?.textContent,
+        summary: document.querySelector('[data-testid="review-run-summary"]')?.textContent,
+        sources: document.querySelector('[data-testid="review-engine-source"]')?.textContent,
+        searches: window.__uciCommands.filter(command => command.startsWith('go ')).length,
+        finished: window.__uciBestmoves,
+      }))
+      assert(/Pending 0/.test(firstReport.chips || ''), `first review incomplete: ${JSON.stringify(firstReport)}`)
+      assert((await page.getByTestId('review-engine-source').innerText()).includes('QA Lite'), 'first review did not use Lite')
+      await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      await page.evaluate(() => { window.__reviewProducer = 'full' })
+      await page.getByLabel('Engine profile in Engine Lab').selectOption('full-single-cdn')
+      await page.waitForFunction(() => document.body.innerText.includes('QA Full'))
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      if (failPool) await page.evaluate(() => { window.__failReviewWorker = window.__engineCount + 1 })
+      await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+      assert(await page.evaluate(() => (window.__fullReviewSearches || 0) >= 117), 'switching profiles reused the previous engine instead of reviewing the positions')
+      const source = await page.getByTestId('review-engine-source').innerText()
+      assert(source.includes('QA Full') && !source.includes('QA Lite'), `new review was contaminated by retained Lite readings: ${source}`)
+      const accuracy = await page.locator('.accuracy-summary > div').first().locator('strong').innerText()
+      assert(Number.parseFloat(accuracy) === 100, `review grades do not use its own level evaluations: ${accuracy}`)
+      assert((await page.getByTestId('review-run-summary').innerText()).includes('Completed review'), 'a finished review was marked partial')
+      if (failPool) {
+        assert(await page.evaluate(() => window.__failedCompletedFen && window.__fullCompletedPositions[window.__failedCompletedFen] === 1),
+          'pool fallback re-searched the result that was buffered before the failure')
+      }
+      const before = await page.evaluate(() => window.__fullReviewSearches)
+      await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+      assert(await page.evaluate(() => window.__fullReviewSearches) === before, 'unchanged review did not reuse its own completed readings')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'review source overflows the viewport')
+      console.log(`  review engine (${width}px, limit ${workers}${failPool ? ', mid-search pool failure' : ''}): switched engine searches the full game, report excludes deeper old scores, completed readings are reusable`)
     } finally { await context.close() }
   }
 }
@@ -4723,6 +4798,7 @@ async function main() {
       'candidate-score': checkCandidateSearchKeepsPositionScore,
       'evaluation-source': checkEvaluationEngineProvenance,
       'pv-reuse': checkPvPreviewAndCommit,
+      'review-source': checkReviewUsesSelectedEngine,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
@@ -5371,6 +5447,7 @@ async function main() {
     await checkCandidateSearchKeepsPositionScore(browser)
     await checkEvaluationEngineProvenance(browser)
     await checkPvPreviewAndCommit(browser)
+    await checkReviewUsesSelectedEngine(browser)
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)
     await checkKeepSearchingIsUnbounded(browser)

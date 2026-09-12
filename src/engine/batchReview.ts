@@ -12,6 +12,7 @@
  */
 import type { ImportSweepTarget } from './importSweep'
 import { type EvalSnapshot, isReviewEvaluationSufficient, isTerminalPositionFen } from './analysis'
+import { sameEvaluationEngine, type EvaluationEngine } from './evaluationSource'
 
 export type BatchReviewTarget = ImportSweepTarget
 
@@ -22,6 +23,8 @@ export type BatchReviewPlan = {
   done: number
   /** Every position worth searching, skipped or not. */
   total: number
+  /** Only the readings actually accepted for this review, scoped to its line. */
+  reused: Map<string, EvalSnapshot>
 }
 
 /**
@@ -60,15 +63,25 @@ export function planBatchReview(
   rootFen: string,
   evaluations: Map<string, EvalSnapshot>,
   minDepth: number,
+  engine?: EvaluationEngine,
 ): BatchReviewPlan {
   const searchable = buildBatchReviewTargets(nodes, rootFen)
     .filter(target => !isTerminalPositionFen(target.fen))
-  const queue = searchable
-    .filter(target => !isReviewEvaluationSufficient(evaluations.get(target.fen), minDepth))
+  const reused = new Map<string, EvalSnapshot>()
+  const queue = searchable.filter(target => {
+    const reading = evaluations.get(target.fen)
+    if (reading && isReviewEvaluationSufficient(reading, minDepth)
+      && (!engine || sameEvaluationEngine(engine, reading.engine))) {
+      reused.set(target.fen, reading)
+      return false
+    }
+    return true
+  })
 
   return {
     queue,
     done: searchable.length - queue.length,
     total: searchable.length,
+    reused,
   }
 }
