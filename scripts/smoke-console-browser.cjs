@@ -97,6 +97,32 @@ async function main() {
             await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
             await page.getByRole('button', { name: 'Analyze', exact: true }).click()
             assert.equal(await page.locator('.pv-list').textContent(), result.boardLines, 'console completion changed retained board lines')
+            result.stage = 'finite search past the old UI deadline'
+            await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+            // Accelerate only the page clock: Stockfish's worker still runs
+            // in real time. This checks the UI deadline, not a 120s benchmark.
+            await page.clock.install()
+            const finiteStartedAt = Date.now()
+            const stopsBeforeFinite = await page.evaluate(() => window.__consoleEvents.filter(e => e.kind === 'sent' && e.line === 'stop').length)
+            await command.fill('go movetime 120000')
+            await command.press('Enter')
+            await page.getByLabel('UCI console output', { exact: true }).filter({ hasText: 'info depth ' }).waitFor()
+            await page.clock.fastForward(95_000)
+            assert.equal(await page.locator('.bottom .status').textContent(), 'analyzing')
+            assert.equal(await command.inputValue(), 'go movetime 120000')
+            assert.equal(await page.evaluate(() => window.__consoleEvents.filter(e => e.kind === 'sent' && e.line === 'stop').length), stopsBeforeFinite, 'finite search received Stop at the old UI deadline')
+            assert.equal(await page.locator('.error-copy').count(), 0, 'finite search reported a timeout')
+            const stopFinite = page.getByRole('button', { name: 'Stop engine search', exact: true })
+            assert(await stopFinite.isEnabled(), 'finite search lost Stop')
+            await stopFinite.focus()
+            await page.screenshot({ path: path.join(output, `${name}-${width}-long-search.png`) })
+            await stopFinite.click()
+            await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready'
+              && document.querySelector('[aria-label="UCI command"]')?.value === '')
+            assert((await page.getByLabel('UCI console output', { exact: true }).textContent()).includes('bestmove '))
+            result.longSearchDeadline = { pageTimeAdvancedMs: 95000, workerClock: 'real time', wallElapsedMs: Date.now() - finiteStartedAt, completedBy: 'explicit Stop' }
+            await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+            assert.equal(await page.locator('.pv-list').textContent(), result.boardLines, 'long console search changed retained board lines')
             result.stage = 'unbounded console visibility'
             await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
             const unbounded = 'go infinite searchmoves e2e4'
@@ -118,7 +144,7 @@ async function main() {
             assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
             assert.deepEqual(result.errors, [])
             result.stage = 'passed'
-            console.log(`${name} ${width}px: real console stop/ack handoff, D12 board search, perft 8902, five-second search, unbounded visibility pause/resume/Stop and retained board lines passed`)
+            console.log(`${name} ${width}px: real tab-command stop/ack handoff, D12 board search, perft 8902, five-second search, finite search past 95s of page time, unbounded visibility pause/resume/Stop and retained board lines passed`)
           } finally {
             result.events = await page.evaluate(() => window.__consoleEvents).catch(() => [])
             await page.close()

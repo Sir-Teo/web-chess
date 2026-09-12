@@ -8527,7 +8527,7 @@ function App() {
                       <span>Enable expert commands (perft/unbounded go)</span>
                     </label>
                     <p className="panel-copy small">
-                      Unbounded console searches pause while this tab is hidden and resume when you return. Stop cancels them.
+                      Searches run until their UCI limit or Stop. Unbounded console searches pause while this tab is hidden and resume when you return. Stop cancels them.
                     </p>
                     {consoleSearchPaused && <p className="panel-copy small" role="status">Console search paused while this tab is hidden.</p>}
                     {openingExplorer.data && (

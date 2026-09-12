@@ -3343,6 +3343,81 @@ async function checkConsoleTools(browser) {
   }
 }
 
+async function checkConsoleSearchDeadlines(browser) {
+  for (const [width, scale] of [[1280, 1], [1280, 2], [375, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.clock.install()
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(() => {
+        window.__testVisibility = 'visible'
+        Object.defineProperty(document, 'visibilityState', { get: () => window.__testVisibility })
+        Object.defineProperty(document, 'hidden', { get: () => window.__testVisibility === 'hidden' })
+        window.__changeVisibility = value => { window.__testVisibility = value; document.dispatchEvent(new Event('visibilitychange')) }
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+          engineProfile: 'lite-single-local', expertModeEnabled: false,
+        }))
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const waitReady = () => page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready'
+        && document.querySelector('[aria-label="UCI command"]')?.value === '')
+      await waitReady()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 16}px` }, scale)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      const output = page.getByLabel('UCI console output', { exact: true })
+      const stop = page.getByRole('button', { name: 'Stop engine search', exact: true })
+      const submit = async text => { await command.fill(text); await command.press('Enter') }
+      await submit('position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+      await waitReady()
+      // Hold fixture replies independently of browser time. A timed,
+      // depth, node or clock search must not inherit an unrelated 90s deadline.
+      for (const [index, text] of ['go\tmovetime\t120000', 'go depth 40', 'go nodes 1000000000', 'go wtime 600000 btime 600000'].entries()) {
+        const stopsBefore = await page.evaluate(() => window.__uciCommands.filter(c => c === 'stop').length)
+        await submit(text)
+        await output.filter({ hasText: 'score cp 900' }).waitFor()
+        if (index === 0) await page.evaluate(() => window.__changeVisibility('hidden'))
+        await page.clock.fastForward(95_000)
+        assert(await page.locator('.bottom .status').first().textContent() === 'analyzing', `${text} lost active status after 95s`)
+        assert(await command.inputValue() === text && await stop.isEnabled(), `${text} lost its pending command or Stop`)
+        assert(await page.evaluate(() => window.__uciCommands.filter(c => c === 'stop').length) === stopsBefore, `${text} was stopped at an arbitrary deadline`)
+        assert(await page.locator('.error-copy').count() === 0, `${text} reported a timeout`)
+        if (index === 0) {
+          await page.clock.fastForward(25_000)
+          await page.evaluate(() => { window.__consoleEngine.finishSearch(); window.__changeVisibility('visible') })
+        } else {
+          await stop.focus()
+          assert(await stop.evaluate(el => {
+            const r = el.getBoundingClientRect()
+            return r.left >= 0 && r.right <= innerWidth + 1 && r.top >= 0 && r.bottom <= innerHeight + 1
+              && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+          }), 'long-search Stop is obscured')
+          await stop.click()
+        }
+        await waitReady()
+        assert((await output.textContent()).includes('bestmove d2d4'), `${text} lost its completion`)
+      }
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'search deadline help overflows')
+      await page.screenshot({ path: `/tmp/web-chess-console-deadlines-${width}-${scale}x.png` })
+      await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+      assert(await page.locator('.pv-list article').count() === 0, 'long console searches leaked into board readings')
+      await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      // An ignored diagnostic still frees the queue after its reply deadline.
+      await submit('unknown-diagnostic')
+      await page.clock.fastForward(15_100)
+      await page.locator('.error-copy').filter({ hasText: 'Timed out waiting for response to "unknown-diagnostic".' }).waitFor()
+      await submit('isready')
+      await waitReady()
+      assert((await output.textContent()).endsWith('readyok'), 'diagnostic timeout left the command queue blocked')
+      assert(errors.length === 0, `console deadline errors: ${errors.join('; ')}`)
+      console.log(`  console deadlines (${width}px, ${scale}x): timed/depth/node/clock searches survive 95s, hidden finite completion, reachable Stop, isolated scores, diagnostic timeout and recovery`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkConsoleSearchOwnership(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -6847,6 +6922,7 @@ async function main() {
       resources: checkSingleThreadReviewPool,
       lab: checkLabSettingsStayInSync,
       'console-search': checkConsoleSearchOwnership,
+      'console-deadlines': checkConsoleSearchDeadlines,
       'console-tools': checkConsoleTools,
       'console-visibility': checkConsoleVisibility,
       'console-layout': checkConsoleLayout,
@@ -7527,6 +7603,7 @@ async function main() {
     await checkEngineStartupTimeout(browser)
     await checkLabSettingsStayInSync(browser)
     await checkConsoleSearchOwnership(browser)
+    await checkConsoleSearchDeadlines(browser)
     await checkConsoleTools(browser)
     await checkConsoleVisibility(browser)
     await checkConsoleLayout(browser)

@@ -58,7 +58,7 @@ type EngineCommandKind = 'uci' | 'isready' | 'go' | 'other'
 
 type SendCommandOptions = {
   stream?: (line: string) => void
-  /** Zero disables the timeout. Unbounded searches default to no deadline. */
+  /** Zero disables the timeout. Searches use their UCI limits by default. */
   timeoutMs?: number
 }
 
@@ -647,8 +647,11 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         const id = ++nextCommandIdRef.current
         const first = firstWord(trimmed)
         const unbounded = first === 'go' && isUnboundedEngineLabSearch(trimmed)
+        // A depth/node search can legitimately take hours; movetime can also
+        // exceed 90 seconds. Let Stockfish enforce these limits and complete
+        // with bestmove, while preserving Stop and explicit caller deadlines.
         const timeoutMs =
-          options?.timeoutMs ?? (unbounded ? 0 : first === 'go' || first === 'bench' || first === 'perft' ? 90_000 : 15_000)
+          options?.timeoutMs ?? (first === 'go' ? 0 : first === 'bench' || first === 'perft' ? 90_000 : 15_000)
 
         const item: QueuedCommand = {
           id,
