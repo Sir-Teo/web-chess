@@ -266,7 +266,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
         this.emitInfo();
         // A search ends on its own, or early when the app says stop. Both
         // finish with a bestmove, which is what the app waits for.
-        if (SCENARIO !== 'hold-search') {
+        if (SCENARIO !== 'hold-search' && !(SCENARIO === 'hold-infinite' && text === 'go infinite')) {
           this.finishTimer = setTimeout(() => this.finishSearch(), 15);
         }
         return;
@@ -1514,6 +1514,54 @@ async function checkSavedReviewEndings(browser) {
       const exported = fs.readFileSync(await (await downloaded).path(), 'utf8')
       assert([...exported.matchAll(/\[%eval /g)].length === expected, `${name} lost an engine reading or invented one`)
       console.log(`  saved ending (${name}, 375px): completed report saves, reopens and exports with ${expected} engine readings`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkFinishedAutomaticAnalysis(browser) {
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('hold-infinite'))
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: true, continuousAnalysis: true,
+        engineProfile: 'lite-single-local', analyzeMode: 'infinite', showAdvancedAnalyze: true,
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.dialog-section textarea').first().fill('1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 Nf6 4. Ng1 Ng8 1/2-1/2')
+      const importStart = await page.evaluate(() => window.__uciCommands.length)
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.dialog-panel').waitFor({ state: 'hidden' })
+      await page.waitForFunction(() => document.querySelector('.turn-pill')?.textContent.includes('Threefold repetition'))
+      await page.waitForTimeout(400)
+      const imported = await page.evaluate(start => window.__uciCommands.slice(start), importStart)
+      assert(!imported.some(command => command.endsWith('moves g1f3 g8f6 f3g1 f6g8 g1f3 g8f6 f3g1 f6g8')), 'import searched its known repetition endpoint')
+      const mark = await page.evaluate(() => window.__uciCommands.length)
+      await page.getByRole('button', { name: 'Go to previous move', exact: true }).click()
+      await page.waitForFunction(start => window.__uciCommands.slice(start).includes('go infinite'), mark)
+      const beforeEnd = await page.evaluate(() => window.__uciCommands.length)
+      await page.getByRole('button', { name: 'Go to next move', exact: true }).click()
+      await page.waitForFunction(start => window.__uciCommands.slice(start).includes('stop'), beforeEnd)
+      await page.waitForTimeout(400)
+      assert(!await page.evaluate(start => window.__uciCommands.slice(start).includes('go infinite'), beforeEnd), 'navigation restarted infinite analysis on a finished game')
+      assert(await page.locator('.eval-bar-label').innerText() === '½-½', 'automatic search guard lost the board result')
+      const manualStart = await page.evaluate(() => window.__uciCommands.length)
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.waitForFunction(start => window.__uciCommands.slice(start).includes('go infinite'), manualStart)
+      const manualRunning = await page.evaluate(() => window.__uciCommands.length)
+      await page.getByTestId('keep-searching').uncheck()
+      await page.waitForTimeout(300)
+      await page.getByTestId('keep-searching').check()
+      await page.waitForTimeout(300)
+      assert(!await page.evaluate(start => window.__uciCommands.slice(start).includes('stop'), manualRunning), 'changing automatic settings cancelled an explicit manual search')
+      await page.getByRole('button', { name: 'Stop analysis', exact: true }).click()
+      await page.waitForFunction(start => window.__uciCommands.slice(start).includes('stop'), manualRunning)
+      const resumeStart = await page.evaluate(() => window.__uciCommands.length)
+      await page.getByRole('button', { name: 'Go to previous move', exact: true }).click()
+      await page.waitForFunction(start => window.__uciCommands.slice(start).includes('go infinite'), resumeStart)
+      console.log(`  finished automatic analysis (${width}px): import omits the draw, returning stops the old infinite search; explicit Analyze/Stop remain usable and unfinished navigation resumes`)
     } finally { await context.close() }
   }
 }
@@ -6235,6 +6283,7 @@ async function main() {
       'saved-endings': checkSavedReviewEndings,
       'repetition': checkRepetitionEndings,
       'repetition-review': checkRepetitionReviewCompatibility,
+      'finished-auto': checkFinishedAutomaticAnalysis,
       'review-backup-export': checkReviewBackupExport,
       'review-backup-import': checkReviewBackupImport,
       'review-depth': checkReviewAtRequestedDepth,
@@ -6903,6 +6952,7 @@ async function main() {
     await checkSavedReviewEndings(browser)
     await checkRepetitionEndings(browser)
     await checkRepetitionReviewCompatibility(browser)
+    await checkFinishedAutomaticAnalysis(browser)
     await checkReviewBackupExport(browser)
     await checkReviewBackupImport(browser)
     await checkReviewAtRequestedDepth(browser)

@@ -1909,10 +1909,23 @@ function App() {
 
   // ── Auto-analyze ─────────────────────────────────────
   const keepSearching = continuousAnalysis && analysisExperience === 'pro'
+  const automaticPositionRef = useRef<AnalysisTarget | null>(null)
   useEffect(() => {
+    const previous = automaticPositionRef.current
+    const positionChanged = !previous || previous.fen !== fen || previous.rootFen !== currentRootFen
+      || previous.pathMovesKey !== currentPathMovesKey
+    automaticPositionRef.current = { fen, rootFen: currentRootFen, pathMovesKey: currentPathMovesKey }
     if (!engineEnabled) return
     if (isImportingGame) return
     if (isBatchReviewing) return
+    if (isGameOver) {
+      // Navigation must stop the old position's search as well as avoid a new
+      // one. Once here, settings changes must not cancel an explicit Analyze.
+      if (positionChanged || pendingShallowAnalyzeFen || pendingPonderFen) stop()
+      setPendingShallowAnalyzeFen(null)
+      setPendingPonderFen(null)
+      return
+    }
     if (skipFullAnalyzeFenRef.current && skipFullAnalyzeFenRef.current !== fen) {
       skipFullAnalyzeFenRef.current = null
     }
@@ -1983,6 +1996,7 @@ function App() {
     fen,
     hashMb,
     isBatchReviewing,
+    isGameOver,
     isImportingGame,
     keepSearching,
     multiPv,
@@ -1991,6 +2005,7 @@ function App() {
     searchDepth,
     settledAnalysisTarget,
     showWdl,
+    stop,
   ])
 
   // ── Imported game background sweep ───────────────────
