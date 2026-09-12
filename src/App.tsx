@@ -2072,6 +2072,9 @@ function App() {
   const openingTopBookMove = openingTopMoves[0]
   const currentFenLines = useMemo(() => lines.filter(line => !line.fen || line.fen === fen), [fen, lines])
   const coachLine = currentFenLines.find(line => line.multipv === 1) ?? currentFenLines[0] ?? null
+  const candidateSearchMoves = coachLine?.searchMoves ?? []
+  const isCandidateSearch = candidateSearchMoves.length > 0
+  const unrestrictedCoachLine = isCandidateSearch ? null : coachLine
   const coachCloudScore = currentCloudEval?.pvs[0]
     ? cloudLineToSideToMoveScore(fen, currentCloudEval.pvs[0])
     : null
@@ -2099,7 +2102,7 @@ function App() {
   const endingScore = boardEnding ? gameResultScore(boardEnding.result) : null
   // The position has one authoritative reading, shared with the bar and graph.
   // A shallower local search may still offer a useful candidate line below.
-  const coachPositionScore = currentEvaluation ?? coachLine ?? coachCloudScore
+  const coachPositionScore = currentEvaluation ?? unrestrictedCoachLine ?? coachCloudScore
   const coachEvaluation = endingScore ?? (coachPositionScore
     ? formatWhitePovEvaluation(fen, coachPositionScore.cp, coachPositionScore.mate)
     : tablebase.result ? tablebaseSummary(tablebase.result) : '...')
@@ -2138,14 +2141,14 @@ function App() {
     ? null
     : coachLine?.pv[1] ?? currentCloudEval?.pvs[0]?.moves[1] ?? currentLastPonderMove ?? null
   const coachReplyMoveText = ponderMoveLabel(fen, coachBestMove, coachReplyMove)
-  const coachDepth = currentEvaluation ? currentEvaluation.depth : coachLine?.depth ?? currentCloudEval?.depth
+  const coachDepth = currentEvaluation ? currentEvaluation.depth : unrestrictedCoachLine?.depth ?? currentCloudEval?.depth
   // A tile labelled Depth reports a depth or nothing. It used to fall back to
   // the engine status, so it read "analyzing" in a row of numbers -- and then,
   // once cloud evals arrived, it reported theirs as though this app had reached
   // 75 plies. It says whose depth it is.
   const coachSource = coachReadingSource({
     gameOver: Boolean(boardEnding),
-    hasEngineLine: !currentEvaluation && Boolean(coachLine),
+    hasEngineLine: !currentEvaluation && Boolean(unrestrictedCoachLine),
     hasCloudScore: !currentEvaluation && Boolean(coachCloudScore),
     hasStored: Boolean(currentEvaluation),
     storedPurpose: currentEvaluation?.purpose,
@@ -2251,7 +2254,7 @@ function App() {
   const activeThreat = threatResult && threatResult.boardFen === fen ? threatResult : null
   const isProbingThreat = threatRequest !== null
 
-  const currentEngineBestUci = currentFenLines.find(line => line.multipv === 1)?.pv[0] ?? null
+  const currentEngineBestUci = unrestrictedCoachLine?.pv[0] ?? null
   const engineBookAgreement = currentEngineBestUci && openingTopBookMove
     ? currentEngineBestUci === openingTopBookMove.uci
     : null
@@ -7589,6 +7592,12 @@ function App() {
                   {drillCard}
                   {experienceToggle}
                   {keepSearchingSwitch}
+                  {isCandidateSearch && (
+                    <p className="panel-copy small" role="status" data-testid="candidate-search-notice">
+                      Searching only {candidateSearchMoves.map(move => bestMoveLabel(fen, move)).join(', ')}.
+                      {' '}Candidate results do not change the position score or game review.
+                    </p>
+                  )}
                   <div className="coach-card">
                     <h3><span className="section-icon"><IconKing /></span> Coach</h3>
                     {analysisExperience === 'beginner' && coachVerdict && (
@@ -7600,7 +7609,7 @@ function App() {
                         <strong>{coachEvaluation}</strong>
                       </div>
                       <div>
-                        <span>Best move</span>
+                        <span>{isCandidateSearch && !coachBestMoveIsTablebase ? 'Best candidate' : 'Best move'}</span>
                         <strong title={coachBestMove ?? undefined}>{coachBestMoveText}</strong>
                       </div>
                       <div>
@@ -7613,7 +7622,10 @@ function App() {
                       </div>
                     </div>
                     {coachLine && !boardEnding && !coachBestMoveIsTablebase && (
-                      <p className="panel-copy small coach-line-source">Candidate line · local engine D{coachLine.depth}</p>
+                      <p className="panel-copy small coach-line-source">
+                        Candidate line · local engine D{coachLine.depth}
+                        {isCandidateSearch && ` · Candidate score ${formatWhitePovEvaluation(fen, coachLine.cp, coachLine.mate)}`}
+                      </p>
                     )}
                     {/* The Coach line is the one a beginner is most likely to
                         want to see played out, and it was the same dead text as
@@ -7968,7 +7980,7 @@ function App() {
                   </div>
                   )}
                   <div className="pv-list">
-                    <h3><span className="section-icon"><IconSearch /></span> Lines</h3>
+                    <h3><span className="section-icon"><IconSearch /></span> {isCandidateSearch ? 'Candidate lines' : 'Lines'}</h3>
                     {currentFenLines.length === 0 && !activeGoCommand && !currentLastBestMove && (
                       <div className="empty-state">
                         <span className="empty-state-icon" aria-hidden="true"><IconSearch /></span>
@@ -8621,7 +8633,7 @@ function App() {
                 && !game.isGameOver()
                 && (!reviewPractice || reviewPractice.status === 'correct' || reviewPractice.attempts >= 2)
                 && (
-                  <p className="best-move" title={currentLastBestMove}>Best: {bestMoveLabel(fen, currentLastBestMove)}</p>
+                  <p className="best-move" title={currentLastBestMove}>{isCandidateSearch ? 'Candidate' : 'Best'}: {bestMoveLabel(fen, currentLastBestMove)}</p>
                 )}
             </div>
           </div>

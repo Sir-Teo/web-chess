@@ -10,7 +10,7 @@ import {
 } from '../engine/profiles'
 import { createStockfishWorker } from '../engine/stockfishWorker'
 import { engineStartupTimeoutMs } from '../engine/engineStartup'
-import { buildAnalyzeCommand, buildNewGameCommands, changedSetOptions, engineOptionValueToString, optionKey, parseBestMoveLine, parseSetOptionCommand, type AnalyzeMode, type AnalyzePurpose, type AnalyzeRequest, type UciGoLimits } from '../engine/uci'
+import { buildAnalyzeCommand, buildNewGameCommands, changedSetOptions, engineOptionValueToString, normalizeUciMoves, optionKey, parseBestMoveLine, parseSetOptionCommand, type AnalyzeMode, type AnalyzePurpose, type AnalyzeRequest, type UciGoLimits } from '../engine/uci'
 import { engineBootFailureMessage } from '../engine/engineBootError'
 import { withBoundedMapEntry } from './cacheLimit'
 
@@ -22,6 +22,8 @@ type EngineLine = {
   purpose?: AnalyzePurpose
   mode?: AnalyzeMode
   limits?: UciGoLimits
+  /** A restricted root search evaluates these candidates, not the position. */
+  searchMoves?: string[]
   multipv: number
   depth: number
   seldepth?: number
@@ -390,6 +392,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const currentAnalysisPurposeRef = useRef<AnalyzePurpose | undefined>(undefined)
   const currentAnalysisModeRef = useRef<AnalyzeMode | undefined>(undefined)
   const currentAnalysisLimitsRef = useRef<UciGoLimits | undefined>(undefined)
+  const currentAnalysisSearchMovesRef = useRef<string[]>([])
   const currentSearchIdRef = useRef<number>(0)
   const newGamePendingRef = useRef(false)
   const commandQueueRef = useRef<QueuedCommand[]>([])
@@ -640,6 +643,8 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       pendingAnalyzeRef.current = null
       currentAnalysisRequestRef.current = request
       const built = buildAnalyzeCommand(request)
+      const searchMoves = normalizeUciMoves(request.searchMoves)
+      currentAnalysisSearchMovesRef.current = searchMoves
       const searchId = currentSearchIdRef.current + 1
       currentSearchIdRef.current = searchId
 
@@ -661,6 +666,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
             purpose: request.purpose,
             mode: request.mode,
             limits: request.limits,
+            searchMoves,
           }]),
         )
         clearLinesMapFlushTimer()
@@ -1010,6 +1016,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
             purpose: currentAnalysisPurposeRef.current,
             mode: currentAnalysisModeRef.current,
             limits: currentAnalysisLimitsRef.current,
+            searchMoves: currentAnalysisSearchMovesRef.current,
           })
           scheduleLinesMapFlush()
         }

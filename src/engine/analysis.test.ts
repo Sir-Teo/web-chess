@@ -1119,6 +1119,12 @@ describe('turning an engine line into a snapshot', () => {
     const line = (over: Partial<EngineLine> = {}): EngineLine =>
         ({ multipv: 1, depth: 20, cp: 35, pv: ['e2e4', 'e7e5'], nodes: 500_000, ...over } as EngineLine)
 
+    it('excludes restricted candidates and null-move threats from position history', () => {
+        expect(engineLineToSnapshot(line({ searchMoves: ['f2f3'], cp: -900, depth: 30 }), 'fen', 0)).toBeNull()
+        expect(engineLineToSnapshot(line({ purpose: 'threat' }), 'fen', 0)).toBeNull()
+        expect(engineLineToSnapshot(line({ searchMoves: [] }), 'fen', 0)?.snapshot.cp).toBe(35)
+    })
+
     it('carries the reading and its telemetry across', () => {
         const recorded = engineLineToSnapshot(line({ fen: 'fen-a', nps: 900_000, time: 420 }), 'fallback', 1234)
         expect(recorded?.fen).toBe('fen-a')

@@ -132,6 +132,11 @@ const SCENARIO = ${JSON.stringify(scenario)};
      * consecutive searches, which is the one input the Play-mode nudge needs.
      */
     scriptedLine() {
+      if (SCENARIO === 'restricted-root') {
+        return this.goCommand?.includes('searchmoves')
+          ? { cp: -900, move: 'f2f3', depths: [24, 30] }
+          : { cp: 35, move: 'e2e4', depths: [16, 22] };
+      }
       if (SCENARIO === 'blunder-nudge') {
         return this.searches >= 2 ? { cp: 330, move: 'b8c6' } : { cp: 30, move: 'e7e5' };
       }
@@ -220,6 +225,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
       if (text === 'isready') { this.send('readyok'); return; }
       if (text.startsWith('position')) { this.fen = text; return; }
       if (text.startsWith('go')) {
+        this.goCommand = text;
         this.searching = true;
         this.searches += 1;
         this.emitInfo();
@@ -684,6 +690,53 @@ async function checkCoachUsesPositionScore(browser) {
  * sequence through the real UI, which is the thing a unit test on the
  * comparison function cannot do.
  */
+async function checkCandidateSearchKeepsPositionScore(browser) {
+  for (const [width, knownPosition] of [[1280, true], [375, true], [375, false]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('restricted-root'))
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false,
+        showAdvancedAnalyze: true, analyzeMode: 'deep',
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      if (knownPosition) {
+        await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+        await page.waitForFunction(() => document.querySelector('.eval-bar-label')?.textContent.includes('+0.4'))
+      }
+      const original = await page.locator('.coach-grid > div').first().locator('strong').innerText()
+      await openSettings(page)
+      await page.locator('.advanced-settings > summary').filter({ hasText: 'Advanced engine options' }).click()
+      await page.getByLabel('Candidate moves', { exact: true }).fill('f3')
+      await closeSettings(page)
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.waitForFunction(() => window.__uciCommands.some(c => c.includes('searchmoves f2f3')))
+      await page.waitForFunction(() => document.querySelector('.coach-line-source')?.textContent.includes('D30'))
+      assert(await page.locator('.coach-grid > div').first().locator('strong').innerText() === original,
+        'a restricted candidate search replaced the whole-position evaluation')
+      assert(await page.getByTestId('candidate-search-notice').isVisible(), 'the result does not disclose its restricted candidates')
+      assert((await page.locator('.coach-grid').textContent()).includes('Best candidate'), 'a restricted result is still called the best move')
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.getByRole('button', { name: 'Export', exact: true }).click()
+      const exported = await page.getByRole('textbox', { name: 'Annotated Output' }).inputValue()
+      assert((knownPosition ? exported.includes('[%eval 0.35]') : !exported.includes('[%eval ')) && !exported.includes('[%eval -9.00]'),
+        'a candidate score contaminated exported game analysis')
+      await page.keyboard.press('Escape')
+      await openSettings(page)
+      await page.locator('.advanced-settings > summary').filter({ hasText: 'Advanced engine options' }).click()
+      await page.getByLabel('Candidate moves', { exact: true }).fill('')
+      await closeSettings(page)
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.coach-line-source')?.textContent.includes('D22'))
+      assert(await page.getByTestId('candidate-search-notice').count() === 0, 'an unrestricted search inherited the last candidate restriction')
+      assert((await page.locator('.coach-grid > div').first().locator('strong').innerText()) === '+0.35',
+        'an unrestricted search stopped recording whole-position evaluations')
+      console.log(`  candidate search (${width}px, ${knownPosition ? 'known' : 'unevaluated'} position): preserves position/export, labels candidates, and clears the restriction on the next search`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkBoundedScoreIsIgnored(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const page = await context.newPage()
@@ -4586,6 +4639,7 @@ async function main() {
       targets: checkEveryControlIsFingerSized,
       offline: checkCrossOriginIsolationIsRestored,
       'dialog-download': checkDialogDownloadFailure,
+      'candidate-score': checkCandidateSearchKeepsPositionScore,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
@@ -5231,6 +5285,7 @@ async function main() {
     await checkSingleThreadReviewPool(browser)
     await checkCoachUsesPositionScore(browser)
     await checkBoundedScoreIsIgnored(browser)
+    await checkCandidateSearchKeepsPositionScore(browser)
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)
     await checkKeepSearchingIsUnbounded(browser)

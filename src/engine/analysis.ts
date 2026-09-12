@@ -520,6 +520,9 @@ export function engineLineToSnapshot(
   fallbackFen: string,
   searchedAt: number,
 ): { fen: string; snapshot: EvalSnapshot } | null {
+  // Restricting the root may deliberately exclude every good move. Its score
+  // must stay out of position graphs, review grades and exported [%eval] tags.
+  if (line?.searchMoves?.length || line?.purpose === 'threat') return null
   const cp = scoreToCp(line?.cp, line?.mate)
   if (typeof cp !== 'number' || !line) return null
 
