@@ -184,16 +184,19 @@ async function main() {
               && document.documentElement.scrollWidth <= innerWidth
           })
           assert.equal(boardFits, true, 'text-only enlargement clips the board without a way to reach it')
-          // With live engine statistics the enlarged footer wraps, so a small
-          // desktop may need to scroll its minimum-size board. Both ends must
-          // be reachable through native keyboard focus, not hidden by a bar.
+          // Opening labels can make the minimum-size board taller than its
+          // stage even with compact toolbars. Keyboard focus must reveal both
+          // ends completely, including a piece that was already partly visible.
           for (const square of ['a8', 'h1']) {
             const target = page.locator(`[data-square="${square}"] [role="button"]`)
             await target.focus()
-            assert.equal(await target.evaluate(el => {
+            const visible = await target.evaluate(el => {
               const r = el.getBoundingClientRect(), main = document.querySelector('.main-container').getBoundingClientRect()
-              return r.top >= main.top && r.bottom <= main.bottom + 1 && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
-            }), true, `enlarged board square ${square} cannot be reached`)
+              return { top: r.top, bottom: r.bottom, mainTop: main.top, mainBottom: main.bottom,
+                hit: el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)) }
+            })
+            assert(visible.top >= visible.mainTop && visible.bottom <= visible.mainBottom + 1 && visible.hit,
+              `enlarged board square ${square} cannot be reached: ${JSON.stringify(visible)}`)
           }
           await page.getByRole('button', { name: 'Review Game', exact: true }).focus()
           const focusFits = await page.getByRole('button', { name: 'Review Game', exact: true }).evaluate(el => {

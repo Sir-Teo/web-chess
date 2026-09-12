@@ -6859,6 +6859,19 @@ function App() {
         <section
           id="chessboard-stage"
           className={`board-stage ${blindfold ? 'blindfold' : ''} ${pendingPromotion ? 'promoting' : ''}`}
+          onFocus={event => {
+            const stage = event.currentTarget
+            if (!event.target.closest('[data-square]')
+              || (stage.scrollHeight <= stage.clientHeight && stage.scrollWidth <= stage.clientWidth)) return
+            const square = event.target.getBoundingClientRect()
+            const bounds = stage.getBoundingClientRect()
+            // Some browsers consider a partly visible piece already in view.
+            // Reveal its whole keyboard target above the persistent footer.
+            if (square.top < bounds.top || square.bottom > bounds.bottom
+              || square.left < bounds.left || square.right > bounds.right) {
+              event.target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+            }
+          }}
           aria-label="Chessboard"
           aria-hidden={appModalOpen ? true : undefined}
           inert={appModalOpen ? true : undefined}
