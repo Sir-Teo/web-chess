@@ -3161,6 +3161,104 @@ async function checkShortDesktopWindow(browser) {
   }
 }
 
+async function checkShortDesktopDialogs(browser) {
+  const visible = async (target, label, focus = true) => {
+    if (focus) await target.focus()
+    const geometry = await target.evaluate(async el => {
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      const r = el.getBoundingClientRect(), p = el.closest('[role="dialog"]').getBoundingClientRect()
+      return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, panelTop: p.top, panelBottom: p.bottom,
+        width: innerWidth, height: innerHeight,
+        hit: el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)) }
+    })
+    assert(geometry.top >= Math.max(0, geometry.panelTop) && geometry.bottom <= Math.min(geometry.height, geometry.panelBottom) + 1
+      && geometry.left >= 0 && geometry.right <= geometry.width + 1 && geometry.hit,
+    `${label} is clipped in its dialog: ${JSON.stringify(geometry)}`)
+  }
+  for (const [height, rem, theme] of [[360, 32, 'dark'], [256, 16, 'dark'], [256, 32, 'dark'], [256, 32, 'light']]) {
+    const context = await browser.newContext({ viewport: { width: 901, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('hold-search'))
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, engineProfile: 'lite-single-local',
+        theme,
+      })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.bottom-status-row')?.textContent.includes('nps'))
+      await page.setViewportSize({ width: 901, height })
+      await page.evaluate(rem => { document.documentElement.style.fontSize = `${rem}px` }, rem)
+      await page.waitForTimeout(400)
+      await page.getByRole('button', { name: /^Engine details:/ }).click()
+      const details = page.getByRole('dialog', { name: 'Engine details', exact: true })
+      await visible(details.getByRole('button', { name: 'Close', exact: true }), 'Engine details Close')
+      for (const reading of await details.locator('.engine-details-readings > *').all()) {
+        if (!await reading.isVisible()) continue
+        await reading.scrollIntoViewIfNeeded()
+        await visible(reading, 'Engine reading', false)
+      }
+      await page.screenshot({ path: `/tmp/web-chess-short-dialogs-${height}-${rem}-${theme}-details-after.png` })
+      await details.getByRole('button', { name: 'Close', exact: true }).click()
+      await page.getByRole('button', { name: 'Start new game', exact: true }).click()
+      const newGame = page.getByRole('dialog', { name: 'New Game', exact: true })
+      for (const mode of ['Human vs Human', 'Human vs AI', 'AI vs AI']) {
+        await visible(newGame.getByRole('button', { name: new RegExp(`^${mode}:`) }), `New Game ${mode}`)
+      }
+      await page.screenshot({ path: `/tmp/web-chess-short-dialogs-${height}-${rem}-${theme}-new-game-after.png` })
+      await visible(newGame.getByRole('button', { name: 'Start Game', exact: true }), 'New Game Start')
+      await page.keyboard.press('Escape')
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      const pgn = page.getByRole('dialog', { name: 'PGN Import & Export', exact: true })
+      await pgn.locator('textarea').first().fill('1. e4 e5 *')
+      await visible(pgn.getByRole('button', { name: 'Import & Analyze', exact: true }), 'PGN Import')
+      await pgn.getByRole('button', { name: 'FEN', exact: true }).click()
+      await visible(pgn.getByRole('button', { name: 'Load & Analyze', exact: true }), 'FEN Load')
+      await pgn.getByRole('button', { name: 'Export', exact: true }).click()
+      const download = pgn.getByRole('button', { name: 'Download PGN', exact: true })
+      await visible(download, 'PGN Download')
+      const [file] = await Promise.all([page.waitForEvent('download'), download.click()])
+      assert(!await file.failure(), 'short-window PGN download failed')
+      await page.keyboard.press('Escape')
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      const library = page.getByRole('dialog', { name: 'Library', exact: true })
+      await library.locator('[data-library-name]').fill('Short window game')
+      await visible(library.getByRole('button', { name: 'Save', exact: true }), 'Library Save')
+      await library.getByRole('button', { name: 'Save', exact: true }).click()
+      await visible(library.getByRole('searchbox', { name: 'Search saved games', exact: true }), 'Library search')
+      await library.getByRole('searchbox', { name: 'Search saved games', exact: true }).fill('Short window game')
+      await visible(library.getByRole('button', { name: 'Load Short window game', exact: true }), 'Library Load')
+      await library.getByRole('button', { name: 'Load Short window game', exact: true }).click()
+      await page.getByTestId('command-palette-btn').click()
+      const input = page.getByRole('combobox', { name: 'Search commands', exact: true })
+      // Opening and changing selection must preserve the already-focused input.
+      await visible(input, 'Commands initial search', false)
+      for (const key of ['ArrowDown', 'ArrowUp', 'ArrowUp', 'ArrowDown']) {
+        await input.press(key)
+        await visible(input, `Commands search after ${key}`, false)
+      }
+      await input.fill('settings')
+      await visible(input, 'Commands filtered search', false)
+      const settings = page.locator('[data-command-id="settings"] button')
+      await visible(settings, 'Commands Settings')
+      await page.screenshot({ path: `/tmp/web-chess-short-dialogs-${height}-${rem}-${theme}-commands-after.png` })
+      await settings.press('Enter')
+      await page.getByRole('dialog', { name: 'Settings', exact: true }).waitFor()
+      await page.keyboard.press('Escape')
+      assert(errors.length === 0, `short-dialog page errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth || document.documentElement.scrollHeight > innerHeight), 'short dialogs overflowed the document')
+      console.log(`  short dialogs (901×${height}, ${rem / 16 * 100}% text, ${theme}): whole mode choices, engine readings, PGN download, library save/load and Commands search remain reachable`)
+    } catch (error) {
+      await page.screenshot({ path: `/tmp/web-chess-short-dialogs-${height}-${rem}-${theme}-failure.png` }).catch(() => {})
+      throw error
+    } finally { await context.close() }
+  }
+}
+
 async function checkCompactToolbar(browser) {
   for (const width of [901, 1280, 1440]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -6402,6 +6500,7 @@ async function main() {
       'narrow-desktop': checkNarrowDesktopLayout,
       'compact-toolbar': checkCompactToolbar,
       'short-window': checkShortDesktopWindow,
+      'short-dialogs': checkShortDesktopDialogs,
       'compact-footer': checkCompactFooter,
       'reading-space': checkReadingSpace,
       'opening-layout': checkOpeningLayout,
@@ -7088,6 +7187,7 @@ async function main() {
     await checkNarrowDesktopLayout(browser)
     await checkCompactToolbar(browser)
     await checkShortDesktopWindow(browser)
+    await checkShortDesktopDialogs(browser)
     await checkCompactFooter(browser)
     await checkReadingSpace(browser)
     await checkOpeningLayout(browser)

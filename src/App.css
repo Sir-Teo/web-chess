@@ -6505,9 +6505,32 @@ button.hint-btn {
   height: 100dvh;
 }
 
+.app-shell[data-scroll-chrome="true"] .dialog-backdrop {
+  padding: 0.5rem;
+}
+
 .app-shell[data-scroll-chrome="true"] .dialog-panel {
+  max-height: calc(100dvh - 1rem);
   overflow-y: auto;
   scroll-padding-block: 8px;
+}
+
+.app-shell[data-scroll-chrome="true"] .new-game-dialog {
+  /* Keep the choices readable as text grows, using the available width. */
+  max-width: 28.75rem;
+}
+
+.app-shell[data-scroll-chrome="true"] .engine-details-popover {
+  bottom: 1rem;
+  max-height: calc(100dvh - 2rem);
+}
+
+.app-shell[data-scroll-chrome="true"] .command-palette-input {
+  /* Revealing an active command must not scroll the focused search away. */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-base);
 }
 
 .app-shell[data-scroll-chrome="true"] .dialog-panel > :is(.dialog-header, .dialog-body, .dialog-actions) {
