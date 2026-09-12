@@ -1,0 +1,74 @@
+button.engine-details-trigger {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.12rem;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.22rem 0.45rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font: 600 0.67rem / 1.3 var(--font-body);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* The native top layer escapes the footer's clipping without raising the
+   whole footer above dialogs. Auto popovers support outside click and Escape. */
+.engine-details-popover {
+  position: fixed;
+  inset: auto 1rem 4rem auto;
+  margin: 0;
+  width: min(28rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 6rem);
+  box-sizing: border-box;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0.7rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+}
+
+.engine-details-popover > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.engine-details-popover h2 {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.engine-details-popover header button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.engine-details-readings {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.engine-details-readings > .bottom-engine-info {
+  flex-wrap: wrap;
+}
+
+.engine-details-readings > .engine-command-inline,
+.engine-details-readings > .engine-telemetry-inline,
+.engine-details-readings > .best-move {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  overflow: visible;
+}

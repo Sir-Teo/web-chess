@@ -67,7 +67,17 @@ export function WatchControls({
     // plays moves, the other walks the ones already there.
     const replayOffered = !aiActive && Boolean(onAutoplayToggle) && (canAutoplay || autoplay)
     return (
-        <div className="watch-controls">
+        <div className="watch-controls" onFocus={event => {
+            const strip = event.currentTarget
+            if (strip.scrollWidth <= strip.clientWidth) return
+            const control = event.target.getBoundingClientRect()
+            const bounds = strip.getBoundingClientRect()
+            // Native focus scrolling can leave a partly visible speed pill
+            // clipped. Reveal the whole focused control in a compact footer.
+            if (control.left < bounds.left || control.right > bounds.right) {
+                event.target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+            }
+        }}>
             {/* ── Navigation ── */}
             <div className="wc-nav" aria-label="Move navigation">
                 <button type="button" className="wc-btn" onClick={onFirst} disabled={!canGoBack} title="First position (⏮)" aria-label="Go to first position" aria-keyshortcuts="Home">

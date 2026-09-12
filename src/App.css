@@ -6548,3 +6548,32 @@ button.hint-btn {
   grid-area: settings;
   margin: 0;
 }
+
+/* Transport stays in one row; extra speeds remain reachable by touch, wheel
+   and native keyboard focus scrolling. Engine details open above the bar. */
+.bottom[data-compact-status="true"] .panel-content {
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.bottom[data-compact-status="true"] .watch-controls {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: 3px;
+}
+
+.bottom[data-compact-status="true"] .watch-controls > * {
+  flex-shrink: 0;
+}
+
+.bottom[data-compact-status="true"] .bottom-status-row {
+  flex: none;
+}
+
+.bottom[data-compact-status="true"] .watch-controls button {
+  min-width: 44px;
+  min-height: 44px;
+}

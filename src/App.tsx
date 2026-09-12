@@ -2,6 +2,7 @@ import { Chess, type Move, type Square } from 'chess.js'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type SyntheticEvent } from 'react'
 import type { PieceDropHandlerArgs } from 'react-chessboard'
 import { BoardCanvas } from './components/BoardCanvas'
+import { EngineDetails } from './components/EngineDetails'
 import {
   buildWdlSeries,
   buildWinrateSeries,
@@ -534,6 +535,8 @@ function App() {
   // Derive this from the viewport, not toolbar height, to avoid resize feedback.
   const compactDesktopChrome = !isMobileLayout
     && (viewport.width < 56.25 * viewport.rem || viewport.height < 30 * viewport.rem)
+  const compactEngineStatus = compactDesktopChrome && typeof HTMLElement !== 'undefined'
+    && typeof HTMLElement.prototype.showPopover === 'function'
   const leftPanelUnavailable = workspaceMode === 'play'
   const fittedPanels = sidePanelSizing(viewport, { left: leftPanelUnavailable ? 0 : leftWidth, right: rightWidth }, engineEnabled)
   const layoutLeftWidth = fittedPanels.left
@@ -6031,6 +6034,27 @@ function App() {
     endedOffBoard: Boolean(endedOffBoard),
   })
 
+  const bottomStatusContent = (
+    <>
+      <span className="bottom-engine-info" title={bottomStatusTitle}>
+        {bottomStatusPrefix} <strong className={`status ${bottomStatusClass}`}>{bottomStatusText}</strong>
+      </span>
+      {analysisExperience === 'pro' && activeGoCommand && (
+        <span className="engine-command-inline">{activeGoCommand}</span>
+      )}
+      {analysisExperience === 'pro' && engineTelemetry && (
+        <span className="engine-telemetry-inline">{engineTelemetry}</span>
+      )}
+
+      {currentLastBestMove
+        && !game.isGameOver()
+        && (!reviewPractice || reviewPractice.status === 'correct' || reviewPractice.attempts >= 2)
+        && (
+          <p className="best-move" title={currentLastBestMove}>{isCandidateSearch ? 'Candidate' : 'Best'}: {bestMoveLabel(fen, currentLastBestMove)}</p>
+        )}
+    </>
+  )
+
   // ─────────────────────────────────────────────────────
   return (
     <main className="app-shell" data-workspace-mode={workspaceMode} data-compact-chrome={compactDesktopChrome || undefined}>
@@ -8567,6 +8591,7 @@ function App() {
       {/* ── Bottom bar ── */}
       <section
         className={`panel bottom ${bottomPanelOpen ? '' : 'hidden'}`}
+        data-compact-status={compactEngineStatus || undefined}
         aria-hidden={backgroundUiHidden ? true : undefined}
         inert={backgroundUiHidden ? true : undefined}
       >
@@ -8609,22 +8634,12 @@ function App() {
             />
 
             <div className="bottom-status-row">
-              <span className="bottom-engine-info" title={bottomStatusTitle}>
-                {bottomStatusPrefix} <strong className={`status ${bottomStatusClass}`}>{bottomStatusText}</strong>
-              </span>
-              {analysisExperience === 'pro' && activeGoCommand && (
-                <span className="engine-command-inline">{activeGoCommand}</span>
-              )}
-              {analysisExperience === 'pro' && engineTelemetry && (
-                <span className="engine-telemetry-inline">{engineTelemetry}</span>
-              )}
-
-              {currentLastBestMove
-                && !game.isGameOver()
-                && (!reviewPractice || reviewPractice.status === 'correct' || reviewPractice.attempts >= 2)
-                && (
-                  <p className="best-move" title={currentLastBestMove}>{isCandidateSearch ? 'Candidate' : 'Best'}: {bestMoveLabel(fen, currentLastBestMove)}</p>
-                )}
+              {compactEngineStatus ? (
+                <EngineDetails status={bottomStatusText} statusClass={bottomStatusClass}
+                  available={bottomPanelOpen && !backgroundUiHidden}>
+                  {bottomStatusContent}
+                </EngineDetails>
+              ) : bottomStatusContent}
             </div>
           </div>
         </div>

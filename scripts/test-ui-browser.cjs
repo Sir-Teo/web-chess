@@ -2919,6 +2919,129 @@ async function checkCompactToolbar(browser) {
   }
 }
 
+async function checkCompactFooter(browser) {
+  for (const width of [901, 1280]) for (const experience of ['beginner', 'pro']) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('hold-search'))
+      await page.addInitScript(experience => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: experience, autoAnalyze: false,
+        theme: experience === 'pro' ? 'dark' : 'light',
+      })), experience)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.bottom-status-row .status')?.textContent === 'analyzing')
+      if (experience === 'pro') await page.waitForFunction(() => document.querySelector('.bottom-status-row')?.textContent.includes('nps'))
+      const readings = await page.locator('.bottom-status-row').innerText()
+      await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
+      await page.waitForTimeout(350)
+      const geometry = await page.evaluate(() => ({
+        top: document.querySelector('.top').getBoundingClientRect().height,
+        bottom: document.querySelector('.bottom').getBoundingClientRect().height,
+        main: document.querySelector('.main-container').getBoundingClientRect().height,
+        overflow: document.documentElement.scrollWidth > innerWidth,
+      }))
+      assert(!geometry.overflow && geometry.bottom <= 125 && geometry.main >= 480,
+        `${width}px / ${experience} still loses its reading space: ${JSON.stringify(geometry)}`)
+      const trigger = page.getByRole('button', { name: /^Engine details:/ })
+      const popup = page.getByRole('dialog', { name: 'Engine details', exact: true })
+      await trigger.focus()
+      await page.keyboard.press('Enter')
+      await popup.waitFor()
+      assert((await popup.locator('.engine-details-readings').innerText()).replace(/\s+/g, ' ').trim() === readings.replace(/\s+/g, ' ').trim(), 'the compact footer lost a reading')
+      assert(await popup.evaluate(el => {
+        const r = el.getBoundingClientRect()
+        return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight
+          && el.scrollWidth <= el.clientWidth + 1
+          && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+      }), 'engine readings are clipped or hidden under the footer')
+      if (experience === 'pro') {
+        assert((await popup.innerText()).includes('go ') && (await popup.innerText()).includes('nps'), 'Pro command or telemetry disappeared')
+      }
+      await page.keyboard.press('Tab')
+      assert(await popup.getByRole('button', { name: 'Close', exact: true }).evaluate(el => el === document.activeElement), 'Tab did not enter engine details')
+      await page.keyboard.press('Escape')
+      await page.waitForFunction(() => !document.querySelector('.engine-details-popover')?.matches(':popover-open'))
+      assert(await trigger.evaluate(el => el === document.activeElement), 'Escape did not return to Engine details')
+      await trigger.click()
+      await popup.getByRole('button', { name: 'Close', exact: true }).click()
+      await page.waitForFunction(() => !document.querySelector('.engine-details-popover')?.matches(':popover-open'))
+      await trigger.click()
+      await page.getByRole('button', { name: 'Open settings', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.settings-body')?.contains(document.activeElement))
+      await page.waitForFunction(() => !document.querySelector('.engine-details-popover')?.matches(':popover-open'))
+      await page.keyboard.press('Escape')
+      await page.locator('.settings-body').waitFor({ state: 'hidden' })
+      await trigger.click()
+      await page.keyboard.press('Control+k')
+      await page.waitForFunction(() => !document.querySelector('.engine-details-popover')?.matches(':popover-open'))
+      await page.getByRole('combobox', { name: 'Search commands' }).waitFor()
+      await page.keyboard.press('Escape')
+      await trigger.click()
+      await page.getByRole('button', { name: 'Collapse bottom bar', exact: true }).focus()
+      await page.keyboard.press('Enter')
+      await page.waitForFunction(() => !document.querySelector('.engine-details-popover')?.matches(':popover-open'))
+      await page.getByRole('button', { name: 'Expand bottom bar', exact: true }).click()
+      await page.getByRole('button', { name: 'Stop analysis', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.bottom .best-move'))
+      await trigger.click()
+      assert((await popup.locator('.best-move').innerText()).includes('e4'), 'the completed best move was lost')
+      await popup.screenshot({ path: `/tmp/web-chess-compact-footer-${width}-${experience}.png` })
+      await popup.getByRole('button', { name: 'Close', exact: true }).focus()
+      await page.evaluate(() => { document.documentElement.style.fontSize = '16px' })
+      await page.waitForTimeout(350)
+      assert(await trigger.count() === 0 && await page.locator('#chessboard-stage').evaluate(el => el === document.activeElement), 'leaving compact layout stranded focus')
+      assert((await page.locator('.bottom-status-row').innerText()).includes('e4'), 'restoring normal text lost footer readings')
+
+      // The longest transport mode keeps every speed and playback button
+      // reachable through native focus scrolling, even at enlarged text.
+      await page.getByRole('button', { name: 'AI vs AI', exact: true }).click()
+      await page.getByRole('button', { name: 'Set AI speed to Step', exact: true }).click()
+      await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
+      await page.waitForTimeout(350)
+      for (const control of await page.locator('.watch-controls button:not([disabled])').all()) {
+        await control.focus()
+        const visible = await control.evaluate(el => {
+          const r = el.getBoundingClientRect(), bar = document.querySelector('.watch-controls').getBoundingClientRect()
+          return { left: r.left, right: r.right, height: r.height, barLeft: bar.left, barRight: bar.right,
+            hit: el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)) }
+        })
+        assert(visible.left >= visible.barLeft - 1 && visible.right <= visible.barRight + 1 && visible.height >= 44 && visible.hit,
+          `unreachable enlarged transport control ${await control.getAttribute('aria-label')}: ${JSON.stringify(visible)}`)
+      }
+      await page.getByRole('button', { name: 'Set AI speed to Slow', exact: true }).click()
+      assert(await page.getByRole('button', { name: 'Set AI speed to Slow', exact: true }).getAttribute('aria-pressed') === 'true', 'AI speed stopped working')
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'AI controls overflow the document')
+      assert(errors.length === 0, `compact footer errors: ${errors.join('; ')}`)
+      console.log(`  compact footer (${width}px, ${experience}): ${Math.round(geometry.main)}px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls`)
+    } finally { await context.close() }
+  }
+  const fallback = await browser.newContext({ viewport: { width: 901, height: 812 } })
+  try {
+    const page = await fallback.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => {
+      Object.defineProperty(HTMLElement.prototype, 'showPopover', { value: undefined, configurable: true })
+      localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false }))
+    })
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+    await page.waitForFunction(() => document.querySelector('.bottom .engine-telemetry-inline')?.textContent.includes('nps'))
+    await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
+    await page.waitForTimeout(350)
+    assert(await page.locator('.engine-details-trigger').count() === 0, 'unsupported popovers replaced the readable footer')
+    assert(await page.locator('.bottom .engine-telemetry-inline').isVisible(), 'fallback telemetry is missing')
+    assert(errors.length === 0, `popover fallback errors: ${errors.join('; ')}`)
+    console.log('  compact footer: a browser without the Popover API retains its inline engine readings')
+  } finally { await fallback.close() }
+
+}
+
 /** The full board must fit beside both panels immediately above the stack breakpoint. */
 async function checkNarrowDesktopLayout(browser) {
   for (const width of [901, 950, 1024]) for (const experience of ['beginner', 'pro']) {
@@ -5847,7 +5970,9 @@ async function checkCommandPaletteLayout(browser) {
 
 async function main() {
 
-  const { chromium } = require('playwright')
+  const browserName = process.env.UI_TEST_BROWSER || 'chromium'
+  if (!['chromium', 'firefox', 'webkit'].includes(browserName)) fail(`Unknown UI_TEST_BROWSER: ${browserName}`)
+  const browserType = require('playwright')[browserName]
 
   // `preview` serves whatever is in dist/, so this always builds first.
   //
@@ -5878,7 +6003,7 @@ async function main() {
   let browser
   try {
     await waitForHttp(BASE, 30000)
-    browser = await chromium.launch()
+    browser = await browserType.launch()
     const focusedChecks = {
       startup: checkEngineStartupTimeout,
       autosave: checkAutosaveFailure,
@@ -5905,6 +6030,7 @@ async function main() {
       'observed-layout': checkObservedLayout,
       'narrow-desktop': checkNarrowDesktopLayout,
       'compact-toolbar': checkCompactToolbar,
+      'compact-footer': checkCompactFooter,
       'reading-space': checkReadingSpace,
       'opening-layout': checkOpeningLayout,
       'graph-guide': checkGraphEstimateGuide,
@@ -6585,6 +6711,7 @@ async function main() {
     await checkObservedLayout(browser)
     await checkNarrowDesktopLayout(browser)
     await checkCompactToolbar(browser)
+    await checkCompactFooter(browser)
     await checkReadingSpace(browser)
     await checkOpeningLayout(browser)
     await checkBoardCanvas(browser)
