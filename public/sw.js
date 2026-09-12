@@ -239,6 +239,11 @@ async function respond(event) {
   }
   if (winner === NETWORK_FAILED) return cached;
 
+  // fetch resolves normally for a 5xx response. A temporary host failure must
+  // not replace a working cached app with its error page. Cache misses still
+  // return the server's error above, and 4xx responses remain authoritative.
+  if (winner.status >= 500) return withIsolationHeaders(cached);
+
   // The network answered in time, so whatever it was is over.
   lastNetworkTimeoutAt = 0;
   return winner;

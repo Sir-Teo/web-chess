@@ -4003,6 +4003,7 @@ async function checkCrossOriginIsolationIsRestored(browser) {
   const dist = path.join(ROOT, 'dist')
   const requestsByPath = new Map()
   let removedAsset = null
+  let serverFailureStatus = 0
   const types = {
     '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
     '.json': 'application/json', '.wasm': 'application/wasm', '.svg': 'image/svg+xml',
@@ -4011,6 +4012,10 @@ async function checkCrossOriginIsolationIsRestored(browser) {
   const server = http.createServer((request, response) => {
     const url = new URL(request.url, `http://127.0.0.1:${BARE_PORT}`)
     requestsByPath.set(url.pathname, (requestsByPath.get(url.pathname) || 0) + 1)
+    if (serverFailureStatus) {
+      response.writeHead(serverFailureStatus, { 'Cache-Control': 'no-store' }).end('server unavailable')
+      return
+    }
     if (url.pathname === removedAsset) {
       response.writeHead(404).end('removed by deployment')
       return
@@ -4152,6 +4157,22 @@ async function checkCrossOriginIsolationIsRestored(browser) {
     assert(ranged.cachedStatus === null || ranged.cachedStatus === 200,
       `a partial response reached the cache with status ${ranged.cachedStatus}`)
     console.log(`  range request: served ${ranged.status}, cache holds ${ranged.cachedStatus ?? 'nothing'}`)
+
+    // A server outage is an HTTP response, not a rejected fetch. Cached users
+    // should still reach the board; uncached resources must retain the error.
+    serverFailureStatus = 503
+    try {
+      const recovered = await page.reload({ waitUntil: 'domcontentloaded' })
+      assert(recovered.status() === 200, `a server outage replaced the cached app with HTTP ${recovered.status()}`)
+      await page.locator('#chessboard-square-e2').waitFor()
+      assert(await page.evaluate(() => self.crossOriginIsolated), 'server-error fallback lost isolation')
+      const uncached = await page.evaluate(async () => (await fetch('never-cached.txt')).status)
+      assert(uncached === 503, 'an uncached resource had its server failure hidden')
+      serverFailureStatus = 403
+      const forbidden = await page.evaluate(async () => (await fetch('index.html')).status)
+      assert(forbidden === 403, 'a permission error was hidden by the cached document')
+      console.log('  server outage: cached app stays playable and isolated; cache misses and permission errors stay visible')
+    } finally { serverFailureStatus = 0 }
 
     // Offline, on the same worker. This is the half that made the merge worth
     // doing, and the half that is easy to get wrong: a response served from
