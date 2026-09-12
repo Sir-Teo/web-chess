@@ -928,7 +928,9 @@ async function checkReviewUsesSelectedEngine(browser, controls = false) {
         assert(pgn.includes('[WebChessReviewStatus "complete"]') && pgn.includes('[WebChessReviewReused "0"]'), 'export omitted review provenance')
         await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
         await page.locator('.review-scaffold > .review-report-actions').scrollIntoViewIfNeeded()
-        for (const button of await page.locator('.review-report-actions button').all()) {
+        // Backup controls inside a closed Saved reviews disclosure are tested
+        // separately with that section open; only rendered actions have a size.
+        for (const button of await page.locator('.review-report-actions button:visible').all()) {
           const size = await button.evaluate(el => ({ height: el.getBoundingClientRect().height, width: el.clientWidth, content: el.scrollWidth }))
           assert(size.height >= 44 && size.content <= size.width + 1, `review action clips at 200% text: ${JSON.stringify(size)}`)
         }
