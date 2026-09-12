@@ -1,0 +1,143 @@
+{
+  "base": "http://127.0.0.1:4324/web-chess/",
+  "results": [
+    {
+      "browser": "chromium",
+      "width": 1280,
+      "status": "passed",
+      "source": "Position score: Stockfish 18 Lite WASM Multithreaded · Lite Multi (Local) · build 18.0.7.",
+      "positionScore": "+0.31",
+      "isolated": true,
+      "checks": [
+        "real UCI search",
+        "restricted score isolation",
+        "producer identity",
+        "responsive layout",
+        "modal editing",
+        "e2-e4",
+        "game review",
+        "fresh depth-6 review",
+        "shallow review PGN download",
+        "deepen review",
+        "save and reopen review",
+        "same-report comparison",
+        "keyboard chart explanation"
+      ]
+    },
+    {
+      "browser": "chromium",
+      "width": 375,
+      "status": "passed",
+      "source": "Position score: Stockfish 18 Lite WASM · Lite Single (Local) · build 18.0.7.",
+      "positionScore": "+0.38",
+      "isolated": true,
+      "checks": [
+        "real UCI search",
+        "restricted score isolation",
+        "producer identity",
+        "responsive layout",
+        "modal editing",
+        "e2-e4",
+        "game review",
+        "fresh depth-6 review",
+        "shallow review PGN download",
+        "deepen review",
+        "save and reopen review",
+        "same-report comparison",
+        "keyboard chart explanation"
+      ]
+    },
+    {
+      "browser": "firefox",
+      "width": 1280,
+      "status": "passed",
+      "source": "Position score: Stockfish 18 Lite WASM Multithreaded · Lite Multi (Local) · build 18.0.7.",
+      "positionScore": "+0.38",
+      "isolated": true,
+      "checks": [
+        "real UCI search",
+        "restricted score isolation",
+        "producer identity",
+        "responsive layout",
+        "modal editing",
+        "e2-e4",
+        "game review",
+        "fresh depth-6 review",
+        "shallow review PGN download",
+        "deepen review",
+        "save and reopen review",
+        "same-report comparison",
+        "keyboard chart explanation"
+      ]
+    },
+    {
+      "browser": "firefox",
+      "width": 375,
+      "status": "passed",
+      "source": "Position score: Stockfish 18 Lite WASM · Lite Single (Local) · build 18.0.7.",
+      "positionScore": "+0.38",
+      "isolated": true,
+      "checks": [
+        "real UCI search",
+        "restricted score isolation",
+        "producer identity",
+        "responsive layout",
+        "modal editing",
+        "e2-e4",
+        "game review",
+        "fresh depth-6 review",
+        "shallow review PGN download",
+        "deepen review",
+        "save and reopen review",
+        "same-report comparison",
+        "keyboard chart explanation"
+      ]
+    },
+    {
+      "browser": "webkit",
+      "width": 1280,
+      "status": "passed",
+      "source": "Position score: Stockfish 18 Lite WASM Multithreaded · Lite Multi (Local) · build 18.0.7.",
+      "positionScore": "+0.38",
+      "isolated": true,
+      "checks": [
+        "real UCI search",
+        "restricted score isolation",
+        "producer identity",
+        "responsive layout",
+        "modal editing",
+        "e2-e4",
+        "game review",
+        "fresh depth-6 review",
+        "shallow review PGN download",
+        "deepen review",
+        "save and reopen review",
+        "same-report comparison",
+        "keyboard chart explanation"
+      ]
+    },
+    {
+      "browser": "webkit",
+      "width": 375,
+      "status": "passed",
+      "source": "Position score: Stockfish 18 Lite WASM · Lite Single (Local) · build 18.0.7.",
+      "positionScore": "+0.38",
+      "isolated": true,
+      "checks": [
+        "real UCI search",
+        "restricted score isolation",
+        "producer identity",
+        "responsive layout",
+        "modal editing",
+        "e2-e4",
+        "game review",
+        "fresh depth-6 review",
+        "shallow review PGN download",
+        "deepen review",
+        "save and reopen review",
+        "same-report comparison",
+        "keyboard chart explanation"
+      ]
+    }
+  ]
+}

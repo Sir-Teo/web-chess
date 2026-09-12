@@ -1,0 +1,214 @@
+[
+  {
+    "width": 1280,
+    "scale": 1,
+    "main": {
+      "x": 0,
+      "y": 70.78125,
+      "width": 1280,
+      "height": 687.25,
+      "bottom": 758.03125
+    },
+    "board": {
+      "x": 384,
+      "y": 182.34375,
+      "width": 546,
+      "height": 546,
+      "bottom": 728.34375
+    },
+    "header": {
+      "x": 961,
+      "y": 70.78125,
+      "width": 319,
+      "height": 104.953125,
+      "bottom": 175.734375
+    },
+    "content": {
+      "x": 961,
+      "y": 175.734375,
+      "width": 319,
+      "height": 582.296875,
+      "bottom": 758.03125
+    },
+    "inner": {
+      "x": 960,
+      "y": 70.78125,
+      "width": 320,
+      "height": 687.25,
+      "bottom": 758.03125
+    },
+    "clippedBoard": 0,
+    "rem": "16px",
+    "scroll": [
+      {
+        "selector": ".right .panel-inner",
+        "overflow": "hidden",
+        "height": 687
+      },
+      {
+        "selector": ".right .panel-content",
+        "overflow": "auto",
+        "height": 582
+      }
+    ]
+  },
+  {
+    "width": 1280,
+    "scale": 2,
+    "main": {
+      "x": 0,
+      "y": 238.203125,
+      "width": 1280,
+      "height": 471.828125,
+      "bottom": 710.03125
+    },
+    "board": {
+      "x": 492,
+      "y": 372.015625,
+      "width": 364,
+      "height": 364,
+      "bottom": 736.015625
+    },
+    "header": {
+      "x": 961,
+      "y": 238.203125,
+      "width": 319,
+      "height": 326.9375,
+      "bottom": 565.140625
+    },
+    "content": {
+      "x": 961,
+      "y": 565.140625,
+      "width": 319,
+      "height": 144.890625,
+      "bottom": 710.03125
+    },
+    "inner": {
+      "x": 960,
+      "y": 238.203125,
+      "width": 320,
+      "height": 471.828125,
+      "bottom": 710.03125
+    },
+    "clippedBoard": 25.984375,
+    "rem": "32px",
+    "scroll": [
+      {
+        "selector": ".right .panel-inner",
+        "overflow": "hidden",
+        "height": 472
+      },
+      {
+        "selector": ".right .panel-content",
+        "overflow": "auto",
+        "height": 145
+      }
+    ]
+  },
+  {
+    "width": 375,
+    "scale": 1,
+    "main": {
+      "x": 0,
+      "y": 129.734375,
+      "width": 375,
+      "height": 612.453125,
+      "bottom": 742.1875
+    },
+    "board": {
+      "x": 47,
+      "y": 175.3125,
+      "width": 315,
+      "height": 315,
+      "bottom": 490.3125
+    },
+    "header": {
+      "x": 9,
+      "y": 501.90625,
+      "width": 357,
+      "height": 84.984375,
+      "bottom": 586.890625
+    },
+    "content": {
+      "x": 9,
+      "y": 586.890625,
+      "width": 357,
+      "height": 1769.875,
+      "bottom": 2356.765625
+    },
+    "inner": {
+      "x": 8,
+      "y": 500.90625,
+      "width": 359,
+      "height": 1856.859375,
+      "bottom": 2357.765625
+    },
+    "clippedBoard": 0,
+    "rem": "16px",
+    "scroll": [
+      {
+        "selector": ".right .panel-inner",
+        "overflow": "visible",
+        "height": 1855
+      },
+      {
+        "selector": ".right .panel-content",
+        "overflow": "visible",
+        "height": 1770
+      }
+    ]
+  },
+  {
+    "width": 375,
+    "scale": 2,
+    "main": {
+      "x": 0,
+      "y": 284.390625,
+      "width": 375,
+      "height": 332.84375,
+      "bottom": 617.234375
+    },
+    "board": {
+      "x": 93,
+      "y": 373.359375,
+      "width": 267,
+      "height": 267,
+      "bottom": 640.359375
+    },
+    "header": {
+      "x": 17,
+      "y": 661.546875,
+      "width": 341,
+      "height": 265.84375,
+      "bottom": 927.390625
+    },
+    "content": {
+      "x": 17,
+      "y": 927.390625,
+      "width": 341,
+      "height": 4064.921875,
+      "bottom": 4992.3125
+    },
+    "inner": {
+      "x": 16,
+      "y": 660.546875,
+      "width": 343,
+      "height": 4332.765625,
+      "bottom": 4993.3125
+    },
+    "clippedBoard": 23.125,
+    "rem": "32px",
+    "scroll": [
+      {
+        "selector": ".right .panel-inner",
+        "overflow": "visible",
+        "height": 4331
+      },
+      {
+        "selector": ".right .panel-content",
+        "overflow": "visible",
+        "height": 4065
+      }
+    ]
+  }
+]

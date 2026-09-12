@@ -1,0 +1,181 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 173 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                           4.10 kB │ gzip:   1.85 kB
+dist/assets/LibraryDialog-1a6sktfW.css    3.40 kB │ gzip:   0.97 kB
+dist/assets/index-DG0SKybD.css          117.70 kB │ gzip:  21.81 kB
+dist/assets/NewGameDialog-DBRiRXpU.js     4.26 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-DHFVBPZj.js     7.58 kB │ gzip:   2.81 kB
+dist/assets/PgnDialog-DLxRjpWm.js        23.90 kB │ gzip:   7.95 kB
+dist/assets/chess-BgZTH1rp.js           118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js           192.49 kB │ gzip:  60.35 kB
+dist/assets/index-D_CG45Jz.js           338.59 kB │ gzip: 108.66 kB
+dist/assets/eco-Y2BFBEFE.js             469.58 kB │ gzip:  61.18 kB
+✓ built in 691ms
+  review: 116 moves, overall 95.8, white 95.3, black 96.3, ACPL 10
+  review engines: 5 (pooled)
+  practice: Coach hides the answer and opens a playable retry position
+  contrast (dark / settings): 61 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (dark / analyze): 228 measured, 0 under the floor (212 on a gradient, measured against its worst stop)
+  contrast (dark / review): 836 measured, 0 under the floor (820 on a gradient, measured against its worst stop)
+  contrast (dark / new game): 22 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (dark / pgn export): 15 measured, 0 under the floor (1 on a gradient, measured against its worst stop)
+  contrast (dark / library): 9 measured, 0 under the floor (2 on a gradient, measured against its worst stop)
+  contrast (dark / play): 87 measured, 0 under the floor (70 on a gradient, measured against its worst stop)
+  contrast (light / settings): 61 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (light / analyze): 222 measured, 0 under the floor (206 on a gradient, measured against its worst stop)
+  contrast (light / review): 835 measured, 0 under the floor (819 on a gradient, measured against its worst stop)
+  contrast (light / new game): 22 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (light / pgn export): 15 measured, 0 under the floor (1 on a gradient, measured against its worst stop)
+  contrast (light / library): 9 measured, 0 under the floor (2 on a gradient, measured against its worst stop)
+  contrast (light / play): 87 measured, 0 under the floor (70 on a gradient, measured against its worst stop)
+  desktop: boot, engine handshake, layout, control names, board 566x566 OK
+  contrast (mobile / dark): 150 measured, 0 under the floor (131 on a gradient, measured against its worst stop)
+  contrast (mobile / dark settings): 63 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (mobile / light settings): 63 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (mobile / light): 150 measured, 0 under the floor (132 on a gradient, measured against its worst stop)
+  mobile: boot, engine handshake, layout, control names, board 325x325 OK
+  mode strip: "AI vs AI" scrolled into view on a strip that overflows
+  contrast (mobile landscape / dark): 151 measured, 0 under the floor (132 on a gradient, measured against its worst stop)
+  contrast (mobile landscape / dark settings): 63 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (mobile landscape / light settings): 63 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (mobile landscape / light): 151 measured, 0 under the floor (133 on a gradient, measured against its worst stop)
+  mobile landscape: boot, engine handshake, layout, control names, board 203x203 OK
+  command reopen (1280px): query and selection reset before the first key, across three reopen cycles
+  command keyboard (1280px): Tab activates the focused button; search editing and Enter work
+  command reopen (375px): query and selection reset before the first key, across three reopen cycles
+  command keyboard (375px): Tab activates the focused button; search editing and Enter work
+  command layout (320x568, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (375x812, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (768x1024, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (844x390, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (1280x800, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (320x568, 2x text): dialog, full label and reason fit; selection opens Settings
+  command layout (1280x800, 2x text): dialog, full label and reason fit; selection opens Settings
+  failed dialog (1280px): board stays playable after repeated failures; other dialogs still open
+  failed dialog (375px): board stays playable after repeated failures; other dialogs still open
+  contrast (Dark / analysis guide / 1280px): 152 measured, 0 under the floor (136 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 1280px): 153 measured, 0 under the floor (137 on a gradient, measured against its worst stop)
+  typed moves (1280px, Dark): SAN, UCI, invalid input, focus and navigation OK
+  contrast (Dark / analysis guide / 375px): 150 measured, 0 under the floor (132 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 375px): 151 measured, 0 under the floor (133 on a gradient, measured against its worst stop)
+  typed moves (375px, Dark): SAN, UCI, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 1280px): 152 measured, 0 under the floor (136 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 1280px): 153 measured, 0 under the floor (137 on a gradient, measured against its worst stop)
+  typed moves (1280px, Light): SAN, UCI, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 375px): 150 measured, 0 under the floor (132 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 375px): 151 measured, 0 under the floor (133 on a gradient, measured against its worst stop)
+  typed moves (375px, Light): SAN, UCI, invalid input, focus and navigation OK
+  contrast (Dark / recovery warning / 1280px): 162 measured, 0 under the floor (145 on a gradient, measured against its worst stop)
+  autosave (1280px, Dark): denied storage is visible, PGN downloads, retry recovers
+  contrast (Dark / recovery warning / 375px): 160 measured, 0 under the floor (138 on a gradient, measured against its worst stop)
+  autosave (375px, Dark): denied storage is visible, PGN downloads, retry recovers
+  contrast (Light / recovery warning / 1280px): 162 measured, 0 under the floor (145 on a gradient, measured against its worst stop)
+  autosave (1280px, Light): denied storage is visible, PGN downloads, retry recovers
+  contrast (Light / recovery warning / 375px): 160 measured, 0 under the floor (138 on a gradient, measured against its worst stop)
+  autosave (375px, Light): denied storage is visible, PGN downloads, retry recovers
+  startup (analysis, silent-first): fallback answered
+  startup (analysis, silent-all): failure is visible
+  startup (play, silent-first): fallback answered
+  startup (play, silent-all): failure is visible
+  contrast (Engine Lab shared settings / 1280px): 120 measured, 0 under the floor (103 on a gradient, measured against its worst stop)
+  Engine Lab (1280px): shared settings, next search, reload, and console updates agree
+  contrast (Engine Lab shared settings / 375px): 119 measured, 0 under the floor (100 on a gradient, measured against its worst stop)
+  Engine Lab (375px): shared settings, next search, reload, and console updates agree
+  single-thread profile: 64 MB / limit 4, 4 pool workers; resource control persists
+  single-thread profile: 32 MB / limit 4, 2 pool workers; resource control persists
+  single-thread profile: 64 MB / limit 1, 0 pool workers; resource control persists
+  Coach: cloud position score agrees with the bar; local candidate depth is labeled separately
+  bounded score: eval bar reads -2.2, not the bound
+  candidate search (1280px, known position): preserves position/export, labels candidates, and clears the restriction on the next search
+  candidate search (375px, known position): preserves position/export, labels candidates, and clears the restriction on the next search
+  candidate search (375px, unevaluated position): preserves position/export, labels candidates, and clears the restriction on the next search
+  evaluation provenance (1280px): actual worker identity, retained score after engine switch, review source, deeper replacement, and optional PGN metadata
+  evaluation provenance (375px): actual worker identity, retained score after engine switch, review source, deeper replacement, and optional PGN metadata
+  PV reuse (1280px): focus previews and restores the board; repeated search keeps the line clickable; export contains both committed plies
+  PV reuse (375px): focus previews and restores the board; repeated search keeps the line clickable; export contains both committed plies
+  review controls (1280px): fresh search, exact report PGN download, and 200% text fit
+  review engine (1280px, limit 4): switched engine searches the full game, report excludes deeper old scores, completed readings are reusable
+  review controls (375px): fresh search, exact report PGN download, and 200% text fit
+  review engine (375px, limit 1): switched engine searches the full game, report excludes deeper old scores, completed readings are reusable
+  review controls (1280px): fresh search, exact report PGN download, and 200% text fit
+  review engine (1280px, limit 4, mid-search pool failure): switched engine searches the full game, report excludes deeper old scores, completed readings are reusable
+  saved reviews (1280px, dark): two producers survive reload; comparison keeps own scores/WDL and navigates; open another line, export, delete and 200% text fit
+  saved reviews (375px, light): two producers survive reload; comparison keeps own scores/WDL and navigates; open another line, export, delete and 200% text fit
+  saved review storage: quota failure is explicit and retryable; corrupt readings preserve the board; two tabs fill one free slot without eviction
+  saved ending (checkmate, 375px): completed report saves, reopens and exports with 1 engine readings
+  saved ending (insufficient material, 375px): completed report saves, reopens and exports with 0 engine readings
+  review depth (1280px, max 4 workers): D6 completes and reuses, preserves 117 saved/exported scores without accuracy grades; Deepen review runs D10 and grades every move
+  review depth (375px, max 1 workers): D6 completes and reuses, preserves 117 saved/exported scores without accuracy grades; Deepen review runs D10 and grades every move
+  takeback: the game follows the move played, not the one undone
+  takeback: the clock follows the turn back
+  keep searching: off asks for "go depth 16", on asks for "go infinite"
+  autoplay: walked to the end of the line and stopped
+  typed move: nf3 and e7e5 landed, a repeated Nf3 was refused and kept
+  move times: ten timed moves drawn, longest think 47s
+  review offer: one press from Analyze reviewed all ten moves
+  resignation: take back is off, with the reason; Play again starts afresh
+  quick start: a Master, Black, 3+2 game from one press
+  nudge: a blunder is pointed out where it happens, and the take-back clears it
+  review report: holds still after 4 positions were re-searched and disagreed
+  drill: two wrong moves and a right one leave the line byte for byte
+  draw mode: ends at the move into Play, and can still be turned on there
+  reach (320x568): all 64 squares answer a press, at 27px a square
+  reach (360x640): all 64 squares answer a press, at 36px a square
+  reach (375x812): all 64 squares answer a press, at 44px a square
+  tap: a finger drifting 3px still selects (2 targets lit), and a drag still drags
+  thumb: the board pans, a piece keeps the drag, and both the drag and the second tap still play
+  targets: 233 controls across 8 surfaces all clear 44px (17 cleared by their label, 2 inline links exempt under 2.5.8)
+  graph readings: winrate (42.1, 50.6, 45, 73.7%) and WDL White (40, 20, 40, 20%) follow the board and agree with their selected positions
+  graph gaps: an unscored new branch keeps the plots without borrowing the root’s readings
+  observed layout: late graphs, keyboard panel resize, collapse/reopen, phone rotation and e2-e4 remain correct
+  reading space (1280px): 100% → 200% → 100% text without window resize preserves all ranks, visible keyboard focus and opening navigation; enlarged desktop header scrolls away
+  reading space (375px): 100% → 200% → 100% text without window resize preserves all ranks, visible keyboard focus and opening navigation; enlarged desktop header scrolls away
+  board canvas (1280px): changed arrow colors/moves, orientation, e2-e4, navigation and a new d2-d4 branch stay current
+  board canvas (375px): changed arrow colors/moves, orientation, e2-e4, navigation and a new d2-d4 branch stay current
+  graph guide (1280px, pro, dark, 1× text): available in Review, keyboard disclosure, readable layout and 44px references
+  graph guide (1280px, beginner, light, 2× text): available in Review, keyboard disclosure, readable layout and 44px references
+  graph guide (375px, pro, light, 1× text): available in Review, keyboard disclosure, readable layout and 44px references
+  graph guide (375px, beginner, dark, 2× text): available in Review, keyboard disclosure, readable layout and 44px references
+  review: the row reads "8 costly moves" for 6 inaccuracies, 2 mistakes and 0 blunders
+  database: 560 games, 500 kept, the other 60 never parsed (682ms, and the button said "Adding…" first)
+  import box: 12 KB shown, 667 KB described ("2,200 games · 667 KB · too much to show here."), Clear gives the box back
+  drop: a .pgn on the board opens the import dialog holding it (339 characters), app still there
+  back: closes the sheet and keeps the board; one more Back still leaves
+  promotion: every choice clears 44px at five sizes, and is painted where it is pressed
+  notice: the longest message fits 320px and is drawn in front of the bar it lands on
+  layers: nothing the app draws is buried, across five states and three sizes
+  focus: every control shows it, and the board ring clears 3:1 on all five schemes
+  names: 860 controls over nine surfaces, every one named and every name keeping its own printed word
+  big text: nothing loses a word at 200%, on the desktop layout or a phone, board or dialog
+  archive: an unusable username says so once the field is left, and stops when it is fixed
+  backup: 8 games out and back byte for byte, twice over without doubling
+  export: a game comes back byte for byte, and its report with it (116/116, 117 points)
+  recovery: three moves survive a reload, and a discarded game stays discarded
+  library: a game with side lines saved and loaded back byte for byte (291 characters)
+  share: both links arrive on the position they were copied from (140 characters)
+  settings: three changes survive a reload, and the board comes back wearing them
+  settings: a browser that will not keep them says so, and one that will stays quiet
+  high contrast: the board keeps its squares and the evaluation bar its halves
+  dialog actions: every button on screen at 320px, on all three tabs
+  visibility: a finite search is left to finish; an infinite one stops once and resumes
+  analysis cache: returning to a position reuses its completed search
+  opening table: not fetched at boot, fetched once a move needs naming
+  cache ownership: sibling apps preserved; obsolete chess caches removed
+  headerless host: service worker restored cross-origin isolation
+  warm reload: 4 cached build assets, zero network requests for them
+  deploy: a saved chunk survives removal; a new hash and the document still reach the network
+  range request: served 206, cache holds nothing
+  server outage: cached app stays playable and isolated; cache misses and permission errors stay visible
+  offline: app rendered from cache, still isolated
+Browser UI checks passed.

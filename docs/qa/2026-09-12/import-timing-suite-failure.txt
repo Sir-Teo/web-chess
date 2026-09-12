@@ -1,0 +1,42 @@
+
+> web-chess@1.0.0 verify
+> npm run typecheck && npm run lint && npm test && npm run build
+
+
+> web-chess@1.0.0 typecheck
+> tsc -b
+
+
+> web-chess@1.0.0 lint
+> eslint .
+
+
+> web-chess@1.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/teo/Developer/web-chess
+
+ ❯ src/engine/importRobustness.test.ts (16 tests | 1 failed) 245ms
+     × grows about linearly rather than quadratically 75ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/importRobustness.test.ts > a file full of braces that is not really a PGN > grows about linearly rather than quadratically
+AssertionError: expected 31.705584000000044 to be less than 24
+ ❯ src/engine/importRobustness.test.ts:82:27
+     80|     const large = medianOf(400_000)
+     81|     // Eight times the input. Linear would be ~8x; quadratic would be …
+     82|     expect(large / small).toBeLessThan(24)
+       |                           ^
+     83|   })
+     84|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 116 passed (117)
+      Tests  1 failed | 1588 passed | 1 skipped (1590)
+   Start at  12:48:36
+   Duration  13.07s (transform 7.03s, setup 0ms, import 21.36s, tests 9.58s, environment 10ms)
+

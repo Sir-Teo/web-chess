@@ -1,0 +1,9 @@
+
+ RUN  v4.1.11 /Users/teo/Developer/web-chess
+
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  12:49:09
+   Duration  255ms (transform 68ms, setup 0ms, import 88ms, tests 96ms, environment 0ms)
+

@@ -165,6 +165,10 @@ given, and the app answering the reader who touches it.
   completed report. The board, Coach and Analyze graphs continue to show live
   analysis. Winrate and WDL readouts follow the selected move. Stopped reports
   say when positions remain unevaluated.
+- **Quick reviews with a clear next step**: A completed depth-6 review keeps its
+  scores for reuse, saving and export. Readings below depth 10 do not receive
+  move grades or contribute to accuracy, including opening-book readings.
+  **Deepen review** requests depth 10 to finish grading those moves.
 - **Refresh and share a Pro review**: **Fresh review** searches every target
   again, including positions already evaluated. **Export review** downloads the
   reviewed branch with its report's scores and engine identity, plus target
