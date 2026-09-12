@@ -2,7 +2,10 @@
 
 A browser chess app for playing, importing, and reviewing games with Stockfish-powered analysis.
 
-The September 2026 audit records the latest fixes, real-engine performance
+The [continuing September 12 audit](docs/audit-2026-09-12.md) records current
+fixes, fresh Stockfish measurements, browser QA and the prioritized roadmap.
+
+The earlier September 2026 audit records fixes, real-engine performance
 measurements, browser QA, and prioritized beginner/pro study roadmap. It ran to
 five passes: [the first](docs/audit-2026-09.md), a
 [second](docs/audit-2026-09-pass-2.md), a [third](docs/audit-2026-09-pass-3.md),

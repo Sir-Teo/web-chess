@@ -1,0 +1,35 @@
+[
+  {
+    "name": "desktop",
+    "width": 1440,
+    "height": 900,
+    "errors": [],
+    "boardSquares": 64,
+    "horizontalOverflow": false,
+    "isolated": true,
+    "engine": "id name Stockfish 18 Lite WASM Multithreaded",
+    "completedSearches": 1
+  },
+  {
+    "name": "mobile",
+    "width": 375,
+    "height": 812,
+    "errors": [],
+    "boardSquares": 64,
+    "horizontalOverflow": false,
+    "isolated": true,
+    "engine": "id name Stockfish 18 Lite WASM",
+    "completedSearches": 2
+  },
+  {
+    "name": "landscape",
+    "width": 844,
+    "height": 390,
+    "errors": [],
+    "boardSquares": 64,
+    "horizontalOverflow": false,
+    "isolated": true,
+    "engine": "id name Stockfish 18 Lite WASM",
+    "completedSearches": 2
+  }
+]

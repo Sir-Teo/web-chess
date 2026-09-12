@@ -1,0 +1,36 @@
+{
+  "cores": 18,
+  "depth": 18,
+  "totalHashMb": 64,
+  "targets": 33,
+  "results": [
+    {
+      "workers": 1,
+      "ms": 16707,
+      "nodes": 28385507,
+      "completed": 33,
+      "scored": 33
+    },
+    {
+      "workers": 4,
+      "ms": 8226,
+      "nodes": 23194688,
+      "completed": 33,
+      "scored": 33
+    },
+    {
+      "workers": 4,
+      "ms": 8107,
+      "nodes": 23194688,
+      "completed": 33,
+      "scored": 33
+    },
+    {
+      "workers": 1,
+      "ms": 16248,
+      "nodes": 28385507,
+      "completed": 33,
+      "scored": 33
+    }
+  ]
+}
