@@ -2656,19 +2656,28 @@ button.opening-move-row {
   gap: 0.35rem;
 }
 
+.engine-lab-card .command-summary {
+  overflow-wrap: anywhere;
+}
+
 .engine-lab-console {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
   margin-bottom: 0.5rem;
 }
 
 .engine-lab-console input {
-  grid-column: 1 / -1;
+  flex: 1 0 100%;
   min-width: 0;
   width: 100%;
   font-family: var(--font-mono);
   font-size: 0.72rem;
+}
+
+.engine-lab-console button {
+  flex: 1 1 calc(50% - 0.175rem);
+  min-width: min-content;
 }
 
 .diagnostics-actions {
@@ -2717,6 +2726,9 @@ button.opening-move-row {
 }
 
 .lab-history-list button {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 0.64rem;
   padding: 0.2rem 0.4rem;
   border-radius: var(--radius-pill);
@@ -5850,7 +5862,8 @@ button.mtree-chip-compact {
   /* The Play controls also live in an engine-lab-card. Its touch-target floor
      must not replace the label's content floor when enlarged text needs the
      actions to wrap onto separate rows. */
-  .app-shell .panel.right .engine-lab-card .inline-actions button {
+  .app-shell .panel.right .engine-lab-card .inline-actions button,
+  .app-shell .panel.right .engine-lab-card .engine-lab-console button {
     min-width: min-content;
   }
 

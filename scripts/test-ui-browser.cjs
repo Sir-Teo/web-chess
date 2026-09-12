@@ -3080,6 +3080,63 @@ async function checkReadingSpace(browser) {
   }
 }
 
+async function checkConsoleLayout(browser) {
+  for (const width of [1280, 375, 320]) for (const scale of [1, 2]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+        engineProfile: 'lite-single-local', expertModeEnabled: true,
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      if (scale === 2) {
+        await openSettings(page)
+        await chooseTheme(page, 'Light')
+        await closeSettings(page)
+      }
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 16}px` }, scale)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      const position = 'position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+      await command.fill(position)
+      await command.press('Enter')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      const summary = page.locator('.command-summary').filter({ hasText: 'Last run:' })
+      const history = page.locator('.lab-history-list button').filter({ hasText: position })
+      for (const target of [summary, history]) {
+        await target.scrollIntoViewIfNeeded()
+        const measurement = await target.evaluate(el => {
+          const r = el.getBoundingClientRect(), range = document.createRange()
+          range.selectNodeContents(el.querySelector('strong') || el)
+          const fragments = [...range.getClientRects()]
+          return { fragments: fragments.length, fits: fragments.every(q => q.left >= r.left - 1 && q.right <= r.right + 1),
+            contentFits: el.scrollWidth <= el.clientWidth + 1 }
+        })
+        assert(measurement.fragments > 0 && measurement.fits && measurement.contentFits,
+          `long console command clipped at ${width}px, ${scale}x: ${JSON.stringify(measurement)}`)
+      }
+      await history.click()
+      assert(await command.inputValue() === position, 'wrapped history did not restore the complete command')
+      await command.focus()
+      const actions = await page.locator('.engine-lab-console button').evaluateAll(buttons => buttons.map(button => {
+        const r = button.getBoundingClientRect()
+        return { x: r.x, y: r.y, width: r.width, height: r.height, clipped: button.scrollWidth > button.clientWidth + 1 }
+      }))
+      assert(actions.length === 4 && actions.every(r => r.height >= (width <= 900 ? 44 : 32) && !r.clipped),
+        `console actions do not fit their desktop/phone size: ${JSON.stringify(actions)}`)
+      const rows = [...new Set(actions.map(r => Math.round(r.y)))]
+      assert([2, 4].includes(rows.length) && rows.every(y => actions.filter(r => Math.round(r.y) === y).length === 4 / rows.length)
+        && actions.every(r => Math.abs(r.width - actions[0].width) < 1), 'console actions do not form balanced rows')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'console command widens the page')
+      await summary.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: `/tmp/web-chess-console-layout-${width}-${scale}x.png` })
+      console.log(`  console layout (${width}px, ${scale}x): full FEN summary and history, complete recalled command, ${rows.length} balanced action rows and ${width <= 900 ? 44 : 32}px minimum targets`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkConsoleVisibility(browser) {
   for (const [width, scale] of [[1280, 1], [1280, 2], [375, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -6792,6 +6849,7 @@ async function main() {
       'console-search': checkConsoleSearchOwnership,
       'console-tools': checkConsoleTools,
       'console-visibility': checkConsoleVisibility,
+      'console-layout': checkConsoleLayout,
       continuous: checkKeepSearchingIsUnbounded,
       'palette-keyboard': checkCommandPaletteKeyboard,
       'palette-layout': checkCommandPaletteLayout,
@@ -7471,6 +7529,7 @@ async function main() {
     await checkConsoleSearchOwnership(browser)
     await checkConsoleTools(browser)
     await checkConsoleVisibility(browser)
+    await checkConsoleLayout(browser)
     await checkSingleThreadReviewPool(browser)
     await checkCoachUsesPositionScore(browser)
     await checkBoundedScoreIsIgnored(browser)
