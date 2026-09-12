@@ -1,0 +1,17 @@
+{
+  "sourceCommit": "abd2a0f7597615aba7251da6fc71ded35abf35d7",
+  "engine": "held UCI fixture",
+  "clock": "Playwright virtual time",
+  "after90Seconds": {
+    "commands": [
+      "uci",
+      "isready",
+      "position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "go movetime 120000",
+      "stop"
+    ],
+    "status": "analyzing",
+    "error": "Timed out waiting for response to \"go movetime 120000\". Sent \"stop\" to cancel the search.",
+    "lastRun": "Last run: go movetime 120000 (90195 ms)"
+  }
+}

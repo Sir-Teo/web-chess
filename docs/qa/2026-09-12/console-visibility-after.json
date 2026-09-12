@@ -1,0 +1,73 @@
+{
+  "sourceCommit": "abd2a0f7597615aba7251da6fc71ded35abf35d7",
+  "label": "committed",
+  "visibility": "scripted visibilitychange, actual Stockfish worker",
+  "samples": [
+    {
+      "stage": "visible search",
+      "cpuSeconds": 16.092627,
+      "elapsed": 2.0022474999999997,
+      "averageRendererCores": 8.037281604796611,
+      "status": "analyzing",
+      "commands": [
+        "uci",
+        "isready",
+        "setoption name Threads value 8",
+        "go infinite"
+      ],
+      "replies": 26,
+      "visibility": "visible"
+    },
+    {
+      "stage": "hidden search",
+      "cpuSeconds": 0.014656999999999698,
+      "elapsed": 2.003605959,
+      "averageRendererCores": 0.0073153106448710144,
+      "status": "paused",
+      "commands": [
+        "uci",
+        "isready",
+        "setoption name Threads value 8",
+        "go infinite",
+        "stop"
+      ],
+      "replies": 28,
+      "visibility": "hidden"
+    },
+    {
+      "stage": "returned to visible",
+      "cpuSeconds": 16.172849999999997,
+      "elapsed": 2.0027647079999995,
+      "averageRendererCores": 8.075262129094797,
+      "status": "analyzing",
+      "commands": [
+        "uci",
+        "isready",
+        "setoption name Threads value 8",
+        "go infinite",
+        "stop",
+        "go infinite"
+      ],
+      "replies": 56,
+      "visibility": "visible"
+    },
+    {
+      "stage": "explicitly stopped",
+      "cpuSeconds": 0.00874499999999756,
+      "elapsed": 2.003561667,
+      "averageRendererCores": 0.004364727147675839,
+      "status": "ready",
+      "commands": [
+        "uci",
+        "isready",
+        "setoption name Threads value 8",
+        "go infinite",
+        "stop",
+        "go infinite",
+        "stop"
+      ],
+      "replies": 58,
+      "visibility": "visible"
+    }
+  ]
+}

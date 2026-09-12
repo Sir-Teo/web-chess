@@ -1,0 +1,23 @@
+{
+  "width": 248.15625,
+  "scrollWidth": 646,
+  "clientWidth": 248,
+  "fragments": [
+    {
+      "width": 180.328125,
+      "left": 0,
+      "right": -67.828125
+    },
+    {
+      "width": 646.171875,
+      "left": 0,
+      "right": 398.015625
+    },
+    {
+      "width": 180.328125,
+      "left": 0,
+      "right": -67.828125
+    }
+  ],
+  "text": "Last run: position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 (1 ms)"
+}
