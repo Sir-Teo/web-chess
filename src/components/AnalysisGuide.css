@@ -22,3 +22,19 @@
 .analysis-guide p {
   margin: 0.65rem 0 0;
 }
+
+.graph-guide-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.graph-guide-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--accent-ink);
+  text-underline-offset: 0.15em;
+  overflow-wrap: anywhere;
+}

@@ -46,6 +46,9 @@ async function main() {
           await page.goto(base, { waitUntil: 'domcontentloaded' })
           await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
           await page.waitForFunction(() => window.__smokeBestmoves >= 1)
+          // The Worker event precedes React's committed position snapshot.
+          // Capture the completed depth, not a still-painted shallower score.
+          await page.locator('.coach-grid > div').filter({ hasText: 'Position depth' }).getByText('D12', { exact: true }).waitFor()
           const position = page.locator('.coach-grid > div').first().locator('strong')
           const before = await position.innerText()
           assert.match(before, /^[+-]?\d/)
@@ -90,9 +93,19 @@ async function main() {
           assert.equal([...pgn.matchAll(/\[%eval /g)].length, 2)
           assert.ok(pgn.includes('[WebChessReviewStatus "complete"]'))
           assert.ok(pgn.includes('[WebChessReviewDepth "12"]'))
+          stage = 'graph explanation'
+          const guide = page.locator('.graph-estimate-guide')
+          await guide.locator('summary').focus()
+          await page.keyboard.press('Enter')
+          assert.notEqual(await guide.getAttribute('open'), null)
+          assert.match(await guide.innerText(), /human games/)
+          assert.match(await guide.innerText(), /strong engines/)
+          assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
+          await page.keyboard.press('Enter')
+          assert.equal(await guide.getAttribute('open'), null)
           assert.deepEqual(errors, [])
           results.push({ browser: name, width, status: 'passed', source, positionScore: before,
-            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'game review', 'fresh review', 'review PGN download'] })
+            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'game review', 'fresh review', 'review PGN download', 'keyboard chart explanation'] })
         } catch (error) {
           results.push({ browser: name, width, status: 'failed', stage, error: String(error), pageErrors: errors })
           await page.screenshot({ path: path.join(output, `${name}-${width}-failure.png`) }).catch(() => {})

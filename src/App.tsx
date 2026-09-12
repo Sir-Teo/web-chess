@@ -82,7 +82,7 @@ import {
 } from './engine/autoSave'
 import { AutoSaveRecoveryDialog } from './components/AutoSaveRecoveryDialog'
 import { AutoSaveStatus } from './components/AutoSaveStatus'
-import { AnalysisGuide } from './components/AnalysisGuide'
+import { AnalysisGuide, GraphEstimateGuide } from './components/AnalysisGuide'
 import { type LibraryWriteResult, useGameLibrary } from './hooks/useGameLibrary'
 import { FEN_PARSE_ERROR, validateFenForAnalysis } from './engine/fen'
 import { buildImportSweepTargets, countImportSweepCandidates, type ImportSweepTarget } from './engine/importSweep'
@@ -6717,6 +6717,7 @@ function App() {
             <div className="panel-content">
               {showEvaluationGraphs && (<>
               {graphsUseReview && <p className="panel-copy small" data-testid="graph-evaluation-source">Review evaluations</p>}
+              <GraphEstimateGuide />
               <section className="analytics-card">
                 <header className="section-heading">
                   <h3><span className="section-icon"><IconTrendingUp /></span> Winrate</h3>

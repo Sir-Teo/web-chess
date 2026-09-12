@@ -2061,6 +2061,46 @@ async function checkTheWinrateCardFollowsTheBoard(browser) {
   } finally { await context.close() }
 }
 
+/** Model explanations are reachable beside charts in both experiences. */
+async function checkGraphEstimateGuide(browser) {
+  for (const [width, experience, scale, theme] of [[1280, 'pro', 1, 'dark'], [1280, 'beginner', 2, 'light'], [375, 'pro', 1, 'light'], [375, 'beginner', 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(({ experience, theme }) => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: experience, theme,
+      })), { experience, theme })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const guide = page.locator('.graph-estimate-guide')
+      const summary = guide.locator('summary')
+      await summary.waitFor()
+      assert(await guide.getAttribute('open') === null, 'chart explanation should start collapsed')
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await summary.focus()
+      await page.keyboard.press('Enter')
+      assert(await guide.getAttribute('open') !== null, 'the chart explanation did not open from the keyboard in Review')
+      const text = await guide.innerText()
+      assert(text.includes('human games') && text.includes('strong engines') && text.includes('including drawn positions'), 'the guide does not explain both estimates and the neutral point')
+      if (scale === 2) await page.addStyleTag({ content: 'html { font-size: 200% !important; }' })
+      await summary.scrollIntoViewIfNeeded()
+      const layout = await guide.evaluate(el => ({
+        overflow: document.documentElement.scrollWidth > innerWidth,
+        contentFits: el.scrollWidth <= el.clientWidth + 1,
+        summaryHeight: el.querySelector('summary').getBoundingClientRect().height,
+        links: [...el.querySelectorAll('a')].map(link => ({ href: link.href, height: link.getBoundingClientRect().height })),
+      }))
+      assert(!layout.overflow && layout.contentFits && layout.summaryHeight >= 44, `chart guide clips at ${width}px / ${scale}×: ${JSON.stringify(layout)}`)
+      assert(layout.links.length === 2 && layout.links.every(link => link.height >= 44 && link.href.startsWith('https://')), 'model references are missing or too small to tap')
+      await page.screenshot({ path: `/tmp/web-chess-graph-guide-${width}-${experience}.png` })
+      await summary.focus()
+      await page.keyboard.press('Enter')
+      assert(await guide.getAttribute('open') === null, 'chart explanation did not close from the keyboard')
+      console.log(`  graph guide (${width}px, ${experience}, ${theme}, ${scale}× text): available in Review, keyboard disclosure, readable layout and 44px references`)
+    } finally { await context.close() }
+  }
+}
+
 /** Sizing still follows a late graph mount, panel changes and phone rotation. */
 async function checkObservedLayout(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
@@ -4928,6 +4968,7 @@ async function main() {
       'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
       'graph-readings': checkTheWinrateCardFollowsTheBoard,
       'observed-layout': checkObservedLayout,
+      'graph-guide': checkGraphEstimateGuide,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
@@ -5595,6 +5636,7 @@ async function main() {
     await checkEveryControlIsFingerSized(browser)
     await checkTheWinrateCardFollowsTheBoard(browser)
     await checkObservedLayout(browser)
+    await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)
     await checkAFullLibraryStopsReadingTheFile(browser)
     await checkABigFileIsDescribedNotShown(browser)
