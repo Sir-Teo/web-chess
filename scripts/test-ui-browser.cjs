@@ -492,12 +492,13 @@ async function checkTypedMoveEntry(browser) {
       await chooseTheme(page, theme)
       await closeSettings(page)
       await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
-      await page.locator('.analysis-guide summary').click()
-      assert(await page.locator('.analysis-guide').getAttribute('open') !== null, 'analysis guide did not open')
-      assert((await page.locator('.analysis-guide').innerText()).includes('Neither predicts your personal chance'), 'analysis guide omits the meaning of percentages')
-      assert(await page.locator('.analysis-guide summary').evaluate(el => el.getBoundingClientRect().height >= 44), 'analysis guide has a small touch target')
+      const guide = page.locator('details').filter({ has: page.getByText('How to read this analysis', { exact: true }) })
+      await guide.locator('summary').click()
+      assert(await guide.getAttribute('open') !== null, 'analysis guide did not open')
+      assert((await guide.innerText()).includes('Neither predicts your personal chance'), 'analysis guide omits the meaning of percentages')
+      assert(await guide.locator('summary').evaluate(el => el.getBoundingClientRect().height >= 44), 'analysis guide has a small touch target')
       await assertContrast(page, `${theme} / analysis guide / ${width}px`, 15)
-      await page.locator('.analysis-guide summary').click()
+      await guide.locator('summary').click()
       await page.locator('.move-entry summary').click()
       const input = page.locator('.move-entry input')
       await input.fill('e4')
@@ -5027,6 +5028,7 @@ async function main() {
       'observed-layout': checkObservedLayout,
       'graph-guide': checkGraphEstimateGuide,
       'board-canvas': checkBoardCanvas,
+      'typed-moves': checkTypedMoveEntry,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
