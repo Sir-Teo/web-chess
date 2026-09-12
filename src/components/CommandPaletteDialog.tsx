@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useModalFocus } from '../hooks/useModalFocus'
 import { MAX_SEARCH_QUERY_LENGTH } from '../engine/searchTerms'
 import { type Command, rankCommands, readRecentCommandIds, rememberCommandId } from './commandPalette'
@@ -30,7 +30,10 @@ export function CommandPaletteDialog({ open, commands, onClose }: Props) {
 
     useModalFocus(open, panelRef, onClose, { initialFocus: '[data-command-input]', trapFocus: true })
 
-    useEffect(() => {
+    // Reset before the reopened dialog is painted or accepts a key. An effect
+    // after paint briefly exposes the previous query/selection and can reset
+    // a selection the reader has already moved with the keyboard.
+    useLayoutEffect(() => {
         if (!open) return
         setQuery('')
         setActiveIndex(0)

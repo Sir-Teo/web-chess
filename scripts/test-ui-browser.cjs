@@ -4822,6 +4822,18 @@ async function checkCommandPaletteKeyboard(browser) {
       await page.locator('.command-palette').waitFor({ state: 'detached' })
       assert(await opener.evaluate(el => el === document.activeElement && !el.closest('[inert]')),
         'the palette chord did not close the modal and restore an interactive opener')
+      for (let reopen = 0; reopen < 3; reopen++) {
+        await opener.click()
+        assert(await input.inputValue() === '', 'a reopened palette exposed its previous query')
+        const options = await page.locator('.command-palette [role="option"]').evaluateAll(els => els.map(el => el.id))
+        assert(options.length > 1 && await input.getAttribute('aria-activedescendant') === options[0],
+          'a reopened palette exposed its previous selection')
+        await input.press('ArrowDown')
+        assert(await input.getAttribute('aria-activedescendant') === options[1], 'the first ArrowDown after reopening was lost')
+        await input.fill('flip')
+        await page.keyboard.press('Escape')
+      }
+      console.log(`  command reopen (${width}px): query and selection reset before the first key, across three reopen cycles`)
       console.log(`  command keyboard (${width}px): Tab activates the focused button; search editing and Enter work`)
     } finally { await context.close() }
   }
