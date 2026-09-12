@@ -1,6 +1,64 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Chess } from 'chess.js'
-import { describeGameEnd, gameResultScore } from './gameEnd'
+import { describeGameEnd, describeGameEndFromPath, gameResultScore } from './gameEnd'
+
+function positions(moves: string[], rootFen?: string) {
+  const game = new Chess(rootFen)
+  const path = [{ fen: game.fen() }]
+  for (const move of moves) {
+    game.move(move)
+    path.push({ fen: game.fen() })
+  }
+  return { game, path }
+}
+
+describe('endings from an active branch', () => {
+  const repeated = ['Nf3', 'Nf6', 'Ng1', 'Ng8', 'Nf3', 'Nf6', 'Ng1', 'Ng8']
+
+  it('keeps repetition after loading the final FEN and navigating back and forward', () => {
+    const { game, path } = positions(repeated)
+    expect(new Chess(game.fen()).isThreefoldRepetition()).toBe(false)
+    const replay = vi.spyOn(Chess.prototype, 'move')
+    try {
+      expect(describeGameEndFromPath(path)?.label).toBe('Threefold repetition · Draw')
+      expect(describeGameEndFromPath(path.slice(0, -1))).toBeNull()
+      expect(describeGameEndFromPath(path)?.label).toBe('Threefold repetition · Draw')
+      expect(replay).not.toHaveBeenCalled()
+    } finally { replay.mockRestore() }
+  })
+
+  it('distinguishes histories ending at exactly the same FEN', () => {
+    const a = positions(repeated)
+    const b = positions(['Nf3', 'Nf6', 'Nc3', 'Nc6', 'Ng1', 'Ng8', 'Nb1', 'Nb8'])
+    expect(a.game.fen()).toBe(b.game.fen())
+    expect(describeGameEndFromPath(a.path)).not.toBeNull()
+    expect(describeGameEndFromPath(b.path)).toBeNull()
+  })
+
+  it('keeps castling rights when counting repeated placements', () => {
+    const { game, path } = positions(['Rh2', 'Rh7', 'Rh1', 'Rh8', 'Rh2', 'Rh7', 'Rh1', 'Rh8'],
+      'r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1')
+    expect(game.isThreefoldRepetition()).toBe(false)
+    expect(describeGameEndFromPath(path)).toBeNull()
+  })
+
+  it('keeps a legal en passant opportunity distinct from its later disappearance', () => {
+    const { game, path } = positions(['Kf1', 'Kf8', 'Ke1', 'Ke8', 'Kf1', 'Kf8', 'Ke1', 'Ke8'],
+      '4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1')
+    expect(game.isThreefoldRepetition()).toBe(false)
+    expect(describeGameEndFromPath(path)).toBeNull()
+  })
+
+  it('preserves all other endings and handles a root with no moves', () => {
+    expect(describeGameEndFromPath([])).toBeNull()
+    for (const { game, path } of [
+      positions(['f3', 'e5', 'g4', 'Qh4#']),
+      positions([], '7k/5Q2/6K1/8/8/8/8/8 b - - 0 1'),
+      positions([], '8/8/4k3/8/8/4KB2/8/8 w - - 0 1'),
+      positions([], '8/8/3k4/8/8/3KQ3/8/8 w - - 100 60'),
+    ]) expect(describeGameEndFromPath(path)).toEqual(describeGameEnd(game))
+  })
+})
 
 function played(moves: string[]): Chess {
   const game = new Chess()

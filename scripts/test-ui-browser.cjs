@@ -1413,6 +1413,49 @@ async function checkSavedReviewStorage(browser) {
   } finally { await context.close() }
 }
 
+async function checkRepetitionEndings(browser) {
+  const repeated = '1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 Nf6 4. Ng1 Ng8 1/2-1/2'
+  const different = '1. Nf3 Nf6 2. Nc3 Nc6 3. Ng1 Ng8 4. Nb1 Nb8 *'
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, engineProfile: 'lite-single-local',
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const load = async pgn => {
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await page.locator('.dialog-section textarea').first().fill(pgn)
+        await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await page.locator('.dialog-panel').waitFor({ state: 'hidden' })
+      }
+      const assertDraw = async () => {
+        await page.locator('.turn-pill').filter({ hasText: 'Threefold repetition' }).waitFor()
+        assert(await page.locator('.coach-grid > div').first().locator('strong').innerText() === '½-½', 'Coach retained an engine score for a drawn branch')
+        assert(await page.locator('.play-from-here-btn').isDisabled(), 'Play from here accepts a finished repetition')
+        assert(await page.locator('.eval-bar-label').innerText() === '½-½', 'evaluation bar disagrees with the result')
+      }
+      await load(repeated)
+      await assertDraw()
+      await page.getByRole('button', { name: 'Go to previous move', exact: true }).click()
+      assert(!(await page.locator('.play-from-here-btn').isDisabled()), 'previous unfinished position remains blocked')
+      await page.getByRole('button', { name: 'Go to next move', exact: true }).click()
+      await assertDraw()
+      await page.getByRole('button', { name: 'Play', exact: true }).click()
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'Play accepts a move after a repetition draw')
+      await page.getByRole('button', { name: 'Analysis', exact: true }).click()
+      await load(different)
+      assert(!(await page.locator('.turn-pill').innerText()).includes('Threefold'), 'same-FEN game inherited another history’s draw')
+      assert(!(await page.locator('.play-from-here-btn').isDisabled()), 'same-FEN unfinished game is blocked')
+      console.log(`  repetition (${width}px): import, navigation and Play keep the draw; a different history with the same FEN stays playable`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkSavedReviewEndings(browser) {
   const cases = [
     ['checkmate', '[SetUp "1"]\n[FEN "7k/5K2/6Q1/8/8/8/8/8 w - - 0 1"]\n\n1. Qg7# 1-0', 1],
@@ -6086,6 +6129,7 @@ async function main() {
       'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
       'saved-reviews': async browser => { await checkSavedReviews(browser); await checkSavedReviewStorage(browser); await checkSavedReviewEndings(browser) },
       'saved-endings': checkSavedReviewEndings,
+      'repetition': checkRepetitionEndings,
       'review-backup-export': checkReviewBackupExport,
       'review-backup-import': checkReviewBackupImport,
       'review-depth': checkReviewAtRequestedDepth,
@@ -6752,6 +6796,7 @@ async function main() {
     await checkSavedReviews(browser)
     await checkSavedReviewStorage(browser)
     await checkSavedReviewEndings(browser)
+    await checkRepetitionEndings(browser)
     await checkReviewBackupExport(browser)
     await checkReviewBackupImport(browser)
     await checkReviewAtRequestedDepth(browser)

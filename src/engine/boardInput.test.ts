@@ -3,6 +3,13 @@ import { describe, expect, it } from 'vitest'
 import { isBoardInputLocked, isPromotionMove } from './boardInput'
 
 describe('board input locking', () => {
+  it('stops legal moves after board draws in Play while allowing Analysis exploration', () => {
+    for (const gameMode of ['human-vs-human', 'human-vs-ai', 'ai-vs-ai'] as const) {
+      const state = { gameMode, isAiThinking: false, paused: false, turn: 'w' as const, playerColor: 'w' as const, gameOver: true }
+      expect(isBoardInputLocked({ ...state, workspaceMode: 'play' })).toBe(true)
+      expect(isBoardInputLocked({ ...state, workspaceMode: 'analysis' })).toBe(false)
+    }
+  })
   it('keeps analysis positions editable regardless of play game mode', () => {
     expect(isBoardInputLocked({
       workspaceMode: 'analysis',

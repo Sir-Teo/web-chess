@@ -1,4 +1,4 @@
-import type { Chess } from 'chess.js'
+import { Chess } from 'chess.js'
 
 /**
  * Why a game is over, in the words the board strip and the game-over card use.
@@ -44,6 +44,10 @@ export function gameResultScore(result: GameEndResult): string {
  * the more common of the two.
  */
 export function describeGameEnd(game: Chess): GameEnd | null {
+  return describeEnd(game, game.isThreefoldRepetition())
+}
+
+function describeEnd(game: Chess, repeated: boolean): GameEnd | null {
   if (game.isCheckmate()) {
     // `turn()` is the side that has been mated.
     return game.turn() === 'w'
@@ -53,7 +57,7 @@ export function describeGameEnd(game: Chess): GameEnd | null {
 
   if (game.isStalemate()) return { label: 'Stalemate · Draw', result: '1/2-1/2' }
   if (game.isInsufficientMaterial()) return { label: 'Insufficient material · Draw', result: '1/2-1/2' }
-  if (game.isThreefoldRepetition()) return { label: 'Threefold repetition · Draw', result: '1/2-1/2' }
+  if (repeated) return { label: 'Threefold repetition · Draw', result: '1/2-1/2' }
   if (game.isDrawByFiftyMoves()) return { label: 'Fifty-move rule · Draw', result: '1/2-1/2' }
 
   // A draw chess.js recognises but does not break down. Nothing reaches this
@@ -62,4 +66,22 @@ export function describeGameEnd(game: Chess): GameEnd | null {
   if (game.isDraw()) return { label: 'Draw', result: '1/2-1/2' }
 
   return null
+}
+
+/**
+ * The active branch is the history, including after a PGN import or navigation
+ * loads only its final FEN into the mutable board. Nodes contain canonical
+ * chess.js FENs: en passant is present only when a legal capture is available.
+ * The first four fields identify a repeated position; move counters do not.
+ * Count positions without replaying a long game on every arrow-key press.
+ */
+export function describeGameEndFromPath(path: readonly { fen: string }[]): GameEnd | null {
+  const last = path.at(-1)
+  if (!last) return null
+  const key = last.fen.split(' ').slice(0, 4).join(' ')
+  let occurrences = 0
+  for (const node of path) {
+    if (node.fen.split(' ').slice(0, 4).join(' ') === key) occurrences++
+  }
+  return describeEnd(new Chess(last.fen), occurrences >= 3)
 }

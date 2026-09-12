@@ -144,7 +144,7 @@ import {
   timeControlTag,
   type ClockState,
 } from './engine/chessClock'
-import { describeGameEnd, gameResultScore } from './engine/gameEnd'
+import { describeGameEndFromPath, gameResultScore } from './engine/gameEnd'
 import { describeCaptures, materialAdvantageLabel, materialBalance } from './engine/material'
 import { hasMatingMaterial } from './engine/matingMaterial'
 import {
@@ -1031,6 +1031,11 @@ function App() {
 
   // ── Playback helpers for WatchControls ───────────────
   const currentPathNodes = useMemo(() => gameTree.currentPath(), [gameTree])
+  const boardEnding = useMemo(() => describeGameEndFromPath(currentPathNodes), [currentPathNodes])
+  const isGameOver = boardEnding !== null
+  // Events and engine replies need the newly published path, before React's
+  // next render. The mutable Chess board loses history when loaded from FEN.
+  const readBoardEnding = useCallback(() => describeGameEndFromPath(gameTreeRef.current.currentPath()), [])
   const currentPathMoves = useMemo(
     () => currentPathNodes.slice(1).map(node => node.uci).filter(Boolean),
     [currentPathNodes],
@@ -1742,7 +1747,7 @@ function App() {
       gameMode,
       turn: game.turn() === 'w' ? 'white' : 'black',
       playerColor,
-      gameOver: game.isGameOver() || Boolean(endedOffBoardRef.current),
+      gameOver: Boolean(readBoardEnding()) || Boolean(endedOffBoardRef.current),
       engineReady: aiPlayerStatusRef.current === 'ready',
       busy: isHinting,
     })) return
@@ -1768,7 +1773,7 @@ function App() {
         setHintMove(uci)
       })
       .catch(() => setIsHinting(false))
-  }, [game, gameMode, isHinting, playerColor, readClockForSearch, requestAiMove, workspaceMode])
+  }, [game, gameMode, isHinting, playerColor, readBoardEnding, readClockForSearch, requestAiMove, workspaceMode])
   const requestHintRef = useRef(requestHint)
   requestHintRef.current = requestHint
 
@@ -1777,7 +1782,7 @@ function App() {
     gameMode,
     turn: game.turn() === 'w' ? 'white' : 'black',
     playerColor,
-    gameOver: game.isGameOver() || Boolean(endedOffBoard),
+    gameOver: isGameOver || Boolean(endedOffBoard),
     engineReady: aiPlayerStatus === 'ready',
     busy: isHinting,
   })
@@ -2069,12 +2074,12 @@ function App() {
    * The review rows had a fallback for exactly this; the bar and the card
    * read the map directly and did not.
    */
-  const currentEvaluation = useMemo(
-    () => evaluationsByFen.get(fen) ?? terminalSnapshotForFen(fen) ?? undefined,
-    [evaluationsByFen, fen],
+  const currentEvaluation = useMemo<EvalSnapshot | undefined>(
+    () => boardEnding?.result === '1/2-1/2'
+      ? { cp: 0, wdl: { w: 0, d: 1000, l: 0 } }
+      : boardEnding ? terminalSnapshotForFen(fen) ?? undefined : evaluationsByFen.get(fen),
+    [boardEnding, evaluationsByFen, fen],
   )
-  /** How the game ended on the board, or null while it is still on. */
-  const boardEnding = describeGameEnd(game)
   /**
    * The score to print where a number would be. The terminal snapshot above
    * carries the mate sentinel, which formats as "-100.00" -- a number, but
@@ -2786,22 +2791,12 @@ function App() {
     && reviewLineNodes[reviewLineNodes.length - 1]!.id !== mainLineNodes[mainLineNodes.length - 1]!.id
   // How the game ended, as opposed to what is on the board right now: a mate
   // found while exploring a variation is not the game's result, and neither is
-  // the quiet position you navigated back to. Replaying the line rather than
-  // reading its last FEN is what makes threefold repetition visible at all --
-  // a position alone cannot show that it has occurred before.
-  const mainLineEnd = useMemo(() => {
-    if (mainLineNodes.length < 2) return null
-    try {
-      const replay = new Chess(mainLineNodes[0].fen)
-      for (const node of mainLineNodes.slice(1)) {
-        if (!node.move) return null
-        replay.move({ from: node.move.from, to: node.move.to, promotion: node.move.promotion })
-      }
-      return describeGameEnd(replay)
-    } catch {
-      return null
-    }
-  }, [mainLineNodes])
+  // the quiet position you navigated back to. Its stored positions preserve
+  // repetition without replaying every move when a node's annotations change.
+  const mainLineEnd = useMemo(
+    () => mainLineNodes.length < 2 ? null : describeGameEndFromPath(mainLineNodes),
+    [mainLineNodes],
+  )
   /**
    * Whether the side that did *not* flag could still have mated — FIDE 6.9.
    *
@@ -2890,7 +2885,7 @@ function App() {
       : status === 'error' ? 'The engine could not start. Choose another engine in Engine Lab.' : null
   // Same shape as the reason above: shown rather than hidden, so a reader
   // looking for the button learns why it will not do anything.
-  const playFromHereDisabledReason = game.isGameOver()
+  const playFromHereDisabledReason = isGameOver
     ? 'This game is already over.'
     : null
   // The Engine Lab greys controls out behind two gates. Both used to be silent.
@@ -3289,7 +3284,7 @@ function App() {
     gameMode,
     turn: game.turn(),
     playerColor: playerColorToTurn(playerColor),
-    gameOver: game.isGameOver(),
+    gameOver: isGameOver,
     endedOffBoard: Boolean(endedOffBoard),
     paused,
   })
@@ -3474,8 +3469,8 @@ function App() {
    * would be a hundred knocks in three seconds.
    */
   const playMoveSound = useCallback((move: Move) => {
-    playSound(moveSoundFor({ flags: move.flags, san: move.san, isGameOver: game.isGameOver() }))
-  }, [game, playSound])
+    playSound(moveSoundFor({ flags: move.flags, san: move.san, isGameOver: Boolean(readBoardEnding()) }))
+  }, [playSound, readBoardEnding])
 
   /**
    * Everything that happens because a move landed on the board: it makes a
@@ -3487,13 +3482,13 @@ function App() {
     setHintMove(null)
     // Read once, from the position the move created: a move that mates or
     // stalemates hands over to nobody, and the clock has to be told.
-    const ended = game.isGameOver()
+    const ended = Boolean(readBoardEnding())
     setClock(previous => {
       if (!previous) return previous
       const now = Date.now()
       return ended ? moveEndedGame(previous, move.color, now) : moveMade(previous, move.color, now)
     })
-  }, [game, playMoveSound])
+  }, [playMoveSound, readBoardEnding])
   // Reached from the AI loop, which is an effect that must not re-install
   // whenever the sound setting changes mid-game. Same shape as requestThreatRef.
   const playMoveSoundRef = useRef(registerMovePlayed)
@@ -3502,7 +3497,7 @@ function App() {
   // ── AI move loop (with speed throttle) ───────────────
   useEffect(() => {
     if (workspaceMode !== 'play') return
-    if (game.isGameOver()) return
+    if (readBoardEnding()) return
     if (endedOffBoardRef.current) return
     void aiReadyTick
     void stepRequestTick
@@ -3559,7 +3554,7 @@ function App() {
         const stillAiTurn =
           liveGameMode === 'ai-vs-ai' ||
           (liveGameMode === 'human-vs-ai' && game.turn() !== livePlayerColor[0])
-        if (!uciMove || game.isGameOver() || pausedRef.current || game.fen() !== requestFen || !stillAiTurn) {
+        if (!uciMove || readBoardEnding() || pausedRef.current || game.fen() !== requestFen || !stillAiTurn) {
           return
         }
 
@@ -3619,7 +3614,7 @@ function App() {
       cancelAiRequest()
       finishAiMove()
     }
-  }, [aiDifficulty, aiReadyTick, cancelAiRequest, fen, game, gameMode, paused, playerColor, readAiSearch, readClockForSearch, requestAiMove, stepRequestTick, workspaceMode])
+  }, [aiDifficulty, aiReadyTick, cancelAiRequest, fen, game, gameMode, paused, playerColor, readAiSearch, readBoardEnding, readClockForSearch, requestAiMove, stepRequestTick, workspaceMode])
 
   // ── Human move ────────────────────────────────────────
   const clearBoardSelection = useCallback(() => {
@@ -3741,6 +3736,7 @@ function App() {
 
   const applyHumanMove = useCallback(
     (from: Square, to: Square, promotion?: PromotionPiece) => {
+      if (workspaceMode === 'play' && readBoardEnding()) return false
       const beforeFen = game.fen()
       let move: Move | null
       try {
@@ -3834,7 +3830,7 @@ function App() {
       setPendingPromotion(null)
       return true
     },
-    [cancelStaleBackgroundAnalysis, clearBoardSelection, drill, game, gameTree, playDrillMoves, registerMovePlayed, reviewPractice, stop, workspaceMode],
+    [cancelStaleBackgroundAnalysis, clearBoardSelection, drill, game, gameTree, playDrillMoves, readBoardEnding, registerMovePlayed, reviewPractice, stop, workspaceMode],
   )
 
   /**
@@ -3850,13 +3846,13 @@ function App() {
     if (!premove) return
     if (workspaceMode !== 'play' || gameMode !== 'human-vs-ai') { setPremove(null); return }
     if (game.turn() !== playerColorToTurn(playerColor)) return
-    if (game.isGameOver() || endedOffBoard || pausedRef.current) { setPremove(null); return }
+    if (readBoardEnding() || endedOffBoard || pausedRef.current) { setPremove(null); return }
 
     setPremove(null)
     const probe = new Chess(game.fen())
     if (!applyPremove(probe, premove)) return
     applyHumanMove(premove.from, premove.to, premove.promotion)
-  }, [applyHumanMove, endedOffBoard, fen, game, gameMode, playerColor, premove, workspaceMode])
+  }, [applyHumanMove, endedOffBoard, fen, game, gameMode, playerColor, premove, readBoardEnding, workspaceMode])
 
 
   /**
@@ -3953,6 +3949,7 @@ function App() {
       return false
     }
     if (isBoardInputLocked({
+      gameOver: isGameOver,
       workspaceMode,
       gameMode,
       isAiThinking,
@@ -3968,7 +3965,7 @@ function App() {
     }
 
     return applyHumanMove(sourceSquare, targetSquare)
-  }, [applyHumanMove, beginPromotion, endedOffBoard, game, gameMode, isAiThinking, paused, pendingPromotion, playerColor, premoveAllowed, workspaceMode])
+  }, [applyHumanMove, beginPromotion, endedOffBoard, game, gameMode, isAiThinking, paused, pendingPromotion, playerColor, premoveAllowed, isGameOver, workspaceMode])
 
   const handleBoardDrop = useCallback(({ sourceSquare, targetSquare, piece }: PieceDropHandlerArgs) => {
     if (!targetSquare) return false
@@ -4087,6 +4084,7 @@ function App() {
       return
     }
     if (isBoardInputLocked({
+      gameOver: isGameOver,
       workspaceMode,
       gameMode,
       isAiThinking,
@@ -4135,6 +4133,7 @@ function App() {
     gameMode,
     endedOffBoard,
     isAiThinking,
+    isGameOver,
     paused,
     pendingPromotion,
     playerColor,
@@ -5122,7 +5121,7 @@ function App() {
     const startFen = game.fen()
     const humanColor = sideToMoveColor(startFen)
     if (!humanColor) return
-    if (game.isGameOver()) return
+    if (readBoardEnding()) return
 
     cancelSampleLoad()
     cancelPendingAiMove()
@@ -5172,6 +5171,7 @@ function App() {
     game,
     gameTree,
     newGame,
+    readBoardEnding,
     requestBoardReveal,
     setAiPlayerDifficulty,
     setPgnHeaders,
@@ -5565,7 +5565,7 @@ function App() {
 
   // ── Step: advance one AI move ─────────────────────────
   const handleStep = useCallback(() => {
-    if (game.isGameOver() || aiMoveScheduledRef.current) return
+    if (readBoardEnding() || aiMoveScheduledRef.current) return
     const currentTurn = game.turn()
     const isAiTurn =
       gameMode === 'ai-vs-ai' ||
@@ -5581,7 +5581,7 @@ function App() {
     // it makes still earns its increment.
     setClock(previous => (previous && !previous.flagged ? startSide(previous, currentTurn, Date.now()) : previous))
     setStepRequestTick(tick => tick + 1)
-  }, [game, gameMode, playerColor])
+  }, [game, gameMode, playerColor, readBoardEnding])
 
   // ── Flip ──────────────────────────────────────────────
   const flipBoard = () => setOrientation(v => v === 'white' ? 'black' : 'white')
@@ -5711,20 +5711,13 @@ function App() {
   // The strip says what the position is. Once the game is over there is no side
   // to move, and "Black to move" under a mated king was the loudest wrong thing
   // on the page.
-  // The position on the board answers this on its own for every ending a FEN
-  // can carry -- including inside a variation, where a mate really is a mate
-  // even though it is not the game's result. Threefold repetition is the one
-  // exception, because it is a fact about the history rather than the
-  // position, so the main line's own verdict is used when that is where we are
-  // standing.
-  const atMainLineEnd = mainLineNodes.length > 1
-    && gameTree.current.id === mainLineNodes[mainLineNodes.length - 1].id
+  // Use the same active-branch result as Coach and the play controls, including
+  // repetitions inside variations and after navigating away and back.
   const gameResultLabel = clockFlagged
     ? flagResultLabel(clockFlagged, flagSurvivorCanMate)
     : resignedBy
     ? resignResultLabel(resignedBy)
-    : describeGameEnd(game)?.label
-      ?? (atMainLineEnd ? mainLineEnd?.label ?? null : null)
+    : boardEnding?.label ?? null
   const resignReason = resignDisabledReason({
     workspaceMode,
     gameMode,
@@ -6005,7 +5998,7 @@ function App() {
     : playEngineActive
       ? (playEngineStatus === 'thinking' ? 'analyzing' : playEngineStatus)
       : 'standby'
-  const canStepAiMove = playEngineActive && !game.isGameOver() && !endedOffBoard && (
+  const canStepAiMove = playEngineActive && !isGameOver && !endedOffBoard && (
     gameMode === 'ai-vs-ai' || (gameMode === 'human-vs-ai' && game.turn() !== playerColor[0])
   )
   /**
@@ -6036,6 +6029,7 @@ function App() {
     setClock(previous => (previous && previous.running !== null ? pauseClock(previous, Date.now()) : previous))
   }, [awaitingAiStep, clock])
   const boardInputLocked = isBoardInputLocked({
+    gameOver: isGameOver,
     workspaceMode,
     gameMode,
     isAiThinking,
@@ -6058,7 +6052,7 @@ function App() {
       )}
 
       {currentLastBestMove
-        && !game.isGameOver()
+        && !isGameOver
         && (!reviewPractice || reviewPractice.status === 'correct' || reviewPractice.attempts >= 2)
         && (
           <p className="best-move" title={currentLastBestMove}>{isCandidateSearch ? 'Candidate' : 'Best'}: {bestMoveLabel(fen, currentLastBestMove)}</p>
@@ -8648,7 +8642,7 @@ function App() {
               onLast={goLast}
               aiActive={playEngineActive}
               paused={paused}
-              isGameOver={game.isGameOver() || Boolean(endedOffBoard)}
+              isGameOver={isGameOver || Boolean(endedOffBoard)}
               stepMode={aiSpeed === 'step'}
               canStep={canStepAiMove}
               onPause={pause}
