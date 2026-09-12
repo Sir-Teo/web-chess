@@ -97,6 +97,7 @@ import {
   type NumericInputValue,
 } from './engine/numericInput'
 import { engineProfiles, type EngineProfileId } from './engine/profiles'
+import { evaluationSourceLabel } from './engine/evaluationSource'
 import { fetchSamplePgn } from './engine/samplePgn'
 import { hashCarriesShare, parseFenShareHash } from './engine/shareLink'
 import { parseGameShareHash, replaySharedGame } from './engine/shareGame'
@@ -2103,6 +2104,8 @@ function App() {
   // The position has one authoritative reading, shared with the bar and graph.
   // A shallower local search may still offer a useful candidate line below.
   const coachPositionScore = currentEvaluation ?? unrestrictedCoachLine ?? coachCloudScore
+  const positionSource = currentEvaluation ?? unrestrictedCoachLine
+  const positionEngineChanged = Boolean(positionSource?.engine && positionSource.engine.profile !== activeProfile.id)
   const coachEvaluation = endingScore ?? (coachPositionScore
     ? formatWhitePovEvaluation(fen, coachPositionScore.cp, coachPositionScore.mate)
     : tablebase.result ? tablebaseSummary(tablebase.result) : '...')
@@ -2879,6 +2882,11 @@ function App() {
       ? frozenReview.evaluations
       : evaluationsByFen
   }, [evaluationsByFen, frozenReview, reviewLineNodes])
+
+  const reviewSourceLabels = useMemo(() => [...new Set(reviewLineNodes.flatMap(node => {
+    const evaluation = reviewEvaluations.get(node.fen)
+    return evaluation ? [evaluationSourceLabel(evaluation)] : []
+  }))], [reviewEvaluations, reviewLineNodes])
 
   const reviewRows = useMemo(
     () => buildReviewRows(reviewLineMoves, reviewEvaluations, currentRootFen, { isBookPosition }),
@@ -7621,6 +7629,12 @@ function App() {
                         <strong>{coachDepthReading.label}</strong>
                       </div>
                     </div>
+                    {positionSource && !boardEnding && (analysisExperience === 'pro' || positionEngineChanged) && (
+                      <p className="panel-copy small evaluation-source" data-testid="position-engine-source">
+                        Position score: {evaluationSourceLabel(positionSource)}.
+                        {positionEngineChanged && ' Saved reading from a different engine profile.'}
+                      </p>
+                    )}
                     {coachLine && !boardEnding && !coachBestMoveIsTablebase && (
                       <p className="panel-copy small coach-line-source">
                         Candidate line · local engine D{coachLine.depth}
@@ -8074,6 +8088,12 @@ function App() {
                   {keepSearchingSwitch}
                   <div className="review-scaffold">
                     <h3><span className="section-icon"><IconBarChart /></span> Review</h3>
+                    {analysisExperience === 'pro' && reviewSourceLabels.length > 0 && (
+                      <p className="panel-copy small evaluation-source" data-testid="review-engine-source">
+                        {reviewSourceLabels.length > 1 ? 'Mixed evaluation sources: ' : 'Evaluation source: '}
+                        {reviewSourceLabels.join('; ')}.
+                      </p>
+                    )}
                     {/* The reviewed line is the branch on the board, and when
                         that is not the main line the reader has to be told --
                         the accuracy, the critical moments and the graphs are

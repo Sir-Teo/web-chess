@@ -132,6 +132,11 @@ const SCENARIO = ${JSON.stringify(scenario)};
      * consecutive searches, which is the one input the Play-mode nudge needs.
      */
     scriptedLine() {
+      if (SCENARIO === 'source-profile') {
+        return this.ordinal === 1
+          ? { cp: 35, move: 'e2e4', depths: [24, 30] }
+          : { cp: 95, move: 'e2e4', depths: this.searches > 1 ? [28, 34] : [16, 22] };
+      }
       if (SCENARIO === 'restricted-root') {
         return this.goCommand?.includes('searchmoves')
           ? { cp: -900, move: 'f2f3', depths: [24, 30] }
@@ -214,7 +219,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
       window.__uciCommands.push(text);
       if (SCENARIO === 'silent-all' || (SCENARIO === 'silent-first' && this.ordinal === 1)) return;
       if (text === 'uci') {
-        this.send('id name Fake Stockfish');
+        this.send('id name ' + (SCENARIO === 'source-profile' ? (this.ordinal === 1 ? 'QA Lite' : 'QA Full') : 'Fake Stockfish'));
         this.send('option name Threads type spin default 1 min 1 max 8');
         this.send('option name Hash type spin default 16 min 1 max 512');
         this.send('option name MultiPV type spin default 1 min 1 max 8');
@@ -733,6 +738,51 @@ async function checkCandidateSearchKeepsPositionScore(browser) {
       assert((await page.locator('.coach-grid > div').first().locator('strong').innerText()) === '+0.35',
         'an unrestricted search stopped recording whole-position evaluations')
       console.log(`  candidate search (${width}px, ${knownPosition ? 'known' : 'unevaluated'} position): preserves position/export, labels candidates, and clears the restriction on the next search`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkEvaluationEngineProvenance(browser) {
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('source-profile'))
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false,
+        engineProfile: 'lite-single-local', analyzeMode: 'deep',
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.coach-line-source')?.textContent.includes('D30'))
+      const source = page.getByTestId('position-engine-source')
+      assert((await source.innerText()).includes('QA Lite · Lite Single (Local) · build '), 'live analysis lost its actual worker identity')
+      await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      await page.getByLabel('Engine profile in Engine Lab').selectOption('full-single-cdn')
+      await page.waitForFunction(() => window.__engineCount === 2)
+      await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.coach-line-source')?.textContent.includes('D22'))
+      assert((await source.innerText()).includes('QA Lite') && (await source.innerText()).includes('different engine profile'),
+        'switching engines relabelled the retained reading as the current engine')
+      assert(await page.locator('.coach-grid > div').first().locator('strong').innerText() === '+0.35', 'fixture did not retain the earlier, deeper reading')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'engine source overflows the viewport')
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      assert((await page.getByTestId('review-engine-source').innerText()).includes('QA Lite'), 'review labels the source from the engine selector')
+      await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.coach-line-source')?.textContent.includes('D34'))
+      assert((await source.innerText()).includes('QA Full · Full Single (CDN) · build 18.0.7')
+        && !(await source.innerText()).includes('different engine profile'), 'the newer reading did not carry its producer')
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.getByRole('button', { name: 'Export', exact: true }).click()
+      const exported = await page.getByRole('textbox', { name: 'Annotated Output' }).inputValue()
+      const command = exported.match(/\[%wcengine\s+([^\]]+)\]/)?.[1]
+      assert(command && JSON.stringify(JSON.parse(decodeURIComponent(command))) === JSON.stringify(['full-single-cdn', '18.0.7', 'QA Full']),
+        'export did not save the producer of the actual score')
+      await page.locator('.dialog-check-option', { hasText: /^Engine evals$/ }).locator('input').uncheck()
+      assert(!(await page.getByRole('textbox', { name: 'Annotated Output' }).inputValue()).includes('[%wcengine'), 'disabling analysis export left engine metadata behind')
+      console.log(`  evaluation provenance (${width}px): actual worker identity, retained score after engine switch, review source, deeper replacement, and optional PGN metadata`)
     } finally { await context.close() }
   }
 }
@@ -4640,6 +4690,7 @@ async function main() {
       offline: checkCrossOriginIsolationIsRestored,
       'dialog-download': checkDialogDownloadFailure,
       'candidate-score': checkCandidateSearchKeepsPositionScore,
+      'evaluation-source': checkEvaluationEngineProvenance,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
@@ -5286,6 +5337,7 @@ async function main() {
     await checkCoachUsesPositionScore(browser)
     await checkBoundedScoreIsIgnored(browser)
     await checkCandidateSearchKeepsPositionScore(browser)
+    await checkEvaluationEngineProvenance(browser)
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)
     await checkKeepSearchingIsUnbounded(browser)

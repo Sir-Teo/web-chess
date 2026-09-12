@@ -5,6 +5,7 @@ import type { GameNode, GameTreeImportEntry } from '../hooks/useGameTree'
 import type { EvalSnapshot } from './analysis'
 import { hasLegalKingPlacement } from './fen'
 import { looksLikeFen, looksLikeGameUrl } from './pastedText'
+import { decodeEvaluationEngine, encodeEvaluationEngine } from './evaluationSource'
 
 const INITIAL_FEN = new Chess().fen()
 const PGN_TAG_NAME_PATTERN = /^[A-Za-z0-9_]+$/
@@ -317,16 +318,17 @@ function evaluationFromComment(fen: string, comment: string | undefined): EvalSn
     // move the engine preferred there. Written as a command rather than the
     // prose "Best Nf3" beside it, so it comes back as data.
     const bestMove = comment.match(PGN_BEST_MOVE_PATTERN)?.[1]?.toLowerCase()
+    const engine = decodeEvaluationEngine(comment.match(/\[%wcengine\s+([^\]\s]+)\s*\]/i)?.[1])
 
     if (rawScore.startsWith('#')) {
         const mate = Number(rawScore.slice(1))
         if (!Number.isFinite(mate)) return null
-        return { ...sideToMoveScoreFromWhitePov(fen, { mate }), bestMove }
+        return { ...sideToMoveScoreFromWhitePov(fen, { mate }), bestMove, engine }
     }
 
     const pawnScore = Number(rawScore)
     if (!Number.isFinite(pawnScore)) return null
-    return { ...sideToMoveScoreFromWhitePov(fen, { cp: Math.round(pawnScore * 100) }), bestMove }
+    return { ...sideToMoveScoreFromWhitePov(fen, { cp: Math.round(pawnScore * 100) }), bestMove, engine }
 }
 
 function sanitizePgnCommentText(value: string | undefined): string | undefined {
@@ -383,7 +385,7 @@ function isGeneratedCommentPart(part: string): boolean {
 /** Keep study drawings and extension tags separate from editable prose. */
 function preservedPgnCommands(comment: string | undefined): string[] | undefined {
     const commands = (comment?.match(PGN_COMMAND_PATTERN) ?? [])
-        .filter(command => !/^\[%(?:eval|clk|wcbest)\s/i.test(command))
+        .filter(command => !/^\[%(?:eval|clk|wcbest|wcengine)\s/i.test(command))
     return commands.length ? commands : undefined
 }
 
@@ -512,6 +514,8 @@ function rootCommentForExport(
         const evalStr = evalAnnotation(rootFen, rootEvaluation)
         if (evalStr) parts.push(evalStr)
         if (evalStr && rootEvaluation?.bestMove) parts.push(`[%wcbest ${rootEvaluation.bestMove}]`)
+        const engine = encodeEvaluationEngine(rootEvaluation?.engine)
+        if (evalStr && engine) parts.push(`[%wcengine ${engine}]`)
     }
 
     const preserved = options.includeComments ? sanitizePgnCommentText(root?.comment) : undefined
@@ -535,6 +539,8 @@ function commentForNode(
         const evalStr = evalAnnotation(node.fen, evaluation)
         if (evalStr) commentParts.push(evalStr)
         if (evalStr && evaluation?.bestMove) commentParts.push(`[%wcbest ${evaluation.bestMove}]`)
+        const engine = encodeEvaluationEngine(evaluation?.engine)
+        if (evalStr && engine) commentParts.push(`[%wcengine ${engine}]`)
         // A namespaced command like the two above, and for the same reason: it
         // has to be recognisable on the way back in, or the next import reads
         // it as something the reader typed.

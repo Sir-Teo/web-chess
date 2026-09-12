@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { GameNode } from '../hooks/useGameTree'
 import { Chess } from 'chess.js'
 import { type EvalSnapshot, buildReviewRows as buildReviewRowsForTest } from './analysis'
+import { encodeEvaluationEngine } from './evaluationSource'
 import {
   PGN_EMPTY_IMPORT_ERROR,
   PGN_INVALID_MOVE_ERROR_PREFIX,
@@ -46,6 +47,53 @@ function makeNode(
 }
 
 describe('PGN export helpers', () => {
+  it('round-trips evaluation producers on the root, main line and variations without accumulating commands', () => {
+    const lite = { profile: 'lite-single-local', version: '18.0.7', name: 'Stockfish 18 Lite' }
+    const full = { profile: 'full-single-cdn', version: '18.0.8', name: 'Stockfish 18' }
+    const game = new Chess()
+    const rootFen = game.fen()
+    const e4Move = game.move('e4')
+    const e4Fen = game.fen()
+    game.undo()
+    const d4Move = game.move('d4')
+    const d4Fen = game.fen()
+    let root = makeNode('r', rootFen, null, null, ['e4', 'd4'])
+    let e4 = makeNode('e4', e4Fen, e4Move, 'r')
+    let d4 = makeNode('d4', d4Fen, d4Move, 'r')
+    let evaluations = new Map<string, EvalSnapshot>([
+      [rootFen, { cp: 30, engine: lite }],
+      [e4Fen, { cp: -40, engine: full }],
+      [d4Fen, { cp: 10000, mate: 3, engine: lite }],
+    ])
+    for (let round = 0; round < 3; round += 1) {
+      const nodes = new Map([root, e4, d4].map(node => [node.id, node]))
+      const pgn = exportAnnotatedPgn([root, e4], evaluations, {}, nodes)
+      expect(pgn.match(/\[%wcengine /g)).toHaveLength(3)
+      const imported = parsePgnMoveTree(pgn)
+      expect(imported.evaluations.get(rootFen)?.engine).toEqual(lite)
+      expect(imported.evaluations.get(e4Fen)).toMatchObject({ cp: -40, engine: full })
+      expect(imported.evaluations.get(d4Fen)).toMatchObject({ mate: 3, engine: lite })
+      expect(imported.rootCommands).toBeUndefined()
+      expect(imported.moves[0].pgnCommands).toEqual([])
+      root = { ...root, pgnCommands: imported.rootCommands }
+      e4 = { ...e4, comment: imported.moves[0].comment, pgnCommands: imported.moves[0].pgnCommands }
+      d4 = { ...d4, comment: imported.moves[1].comment, pgnCommands: imported.moves[1].pgnCommands }
+      evaluations = imported.evaluations
+      const withoutAnalysis = exportAnnotatedPgn([root, e4], evaluations, {}, nodes, { includeEngineAnnotations: false })
+      expect(withoutAnalysis).not.toContain('[%wcengine')
+      expect(withoutAnalysis).not.toContain('[%eval')
+    }
+  })
+
+  it('keeps scores when engine metadata is invalid and does not invent a producer for older PGNs', () => {
+    for (const tag of ['', ' [%wcengine %ZZ]', ` [%wcengine ${encodeEvaluationEngine({ profile: 'p', version: 'v', name: 'E' })}]`]) {
+      const imported = parsePgnMoveTree(`1. e4 { [%eval 0.40]${tag} } *`)
+      const reading = imported.evaluations.get(imported.moves[0].fen)
+      expect(reading?.cp).toBe(-40)
+      expect(reading?.engine).toEqual(tag.includes('%5B') ? { profile: 'p', version: 'v', name: 'E' } : undefined)
+    }
+  })
+
   it('formats default PGN dates from the local calendar day', () => {
     expect(formatPgnDate(new Date(2026, 4, 31, 23, 30))).toBe('2026.05.31')
   })

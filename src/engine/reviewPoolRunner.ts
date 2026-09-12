@@ -7,6 +7,7 @@ import { createStockfishWorker } from './stockfishWorker'
 import { buildPositionCommand } from './uci'
 import { splitReviewQueue, type ReviewPoolPlan } from './reviewPool'
 import { engineStartupTimeoutMs } from './engineStartup'
+import { evaluationEngine, type EvaluationEngine } from './evaluationSource'
 
 /**
  * Running a game review across several engines at once.
@@ -151,7 +152,7 @@ function createEngine(profile: EngineProfile): Engine {
  * two have to agree, or a pooled review would grade a game differently from a
  * single-engine one.
  */
-export function snapshotFromSearchLines(lines: string[], searchedAt: number): EvalSnapshot | null {
+export function snapshotFromSearchLines(lines: string[], searchedAt: number, engine?: EvaluationEngine): EvalSnapshot | null {
   let best: ReturnType<typeof parseInfoLine> = null
   for (const line of lines) {
     if (!line.startsWith('info ')) continue
@@ -166,6 +167,7 @@ export function snapshotFromSearchLines(lines: string[], searchedAt: number): Ev
 
   return {
     cp,
+    engine,
     mate: best.mate,
     scoreBound: best.scoreBound,
     bestMove: best.pv[0],
@@ -211,6 +213,8 @@ export function runReviewPool(input: {
 
     engine.send('uci')
     await engine.await(line => line === 'uciok', engineStartupTimeoutMs(input.profile), 'uciok')
+    const name = engine.lines.find(line => line.startsWith('id name '))?.slice(8).trim() || 'Stockfish'
+    const source = evaluationEngine(input.profile, name)
     engine.send(`setoption name Threads value ${input.plan.threadsPerWorker}`)
     engine.send(`setoption name Hash value ${input.plan.hashMbPerWorker}`)
     engine.send('setoption name MultiPV value 1')
@@ -230,7 +234,7 @@ export function runReviewPool(input: {
       await engine.await(line => line.startsWith('bestmove '), SEARCH_TIMEOUT_MS, `bestmove for ${target.fen}`)
       if (cancelled) return
 
-      const snapshot = snapshotFromSearchLines(engine.lines, Date.now())
+      const snapshot = snapshotFromSearchLines(engine.lines, Date.now(), source)
       if (snapshot) input.callbacks.onResult(target.fen, snapshot)
       input.callbacks.onProgress()
     }

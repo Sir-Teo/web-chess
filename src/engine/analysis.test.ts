@@ -369,6 +369,14 @@ describe('review analysis helpers', () => {
       wdl: matchingScoreWdl.wdl,
     })
     expect(mergeEvaluationSnapshot(current, differentScoreWdl)).toBe(current)
+
+    const engine = { profile: 'lite-single-local', version: '18.0.7', name: 'Stockfish 18 Lite' }
+    const identified = { ...current, engine }
+    expect(mergeEvaluationSnapshot(identified, { ...matchingScoreWdl, engine })).toEqual({
+      ...identified, wdl: matchingScoreWdl.wdl,
+    })
+    expect(mergeEvaluationSnapshot(identified, { ...matchingScoreWdl, engine: { ...engine, profile: 'full-single-cdn' } })).toBe(identified)
+    expect(mergeEvaluationSnapshot(identified, matchingScoreWdl)).toBe(identified)
   })
 
   it('ignores invalid replacement evaluations', () => {
@@ -1126,10 +1134,11 @@ describe('turning an engine line into a snapshot', () => {
     })
 
     it('carries the reading and its telemetry across', () => {
-        const recorded = engineLineToSnapshot(line({ fen: 'fen-a', nps: 900_000, time: 420 }), 'fallback', 1234)
+        const engine = { profile: 'lite-single-local', version: '18.0.7', name: 'Stockfish 18 Lite' }
+        const recorded = engineLineToSnapshot(line({ fen: 'fen-a', nps: 900_000, time: 420, engine }), 'fallback', 1234)
         expect(recorded?.fen).toBe('fen-a')
         expect(recorded?.snapshot).toMatchObject({
-            cp: 35, depth: 20, bestMove: 'e2e4', nodes: 500_000, nps: 900_000, time: 420, searchedAt: 1234,
+            cp: 35, depth: 20, bestMove: 'e2e4', nodes: 500_000, nps: 900_000, time: 420, searchedAt: 1234, engine,
         })
     })
 

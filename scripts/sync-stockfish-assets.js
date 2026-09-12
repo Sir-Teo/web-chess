@@ -31,4 +31,7 @@ for (const file of files) {
 copyFile(path.join(stockfishRoot, 'Copying.txt'), path.join(publicEngine, 'Copying.txt'))
 
 const packageJson = JSON.parse(fs.readFileSync(path.join(stockfishRoot, 'package.json'), 'utf8'))
+// Track the build actually copied into public/, even if node_modules changes later.
+fs.writeFileSync(path.join(repoRoot, 'src', 'engine', 'localStockfishBuild.json'),
+  `${JSON.stringify({ version: packageJson.version }, null, 2)}\n`)
 console.log(`Synced Stockfish ${packageJson.version} assets to public/engine.`)

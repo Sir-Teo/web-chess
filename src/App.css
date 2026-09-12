@@ -111,6 +111,10 @@ body.resizing * {
   color: var(--text-tertiary);
 }
 
+.evaluation-source {
+  overflow-wrap: anywhere;
+}
+
 /* ═══════════════════════════════════════════════════
    Buttons
    ═══════════════════════════════════════════════════ */

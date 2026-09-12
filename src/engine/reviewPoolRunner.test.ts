@@ -135,6 +135,30 @@ describe('a pooled engine that gives out', () => {
 
   afterEach(() => { vi.doUnmock('./stockfishWorker') })
 
+  it('records the worker identity before clearing its handshake for the search', async () => {
+    const { runReviewPool } = await import('./reviewPoolRunner')
+    const { profileById } = await import('./profiles')
+    const onResult = vi.fn()
+    const run = runReviewPool({
+      targets: [{ fen: 'startpos-fen', historyMoves: [], rootFen: 'startpos-fen' }] as never,
+      plan: { workers: 1, threadsPerWorker: 1, hashMbPerWorker: 16 },
+      profile: profileById('full-single-cdn'), depth: 16, showWdl: false,
+      callbacks: { onResult, onProgress: () => {} },
+    })
+    const worker = workers[0]
+    worker.emit('id name Stockfish Pool Identity')
+    worker.emit('uciok')
+    await vi.waitFor(() => expect(worker.sent).toContain('isready'))
+    worker.emit('readyok')
+    await vi.waitFor(() => expect(worker.sent).toContain('go depth 16'))
+    for (const line of SEARCH) worker.emit(line)
+    await run.done
+    expect(onResult).toHaveBeenCalledWith('startpos-fen', expect.objectContaining({
+      engine: { profile: 'full-single-cdn', version: '18.0.7', name: 'Stockfish Pool Identity' },
+    }))
+    expect(worker.terminated).toBe(true)
+  })
+
   const runOnePosition = async () => {
     const { runReviewPool } = await import('./reviewPoolRunner')
     const run = runReviewPool({

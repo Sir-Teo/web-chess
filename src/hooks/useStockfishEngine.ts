@@ -13,6 +13,7 @@ import { engineStartupTimeoutMs } from '../engine/engineStartup'
 import { buildAnalyzeCommand, buildNewGameCommands, changedSetOptions, engineOptionValueToString, normalizeUciMoves, optionKey, parseBestMoveLine, parseSetOptionCommand, type AnalyzeMode, type AnalyzePurpose, type AnalyzeRequest, type UciGoLimits } from '../engine/uci'
 import { engineBootFailureMessage } from '../engine/engineBootError'
 import { withBoundedMapEntry } from './cacheLimit'
+import { evaluationEngine, type EvaluationEngine } from '../engine/evaluationSource'
 
 type EngineStatus = 'loading' | 'ready' | 'analyzing' | 'error' | 'disabled'
 
@@ -24,6 +25,7 @@ type EngineLine = {
   limits?: UciGoLimits
   /** A restricted root search evaluates these candidates, not the position. */
   searchMoves?: string[]
+  engine?: EvaluationEngine
   multipv: number
   depth: number
   seldepth?: number
@@ -950,6 +952,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       setProfileMessage(profileRuntimeMessage(selectedProfile, profile, capabilities, activeFallbackReason))
     })
 
+    let source = evaluationEngine(profile, 'Stockfish')
     worker.onmessage = (event: MessageEvent<unknown>) => {
       if (currentSession !== bootSessionRef.current || workerRef.current !== worker) return
       if (typeof event.data !== 'string') return
@@ -967,7 +970,9 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         }
 
         if (line.startsWith('id name ')) {
-          setEngineName(line.replace('id name ', '').trim())
+          const name = line.replace('id name ', '').trim()
+          source = evaluationEngine(profile, name)
+          setEngineName(name)
         }
 
         if (line.startsWith('option name ')) {
@@ -1017,6 +1022,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
             mode: currentAnalysisModeRef.current,
             limits: currentAnalysisLimitsRef.current,
             searchMoves: currentAnalysisSearchMovesRef.current,
+            engine: source,
           })
           scheduleLinesMapFlush()
         }

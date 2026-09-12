@@ -3,9 +3,11 @@ import type { EngineLine } from '../hooks/useStockfishEngine'
 import type { AnalyzeMode, AnalyzePurpose } from './uci'
 import { GAME_PHASES, type GamePhase, getMovePhase, getPhaseLabel } from './gamePhase'
 import { MIN_WEIGHT, aggregateAccuracy, volatilityWeights } from './accuracyAggregate'
+import { sameEvaluationEngine, type EvaluationEngine } from './evaluationSource'
 
 export type EvalSnapshot = {
   cp: number
+  engine?: EvaluationEngine
   mate?: number
   /**
    * Set when the engine reported the score as a bound rather than a value.
@@ -387,6 +389,7 @@ function sameEvaluationSnapshot(a: EvalSnapshot, b: EvalSnapshot): boolean {
     && a.searchId === b.searchId
     && a.mode === b.mode
     && a.purpose === b.purpose
+    && sameEvaluationEngine(a.engine, b.engine)
 }
 
 export function shouldReplaceEvaluationSnapshot(
@@ -436,7 +439,8 @@ export function mergeEvaluationSnapshot(
   if (shouldReplaceEvaluationSnapshot(current, next)) return next
   if (!current) return undefined
 
-  if (next.wdl && !sameSnapshotWdl(current, next) && sameSnapshotScore(current, next)) {
+  if (next.wdl && !sameSnapshotWdl(current, next) && sameSnapshotScore(current, next)
+    && sameEvaluationEngine(current.engine, next.engine)) {
     return { ...current, wdl: next.wdl }
   }
 
@@ -530,6 +534,7 @@ export function engineLineToSnapshot(
     fen: line.fen ?? fallbackFen,
     snapshot: {
       cp,
+      engine: line.engine,
       mate: line.mate,
       scoreBound: line.scoreBound,
       bestMove: line.pv[0],
