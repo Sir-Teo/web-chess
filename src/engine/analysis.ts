@@ -748,7 +748,9 @@ export function buildReviewRows(
     const { index, beforeFen, afterFen, moveNumber, sideToMove, phase } = ply
 
     const beforeSnapshot = evaluationsByFen.get(beforeFen)
-    const afterSnapshot = evaluationsByFen.get(afterFen) ?? ply.terminal
+    // A known branch result outranks a stored reading, which may come from
+    // another history ending at the same FEN or a shallower engine search.
+    const afterSnapshot = ply.terminal ?? evaluationsByFen.get(afterFen)
     const before = beforeSnapshot ? scoreToCp(beforeSnapshot.cp, beforeSnapshot.mate) : undefined
     const after = afterSnapshot ? scoreToCp(afterSnapshot.cp, afterSnapshot.mate) : undefined
     const bestMove = beforeSnapshot?.bestMove
@@ -1148,9 +1150,9 @@ export function buildWinrateSeries(
   }
 
   for (const ply of plies) {
-    // The move that ended the game has no engine reading and never will; the
-    // result is the reading. Same fallback `buildReviewRows` makes.
-    const snapshot = evaluationsByFen.get(ply.afterFen) ?? ply.terminal
+    // A terminal result is authoritative even when this FEN has a stored
+    // score from a different history. Keep that override local to this line.
+    const snapshot = ply.terminal ?? evaluationsByFen.get(ply.afterFen)
     const cp = snapshot ? scoreToCp(snapshot.cp, snapshot.mate) : undefined
     if (!isFiniteNumber(cp)) continue
 
@@ -1190,8 +1192,10 @@ export function buildWdlSeries(
     // only once the series has a point to follow. With WDL off nothing else
     // in the game has one, and a graph of a single final point would claim
     // there was a WDL trend to show.
-    const wdl = evaluationsByFen.get(ply.afterFen)?.wdl
-      ?? (series.length > 0 ? ply.terminal?.wdl : undefined)
+    const storedWdl = evaluationsByFen.get(ply.afterFen)?.wdl
+    const wdl = series.length > 0 || storedWdl
+      ? ply.terminal?.wdl ?? storedWdl
+      : undefined
     if (!wdl) continue
 
     const normalized = normalizeWhitePovWdl(ply.afterFen, wdl)

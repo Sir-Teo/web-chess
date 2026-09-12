@@ -2116,7 +2116,7 @@ function App() {
   })()
 
   const tablebaseTopMove = tablebase.result?.moves[0]?.uci ?? null
-  const coachBestMove = selectCoachBestMove({
+  const coachBestMove = boardEnding ? null : selectCoachBestMove({
     engine: coachLine?.pv[0],
     cloud: currentCloudEval?.pvs[0]?.moves[0],
     stored: currentEvaluation?.bestMove,
@@ -2124,11 +2124,11 @@ function App() {
     tablebase: tablebaseTopMove,
   })
   const coachBestMoveIsTablebase = isExactTablebaseCoachMove(coachBestMove, tablebaseTopMove)
-  const coachBestMoveText = bestMoveLabel(fen, coachBestMove)
-  const coachReplyMove = coachBestMoveIsTablebase
+  const coachBestMoveText = boardEnding ? 'None' : bestMoveLabel(fen, coachBestMove)
+  const coachReplyMove = boardEnding || coachBestMoveIsTablebase
     ? null
     : coachLine?.pv[1] ?? currentCloudEval?.pvs[0]?.moves[1] ?? currentLastPonderMove ?? null
-  const coachReplyMoveText = ponderMoveLabel(fen, coachBestMove, coachReplyMove)
+  const coachReplyMoveText = boardEnding ? 'None' : ponderMoveLabel(fen, coachBestMove, coachReplyMove)
   const coachDepth = currentEvaluation ? currentEvaluation.depth : unrestrictedCoachLine?.depth ?? currentCloudEval?.depth
   // A tile labelled Depth reports a depth or nothing. It used to fall back to
   // the engine status, so it read "analyzing" in a row of numbers -- and then,
@@ -2154,7 +2154,7 @@ function App() {
       tablebase.result?.moves[0] ? tablebaseMoveSummary(tablebase.result.moves[0]) : null,
     ].filter(Boolean).join(' · ')
     : ''
-  const coachLineSan = coachBestMoveIsTablebase
+  const coachLineSan = boardEnding ? '' : coachBestMoveIsTablebase
     ? coachTablebaseLine
     : coachLine
       ? pvToSan(coachLine.fen ?? fen, coachLine, 6)
@@ -7617,6 +7617,7 @@ function App() {
                         want to see played out, and it was the same dead text as
                         the Pro panel's. Same buttons, shorter line. */}
                     {(() => {
+                      if (boardEnding) return <p>The game is over here. Go back to explore another continuation.</p>
                       // See `selectCoachLineSource` for why a stored best move
                       // counts as a line: the card used to name one and ask for
                       // an analysis in the same breath.
@@ -7633,8 +7634,7 @@ function App() {
                         // that has nothing to find.
                         return (
                           <p>
-                            {coachLineSan
-                              || (boardEnding ? 'The game is over here. There is no line to play.' : 'Start analysis to get a candidate line.')}
+                            {coachLineSan || 'Start analysis to get a candidate line.'}
                           </p>
                         )
                       }

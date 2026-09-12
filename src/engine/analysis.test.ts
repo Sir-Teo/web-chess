@@ -33,6 +33,28 @@ import {
 } from './analysis'
 
 describe('review analysis helpers', () => {
+  it('uses a branch’s repetition result ahead of a cached engine evaluation', () => {
+    const game = new Chess()
+    for (const san of ['Nf3', 'Nf6', 'Ng1', 'Ng8', 'Nf3', 'Nf6', 'Ng1']) game.move(san)
+    const before = game.fen()
+    game.move('Ng8')
+    const finalFen = game.fen()
+    const history = game.history({ verbose: true })
+    const evaluations = new Map<string, EvalSnapshot>([
+      [before, { cp: 0, depth: 20, wdl: { w: 300, d: 400, l: 300 } }],
+      [finalFen, { cp: 900, depth: 30, wdl: { w: 1000, d: 0, l: 0 } }],
+    ])
+    expect(buildReviewRows(history, evaluations).at(-1)?.deltaCp).toBeCloseTo(0)
+    expect(buildWinrateSeries(history, evaluations).at(-1)?.whiteWinrate).toBe(50)
+    expect(buildWdlSeries(history, evaluations).at(-1)).toMatchObject({ white: 0, draw: 100, black: 0 })
+    const other = new Chess()
+    for (const san of ['Nf3', 'Nf6', 'Nc3', 'Nc6', 'Ng1', 'Ng8', 'Nb1', 'Nb8']) other.move(san)
+    expect(other.fen()).toBe(finalFen)
+    expect(buildWinrateSeries(other.history({ verbose: true }), evaluations).at(-1)?.whiteWinrate).toBeGreaterThan(90)
+    expect(buildWdlSeries(other.history({ verbose: true }), evaluations).at(-1)).toMatchObject({ white: 100, draw: 0, black: 0 })
+    expect(evaluations.get(finalFen)?.cp).toBe(900)
+  })
+
   it('labels reviewed moves from side-to-move centipawn deltas', () => {
     const game = new Chess()
     const rootFen = game.fen()

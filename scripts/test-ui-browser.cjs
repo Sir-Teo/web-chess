@@ -1414,7 +1414,7 @@ async function checkSavedReviewStorage(browser) {
 }
 
 async function checkRepetitionEndings(browser) {
-  const repeated = '1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 Nf6 4. Ng1 Ng8 1/2-1/2'
+  const repeated = '1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 Nf6 4. Ng1 Ng8 { [%eval 9.00] } 1/2-1/2'
   const different = '1. Nf3 Nf6 2. Nc3 Nc6 3. Ng1 Ng8 4. Nb1 Nb8 *'
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 812 } })
@@ -1436,6 +1436,10 @@ async function checkRepetitionEndings(browser) {
         assert(await page.locator('.coach-grid > div').first().locator('strong').innerText() === '½-½', 'Coach retained an engine score for a drawn branch')
         assert(await page.locator('.play-from-here-btn').isDisabled(), 'Play from here accepts a finished repetition')
         assert(await page.locator('.eval-bar-label').innerText() === '½-½', 'evaluation bar disagrees with the result')
+        assert(await page.locator('.coach-grid > div').nth(1).locator('strong').innerText() === 'None', 'Coach recommends a move after the game has ended')
+        assert(await page.locator('.coach-line-moves .pv-move').count() === 0, 'Coach offers a continuation of a finished game')
+        await page.waitForFunction(() => document.querySelector('.analytics-card .graph-legend strong')?.textContent === '50.0%'
+          && document.querySelector('.wdl-draw-label')?.textContent === 'Draw 100.0%')
       }
       await load(repeated)
       await assertDraw()
@@ -1451,7 +1455,16 @@ async function checkRepetitionEndings(browser) {
       await load(different)
       assert(!(await page.locator('.turn-pill').innerText()).includes('Threefold'), 'same-FEN game inherited another history’s draw')
       assert(!(await page.locator('.play-from-here-btn').isDisabled()), 'same-FEN unfinished game is blocked')
-      console.log(`  repetition (${width}px): import, navigation and Play keep the draw; a different history with the same FEN stays playable`)
+      await load('1. e4 (1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 Nf6 4. Ng1 Ng8 { [%eval 9.00] }) e5 *')
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.getByRole('button', { name: /^Go to variation move .*Nf3/ }).first().click()
+      for (let ply = 1; ply < 8; ply++) await page.getByRole('button', { name: 'Go to next move', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+      await assertDraw()
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      await page.getByRole('button', { name: 'Go to next move', exact: true }).click()
+      assert(!(await page.locator('.turn-pill').innerText()).includes('Threefold'), 'the main line inherited a variation’s repetition')
+      console.log(`  repetition (${width}px): import, navigation, charts and Play keep the draw; same-FEN histories and sibling lines stay separate`)
     } finally { await context.close() }
   }
 }
