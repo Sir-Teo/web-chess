@@ -1,0 +1,58 @@
+[
+  {
+    "width": 1280,
+    "rootFontSize": 32,
+    "overflow": false,
+    "readings": [
+      {
+        "text": "½-½",
+        "available": 192.15625,
+        "textWidth": 45.09375
+      },
+      {
+        "text": "None",
+        "available": 192.15625,
+        "textWidth": 60.109375
+      },
+      {
+        "text": "None",
+        "available": 192.15625,
+        "textWidth": 60.109375
+      },
+      {
+        "text": "Final",
+        "available": 192.15625,
+        "textWidth": 75.140625
+      }
+    ],
+    "playDisabled": true
+  },
+  {
+    "width": 375,
+    "rootFontSize": 32,
+    "overflow": false,
+    "readings": [
+      {
+        "text": "½-½",
+        "available": 214.15625,
+        "textWidth": 45.09375
+      },
+      {
+        "text": "None",
+        "available": 214.15625,
+        "textWidth": 60.109375
+      },
+      {
+        "text": "None",
+        "available": 214.15625,
+        "textWidth": 60.109375
+      },
+      {
+        "text": "Final",
+        "available": 214.15625,
+        "textWidth": 75.140625
+      }
+    ],
+    "playDisabled": true
+  }
+]

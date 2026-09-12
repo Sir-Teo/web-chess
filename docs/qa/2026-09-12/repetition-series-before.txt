@@ -1,0 +1,33 @@
+
+ RUN  v4.1.11 /Users/teo/Developer/web-chess
+
+ ❯ src/engine/analysis.test.ts (101 tests | 1 failed | 100 skipped) 7ms
+     × uses a branch’s repetition result ahead of a cached engine evaluation 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/analysis.test.ts > review analysis helpers > uses a branch’s repetition result ahead of a cached engine evaluation
+AssertionError: expected -900 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ -900
+
+ ❯ src/engine/analysis.test.ts:47:67
+     45|       [finalFen, { cp: 900, depth: 30, wdl: { w: 1000, d: 0, l: 0 } }],
+     46|     ])
+     47|     expect(buildReviewRows(history, evaluations).at(-1)?.deltaCp).toBe…
+       |                                                                   ^
+     48|     expect(buildWinrateSeries(history, evaluations).at(-1)?.whiteWinra…
+     49|     expect(buildWdlSeries(history, evaluations).at(-1)).toMatchObject(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 100 skipped (101)
+   Start at  15:29:42
+   Duration  179ms (transform 86ms, setup 0ms, import 107ms, tests 7ms, environment 0ms)
+

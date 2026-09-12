@@ -1,0 +1,28 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 178 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-e8sueYWE.js   59.52 kB
+dist/assets/LibraryDialog-1a6sktfW.css        3.40 kB │ gzip:   0.97 kB
+dist/assets/index-D6CnNGjx.css              121.59 kB │ gzip:  22.40 kB
+dist/assets/NewGameDialog-BmR3E5NZ.js         4.26 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-BsVfB4mK.js         7.58 kB │ gzip:   2.81 kB
+dist/assets/PgnDialog-DZcdkofJ.js            23.90 kB │ gzip:   7.95 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-Dl_vZsqS.js               344.30 kB │ gzip: 110.79 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 713ms
+  repetition (1280px): import, navigation, charts and Play keep the draw; same-FEN histories and sibling lines stay separate; complete Coach readings at 200% text
+  repetition (375px): import, navigation, charts and Play keep the draw; same-FEN histories and sibling lines stay separate; complete Coach readings at 200% text
+Focused browser UI checks passed.

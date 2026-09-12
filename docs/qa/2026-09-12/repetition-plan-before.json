@@ -1,0 +1,7 @@
+{
+  "total": 9,
+  "queued": 9,
+  "includesFinal": true,
+  "knownRepetition": true,
+  "expectedNonterminalPositions": 8
+}
