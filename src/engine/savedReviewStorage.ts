@@ -50,6 +50,14 @@ export async function listSavedReviews(): Promise<SavedReviewSummary[]> {
   })
 }
 
+/** One readonly transaction takes a consistent snapshot for a portable backup. */
+export async function snapshotSavedReviews(): Promise<unknown[]> {
+  return transaction('readonly', (store, setResult) => {
+    const request = store.getAll(undefined, MAX_SAVED_REVIEWS + 1)
+    request.onsuccess = () => setResult(request.result)
+  })
+}
+
 export async function loadSavedReview(id: string): Promise<SavedReview> {
   const raw = await transaction<unknown>('readonly', (store, setResult) => {
     const request = store.get(id)

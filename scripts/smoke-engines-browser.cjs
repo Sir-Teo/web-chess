@@ -111,6 +111,15 @@ async function main() {
           await page.getByTestId('review-comparison-summary').waitFor()
           assert.match(await page.getByTestId('review-comparison-summary').innerText(), /2\/2 positions.*0 score changes/s)
           await page.getByRole('button', { name: 'Close comparison', exact: true }).click()
+          stage = 'full saved-review backup'
+          const backupDownload = page.waitForEvent('download')
+          await page.getByRole('button', { name: 'Export review backup', exact: true }).click()
+          const backup = JSON.parse(fs.readFileSync(await (await backupDownload).path(), 'utf8'))
+          assert.equal(backup.format, 'web-chess-review-backup')
+          assert.equal(backup.reviews.length, 1)
+          assert.equal(backup.reviews[0].evaluations.length, 2)
+          assert.equal(backup.reviews[0].settings.depth, 6)
+          assert.ok(backup.reviews[0].finishedAt >= backup.reviews[0].startedAt)
           stage = 'deepen a shallow report'
           await page.getByRole('button', { name: 'Deepen review', exact: true }).click()
           await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
@@ -162,7 +171,7 @@ async function main() {
           await page.screenshot({ path: path.join(output, `${name}-${width}-large-text.png`) })
           assert.deepEqual(errors, [])
           results.push({ browser: name, width, status: 'passed', source, positionScore: before,
-            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus'] })
+            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus'] })
         } catch (error) {
           results.push({ browser: name, width, status: 'failed', stage, error: String(error), pageErrors: errors })
           await page.screenshot({ path: path.join(output, `${name}-${width}-failure.png`) }).catch(() => {})

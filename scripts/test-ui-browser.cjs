@@ -1065,6 +1065,72 @@ async function checkSavedReviews(browser) {
   }
 }
 
+async function checkReviewBackupExport(browser) {
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const page = await context.newPage()
+    const errors = [], workerRequests = []
+    page.on('pageerror', error => errors.push(error.message))
+    page.on('request', request => { if (request.url().includes('/assets/reviewBackupWorker-')) workerRequests.push(request.url()) })
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, engineProfile: 'lite-single-local', reviewMaxWorkers: 1,
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+      const originalReport = await page.getByTestId('review-run-summary').innerText()
+      await page.getByRole('button', { name: 'Save review', exact: true }).click()
+      await page.getByText('Review saved on this device.', { exact: false }).waitFor()
+      const originals = await page.evaluate(() => new Promise((resolve, reject) => {
+        const request = indexedDB.open('web-chess-reviews', 1)
+        request.onsuccess = () => {
+          const db = request.result, tx = db.transaction('runs', 'readwrite'), store = tx.objectStore('runs'), read = store.getAll()
+          let runs
+          read.onsuccess = () => {
+            const first = read.result[0]
+            const partial = { ...first, id: 'backup-partial', title: 'Partial review', evaluations: first.evaluations.slice(0, 1), evaluated: 1, reused: 0, complete: false }
+            store.add(partial)
+            runs = [first, partial]
+          }
+          tx.oncomplete = () => { db.close(); resolve(runs) }
+          tx.onabort = () => { db.close(); reject(tx.error) }
+        }
+      }))
+      assert(workerRequests.length === 0, 'backup validation was loaded before a backup was requested')
+      const download = page.waitForEvent('download')
+      await page.getByRole('button', { name: 'Export review backup', exact: true }).click()
+      const file = await download
+      const backup = JSON.parse(fs.readFileSync(await file.path(), 'utf8'))
+      assert(file.suggestedFilename().endsWith('.json') && backup.format === 'web-chess-review-backup' && backup.version === 1, 'backup format/filename is ambiguous')
+      assert(backup.reviews.length === 2 && workerRequests.length === 1, 'backup did not read all committed runs in its own worker')
+      for (const original of originals) assert(JSON.stringify(backup.reviews.find(run => run.id === original.id)) === JSON.stringify(original), 'backup changed saved scores, WDL, notes or timestamps')
+      assert(await page.getByTestId('review-run-summary').innerText() === originalReport, 'backing up replaced the open report')
+      await page.getByText('Backup download started for 2 saved reviews', { exact: false }).waitFor()
+      await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
+      const button = page.getByRole('button', { name: 'Export review backup', exact: true })
+      await button.scrollIntoViewIfNeeded()
+      const fits = await button.evaluate(el => ({ height: el.getBoundingClientRect().height, clipped: el.scrollWidth > el.clientWidth + 1, overflow: document.documentElement.scrollWidth > innerWidth }))
+      assert(fits.height >= 44 && !fits.clipped && !fits.overflow, `backup button fails at 200% text: ${JSON.stringify(fits)}`)
+      await page.screenshot({ path: `/tmp/web-chess-review-backup-export-${width}.png` })
+      await page.evaluate(() => {
+        window.__backupCreateUrl = URL.createObjectURL
+        URL.createObjectURL = () => { throw new DOMException('QA download failure', 'NotAllowedError') }
+      })
+      await button.click()
+      await page.getByText('The browser could not export the review backup.', { exact: false }).waitFor()
+      await page.evaluate(() => { URL.createObjectURL = window.__backupCreateUrl })
+      assert(await page.getByRole('button', { name: 'Export review', exact: true }).isEnabled(), 'failed backup disabled the current report export')
+      assert(errors.length === 0, `backup export page errors: ${errors.join('; ')}`)
+      console.log(`  review backup export (${width}px): a native worker exports complete/partial runs with exact WDL, settings and timestamps; 200% text and download failure preserve the open report`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkSavedReviewStorage(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 812 } })
   await context.addInitScript(fakeEngineScript())
@@ -5461,6 +5527,7 @@ async function main() {
       'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
       'saved-reviews': async browser => { await checkSavedReviews(browser); await checkSavedReviewStorage(browser); await checkSavedReviewEndings(browser) },
       'saved-endings': checkSavedReviewEndings,
+      'review-backup-export': checkReviewBackupExport,
       'review-depth': checkReviewAtRequestedDepth,
       'graph-readings': checkTheWinrateCardFollowsTheBoard,
       'observed-layout': checkObservedLayout,
@@ -6121,6 +6188,7 @@ async function main() {
     await checkSavedReviews(browser)
     await checkSavedReviewStorage(browser)
     await checkSavedReviewEndings(browser)
+    await checkReviewBackupExport(browser)
     await checkReviewAtRequestedDepth(browser)
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)

@@ -5,6 +5,7 @@ import { createSavedReview, reviewLineKey, type SavedReview, type SavedReviewSum
 import { deleteSavedReview, listSavedReviews, loadSavedReview, saveReview } from '../engine/savedReviewStorage'
 import type { ReviewSnapshot } from '../engine/reviewSession'
 import { ReviewComparison } from './ReviewComparison'
+import { exportReviewBackup } from '../engine/reviewBackupClient'
 import './SavedReviews.css'
 
 type Props = {
@@ -102,6 +103,28 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
     finally { setWorking(false) }
   }
 
+  async function backup() {
+    if (busy || working) return
+    setWorking(true)
+    setNotice('Preparing review backup…')
+    try {
+      const { text, count } = await exportReviewBackup()
+      const url = URL.createObjectURL(new Blob([text], { type: 'application/json;charset=utf-8' }))
+      const link = document.createElement('a')
+      try {
+        link.href = url
+        link.download = `web-chess-reviews-${new Date().toISOString().slice(0, 10)}.json`
+        document.body.append(link)
+        link.click()
+      } finally {
+        link.remove()
+        window.setTimeout(() => URL.revokeObjectURL(url), 0)
+      }
+      setNotice(`Backup download started for ${count} saved ${count === 1 ? 'review' : 'reviews'}, including WDL and run details.`)
+    } catch (error) { setNotice(failure(error, 'export the review backup')) }
+    finally { setWorking(false) }
+  }
+
   return (
     <div className="saved-reviews">
       <div className="review-report-actions">
@@ -150,7 +173,12 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
                 )}
               </>}
             </>}
-          <p className="panel-copy small">Up to 50 reviews on this device. Saved reviews are separate from the game library and its backup.</p>
+          <div className="review-report-actions">
+            <button type="button" disabled={busy || working || !loaded || loadFailed || !runs.length} onClick={() => { void backup() }}>
+              Export review backup
+            </button>
+          </div>
+          <p className="panel-copy small">Up to 50 reviews on this device. A review backup keeps all saved runs, including WDL and timestamps. It is separate from the game library backup.</p>
         </div>
       </details>
     </div>
