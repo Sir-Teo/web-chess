@@ -563,6 +563,10 @@ function App() {
   // The stage is sized by the row it sits in, never by the board inside it, so
   // it is safe to measure and size the board from.
   const stageHeight = useElementHeight(boardStageRef, viewport.height)
+  // The opening pill stays on one line (long names ellipsize), so its height
+  // does not depend on the board size this measurement helps choose.
+  const boardOpeningRef = useRef<HTMLDivElement>(null)
+  const openingRowHeight = useElementHeight(boardOpeningRef, 0)
   /**
    * The room the stage has, which is not the same question as how tall it is.
    * On a phone the stage takes its height from the board inside it, so it can
@@ -5698,6 +5702,7 @@ function App() {
     leftPanelWidth: layoutLeftWidth,
     rightPanelWidth: layoutRightWidth,
     showEvalColumn: engineEnabled,
+    extraStackHeight: openingOnItsOwnRow ? openingRowHeight + viewport.rem * 0.55 : 0,
   })
   const notationFontSize = `${notationFontSizePx}px`
   // The strip says what the position is. Once the game is over there is no side
@@ -7041,6 +7046,7 @@ function App() {
             {openingOnItsOwnRow && (
             <div
               className={`board-opening-label${opening ? ' fade-in-slide' : ' is-empty'}`}
+              ref={boardOpeningRef}
               aria-label={opening ? `Opening ${opening.eco}: ${opening.name}` : undefined}
               title={opening ? `${opening.eco} ${opening.name}` : undefined}
               aria-hidden={opening ? undefined : true}

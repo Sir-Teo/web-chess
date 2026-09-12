@@ -59,6 +59,13 @@ describe('board sizing', () => {
     expect(size({ ...desktop, width: 3840, height: 2160 }, 1800).rendered).toBe(MAX_BOARD_PX)
   })
 
+  it('reserves measured opening rows while preserving the minimum usable board', () => {
+    const viewport = { ...desktop, width: 2000 }
+    const normal = size(viewport, 760).rendered
+    expect(size(viewport, 760, { extraStackHeight: 40 }).rendered).toBe(normal - 40)
+    expect(size({ ...viewport, rem: 32 }, 486, { extraStackHeight: 71 }).rendered).toBe(MIN_DESKTOP_BOARD_PX)
+  })
+
   it('gives the board back the width the evaluation column was taking', () => {
     const withBar = size(desktop, 760).rendered
     const withoutBar = size(desktop, 760, { showEvalColumn: false }).rendered

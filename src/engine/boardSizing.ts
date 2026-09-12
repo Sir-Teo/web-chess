@@ -75,6 +75,8 @@ export type BoardSizingInput = {
   rightPanelWidth: number
   /** The evaluation column sits in flow beside the board when it is shown. */
   showEvalColumn: boolean
+  /** Extra rows above the board, measured independently of its square size. */
+  extraStackHeight?: number
 }
 
 export function isMobileViewport(viewport: Pick<BoardViewport, 'width'>): boolean {
@@ -112,11 +114,12 @@ export function boardChromeWidth(
 }
 
 /** The height the board has, measured rather than guessed at. */
-export function boardHeightBudget(viewport: BoardViewport, stageHeight: number): number {
+export function boardHeightBudget(viewport: BoardViewport, stageHeight: number, extraStackHeight = 0): number {
   const chrome = boardChromeFor(viewport)
   return stageHeight
     - viewport.rem * (2 * chrome.stagePadY + BOARD_STACK_REM + 2 * chrome.frame)
     - 2 * BOARD_FRAME_BORDER
+    - extraStackHeight
 }
 
 /**
@@ -138,10 +141,11 @@ export function boardSizing({
   leftPanelWidth,
   rightPanelWidth,
   showEvalColumn,
+  extraStackHeight = 0,
 }: BoardSizingInput): { width: number; rendered: number; notationFontSizePx: number } {
   const mobile = isMobileViewport(viewport)
   const chromeWidth = boardChromeWidth(viewport, showEvalColumn)
-  const heightBudget = boardHeightBudget(viewport, stageHeight)
+  const heightBudget = boardHeightBudget(viewport, stageHeight, extraStackHeight)
 
   // Mobile prefers finger-friendly squares while respecting narrow screens: a
   // share of the viewport height, unless the phone is on its side, where the
@@ -156,7 +160,7 @@ export function boardSizing({
   // made without scrolling first, on the narrowest width the app claims to
   // support. Capping by the room fixes it at 216px there and changes nothing at
   // 375px and up, where the width has always been the smaller cap.
-  const roomForBoard = boardHeightBudget(viewport, containerHeight)
+  const roomForBoard = boardHeightBudget(viewport, containerHeight, extraStackHeight)
   const mobileWidth = Math.min(
     Math.max(0, viewport.width - viewport.scrollbar - chromeWidth),
     isLandscapePhoneViewport(viewport)
