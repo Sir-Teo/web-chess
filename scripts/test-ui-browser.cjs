@@ -2987,7 +2987,7 @@ async function checkCompactFooter(browser) {
       await page.getByRole('button', { name: 'Collapse bottom bar', exact: true }).focus()
       await page.keyboard.press('Enter')
       await page.waitForFunction(() => !document.querySelector('.engine-details-popover')?.matches(':popover-open'))
-      assert(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight), 'collapsed footer adds root overflow')
+      await page.waitForFunction(() => document.documentElement.scrollHeight <= innerHeight, null, { timeout: 2000 })
       assert(await page.locator('.bottom').getByRole('button', { name: 'Go to first position', exact: true }).count() === 0, 'hidden transport is still exposed to accessibility tools')
       assert(await page.getByRole('button', { name: 'Expand bottom bar', exact: true }).evaluate(el => el === document.activeElement), 'collapsing the footer stranded keyboard focus')
       await page.getByRole('button', { name: 'Expand bottom bar', exact: true }).click()
@@ -5837,6 +5837,62 @@ async function chooseTheme(page, name) {
   )
 }
 
+async function checkSlowDialogDismissal(browser) {
+  for (const width of [1280, 375]) for (const [chunk, action] of [
+    ['NewGameDialog', 'Start new game'], ['PgnDialog', 'Open PGN and FEN dialog'], ['LibraryDialog', 'Open saved games library'],
+  ]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, serviceWorkers: 'block', reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    let release
+    const gate = new Promise(resolve => { release = resolve })
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.route(`**/assets/${chunk}-*.js`, async route => { await gate; await route.continue() })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
+      const opener = page.getByRole('button', { name: action, exact: true })
+      const loading = page.locator('.lazy-dialog-panel')
+      await opener.click()
+      await loading.waitFor()
+      await page.waitForTimeout(150)
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(150)
+      assert(!await loading.isVisible(), `Escape cannot dismiss a pending ${chunk} download at ${width}px`)
+      assert(await opener.evaluate(el => el === document.activeElement && !el.closest('[inert]')), 'pending-dialog Escape lost its invoker or left it inert')
+      await opener.click()
+      await loading.waitFor()
+      const cancel = loading.getByRole('button', { name: 'Cancel', exact: true })
+      await page.waitForFunction(() => document.querySelector('.lazy-dialog-panel button') === document.activeElement)
+      await page.keyboard.press('Tab')
+      assert(await cancel.evaluate(el => el === document.activeElement), 'Tab escaped the loading dialog')
+      assert(await loading.evaluate(el => {
+        const r = el.getBoundingClientRect()
+        return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight && el.scrollWidth <= el.clientWidth + 1
+      }), 'enlarged loading dialog overflows')
+      assert(await cancel.evaluate(el => el.getBoundingClientRect().height >= 44), 'loading Cancel is too small')
+      await cancel.click()
+      await loading.waitFor({ state: 'hidden' })
+      await opener.click()
+      await loading.waitFor()
+      release()
+      await loading.waitFor({ state: 'hidden' })
+      const ready = page.getByRole('dialog').filter({ hasNot: page.locator('.lazy-dialog-spinner') })
+      await ready.waitFor()
+      await page.waitForFunction(() => document.querySelector('[role="dialog"]')?.contains(document.activeElement))
+      await page.keyboard.press('Escape')
+      await ready.waitFor({ state: 'hidden' })
+      await page.waitForFunction(action => document.activeElement?.getAttribute('aria-label') === action && !document.activeElement.closest('[inert]'), action, { timeout: 2000 })
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e4 [data-piece="wP"]'))
+      assert(errors.length === 0, `slow dialog errors: ${errors.join('; ')}`)
+      console.log(`  slow dialog (${chunk}, ${width}px, 200% text): Escape, Cancel, focus trap, reopen, completed download and playable board`)
+    } finally { release(); await context.close() }
+  }
+}
+
 async function checkDialogDownloadFailure(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, serviceWorkers: 'block' })
@@ -6022,6 +6078,7 @@ async function main() {
       targets: checkEveryControlIsFingerSized,
       offline: checkCrossOriginIsolationIsRestored,
       'dialog-download': checkDialogDownloadFailure,
+      'slow-dialog': checkSlowDialogDismissal,
       'candidate-score': checkCandidateSearchKeepsPositionScore,
       'evaluation-source': checkEvaluationEngineProvenance,
       'pv-reuse': checkPvPreviewAndCommit,
@@ -6680,6 +6737,7 @@ async function main() {
     await checkCommandPaletteKeyboard(browser)
     await checkCommandPaletteLayout(browser)
     await checkDialogDownloadFailure(browser)
+    await checkSlowDialogDismissal(browser)
     await checkTypedMoveEntry(browser)
     await checkAutosaveFailure(browser)
     await checkEngineStartupTimeout(browser)

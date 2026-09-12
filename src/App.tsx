@@ -372,12 +372,15 @@ type FenLoadOptions = {
 
 
 
-function DialogLoadingFallback({ label }: { label: string }) {
+function DialogLoadingFallback({ label, onClose }: { label: string; onClose: () => void }) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  useModalFocus(true, panelRef, onClose)
   return (
     <div className="lazy-dialog-backdrop">
-      <div className="lazy-dialog-panel" role="dialog" aria-modal="true" aria-label={label} aria-live="polite">
+      <div ref={panelRef} className="lazy-dialog-panel" role="dialog" aria-modal="true" aria-label={label} aria-live="polite">
         <span className="lazy-dialog-spinner" aria-hidden="true" />
         <span>{label}</span>
+        <button type="button" onClick={onClose}>Cancel</button>
       </div>
     </div>
   )
@@ -7166,7 +7169,10 @@ function App() {
           key={`${showNewGameDialog}:${showPgnDialog}:${showLibraryDialog}:${autoSaveRecovery !== null}`}
           onError={handleDialogLoadError}
         >
-        <Suspense fallback={<DialogLoadingFallback label={dialogLoadingLabel} />}>
+        <Suspense fallback={<DialogLoadingFallback label={dialogLoadingLabel}
+          onClose={showNewGameDialog ? closeNewGameDialog
+            : showPgnDialog ? closePgnDialog
+              : showLibraryDialog ? closeLibraryDialog : dismissAutoSaveRecovery} />}>
           {showNewGameDialog && (
             <NewGameDialog
               key={`${gameMode}-${sideChoice}-${aiDifficulty}-${timeControlId}`}
