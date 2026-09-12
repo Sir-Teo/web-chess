@@ -360,13 +360,21 @@ npm run test:ui:install   # once per machine
 npm run test:ui:browser
 ```
 
-`test:ui:browser` is the only test here that clicks anything. It builds the app,
-serves it, and drives Chromium with a fake Stockfish injected in place of the
+`test:ui:browser` builds the app, serves it, and drives Chromium with a fake Stockfish injected in place of the
 real worker — so a review runs end to end, deterministically, in seconds and
 with no WASM. The technique is borrowed from web-xiangqi, which has had it
 longer. Network fixtures keep public-service outages from failing regressions.
 The real-WASM review benchmark is separate: start Vite on port 4324 and run
 `node scripts/benchmark-review-browser.cjs`.
+
+For real-engine smoke coverage in Chromium, Firefox and WebKit, start the dev
+server on port 4324, then run `node scripts/smoke-engines-browser.cjs` (install
+the additional browsers with `npx playwright install firefox webkit`). Override
+the URL with `SMOKE_URL`; results and screenshots go to `/tmp/web-chess-engine-smoke`
+unless `SMOKE_OUTPUT` is set. This checks desktop and phone layouts, real UCI
+analysis, engine identity, restricted candidates, Commands and board input.
+`node scripts/benchmark-pv-browser.cjs` measures repeated PV conversion alone
+against the same dev server; it is not an end-to-end speed benchmark.
 
 Analysis also supports keyboard move entry: open **Enter a move by name** and
 type SAN (`Nf3`) or UCI (`g1f3`). Independent single-thread engines can now pool
@@ -383,6 +391,11 @@ Local browser engine files are synced from the installed `stockfish` npm package
 ```bash
 npm run sync:stockfish
 ```
+
+The sync also updates `src/engine/localStockfishBuild.json`. Evaluations and
+annotated PGNs record that synced build, the actual UCI engine name and profile,
+so changing the selected engine does not relabel an older score. Keep the
+manifest and copied engine assets in the same update.
 
 The bundled Stockfish engine assets in `public/engine` are GPL-3.0 licensed. See `public/engine/Copying.txt`.
 

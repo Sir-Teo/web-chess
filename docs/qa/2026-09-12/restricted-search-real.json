@@ -1,0 +1,24 @@
+[
+  {
+    "width": 1280,
+    "before": "+0.35",
+    "after": "+0.35",
+    "info": [
+      "info depth 18 seldepth 37 multipv 1 score cp 35 wdl 76 918 6 nodes 6108729 nps 13396335 hashfull 470 time 456 pv d2d4 d7d5 c2c4 d5c4 g1f3 a7a6 e2e3 b7b5 a2a4 c8b7 b2b3 e7e6 b3c4 f8b4 c1d2",
+      "info depth 18 seldepth 37 multipv 2 score cp 28 wdl 59 934 7 nodes 6108729 nps 13396335 hashfull 470 time 456 pv e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 g8f6 d4c6 b7c6 e4e5 d8e7 d1e2 f6d5 g2g3 f7f6 e5f6 e7e2 f1e2 d5f6 c1e3 d7d5 e1g1 e8f7 b1d2",
+      "info depth 18 seldepth 39 multipv 1 score cp -66 wdl 2 784 214 nodes 2935452 nps 12988725 hashfull 239 time 226 pv f2f3 e7e5 b1c3 b8c6 e2e4 f8c5 f1c4 d7d6 d2d3 a7a6 c4b3 c8e6 f3f4"
+    ],
+    "notice": "Searching only f3. Candidate results do not change the position score or game review."
+  },
+  {
+    "width": 375,
+    "before": "+0.38",
+    "after": "+0.38",
+    "info": [
+      "info depth 18 seldepth 31 multipv 1 score cp 38 wdl 84 911 5 nodes 585612 nps 1501569 hashfull 204 time 390 pv e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 g8f6 d4c6 b7c6 e4e5 d8e7 d1d4 d7d5 b1c3 f6d7 c1f4 d7c5 e1c1 c5e6 d4a4",
+      "info depth 18 seldepth 28 multipv 2 score cp 27 wdl 57 935 8 nodes 585612 nps 1501569 hashfull 204 time 390 pv d2d4 g8f6 c1f4 e7e6 e2e3 d7d5 g1f3 c7c5 c2c4 c5d4 e3d4 f8d6 f4d6 d8d6 b1c3 e8g8 c4c5",
+      "info depth 18 seldepth 23 multipv 1 score cp -73 wdl 1 735 264 nodes 553021 nps 1478665 hashfull 215 time 374 pv f2f3 e7e5 b1c3 b8c6 e2e4 f8c5 f1c4 d7d6 d2d3 a7a6 g1e2 d8h4 g2g3 h4h5 c3d5 e8d8 c1e3 c5e3 d5e3 h5f3"
+    ],
+    "notice": "Searching only f3. Candidate results do not change the position score or game review."
+  }
+]

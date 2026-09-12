@@ -1,0 +1,12 @@
+{
+  "workload": "100 repeated renders of a 5-PV panel; conversion functions only",
+  "samplesMs": [
+    143.5349999666214,
+    138.95000004768372,
+    138.84500002861023,
+    139.41999995708466,
+    140.23500001430511,
+    138.0549999475479
+  ],
+  "checksum": 54000
+}
