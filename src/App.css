@@ -3654,6 +3654,7 @@ button.critical-moment-row {
 
 .section-heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
@@ -3815,6 +3816,8 @@ button.critical-moment-row {
 .graph-legend {
   margin-top: 0.45rem;
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
   justify-content: space-between;
   align-items: center;
   font-size: 0.72rem;
@@ -5090,11 +5093,15 @@ button.critical-moment-row {
        it fits and become zero when it needs to scroll, keeping its top reachable. */
     overflow: auto;
     align-items: flex-start;
+    justify-content: flex-start;
     scroll-padding: 8px;
   }
 
   .board-stage .board-layout {
     margin-block: auto;
+    margin-inline: auto;
+    max-width: none;
+    flex-shrink: 0;
   }
 
   /* An empty graph in the rail is a placeholder, not a destination. It says

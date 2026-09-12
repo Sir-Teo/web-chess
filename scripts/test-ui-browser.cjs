@@ -2829,6 +2829,119 @@ async function checkReadingSpace(browser) {
   }
 }
 
+/** The full board must fit beside both panels immediately above the stack breakpoint. */
+async function checkNarrowDesktopLayout(browser) {
+  for (const width of [901, 950, 1024]) for (const experience of ['beginner', 'pro']) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(experience => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: experience, autoAnalyze: false, theme: experience === 'pro' ? 'dark' : 'light',
+      })), experience)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.locator('.winrate-graph').first().waitFor()
+      const left = page.getByRole('separator', { name: 'Resize left panel' })
+      const right = page.getByRole('separator', { name: 'Resize right panel' })
+      const checkBoard = async label => {
+        await page.waitForTimeout(300)
+        const geometry = await page.evaluate(() => {
+          const board = document.querySelector('.board-surface').getBoundingClientRect()
+          const stage = document.querySelector('.board-stage').getBoundingClientRect()
+          const panels = [...document.querySelectorAll('.panel.left, .panel.right')].map(el => ({
+            width: el.getBoundingClientRect().width,
+            announced: Number(el.querySelector('[role="separator"]').getAttribute('aria-valuenow')),
+          }))
+          return { board: { left: board.left, right: board.right, width: board.width },
+            stage: { left: stage.left, right: stage.right }, panels,
+            overflow: document.documentElement.scrollWidth > innerWidth }
+        })
+        assert(!geometry.overflow && geometry.board.width >= 260 && geometry.board.left >= geometry.stage.left
+          && geometry.board.right <= geometry.stage.right + 1, `${label} clips a board edge: ${JSON.stringify(geometry)}`)
+        assert(geometry.panels.every(panel => Math.abs(panel.width - panel.announced) <= 1),
+          `${label} resize handles announce a different width: ${JSON.stringify(geometry.panels)}`)
+        for (const square of ['a8', 'h8', 'a1', 'h1']) {
+          const target = page.locator(`[data-square="${square}"] [role="button"]`)
+          await target.focus()
+          await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+          assert(await target.evaluate(el => {
+            const r = el.getBoundingClientRect(), main = document.querySelector('.main-container').getBoundingClientRect()
+            return r.top >= main.top && r.bottom <= main.bottom + 1 && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+          }), `${label} hides focused square ${square}`)
+        }
+      }
+      for (const scale of [1, 2, 1]) {
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 16}px` }, scale)
+        await checkBoard(`${width}px / ${experience} / ${scale}× text`)
+        const tabs = await page.locator('.analysis-tab-strip button').all()
+        assert(tabs.length === 3, 'analysis tabs are missing from the layout check')
+        for (const button of tabs) {
+          await button.focus()
+          assert(await button.evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'an analysis tab clips its label')
+        }
+        const headings = await page.locator('.analytics-card .section-heading').evaluateAll(headers => headers.map(header => {
+          const contentRect = element => { const range = document.createRange(); range.selectNodeContents(element); return range.getBoundingClientRect() }
+          const title = contentRect(header.querySelector('h3'))
+          const reading = header.querySelector('strong')
+          const value = reading ? contentRect(reading) : null
+          const outer = header.getBoundingClientRect()
+          return { title: header.textContent.trim(), clips: title.left < outer.left - 1 || title.right > outer.right + 1,
+            overlaps: value && Math.min(title.right, value.right) - Math.max(title.left, value.left) > 1
+              && Math.min(title.bottom, value.bottom) - Math.max(title.top, value.top) > 1 }
+        }))
+        assert(headings.length >= 2 && headings.every(h => !h.clips && !h.overlaps),
+          `${width}px / ${scale}× graph headings lose text: ${JSON.stringify(headings)}`)
+        if (scale === 2) {
+          await page.locator('.analytics-card .section-heading').first().scrollIntoViewIfNeeded()
+          await page.screenshot({ path: `/tmp/web-chess-narrow-large-${width}-${experience}.png` })
+        }
+      }
+      const beforeResize = Number(await left.getAttribute('aria-valuenow'))
+      await left.press('ArrowRight')
+      await checkBoard('keyboard expansion')
+      assert(Number(await left.getAttribute('aria-valuenow')) === beforeResize + 40, 'keyboard resize did not start at the visible boundary')
+      const initialRight = Number(await right.getAttribute('aria-valuenow'))
+      const handle = await right.boundingBox()
+      await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(handle.x + handle.width / 2 - 20, handle.y + handle.height / 2, { steps: 4 })
+      await page.mouse.up()
+      await checkBoard('pointer expansion')
+      assert(Math.abs(Number(await right.getAttribute('aria-valuenow')) - initialRight - 20) <= 1, 'pointer resize jumped from a stale preferred width')
+      await left.press('Home')
+      await checkBoard('left collapsed')
+      await left.press('End')
+      await checkBoard('left reopened')
+      await right.press('Home')
+      await checkBoard('right collapsed')
+      await right.press('End')
+      await checkBoard('right reopened')
+      // Resizing the viewport must not overwrite preferred panel widths.
+      await page.setViewportSize({ width: 1440, height: 812 })
+      await left.press('End')
+      await right.press('End')
+      await checkBoard('wide defaults')
+      const defaults = [await left.getAttribute('aria-valuenow'), await right.getAttribute('aria-valuenow')]
+      await page.setViewportSize({ width: 901, height: 812 })
+      await checkBoard('narrow again')
+      await page.setViewportSize({ width: 1440, height: 812 })
+      await checkBoard('wide again')
+      assert(JSON.stringify([await left.getAttribute('aria-valuenow'), await right.getAttribute('aria-valuenow')]) === JSON.stringify(defaults), 'narrowing the window overwrote panel preferences')
+      await page.setViewportSize({ width, height: 812 })
+      await checkBoard('restored narrow viewport')
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e4')?.getAttribute('aria-label')?.includes('White pawn'))
+      await page.screenshot({ path: `/tmp/web-chess-narrow-board-${width}-${experience}.png` })
+      assert(errors.length === 0, `narrow-desktop errors: ${errors.join('; ')}`)
+      console.log(`  narrow desktop (${width}px, ${experience}): whole board and graph headings at 100%/200% text, four focused corners, accurate keyboard/pointer resizing, collapse/reopen, preference restoration and e2-e4`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkObservedLayout(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -5700,6 +5813,7 @@ async function main() {
       'review-depth': checkReviewAtRequestedDepth,
       'graph-readings': checkTheWinrateCardFollowsTheBoard,
       'observed-layout': checkObservedLayout,
+      'narrow-desktop': checkNarrowDesktopLayout,
       'reading-space': checkReadingSpace,
       'opening-layout': checkOpeningLayout,
       'graph-guide': checkGraphEstimateGuide,
@@ -6378,6 +6492,7 @@ async function main() {
     await checkEveryControlIsFingerSized(browser)
     await checkTheWinrateCardFollowsTheBoard(browser)
     await checkObservedLayout(browser)
+    await checkNarrowDesktopLayout(browser)
     await checkReadingSpace(browser)
     await checkOpeningLayout(browser)
     await checkBoardCanvas(browser)

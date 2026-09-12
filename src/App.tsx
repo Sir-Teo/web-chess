@@ -117,6 +117,7 @@ import { isBoardSquare } from './engine/boardAccessibility'
 import { BOARD_A11Y_SYNC_MAX_RETRIES, syncRenderedBoardAccessibility } from './components/boardAccessibilitySync'
 import { isBoardInputLocked, isPromotionMove } from './engine/boardInput'
 import { boardSizing, isLandscapePhoneViewport, isMobileViewport } from './engine/boardSizing'
+import { maximumSidePanelWidth, resizeSidePanel, sidePanelSizing, type PanelWidths } from './engine/panelSizing'
 import {
   applyPremove,
   canPremove,
@@ -529,6 +530,10 @@ function App() {
    * window drag, to answer a question that changes twice.
    */
   const isMobileLayout = isMobileViewport(viewport)
+  const leftPanelUnavailable = workspaceMode === 'play'
+  const fittedPanels = sidePanelSizing(viewport, { left: leftPanelUnavailable ? 0 : leftWidth, right: rightWidth }, engineEnabled)
+  const layoutLeftWidth = fittedPanels.left
+  const layoutRightWidth = fittedPanels.right
   /**
    * Where the opening's name goes, and it is only ever in one of the two.
    *
@@ -5565,8 +5570,6 @@ function App() {
   const flipBoard = () => setOrientation(v => v === 'white' ? 'black' : 'white')
 
   // ── Resize ────────────────────────────────────────────
-  const MIN_WIDTH = 60
-  const MAX_SIDE_PANEL_WIDTH = 600
   const DEFAULT_LEFT = DEFAULT_LEFT_PANEL_WIDTH
   const DEFAULT_RIGHT = 320
   const keyboardResizeStep = 40
@@ -5577,7 +5580,11 @@ function App() {
     action()
   }
 
-  const clampSidePanelWidth = (width: number) => (width < MIN_WIDTH ? 0 : Math.min(width, MAX_SIDE_PANEL_WIDTH))
+  const applyPanelResize = (side: keyof PanelWidths, width: number) => {
+    const next = resizeSidePanel(fittedPanels, side, width)
+    if (!leftPanelUnavailable) setLeftWidth(next.left)
+    setRightWidth(next.right)
+  }
 
   const toggleTopPanel = () => setTopPanelOpen(value => !value)
   const toggleBottomPanel = () => setBottomPanelOpen(value => !value)
@@ -5597,17 +5604,17 @@ function App() {
     }
     if (event.key === 'End') {
       event.preventDefault()
-      setLeftWidth(DEFAULT_LEFT)
+      applyPanelResize('left', DEFAULT_LEFT)
       return
     }
     if (event.key === 'ArrowLeft') {
       event.preventDefault()
-      setLeftWidth(value => clampSidePanelWidth(value - keyboardResizeStep))
+      applyPanelResize('left', layoutLeftWidth - keyboardResizeStep)
       return
     }
     if (event.key === 'ArrowRight') {
       event.preventDefault()
-      setLeftWidth(value => clampSidePanelWidth(value + keyboardResizeStep))
+      applyPanelResize('left', layoutLeftWidth + keyboardResizeStep)
     }
   }
 
@@ -5624,17 +5631,17 @@ function App() {
     }
     if (event.key === 'End') {
       event.preventDefault()
-      setRightWidth(DEFAULT_RIGHT)
+      applyPanelResize('right', DEFAULT_RIGHT)
       return
     }
     if (event.key === 'ArrowLeft') {
       event.preventDefault()
-      setRightWidth(value => clampSidePanelWidth(value + keyboardResizeStep))
+      applyPanelResize('right', layoutRightWidth + keyboardResizeStep)
       return
     }
     if (event.key === 'ArrowRight') {
       event.preventDefault()
-      setRightWidth(value => clampSidePanelWidth(value - keyboardResizeStep))
+      applyPanelResize('right', layoutRightWidth - keyboardResizeStep)
     }
   }
 
@@ -5642,10 +5649,10 @@ function App() {
     e.preventDefault()
     document.body.classList.add('resizing')
     const startX = e.clientX
-    const startW = leftWidth
+    const startW = layoutLeftWidth
     const onMove = (mv: MouseEvent) => {
       const w = startW + mv.clientX - startX
-      setLeftWidth(clampSidePanelWidth(w))
+      applyPanelResize('left', w)
     }
     const onUp = () => {
       document.body.classList.remove('resizing')
@@ -5660,10 +5667,10 @@ function App() {
     e.preventDefault()
     document.body.classList.add('resizing')
     const startX = e.clientX
-    const startW = rightWidth
+    const startW = layoutRightWidth
     const onMove = (mv: MouseEvent) => {
       const w = startW - (mv.clientX - startX)
-      setRightWidth(clampSidePanelWidth(w))
+      applyPanelResize('right', w)
     }
     const onUp = () => {
       document.body.classList.remove('resizing')
@@ -5674,14 +5681,12 @@ function App() {
     document.addEventListener('mouseup', onUp)
   }
 
-  const leftPanelUnavailable = workspaceMode === 'play'
-  const layoutLeftWidth = leftPanelUnavailable ? 0 : leftWidth
   const { rendered: renderedBoardWidth, notationFontSizePx } = boardSizing({
     viewport,
     stageHeight,
     containerHeight,
     leftPanelWidth: layoutLeftWidth,
-    rightPanelWidth: rightWidth,
+    rightPanelWidth: layoutRightWidth,
     showEvalColumn: engineEnabled,
   })
   const notationFontSize = `${notationFontSizePx}px`
@@ -6674,8 +6679,8 @@ function App() {
             aria-label="Resize left panel"
             aria-orientation="vertical"
             aria-valuemin={0}
-            aria-valuemax={MAX_SIDE_PANEL_WIDTH}
-            aria-valuenow={leftWidth}
+            aria-valuemax={maximumSidePanelWidth(fittedPanels, 'left')}
+            aria-valuenow={layoutLeftWidth}
             onMouseDown={startLeftResize}
             onClick={() => { if (leftWidth === 0) setLeftWidth(DEFAULT_LEFT) }}
             onKeyDown={handleLeftResizeKeyDown}
@@ -7223,7 +7228,7 @@ function App() {
           ref={analysisPanelRef}
           aria-hidden={appModalOpen || promotionDialogOpen ? true : undefined}
           inert={appModalOpen || promotionDialogOpen ? true : undefined}
-          style={{ width: rightWidth, '--analysis-header-offset': `${scrollAnalysisHeader ? 0 : analysisHeaderHeight + 8}px` } as CSSProperties}
+          style={{ width: layoutRightWidth, '--analysis-header-offset': `${scrollAnalysisHeader ? 0 : analysisHeaderHeight + 8}px` } as CSSProperties}
           tabIndex={-1}
         >
           <div
@@ -7233,8 +7238,8 @@ function App() {
             aria-label="Resize right panel"
             aria-orientation="vertical"
             aria-valuemin={0}
-            aria-valuemax={MAX_SIDE_PANEL_WIDTH}
-            aria-valuenow={rightWidth}
+            aria-valuemax={maximumSidePanelWidth(fittedPanels, 'right')}
+            aria-valuenow={layoutRightWidth}
             onMouseDown={startRightResize}
             onClick={() => { if (rightWidth === 0) setRightWidth(DEFAULT_RIGHT) }}
             onKeyDown={handleRightResizeKeyDown}

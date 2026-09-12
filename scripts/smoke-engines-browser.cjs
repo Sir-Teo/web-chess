@@ -7,8 +7,10 @@ const assert = require('node:assert/strict')
 const base = process.env.SMOKE_URL || 'http://127.0.0.1:4324/web-chess/'
 const output = process.env.SMOKE_OUTPUT || '/tmp/web-chess-engine-smoke'
 const browsers = { chromium, firefox, webkit }
+const widths = (process.env.SMOKE_WIDTHS || '1280,375').split(',').map(Number)
 
 async function main() {
+  assert(widths.length > 0 && widths.every(width => Number.isInteger(width) && width >= 320), 'SMOKE_WIDTHS must contain viewport widths of at least 320px')
   fs.mkdirSync(output, { recursive: true })
   const results = []
   for (const name of (process.env.SMOKE_BROWSERS || 'chromium,firefox,webkit').split(',')) {
@@ -16,7 +18,7 @@ async function main() {
     try {
       assert(browsers[name], `Unknown browser: ${name}`)
       browser = await browsers[name].launch()
-      for (const width of [1280, 375]) {
+      for (const width of widths) {
         const context = await browser.newContext({ viewport: { width, height: 812 },
           hasTouch: width < 500, isMobile: name !== 'firefox' && width < 500,
           ...(width < 500 ? { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' } : {}),
@@ -157,7 +159,9 @@ async function main() {
             const board = document.querySelector('.board-surface').getBoundingClientRect()
             const main = document.querySelector('.main-container').getBoundingClientRect()
             const stage = document.querySelector('.board-stage')
+            const stageRect = stage.getBoundingClientRect()
             return (board.bottom <= main.bottom + 1 || (getComputedStyle(stage).overflowY === 'auto' && stage.scrollHeight > stage.clientHeight))
+              && board.left >= stageRect.left && board.right <= stageRect.right + 1
               && document.documentElement.scrollWidth <= innerWidth
           })
           assert.equal(boardFits, true, 'text-only enlargement clips the board without a way to reach it')
