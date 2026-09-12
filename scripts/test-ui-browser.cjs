@@ -196,15 +196,16 @@ const SCENARIO = ${JSON.stringify(scenario)};
     emitInfo() {
       const { cp, move, depths } = this.scriptedLine();
       const [shallow, deep] = depths || [16, 22];
+      const wdl = SCENARIO === 'review-source' && this.reviewProducer === 'full' ? '0 1000 0' : '400 400 200';
       // Counted here rather than in scriptedLine, which finishSearch also
       // calls: incrementing there made one search look like two.
       if (SCENARIO === 'review-drift') {
         window.__fenSearches[this.fen] = (window.__fenSearches[this.fen] || 0) + 1;
       }
       this.send('info depth ' + shallow + ' seldepth ' + (shallow + 4) + ' multipv 1 score cp ' + cp +
-                ' nodes 120000 nps 900000 hashfull 45 tbhits 0 time 130 wdl 400 400 200 pv ' + move + ' e7e5');
+                ' nodes 120000 nps 900000 hashfull 45 tbhits 0 time 130 wdl ' + wdl + ' pv ' + move + ' e7e5');
       this.send('info depth ' + deep + ' seldepth ' + (deep + 4) + ' multipv 1 score cp ' + cp +
-                ' nodes 400000 nps 900000 hashfull 127 tbhits 3 time 420 wdl 400 400 200 pv ' + move + ' e7e5');
+                ' nodes 400000 nps 900000 hashfull 127 tbhits 3 time 420 wdl ' + wdl + ' pv ' + move + ' e7e5');
       if (SCENARIO === 'bounded-last') {
         // A fail-high re-search at the same depth, with more nodes behind it,
         // arriving after the exact line and before the search is stopped. This
@@ -246,6 +247,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
         this.goCommand = text;
         this.searching = true;
         this.searches += 1;
+        if (window.__withholdEngineInfo) return;
         if (SCENARIO === 'review-source' && this.ordinal === window.__failReviewWorker && this.searches === 2) {
           window.__failedCompletedFen = this.lastCompletedFen;
           setTimeout(() => this.onerror?.({ message: 'QA review worker failed after one result' }), 0);
@@ -879,6 +881,19 @@ async function checkReviewUsesSelectedEngine(browser, controls = false) {
       const accuracy = await page.locator('.accuracy-summary > div').first().locator('strong').innerText()
       assert(Number.parseFloat(accuracy) === 100, `review grades do not use its own level evaluations: ${accuracy}`)
       assert((await page.getByTestId('review-run-summary').innerText()).includes('Completed review'), 'a finished review was marked partial')
+      const graphValues = () => page.evaluate(() => ({
+        winrate: Number.parseFloat(document.querySelector('.analytics-card .section-heading strong')?.textContent || ''),
+        draw: document.querySelector('.wdl-draw-label')?.textContent,
+      }))
+      const reviewedGraphs = await graphValues()
+      assert(reviewedGraphs.winrate === 50 && reviewedGraphs.draw === 'Draw 100.0%',
+        `Review graphs used live scores instead of the report: ${JSON.stringify(reviewedGraphs)}`)
+      await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+      const liveGraphs = await graphValues()
+      assert(liveGraphs.winrate !== 50 && liveGraphs.draw === 'Draw 40.0%',
+        `Analyze graphs lost the retained live scores: ${JSON.stringify(liveGraphs)}`)
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      assert((await graphValues()).winrate === 50, 'returning to Review did not restore its graph')
       if (failPool) {
         assert(await page.evaluate(() => window.__failedCompletedFen && window.__fullCompletedPositions[window.__failedCompletedFen] === 1),
           'pool fallback re-searched the result that was buffered before the failure')
@@ -1995,14 +2010,17 @@ async function checkTheWinrateCardFollowsTheBoard(browser) {
       const card = legend ? Number((legend.textContent || '').match(/([\d.]+)%/)?.[1]) : null
       const coach = Number((document.body.innerText.replace(/\s+/g, ' ')
         .match(/(\d+)% for White/) || [])[1])
-      return { card, coach }
+      const wdlCard = Number(document.querySelector('.wdl-white-label')?.textContent?.match(/([\d.]+)%/)?.[1])
+      const wdlCursor = Number(document.querySelector('[aria-label="WDL trend move navigator"]')?.getAttribute('aria-valuetext')?.match(/White ([\d.]+)%/)?.[1])
+      return { card, coach, wdlCard, wdlCursor }
     })
 
     // Import lands on the last position, where "Go to last position" is
     // disabled, so the walk is backwards from there rather than reset each time.
     const seen = []
+    const wdlSeen = []
     let at = 0
-    for (const back of [0, 6, 12, 24]) {
+    for (const back of [0, 5, 12, 23]) {
       for (let step = at; step < back; step++) {
         await page.keyboard.press('ArrowLeft')
         await page.waitForTimeout(60)
@@ -2014,14 +2032,32 @@ async function checkTheWinrateCardFollowsTheBoard(browser) {
         `${back} plies back: could not read both numbers (card ${pair.card}, coach ${pair.coach})`)
       assert(Math.abs(pair.card - pair.coach) <= 1,
         `${back} plies back: the card says ${pair.card}% and the coach says ${pair.coach}% for the same position`)
+      assert(Number.isFinite(pair.wdlCard) && pair.wdlCard === pair.wdlCursor,
+        `${back} plies back: WDL card ${pair.wdlCard}% disagrees with the graph cursor ${pair.wdlCursor}%`)
       seen.push(pair.card)
+      wdlSeen.push(pair.wdlCard)
     }
     // A card frozen on the last ply agrees with the coach there and nowhere
     // else, so the check is only worth anything if the value actually moved.
     assert(new Set(seen).size > 1,
       `the card read ${seen[0]}% at every ply, so this proves nothing about it following the board`)
+    assert(new Set(wdlSeen).size > 1, 'WDL values did not move, so this does not test the card following its cursor')
 
-    console.log(`  winrate: the card follows the board (${seen.map(v => v + '%').join(', ')}) and agrees with the coach at each`)
+    console.log(`  graph readings: winrate (${seen.join(', ')}%) and WDL White (${wdlSeen.join(', ')}%) follow the board and agree with their selected positions`)
+
+    // An unscored new branch still has its evaluated root in both graphs.
+    // Its card must not claim that root's score belongs to the new position.
+    await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+    await page.waitForTimeout(700)
+    await page.evaluate(() => { window.__withholdEngineInfo = true })
+    await page.locator('#chessboard-square-a2').click()
+    await page.locator('#chessboard-square-a3').click()
+    await page.waitForFunction(() => document.querySelector('#chessboard-square-a3')?.getAttribute('aria-label')?.includes('White pawn'))
+    await page.waitForTimeout(200)
+    assert(await page.getByRole('slider', { name: 'White winrate move navigator' }).count() === 1, 'missing-reading check lost the graph entirely')
+    assert(await page.getByRole('slider', { name: 'WDL trend move navigator' }).count() === 1, 'missing-reading check lost WDL entirely')
+    assert(await page.locator('.analytics-card .graph-legend').count() === 0, 'an unscored position borrowed a different move’s graph reading')
+    console.log('  graph gaps: an unscored new branch keeps the plots without borrowing the root’s readings')
   } finally { await context.close() }
 }
 
@@ -4822,6 +4858,7 @@ async function main() {
       'pv-reuse': checkPvPreviewAndCommit,
       'review-source': checkReviewUsesSelectedEngine,
       'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
+      'graph-readings': checkTheWinrateCardFollowsTheBoard,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]

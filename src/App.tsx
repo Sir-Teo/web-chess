@@ -3163,28 +3163,19 @@ function App() {
     navigateAndPause(chess)
   }, [currentLineNodes, gameTree, navigateAndPause, navigateAndPonder, workspaceMode])
 
+  // Review charts and grades must describe the same run. Analyze keeps the
+  // live readings, which may be deeper or come from another engine.
+  const graphsUseReview = workspaceMode === 'analysis' && analysisTab === 'review'
+  const graphEvaluations = graphsUseReview ? reviewEvaluations : evaluationsByFen
   const winratePoints = useMemo(
-    () => buildWinrateSeries(currentLineMoves, evaluationsByFen, currentRootFen),
-    [currentLineMoves, currentRootFen, evaluationsByFen],
+    () => buildWinrateSeries(currentLineMoves, graphEvaluations, currentRootFen),
+    [currentLineMoves, currentRootFen, graphEvaluations],
   )
 
-  /**
-   * The winrate at the position on the board, not at the end of the game.
-   *
-   * The card's two readings took `winratePoints[length - 1]` -- the last ply of
-   * the line, whatever was being looked at. **Measured** on a 58-move game at
-   * five plies: the coach beside it read 42%, 22%, 45%, 30% and 46% for those
-   * positions and this card read **42.1% every time**, which is the last one.
-   * The graph in between them was already right: it takes `currentIndex` and
-   * lights the point it belongs to, so the highlighted dot and the number under
-   * it were two different plies.
-   *
-   * Falls back to the last point when the current ply has no evaluation yet,
-   * which is what it always showed and is better than showing nothing.
-   */
+  // A missing reading at the cursor must not display a different ply's score.
   const currentWinratePoint = useMemo(() => {
     const index = currentPathNodes.length - 1
-    return winratePoints.find(point => point.index === index) ?? winratePoints[winratePoints.length - 1]
+    return winratePoints.find(point => point.index === index)
   }, [winratePoints, currentPathNodes.length])
 
   const gameNarrativeTags = useMemo(
@@ -3195,8 +3186,12 @@ function App() {
   // In Play mode the engine is off, so an empty winrate/WDL card can never fill —
   // it is 250px of permanent blank. They stay whenever there is data to plot.
   const wdlPoints = useMemo(
-    () => buildWdlSeries(currentLineMoves, evaluationsByFen, currentRootFen),
-    [currentLineMoves, currentRootFen, evaluationsByFen],
+    () => buildWdlSeries(currentLineMoves, graphEvaluations, currentRootFen),
+    [currentLineMoves, currentRootFen, graphEvaluations],
+  )
+  const currentWdlPoint = useMemo(
+    () => wdlPoints.find(point => point.index === currentPathNodes.length - 1),
+    [wdlPoints, currentPathNodes.length],
   )
 
   const showEvaluationGraphs = engineEnabled || winratePoints.length > 0 || wdlPoints.length > 0
@@ -6721,6 +6716,7 @@ function App() {
           >
             <div className="panel-content">
               {showEvaluationGraphs && (<>
+              {graphsUseReview && <p className="panel-copy small" data-testid="graph-evaluation-source">Review evaluations</p>}
               <section className="analytics-card">
                 <header className="section-heading">
                   <h3><span className="section-icon"><IconTrendingUp /></span> Winrate</h3>
@@ -6752,11 +6748,11 @@ function App() {
                   lastPlyIndex={currentLineMoves.length}
                   onNavigate={navigateToGraphPoint}
                 />
-                {wdlPoints.length > 0 && (
+                {currentWdlPoint && (
                   <div className="graph-legend wdl">
-                    <span className="wdl-white-label">White {wdlPoints[wdlPoints.length - 1]!.white.toFixed(1)}%</span>
-                    <span className="wdl-draw-label">Draw {wdlPoints[wdlPoints.length - 1]!.draw.toFixed(1)}%</span>
-                    <span className="wdl-black-label">Black {wdlPoints[wdlPoints.length - 1]!.black.toFixed(1)}%</span>
+                    <span className="wdl-white-label">White {currentWdlPoint.white.toFixed(1)}%</span>
+                    <span className="wdl-draw-label">Draw {currentWdlPoint.draw.toFixed(1)}%</span>
+                    <span className="wdl-black-label">Black {currentWdlPoint.black.toFixed(1)}%</span>
                   </div>
                 )}
               </section>
