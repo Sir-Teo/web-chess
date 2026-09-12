@@ -1105,7 +1105,7 @@ function App() {
   const isBookPosition = useOpeningBook(engineEnabled && gameTree.root.children.length > 0)
   const canGoBack = currentPathNodes.length > 1
   const canGoForward = gameTree.current.children.length > 0
-  const appModalOpen = showNewGameDialog || showPgnDialog || showLibraryDialog || autoSaveRecovery !== null
+  const appModalOpen = showNewGameDialog || showPgnDialog || showLibraryDialog || showCommandPalette || autoSaveRecovery !== null
   const promotionDialogOpen = pendingPromotion !== null
   const topChromeHidden = appModalOpen || promotionDialogOpen
   const backgroundUiHidden = appModalOpen || settingsOpen || promotionDialogOpen
@@ -1220,7 +1220,9 @@ function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return
-      if (shortcutsSuspended) return
+      // The palette's own chord may close it; ordinary board shortcuts stay
+      // suspended even when focus has moved from its search to a command.
+      if (shortcutsSuspended && !showCommandPalette) return
       const target = e.target as HTMLElement | null
       const tag = target?.tagName
       // The one chord this app claims. Command/Control+K is the near-universal
@@ -1232,6 +1234,7 @@ function App() {
         setShowCommandPalette(open => !open)
         return
       }
+      if (shortcutsSuspended) return
       if (isTypingTarget(target)) return
       // Every other shortcut below is a bare key, so a chord belongs to the browser.
       // Without this, Command+F flipped the board and swallowed Find, and
@@ -1292,7 +1295,7 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [goFirst, goLast, goPrev, goNext, goSiblingVariation, pause, resume, shortcutsSuspended, workspaceMode])
+  }, [goFirst, goLast, goPrev, goNext, goSiblingVariation, pause, resume, shortcutsSuspended, showCommandPalette, workspaceMode])
 
   const closeSettings = useCallback(() => setSettingsOpen(false), [])
   const closeCommandPalette = useCallback(() => setShowCommandPalette(false), [])

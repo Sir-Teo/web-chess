@@ -4408,6 +4408,14 @@ async function checkCommandPaletteKeyboard(browser) {
       await page.keyboard.press('Tab')
       await page.keyboard.press('Tab')
       assert(await page.locator('[data-command-id="flip-board"] button').evaluate(el => el === document.activeElement), 'Tab did not reach Flip board')
+      await page.keyboard.press('f')
+      const whileOpen = await square.boundingBox()
+      assert(Math.abs(whileOpen.x - before.x) < 1, 'a background shortcut flipped the board while a command button was focused')
+      assert(await page.locator('.panel.top').evaluate(el => el.inert), 'the modal palette leaves the toolbar interactive')
+      assert(await page.locator('.board-stage').evaluate(el => el.inert), 'the modal palette leaves the board interactive')
+      await page.keyboard.press('n')
+      assert(await page.getByRole('dialog').count() === 1 && await page.locator('.command-palette').isVisible(),
+        'a background shortcut opened a second dialog over the palette')
       await page.keyboard.press('Enter')
       await page.waitForFunction(() => !document.querySelector('[role="dialog"]'))
       const after = await square.boundingBox()
@@ -4435,6 +4443,11 @@ async function checkCommandPaletteKeyboard(browser) {
       await page.waitForFunction(() => !document.querySelector('[role="dialog"]'))
       const restored = await square.boundingBox()
       assert(Math.abs(restored.x - before.x) < 1, 'Enter in the search did not run the matching command')
+      await opener.click()
+      await page.keyboard.press('Control+k')
+      await page.locator('.command-palette').waitFor({ state: 'detached' })
+      assert(await opener.evaluate(el => el === document.activeElement && !el.closest('[inert]')),
+        'the palette chord did not close the modal and restore an interactive opener')
       console.log(`  command keyboard (${width}px): Tab activates the focused button; search editing and Enter work`)
     } finally { await context.close() }
   }
