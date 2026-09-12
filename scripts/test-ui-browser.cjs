@@ -3075,6 +3075,71 @@ async function checkReadingSpace(browser) {
   }
 }
 
+async function checkConsoleTools(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [1280, 2, 'light'], [375, 1, 'light'], [375, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(() => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, analysisTab: 'engine-lab',
+          engineProfile: 'lite-single-local', expertModeEnabled: false,
+        }))
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await openSettings(page)
+      await chooseTheme(page, theme === 'light' ? 'Light' : 'Dark')
+      await closeSettings(page)
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${16 * scale}px` }, scale)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      const perft = page.getByRole('button', { name: 'perft 3', exact: true })
+      const search = page.getByRole('button', { name: '5s search', exact: true })
+      assert(await perft.isDisabled() && /expert/i.test(await perft.getAttribute('title')), 'perft needs an explained expert gate')
+      assert(await search.isEnabled(), 'bounded search should work without expert mode')
+      assert((await search.getAttribute('title')).includes('console position'), 'search shortcut does not explain its position')
+      for (const [text, reason] of [['bench', 'not included in this browser build'], ['benchmark', 'not included in this browser build'], ['perft 3', 'Use go perft 3']]) {
+        await command.fill(text)
+        await command.press('Enter')
+        await page.locator('.error-copy').filter({ hasText: reason }).waitFor()
+        assert(await page.evaluate(text => !window.__uciCommands.includes(text), text), `unsupported ${text} reached the engine`)
+      }
+      await search.click()
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === ''
+        && document.querySelector('.bottom .status')?.textContent === 'ready')
+      assert((await page.getByLabel('UCI console output', { exact: true }).innerText()).includes('bestmove e2e4'), 'timed search did not finish')
+      assert(await page.evaluate(() => window.__uciCommands.includes('go movetime 5000')), 'timed shortcut sent the wrong command')
+      await page.getByRole('checkbox', { name: 'Enable expert engine commands', exact: true }).check()
+      await perft.click()
+      await page.getByLabel('UCI console output', { exact: true }).filter({ hasText: 'Nodes searched: 8902' }).waitFor()
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      assert(await page.evaluate(() => window.__uciCommands.includes('go perft 3')), 'perft shortcut sent the wrong command')
+      // Native focus scrolling must reveal each complete control, including at
+      // 200% text when the panel becomes a vertically scrolling reading area.
+      for (const control of [command, search, perft]) {
+        await control.focus()
+        const fits = await control.evaluate(async el => {
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+          const r = el.getBoundingClientRect()
+          return r.left >= 0 && r.right <= innerWidth + 1 && r.top >= 0 && r.bottom <= innerHeight + 1
+            && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+            && el.scrollWidth <= el.clientWidth + 1
+        })
+        assert(fits, `console control clipped at ${width}px, ${scale}x text`)
+      }
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'console tools overflow horizontally')
+      await page.screenshot({ path: `/tmp/web-chess-console-tools-${width}-${scale}x-${theme}.png` })
+      await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+      assert(await page.locator('.pv-list article').count() === 0, 'console shortcuts added board evaluations')
+      assert(errors.length === 0, `console tools page errors: ${errors.join('; ')}`)
+      console.log(`  console tools (${width}px, ${scale}x text, ${theme}): unsupported commands explained, bounded search enabled, expert perft completes, controls reachable`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkConsoleSearchOwnership(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -6579,6 +6644,7 @@ async function main() {
       resources: checkSingleThreadReviewPool,
       lab: checkLabSettingsStayInSync,
       'console-search': checkConsoleSearchOwnership,
+      'console-tools': checkConsoleTools,
       continuous: checkKeepSearchingIsUnbounded,
       'palette-keyboard': checkCommandPaletteKeyboard,
       'palette-layout': checkCommandPaletteLayout,
@@ -7256,6 +7322,7 @@ async function main() {
     await checkEngineStartupTimeout(browser)
     await checkLabSettingsStayInSync(browser)
     await checkConsoleSearchOwnership(browser)
+    await checkConsoleTools(browser)
     await checkSingleThreadReviewPool(browser)
     await checkCoachUsesPositionScore(browser)
     await checkBoundedScoreIsIgnored(browser)

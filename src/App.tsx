@@ -8514,7 +8514,7 @@ function App() {
                         checked={expertModeEnabled}
                         onChange={e => setExpertModeEnabled(e.target.checked)}
                       />
-                      <span>Enable expert commands (bench/perft/unbounded go)</span>
+                      <span>Enable expert commands (perft/unbounded go)</span>
                     </label>
                     {openingExplorer.data && (
                       <div className="engine-lab-inline">
@@ -8585,19 +8585,18 @@ function App() {
                       </button>
                       <button
                         type="button"
-                        className="danger-lite"
-                        disabled={!expertModeEnabled || status === 'analyzing'}
-                        title={expertCommandDisabledReason ?? undefined}
-                        onClick={() => void runLabCommand('bench')}
+                        disabled={status === 'analyzing'}
+                        title={engineBusyDisabledReason ?? 'Search the current console position for five seconds (go movetime 5000).'}
+                        onClick={() => void runLabCommand('go movetime 5000')}
                       >
-                        bench
+                        5s search
                       </button>
                       <button
                         type="button"
                         className="danger-lite"
                         disabled={!expertModeEnabled || status === 'analyzing'}
-                        title={expertCommandDisabledReason ?? undefined}
-                        onClick={() => void runLabCommand('perft 3')}
+                        title={expertCommandDisabledReason ?? 'Count legal move paths three plies deep at the current console position (go perft 3).'}
+                        onClick={() => void runLabCommand('go perft 3')}
                       >
                         perft 3
                       </button>

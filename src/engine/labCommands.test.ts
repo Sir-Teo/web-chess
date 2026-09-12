@@ -6,6 +6,7 @@ describe('Engine Lab command safety', () => {
     expect(isHeavyEngineLabCommand('bench')).toBe(true)
     expect(isHeavyEngineLabCommand('bench 16 1 13')).toBe(true)
     expect(isHeavyEngineLabCommand('perft 4')).toBe(true)
+    expect(isHeavyEngineLabCommand('go perft 3')).toBe(true)
     expect(isHeavyEngineLabCommand('go')).toBe(true)
     expect(isHeavyEngineLabCommand('go searchmoves e2e4')).toBe(true)
     expect(isHeavyEngineLabCommand('go infinite')).toBe(true)
@@ -45,5 +46,15 @@ describe('Engine Lab command safety', () => {
     expect(engineLabCommandBlockMessage(' QUIT ')).toContain('managed by the app')
     expect(engineLabCommandBlockMessage('stop')).toBeNull()
     expect(engineLabCommandBlockMessage('isready')).toBeNull()
+  })
+
+  it('explains browser alternatives for unavailable native diagnostics', () => {
+    for (const command of ['bench', 'bench 16 1 13', ' BENCHMARK ']) {
+      expect(engineLabCommandBlockMessage(command)).toContain('not included in this browser build')
+      expect(engineLabCommandBlockMessage(command)).toContain('go movetime 5000')
+    }
+    expect(engineLabCommandBlockMessage('perft 3')).toContain('Use go perft 3')
+    expect(engineLabCommandBlockMessage('go perft 3')).toBeNull()
+    expect(engineLabCommandBlockMessage('go movetime 5000')).toBeNull()
   })
 })

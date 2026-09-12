@@ -24,7 +24,7 @@ const SEARCHMOVES_TRAILING_LIMITS = new Set([
 // Runtime card used to state it permanently, in warning colours, at everyone
 // who never runs one of these.
 const HEAVY_COMMAND_MESSAGE =
-  'Enable expert mode to run bench, perft and unbounded go — they are locked because they can stall the UI.'
+  'Enable expert mode to run perft and unbounded go — they are locked because they can stall the UI.'
 const SEARCHMOVES_ORDER_MESSAGE =
   'Stockfish treats searchmoves as the final go parameter. Put limits before searchmoves, for example: go depth 12 searchmoves e2e4.'
 const QUIT_COMMAND_MESSAGE = 'Engine shutdown is managed by the app. Switch engine profile or reload the page instead of sending quit.'
@@ -79,5 +79,11 @@ export function engineLabCommandSafetyMessage(command: string): string | null {
 export function engineLabCommandBlockMessage(command: string): string | null {
   const parts = commandParts(command)
   if (parts[0] === 'quit') return QUIT_COMMAND_MESSAGE
+  if (parts[0] === 'bench' || parts[0] === 'benchmark') {
+    return 'The native Stockfish benchmark is not included in this browser build. Use go movetime 5000 for a five-second search at the console position, or native Stockfish for its benchmark.'
+  }
+  if (parts[0] === 'perft') {
+    return 'Use go perft 3 to count legal move paths three plies deep at the console position. This browser build does not support bare perft commands.'
+  }
   return null
 }
