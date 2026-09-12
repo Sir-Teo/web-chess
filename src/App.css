@@ -5724,6 +5724,13 @@ button.mtree-chip-compact {
     min-width: 44px;
   }
 
+  /* The Play controls also live in an engine-lab-card. Its touch-target floor
+     must not replace the label's content floor when enlarged text needs the
+     actions to wrap onto separate rows. */
+  .app-shell .panel.right .engine-lab-card .inline-actions button {
+    min-width: min-content;
+  }
+
   .panel .wc-btn,
   .panel .wc-speed-pill {
     min-width: 44px;

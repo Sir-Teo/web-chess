@@ -3000,12 +3000,6 @@ async function checkEveryControlAnswersToWhatItSays(browser) {
  * a row that scrolls sideways by design.
  */
 async function checkLabelsSurviveBigText(browser) {
-  // The one label still cut, measured and not yet fixed: at 375px and 200% text
-  // Resign is given 116px of the 125px it wants. Its floor is a 44px touch-target
-  // minimum that outranks the content floor, and three probes failed to find the
-  // rule that sets it -- so it is named here rather than quietly swept under a
-  // tolerance. Fixing it should delete this line.
-  const KNOWN_STILL_CUT = /resign-btn/
   const OVERFLOW = () => {
     const out = []
     const reachableBySideScroll = el => {
@@ -3067,7 +3061,7 @@ async function checkLabelsSurviveBigText(browser) {
 
     const look = async (where) => {
       await page.waitForTimeout(400)
-      const found = (await page.evaluate(OVERFLOW)).filter(s => !KNOWN_STILL_CUT.test(s))
+      const found = await page.evaluate(OVERFLOW)
       assert(found.length === 0, `at 200% text on ${where}: ${found.join(' | ')}`)
     }
 
@@ -4479,6 +4473,7 @@ async function main() {
       continuous: checkKeepSearchingIsUnbounded,
       'palette-keyboard': checkCommandPaletteKeyboard,
       'palette-layout': checkCommandPaletteLayout,
+      'big-text': checkLabelsSurviveBigText,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
