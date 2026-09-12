@@ -787,6 +787,37 @@ async function checkEvaluationEngineProvenance(browser) {
   }
 }
 
+async function checkPvPreviewAndCommit(browser) {
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, analyzeMode: 'deep',
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      const second = page.locator('.coach-line-moves .pv-move').nth(1)
+      await second.waitFor()
+      await second.focus()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e5 [data-piece="bP"]'))
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).focus()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e7 [data-piece="bP"]'))
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.waitForFunction(() => window.__uciBestmoves >= 2)
+      await second.click()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e5 [data-piece="bP"]'))
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.getByRole('button', { name: 'Export', exact: true }).click()
+      const exported = await page.getByRole('textbox', { name: 'Annotated Output' }).inputValue()
+      const moves = exported.replace(/\[[^\]]*\]|\{[^}]*\}/g, '').replace(/\s+/g, ' ')
+      assert(/1\. e4\s+(?:1\.\.\. )?e5/.test(moves), `preview did not commit the complete line: ${moves}`)
+      console.log(`  PV reuse (${width}px): focus previews and restores the board; repeated search keeps the line clickable; export contains both committed plies`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkBoundedScoreIsIgnored(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const page = await context.newPage()
@@ -4691,6 +4722,7 @@ async function main() {
       'dialog-download': checkDialogDownloadFailure,
       'candidate-score': checkCandidateSearchKeepsPositionScore,
       'evaluation-source': checkEvaluationEngineProvenance,
+      'pv-reuse': checkPvPreviewAndCommit,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
@@ -5338,6 +5370,7 @@ async function main() {
     await checkBoundedScoreIsIgnored(browser)
     await checkCandidateSearchKeepsPositionScore(browser)
     await checkEvaluationEngineProvenance(browser)
+    await checkPvPreviewAndCommit(browser)
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)
     await checkKeepSearchingIsUnbounded(browser)

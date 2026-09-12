@@ -1,5 +1,5 @@
 import { Chess } from 'chess.js'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { EngineLine } from '../hooks/useStockfishEngine'
 import { parseInfoLine } from '../hooks/useStockfishEngine'
 import {
@@ -26,6 +26,7 @@ import {
   recordEvaluation,
   engineLineToSnapshot,
   pvLineMoves,
+  pvToSan,
   describeAdvantage,
   terminalSnapshotForFen,
 } from './analysis'
@@ -1165,6 +1166,31 @@ describe('turning an engine line into a snapshot', () => {
 
 describe('pvLineMoves', () => {
   const START = new Chess().fen()
+
+  it('reuses matching displayed moves across new engine lines and both renderers', () => {
+    const pv = ['d2d4', 'd7d5', 'c2c4', 'e7e6']
+    const first = pvLineMoves(START, pv, 3)
+    const replay = vi.spyOn(Chess.prototype, 'move')
+    try {
+      expect(pvLineMoves(START, [...pv, 'b1c3'], 3)).toBe(first)
+      expect(pvToSan(START, { pv: [...pv], depth: 30, multipv: 1 }, 3)).toBe('1. d4 1... d5 2. c4')
+      expect(replay).not.toHaveBeenCalled()
+      // Sharing cached arrays must not let one consumer corrupt every view.
+      expect(Reflect.set(first[0], 'san', 'wrong')).toBe(false)
+      expect(first[0].san).toBe('d4')
+      expect(Reflect.set(first, '0', first[1])).toBe(false)
+    } finally { replay.mockRestore() }
+  })
+
+  it('refreshes when the displayed continuation, limit or full FEN changes', () => {
+    const pv = ['e2e4', 'e7e5', 'g1f3']
+    const first = pvLineMoves(START, pv, 2)
+    expect(pvLineMoves(START, pv, 3)).toHaveLength(3)
+    expect(pvLineMoves(START, ['e2e4', 'c7c5'], 2)[1].san).toBe('c5')
+    expect(pvLineMoves(START.replace('0 1', '0 12'), pv, 2)[0].numbered).toBe('12. e4')
+    expect(pvLineMoves(START, pv, 2)).toBe(first)
+    expect(pvToSan('invalid FEN', { pv, depth: 16, multipv: 1 })).toBe('')
+  })
 
   it('turns a principal variation into steppable moves with the position after each', () => {
     const moves = pvLineMoves(START, ['e2e4', 'e7e5', 'g1f3'])

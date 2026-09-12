@@ -111,37 +111,10 @@ export function formatEvaluation(cp?: number, mate?: number): string {
 }
 
 export function pvToSan(fen: string, line: EngineLine, maxMoves = 8): string {
-  const replay = new Chess(fen)
-  const moves = line.pv.slice(0, maxMoves)
-  const chunks: string[] = []
-
-  for (let index = 0; index < moves.length; index += 1) {
-    const uci = moves[index]
-    if (uci.length < 4) break
-
-    const from = uci.slice(0, 2)
-    const to = uci.slice(2, 4)
-    const promotion = uci[4]
-    const moveNumber = replay.moveNumber()
-    const sideToMove = replay.turn()
-
-    let move: Move | undefined
-    try {
-      move = replay.move({ from, to, promotion })
-    } catch {
-      break
-    }
-
-    if (!move) break
-
-    const prefix = sideToMove === 'w' ? `${moveNumber}.` : `${moveNumber}...`
-    chunks.push(`${prefix} ${move.san}`)
-  }
-
-  return chunks.join(' ')
+  return pvLineMoves(fen, line.pv, maxMoves).map(move => move.numbered).join(' ')
 }
 
-export type PvMove = {
+export type PvMove = Readonly<{
   /** 0-based position in the principal variation. */
   index: number
   uci: string
@@ -156,7 +129,14 @@ export type PvMove = {
   numbered: string
   /** The position after this move, so a caller can walk into the line. */
   fenAfter: string
-}
+}>
+
+// Engine telemetry often changes while the first moves stay the same. Share
+// one replay across the Coach label, clickable line and Pro panel. Full FEN
+// (including move number) and displayed moves identify the result; depth and
+// score do not. Bound retention across long searches and position navigation.
+const PV_CACHE_LIMIT = 128
+const pvCache = new Map<string, readonly PvMove[]>()
 
 /**
  * The principal variation as moves rather than as a sentence.
@@ -173,7 +153,12 @@ export type PvMove = {
  * Stops at the first move the position will not accept, the way the rest of
  * this module does: a PV outliving its position is a stale flush, not a crash.
  */
-export function pvLineMoves(fen: string, pv: string[], maxMoves = 8): PvMove[] {
+export function pvLineMoves(fen: string, pv: string[], maxMoves = 8): readonly PvMove[] {
+  const selectedMoves = pv.slice(0, maxMoves)
+  const key = JSON.stringify([fen, selectedMoves])
+  const cached = pvCache.get(key)
+  if (cached) return cached
+
   let replay: Chess
   try {
     replay = new Chess(fen)
@@ -182,7 +167,7 @@ export function pvLineMoves(fen: string, pv: string[], maxMoves = 8): PvMove[] {
   }
 
   const moves: PvMove[] = []
-  for (const [index, uci] of pv.slice(0, maxMoves).entries()) {
+  for (const [index, uci] of selectedMoves.entries()) {
     if (uci.length < 4) break
 
     const moveNumber = replay.moveNumber()
@@ -196,17 +181,20 @@ export function pvLineMoves(fen: string, pv: string[], maxMoves = 8): PvMove[] {
     }
     if (!move) break
 
-    moves.push({
+    moves.push(Object.freeze({
       index,
       uci: `${move.from}${move.to}${move.promotion ?? ''}`,
       san: move.san,
       prefix: sideToMove === 'w' ? `${moveNumber}.` : index === 0 ? `${moveNumber}...` : null,
       numbered: `${moveNumber}${sideToMove === 'w' ? '.' : '...'} ${move.san}`,
       fenAfter: replay.fen(),
-    })
+    }))
   }
 
-  return moves
+  const result = Object.freeze(moves)
+  pvCache.set(key, result)
+  if (pvCache.size > PV_CACHE_LIMIT) pvCache.delete(pvCache.keys().next().value!)
+  return result
 }
 
 /**
