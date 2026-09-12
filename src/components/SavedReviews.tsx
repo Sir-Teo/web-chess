@@ -5,7 +5,7 @@ import { createSavedReview, reviewLineKey, type SavedReview, type SavedReviewSum
 import { deleteSavedReview, listSavedReviews, loadSavedReview, saveReview } from '../engine/savedReviewStorage'
 import type { ReviewSnapshot } from '../engine/reviewSession'
 import { ReviewComparison } from './ReviewComparison'
-import { exportReviewBackup } from '../engine/reviewBackupClient'
+import { exportReviewBackup, importReviewBackup } from '../engine/reviewBackupClient'
 import './SavedReviews.css'
 
 type Props = {
@@ -34,6 +34,7 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
   const [comparison, setComparison] = useState<{ report: ReviewSnapshot; saved: SavedReview } | null>(null)
   const loadingVersion = useRef(0)
   const details = useRef<HTMLDetailsElement>(null)
+  const backupInput = useRef<HTMLInputElement>(null)
   const selected = runs.find(run => run.id === selectedId)
   const sameLine = selected?.lineKey === reviewLineKey(line)
 
@@ -62,7 +63,7 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
       const saved = createSavedReview(line, report, headers, qualities)
       await saveReview(saved)
       setLastSavedReport(report)
-      setNotice('Review saved on this device. Export its PGN to keep a separate copy.')
+      setNotice('Review saved on this device. Export a review backup to keep a complete separate copy.')
       await refresh(saved.id)
       if (details.current) details.current.open = true
     } catch (error) { setNotice(failure(error, 'save this review')) }
@@ -125,6 +126,22 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
     finally { setWorking(false) }
   }
 
+  async function restoreBackup(file: File) {
+    if (busy || working) return
+    setWorking(true)
+    setNotice('Importing review backup…')
+    try {
+      const result = await importReviewBackup(file)
+      setNotice(`Imported ${result.imported} ${result.imported === 1 ? 'review' : 'reviews'}; ${result.skipped} identical ${result.skipped === 1 ? 'review' : 'reviews'} skipped.`)
+      await refresh(result.firstId)
+    } catch (error) {
+      setNotice(failure(error, 'import the review backup'))
+      // A lost worker response can leave the outcome unknown. Re-read storage
+      // before a retry; content deduplication makes that retry safe.
+      await refresh()
+    } finally { setWorking(false) }
+  }
+
   return (
     <div className="saved-reviews">
       <div className="review-report-actions">
@@ -177,8 +194,16 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
             <button type="button" disabled={busy || working || !loaded || loadFailed || !runs.length} onClick={() => { void backup() }}>
               Export review backup
             </button>
+            <button type="button" disabled={busy || working} onClick={() => backupInput.current?.click()}>
+              Import review backup
+            </button>
           </div>
-          <p className="panel-copy small">Up to 50 reviews on this device. A review backup keeps all saved runs, including WDL and timestamps. It is separate from the game library backup.</p>
+          <input ref={backupInput} type="file" accept=".json,application/json" hidden aria-label="Review backup file" onChange={event => {
+            const file = event.currentTarget.files?.[0]
+            event.currentTarget.value = ''
+            if (file) void restoreBackup(file)
+          }} />
+          <p className="panel-copy small">Up to 50 reviews on this device. A review backup keeps all saved runs, including WDL and timestamps. Import adds missing reviews without replacing existing ones. It is separate from the game library backup.</p>
         </div>
       </details>
     </div>

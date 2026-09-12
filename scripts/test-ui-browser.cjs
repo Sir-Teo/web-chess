@@ -1131,6 +1131,172 @@ async function checkReviewBackupExport(browser) {
   }
 }
 
+async function checkReviewBackupImport(browser) {
+  const records = page => page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('web-chess-reviews', 1)
+    request.onupgradeneeded = () => request.result.createObjectStore('runs', { keyPath: 'id' })
+    request.onsuccess = () => {
+      const db = request.result, tx = db.transaction('runs', 'readonly'), read = tx.objectStore('runs').getAll()
+      read.onsuccess = () => resolve(read.result)
+      tx.oncomplete = () => db.close()
+      tx.onabort = () => reject(tx.error)
+    }
+  }))
+  const replaceRecords = (page, rows) => page.evaluate(rows => new Promise((resolve, reject) => {
+    const request = indexedDB.open('web-chess-reviews', 1)
+    request.onsuccess = () => {
+      const db = request.result, tx = db.transaction('runs', 'readwrite'), store = tx.objectStore('runs')
+      store.clear()
+      rows.forEach(row => store.add(row))
+      tx.oncomplete = () => { db.close(); resolve() }
+      tx.onabort = () => reject(tx.error)
+    }
+  }), rows)
+  const upload = async (page, backup) => {
+    const notice = page.locator('.saved-review-notice')
+    const previous = await notice.count() ? await notice.innerText() : ''
+    const chooser = page.waitForEvent('filechooser')
+    await page.getByRole('button', { name: 'Import review backup', exact: true }).click()
+    await (await chooser).setFiles({ name: 'reviews.json', mimeType: 'application/json', buffer: Buffer.isBuffer(backup) ? backup : Buffer.from(JSON.stringify(backup)) })
+    await page.waitForFunction(previous => {
+      const message = document.querySelector('.saved-review-notice')?.textContent || ''
+      return message !== previous && /Imported \d|Nothing was imported|unreadable|cancelled|could not finish|not a Web Chess/.test(message)
+    }, previous)
+  }
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const page = await context.newPage()
+    try {
+      await context.addInitScript(fakeEngineScript())
+      await context.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'review', autoAnalyze: false, engineProfile: 'lite-single-local', reviewMaxWorkers: 1,
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+      await page.getByRole('button', { name: 'Save review', exact: true }).click()
+      await page.getByText('Review saved on this device.', { exact: false }).waitFor()
+      const download = page.waitForEvent('download')
+      await page.getByRole('button', { name: 'Export review backup', exact: true }).click()
+      const backup = JSON.parse(fs.readFileSync(await (await download).path(), 'utf8'))
+      const original = backup.reviews[0]
+      const partial = { ...structuredClone(original), id: 'partial', title: 'Partial run', evaluations: original.evaluations.slice(0, 1), complete: false, evaluated: 1, reused: 0 }
+      const collision = { ...structuredClone(original), title: 'Different score with the same ID' }
+      collision.evaluations[0][1].cp += 100
+      backup.reviews.push(partial, collision)
+
+      // A separate browser context has no game, saved runs or live evaluations.
+      // The desktop fault fixture must fetch the injected worker script instead
+      // of receiving its previous copy from the app's service-worker cache.
+      const targetContext = await browser.newContext({ viewport: { width, height: 812 }, serviceWorkers: width === 1280 ? 'block' : 'allow' })
+      try {
+        await targetContext.addInitScript(fakeEngineScript())
+        await targetContext.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'review', autoAnalyze: false, theme,
+        })), width === 375 ? 'light' : 'dark')
+        const target = await targetContext.newPage()
+        await target.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await target.locator('.saved-reviews summary').click()
+        await upload(target, backup)
+        await target.getByText('Imported 3 reviews; 0 identical reviews skipped.', { exact: true }).waitFor()
+        const imported = await records(target)
+        assert(imported.length === 3 && new Set(imported.map(run => run.id)).size === 3, 'import lost an ID collision or overwrote a run')
+        for (const run of backup.reviews) {
+          const copy = imported.find(record => record.title === run.title)
+          assert(copy && JSON.stringify({ ...copy, id: run.id }) === JSON.stringify(run), 'import changed scores, WDL, metadata or timestamps')
+        }
+        assert(await target.getByTestId('review-run-summary').count() === 0 && await target.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'import unexpectedly opened a game or report')
+        await upload(target, backup)
+        await target.getByText('Imported 0 reviews; 3 identical reviews skipped.', { exact: true }).waitFor()
+        assert(JSON.stringify(await records(target)) === JSON.stringify(imported), 'reimport duplicated or changed an existing report')
+        await target.getByLabel('Choose a saved review').selectOption(original.id)
+        await target.getByRole('button', { name: 'Open reviewed line', exact: true }).click()
+        await target.getByText('Saved review opened.', { exact: false }).waitFor()
+        assert((await target.getByTestId('review-run-summary').innerText()).includes('Completed review'), 'imported report lost its completion state')
+        assert((await target.getByTestId('review-engine-source').innerText()).includes(original.settings.engine.name), 'imported report lost its engine identity')
+        assert(await target.locator('.wdl-draw-label').innerText() === 'Draw 40.0%', 'imported report lost its exact WDL')
+        await target.getByLabel('Choose a saved review').selectOption('partial')
+        await target.getByRole('button', { name: 'Use saved review', exact: true }).click()
+        await target.waitForFunction(() => document.querySelector('[data-testid="review-run-summary"]')?.textContent?.includes('Partial review'))
+        assert((await target.getByTestId('review-run-summary').innerText()).includes('Partial review'), 'partial import fabricated completed coverage')
+        const reportBefore = await target.getByTestId('review-run-summary').innerText()
+        const damaged = { ...backup, reviews: [original, { ...partial, evaluations: [] }] }
+        await upload(target, damaged)
+        await target.getByText('Review 2 is unreadable.', { exact: false }).waitFor()
+        assert(JSON.stringify(await records(target)) === JSON.stringify(imported), 'a damaged later record partially imported the archive')
+        assert(await target.getByTestId('review-run-summary').innerText() === reportBefore, 'failed import replaced the displayed report')
+        const invalidUtf8 = Buffer.from(JSON.stringify({ ...backup, reviews: [{ ...original, title: 'Invalid UTF8' }] }))
+        invalidUtf8[invalidUtf8.indexOf('Invalid UTF8')] = 0xff
+        await upload(target, invalidUtf8)
+        await target.getByText('The backup could not be read as UTF-8 JSON.', { exact: false }).waitFor()
+        assert(JSON.stringify(await records(target)) === JSON.stringify(imported), 'invalid UTF-8 was silently replaced and imported')
+        await target.evaluate(() => { document.documentElement.style.fontSize = '32px' })
+        const importButton = target.getByRole('button', { name: 'Import review backup', exact: true })
+        await importButton.scrollIntoViewIfNeeded()
+        const fit = await importButton.evaluate(el => ({ height: el.getBoundingClientRect().height, clips: el.scrollWidth > el.clientWidth + 1, overflow: document.documentElement.scrollWidth > innerWidth }))
+        assert(fit.height >= 44 && !fit.clips && !fit.overflow, `import control fails at 200% text: ${JSON.stringify(fit)}`)
+        await target.screenshot({ path: `/tmp/web-chess-review-backup-import-${width}.png` })
+
+        if (width === 1280) {
+          await target.evaluate(() => { document.documentElement.style.fontSize = '' })
+          // Abort after a real insert request succeeds. Request success alone
+          // must neither report success nor retain any part of the archive.
+          const workerRoute = '**/assets/reviewBackupWorker-*.js'
+          let injected = 0
+          await targetContext.route(workerRoute, async route => {
+            const response = await route.fetch()
+            injected++
+            const injection = `const qaOriginalReviewAdd = IDBObjectStore.prototype.add;
+IDBObjectStore.prototype.add = function(value, ...args) {
+  const request = qaOriginalReviewAdd.call(this, value, ...args);
+  if (this.name === 'runs' && value.title === 'Abort after insert') request.addEventListener('success', () => this.transaction.abort());
+  return request;
+};\n`
+            await route.fulfill({ response, body: injection + await response.text() })
+          })
+          await upload(target, { ...backup, reviews: [{ ...original, id: 'queued', title: 'Queued first' }, { ...original, id: 'abort', title: 'Abort after insert' }] })
+          assert(injected === 1, `the abort fixture did not intercept the native worker (${injected} scripts)`)
+          const abortedNotice = await target.locator('.saved-review-notice').innerText()
+          assert(/cancelled|could not finish/.test(abortedNotice), `an aborted transaction reported success: ${abortedNotice}`)
+          assert(JSON.stringify(await records(target)) === JSON.stringify(imported), 'aborting after insert success left a partial backup in storage')
+          await targetContext.unroute(workerRoute)
+          const almostFull = [...imported, ...Array.from({ length: 46 }, (_, i) => ({ ...original, id: 'capacity-' + i }))]
+          await replaceRecords(target, almostFull)
+          const beforeCapacity = JSON.stringify(await records(target))
+          await upload(target, { ...backup, reviews: [{ ...original, id: 'new-a', title: 'New A' }, { ...original, id: 'new-b', title: 'New B' }] })
+          await target.getByText('only 1 remain. Nothing was imported.', { exact: false }).waitFor()
+          assert(JSON.stringify(await records(target)) === beforeCapacity, 'capacity failure partially imported or evicted a stored report')
+          const other = await targetContext.newPage()
+          await other.goto(BASE, { waitUntil: 'domcontentloaded' })
+          const restore = other.getByRole('button', { name: 'Restore', exact: true })
+          await other.waitForFunction(() => document.querySelector('.board-surface'))
+          if (await restore.count()) await restore.click()
+          await other.getByRole('button', { name: 'Review', exact: true }).click()
+          await other.locator('.saved-reviews summary').click()
+          await Promise.all([target, other].map((tab, i) => upload(tab, { ...backup, reviews: [{ ...original, id: `race-${i}`, title: `Race ${i}` }] })))
+          const notices = await Promise.all([target, other].map(tab => tab.locator('.saved-review-notice').innerText()))
+          assert(notices.filter(text => text.startsWith('Imported 1 review')).length === 1 && notices.filter(text => text.includes('only 0 remain')).length === 1,
+            `two-tab imports did not serialize capacity: ${JSON.stringify(notices)}`)
+          assert((await records(target)).length === 50, 'two-tab import overfilled or evicted a review')
+        } else {
+          await target.waitForFunction(() => Boolean(navigator.serviceWorker?.controller))
+          await targetContext.setOffline(true)
+          await upload(target, backup)
+          await target.getByText('Imported 0 reviews; 3 identical reviews skipped.', { exact: true }).waitFor()
+          const offlineDownload = target.waitForEvent('download')
+          await target.getByRole('button', { name: 'Export review backup', exact: true }).click()
+          const offlineBackup = JSON.parse(fs.readFileSync(await (await offlineDownload).path(), 'utf8'))
+          assert(JSON.stringify(offlineBackup.reviews) === JSON.stringify(imported), 'offline backup lost or changed stored runs')
+          await targetContext.setOffline(false)
+        }
+        console.log(`  review backup import (${width}px): a clean browser restores exact complete/partial runs, preserves ID collisions, deduplicates retries, keeps the current board and rejects corrupt data${width === 1280 ? '; post-insert abort, capacity and concurrent imports are atomic' : '; the cached worker imports and exports offline'}`)
+      } finally { await targetContext.close() }
+    } finally { await context.close() }
+  }
+}
+
 async function checkSavedReviewStorage(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 812 } })
   await context.addInitScript(fakeEngineScript())
@@ -5528,6 +5694,7 @@ async function main() {
       'saved-reviews': async browser => { await checkSavedReviews(browser); await checkSavedReviewStorage(browser); await checkSavedReviewEndings(browser) },
       'saved-endings': checkSavedReviewEndings,
       'review-backup-export': checkReviewBackupExport,
+      'review-backup-import': checkReviewBackupImport,
       'review-depth': checkReviewAtRequestedDepth,
       'graph-readings': checkTheWinrateCardFollowsTheBoard,
       'observed-layout': checkObservedLayout,
@@ -6189,6 +6356,7 @@ async function main() {
     await checkSavedReviewStorage(browser)
     await checkSavedReviewEndings(browser)
     await checkReviewBackupExport(browser)
+    await checkReviewBackupImport(browser)
     await checkReviewAtRequestedDepth(browser)
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)

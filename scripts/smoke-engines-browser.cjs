@@ -120,6 +120,17 @@ async function main() {
           assert.equal(backup.reviews[0].evaluations.length, 2)
           assert.equal(backup.reviews[0].settings.depth, 6)
           assert.ok(backup.reviews[0].finishedAt >= backup.reviews[0].startedAt)
+          await page.getByRole('button', { name: 'Delete saved review', exact: true }).click()
+          await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 0)
+          await page.getByLabel('Review backup file', { exact: true }).setInputFiles({ name: 'review-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) })
+          await page.getByText('Imported 1 review; 0 identical reviews skipped.', { exact: true }).waitFor()
+          await page.getByRole('button', { name: 'Use saved review', exact: true }).click()
+          await page.getByText('Saved review opened.', { exact: false }).waitFor()
+          assert.equal(await page.getByTestId('review-engine-source').innerText(), reviewSource)
+          const restoredDownload = page.waitForEvent('download')
+          await page.getByRole('button', { name: 'Export review backup', exact: true }).click()
+          const restoredBackup = JSON.parse(fs.readFileSync(await (await restoredDownload).path(), 'utf8'))
+          assert.deepEqual(restoredBackup.reviews, backup.reviews)
           stage = 'deepen a shallow report'
           await page.getByRole('button', { name: 'Deepen review', exact: true }).click()
           await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
@@ -171,7 +182,7 @@ async function main() {
           await page.screenshot({ path: path.join(output, `${name}-${width}-large-text.png`) })
           assert.deepEqual(errors, [])
           results.push({ browser: name, width, status: 'passed', source, positionScore: before,
-            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus'] })
+            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus'] })
         } catch (error) {
           results.push({ browser: name, width, status: 'failed', stage, error: String(error), pageErrors: errors })
           await page.screenshot({ path: path.join(output, `${name}-${width}-failure.png`) }).catch(() => {})

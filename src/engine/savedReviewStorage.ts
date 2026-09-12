@@ -1,4 +1,5 @@
 import { MAX_SAVED_REVIEWS, savedReviewSummary, readSavedReview, type SavedReview, type SavedReviewSummary } from './savedReviews'
+import { planReviewImport, type ReviewImportResult } from './reviewBackup'
 
 const DB_NAME = 'web-chess-reviews'
 const STORE = 'runs'
@@ -22,16 +23,19 @@ function openDb(): Promise<IDBDatabase> {
 }
 
 /** Resolve only after commit, including writes queued inside request callbacks. */
-async function transaction<T>(mode: IDBTransactionMode, action: (store: IDBObjectStore, setResult: (value: T) => void) => void): Promise<T> {
+async function transaction<T>(mode: IDBTransactionMode, action: (store: IDBObjectStore, setResult: (value: T) => void, abort: (error: unknown) => void) => void): Promise<T> {
   const db = await openDb()
   try {
     return await new Promise<T>((resolve, reject) => {
       const tx = db.transaction(STORE, mode)
       let result: T
+      let failure: unknown
       tx.oncomplete = () => resolve(result)
-      tx.onabort = () => reject(tx.error ?? new Error('The saved-review transaction was cancelled.'))
+      tx.onabort = () => reject(failure ?? tx.error ?? new Error('The saved-review transaction was cancelled.'))
       tx.onerror = () => reject(tx.error ?? new Error('The browser could not store this review.'))
-      action(tx.objectStore(STORE), value => { result = value })
+      const abort = (error: unknown) => { failure = error; tx.abort() }
+      try { action(tx.objectStore(STORE), value => { result = value }, abort) }
+      catch (error) { abort(error) }
     })
   } finally { db.close() }
 }
@@ -55,6 +59,20 @@ export async function snapshotSavedReviews(): Promise<unknown[]> {
   return transaction('readonly', (store, setResult) => {
     const request = store.getAll(undefined, MAX_SAVED_REVIEWS + 1)
     request.onsuccess = () => setResult(request.result)
+  })
+}
+
+/** The worker validates incoming runs first; merge planning and inserts are atomic. */
+export async function importSavedReviews(reviews: SavedReview[]): Promise<ReviewImportResult> {
+  return transaction('readwrite', (store, setResult, abort) => {
+    const request = store.getAll(undefined, MAX_SAVED_REVIEWS + 1)
+    request.onsuccess = () => {
+      try {
+        const plan = planReviewImport(request.result, reviews)
+        for (const saved of plan.added) store.add(saved)
+        setResult({ imported: plan.added.length, skipped: plan.skipped, reassigned: plan.reassigned, firstId: plan.added[0]?.id })
+      } catch (error) { abort(error) }
+    }
   })
 }
 
