@@ -307,7 +307,7 @@ describe('review analysis helpers', () => {
     expect(isReviewEvaluationSufficient(undefined, 12)).toBe(false)
     expect(isReviewEvaluationSufficient({ cp: Number.NaN, depth: 20 }, 12)).toBe(false)
     expect(isReviewEvaluationSufficient({ cp: 20, depth: 20, purpose: 'import-sweep' }, 12)).toBe(false)
-    expect(isReviewEvaluationSufficient({ cp: 20, depth: 8 }, 6)).toBe(false)
+    expect(isReviewEvaluationSufficient({ cp: 20, depth: 8 }, 6)).toBe(true)
     expect(isReviewEvaluationSufficient({ cp: 20, depth: 12 }, 16)).toBe(false)
     expect(isReviewEvaluationSufficient({ cp: 20, depth: 16 }, 16)).toBe(true)
     expect(isReviewEvaluationSufficient({ cp: Number.NaN, mate: -3, depth: 18 }, 16)).toBe(true)

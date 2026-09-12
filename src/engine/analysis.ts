@@ -330,18 +330,21 @@ export function qualityForLoss(deltaCp: number, winPercentLoss: number): GradedL
  * which meant the 70ms sweep outranked it on depth and overwrote it. A game
  * saved with its review, then loaded back, lost that review on the way in.
  */
+export const MIN_REVIEW_GRADING_DEPTH = 10
+
 function isShallowEvaluation(snapshot: EvalSnapshot): boolean {
   if (snapshot.purpose === 'import-load' || snapshot.purpose === 'import-sweep') return true
-  if (isFiniteNumber(snapshot.depth) && snapshot.depth < 10) return true
+  if (isFiniteNumber(snapshot.depth) && snapshot.depth < MIN_REVIEW_GRADING_DEPTH) return true
   if (isFiniteNumber(snapshot.time) && snapshot.time < 150 && !isFiniteNumber(snapshot.depth)) return true
   return false
 }
 
+/** A finished search meets its requested depth even when it is too shallow to grade. */
 export function isReviewEvaluationSufficient(snapshot: EvalSnapshot | undefined, minDepth: number): boolean {
   if (!snapshot) return false
   if (snapshot.scoreBound) return false
   if (!isFiniteNumber(scoreToCp(snapshot.cp, snapshot.mate))) return false
-  if (isShallowEvaluation(snapshot)) return false
+  if (snapshot.purpose === 'import-load' || snapshot.purpose === 'import-sweep') return false
 
   const normalizedMinDepth = Number.isFinite(minDepth) ? Math.max(0, Math.round(minDepth)) : 0
   if (normalizedMinDepth <= 0) return true
@@ -954,7 +957,7 @@ export function summarizeAccuracy(rows: ReviewRow[]): AccuracySummary {
   const weights = volatilityWeights(winPercentSeries(rows))
 
   for (const [index, row] of rows.entries()) {
-    if (!isFiniteNumber(row.deltaCp) || row.quality === 'pending') {
+    if (!isFiniteNumber(row.deltaCp) || row.quality === 'pending' || row.confidence === 'shallow') {
       pendingMoves += 1
       continue
     }

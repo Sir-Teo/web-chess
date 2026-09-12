@@ -133,6 +133,10 @@ const SCENARIO = ${JSON.stringify(scenario)};
      * consecutive searches, which is the one input the Play-mode nudge needs.
      */
     scriptedLine() {
+      if (SCENARIO === 'requested-depth') {
+        const depth = Number(/\\bdepth (\\d+)/.exec(this.goCommand || '')?.[1] || 16);
+        return { cp: scoreFor(this.fen), move: 'e2e4', depths: [depth, depth] };
+      }
       if (SCENARIO === 'board-canvas') {
         return { cp: 35, move: window.__boardArrowPhase === 2 ? 'd2d4' : 'e2e4' };
       }
@@ -1179,6 +1183,58 @@ async function checkSavedReviewEndings(browser) {
       const exported = fs.readFileSync(await (await downloaded).path(), 'utf8')
       assert([...exported.matchAll(/\[%eval /g)].length === expected, `${name} lost an engine reading or invented one`)
       console.log(`  saved ending (${name}, 375px): completed report saves, reopens and exports with ${expected} engine readings`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkReviewAtRequestedDepth(browser) {
+  for (const [width, workers] of [[1280, 4], [375, 1]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('requested-depth'))
+      await page.addInitScript(workers => {
+        Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 })
+        Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 })
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro',
+          autoAnalyze: false, searchDepth: 6, engineProfile: 'lite-single-local', reviewMaxWorkers: workers }))
+      }, workers)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: /^Load / }).first().click()
+      await page.waitForFunction(() => /Browser QA, White/.test(document.querySelector('.board-meta-game')?.textContent || ''))
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+      const summary = await page.getByTestId('review-run-summary').innerText()
+      assert(summary.includes('Completed review') && summary.includes('Target depth 6'), `depth-6 review was not retained: ${summary}`)
+      await page.getByTestId('review-depth-guidance').waitFor()
+      assert((await page.locator('.accuracy-summary').innerText()).includes('0/116'), 'shallow or shallow book readings received accuracy grades')
+      const completed = await page.evaluate(() => window.__uciCommands.filter(command => command.startsWith('go depth 6')).length)
+      assert(completed >= 117, `review did not actually search all positions at depth 6: ${completed}`)
+      await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+      assert(await page.evaluate(() => window.__uciCommands.filter(command => command.startsWith('go depth 6')).length) === completed, 'repeat depth-6 review discarded its completed readings')
+      await page.getByRole('button', { name: 'Save review', exact: true }).click()
+      await page.getByText('Review saved on this device.', { exact: false }).waitFor()
+      await page.getByRole('button', { name: 'Use saved review', exact: true }).click()
+      await page.getByText('Saved review opened.', { exact: false }).waitFor()
+      const downloaded = page.waitForEvent('download')
+      await page.getByRole('button', { name: 'Export review', exact: true }).click()
+      const pgn = fs.readFileSync(await (await downloaded).path(), 'utf8')
+      assert([...pgn.matchAll(/\[%eval /g)].length === 117 && pgn.includes('[WebChessReviewDepth "6"]') && pgn.includes('[WebChessReviewStatus "complete"]'), 'export lost shallow readings or mislabeled the run')
+      await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
+      await page.locator('.review-depth-guidance').scrollIntoViewIfNeeded()
+      const button = page.getByRole('button', { name: 'Deepen review', exact: true })
+      const layout = await button.evaluate(el => ({ height: el.getBoundingClientRect().height, clips: el.scrollWidth > el.clientWidth + 1, overflow: document.documentElement.scrollWidth > innerWidth }))
+      assert(layout.height >= 44 && !layout.clips && !layout.overflow, `deepening guidance fails at 200% text: ${JSON.stringify(layout)}`)
+      await page.screenshot({ path: `/tmp/web-chess-low-depth-${width}.png` })
+      await button.click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+      assert((await page.getByTestId('review-run-summary').innerText()).includes('Target depth 10'), 'Deepen review did not capture depth 10')
+      assert(await page.evaluate(() => window.__uciCommands.filter(command => command.startsWith('go depth 10')).length) >= 117, 'deepening reused the shallow readings or dispatched a different depth')
+      assert(await page.getByTestId('review-depth-guidance').count() === 0, 'deep report still asks for shallow readings to be deepened')
+      assert((await page.locator('.review-scaffold .chip-pending').innerText()).includes('Pending 0'), 'deepened moves remain ungraded')
+      console.log(`  review depth (${width}px, max ${workers} workers): D6 completes and reuses, preserves 117 saved/exported scores without accuracy grades; Deepen review runs D10 and grades every move`)
     } finally { await context.close() }
   }
 }
@@ -5272,6 +5328,7 @@ async function main() {
       'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
       'saved-reviews': async browser => { await checkSavedReviews(browser); await checkSavedReviewStorage(browser); await checkSavedReviewEndings(browser) },
       'saved-endings': checkSavedReviewEndings,
+      'review-depth': checkReviewAtRequestedDepth,
       'graph-readings': checkTheWinrateCardFollowsTheBoard,
       'observed-layout': checkObservedLayout,
       'graph-guide': checkGraphEstimateGuide,
@@ -5929,6 +5986,7 @@ async function main() {
     await checkSavedReviews(browser)
     await checkSavedReviewStorage(browser)
     await checkSavedReviewEndings(browser)
+    await checkReviewAtRequestedDepth(browser)
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)
     await checkKeepSearchingIsUnbounded(browser)

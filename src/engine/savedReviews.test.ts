@@ -4,7 +4,7 @@ import type { GameNode } from '../hooks/useGameTree'
 import { createReviewSession, recordReviewResult, snapshotReviewSession } from './reviewSession'
 import { createSavedReview, readSavedReview, restoreSavedReview, reviewLineKey, savedReviewSummary } from './savedReviews'
 
-function fixture(moves = ['Nf3', 'Nf6', 'g3'], rootFen?: string) {
+function fixture(moves = ['Nf3', 'Nf6', 'g3'], rootFen?: string, depth = 16) {
   const game = new Chess(rootFen)
   const line: GameNode[] = [{ id: 'root', fen: game.fen(), uci: '', san: '', move: null, parent: null, children: ['1'] }]
   for (const san of moves) {
@@ -12,9 +12,9 @@ function fixture(moves = ['Nf3', 'Nf6', 'g3'], rootFen?: string) {
     line.push({ id: String(line.length), fen: game.fen(), uci: move.from + move.to + (move.promotion ?? ''), san,
       move, parent: line.at(-1)!.id, children: line.length < moves.length ? [String(line.length + 1)] : [], comment: 'Keep my note' })
   }
-  const settings = { engine: { profile: 'lite-single-local', name: 'Stockfish 18 Lite', version: '18.0.7' }, depth: 16, hashMb: 64, showWdl: true }
+  const settings = { engine: { profile: 'lite-single-local', name: 'Stockfish 18 Lite', version: '18.0.7' }, depth, hashMb: 64, showWdl: true }
   const session = createReviewSession(line, line[0].fen, settings, new Map(), null, 10)
-  for (const node of line) recordReviewResult(session, node.fen, { cp: -15, depth: 16, engine: settings.engine, wdl: { w: 100, d: 850, l: 50 }, nodes: 1000 })
+  for (const node of line) recordReviewResult(session, node.fen, { cp: -15, depth, engine: settings.engine, wdl: { w: 100, d: 850, l: 50 }, nodes: 1000 })
   const report = snapshotReviewSession(session, 20)
   const saved = createSavedReview(line, report, { White: 'A', Black: 'B' }, [], 'saved-one')
   return { line, report, saved }
@@ -32,6 +32,14 @@ describe('portable, isolated saved reviews', () => {
     restored.evaluations.delete(line[0].fen)
     expect(reopened.evaluations).toHaveLength(4)
     expect(report.evaluations.size).toBe(4)
+  })
+
+  it('round-trips a completed depth-6 report without discarding its readings', () => {
+    const { saved, line } = fixture(['Nf3', 'Nf6'], undefined, 6)
+    const restored = restoreSavedReview(readSavedReview(JSON.parse(JSON.stringify(saved)))!, line)!
+    expect(restored.complete).toBe(true)
+    expect(restored.settings.depth).toBe(6)
+    expect([...restored.evaluations.values()].map(reading => reading.depth)).toEqual([6, 6, 6])
   })
 
   it('does not confuse transpositions or root halfmove counters', () => {

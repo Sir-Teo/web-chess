@@ -2,7 +2,7 @@ import { Chess } from 'chess.js'
 import { describe, expect, it } from 'vitest'
 import { createReviewSession, recordReviewResult, snapshotReviewSession, type ReviewSettings } from './reviewSession'
 import { planBatchReview } from './batchReview'
-import type { EvalSnapshot } from './analysis'
+import { buildReviewRows, summarizeAccuracy, type EvalSnapshot } from './analysis'
 
 const game = new Chess()
 const nodes = [{ id: 'root', fen: game.fen(), uci: '' }]
@@ -17,6 +17,23 @@ const settings: ReviewSettings = { engine: full, depth: 16, hashMb: 64, showWdl:
 const reading = (over: Partial<EvalSnapshot> = {}): EvalSnapshot => ({ cp: 0, depth: 16, purpose: 'batch-review', engine: full, ...over })
 
 describe('a review owns the readings it grades', () => {
+  it('retains a completed shallow search without grading its moves, including book moves', () => {
+    const shallowSettings = { ...settings, depth: 6 }
+    const session = createReviewSession(nodes, root, shallowSettings, new Map(), null)
+    for (const node of nodes) expect(recordReviewResult(session, node.fen, reading({ depth: 6 }))).toBe(true)
+    const report = snapshotReviewSession(session)
+    expect(report.complete).toBe(true)
+    expect(report.evaluations.size).toBe(nodes.length)
+    const moves = game.history({ verbose: true })
+    for (const options of [{}, { isBookPosition: () => true }]) {
+      const rows = buildReviewRows(moves, report.evaluations, root, options)
+      expect(rows.every(row => row.confidence === 'shallow')).toBe(true)
+      expect(summarizeAccuracy(rows)).toMatchObject({ overall: null, evaluatedMoves: 0, pendingMoves: moves.length })
+    }
+    expect(createReviewSession(nodes, root, shallowSettings, new Map(), report).queue).toHaveLength(0)
+    expect(createReviewSession(nodes, root, { ...settings, depth: 10 }, new Map(), report).queue).toHaveLength(nodes.length)
+  })
+
   it('reuses only sufficient scores from the same producer and the reviewed line', () => {
     for (const unusable of [reading({ engine: lite, depth: 40 }), reading({ engine: undefined }),
       reading({ engine: { ...full, version: '19.0' } }), reading({ engine: { ...full, name: 'Different net' } }),

@@ -6,6 +6,7 @@ import {
   buildWdlSeries,
   buildWinrateSeries,
   buildReviewRows,
+  MIN_REVIEW_GRADING_DEPTH,
   formatCompactWhitePovEvaluation,
   describeAdvantage,
   describeReviewScope,
@@ -1422,7 +1423,7 @@ function App() {
     if (hadImportSweep || hadBatchReview) stop()
   }, [clearBatchReview, clearImportSweep, importSweepProgress.total, isBatchReviewing, stop])
 
-  const startBatchReview = useCallback((options?: { fresh: boolean }) => {
+  const startBatchReview = useCallback((options?: { fresh?: boolean; depth?: number }) => {
     if (!engineEnabled || (status !== 'ready' && status !== 'analyzing')) return
     // A review already in flight is replaced, not doubled. The button turns
     // into Stop while one runs, but the command palette's "Review game" does
@@ -1440,7 +1441,7 @@ function App() {
     const rootFen = gameTreeRef.current.root.fen
     const previous = reviewSessionRef.current ? snapshotReviewSession(reviewSessionRef.current) : frozenReview
     const session = createReviewSession(nodes, rootFen, {
-      engine: evaluationEngine(activeProfile, engineName), depth: searchDepth, hashMb, showWdl,
+      engine: evaluationEngine(activeProfile, engineName), depth: options?.depth ?? searchDepth, hashMb, showWdl,
     }, evaluationsByFenRef.current, previous, Date.now(), !options?.fresh)
     reviewSessionRef.current = session
     const targets = session.queue
@@ -1494,8 +1495,8 @@ function App() {
       targets,
       plan: poolPlan,
       profile: activeProfile,
-      depth: searchDepth,
-      showWdl,
+      depth: session.settings.depth,
+      showWdl: session.settings.showWdl,
       callbacks: {
         onResult: (fen, snapshot) => {
           if (reviewSessionRef.current !== session) return
@@ -8014,6 +8015,24 @@ function App() {
                         {analysisExperience === 'pro' && ` · Target depth ${currentReviewReport.settings.depth} · ${currentReviewReport.reused} positions reused`}
                         {!currentReviewReport.complete && '. Run Review Game to finish the remaining positions.'}
                       </p>
+                    )}
+                    {currentReviewReport && !isBatchReviewing && reviewRows.some(row => row.confidence === 'shallow') && (
+                      <div className="review-depth-guidance">
+                        <p className="panel-copy small" data-testid="review-depth-guidance">
+                          Scores are available. Some readings are too shallow for move grades and accuracy.
+                          {' '}Review at depth {MIN_REVIEW_GRADING_DEPTH} or higher to grade those moves.
+                        </p>
+                        <div className="review-report-actions">
+                          <button type="button" disabled={Boolean(reviewGameDisabledReason)}
+                            onClick={() => {
+                              setSearchDepth(MIN_REVIEW_GRADING_DEPTH)
+                              setActivePreset(null)
+                              startBatchReview({ depth: MIN_REVIEW_GRADING_DEPTH })
+                            }}>
+                            Deepen review
+                          </button>
+                        </div>
+                      </div>
                     )}
                     {analysisExperience === 'pro' && reviewSourceLabels.length > 0 && (
                       <p className="panel-copy small evaluation-source" data-testid="review-engine-source">

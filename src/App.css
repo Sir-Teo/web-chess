@@ -133,6 +133,11 @@ body.resizing * {
   white-space: normal;
 }
 
+.review-depth-guidance .review-report-actions button {
+  min-height: 44px;
+  min-width: min-content;
+}
+
 .review-report-actions svg {
   width: 1rem;
   height: 1rem;
