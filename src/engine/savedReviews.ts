@@ -1,5 +1,5 @@
 import type { GameNode } from '../hooks/useGameTree'
-import { isReviewEvaluationSufficient, type EvalSnapshot } from './analysis'
+import { isReviewEvaluationSufficient, isTerminalPositionFen, type EvalSnapshot } from './analysis'
 import { decodeEvaluationEngine, encodeEvaluationEngine, sameEvaluationEngine } from './evaluationSource'
 import { flattenPgnMainLine, parsePgnMoveTree } from './pgn'
 import { exportReviewPgn } from './reviewPgn'
@@ -55,7 +55,7 @@ export function savedReviewSummary(value: unknown): SavedReviewSummary | null {
     || typeof value.title !== 'string' || !value.title || value.title.length > 200
     || typeof value.lineKey !== 'string' || value.lineKey.length > 15000
     || !integer(value.startedAt, 0, 8.64e15) || !integer(value.finishedAt, value.startedAt, 8.64e15)
-    || !integer(value.total, 2, MAX_POSITIONS) || !integer(value.reused, 0, value.total)
+    || !integer(value.total, 0, MAX_POSITIONS) || !integer(value.reused, 0, value.total)
     || !integer(value.evaluated, 0, value.total) || typeof value.complete !== 'boolean') return null
   const settings = settingsFrom(value.settings)
   if (!settings || value.complete !== (value.evaluated === value.total) || value.reused > value.evaluated) return null
@@ -108,7 +108,9 @@ export function readSavedReview(value: unknown): SavedReview | null {
       fen: node.fen, uci: node.move.from + node.move.to + (node.move.promotion ?? ''),
     }))]
     if (reviewLineKey(line) !== summary.lineKey) return null
-    const targets = new Set(line.map(node => node.fen))
+    // Review planning does not search checkmate, stalemate or drawn FENs.
+    // Their known result is derived again when the report is displayed.
+    const targets = new Set(line.filter(node => !isTerminalPositionFen(node.fen)).map(node => node.fen))
     if (targets.size !== summary.total) return null
     const seen = new Set<string>()
     const evaluations: SavedReview['evaluations'] = []

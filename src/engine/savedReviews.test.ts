@@ -4,8 +4,8 @@ import type { GameNode } from '../hooks/useGameTree'
 import { createReviewSession, recordReviewResult, snapshotReviewSession } from './reviewSession'
 import { createSavedReview, readSavedReview, restoreSavedReview, reviewLineKey, savedReviewSummary } from './savedReviews'
 
-function fixture(moves = ['Nf3', 'Nf6', 'g3']) {
-  const game = new Chess()
+function fixture(moves = ['Nf3', 'Nf6', 'g3'], rootFen?: string) {
+  const game = new Chess(rootFen)
   const line: GameNode[] = [{ id: 'root', fen: game.fen(), uci: '', san: '', move: null, parent: null, children: ['1'] }]
   for (const san of moves) {
     const move = game.move(san)
@@ -52,6 +52,18 @@ describe('portable, isolated saved reviews', () => {
     expect(restored.complete).toBe(false)
     expect(restored.evaluations.has(line[1].fen)).toBe(false)
     expect(restored.evaluations.size).toBe(3)
+  })
+
+  it('saves completed games and positions requiring no engine work', () => {
+    for (const { saved, report } of [
+      fixture(['f3', 'e5', 'g4', 'Qh4#']),
+      fixture(['Qg7#'], '7k/5K2/6Q1/8/8/8/8/8 w - - 0 1'),
+      fixture(['Kd1'], '8/8/8/8/8/4k3/8/4K3 w - - 0 1'),
+    ]) {
+      expect(saved.total).toBe(report.total)
+      expect(saved.complete).toBe(true)
+      expect(readSavedReview(saved)).not.toBeNull()
+    }
   })
 
   it('rejects damaged settings, incompatible schemas and mismatched histories', () => {

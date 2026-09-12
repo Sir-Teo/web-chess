@@ -923,7 +923,7 @@ async function checkReviewUsesSelectedEngine(browser, controls = false) {
           'exported review lost its actual producer')
         assert(pgn.includes('[WebChessReviewStatus "complete"]') && pgn.includes('[WebChessReviewReused "0"]'), 'export omitted review provenance')
         await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
-        await page.locator('.review-report-actions').scrollIntoViewIfNeeded()
+        await page.locator('.review-scaffold > .review-report-actions').scrollIntoViewIfNeeded()
         for (const button of await page.locator('.review-report-actions button').all()) {
           const size = await button.evaluate(el => ({ height: el.getBoundingClientRect().height, width: el.clientWidth, content: el.scrollWidth }))
           assert(size.height >= 44 && size.content <= size.width + 1, `review action clips at 200% text: ${JSON.stringify(size)}`)
@@ -1113,6 +1113,41 @@ async function checkSavedReviewStorage(browser) {
     assert(count === 50, `two-tab save evicted or overfilled the store: ${count}`)
     console.log('  saved review storage: quota failure is explicit and retryable; corrupt readings preserve the board; two tabs fill one free slot without eviction')
   } finally { await context.close() }
+}
+
+async function checkSavedReviewEndings(browser) {
+  const cases = [
+    ['checkmate', '[SetUp "1"]\n[FEN "7k/5K2/6Q1/8/8/8/8/8 w - - 0 1"]\n\n1. Qg7# 1-0', 1],
+    ['insufficient material', '[SetUp "1"]\n[FEN "8/8/8/8/8/4k3/8/4K3 w - - 0 1"]\n\n1. Kd1 1/2-1/2', 0],
+  ]
+  for (const [name, pgn, expected] of cases) {
+    const context = await browser.newContext({ viewport: { width: 375, height: 812 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', engineProfile: 'lite-single-local', autoAnalyze: false, reviewMaxWorkers: 1,
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.dialog-section textarea').first().fill(pgn)
+      await page.getByRole('button', { name: /Import & Analyze/ }).click()
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+      await page.getByRole('button', { name: 'Save review', exact: true }).click()
+      await page.getByText('Review saved on this device.', { exact: false }).waitFor()
+      await page.getByRole('button', { name: 'Use saved review', exact: true }).click()
+      await page.getByText('Saved review opened.', { exact: false }).waitFor()
+      assert((await page.getByTestId('review-run-summary').innerText()).includes('Completed review'), `${name} reopened as partial`)
+      assert((await page.locator('.saved-review-description').innerText()).includes(`${expected}/${expected} positions`), `${name} counted a known ending as engine work`)
+      const downloaded = page.waitForEvent('download')
+      await page.getByRole('button', { name: 'Export review', exact: true }).click()
+      const exported = fs.readFileSync(await (await downloaded).path(), 'utf8')
+      assert([...exported.matchAll(/\[%eval /g)].length === expected, `${name} lost an engine reading or invented one`)
+      console.log(`  saved ending (${name}, 375px): completed report saves, reopens and exports with ${expected} engine readings`)
+    } finally { await context.close() }
+  }
 }
 
 async function checkBoundedScoreIsIgnored(browser) {
@@ -5202,7 +5237,8 @@ async function main() {
       'pv-reuse': checkPvPreviewAndCommit,
       'review-source': checkReviewUsesSelectedEngine,
       'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
-      'saved-reviews': async browser => { await checkSavedReviews(browser); await checkSavedReviewStorage(browser) },
+      'saved-reviews': async browser => { await checkSavedReviews(browser); await checkSavedReviewStorage(browser); await checkSavedReviewEndings(browser) },
+      'saved-endings': checkSavedReviewEndings,
       'graph-readings': checkTheWinrateCardFollowsTheBoard,
       'observed-layout': checkObservedLayout,
       'graph-guide': checkGraphEstimateGuide,
@@ -5859,6 +5895,7 @@ async function main() {
     await checkReviewUsesSelectedEngine(browser, true)
     await checkSavedReviews(browser)
     await checkSavedReviewStorage(browser)
+    await checkSavedReviewEndings(browser)
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)
     await checkKeepSearchingIsUnbounded(browser)
