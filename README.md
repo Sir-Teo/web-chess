@@ -132,10 +132,11 @@ given, and the app answering the reader who touches it.
 - **Game review, of the line you are on**: Import a PGN, run a review pass, filter critical moments by side, inspect accuracy, and jump from a review row back to the board. The review follows the branch the board is standing in, so a variation can be reviewed like the game — and when that is not the main line it says so. Accuracy and move labels are scored on winning chances rather than raw centipawns, so an imprecision in a decided game is not called a blunder. The labels are the ones readers arrive knowing: *Book* while a sound move stays in the opening table, *Best* for the engine's own move and nothing else, *Excellent* for one that gave up almost nothing, then Good, Inaccuracy, Mistake and Blunder — so a row never reads "Best e4" beside a move it also calls Best. A best-move hint appears only once a search deep enough to grade the move has run; the 70 ms import sweep's choice is not one.
 - **A review that uses the whole machine**: the positions in a game review are
   independent of one another, so on a desktop the review runs several engines
-  at once instead of walking the line one search at a time. Measured on an
-  83-move blitz game at depth 16, same session, same game: **105s on one engine,
-  21s on four** — five times faster, with the accuracy summary landing within
-  0.3 points and the same 83 of 83 positions evaluated. The engines divide the
+  at once. The latest real Stockfish measurement uses the Opera Game's 33
+  positions at depth 18 with a 64MB total hash budget: **16.478s on one worker,
+  8.167s on four**, averaged across two runs each. That is 2.02× faster on this
+  machine and fixture; the [audit](docs/audit-2026-09-12.md) records the limits.
+  All four runs evaluated every target at the requested depth. The engines divide the
   Hash you set rather than multiplying it, and take a contiguous run of the
   game each so their transposition tables stay warm. A phone, a short queue, a
   machine with few cores, or a Hash too small to divide all keep the single
@@ -153,18 +154,20 @@ given, and the app answering the reader who touches it.
   walk it: the report is scored from the evaluations the review pass itself
   produced, so "Mistake 3 of 11" is still out of eleven by the time you reach
   the last one.
-- **A review that holds still**: A report whose numbers move while you read it
-  is not a report, and these moved — stepping back through one game's faults
-  turned nought blunders into two and took 1.9 points off the accuracy, with no
-  move played. The cause was not that the second look was worse: a grade is the
-  difference between two evaluations, and browsing a position re-took one half
-  of that pair far deeper than the half beside it, so the difference became the
-  gap in depth rather than anything the move did. The tallies, the accuracy, the
-  critical moments and the stepper are now scored from the map as it stood when
-  the pass finished. Only those: the eval bar, the Coach card and both graphs
-  still read the live engine, because deepening those is the point of browsing.
-  The snapshot belongs to the line it was taken for, so a line you never
-  reviewed reads live rather than reporting itself as unevaluated.
+- **A review that holds still**: Each run captures its engine and limits and
+  keeps its own evaluations. It reuses sufficient readings only from the same
+  engine profile, build and worker name. Grades, critical moments and Review
+  graphs use that run, so browsing deeper or switching engines cannot change a
+  completed report. The board, Coach and Analyze graphs continue to show live
+  analysis. Winrate and WDL readouts follow the selected move. Stopped reports
+  say when positions remain unevaluated.
+- **Refresh and share a Pro review**: **Fresh review** searches every target
+  again, including positions already evaluated. **Export review** downloads the
+  reviewed branch with its report's scores and engine identity, plus target
+  depth, total hash budget, completion status and reuse count. Comments and
+  clocks remain attached. Normal PGN export still exports the study's live
+  evaluations. The latest report stays in memory; saved run history and
+  comparisons are future work.
 - **Drill a line from memory**: Opening preparation, which the explorer and the
   review between them could describe but never *ask* for — and a repertoire you
   can recognise is not one you can play. `Drill this line · White / Black` on
@@ -372,7 +375,8 @@ server on port 4324, then run `node scripts/smoke-engines-browser.cjs` (install
 the additional browsers with `npx playwright install firefox webkit`). Override
 the URL with `SMOKE_URL`; results and screenshots go to `/tmp/web-chess-engine-smoke`
 unless `SMOKE_OUTPUT` is set. This checks desktop and phone layouts, real UCI
-analysis, engine identity, restricted candidates, Commands and board input.
+analysis, engine identity, restricted candidates, Commands, board input,
+complete and fresh game reviews, and review PGN downloads.
 `node scripts/benchmark-pv-browser.cjs` measures repeated PV conversion alone
 against the same dev server; it is not an end-to-end speed benchmark.
 

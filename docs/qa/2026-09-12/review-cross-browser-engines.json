@@ -1,0 +1,120 @@
+{
+  "base": "http://127.0.0.1:4324/web-chess/",
+  "results": [
+    {
+      "browser": "chromium",
+      "width": 1280,
+      "status": "passed",
+      "source": "Position score: Stockfish 18 Lite WASM Multithreaded \u00b7 Lite Multi (Local) \u00b7 build 18.0.7.",
+      "positionScore": "+0.38",
+      "isolated": true,
+      "checks": [
+        "real UCI search",
+        "restricted score isolation",
+        "producer identity",
+        "responsive layout",
+        "modal editing",
+        "e2-e4",
+        "game review",
+        "fresh review",
+        "review PGN download"
+      ]
+    },
+    {
+      "browser": "chromium",
+      "width": 375,
+      "status": "passed",
+      "source": "Position score: Stockfish 18 Lite WASM \u00b7 Lite Single (Local) \u00b7 build 18.0.7.",
+      "positionScore": "+0.38",
+      "isolated": true,
+      "checks": [
+        "real UCI search",
+        "restricted score isolation",
+        "producer identity",
+        "responsive layout",
+        "modal editing",
+        "e2-e4",
+        "game review",
+        "fresh review",
+        "review PGN download"
+      ]
+    },
+    {
+      "browser": "firefox",
+      "width": 1280,
+      "status": "passed",
+      "source": "Position score: Stockfish 18 Lite WASM Multithreaded \u00b7 Lite Multi (Local) \u00b7 build 18.0.7.",
+      "positionScore": "+0.39",
+      "isolated": true,
+      "checks": [
+        "real UCI search",
+        "restricted score isolation",
+        "producer identity",
+        "responsive layout",
+        "modal editing",
+        "e2-e4",
+        "game review",
+        "fresh review",
+        "review PGN download"
+      ]
+    },
+    {
+      "browser": "firefox",
+      "width": 375,
+      "status": "passed",
+      "source": "Position score: Stockfish 18 Lite WASM \u00b7 Lite Single (Local) \u00b7 build 18.0.7.",
+      "positionScore": "+0.38",
+      "isolated": true,
+      "checks": [
+        "real UCI search",
+        "restricted score isolation",
+        "producer identity",
+        "responsive layout",
+        "modal editing",
+        "e2-e4",
+        "game review",
+        "fresh review",
+        "review PGN download"
+      ]
+    },
+    {
+      "browser": "webkit",
+      "width": 1280,
+      "status": "passed",
+      "source": "Position score: Stockfish 18 Lite WASM Multithreaded \u00b7 Lite Multi (Local) \u00b7 build 18.0.7.",
+      "positionScore": "+0.32",
+      "isolated": true,
+      "checks": [
+        "real UCI search",
+        "restricted score isolation",
+        "producer identity",
+        "responsive layout",
+        "modal editing",
+        "e2-e4",
+        "game review",
+        "fresh review",
+        "review PGN download"
+      ]
+    },
+    {
+      "browser": "webkit",
+      "width": 375,
+      "status": "passed",
+      "source": "Position score: Stockfish 18 Lite WASM \u00b7 Lite Single (Local) \u00b7 build 18.0.7.",
+      "positionScore": "+0.38",
+      "isolated": true,
+      "checks": [
+        "real UCI search",
+        "restricted score isolation",
+        "producer identity",
+        "responsive layout",
+        "modal editing",
+        "e2-e4",
+        "game review",
+        "fresh review",
+        "review PGN download"
+      ]
+    }
+  ],
+  "commit": "1f73b5c"
+}
