@@ -1868,6 +1868,14 @@ input[type="checkbox"] {
   background: var(--accent);
 }
 
+.status.paused {
+  color: var(--text-secondary);
+}
+
+.status.paused::before {
+  background: var(--text-secondary);
+}
+
 .status.analyzing {
   color: var(--info);
 }

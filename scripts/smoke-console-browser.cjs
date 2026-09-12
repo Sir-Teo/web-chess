@@ -30,6 +30,10 @@ async function main() {
           try {
             await page.route(/https:\/\/(lichess\.org|[^/]*lichess\.ovh)\//, route => route.fulfill({ status: 404, body: '{}' }))
             await page.addInitScript(() => {
+              window.__consoleVisibility = 'visible'
+              Object.defineProperty(document, 'visibilityState', { get: () => window.__consoleVisibility })
+              Object.defineProperty(document, 'hidden', { get: () => window.__consoleVisibility === 'hidden' })
+              window.__setConsoleVisibility = value => { window.__consoleVisibility = value; document.dispatchEvent(new Event('visibilitychange')) }
               localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
                 workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
                 engineProfile: 'lite-single-local', analyzeMode: 'deep', searchDepth: 12, expertModeEnabled: false,
@@ -92,10 +96,28 @@ async function main() {
             await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
             await page.getByRole('button', { name: 'Analyze', exact: true }).click()
             assert.equal(await page.locator('.pv-list').textContent(), result.boardLines, 'console completion changed retained board lines')
+            result.stage = 'unbounded console visibility'
+            await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+            const unbounded = 'go infinite searchmoves e2e4'
+            await command.fill(unbounded)
+            await command.press('Enter')
+            await page.waitForFunction(() => document.querySelector('[aria-label="UCI console output"]')?.textContent.includes('info depth '))
+            await page.evaluate(() => window.__setConsoleVisibility('hidden'))
+            await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'paused')
+            assert.equal(await command.inputValue(), unbounded, 'parking completed the command')
+            await page.screenshot({ path: path.join(output, `${name}-${width}-paused.png`) })
+            await page.evaluate(() => window.__setConsoleVisibility('visible'))
+            await page.waitForFunction(command => window.__consoleEvents.filter(e => e.kind === 'sent' && e.line === command).length === 2, unbounded)
+            await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
+            await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+            await page.evaluate(() => { window.__setConsoleVisibility('hidden'); window.__setConsoleVisibility('visible') })
+            assert.equal(await page.evaluate(command => window.__consoleEvents.filter(e => e.kind === 'sent' && e.line === command).length, unbounded), 2, 'stopped console search restarted')
+            await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+            assert.equal(await page.locator('.pv-list').textContent(), result.boardLines, 'resumed console search changed board readings')
             assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
             assert.deepEqual(result.errors, [])
             result.stage = 'passed'
-            console.log(`${name} ${width}px: real console stop/ack handoff, D12 board search, perft 8902, five-second search and retained board lines passed`)
+            console.log(`${name} ${width}px: real console stop/ack handoff, D12 board search, perft 8902, five-second search, unbounded visibility pause/resume/Stop and retained board lines passed`)
           } finally {
             result.events = await page.evaluate(() => window.__consoleEvents).catch(() => [])
             await page.close()

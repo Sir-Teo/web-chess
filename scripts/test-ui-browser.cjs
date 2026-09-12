@@ -124,6 +124,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
       this.searching = false;
       this.finishTimer = null;
       this.searches = 0;
+      if (SCENARIO === 'console-search') window.__consoleEngine = this;
       this.send('Fake Stockfish ready');
     }
     /**
@@ -293,6 +294,10 @@ const SCENARIO = ${JSON.stringify(scenario)};
       }
       if (text === 'stop') {
         if (SCENARIO === 'console-search' && this.searching && this.fen.includes('rnb1kbnr')) this.emitInfo();
+        if (SCENARIO === 'console-search' && window.__holdConsoleStopAck) {
+          window.__releaseConsoleStop = () => { window.__holdConsoleStopAck = false; this.finishSearch(); };
+          return;
+        }
         this.finishSearch();
         return;
       }
@@ -3071,6 +3076,147 @@ async function checkReadingSpace(browser) {
       }
       assert(errors.length === 0, `reading-space page errors: ${errors.join('; ')}`)
       console.log(`  reading space (${width}px): 100% → 200% → 100% text without window resize preserves all ranks, visible keyboard focus and opening navigation; enlarged desktop header scrolls away`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkConsoleVisibility(browser) {
+  for (const [width, scale] of [[1280, 1], [1280, 2], [375, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.clock.install()
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(() => {
+        window.__testVisibility = 'visible'
+        Object.defineProperty(document, 'visibilityState', { get: () => window.__testVisibility })
+        Object.defineProperty(document, 'hidden', { get: () => window.__testVisibility === 'hidden' })
+        window.__changeVisibility = value => { window.__testVisibility = value; document.dispatchEvent(new Event('visibilitychange')) }
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+          engineProfile: 'lite-single-local', expertModeEnabled: true, analyzeMode: 'deep', searchDepth: 12,
+        }))
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      if (scale === 2) {
+        await openSettings(page)
+        await chooseTheme(page, 'Light')
+        await closeSettings(page)
+      }
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 16}px` }, scale)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      const output = page.getByLabel('UCI console output', { exact: true })
+      const stop = page.getByRole('button', { name: 'Stop engine search', exact: true })
+      const rawCommand = 'go infinite searchmoves d2d4'
+      const count = word => page.evaluate(word => window.__uciCommands.filter(c => c === word).length, word)
+      const visibility = value => page.evaluate(value => window.__changeVisibility(value), value)
+      const waitStatus = value => page.waitForFunction(value => document.querySelector('.bottom .status')?.textContent === value, value)
+      const submit = async text => { await command.fill(text); await command.press('Enter') }
+      const position = async () => {
+        await submit('position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+        await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      }
+      await position()
+      await submit(rawCommand)
+      await output.filter({ hasText: 'score cp 900' }).waitFor()
+      await page.clock.fastForward(95_000)
+      assert(await count('stop') === 0 && await count(rawCommand) === 1, 'unbounded console search still expires after 90 seconds')
+      await waitStatus('analyzing')
+      await page.evaluate(() => { for (let i = 0; i < 600; i++) window.__consoleEngine.send(`info string trace ${i}`) })
+      await output.filter({ hasText: 'trace 599' }).waitFor()
+      assert((await output.textContent()).split('\n').length === 300, 'console output did not stay bounded')
+      await page.locator('.engine-lab-console').getByRole('button', { name: 'Clear', exact: true }).click()
+      await page.evaluate(() => window.__consoleEngine.send('info string after-clear'))
+      await output.filter({ hasText: 'after-clear' }).waitFor()
+      assert(await output.textContent() === 'info string after-clear', 'cleared output returned on the next reply')
+
+      await visibility('hidden')
+      await visibility('hidden')
+      await waitStatus('paused')
+      assert(await count('stop') === 1 && await count(rawCommand) === 1, 'hidden search did not park exactly once')
+      assert(await command.inputValue() === rawCommand, 'parking completed the pending console command')
+      await stop.focus()
+      assert(await stop.evaluate(el => {
+        const r = el.getBoundingClientRect()
+        return r.left >= 0 && r.right <= innerWidth + 1 && r.top >= 0 && r.bottom <= innerHeight + 1
+          && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+      }), 'console Stop is obscured')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'console pause controls overflow')
+      await page.screenshot({ path: `/tmp/web-chess-console-paused-${width}-${scale}x.png` })
+      await visibility('visible')
+      await waitStatus('analyzing')
+      assert(await count(rawCommand) === 2, 'returning did not resume the exact console command')
+
+      // Returning before the old bestmove must wait, not overlap two searches.
+      await page.evaluate(() => { window.__holdConsoleStopAck = true })
+      await visibility('hidden')
+      await page.waitForFunction(() => typeof window.__releaseConsoleStop === 'function')
+      await visibility('visible')
+      assert(await count(rawCommand) === 2, 'resume happened before stop acknowledgement')
+      await page.evaluate(() => window.__releaseConsoleStop())
+      await page.waitForFunction(command => window.__uciCommands.filter(c => c === command).length === 3, rawCommand)
+      await visibility('hidden')
+      await waitStatus('paused')
+      await stop.click()
+      await waitStatus('ready')
+      await visibility('visible')
+      assert(await count(rawCommand) === 3, 'Stop allowed the parked search to restart')
+
+      // A command entered while hidden reserves its place without starting CPU work.
+      await visibility('hidden')
+      await submit(rawCommand)
+      await waitStatus('paused')
+      assert(await count(rawCommand) === 3, 'a hidden command started before becoming visible')
+      await visibility('visible')
+      await page.waitForFunction(command => window.__uciCommands.filter(c => c === command).length === 4, rawCommand)
+      await visibility('hidden')
+      await waitStatus('paused')
+      await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await waitStatus('ready')
+      await visibility('visible')
+      assert(await count(rawCommand) === 4, 'board analysis left a console resume pending')
+      assert((await page.locator('.pv-list').textContent()).includes('+0.35'), 'board handoff retained a console score')
+      assert(!await page.evaluate(() => window.__positionDuringSearch), 'new position reached a searching engine')
+
+      await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      await position()
+      await submit('go movetime 5000')
+      await output.filter({ hasText: 'score cp 900' }).waitFor()
+      const stopsBeforeFinite = await count('stop')
+      await visibility('hidden')
+      await page.waitForTimeout(100)
+      assert(await count('stop') === stopsBeforeFinite, 'hiding interrupted a finite console search')
+      await visibility('visible')
+      await stop.click()
+      await waitStatus('ready')
+
+      // Explicit Stop wins even if visibility's first Stop is awaiting a reply.
+      await submit(rawCommand)
+      await output.filter({ hasText: 'score cp 900' }).waitFor()
+      await page.evaluate(() => { window.__holdConsoleStopAck = true; window.__releaseConsoleStop = null })
+      await visibility('hidden')
+      await page.waitForFunction(() => typeof window.__releaseConsoleStop === 'function')
+      await stop.click()
+      await visibility('visible')
+      await page.evaluate(() => window.__releaseConsoleStop())
+      await waitStatus('ready')
+      assert(await count(rawCommand) === 5, 'Stop before acknowledgement allowed a resume')
+
+      await visibility('hidden')
+      await submit(rawCommand)
+      await waitStatus('paused')
+      await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+      await page.waitForFunction(() => window.__terminatedEngines > 0)
+      await visibility('visible')
+      await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+      await waitStatus('ready')
+      assert(await count(rawCommand) === 5, 'worker teardown retained a console resume')
+      assert(errors.length === 0, `console visibility errors: ${errors.join('; ')}`)
+      console.log(`  console visibility (${width}px, ${scale}x): survives 95s, bounded/Clear output, stop/ack/resume, rapid return, hidden submission, Stop cancellation, board handoff, finite work and teardown`)
     } finally { await context.close() }
   }
 }
@@ -6645,6 +6791,7 @@ async function main() {
       lab: checkLabSettingsStayInSync,
       'console-search': checkConsoleSearchOwnership,
       'console-tools': checkConsoleTools,
+      'console-visibility': checkConsoleVisibility,
       continuous: checkKeepSearchingIsUnbounded,
       'palette-keyboard': checkCommandPaletteKeyboard,
       'palette-layout': checkCommandPaletteLayout,
@@ -7323,6 +7470,7 @@ async function main() {
     await checkLabSettingsStayInSync(browser)
     await checkConsoleSearchOwnership(browser)
     await checkConsoleTools(browser)
+    await checkConsoleVisibility(browser)
     await checkSingleThreadReviewPool(browser)
     await checkCoachUsesPositionScore(browser)
     await checkBoundedScoreIsIgnored(browser)

@@ -12,6 +12,7 @@ import { createStockfishWorker } from '../engine/stockfishWorker'
 import { engineStartupTimeoutMs } from '../engine/engineStartup'
 import { buildAnalyzeCommand, buildNewGameCommands, changedSetOptions, engineOptionValueToString, normalizeUciMoves, optionKey, parseBestMoveLine, parseSetOptionCommand, type AnalyzeMode, type AnalyzePurpose, type AnalyzeRequest, type UciGoLimits } from '../engine/uci'
 import { engineBootFailureMessage } from '../engine/engineBootError'
+import { ENGINE_CONSOLE_LINE_LIMIT, isUnboundedEngineLabSearch } from '../engine/labCommands'
 import { withBoundedMapEntry } from './cacheLimit'
 import { evaluationEngine, type EvaluationEngine } from '../engine/evaluationSource'
 
@@ -57,6 +58,7 @@ type EngineCommandKind = 'uci' | 'isready' | 'go' | 'other'
 
 type SendCommandOptions = {
   stream?: (line: string) => void
+  /** Zero disables the timeout. Unbounded searches default to no deadline. */
   timeoutMs?: number
 }
 
@@ -68,9 +70,11 @@ type QueuedCommand = {
   stream?: (line: string) => void
   resolve: (lines: string[]) => void
   reject: (error: Error) => void
+  /** Only the latest ENGINE_CONSOLE_LINE_LIMIT replies are retained. */
   lines: string[]
   timeoutId?: ReturnType<typeof setTimeout>
   discard?: boolean
+  suspension?: 'stopping' | 'paused'
 }
 
 /**
@@ -430,6 +434,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const [lastPonderMoveFen, setLastPonderMoveFen] = useState<string | null>(null)
   const [activeGoCommand, setActiveGoCommand] = useState<string>('')
   const [queueLength, setQueueLength] = useState(0)
+  const [consoleSearchPaused, setConsoleSearchPaused] = useState(false)
   const [linesMap, setLinesMap] = useState<Map<number, EngineLine>>(new Map())
   const [options, setOptions] = useState<EngineOption[]>([])
   const [activeProfile, setActiveProfile] = useState<EngineProfile>(() => resolveProfile(selectedProfile, capabilities))
@@ -487,8 +492,46 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     }
     commandQueueRef.current = []
     rawWorkRef.current = null
+    setConsoleSearchPaused(false)
     setQueueLength(0)
   }, [])
+
+  const finishQueuedCommand = useCallback((item: QueuedCommand) => {
+    const queue = commandQueueRef.current
+    const index = queue.indexOf(item)
+    if (index < 0) return
+    queue.splice(index, 1)
+    if (item.timeoutId) clearTimeout(item.timeoutId)
+    setQueueLength(queue.length)
+    if (!item.discard) item.resolve(item.lines)
+  }, [])
+
+  // A hidden console command keeps its queue entry and stream callback. Stop,
+  // a board search or a new game cancels that reservation before doing new work.
+  const cancelConsoleSuspension = useCallback(() => {
+    const item = rawWorkRef.current
+    if (!item?.suspension) return false
+    const wasPaused = item.suspension === 'paused'
+    item.suspension = undefined
+    setConsoleSearchPaused(false)
+    if (wasPaused) {
+      finishQueuedCommand(item)
+      rawWorkRef.current = null
+      setActiveGoCommand('')
+      setStatus(value => value === 'error' ? value : 'ready')
+    }
+    return wasPaused
+  }, [finishQueuedCommand])
+
+  const resumeConsoleSearch = useCallback(() => {
+    const item = rawWorkRef.current
+    if (item?.suspension !== 'paused' || !isReadyRef.current || document.visibilityState === 'hidden') return
+    item.suspension = undefined
+    isSearchingRef.current = true
+    stopRequestedRef.current = false
+    setConsoleSearchPaused(false)
+    send(item.command)
+  }, [send])
 
   const dispatchQueuedLine = useCallback((line: string) => {
     const queue = commandQueueRef.current
@@ -516,15 +559,13 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     if (!item) return
 
     item.lines.push(line)
+    if (item.lines.length > ENGINE_CONSOLE_LINE_LIMIT) item.lines.splice(0, item.lines.length - ENGINE_CONSOLE_LINE_LIMIT)
     item.stream?.(line)
 
     if (!isQueuedCommandDone(item, line)) return
-
-    queue.splice(queueIndex, 1)
-    if (item.timeoutId) clearTimeout(item.timeoutId)
-    setQueueLength(queue.length)
-    if (!item.discard) item.resolve(item.lines)
-  }, [])
+    if (item.suspension === 'stopping') return
+    finishQueuedCommand(item)
+  }, [finishQueuedCommand])
 
   /**
    * Record that the engine has been told an option's value, wherever the
@@ -581,6 +622,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       const trimmed = command.trim()
       if (!trimmed) return Promise.resolve([])
       if (!workerRef.current) return Promise.reject(new Error('Engine worker is not available.'))
+      if (trimmed === 'stop' && cancelConsoleSuspension()) return Promise.resolve([])
       if (trimmed !== 'stop') {
         if (!isReadyRef.current) return Promise.reject(new Error('Wait for the engine to finish starting before sending commands.'))
         if (isSearchingRef.current || commandQueueRef.current.length) {
@@ -592,7 +634,11 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       // takes, and a `setoption` typed there has to reach the applied-options
       // record. It did not, which is what the comment on `sendRaw` promised.
       if (hasNoReply(trimmed)) {
-        if (trimmed === 'stop' && isSearchingRef.current) stopRequestedRef.current = true
+        if (trimmed === 'stop' && isSearchingRef.current) {
+          if (!stopRequestedRef.current) sendRaw(trimmed)
+          stopRequestedRef.current = true
+          return Promise.resolve([])
+        }
         sendRaw(trimmed)
         return Promise.resolve([])
       }
@@ -600,8 +646,9 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       return new Promise((resolve, reject) => {
         const id = ++nextCommandIdRef.current
         const first = firstWord(trimmed)
+        const unbounded = first === 'go' && isUnboundedEngineLabSearch(trimmed)
         const timeoutMs =
-          options?.timeoutMs ?? (first === 'go' || first === 'bench' || first === 'perft' ? 90_000 : 15_000)
+          options?.timeoutMs ?? (unbounded ? 0 : first === 'go' || first === 'bench' || first === 'perft' ? 90_000 : 15_000)
 
         const item: QueuedCommand = {
           id,
@@ -614,17 +661,26 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
           lines: [],
         }
 
-        item.timeoutId = setTimeout(() => {
+        if (timeoutMs > 0) item.timeoutId = setTimeout(() => {
           const queue = commandQueueRef.current
           const idx = queue.findIndex(entry => entry.id === id)
+          const wasPaused = item.suspension === 'paused'
           if (idx >= 0) {
             queue.splice(idx, 1)
-            if (shouldStopTimedOutSearchCommand(trimmed)) {
+            item.suspension = undefined
+            if (wasPaused) {
+              rawWorkRef.current = null
+              setConsoleSearchPaused(false)
+              setActiveGoCommand('')
+              setStatus(value => value === 'error' ? value : 'ready')
+            } else if (shouldStopTimedOutSearchCommand(trimmed)) {
+              stopRequestedRef.current = true
               send('stop')
             }
           }
           setQueueLength(queue.length)
-          const stopSuffix = shouldStopTimedOutSearchCommand(trimmed) ? ' Sent "stop" to cancel the search.' : ''
+          const stopSuffix = wasPaused ? ' Canceled the paused search.'
+            : shouldStopTimedOutSearchCommand(trimmed) ? ' Sent "stop" to cancel the search.' : ''
           reject(new Error(`Timed out waiting for response to "${trimmed}".${stopSuffix}`))
         }, timeoutMs)
 
@@ -635,14 +691,21 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
           isSearchingRef.current = true
           stopRequestedRef.current = false
           currentAnalysisRequestRef.current = null
+          visibilityResumeRequestRef.current = null
           currentAnalysisCacheKeyRef.current = null
           setActiveGoCommand(trimmed)
           setStatus('analyzing')
+          if (unbounded && document.visibilityState === 'hidden') {
+            item.suspension = 'paused'
+            isSearchingRef.current = false
+            setConsoleSearchPaused(true)
+            return
+          }
         }
         send(trimmed)
       })
     },
-    [send, sendRaw],
+    [cancelConsoleSuspension, send, sendRaw],
   )
 
   const setOption = useCallback(
@@ -757,6 +820,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const analyze = useCallback(
     (request: AnalyzeRequest) => {
       if (!enabled) return
+      cancelConsoleSuspension()
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden' && suspendsWhileHidden(request)) {
         visibilityResumeRequestRef.current = request
         pendingAnalyzeRef.current = null
@@ -770,10 +834,11 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       pendingAnalyzeRef.current = request
       flushPendingAnalyze()
     },
-    [enabled, flushPendingAnalyze, send],
+    [cancelConsoleSuspension, enabled, flushPendingAnalyze, send],
   )
 
   const stop = useCallback(() => {
+    cancelConsoleSuspension()
     visibilityResumeRequestRef.current = null
     pendingAnalyzeRef.current = null
     if (!enabled) {
@@ -791,9 +856,10 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       if (value === 'error') return value
       return isReadyRef.current ? 'ready' : value
     })
-  }, [enabled, send])
+  }, [cancelConsoleSuspension, enabled, send])
 
   const newGame = useCallback(() => {
+    cancelConsoleSuspension()
     visibilityResumeRequestRef.current = null
     pendingAnalyzeRef.current = null
     currentAnalysisRequestRef.current = null
@@ -819,12 +885,26 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     }
 
     sendNewGameSync()
-  }, [enabled, resetLinesMap, sendNewGameSync, sendRaw])
+  }, [cancelConsoleSuspension, enabled, resetLinesMap, sendNewGameSync, sendRaw])
 
   useEffect(() => {
     if (!enabled || typeof document === 'undefined') return
 
     const handleVisibilityChange = () => {
+      const rawWork = rawWorkRef.current
+      if (rawWork && isUnboundedEngineLabSearch(rawWork.command)) {
+        if (document.visibilityState === 'hidden') {
+          if (isSearchingRef.current && !stopRequestedRef.current) {
+            rawWork.suspension = 'stopping'
+            send('stop')
+            stopRequestedRef.current = true
+          }
+          return
+        } else if (rawWork.suspension) {
+          resumeConsoleSearch()
+          return
+        }
+      }
       if (document.visibilityState === 'hidden') {
         const requestToResume = pendingAnalyzeRef.current
           ?? (isSearchingRef.current ? currentAnalysisRequestRef.current : null)
@@ -850,7 +930,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     document.addEventListener('visibilitychange', handleVisibilityChange)
     handleVisibilityChange()
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [enabled, flushPendingAnalyze, send])
+  }, [enabled, flushPendingAnalyze, resumeConsoleSearch, send])
 
   useEffect(() => {
     bootSessionRef.current += 1
@@ -995,6 +1075,14 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
           // Capture ownership before resolving the command. A managed search
           // may start below, but this reply still belongs to the console.
           if (isQueuedCommandDone(rawWork, line)) {
+            if (rawWork.suspension === 'stopping') {
+              isSearchingRef.current = false
+              stopRequestedRef.current = false
+              rawWork.suspension = 'paused'
+              setConsoleSearchPaused(true)
+              resumeConsoleSearch()
+              continue
+            }
             rawWorkRef.current = null
             isSearchingRef.current = false
             stopRequestedRef.current = false
@@ -1170,6 +1258,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     flushLinesMap,
     flushPendingAnalyze,
     rejectQueuedCommands,
+    resumeConsoleSearch,
     resetLinesMap,
     resolvedProfile,
     scheduleLinesMapFlush,
@@ -1199,6 +1288,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     lastPonderMoveFen,
     activeGoCommand,
     queueLength,
+    consoleSearchPaused,
     capabilities,
     activeProfile,
     profileMessage,

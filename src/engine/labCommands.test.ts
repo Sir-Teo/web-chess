@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage, isHeavyEngineLabCommand } from './labCommands'
+import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage, isHeavyEngineLabCommand, isUnboundedEngineLabSearch } from './labCommands'
 
 describe('Engine Lab command safety', () => {
+  it('parks unbounded searches without interrupting finite diagnostics', () => {
+    for (const command of ['go', 'go infinite', 'go ponder depth 12', 'go infinite searchmoves e2e4', 'go searchmoves e2e4']) {
+      expect(isUnboundedEngineLabSearch(command), command).toBe(true)
+    }
+    for (const command of ['go perft 3', 'go depth 12 perft 3', 'go movetime 5000', 'go depth 30', 'go nodes 50000', 'eval']) {
+      expect(isUnboundedEngineLabSearch(command), command).toBe(false)
+    }
+  })
   it('locks heavy diagnostics and unbounded searches', () => {
     expect(isHeavyEngineLabCommand('bench')).toBe(true)
     expect(isHeavyEngineLabCommand('bench 16 1 13')).toBe(true)

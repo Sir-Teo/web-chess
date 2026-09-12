@@ -179,7 +179,7 @@ import {
   judgeDrillMove,
   opponentMovesFrom,
 } from './engine/lineDrill'
-import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage } from './engine/labCommands'
+import { ENGINE_CONSOLE_LINE_LIMIT, engineLabCommandBlockMessage, engineLabCommandSafetyMessage } from './engine/labCommands'
 import { aiSearchHistory, defaultOrientationForGameMode, describePlayEngine, hintDisabledReason, sideToMoveColor, takebackDisabledReason, takebackPlyCount, judgeMoveBetweenSearches, type AiSearchReading, type MoveJudgement } from './engine/playMode'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { DIFFICULTY_LABELS, useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
@@ -621,6 +621,7 @@ function App() {
   const [engineLabCommand, setEngineLabCommand] = useState('')
   const [engineLabError, setEngineLabError] = useState<string | null>(null)
   const [engineLabOutputLines, setEngineLabOutputLines] = useState<string[]>([])
+  const labConsoleBufferRef = useRef<string[]>([])
   const [engineLabCopyStatus, setEngineLabCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
   const [expertModeEnabled, setExpertModeEnabled] = useState(persistedSettings.expertModeEnabled)
   const [labCommandHistory, setLabCommandHistory] = useState<string[]>(persistedSettings.labCommandHistory)
@@ -1302,6 +1303,7 @@ function App() {
     lastBestMove,
     lastPonderMove,
     activeGoCommand,
+    consoleSearchPaused,
     queueLength,
     capabilities,
     activeProfile,
@@ -1342,7 +1344,8 @@ function App() {
     return applied
   }, [labOptions, setOption])
 
-  const analysisStatusAnnouncement = `${engineName}. ${status}. ${analysisExperience === 'beginner' ? 'Coach view' : 'Pro view'}.`
+  const analysisStatusText = consoleSearchPaused ? 'paused' : status
+  const analysisStatusAnnouncement = `${engineName}. ${analysisStatusText}. ${analysisExperience === 'beginner' ? 'Coach view' : 'Pro view'}.`
   const reviewThreadBudget = Number(options.find(option => option.name === 'Threads')?.currentValue) || undefined
   const reviewResourcePlan = planReviewPool({
     profile: activeProfile, capabilities, queueLength: 12, hashMb,
@@ -2599,6 +2602,7 @@ function App() {
           return
         }
         const applied = setLabOption(name, value)
+        labConsoleBufferRef.current = []
         setEngineLabOutputLines([`> ${trimmed}`, `Saved analysis setting: ${name} = ${String(applied)}`])
         setEngineLabCopyStatus('idle')
         setEngineLabCommand('')
@@ -2609,19 +2613,24 @@ function App() {
       setLabCommandHistory(previous => [trimmed, ...previous.filter(item => item !== trimmed)].slice(0, 20))
       const startTime = performance.now()
       const outputLines = [`> ${trimmed}`]
-      setEngineLabOutputLines(outputLines)
+      labConsoleBufferRef.current = outputLines
+      setEngineLabOutputLines(outputLines.slice())
       setEngineLabCopyStatus('idle')
       try {
         const lines = await sendCommand(trimmed, {
           stream: line => {
+            if (labConsoleBufferRef.current !== outputLines) return
             outputLines.push(line)
-            setEngineLabOutputLines(outputLines.slice(-300))
+            if (outputLines.length > ENGINE_CONSOLE_LINE_LIMIT) outputLines.splice(0, outputLines.length - ENGINE_CONSOLE_LINE_LIMIT)
+            setEngineLabOutputLines(outputLines.slice())
           },
         })
+        if (labConsoleBufferRef.current !== outputLines) return
         if (!lines.length) setEngineLabOutputLines([`> ${trimmed}`, '(no direct response)'])
         setLastLabRun({ command: trimmed, durationMs: Math.round(performance.now() - startTime) })
         setEngineLabCommand('')
       } catch (error) {
+        if (labConsoleBufferRef.current !== outputLines) return
         if (outputLines.length === 1) setEngineLabOutputLines([`> ${trimmed}`, '(no response before error)'])
         setLastLabRun({ command: trimmed, durationMs: Math.round(performance.now() - startTime) })
         setEngineLabError(error instanceof Error ? error.message : String(error))
@@ -2631,6 +2640,7 @@ function App() {
   )
 
   const clearLabConsole = useCallback(() => {
+    labConsoleBufferRef.current.length = 0
     setEngineLabOutputLines([])
     setEngineLabError(null)
     setEngineLabCopyStatus('idle')
@@ -6022,12 +6032,12 @@ function App() {
       ? `${gameModeLabel} · ${aiDifficultyLabel} AI`
       : `${gameModeLabel} · Engine`
   const bottomStatusText = engineEnabled
-    ? status
+    ? analysisStatusText
     : playEngineActive && playEngineStatus !== 'disabled'
       ? playEngineStatus
       : 'standby'
   const bottomStatusClass = engineEnabled
-    ? status
+    ? analysisStatusText
     : playEngineActive
       ? (playEngineStatus === 'thinking' ? 'analyzing' : playEngineStatus)
       : 'standby'
@@ -7003,7 +7013,7 @@ function App() {
               {clock && workspaceMode === 'play' && (
                 <ChessClock state={clock} paused={paused} orientation={orientation} />
               )}
-              <span className="board-meta-status">{workspaceMode === 'analysis' ? status : gameModeLabel}</span>
+              <span className="board-meta-status">{workspaceMode === 'analysis' ? analysisStatusText : gameModeLabel}</span>
               {/* An empty board with nothing saying why is a bug report. This
                   is the one thing standing between "a training mode" and
                   "the pieces have gone". */}
@@ -7373,7 +7383,7 @@ function App() {
                   aria-label={analysisStatusAnnouncement}
                 >
                   <span>{engineName}</span>
-                  <strong className={`status ${status}`}>{status}</strong>
+                  <strong className={`status ${analysisStatusText}`}>{analysisStatusText}</strong>
                 </div>
               )}
               {workspaceMode === 'analysis' && status === 'error' && (
@@ -8516,6 +8526,10 @@ function App() {
                       />
                       <span>Enable expert commands (perft/unbounded go)</span>
                     </label>
+                    <p className="panel-copy small">
+                      Unbounded console searches pause while this tab is hidden and resume when you return. Stop cancels them.
+                    </p>
+                    {consoleSearchPaused && <p className="panel-copy small" role="status">Console search paused while this tab is hidden.</p>}
                     {openingExplorer.data && (
                       <div className="engine-lab-inline">
                         <p className="panel-copy small">
@@ -8550,6 +8564,7 @@ function App() {
                         placeholder="go depth 16"
                       />
                       <button type="submit">Send</button>
+                      <button type="button" aria-label="Stop engine search" disabled={status !== 'analyzing'} title={status !== 'analyzing' ? 'No engine search is running.' : undefined} onClick={stop}>Stop</button>
                       <button
                         type="button"
                         onClick={() => void copyLabConsole()}
@@ -8617,6 +8632,9 @@ function App() {
                     <pre className="engine-lab-output" aria-label="UCI console output" aria-live="polite">
                       {(engineLabOutputLines.join('\n')) || 'No command output yet.'}
                     </pre>
+                    {engineLabOutputLines.length === ENGINE_CONSOLE_LINE_LIMIT && (
+                      <p className="panel-copy small">Showing the latest {ENGINE_CONSOLE_LINE_LIMIT} output lines. Copy uses these visible lines.</p>
+                    )}
                   </div>
 
                   <div className="engine-lab-card">
@@ -8663,7 +8681,7 @@ function App() {
           <span className="resize-pill horizontal" />
         </div>
         <div className="panel-inner">
-          <div className={`analyzing-bar ${status === 'analyzing' ? 'active' : ''}`} />
+            <div className={`analyzing-bar ${status === 'analyzing' && !consoleSearchPaused ? 'active' : ''}`} />
           <div className="panel-content">
             {/* Watch controls — playback nav + pause + speed */}
             <WatchControls

@@ -7,6 +7,8 @@ const DIRECT_GO_LIMITS = new Set([
   'btime',
 ])
 
+export const ENGINE_CONSOLE_LINE_LIMIT = 300
+
 const INCREMENT_LIMITS = new Set([
   'winc',
   'binc',
@@ -74,6 +76,14 @@ export function engineLabCommandSafetyMessage(command: string): string | null {
     return SEARCHMOVES_ORDER_MESSAGE
   }
   return HEAVY_COMMAND_MESSAGE
+}
+
+/** Perft is finite work even though the expert gate treats it as heavy. */
+export function isUnboundedEngineLabSearch(command: string): boolean {
+  const parts = commandParts(command)
+  const searchMovesIndex = parts.indexOf('searchmoves')
+  const parameters = searchMovesIndex < 0 ? parts : parts.slice(0, searchMovesIndex)
+  return parts[0] === 'go' && !parameters.includes('perft') && isHeavyEngineLabCommand(command)
 }
 
 export function engineLabCommandBlockMessage(command: string): string | null {
