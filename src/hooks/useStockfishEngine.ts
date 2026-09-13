@@ -1010,6 +1010,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       commandQueueRef.current = []
       appliedOptionsRef.current = new Map()
       wakeAnalyzeRef.current = null
+      preserveReadingsOnBootRef.current = false
       queueMicrotask(() => {
         if (currentSession !== bootSessionRef.current) return
         setStatus(enabled ? 'unloaded' : 'disabled')
@@ -1091,7 +1092,6 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     stopRequestedRef.current = false
     pendingAnalyzeRef.current = wakeAnalyzeRef.current
     const preserveReadings = preserveReadingsOnBootRef.current
-    preserveReadingsOnBootRef.current = false
     currentAnalysisRequestRef.current = null
     visibilityResumeRequestRef.current = null
     currentAnalysisCacheKeyRef.current = null
@@ -1187,6 +1187,9 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         if (line === 'readyok') {
           clearTimeout(startupTimer)
           isReadyRef.current = true
+          // A failed preferred boot can create a fallback worker. Retain the
+          // old readings through that replacement until startup succeeds.
+          preserveReadingsOnBootRef.current = false
           // A default, applied once per worker; see shouldApplyRecommendedThreads.
           if (shouldApplyRecommendedThreads(
             recommendedThreadCount(profile, capabilities),

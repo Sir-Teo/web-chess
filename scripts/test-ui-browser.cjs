@@ -3521,7 +3521,7 @@ async function checkEngineRelease(browser) {
     console.log('  engine release: import stays unloaded; explicit Review loads; busy two-worker review pool blocks release even when foreground is Ready; Stop then Release closes every worker')
   } finally { await context.close() }
 
-  for (const scenario of ['hidden', 'fallback']) {
+  for (const scenario of ['hidden', 'fallback', 'fallback-load']) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 812 } })
     const page = await context.newPage()
     try {
@@ -3538,12 +3538,21 @@ async function checkEngineRelease(browser) {
         window.__setReleaseVisibility = value => { window.__releaseVisibility = value; document.dispatchEvent(new Event('visibilitychange')) }
         localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
           workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
-          engineProfile: scenario === 'fallback' ? 'lite-multi-local' : 'lite-single-local',
+          engineProfile: scenario.startsWith('fallback') ? 'lite-multi-local' : 'lite-single-local',
           analyzeMode: scenario === 'hidden' ? 'infinite' : 'deep', searchDepth: 12,
         }))
       }, scenario)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      let retained
+      if (scenario === 'fallback-load') {
+        await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+        await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+        await page.waitForFunction(() => document.querySelector('.pv-list')?.textContent.includes('+0.35')
+          && document.querySelector('.bottom .status')?.textContent === 'ready')
+        retained = await page.locator('.pv-list').textContent()
+        await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      }
       await page.getByRole('button', { name: 'Release engine', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'unloaded')
       await page.getByRole('button', { name: 'Analyze', exact: true }).click()
@@ -3555,6 +3564,15 @@ async function checkEngineRelease(browser) {
         assert(await page.evaluate(() => window.__uciCommands.filter(c => c === 'go depth 12').length === 1), 'fallback lost or duplicated the explicit Analyze request')
         await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
         await page.getByText(/QA reload boot failure.*Falling back to/).waitFor()
+      } else if (scenario === 'fallback-load') {
+        await page.evaluate(() => { window.__failConsoleBoot = true; window.__holdConsoleReady = true; window.__releaseConsoleReady = null })
+        await page.getByRole('button', { name: 'Load engine', exact: true }).click()
+        await page.waitForFunction(() => window.__engineCount === 3 && typeof window.__releaseConsoleReady === 'function')
+        assert(await page.locator('.pv-list').textContent() === retained, 'fallback cleared retained lines while startup was pending')
+        await page.evaluate(() => window.__releaseConsoleReady())
+        await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+        assert(await page.locator('.pv-list').textContent() === retained, 'fallback cleared retained lines after Load completed')
+        assert(await page.evaluate(() => window.__uciCommands.filter(c => c === 'go depth 12').length === 1), 'Load started an unsolicited fallback search')
       } else {
         await page.evaluate(() => { window.__holdConsoleReady = true; window.__releaseConsoleReady = null; window.__withholdEngineInfo = true; window.__setReleaseVisibility('hidden') })
         await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
@@ -3578,7 +3596,10 @@ async function checkEngineRelease(browser) {
         await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
         assert(await page.evaluate(() => window.__uciCommands.filter(c => c === 'go infinite').length === 1), 'Stop during reload left an armed search')
       }
-      console.log(`  engine release (${scenario}): ${scenario === 'fallback' ? 'explicit search survives a failed boot and runs once on fallback' : 'hidden infinite search waits for visibility; Stop during reload cancels it'}`)
+      const outcome = scenario === 'fallback-load' ? 'Load preserves prior lines through a failed boot and fallback handshake, without another search'
+        : scenario === 'fallback' ? 'explicit search survives a failed boot and runs once on fallback'
+          : 'hidden infinite search waits for visibility; Stop during reload cancels it'
+      console.log(`  engine release (${scenario}): ${outcome}`)
     } finally { await context.close() }
   }
 }
