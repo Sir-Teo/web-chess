@@ -1914,11 +1914,13 @@ input[type="checkbox"] {
 }
 
 .status.disabled,
+.status.unloaded,
 .status.standby {
   color: var(--text-tertiary);
 }
 
 .status.disabled::before,
+.status.unloaded::before,
 .status.standby::before {
   background: var(--text-tertiary);
 }

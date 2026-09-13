@@ -245,6 +245,11 @@ const SCENARIO = ${JSON.stringify(scenario)};
     postMessage(command) {
       const text = String(command);
       window.__uciCommands.push(text);
+      if (SCENARIO === 'console-search' && text === 'uci' && window.__failConsoleBoot) {
+        window.__failConsoleBoot = false;
+        setTimeout(() => this.onerror?.({ message: 'QA reload boot failure' }), 0);
+        return;
+      }
       if (SCENARIO === 'silent-all' || (SCENARIO === 'silent-first' && this.ordinal === 1)) return;
       if (text === 'uci') {
         this.send('id name ' + (SCENARIO === 'review-source' ? (this.reviewProducer === 'full' ? 'QA Full' : 'QA Lite')
@@ -3366,6 +3371,214 @@ async function checkConsoleTools(browser) {
       assert(await page.locator('.pv-list article').count() === 0, 'console shortcuts added board evaluations')
       assert(errors.length === 0, `console tools page errors: ${errors.join('; ')}`)
       console.log(`  console tools (${width}px, ${scale}x text, ${theme}): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkEngineRelease(browser) {
+  for (const [width, scale] of [[1280, 1], [1280, 2], [375, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze', autoAnalyze: false,
+        engineProfile: 'lite-single-local', analyzeMode: 'deep', searchDepth: 12, hashMb: 128, reviewMaxWorkers: 1,
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const waitStatus = status => page.waitForFunction(status => document.querySelector('.bottom .status')?.textContent === status, status)
+      const counts = () => page.evaluate(() => ({ made: window.__engineCount, closed: window.__terminatedEngines, searches: window.__uciCommands.filter(c => /^go\s/.test(c)).length }))
+      const release = page.getByRole('button', { name: 'Release engine', exact: true })
+      const load = page.getByRole('button', { name: 'Load engine', exact: true })
+      const lab = page.getByRole('button', { name: 'Engine Lab', exact: true })
+      const analyzeTab = page.getByRole('button', { name: 'Analyze', exact: true })
+      const run = page.getByRole('button', { name: 'Run analysis', exact: true })
+      await waitStatus('ready')
+      await openSettings(page)
+      await chooseTheme(page, scale === 2 ? 'Light' : 'Dark')
+      await closeSettings(page)
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${16 * scale}px` }, scale)
+      await run.click()
+      await page.waitForFunction(() => document.querySelector('.pv-list')?.textContent.includes('+0.35')
+        && document.querySelector('.bottom .status')?.textContent === 'ready')
+      const retained = await page.locator('.pv-list').textContent()
+      await lab.click()
+      await release.click()
+      await waitStatus('unloaded')
+      assert(JSON.stringify(await counts()) === JSON.stringify({ made: 1, closed: 1, searches: 1 }), 'release did not terminate exactly the idle engine')
+      assert(await page.getByRole('button', { name: '5s search', exact: true }).isDisabled(), 'console shortcut stayed enabled without a worker')
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      await command.fill('go depth 12')
+      await command.press('Enter')
+      await page.locator('.error-copy').filter({ hasText: 'Load the engine before sending console commands' }).waitFor()
+      assert((await counts()).made === 1 && (await counts()).searches === 1, 'raw command silently reloaded a reset console position')
+      await analyzeTab.click()
+      assert(await page.locator('.pv-list').textContent() === retained, 'release discarded the displayed analysis')
+      await load.focus()
+      const geometry = await load.evaluate(el => {
+        const r = el.getBoundingClientRect()
+        return { fits: r.left >= 0 && r.right <= innerWidth + 1 && r.top >= 0 && r.bottom <= innerHeight + 1
+          && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)) && el.scrollWidth <= el.clientWidth + 1, rect: r.toJSON() }
+      })
+      assert(geometry.fits, `Load engine is obscured: ${JSON.stringify(geometry)}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'unloaded notice overflows')
+      await page.screenshot({ path: `/tmp/web-chess-engine-released-${width}-${scale}x.png` })
+      // A plain Load restores the engine without starting another search or
+      // removing the readings while the new worker answers its handshake.
+      await page.evaluate(() => { window.__holdConsoleReady = true; window.__releaseConsoleReady = null })
+      await load.click()
+      await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
+      await waitStatus('loading')
+      assert(await page.locator('.pv-list').textContent() === retained, 'loading discarded retained lines')
+      await page.evaluate(() => window.__releaseConsoleReady())
+      await waitStatus('ready')
+      assert((await counts()).made === 2 && (await counts()).searches === 1, 'Load started an unsolicited search')
+      await lab.click()
+      await release.click()
+      await waitStatus('unloaded')
+      await analyzeTab.click()
+      await openSettings(page)
+      await page.getByRole('checkbox', { name: 'Auto-analyze after every move', exact: true }).check()
+      await closeSettings(page)
+      await page.getByText('Enter a move by name', { exact: true }).click()
+      await page.getByRole('textbox', { name: 'Move for White', exact: true }).fill('e4')
+      await page.getByRole('textbox', { name: 'Move for White', exact: true }).press('Enter')
+      await page.getByRole('textbox', { name: 'Move for Black', exact: true }).fill('e5')
+      await page.getByRole('textbox', { name: 'Move for Black', exact: true }).press('Enter')
+      await page.waitForTimeout(500)
+      assert((await counts()).made === 2 && (await counts()).closed === 2, 'automatic navigation woke a released engine')
+      await run.click()
+      await page.waitForFunction(() => window.__engineCount === 3 && document.querySelector('.bottom .status')?.textContent === 'ready'
+        && window.__uciCommands.some(c => c.startsWith('position') && c.endsWith('moves e2e4 e7e5')))
+      assert(await page.evaluate(() => window.__uciCommands.includes('setoption name Hash value 128')), 'saved Hash was lost on reload')
+      // A queued Review is explicit work too. Hold its replies so Release
+      // cannot mistake a gap between positions for an idle workflow.
+      await lab.click()
+      await release.click()
+      await waitStatus('unloaded')
+      await page.evaluate(() => { window.__withholdEngineInfo = true })
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+      await page.getByRole('button', { name: /Stop game review/ }).waitFor()
+      await lab.click()
+      assert(await release.isDisabled(), 'Release remained available during game review')
+      assert(/review|import/.test(await release.getAttribute('title')), 'busy release control did not explain the review')
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.evaluate(() => { window.__withholdEngineInfo = false })
+      await page.getByRole('button', { name: /Stop game review/ }).click()
+      await waitStatus('ready')
+      await lab.click()
+      await release.click()
+      await waitStatus('unloaded')
+      const finalCounts = await counts()
+      await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+      await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+      await waitStatus('unloaded')
+      assert((await counts()).made === finalCounts.made, 'changing workspaces silently reloaded the released engine')
+      assert(errors.length === 0, `release page errors: ${errors.join('; ')}`)
+      console.log(`  engine release (${width}px, ${scale}x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions`)
+    } finally { await context.close() }
+  }
+  // A pool can own multiple busy workers while the foreground reports Ready.
+  const context = await browser.newContext({ viewport: { width: 1280, height: 812 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript('console-search'))
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 })
+      Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 })
+      localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisTab: 'engine-lab', engineProfile: 'lite-single-local',
+        autoAnalyze: false, searchDepth: 12, hashMb: 128, reviewMaxWorkers: 2,
+      }))
+    })
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+    await page.getByRole('button', { name: 'Release engine', exact: true }).click()
+    await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'unloaded')
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'PGN Import & Export', exact: true })
+    await dialog.locator('textarea').first().fill(SAMPLE_PGN)
+    await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+    await dialog.waitFor({ state: 'detached' })
+    assert(await page.evaluate(() => window.__engineCount === 1), 'import restarted the released worker')
+    await page.evaluate(() => { window.__withholdEngineInfo = true })
+    await page.getByRole('button', { name: 'Review', exact: true }).click()
+    await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+    await page.waitForFunction(() => window.__engineCount === 4 && document.querySelector('.bottom .status')?.textContent === 'ready')
+    await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+    assert(await page.getByRole('button', { name: 'Release engine', exact: true }).isDisabled(), 'Ready foreground worker hid the busy review pool')
+    assert(await page.evaluate(() => window.__terminatedEngines === 1), 'requesting review lost a pool worker')
+    await page.getByRole('button', { name: 'Review', exact: true }).click()
+    await page.evaluate(() => { window.__withholdEngineInfo = false })
+    await page.getByRole('button', { name: /Stop game review/ }).click()
+    await page.waitForFunction(() => window.__terminatedEngines === 3)
+    await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+    await page.getByRole('button', { name: 'Release engine', exact: true }).click()
+    await page.waitForFunction(() => window.__terminatedEngines === 4 && document.querySelector('.bottom .status')?.textContent === 'unloaded')
+    console.log('  engine release: import stays unloaded; explicit Review loads; busy two-worker review pool blocks release even when foreground is Ready; Stop then Release closes every worker')
+  } finally { await context.close() }
+
+  for (const scenario of ['hidden', 'fallback']) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 812 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(scenario => {
+        // These workers are fixtures; force the threaded profile's eligibility
+        // so fallback coverage does not depend on the runner's hardware.
+        Object.defineProperty(window, 'crossOriginIsolated', { get: () => true })
+        if (typeof SharedArrayBuffer === 'undefined') window.SharedArrayBuffer = ArrayBuffer
+        Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 })
+        window.__releaseVisibility = 'visible'
+        Object.defineProperty(document, 'visibilityState', { get: () => window.__releaseVisibility })
+        Object.defineProperty(document, 'hidden', { get: () => window.__releaseVisibility === 'hidden' })
+        window.__setReleaseVisibility = value => { window.__releaseVisibility = value; document.dispatchEvent(new Event('visibilitychange')) }
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+          engineProfile: scenario === 'fallback' ? 'lite-multi-local' : 'lite-single-local',
+          analyzeMode: scenario === 'hidden' ? 'infinite' : 'deep', searchDepth: 12,
+        }))
+      }, scenario)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await page.getByRole('button', { name: 'Release engine', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'unloaded')
+      await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+      if (scenario === 'fallback') {
+        await page.evaluate(() => { window.__failConsoleBoot = true })
+        await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+        await page.waitForFunction(() => window.__engineCount === 3 && document.querySelector('.bottom .status')?.textContent === 'ready'
+          && document.querySelector('.pv-list')?.textContent.includes('+0.35'))
+        assert(await page.evaluate(() => window.__uciCommands.filter(c => c === 'go depth 12').length === 1), 'fallback lost or duplicated the explicit Analyze request')
+        await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+        await page.getByText(/QA reload boot failure.*Falling back to/).waitFor()
+      } else {
+        await page.evaluate(() => { window.__holdConsoleReady = true; window.__releaseConsoleReady = null; window.__withholdEngineInfo = true; window.__setReleaseVisibility('hidden') })
+        await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+        await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
+        await page.evaluate(() => window.__releaseConsoleReady())
+        await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+        assert(await page.evaluate(() => !window.__uciCommands.some(c => c.startsWith('go '))), 'reload started an infinite search while hidden')
+        await page.evaluate(() => window.__setReleaseVisibility('visible'))
+        await page.waitForFunction(() => window.__uciCommands.includes('go infinite'))
+        await page.getByRole('button', { name: 'Stop analysis', exact: true }).click()
+        await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+        await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+        await page.getByRole('button', { name: 'Release engine', exact: true }).click()
+        await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'unloaded')
+        await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+        await page.evaluate(() => { window.__holdConsoleReady = true; window.__releaseConsoleReady = null })
+        await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+        await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
+        await page.getByRole('button', { name: 'Stop analysis', exact: true }).click()
+        await page.evaluate(() => window.__releaseConsoleReady())
+        await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+        assert(await page.evaluate(() => window.__uciCommands.filter(c => c === 'go infinite').length === 1), 'Stop during reload left an armed search')
+      }
+      console.log(`  engine release (${scenario}): ${scenario === 'fallback' ? 'explicit search survives a failed boot and runs once on fallback' : 'hidden infinite search waits for visibility; Stop during reload cancels it'}`)
     } finally { await context.close() }
   }
 }
@@ -6947,6 +7160,7 @@ async function main() {
       startup: checkEngineStartupTimeout,
       autosave: checkAutosaveFailure,
       resources: checkSingleThreadReviewPool,
+      'engine-release': checkEngineRelease,
       lab: checkLabSettingsStayInSync,
       'console-search': checkConsoleSearchOwnership,
       'console-deadlines': checkConsoleSearchDeadlines,
@@ -7630,6 +7844,7 @@ async function main() {
     await checkEngineStartupTimeout(browser)
     await checkLabSettingsStayInSync(browser)
     await checkConsoleSearchOwnership(browser)
+    await checkEngineRelease(browser)
     await checkConsoleSearchDeadlines(browser)
     await checkConsoleTools(browser)
     await checkConsoleVisibility(browser)

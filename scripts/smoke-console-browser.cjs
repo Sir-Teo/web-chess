@@ -160,10 +160,29 @@ async function main() {
             assert.equal(await page.evaluate(command => window.__consoleEvents.filter(e => e.kind === 'sent' && e.line === command).length, unbounded), 2, 'stopped console search restarted')
             await page.getByRole('button', { name: 'Analyze', exact: true }).click()
             assert.equal(await page.locator('.pv-list').textContent(), result.boardLines, 'resumed console search changed board readings')
+            result.stage = 'release and reload the idle engine'
+            await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+            await page.getByRole('button', { name: 'Release engine', exact: true }).click()
+            await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'unloaded')
+            const releaseDeadline = Date.now() + 10000
+            while (page.workers().length) {
+              assert(Date.now() < releaseDeadline, 'released worker stayed alive')
+              await new Promise(resolve => setTimeout(resolve, 100))
+            }
+            await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+            assert.equal(await page.locator('.pv-list').textContent(), result.boardLines, 'release discarded board readings')
+            await page.getByRole('button', { name: 'Load engine', exact: true }).focus()
+            await page.screenshot({ path: path.join(output, `${name}-${width}-released.png`) })
+            result.releasedWorkerCount = page.workers().length
+            await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+            await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready'
+              && document.querySelector('.pv-list article')?.textContent.includes('D12'))
+            result.reloadedWorkerCount = page.workers().length
+            assert(result.reloadedWorkerCount > 0, 'Analyze did not reload an engine')
             assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
             assert.deepEqual(result.errors, [])
             result.stage = 'passed'
-            console.log(`${name} ${width}px: real tab-command stop/ack handoff, D12 board search, perft 8902 with gate/completion in three parameter orders, five-second search, finite search past 95s of page time, unbounded visibility pause/resume/Stop and retained board lines passed`)
+            console.log(`${name} ${width}px: real tab-command handoff, D12 board search, perft orders, five-second search, finite UI deadline, unbounded pause/resume/Stop, idle release with retained lines and explicit Analyze reload passed`)
           } finally {
             result.events = await page.evaluate(() => window.__consoleEvents).catch(() => [])
             await page.close()

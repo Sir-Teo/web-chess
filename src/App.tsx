@@ -750,6 +750,7 @@ function App() {
   // A review asked for from Play mode, which cannot start until the workspace
   // has actually switched and the analysis engine is up.
   const [pendingGameReview, setPendingGameReview] = useState(false)
+  const pendingReviewOptionsRef = useRef<{ fresh?: boolean; depth?: number } | undefined>(undefined)
   const [reviewPractice, setReviewPractice] = useState<ReviewPracticeState | null>(null)
 
   // ── What a running review hands back ─────────────────
@@ -1308,6 +1309,8 @@ function App() {
     capabilities,
     activeProfile,
     profileMessage,
+    releaseEngine,
+    loadEngine,
     analyze,
     sendCommand,
     newGame,
@@ -1469,6 +1472,13 @@ function App() {
   }, [clearBatchReview, clearImportSweep, importSweepProgress.total, isBatchReviewing, stop])
 
   const startBatchReview = useCallback((options?: { fresh?: boolean; depth?: number }) => {
+    if (!engineEnabled || reviewLineNodesRef.current.length <= 1) return
+    if (engineEnabled && status === 'unloaded') {
+      pendingReviewOptionsRef.current = options
+      setPendingGameReview(true)
+      loadEngine()
+      return
+    }
     if (!engineEnabled || (status !== 'ready' && status !== 'analyzing')) return
     // A review already in flight is replaced, not doubled. The button turns
     // into Stop while one runs, but the command palette's "Review game" does
@@ -1581,7 +1591,7 @@ function App() {
         setBatchReviewProgress({ done: remaining.done, total: remaining.total })
         setBatchReviewTick(tick => tick + 1)
       })
-  }, [activeProfile, capabilities, clearImportSweep, engineEnabled, engineName, finishBatchReview, flushReviewResults, frozenReview, hashMb, reviewMaxWorkers, reviewThreadBudget, scheduleReviewFlush, searchDepth, showWdl, status, stop])
+  }, [activeProfile, capabilities, clearImportSweep, engineEnabled, engineName, finishBatchReview, flushReviewResults, frozenReview, hashMb, loadEngine, reviewMaxWorkers, reviewThreadBudget, scheduleReviewFlush, searchDepth, showWdl, status, stop])
 
   useEffect(() => {
     if (!isBatchReviewing) return
@@ -1824,6 +1834,7 @@ function App() {
     setWorkspaceMode('analysis')
     setAnalysisTab('review')
     setAnalysisPanelRevealTick(tick => tick + 1)
+    pendingReviewOptionsRef.current = undefined
     setPendingGameReview(true)
   }, [cancelPendingAiMove, pause])
 
@@ -1832,11 +1843,17 @@ function App() {
     // Going back to Play, or anywhere the engine is not, cancels the request
     // rather than leaving it armed for the next time Analysis is opened.
     if (!engineEnabled) {
+      pendingReviewOptionsRef.current = undefined
       setPendingGameReview(false)
       return
     }
     if (status === 'error') {
+      pendingReviewOptionsRef.current = undefined
       setPendingGameReview(false)
+      return
+    }
+    if (status === 'unloaded') {
+      loadEngine()
       return
     }
     // 'disabled' is precisely what the engine reports on the way out of Play
@@ -1845,9 +1862,11 @@ function App() {
     // after the click, so the button switched tabs and silently reviewed
     // nothing. Waiting through 'disabled' and 'loading' is the whole job.
     if (status !== 'ready') return
+    const pendingOptions = pendingReviewOptionsRef.current
+    pendingReviewOptionsRef.current = undefined
     setPendingGameReview(false)
-    startBatchReview()
-  }, [engineEnabled, pendingGameReview, startBatchReview, status])
+    startBatchReview(pendingOptions)
+  }, [engineEnabled, loadEngine, pendingGameReview, startBatchReview, status])
 
 
   useEffect(() => {
@@ -2506,6 +2525,15 @@ function App() {
     cancelStaleBackgroundAnalysis,
   ])
 
+  const releaseAnalysisEngine = useCallback(() => {
+    // A review pool can be busy while the foreground worker is Ready. Protect
+    // the whole analysis workflow, including work waiting between positions.
+    if (isBatchReviewing || pendingGameReview || isImportingGame
+      || reviewPoolRunRef.current || batchReviewQueueRef.current.length || activeBatchReviewRef.current
+      || importSweepQueueRef.current.length || activeImportSweepRef.current) return
+    if (!releaseEngine()) announce('Finish the current engine command before releasing the engine.', NOTICE_EXPLAIN_MS)
+  }, [announce, isBatchReviewing, isImportingGame, pendingGameReview, releaseEngine])
+
   /**
    * The mode strip scrolls sideways on a narrow screen; keep the pill you just
    * chose inside it, so the mode you are in is never parked off the edge.
@@ -2578,6 +2606,10 @@ function App() {
       const trimmed = command.trim()
       if (!trimmed) return
       setEngineLabError(null)
+      if (status === 'unloaded') {
+        setEngineLabError('Load the engine before sending console commands. Its console position and session options reset when reloaded.')
+        return
+      }
       if (status === 'analyzing' && trimmed.toLowerCase() !== 'stop') {
         setEngineLabError('Stop the active analysis before sending Engine Lab commands.')
         return
@@ -2928,7 +2960,13 @@ function App() {
   // The Engine Lab greys controls out behind two gates. Both used to be silent.
   const engineBusyDisabledReason = status === 'analyzing'
     ? 'The engine is mid-search. Stop the analysis first.'
-    : null
+    : status === 'unloaded' ? 'Load the engine before sending console commands.' : null
+  const engineReleaseDisabledReason = isBatchReviewing || pendingGameReview || isImportingGame
+    || importSweepProgress.done < importSweepProgress.total
+    ? 'Finish or stop the current review or import analysis before releasing the engine.'
+    : status !== 'ready' || queueLength > 0
+      ? 'Finish loading or stop the current engine command before releasing the engine.'
+      : null
   const expertCommandDisabledReason = expertModeEnabled
     ? engineBusyDisabledReason
     : 'Expert mode only: these commands take the engine over for a while.'
@@ -6091,7 +6129,7 @@ function App() {
         <span className="engine-command-inline">{activeGoCommand}</span>
       )}
       {analysisExperience === 'pro' && engineTelemetry && (
-        <span className="engine-telemetry-inline">{engineTelemetry}</span>
+        <span className="engine-telemetry-inline">{status === 'unloaded' && 'Last search · '}{engineTelemetry}</span>
       )}
 
       {currentLastBestMove
@@ -7396,6 +7434,12 @@ function App() {
               )}
             </header>
             <div className="panel-content">
+              {workspaceMode === 'analysis' && status === 'unloaded' && analysisTab !== 'engine-lab' && (
+                <div className="engine-lab-card engine-unloaded-notice" role="status">
+                  <p className="panel-copy small">Engine released to free memory. Your readings remain. Analyze or Review Game loads it again.</p>
+                  <div className="inline-actions"><button type="button" onClick={loadEngine}>Load engine</button></div>
+                </div>
+              )}
               {workspaceMode === 'analysis' && analysisTab !== 'engine-lab' && (
                 <MoveEntry fen={fen} disabled={Boolean(pendingPromotion)}
                   onMove={move => applyHumanMove(move.from, move.to, move.promotion as PromotionPiece | undefined)} />
@@ -8512,7 +8556,15 @@ function App() {
                       {capabilities.sharedArrayBuffer ? 'yes' : 'no'} / Cores: {capabilities.hardwareConcurrency}
                     </p>
                     <p className="panel-copy small command-summary">
-                      Loaded: <strong>{activeProfile.name}</strong> · {profileMessage}
+                      {status === 'unloaded' ? 'Engine released. Load it again when needed.' : <>Loaded: <strong>{activeProfile.name}</strong> · {profileMessage}</>}
+                    </p>
+                    <div className="inline-actions engine-resource-actions">
+                      {status === 'unloaded'
+                        ? <button type="button" onClick={loadEngine}>Load engine</button>
+                        : <button type="button" disabled={Boolean(engineReleaseDisabledReason)} title={engineReleaseDisabledReason ?? 'Release the idle engine and its memory while keeping your analysis.'} onClick={releaseAnalysisEngine}>Release engine</button>}
+                    </div>
+                    <p className="panel-copy small">
+                      Releasing frees engine memory. Saved games, readings and analysis settings stay. Engine hash, console position and session-only options reset when loaded again.
                     </p>
                     <p className="panel-copy small command-summary">
                       Active: {activeGoCommand || 'none'}
@@ -8583,7 +8635,7 @@ function App() {
                       <button
                         type="button"
                         aria-label="Run display board command"
-                        disabled={status === 'analyzing'}
+                        disabled={Boolean(engineBusyDisabledReason)}
                         title={engineBusyDisabledReason ?? undefined}
                         onClick={() => void runLabCommand('d')}
                       >
@@ -8592,7 +8644,7 @@ function App() {
                       <button
                         type="button"
                         aria-label="Run static evaluation command"
-                        disabled={status === 'analyzing'}
+                        disabled={Boolean(engineBusyDisabledReason)}
                         title={engineBusyDisabledReason ?? undefined}
                         onClick={() => void runLabCommand('eval')}
                       >
@@ -8600,7 +8652,7 @@ function App() {
                       </button>
                       <button
                         type="button"
-                        disabled={status === 'analyzing'}
+                        disabled={Boolean(engineBusyDisabledReason)}
                         title={engineBusyDisabledReason ?? 'Search the current console position for five seconds (go movetime 5000).'}
                         onClick={() => void runLabCommand('go movetime 5000')}
                       >
@@ -8609,7 +8661,7 @@ function App() {
                       <button
                         type="button"
                         className="danger-lite"
-                        disabled={!expertModeEnabled || status === 'analyzing'}
+                        disabled={!expertModeEnabled || Boolean(engineBusyDisabledReason)}
                         title={expertCommandDisabledReason ?? 'Count legal move paths three plies deep at the current console position (go perft 3).'}
                         onClick={() => void runLabCommand('go perft 3')}
                       >
@@ -8644,7 +8696,7 @@ function App() {
                         <EngineOptionControl
                           key={option.name}
                           option={option}
-                          disabled={status === 'analyzing'}
+                          disabled={Boolean(engineBusyDisabledReason)}
                           onSetOption={setLabOption}
                         />
                       ))}

@@ -16,7 +16,7 @@ import { ENGINE_CONSOLE_LINE_LIMIT, isUnboundedEngineLabSearch } from '../engine
 import { withBoundedMapEntry } from './cacheLimit'
 import { evaluationEngine, type EvaluationEngine } from '../engine/evaluationSource'
 
-type EngineStatus = 'loading' | 'ready' | 'analyzing' | 'error' | 'disabled'
+type EngineStatus = 'loading' | 'ready' | 'analyzing' | 'unloaded' | 'error' | 'disabled'
 
 type EngineLine = {
   fen?: string
@@ -383,6 +383,10 @@ export function parseOptionLine(line: string): EngineOption | null {
 
 export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', enabled = true) {
   const workerRef = useRef<Worker | null>(null)
+  const [released, setReleased] = useState(false)
+  const releasedRef = useRef(false)
+  const wakeAnalyzeRef = useRef<AnalyzeRequest | null>(null)
+  const preserveReadingsOnBootRef = useRef(false)
   const isReadyRef = useRef(false)
   const pendingAnalyzeRef = useRef<AnalyzeRequest | null>(null)
   const currentAnalysisRequestRef = useRef<AnalyzeRequest | null>(null)
@@ -440,6 +444,28 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const [options, setOptions] = useState<EngineOption[]>([])
   const [activeProfile, setActiveProfile] = useState<EngineProfile>(() => resolveProfile(selectedProfile, capabilities))
   const [profileMessage, setProfileMessage] = useState<string>('')
+
+  const loadEngine = useCallback(() => {
+    if (!enabled || !releasedRef.current) return
+    releasedRef.current = false
+    preserveReadingsOnBootRef.current = true
+    setReleased(false)
+    setStatus('loading')
+  }, [enabled])
+
+  const releaseEngine = useCallback(() => {
+    if (!enabled || !workerRef.current || !isReadyRef.current
+      || isSearchingRef.current || commandQueueRef.current.length || pendingAnalyzeRef.current) return false
+    // Block automatic requests immediately. The worker effect then terminates
+    // the WASM worker and its thread pool, while keeping the displayed readings.
+    releasedRef.current = true
+    visibilityResumeRequestRef.current = null
+    currentAnalysisRequestRef.current = null
+    wakeAnalyzeRef.current = null
+    setReleased(true)
+    setStatus('unloaded')
+    return true
+  }, [enabled])
 
   const resolvedProfile = useMemo(
     () =>
@@ -622,6 +648,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     (command: string, options?: SendCommandOptions): Promise<string[]> => {
       const trimmed = command.trim()
       if (!trimmed) return Promise.resolve([])
+      if (releasedRef.current) return Promise.reject(new Error('Load the engine before sending console commands. Its console position and session options reset when reloaded.'))
       if (!workerRef.current) return Promise.reject(new Error('Engine worker is not available.'))
       if (trimmed === 'stop' && cancelConsoleSuspension()) return Promise.resolve([])
       if (trimmed !== 'stop') {
@@ -731,6 +758,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const startAnalysis = useCallback(
     (request: AnalyzeRequest) => {
       pendingAnalyzeRef.current = null
+      wakeAnalyzeRef.current = null
       currentAnalysisRequestRef.current = request
       const built = buildAnalyzeCommand(request)
       const searchMoves = normalizeUciMoves(request.searchMoves)
@@ -810,6 +838,15 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     const pending = pendingAnalyzeRef.current
     if (!pending) return
 
+    // A reload can finish after its tab was hidden. Preserve the request for
+    // visibility restoration instead of starting an unseen infinite search.
+    if (document.visibilityState === 'hidden' && suspendsWhileHidden(pending)) {
+      visibilityResumeRequestRef.current = pending
+      pendingAnalyzeRef.current = null
+      wakeAnalyzeRef.current = null
+      return
+    }
+
     if (isSearchingRef.current) {
       if (!stopRequestedRef.current) {
         send('stop')
@@ -824,6 +861,14 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   const analyze = useCallback(
     (request: AnalyzeRequest) => {
       if (!enabled) return
+      if (releasedRef.current) {
+        // Navigation and background work respect an explicit release. Analyze
+        // is a new request and carries the exact board/history through boot.
+        if (request.purpose !== 'manual') return
+        wakeAnalyzeRef.current = request
+        loadEngine()
+        return
+      }
       cancelConsoleSuspension()
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden' && suspendsWhileHidden(request)) {
         visibilityResumeRequestRef.current = request
@@ -836,17 +881,23 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       }
       visibilityResumeRequestRef.current = null
       pendingAnalyzeRef.current = request
+      if (wakeAnalyzeRef.current) wakeAnalyzeRef.current = request
       flushPendingAnalyze()
     },
-    [cancelConsoleSuspension, enabled, flushPendingAnalyze, send],
+    [cancelConsoleSuspension, enabled, flushPendingAnalyze, loadEngine, send],
   )
 
   const stop = useCallback(() => {
     cancelConsoleSuspension()
     visibilityResumeRequestRef.current = null
     pendingAnalyzeRef.current = null
+    wakeAnalyzeRef.current = null
     if (!enabled) {
       setStatus('disabled')
+      return
+    }
+    if (releasedRef.current) {
+      setStatus('unloaded')
       return
     }
     if (isSearchingRef.current) {
@@ -866,6 +917,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     cancelConsoleSuspension()
     visibilityResumeRequestRef.current = null
     pendingAnalyzeRef.current = null
+    wakeAnalyzeRef.current = null
     currentAnalysisRequestRef.current = null
     resetLinesMap()
     setLastBestMove(null)
@@ -873,9 +925,9 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     setLastPonderMove(null)
     setLastPonderMoveFen(null)
 
-    if (!enabled) {
+    if (!enabled || releasedRef.current) {
       newGamePendingRef.current = false
-      setStatus('disabled')
+      setStatus(enabled ? 'unloaded' : 'disabled')
       return
     }
 
@@ -895,6 +947,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     if (!enabled || typeof document === 'undefined') return
 
     const handleVisibilityChange = () => {
+      if (releasedRef.current) return
       const rawWork = rawWorkRef.current
       if (rawWork && isUnboundedEngineLabSearch(rawWork.command)) {
         if (document.visibilityState === 'hidden') {
@@ -943,7 +996,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     let worker: Worker | null = null
     let workerBlobUrl: string | undefined
 
-    if (!enabled) {
+    if (!enabled || released) {
       workerRef.current = null
       isReadyRef.current = false
       isSearchingRef.current = false
@@ -956,14 +1009,18 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       newGamePendingRef.current = false
       commandQueueRef.current = []
       appliedOptionsRef.current = new Map()
+      wakeAnalyzeRef.current = null
       queueMicrotask(() => {
         if (currentSession !== bootSessionRef.current) return
-        setStatus('disabled')
-        resetLinesMap()
-        setLastBestMove(null)
-        setLastBestMoveFen(null)
-        setLastPonderMove(null)
-        setLastPonderMoveFen(null)
+        setStatus(enabled ? 'unloaded' : 'disabled')
+        if (!enabled) {
+          resetLinesMap()
+          setLastBestMove(null)
+          setLastBestMoveFen(null)
+          setLastPonderMove(null)
+          setLastPonderMoveFen(null)
+        }
+        setOptions([])
         setActiveGoCommand('')
         setQueueLength(0)
       })
@@ -1032,7 +1089,9 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     isReadyRef.current = false
     isSearchingRef.current = false
     stopRequestedRef.current = false
-    pendingAnalyzeRef.current = null
+    pendingAnalyzeRef.current = wakeAnalyzeRef.current
+    const preserveReadings = preserveReadingsOnBootRef.current
+    preserveReadingsOnBootRef.current = false
     currentAnalysisRequestRef.current = null
     visibilityResumeRequestRef.current = null
     currentAnalysisCacheKeyRef.current = null
@@ -1044,13 +1103,15 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     queueMicrotask(() => {
       if (currentSession !== bootSessionRef.current) return
       setStatus('loading')
-      resetLinesMap()
+      if (!preserveReadings) resetLinesMap()
       setOptions([])
       setEngineName('Stockfish')
-      setLastBestMove(null)
-      setLastBestMoveFen(null)
-      setLastPonderMove(null)
-      setLastPonderMoveFen(null)
+      if (!preserveReadings) {
+        setLastBestMove(null)
+        setLastBestMoveFen(null)
+        setLastPonderMove(null)
+        setLastPonderMoveFen(null)
+      }
       setActiveGoCommand('')
       setQueueLength(0)
       setActiveProfile(profile)
@@ -1262,6 +1323,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     flushLinesMap,
     flushPendingAnalyze,
     rejectQueuedCommands,
+    released,
     resumeConsoleSearch,
     resetLinesMap,
     resolvedProfile,
@@ -1296,6 +1358,8 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     capabilities,
     activeProfile,
     profileMessage,
+    releaseEngine,
+    loadEngine,
     analyze,
     sendRaw,
     sendCommand,
