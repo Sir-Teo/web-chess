@@ -1,0 +1,2 @@
+chromium 1280px: real tab-command handoff, D12 board search, perft orders, five-second search, finite UI deadline, unbounded pause/resume/Stop, idle release with retained lines and explicit Analyze reload passed
+chromium 375px: real tab-command handoff, D12 board search, perft orders, five-second search, finite UI deadline, unbounded pause/resume/Stop, idle release with retained lines and explicit Analyze reload passed

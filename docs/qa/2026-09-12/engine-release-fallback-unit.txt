@@ -1,0 +1,13 @@
+
+> web-chess@1.0.0 test
+> vitest run src/hooks/useStockfishEngine.test.ts
+
+
+ RUN  v4.1.11 /Users/teo/Developer/web-chess
+
+
+ Test Files  1 passed (1)
+      Tests  27 passed (27)
+   Start at  20:56:52
+   Duration  182ms (transform 74ms, setup 0ms, import 92ms, tests 5ms, environment 0ms)
+

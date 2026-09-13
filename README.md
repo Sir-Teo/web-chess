@@ -2,7 +2,7 @@
 
 A browser chess app for playing, importing, and reviewing games with Stockfish-powered analysis.
 
-The [continuing September 12 audit](docs/audit-2026-09-12.md) records current
+The [September 12 audit](docs/audit-2026-09-12.md) records current
 fixes, fresh Stockfish measurements, browser QA and the prioritized roadmap.
 
 The earlier September 2026 audit records fixes, real-engine performance
@@ -114,6 +114,12 @@ given, and the app answering the reader who touches it.
   as you look; a new position replaces the search, Stop stops it, and a hidden
   tab parks it and resumes it when you come back. Pro only, because Coach mode
   is never left running the machine.
+- **Release idle engine memory**: In Pro's Engine Lab, **Release engine** closes
+  the idle engine while keeping the board and its displayed readings. **Load
+  engine**, an explicit **Analyze**, or **Review Game** loads it again. Automatic
+  analysis and navigating moves respect the release. Saved settings remain;
+  the engine's hash table, console position and session-only UCI options reset
+  on reload. Stop a search or review before releasing its workers.
 - **An evaluation bar that never goes blank**: The bar beside the board draws
   the engine's win/draw/loss split when it has one, and White's winning chances
   from the score when it does not — a Lichess cloud evaluation, an `[%eval]`

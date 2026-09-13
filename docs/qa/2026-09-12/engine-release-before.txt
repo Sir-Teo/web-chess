@@ -1,0 +1,2 @@
+{"stage":"completed D12, idle worker retained","rendererRssKiB":683120,"workers":9,"status":"ready","workspace":"analysis","pv":" Lines#1D12+0.401.e4e52.Nc3Nf63.Nf3Nc64.d4exd4e2e4 e7e5 b1c3 g8f6 g1f3 b8c6 d2d4 e5d4#2D12+0.261.d4Nf62.Bf4d53.e3e64.Nf3Bd6d2d4 g8f6 c1f4 d7d5 e2e3 e7e6 g1f3 f8d6Expected reply: e5"}
+{"stage":"released by switching to Play","rendererRssKiB":294240,"workers":0,"status":"standby","workspace":"play"}

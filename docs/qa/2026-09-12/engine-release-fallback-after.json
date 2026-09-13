@@ -1,0 +1,61 @@
+{
+  "sourceCommit": "eec5e9d4a7bdaeade714b2007d34264a82865b37",
+  "dirty": true,
+  "samples": [
+    {
+      "stage": "initial reading",
+      "status": "ready",
+      "pv": " Lines#1D16+0.351.e4e5e2e4 e7e5Expected reply: e5",
+      "workersMade": 1,
+      "commands": [
+        "uci",
+        "isready",
+        "setoption name Threads value 6",
+        "setoption name Hash value 64",
+        "setoption name MultiPV value 2",
+        "setoption name UCI_ShowWDL value true",
+        "position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "go depth 12"
+      ]
+    },
+    {
+      "stage": "released",
+      "status": "unloaded",
+      "pv": " Lines#1D16+0.351.e4e5e2e4 e7e5Expected reply: e5",
+      "workersMade": 1,
+      "commands": [
+        "uci",
+        "isready",
+        "setoption name Threads value 6",
+        "setoption name Hash value 64",
+        "setoption name MultiPV value 2",
+        "setoption name UCI_ShowWDL value true",
+        "position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "go depth 12",
+        "quit"
+      ]
+    },
+    {
+      "stage": "fallback ready without requesting a new search",
+      "status": "ready",
+      "pv": " Lines#1D16+0.351.e4e5e2e4 e7e5Expected reply: e5",
+      "workersMade": 3,
+      "commands": [
+        "uci",
+        "isready",
+        "setoption name Threads value 6",
+        "setoption name Hash value 64",
+        "setoption name MultiPV value 2",
+        "setoption name UCI_ShowWDL value true",
+        "position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "go depth 12",
+        "quit",
+        "uci",
+        "quit",
+        "uci",
+        "isready"
+      ]
+    }
+  ],
+  "retained": true
+}
