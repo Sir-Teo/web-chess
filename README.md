@@ -482,7 +482,10 @@ The Lichess Opening Explorer endpoints require API authentication. Create a pers
 
 ## Continuous Deployment
 
-This project includes a GitHub Actions workflow that audits dependencies, lints, tests, builds, and then deploys to GitHub Pages whenever code is pushed to the `main` branch.
+GitHub Actions installs dependencies, builds the site with Vite, and deploys to
+GitHub Pages whenever code is pushed to `main`. Automated audit, typecheck,
+lint, unit-test, and browser-test gates are disabled in GitHub Actions. The
+local verification commands above remain available.
 
 ## Related Apps
 
