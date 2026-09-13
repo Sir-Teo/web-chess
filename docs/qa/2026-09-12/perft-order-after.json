@@ -1,0 +1,406 @@
+{
+  "sourceCommit": "a53943d7d657530e9ac20595367894d58ee1e057",
+  "base": "http://127.0.0.1:4336/web-chess/",
+  "during": {
+    "status": "ready",
+    "stopDisabled": true,
+    "input": "go depth 12 perft 3",
+    "events": [
+      {
+        "kind": "sent",
+        "line": "uci"
+      },
+      {
+        "kind": "received",
+        "line": "Stockfish 18 Lite WASM by the Stockfish developers (see AUTHORS file)"
+      },
+      {
+        "kind": "received",
+        "line": "id name Stockfish 18 Lite WASM"
+      },
+      {
+        "kind": "received",
+        "line": "id author the Stockfish developers (see AUTHORS file)"
+      },
+      {
+        "kind": "received",
+        "line": ""
+      },
+      {
+        "kind": "received",
+        "line": "option name Threads type spin default 1 min 1 max 1"
+      },
+      {
+        "kind": "received",
+        "line": "option name Hash type spin default 16 min 1 max 33554432"
+      },
+      {
+        "kind": "received",
+        "line": "option name Clear Hash type button"
+      },
+      {
+        "kind": "received",
+        "line": "option name Ponder type check default false"
+      },
+      {
+        "kind": "received",
+        "line": "option name MultiPV type spin default 1 min 1 max 256"
+      },
+      {
+        "kind": "received",
+        "line": "option name Skill Level type spin default 20 min 0 max 20"
+      },
+      {
+        "kind": "received",
+        "line": "option name Move Overhead type spin default 10 min 0 max 5000"
+      },
+      {
+        "kind": "received",
+        "line": "option name nodestime type spin default 0 min 0 max 10000"
+      },
+      {
+        "kind": "received",
+        "line": "option name UCI_Chess960 type check default false"
+      },
+      {
+        "kind": "received",
+        "line": "option name UCI_LimitStrength type check default false"
+      },
+      {
+        "kind": "received",
+        "line": "option name UCI_Elo type spin default 1320 min 1320 max 3190"
+      },
+      {
+        "kind": "received",
+        "line": "option name UCI_ShowWDL type check default false"
+      },
+      {
+        "kind": "received",
+        "line": "option name EvalFile type string default nn-9067e33176e8.nnue"
+      },
+      {
+        "kind": "received",
+        "line": "option name EvalFileSmall type string default <empty>"
+      },
+      {
+        "kind": "received",
+        "line": "uciok"
+      },
+      {
+        "kind": "sent",
+        "line": "isready"
+      },
+      {
+        "kind": "received",
+        "line": "readyok"
+      },
+      {
+        "kind": "sent",
+        "line": "position startpos"
+      }
+    ]
+  },
+  "after": {
+    "status": "ready",
+    "input": "go depth 12 perft 3",
+    "output": "> position startpos\n(no direct response)",
+    "events": [
+      {
+        "kind": "sent",
+        "line": "uci"
+      },
+      {
+        "kind": "received",
+        "line": "Stockfish 18 Lite WASM by the Stockfish developers (see AUTHORS file)"
+      },
+      {
+        "kind": "received",
+        "line": "id name Stockfish 18 Lite WASM"
+      },
+      {
+        "kind": "received",
+        "line": "id author the Stockfish developers (see AUTHORS file)"
+      },
+      {
+        "kind": "received",
+        "line": ""
+      },
+      {
+        "kind": "received",
+        "line": "option name Threads type spin default 1 min 1 max 1"
+      },
+      {
+        "kind": "received",
+        "line": "option name Hash type spin default 16 min 1 max 33554432"
+      },
+      {
+        "kind": "received",
+        "line": "option name Clear Hash type button"
+      },
+      {
+        "kind": "received",
+        "line": "option name Ponder type check default false"
+      },
+      {
+        "kind": "received",
+        "line": "option name MultiPV type spin default 1 min 1 max 256"
+      },
+      {
+        "kind": "received",
+        "line": "option name Skill Level type spin default 20 min 0 max 20"
+      },
+      {
+        "kind": "received",
+        "line": "option name Move Overhead type spin default 10 min 0 max 5000"
+      },
+      {
+        "kind": "received",
+        "line": "option name nodestime type spin default 0 min 0 max 10000"
+      },
+      {
+        "kind": "received",
+        "line": "option name UCI_Chess960 type check default false"
+      },
+      {
+        "kind": "received",
+        "line": "option name UCI_LimitStrength type check default false"
+      },
+      {
+        "kind": "received",
+        "line": "option name UCI_Elo type spin default 1320 min 1320 max 3190"
+      },
+      {
+        "kind": "received",
+        "line": "option name UCI_ShowWDL type check default false"
+      },
+      {
+        "kind": "received",
+        "line": "option name EvalFile type string default nn-9067e33176e8.nnue"
+      },
+      {
+        "kind": "received",
+        "line": "option name EvalFileSmall type string default <empty>"
+      },
+      {
+        "kind": "received",
+        "line": "uciok"
+      },
+      {
+        "kind": "sent",
+        "line": "isready"
+      },
+      {
+        "kind": "received",
+        "line": "readyok"
+      },
+      {
+        "kind": "sent",
+        "line": "position startpos"
+      }
+    ]
+  },
+  "expertGate": "Enable expert mode to run perft and unbounded go — they are locked because they can stall the UI.",
+  "withExpert": {
+    "status": "ready",
+    "input": "",
+    "output": "> go depth 12 perft 3\ninfo string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))\ninfo string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback.\na2a3: 380\nb2b3: 420\nc2c3: 420\nd2d3: 539\ne2e3: 599\nf2f3: 380\ng2g3: 420\nh2h3: 380\na2a4: 420\nb2b4: 421\nc2c4: 441\nd2d4: 560\ne2e4: 600\nf2f4: 401\ng2g4: 421\nh2h4: 420\nb1a3: 400\nb1c3: 440\ng1f3: 440\ng1h3: 400\nNodes searched: 8902",
+    "events": [
+      {
+        "kind": "sent",
+        "line": "uci"
+      },
+      {
+        "kind": "received",
+        "line": "Stockfish 18 Lite WASM by the Stockfish developers (see AUTHORS file)"
+      },
+      {
+        "kind": "received",
+        "line": "id name Stockfish 18 Lite WASM"
+      },
+      {
+        "kind": "received",
+        "line": "id author the Stockfish developers (see AUTHORS file)"
+      },
+      {
+        "kind": "received",
+        "line": ""
+      },
+      {
+        "kind": "received",
+        "line": "option name Threads type spin default 1 min 1 max 1"
+      },
+      {
+        "kind": "received",
+        "line": "option name Hash type spin default 16 min 1 max 33554432"
+      },
+      {
+        "kind": "received",
+        "line": "option name Clear Hash type button"
+      },
+      {
+        "kind": "received",
+        "line": "option name Ponder type check default false"
+      },
+      {
+        "kind": "received",
+        "line": "option name MultiPV type spin default 1 min 1 max 256"
+      },
+      {
+        "kind": "received",
+        "line": "option name Skill Level type spin default 20 min 0 max 20"
+      },
+      {
+        "kind": "received",
+        "line": "option name Move Overhead type spin default 10 min 0 max 5000"
+      },
+      {
+        "kind": "received",
+        "line": "option name nodestime type spin default 0 min 0 max 10000"
+      },
+      {
+        "kind": "received",
+        "line": "option name UCI_Chess960 type check default false"
+      },
+      {
+        "kind": "received",
+        "line": "option name UCI_LimitStrength type check default false"
+      },
+      {
+        "kind": "received",
+        "line": "option name UCI_Elo type spin default 1320 min 1320 max 3190"
+      },
+      {
+        "kind": "received",
+        "line": "option name UCI_ShowWDL type check default false"
+      },
+      {
+        "kind": "received",
+        "line": "option name EvalFile type string default nn-9067e33176e8.nnue"
+      },
+      {
+        "kind": "received",
+        "line": "option name EvalFileSmall type string default <empty>"
+      },
+      {
+        "kind": "received",
+        "line": "uciok"
+      },
+      {
+        "kind": "sent",
+        "line": "isready"
+      },
+      {
+        "kind": "received",
+        "line": "readyok"
+      },
+      {
+        "kind": "sent",
+        "line": "position startpos"
+      },
+      {
+        "kind": "sent",
+        "line": "go depth 12 perft 3"
+      },
+      {
+        "kind": "received",
+        "line": "info string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))"
+      },
+      {
+        "kind": "received",
+        "line": "info string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback."
+      },
+      {
+        "kind": "received",
+        "line": "a2a3: 380"
+      },
+      {
+        "kind": "received",
+        "line": "b2b3: 420"
+      },
+      {
+        "kind": "received",
+        "line": "c2c3: 420"
+      },
+      {
+        "kind": "received",
+        "line": "d2d3: 539"
+      },
+      {
+        "kind": "received",
+        "line": "e2e3: 599"
+      },
+      {
+        "kind": "received",
+        "line": "f2f3: 380"
+      },
+      {
+        "kind": "received",
+        "line": "g2g3: 420"
+      },
+      {
+        "kind": "received",
+        "line": "h2h3: 380"
+      },
+      {
+        "kind": "received",
+        "line": "a2a4: 420"
+      },
+      {
+        "kind": "received",
+        "line": "b2b4: 421"
+      },
+      {
+        "kind": "received",
+        "line": "c2c4: 441"
+      },
+      {
+        "kind": "received",
+        "line": "d2d4: 560"
+      },
+      {
+        "kind": "received",
+        "line": "e2e4: 600"
+      },
+      {
+        "kind": "received",
+        "line": "f2f4: 401"
+      },
+      {
+        "kind": "received",
+        "line": "g2g4: 421"
+      },
+      {
+        "kind": "received",
+        "line": "h2h4: 420"
+      },
+      {
+        "kind": "received",
+        "line": "b1a3: 400"
+      },
+      {
+        "kind": "received",
+        "line": "b1c3: 440"
+      },
+      {
+        "kind": "received",
+        "line": "g1f3: 440"
+      },
+      {
+        "kind": "received",
+        "line": "g1h3: 400"
+      },
+      {
+        "kind": "received",
+        "line": ""
+      },
+      {
+        "kind": "received",
+        "line": "Nodes searched: 8902"
+      },
+      {
+        "kind": "received",
+        "line": ""
+      }
+    ]
+  }
+}

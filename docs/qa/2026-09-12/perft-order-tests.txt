@@ -1,0 +1,13 @@
+
+> web-chess@1.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/teo/Developer/web-chess
+
+
+ Test Files  119 passed (119)
+      Tests  1626 passed | 1 skipped (1627)
+   Start at  20:08:34
+   Duration  11.98s (transform 6.21s, setup 0ms, import 19.76s, tests 9.33s, environment 8ms)
+
