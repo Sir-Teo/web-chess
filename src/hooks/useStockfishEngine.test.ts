@@ -106,7 +106,10 @@ describe('Stockfish command queue safety', () => {
     const command = { command: 'go perft 3', firstWord: 'go', kind: 'go' as const }
     expect(isQueuedCommandDone(command, 'e2e4: 600')).toBe(false)
     expect(isQueuedCommandDone(command, 'Nodes searched: 8902')).toBe(true)
-    expect(isQueuedCommandDone({ ...command, command: 'go depth 12' }, 'Nodes searched: 8902')).toBe(false)
+    for (const text of ['go depth 12 perft 3', 'go perft 3 depth 12', 'go\tmovetime\t5000\tperft\t3']) {
+      expect(isQueuedCommandDone({ ...command, command: text }, 'Nodes searched: 8902'), text).toBe(true)
+    }
+    expect(isQueuedCommandDone({ command: 'd', firstWord: 'd', kind: 'other' }, 'Nodes searched: 8902')).toBe(false)
   })
 
   it('accepts an explanatory unknown-command reply', () => {

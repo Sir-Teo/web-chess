@@ -196,8 +196,9 @@ export function isQueuedCommandDone(item: Pick<QueuedCommand, 'command' | 'kind'
   if (line.startsWith('Unknown command')) return true
   if (item.kind === 'uci' && line === 'uciok') return true
   if (item.kind === 'isready' && line === 'readyok') return true
-  if (item.firstWord === 'go' && line.startsWith('bestmove ')) return true
-  if (/^go\s+perft(?:\s|$)/.test(item.command) && line.startsWith('Nodes searched:')) return true
+  // A go command can run perft with parameters in any order. Its terminal
+  // count replaces bestmove; the actual reply determines completion.
+  if (item.firstWord === 'go' && (line.startsWith('bestmove ') || line.startsWith('Nodes searched:'))) return true
   if (item.firstWord === 'd' && (line.startsWith('Legal uci moves') || line.startsWith('Key is') || line.startsWith('Checkers:'))) {
     return true
   }

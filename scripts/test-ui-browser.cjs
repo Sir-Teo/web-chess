@@ -268,7 +268,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
         return;
       }
       if (text.startsWith('go')) {
-        if (SCENARIO === 'console-search' && text === 'go perft 3') {
+        if (SCENARIO === 'console-search' && ['go perft 3', 'go depth 12 perft 3', 'go perft 3 depth 12', 'go\tmovetime\t5000\tperft\t3'].includes(text)) {
           this.send('e2e4: 600');
           setTimeout(() => this.send('Nodes searched: 8902'), 15);
           return;
@@ -3310,6 +3310,13 @@ async function checkConsoleTools(browser) {
         await page.locator('.error-copy').filter({ hasText: reason }).waitFor()
         assert(await page.evaluate(text => !window.__uciCommands.includes(text), text), `unsupported ${text} reached the engine`)
       }
+      const reorderedPerft = ['go depth 12 perft 3', 'go perft 3 depth 12', 'go\tmovetime\t5000\tperft\t3']
+      for (const text of reorderedPerft) {
+        await command.fill(text)
+        await command.press('Enter')
+        await page.locator('.error-copy').filter({ hasText: 'Enable expert mode' }).waitFor()
+        assert(await page.evaluate(text => !window.__uciCommands.includes(text), text), `${text} bypassed expert mode`)
+      }
       await search.click()
       await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === ''
         && document.querySelector('.bottom .status')?.textContent === 'ready')
@@ -3320,6 +3327,14 @@ async function checkConsoleTools(browser) {
       await page.getByLabel('UCI console output', { exact: true }).filter({ hasText: 'Nodes searched: 8902' }).waitFor()
       await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
       assert(await page.evaluate(() => window.__uciCommands.includes('go perft 3')), 'perft shortcut sent the wrong command')
+      for (const text of reorderedPerft) {
+        await command.fill(text)
+        await command.press('Enter')
+        await page.getByLabel('UCI console output', { exact: true }).filter({ hasText: 'Nodes searched: 8902' }).waitFor()
+        await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready'
+          && document.querySelector('[aria-label="UCI command"]')?.value === '')
+        assert(await page.evaluate(text => window.__uciCommands.includes(text), text), `${text} did not reach Stockfish`)
+      }
       // Native focus scrolling must reveal each complete control, including at
       // 200% text when the panel becomes a vertically scrolling reading area.
       for (const control of [command, search, perft]) {
@@ -3338,7 +3353,7 @@ async function checkConsoleTools(browser) {
       await page.getByRole('button', { name: 'Analyze', exact: true }).click()
       assert(await page.locator('.pv-list article').count() === 0, 'console shortcuts added board evaluations')
       assert(errors.length === 0, `console tools page errors: ${errors.join('; ')}`)
-      console.log(`  console tools (${width}px, ${scale}x text, ${theme}): unsupported commands explained, bounded search enabled, expert perft completes, controls reachable`)
+      console.log(`  console tools (${width}px, ${scale}x text, ${theme}): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable`)
     } finally { await context.close() }
   }
 }

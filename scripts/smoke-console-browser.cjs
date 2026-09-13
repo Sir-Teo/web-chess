@@ -91,6 +91,25 @@ async function main() {
             await page.getByLabel('UCI console output', { exact: true }).filter({ hasText: 'Nodes searched: 8902' }).waitFor()
             await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
             result.perftOutput = await page.getByLabel('UCI console output', { exact: true }).innerText()
+            result.stage = 'reordered perft expert gate and completion'
+            const expert = page.getByRole('checkbox', { name: 'Enable expert engine commands', exact: true })
+            result.reorderedPerft = []
+            for (const text of ['go depth 12 perft 3', 'go perft 3 depth 12', 'go\tmovetime\t5000\tperft\t3']) {
+              await expert.uncheck()
+              const commandsBefore = await page.evaluate(() => window.__consoleEvents.filter(e => e.kind === 'sent').length)
+              await command.fill(text)
+              await command.press('Enter')
+              await page.locator('.error-copy').filter({ hasText: 'Enable expert mode' }).waitFor()
+              assert.equal(await page.evaluate(() => window.__consoleEvents.filter(e => e.kind === 'sent').length), commandsBefore, 'perft bypassed expert mode')
+              await expert.check()
+              await command.press('Enter')
+              await page.getByLabel('UCI console output', { exact: true }).filter({ hasText: 'Nodes searched: 8902' }).waitFor()
+              await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready'
+                && document.querySelector('[aria-label="UCI command"]')?.value === '')
+              result.reorderedPerft.push({ command: text, output: await page.getByLabel('UCI console output', { exact: true }).textContent() })
+            }
+            await page.getByLabel('UCI console output', { exact: true }).scrollIntoViewIfNeeded()
+            await page.screenshot({ path: path.join(output, `${name}-${width}-perft.png`) })
             result.stage = 'five-second search completion'
             await page.getByRole('button', { name: '5s search', exact: true }).click()
             await page.getByLabel('UCI console output', { exact: true }).filter({ hasText: 'bestmove ' }).waitFor()
@@ -144,7 +163,7 @@ async function main() {
             assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
             assert.deepEqual(result.errors, [])
             result.stage = 'passed'
-            console.log(`${name} ${width}px: real tab-command stop/ack handoff, D12 board search, perft 8902, five-second search, finite search past 95s of page time, unbounded visibility pause/resume/Stop and retained board lines passed`)
+            console.log(`${name} ${width}px: real tab-command stop/ack handoff, D12 board search, perft 8902 with gate/completion in three parameter orders, five-second search, finite search past 95s of page time, unbounded visibility pause/resume/Stop and retained board lines passed`)
           } finally {
             result.events = await page.evaluate(() => window.__consoleEvents).catch(() => [])
             await page.close()

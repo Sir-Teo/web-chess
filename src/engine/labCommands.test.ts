@@ -43,6 +43,17 @@ describe('Engine Lab command safety', () => {
     expect(isHeavyEngineLabCommand('eval')).toBe(false)
   })
 
+  it('keeps perft behind the expert gate even when search limits accompany it', () => {
+    for (const command of ['go depth 12 perft 3', 'go perft 3 depth 12', 'go\tmovetime\t5000\tperft\t3']) {
+      expect(isHeavyEngineLabCommand(command), command).toBe(true)
+      expect(engineLabCommandSafetyMessage(command), command).toContain('Enable expert mode')
+      expect(isUnboundedEngineLabSearch(command), command).toBe(false)
+    }
+    // searchmoves consumes the rest of the native command, including words
+    // that would otherwise be parameters.
+    expect(isHeavyEngineLabCommand('go depth 12 searchmoves e2e4 perft 3')).toBe(false)
+  })
+
   it('explains Stockfish searchmoves ordering separately from generic heavy commands', () => {
     expect(engineLabCommandSafetyMessage('go searchmoves e2e4 depth 12')).toContain('Put limits before searchmoves')
     expect(engineLabCommandSafetyMessage('go depth 12 searchmoves e2e4')).toBeNull()

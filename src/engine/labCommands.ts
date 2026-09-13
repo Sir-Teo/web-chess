@@ -57,6 +57,8 @@ export function isHeavyEngineLabCommand(command: string): boolean {
   if (verb !== 'go') return false
   const searchMovesIndex = parts.indexOf('searchmoves')
   const limitParts = searchMovesIndex >= 0 ? parts.slice(0, searchMovesIndex) : parts
+  // Stockfish runs perft instead of a search, even alongside depth/time limits.
+  if (limitParts.includes('perft')) return true
   if (limitParts.includes('infinite') || limitParts.includes('ponder')) return true
   const hasClockTime = limitParts.some((part, index) => {
     return (part === 'wtime' || part === 'btime') && hasPositiveNumericValue(limitParts, index)
