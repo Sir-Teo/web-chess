@@ -3337,16 +3337,28 @@ async function checkConsoleTools(browser) {
       }
       // Native focus scrolling must reveal each complete control, including at
       // 200% text when the panel becomes a vertically scrolling reading area.
+      // Safari leaves the input focused when a pointer click scrolls to a
+      // shortcut. focus() on that same input is a no-op; test a real keyboard
+      // focus transition back from Send before measuring the input.
+      await page.locator('.engine-lab-console').getByRole('button', { name: 'Send', exact: true }).focus()
+      await page.keyboard.press('Shift+Tab')
+      assert(await command.evaluate(el => document.activeElement === el), 'Shift+Tab from Send did not reach the command input')
       for (const control of [command, search, perft]) {
         await control.focus()
-        const fits = await control.evaluate(async el => {
+        const geometry = await control.evaluate(async el => {
           await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
           const r = el.getBoundingClientRect()
-          return r.left >= 0 && r.right <= innerWidth + 1 && r.top >= 0 && r.bottom <= innerHeight + 1
+          const fits = r.left >= 0 && r.right <= innerWidth + 1 && r.top >= 0 && r.bottom <= innerHeight + 1
             && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
             && el.scrollWidth <= el.clientWidth + 1
+          return { fits, label: el.getAttribute('aria-label') || el.textContent, rect: r.toJSON(),
+            viewport: { width: innerWidth, height: innerHeight }, scrollWidth: el.scrollWidth, clientWidth: el.clientWidth,
+            hit: document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.outerHTML.slice(0, 400),
+            ancestors: Array.from((function* () { for (let p = el.parentElement; p; p = p.parentElement) yield p })())
+              .filter(p => p.scrollHeight > p.clientHeight).map(p => ({ className: p.className, scrollTop: p.scrollTop, height: p.clientHeight, rect: p.getBoundingClientRect().toJSON() })) }
         })
-        assert(fits, `console control clipped at ${width}px, ${scale}x text`)
+        if (!geometry.fits) await page.screenshot({ path: `/tmp/web-chess-console-control-failure-${width}-${scale}x.png` })
+        assert(geometry.fits, `console control clipped at ${width}px, ${scale}x text: ${JSON.stringify(geometry)}`)
       }
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'console tools overflow horizontally')
       await page.screenshot({ path: `/tmp/web-chess-console-tools-${width}-${scale}x-${theme}.png` })
