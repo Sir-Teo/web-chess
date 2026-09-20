@@ -2858,6 +2858,105 @@ async function checkAReplayedMoveRecordsItsOwnClock(browser) {
   }
 }
 
+/**
+ * Step mode holds the engine's clock every time it holds the engine, and
+ * gives the time back when it lets go.
+ *
+ * Step is a study control: the reader decides when the engine thinks, so the
+ * engine must not be charged for the wait. `handleStep` and the hold beside
+ * `awaitingAiStep` both say so, and the hold's own comment records the
+ * measurement that put it there -- "six seconds lost in six seconds waited".
+ *
+ * It worked once per game. Step sets `paused` after every engine move, and
+ * the hold was written `... && !paused`, so it was true on the first engine
+ * move of a game and false on every one after it. **Measured**: held at 2:59
+ * through five seconds on the engine's first turn, and 2:59 to 2:54 through
+ * five seconds on its second.
+ *
+ * And the release did not release. The hold re-fires between `handleStep`
+ * starting the clock and the loop setting `isAiThinking`, so the engine
+ * searched on a stopped clock -- and `moveMade` pays an increment only for a
+ * move made *on* the clock, which is the thing `handleStep`'s comment says it
+ * is protecting. **Measured**: 2:59 before the step and 2:59 after a move
+ * that should have earned two seconds.
+ *
+ * 'blunder-nudge' answers e7e5 and then b8c6. The default fixture answers
+ * e2e4 to every search, which is not a legal reply for Black, so the engine
+ * would be held by the fixture rather than by Step.
+ */
+async function checkStepModeDoesNotChargeTheHeldEngine(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript('blunder-nudge'))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    await page.getByRole('button', { name: 'Start new game' }).click()
+    await page.locator('.new-game-dialog').waitFor({ timeout: 10000 })
+    await page.locator('.mode-card', { hasText: 'Human vs AI' }).click()
+    await page.locator('.time-control-card', { hasText: '3 + 2' }).click()
+    await page.locator('.btn-start').click()
+    await page.locator('.chess-clock').waitFor({ timeout: 10000 })
+    await page.waitForFunction(() => /ready to play/.test(document.body.innerText), null, { timeout: 20000 })
+
+    await page.getByRole('button', { name: 'Set AI speed to Step' }).click()
+    await page.waitForTimeout(200)
+
+    const blackFace = () => page.locator('.clock-face.clock-black strong').textContent()
+    const seconds = (face) => {
+      const parts = String(face).trim().split(':').map(Number)
+      return parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1]
+    }
+    const stepButton = page.getByRole('button', { name: 'Advance one AI move' })
+    const play = async (from, to) => {
+      await page.click(`#chessboard-square-${from}`)
+      await page.click(`#chessboard-square-${to}`)
+      await page.waitForFunction(() => /Black to move/.test(document.body.innerText), null, { timeout: 10000 })
+      // Settle: the press of the clock and the engine's hold both land here.
+      await page.waitForTimeout(600)
+    }
+
+    await play('e2', 'e4')
+    assert(await stepButton.count() === 1,
+      'Step mode offered no way to advance, so the engine is not being held for a reader to release')
+    const heldOne = await blackFace()
+    await page.waitForTimeout(5000)
+    const afterWaitOne = await blackFace()
+    assert(afterWaitOne === heldOne,
+      `on its first turn the held engine's clock went from ${heldOne} to ${afterWaitOne}`)
+
+    await stepButton.click()
+    await page.waitForFunction(() => /White to move/.test(document.body.innerText), null, { timeout: 15000 })
+    await page.waitForTimeout(400)
+    const afterMoveOne = await blackFace()
+    assert(seconds(afterMoveOne) > seconds(heldOne),
+      `the engine searched on a stopped clock and earned no increment: ${heldOne} before its move, ${afterMoveOne} after`)
+
+    // The second cycle. `paused` is set after every engine move, so this is
+    // the state the hold was written as an exception to.
+    await play('d2', 'd4')
+    const heldTwo = await blackFace()
+    await page.waitForTimeout(5000)
+    const afterWaitTwo = await blackFace()
+    assert(afterWaitTwo === heldTwo,
+      `on its second turn the held engine's clock went from ${heldTwo} to ${afterWaitTwo}`)
+
+    await stepButton.click()
+    await page.waitForFunction(
+      () => /Nc6/.test(document.querySelector('.mtree-scroll')?.textContent || ''), null, { timeout: 15000 })
+    await page.waitForTimeout(400)
+    const afterMoveTwo = await blackFace()
+    assert(seconds(afterMoveTwo) > seconds(heldTwo),
+      `the engine's second move earned no increment either: ${heldTwo} before, ${afterMoveTwo} after`)
+    console.log(`  step mode: held at ${heldOne} and ${heldTwo} through five-second waits, `
+      + `and paid ${afterMoveOne} and ${afterMoveTwo} for the moves it was let go to make`)
+  } finally {
+    await context.close()
+  }
+}
+
 async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -9702,6 +9801,7 @@ async function main() {
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
       'recorded-clocks': checkRecordedClocksMatchTheClock,
       'replayed-clock': checkAReplayedMoveRecordsItsOwnClock,
+      'step-clock': checkStepModeDoesNotChargeTheHeldEngine,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
       'markup': checkTheMarkupSaysWhatItShows,
       'premove': checkAPremoveWaitsForItsTurn,
@@ -10392,6 +10492,7 @@ async function main() {
     await checkAModeSwitchDoesNotFreezeTheClock(browser)
     await checkRecordedClocksMatchTheClock(browser)
     await checkAReplayedMoveRecordsItsOwnClock(browser)
+    await checkStepModeDoesNotChargeTheHeldEngine(browser)
     await checkADialogKeepsTheKeyboard(browser)
     await checkTheMarkupSaysWhatItShows(browser)
     await checkAMoveCanBePlayedFromTheKeyboard(browser)

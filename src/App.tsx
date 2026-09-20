@@ -6206,12 +6206,21 @@ function App() {
     gameMode === 'ai-vs-ai' || (gameMode === 'human-vs-ai' && game.turn() !== playerColor[0])
   )
   /**
-   * The engine is on move and Step mode is holding it there.
+   * The engine is on move and something is holding it there.
    *
    * `isAiThinking` separates "waiting to be let go" from "already searching":
    * once Step has been pressed, the engine owns its time again.
+   *
+   * `paused` is part of the hold rather than an exception to it. Step sets it
+   * after every engine move, so a condition reading `&& !paused` was true on
+   * the engine's first turn of a game and false on every turn after it --
+   * which is how the hold below came to work once and then stop. **Measured**
+   * in a 3+2 game: held at 2:59 through a five-second wait on the engine's
+   * first turn, and 2:59 to 2:54 through five seconds on its second. Pausing
+   * a clock that `pause` has already stopped is a no-op, so covering the
+   * ordinary pause here as well costs nothing.
    */
-  const awaitingAiStep = canStepAiMove && aiSpeed === 'step' && !isAiThinking && !paused
+  const awaitingAiStep = canStepAiMove && !isAiThinking && (aiSpeed === 'step' || paused)
 
   /**
    * Step mode holds the game, so it has to hold the clock.
@@ -6230,6 +6239,26 @@ function App() {
    */
   useEffect(() => {
     if (!awaitingAiStep) return
+    /*
+     * Step has been pressed and the loop has not picked it up yet.
+     *
+     * `handleStep` starts the clock and then hands over; `isAiThinking` does
+     * not go up until the loop runs, and this effect re-runs in between --
+     * on the clock it was just given. Stopping it there is what took the
+     * engine's increment: `moveMade` pays one only for a move made *on* the
+     * clock, which is the thing `handleStep` restarts it to protect.
+     * **Measured**: 2:59 before the step and 2:59 after a move worth two
+     * seconds.
+     *
+     * Two flags, because one commit is not enough. `stepPendingRef` covers
+     * the render `handleStep` causes, before the loop has looked. The loop
+     * then clears it and sets `aiMoveScheduledRef` -- and it is declared
+     * above this effect, so within that same commit it runs first and this
+     * one would see a cleared flag and a search that has not raised
+     * `isAiThinking` yet. Measured exactly there: the guard on
+     * `stepPendingRef` alone changed nothing at all.
+     */
+    if (stepPendingRef.current || aiMoveScheduledRef.current) return
     setClock(previous => (previous && previous.running !== null ? pauseClock(previous, Date.now()) : previous))
   }, [awaitingAiStep, clock])
   const boardInputLocked = isBoardInputLocked({
