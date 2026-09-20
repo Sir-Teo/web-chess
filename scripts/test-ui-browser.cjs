@@ -2234,6 +2234,29 @@ async function checkADialogKeepsTheKeyboard(browser) {
       await page.waitForTimeout(400)
       console.log(`  ${overlay.name}: ${found.native} focusable controls, all inside the trap`)
     }
+
+    // The promotion chooser is the last panel on the same hook, and the one
+    // that appears without being asked for. A white pawn one square from
+    // promoting, kings far apart.
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+    await page.locator('.dialog-panel').waitFor({ timeout: 15000 })
+    await page.getByRole('button', { name: /^FEN$/ }).click()
+    await page.waitForTimeout(300)
+    await page.locator('.dialog-section textarea').first().fill('8/1P6/8/k7/8/8/8/7K w - - 0 1')
+    await page.waitForTimeout(250)
+    await page.getByRole('button', { name: /Load & Analyze/i }).first().click()
+    await page.waitForTimeout(1200)
+    await page.locator('#chessboard-square-b7').click()
+    await page.waitForTimeout(200)
+    await page.locator('#chessboard-square-b8').click()
+    await page.locator('.promotion-chooser').waitFor({ timeout: 15000 })
+    await page.waitForTimeout(500)
+    const promotion = await page.evaluate(reachInPanel, '.promotion-overlay')
+    assert(promotion.past.length === 0,
+      `Promotion chooser: the browser will tab to ${promotion.past.length} control(s) past the end of the trap: ${promotion.past.join(', ')}`)
+    assert(promotion.native === promotion.trapped,
+      `Promotion chooser: the panel holds ${promotion.native} focusable controls and the trap knows of ${promotion.trapped}`)
+    console.log(`  Promotion chooser: ${promotion.native} focusable controls, all inside the trap`)
   } finally {
     await context.close()
   }
