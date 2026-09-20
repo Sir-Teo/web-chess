@@ -3498,6 +3498,57 @@ async function checkAnImportDoesNotSweepWhatItAlreadyKnows(browser) {
   }
 }
 
+/**
+ * A hint does not rebuild the opponent's thread pool, twice.
+ *
+ * The hint is asked at full strength -- `HINT_DIFFICULTY` is 8 -- and
+ * `aiThreadCount` hands out the device's thread count at 8 and one thread
+ * everywhere below it. So on a threaded profile, asking a Beginner opponent
+ * for a hint raised Threads for the hint and dropped it again for the
+ * opponent's reply. `setoption name Threads` tears down and rebuilds the
+ * WASM thread pool -- the comment on `shouldApplyRecommendedThreads` says so,
+ * and says a `go` in the same tick as a rebuild can never answer -- so that
+ * is two rebuilds and two handshakes for one hint.
+ */
+async function checkAHintDoesNotRebuildTheThreadPool(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    // The default fixture answers e2e4, which is a legal first move for White
+    // and so gives the hint something it can name; 'blunder-nudge' answers
+    // e7e5 and the hint sentence never renders.
+    await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+      engineProfile: 'lite-multi-local', lastDifficulty: 3,
+    })))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await page.click('.top-mode-pills button:has-text("Human vs AI")')
+    await page.waitForFunction(() => /ready to play/.test(document.body.innerText), null, { timeout: 20000 })
+    await page.waitForTimeout(500)
+
+    await page.evaluate(() => { window.__mark = (window.__uciCommands || []).length })
+    await page.getByRole('button', { name: 'Ask the engine for a hint' }).click()
+    await page.locator('.hint-answer').waitFor({ timeout: 20000 })
+    await page.waitForTimeout(800)
+    // And the opponent's own next move, which is where the pool is rebuilt
+    // back down: one hint costs two rebuilds, not one.
+    await page.click('#chessboard-square-e2')
+    await page.click('#chessboard-square-e4')
+    await page.waitForTimeout(2500)
+
+    const threadChanges = await page.evaluate(() => (window.__uciCommands || [])
+      .slice(window.__mark).filter(command => /^setoption name Threads/i.test(command)))
+    console.log(`  hint threads: ${threadChanges.length} thread change(s) for one hint ${JSON.stringify(threadChanges)}`)
+    assert(threadChanges.length === 0,
+      `asking for a hint rebuilt the thread pool: ${JSON.stringify(threadChanges)}`)
+  } finally {
+    await context.close()
+  }
+}
+
 async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -10548,6 +10599,7 @@ async function main() {
       'palette-tabs': checkAPaletteTabCommandGoesThere,
       'browse-depth': checkBrowsingHonoursTheDepthSlider,
       'sweep-known': checkAnImportDoesNotSweepWhatItAlreadyKnows,
+      'hint-threads': checkAHintDoesNotRebuildTheThreadPool,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
       'markup': checkTheMarkupSaysWhatItShows,
       'premove': checkAPremoveWaitsForItsTurn,
@@ -11246,6 +11298,7 @@ async function main() {
     await checkAPaletteTabCommandGoesThere(browser)
     await checkBrowsingHonoursTheDepthSlider(browser)
     await checkAnImportDoesNotSweepWhatItAlreadyKnows(browser)
+    await checkAHintDoesNotRebuildTheThreadPool(browser)
     await checkADialogKeepsTheKeyboard(browser)
     await checkTheMarkupSaysWhatItShows(browser)
     await checkAMoveCanBePlayedFromTheKeyboard(browser)

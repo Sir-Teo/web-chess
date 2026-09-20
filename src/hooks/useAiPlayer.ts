@@ -348,6 +348,14 @@ export function useAiPlayer(enabled = true) {
     /** What the Play panel reports, so "Maximum" can say what it is costing. */
     const [threadCount, setThreadCount] = useState(1)
     const difficultyRef = useRef<AiDifficulty>(4)
+    /**
+     * The opponent's level, as distinct from whatever a single request asks
+     * for. `requestMove` writes `difficultyRef` from its own argument -- a
+     * hint asks at 8 -- so that ref cannot answer "how many threads does this
+     * game want". This one is written only by `setDifficulty`, which is the
+     * reader choosing an opponent.
+     */
+    const opponentDifficultyRef = useRef<AiDifficulty>(4)
 
     const clearRequestTimeout = useCallback(() => {
         if (!requestTimeoutRef.current) return
@@ -416,7 +424,26 @@ export function useAiPlayer(enabled = true) {
         // not rebuild anything, so it needs no handshake of its own.
         worker.postMessage(`setoption name MultiPV value ${aiMultiPv(difficulty)}`)
 
-        const threads = aiThreadCount(profile, capabilities, difficulty)
+        /*
+         * Threads follow the opponent, not the request.
+         *
+         * A hint is asked at `HINT_DIFFICULTY`, which is 8, and
+         * `aiThreadCount` gives the device's full count at 8 and one thread
+         * below it. So asking a Beginner for a hint raised Threads for the
+         * hint and dropped them again for the opponent's next move --
+         * **measured** on a threaded profile against a level-3 opponent:
+         * `Threads value 8` then `Threads value 1`, two tear-downs and two
+         * rebuilds of the WASM thread pool for one question. The comment on
+         * `shouldApplyRecommendedThreads` records what that costs, down to a
+         * `go` in the same tick never answering.
+         *
+         * Strength is unaffected: what makes a hint full strength is
+         * `UCI_LimitStrength` and the Elo, applied above from the requested
+         * difficulty. Threads buy nodes, not a higher ceiling -- and a hint
+         * that does not rebuild the pool twice arrives sooner than one that
+         * searches wider and does.
+         */
+        const threads = aiThreadCount(profile, capabilities, opponentDifficultyRef.current)
         if (appliedThreadsRef.current === threads) return true
 
         appliedThreadsRef.current = threads
@@ -595,6 +622,7 @@ export function useAiPlayer(enabled = true) {
 
     const setDifficulty = useCallback((difficulty: AiDifficulty) => {
         difficultyRef.current = difficulty
+        opponentDifficultyRef.current = difficulty
         const worker = workerRef.current
         if (!worker || !isReadyRef.current) return
         const capabilities = detectEngineCapabilities()
@@ -663,7 +691,7 @@ export function useAiPlayer(enabled = true) {
                     const activeProfile = fallbackProfileId
                         ? profileById(fallbackProfileId)
                         : resolveProfile('auto', capabilities)
-                    setThreadCount(aiThreadCount(activeProfile, capabilities, difficulty))
+                    setThreadCount(aiThreadCount(activeProfile, capabilities, opponentDifficultyRef.current))
                     // A thread change is not safe to search behind: the pool is
                     // being rebuilt and an isready is outstanding. Wait here for
                     // its readyok rather than handing the caller a null to retry
