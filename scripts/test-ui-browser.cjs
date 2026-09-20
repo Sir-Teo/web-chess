@@ -2603,6 +2603,100 @@ async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
 }
 
 /**
+ * One gesture saves one game.
+ *
+ * A double click on a button that looks like it did nothing is the most
+ * ordinary mis-click there is, and Save was guarded only against there being
+ * nothing to save. **Measured**: three clicks in a single tick put three
+ * copies in the library, which it dutifully disambiguated to "... (2)" and
+ * "... (3)", because that is what it does with a name collision -- so the
+ * duplicates arrived looking deliberate.
+ *
+ * The second half matters as much as the first. Refusing a repeat must not
+ * refuse a reader who genuinely wants another copy, so both doors are opened
+ * here: typing a name, and playing on. Either is a different entry and both
+ * work immediately.
+ */
+async function checkOneGestureSavesOneGame(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+    const play = async (from, to) => {
+      await page.click(`#chessboard-square-${from}`)
+      await page.click(`#chessboard-square-${to}`)
+      await page.waitForTimeout(200)
+    }
+    await play('e2', 'e4')
+    await play('e7', 'e5')
+
+    const openLibrary = async () => {
+      await page.getByRole('button', { name: 'Open saved games library' }).click()
+      await page.locator('.library-dialog').waitFor({ timeout: 15000 })
+      await page.waitForTimeout(500)
+    }
+    const names = () => page.evaluate(() => new Promise(resolve => {
+      const request = indexedDB.open('web-chess-library', 1)
+      request.onerror = () => resolve(['db error'])
+      request.onsuccess = () => {
+        const db = request.result
+        if (!db.objectStoreNames.contains('games')) { db.close(); resolve([]); return }
+        const read = db.transaction('games', 'readonly').objectStore('games').getAll()
+        read.onsuccess = () => { const out = read.result.map(game => game.name); db.close(); resolve(out) }
+        read.onerror = () => { db.close(); resolve(['read error']) }
+      }
+    }))
+    const clickSaveThrice = () => page.evaluate(() => {
+      const button = document.querySelector('.library-save-row .btn-start')
+      if (!button || button.disabled) return false
+      button.click(); button.click(); button.click()
+      return true
+    })
+
+    await openLibrary()
+    assert(await clickSaveThrice(), 'the Save button was unavailable with a game on the board')
+    await page.waitForTimeout(2000)
+    const afterTriple = await names()
+    assert(afterTriple.length === 1,
+      `three clicks in one tick saved ${afterTriple.length} copies: ${JSON.stringify(afterTriple)}`)
+
+    // The button says so, rather than just refusing.
+    const saveState = await page.evaluate(() => {
+      const button = document.querySelector('.library-save-row .btn-start')
+      return { disabled: button.disabled, title: button.title }
+    })
+    assert(saveState.disabled && /already in the library/i.test(saveState.title || ''),
+      `a saved game should leave Save disabled and say why, and it was ${JSON.stringify(saveState)}`)
+
+    // A name typed is a different entry, and must work at once.
+    await page.locator('[data-library-name]').fill('Second copy')
+    await page.waitForTimeout(200)
+    await page.locator('.library-save-row .btn-start').click()
+    await page.waitForTimeout(1500)
+    const afterNamed = await names()
+    assert(afterNamed.length === 2 && afterNamed.includes('Second copy'),
+      `naming a copy should save it, and the library holds ${JSON.stringify(afterNamed)}`)
+
+    // So is playing on.
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(400)
+    await play('g1', 'f3')
+    await openLibrary()
+    await page.waitForTimeout(300)
+    assert(await page.evaluate(() => !document.querySelector('.library-save-row .btn-start').disabled),
+      'a further move should make the game saveable again')
+    console.log(`  library: three clicks saved one copy, a named copy and a further move both saved again`)
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -8149,6 +8243,7 @@ async function main() {
       'recorded-clocks': checkRecordedClocksMatchTheClock,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
       'markup': checkTheMarkupSaysWhatItShows,
+      'library-double-save': checkOneGestureSavesOneGame,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
       'finished-clock': checkAFinishedGameKeepsItsStoppedClock,
       'navigation-clock': checkNavigationKeepsTheClockHonest,
@@ -8866,6 +8961,7 @@ async function main() {
     await checkLabelsSurviveBigText(browser)
     await checkADeadFetchButtonSaysWhy(browser)
     await checkTheLibrarySurvivesABackup(browser)
+    await checkOneGestureSavesOneGame(browser)
     await checkAnExportedGameComesBack(browser)
     await checkAnInterruptedGameComesBack(browser)
     await checkASavedGameComesBack(browser)

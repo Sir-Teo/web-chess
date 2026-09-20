@@ -95,6 +95,28 @@ export function LibraryDialog({
     const [downloadedParts, setDownloadedParts] = useState<number[]>([])
     const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null)
     const [visibleLimit, setVisibleLimit] = useState(PAGE_SIZE)
+    /*
+     * The game this dialog has already put in the library, so one gesture
+     * cannot put it there three times.
+     *
+     * **Measured**: three clicks on Save in a single tick produced three
+     * entries, which the library dutifully disambiguated to "... (2)" and
+     * "... (3)" because that is what it does with a name collision. A double
+     * click on a button that looks like it did nothing is the most ordinary
+     * mis-click there is, and `Save` was disabled only when there was nothing
+     * to save.
+     *
+     * A ref as well as state, because the three clicks arrive before React can
+     * re-render and the `disabled` attribute is still stale when the second
+     * one lands; the ref is what the handler itself reads.
+     *
+     * The rule is the state the form is in afterwards: the same game, with no
+     * name typed, is the save that already happened. Typing a name, or playing
+     * on, asks for a genuinely different entry and re-enables it at once --
+     * which is the one case where a second copy is what somebody means.
+     */
+    const [savedPgn, setSavedPgn] = useState<string | null>(null)
+    const savedPgnRef = useRef<string | null>(null)
     const panelRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const titleId = useId()
@@ -139,11 +161,16 @@ export function LibraryDialog({
         }
     }
 
+    const alreadySaved = savedPgn !== null && savedPgn === currentPgn && !name.trim()
+
     const handleSave = () => {
-        announce(
-            onSave(name, currentPgn),
-            storageIsDurable ? 'Saved to the library.' : 'Saved for this session only.',
-        )
+        if (savedPgnRef.current === currentPgn && !name.trim()) return
+        const result = onSave(name, currentPgn)
+        announce(result, storageIsDurable ? 'Saved to the library.' : 'Saved for this session only.')
+        if (result.ok) {
+            savedPgnRef.current = currentPgn
+            setSavedPgn(currentPgn)
+        }
         setName('')
     }
 
@@ -235,7 +262,8 @@ export function LibraryDialog({
                                 type="button"
                                 className="btn-start"
                                 onClick={handleSave}
-                                disabled={!currentPgn}
+                                disabled={!currentPgn || alreadySaved}
+                                title={alreadySaved ? 'This game is already in the library. Type a name to save another copy.' : undefined}
                             >
                                 Save
                             </button>
