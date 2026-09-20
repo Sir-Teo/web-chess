@@ -2122,6 +2122,35 @@ async function checkNavigationKeepsTheClockHonest(browser) {
  * Both halves are checked, because the second is what a reader does and the
  * first is what would catch the next control of a kind nobody listed.
  */
+/**
+ * What the trap can reach in a panel, against what the browser can.
+ *
+ * `trapped` mirrors `FOCUSABLE_SELECTOR` and `isFocusable` in
+ * `useModalFocus`; `native` adds the kinds a trap written as a list of tags
+ * is apt to forget. A control in the middle of the panel that the trap has
+ * not heard of is harmless -- the browser tabs to it and it is still inside.
+ * One *past the last* control the trap knows is the bug, because that is
+ * where the wrap should have fired and did not.
+ */
+function reachInPanel(selector) {
+  const panel = document.querySelector(selector)
+  if (!panel) return { trapped: 0, native: 0, past: ['the panel was not on the page'] }
+  const TRAP = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), details > summary, [tabindex]:not([tabindex="-1"])'
+  const visible = el => {
+    if (el.hasAttribute('disabled') || el.tabIndex === -1) return false
+    const style = getComputedStyle(el)
+    if (style.display === 'none' || style.visibility === 'hidden') return false
+    const rect = el.getBoundingClientRect()
+    return rect.width > 0 && rect.height > 0
+  }
+  const trapped = [...panel.querySelectorAll(TRAP)].filter(visible)
+  const native = [...panel.querySelectorAll(TRAP + ', summary, audio[controls], video[controls], iframe, [contenteditable]')].filter(visible)
+  const describe = el => `${el.tagName.toLowerCase()} "${(el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30)}"`
+  const last = trapped[trapped.length - 1]
+  const past = last ? native.slice(native.indexOf(last) + 1) : native
+  return { trapped: trapped.length, native: native.length, past: past.map(describe) }
+}
+
 async function checkADialogKeepsTheKeyboard(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -2149,26 +2178,7 @@ async function checkADialogKeepsTheKeyboard(browser) {
     // Nothing the browser will tab to may sit outside what the trap wraps
     // around. Stated as a count and as a boundary, because a control in the
     // middle is harmless and one past the end is the bug.
-    const reach = await page.evaluate(() => {
-      const panel = document.querySelector('.settings-body')
-      const TRAP = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), details > summary, [tabindex]:not([tabindex="-1"])'
-      const visible = el => {
-        if (el.hasAttribute('disabled') || el.tabIndex === -1) return false
-        const style = getComputedStyle(el)
-        if (style.display === 'none' || style.visibility === 'hidden') return false
-        const rect = el.getBoundingClientRect()
-        return rect.width > 0 && rect.height > 0
-      }
-      const trapped = [...panel.querySelectorAll(TRAP)].filter(visible)
-      const native = [...panel.querySelectorAll(TRAP + ', summary, audio[controls], video[controls], iframe, [contenteditable]')].filter(visible)
-      const lastTrapped = trapped[trapped.length - 1]
-      const after = native.slice(native.indexOf(lastTrapped) + 1)
-      return {
-        trapped: trapped.length,
-        native: native.length,
-        past: after.map(el => `${el.tagName.toLowerCase()} "${(el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30)}"`),
-      }
-    })
+    const reach = await page.evaluate(reachInPanel, '.settings-body')
     assert(reach.past.length === 0,
       `the browser will tab to ${reach.past.length} control(s) past the end of the trap: ${reach.past.join(', ')}`)
     assert(reach.native === reach.trapped,
@@ -2199,6 +2209,31 @@ async function checkADialogKeepsTheKeyboard(browser) {
       assert(state.inside, `Shift+Tab ${press + 1} left the dialog, on ${state.what}`)
     }
     console.log(`  settings dialog: all ${reach.native} focusable controls are inside the trap, disclosure included`)
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(300)
+
+    // Every other overlay runs the same hook over its own markup, so the same
+    // question has to be asked of each: the fix is a selector, and a selector
+    // is only right about the panels somebody looked at.
+    const overlays = [
+      { name: 'New game', panel: '.new-game-dialog', open: () => page.getByRole('button', { name: 'Start new game' }).click() },
+      { name: 'PGN and FEN', panel: '.pgn-dialog', open: () => page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click() },
+      { name: 'Library', panel: '.library-dialog', open: () => page.getByRole('button', { name: 'Open saved games library' }).click() },
+      { name: 'Command palette', panel: '.command-palette', open: () => page.getByTestId('command-palette-btn').click() },
+    ]
+    for (const overlay of overlays) {
+      await overlay.open()
+      await page.locator(overlay.panel).waitFor({ timeout: 15000 })
+      await page.waitForTimeout(500)
+      const found = await page.evaluate(reachInPanel, overlay.panel)
+      assert(found.past.length === 0,
+        `${overlay.name}: the browser will tab to ${found.past.length} control(s) past the end of the trap: ${found.past.join(', ')}`)
+      assert(found.native === found.trapped,
+        `${overlay.name}: the panel holds ${found.native} focusable controls and the trap knows of ${found.trapped}`)
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(400)
+      console.log(`  ${overlay.name}: ${found.native} focusable controls, all inside the trap`)
+    }
   } finally {
     await context.close()
   }
