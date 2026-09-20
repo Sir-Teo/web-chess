@@ -32,6 +32,7 @@ import {
   engineLineToSnapshot,
   terminalSnapshotForFen,
   reportedCentipawnLoss,
+  isShallowEvaluation,
 } from './engine/analysis'
 import { historicalSampleGames, type HistoricalSampleGame, type HistoricalSampleFormat } from './assets/historicalSamples'
 import {
@@ -4850,7 +4851,26 @@ function App() {
       setEvaluationsByFen(importedGame.evaluations)
       if (shouldAnalyzeAfterLoad) {
         setPendingShallowAnalyzeFen(finalFen)
+        /*
+         * Only positions this could actually improve.
+         *
+         * The sweep gives each sampled position a 70ms search to fill the
+         * graphs, and every Lichess export -- and most annotated PGNs --
+         * arrives with `[%eval]` on every move already. Those readings are
+         * stored with no depth and no purpose, which `isShallowEvaluation`
+         * reads as not shallow, while a sweep reading is shallow by its
+         * purpose; and `shouldReplaceEvaluationSnapshot` will not let a
+         * shallow reading replace a deeper one. So the sweep was searching
+         * positions whose results it then threw away -- **measured** at 21
+         * discarded searches for a twenty-move game with a reading on every
+         * move, and up to eighty for a long one, on every import and every
+         * device.
+         */
         const sweepTargets = buildImportSweepTargets(mainLineEntries, rootFen, IMPORT_SWEEP_TARGET_LIMIT)
+          .filter(target => {
+            const known = importedGame.evaluations.get(target.fen)
+            return !known || isShallowEvaluation(known)
+          })
         const sweepCandidateCount = countImportSweepCandidates(mainLineEntries)
         importSweepQueueRef.current = sweepTargets
         setImportSweepProgress({

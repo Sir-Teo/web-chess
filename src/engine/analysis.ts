@@ -358,7 +358,13 @@ export function qualityForLoss(deltaCp: number, winPercentLoss: number): GradedL
  */
 export const MIN_REVIEW_GRADING_DEPTH = 10
 
-function isShallowEvaluation(snapshot: EvalSnapshot): boolean {
+/**
+ * A reading a deeper one should be allowed to replace, and that should not be
+ * spent again to produce. Exported because the import sweep asks the same
+ * question before queueing a position: a game that arrives with `[%eval]` on
+ * its moves already has readings this could only make worse.
+ */
+export function isShallowEvaluation(snapshot: EvalSnapshot): boolean {
   if (snapshot.purpose === 'import-load' || snapshot.purpose === 'import-sweep') return true
   if (isFiniteNumber(snapshot.depth) && snapshot.depth < MIN_REVIEW_GRADING_DEPTH) return true
   if (isFiniteNumber(snapshot.time) && snapshot.time < 150 && !isFiniteNumber(snapshot.depth)) return true
