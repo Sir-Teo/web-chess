@@ -129,6 +129,8 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const [archiveBusy, setArchiveBusy] = useState(false)
     const [archiveUsernameBlurred, setArchiveUsernameBlurred] = useState(false)
     const [databaseBusy, setDatabaseBusy] = useState(false)
+    /** What `handleImportDatabase` asks; the state is what the button shows. */
+    const databaseBusyRef = useRef(false)
     const archiveAbortRef = useRef<AbortController | null>(null)
     const panelRef = useRef<HTMLDivElement>(null)
     const importFileInputRef = useRef<HTMLInputElement>(null)
@@ -243,7 +245,22 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
      * the first sign of anything happening was the answer.
      */
     const handleImportDatabase = async () => {
-        if (!databaseGames || !onImportManyToLibrary || databaseBusy) return
+        /*
+         * The guard is a ref because `databaseBusy` is state, and state is not
+         * readable in the tick it is set. **Measured** with a four-game file:
+         * three clicks in one tick put **twelve** games in the library, each
+         * press importing the whole file again.
+         *
+         * The two frames below make that worse rather than better. They are
+         * there for a good reason -- see above -- but the button cannot
+         * actually disable until React has rendered the label they are waiting
+         * for, so the window this opens is the window a second press lands in.
+         * A real database file is hundreds of games, and the press that
+         * duplicates them is the one a reader makes *because* the screen has
+         * not moved yet.
+         */
+        if (!databaseGames || !onImportManyToLibrary || databaseBusyRef.current) return
+        databaseBusyRef.current = true
         setDatabaseBusy(true)
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
         try {
@@ -257,6 +274,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
             setImportText('')
             setImportFileName(null)
         } finally {
+            databaseBusyRef.current = false
             setDatabaseBusy(false)
         }
     }

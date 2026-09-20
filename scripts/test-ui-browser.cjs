@@ -2722,6 +2722,65 @@ async function checkOneGestureSavesOneGame(browser) {
 }
 
 /**
+ * A database goes into the library once, however many times the button is hit.
+ *
+ * This is the press most likely to be repeated in the whole app. Reading the
+ * file is the dialog's most expensive work -- 3.1 seconds for 500 games on a
+ * phone, on the thread that draws -- so the button waits two frames to paint
+ * "Adding..." before starting, and a reader whose screen has not moved presses
+ * again. **Measured** with a four-game file: three clicks in one tick put
+ * twelve games in the library, the whole file imported once per press, and a
+ * real database file is hundreds.
+ */
+async function checkADatabaseIsAddedOnce(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+    const GAMES = 4
+    const file = Array.from({ length: GAMES }, (_, index) =>
+      `[Event "Game ${index + 1}"]\n[White "W${index}"]\n[Black "B${index}"]\n[Result "*"]\n\n1. e4 e5 2. Nf3 *`).join('\n\n')
+
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+    const area = page.locator('.dialog-panel textarea').first()
+    await area.waitFor({ timeout: 10000 })
+    await area.fill(file)
+    await page.locator('.dialog-database-offer button').waitFor({ timeout: 15000 })
+
+    const pressed = await page.evaluate(() => {
+      const button = document.querySelector('.dialog-database-offer button')
+      if (!button || button.disabled) return false
+      button.click(); button.click(); button.click()
+      return true
+    })
+    assert(pressed, 'the database offer was not pressable')
+    await page.waitForTimeout(3000)
+
+    const stored = await page.evaluate(() => new Promise(resolve => {
+      const request = indexedDB.open('web-chess-library', 1)
+      request.onerror = () => resolve(-1)
+      request.onsuccess = () => {
+        const db = request.result
+        if (!db.objectStoreNames.contains('games')) { db.close(); resolve(0); return }
+        const read = db.transaction('games', 'readonly').objectStore('games').getAll()
+        read.onsuccess = () => { const count = read.result.length; db.close(); resolve(count) }
+        read.onerror = () => { db.close(); resolve(-1) }
+      }
+    }))
+    assert(stored === GAMES,
+      `a ${GAMES}-game file pressed three times should leave ${GAMES} games in the library, and left ${stored}`)
+    console.log(`  database import: ${GAMES} games in the file, three presses, ${stored} in the library`)
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -8269,6 +8328,7 @@ async function main() {
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
       'markup': checkTheMarkupSaysWhatItShows,
       'library-double-save': checkOneGestureSavesOneGame,
+      'database-once': checkADatabaseIsAddedOnce,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
       'finished-clock': checkAFinishedGameKeepsItsStoppedClock,
       'navigation-clock': checkNavigationKeepsTheClockHonest,
@@ -8987,6 +9047,7 @@ async function main() {
     await checkADeadFetchButtonSaysWhy(browser)
     await checkTheLibrarySurvivesABackup(browser)
     await checkOneGestureSavesOneGame(browser)
+    await checkADatabaseIsAddedOnce(browser)
     await checkAnExportedGameComesBack(browser)
     await checkAnInterruptedGameComesBack(browser)
     await checkASavedGameComesBack(browser)
