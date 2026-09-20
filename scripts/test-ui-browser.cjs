@@ -85,7 +85,13 @@ const SCENARIO = ${JSON.stringify(scenario)};
       return Promise.resolve(new Response(JSON.stringify({ fen: url.searchParams.get('fen'), depth: 40, knodes: 1000,
         pvs: [{ cp: 600, moves: 'e2e4 e7e5' }] }), { headers: { 'Content-Type': 'application/json' } }));
     }
-    if (url.hostname === 'lichess.org' || url.hostname.endsWith('.lichess.ovh')) {
+    // Subdomains too. This read \`=== 'lichess.org'\`, which let every
+    // request to \`explorer.lichess.org\` past it and onto the real network:
+    // \`checkOpeningLayout\` types a token and has no stub, so a full suite run
+    // asked Lichess's Opening Explorer for real, with a junk token, every
+    // time. Measured in Firefox, where the page said so out loud -- "Opening
+    // Explorer rejected the Lichess API token", which is a 401 from Lichess.
+    if (url.hostname === 'lichess.org' || url.hostname.endsWith('.lichess.org') || url.hostname.endsWith('.lichess.ovh')) {
       return Promise.resolve(new Response('{"error":"No fixture"}', { status: 404, headers: { 'Content-Type': 'application/json' } }));
     }
     return nativeFetch(input, init);
@@ -3079,21 +3085,16 @@ async function checkTheArrowCountSaysWhatItCanDraw(browser) {
 async function checkTheOpeningFiltersReachTheRequest(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
-  const asked = []
   try {
-    await context.route(/explorer\.lichess\.org/, async route => {
-      asked.push(route.request().url())
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          white: 100, draws: 10, black: 20, opening: { eco: 'B00', name: 'Probe' },
-          moves: [{ uci: 'e2e4', san: 'e4', white: 100, draws: 10, black: 20, averageRating: 2400 }],
-          topGames: [], recentGames: [],
-        }),
-      })
-    })
     await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(lichessServiceScript({
+      host: 'explorer.lichess.org',
+      body: JSON.stringify({
+        white: 100, draws: 10, black: 20, opening: { eco: 'B00', name: 'Probe' },
+        moves: [{ uci: 'e2e4', san: 'e4', white: 100, draws: 10, black: 20, averageRating: 2400 }],
+        topGames: [], recentGames: [],
+      }),
+    }))
     await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
       workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze',
       engineProfile: 'lite-single-local', openingSource: 'lichess',
@@ -3107,6 +3108,21 @@ async function checkTheOpeningFiltersReachTheRequest(browser) {
     await card.getByLabel('Lichess API token', { exact: true }).fill('filter-fixture')
     await page.waitForFunction(() => true)
     await page.waitForTimeout(2500)
+    const askedUrls = () => page.evaluate(() => ((window.__lichessAsked || {})['explorer.lichess.org'] || []).slice())
+    let asked = await askedUrls()
+    if (!asked.length) {
+      const probe = await page.evaluate(() => {
+        const el = document.querySelector('.opening-intel-card')
+        const token = document.querySelector('[aria-label="Lichess API token"]')
+        return {
+          token: token ? `${(token.value || '').length} chars` : 'no field',
+          card: el ? (el.textContent || '').replace(/\s+/g, ' ').slice(0, 260) : 'no card',
+          pills: [...document.querySelectorAll('.opening-source-toggle button')]
+            .map(b => `${b.textContent.trim()}:${b.getAttribute('aria-pressed')}`),
+        }
+      })
+      console.log('  PROBE ' + JSON.stringify(probe))
+    }
     assert(asked.length > 0, 'the explorer never asked, so no URL was measured')
 
     // A rating bucket the reader chose, and a speed turned off.
@@ -3124,11 +3140,13 @@ async function checkTheOpeningFiltersReachTheRequest(browser) {
     assert(await bullet.count() === 1, 'there is no bullet pill to switch')
     assert(await bullet.getAttribute('aria-pressed') === 'false',
       'bullet is already on, so switching it on proves nothing')
+    asked = await askedUrls()
     const before = asked.filter(url => url.includes('/lichess')).length
     await bullet.click()
     assert(await bullet.getAttribute('aria-pressed') === 'true', 'the bullet pill did not switch on')
     await page.waitForTimeout(3000)
 
+    asked = await askedUrls()
     const lichessUrls = asked.filter(url => url.includes('/lichess'))
     assert(lichessUrls.length > before,
       `switching a speed on asked the explorer nothing new: ${lichessUrls.length} request(s) either side`)
@@ -3143,6 +3161,7 @@ async function checkTheOpeningFiltersReachTheRequest(browser) {
     // Masters has neither, and must be asked without them.
     await card.getByRole('button', { name: 'Masters', exact: true }).click()
     await page.waitForTimeout(2500)
+    asked = await askedUrls()
     const mastersUrls = asked.filter(url => url.includes('/masters'))
     assert(mastersUrls.length > 0, `no Masters request was made: ${JSON.stringify(asked.slice(-3))}`)
     for (const raw of mastersUrls) {
@@ -3963,24 +3982,11 @@ async function checkOpeningNumbersBelongToTheirPosition(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
   try {
-    let served = 0
-    await context.route(/explorer\.lichess\.org/, async route => {
-      const url = new URL(route.request().url())
-      const ply = (url.searchParams.get('play') || '').split(',').filter(Boolean).length
-      const white = 1000 + ply * 100
-      served += 1
-      // Long enough that the gap is a real one to look into.
-      await new Promise(resolve => setTimeout(resolve, 1200))
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          white, draws: 10, black: 20, opening: { eco: 'B00', name: `Position ply ${ply}` },
-          moves: [{ uci: 'e2e4', san: 'e4', white, draws: 10, black: 20, averageRating: 2400 }],
-        }),
-      })
-    })
     await page.addInitScript(fakeEngineScript())
+    // Answered in the page, not routed: see `lichessServiceScript`. The
+    // 1200ms is the same delay this check has always used -- long enough that
+    // the gap between question and answer is a real one to look into.
+    await page.addInitScript(lichessServiceScript({ host: 'explorer.lichess.org', byPly: true, delayMs: 1200 }))
     await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
       workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze',
       engineProfile: 'lite-single-local',
@@ -4010,6 +4016,7 @@ async function checkOpeningNumbersBelongToTheirPosition(browser) {
     const first = await card()
     assert(first.position === 'Position ply 0',
       `the card never read the database: ${JSON.stringify(first)}`)
+    const served = await page.evaluate(() => ((window.__lichessAsked || {})['explorer.lichess.org'] || []).length)
     assert(served >= 1, 'the database was never asked')
 
     // Into the gap: a move, then a look before the answer for it can arrive.
@@ -4054,26 +4061,20 @@ async function checkTheTablebaseAnswersForThisPosition(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
   try {
-    const asked = []
-    await context.route(/tablebase\.lichess\.org/, async route => {
-      const fen = new URL(route.request().url()).searchParams.get('fen') || ''
-      asked.push(fen)
-      // Each answer carries a number that says which ask it was, so the card
-      // can be held to showing the verdict for the position on the board --
-      // one answer repeated would make that assertion meaningless. The delay
-      // is what opens the gap a lingering verdict would sit in.
-      const nth = asked.length
-      await new Promise(resolve => setTimeout(resolve, 1200))
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          category: 'win', dtz: 10 + nth, dtm: 20 + nth, checkmate: false, stalemate: false,
-          moves: [{ uci: 'e1d2', san: 'Kd2', category: 'loss', dtz: -(9 + nth), dtm: -(19 + nth), zeroing: false }],
-        }),
-      })
-    })
     await page.addInitScript(fakeEngineScript())
+    // Each answer carries a number that says which ask it was, so the card
+    // can be held to showing the verdict for the position on the board --
+    // one answer repeated would make that assertion meaningless. The delay
+    // is what opens the gap a lingering verdict would sit in. Answered in
+    // the page rather than routed: see `lichessServiceScript`.
+    await page.addInitScript(lichessServiceScript({
+      host: 'tablebase.lichess.org',
+      delayMs: 1200,
+      bodyJs: `JSON.stringify({
+        category: 'win', dtz: 10 + n, dtm: 20 + n, checkmate: false, stalemate: false,
+        moves: [{ uci: 'e1d2', san: 'Kd2', category: 'loss', dtz: -(9 + n), dtm: -(19 + n), zeroing: false }],
+      })`,
+    }))
     await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
       workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze',
       engineProfile: 'lite-single-local',
@@ -4102,6 +4103,10 @@ async function checkTheTablebaseAnswersForThisPosition(browser) {
 
     const shown = await card()
     assert(!shown.missing, 'the tablebase card is not drawn for a three-piece ending')
+    const askedFens = async () => page.evaluate(() =>
+      ((window.__lichessAsked || {})['tablebase.lichess.org'] || [])
+        .map(url => new URL(url).searchParams.get('fen') || ''))
+    let asked = await askedFens()
     assert(asked.length >= 1, 'the tablebase was never asked about an eligible position')
     assert(asked[0].startsWith('8/8/8/4k3'), `the tablebase was asked about something else: ${asked[0]}`)
     assert(/3 pieces/.test(shown.summary),
@@ -4125,6 +4130,7 @@ async function checkTheTablebaseAnswersForThisPosition(browser) {
 
     await page.waitForTimeout(3000)
     const after = await card()
+    asked = await askedFens()
     assert(asked.length >= 2, 'the tablebase was not asked again after the move')
     assert(asked[asked.length - 1] !== asked[0],
       'the tablebase was asked twice about the same position')
@@ -4355,8 +4361,10 @@ async function checkAFailedLookupSaysSoPlainly(browser) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
     const page = await context.newPage()
     try {
-      await context.route(/explorer\.lichess\.org/, route => route.fulfill(reply))
       await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(lichessServiceScript({
+        host: 'explorer.lichess.org', status: reply.status, contentType: reply.contentType, body: reply.body,
+      }))
       await page.addInitScript(settings)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await inAnalysis(page)
@@ -4383,8 +4391,10 @@ async function checkAFailedLookupSaysSoPlainly(browser) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
     const page = await context.newPage()
     try {
-      await context.route(/tablebase\.lichess\.org/, route => route.fulfill(reply))
       await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(lichessServiceScript({
+        host: 'tablebase.lichess.org', status: reply.status, contentType: reply.contentType, body: reply.body,
+      }))
       await page.addInitScript(settings)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await inAnalysis(page)
@@ -9816,6 +9826,59 @@ async function readExportedPgn(page) {
   return page.evaluate(() => [...document.querySelectorAll('textarea')]
     .map(area => area.value)
     .find(value => /^\[Event/m.test(value)) || '')
+}
+
+/**
+ * Answer a Lichess service in the page, rather than routing it.
+ *
+ * `context.route` intercepts it in Chromium and not in Firefox or WebKit --
+ * **measured**: the same check passed in one and reported "the explorer never
+ * asked" in the other two, while the card underneath read "Opening Explorer
+ * rejected the Lichess API token", which is a 401 from the real service. The
+ * app reaches it through a service worker, and page-level routing does not
+ * follow it there in every engine.
+ *
+ * So this patches `window.fetch` the way `fakeEngineScript` does, which every
+ * engine honours because it happens before the request exists. Install it
+ * *after* the engine fixture, so it wraps that patch rather than being wrapped
+ * by it. Asked URLs land on `window.__lichessAsked[host]`.
+ *
+ * The engine fixture answers every `lichess.org` host with a 404 so a check
+ * that forgets to stub one cannot reach the real service; this is how a check
+ * says what it wants instead.
+ */
+function lichessServiceScript({ host, status = 200, contentType = 'application/json', body = null, bodyJs = null, delayMs = 0, byPly = false } = {}) {
+  return `
+(() => {
+  const OPTS = ${JSON.stringify({ host, status, contentType, body, bodyJs, delayMs, byPly })};
+  window.__lichessAsked = window.__lichessAsked || {};
+  window.__lichessAsked[OPTS.host] = [];
+  const previous = window.fetch.bind(window);
+  window.fetch = async (input, init) => {
+    const url = new URL(typeof input === 'string' ? input : input.url || String(input), location.href);
+    if (url.hostname !== OPTS.host) return previous(input, init);
+    window.__lichessAsked[OPTS.host].push(url.toString());
+    if (OPTS.delayMs) await new Promise(resolve => setTimeout(resolve, OPTS.delayMs));
+    let text = OPTS.body;
+    // An answer that differs per ask, so a check can tell a fresh reply from
+    // a lingering one. \`n\` is which ask this is, counting from 1.
+    if (OPTS.bodyJs) {
+      const n = window.__lichessAsked[OPTS.host].length;
+      text = Function('url', 'n', 'return (' + OPTS.bodyJs + ')')(url, n);
+    }
+    if (OPTS.byPly) {
+      const ply = (url.searchParams.get('play') || '').split(',').filter(Boolean).length;
+      const white = 1000 + ply * 100;
+      text = JSON.stringify({
+        white, draws: 10, black: 20, opening: { eco: 'B00', name: 'Position ply ' + ply },
+        moves: [{ uci: 'e2e4', san: 'e4', white, draws: 10, black: 20, averageRating: 2400 }],
+        topGames: [], recentGames: [],
+      });
+    }
+    return new Response(text, { status: OPTS.status, headers: { 'Content-Type': OPTS.contentType } });
+  };
+})();
+`
 }
 
 async function openSettings(page) {
