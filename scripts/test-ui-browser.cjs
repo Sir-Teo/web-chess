@@ -3450,6 +3450,80 @@ async function checkAPaletteTabCommandGoesThere(browser) {
  * oscillators, buffers, gains and a biquad filter, and a stub for all of that
  * would be testing the stub.
  */
+/**
+ * A small device is handed the small defaults, end to end.
+ *
+ * `recommendedHashMb`, `recommendedMultiPv`, `recommendedThreadCount` and
+ * `planReviewPool` are each unit-tested against a fabricated
+ * `EngineCapabilities`, and nothing checked that the app asks them about the
+ * *device* and shows the reader the answer. That gap is not hypothetical:
+ * `recommendedMultiPv` shipped wired into one path of four -- the fallback
+ * for a stored value that failed to parse -- so a phone's first visit kept
+ * the flat desktop default, and every unit test still passed, because the
+ * unit tests never go through `loadPersistedSettings`.
+ *
+ * So this asks the running app, on a device it has been told is a 2GB
+ * dual-core phone, and reads the numbers off the controls the reader would
+ * read them off. `navigator` is overridden before any app code runs, which
+ * is the one moment it can be: `defaultHashMb` and `defaultMultiPv` memoize
+ * on first call.
+ */
+async function checkASmallDeviceGetsSmallDefaults(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 950 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(() => {
+      const define = (name, value) => {
+        try { Object.defineProperty(navigator, name, { get: () => value, configurable: true }) }
+        catch { /* a browser that will not be told is reported below */ }
+      }
+      define('deviceMemory', 2)
+      define('hardwareConcurrency', 2)
+    })
+    await page.addInitScript(fakeEngineScript())
+    // Nothing seeded into localStorage, deliberately. Seeding *anything*
+    // sends `loadPersistedSettings` down its parsed-object branch, where
+    // every device-aware default is applied via `normalizeInteger`'s
+    // fallback -- and that branch is the one path `recommendedMultiPv` was
+    // already wired into when it was broken everywhere else. A check that
+    // seeds a settings object passes whether the first visit is fixed or
+    // not; this was written that way first and proved exactly nothing.
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+
+    const seen = await page.evaluate(() => ({
+      memory: navigator.deviceMemory,
+      cores: navigator.hardwareConcurrency,
+    }))
+    if (seen.memory !== 2 || seen.cores !== 2) {
+      console.log(`  small device: skipped, ${BROWSER_NAME} would not report a 2GB dual-core (${JSON.stringify(seen)})`)
+      return
+    }
+
+    await page.getByRole('button', { name: /Open settings/ }).click()
+    await page.locator('.settings-body').waitFor({ timeout: 10000 })
+    await page.locator('.advanced-settings summary:has-text("Advanced engine options")').click()
+
+    // All three live in the settings panel, so read them before closing it.
+    const hash = Number(await page.getByRole('slider', { name: 'Engine hash size' }).inputValue())
+    const multiPv = Number(await page.getByRole('slider', { name: 'MultiPV analysis lines' }).inputValue())
+    const plan = (await page.locator('.review-resource-plan').innerText()).replace(/\s+/g, ' ')
+    await page.keyboard.press('Escape')
+
+    // 2GB is the bottom tier in `recommendedHashMb`, and two cores is the
+    // bottom tier in the other two.
+    assert(hash === 16, `a 2GB device was given ${hash} MB of hash`)
+    assert(multiPv === 1, `a 2GB dual-core device was given ${multiPv} analysis lines`)
+    assert(/up to 1 engine, 1 thread each, 16 MB hash each/i.test(plan),
+      `a 2GB dual-core device was planned a bigger review pool: ${JSON.stringify(plan)}`)
+    console.log(`  small device: 2GB dual-core gets 16 MB hash, 1 line, and "${plan.replace(/^Long reviews: /, '').split('.')[0]}"`)
+  } finally {
+    await context.close()
+  }
+}
+
 async function checkTurningSoundsOffReleasesTheAudioDevice(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -10687,6 +10761,7 @@ async function main() {
       'hint-threads': checkAHintDoesNotRebuildTheThreadPool,
       'reset-theme': checkResettingTheWorkspaceKeepsTheTheme,
       'sound-release': checkTurningSoundsOffReleasesTheAudioDevice,
+      'small-device': checkASmallDeviceGetsSmallDefaults,
       'analysis-reuse': checkAutomaticAnalysisIsReused,
       'review-drift': checkReviewReportHoldsStill,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
@@ -11388,6 +11463,7 @@ async function main() {
     await checkAHintDoesNotRebuildTheThreadPool(browser)
     await checkResettingTheWorkspaceKeepsTheTheme(browser)
     await checkTurningSoundsOffReleasesTheAudioDevice(browser)
+    await checkASmallDeviceGetsSmallDefaults(browser)
     await checkADialogKeepsTheKeyboard(browser)
     await checkTheMarkupSaysWhatItShows(browser)
     await checkAMoveCanBePlayedFromTheKeyboard(browser)
