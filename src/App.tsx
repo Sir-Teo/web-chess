@@ -962,39 +962,16 @@ function App() {
   const [paused, setPaused] = useState(false)
   const pausedRef = useRef(false)
 
-  /**
-   * Pause stops the clock as well as the AI. It is the only way to step away
-   * from a timed game, and a pause that left the clock running would be worse
-   * than no pause at all.
-   *
-   * The side to move is read back from the board on resume rather than
-   * remembered, because navigating the move list while paused can move it.
-   */
-  const pause = useCallback(() => {
-    pausedRef.current = true
-    setPaused(true)
-    setIsAiThinking(false)
-    setClock(previous => (previous ? pauseClock(previous, Date.now()) : previous))
-  }, [])
-
-  const resume = useCallback(() => {
-    pausedRef.current = false
-    setPaused(false)
-    aiMoveScheduledRef.current = false
-    setClock(previous => (previous && !previous.flagged ? startSide(previous, game.turn(), Date.now()) : previous))
-    // `setPaused(false)` is what re-enters the AI loop: `paused` is one of that
-    // effect's dependencies. This used to also call `setFen(f => f)`, commented
-    // "nudge AI effect", which cannot do that -- React bails out of a state
-    // update to an Object.is-equal value, so no dependency changed and no
-    // effect re-ran. It was doing nothing, next to the line that does the job.
-  }, [game])
-
   // ── Game tree ────────────────────────────────────────
   const gameTree = useGameTree(sharedInitialFen ?? undefined)
   // Stable ref so the AI-loop effect can call addMove without
   // including the (ever-changing) gameTree object in its dep array.
   const gameTreeRef = useRef(gameTree)
   gameTreeRef.current = gameTree
+
+  // Events and engine replies need the newly published path, before React's
+  // next render. The mutable Chess board loses history when loaded from FEN.
+  const readBoardEnding = useCallback(() => describeGameEndFromPath(gameTreeRef.current.currentPath()), [])
 
   const clearImportSweep = useCallback(() => {
     importSweepQueueRef.current = []
@@ -1023,16 +1000,41 @@ function App() {
     lastAiSearchRef.current = null
   }, [game])
 
-  // Navigate tree + stay paused so user can explore
+  /**
+   * Navigate, and leave the game saying the same thing everywhere.
+   *
+   * Pass and play is not held -- navigation there is just browsing -- but the
+   * clock still has to follow the turn, the same handover a takeback makes and
+   * for the same reason: press ← after 1. e4 in a 3+2 game and the strip read
+   * "White to move" over Black's clock counting down. `takebackMove` fixed its
+   * own door and this one was left open.
+   *
+   * Everywhere else the engine is held while the reader explores, and a held
+   * game's clock stops with it. `paused` over a running clock is the one state
+   * the badge cannot describe -- it says nothing at all -- and in a timed game
+   * against the engine it quietly drained the clock of whoever was on move
+   * while the game itself was going nowhere.
+   *
+   * A finished position stops the clock in either mode: there is no side to
+   * move, which is what `moveEndedGame` says on the move that ends a game. No
+   * refund anywhere here -- the think that was spent stays spent.
+   */
   const navigateAndPause = useCallback((chess: Chess | null) => {
     if (!chess) return
     syncGameToNode(chess)
-    // Don't force-pause when human vs human — navigation is just browsing
-    if (gameMode !== 'human-vs-human') {
-      pausedRef.current = true
-      setPaused(true)
+    const over = Boolean(readBoardEnding()) || Boolean(endedOffBoardRef.current)
+    if (gameMode === 'human-vs-human') {
+      setClock(previous => {
+        if (!previous || previous.flagged) return previous
+        const now = Date.now()
+        return over ? pauseClock(previous, now) : startSide(previous, chess.turn(), now)
+      })
+      return
     }
-  }, [gameMode, syncGameToNode])
+    pausedRef.current = true
+    setPaused(true)
+    setClock(previous => (previous ? pauseClock(previous, Date.now()) : previous))
+  }, [gameMode, readBoardEnding, syncGameToNode])
 
   const navigateAndPonder = useCallback((chess: Chess | null) => {
     if (!chess) return
@@ -1048,9 +1050,59 @@ function App() {
   const currentPathNodes = useMemo(() => gameTree.currentPath(), [gameTree])
   const boardEnding = useMemo(() => describeGameEndFromPath(currentPathNodes), [currentPathNodes])
   const isGameOver = boardEnding !== null
-  // Events and engine replies need the newly published path, before React's
-  // next render. The mutable Chess board loses history when loaded from FEN.
-  const readBoardEnding = useCallback(() => describeGameEndFromPath(gameTreeRef.current.currentPath()), [])
+
+  // ── Pause and resume ─────────────────────────────────
+  // Below `readBoardEnding` because that is what tells them whether there is
+  // still a game to hold up.
+
+  /**
+   * Pause stops the clock as well as the AI. It is the only way to step away
+   * from a timed game, and a pause that left the clock running would be worse
+   * than no pause at all.
+   *
+   * The side to move is read back from the board on resume rather than
+   * remembered, because navigating the move list while paused can move it.
+   */
+  const pause = useCallback(() => {
+    pausedRef.current = true
+    setPaused(true)
+    setIsAiThinking(false)
+    setClock(previous => (previous ? pauseClock(previous, Date.now()) : previous))
+  }, [])
+
+  /**
+   * Resume hands the clock back to whoever is on move -- unless the game is
+   * over, and then there is nobody to hand it to.
+   *
+   * `moveEndedGame` stops the clock on the move that ends a game, for the
+   * reason its own comment gives: a mated side's clock counting on will flag
+   * and replace "Checkmate" with "flagged on time", and a stalemate would
+   * become a loss. Resume put it straight back. Pass and play has no Pause
+   * button -- Space is its pause -- so two presses over a finished game were
+   * all it took. The pause flag still clears, because that is what lets the
+   * board and the AI loop out of it; only the clock stays where the ending
+   * left it.
+   *
+   * The ending is read from the current path rather than from `boardEnding`
+   * for the reason `readBoardEnding` exists: a keypress can arrive before the
+   * render that would have noticed it. A flag or a resignation counts too --
+   * both leave a position whose moves are all still legal.
+   */
+  const resume = useCallback(() => {
+    pausedRef.current = false
+    setPaused(false)
+    aiMoveScheduledRef.current = false
+    const over = Boolean(readBoardEnding()) || Boolean(endedOffBoardRef.current)
+    setClock(previous => (
+      previous && !previous.flagged && !over ? startSide(previous, game.turn(), Date.now()) : previous
+    ))
+    // `setPaused(false)` is what re-enters the AI loop: `paused` is one of that
+    // effect's dependencies. This used to also call `setFen(f => f)`, commented
+    // "nudge AI effect", which cannot do that -- React bails out of a state
+    // update to an Object.is-equal value, so no dependency changed and no
+    // effect re-ran. It was doing nothing, next to the line that does the job.
+  }, [game, readBoardEnding])
+
   const currentPathMoves = useMemo(
     () => currentPathNodes.slice(1).map(node => node.uci).filter(Boolean),
     [currentPathNodes],

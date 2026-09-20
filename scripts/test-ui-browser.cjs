@@ -1961,6 +1961,151 @@ async function checkTakingBackAMateUnfinishesTheGame(browser) {
 }
 
 /**
+ * A finished game's clock stays stopped, whatever is pressed afterwards.
+ *
+ * `moveEndedGame` stops the clock on the move that ends a game, because a
+ * finished game has no side to move -- without it the loser's clock counted
+ * down after a fool's mate and flagged, replacing "Checkmate" with "flagged
+ * on time". Resume put it straight back: pass and play has no Pause button,
+ * so Space is its pause, and two presses over a mate started the mated side's
+ * clock again. On a stalemate that flag would have turned the draw into a
+ * loss.
+ */
+async function checkAFinishedGameKeepsItsStoppedClock(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    await page.getByRole('button', { name: 'Start new game' }).click()
+    await page.locator('.new-game-dialog').waitFor({ timeout: 10000 })
+    await page.locator('.mode-card', { hasText: 'Human vs Human' }).click()
+    await page.locator('.time-control-card', { hasText: '3 + 2' }).click()
+    await page.locator('.btn-start').click()
+    await page.locator('.chess-clock').waitFor({ timeout: 10000 })
+
+    const play = async (from, to) => {
+      await page.click(`#chessboard-square-${from}`)
+      await page.click(`#chessboard-square-${to}`)
+      await page.waitForTimeout(150)
+    }
+    await play('f2', 'f3')
+    await play('e7', 'e5')
+    await play('g2', 'g4')
+    await play('d8', 'h4')
+    await page.waitForFunction(() => /checkmate/i.test(document.body.innerText), null, { timeout: 10000 })
+    assert(await page.locator('.clock-face.running').count() === 0, 'the mate did not stop the clock')
+    const mated = await page.locator('.clock-face.clock-white strong').textContent()
+
+    // Space, twice: pause and then resume, over a game that is already over.
+    await page.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur() })
+    await page.keyboard.press('Space')
+    await page.waitForTimeout(200)
+    await page.keyboard.press('Space')
+    await page.waitForTimeout(1600)
+
+    assert(await page.locator('.clock-face.running').count() === 0,
+      'a clock is running again after the game ended')
+    const afterwards = await page.locator('.clock-face.clock-white strong').textContent()
+    assert(afterwards === mated,
+      `the mated side's clock went from ${mated} to ${afterwards} after the game was over`)
+    assert(/checkmate/i.test(await page.locator('.turn-pill').textContent() || ''),
+      'the result stopped reading as a checkmate')
+
+    // And walking back through the finished game does not start it either.
+    await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('ArrowRight')
+    await page.waitForTimeout(1200)
+    assert(await page.locator('.clock-face.running').count() === 0,
+      'navigating back to the mate left a clock running on it')
+    console.log(`  finished game: the clock held at ${mated} through a pause, a resume and a walk`)
+  } finally {
+    await context.close()
+  }
+}
+
+/**
+ * Navigating a timed game leaves the clock saying what the board says.
+ *
+ * `takebackMove` learned this -- "a takeback hands the turn back, but nothing
+ * here told the clock" -- and fixed only its own door. Pressing ← does the
+ * same thing to the same game: measured in a 3+2 pass-and-play game, "White
+ * to move" in the strip with Black's face marked running and losing seconds.
+ * Against the engine the reader is held while they explore, so the clock is
+ * held too; it used to drain whoever was on move, sometimes the engine,
+ * behind a pause the badge could not even show.
+ */
+async function checkNavigationKeepsTheClockHonest(browser) {
+  const timedGame = async (mode) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+    const page = await context.newPage()
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Start new game' }).click()
+    await page.locator('.new-game-dialog').waitFor({ timeout: 10000 })
+    await page.locator('.mode-card', { hasText: mode }).click()
+    await page.locator('.time-control-card', { hasText: '3 + 2' }).click()
+    await page.locator('.btn-start').click()
+    await page.locator('.chess-clock').waitFor({ timeout: 10000 })
+    return { context, page }
+  }
+
+  // Pass and play: browsing is not a pause, so the clock follows the turn.
+  {
+    const { context, page } = await timedGame('Human vs Human')
+    try {
+      await page.click('#chessboard-square-e2')
+      await page.click('#chessboard-square-e4')
+      await page.waitForFunction(() => /Black to move/.test(document.body.innerText), null, { timeout: 10000 })
+      await page.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur() })
+      await page.keyboard.press('ArrowLeft')
+      await page.waitForFunction(() => /White to move/.test(document.body.innerText), null, { timeout: 10000 })
+      await page.waitForTimeout(300)
+      const running = await page.evaluate(() =>
+        [...document.querySelectorAll('.clock-face.running')].map(f => f.classList.contains('clock-white') ? 'w' : 'b'))
+      assert(running.join() === 'w',
+        `it is White to move after walking back over 1. e4, but the running clock is [${running}]`)
+      console.log('  navigation: pass and play hands the clock back with the turn')
+    } finally {
+      await context.close()
+    }
+  }
+
+  // Against the engine: the game is held, so the clock is held with it.
+  {
+    const { context, page } = await timedGame('Human vs AI')
+    try {
+      await page.click('#chessboard-square-e2')
+      await page.click('#chessboard-square-e4')
+      await page.waitForFunction(() => document.querySelectorAll('.mtree-chip').length >= 1, null, { timeout: 15000 })
+      // Give the engine its reply if it is coming; either way the clock is
+      // running for somebody by the time the reader walks back.
+      await page.waitForTimeout(1200)
+      await page.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur() })
+      await page.keyboard.press('ArrowLeft')
+      await page.waitForTimeout(400)
+      assert(await page.locator('.clock-face.running').count() === 0,
+        'the game is held for exploring, but a clock is still counting')
+      await page.locator('.clock-paused').waitFor({ timeout: 5000 })
+      const held = await page.evaluate(() =>
+        [...document.querySelectorAll('.clock-face strong')].map(face => face.textContent).join('|'))
+      await page.waitForTimeout(1500)
+      const still = await page.evaluate(() =>
+        [...document.querySelectorAll('.clock-face strong')].map(face => face.textContent).join('|'))
+      assert(held === still, `a held game's clocks moved from ${held} to ${still}`)
+      console.log(`  navigation: exploring against the engine holds both clocks at ${held}`)
+    } finally {
+      await context.close()
+    }
+  }
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -7433,6 +7578,8 @@ async function main() {
       'takeback-result': checkTakingBackAMateUnfinishesTheGame,
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
       'recorded-clocks': checkRecordedClocksMatchTheClock,
+      'finished-clock': checkAFinishedGameKeepsItsStoppedClock,
+      'navigation-clock': checkNavigationKeepsTheClockHonest,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
@@ -8103,6 +8250,8 @@ async function main() {
     await checkTakingBackAMateUnfinishesTheGame(browser)
     await checkAModeSwitchDoesNotFreezeTheClock(browser)
     await checkRecordedClocksMatchTheClock(browser)
+    await checkAFinishedGameKeepsItsStoppedClock(browser)
+    await checkNavigationKeepsTheClockHonest(browser)
     await checkKeepSearchingIsUnbounded(browser)
     await checkAutoplayWalksTheLine(browser)
     await checkTypedMoveLands(browser)
