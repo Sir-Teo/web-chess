@@ -7932,7 +7932,7 @@ async function checkTheLibrarySurvivesABackup(browser) {
 
     // And something that is not a backup at all.
     await restore('notabackup.pgn', 'application/x-chess-pgn', game(99))
-    assert(/not a web-chess library backup/i.test(await note()),
+    assert(/not a Web Chess library backup/i.test(await note()),
       `a PGN fed to the backup importer said ${JSON.stringify(await note())}`)
     assert((await rows()).length === SEEDED, 'a file that is not a backup changed the library')
 
