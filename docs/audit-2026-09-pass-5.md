@@ -1918,3 +1918,13 @@ Its floor is a 44px touch-target minimum that outranks the content floor, and
 three probes failed to find the rule that sets it -- no rule in any stylesheet
 matches it and no inline style sets it. Named in the guard rather than hidden
 under a tolerance.
+
+**Since fixed, and the reading above is stale.** Re-measured 2026-09-19 in a
+started pass-and-play game at 375x812 with the root at 32px: the Resign button
+is **248.2px wide against a scrollWidth of 246** -- nothing is cut, and the
+computed `min-width` is `min-content`, not 44px. No rule was ever setting a
+44px floor; what was holding the label in was `.inline-actions` refusing to
+wrap, and the wrap this same pass added is what let the two buttons take a row
+each. The three probes found nothing because there was nothing to find, which
+is worth saying plainly: an unexplained number is a reason to doubt the
+premise, and the premise here was that the floor came from a rule.
