@@ -3246,6 +3246,60 @@ async function checkTheAdvancedLimitsReachTheEngine(browser) {
   }
 }
 
+/**
+ * A palette command that names a place takes you there.
+ *
+ * The palette's three tab commands -- Analyze, Review, Engine Lab -- set the
+ * analysis tab and nothing else. The tab strip is only drawn in Analysis
+ * mode, so choosing "Engine Lab" from a game changed a value nobody could
+ * see and left the screen exactly as it was. The palette is one of this
+ * app's three answers to "what can I do", and the other two handle this: the
+ * threat command is disabled from Play mode with "Analysis mode only", and
+ * the review offer switches mode *and* lands on the Review tab.
+ *
+ * Fixed by going rather than by refusing, because the label is a
+ * destination. Anything that reaches Analysis pauses the game, which is what
+ * the mode command beside it already does and what a reader asking for the
+ * Engine Lab mid-game has asked for.
+ */
+async function checkAPaletteTabCommandGoesThere(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+    const state = () => page.evaluate(() => ({
+      title: (document.querySelector('#analysis-panel-title')?.textContent || '').trim(),
+      tabs: [...document.querySelectorAll('.analysis-tab-btn')]
+        .map(b => `${b.textContent.trim()}:${b.className.includes('active')}`),
+      lab: Boolean([...document.querySelectorAll('h3')].find(h => /Engine Lab|UCI/.test(h.textContent || ''))),
+    }))
+    const before = await state()
+    assert(before.title === 'Play', `this check has to start in Play mode, and started in ${before.title}`)
+    assert(before.tabs.length === 0, 'the tab strip is drawn in Play mode, so there is nothing to prove here')
+
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k')
+    await page.locator('.command-palette').waitFor({ timeout: 10000 })
+    await page.getByRole('option', { name: /Engine Lab/ }).first().click()
+    await page.waitForTimeout(600)
+
+    const after = await state()
+    assert(after.title === 'Analysis',
+      `the palette offered Engine Lab from a game and the panel still reads "${after.title}"`)
+    assert(after.tabs.some(tab => /^Engine Lab:true$/.test(tab)),
+      `Engine Lab was chosen and the active tab is ${JSON.stringify(after.tabs)}`)
+    console.log(`  palette tabs: Engine Lab from Play mode lands on ${JSON.stringify(after.tabs)}`)
+  } finally {
+    await context.close()
+  }
+}
+
 async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -10194,6 +10248,7 @@ async function main() {
       'arrow-count': checkTheArrowCountSaysWhatItCanDraw,
       'opening-filters': checkTheOpeningFiltersReachTheRequest,
       'advanced-limits': checkTheAdvancedLimitsReachTheEngine,
+      'palette-tabs': checkAPaletteTabCommandGoesThere,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
       'markup': checkTheMarkupSaysWhatItShows,
       'premove': checkAPremoveWaitsForItsTurn,

@@ -66,18 +66,24 @@ describe('a file full of braces that is not really a PGN', () => {
       countPgnMoves(text)
       return performance.now() - t0
     }
-    // The median of several, not one of each. A ratio of two single readings is
-    // one GC pause away from a false alarm, and this test has raised two -- 187
-    // once and 24.36 against a bound of 24 -- neither of them a change to the
-    // parser. A quadratic implementation is ~64x in every run, so the median
-    // catches it exactly as well as a single reading does, without the noise.
-    const medianOf = (n: number, runs = 5) => {
-      const times = Array.from({ length: runs }, () => measure(n)).sort((a, b) => a - b)
-      return times[Math.floor(times.length / 2)]!
-    }
+    // The fastest of several, not one of each and not the median. A ratio of
+    // two single readings is one GC pause away from a false alarm, and this
+    // test has now raised three -- 187 once, 24.36 against a bound of 24, and
+    // 54.72 during a full `npm run verify`, where several vitest workers and
+    // a build compete for the machine. None of them was a change to the
+    // parser.
+    //
+    // The median was the second attempt and is not enough: it filters one bad
+    // reading out of five, and a loaded machine slows *every* reading. The
+    // fastest is the one least disturbed by something that is not the parser,
+    // which is the ordinary way to time code against noise. It costs nothing
+    // in signal -- a quadratic implementation is ~64x in its best run as well
+    // as its median, so the bound of 24 still catches it.
+    const fastestOf = (n: number, runs = 5) =>
+      Math.min(...Array.from({ length: runs }, () => measure(n)))
     measure(50_000) // warm up, so the first run does not carry the JIT cost
-    const small = Math.max(medianOf(50_000), 0.5)
-    const large = medianOf(400_000)
+    const small = Math.max(fastestOf(50_000), 0.5)
+    const large = fastestOf(400_000)
     // Eight times the input. Linear would be ~8x; quadratic would be ~64x.
     expect(large / small).toBeLessThan(24)
   })

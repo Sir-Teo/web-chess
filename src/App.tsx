@@ -2644,11 +2644,25 @@ function App() {
     setWorkspaceMode(mode)
   }, [cancelPendingAiMove, cancelStaleBackgroundAnalysis, pause])
 
+  /**
+   * Show an analysis tab, from wherever the reader asked for it.
+   *
+   * The tab strip is only drawn in Analysis mode, so setting the tab from
+   * Play mode changed a value nobody could see: the command palette offers
+   * "Engine Lab" during a game and the screen stayed exactly as it was. The
+   * label is a destination, so this goes there -- the same thing the review
+   * offer does when it switches mode and lands on Review, and the same
+   * pausing the mode command beside it in the palette already does.
+   *
+   * The tab buttons themselves only exist in Analysis mode, so for them the
+   * mode change is a no-op and this is the palette's fix alone.
+   */
   const handleAnalysisTabChange = useCallback((tab: AnalysisTab) => {
+    if (workspaceMode !== 'analysis') handleWorkspaceModeChange('analysis')
     pause()
     setAnalysisTab(tab)
     setAnalysisPanelRevealTick(tick => tick + 1)
-  }, [pause])
+  }, [handleWorkspaceModeChange, pause, workspaceMode])
 
   const runLabCommand = useCallback(
     async (command: string) => {
