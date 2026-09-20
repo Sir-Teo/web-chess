@@ -3367,6 +3367,109 @@ async function checkOpeningNumbersBelongToTheirPosition(browser) {
 }
 
 /**
+ * The endgame tablebase says what the position is, and only about that one.
+ *
+ * The card had no coverage of its numbers at all -- the fixture answers
+ * lichess with a 404, so every run so far has seen it say "no tablebase
+ * result" and nothing else. It is the one place in the app that reports a
+ * *proven* result rather than an evaluation, so a wire crossed here would be
+ * an app stating a falsehood with certainty.
+ *
+ * The database is stubbed with an answer that names the position it was asked
+ * about, which is what lets the last assertion mean anything: move a piece and
+ * the verdict must go with the position it belonged to, not linger over the
+ * new one.
+ */
+async function checkTheTablebaseAnswersForThisPosition(browser) {
+  // A won king-and-pawn ending: three men, well inside the seven the
+  // tablebase covers.
+  const FEN = '8/8/8/4k3/8/8/4P3/4K3 w - - 0 1'
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    const asked = []
+    await context.route(/tablebase\.lichess\.org/, async route => {
+      const fen = new URL(route.request().url()).searchParams.get('fen') || ''
+      asked.push(fen)
+      // Each answer carries a number that says which ask it was, so the card
+      // can be held to showing the verdict for the position on the board --
+      // one answer repeated would make that assertion meaningless. The delay
+      // is what opens the gap a lingering verdict would sit in.
+      const nth = asked.length
+      await new Promise(resolve => setTimeout(resolve, 1200))
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          category: 'win', dtz: 10 + nth, dtm: 20 + nth, checkmate: false, stalemate: false,
+          moves: [{ uci: 'e1d2', san: 'Kd2', category: 'loss', dtz: -(9 + nth), dtm: -(19 + nth), zeroing: false }],
+        }),
+      })
+    })
+    await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+      workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze',
+      engineProfile: 'lite-single-local',
+    })))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+    // Load the ending through the dialog, the way a reader would.
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+    await page.getByRole('button', { name: /^FEN$/ }).click()
+    await page.waitForTimeout(300)
+    await page.locator('.dialog-section textarea').first().fill(FEN)
+    await page.getByRole('button', { name: /Load & Analyze/i }).first().click()
+    await page.waitForTimeout(3000)
+
+    const card = () => page.evaluate(() => {
+      const el = document.querySelector('.tablebase-card')
+      if (!el) return { missing: true }
+      return {
+        summary: (el.querySelector('.command-summary')?.textContent || '').replace(/\s+/g, ' ').trim(),
+        moves: [...el.querySelectorAll('.tablebase-move-row strong')].map(node => node.textContent.trim()),
+      }
+    })
+
+    const shown = await card()
+    assert(!shown.missing, 'the tablebase card is not drawn for a three-piece ending')
+    assert(asked.length >= 1, 'the tablebase was never asked about an eligible position')
+    assert(asked[0].startsWith('8/8/8/4k3'), `the tablebase was asked about something else: ${asked[0]}`)
+    assert(/3 pieces/.test(shown.summary),
+      `the card miscounted the men: ${JSON.stringify(shown.summary)}`)
+    assert(/DTZ 11\b/.test(shown.summary),
+      `the first answer was not the one shown: ${JSON.stringify(shown.summary)}`)
+    assert(/win/i.test(shown.summary),
+      `a proven win was not reported as one: ${JSON.stringify(shown.summary)}`)
+    assert(shown.moves.includes('Kd2'),
+      `the tablebase move was not offered: ${JSON.stringify(shown.moves)}`)
+
+    // Play on, and look into the gap before the answer for the new position
+    // can arrive. A verdict that lingers there is the app stating a proven
+    // result about a position it is no longer looking at.
+    await page.click('#chessboard-square-e1')
+    await page.click('#chessboard-square-d2')
+    await page.waitForTimeout(500)
+    const during = await card()
+    assert(!/DTZ 11\b/.test(during.summary),
+      `the previous position's proven verdict is still on screen: ${JSON.stringify(during.summary)}`)
+
+    await page.waitForTimeout(3000)
+    const after = await card()
+    assert(asked.length >= 2, 'the tablebase was not asked again after the move')
+    assert(asked[asked.length - 1] !== asked[0],
+      'the tablebase was asked twice about the same position')
+    assert(/DTZ 12\b/.test(after.summary),
+      `the card did not catch up with the board: ${JSON.stringify([shown.summary, after.summary])}`)
+    console.log(`  tablebase: asked about the position on the board, reported ${JSON.stringify(shown.summary)}`)
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -8905,6 +9008,7 @@ async function main() {
       'reading-space': checkReadingSpace,
       'opening-layout': checkOpeningLayout,
       'opening-numbers': checkOpeningNumbersBelongToTheirPosition,
+      'tablebase': checkTheTablebaseAnswersForThisPosition,
       'graph-guide': checkGraphEstimateGuide,
       'board-canvas': checkBoardCanvas,
       'typed-moves': checkTypedMoveEntry,
@@ -9633,6 +9737,7 @@ async function main() {
     await checkReadingSpace(browser)
     await checkOpeningLayout(browser)
     await checkOpeningNumbersBelongToTheirPosition(browser)
+    await checkTheTablebaseAnswersForThisPosition(browser)
     await checkBoardCanvas(browser)
     await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)
