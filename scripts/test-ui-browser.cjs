@@ -1830,20 +1830,8 @@ async function checkPlayedMoveBecomesTheGame(browser) {
     await play('d2', 'd4')
     await page.waitForFunction(() => /d4/.test(document.body.innerText), null, { timeout: 10000 })
 
-    const movetext = await page.evaluate(async () => {
-      const open = [...document.querySelectorAll('button')]
-        .find(b => b.getAttribute('aria-label') === 'Open PGN and FEN dialog')
-      open.click()
-      await new Promise(resolve => setTimeout(resolve, 800))
-      const exportTab = [...document.querySelectorAll('.dialog-panel button')]
-        .find(b => /^Export$/.test(b.textContent.trim()))
-      if (exportTab) exportTab.click()
-      await new Promise(resolve => setTimeout(resolve, 600))
-      const text = [...document.querySelectorAll('textarea')]
-        .map(area => area.value)
-        .find(value => /^\[Event/m.test(value)) || ''
-      return (text.split('\n\n')[1] || '').replace(/\{[^}]*\}/g, '').replace(/\s+/g, ' ').trim()
-    })
+    const exportedText = await readExportedPgn(page)
+    const movetext = (exportedText.split('\n\n')[1] || '').replace(/\{[^}]*\}/g, '').replace(/\s+/g, ' ').trim()
 
     assert(/2\.\s*d4/.test(movetext),
       `the move played after a takeback is not in the game: ${movetext}`)
@@ -1936,19 +1924,7 @@ async function checkTakingBackAMateUnfinishesTheGame(browser) {
     // dialog, take the text, and put the dialog away again so the next read
     // starts from the same place.
     const exported = async () => {
-      const text = await page.evaluate(async () => {
-        [...document.querySelectorAll('button')]
-          .find(b => b.getAttribute('aria-label') === 'Open PGN and FEN dialog')
-          .click()
-        await new Promise(resolve => setTimeout(resolve, 800))
-        const exportTab = [...document.querySelectorAll('.dialog-panel button')]
-          .find(b => /^Export$/.test(b.textContent.trim()))
-        if (exportTab) exportTab.click()
-        await new Promise(resolve => setTimeout(resolve, 600))
-        return [...document.querySelectorAll('textarea')]
-          .map(area => area.value)
-          .find(value => /^\[Event/m.test(value)) || ''
-      })
+      const text = await readExportedPgn(page)
       await page.keyboard.press('Escape')
       await page.waitForTimeout(300)
       return {
@@ -2831,22 +2807,12 @@ async function checkAReplayedMoveRecordsItsOwnClock(browser) {
     assert(first !== second,
       `the takeback refunded the think, so this check cannot tell the readings apart: both read ${first}`)
 
-    const text = await page.evaluate(async () => {
-      [...document.querySelectorAll('button')]
-        .find(b => b.getAttribute('aria-label') === 'Open PGN and FEN dialog')
-        .click()
-      await new Promise(resolve => setTimeout(resolve, 800))
-      const exportTab = [...document.querySelectorAll('.dialog-panel button')]
-        .find(b => /^Export$/.test(b.textContent.trim()))
-      if (exportTab) exportTab.click()
-      await new Promise(resolve => setTimeout(resolve, 600))
-      return [...document.querySelectorAll('textarea')]
-        .map(area => area.value)
-        .find(value => /^\[Event/m.test(value)) || ''
-    })
+    const text = await readExportedPgn(page)
 
     const recorded = [...text.matchAll(/\[%clk\s+([0-9:]+)\s*\]/g)].map(match => match[1])
-    assert(recorded.length === 1, `the replayed move should be the game's one move, got ${recorded.length} readings`)
+    assert(recorded.length === 1,
+      `the replayed move should be the game's one move, got ${recorded.length} readings`
+      + ` from ${text.length} characters: ${JSON.stringify(text.slice(0, 400))}`)
     const asFace = (clk) => clk.replace(/^0:0?/, '')
     assert(asFace(recorded[0]) !== first,
       `the game recorded ${recorded[0]}, the reading from before the take-back`)
@@ -4259,19 +4225,7 @@ async function checkRecordedClocksMatchTheClock(browser) {
     await page.waitForFunction(() => /White to move/.test(document.body.innerText), null, { timeout: 10000 })
     const blackFace = await page.locator('.clock-face.clock-black strong').textContent()
 
-    const text = await page.evaluate(async () => {
-      [...document.querySelectorAll('button')]
-        .find(b => b.getAttribute('aria-label') === 'Open PGN and FEN dialog')
-        .click()
-      await new Promise(resolve => setTimeout(resolve, 800))
-      const exportTab = [...document.querySelectorAll('.dialog-panel button')]
-        .find(b => /^Export$/.test(b.textContent.trim()))
-      if (exportTab) exportTab.click()
-      await new Promise(resolve => setTimeout(resolve, 600))
-      return [...document.querySelectorAll('textarea')]
-        .map(area => area.value)
-        .find(value => /^\[Event/m.test(value)) || ''
-    })
+    const text = await readExportedPgn(page)
 
     const recorded = [...text.matchAll(/\[%clk\s+([0-9:]+)\s*\]/g)].map(match => match[1])
     assert(recorded.length === 2, `expected a reading for each of the two moves, got ${recorded.length}`)
@@ -9491,6 +9445,31 @@ async function assertContrast(page, label, minimum = 40) {
   assert(result.failures.length === 0, `${label}: text under its contrast floor: ${described}`)
   console.log(`  contrast (${label}): ${result.checked} measured, 0 under the floor`
     + ` (${result.unverified} on a gradient, measured against its worst stop)`)
+}
+
+/**
+ * Open the PGN dialog's Export tab and read the game out of it.
+ *
+ * Three checks did this with two fixed sleeps -- 800ms for the lazily
+ * imported panel, 600ms for the tab -- and returned `''` when either was
+ * short, which reads downstream as "the game exported nothing" rather than
+ * as "the dialog had not finished opening". **Measured** in WebKit: zero
+ * characters from one check while the identical idiom passed in another on
+ * the same engine, which is a coin toss rather than a check.
+ *
+ * Waits, and fails loudly. Leaves the dialog open; the caller closes it if it
+ * needs the board back.
+ */
+async function readExportedPgn(page) {
+  await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).first().click()
+  await page.locator('.dialog-panel').waitFor({ timeout: 15000 })
+  await page.locator('.dialog-panel button', { hasText: /^Export$/ }).first().click()
+  await page.waitForFunction(
+    () => [...document.querySelectorAll('textarea')].some(area => /^\[Event/m.test(area.value)),
+    null, { timeout: 15000 })
+  return page.evaluate(() => [...document.querySelectorAll('textarea')]
+    .map(area => area.value)
+    .find(value => /^\[Event/m.test(value)) || '')
 }
 
 async function openSettings(page) {
