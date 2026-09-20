@@ -2710,6 +2710,73 @@ async function checkAHintSaysWhereToLookOnlyIfItIsDrawn(browser) {
   }
 }
 
+/**
+ * An imported game's background sweep runs to the end.
+ *
+ * The sweep had no browser coverage at all. It is the thing that fills in the
+ * graphs behind an imported game, it reports its own progress, and the Engine
+ * Lab reads the same unfinished count to decide whether the engine may be
+ * released -- so a sweep that stalls is visible in three places and was
+ * checked in none.
+ *
+ * Written while chasing a stall that does not exist, and kept for the
+ * coverage. The suspicion was this: two pieces of state name a position the
+ * engine still owes an answer for, `pendingShallowAnalyzeFen` and
+ * `pendingPonderFen`, the sweep refuses to start while either is set, and the
+ * auto-analyze effect only consumes one when it matches the board -- so a
+ * request made by navigating, in a window where that effect declines to run,
+ * could name a position the board had left and hold the sweep for the
+ * session. **Measured**: it cannot. `clearImportSweep` clears the ponder
+ * request itself, and it is called by every path that queues a sweep, so the
+ * request cannot outlive the queue it would have blocked. The run that
+ * proved it swept 34/40 and then 35/40 across a review the board walked out
+ * of.
+ *
+ * The readout is only drawn while the sweep is unfinished, so this watches it
+ * rather than waiting for it to read N/N, which is the one thing it can never
+ * say.
+ */
+async function checkAnImportSweepRunsToTheEnd(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    const readSweep = () => page.evaluate(() => {
+      const match = /Background graph sampling:\s*(\d+)\/(\d+)/.exec(document.body.innerText || '')
+      return match ? { done: Number(match[1]), total: Number(match[2]) } : null
+    })
+
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+    const textarea = page.locator('.dialog-panel textarea').first()
+    await textarea.waitFor({ timeout: 10000 })
+    await textarea.fill('1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O '
+      + '9. h3 Nb8 10. d4 Nbd7 11. Nbd2 Bb7 12. Bc2 Re8 13. Nf1 Bf8 14. Ng3 g6 15. a4 c5 '
+      + '16. d5 c4 17. Bg5 h6 18. Be3 Nc5 19. Qd2 h5 20. Bg5 Be7 *')
+    await page.getByRole('button', { name: /Import & Analyze/ }).click()
+
+    // Poll until the readout goes away, reporting the furthest it got.
+    const deadline = Date.now() + 90000
+    let seen = null
+    let gone = false
+    while (Date.now() < deadline) {
+      const now = await readSweep()
+      if (now) { seen = now; gone = false }
+      else if (seen) { gone = true; break }
+      await page.waitForTimeout(120)
+    }
+    assert(seen, 'the import queued no background sweep, so nothing here was measured')
+    assert(seen.total > 1, `a sweep of ${seen.total} position(s) proves nothing about one that has to make progress`)
+    assert(gone, `the sweep stopped at ${seen.done}/${seen.total} and the readout never closed`)
+    console.log(`  import sweep: reached ${seen.done}/${seen.total} and closed`)
+  } finally {
+    await context.close()
+  }
+}
+
 async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -9569,6 +9636,7 @@ async function main() {
       'navigation-clock': checkNavigationKeepsTheClockHonest,
       'review-offer': checkTheReviewOfferFollowsTheGame,
       'nudge': checkBlunderIsPointedOut,
+      'import-sweep': checkAnImportSweepRunsToTheEnd,
       'hint-copy': checkAHintSaysWhereToLookOnlyIfItIsDrawn,
     }
     if (process.env.UI_TEST_ONLY) {
@@ -10257,6 +10325,7 @@ async function main() {
     await checkABlindfoldHidesThePieces(browser)
     await checkAHintBelongsToItsPosition(browser)
     await checkAHintSaysWhereToLookOnlyIfItIsDrawn(browser)
+    await checkAnImportSweepRunsToTheEnd(browser)
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkTheReviewOfferFollowsTheGame(browser)
