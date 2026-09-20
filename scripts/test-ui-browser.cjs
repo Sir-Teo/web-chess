@@ -2483,6 +2483,87 @@ async function checkTheMarkupSaysWhatItShows(browser) {
 }
 
 /**
+ * A move played entirely from the keyboard, in whichever engine.
+ *
+ * The board is a third party's DOM and the keyboard affordance is written onto
+ * it: each occupied square holds one `[role="button"][tabindex="0"]`, pressing
+ * Enter selects the piece, and `boardAccessibilitySync` then marks the legal
+ * destinations `data-webchess-a11y-target` and makes the empty ones focusable
+ * so Enter can land on one. Nothing checked that the two halves still meet.
+ *
+ * Focus after the move is asserted because it is the half that broke before
+ * and is invisible until someone tries it: the square the reader pressed Enter
+ * on stops being focusable the instant the move lands, and focus fell to
+ * `<body>` -- back at the top of the document, the whole board away.
+ * `restoreBoardFocusRef` puts it on the destination instead, and this is what
+ * says so.
+ *
+ * The piece is focused directly rather than tabbed to from the skip link: the
+ * board's first stop is a8 and e2 is twenty-odd presses further on, which
+ * would test Playwright's patience rather than the app. That the board is
+ * reachable at all is `checkTheMarkupSaysWhatItShows`'s assertion.
+ */
+async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+    await page.waitForTimeout(400)
+
+    const read = () => page.evaluate(() => {
+      const active = document.activeElement
+      const square = active && active.closest ? active.closest('[id^="chessboard-square-"]') : null
+      const targets = [...document.querySelectorAll('[data-webchess-a11y-target="true"]')]
+      return {
+        focus: square ? square.id.slice(-2) : (active ? active.tagName.toLowerCase() : 'nothing'),
+        targets: targets.map(el => el.id.slice(-2)).sort(),
+        targetsFocusable: targets.every(el => el.tabIndex === 0 && el.getAttribute('role') === 'button'),
+        targetLabels: targets.map(el => el.getAttribute('aria-label') || ''),
+        moves: [...document.querySelectorAll('.mtree-chip')].map(chip => chip.textContent.trim()),
+      }
+    })
+
+    const focusSquare = async (square) => page.evaluate(id => {
+      const el = document.getElementById(`chessboard-square-${id}`)
+      const holder = [...el.querySelectorAll('*')].find(child => child.tabIndex >= 0) || el
+      holder.focus()
+      return document.activeElement === holder || holder.contains(document.activeElement)
+    }, square)
+
+    assert(await focusSquare('e2'), 'the pawn on e2 could not be focused; the board exposes no keyboard handle')
+    assert((await read()).focus === 'e2', 'focusing the e2 handle did not land on e2')
+
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(400)
+    const selected = await read()
+    assert(selected.targets.join(',') === 'e3,e4',
+      `selecting the e2 pawn should offer e3 and e4, it offered [${selected.targets}]`)
+    assert(selected.targetsFocusable,
+      'the destinations are marked as targets but are not focusable buttons, so Enter cannot reach them')
+    assert(selected.targetLabels.every(label => /legal move target/.test(label)),
+      `a destination does not say what it is: ${JSON.stringify(selected.targetLabels)}`)
+
+    assert(await focusSquare('e4'), 'the e4 destination could not be focused')
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(500)
+    const played = await read()
+    assert(played.moves.includes('e4'), `the keyboard move did not reach the game: [${played.moves}]`)
+    assert(played.targets.length === 0, `the move left ${played.targets.length} destination(s) still marked`)
+    assert(played.focus === 'e4',
+      `after a keyboard move focus belongs on the destination, and it was on "${played.focus}"`)
+    console.log('  keyboard: e2 selected, e3 and e4 offered and named, Enter played e4, focus stayed on the board')
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -8026,6 +8107,7 @@ async function main() {
       'recorded-clocks': checkRecordedClocksMatchTheClock,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
       'markup': checkTheMarkupSaysWhatItShows,
+      'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
       'finished-clock': checkAFinishedGameKeepsItsStoppedClock,
       'navigation-clock': checkNavigationKeepsTheClockHonest,
     }
@@ -8701,6 +8783,7 @@ async function main() {
     await checkRecordedClocksMatchTheClock(browser)
     await checkADialogKeepsTheKeyboard(browser)
     await checkTheMarkupSaysWhatItShows(browser)
+    await checkAMoveCanBePlayedFromTheKeyboard(browser)
     await checkAFinishedGameKeepsItsStoppedClock(browser)
     await checkNavigationKeepsTheClockHonest(browser)
     await checkKeepSearchingIsUnbounded(browser)
