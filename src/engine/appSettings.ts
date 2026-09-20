@@ -169,9 +169,16 @@ export const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
  * "Reset saved workspace" used it, but a *first visit* took the flat 64 from
  * the constant. That is the one visit with no reader preference to respect, so
  * it is the one where the device's own limits are all there is to go on.
+ *
+ * `multiPv` was added later and repeated the bug exactly: `defaultMultiPv`
+ * reached the corrupt-value fallback and nothing else, so a phone's *first*
+ * visit -- the whole population `recommendedMultiPv` was measured for -- still
+ * took the flat 2 and paid two to four and a half times the work for a second
+ * board arrow. Both device-aware defaults belong here, together, so the next
+ * one added is harder to leave out.
  */
 export function defaultPersistedSettings(): PersistedAppSettings {
-  return { ...DEFAULT_PERSISTED_SETTINGS, hashMb: defaultHashMb() }
+  return { ...DEFAULT_PERSISTED_SETTINGS, hashMb: defaultHashMb(), multiPv: defaultMultiPv() }
 }
 
 let cachedDefaultHashMb: number | null = null

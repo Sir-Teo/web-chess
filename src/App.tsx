@@ -200,6 +200,7 @@ import {
   OPENING_SPEEDS,
   QUICK_MOVETIME_BOUNDS,
   defaultHashMb,
+  defaultMultiPv,
   loadPersistedSettings,
   persistSettings,
   type AnalysisExperience,
@@ -2469,7 +2470,7 @@ function App() {
     hasAutoOpenedAnalysisLeftRef.current = false
     setLeftWidth(0)
     setSearchDepth(DEFAULT_PERSISTED_SETTINGS.searchDepth)
-    setMultiPv(DEFAULT_PERSISTED_SETTINGS.multiPv)
+    setMultiPv(defaultMultiPv())
     setHashMb(defaultHashMb())
     setReviewMaxWorkers(DEFAULT_PERSISTED_SETTINGS.reviewMaxWorkers)
     setShowWdl(DEFAULT_PERSISTED_SETTINGS.showWdl)

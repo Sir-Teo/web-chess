@@ -2,13 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_PERSISTED_SETTINGS,
   defaultHashMb,
+  defaultMultiPv,
   defaultPersistedSettings,
   loadPersistedSettings,
   persistSettings,
   resolveTheme,
   type PersistedAppSettings,
 } from './appSettings'
-import { recommendedHashMb } from './profiles'
+import { recommendedHashMb, recommendedMultiPv } from './profiles'
 import { ANALYSIS_SETTINGS_STORAGE_KEY } from '../storageKeys'
 
 /** A localStorage stand-in, so nothing here depends on a browser. */
@@ -88,6 +89,32 @@ describe('reading settings back', () => {
       isMobile: true,
     }
     expect(recommendedHashMb(phone)).toBeLessThan(DEFAULT_PERSISTED_SETTINGS.hashMb)
+  })
+
+  /**
+   * The same question as Hash above, asked of MultiPV, and answered the same
+   * two ways for the same reason: `defaultMultiPv` was wired into the
+   * corrupt-value fallback and nowhere else, so a first visit took the flat 2.
+   * A second line is between two and four and a half times the work -- see
+   * `recommendedMultiPv` -- so the device that most needs the sized default is
+   * the one that was not getting it.
+   */
+  it('sizes MultiPV to the device on a first visit, not to the flat constant', () => {
+    installStorage()
+    expect(loadPersistedSettings().multiPv).toBe(defaultMultiPv())
+    installStorage(stored({ multiPv: 99 }))
+    expect(loadPersistedSettings().multiPv).toBe(defaultMultiPv())
+  })
+
+  it('would hand a phone fewer lines than the constant', () => {
+    const phone = {
+      sharedArrayBuffer: false,
+      crossOriginIsolated: false,
+      hardwareConcurrency: 8,
+      deviceMemoryGb: 4,
+      isMobile: true,
+    }
+    expect(recommendedMultiPv(phone)).toBeLessThan(DEFAULT_PERSISTED_SETTINGS.multiPv)
   })
 
   it('keeps a value it recognises', () => {
