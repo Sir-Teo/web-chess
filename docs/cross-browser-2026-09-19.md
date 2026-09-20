@@ -53,12 +53,31 @@ them again. Not chased further. It costs a Safari reader reloading during an
 outage the multi-threaded engine, and the app falls back to a single-threaded
 profile rather than breaking.
 
-**`checkReviewBackupImport` fails in WebKit and passes in Chromium**, at the first
-upload into a second context with service workers blocked. The feature itself
-works there: exporting and re-importing a backup reports "Imported 0 reviews; 1
-identical review skipped" within a second, and the awkward cases — a partial run,
-an ID collision — behave identically in both engines. So it is something about
-that fixture, not a broken import.
+**`checkReviewBackupImport` fails in WebKit and passes in Chromium.** Run down
+to its cause rather than left as "something about the fixture". The failure is
+the *second* upload in the 1280px iteration — the one whose context blocks
+service workers — and WebKit says why:
+
+    Refused to load .../reviewBackupWorker-*.js worker because of
+    Cross-Origin-Embedder-Policy
+
+which the app surfaces honestly as "The review backup worker could not run."
+Under `require-corp` WebKit refuses that module worker where Chromium loads it.
+
+It is not the missing `Cross-Origin-Resource-Policy` header it looks like.
+Tried both values on the dev and preview server, confirmed arriving
+(`corp: "same-origin"`, then `cross-origin`, `isolated: true` in both): WebKit
+refuses the worker either way, so the header was reverted rather than kept for a
+story that turned out to be wrong.
+
+What separates the two iterations is *who* serves the worker script. With the
+service worker allowed — the 375px iteration, and the shape the deployed app has
+— it loads and that iteration passes in WebKit, "the cached worker imports and
+exports offline" included. Only a server that sets COEP itself trips it, and
+GitHub Pages sends no COOP or COEP at all; the app's isolation comes from
+`sw.js`. So this costs a Safari reader nothing on the deployed site, and costs a
+Safari *developer* review backup against `npm run dev` until the service worker
+takes over.
 
 ## Scores
 
