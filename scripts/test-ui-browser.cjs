@@ -3278,6 +3278,95 @@ async function checkTheEvaluationBarSurvivesTheWdlSwitch(browser) {
 }
 
 /**
+ * Opening numbers never outlive the position they were counted for.
+ *
+ * The card reads a database over the network, so there is a window between a
+ * move and the answer for it -- and the wrong thing to do with that window is
+ * leave the last position's counts on screen, which a reader has no way to
+ * tell from the real ones. `useOpeningExplorer` exports a `stale` flag that
+ * nothing consumes, which reads like the bug being present and is not: the
+ * data is keyed to the query, so it goes when the query changes.
+ *
+ * Nothing had checked that, because the suite's fixture answers the explorer
+ * with a 404 -- `checkOpeningLayout` exercises the card's geometry and never
+ * its numbers. This one stubs the database instead, with counts that name the
+ * position they belong to, and a delay long enough to look into the gap.
+ */
+async function checkOpeningNumbersBelongToTheirPosition(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    let served = 0
+    await context.route(/explorer\.lichess\.org/, async route => {
+      const url = new URL(route.request().url())
+      const ply = (url.searchParams.get('play') || '').split(',').filter(Boolean).length
+      const white = 1000 + ply * 100
+      served += 1
+      // Long enough that the gap is a real one to look into.
+      await new Promise(resolve => setTimeout(resolve, 1200))
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          white, draws: 10, black: 20, opening: { eco: 'B00', name: `Position ply ${ply}` },
+          moves: [{ uci: 'e2e4', san: 'e4', white, draws: 10, black: 20, averageRating: 2400 }],
+        }),
+      })
+    })
+    await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+      workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze',
+      engineProfile: 'lite-single-local',
+    })))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+    // The explorer only asks once it has a token; the field is the way in.
+    const token = page.getByLabel('Lichess API token', { exact: true })
+    assert(await token.count() === 1, 'the opening card offers nowhere to put a token, so it will never ask')
+    await token.fill('probe-fixture')
+    await page.waitForTimeout(3500)
+
+    const card = () => page.evaluate(() => {
+      const el = document.querySelector('.opening-intel-card')
+      if (!el) return { missing: true }
+      const text = (el.textContent || '').replace(/\s+/g, ' ')
+      return {
+        games: (text.match(/Games ([\d,]+)/) || [])[1] || null,
+        position: (text.match(/Position ply \d+/) || [])[0] || null,
+        loading: /loading/i.test(text),
+      }
+    })
+
+    const first = await card()
+    assert(first.position === 'Position ply 0',
+      `the card never read the database: ${JSON.stringify(first)}`)
+    assert(served >= 1, 'the database was never asked')
+
+    // Into the gap: a move, then a look before the answer for it can arrive.
+    await page.click('#chessboard-square-e2')
+    await page.click('#chessboard-square-e4')
+    await page.waitForTimeout(500)
+    const during = await card()
+    assert(during.position !== first.position,
+      `the previous position's counts are still on screen with nothing to say so: ${JSON.stringify(during)}`)
+    assert(during.games === null,
+      `a game count outlived its position: ${JSON.stringify(during)}`)
+    assert(during.loading, 'the card went blank without saying it was reading')
+
+    await page.waitForTimeout(3000)
+    const settled = await card()
+    assert(settled.position === 'Position ply 1',
+      `the card did not catch up with the board: ${JSON.stringify(settled)}`)
+    console.log(`  opening explorer: counts cleared on the move and came back as ${JSON.stringify(settled.position)}`)
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -8815,6 +8904,7 @@ async function main() {
       'compact-footer': checkCompactFooter,
       'reading-space': checkReadingSpace,
       'opening-layout': checkOpeningLayout,
+      'opening-numbers': checkOpeningNumbersBelongToTheirPosition,
       'graph-guide': checkGraphEstimateGuide,
       'board-canvas': checkBoardCanvas,
       'typed-moves': checkTypedMoveEntry,
@@ -9542,6 +9632,7 @@ async function main() {
     await checkCompactFooter(browser)
     await checkReadingSpace(browser)
     await checkOpeningLayout(browser)
+    await checkOpeningNumbersBelongToTheirPosition(browser)
     await checkBoardCanvas(browser)
     await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)
