@@ -3018,6 +3018,75 @@ async function checkABlindfoldHidesThePieces(browser) {
 }
 
 /**
+ * A hint answers about the position it was asked about, and only that one.
+ *
+ * Nothing exercised this: the seven matches for "hint" in here were all CSS
+ * class names -- `.archive-hint`, `.library-hint`, `.command-palette-hint` --
+ * and none of them the button.
+ *
+ * The guard worth holding is the one in `requestHint`: the engine is asked
+ * about `askedFor`, and the reply is dropped unless the board is still there.
+ * Without it a hint arrives for a position the reader has already left and
+ * draws an arrow between two squares that mean nothing now. Pressing three
+ * times is checked in the same pass, since one press should be one search.
+ */
+async function checkAHintBelongsToItsPosition(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', error => errors.push(String(error).slice(0, 120)))
+  try {
+    await page.addInitScript(fakeEngineScript('blunder-nudge'))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await page.click('.top-mode-pills button:has-text("Human vs AI")')
+    await page.waitForFunction(() => /ready to play/.test(document.body.innerText), null, { timeout: 20000 })
+    await page.waitForTimeout(500)
+
+    // Named by its aria-label, not its text -- the text is one word and the
+    // label is the sentence.
+    const hint = page.getByRole('button', { name: 'Ask the engine for a hint' })
+    assert(await hint.count() === 1, 'there is no way to ask for a hint')
+
+    await page.evaluate(() => { window.__mark = (window.__uciCommands || []).length })
+    const pressed = await page.evaluate(() => {
+      const button = [...document.querySelectorAll('button')]
+        .find(candidate => /hint/i.test(candidate.getAttribute('aria-label') || ''))
+      if (!button || button.disabled) return false
+      button.click(); button.click(); button.click()
+      return true
+    })
+    assert(pressed, 'the hint button would not take a press')
+    await page.waitForTimeout(2500)
+
+    const asked = await page.evaluate(() => (window.__uciCommands || []).slice(window.__mark)
+      .filter(command => command.startsWith('go ')).length)
+    assert(asked === 1, `three presses should ask the engine once, and asked ${asked} times`)
+
+    const arrows = await page.evaluate(() => document.querySelectorAll('svg line').length)
+    assert(arrows > 0, 'the hint drew nothing on the board')
+
+    // The board moves on; the hint must not outlive it.
+    await page.click('#chessboard-square-e2')
+    await page.click('#chessboard-square-e4')
+    await page.waitForTimeout(2000)
+    const label = await page.evaluate(() => {
+      const button = [...document.querySelectorAll('button')]
+        .find(candidate => /hint/i.test(candidate.getAttribute('aria-label') || ''))
+      return button ? (button.textContent || '').trim() : 'gone'
+    })
+    assert(!/looking/i.test(label),
+      `the hint button is still searching after the board moved: ${JSON.stringify(label)}`)
+    assert(errors.length === 0, `page errors while hinting: ${errors.join('; ')}`)
+    console.log('  hint: three presses asked once, drew an arrow, and did not outlive the position')
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -8567,6 +8636,7 @@ async function main() {
       'premove': checkAPremoveWaitsForItsTurn,
       'threat': checkTheThreatProbeAsksTheOtherSide,
       'blindfold': checkABlindfoldHidesThePieces,
+      'hint': checkAHintBelongsToItsPosition,
       'library-double-save': checkOneGestureSavesOneGame,
       'database-once': checkADatabaseIsAddedOnce,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
@@ -9257,6 +9327,7 @@ async function main() {
     await checkAPremoveWaitsForItsTurn(browser)
     await checkTheThreatProbeAsksTheOtherSide(browser)
     await checkABlindfoldHidesThePieces(browser)
+    await checkAHintBelongsToItsPosition(browser)
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkDrillLeavesTheLineAlone(browser)
