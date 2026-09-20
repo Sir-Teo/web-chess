@@ -552,6 +552,69 @@ function App() {
     if (changed) document.querySelector(`.app-shell > .${changed} > .resize-handle`)
       ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
   }, [topPanelOpen, bottomPanelOpen, scrollDesktopChrome])
+
+  /**
+   * Keep a focused control inside a dialog that scrolls.
+   *
+   * Firefox scrolls the panel to reveal a newly focused control and then, in
+   * the very next frame, scrolls it straight back. **Measured** against the
+   * built app at 901x256 with a 32px root font: `panel.scrollTop` reads 984
+   * on the frame the control is focused -- correctly in view -- and 848 on
+   * every frame after, a revert of exactly 136px, with one `scroll` event to
+   * show for it. So a reader tabbing through a dialog on a short window lands
+   * on a button they cannot see, about half the time.
+   *
+   * Nothing in this app does it, and it is not a layout problem. During the
+   * revert a `MutationObserver` over the whole panel records **zero**
+   * mutations, `panel.scrollHeight` holds at 1206 from before the focus to
+   * after it, `document.fonts.status` is `loaded` throughout, the focused
+   * node is the same node and still attached, and hooks on the panel's
+   * `scrollTop` setter, `scrollTo` and `scrollIntoView` catch no call at all.
+   * Chromium never reverts.
+   *
+   * Do not reach for `overflow-anchor: none` instead. Twenty runs per arm, a
+   * fresh Firefox each, say it makes this four times *worse* -- 3/20 clipped
+   * as shipped against 14/20 with anchoring off -- because anchoring is most
+   * of what currently corrects the revert before a frame is painted.
+   *
+   * So: one frame after focus, if the control the reader is on has ended up
+   * outside its panel, put it back. A capability check rather than a browser
+   * check, and it costs a rect comparison per focus; Chromium takes the same
+   * path and never satisfies the condition. Measured 9/20 outside before,
+   * 0/20 after, and 0/20 either way in Chromium. Same shape as the board
+   * stage's own reveal handler below, and for the same kind of reason.
+   */
+  useEffect(() => {
+    const reveal = (event: FocusEvent) => {
+      const target = event.target
+      if (!(target instanceof HTMLElement)) return
+      const panel = target.closest('.dialog-panel')
+      if (!panel || panel.scrollHeight <= panel.clientHeight) return
+      requestAnimationFrame(() => {
+        // Only the control still being focused, and only when the browser has
+        // actually taken it away -- a correction applied unconditionally would
+        // fight every scroll the reader makes themselves.
+        if (document.activeElement !== target) return
+        const control = target.getBoundingClientRect()
+        const bounds = panel.getBoundingClientRect()
+        /*
+         * A whole pixel of slack, and it is not cosmetic.
+         *
+         * Written first as an exact comparison, which fires on a control
+         * sitting a rounding error past its panel's edge -- so every focus
+         * scrolled something, every focused control moved, and Playwright's
+         * own actionability check started reporting "element is not stable,
+         * retrying click action" until it gave up. `checkSavedReviews` went
+         * from passing to failing in Firefox on that alone. The revert this
+         * exists for is 136px; nothing it needs to catch is under a pixel.
+         */
+        if (control.top >= bounds.top - 1 && control.bottom <= bounds.bottom + 1) return
+        target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+      })
+    }
+    document.addEventListener('focusin', reveal)
+    return () => document.removeEventListener('focusin', reveal)
+  }, [])
   const compactEngineStatus = compactDesktopChrome && typeof HTMLElement !== 'undefined'
     && typeof HTMLElement.prototype.showPopover === 'function'
   const leftPanelUnavailable = workspaceMode === 'play'
