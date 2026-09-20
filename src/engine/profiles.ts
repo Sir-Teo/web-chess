@@ -101,6 +101,32 @@ export function recommendedHashMb(capabilities: EngineCapabilities): number {
   return 64
 }
 
+/**
+ * How many principal variations an automatic analysis should ask for.
+ *
+ * A second line is not a second search, it is a slower one: MultiPV turns off
+ * pruning the engine relies on. **Measured** against the shipped
+ * single-threaded Lite build at depth 18 -- the start position took 123k nodes
+ * in 82ms at MultiPV 1 and 586k in 369ms at MultiPV 2, and a middlegame took
+ * 787k/467ms against 1.64M/1077ms. So the second line costs between two and
+ * four and a half times the work, not twice.
+ *
+ * What it buys by default is the second candidate arrow on the board, which is
+ * worth having on a machine that can afford it and is not worth a phone
+ * running the whole search again after every move. Same shape as
+ * `recommendedHashMb` and `recommendedThreadCount`, and for the same reason:
+ * the defaults should suit the device, and a reader who wants more can raise
+ * it and have that remembered.
+ */
+export function recommendedMultiPv(capabilities: EngineCapabilities): number {
+  if (capabilities.isMobile) return 1
+  const memoryGb = capabilities.deviceMemoryGb
+  const reported = typeof memoryGb === 'number' && Number.isFinite(memoryGb)
+  if (reported && memoryGb <= 4) return 1
+  if (capabilities.hardwareConcurrency <= 2) return 1
+  return 2
+}
+
 export function recommendedThreadCount(profile: EngineProfile, capabilities: EngineCapabilities): number {
   if (!profile.requiresIsolation) return 1
   if (!capabilities.sharedArrayBuffer || !capabilities.crossOriginIsolated) return 1

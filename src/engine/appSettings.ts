@@ -1,4 +1,4 @@
-import { detectEngineCapabilities, engineProfiles, recommendedHashMb, type EngineProfileId } from './profiles'
+import { detectEngineCapabilities, engineProfiles, recommendedHashMb, type EngineProfileId, recommendedMultiPv } from './profiles'
 import type { AnalyzeMode } from './uci'
 import type { OpeningDatabaseSource, OpeningSpeed } from './openingExplorer'
 import { isBoardThemeId } from './boardThemes'
@@ -175,6 +175,19 @@ export function defaultPersistedSettings(): PersistedAppSettings {
 }
 
 let cachedDefaultHashMb: number | null = null
+let cachedDefaultMultiPv: number | null = null
+
+/** The device-aware default; see `recommendedMultiPv`. */
+export function defaultMultiPv(): number {
+  if (cachedDefaultMultiPv !== null) return cachedDefaultMultiPv
+  try {
+    cachedDefaultMultiPv = recommendedMultiPv(detectEngineCapabilities())
+  } catch {
+    cachedDefaultMultiPv = DEFAULT_PERSISTED_SETTINGS.multiPv
+  }
+  return cachedDefaultMultiPv
+}
+
 export function defaultHashMb(): number {
   if (cachedDefaultHashMb !== null) return cachedDefaultHashMb
   try {
@@ -298,7 +311,7 @@ export function loadPersistedSettings(): PersistedAppSettings {
         QUICK_MOVETIME_BOUNDS.fallback,
       ),
       mateTarget: normalizeInteger(parsed.mateTarget, MATE_TARGET_BOUNDS.min, MATE_TARGET_BOUNDS.max, MATE_TARGET_BOUNDS.fallback),
-      multiPv: normalizeInteger(parsed.multiPv, 1, 5, DEFAULT_PERSISTED_SETTINGS.multiPv),
+      multiPv: normalizeInteger(parsed.multiPv, 1, 5, defaultMultiPv()),
       hashMb: normalizeInteger(parsed.hashMb, 16, 512, defaultHashMb()),
       reviewMaxWorkers: normalizeInteger(parsed.reviewMaxWorkers, 1, 4, DEFAULT_PERSISTED_SETTINGS.reviewMaxWorkers),
       showWdl: typeof parsed.showWdl === 'boolean' ? parsed.showWdl : DEFAULT_PERSISTED_SETTINGS.showWdl,

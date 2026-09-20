@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import stockfishPackage from 'stockfish/package.json'
-import { deriveWasmPath, engineProfiles, pickAutoProfile, resolveProfile, toAbsoluteAssetUrl, workerMainUrlWithWasmHash, type EngineCapabilities } from './profiles'
+import { deriveWasmPath, engineProfiles, pickAutoProfile, profileById, recommendedHashMb, recommendedMultiPv, recommendedThreadCount, resolveProfile, toAbsoluteAssetUrl, workerMainUrlWithWasmHash, type EngineCapabilities } from './profiles'
 
 /** The Stockfish the local profiles are built from: sync:stockfish copies its bin/ into public/engine. */
 const installedStockfishVersion: string = stockfishPackage.version
@@ -128,5 +128,40 @@ describe('choosing an engine for the machine', () => {
     expect(resolveProfile('lite-multi-local', capable).id).toBe('lite-multi-local')
     expect(resolveProfile('lite-single-local', capable).id).toBe('lite-single-local')
     expect(resolveProfile('auto', capable).id).toBe('lite-multi-local')
+  })
+})
+
+describe('how many lines an automatic analysis asks for', () => {
+  const device = (over: Partial<EngineCapabilities> = {}): EngineCapabilities => ({
+    sharedArrayBuffer: true, crossOriginIsolated: true, hardwareConcurrency: 8,
+    deviceMemoryGb: 8, isMobile: false, ...over,
+  })
+
+  it('asks for one line on a phone, whatever it reports', () => {
+    expect(recommendedMultiPv(device({ isMobile: true }))).toBe(1)
+    expect(recommendedMultiPv(device({ isMobile: true, hardwareConcurrency: 8, deviceMemoryGb: 8 }))).toBe(1)
+  })
+
+  it('asks for one line where memory or cores are the constraint', () => {
+    expect(recommendedMultiPv(device({ deviceMemoryGb: 4 }))).toBe(1)
+    expect(recommendedMultiPv(device({ deviceMemoryGb: 2 }))).toBe(1)
+    expect(recommendedMultiPv(device({ hardwareConcurrency: 2 }))).toBe(1)
+  })
+
+  it('asks for the second line on a machine that can afford it', () => {
+    expect(recommendedMultiPv(device())).toBe(2)
+    expect(recommendedMultiPv(device({ deviceMemoryGb: undefined }))).toBe(2)
+  })
+
+  /**
+   * The same thresholds the hash and thread recommendations use, so one device
+   * is not called capable by one of them and constrained by another.
+   */
+  it('agrees with the other two about which devices are constrained', () => {
+    for (const constrained of [device({ isMobile: true }), device({ deviceMemoryGb: 4 }), device({ hardwareConcurrency: 2 })]) {
+      expect(recommendedMultiPv(constrained)).toBe(1)
+      expect(recommendedHashMb(constrained)).toBeLessThanOrEqual(32)
+      expect(recommendedThreadCount(profileById('lite-single-local')!, constrained)).toBe(1)
+    }
   })
 })
