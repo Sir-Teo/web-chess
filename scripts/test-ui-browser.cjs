@@ -3578,6 +3578,71 @@ async function checkAnArchiveFetchBringsBackTheGames(browser) {
 }
 
 /**
+ * The first screen's Historical Library loads a game.
+ *
+ * Ten of them are offered in the analysis column and none had ever been
+ * pressed by this suite. They are among the first things a reader can do with
+ * the app and their games come over the network, so a broken request here is
+ * a spinner and an empty board on first use.
+ *
+ * What is asserted beyond "a game arrived": that the button says which game it
+ * loads, that the board was empty beforehand so the moves counted are the ones
+ * that came, and that the game survives a trip out to Play and back -- it
+ * belongs to the board once it lands, not to the card that fetched it.
+ *
+ * The card lives in the left column, which Play mode does not have, so the
+ * check goes to Analysis first. Pressing Load from the opening screen finds
+ * nothing to press.
+ */
+async function checkTheHistoricalLibraryLoadsAGame(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', error => errors.push(String(error).slice(0, 120)))
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+    // The library lives in the left column, which Play mode does not have.
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+    await page.waitForTimeout(1200)
+
+    const loaders = page.locator('.sample-game-actions button')
+    const count = await loaders.count()
+    assert(count >= 2, `the historical library offers ${count} games, so this check has nothing to press`)
+
+    const named = await loaders.first().getAttribute('aria-label')
+    assert(/^Load .+ vs .+/.test(named || ''),
+      `a sample button does not say which game it loads: ${JSON.stringify(named)}`)
+
+    const moves = () => page.evaluate(() => document.querySelectorAll('.mtree-chip').length)
+    assert(await moves() === 0, 'the board already held a game before anything was loaded')
+
+    await loaders.first().click()
+    await page.waitForFunction(() => document.querySelectorAll('.mtree-chip').length > 10,
+                               null, { timeout: 20000 })
+    const loaded = await moves()
+    assert(loaded > 10, `loading a historical game put ${loaded} moves on the board`)
+
+    // The game is the board's now, not the card's: it survives leaving the
+    // workspace the card lives in and coming back.
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await page.waitForTimeout(600)
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+    await page.waitForTimeout(800)
+    const stillThere = await moves()
+    assert(stillThere === loaded,
+      `the loaded game did not survive a trip through Play: ${stillThere} against ${loaded}`)
+    assert(errors.length === 0, `page errors while loading a sample: ${errors.join('; ')}`)
+    console.log(`  historical library: ${count} games offered, ${loaded} moves loaded from the first`)
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -9118,6 +9183,7 @@ async function main() {
       'opening-numbers': checkOpeningNumbersBelongToTheirPosition,
       'tablebase': checkTheTablebaseAnswersForThisPosition,
       'archive-fetch': checkAnArchiveFetchBringsBackTheGames,
+      'historical': checkTheHistoricalLibraryLoadsAGame,
       'graph-guide': checkGraphEstimateGuide,
       'board-canvas': checkBoardCanvas,
       'typed-moves': checkTypedMoveEntry,
@@ -9862,6 +9928,7 @@ async function main() {
     await checkLabelsSurviveBigText(browser)
     await checkADeadFetchButtonSaysWhy(browser)
     await checkAnArchiveFetchBringsBackTheGames(browser)
+    await checkTheHistoricalLibraryLoadsAGame(browser)
     await checkTheLibrarySurvivesABackup(browser)
     await checkOneGestureSavesOneGame(browser)
     await checkADatabaseIsAddedOnce(browser)
