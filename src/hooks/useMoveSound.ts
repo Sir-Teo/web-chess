@@ -83,6 +83,27 @@ export function useMoveSound(enabled: boolean) {
     void context?.close().catch(() => {})
   }, [])
 
+  /**
+   * Turning the sounds off gives the audio device back.
+   *
+   * The context is built lazily on the first sound and was only ever closed
+   * on unmount, so switching move sounds off left a live `AudioContext`
+   * holding an output device for the rest of the session -- and a running one
+   * keeps its graph clocked whether or not anything is connected to it. The
+   * switch says the sounds are off; the machine should be able to tell.
+   *
+   * Re-enabling costs nothing extra: the play path already builds the context
+   * on demand, which is how the first sound of a session gets one.
+   */
+  useEffect(() => {
+    if (enabled) return
+    const context = contextRef.current
+    if (!context) return
+    contextRef.current = null
+    masterRef.current = null
+    void context.close().catch(() => {})
+  }, [enabled])
+
   return useCallback((sound: MoveSound) => {
     if (!enabled) return
 

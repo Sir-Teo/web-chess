@@ -1318,7 +1318,7 @@ async function checkReviewBackupImport(browser) {
     await (await chooser).setFiles({ name: 'reviews.json', mimeType: 'application/json', buffer: Buffer.isBuffer(backup) ? backup : Buffer.from(JSON.stringify(backup)) })
     await page.waitForFunction(previous => {
       const message = document.querySelector('.saved-review-notice')?.textContent || ''
-      return message !== previous && /Imported \d|Nothing was imported|unreadable|cancelled|could not finish|not a Web Chess/.test(message)
+      return message !== previous && /Imported \d|Nothing was imported|unreadable|could not be read|cancelled|could not finish|not a Web Chess/.test(message)
     }, previous)
   }
   for (const width of [1280, 375]) {
@@ -1414,6 +1414,14 @@ IDBObjectStore.prototype.add = function(value, ...args) {
 };\n`
             await route.fulfill({ response, body: injection + await response.text() })
           })
+          // The client keeps one backup worker for the session -- see the
+          // comment on `runBackupTask`, which is how a Safari bug on the
+          // *second* construction of that module was fixed. So the script is
+          // fetched once, at the first import above, and a route installed
+          // afterwards would never see it. Reload to get a fresh module
+          // registry, and with it the one construction this fixture needs.
+          await target.reload({ waitUntil: 'domcontentloaded' })
+          await target.locator('.saved-reviews summary').click()
           await upload(target, { ...backup, reviews: [{ ...original, id: 'queued', title: 'Queued first' }, { ...original, id: 'abort', title: 'Abort after insert' }] })
           assert(injected === 1, `the abort fixture did not intercept the native worker (${injected} scripts)`)
           const abortedNotice = await target.locator('.saved-review-notice').innerText()
@@ -1440,14 +1448,52 @@ IDBObjectStore.prototype.add = function(value, ...args) {
           assert((await records(target)).length === 50, 'two-tab import overfilled or evicted a review')
         } else {
           await target.waitForFunction(() => Boolean(navigator.serviceWorker?.controller))
-          await targetContext.setOffline(true)
-          await upload(target, backup)
-          await target.getByText('Imported 0 reviews; 3 identical reviews skipped.', { exact: true }).waitFor()
-          const offlineDownload = target.waitForEvent('download')
-          await target.getByRole('button', { name: 'Export review backup', exact: true }).click()
-          const offlineBackup = JSON.parse(fs.readFileSync(await (await offlineDownload).path(), 'utf8'))
-          assert(JSON.stringify(offlineBackup.reviews) === JSON.stringify(imported), 'offline backup lost or changed stored runs')
-          await targetContext.setOffline(false)
+          if (BROWSER_NAME === 'webkit') {
+            /*
+             * WebKit's offline emulation blocks local file I/O too, so this
+             * cannot measure an offline import here -- but it measures
+             * something the other engines cannot.
+             *
+             * **Measured**: with the context offline, `File.arrayBuffer()`
+             * rejects with `NotReadableError: The I/O read operation failed`
+             * in WebKit, on the main thread and inside a worker, for an
+             * 18-byte blob-backed file that reads fine a moment earlier.
+             * Chromium returns all 18 bytes in both places, offline or not.
+             * A real Safari does not lose a file the reader just picked
+             * because the network dropped, so this is the harness, not the
+             * app.
+             *
+             * What it is a faithful reproduction of is a file whose backing
+             * store has gone -- moved, renamed, unplugged, revoked -- which
+             * is the one case the "could not be read" sentence exists for,
+             * and which used to be reported as invalid UTF-8.
+             */
+            // Land on a notice neither outcome can be confused with first.
+            // The sub-check above ends on the UTF-8 sentence -- which is the
+            // wrong answer this is looking for -- and `upload` waits for the
+            // notice to *change*, so a regression would hang here rather than
+            // say what it found.
+            await upload(target, backup)
+            await target.getByText('Imported 0 reviews; 3 identical reviews skipped.', { exact: true }).waitFor()
+            await targetContext.setOffline(true)
+            await upload(target, backup)
+            const unreadable = await target.locator('.saved-review-notice').innerText()
+            assert(/could not be read\./.test(unreadable) && !/UTF-8/.test(unreadable),
+              `an unreadable file was blamed on its contents: ${JSON.stringify(unreadable)}`)
+            assert(JSON.stringify(await records(target)) === JSON.stringify(imported),
+              'a file that could not be read still changed the archive')
+            await targetContext.setOffline(false)
+            console.log('  review backup import (375px, webkit): an unreadable file is named as unreadable, not as bad JSON')
+          } else {
+            await targetContext.setOffline(true)
+            await upload(target, backup)
+            await target.getByText('Imported 0 reviews; 3 identical reviews skipped.', { exact: true }).waitFor()
+            const offlineDownload = target.waitForEvent('download')
+            await target.getByRole('button', { name: 'Export review backup', exact: true }).click()
+            const offlineBackup = JSON.parse(fs.readFileSync(await (await offlineDownload).path(), 'utf8'))
+            assert(JSON.stringify(offlineBackup.reviews) === JSON.stringify(imported), 'offline backup lost or changed stored runs')
+            await targetContext.setOffline(false)
+          }
         }
         console.log(`  review backup import (${width}px): a clean browser restores exact complete/partial runs, preserves ID collisions, deduplicates retries, keeps the current board and rejects corrupt data${width === 1280 ? '; post-insert abort, capacity and concurrent imports are atomic' : '; the cached worker imports and exports offline'}`)
       } finally { await targetContext.close() }
@@ -3389,6 +3435,86 @@ async function checkAPaletteTabCommandGoesThere(browser) {
  * is the only thing the reset could change, and with an analyze control moved
  * off its default too, so the check still proves the button does its job.
  */
+/**
+ * Turning move sounds off hands the audio device back.
+ *
+ * `useMoveSound` builds its `AudioContext` lazily on the first sound and only
+ * ever closed it on unmount, so a reader who switched the sounds off left a
+ * live context holding an output device for the rest of the session. A
+ * running context keeps its graph clocked whether anything is connected to it
+ * or not, which is the cost; the switch saying "off" while the machine still
+ * has the device open is the defect.
+ *
+ * Counts real constructions and closes by wrapping the platform's own
+ * `AudioContext` rather than substituting a fake one -- `playHit` touches
+ * oscillators, buffers, gains and a biquad filter, and a stub for all of that
+ * would be testing the stub.
+ */
+async function checkTurningSoundsOffReleasesTheAudioDevice(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(() => {
+      const Native = window.AudioContext || window.webkitAudioContext
+      window.__audio = { supported: Boolean(Native), made: 0, closed: 0 }
+      if (!Native) return
+      const nativeClose = Native.prototype.close
+      Native.prototype.close = function close(...args) {
+        window.__audio.closed += 1
+        return nativeClose.apply(this, args)
+      }
+      class Counted extends Native {
+        constructor(...args) {
+          super(...args)
+          window.__audio.made += 1
+        }
+      }
+      window.AudioContext = Counted
+      window.webkitAudioContext = Counted
+    })
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    if (!(await page.evaluate(() => window.__audio.supported))) {
+      console.log(`  sound release: skipped, ${BROWSER_NAME} exposes no AudioContext`)
+      return
+    }
+
+    // A move is what asks for a sound, and the sounds are on by default.
+    await page.click('#chessboard-square-e2')
+    await page.click('#chessboard-square-e4')
+    await page.waitForFunction(() => window.__audio.made > 0, null, { timeout: 15000 })
+    const opened = await page.evaluate(() => ({ ...window.__audio }))
+    assert(opened.closed === 0, `the context closed before anything asked it to: ${JSON.stringify(opened)}`)
+
+    await page.getByRole('button', { name: /Open settings/ }).click()
+    await page.locator('.settings-body').waitFor({ timeout: 10000 })
+    await page.getByRole('checkbox', { name: /move sounds/i }).first().uncheck()
+    await page.waitForTimeout(600)
+
+    const off = await page.evaluate(() => ({ ...window.__audio }))
+    assert(off.closed === 1,
+      `switching move sounds off left the audio device open: ${JSON.stringify(off)}`)
+
+    // And switching them back on builds a new one rather than staying mute.
+    await page.getByRole('checkbox', { name: /move sounds/i }).first().check()
+    await page.keyboard.press('Escape')
+    // Black's move: e2-e4 above already used White's, and clicking a white
+    // pawn out of turn plays nothing and so makes no sound.
+    await page.click('#chessboard-square-d7')
+    await page.click('#chessboard-square-d5')
+    await page.waitForFunction(() => window.__audio.made > 1, null, { timeout: 15000 })
+    const back = await page.evaluate(() => ({ ...window.__audio }))
+    assert(back.made === 2 && back.closed === 1,
+      `turning the sounds back on did not give them a context: ${JSON.stringify(back)}`)
+    console.log(`  sound release: one context per on-period, closed the moment the switch says off (${JSON.stringify(back)})`)
+  } finally {
+    await context.close()
+  }
+}
+
 async function checkResettingTheWorkspaceKeepsTheTheme(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -4075,18 +4201,23 @@ async function checkAChordBelongsToTheBrowser(browser) {
   const page = await context.newPage()
   try {
     await page.addInitScript(fakeEngineScript())
-    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-    const startFresh = page.getByRole('button', { name: /start fresh/i })
-    if (await startFresh.count()) await startFresh.first().click()
-    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
     const play = async (from, to) => {
       await page.click(`#chessboard-square-${from}`)
       await page.click(`#chessboard-square-${to}`)
       await page.waitForTimeout(160)
     }
-    await play('e2', 'e4')
-    await play('e7', 'e5')
+    // Re-runnable: a chord the browser claims navigates away, and the board
+    // has to come back before the next one can be pressed.
+    const openTheGame = async () => {
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const startFresh = page.getByRole('button', { name: /start fresh/i })
+      if (await startFresh.count()) await startFresh.first().click()
+      await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+      await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+      await play('e2', 'e4')
+      await play('e7', 'e5')
+    }
+    await openTheGame()
 
     // White at the bottom means a1 sits below a8.
     const orientation = () => page.evaluate(() => {
@@ -4105,24 +4236,59 @@ async function checkAChordBelongsToTheBrowser(browser) {
     const startMove = await atMove()
     assert(startOrientation !== 'unknown', 'could not tell which way the board is facing')
 
-    // The chords the comment names, and the ones beside them.
+    /*
+     * The chords the comment names, and the ones beside them.
+     *
+     * A chord the *browser* claims never reaches the page at all, and that is
+     * this check's own point carried to its conclusion. **Measured**: in
+     * WebKit `Meta+ArrowLeft` is Back -- the URL changes, no keydown is
+     * dispatched anywhere in the document, and the board is gone with the
+     * page; in Chromium the same press delivers `ArrowLeft meta=true` and the
+     * app ignores it, which is the case `isPlainShortcut` is for. Both are the
+     * app keeping its hands off the chord.
+     *
+     * So navigation is recorded and undone rather than asserted against. It
+     * used to be read as a flip: `orientation()` answers 'unknown' when there
+     * is no board, and the assert below called that "turned the board round".
+     */
+    const takenByTheBrowser = []
     for (const chord of ['Meta+f', 'Control+f', 'Alt+ArrowLeft', 'Meta+ArrowLeft', 'Control+ArrowLeft', 'Shift+f']) {
       await blur()
+      // Read the baseline per press rather than once: rebuilding the page
+      // after a navigation gives a board that is equivalent, not identical,
+      // and the claim being made is about this press and nothing else.
+      const wasFacing = await orientation()
+      const wasAt = await atMove()
+      const urlBefore = page.url()
       await page.keyboard.press(chord)
       await page.waitForTimeout(220)
+
+      if (page.url() !== urlBefore) {
+        takenByTheBrowser.push(chord)
+        await openTheGame()
+        continue
+      }
+
+      assert(await page.locator('#chessboard-square-a1').count() === 1,
+        `${chord} left no board to look at, and it did not navigate either`)
       const facing = await orientation()
       const move = await atMove()
-      assert(facing === startOrientation,
+      assert(facing === wasFacing,
         `${chord} turned the board round; that chord is the browser's`)
-      assert(move === startMove,
+      assert(move === wasAt,
         `${chord} moved through the game; that chord is the browser's`)
     }
 
     // And the bare keys still do their jobs, or the above proves nothing.
+    // Read the baseline again: the loop may have rebuilt the page, and these
+    // two asserts are about what the keys do from wherever the board is now.
+    const facingNow = await orientation()
+    const atNow = await atMove()
+    assert(facingNow !== 'unknown', 'the board did not survive the chords')
     await blur()
     await page.keyboard.press('f')
     await page.waitForTimeout(300)
-    assert(await orientation() !== startOrientation, 'f no longer flips the board')
+    assert(await orientation() !== facingNow, 'f no longer flips the board')
     await blur()
     await page.keyboard.press('f')
     await page.waitForTimeout(300)
@@ -4130,8 +4296,8 @@ async function checkAChordBelongsToTheBrowser(browser) {
     await blur()
     await page.keyboard.press('ArrowLeft')
     await page.waitForTimeout(300)
-    assert(await atMove() !== startMove, 'ArrowLeft no longer steps back through the game')
-    console.log('  shortcuts: six chords left to the browser, and f and ArrowLeft still the app\'s')
+    assert(await atMove() !== atNow, 'ArrowLeft no longer steps back through the game')
+    console.log(`  shortcuts: six chords left to the browser${takenByTheBrowser.length ? ` (${takenByTheBrowser.join(', ')} claimed by ${BROWSER_NAME} itself)` : ''}, and f and ArrowLeft still the app's`)
   } finally {
     await context.close()
   }
@@ -10520,6 +10686,7 @@ async function main() {
       'palette-tabs': checkAPaletteTabCommandGoesThere,
       'hint-threads': checkAHintDoesNotRebuildTheThreadPool,
       'reset-theme': checkResettingTheWorkspaceKeepsTheTheme,
+      'sound-release': checkTurningSoundsOffReleasesTheAudioDevice,
       'analysis-reuse': checkAutomaticAnalysisIsReused,
       'review-drift': checkReviewReportHoldsStill,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
@@ -11220,6 +11387,7 @@ async function main() {
     await checkAPaletteTabCommandGoesThere(browser)
     await checkAHintDoesNotRebuildTheThreadPool(browser)
     await checkResettingTheWorkspaceKeepsTheTheme(browser)
+    await checkTurningSoundsOffReleasesTheAudioDevice(browser)
     await checkADialogKeepsTheKeyboard(browser)
     await checkTheMarkupSaysWhatItShows(browser)
     await checkAMoveCanBePlayedFromTheKeyboard(browser)
