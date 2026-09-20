@@ -2106,6 +2106,105 @@ async function checkNavigationKeepsTheClockHonest(browser) {
 }
 
 /**
+ * A modal dialog keeps the keyboard, including on the controls it forgot about.
+ *
+ * `useModalFocus` decides what to wrap Tab around by a selector, and a trap
+ * that disagrees with the browser about what is focusable is not a trap. A
+ * `<details>` disclosure carries no `tabindex` and is none of the tags the
+ * selector named, so the Settings dialog -- which is `aria-modal`, so the
+ * page behind it is hidden from a screen reader -- held 25 elements the
+ * browser would tab to against 23 the trap had heard of. One of the two it
+ * missed sat *after* the last one it knew, so the wrap fired at the wrong
+ * element and never covered it: expand "Advanced engine options", collapse it
+ * again -- a click leaves focus on the summary it toggled -- and one Tab put
+ * focus on `<body>`, outside the dialog, with only Shift+Tab to get back.
+ *
+ * Both halves are checked, because the second is what a reader does and the
+ * first is what would catch the next control of a kind nobody listed.
+ */
+async function checkADialogKeepsTheKeyboard(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    // With the engine on, the advanced-options disclosure is in the dialog.
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+    await page.waitForTimeout(1500)
+    await page.getByRole('button', { name: /Open settings/ }).click()
+    await page.locator('.settings-body').waitFor({ timeout: 10000 })
+    await page.waitForTimeout(400)
+
+    const focusState = () => page.evaluate(() => {
+      const active = document.activeElement
+      const panel = document.querySelector('.settings-body')
+      return {
+        inside: Boolean(panel && active && panel.contains(active)),
+        what: active ? `${active.tagName.toLowerCase()} "${(active.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30)}"` : 'nothing',
+      }
+    })
+
+    // Nothing the browser will tab to may sit outside what the trap wraps
+    // around. Stated as a count and as a boundary, because a control in the
+    // middle is harmless and one past the end is the bug.
+    const reach = await page.evaluate(() => {
+      const panel = document.querySelector('.settings-body')
+      const TRAP = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), details > summary, [tabindex]:not([tabindex="-1"])'
+      const visible = el => {
+        if (el.hasAttribute('disabled') || el.tabIndex === -1) return false
+        const style = getComputedStyle(el)
+        if (style.display === 'none' || style.visibility === 'hidden') return false
+        const rect = el.getBoundingClientRect()
+        return rect.width > 0 && rect.height > 0
+      }
+      const trapped = [...panel.querySelectorAll(TRAP)].filter(visible)
+      const native = [...panel.querySelectorAll(TRAP + ', summary, audio[controls], video[controls], iframe, [contenteditable]')].filter(visible)
+      const lastTrapped = trapped[trapped.length - 1]
+      const after = native.slice(native.indexOf(lastTrapped) + 1)
+      return {
+        trapped: trapped.length,
+        native: native.length,
+        past: after.map(el => `${el.tagName.toLowerCase()} "${(el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30)}"`),
+      }
+    })
+    assert(reach.past.length === 0,
+      `the browser will tab to ${reach.past.length} control(s) past the end of the trap: ${reach.past.join(', ')}`)
+    assert(reach.native === reach.trapped,
+      `the dialog holds ${reach.native} focusable controls and the trap knows of ${reach.trapped}`)
+
+    // The reader's path: open the disclosure, shut it, carry on tabbing.
+    const advanced = page.locator('.settings-body summary', { hasText: 'Advanced engine options' })
+    await advanced.click()
+    await page.waitForTimeout(250)
+    await advanced.click()
+    await page.waitForTimeout(250)
+    const onSummary = await focusState()
+    assert(onSummary.inside, `after using the disclosure, focus was already out of the dialog: ${onSummary.what}`)
+    await page.keyboard.press('Tab')
+    const afterTab = await focusState()
+    assert(afterTab.inside,
+      `Tab off the disclosure left the dialog: focus is on ${afterTab.what}`)
+
+    // And a full cycle each way stays inside, which is the ordinary claim.
+    for (let press = 0; press < 40; press += 1) {
+      await page.keyboard.press('Tab')
+      const state = await focusState()
+      assert(state.inside, `Tab ${press + 1} left the dialog, on ${state.what}`)
+    }
+    for (let press = 0; press < 40; press += 1) {
+      await page.keyboard.press('Shift+Tab')
+      const state = await focusState()
+      assert(state.inside, `Shift+Tab ${press + 1} left the dialog, on ${state.what}`)
+    }
+    console.log(`  settings dialog: all ${reach.native} focusable controls are inside the trap, disclosure included`)
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -7578,6 +7677,7 @@ async function main() {
       'takeback-result': checkTakingBackAMateUnfinishesTheGame,
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
       'recorded-clocks': checkRecordedClocksMatchTheClock,
+      'dialog-keyboard': checkADialogKeepsTheKeyboard,
       'finished-clock': checkAFinishedGameKeepsItsStoppedClock,
       'navigation-clock': checkNavigationKeepsTheClockHonest,
     }
@@ -8250,6 +8350,7 @@ async function main() {
     await checkTakingBackAMateUnfinishesTheGame(browser)
     await checkAModeSwitchDoesNotFreezeTheClock(browser)
     await checkRecordedClocksMatchTheClock(browser)
+    await checkADialogKeepsTheKeyboard(browser)
     await checkAFinishedGameKeepsItsStoppedClock(browser)
     await checkNavigationKeepsTheClockHonest(browser)
     await checkKeepSearchingIsUnbounded(browser)

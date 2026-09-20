@@ -6,6 +6,27 @@ const FOCUSABLE_SELECTOR = [
   'input:not([disabled])',
   'select:not([disabled])',
   'textarea:not([disabled])',
+  /*
+   * A `<details>` disclosure is focusable and the browser tabs to it, but it
+   * is none of the above and carries no `tabindex`, so the trap could not see
+   * it -- and a trap that disagrees with the browser about what is focusable
+   * is not a trap.
+   *
+   * Measured in the Settings dialog, which is `aria-modal`: 25 elements the
+   * browser will tab to against 23 the trap matched, and one of the two it
+   * missed -- "Advanced engine options" -- sat *after* the last one it knew
+   * about. So the wrap fired at the wrong element and never covered it.
+   * Expand the advanced options, collapse them again (a click leaves focus on
+   * the summary it toggled) and press Tab: focus was on `<body>`, outside a
+   * dialog the rest of the page is hidden behind, with only Shift+Tab to get
+   * back. Reached by clicking, which is how a disclosure is used, so a plain
+   * Tab sweep of the dialog never found it.
+   *
+   * `isFocusable` below still does the deciding: a second `<summary>` in the
+   * same `<details>` is not the disclosure and reports `tabIndex === -1`,
+   * which it already rejects.
+   */
+  'details > summary',
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ')
 
