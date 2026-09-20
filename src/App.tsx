@@ -8781,7 +8781,33 @@ function App() {
                       </div>
                     )}
                     {engineLabError && <p className="panel-copy small error-copy">{engineLabError}</p>}
-                    <pre className="engine-lab-output" aria-label="UCI console output" aria-live="polite">
+                    {/*
+                      Not a live region, though it looks like one wants to be.
+
+                      React renders this as a single text node holding the whole
+                      buffer, and every arriving line rewrites it: measured with
+                      a MutationObserver, `childNodes: 1`, `textNodes: 1`, and
+                      every record `characterData` on that same node. So what
+                      `aria-live="polite"` offered a screen reader was not "a
+                      line arrived" but the entire console, read again, once per
+                      line -- and this buffer holds 300 of them, a cap the panel
+                      below announces because the volume is expected. A `go
+                      depth 20` is tens of lines.
+
+                      Silence is the better of those two. The console is an
+                      expert tool the reader opened deliberately and can read
+                      whenever they choose; the search's start and finish are
+                      still spoken by the analysis status region, which changes
+                      only on transitions.
+
+                      The fix that would earn a live region back is one node per
+                      line with a stable key, plus `role="log"`, so assistive
+                      tech announces the addition rather than the buffer. That
+                      needs line ids to survive the window sliding, which is a
+                      bigger change than this one and not worth it until someone
+                      wants the announcement.
+                    */}
+                    <pre className="engine-lab-output" aria-label="UCI console output">
                       {(engineLabOutputLines.join('\n')) || 'No command output yet.'}
                     </pre>
                     {engineLabOutputLines.length === ENGINE_CONSOLE_LINE_LIMIT && (
