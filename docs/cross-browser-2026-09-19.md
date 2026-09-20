@@ -143,35 +143,34 @@ GitHub Pages sends no COOP or COEP at all; the app's isolation comes from
 Safari *developer* review backup against `npm run dev` until the service worker
 takes over.
 
-## The heading outline, which is wrong and is left alone
+## The heading outline, since fixed
 
-Sweeping the markup turned up one real defect that is not fixed here, because
-the fix needs a decision rather than a patch. In Analysis, headings come out in
-this order:
+The sweep first reported two skips. One was real and one was the sweep's own
+mistake, which is worth keeping both of.
 
-    H1 "Web Chess"
-    H3 "Winrate"              <- the left column's cards,
-    H3 "WDL Trend"               under no H2 at all
-    H3 "Historical Library"
-    H2 "Analysis"             <- the right panel's title, after them
-    H3 "Coach"  H3 "Moves"  H3 "Lines"
+**Real: the analysis column's cards sat under no `h2`.** The document went `h1`
+straight to `h3`, so a reader moving by heading met three cards — Winrate, WDL
+Trend, Historical Library — belonging to nothing, while the right panel was
+built correctly with its own `h2` and `h3` cards beneath it.
 
-The right panel is built correctly: an `h2` with its cards as `h3` beneath it.
-The left column's three cards have no `h2`, so a reader navigating by heading
-meets an `h1` followed by an `h3` and three cards that belong to nothing. The
-Settings sheet shows the same shape one level deeper, `h1` to `h4`.
+The fix looked expensive and was not. `.section-heading` turns out to be used
+in exactly three places, all of them in that column, and Historical Library
+carries its own `.sample-library-head` — so the four headings move to `h2` and
+two scoped selectors follow them, with nothing shared with the right panel
+touched. They are peers of the analysis panel's `h2`, which is what they are.
+Measured after: `h1 → h2 h2 h2 h2 → h3 h3 h3`, no skips, and the heading style
+unchanged to the pixel at `10.08px 700 uppercase`.
 
-Neither fix is free. Promoting the three to `h2` means every `h3` rule that
-styles them — `.section-heading h3` and its neighbours — has to match both
-tags, and those selectors are shared with the right panel, so the blast radius
-is every card heading in the app. Adding a hidden `h2` above them costs no CSS
-but needs a visually-hidden utility this app does not have and, more to the
-point, a *name* for that column: it holds a winrate graph, a WDL trend and a
-historical library, and "Graphs" is not true of the third. That is a copy
-decision for whoever owns the product's words.
+**Not real: `h1` to `h4` with Settings open.** `.settings-header` is
+`display: none` above the phone breakpoint, so the sheet's own "Settings" `h2`
+is not rendered and an `h4` follows the page's `h1`. But with the sheet open
+the whole app behind it is `inert`, so that `h1` is not in the accessibility
+tree either — the outline a reader is actually given starts inside the dialog,
+which carries its own `aria-label`. The sweep was counting a document nobody is
+served, the same mistake it made about `aria-hidden`.
 
-Recorded here rather than guessed at. It is a best-practice defect in an
-outline, not a barrier: nothing is unreachable and nothing is unnamed.
+`checkTheMarkupSaysWhatItShows` now asserts the outline, and only where no
+dialog is open, for that reason.
 
 ## What the sweep found clean
 

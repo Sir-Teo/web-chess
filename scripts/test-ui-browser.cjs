@@ -2388,9 +2388,10 @@ async function checkAResultBelongsToItsOwnGame(browser) {
  * it needs re-checking per engine because `inert` is recent enough to be
  * uneven.
  *
- * Headings are deliberately not asserted: the analysis column's cards sit
- * under no `h2`, which is real and recorded in docs/cross-browser-2026-09-19.md
- * rather than pinned here as though it were correct.
+ * The heading outline is asserted too, but only with no dialog open. With one
+ * open the app behind it is `inert` and therefore out of the accessibility
+ * tree, so counting its headings measures a document no reader is given -- the
+ * `h1` to `h4` that sweep first reported in Settings was exactly that mistake.
  */
 async function checkTheMarkupSaysWhatItShows(browser) {
   const SWEEP = () => {
@@ -2431,7 +2432,17 @@ async function checkTheMarkupSaysWhatItShows(browser) {
     for (const el of document.querySelectorAll('[id]')) counts.set(el.id, (counts.get(el.id) || 0) + 1)
     const duplicates = [...counts].filter(([, n]) => n > 1).map(([id, n]) => `${id} x${n}`)
 
-    return { stranded: [...new Set(stranded)], inert, unlabelled: [...new Set(unlabelled)], duplicates }
+    // A level skipped is a section that belongs to nothing when a reader moves
+    // by heading. Only headings actually exposed count.
+    const headings = [...document.querySelectorAll('h1,h2,h3,h4,h5,h6')].filter(visible)
+    const skips = []
+    for (let i = 1; i < headings.length; i += 1) {
+      const from = Number(headings[i - 1].tagName[1])
+      const to = Number(headings[i].tagName[1])
+      if (to > from + 1) skips.push(`${headings[i - 1].tagName} "${(headings[i - 1].textContent || '').trim().slice(0, 18)}" -> ${headings[i].tagName} "${(headings[i].textContent || '').trim().slice(0, 18)}"`)
+    }
+
+    return { stranded: [...new Set(stranded)], inert, unlabelled: [...new Set(unlabelled)], duplicates, skips }
   }
 
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
@@ -2451,6 +2462,10 @@ async function checkTheMarkupSaysWhatItShows(browser) {
         `${where}: form control(s) with no accessible name: ${found.unlabelled.join(', ')}`)
       assert(found.duplicates.length === 0,
         `${where}: duplicate ids, which break every aria reference to them: ${found.duplicates.join(', ')}`)
+      if (!expectInert) {
+        assert(found.skips.length === 0,
+          `${where}: the heading outline skips a level, so a section belongs to nothing: ${found.skips.join('; ')}`)
+      }
       if (expectInert) {
         assert(found.inert === 'honoured',
           `${where}: the app behind the dialog is marked inert and the browser ${found.inert === 'ignored' ? 'still allowed focus into it' : 'has no inert subtree to honour'}`)
@@ -2500,7 +2515,7 @@ async function checkTheMarkupSaysWhatItShows(browser) {
       await page.keyboard.press('Escape')
       await page.waitForTimeout(400)
     }
-    console.log('  markup: skip link reachable and lands on the board, nothing stranded behind a dialog, inert honoured, every field named, no id used twice')
+    console.log('  markup: skip link reachable and lands on the board, heading outline unbroken, nothing stranded behind a dialog, inert honoured, every field named, no id used twice')
   } finally {
     await context.close()
   }
@@ -5118,7 +5133,10 @@ async function checkNarrowDesktopLayout(browser) {
         }
         const headings = await page.locator('.analytics-card .section-heading').evaluateAll(headers => headers.map(header => {
           const contentRect = element => { const range = document.createRange(); range.selectNodeContents(element); return range.getBoundingClientRect() }
-          const title = contentRect(header.querySelector('h3'))
+          // The card titles are `h2` -- they are top-level sections of the
+          // page, not subsections of anything. Matched by role rather than
+          // tag so a level change does not read as a layout failure again.
+          const title = contentRect(header.querySelector('h1, h2, h3, h4, h5, h6'))
           const reading = header.querySelector('strong')
           const value = reading ? contentRect(reading) : null
           const outer = header.getBoundingClientRect()

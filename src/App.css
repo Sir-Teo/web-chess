@@ -3700,7 +3700,16 @@ button.critical-moment-row {
   margin-bottom: 0.45rem;
 }
 
-.section-heading h3 {
+/*
+ * These are `h2` because of where they sit, not how they look.
+ *
+ * The left column's cards were `h3` with no `h2` anywhere above them, so the
+ * document went h1 straight to h3 and the three cards belonged to nothing --
+ * a reader moving by heading met an orphan. They are top-level sections of the
+ * page, peers of the analysis panel's own `h2`, so that is the level they take.
+ * The size and weight here are unchanged; only the tag is.
+ */
+.section-heading h2 {
   margin: 0;
   min-width: 0;
   display: flex;
@@ -3928,7 +3937,7 @@ button.critical-moment-row {
   margin-bottom: 0.45rem;
 }
 
-.sample-library-head h3 {
+.sample-library-head h2 {
   margin: 0;
   font-size: 0.63rem;
   font-weight: 700;

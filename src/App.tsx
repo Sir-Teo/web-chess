@@ -6932,7 +6932,7 @@ function App() {
               <GraphEstimateGuide />
               <section className="analytics-card">
                 <header className="section-heading">
-                  <h3><span className="section-icon"><IconTrendingUp /></span> Winrate</h3>
+                  <h2><span className="section-icon"><IconTrendingUp /></span> Winrate</h2>
                   {currentWinratePoint && (
                     <strong>{currentWinratePoint.whiteWinrate.toFixed(1)}%</strong>
                   )}
@@ -6952,7 +6952,7 @@ function App() {
               </section>
               <section className="analytics-card">
                 <header className="section-heading">
-                  <h3><span className="section-icon"><IconBarChart /></span> WDL Trend</h3>
+                  <h2><span className="section-icon"><IconBarChart /></span> WDL Trend</h2>
                   {wdlPoints.length > 0 && <strong>{countLabel(wdlPoints.length, 'point')}</strong>}
                 </header>
                 <WdlProgressGraph
@@ -6973,7 +6973,7 @@ function App() {
               {moveTimePoints.length > 0 && (
                 <section className="analytics-card">
                   <header className="section-heading">
-                    <h3><span className="section-icon"><IconClock /></span> Move Times</h3>
+                    <h2><span className="section-icon"><IconClock /></span> Move Times</h2>
                     {longestThink && (
                       <strong title={`Longest think: ${longestThink.label}`}>{formatMoveTime(longestThink.seconds)}</strong>
                     )}
@@ -6993,7 +6993,7 @@ function App() {
               )}
               <section className="sample-library-card">
                 <header className="sample-library-head">
-                  <h3><span className="section-icon"><IconKing /></span> Historical Library</h3>
+                  <h2><span className="section-icon"><IconKing /></span> Historical Library</h2>
                   <span>{filteredSampleGames.length} games</span>
                 </header>
                 <div className="sample-filter-row" aria-label="Historical game filter">
