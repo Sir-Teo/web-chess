@@ -5480,7 +5480,7 @@ async function checkReadingSpace(browser) {
           document.querySelector('.board-stage').scrollTop = 0
           document.querySelector('.right .panel-inner').scrollTop = 0
         }, scale)
-        await page.waitForTimeout(400)
+        await waitForBoardToSettle(page)
         const layout = await page.evaluate(() => {
           const main = document.querySelector('.main-container').getBoundingClientRect()
           const board = document.querySelector('.board-surface').getBoundingClientRect()
@@ -9460,6 +9460,48 @@ async function assertContrast(page, label, minimum = 40) {
  * Waits, and fails loudly. Leaves the dialog open; the caller closes it if it
  * needs the board back.
  */
+/**
+ * Wait for the board to finish re-measuring itself after a text enlargement.
+ *
+ * `<Chessboard>` is held back until its width has been measured, and text
+ * enlargement changes that width through the measurement rather than through
+ * a plain layout pass -- so the new geometry lands a frame or several after
+ * the style change. `checkReadingSpace` slept 400ms for it, which is enough
+ * on an idle machine and nothing more, and is what made it flake under load:
+ * the assertion read a board mid-resize and blamed the layout.
+ *
+ * Keeps the 400ms as a floor rather than replacing it. A stability test alone
+ * would be *shorter* than the sleep in the case where the width happens not
+ * to change -- two equal readings 200ms apart, taken before the resize has
+ * begun -- which is the wrong direction to move a flaky check in. So: wait
+ * the old time, then keep waiting while anything is still moving.
+ *
+ * Settles on the width and on how far the board hangs below the scroller,
+ * because those are the two numbers the caller asserts about. It settles on
+ * them being *stable*, not on any particular value.
+ */
+async function waitForBoardToSettle(page, { minMs = 400, timeoutMs = 8000 } = {}) {
+  const read = () => page.evaluate(() => {
+    const board = document.querySelector('.board-surface')
+    const main = document.querySelector('.main-container')
+    if (!board || !main) return 'missing'
+    const box = board.getBoundingClientRect()
+    return `${Math.round(box.width)}x${Math.round(box.height)}@${Math.round(box.bottom - main.getBoundingClientRect().bottom)}`
+  })
+  const started = Date.now()
+  const deadline = started + timeoutMs
+  let previous = await read()
+  let stable = 0
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(100)
+    const now = await read()
+    stable = now === previous ? stable + 1 : 0
+    previous = now
+    if (stable >= 2 && Date.now() - started >= minMs) return now
+  }
+  return previous
+}
+
 async function readExportedPgn(page) {
   await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).first().click()
   await page.locator('.dialog-panel').waitFor({ timeout: 15000 })
