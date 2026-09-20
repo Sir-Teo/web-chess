@@ -3063,6 +3063,102 @@ async function checkTheArrowCountSaysWhatItCanDraw(browser) {
   }
 }
 
+/**
+ * The opening filters reach the request, and Masters is asked without them.
+ *
+ * Three settings with no browser coverage at all -- the database source, the
+ * Lichess speeds and the rating bucket -- and one claim made from reading
+ * the code rather than from running it: that every call site strips speeds
+ * and ratings for Masters, which is why `requestCacheKey` keying by them was
+ * a latent trap and not a live bug. A claim like that is worth a check.
+ *
+ * Reads the URLs the app actually sends. The explorer goes through
+ * `window.fetch`, which `context.route` intercepts even with the engine
+ * fixture installed -- the fixture passes non-engine URLs through.
+ */
+async function checkTheOpeningFiltersReachTheRequest(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  const asked = []
+  try {
+    await context.route(/explorer\.lichess\.org/, async route => {
+      asked.push(route.request().url())
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          white: 100, draws: 10, black: 20, opening: { eco: 'B00', name: 'Probe' },
+          moves: [{ uci: 'e2e4', san: 'e4', white: 100, draws: 10, black: 20, averageRating: 2400 }],
+          topGames: [], recentGames: [],
+        }),
+      })
+    })
+    await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+      workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze',
+      engineProfile: 'lite-single-local', openingSource: 'lichess',
+    })))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+    const card = page.locator('.opening-intel-card')
+    await card.getByLabel('Lichess API token', { exact: true }).fill('filter-fixture')
+    await page.waitForFunction(() => true)
+    await page.waitForTimeout(2500)
+    assert(asked.length > 0, 'the explorer never asked, so no URL was measured')
+
+    // A rating bucket the reader chose, and a speed turned off.
+    await card.getByLabel('Opening rating bucket', { exact: true }).selectOption({ index: 1 })
+    await page.waitForTimeout(2000)
+    /*
+     * A pill the reader turns on has to reach the request, or it is
+     * decoration. Bullet is the one that is off to begin with -- the default
+     * is blitz, rapid and classical -- so it is the one that can be switched
+     * and looked for. The precondition is asserted rather than assumed: the
+     * first draft of this check had it the other way round and would have
+     * clicked bullet *on* while claiming to switch it off.
+     */
+    const bullet = card.locator('.opening-speed-toggle button', { hasText: /^bullet$/i }).first()
+    assert(await bullet.count() === 1, 'there is no bullet pill to switch')
+    assert(await bullet.getAttribute('aria-pressed') === 'false',
+      'bullet is already on, so switching it on proves nothing')
+    const before = asked.filter(url => url.includes('/lichess')).length
+    await bullet.click()
+    assert(await bullet.getAttribute('aria-pressed') === 'true', 'the bullet pill did not switch on')
+    await page.waitForTimeout(3000)
+
+    const lichessUrls = asked.filter(url => url.includes('/lichess'))
+    assert(lichessUrls.length > before,
+      `switching a speed on asked the explorer nothing new: ${lichessUrls.length} request(s) either side`)
+    const latestLichess = new URL(lichessUrls[lichessUrls.length - 1])
+    const speeds = (latestLichess.searchParams.get('speeds') || '').split(',').filter(Boolean)
+    assert(speeds.length, `the Lichess request carries no speeds: ${latestLichess.search}`)
+    assert(latestLichess.searchParams.get('ratings'),
+      `the Lichess request carries no ratings: ${latestLichess.search}`)
+    assert(speeds.includes('bullet'),
+      `bullet was switched on and the request does not ask for it: ${speeds.join(',')}`)
+
+    // Masters has neither, and must be asked without them.
+    await card.getByRole('button', { name: 'Masters', exact: true }).click()
+    await page.waitForTimeout(2500)
+    const mastersUrls = asked.filter(url => url.includes('/masters'))
+    assert(mastersUrls.length > 0, `no Masters request was made: ${JSON.stringify(asked.slice(-3))}`)
+    for (const raw of mastersUrls) {
+      const url = new URL(raw)
+      assert(!url.searchParams.has('speeds') && !url.searchParams.has('ratings'),
+        `a Masters request carries a filter it does not support: ${url.search}`)
+    }
+    assert(await card.locator('.opening-speed-toggle').count() === 0,
+      'the speed pills are still offered for Masters, which has no speeds')
+    console.log(`  opening filters: Lichess asked with ${speeds.join(',')}`
+      + ` and ratings ${latestLichess.searchParams.get('ratings')}; ${mastersUrls.length} Masters request(s) carried neither`)
+  } finally {
+    await context.close()
+  }
+}
+
 async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -9965,6 +10061,7 @@ async function main() {
       'step-clock': checkStepModeDoesNotChargeTheHeldEngine,
       'boot-clock': checkAnEngineIsNotChargedForItsOwnBoot,
       'arrow-count': checkTheArrowCountSaysWhatItCanDraw,
+      'opening-filters': checkTheOpeningFiltersReachTheRequest,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
       'markup': checkTheMarkupSaysWhatItShows,
       'premove': checkAPremoveWaitsForItsTurn,
@@ -10657,6 +10754,8 @@ async function main() {
     await checkAReplayedMoveRecordsItsOwnClock(browser)
     await checkStepModeDoesNotChargeTheHeldEngine(browser)
     await checkAnEngineIsNotChargedForItsOwnBoot(browser)
+    await checkTheArrowCountSaysWhatItCanDraw(browser)
+    await checkTheOpeningFiltersReachTheRequest(browser)
     await checkADialogKeepsTheKeyboard(browser)
     await checkTheMarkupSaysWhatItShows(browser)
     await checkAMoveCanBePlayedFromTheKeyboard(browser)
