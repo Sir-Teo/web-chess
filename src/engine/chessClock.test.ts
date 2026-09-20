@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CLOCK_TENTHS_THRESHOLD_MS,
   TIME_CONTROL_PRESETS,
+  clockMsAfterMove,
   createClock,
   describeClockTime,
   flagPgnResult,
@@ -112,6 +113,40 @@ describe('making a move', () => {
     expect(after).toBe(clock)
     clock = startSide(clock, 'b', 92_000)
     expect(clock.running).toBeNull()
+  })
+})
+
+describe('the reading a move leaves behind', () => {
+  /**
+   * `[%clk]` is the clock *after* the move. Recording `remainingMs` before
+   * pressing the clock was a ply early: the exported 3+2 game read two seconds
+   * short of the clock the player had just watched.
+   */
+  it('is the bank the move earns, increment included', () => {
+    const clock = startSide(createClock(BLITZ), 'w', 0)
+    expect(clockMsAfterMove(clock, 'w', 5_000)).toBe(177_000)
+    expect(remainingMs(clock, 'w', 5_000)).toBe(175_000)
+  })
+
+  it('agrees with the clock the move actually produces', () => {
+    let clock = startSide(createClock(BLITZ), 'w', 0)
+    for (const [side, now] of [['w', 5_000], ['b', 11_000], ['w', 12_500]] as const) {
+      const reading = clockMsAfterMove(clock, side, now)
+      clock = moveMade(clock, side, now)
+      expect(reading).toBe(remainingMs(clock, side, now))
+    }
+  })
+
+  it('withholds the increment exactly where the clock does', () => {
+    // Before the clock is running, and on the move that runs it out.
+    expect(clockMsAfterMove(createClock(BLITZ), 'w', 30_000)).toBe(180_000)
+    expect(clockMsAfterMove(startSide(createClock(BLITZ), 'w', 0), 'w', 200_000)).toBe(0)
+  })
+
+  it('reads the same for a move that ends the game', () => {
+    const clock = startSide(createClock(BLITZ), 'w', 0)
+    expect(clockMsAfterMove(clock, 'w', 5_000))
+      .toBe(remainingMs(moveEndedGame(clock, 'w', 5_000), 'w', 5_000))
   })
 })
 

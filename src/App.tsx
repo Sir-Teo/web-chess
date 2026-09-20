@@ -131,6 +131,7 @@ import { hasSiblingVariations, siblingVariation } from './engine/moveTree'
 import { chessComPositionUrl, lichessAnalysisUrl } from './engine/externalLinks'
 import { BOARD_THEMES, boardThemeById } from './engine/boardThemes'
 import {
+  clockMsAfterMove,
   createClock,
   flagPgnResult,
   flagResultLabel,
@@ -3581,7 +3582,7 @@ function App() {
    * noise and it presses the clock. One function so the two cannot drift apart,
    * and so the AI loop has one thing to reach for.
    */
-  const registerMovePlayed = useCallback((move: Move) => {
+  const registerMovePlayed = useCallback((move: Move, now = Date.now()) => {
     playMoveSound(move)
     setHintMove(null)
     // Read once, from the position the move created: a move that mates or
@@ -3589,7 +3590,6 @@ function App() {
     const ended = Boolean(readBoardEnding())
     setClock(previous => {
       if (!previous) return previous
-      const now = Date.now()
       return ended ? moveEndedGame(previous, move.color, now) : moveMade(previous, move.color, now)
     })
   }, [playMoveSound, readBoardEnding])
@@ -3675,12 +3675,16 @@ function App() {
         if (move) {
           const newFen = game.fen()
           setFen(newFen)
+          // One `now` for the reading and for the press, so the node carries
+          // the clock the press is about to produce and not one a millisecond
+          // of React scheduling older.
+          const now = Date.now()
           // The AI loop only runs in Play mode, so its moves are always the game.
           gameTreeRef.current.addMove(move, newFen, {
             mainLine: true,
-            clockMs: clockRef.current ? remainingMs(clockRef.current, move.color, Date.now()) : undefined,
+            clockMs: clockRef.current ? clockMsAfterMove(clockRef.current, move.color, now) : undefined,
           })
-          playMoveSoundRef.current(move)
+          playMoveSoundRef.current(move, now)
 
           // What the engine's search of this position says about the human
           // move that reached it, against its search before its last move.
@@ -3902,14 +3906,16 @@ function App() {
       // In a game the move you just played is the game, even if you took one
       // back to play it. In analysis it is a variation, which is the point.
       //
-      // The clock is read *before* `registerMovePlayed` presses it, so the node
-      // carries what the mover had left when they moved -- which is what
-      // `[%clk]` means everywhere else.
+      // The node carries what the mover's clock reads once the move is made,
+      // increment and all, because that is what `[%clk]` means everywhere
+      // else. `registerMovePlayed` presses the clock at the same `now`, so the
+      // recorded reading is the one the player then sees.
+      const now = Date.now()
       gameTree.addMove(move, newFen, {
         mainLine: workspaceMode === 'play',
-        clockMs: clockRef.current ? remainingMs(clockRef.current, move.color, Date.now()) : undefined,
+        clockMs: clockRef.current ? clockMsAfterMove(clockRef.current, move.color, now) : undefined,
       })
-      registerMovePlayed(move)
+      registerMovePlayed(move, now)
       if (activePractice) {
         setReviewPractice(previous => previous && previous.beforeFen === beforeFen
           ? {

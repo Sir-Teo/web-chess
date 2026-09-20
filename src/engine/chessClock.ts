@@ -142,6 +142,25 @@ export function moveMade(state: ClockState, side: ClockSide, now: number): Clock
 }
 
 /**
+ * What `side`'s clock will read once they have made a move at `now`.
+ *
+ * This is what `[%clk]` means: the reading *after* the move, increment
+ * included. Reading `remainingMs` before pressing the clock gives the number a
+ * ply too early -- it omits the increment, so an exported 3+2 game disagreed
+ * with the clock the player had just watched, and `buildMoveTimeSeries`, which
+ * adds the increment back to recover the think, charged each side's first move
+ * two seconds it never spent (later moves cancelled, because their baseline was
+ * short by the same amount).
+ *
+ * Every rule about who earns an increment lives in `moveMade`, so this asks it
+ * rather than restating it: a move made off the clock earns nothing, and
+ * neither does the move that ran the flag out.
+ */
+export function clockMsAfterMove(state: ClockState, side: ClockSide, now: number): number {
+  return remainingMs(moveMade(state, side, now), side, now)
+}
+
+/**
  * The move that ended the game: bank it as usual, then stop.
  *
  * `moveMade` always hands over, because that is what a move does. A move that

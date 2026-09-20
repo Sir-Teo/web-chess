@@ -1961,6 +1961,74 @@ async function checkTakingBackAMateUnfinishesTheGame(browser) {
 }
 
 /**
+ * What a game records for a move is what the clock then reads.
+ *
+ * `[%clk]` is the reading *after* the move, increment and all -- that is what
+ * Lichess writes and what `buildMoveTimeSeries` undoes to recover a think. The
+ * reading was taken a moment too early, before the move pressed the clock, so
+ * a 3+2 export was two seconds under the clock the player had just watched and
+ * each side's first move was charged an increment it had earned rather than
+ * spent. Two seconds is exactly the gap, so comparing the export against the
+ * face on screen catches it every time, however long the moves took.
+ */
+async function checkRecordedClocksMatchTheClock(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    await page.getByRole('button', { name: 'Start new game' }).click()
+    await page.locator('.new-game-dialog').waitFor({ timeout: 10000 })
+    await page.locator('.mode-card', { hasText: 'Human vs Human' }).click()
+    await page.locator('.time-control-card', { hasText: '3 + 2' }).click()
+    await page.locator('.btn-start').click()
+    await page.locator('.chess-clock').waitFor({ timeout: 10000 })
+
+    // Each side's face is read while it is stopped -- straight after its own
+    // move and before the reply restarts it -- so the reading holds still.
+    await page.click('#chessboard-square-e2')
+    await page.click('#chessboard-square-e4')
+    await page.waitForFunction(() => /Black to move/.test(document.body.innerText), null, { timeout: 10000 })
+    const whiteFace = await page.locator('.clock-face.clock-white strong').textContent()
+
+    await page.click('#chessboard-square-e7')
+    await page.click('#chessboard-square-e5')
+    await page.waitForFunction(() => /White to move/.test(document.body.innerText), null, { timeout: 10000 })
+    const blackFace = await page.locator('.clock-face.clock-black strong').textContent()
+
+    const text = await page.evaluate(async () => {
+      [...document.querySelectorAll('button')]
+        .find(b => b.getAttribute('aria-label') === 'Open PGN and FEN dialog')
+        .click()
+      await new Promise(resolve => setTimeout(resolve, 800))
+      const exportTab = [...document.querySelectorAll('.dialog-panel button')]
+        .find(b => /^Export$/.test(b.textContent.trim()))
+      if (exportTab) exportTab.click()
+      await new Promise(resolve => setTimeout(resolve, 600))
+      return [...document.querySelectorAll('textarea')]
+        .map(area => area.value)
+        .find(value => /^\[Event/m.test(value)) || ''
+    })
+
+    const recorded = [...text.matchAll(/\[%clk\s+([0-9:]+)\s*\]/g)].map(match => match[1])
+    assert(recorded.length === 2, `expected a reading for each of the two moves, got ${recorded.length}`)
+    // "0:03:00" is the same reading as the face's "3:00".
+    const asFace = (clk) => clk.replace(/^0:0?/, '')
+    assert(asFace(recorded[0]) === whiteFace,
+      `White's face read ${whiteFace} after 1. e4; the game recorded ${recorded[0]}`)
+    assert(asFace(recorded[1]) === blackFace,
+      `Black's face read ${blackFace} after 1... e5; the game recorded ${recorded[1]}`)
+    assert(/^\[TimeControl "180\+2"\]$/m.test(text), 'the export did not name the time control')
+    console.log(`  recorded clocks: ${recorded[0]} and ${recorded[1]}, the readings on the faces`)
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * Changing mode un-pauses, and an un-pause has to start the clock.
  *
  * Pass and play has no Pause button -- that one belongs to the engine -- so
@@ -7364,6 +7432,7 @@ async function main() {
       'typed-moves': checkTypedMoveEntry,
       'takeback-result': checkTakingBackAMateUnfinishesTheGame,
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
+      'recorded-clocks': checkRecordedClocksMatchTheClock,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
@@ -8033,6 +8102,7 @@ async function main() {
     await checkTakebackHandsTheClockBack(browser)
     await checkTakingBackAMateUnfinishesTheGame(browser)
     await checkAModeSwitchDoesNotFreezeTheClock(browser)
+    await checkRecordedClocksMatchTheClock(browser)
     await checkKeepSearchingIsUnbounded(browser)
     await checkAutoplayWalksTheLine(browser)
     await checkTypedMoveLands(browser)

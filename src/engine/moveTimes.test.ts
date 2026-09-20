@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Chess } from 'chess.js'
 import type { GameNode } from '../hooks/useGameTree'
+import { clockMsAfterMove, createClock, moveMade, startSide } from './chessClock'
 import { buildMoveTimeSeries, formatMoveTime, parseTimeControlTag } from './moveTimes'
 
 /** A line of nodes with the clock readings a Lichess export carries. */
@@ -54,6 +55,32 @@ describe('buildMoveTimeSeries', () => {
     const series = buildMoveTimeSeries(nodes, { initialMs: 180_000, incrementMs: 0 })
     expect(series.map(p => p.index)).toEqual([1, 2, 4, 6])
     expect(series.find(p => p.index === 6)?.seconds).toBe(20)
+  })
+
+  /**
+   * The side that writes the readings and the side that reads them have to
+   * agree about the increment, and they did not: the clock was read before the
+   * move pressed it, so every reading was short by one increment. Later moves
+   * hid it, because their baseline was short by the same amount -- only each
+   * side's *first* move, measured against the starting bank, came out two
+   * seconds long. So the test has to run a real clock: readings written by
+   * hand assume the answer.
+   */
+  it('recovers the real think from readings a running clock wrote', () => {
+    const control = { initialMs: 180_000, incrementMs: 2_000 }
+    const thinks = [5_000, 12_000, 3_000, 8_000]
+    let clock = startSide(createClock(control), 'w', 0)
+    let now = 0
+    const readings = thinks.map((think, i) => {
+      const side = i % 2 === 0 ? 'w' : 'b'
+      now += think
+      const reading = clockMsAfterMove(clock, side, now)
+      clock = moveMade(clock, side, now)
+      return reading
+    })
+
+    const series = buildMoveTimeSeries(line(['e4', 'e5', 'Nf3', 'Nc6'], readings), control)
+    expect(series.map(p => p.seconds)).toEqual(thinks.map(ms => ms / 1000))
   })
 
   it('never reports negative time, and nothing for a game without clocks', () => {
