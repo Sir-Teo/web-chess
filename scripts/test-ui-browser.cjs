@@ -2567,6 +2567,86 @@ async function checkTheMarkupSaysWhatItShows(browser) {
  * would test Playwright's patience rather than the app. That the board is
  * reachable at all is `checkTheMarkupSaysWhatItShows`'s assertion.
  */
+/**
+ * The offer to review this game belongs to the game on the board.
+ *
+ * "Review this game" is the one-press route to the thing most games are
+ * brought here for, and it is offered until it has run. What decides "has
+ * run" is `frozenReview` -- and four of the five handlers that start a fresh
+ * game clear it. `playFromCurrentPosition` is the fifth and did not, so
+ * taking a position into a game against the engine and bringing the finished
+ * game back to Analysis found the offer already spent by a game that was no
+ * longer on the board.
+ *
+ * The other four things that block shares with its siblings -- the drill, the
+ * autoplay, the premove and the hint -- were checked and are each already
+ * cleared by an effect this handler trips. Only the review is not.
+ */
+async function checkTheReviewOfferFollowsTheGame(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+    const textarea = page.locator('.dialog-panel textarea').first()
+    await textarea.waitFor({ timeout: 10000 })
+    await textarea.fill('1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 *')
+    await page.getByRole('button', { name: /Import & Analyze/ }).click()
+    await page.getByTestId('review-offer').waitFor({ timeout: 15000 })
+
+    await page.getByTestId('review-offer').click()
+    await page.waitForFunction(
+      () => /Evaluated6\/6/.test((document.querySelector('.accuracy-summary')?.textContent || '').replace(/\s+/g, '')),
+      null, { timeout: 20000 })
+
+    const analyzeTab = page.locator('.analysis-tab-btn', { hasText: 'Analyze' }).first()
+    await analyzeTab.click()
+    await page.waitForTimeout(300)
+    assert(await page.getByTestId('review-offer').count() === 0,
+      'the review just ran for this line and the offer to run it was still there')
+
+    await page.locator('.play-from-here-btn').click()
+    await page.locator('#chessboard-square-b5').waitFor({ timeout: 20000 })
+    await page.waitForTimeout(400)
+
+    const focusSquare = async (square) => page.evaluate(id => {
+      const el = document.getElementById(`chessboard-square-${id}`)
+      if (!el) return false
+      const holder = [...el.querySelectorAll('*')].find(child => child.tabIndex >= 0) || el
+      holder.focus()
+      return document.activeElement === holder || holder.contains(document.activeElement)
+    }, square)
+
+    assert(await focusSquare('b5'), 'the bishop on b5 could not be focused after taking the position into a game')
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(300)
+    assert(await focusSquare('a4'), 'a4 was not offered as a destination for the bishop')
+    await page.keyboard.press('Enter')
+    await page.waitForFunction(
+      () => document.querySelectorAll('.mtree-chip').length >= 1, null, { timeout: 15000 })
+
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+    await analyzeTab.click()
+    await page.waitForTimeout(400)
+
+    const state = await page.evaluate(() => ({
+      offer: document.querySelectorAll('[data-testid="review-offer"]').length,
+      moves: [...document.querySelectorAll('.mtree-chip')].map(chip => chip.textContent.trim()),
+    }))
+    assert(state.moves.length >= 1, `the new game has no moves to review: [${state.moves}]`)
+    assert(state.offer === 1,
+      `a new game came back to Analysis with ${state.offer} offers to review it; the previous game's review was still holding the one`)
+    console.log(`  review offer: spent on the reviewed line, offered again for the game played from that position (${state.moves.join(' ')})`)
+  } finally {
+    await context.close()
+  }
+}
+
+
 async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -9387,6 +9467,7 @@ async function main() {
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
       'finished-clock': checkAFinishedGameKeepsItsStoppedClock,
       'navigation-clock': checkNavigationKeepsTheClockHonest,
+      'review-offer': checkTheReviewOfferFollowsTheGame,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
@@ -10075,6 +10156,7 @@ async function main() {
     await checkAHintBelongsToItsPosition(browser)
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
+    await checkTheReviewOfferFollowsTheGame(browser)
     await checkDrillLeavesTheLineAlone(browser)
     await checkADrillStaysInAnalysis(browser)
     await checkAChordBelongsToTheBrowser(browser)

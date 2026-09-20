@@ -5321,6 +5321,14 @@ function App() {
     game.load(startFen)
     setFen(startFen)
     gameTree.reset(startFen)
+    // The readings are kept -- see above -- but the *report* is not. It is
+    // held against the id of the line it graded, so it stops being shown the
+    // moment this line is replaced; what outlives that is the offer to run
+    // one, which is withheld while a review is in hand. Without this line the
+    // game played from here came back to Analysis with its review offer
+    // already spent by a game that is no longer on the board. The four
+    // siblings that start a game all clear it; this was the fifth.
+    setFrozenReview(null)
     setPgnHeaders({})
     clearImportSweep()
     clearBatchReview()
