@@ -184,6 +184,35 @@ unlabelled form controls and no duplicated ids in any state.
 
 `checkTheMarkupSaysWhatItShows` now guards all four of those.
 
+## A share link stops describing the board, and is left that way
+
+Not a cross-browser finding, but measured in the same way and worth the same
+record, because the obvious fix was written, measured and thrown away.
+
+Open a three-move game link, play a fourth move, and the address bar still
+carries three. The hash is never cleared once consumed, so it describes the
+board only until the reader touches it. Reloading then rewinds the board to
+the shared three and offers the fourth back through the auto-save recovery
+dialog — a strange way to be handed your own position, though nothing is lost.
+
+The fix looks obvious: `replaceState` the hash away once the link has been
+read. It was implemented and measured, and it trades one wart for a worse one.
+With the hash gone, reloading a link someone sent you shows an **empty board**
+and a recovery dialog, because there is no longer anything in the address to
+load. That breaks the most ordinary thing a URL does, and the common case —
+open a link, look at it, reload — is the one it breaks.
+
+Keeping the hash in step with the board instead runs into the bound the export
+already enforces: past `MAX_SHARED_GAME_CHARS` there is no link to write, and
+"half a game in a link is worse than being told to send the PGN" is a decision
+this dialog has already made.
+
+So it stays. The app's own "Copy Game Link" builds from the current board
+whenever it is asked, so the supported way to share is always correct; only
+copying the address bar is stale, which is what an address bar does in most
+single-page apps. Recorded so the next person who notices it can start from
+the trade rather than from the symptom.
+
 ## Scores
 
 Counting checks that printed a result line:
