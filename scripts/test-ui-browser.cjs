@@ -2646,7 +2646,6 @@ async function checkTheReviewOfferFollowsTheGame(browser) {
   }
 }
 
-
 /**
  * A hint says where to look only when there is something to look at.
  *
@@ -4391,6 +4390,36 @@ async function checkBlunderIsPointedOut(browser) {
     const nudge = await page.locator('.blunder-nudge').textContent({ timeout: 5000 })
     assert(/Qh5 looks like a blunder/.test(nudge), `the nudge did not name the blunder: ${nudge}`)
     assert(/3\.0 pawns/.test(nudge), `the nudge did not say what it cost: ${nudge}`)
+
+    /*
+     * The same nudge with "Point out my mistakes while playing" switched off
+     * underneath it. The switch is read by the move loop, which decides
+     * whether a nudge is ever made; a card already drawn is a second place
+     * that has to read it.
+     */
+    await openSettings(page)
+    const switchedOff = await page.evaluate(() => {
+      const row = [...document.querySelectorAll('.switch-control')]
+        .find(el => /Point out my mistakes/.test(el.textContent || ''))
+      const input = row && row.querySelector('input[type="checkbox"]')
+      if (!input || !input.checked) return false
+      input.click()
+      return true
+    })
+    assert(switchedOff, 'the nudge switch was not found, switched on, in Settings')
+    await closeSettings(page)
+    assert(await page.locator('.blunder-nudge').count() === 0,
+      'the nudges were switched off and the one already on the screen stayed')
+
+    await openSettings(page)
+    await page.evaluate(() => {
+      const row = [...document.querySelectorAll('.switch-control')]
+        .find(el => /Point out my mistakes/.test(el.textContent || ''))
+      const input = row && row.querySelector('input[type="checkbox"]')
+      if (input && !input.checked) input.click()
+    })
+    await closeSettings(page)
+    await page.locator('.blunder-nudge').waitFor({ timeout: 5000 })
 
     await page.getByRole('button', { name: /take back Qh5/i }).click()
     await page.waitForFunction(() => !document.querySelector('.blunder-nudge'), null, { timeout: 5000 })
@@ -9539,6 +9568,7 @@ async function main() {
       'finished-clock': checkAFinishedGameKeepsItsStoppedClock,
       'navigation-clock': checkNavigationKeepsTheClockHonest,
       'review-offer': checkTheReviewOfferFollowsTheGame,
+      'nudge': checkBlunderIsPointedOut,
       'hint-copy': checkAHintSaysWhereToLookOnlyIfItIsDrawn,
     }
     if (process.env.UI_TEST_ONLY) {

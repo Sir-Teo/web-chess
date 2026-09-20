@@ -7706,7 +7706,12 @@ function App() {
                         while the take-back is one click away. Judged from the
                         opponent's own two searches, so it costs no search of
                         its own and can miss a mistake but not invent one. */}
-                    {blunderNudge && !gameResultLabel && (
+                    {/* The switch is read here as well as in the move loop.
+                        There it decides whether a nudge is ever made; without
+                        it here, one already on the screen stayed on the
+                        screen -- take-back button and all -- answering a
+                        reader who had just asked for exactly this to stop. */}
+                    {blunderNudges && blunderNudge && !gameResultLabel && (
                       <div className={`blunder-nudge ${blunderNudge.quality}`} role="status">
                         <p>
                           <strong>{blunderNudge.san}</strong>
