@@ -143,6 +143,48 @@ GitHub Pages sends no COOP or COEP at all; the app's isolation comes from
 Safari *developer* review backup against `npm run dev` until the service worker
 takes over.
 
+## The heading outline, which is wrong and is left alone
+
+Sweeping the markup turned up one real defect that is not fixed here, because
+the fix needs a decision rather than a patch. In Analysis, headings come out in
+this order:
+
+    H1 "Web Chess"
+    H3 "Winrate"              <- the left column's cards,
+    H3 "WDL Trend"               under no H2 at all
+    H3 "Historical Library"
+    H2 "Analysis"             <- the right panel's title, after them
+    H3 "Coach"  H3 "Moves"  H3 "Lines"
+
+The right panel is built correctly: an `h2` with its cards as `h3` beneath it.
+The left column's three cards have no `h2`, so a reader navigating by heading
+meets an `h1` followed by an `h3` and three cards that belong to nothing. The
+Settings sheet shows the same shape one level deeper, `h1` to `h4`.
+
+Neither fix is free. Promoting the three to `h2` means every `h3` rule that
+styles them — `.section-heading h3` and its neighbours — has to match both
+tags, and those selectors are shared with the right panel, so the blast radius
+is every card heading in the app. Adding a hidden `h2` above them costs no CSS
+but needs a visually-hidden utility this app does not have and, more to the
+point, a *name* for that column: it holds a winrate graph, a WDL trend and a
+historical library, and "Graphs" is not true of the third. That is a copy
+decision for whoever owns the product's words.
+
+Recorded here rather than guessed at. It is a best-practice defect in an
+outline, not a barrier: nothing is unreachable and nothing is unnamed.
+
+## What the sweep found clean
+
+Worth stating, because it is the reason the heading outline is the only entry
+above. With a dialog open, 75 to 77 controls sit behind `aria-hidden` — and
+every one of them is also inside an `inert` subtree, which removes it from the
+tab order as well as the accessibility tree. That is the correct pairing, and
+the pairing most apps get wrong. It was measured rather than assumed, by asking
+each browser to focus a covered control: **all three refuse**. There are no
+unlabelled form controls and no duplicated ids in any state.
+
+`checkTheMarkupSaysWhatItShows` now guards all four of those.
+
 ## Scores
 
 Counting checks that printed a result line:

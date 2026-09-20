@@ -2349,6 +2349,116 @@ async function checkAResultBelongsToItsOwnGame(browser) {
 }
 
 /**
+ * The markup promises a screen reader can rely on, in every state and engine.
+ *
+ * Four of them, checked together because they are all "does the document say
+ * what it appears to say" and all cheap once the page is up.
+ *
+ * The first is the one worth having. A modal hides the app behind it, and
+ * hiding it with `aria-hidden` alone is the classic way to strand a keyboard
+ * reader: the controls vanish from the accessibility tree and stay in the tab
+ * order, so focus lands on something that no longer exists to be announced.
+ * This app pairs every `aria-hidden` with `inert`, which removes both --
+ * measured here rather than assumed, by asking the browser to focus a covered
+ * control and checking that it refuses. That refusal is the whole claim, and
+ * it needs re-checking per engine because `inert` is recent enough to be
+ * uneven.
+ *
+ * Headings are deliberately not asserted: the analysis column's cards sit
+ * under no `h2`, which is real and recorded in docs/cross-browser-2026-09-19.md
+ * rather than pinned here as though it were correct.
+ */
+async function checkTheMarkupSaysWhatItShows(browser) {
+  const SWEEP = () => {
+    const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), details > summary, [tabindex]:not([tabindex="-1"])'
+    const visible = el => {
+      const rect = el.getBoundingClientRect()
+      const style = getComputedStyle(el)
+      return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0
+    }
+    const describe = el => `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}.${String(el.className || '').split(/\s+/)[0] || ''}`
+    const named = el => Boolean((el.getAttribute('aria-label') || el.getAttribute('aria-labelledby') || el.getAttribute('title')
+      || (el.id && document.querySelector(`label[for="${CSS.escape(el.id)}"]`))
+      || el.closest('label')))
+
+    // Hidden from a screen reader but still reachable by Tab.
+    const stranded = []
+    for (const hidden of document.querySelectorAll('[aria-hidden="true"]')) {
+      for (const el of hidden.querySelectorAll(FOCUSABLE)) {
+        if (el.tabIndex === -1 || !visible(el) || el.closest('[inert]')) continue
+        stranded.push(describe(el))
+      }
+    }
+
+    // `inert` present is not `inert` honoured.
+    const covered = document.querySelector('[inert] button:not([disabled])')
+    let inert = 'none'
+    if (covered) {
+      const before = document.activeElement
+      covered.focus()
+      inert = document.activeElement === covered ? 'ignored' : 'honoured'
+      if (before instanceof HTMLElement) before.focus()
+    }
+
+    const unlabelled = [...document.querySelectorAll('input:not([type="hidden"]), select, textarea')]
+      .filter(el => visible(el) && !named(el)).map(describe)
+
+    const counts = new Map()
+    for (const el of document.querySelectorAll('[id]')) counts.set(el.id, (counts.get(el.id) || 0) + 1)
+    const duplicates = [...counts].filter(([, n]) => n > 1).map(([id, n]) => `${id} x${n}`)
+
+    return { stranded: [...new Set(stranded)], inert, unlabelled: [...new Set(unlabelled)], duplicates }
+  }
+
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+    const inspect = async (where, expectInert) => {
+      const found = await page.evaluate(SWEEP)
+      assert(found.stranded.length === 0,
+        `${where}: ${found.stranded.length} control(s) are hidden from a screen reader and still reachable by Tab: ${found.stranded.slice(0, 6).join(', ')}`)
+      assert(found.unlabelled.length === 0,
+        `${where}: form control(s) with no accessible name: ${found.unlabelled.join(', ')}`)
+      assert(found.duplicates.length === 0,
+        `${where}: duplicate ids, which break every aria reference to them: ${found.duplicates.join(', ')}`)
+      if (expectInert) {
+        assert(found.inert === 'honoured',
+          `${where}: the app behind the dialog is marked inert and the browser ${found.inert === 'ignored' ? 'still allowed focus into it' : 'has no inert subtree to honour'}`)
+      }
+      return found
+    }
+
+    await inspect('the board', false)
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+    await page.waitForTimeout(1500)
+    await inspect('the analysis board', false)
+
+    const overlays = [
+      { name: 'settings', panel: '.settings-body', open: () => page.getByRole('button', { name: /Open settings/ }).click() },
+      { name: 'the PGN dialog', panel: '.pgn-dialog', open: () => page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click() },
+      { name: 'the new game dialog', panel: '.new-game-dialog', open: () => page.getByRole('button', { name: 'Start new game' }).click() },
+    ]
+    for (const overlay of overlays) {
+      await overlay.open()
+      await page.locator(overlay.panel).waitFor({ timeout: 15000 })
+      await page.waitForTimeout(400)
+      await inspect(`with ${overlay.name} open`, true)
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(400)
+    }
+    console.log('  markup: nothing stranded behind a dialog, inert honoured, every field named, no id used twice')
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -7891,6 +8001,7 @@ async function main() {
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
       'recorded-clocks': checkRecordedClocksMatchTheClock,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
+      'markup': checkTheMarkupSaysWhatItShows,
       'finished-clock': checkAFinishedGameKeepsItsStoppedClock,
       'navigation-clock': checkNavigationKeepsTheClockHonest,
     }
@@ -8565,6 +8676,7 @@ async function main() {
     await checkAModeSwitchDoesNotFreezeTheClock(browser)
     await checkRecordedClocksMatchTheClock(browser)
     await checkADialogKeepsTheKeyboard(browser)
+    await checkTheMarkupSaysWhatItShows(browser)
     await checkAFinishedGameKeepsItsStoppedClock(browser)
     await checkNavigationKeepsTheClockHonest(browser)
     await checkKeepSearchingIsUnbounded(browser)
