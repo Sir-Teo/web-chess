@@ -3643,6 +3643,126 @@ async function checkTheHistoricalLibraryLoadsAGame(browser) {
 }
 
 /**
+ * A database that fails says so in the app's own words.
+ *
+ * These cards read three services over the network, and until the fixture's
+ * 404 could be replaced with a real answer there was no way to see what any of
+ * them does when the answer is wrong. Each already turned an HTTP failure into
+ * a written sentence; each then called `response.json()` bare, so the one
+ * failure nobody had covered spoke in the parser's voice -- the Opening
+ * Explorer card read "Expected property name or '}' in JSON at position 1".
+ *
+ * A 200 that is not JSON is not a hypothetical. It is what a captive portal
+ * sends: hotel or airport wifi answering an API request with its own login
+ * page, to a reader who is then told about a token at position 1.
+ *
+ * So the bar is the one the neighbours already meet: something is said, it
+ * finishes, and it is a sentence rather than a stack trace.
+ */
+async function checkAFailedLookupSaysSoPlainly(browser) {
+  const JARGON = /JSON|Unexpected token|position \d+|SyntaxError|undefined|\[object/i
+
+  const readsAsASentence = (message, where) => {
+    assert(message, `${where}: the lookup failed and the card said nothing`)
+    assert(!JARGON.test(message),
+      `${where}: the reader is shown a parser's words: ${JSON.stringify(message)}`)
+    assert(/[.!]$/.test(message.trim()),
+      `${where}: the message is not a finished sentence: ${JSON.stringify(message)}`)
+  }
+
+  const inAnalysis = async (page) => {
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+  }
+  const settings = () => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+    workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze', engineProfile: 'lite-single-local',
+  }))
+
+  // The opening explorer, three ways of going wrong.
+  for (const [name, reply] of [
+    ['a server error', { status: 500, contentType: 'text/plain', body: 'boom' }],
+    ['a body that is not JSON', { status: 200, contentType: 'application/json', body: '{not json' }],
+    ['a rate limit', { status: 429, contentType: 'text/plain', body: 'slow down' }],
+  ]) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+    const page = await context.newPage()
+    try {
+      await context.route(/explorer\.lichess\.org/, route => route.fulfill(reply))
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(settings)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await inAnalysis(page)
+      const token = page.getByLabel('Lichess API token', { exact: true })
+      assert(await token.count() === 1, 'the opening card has nowhere to take a token')
+      await token.fill('probe-fixture')
+      await page.waitForTimeout(3500)
+      const card = await page.evaluate(() => {
+        const el = document.querySelector('.opening-intel-card')
+        const text = (el?.textContent || '').replace(/\s+/g, ' ')
+        return { message: (text.match(/Opening DB: [^·]+/) || [''])[0].replace('Opening DB: ', '').trim(),
+                 stuck: /loading/i.test(text) }
+      })
+      readsAsASentence(card.message, `opening explorer, ${name}`)
+      assert(!card.stuck, `opening explorer, ${name}: the card is still reading after it failed`)
+    } finally { await context.close() }
+  }
+
+  // The tablebase, which reports proven results and so must not report noise.
+  for (const [name, reply] of [
+    ['a server error', { status: 503, contentType: 'text/plain', body: 'down' }],
+    ['a body that is not JSON', { status: 200, contentType: 'application/json', body: '<!DOCTYPE html>' }],
+  ]) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+    const page = await context.newPage()
+    try {
+      await context.route(/tablebase\.lichess\.org/, route => route.fulfill(reply))
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(settings)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await inAnalysis(page)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      await page.getByRole('button', { name: /^FEN$/ }).click()
+      await page.waitForTimeout(300)
+      await page.locator('.dialog-section textarea').first().fill('8/8/8/4k3/8/8/4P3/4K3 w - - 0 1')
+      await page.getByRole('button', { name: /Load & Analyze/i }).first().click()
+      await page.waitForTimeout(3500)
+      const summary = await page.evaluate(() =>
+        (document.querySelector('.tablebase-card .command-summary')?.textContent || '').replace(/\s+/g, ' ').trim())
+      assert(!/checking/i.test(summary), `tablebase, ${name}: still checking after it failed`)
+      readsAsASentence(summary.replace(/^Tablebase:\s*/, ''), `tablebase, ${name}`)
+    } finally { await context.close() }
+  }
+
+  // And the archive fetch, whose failure leaves a button to press again.
+  {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+    const page = await context.newPage()
+    try {
+      await context.route(/lichess\.org\/api\/games\/user/, route => route.fulfill({ status: 429, body: 'slow down' }))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await inAnalysis(page)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      await page.locator('.dialog-panel').waitFor({ timeout: 15000 })
+      await page.getByRole('button', { name: 'Lichess', exact: true }).click()
+      await page.getByLabel('Your Lichess username', { exact: true }).fill('archivist')
+      await page.getByRole('button', { name: 'Fetch', exact: true }).click()
+      await page.waitForTimeout(3000)
+      const state = await page.evaluate(() => {
+        const panel = document.querySelector('.dialog-panel')
+        const button = [...panel.querySelectorAll('button')].find(b => /fetch/i.test(b.textContent))
+        return { message: (panel.querySelector('.dialog-error')?.textContent || '').trim(),
+                 label: (button?.textContent || '').trim() }
+      })
+      readsAsASentence(state.message, 'archive fetch, a rate limit')
+      assert(!/fetching/i.test(state.label),
+        `archive fetch: the button is still fetching after it failed: ${JSON.stringify(state.label)}`)
+    } finally { await context.close() }
+  }
+  console.log('  failed lookups: six failures across three services, each a finished sentence and none still loading')
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -9184,6 +9304,7 @@ async function main() {
       'tablebase': checkTheTablebaseAnswersForThisPosition,
       'archive-fetch': checkAnArchiveFetchBringsBackTheGames,
       'historical': checkTheHistoricalLibraryLoadsAGame,
+      'lookup-failures': checkAFailedLookupSaysSoPlainly,
       'graph-guide': checkGraphEstimateGuide,
       'board-canvas': checkBoardCanvas,
       'typed-moves': checkTypedMoveEntry,
@@ -9929,6 +10050,7 @@ async function main() {
     await checkADeadFetchButtonSaysWhy(browser)
     await checkAnArchiveFetchBringsBackTheGames(browser)
     await checkTheHistoricalLibraryLoadsAGame(browser)
+    await checkAFailedLookupSaysSoPlainly(browser)
     await checkTheLibrarySurvivesABackup(browser)
     await checkOneGestureSavesOneGame(browser)
     await checkADatabaseIsAddedOnce(browser)

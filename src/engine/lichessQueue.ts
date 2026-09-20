@@ -95,6 +95,34 @@ export function lichessRateLimitMessage(what: string, now = Date.now()): string 
 }
 
 /**
+ * A JSON body, or a sentence saying it was not one.
+ *
+ * Every caller here answers an HTTP failure with a written sentence and then
+ * called `response.json()` bare, so the one failure it did not cover spoke in
+ * the parser's voice. **Measured** by answering the Opening Explorer with
+ * `{not json`: the card read "Expected property name or '}' in JSON at
+ * position 1 (line 1 column 2)", beside neighbours reading "rate limit
+ * reached; try again in about 60s."
+ *
+ * Not a hypothetical body, either. The realistic source of a 200 that is not
+ * JSON is a captive portal -- hotel or airport wifi answering an API request
+ * with its own login page -- and that reader is told about a token at position
+ * 1 of something they never asked for.
+ *
+ * The status is worth keeping in the sentence: it is what tells a 200 full of
+ * HTML apart from an empty body, and it is the one detail the reader can pass
+ * on to somebody who can help.
+ */
+export async function readLichessJson(response: Response, what: string): Promise<unknown> {
+  try {
+    return await response.json()
+  } catch (error) {
+    if (isLichessAbortError(error)) throw error
+    throw new Error(`${what} sent something that is not a reply (HTTP ${response.status}).`)
+  }
+}
+
+/**
  * Whether a rejection is the caller cancelling rather than the network failing.
  *
  * `fetch` rejects with an `AbortError` when its signal fires, and this module's

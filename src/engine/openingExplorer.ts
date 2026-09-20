@@ -1,5 +1,5 @@
 import { withBoundedMapEntry } from '../hooks/cacheLimit'
-import { fetchLichessResource, lichessRateLimitMessage } from './lichessQueue'
+import { fetchLichessResource, lichessRateLimitMessage, readLichessJson } from './lichessQueue'
 import { createStorageCache } from './storageCache'
 
 export type OpeningDatabaseSource = 'masters' | 'lichess'
@@ -360,7 +360,7 @@ export async function fetchOpeningExplorer(
     throw new Error(`Opening Explorer request failed (${response.status}).`)
   }
 
-  const raw = await response.json()
+  const raw = await readLichessJson(response, 'The Opening Explorer')
   throwIfAborted(signal)
 
   const parsed = parseResponse(raw)
