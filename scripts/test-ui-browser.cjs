@@ -3228,6 +3228,56 @@ async function checkAChordBelongsToTheBrowser(browser) {
 }
 
 /**
+ * The evaluation bar is not a Pro reading and does not leave with one.
+ *
+ * Another note in the source describing a bug nothing holds: "the column used
+ * to go with that switch, so turning off the win/draw/loss detail -- a Pro
+ * reading -- took the evaluation bar itself away, which is the one reading a
+ * beginner has". The suite stores `showWdl: true` in one fixture and has never
+ * loaded with it off, so the column's condition was free to drift back.
+ *
+ * Both settings are loaded and the bar has to be there in each, with a number
+ * beside it, because "the element exists" would pass on a bar drawn empty.
+ */
+async function checkTheEvaluationBarSurvivesTheWdlSwitch(browser) {
+  const look = async (showWdl) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(stored => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify(stored))
+      }, { workspaceMode: 'analysis', analysisExperience: 'beginner', analysisTab: 'analyze',
+           engineProfile: 'lite-single-local', showWdl })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const startFresh = page.getByRole('button', { name: /start fresh/i })
+      if (await startFresh.count()) await startFresh.first().click()
+      await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+      await page.waitForFunction(() => (window.__uciCommands || []).some(command => command.startsWith('go ')),
+                                 null, { timeout: 20000 })
+      await page.waitForTimeout(1500)
+      return await page.evaluate(() => ({
+        column: document.querySelectorAll('.eval-column').length,
+        label: (document.querySelector('.eval-bar-label') || {}).textContent || null,
+        sentShowWdl: ((window.__uciCommands || []).filter(c => /UCI_ShowWDL/.test(c)).pop() || '').split('value ')[1] || null,
+      }))
+    } finally { await context.close() }
+  }
+
+  const withWdl = await look(true)
+  const withoutWdl = await look(false)
+  assert(withWdl.column === 1, 'the evaluation bar is missing with the win/draw/loss detail on')
+  assert(withoutWdl.column === 1,
+    'turning the win/draw/loss detail off took the evaluation bar with it, and that bar is the reading a beginner has')
+  assert(/[0-9]/.test(withoutWdl.label || ''),
+    `the bar is drawn but reads nothing with the detail off: ${JSON.stringify(withoutWdl.label)}`)
+  // And the switch still reaches the engine, or it is doing nothing at all.
+  assert(withWdl.sentShowWdl !== withoutWdl.sentShowWdl,
+    `the switch did not change what the engine was told: ${JSON.stringify([withWdl.sentShowWdl, withoutWdl.sentShowWdl])}`)
+  console.log(`  evaluation bar: drawn either way, reading ${JSON.stringify(withoutWdl.label)} with the detail off`)
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -8780,6 +8830,7 @@ async function main() {
       'hint': checkAHintBelongsToItsPosition,
       'drill-exit': checkADrillStaysInAnalysis,
       'chords': checkAChordBelongsToTheBrowser,
+      'eval-bar': checkTheEvaluationBarSurvivesTheWdlSwitch,
       'library-double-save': checkOneGestureSavesOneGame,
       'database-once': checkADatabaseIsAddedOnce,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
@@ -9476,6 +9527,7 @@ async function main() {
     await checkDrillLeavesTheLineAlone(browser)
     await checkADrillStaysInAnalysis(browser)
     await checkAChordBelongsToTheBrowser(browser)
+    await checkTheEvaluationBarSurvivesTheWdlSwitch(browser)
     await checkDrawModeEndsWithItsPurpose(browser)
     await checkEverySquareAnswersAFinger(browser)
     await checkATapSurvivesTheFingerThatMakesIt(browser)
