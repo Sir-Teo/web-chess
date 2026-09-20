@@ -3362,6 +3362,59 @@ async function checkAPaletteTabCommandGoesThere(browser) {
   }
 }
 
+/**
+ * Stepping through a game searches at the depth the slider says.
+ *
+ * Navigation ponders the position it lands on, and asked for
+ * `max(searchDepth, 20)` -- a floor with no comment on it, used in one place.
+ * So browsing was the most expensive thing the app did: **measured** through
+ * the shipped Lite build, depth 20 costs 5x depth 16 from the start position
+ * and 7.25x from a middlegame. Every arrow key, on every device.
+ *
+ * And the slider could not turn it down. A reader who drags Depth to 6 to
+ * save a battery still got 20 from every step, which is a control that does
+ * not do what it says as much as it is a cost.
+ */
+async function checkBrowsingHonoursTheDepthSlider(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+      workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze',
+      engineProfile: 'lite-single-local', analyzeMode: 'deep', searchDepth: 8, autoAnalyze: false,
+    })))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+    for (const [from, to] of [['e2', 'e4'], ['e7', 'e5'], ['g1', 'f3']]) {
+      await page.click(`#chessboard-square-${from}`)
+      await page.click(`#chessboard-square-${to}`)
+      await page.waitForTimeout(250)
+    }
+    await page.waitForTimeout(800)
+
+    await page.evaluate(() => { window.__mark = (window.__uciCommands || []).length })
+    await page.getByRole('button', { name: 'Go to previous move' }).click()
+    await page.waitForFunction(
+      () => (window.__uciCommands || []).slice(window.__mark).some(c => c.startsWith('go ')),
+      null, { timeout: 20000 })
+    await page.waitForTimeout(400)
+    const asked = await page.evaluate(() => (window.__uciCommands || [])
+      .slice(window.__mark).filter(c => c.startsWith('go ')))
+
+    const depths = asked.map(command => Number((/\bdepth (\d+)/.exec(command) || [])[1]))
+    assert(depths.length > 0, 'stepping back asked the engine nothing, so nothing here was measured')
+    assert(depths.every(depth => depth === 8),
+      `the slider says 8 and stepping back asked for ${JSON.stringify(depths)}: ${asked.join(' | ')}`)
+    console.log(`  browsing depth: the slider says 8 and the step asked for ${JSON.stringify(depths)}`)
+  } finally {
+    await context.close()
+  }
+}
+
 async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -10410,6 +10463,7 @@ async function main() {
       'opening-filters': checkTheOpeningFiltersReachTheRequest,
       'advanced-limits': checkTheAdvancedLimitsReachTheEngine,
       'palette-tabs': checkAPaletteTabCommandGoesThere,
+      'browse-depth': checkBrowsingHonoursTheDepthSlider,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
       'markup': checkTheMarkupSaysWhatItShows,
       'premove': checkAPremoveWaitsForItsTurn,
@@ -11106,6 +11160,7 @@ async function main() {
     await checkTheOpeningFiltersReachTheRequest(browser)
     await checkTheAdvancedLimitsReachTheEngine(browser)
     await checkAPaletteTabCommandGoesThere(browser)
+    await checkBrowsingHonoursTheDepthSlider(browser)
     await checkADialogKeepsTheKeyboard(browser)
     await checkTheMarkupSaysWhatItShows(browser)
     await checkAMoveCanBePlayedFromTheKeyboard(browser)
