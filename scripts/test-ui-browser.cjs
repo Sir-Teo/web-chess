@@ -2998,6 +2998,71 @@ async function checkAnEngineIsNotChargedForItsOwnBoot(browser) {
   }
 }
 
+/**
+ * The top-arrow slider does not promise arrows the board cannot draw.
+ *
+ * "Top arrows" sits directly under MultiPV in Settings and slices the
+ * engine's lines: `ranked.slice(0, topMoveArrowCount)`, over the lines the
+ * engine actually returned. So the number of arrows is the *smaller* of the
+ * two settings, and the slider shows the larger one.
+ *
+ * Out of the box they disagree: `multiPv` defaults to 2 and
+ * `topMoveArrowCount` to 3, so a reader who has changed nothing has a control
+ * reading 3 above a board drawing 2, and dragging it to 5 changes nothing at
+ * all. The app already handles this shape twice in the same card -- the arrow
+ * switch is disabled behind "Turn on board arrows first", and the copy under
+ * it changes to "Board arrows are hidden in all game modes" -- so this slider
+ * was the one control there that stayed quiet.
+ *
+ * 'board-canvas' is the fixture that answers with two lines; the default one
+ * sends a single multipv line, which would make this a test of the fixture
+ * rather than of MultiPV.
+ */
+async function checkTheArrowCountSaysWhatItCanDraw(browser) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 950 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript('board-canvas'))
+    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+      workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze', autoAnalyze: false,
+    })))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    await page.getByRole('button', { name: 'Run analysis' }).click()
+    await page.waitForFunction(
+      () => document.querySelectorAll('.board-surface path[marker-end]').length > 0,
+      null, { timeout: 20000 })
+    await page.waitForTimeout(600)
+    const drawn = await page.evaluate(() => document.querySelectorAll('.board-surface path[marker-end]').length)
+
+    await openSettings(page)
+    const state = await page.evaluate(() => {
+      const slider = document.querySelector('[aria-label="Top move arrow count"]')
+      const multiPv = document.querySelector('[aria-label="MultiPV analysis lines"]')
+      const card = slider && slider.closest('.advanced-section')
+      return {
+        arrowsAsked: slider ? Number(slider.value) : null,
+        multiPv: multiPv ? Number(multiPv.value) : null,
+        copy: card ? (card.textContent || '').replace(/\s+/g, ' ') : '',
+      }
+    })
+
+    assert(state.arrowsAsked !== null && state.multiPv !== null,
+      `the arrow count or MultiPV control is not in Settings: ${JSON.stringify(state)}`)
+    assert(state.arrowsAsked > state.multiPv,
+      `this check needs the defaults to disagree; they read ${state.arrowsAsked} arrows and ${state.multiPv} lines`)
+    assert(drawn === state.multiPv,
+      `MultiPV is ${state.multiPv} and the board drew ${drawn} arrows`)
+    assert(new RegExp(`MultiPV is ${state.multiPv}`, 'i').test(state.copy),
+      `the slider asks for ${state.arrowsAsked} arrows over a board drawing ${drawn}, and the card does not say why: ${state.copy.slice(0, 400)}`)
+    console.log(`  top arrows: slider ${state.arrowsAsked}, MultiPV ${state.multiPv}, ${drawn} drawn, and the card says which limit applies`)
+  } finally {
+    await context.close()
+  }
+}
+
 async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -9899,6 +9964,7 @@ async function main() {
       'replayed-clock': checkAReplayedMoveRecordsItsOwnClock,
       'step-clock': checkStepModeDoesNotChargeTheHeldEngine,
       'boot-clock': checkAnEngineIsNotChargedForItsOwnBoot,
+      'arrow-count': checkTheArrowCountSaysWhatItCanDraw,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
       'markup': checkTheMarkupSaysWhatItShows,
       'premove': checkAPremoveWaitsForItsTurn,

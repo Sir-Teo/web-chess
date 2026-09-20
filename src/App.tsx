@@ -6777,6 +6777,22 @@ function App() {
                           <strong>{topMoveArrowCount}</strong>
                         </label>
                       )}
+                      {/* The arrows are the engine's lines, sliced: the board
+                          draws the smaller of these two numbers and the
+                          slider shows the larger. Out of the box they
+                          disagree -- MultiPV 2, top arrows 3 -- so a reader
+                          who has changed nothing has a control promising one
+                          more arrow than the board draws, and dragging it to
+                          5 does nothing at all. Said rather than clamped:
+                          the count is remembered, and a slider that rewrote
+                          itself when MultiPV dropped would lose a setting
+                          the reader chose. The two controls beside this one
+                          already explain themselves the same way. */}
+                      {showBoardArrows && showTopMoveArrows && topMoveArrowCount > multiPv && (
+                        <p className="panel-copy small">
+                          MultiPV is {multiPv}, so the board draws {multiPv} of them.
+                        </p>
+                      )}
                       <p className="panel-copy small">
                         {showBoardArrows
                           ? `Better lines render greener and worse lines redder${analyzeMode === 'infinite' ? ' (updates live in infinite mode).' : '.'}`
