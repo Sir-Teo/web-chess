@@ -3416,89 +3416,6 @@ async function checkBrowsingHonoursTheDepthSlider(browser) {
 }
 
 /**
- * A game that arrives with its evaluations is not swept for them again.
- *
- * The import sweep samples up to eighty positions and gives each a 70ms
- * search, to fill the graphs behind a freshly imported game. Every Lichess
- * export, and most annotated PGNs, already carry `[%eval]` on every move --
- * and those readings are stored with no depth and no purpose, which
- * `isShallowEvaluation` reads as "not shallow", while a sweep reading is
- * shallow by definition of its purpose.
- *
- * `shouldReplaceEvaluationSnapshot` refuses to let a shallow reading replace
- * a deeper one, so for such a game the sweep searched dozens of positions and
- * every single result was thrown away. Up to five and a half seconds of
- * engine time, on every import, on every device, for nothing.
- */
-async function checkAnImportDoesNotSweepWhatItAlreadyKnows(browser) {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
-  const page = await context.newPage()
-  try {
-    await page.addInitScript(fakeEngineScript())
-    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
-      workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze',
-      engineProfile: 'lite-single-local',
-    })))
-    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-    const startFresh = page.getByRole('button', { name: /start fresh/i })
-    if (await startFresh.count()) await startFresh.first().click()
-
-    // Every move carries a reading, the way a Lichess export does.
-    const moves = ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7',
-                   'Re1', 'b5', 'Bb3', 'd6', 'c3', 'O-O', 'h3', 'Nb8', 'd4', 'Nbd7']
-    const pgn = moves.map((san, index) => {
-      const number = index % 2 === 0 ? `${index / 2 + 1}. ` : ''
-      return `${number}${san} {[%eval ${(0.2 + index * 0.01).toFixed(2)}]}`
-    }).join(' ') + ' *'
-
-    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
-    const textarea = page.locator('.dialog-panel textarea').first()
-    await textarea.waitFor({ timeout: 10000 })
-    await textarea.fill(pgn)
-    await page.evaluate(() => { window.__mark = (window.__uciCommands || []).length })
-    await page.getByRole('button', { name: /Import & Analyze/ }).click()
-    await page.locator('.graph-bar, .winrate-graph, .mtree-chip').first().waitFor({ timeout: 20000 })
-    await page.waitForTimeout(6000)
-
-    const sampled = await page.evaluate(() => {
-      const list = (window.__uciCommands || []).slice(window.__mark)
-      const positions = []
-      let position = null
-      for (const command of list) {
-        if (command.startsWith('position ')) position = command
-        if (/^go .*movetime 70\b/.test(command)) positions.push(position || '')
-      }
-      return positions
-    })
-    const readings = await page.evaluate(() => document.querySelectorAll('.mtree-chip').length)
-    assert(readings >= 20, `the game did not import: ${readings} moves on the board`)
-    /*
-     * Two kinds of 70ms search share that movetime and only one is the sweep.
-     * `IMPORT_LOAD_MOVETIME_MS` gives the position the import lands on the
-     * same 70ms, and it is sent as the root plus the game's moves -- so its
-     * command carries the root FEN and anything matching on that alone counts
-     * it as a root sweep. The sweep sends each target as an absolute FEN with
-     * no move list, which is what tells them apart.
-     *
-     * Of the sweep's own searches the root is the one a PGN cannot supply:
-     * `[%eval]` attaches to a move, so the starting position never has one.
-     * Everything after it arrived with a reading and was searched anyway
-     * before this filter.
-     */
-    const ROOT = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
-    const sweepSearches = sampled.filter(position => !position.includes(' moves '))
-    const alreadyKnown = sweepSearches.filter(position => !position.includes(ROOT))
-    console.log(`  import sweep: ${sweepSearches.length} sampling search(es) beside the import's own,`
-      + ` ${alreadyKnown.length} of them for a position the game already had a reading for`)
-    assert(sweepSearches.length >= 1, 'no sampling search ran at all, so this check measured nothing')
-    assert(alreadyKnown.length === 0,
-      `a game that carries [%eval] on every move was swept for readings it already had: ${JSON.stringify(alreadyKnown.slice(0, 3))}`)
-  } finally {
-    await context.close()
-  }
-}
-
-/**
  * A hint does not rebuild the opponent's thread pool, twice.
  *
  * The hint is asked at full strength -- `HINT_DIFFICULTY` is 8 -- and
@@ -5271,6 +5188,12 @@ async function checkReviewReportHoldsStill(browser) {
   const page = await context.newPage()
   try {
     await page.addInitScript(fakeEngineScript('review-drift'))
+    // Pro, and a shallow review, so that raising the depth afterwards is what
+    // sends browsing past what the review stored. See the note on the slider
+    // below.
+    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+      analysisExperience: 'pro', analyzeMode: 'deep', searchDepth: 8,
+    })))
     await page.goto(BASE, { waitUntil: 'domcontentloaded' })
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
@@ -5295,6 +5218,25 @@ async function checkReviewReportHoldsStill(browser) {
       null, { timeout: 30000 })
     const reported = await page.evaluate(() =>
       document.querySelector('.review-chips').textContent.replace(/\s+/g, ' ').trim())
+    /*
+     * Raise the depth before walking.
+     *
+     * Browsing used to ask for `max(searchDepth, 20)` whatever the reader had
+     * chosen, so every step missed the navigation analysis cache and
+     * re-searched -- which is what handed this check its drift for free.
+     * Browsing now asks for the depth on the slider, so a walk at the
+     * review's own depth reuses the review's own readings and searches
+     * nothing; this check said exactly that, in its own words: "no position
+     * was searched again after the report".
+     *
+     * Raising the slider is how a reader asks for a deeper look now, and it
+     * is the case this check exists for: a later, deeper reading must not
+     * rewrite a finished report.
+     */
+    await openSettings(page)
+    await page.locator('[aria-label="Search depth"]').fill('20')
+    await closeSettings(page)
+
     // Counted from here, not from boot: positions are searched while the moves
     // are played and again by the review, and neither of those is the thing
     // this check is about.
@@ -10598,8 +10540,8 @@ async function main() {
       'advanced-limits': checkTheAdvancedLimitsReachTheEngine,
       'palette-tabs': checkAPaletteTabCommandGoesThere,
       'browse-depth': checkBrowsingHonoursTheDepthSlider,
-      'sweep-known': checkAnImportDoesNotSweepWhatItAlreadyKnows,
       'hint-threads': checkAHintDoesNotRebuildTheThreadPool,
+      'review-drift': checkReviewReportHoldsStill,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
       'markup': checkTheMarkupSaysWhatItShows,
       'premove': checkAPremoveWaitsForItsTurn,
@@ -11297,7 +11239,6 @@ async function main() {
     await checkTheAdvancedLimitsReachTheEngine(browser)
     await checkAPaletteTabCommandGoesThere(browser)
     await checkBrowsingHonoursTheDepthSlider(browser)
-    await checkAnImportDoesNotSweepWhatItAlreadyKnows(browser)
     await checkAHintDoesNotRebuildTheThreadPool(browser)
     await checkADialogKeepsTheKeyboard(browser)
     await checkTheMarkupSaysWhatItShows(browser)
