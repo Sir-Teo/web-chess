@@ -2212,6 +2212,30 @@ async function checkADialogKeepsTheKeyboard(browser) {
     await page.keyboard.press('Escape')
     await page.waitForTimeout(300)
 
+    /*
+     * Clicking away closes the dialog and hands focus back to what opened it.
+     *
+     * Worth asserting because the containment net makes it delicate: a click
+     * on the backdrop is a focus event outside the panel, which is exactly
+     * what the net pulls back inside. It works because the net is torn down
+     * before the close restores focus -- but "it works because of the order
+     * two teardowns happen in" is the kind of thing that stops being true
+     * without anyone noticing.
+     */
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+    await page.locator('.pgn-dialog').waitFor({ timeout: 15000 })
+    await page.waitForTimeout(400)
+    await page.mouse.click(5, 5)
+    await page.waitForTimeout(600)
+    assert(await page.locator('.pgn-dialog').count() === 0, 'clicking the backdrop did not close the dialog')
+    const returned = await page.evaluate(() => {
+      const active = document.activeElement
+      return active ? `${active.tagName.toLowerCase()} "${(active.getAttribute('aria-label') || active.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30)}"` : 'nothing'
+    })
+    assert(/Open PGN and FEN dialog/.test(returned),
+      `closing by backdrop should hand focus back to the control that opened it, and it went to ${returned}`)
+    console.log('  backdrop: clicking away closes the dialog and returns focus to its opener')
+
     // Every other overlay runs the same hook over its own markup, so the same
     // question has to be asked of each: the fix is a selector, and a selector
     // is only right about the panels somebody looked at.
