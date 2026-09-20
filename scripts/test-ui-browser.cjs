@@ -3087,6 +3087,67 @@ async function checkAHintBelongsToItsPosition(browser) {
 }
 
 /**
+ * A drill does not follow you out of Analysis.
+ *
+ * `checkDrillLeavesTheLineAlone` covers a drill while you are in one: a wrong
+ * move refused and kept out of the tree, a right one advancing. It never
+ * leaves, and leaving is where the interesting failure was. The effect that
+ * clears the drill on a workspace change carries the note: "a drill left
+ * running while you started a game would sit invisibly behind the board
+ * rejecting moves that were not the line" -- its card is only drawn in
+ * Analysis, so there would be nothing on screen to explain why the board had
+ * stopped taking moves.
+ *
+ * That is a fixed bug with a comment and no test, which is one refactor from
+ * being a bug again. This plays the move the drill would have refused.
+ */
+async function checkADrillStaysInAnalysis(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+    const play = async (from, to) => {
+      await page.click(`#chessboard-square-${from}`)
+      await page.click(`#chessboard-square-${to}`)
+      await page.waitForTimeout(160)
+    }
+    await play('e2', 'e4')
+    await play('e7', 'e5')
+    await page.waitForTimeout(400)
+
+    const drillAsWhite = page.locator('.drill-row button[aria-label="Drill this line as White"]')
+    await drillAsWhite.waitFor({ timeout: 15000 })
+    await drillAsWhite.click()
+    await page.waitForTimeout(600)
+    assert(await page.locator('.drill-card, [class*="drill"]').count() > 0, 'the drill did not start')
+
+    // Out to Play, where the drill has no card and must have no opinion.
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+    await page.waitForTimeout(600)
+
+    // d4 is not the drilled line. It has to land anyway.
+    const before = await page.evaluate(() => document.querySelectorAll('.mtree-chip').length)
+    await play('d2', 'd4')
+    await page.waitForTimeout(500)
+    const after = await page.evaluate(() => ({
+      chips: document.querySelectorAll('.mtree-chip').length,
+      text: document.body.innerText.includes('Not the line'),
+    }))
+    assert(after.chips > before,
+      `a move off the drilled line was refused in Play, where no drill card explains it: ${JSON.stringify({ before, after })}`)
+    assert(!after.text, 'the drill answered back from a mode it is not shown in')
+    console.log('  drill: left behind on the way out of Analysis, so Play still takes a move off the line')
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -8637,6 +8698,7 @@ async function main() {
       'threat': checkTheThreatProbeAsksTheOtherSide,
       'blindfold': checkABlindfoldHidesThePieces,
       'hint': checkAHintBelongsToItsPosition,
+      'drill-exit': checkADrillStaysInAnalysis,
       'library-double-save': checkOneGestureSavesOneGame,
       'database-once': checkADatabaseIsAddedOnce,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
@@ -9331,6 +9393,7 @@ async function main() {
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkDrillLeavesTheLineAlone(browser)
+    await checkADrillStaysInAnalysis(browser)
     await checkDrawModeEndsWithItsPurpose(browser)
     await checkEverySquareAnswersAFinger(browser)
     await checkATapSurvivesTheFingerThatMakesIt(browser)
