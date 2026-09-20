@@ -3470,6 +3470,114 @@ async function checkTheTablebaseAnswersForThisPosition(browser) {
 }
 
 /**
+ * Fetching a player's games brings back that player's games.
+ *
+ * The successful path had never run. The fixture answers lichess with a 404,
+ * so the Lichess half could only ever fail, and it does not intercept
+ * `api.chess.com` at all -- meaning the only way that half could have been
+ * exercised is by reaching the real API from a test, which is a suite that
+ * depends on somebody else's uptime. `checkADeadFetchButtonSaysWhy` covers the
+ * button while it cannot be used; nothing covered it working.
+ *
+ * Both sources are stubbed here, because they are shaped differently and the
+ * difference is where a wire gets crossed: Lichess answers one request with
+ * the games, and chess.com answers two -- a list of months, then a month.
+ */
+async function checkAnArchiveFetchBringsBackTheGames(browser) {
+  const game = (event, white, black) =>
+    `[Event "${event}"]\n[White "${white}"]\n[Black "${black}"]\n[Result "1-0"]\n\n1. e4 e5 2. Nf3 1-0`
+  const lichessGames = [game('Lichess A', 'archivist', 'opponent1'), game('Lichess B', 'opponent2', 'archivist')].join('\n\n')
+  const chessComGames = [game('ChessCom A', 'archivist', 'rival1'), game('ChessCom B', 'rival2', 'archivist'),
+                         game('ChessCom C', 'archivist', 'rival3')].join('\n\n')
+
+  const run = async (source, expected, wire) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+    const page = await context.newPage()
+    const asked = []
+    try {
+      await wire(context, asked)
+      // Deliberately without `fakeEngineScript`: it patches `window.fetch`
+      // inside the page and answers lichess with a 404 before a request ever
+      // reaches the network, so a route would never see one. Nothing here
+      // needs an engine -- the dialog reads and writes text.
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const startFresh = page.getByRole('button', { name: /start fresh/i })
+      if (await startFresh.count()) await startFresh.first().click()
+      await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      await page.locator('.dialog-panel').waitFor({ timeout: 15000 })
+      await page.getByRole('button', { name: source.button, exact: true }).click()
+      await page.waitForTimeout(300)
+
+      const username = page.getByLabel(`Your ${source.label} username`, { exact: true })
+      assert(await username.count() === 1, `${source.label} offers nowhere to put a username`)
+      await username.fill('archivist')
+      await page.waitForTimeout(200)
+
+      const fetchButton = page.getByRole('button', { name: 'Fetch', exact: true })
+      assert(!await fetchButton.isDisabled(), `${source.label}: Fetch stayed dead for a usable username`)
+      await fetchButton.click()
+      await page.waitForTimeout(3000)
+
+      const state = await page.evaluate(() => {
+        const panel = document.querySelector('.dialog-panel')
+        const text = (panel?.textContent || '').replace(/\s+/g, ' ')
+        const area = [...document.querySelectorAll('.dialog-panel textarea')].map(el => el.value).find(Boolean) || ''
+        return {
+          error: (panel?.querySelector('.dialog-error')?.textContent || '').trim(),
+          offer: (panel?.querySelector('.dialog-database-offer button')?.textContent || '').replace(/\s+/g, ' ').trim(),
+          events: (area.match(/\[Event "[^"]*"\]/g) || []).map(tag => tag.slice(8, -2)),
+          mentionsCount: /\b\d+ games\b/.test(text),
+        }
+      })
+      assert(!state.error, `${source.label}: the fetch reported "${state.error}"`)
+      assert(asked.length >= source.requests,
+        `${source.label}: expected at least ${source.requests} request(s), saw ${asked.length}`)
+      assert(asked.every(url => url.includes('archivist')),
+        `${source.label}: a request went out for somebody else: ${JSON.stringify(asked)}`)
+      assert(state.events.length === expected.length && expected.every(name => state.events.includes(name)),
+        `${source.label}: brought back ${JSON.stringify(state.events)}, expected ${JSON.stringify(expected)}`)
+      assert(/\b\d+ games\b/.test(state.offer) || state.mentionsCount,
+        `${source.label}: the games arrived with no count offered: ${JSON.stringify(state.offer)}`)
+      return state.events.length
+    } finally { await context.close() }
+  }
+
+  const fetched = await run(
+    { button: 'Lichess', label: 'Lichess', requests: 1 },
+    ['Lichess A', 'Lichess B'],
+    async (context, asked) => {
+      await context.route(/lichess\.org\/api\/games\/user/, async route => {
+        asked.push(route.request().url())
+        await route.fulfill({ status: 200, contentType: 'application/x-chess-pgn', body: lichessGames })
+      })
+    },
+  )
+
+  const fetchedCom = await run(
+    { button: 'Chess.com', label: 'Chess.com', requests: 2 },
+    ['ChessCom A', 'ChessCom B', 'ChessCom C'],
+    async (context, asked) => {
+      await context.route(/api\.chess\.com/, async route => {
+        const url = route.request().url()
+        asked.push(url)
+        if (url.endsWith('/archives')) {
+          await route.fulfill({
+            status: 200, contentType: 'application/json',
+            body: JSON.stringify({ archives: ['https://api.chess.com/pub/player/archivist/games/2026/09'] }),
+          })
+          return
+        }
+        await route.fulfill({ status: 200, contentType: 'application/x-chess-pgn', body: chessComGames })
+      })
+    },
+  )
+
+  console.log(`  archive fetch: Lichess brought back ${fetched} games in one request, chess.com ${fetchedCom} across two`)
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -9009,6 +9117,7 @@ async function main() {
       'opening-layout': checkOpeningLayout,
       'opening-numbers': checkOpeningNumbersBelongToTheirPosition,
       'tablebase': checkTheTablebaseAnswersForThisPosition,
+      'archive-fetch': checkAnArchiveFetchBringsBackTheGames,
       'graph-guide': checkGraphEstimateGuide,
       'board-canvas': checkBoardCanvas,
       'typed-moves': checkTypedMoveEntry,
@@ -9752,6 +9861,7 @@ async function main() {
     await checkEveryControlAnswersToWhatItSays(browser)
     await checkLabelsSurviveBigText(browser)
     await checkADeadFetchButtonSaysWhy(browser)
+    await checkAnArchiveFetchBringsBackTheGames(browser)
     await checkTheLibrarySurvivesABackup(browser)
     await checkOneGestureSavesOneGame(browser)
     await checkADatabaseIsAddedOnce(browser)
