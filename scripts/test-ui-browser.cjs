@@ -2263,6 +2263,92 @@ async function checkADialogKeepsTheKeyboard(browser) {
 }
 
 /**
+ * The Result a board wrote comes off that board and no other.
+ *
+ * `checkTakingBackAMateUnfinishesTheGame` covers one game. The hard half is
+ * the second: the effect remembers the Result it wrote so it can clear it
+ * again, and a remembered `0-1` must not reach across into a different game.
+ * Two ways it could. A game played after one that ended in mate, which the
+ * repetition here walks -- mate, Play again, mate, take back and play on,
+ * Start new game, mate -- and an imported header, which is the case the
+ * remembering is keyed to the main line's root node for.
+ *
+ * That import is the one a naive fix breaks: `1-0` on a game that ends with
+ * White simply to move is a real result from somewhere else, a resignation or
+ * an adjudication, and "the board has no ending, so the game is unfinished"
+ * would throw it away the moment it loaded.
+ */
+async function checkAResultBelongsToItsOwnGame(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+
+    const play = async (from, to) => {
+      await page.click(`#chessboard-square-${from}`)
+      await page.click(`#chessboard-square-${to}`)
+      await page.waitForTimeout(150)
+    }
+    const foolsMate = async () => {
+      await play('f2', 'f3'); await play('e7', 'e5'); await play('g2', 'g4'); await play('d8', 'h4')
+      await page.waitForFunction(() => /checkmate/i.test(document.body.innerText), null, { timeout: 10000 })
+    }
+    const exportedResult = async () => {
+      const text = await page.evaluate(async () => {
+        [...document.querySelectorAll('button')]
+          .find(b => b.getAttribute('aria-label') === 'Open PGN and FEN dialog').click()
+        await new Promise(resolve => setTimeout(resolve, 700))
+        const tab = [...document.querySelectorAll('.dialog-panel button')].find(b => /^Export$/.test(b.textContent.trim()))
+        if (tab) tab.click()
+        await new Promise(resolve => setTimeout(resolve, 500))
+        return [...document.querySelectorAll('textarea')].map(area => area.value).find(value => /^\[Event/m.test(value)) || ''
+      })
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(250)
+      return (text.match(/^\[Result "([^"]*)"\]/m) || [])[1] || '(none)'
+    }
+
+    await foolsMate()
+    assert(await exportedResult() === '0-1', 'the first mate did not export as 0-1')
+
+    await page.getByTestId('play-again').click()
+    await page.waitForTimeout(700)
+    assert(await exportedResult() === '*', 'Play again kept the finished game\'s result')
+
+    await foolsMate()
+    assert(await exportedResult() === '0-1', 'the second mate did not export as 0-1')
+
+    await page.getByRole('button', { name: /^Take back/ }).click()
+    await page.waitForFunction(() => /Black to move/.test(document.body.innerText), null, { timeout: 10000 })
+    await play('b8', 'c6')
+    await page.waitForTimeout(400)
+    assert(await exportedResult() === '*', 'taking the second mate back left its result behind')
+
+    // A result from somewhere else, on a game the board cannot account for.
+    // The `0-1` this session has written twice must not touch it, and neither
+    // must the fact that the final position is an ordinary one.
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+    const textarea = page.locator('.dialog-panel textarea').first()
+    await textarea.waitFor({ timeout: 10000 })
+    await textarea.fill('[Event "Resigned"]\n[Result "1-0"]\n\n1. e4 e5 2. Nf3 1-0')
+    await page.getByRole('button', { name: /Import & Analyze/ }).click()
+    await page.waitForFunction(() => /Nf3/.test(document.body.innerText), null, { timeout: 10000 })
+    await page.waitForTimeout(600)
+    const imported = await exportedResult()
+    assert(imported === '1-0',
+      `an imported result with no ending on the board exported as "${imported}"`)
+    console.log('  results: cleared with their own mate, kept across three games, and an imported 1-0 survived')
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -7733,6 +7819,7 @@ async function main() {
       'board-canvas': checkBoardCanvas,
       'typed-moves': checkTypedMoveEntry,
       'takeback-result': checkTakingBackAMateUnfinishesTheGame,
+      'result-ownership': checkAResultBelongsToItsOwnGame,
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
       'recorded-clocks': checkRecordedClocksMatchTheClock,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
@@ -8406,6 +8493,7 @@ async function main() {
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)
     await checkTakingBackAMateUnfinishesTheGame(browser)
+    await checkAResultBelongsToItsOwnGame(browser)
     await checkAModeSwitchDoesNotFreezeTheClock(browser)
     await checkRecordedClocksMatchTheClock(browser)
     await checkADialogKeepsTheKeyboard(browser)
