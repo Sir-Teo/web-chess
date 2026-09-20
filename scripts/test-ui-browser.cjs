@@ -3159,6 +3159,74 @@ async function checkTheOpeningFiltersReachTheRequest(browser) {
   }
 }
 
+/**
+ * The advanced search limits reach the engine.
+ *
+ * `buildAnalyzeCommand` is unit-tested and the switch that feeds it is not:
+ * nodes, the clock-style limits and moves-to-go are four more settings the
+ * browser suite had never touched. The rule is tested; the wiring is the part
+ * only a browser can show, and this app has already had one defect of exactly
+ * that shape this pass -- a blindfold whose rules were right and whose `title`
+ * gave the piece away.
+ *
+ * Reads the `go` the app actually sent, from the fixture's command log.
+ * **Measured**: `go depth 16 nodes 50000 wtime 61000 btime 62000 winc 3000
+ * binc 4000 movestogo 7`, every one of them from a control in Settings.
+ *
+ * Proved capable of failing before it was kept: with the gate on
+ * `showAdvancedAnalyze` neutered, it reports "the search was asked for
+ * 'nodes 50000' and the engine was sent: go depth 16".
+ */
+async function checkTheAdvancedLimitsReachTheEngine(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 950 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+      workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze', autoAnalyze: false,
+      engineProfile: 'lite-single-local', analyzeMode: 'deep',
+    })))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+
+    await openSettings(page)
+    const advanced = page.locator('.switch-control', { hasText: 'Advanced search limits' }).locator('input')
+    assert(await advanced.count() === 1, 'the advanced-limits switch is not in Settings')
+    if (!(await advanced.isChecked())) await advanced.click()
+
+    const field = name => page.locator('.engine-option-row', { hasText: name }).locator('input, select').first()
+    await field('Nodes limit').fill('50000')
+    const clockLimits = page.locator('.switch-control', { hasText: 'Use clock-style limits' }).locator('input')
+    if (!(await clockLimits.isChecked())) await clockLimits.click()
+    await field('White time (ms)').fill('61000')
+    await field('Black time (ms)').fill('62000')
+    await field('White increment (ms)').fill('3000')
+    await field('Black increment (ms)').fill('4000')
+    await field('Moves to go').fill('7')
+    // Blur the last field so its normalizer runs, the way a reader leaving it
+    // would.
+    await page.locator('.settings-body').click({ position: { x: 5, y: 5 } })
+    await closeSettings(page)
+
+    await page.evaluate(() => { window.__mark = (window.__uciCommands || []).length })
+    await page.getByRole('button', { name: 'Run analysis' }).click()
+    await page.waitForFunction(
+      () => (window.__uciCommands || []).slice(window.__mark).some(c => c.startsWith('go ')),
+      null, { timeout: 20000 })
+    const go = await page.evaluate(() => (window.__uciCommands || []).slice(window.__mark)
+      .filter(c => c.startsWith('go ')).pop() || '')
+
+    for (const token of ['nodes 50000', 'wtime 61000', 'btime 62000', 'winc 3000', 'binc 4000', 'movestogo 7']) {
+      assert(go.includes(token), `the search was asked for "${token}" and the engine was sent: ${go}`)
+    }
+    console.log(`  advanced limits: ${go}`)
+  } finally {
+    await context.close()
+  }
+}
+
 async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -10062,6 +10130,7 @@ async function main() {
       'boot-clock': checkAnEngineIsNotChargedForItsOwnBoot,
       'arrow-count': checkTheArrowCountSaysWhatItCanDraw,
       'opening-filters': checkTheOpeningFiltersReachTheRequest,
+      'advanced-limits': checkTheAdvancedLimitsReachTheEngine,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
       'markup': checkTheMarkupSaysWhatItShows,
       'premove': checkAPremoveWaitsForItsTurn,
@@ -10756,6 +10825,7 @@ async function main() {
     await checkAnEngineIsNotChargedForItsOwnBoot(browser)
     await checkTheArrowCountSaysWhatItCanDraw(browser)
     await checkTheOpeningFiltersReachTheRequest(browser)
+    await checkTheAdvancedLimitsReachTheEngine(browser)
     await checkADialogKeepsTheKeyboard(browser)
     await checkTheMarkupSaysWhatItShows(browser)
     await checkAMoveCanBePlayedFromTheKeyboard(browser)
