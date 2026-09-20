@@ -1,0 +1,99 @@
+{
+  "commit": "42ea842",
+  "comparedWith": "138c3f6",
+  "base": "http://127.0.0.1:4336/web-chess/",
+  "note": "Re-run of the 2026-09-12 analysis-UI profile against its own baseline, to check that a day of focus, clock and CSS changes cost nothing at the board. Same workload, same fixture, same machine class. No result here is a test threshold.",
+  "workload": "116-ply game, five legal PVs, telemetry every 100ms, board flip every 500ms; production build, main thread only",
+  "results": [
+    {
+      "sample": 1,
+      "metrics": {
+        "TaskDuration": 3.179577,
+        "ScriptDuration": 0.486,
+        "LayoutDuration": 0.31552,
+        "RecalcStyleDuration": 0.214585,
+        "LayoutCount": 514,
+        "RecalcStyleCount": 522
+      },
+      "observed": {
+        "updates": 115,
+        "longTasks": [],
+        "flipToTwoFramesMs": [
+          34.33499997854233,
+          30.8649999499321,
+          30.1700000166893,
+          30.17500001192093,
+          33.464999973773956,
+          29.51500004529953,
+          28.10499995946884,
+          26.87000000476837,
+          27.294999957084656,
+          29.89000004529953,
+          28.415000021457672
+        ]
+      },
+      "finalPositionDepth": "D21",
+      "errors": []
+    },
+    {
+      "sample": 2,
+      "metrics": {
+        "TaskDuration": 3.148952,
+        "ScriptDuration": 0.474171,
+        "LayoutDuration": 0.308424,
+        "RecalcStyleDuration": 0.223722,
+        "LayoutCount": 526,
+        "RecalcStyleCount": 534
+      },
+      "observed": {
+        "updates": 115,
+        "longTasks": [],
+        "flipToTwoFramesMs": [
+          31.685000002384186,
+          31.1599999666214,
+          31.325000047683716,
+          32.80500000715256,
+          34.02000004053116,
+          30.14000004529953,
+          31.865000009536743,
+          29.42500001192093,
+          29.59500002861023,
+          29.535000026226044,
+          29.865000009536743
+        ]
+      },
+      "finalPositionDepth": "D21",
+      "errors": []
+    },
+    {
+      "sample": 3,
+      "metrics": {
+        "TaskDuration": 3.263618,
+        "ScriptDuration": 0.496913,
+        "LayoutDuration": 0.352633,
+        "RecalcStyleDuration": 0.235013,
+        "LayoutCount": 518,
+        "RecalcStyleCount": 526
+      },
+      "observed": {
+        "updates": 115,
+        "longTasks": [],
+        "flipToTwoFramesMs": [
+          34.5799999833107,
+          29.535000026226044,
+          32.435000002384186,
+          46.40499997138977,
+          28.560000002384186,
+          29.069999992847443,
+          31.12000000476837,
+          29.939999997615814,
+          30.165000021457672,
+          30.865000009536743,
+          28.850000023841858
+        ]
+      },
+      "finalPositionDepth": "D21",
+      "errors": []
+    }
+  ]
+}
