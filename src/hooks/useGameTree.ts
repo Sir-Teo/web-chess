@@ -193,6 +193,24 @@ export function useGameTree(startFen?: string) {
                 // Replaying a move that is already a variation still makes it
                 // the game, or taking back and playing the same move again
                 // would leave the line in brackets.
+                //
+                // With the clock the move was actually played on. `[%clk]` is
+                // the reading after the move, and a takeback refunds nothing,
+                // so the second attempt is always further down the clock than
+                // the first -- keeping the old reading exported a time the
+                // player's clock had already gone past, and `buildMoveTimeSeries`
+                // recovers a think by differencing those readings, so the
+                // think went missing from this move and turned up on the reply.
+                //
+                // Only when one is supplied: walking a line in Analysis calls
+                // this with no reading at all, and must not wipe the clocks an
+                // imported game arrived with.
+                if (typeof options?.clockMs === 'number' && child.clockMs !== options.clockMs) {
+                    const withClock = new Map(tree.nodes)
+                    withClock.set(childId, { ...child, clockMs: options.clockMs })
+                    publishPromoted({ ...tree, nodes: withClock }, childId)
+                    return childId
+                }
                 publishPromoted(tree, childId)
                 return childId
             }

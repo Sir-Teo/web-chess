@@ -2777,6 +2777,87 @@ async function checkAnImportSweepRunsToTheEnd(browser) {
   }
 }
 
+/**
+ * A move that is played, taken back and played again records the clock it was
+ * played on the second time.
+ *
+ * `addMove` de-dupes by UCI, which is right -- replaying a move that is
+ * already a variation makes it the game again rather than putting a second
+ * copy beside it, and the comment at the call site says so in as many words:
+ * "the move you just played is the game, even if you took one back to play
+ * it." What it did not do was take the new reading with it. The node kept the
+ * clock from the first attempt, so a takeback, a think and the same move again
+ * exported a `[%clk]` from before the think -- a reading the player's clock had
+ * already gone past. `buildMoveTimeSeries` recovers each think by differencing
+ * those readings, so the think it reports for that move is short by however
+ * long the second attempt took, and the reply's is long by the same amount.
+ *
+ * No refund on a takeback is the rule (`takebackMove` says so), so the second
+ * reading is always the lower one and the two can never coincide by accident.
+ * Compared against the face on screen, the same way its sibling above does it.
+ */
+async function checkAReplayedMoveRecordsItsOwnClock(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    await page.getByRole('button', { name: 'Start new game' }).click()
+    await page.locator('.new-game-dialog').waitFor({ timeout: 10000 })
+    await page.locator('.mode-card', { hasText: 'Human vs Human' }).click()
+    await page.locator('.time-control-card', { hasText: '3 + 2' }).click()
+    await page.locator('.btn-start').click()
+    await page.locator('.chess-clock').waitFor({ timeout: 10000 })
+
+    const playE4 = async () => {
+      await page.click('#chessboard-square-e2')
+      await page.click('#chessboard-square-e4')
+      await page.waitForFunction(() => /Black to move/.test(document.body.innerText), null, { timeout: 10000 })
+      return page.locator('.clock-face.clock-white strong').textContent()
+    }
+
+    const first = await playE4()
+    await page.getByRole('button', { name: /^Take back/ }).click()
+    await page.waitForFunction(() => /White to move/.test(document.body.innerText), null, { timeout: 10000 })
+    // Long enough that the two readings cannot round to the same second. The
+    // face rounds a part-second up, the way a chess clock does, so 2.6s of
+    // thinking left both readings on "3:01" -- **measured**, and the reason
+    // this wait is not the obvious two seconds.
+    await page.waitForTimeout(6000)
+    const second = await playE4()
+    assert(first !== second,
+      `the takeback refunded the think, so this check cannot tell the readings apart: both read ${first}`)
+
+    const text = await page.evaluate(async () => {
+      [...document.querySelectorAll('button')]
+        .find(b => b.getAttribute('aria-label') === 'Open PGN and FEN dialog')
+        .click()
+      await new Promise(resolve => setTimeout(resolve, 800))
+      const exportTab = [...document.querySelectorAll('.dialog-panel button')]
+        .find(b => /^Export$/.test(b.textContent.trim()))
+      if (exportTab) exportTab.click()
+      await new Promise(resolve => setTimeout(resolve, 600))
+      return [...document.querySelectorAll('textarea')]
+        .map(area => area.value)
+        .find(value => /^\[Event/m.test(value)) || ''
+    })
+
+    const recorded = [...text.matchAll(/\[%clk\s+([0-9:]+)\s*\]/g)].map(match => match[1])
+    assert(recorded.length === 1, `the replayed move should be the game's one move, got ${recorded.length} readings`)
+    const asFace = (clk) => clk.replace(/^0:0?/, '')
+    assert(asFace(recorded[0]) !== first,
+      `the game recorded ${recorded[0]}, the reading from before the take-back`)
+    assert(asFace(recorded[0]) === second,
+      `White's face read ${second} after the replayed e4; the game recorded ${recorded[0]}`)
+    console.log(`  replayed clock: ${first} before the take-back, ${second} after, and ${recorded[0]} recorded`)
+  } finally {
+    await context.close()
+  }
+}
+
 async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -9620,6 +9701,7 @@ async function main() {
       'result-ownership': checkAResultBelongsToItsOwnGame,
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
       'recorded-clocks': checkRecordedClocksMatchTheClock,
+      'replayed-clock': checkAReplayedMoveRecordsItsOwnClock,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
       'markup': checkTheMarkupSaysWhatItShows,
       'premove': checkAPremoveWaitsForItsTurn,
@@ -10309,6 +10391,7 @@ async function main() {
     await checkAResultBelongsToItsOwnGame(browser)
     await checkAModeSwitchDoesNotFreezeTheClock(browser)
     await checkRecordedClocksMatchTheClock(browser)
+    await checkAReplayedMoveRecordsItsOwnClock(browser)
     await checkADialogKeepsTheKeyboard(browser)
     await checkTheMarkupSaysWhatItShows(browser)
     await checkAMoveCanBePlayedFromTheKeyboard(browser)
