@@ -106,6 +106,45 @@ export function useModalFocus(
     }
     panelEl.addEventListener('focusin', revealFocusedControl)
 
+    /*
+     * Which way the reader is walking, for the net below.
+     */
+    let steppingBackwards = false
+
+    /*
+     * The net under the Tab handler, because the handler alone assumes the
+     * browser will tab where `getFocusable` says, and one browser does not.
+     *
+     * Safari, with "Press Tab to highlight each item" off -- its default, and
+     * there is no other engine on iOS -- tabs to text fields and disclosures
+     * and skips every button. Measured in WebKit: the Settings dialog holds 25
+     * controls and Tab visits three of them, so the ends of the cycle the
+     * reader actually walks are nowhere near this list's first and last. Three
+     * presses of Shift+Tab from the dialog put focus on the summary that opens
+     * it -- outside an `aria-modal` dialog, with the rest of the page hidden
+     * from a screen reader -- because the control it stepped back from was in
+     * the middle of the list, and the handler below only speaks at the ends.
+     *
+     * Rather than seize Tab and march through this list, which would impose
+     * one browser's convention on another inside a dialog and nowhere else,
+     * let each browser step where it likes and catch what falls out: focus
+     * that lands outside the panel goes to the end it was heading for.
+     *
+     * Nothing else in the app moves focus out of an open modal. A click on a
+     * backdrop closes it, and this is torn down before the close hands focus
+     * back to whatever opened it.
+     */
+    const containFocus = (event: FocusEvent) => {
+      if (!trapFocus) return
+      const target = event.target
+      if (target instanceof Node && panelEl.contains(target)) return
+      const focusable = getFocusable()
+      if (!focusable.length) return
+      const edge = steppingBackwards ? focusable[focusable.length - 1]! : focusable[0]!
+      edge.focus()
+    }
+    document.addEventListener('focusin', containFocus)
+
     const preferredEl = initialFocus ? panelEl.querySelector<HTMLElement>(initialFocus) : null
     const preferred = preferredEl && isFocusable(preferredEl) ? preferredEl : null
     ;(preferred ?? getFocusable()[0])?.focus()
@@ -118,6 +157,7 @@ export function useModalFocus(
       }
 
       if (!trapFocus || event.key !== 'Tab') return
+      steppingBackwards = event.shiftKey
       const focusable = getFocusable()
       if (!focusable.length) return
 
@@ -142,6 +182,7 @@ export function useModalFocus(
     document.addEventListener('keydown', onKeyDown)
     return () => {
       document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('focusin', containFocus)
       panelEl.removeEventListener('focusin', revealFocusedControl)
       // Whatever opened the overlay may itself be gone by the time it closes —
       // a dialog opened from another dialog, a control the close re-rendered
