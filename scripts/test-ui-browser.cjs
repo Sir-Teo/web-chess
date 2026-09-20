@@ -3734,32 +3734,55 @@ async function checkAFailedLookupSaysSoPlainly(browser) {
     } finally { await context.close() }
   }
 
-  // And the archive fetch, whose failure leaves a button to press again.
-  {
+  // The archive fetch answers two requests, so it has two ways of failing and
+  // a third that is neither: every month refusing, which used to be reported
+  // as the player having nothing public.
+  for (const [name, source, wire, expect] of [
+    ['the player is rate limited', 'Lichess', async context => {
+      await context.route(/lichess\.org\/api\/games\/user/, route => route.fulfill({ status: 429, body: 'slow down' }))
+    }, /rate limiting/i],
+    ['the month list is not JSON', 'Chess.com', async context => {
+      await context.route(/api\.chess\.com/, route => route.fulfill({ status: 200, contentType: 'application/json', body: '{broken' }))
+    }, /not a list of games/i],
+    ['every month refuses', 'Chess.com', async context => {
+      await context.route(/api\.chess\.com/, async route => {
+        const url = route.request().url()
+        if (url.endsWith('/archives')) {
+          await route.fulfill({ status: 200, contentType: 'application/json',
+            body: JSON.stringify({ archives: ['https://api.chess.com/pub/player/archivist/games/2026/09'] }) })
+          return
+        }
+        await route.fulfill({ status: 500, contentType: 'text/plain', body: 'boom' })
+      })
+    }, /having trouble/i],
+  ]) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
     const page = await context.newPage()
     try {
-      await context.route(/lichess\.org\/api\/games\/user/, route => route.fulfill({ status: 429, body: 'slow down' }))
+      await wire(context)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await inAnalysis(page)
       await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
       await page.locator('.dialog-panel').waitFor({ timeout: 15000 })
-      await page.getByRole('button', { name: 'Lichess', exact: true }).click()
-      await page.getByLabel('Your Lichess username', { exact: true }).fill('archivist')
+      await page.getByRole('button', { name: source, exact: true }).click()
+      await page.getByLabel(`Your ${source} username`, { exact: true }).fill('archivist')
       await page.getByRole('button', { name: 'Fetch', exact: true }).click()
-      await page.waitForTimeout(3000)
+      await page.waitForTimeout(3500)
       const state = await page.evaluate(() => {
         const panel = document.querySelector('.dialog-panel')
         const button = [...panel.querySelectorAll('button')].find(b => /fetch/i.test(b.textContent))
         return { message: (panel.querySelector('.dialog-error')?.textContent || '').trim(),
                  label: (button?.textContent || '').trim() }
       })
-      readsAsASentence(state.message, 'archive fetch, a rate limit')
+      readsAsASentence(state.message, `archive fetch, ${name}`)
+      assert(expect.test(state.message),
+        `archive fetch, ${name}: said ${JSON.stringify(state.message)}`)
       assert(!/fetching/i.test(state.label),
-        `archive fetch: the button is still fetching after it failed: ${JSON.stringify(state.label)}`)
+        `archive fetch, ${name}: the button is still fetching after it failed`)
     } finally { await context.close() }
   }
-  console.log('  failed lookups: six failures across three services, each a finished sentence and none still loading')
+
+  console.log('  failed lookups: eight failures across four services, each a finished sentence and none still loading')
 }
 
 /**

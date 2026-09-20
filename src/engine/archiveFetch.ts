@@ -148,19 +148,59 @@ async function fetchChessComGames(
   const listResponse = await request('chesscom', chessComArchivesUrl(username), options, 'application/json')
   if (!listResponse.ok) throw new Error(archiveErrorMessage('chesscom', listResponse.status, username))
 
-  const months = parseChessComArchiveMonths(await listResponse.json()).slice(0, MAX_CHESSCOM_MONTHS)
+  /*
+   * The list of months, or a sentence saying it was not one.
+   *
+   * Every other failure on this path is answered in words; this parse was
+   * bare, so a body that is not JSON spoke in the parser's voice. **Measured**
+   * by answering the archives endpoint with `{broken`: the dialog read
+   * "Expected property name or '}' in JSON at position 1". A captive portal
+   * answering with its login page is the way that happens for real.
+   */
+  let listed: unknown
+  try {
+    listed = await listResponse.json()
+  } catch {
+    throw new Error('Chess.com sent something that is not a list of games. Try again shortly.')
+  }
+  const months = parseChessComArchiveMonths(listed).slice(0, MAX_CHESSCOM_MONTHS)
 
   const games: string[] = []
   let bytes = 0
+  let refused = 0
+  let lastRefusal = 0
   for (const month of months) {
     if (games.length >= max || bytes >= MAX_ARCHIVE_BYTES) break
     const monthResponse = await request('chesscom', chessComMonthPgnUrl(username, month), options, 'application/x-chess-pgn')
     // A month that will not load is skipped rather than failing the walk: the
     // months either side of it are still the games the reader asked for.
-    if (!monthResponse.ok) continue
+    if (!monthResponse.ok) {
+      refused += 1
+      lastRefusal = monthResponse.status
+      continue
+    }
     const text = await monthResponse.text()
     bytes += text.length
+    // A month that answers 200 with something other than games is left to
+    // `looksLikeGame` in `fetchArchiveGames`, which already filters it and
+    // says why. Counting it as a refusal here would be a second opinion on a
+    // decision already taken one layer up.
     games.push(...splitPgnGames(text))
+  }
+
+  /*
+   * Skipping a bad month is right; skipping every month and calling the result
+   * "no games" is not.
+   *
+   * The panel reads an empty list as a player with nothing public, which is
+   * the truth when the archive list was empty and a misdiagnosis when it was
+   * not -- **measured** with a player whose months all answered 500: "Chess.com
+   * has no public games for “archivist”", sending a reader to check privacy
+   * settings over a server that was simply down. Nothing came back and
+   * something refused, so the refusal is the thing to report.
+   */
+  if (!games.length && refused > 0) {
+    throw new Error(archiveErrorMessage('chesscom', lastRefusal, username))
   }
   return games
 }
