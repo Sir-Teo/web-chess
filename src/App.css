@@ -6673,3 +6673,40 @@ button.hint-btn {
   min-width: 44px;
   min-height: 44px;
 }
+
+/* ═══════════════════════════════════════════════════
+   Dropdowns
+   ═══════════════════════════════════════════════════ */
+
+/*
+ * Safari sizes a native `<select>` itself and throws the author's box away.
+ *
+ * **Measured** in WebKit against Chromium, the same element under the same
+ * rules -- the engine options dropdown in Settings: computed `min-height`
+ * **18px against 32px**, computed padding **0 against 5.76px 7.36px**, and a
+ * control drawn **18px tall at 100% text and 33px at 200%** where Chromium
+ * draws 32px and 55px. The selectors all match in both engines; the rules
+ * simply do not survive a menulist. So every sizing rule this app has for a
+ * dropdown was a no-op on the only engine iOS has -- including the 44px touch
+ * target the fourth pass put on the right-hand panel, which is the one place
+ * the number matters most.
+ *
+ * `appearance: none` hands the box back, and the arrow it takes away is drawn
+ * here. Uniform rather than behind a Safari hack: a control that is the app's
+ * own shape in one browser and the system's in another is two controls.
+ *
+ * Last in the file on purpose. `.engine-option-row select` sets `background`
+ * as a shorthand, which would otherwise reset the arrow to nothing.
+ */
+.app-shell select {
+  appearance: none;
+  -webkit-appearance: none;
+  /* A chevron, in a grey that reads on both themes. Decoration: the control
+     is already named by its label and announced as a listbox. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%23888888' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 0.58rem auto;
+  /* Room for the arrow, so a long option does not run under it. */
+  padding-right: 1.5rem;
+}
