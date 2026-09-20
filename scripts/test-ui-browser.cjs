@@ -87,6 +87,28 @@ const TOUCH_TARGET_PX = 44
 const TOUCH_TARGET_SLACK_PX = 0.25
 const meetsTouchTarget = value => value >= TOUCH_TARGET_PX - TOUCH_TARGET_SLACK_PX
 
+const BROWSER_NAME = process.env.UI_TEST_BROWSER || 'chromium'
+
+/**
+ * Raw touch input is a Chromium-only capability here.
+ *
+ * Four checks synthesise a finger with `Input.dispatchTouchEvent` over CDP,
+ * because a tap that has to travel -- press, a few moves, release -- needs
+ * the intermediate events and Playwright has no cross-engine way to send
+ * them. `newCDPSession` throws outside Chromium, which is what stopped a
+ * Firefox run at its 180th result line with "CDP session is only available
+ * in Chromium" rather than with anything about this app.
+ *
+ * Says so and moves on, so the rest of the run happens. A skip that prints
+ * is a skip somebody can see; the alternative was a suite that could not
+ * finish in two of the three engines it claims to support.
+ */
+function skipsWithoutCdp(what) {
+  if (BROWSER_NAME === 'chromium') return false
+  console.log(`  ${what}: skipped in ${BROWSER_NAME}, raw touch input needs Chromium's CDP`)
+  return true
+}
+
 function fakeEngineScript(scenario = 'normal') {
   return `
 const SCENARIO = ${JSON.stringify(scenario)};
@@ -895,8 +917,25 @@ async function checkEvaluationEngineProvenance(browser) {
       await page.getByRole('button', { name: 'Analyze', exact: true }).click()
       await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.coach-line-source')?.textContent.includes('D34'))
-      assert((await source.innerText()).includes('QA Full · Full Single (CDN) · build 18.0.7')
-        && !(await source.innerText()).includes('different engine profile'), 'the newer reading did not carry its producer')
+      /*
+       * Wait for the label this asserts about, not for a different element
+       * that happens to change first. The depth lands on `.coach-line-source`
+       * and the producer on `[data-testid="position-engine-source"]`; they
+       * settle in the same commit in Chromium and can be a frame apart in
+       * Firefox, where this read back the *previous* engine -- "QA Lite ...
+       * Saved reading from a different engine profile" -- for a reading whose
+       * depth had already updated. Bounded, so a producer that never updates
+       * still fails, and with the text in the message either way.
+       */
+      await page.waitForFunction(
+        () => (document.querySelector('[data-testid="position-engine-source"]')?.textContent || '')
+          .includes('QA Full'),
+        null, { timeout: 15000 },
+      ).catch(() => {})
+      const producerText = await source.innerText()
+      assert(producerText.includes('QA Full · Full Single (CDN) · build 18.0.7')
+        && !producerText.includes('different engine profile'),
+        `the newer reading did not carry its producer: ${JSON.stringify(producerText)}`)
       await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
       await page.getByRole('button', { name: 'Export', exact: true }).click()
       const exported = await page.getByRole('textbox', { name: 'Annotated Output' }).inputValue()
@@ -5297,6 +5336,7 @@ async function checkEverySquareAnswersAFinger(browser) {
  * proves nothing.
  */
 async function checkATapSurvivesTheFingerThatMakesIt(browser) {
+  if (skipsWithoutCdp('tap that travels')) return
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true,
   })
@@ -5379,6 +5419,7 @@ async function checkATapSurvivesTheFingerThatMakesIt(browser) {
  * three values exist to protect and `dispatchTouchEvent` needs no compositor.
  */
 async function checkTheBoardIsNotADeadZone(browser) {
+  if (skipsWithoutCdp('board dead zone')) return
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true,
   })
@@ -7506,6 +7547,7 @@ async function checkABigFileIsDescribedNotShown(browser) {
  * in the dialog is a run where the browser was not going to navigate.
  */
 async function checkADroppedPgnIsTaken(browser) {
+  if (skipsWithoutCdp('dropped PGN')) return
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
   try {
@@ -7659,6 +7701,7 @@ async function checkBackClosesTheSheet(browser) {
  * chooser was ever drawn in it. It passed with the fix backed out.
  */
 async function checkThePromotionChooserCanBeHit(browser) {
+  if (skipsWithoutCdp('promotion chooser tap')) return
   // A white pawn one square from promoting, kings far apart.
   const FEN = '8/1P6/8/k7/8/8/8/7K w - - 0 1'
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
@@ -10253,6 +10296,28 @@ async function main() {
   try {
     await waitForHttp(BASE, 30000)
     browser = await browserType.launch()
+    /*
+     * Give the other engines longer than Playwright's 30s default.
+     *
+     * Three checks -- the engine release, the evaluation provenance and the
+     * saved reviews -- fail a Firefox run about one time in four, always on a
+     * timeout, and every one of them passes when run on its own. That is what
+     * "this engine is slower" looks like from inside a suite written against
+     * the fastest one: the work is the same, the deadline is not.
+     *
+     * Applied by wrapping `newContext` rather than by touching the hundred
+     * places that call it, so there is one number and one place to find it.
+     * Chromium keeps the 30s default, so a check that hangs there still fails
+     * in the time it always did.
+     */
+    if (BROWSER_NAME !== 'chromium') {
+      const nativeNewContext = browser.newContext.bind(browser)
+      browser.newContext = async options => {
+        const context = await nativeNewContext(options)
+        context.setDefaultTimeout(90_000)
+        return context
+      }
+    }
     const focusedChecks = {
       startup: checkEngineStartupTimeout,
       autosave: checkAutosaveFailure,
