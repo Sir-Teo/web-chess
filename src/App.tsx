@@ -317,6 +317,7 @@ const PROMOTION_GLYPHS: Record<'w' | 'b', Record<PromotionPiece, string>> = {
 const HINT_DIFFICULTY: AiDifficulty = 8
 const IMPORT_LOAD_MOVETIME_MS = 70
 const IMPORT_SHALLOW_MULTIPV = 1
+const MOVE_PONDER_MIN_DEPTH = 20
 const IMPORT_SWEEP_MOVETIME_MS = 70
 const IMPORT_SWEEP_TARGET_LIMIT = 80
 const IMPORT_SWEEP_MULTIPV = 1
@@ -2081,20 +2082,7 @@ function App() {
         fen,
         purpose: 'review-ponder',
         mode: keepSearching ? 'infinite' : 'custom',
-        // The depth the reader asked for, and no deeper.
-        //
-        // This used to be `max(searchDepth, 20)` -- an uncommented floor, used
-        // in this one place -- which made stepping through a game the most
-        // expensive thing the app does. **Measured** through the shipped Lite
-        // build: depth 20 costs 5x depth 16 from the start position and 7.25x
-        // from a middlegame, on every arrow key and every device. And the
-        // slider could not turn it down: dragging Depth to 6 to save a battery
-        // still bought a depth-20 search per step.
-        //
-        // Nothing needed the 20. `isReviewEvaluationSufficient` measures a
-        // stored reading against the review's own depth, not against this, and
-        // a reader who wants browsing to look further has the control for it.
-        limits: keepSearching ? autoLimits : { depth: searchDepth },
+        limits: keepSearching ? autoLimits : { depth: Math.max(searchDepth, MOVE_PONDER_MIN_DEPTH) },
         multiPv,
         hashMb,
         showWdl,

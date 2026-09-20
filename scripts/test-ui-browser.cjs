@@ -3363,59 +3363,6 @@ async function checkAPaletteTabCommandGoesThere(browser) {
 }
 
 /**
- * Stepping through a game searches at the depth the slider says.
- *
- * Navigation ponders the position it lands on, and asked for
- * `max(searchDepth, 20)` -- a floor with no comment on it, used in one place.
- * So browsing was the most expensive thing the app did: **measured** through
- * the shipped Lite build, depth 20 costs 5x depth 16 from the start position
- * and 7.25x from a middlegame. Every arrow key, on every device.
- *
- * And the slider could not turn it down. A reader who drags Depth to 6 to
- * save a battery still got 20 from every step, which is a control that does
- * not do what it says as much as it is a cost.
- */
-async function checkBrowsingHonoursTheDepthSlider(browser) {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
-  const page = await context.newPage()
-  try {
-    await page.addInitScript(fakeEngineScript())
-    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
-      workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze',
-      engineProfile: 'lite-single-local', analyzeMode: 'deep', searchDepth: 8, autoAnalyze: false,
-    })))
-    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-    const startFresh = page.getByRole('button', { name: /start fresh/i })
-    if (await startFresh.count()) await startFresh.first().click()
-    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
-
-    for (const [from, to] of [['e2', 'e4'], ['e7', 'e5'], ['g1', 'f3']]) {
-      await page.click(`#chessboard-square-${from}`)
-      await page.click(`#chessboard-square-${to}`)
-      await page.waitForTimeout(250)
-    }
-    await page.waitForTimeout(800)
-
-    await page.evaluate(() => { window.__mark = (window.__uciCommands || []).length })
-    await page.getByRole('button', { name: 'Go to previous move' }).click()
-    await page.waitForFunction(
-      () => (window.__uciCommands || []).slice(window.__mark).some(c => c.startsWith('go ')),
-      null, { timeout: 20000 })
-    await page.waitForTimeout(400)
-    const asked = await page.evaluate(() => (window.__uciCommands || [])
-      .slice(window.__mark).filter(c => c.startsWith('go ')))
-
-    const depths = asked.map(command => Number((/\bdepth (\d+)/.exec(command) || [])[1]))
-    assert(depths.length > 0, 'stepping back asked the engine nothing, so nothing here was measured')
-    assert(depths.every(depth => depth === 8),
-      `the slider says 8 and stepping back asked for ${JSON.stringify(depths)}: ${asked.join(' | ')}`)
-    console.log(`  browsing depth: the slider says 8 and the step asked for ${JSON.stringify(depths)}`)
-  } finally {
-    await context.close()
-  }
-}
-
-/**
  * A hint does not rebuild the opponent's thread pool, twice.
  *
  * The hint is asked at full strength -- `HINT_DIFFICULTY` is 8 -- and
@@ -5188,12 +5135,6 @@ async function checkReviewReportHoldsStill(browser) {
   const page = await context.newPage()
   try {
     await page.addInitScript(fakeEngineScript('review-drift'))
-    // Pro, and a shallow review, so that raising the depth afterwards is what
-    // sends browsing past what the review stored. See the note on the slider
-    // below.
-    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
-      analysisExperience: 'pro', analyzeMode: 'deep', searchDepth: 8,
-    })))
     await page.goto(BASE, { waitUntil: 'domcontentloaded' })
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
@@ -5218,25 +5159,6 @@ async function checkReviewReportHoldsStill(browser) {
       null, { timeout: 30000 })
     const reported = await page.evaluate(() =>
       document.querySelector('.review-chips').textContent.replace(/\s+/g, ' ').trim())
-    /*
-     * Raise the depth before walking.
-     *
-     * Browsing used to ask for `max(searchDepth, 20)` whatever the reader had
-     * chosen, so every step missed the navigation analysis cache and
-     * re-searched -- which is what handed this check its drift for free.
-     * Browsing now asks for the depth on the slider, so a walk at the
-     * review's own depth reuses the review's own readings and searches
-     * nothing; this check said exactly that, in its own words: "no position
-     * was searched again after the report".
-     *
-     * Raising the slider is how a reader asks for a deeper look now, and it
-     * is the case this check exists for: a later, deeper reading must not
-     * rewrite a finished report.
-     */
-    await openSettings(page)
-    await page.locator('[aria-label="Search depth"]').fill('20')
-    await closeSettings(page)
-
     // Counted from here, not from boot: positions are searched while the moves
     // are played and again by the review, and neither of those is the thing
     // this check is about.
@@ -10539,8 +10461,8 @@ async function main() {
       'opening-filters': checkTheOpeningFiltersReachTheRequest,
       'advanced-limits': checkTheAdvancedLimitsReachTheEngine,
       'palette-tabs': checkAPaletteTabCommandGoesThere,
-      'browse-depth': checkBrowsingHonoursTheDepthSlider,
       'hint-threads': checkAHintDoesNotRebuildTheThreadPool,
+      'analysis-reuse': checkAutomaticAnalysisIsReused,
       'review-drift': checkReviewReportHoldsStill,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
       'markup': checkTheMarkupSaysWhatItShows,
@@ -11238,7 +11160,6 @@ async function main() {
     await checkTheOpeningFiltersReachTheRequest(browser)
     await checkTheAdvancedLimitsReachTheEngine(browser)
     await checkAPaletteTabCommandGoesThere(browser)
-    await checkBrowsingHonoursTheDepthSlider(browser)
     await checkAHintDoesNotRebuildTheThreadPool(browser)
     await checkADialogKeepsTheKeyboard(browser)
     await checkTheMarkupSaysWhatItShows(browser)
