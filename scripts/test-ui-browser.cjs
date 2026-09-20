@@ -3148,6 +3148,86 @@ async function checkADrillStaysInAnalysis(browser) {
 }
 
 /**
+ * A chord belongs to the browser; a bare key belongs to the app.
+ *
+ * `isPlainShortcut` exists for a bug worth not having again, and its comment
+ * names it: "Command+F flipped the board and swallowed Find, and Alt/Command
+ * with an arrow stepped through the game instead of going back". The rule is
+ * one line and unit-tested; nothing checked that the handler still asks it.
+ *
+ * Both directions are asserted, because a check that only proved the chords
+ * are ignored would pass just as happily on an app whose shortcuts had all
+ * stopped working. So: the chord does nothing, and then the bare key does the
+ * thing.
+ */
+async function checkAChordBelongsToTheBrowser(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+    const play = async (from, to) => {
+      await page.click(`#chessboard-square-${from}`)
+      await page.click(`#chessboard-square-${to}`)
+      await page.waitForTimeout(160)
+    }
+    await play('e2', 'e4')
+    await play('e7', 'e5')
+
+    // White at the bottom means a1 sits below a8.
+    const orientation = () => page.evaluate(() => {
+      const low = document.getElementById('chessboard-square-a1')?.getBoundingClientRect()
+      const high = document.getElementById('chessboard-square-a8')?.getBoundingClientRect()
+      return low && high ? (low.top > high.top ? 'white' : 'black') : 'unknown'
+    })
+    const atMove = () => page.evaluate(() =>
+      (document.querySelector('.mtree-chip-active')?.textContent || '').trim())
+    const blur = () => page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    })
+
+    await blur()
+    const startOrientation = await orientation()
+    const startMove = await atMove()
+    assert(startOrientation !== 'unknown', 'could not tell which way the board is facing')
+
+    // The chords the comment names, and the ones beside them.
+    for (const chord of ['Meta+f', 'Control+f', 'Alt+ArrowLeft', 'Meta+ArrowLeft', 'Control+ArrowLeft', 'Shift+f']) {
+      await blur()
+      await page.keyboard.press(chord)
+      await page.waitForTimeout(220)
+      const facing = await orientation()
+      const move = await atMove()
+      assert(facing === startOrientation,
+        `${chord} turned the board round; that chord is the browser's`)
+      assert(move === startMove,
+        `${chord} moved through the game; that chord is the browser's`)
+    }
+
+    // And the bare keys still do their jobs, or the above proves nothing.
+    await blur()
+    await page.keyboard.press('f')
+    await page.waitForTimeout(300)
+    assert(await orientation() !== startOrientation, 'f no longer flips the board')
+    await blur()
+    await page.keyboard.press('f')
+    await page.waitForTimeout(300)
+
+    await blur()
+    await page.keyboard.press('ArrowLeft')
+    await page.waitForTimeout(300)
+    assert(await atMove() !== startMove, 'ArrowLeft no longer steps back through the game')
+    console.log('  shortcuts: six chords left to the browser, and f and ArrowLeft still the app\'s')
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -8699,6 +8779,7 @@ async function main() {
       'blindfold': checkABlindfoldHidesThePieces,
       'hint': checkAHintBelongsToItsPosition,
       'drill-exit': checkADrillStaysInAnalysis,
+      'chords': checkAChordBelongsToTheBrowser,
       'library-double-save': checkOneGestureSavesOneGame,
       'database-once': checkADatabaseIsAddedOnce,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
@@ -9394,6 +9475,7 @@ async function main() {
     await checkReviewReportHoldsStill(browser)
     await checkDrillLeavesTheLineAlone(browser)
     await checkADrillStaysInAnalysis(browser)
+    await checkAChordBelongsToTheBrowser(browser)
     await checkDrawModeEndsWithItsPurpose(browser)
     await checkEverySquareAnswersAFinger(browser)
     await checkATapSurvivesTheFingerThatMakesIt(browser)
