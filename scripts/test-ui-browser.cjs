@@ -10944,6 +10944,7 @@ async function main() {
     await checkTheArrowCountSaysWhatItCanDraw(browser)
     await checkTheOpeningFiltersReachTheRequest(browser)
     await checkTheAdvancedLimitsReachTheEngine(browser)
+    await checkAPaletteTabCommandGoesThere(browser)
     await checkADialogKeepsTheKeyboard(browser)
     await checkTheMarkupSaysWhatItShows(browser)
     await checkAMoveCanBePlayedFromTheKeyboard(browser)
