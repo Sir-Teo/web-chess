@@ -29,6 +29,29 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
   const [loaded, setLoaded] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [working, setWorking] = useState(false)
+  /*
+   * The same flag, readable in the tick it is set.
+   *
+   * Every routine below opens with `if (busy || working) return`, which reads
+   * React state -- so three clicks on Save review in one tick all saw `false`
+   * and all ran. **Measured**: three identical runs in storage. The button had
+   * the right idea already, `lastSavedReport === report`, and no chance to act
+   * on it, because nothing had re-rendered between the clicks.
+   *
+   * The state stays: it is what the buttons are disabled from, and what a
+   * reader sees. The ref is what the routines ask.
+   */
+  const workingRef = useRef(false)
+  const beginWork = () => {
+    if (workingRef.current) return false
+    workingRef.current = true
+    setWorking(true)
+    return true
+  }
+  const endWork = () => {
+    workingRef.current = false
+    setWorking(false)
+  }
   const [notice, setNotice] = useState('')
   const [lastSavedReport, setLastSavedReport] = useState<ReviewSnapshot | null>(null)
   const [comparison, setComparison] = useState<{ report: ReviewSnapshot; saved: SavedReview } | null>(null)
@@ -56,8 +79,8 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
   }
 
   async function save() {
-    if (!report || busy || working) return
-    setWorking(true)
+    if (!report || busy || workingRef.current) return
+    if (!beginWork()) return
     setNotice('Saving review…')
     try {
       const saved = createSavedReview(line, report, headers, qualities)
@@ -67,46 +90,46 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
       await refresh(saved.id)
       if (details.current) details.current.open = true
     } catch (error) { setNotice(failure(error, 'save this review')) }
-    finally { setWorking(false) }
+    finally { endWork() }
   }
 
   async function open() {
-    if (!selected || busy || working) return
-    setWorking(true)
+    if (!selected || busy || workingRef.current) return
+    if (!beginWork()) return
     try {
       const saved = await loadSavedReview(selected.id)
       onOpen(saved)
       setNotice('Saved review opened. Its own scores and settings are shown below.')
     } catch (error) { setNotice(failure(error, 'open this review')) }
-    finally { setWorking(false) }
+    finally { endWork() }
   }
 
   async function remove() {
-    if (!selected || working) return
-    setWorking(true)
+    if (!selected || workingRef.current) return
+    if (!beginWork()) return
     try {
       await deleteSavedReview(selected.id)
       setLastSavedReport(null)
       setNotice('Saved copy deleted. The review currently on screen is still available.')
       await refresh()
     } catch (error) { setNotice(failure(error, 'delete this saved review')) }
-    finally { setWorking(false) }
+    finally { endWork() }
   }
 
   async function compare() {
-    if (!selected || !report || !sameLine || busy || working) return
-    setWorking(true)
+    if (!selected || !report || !sameLine || busy || workingRef.current) return
+    if (!beginWork()) return
     try {
       const saved = await loadSavedReview(selected.id)
       setComparison({ saved, report })
       setNotice('Comparison opened below. The current report is unchanged.')
     } catch (error) { setNotice(failure(error, 'compare this review')) }
-    finally { setWorking(false) }
+    finally { endWork() }
   }
 
   async function backup() {
-    if (busy || working) return
-    setWorking(true)
+    if (busy || workingRef.current) return
+    if (!beginWork()) return
     setNotice('Preparing review backup…')
     try {
       const { text, count } = await exportReviewBackup()
@@ -123,12 +146,12 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
       }
       setNotice(`Backup download started for ${count} saved ${count === 1 ? 'review' : 'reviews'}, including WDL and run details.`)
     } catch (error) { setNotice(failure(error, 'export the review backup')) }
-    finally { setWorking(false) }
+    finally { endWork() }
   }
 
   async function restoreBackup(file: File) {
-    if (busy || working) return
-    setWorking(true)
+    if (busy || workingRef.current) return
+    if (!beginWork()) return
     setNotice('Importing review backup…')
     try {
       const result = await importReviewBackup(file)
@@ -139,7 +162,7 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
       // A lost worker response can leave the outcome unknown. Re-read storage
       // before a retry; content deduplication makes that retry safe.
       await refresh()
-    } finally { setWorking(false) }
+    } finally { endWork() }
   }
 
   return (

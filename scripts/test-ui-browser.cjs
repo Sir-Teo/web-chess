@@ -1026,8 +1026,33 @@ async function checkSavedReviews(browser) {
       await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
       const originalSource = await page.getByTestId('review-engine-source').innerText()
       const originalAccuracy = await page.locator('.accuracy-summary').innerText()
-      await page.getByRole('button', { name: 'Save review', exact: true }).click()
+      /*
+       * One gesture saves one review. Three clicks in a single tick used to
+       * store three identical runs: every routine in that panel opens with
+       * `if (busy || working) return`, and `working` is React state, so none
+       * of them had re-rendered when the second and third arrived. The button
+       * already knew better -- `lastSavedReport === report` -- and had no
+       * chance to say so.
+       */
+      await page.evaluate(() => {
+        const button = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Save review')
+        button.click(); button.click(); button.click()
+      })
       await page.getByText('Review saved on this device.', { exact: false }).waitFor()
+      await page.waitForTimeout(800)
+      const savedOnce = await page.evaluate(() => new Promise(resolve => {
+        const request = indexedDB.open('web-chess-reviews', 1)
+        request.onerror = () => resolve(['unreadable'])
+        request.onsuccess = () => {
+          const db = request.result
+          if (!db.objectStoreNames.contains('runs')) { db.close(); resolve([]); return }
+          const read = db.transaction('runs', 'readonly').objectStore('runs').getAll()
+          read.onsuccess = () => { const titles = read.result.map(run => run.title); db.close(); resolve(titles) }
+          read.onerror = () => { db.close(); resolve(['unreadable']) }
+        }
+      }))
+      assert(savedOnce.length === 1,
+        `three clicks on Save review stored ${savedOnce.length} runs: ${JSON.stringify(savedOnce)}`)
       await page.getByLabel('Choose a saved review').waitFor()
       const liteId = await page.getByLabel('Choose a saved review').inputValue()
       assert(liteId, 'save did not produce a selectable committed review')
