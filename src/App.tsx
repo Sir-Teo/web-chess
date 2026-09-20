@@ -3408,18 +3408,47 @@ function App() {
     setPgnHeaders(previous => (previous.Result === result ? previous : { ...previous, Result: result }))
   }, [clockFlagged, resignedBy, setPgnHeaders])
 
-  // Checkmate, stalemate and the three drawing rules end a game just as
-  // finally, and until this existed only the clock ever wrote a Result. Every
-  // other ending exported as `*`, which every other program reads as
-  // "unfinished" -- and the review's narrative tags, which take the winner from
-  // this header, could not tell a won game from a drawn one. A flag wins if
-  // both happen, because it is the later of the two.
+  /**
+   * The Result a finished board earns -- and takes back.
+   *
+   * Checkmate, stalemate and the three drawing rules end a game just as
+   * finally as a flag, and until this existed only the clock ever wrote a
+   * Result. Every other ending exported as `*`, which every other program
+   * reads as "unfinished" -- and the review's narrative tags, which take the
+   * winner from this header, could not tell a won game from a drawn one. A
+   * flag wins if both happen, because it is the later of the two.
+   *
+   * The reverse had the same hole. Take a mate back, play something else, and
+   * the mate is a variation while the game goes on -- but the header still
+   * said `0-1`, so the PGN, the auto-save and the library all filed a game in
+   * progress as one Black had won. Only a Result this effect wrote is cleared,
+   * and only for the game it wrote it about: an imported `1-0` that no mate on
+   * the board accounts for (a resignation, an adjudication) is the header's
+   * own claim about a game played elsewhere, and must survive both a takeback
+   * here and a remembered result from whatever was loaded before it. The root
+   * node's id is what makes those two games different -- every new game and
+   * every import builds a fresh tree.
+   */
+  const boardResultRef = useRef<{ rootId: string; result: string } | null>(null)
   useEffect(() => {
-    if (endedOffBoard || !mainLineEnd) return
+    if (endedOffBoard) return
+    const rootId = mainLineNodes[0]?.id
+    if (!rootId) return
+    if (mainLineEnd) {
+      boardResultRef.current = { rootId, result: mainLineEnd.result }
+      setPgnHeaders(previous => (
+        previous.Result === mainLineEnd.result ? previous : { ...previous, Result: mainLineEnd.result }
+      ))
+      return
+    }
+    const written = boardResultRef.current
+    if (!written || written.rootId !== rootId) return
+    boardResultRef.current = null
+    // Anything else in the header is someone's later edit, and stands.
     setPgnHeaders(previous => (
-      previous.Result === mainLineEnd.result ? previous : { ...previous, Result: mainLineEnd.result }
+      previous.Result === written.result ? { ...previous, Result: '*' } : previous
     ))
-  }, [endedOffBoard, mainLineEnd, setPgnHeaders])
+  }, [endedOffBoard, mainLineEnd, mainLineNodes, setPgnHeaders])
 
   // ── Engine arrows ────────────────────────────────────
   const currentBoardMove = gameTree.current.move

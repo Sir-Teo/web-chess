@@ -1882,6 +1882,85 @@ async function checkTakebackHandsTheClockBack(browser) {
 }
 
 /**
+ * A mate taken back takes its Result with it.
+ *
+ * `1. f3 e5 2. g4 Qh4#` writes `0-1` into the headers, which is what the PGN,
+ * the auto-save and the library all read. Taking the mate back and playing on
+ * left the header where it was: the game went on, and all three filed a game
+ * in progress as one Black had won. Only an ending ever wrote a Result and
+ * nothing ever cleared one.
+ */
+async function checkTakingBackAMateUnfinishesTheGame(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+
+    const play = async (from, to) => {
+      await page.click(`#chessboard-square-${from}`)
+      await page.click(`#chessboard-square-${to}`)
+      await page.waitForTimeout(150)
+    }
+
+    // The exported game, read the way another program would read it: open the
+    // dialog, take the text, and put the dialog away again so the next read
+    // starts from the same place.
+    const exported = async () => {
+      const text = await page.evaluate(async () => {
+        [...document.querySelectorAll('button')]
+          .find(b => b.getAttribute('aria-label') === 'Open PGN and FEN dialog')
+          .click()
+        await new Promise(resolve => setTimeout(resolve, 800))
+        const exportTab = [...document.querySelectorAll('.dialog-panel button')]
+          .find(b => /^Export$/.test(b.textContent.trim()))
+        if (exportTab) exportTab.click()
+        await new Promise(resolve => setTimeout(resolve, 600))
+        return [...document.querySelectorAll('textarea')]
+          .map(area => area.value)
+          .find(value => /^\[Event/m.test(value)) || ''
+      })
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(300)
+      return {
+        result: (text.match(/^\[Result "([^"]*)"\]/m) || [])[1] || '',
+        movetext: (text.split('\n\n')[1] || '').replace(/\{[^}]*\}/g, '').replace(/\s+/g, ' ').trim(),
+      }
+    }
+
+    await play('f2', 'f3')
+    await play('e7', 'e5')
+    await play('g2', 'g4')
+    await play('d8', 'h4')
+    await page.waitForFunction(() => /checkmate/i.test(document.body.innerText), null, { timeout: 10000 })
+
+    const mated = await exported()
+    assert(mated.result === '0-1', `the mate should export as 0-1, it exported as "${mated.result}"`)
+
+    // Take the mate back and play on. Pass and play takes back one ply, so the
+    // board is Black's again with the mate a move that was not made.
+    await page.getByRole('button', { name: /^Take back/ }).click()
+    await page.waitForFunction(() => /Black to move/.test(document.body.innerText), null, { timeout: 10000 })
+    await play('b8', 'c6')
+    await page.waitForFunction(() => /Nc6/.test(document.body.innerText), null, { timeout: 10000 })
+
+    const playedOn = await exported()
+    assert(/Nc6/.test(playedOn.movetext), `the game played on is not in the export: ${playedOn.movetext}`)
+    assert(playedOn.result === '*',
+      `a game that is still being played exported as "${playedOn.result}"`)
+    assert(/\*\s*$/.test(playedOn.movetext),
+      `the movetext still ends on a result: ${playedOn.movetext}`)
+    console.log('  takeback: the mate\'s 0-1 came off with the mate')
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * The Pro view's "keep searching" switch turns the automatic analysis into an
  * unbounded search. Off, a move lands and the engine is asked for `go depth
  * 16`; on, it is asked for `go infinite` and left there until the board moves.
@@ -7221,6 +7300,7 @@ async function main() {
       'graph-guide': checkGraphEstimateGuide,
       'board-canvas': checkBoardCanvas,
       'typed-moves': checkTypedMoveEntry,
+      'takeback-result': checkTakingBackAMateUnfinishesTheGame,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
@@ -7888,6 +7968,7 @@ async function main() {
     await checkReviewAtRequestedDepth(browser)
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)
+    await checkTakingBackAMateUnfinishesTheGame(browser)
     await checkKeepSearchingIsUnbounded(browser)
     await checkAutoplayWalksTheLine(browser)
     await checkTypedMoveLands(browser)
