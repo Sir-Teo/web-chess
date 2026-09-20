@@ -2505,7 +2505,14 @@ function App() {
     setContinuousAnalysis(DEFAULT_PERSISTED_SETTINGS.continuousAnalysis)
     setBlunderNudges(DEFAULT_PERSISTED_SETTINGS.blunderNudges)
     setBlindfold(DEFAULT_PERSISTED_SETTINGS.blindfold)
-    setTheme(DEFAULT_PERSISTED_SETTINGS.theme)
+    // Not the theme. This button says "Clears persisted analyze/lab controls
+    // for this browser", and light/dark is neither -- it is the whole app's
+    // appearance. It was added to this list by the commit that introduced the
+    // light theme, alongside every other new field, and it is the only
+    // non-analyze setting here: `boardThemeId`, `soundEnabled`,
+    // `timeControlId`, `lastDifficulty` and `lastSideChoice` are all
+    // deliberately absent. So a reader on Light who cleared their analyze
+    // controls had the app go dark on them, with nothing offering to.
     setOpeningPrefetchTick(0)
     setEngineLabError(null)
     setEngineLabCommand('')

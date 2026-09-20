@@ -3374,6 +3374,63 @@ async function checkAPaletteTabCommandGoesThere(browser) {
  * and says a `go` in the same tick as a rebuild can never answer -- so that
  * is two rebuilds and two handshakes for one hint.
  */
+/**
+ * "Reset saved workspace" leaves the app's light/dark theme alone.
+ *
+ * The button's own copy says it "Clears persisted analyze/lab controls for
+ * this browser", and `theme` is not one: it is the whole app's appearance.
+ * It reached the reset list mechanically, in the commit that added the light
+ * theme, and was the only non-analyze setting there -- `boardThemeId`,
+ * `soundEnabled`, `timeControlId`, `lastDifficulty` and `lastSideChoice` are
+ * all deliberately absent from it. So clearing your analyze controls took the
+ * app from Light to Dark, with nothing on screen offering to.
+ *
+ * Checked with the analyze controls left at their defaults so that the theme
+ * is the only thing the reset could change, and with an analyze control moved
+ * off its default too, so the check still proves the button does its job.
+ */
+async function checkResettingTheWorkspaceKeepsTheTheme(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+      workspaceMode: 'analysis', theme: 'light', topMoveArrowCount: 5,
+    })))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    const readTheme = () => page.evaluate(() => ({
+      root: document.documentElement.getAttribute('data-theme'),
+      stored: JSON.parse(localStorage.getItem('webchess:analysis-settings:v1') || '{}'),
+    }))
+
+    const before = await readTheme()
+    assert(before.root === 'light', `the seeded theme did not reach the page: ${JSON.stringify(before)}`)
+    assert(before.stored.topMoveArrowCount === 5,
+      `the seeded analyze control did not reach the page: ${JSON.stringify(before.stored)}`)
+
+    await page.getByRole('button', { name: /Open settings/ }).click()
+    await page.locator('.settings-body').waitFor({ timeout: 10000 })
+    await page.locator('.advanced-settings summary:has-text("Advanced engine options")').click()
+    await page.getByRole('button', { name: 'Reset saved workspace' }).click()
+    await page.waitForTimeout(600)
+
+    const after = await readTheme()
+    assert(after.root === 'light',
+      `clearing the analyze controls changed the app's theme: ${JSON.stringify(after)}`)
+    assert(after.stored.theme === 'light',
+      `the reset persisted a theme the reader never chose: ${JSON.stringify(after.stored)}`)
+    // The half that says the button still works.
+    assert(after.stored.topMoveArrowCount === 3,
+      `the reset left an analyze control where it was: ${JSON.stringify(after.stored)}`)
+    console.log('  reset workspace: analyze controls go back to defaults, the light theme stays light')
+  } finally {
+    await context.close()
+  }
+}
+
 async function checkAHintDoesNotRebuildTheThreadPool(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -10462,6 +10519,7 @@ async function main() {
       'advanced-limits': checkTheAdvancedLimitsReachTheEngine,
       'palette-tabs': checkAPaletteTabCommandGoesThere,
       'hint-threads': checkAHintDoesNotRebuildTheThreadPool,
+      'reset-theme': checkResettingTheWorkspaceKeepsTheTheme,
       'analysis-reuse': checkAutomaticAnalysisIsReused,
       'review-drift': checkReviewReportHoldsStill,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
@@ -11161,6 +11219,7 @@ async function main() {
     await checkTheAdvancedLimitsReachTheEngine(browser)
     await checkAPaletteTabCommandGoesThere(browser)
     await checkAHintDoesNotRebuildTheThreadPool(browser)
+    await checkResettingTheWorkspaceKeepsTheTheme(browser)
     await checkADialogKeepsTheKeyboard(browser)
     await checkTheMarkupSaysWhatItShows(browser)
     await checkAMoveCanBePlayedFromTheKeyboard(browser)
