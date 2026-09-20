@@ -2781,6 +2781,83 @@ async function checkADatabaseIsAddedOnce(browser) {
 }
 
 /**
+ * A premove is played when its turn comes, and dropped when the turn does not.
+ *
+ * `premove.ts` has seventeen tests and none of them touch the app: the rules
+ * are covered and the wiring is not, which is where this kind of feature
+ * fails. The queue is set while the engine is thinking and read by an effect
+ * when the reply lands, and the two have to meet.
+ *
+ * The second half is the one with teeth. A premove is a move for a position
+ * that does not exist yet, so anything that changes which position is coming
+ * has to throw it away -- and a takeback is exactly that. A premove that
+ * survived one would play a move the reader queued for a game they have since
+ * abandoned, one turn later, with nothing on screen to say why.
+ */
+async function checkAPremoveWaitsForItsTurn(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript('blunder-nudge'))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await page.click('.top-mode-pills button:has-text("Human vs AI")')
+    // The engine has to be ready before any of this means anything: played
+    // too early, the request goes out against a board the reply no longer
+    // matches and the move never lands.
+    await page.waitForFunction(() => /ready to play/.test(document.body.innerText), null, { timeout: 20000 })
+
+    // Slow, so there is a window to queue one in at all.
+    const slow = page.getByRole('button', { name: 'Set AI speed to Slow' })
+    assert(await slow.count() === 1, 'the AI speed control is missing, so there is no window to premove in')
+    await slow.click()
+    await page.waitForTimeout(200)
+
+    const moves = () => page.evaluate(() => [...document.querySelectorAll('.mtree-chip')].map(chip => chip.textContent.trim()))
+    const queue = async (from, to) => {
+      await page.click(`#chessboard-square-${from}`)
+      await page.waitForTimeout(60)
+      await page.click(`#chessboard-square-${to}`)
+      await page.waitForTimeout(80)
+    }
+
+    await page.click('#chessboard-square-e2')
+    await page.click('#chessboard-square-e4')
+    await page.waitForTimeout(100)
+    await queue('d2', 'd4')
+
+    await page.waitForFunction(() => /e5/.test(document.querySelector('.mtree-scroll')?.textContent || ''),
+                               null, { timeout: 15000 })
+    await page.waitForTimeout(1500)
+    const played = await moves()
+    assert(played.includes('d4'),
+      `the premove should have played itself when the reply landed: ${JSON.stringify(played)}`)
+    assert(played.indexOf('d4') === played.indexOf('e5') + 1,
+      `the premove played out of order: ${JSON.stringify(played)}`)
+
+    // Now queue one and take the game back underneath it.
+    await page.waitForFunction(() => /Nc6/.test(document.querySelector('.mtree-scroll')?.textContent || ''),
+                               null, { timeout: 15000 })
+    await page.waitForTimeout(400)
+    await page.click('#chessboard-square-g1')
+    await page.click('#chessboard-square-f3')
+    await page.waitForTimeout(100)
+    await queue('f1', 'c4')
+    const beforeTakeback = await moves()
+    await page.getByRole('button', { name: /^Take back/ }).click()
+    await page.waitForTimeout(3000)
+    const afterTakeback = await moves()
+    assert(!afterTakeback.includes('Bc4'),
+      `a premove survived a takeback and played anyway: ${JSON.stringify({ beforeTakeback, afterTakeback })}`)
+    console.log(`  premove: played in turn as ${played.slice(0, 4).join(' ')}, and dropped by a takeback`)
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -8327,6 +8404,7 @@ async function main() {
       'recorded-clocks': checkRecordedClocksMatchTheClock,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
       'markup': checkTheMarkupSaysWhatItShows,
+      'premove': checkAPremoveWaitsForItsTurn,
       'library-double-save': checkOneGestureSavesOneGame,
       'database-once': checkADatabaseIsAddedOnce,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
@@ -9014,6 +9092,7 @@ async function main() {
     await checkMoveTimesAreGraphed(browser)
     await checkResignationEndsTakeback(browser)
     await checkQuickStartRemembersTheLastGame(browser)
+    await checkAPremoveWaitsForItsTurn(browser)
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkDrillLeavesTheLineAlone(browser)
