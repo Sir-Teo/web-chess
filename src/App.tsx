@@ -7688,9 +7688,18 @@ function App() {
                         <IconZap /> {isHinting ? 'Looking...' : 'Hint'}
                       </button>
                     </div>
+                    {/* The second half of the sentence is a claim about the
+                        board, and the switch that makes it false is three
+                        lines above this one. With overlays off the hint drew
+                        nothing and still said where to look -- so the move,
+                        which is the answer either way, arrived reading like a
+                        thing that had failed. */}
                     {hintSan && (
                       <p className="panel-copy small hint-answer" role="status">
-                        Try <strong>{hintSan}</strong> — drawn on the board in green.
+                        Try <strong>{hintSan}</strong>
+                        {showBoardArrows
+                          ? ' — drawn on the board in green.'
+                          : ' — board arrows are off, so nothing is drawn.'}
                       </p>
                     )}
                     {/* The review says this afterwards; a learner needs it now,

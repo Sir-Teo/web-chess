@@ -2647,6 +2647,70 @@ async function checkTheReviewOfferFollowsTheGame(browser) {
 }
 
 
+/**
+ * A hint says where to look only when there is something to look at.
+ *
+ * "Show board arrow overlays" sits three lines above the Hint button, in the
+ * same card. With it off the hint still read "Try e4 -- drawn on the board in
+ * green" over a board with nothing drawn on it, so the answer arrived reading
+ * like a thing that had failed.
+ *
+ * The default fixture rather than 'blunder-nudge': that scenario answers
+ * `e7e5`, which is not a legal move for White at the start, so `uciToSan`
+ * returns nothing and the sentence is never rendered at all. The arrow is
+ * drawn from the raw UCI and does not notice -- which is why the check next
+ * door now measures the arrow inside the board rather than every `svg line`
+ * on the page.
+ */
+async function checkAHintSaysWhereToLookOnlyIfItIsDrawn(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await page.click('.top-mode-pills button:has-text("Human vs AI")')
+    await page.waitForFunction(() => /ready to play/.test(document.body.innerText), null, { timeout: 20000 })
+    await page.waitForTimeout(500)
+
+    await page.getByRole('button', { name: 'Ask the engine for a hint' }).click()
+    await page.locator('.hint-answer').waitFor({ timeout: 15000 })
+
+    const drawn = await page.evaluate(() => ({
+      arrows: document.querySelectorAll('.board-surface path[marker-end]').length,
+      copy: (document.querySelector('.hint-answer')?.textContent || '').replace(/\s+/g, ' ').trim(),
+    }))
+    assert(drawn.arrows > 0, 'the hint named a move and drew no arrow for it')
+    assert(/drawn on the board/i.test(drawn.copy),
+      `with arrows on, the hint should say where it is drawn: "${drawn.copy}"`)
+
+    const toggled = await page.evaluate(() => {
+      const row = [...document.querySelectorAll('.switch-control')]
+        .find(el => /Show board arrow overlays/.test(el.textContent || '') && el.offsetParent)
+      const input = row && row.querySelector('input[type="checkbox"]')
+      if (!input || !input.checked) return false
+      input.click()
+      return true
+    })
+    assert(toggled, 'the board-arrow switch is not beside the Hint button in Play mode')
+    await page.waitForTimeout(400)
+
+    const hidden = await page.evaluate(() => ({
+      arrows: document.querySelectorAll('.board-surface path[marker-end]').length,
+      copy: (document.querySelector('.hint-answer')?.textContent || '').replace(/\s+/g, ' ').trim(),
+    }))
+    assert(hidden.arrows === 0, `arrows are switched off and the board still drew ${hidden.arrows}`)
+    assert(hidden.copy, 'the hint answer went away with the arrows; the move it found is the answer either way')
+    assert(!/drawn on the board/i.test(hidden.copy),
+      `the hint reads "${hidden.copy}" with board arrows off and nothing drawn`)
+    console.log(`  hint copy: "${drawn.copy}" with arrows on, "${hidden.copy}" with them off`)
+  } finally {
+    await context.close()
+  }
+}
+
 async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -3145,7 +3209,14 @@ async function checkAHintBelongsToItsPosition(browser) {
       .filter(command => command.startsWith('go ')).length)
     assert(asked === 1, `three presses should ask the engine once, and asked ${asked} times`)
 
-    const arrows = await page.evaluate(() => document.querySelectorAll('svg line').length)
+    /*
+     * Scoped to the board, and to the element the arrow actually is.
+     * `document.querySelectorAll('svg line')` counted 21 on this page with
+     * the board arrows switched off -- graph and bar strokes, none of them
+     * the hint -- so the assertion it carried could not fail. **Measured**:
+     * 0 `svg line` inside the board, 1 `path[marker-end]`.
+     */
+    const arrows = await page.evaluate(() => document.querySelectorAll('.board-surface path[marker-end]').length)
     assert(arrows > 0, 'the hint drew nothing on the board')
 
     // The board moves on; the hint must not outlive it.
@@ -9468,6 +9539,7 @@ async function main() {
       'finished-clock': checkAFinishedGameKeepsItsStoppedClock,
       'navigation-clock': checkNavigationKeepsTheClockHonest,
       'review-offer': checkTheReviewOfferFollowsTheGame,
+      'hint-copy': checkAHintSaysWhereToLookOnlyIfItIsDrawn,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
@@ -10154,6 +10226,7 @@ async function main() {
     await checkTheThreatProbeAsksTheOtherSide(browser)
     await checkABlindfoldHidesThePieces(browser)
     await checkAHintBelongsToItsPosition(browser)
+    await checkAHintSaysWhereToLookOnlyIfItIsDrawn(browser)
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkTheReviewOfferFollowsTheGame(browser)
