@@ -1961,6 +1961,68 @@ async function checkTakingBackAMateUnfinishesTheGame(browser) {
 }
 
 /**
+ * Changing mode un-pauses, and an un-pause has to start the clock.
+ *
+ * Pass and play has no Pause button -- that one belongs to the engine -- so
+ * Space is the pause a timed human game gets, and `pauseClock` stops the
+ * clock. Switching mode afterwards dropped the pause flag without ever
+ * calling `startSide`: the "Paused" badge went away, the board took moves
+ * again, and the clock of whoever was to move sat frozen until they played,
+ * handing them as long as they liked in a timed game.
+ */
+async function checkAModeSwitchDoesNotFreezeTheClock(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    await page.getByRole('button', { name: 'Start new game' }).click()
+    await page.locator('.new-game-dialog').waitFor({ timeout: 10000 })
+    await page.locator('.mode-card', { hasText: 'Human vs Human' }).click()
+    await page.locator('.time-control-card', { hasText: '3 + 2' }).click()
+    await page.locator('.btn-start').click()
+    await page.locator('.chess-clock').waitFor({ timeout: 10000 })
+
+    // A move each, so the pause interrupts a clock that has been running and
+    // the switch happens on White's turn -- which is the human's in either
+    // mode, so nothing the engine does can explain the result.
+    await page.click('#chessboard-square-e2')
+    await page.click('#chessboard-square-e4')
+    await page.waitForFunction(() => /Black to move/.test(document.body.innerText), null, { timeout: 10000 })
+    await page.click('#chessboard-square-e7')
+    await page.click('#chessboard-square-e5')
+    await page.waitForFunction(() => /White to move/.test(document.body.innerText), null, { timeout: 10000 })
+
+    // Space is read from the window, and it belongs to a focused button first.
+    await page.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur() })
+    await page.keyboard.press('Space')
+    await page.locator('.clock-paused').waitFor({ timeout: 5000 })
+    assert(await page.locator('.clock-face.running').count() === 0,
+      'a paused game left a clock face marked running')
+
+    await page.getByRole('button', { name: 'Human vs AI', exact: true }).first().click()
+    await page.waitForFunction(() => document.querySelector('.clock-paused') === null, null, { timeout: 5000 })
+
+    const whiteFace = page.locator('.clock-face.clock-white')
+    assert(await page.locator('.clock-face.clock-white.running').count() === 1,
+      'the game is no longer paused, but White\'s clock is not running')
+
+    // And it is really counting, not merely labelled.
+    const before = await whiteFace.locator('strong').textContent()
+    await page.waitForTimeout(1600)
+    const after = await whiteFace.locator('strong').textContent()
+    assert(before !== after,
+      `White's clock read ${before} on both sides of a second and a half of thinking`)
+    console.log(`  mode switch: the clock started again, ${before} -> ${after}`)
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * The Pro view's "keep searching" switch turns the automatic analysis into an
  * unbounded search. Off, a move lands and the engine is asked for `go depth
  * 16`; on, it is asked for `go infinite` and left there until the board moves.
@@ -7301,6 +7363,7 @@ async function main() {
       'board-canvas': checkBoardCanvas,
       'typed-moves': checkTypedMoveEntry,
       'takeback-result': checkTakingBackAMateUnfinishesTheGame,
+      'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
     }
     if (process.env.UI_TEST_ONLY) {
       const check = focusedChecks[process.env.UI_TEST_ONLY]
@@ -7969,6 +8032,7 @@ async function main() {
     await checkPlayedMoveBecomesTheGame(browser)
     await checkTakebackHandsTheClockBack(browser)
     await checkTakingBackAMateUnfinishesTheGame(browser)
+    await checkAModeSwitchDoesNotFreezeTheClock(browser)
     await checkKeepSearchingIsUnbounded(browser)
     await checkAutoplayWalksTheLine(browser)
     await checkTypedMoveLands(browser)

@@ -5569,12 +5569,25 @@ function App() {
     if (pausedRef.current) {
       pausedRef.current = false
       setPaused(false)
+      // Un-pausing is `resume`, so it has to hand the clock back as `resume`
+      // does. Clearing the flag alone took the pause indicator away and left
+      // the clock stopped: `startSide` is the only thing that sets `since`,
+      // and nothing else would until the next move pressed the clock -- so
+      // whoever was to move got free time, visibly frozen, in a timed game.
+      //
+      // A game that is already over keeps its stopped clock. Switching modes
+      // after a mate must not start counting against a side with no move to
+      // make, which is the same reason `moveEndedGame` stops it in the first
+      // place.
+      if (!readBoardEnding() && !endedOffBoardRef.current) {
+        setClock(previous => (previous && !previous.flagged ? startSide(previous, game.turn(), Date.now()) : previous))
+      }
     }
     // Same as `resume`: the AI loop is re-entered by `gameMode`, by
     // `workspaceMode`, or by `paused` above -- one of the three has always
     // changed by the time this returns, since the caller only reaches here for
     // a different mode or a different workspace.
-  }, [cancelPendingAiMove, cancelStaleBackgroundAnalysis, clearBoardSelection, playerColor, workspaceMode])
+  }, [cancelPendingAiMove, cancelStaleBackgroundAnalysis, clearBoardSelection, game, playerColor, readBoardEnding, workspaceMode])
 
   /*
    * Every one of these is a press on a list *inside* the panel, and the stacked
