@@ -2858,6 +2858,88 @@ async function checkAPremoveWaitsForItsTurn(browser) {
 }
 
 /**
+ * "What is threatened?" asks about the other side's move, not this one.
+ *
+ * The whole trick is a null move: the same position handed to the engine with
+ * the *other* side to move, so its best move is the thing you have to stop.
+ * Which means the one thing worth asserting is the position that goes out --
+ * pass `fen` where `probe.fen` belongs and the card still fills in, still
+ * draws an arrow, and answers a different question entirely. Every check that
+ * only looked at the answer would pass.
+ *
+ * So this reads the wire: the flipped FEN, its bounded search, and the board
+ * position handed back afterwards -- that last one is why the Coach card does
+ * not sit at "..." once the threat has been named. None of it depends on which
+ * move the engine picks, which is what lets it run against the fixture.
+ */
+async function checkTheThreatProbeAsksTheOtherSide(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', error => errors.push(String(error).slice(0, 120)))
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+      workspaceMode: 'analysis', analysisExperience: 'beginner', analysisTab: 'analyze',
+      engineProfile: 'lite-single-local',
+    })))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+    await page.waitForFunction(() => (window.__uciCommands || []).some(command => command.startsWith('go ')),
+                               null, { timeout: 20000 })
+    await page.waitForTimeout(800)
+
+    const ask = page.getByRole('button', { name: 'Show what the opponent is threatening' })
+    assert(await ask.count() === 1, 'the Coach card offers no way to ask what is threatened')
+
+    const boardFen = await page.evaluate(() => {
+      const last = (window.__uciCommands || []).filter(command => command.startsWith('position fen')).pop() || ''
+      return last.replace('position fen ', '')
+    })
+    const [placement, sideToMove] = boardFen.split(' ')
+    await page.evaluate(() => { window.__mark = (window.__uciCommands || []).length })
+    await ask.click()
+    await page.waitForTimeout(3000)
+
+    const sent = await page.evaluate(() => (window.__uciCommands || []).slice(window.__mark)
+      .filter(command => /^(position|go)/.test(command)))
+    const probe = sent.find(command => command.startsWith('position fen'))
+    assert(probe, `asking for the threat sent no position: ${JSON.stringify(sent)}`)
+    const probeFields = probe.replace('position fen ', '').split(' ')
+    assert(probeFields[0] === placement,
+      `the threat search must ask about this position, and it asked about ${probeFields[0]}`)
+    assert(probeFields[1] !== sideToMove,
+      `the threat search must hand over the move, and it asked with ${probeFields[1]} still to play`)
+    assert(probeFields[3] === '-',
+      `the flipped position must drop the en passant square, and it kept ${probeFields[3]}`)
+    assert(sent.some(command => /^go movetime \d+$/.test(command)),
+      `the threat search should be bounded by time: ${JSON.stringify(sent)}`)
+
+    const answered = await page.locator('.coach-threat-answer').count()
+    assert(answered === 1, 'the card named no threat and reported no reason either')
+
+    // And the engine is given the board back, or the Coach card sits at "...".
+    const handedBack = sent.slice(sent.indexOf(probe) + 1)
+      .some(command => command.startsWith('position fen') && command.includes(` ${sideToMove} `))
+    assert(handedBack,
+      `after naming the threat the engine must be handed the board position back: ${JSON.stringify(sent)}`)
+
+    // A threat belongs to one position and nothing else.
+    await page.click('#chessboard-square-e2')
+    await page.click('#chessboard-square-e4')
+    await page.waitForTimeout(1200)
+    assert(await page.locator('.coach-threat-answer').count() === 0,
+      'the threat outlived the position it was asked about')
+    assert(errors.length === 0, `page errors while probing a threat: ${errors.join('; ')}`)
+    console.log('  threat: asked with the move handed over and no en passant, bounded, board handed back, cleared by a move')
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -8405,6 +8487,7 @@ async function main() {
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
       'markup': checkTheMarkupSaysWhatItShows,
       'premove': checkAPremoveWaitsForItsTurn,
+      'threat': checkTheThreatProbeAsksTheOtherSide,
       'library-double-save': checkOneGestureSavesOneGame,
       'database-once': checkADatabaseIsAddedOnce,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
@@ -9093,6 +9176,7 @@ async function main() {
     await checkResignationEndsTakeback(browser)
     await checkQuickStartRemembersTheLastGame(browser)
     await checkAPremoveWaitsForItsTurn(browser)
+    await checkTheThreatProbeAsksTheOtherSide(browser)
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkDrillLeavesTheLineAlone(browser)
