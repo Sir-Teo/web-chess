@@ -41,7 +41,43 @@ hands the box back — all three engines now measure 32px and 53px, to the pixel
 | `Tab did not reach Flip board` | macOS Safari and Firefox do not tab to buttons by default. The app cannot change it and should not try. |
 | `the evaluation bar is drawn in the forced palette (forced-color-adjust: undefined)` | WebKit has no forced-colors support. |
 | `page.reload: NS_ERROR_OFFLINE` (Firefox) | The outage fixture's offline simulation is Chromium-shaped. |
-| Timeouts in `checkOpeningLayout`, `checkReadingSpace`, `checkShortDesktopDialogs`, `checkShortDesktopWindow` | Each passes when run focused, at the same viewport, in the same engine. They are load-sensitive, not engine-sensitive — `checkShortDesktopWindow` flaked once in Chromium too. Both already run with `reducedMotion: 'reduce'`, so it is not animation. |
+| Timeouts in `checkOpeningLayout` and `checkReadingSpace` | Each passes when run focused, at the same viewport, in the same engine. Load-sensitive, not engine-sensitive. Both already run with `reducedMotion: 'reduce'`, so it is not animation. |
+
+`checkShortDesktopDialogs` was in that row and should not have been. See below.
+
+## A real one, still open: a focused control clipped in Firefox
+
+`checkShortDesktopDialogs` was written off above as load-sensitive because it
+passed when run on its own. It does not. The two measuring helpers in that file
+read geometry two animation frames after focusing a control, and two frames is
+not always enough — so the check was reading the button *before* a late reflow
+moved it, and passing on a position the reader never sees. They now wait for the
+box to stop moving, with a floor of eight frames so that "has not moved" can
+never mean "has not started". Chromium and WebKit are unaffected and the full
+Chromium suite is green.
+
+With that, Firefox fails **4 runs out of 4**, always on the same control and to
+the same pixel: the PGN dialog's Import & Analyze button in a 901x256 window at
+200% text, its bottom **97px past the panel's** and past the window, its centre
+unhittable. Instrumenting the failing path shows the button *is* focused and the
+panel *has* scrolled — to 848 of the 984 it can — so `scrollIntoView` is
+stopping short of its own `block: 'nearest'` contract.
+
+`useModalFocus` already has a handler for the neighbouring problem, whose
+comment reads "Native focus in Firefox can leave a large choice partly clipped
+even when it fits in that panel". It calls `scrollIntoView` and trusts it. Here
+that trust is misplaced.
+
+Two fixes were tried and neither is in the tree, because neither worked
+reliably: taking the remaining distance arithmetically right after the call took
+it from 4/4 failing to 1/4, and doing the same on the next animation frame gave
+3/5. Those samples are too small to tell apart, and picking the better-looking
+one would be picking noise — the same mistake the fourth pass wrote up at
+length. The correction sometimes does not take and it is not yet clear why.
+
+So the check is left failing in Firefox rather than quietly measuring early
+again. It is a narrow configuration, but the reader it costs is one using a
+keyboard in a short window, which is not a reader to lose.
 
 ## Left open
 

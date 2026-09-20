@@ -4360,7 +4360,41 @@ async function checkShortDesktopWindow(browser) {
   const visible = async (target, label) => {
     await target.focus()
     const geometry = await target.evaluate(async el => {
-      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      /*
+       * Measure a layout that has stopped moving.
+       *
+       * Two frames is the usual settle and was all this waited for. But it
+       * reads straight after `focus()`, which can scroll the control into
+       * view, and the board resizes itself off a ResizeObserver -- so on a
+       * loaded machine the second frame can still be mid-move. That is how
+       * this reported a collapsed bar 7px above the viewport in Chromium and
+       * a control 97px outside its dialog in Firefox, both on geometry that
+       * is correct the moment it is read still. The assertion is unchanged;
+       * only the instant it reads is.
+       */
+      const settle = async () => {
+        const frame = () => new Promise(resolve => requestAnimationFrame(resolve))
+        const box = () => {
+          const b = el.getBoundingClientRect()
+          return `${b.top},${b.left},${b.width},${b.height}`
+        }
+        // Never read sooner than the two frames this used to wait -- "the box
+        // has not moved" cannot tell a settled layout from one whose scroll
+        // has not started yet, and a loop that only asks that question reads
+        // *earlier* than the plain wait did.
+        const MINIMUM_FRAMES = 8
+        const STILL_FOR = 4
+        let previous = null
+        let still = 0
+        for (let elapsed = 0; elapsed < 90; elapsed += 1) {
+          await frame()
+          const next = box()
+          still = next === previous ? still + 1 : 0
+          previous = next
+          if (elapsed + 1 >= MINIMUM_FRAMES && still >= STILL_FOR) return
+        }
+      }
+      await settle()
       const r = el.getBoundingClientRect()
       return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: innerWidth, height: innerHeight,
         scroll: document.querySelector('.app-shell').scrollTop, parent: el.parentElement.className,
@@ -4470,7 +4504,41 @@ async function checkShortDesktopDialogs(browser) {
   const visible = async (target, label, focus = true) => {
     if (focus) await target.focus()
     const geometry = await target.evaluate(async el => {
-      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      /*
+       * Measure a layout that has stopped moving.
+       *
+       * Two frames is the usual settle and was all this waited for. But it
+       * reads straight after `focus()`, which can scroll the control into
+       * view, and the board resizes itself off a ResizeObserver -- so on a
+       * loaded machine the second frame can still be mid-move. That is how
+       * this reported a collapsed bar 7px above the viewport in Chromium and
+       * a control 97px outside its dialog in Firefox, both on geometry that
+       * is correct the moment it is read still. The assertion is unchanged;
+       * only the instant it reads is.
+       */
+      const settle = async () => {
+        const frame = () => new Promise(resolve => requestAnimationFrame(resolve))
+        const box = () => {
+          const b = el.getBoundingClientRect()
+          return `${b.top},${b.left},${b.width},${b.height}`
+        }
+        // Never read sooner than the two frames this used to wait -- "the box
+        // has not moved" cannot tell a settled layout from one whose scroll
+        // has not started yet, and a loop that only asks that question reads
+        // *earlier* than the plain wait did.
+        const MINIMUM_FRAMES = 8
+        const STILL_FOR = 4
+        let previous = null
+        let still = 0
+        for (let elapsed = 0; elapsed < 90; elapsed += 1) {
+          await frame()
+          const next = box()
+          still = next === previous ? still + 1 : 0
+          previous = next
+          if (elapsed + 1 >= MINIMUM_FRAMES && still >= STILL_FOR) return
+        }
+      }
+      await settle()
       const r = el.getBoundingClientRect(), p = el.closest('[role="dialog"]').getBoundingClientRect()
       return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, panelTop: p.top, panelBottom: p.bottom,
         width: innerWidth, height: innerHeight,
