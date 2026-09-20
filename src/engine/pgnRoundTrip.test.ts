@@ -206,6 +206,30 @@ describe('a game exported and read back', () => {
     })
   }
 
+  /**
+   * A root where Black is to move, which every other case here skips.
+   *
+   * It is not an exotic shape: a Lichess study chapter or a puzzle export
+   * starts wherever the position starts, and half of those have Black on
+   * move. The movetext has to open "23... Nf6" rather than "23. Nf6", and
+   * the number has to survive the trip -- a game that comes back a move out
+   * is a game whose review rows and clock readings are all attached to the
+   * wrong ply.
+   */
+  const BLACK_TO_MOVE_FEN = 'r1bq1rk1/pppp1ppp/2n2n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQ1RK1 b - - 5 23'
+  for (let seed = 1; seed <= 12; seed += 1) {
+    it(`survives a root with Black to move — seed ${seed}`, () => {
+      const { nodes, mainLine } = generateGame(seed, { plies: 10, startFen: BLACK_TO_MOVE_FEN })
+      const expected = shapeOfNodes(mainLine[0]!, nodes)
+      expect(expected.length, 'the generator produced no moves').toBeGreaterThan(0)
+      const pgn = exportAnnotatedPgn(mainLine, new Map(), { Result: '*' }, nodes)
+      expect(pgn).toMatch(/\b23\.{3}\s/)
+      const parsed = parsePgnMoveTree(pgn)
+      expect(parsed.rootFen).toBe(new Chess(BLACK_TO_MOVE_FEN).fen())
+      expect(shapeOfEntries(parsed.moves)).toEqual(expected)
+    })
+  }
+
   it('keeps a line that is nothing but annotation', () => {
     const board = new Chess()
     const e4 = board.move('e4')
