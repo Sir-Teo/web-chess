@@ -2435,6 +2435,30 @@ async function checkTheMarkupSaysWhatItShows(browser) {
     }
 
     await inspect('the board', false)
+
+    /*
+     * The way past the chrome has to be reachable, not merely present.
+     * Safari skips links when "Press Tab to highlight each item" is off, which
+     * is its default, so the skip links carry an explicit `tabindex` -- and
+     * this is the assertion that says whether that is still working, in
+     * whichever engine the suite is run under.
+     */
+    await page.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur() })
+    await page.keyboard.press('Tab')
+    const firstStop = await page.evaluate(() => {
+      const active = document.activeElement
+      return active ? `${active.tagName.toLowerCase()} "${(active.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30)}"` : 'nothing'
+    })
+    assert(/skip to board/i.test(firstStop),
+      `the first thing Tab reaches should be the skip link, and it was ${firstStop}`)
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(300)
+    const landed = await page.evaluate(() => {
+      const active = document.activeElement
+      return Boolean(active && (active.id === 'chessboard-stage' || active.closest('#chessboard-stage')))
+    })
+    assert(landed, 'following the skip link did not put focus on the board')
+
     await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
     await page.waitForTimeout(1500)
     await inspect('the analysis board', false)
@@ -2452,7 +2476,7 @@ async function checkTheMarkupSaysWhatItShows(browser) {
       await page.keyboard.press('Escape')
       await page.waitForTimeout(400)
     }
-    console.log('  markup: nothing stranded behind a dialog, inert honoured, every field named, no id used twice')
+    console.log('  markup: skip link reachable and lands on the board, nothing stranded behind a dialog, inert honoured, every field named, no id used twice')
   } finally {
     await context.close()
   }

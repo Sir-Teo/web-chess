@@ -6252,8 +6252,25 @@ function App() {
         aria-hidden={backgroundUiHidden ? true : undefined}
         inert={backgroundUiHidden ? true : undefined}
       >
-        <a href="#chessboard-stage">Skip to board</a>
-        <a href="#analysis-panel">Skip to analysis</a>
+        {/*
+          `tabIndex` on a link that is already focusable, because Safari does
+          not agree that it is.
+
+          With "Press Tab to highlight each item on a webpage" off -- its
+          default, and there is no other engine on iOS -- Safari tabs to form
+          controls and skips links and buttons. Measured: the first Tab stop on
+          this page was "Open settings", and these two were never reached, so
+          the one mechanism the page offers for getting past the chrome could
+          not be used by the readers it is for. WCAG 2.4.1 asks that the
+          mechanism work, not that it exist.
+
+          The attribute is what changes it; the property was already 0. With it
+          set, "Skip to board" is the first Tab stop in WebKit, as it already
+          was in Chromium and Firefox, where this changes nothing -- an anchor
+          with an href sits in the same place in the order either way.
+        */}
+        <a href="#chessboard-stage" tabIndex={0}>Skip to board</a>
+        <a href="#analysis-panel" tabIndex={0}>Skip to analysis</a>
       </nav>
 
       {/* Always in the tree, so a screen reader is told when it fills. */}
