@@ -2940,6 +2940,84 @@ async function checkTheThreatProbeAsksTheOtherSide(browser) {
 }
 
 /**
+ * A blindfold hides the pieces from the eye and not from the screen reader.
+ *
+ * Both halves are deliberate and they pull in opposite directions, which is
+ * why they are asserted together. The pieces are drawn transparent rather than
+ * removed, because a piece that is not there cannot be dragged; and the
+ * accessible names are left whole, because enforcing a blindfold through the
+ * accessibility tree would take the board away from a reader who never chose
+ * one.
+ *
+ * What fell between the two was `title`. It is not an accessibility
+ * affordance -- it is a box the browser draws under the pointer -- and the
+ * board's labels were written into it alongside the accessible name.
+ * **Measured**: pieces at `opacity: 0` and every square carrying
+ * `title="e2, White pawn"`, so the exercise was over for anyone with a mouse.
+ */
+async function checkABlindfoldHidesThePieces(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+      workspaceMode: 'play', blindfold: true,
+    })))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+    await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+    await page.waitForTimeout(1200)
+
+    const read = () => page.evaluate(() => {
+      const PIECES = /pawn|knight|bishop|rook|queen|king/i
+      const squares = [...document.querySelectorAll('[id^="chessboard-square-"]')]
+      const titles = []
+      for (const square of squares) {
+        for (const el of [square, ...square.querySelectorAll('[title]')]) {
+          const title = el.getAttribute('title')
+          if (title) titles.push(title)
+        }
+      }
+      const piece = document.querySelector('#chessboard-square-e2 [data-piece]')
+      return {
+        blindfold: Boolean(document.querySelector('.board-stage.blindfold')),
+        pieceOpacity: piece ? getComputedStyle(piece).opacity : null,
+        naming: [...new Set(titles.filter(title => PIECES.test(title)))].slice(0, 4),
+        occupied: document.getElementById('chessboard-square-e2').getAttribute('title'),
+        empty: document.getElementById('chessboard-square-e5').getAttribute('title'),
+        name: document.getElementById('chessboard-square-e2').getAttribute('aria-label'),
+      }
+    })
+
+    const hidden = await read()
+    assert(hidden.blindfold, 'the board did not start blindfolded')
+    assert(hidden.pieceOpacity === '0', `the pieces should be transparent, and were at opacity ${hidden.pieceOpacity}`)
+    assert(hidden.naming.length === 0,
+      `a tooltip names a piece while blindfolded: ${JSON.stringify(hidden.naming)}`)
+    assert(hidden.occupied === hidden.empty.replace('e5', 'e2'),
+      `an occupied square reads differently from an empty one: ${JSON.stringify([hidden.occupied, hidden.empty])}`)
+    // The half that must survive: a screen reader still has the board.
+    assert(/pawn/i.test(hidden.name || ''),
+      `the accessible name lost the piece, which a blindfold must not do: ${JSON.stringify(hidden.name)}`)
+
+    // And taking the blindfold off gives the tooltips back.
+    await page.getByRole('button', { name: /Open settings/ }).click()
+    await page.locator('.settings-body').waitFor({ timeout: 10000 })
+    await page.getByRole('checkbox', { name: /blindfold/i }).first().uncheck()
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(800)
+    const shown = await read()
+    assert(!shown.blindfold, 'the blindfold did not come off')
+    assert(/pawn/i.test(shown.occupied || ''),
+      `with the blindfold off the tooltip should name the piece again, and read ${JSON.stringify(shown.occupied)}`)
+    console.log('  blindfold: no tooltip names a piece, occupied reads as empty, the accessible name is untouched')
+  } finally {
+    await context.close()
+  }
+}
+
+/**
  * What a game records for a move is what the clock then reads.
  *
  * `[%clk]` is the reading *after* the move, increment and all -- that is what
@@ -8488,6 +8566,7 @@ async function main() {
       'markup': checkTheMarkupSaysWhatItShows,
       'premove': checkAPremoveWaitsForItsTurn,
       'threat': checkTheThreatProbeAsksTheOtherSide,
+      'blindfold': checkABlindfoldHidesThePieces,
       'library-double-save': checkOneGestureSavesOneGame,
       'database-once': checkADatabaseIsAddedOnce,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
@@ -9177,6 +9256,7 @@ async function main() {
     await checkQuickStartRemembersTheLastGame(browser)
     await checkAPremoveWaitsForItsTurn(browser)
     await checkTheThreatProbeAsksTheOtherSide(browser)
+    await checkABlindfoldHidesThePieces(browser)
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkDrillLeavesTheLineAlone(browser)

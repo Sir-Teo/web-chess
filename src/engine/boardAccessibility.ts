@@ -23,6 +23,12 @@ const BOARD_SQUARE_SET = new Set<string>(BOARD_SQUARES)
 type BoardSquareDescriptionOptions = {
   selectedSquare?: Square | null
   legalTargets?: Square[]
+  /**
+   * Leave the piece out, for the description that is *shown* under a
+   * blindfold. The accessible name never uses this -- see the note on the
+   * `blindfold` state in App.tsx for why a screen reader keeps the board.
+   */
+  hidePiece?: boolean
 }
 
 export function isBoardSquare(value: string): value is Square {
@@ -32,7 +38,7 @@ export function isBoardSquare(value: string): value is Square {
 export function describeBoardSquare(
   chess: Chess,
   square: Square,
-  { selectedSquare = null, legalTargets = [] }: BoardSquareDescriptionOptions = {},
+  { selectedSquare = null, legalTargets = [], hidePiece = false }: BoardSquareDescriptionOptions = {},
 ): string {
   const piece = chess.get(square)
   const pieceLabel = piece
@@ -47,5 +53,8 @@ export function describeBoardSquare(
     stateLabels.push(piece ? 'legal capture target' : 'legal move target')
   }
 
+  // Under a blindfold an occupied square and an empty one have to read the
+  // same, or the tooltip answers the question the exercise is asking.
+  if (hidePiece) return [square, ...stateLabels].join(', ')
   return [square, pieceLabel, ...stateLabels].join(', ')
 }

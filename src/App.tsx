@@ -4339,6 +4339,7 @@ function App() {
         previewChess ?? game,
         previewChess ? null : selectedSquare,
         previewChess ? [] : legalTargets,
+        blindfold,
       )
       restoreBoardFocus(settled)
       return applied
@@ -4367,7 +4368,7 @@ function App() {
       if (retryFrame !== null) window.cancelAnimationFrame(retryFrame)
       window.clearTimeout(settleTimer)
     }
-  }, [fen, game, legalTargets, previewChess, selectedSquare])
+  }, [blindfold, fen, game, legalTargets, previewChess, selectedSquare])
 
   const handleBoardKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {

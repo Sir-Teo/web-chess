@@ -30,6 +30,7 @@ export function syncRenderedBoardAccessibility(
   chess: Chess,
   selectedSquare: Square | null,
   legalTargets: Square[],
+  blindfold = false,
 ): boolean {
   const legalTargetSet = new Set(legalTargets)
   let foundBoard = false
@@ -40,12 +41,29 @@ export function syncRenderedBoardAccessibility(
     foundBoard = true
 
     const label = describeBoardSquare(chess, square, { selectedSquare, legalTargets })
+    /*
+     * The name and the tooltip are the same string everywhere except under a
+     * blindfold, where they must not be.
+     *
+     * `title` is not an accessibility affordance; it is a box the browser
+     * draws under the pointer. So while the pieces are drawn transparent,
+     * hovering any square named the piece on it -- **measured** at
+     * `opacity: 0` with `title="e2, White pawn"` -- and the exercise was over
+     * for anyone with a mouse.
+     *
+     * The accessible name is deliberately left whole. A blindfold is a thing
+     * the reader chooses, and enforcing it through the accessibility tree
+     * would take the board away from someone who did not choose it.
+     */
+    const shown = blindfold
+      ? describeBoardSquare(chess, square, { selectedSquare, legalTargets, hidePiece: true })
+      : label
     squareEl.setAttribute('aria-label', label)
-    squareEl.setAttribute('title', label)
+    squareEl.setAttribute('title', shown)
 
     for (const interactiveEl of squareEl.querySelectorAll<HTMLElement>('button, [role="button"]')) {
       interactiveEl.setAttribute('aria-label', label)
-      interactiveEl.setAttribute('title', label)
+      interactiveEl.setAttribute('title', shown)
     }
 
     const shouldExposeEmptyTarget = !squareEl.querySelector('button, [role="button"]')
