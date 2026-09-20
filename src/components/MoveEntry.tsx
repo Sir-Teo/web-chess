@@ -34,7 +34,20 @@ export function MoveEntry({ fen, onMove, disabled = false }: {
             autoComplete="off" autoCapitalize="off" spellCheck={false} disabled={disabled}
             aria-describedby={`${id}-help${error ? ` ${id}-error` : ''}`} aria-invalid={Boolean(error)}
             onChange={event => setDraft({ fen, text: event.target.value, error: '' })} />
-          <button type="submit" disabled={disabled || !text.trim()}>Play move</button>
+          {/* A dead button says why, like every other one here. Empty is the
+              ordinary case -- the reader has opened the field and not typed
+              yet -- and "the board is not taking moves" is the other. */}
+          <button
+            type="submit"
+            disabled={disabled || !text.trim()}
+            title={disabled
+              ? 'The board is not taking moves right now.'
+              : !text.trim()
+                ? 'Type a move first, such as e4 or Nf3.'
+                : 'Play this move on the board'}
+          >
+            Play move
+          </button>
         </div>
         <p id={`${id}-help`}>Type one move and press Enter. Castle with O-O; promote with a8=Q or a7a8n.</p>
         {error && <p id={`${id}-error`} className="error-copy" role="alert">{error}</p>}

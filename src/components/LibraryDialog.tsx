@@ -441,6 +441,9 @@ export function LibraryDialog({
                         className="btn-cancel"
                         onClick={handleExport}
                         disabled={!games.length}
+                        title={games.length
+                            ? 'Every saved game with its details, as one file to keep'
+                            : 'Nothing to back up yet — save a game first.'}
                     >
                         <IconDownload /> Export backup
                     </button>
