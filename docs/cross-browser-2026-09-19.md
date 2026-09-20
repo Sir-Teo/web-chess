@@ -73,7 +73,35 @@ reliably: taking the remaining distance arithmetically right after the call took
 it from 4/4 failing to 1/4, and doing the same on the next animation frame gave
 3/5. Those samples are too small to tell apart, and picking the better-looking
 one would be picking noise — the same mistake the fourth pass wrote up at
-length. The correction sometimes does not take and it is not yet clear why.
+length.
+
+**Instrumented rather than guessed at further.** A scroll and resize trace on
+the panel, taken inside the run that fails, says the app is not the one getting
+it wrong:
+
+    RESIZE  scrollH=1206 clientH=222 top=136
+    FOCUSIN TEXTAREA.input-textarea  top=809
+    FOCUSIN BUTTON.btn-start         top=984
+    SCROLL  top=848 max=984
+
+Focusing the button scrolls the panel to 984, its maximum, and the button is
+fully inside — `revealFocusedControl` logged `outside=false rect=100..201
+panel=16..240` and correctly did nothing. *Then* the panel scrolls back up 136px
+on its own. No resize follows, no further focus event, `max` is unchanged so it
+is not a clamp, and no application frame appears on the stack. Scroll anchoring
+was the obvious suspect and is not it: `overflow-anchor: none` on the panel left
+it failing 4 out of 4.
+
+That also explains why both corrections missed. Each runs during or just after
+the focus event, and the scroll that breaks it happens later still. A fix has to
+survive a scroll nobody in the app asked for, and the options — re-asserting on
+every panel scroll, or polling after focus — both risk fighting a reader who is
+scrolling deliberately. Not worth shipping on this evidence.
+
+It is also not reproducible on its own: a probe that opens the same dialog at
+the same size and focuses the same button, with and without the check's exact
+timing, lands it correctly every time. The trigger needs the dialogs the check
+opens first.
 
 So the check is left failing in Firefox rather than quietly measuring early
 again. It is a narrow configuration, but the reader it costs is one using a
