@@ -3674,6 +3674,18 @@ function App() {
 
     aiMoveScheduledRef.current = true
     setIsAiThinking(true)
+    /*
+     * The clock this search will be charged to.
+     *
+     * In an ordinary game it is already running for this side and `startSide`
+     * returns the state untouched. This is for a search that begins after the
+     * engine has been *held* -- by Step, by a pause, or by its own boot --
+     * because a hold stops its clock, and `moveMade` pays an increment only
+     * for a move made on the clock. `handleStep` does this for its own
+     * release; the engine has more than one way to be let go, and they all
+     * arrive here.
+     */
+    setClock(previous => (previous && !previous.flagged ? startSide(previous, currentTurn, Date.now()) : previous))
 
     const stepModeMove = aiSpeedRef.current === 'step'
     const delayMs = AI_SPEED_MS[aiSpeedRef.current]
@@ -6219,8 +6231,20 @@ function App() {
    * first turn, and 2:59 to 2:54 through five seconds on its second. Pausing
    * a clock that `pause` has already stopped is a no-op, so covering the
    * ordinary pause here as well costs nothing.
+   *
+   * An engine that has not finished loading is held too, and by something it
+   * did not choose. `isBoardInputLocked` does not look at engine readiness --
+   * on your own turn the board takes your move whether or not the opponent
+   * exists yet -- so a timed game played the moment it starts handed the
+   * clock to an opponent that could not move and counted the WASM load
+   * against it. **Measured** with the handshake stopped one message short of
+   * ready: 2:59 to 2:54 across five seconds. What a real boot costs depends
+   * on the build and the cache; `engineStartupTimeoutMs` allows 30s local and
+   * 120s for a CDN build before giving up on it.
    */
-  const awaitingAiStep = canStepAiMove && !isAiThinking && (aiSpeed === 'step' || paused)
+  const engineCannotSearchYet = playEngineStatus !== 'ready' && playEngineStatus !== 'thinking'
+  const awaitingAiStep = canStepAiMove && !isAiThinking
+    && (aiSpeed === 'step' || paused || engineCannotSearchYet)
 
   /**
    * Step mode holds the game, so it has to hold the clock.

@@ -164,6 +164,9 @@ const SCENARIO = ${JSON.stringify(scenario)};
       if (SCENARIO === 'blunder-nudge') {
         return this.searches >= 2 ? { cp: 330, move: 'b8c6' } : { cp: 30, move: 'e7e5' };
       }
+      // A legal Black reply: this scenario is an opponent answering 1. e4,
+      // and the default e2e4 is not one.
+      if (SCENARIO === 'slow-boot') return { cp: 30, move: 'e7e5' };
       /**
        * The second look at a position disagrees violently with the first.
        *
@@ -264,6 +267,10 @@ const SCENARIO = ${JSON.stringify(scenario)};
       if (text === 'isready') {
         if (SCENARIO === 'console-search' && window.__holdConsoleReady) {
           window.__releaseConsoleReady = () => { window.__holdConsoleReady = false; this.send('readyok'); };
+        } else if (SCENARIO === 'slow-boot' && window.__holdPlayReady) {
+          // The opponent still loading, on demand. Same shape as the console
+          // hold above: the handshake stops one message short of ready.
+          window.__releasePlayReady = () => { window.__holdPlayReady = false; this.send('readyok'); };
         } else this.send('readyok');
         return;
       }
@@ -2918,6 +2925,74 @@ async function checkStepModeDoesNotChargeTheHeldEngine(browser) {
       `the engine's second move earned no increment either: ${heldTwo} before, ${afterMoveTwo} after`)
     console.log(`  step mode: held at ${heldOne} and ${heldTwo} through five-second waits, `
       + `and paid ${afterMoveOne} and ${afterMoveTwo} for the moves it was let go to make`)
+  } finally {
+    await context.close()
+  }
+}
+
+/**
+ * The engine is not charged for its own boot.
+ *
+ * `isBoardInputLocked` does not look at engine readiness -- on your own turn
+ * the board takes your move whether or not the opponent exists yet -- and
+ * neither does anything that holds the clock. So a timed game against the
+ * engine, played the moment it starts, hands the clock to an opponent that
+ * cannot move and counts the WASM load against it.
+ *
+ * This measures the mechanism, not the magnitude: the fixture stops the
+ * handshake one message short of ready and lets the check release it. What a
+ * real boot costs depends on the build and how cold the cache is -- under a
+ * second for the single-threaded local profile, seconds for the
+ * multi-threaded one, and `engineStartupTimeoutMs` allows 30s local and 120s
+ * for a CDN build before it gives up. In a 1+0 game any of those is a slice
+ * of the clock spent before the engine has played a move.
+ */
+async function checkAnEngineIsNotChargedForItsOwnBoot(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript('slow-boot'))
+    await page.addInitScript(() => { window.__holdPlayReady = true })
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const startFresh = page.getByRole('button', { name: /start fresh/i })
+    if (await startFresh.count()) await startFresh.first().click()
+
+    await page.getByRole('button', { name: 'Start new game' }).click()
+    await page.locator('.new-game-dialog').waitFor({ timeout: 10000 })
+    await page.locator('.mode-card', { hasText: 'Human vs AI' }).click()
+    await page.locator('.time-control-card', { hasText: '3 + 2' }).click()
+    await page.locator('.btn-start').click()
+    await page.locator('.chess-clock').waitFor({ timeout: 10000 })
+    await page.waitForTimeout(500)
+
+    assert(!/ready to play/.test(await page.evaluate(() => document.body.innerText)),
+      'the fixture let the engine finish booting, so nothing here is being held')
+
+    // The board takes the move regardless, which is half the point.
+    await page.click('#chessboard-square-e2')
+    await page.click('#chessboard-square-e4')
+    await page.waitForFunction(() => /Black to move/.test(document.body.innerText), null, { timeout: 10000 })
+    await page.waitForTimeout(600)
+
+    const blackFace = () => page.locator('.clock-face.clock-black strong').textContent()
+    const held = await blackFace()
+    await page.waitForTimeout(5000)
+    const stillHeld = await blackFace()
+    assert(stillHeld === held,
+      `the engine has not finished loading and its clock went from ${held} to ${stillHeld}`)
+
+    // Let it finish, and it answers on its own clock.
+    await page.evaluate(() => window.__releasePlayReady && window.__releasePlayReady())
+    await page.waitForFunction(() => /White to move/.test(document.body.innerText), null, { timeout: 20000 })
+    await page.waitForTimeout(400)
+    const afterMove = await blackFace()
+    const seconds = (face) => {
+      const parts = String(face).trim().split(':').map(Number)
+      return parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1]
+    }
+    assert(seconds(afterMove) > seconds(held),
+      `the engine searched off the clock and earned no increment: ${held} before its move, ${afterMove} after`)
+    console.log(`  engine boot: held at ${held} through a five-second load, then paid ${afterMove} for the move it made`)
   } finally {
     await context.close()
   }
@@ -9823,6 +9898,7 @@ async function main() {
       'recorded-clocks': checkRecordedClocksMatchTheClock,
       'replayed-clock': checkAReplayedMoveRecordsItsOwnClock,
       'step-clock': checkStepModeDoesNotChargeTheHeldEngine,
+      'boot-clock': checkAnEngineIsNotChargedForItsOwnBoot,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
       'markup': checkTheMarkupSaysWhatItShows,
       'premove': checkAPremoveWaitsForItsTurn,
@@ -10514,6 +10590,7 @@ async function main() {
     await checkRecordedClocksMatchTheClock(browser)
     await checkAReplayedMoveRecordsItsOwnClock(browser)
     await checkStepModeDoesNotChargeTheHeldEngine(browser)
+    await checkAnEngineIsNotChargedForItsOwnBoot(browser)
     await checkADialogKeepsTheKeyboard(browser)
     await checkTheMarkupSaysWhatItShows(browser)
     await checkAMoveCanBePlayedFromTheKeyboard(browser)
