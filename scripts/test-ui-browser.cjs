@@ -69,6 +69,24 @@ async function waitForHttp(url, timeoutMs) {
  * constant would make every move in a review look equally good and the
  * accuracy figure meaningless as an assertion.
  */
+/**
+ * The 44px touch minimum, measured in floating point.
+ *
+ * Firefox reports this app's 44px palette button as 43.999999046325684 -- a
+ * millionth of a pixel under, which failed the whole suite there at the
+ * twenty-fifth result line and left every check after it unverified in that
+ * engine. **Measured**: the same check passes focused in Firefox and under
+ * load, and fails only in a full run, which is what a float artefact looks
+ * like from the outside.
+ *
+ * The rule is about a finger. A quarter of a pixel of tolerance keeps it --
+ * a 43px target still fails, and so does anything a reader would miss --
+ * without asserting on the last bits of a float.
+ */
+const TOUCH_TARGET_PX = 44
+const TOUCH_TARGET_SLACK_PX = 0.25
+const meetsTouchTarget = value => value >= TOUCH_TARGET_PX - TOUCH_TARGET_SLACK_PX
+
 function fakeEngineScript(scenario = 'normal') {
   return `
 const SCENARIO = ${JSON.stringify(scenario)};
@@ -3111,7 +3129,12 @@ async function checkTheOpeningFiltersReachTheRequest(browser) {
     const askedUrls = () => page.evaluate(() => ((window.__lichessAsked || {})['explorer.lichess.org'] || []).slice())
     let asked = await askedUrls()
     if (!asked.length) {
-      const probe = await page.evaluate(() => {
+      // On failure, say what the card was doing. "The explorer never asked"
+      // has two very different causes -- the app not asking, and the app
+      // asking something this check did not stub -- and the card's own text
+      // tells them apart. It is what diagnosed the request that was reaching
+      // the real service: "Opening Explorer rejected the Lichess API token".
+      const shown = await page.evaluate(() => {
         const el = document.querySelector('.opening-intel-card')
         const token = document.querySelector('[aria-label="Lichess API token"]')
         return {
@@ -3121,7 +3144,7 @@ async function checkTheOpeningFiltersReachTheRequest(browser) {
             .map(b => `${b.textContent.trim()}:${b.getAttribute('aria-pressed')}`),
         }
       })
-      console.log('  PROBE ' + JSON.stringify(probe))
+      console.log('  the explorer card reads: ' + JSON.stringify(shown))
     }
     assert(asked.length > 0, 'the explorer never asked, so no URL was measured')
 
@@ -10053,13 +10076,40 @@ async function checkCommandPaletteKeyboard(browser) {
     try {
       await page.addInitScript(fakeEngineScript())
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const startFresh = page.getByRole('button', { name: /start fresh/i })
+      if (await startFresh.count()) await startFresh.first().click()
+      // A move on the board, so that Home and End have somewhere to send it
+      // if the search ever stops holding on to them. See below.
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e4 [data-piece="wP"]'))
       const opener = page.getByTestId('command-palette-btn')
       await opener.click()
       const square = page.locator('#chessboard-square-a1')
       const before = await square.boundingBox()
-      await page.keyboard.press('Tab')
-      await page.keyboard.press('Tab')
-      assert(await page.locator('[data-command-id="flip-board"] button').evaluate(el => el === document.activeElement), 'Tab did not reach Flip board')
+      /*
+       * Tab until Flip board has focus, rather than assuming how many
+       * presses that takes. Two is Chromium's answer and the suite asserted
+       * it; Firefox stops somewhere else on the way and the whole run died
+       * there, at the thirty-third result line. Where an engine puts its tab
+       * stops is the engine's business -- this pass has already had to learn
+       * that once, from WebKit skipping buttons entirely -- and the property
+       * here is what happens once the command has focus.
+       */
+      const flipFocused = () => page.locator('[data-command-id="flip-board"] button')
+        .evaluate(el => el === document.activeElement)
+      let reachedFlip = false
+      const visited = []
+      for (let press = 0; press < 10 && !reachedFlip; press += 1) {
+        await page.keyboard.press('Tab')
+        visited.push(await page.evaluate(() => {
+          const active = document.activeElement
+          return active?.closest('[data-command-id]')?.getAttribute('data-command-id')
+            || active?.getAttribute('aria-label') || active?.tagName?.toLowerCase() || 'nothing'
+        }))
+        reachedFlip = await flipFocused()
+      }
+      assert(reachedFlip, `Tab did not reach Flip board; it went ${JSON.stringify(visited)}`)
       await page.keyboard.press('f')
       const whileOpen = await square.boundingBox()
       assert(Math.abs(whileOpen.x - before.x) < 1, 'a background shortcut flipped the board while a command button was focused')
@@ -10083,10 +10133,24 @@ async function checkCommandPaletteKeyboard(browser) {
       assert(await input.getAttribute('aria-activedescendant') === initial, 'ArrowUp did not restore the selection')
       await input.fill('board')
       const selected = await input.getAttribute('aria-activedescendant')
+      /*
+       * Home and End are the board's "first position" and "last position",
+       * and `isTypingTarget` is what keeps the global handler out of a text
+       * field. That is the property: the board must not move.
+       *
+       * It used to be asserted through the caret, which is the platform's
+       * business rather than the app's -- **measured** in Firefox on macOS,
+       * where Home leaves the caret where it is and the field keeps focus:
+       * `{"start":5,"end":5,"value":"board","focused":true}`. Chromium moves
+       * it to 0. Neither says anything about whether the app stole the key,
+       * and asserting the Chromium one stopped the whole Firefox run here.
+       */
+      const pawnStillOnE4 = async () => await page.locator('#chessboard-square-e4 [data-piece="wP"]').count() === 1
       await input.press('Home')
-      assert(await input.evaluate(el => el.selectionStart === 0), 'Home did not move the search caret to the start')
+      assert(await pawnStillOnE4(), 'Home in the palette search sent the board to the first position')
       await input.press('End')
-      assert(await input.evaluate(el => el.selectionStart === el.value.length), 'End did not move the search caret to the end')
+      assert(await pawnStillOnE4(), 'End in the palette search moved the board')
+      assert(await input.evaluate(el => el === document.activeElement), 'Home or End took focus out of the search')
       assert(await input.getAttribute('aria-activedescendant') === selected, 'editing the search moved the command selection')
       await input.fill('flip')
       await input.dispatchEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true })
@@ -10777,8 +10841,8 @@ async function main() {
       assert(paletteButtonBox && paletteButtonBox.width > 0 && paletteButtonBox.height > 0,
         `${viewport.name}: the palette button is not visible`)
       if (viewport.name !== 'desktop') {
-        assert(paletteButtonBox.width >= 44 && paletteButtonBox.height >= 44,
-          `${viewport.name}: the palette button is ${Math.round(paletteButtonBox.width)}x${Math.round(paletteButtonBox.height)}, under the 44px touch minimum`)
+        assert(meetsTouchTarget(paletteButtonBox.width) && meetsTouchTarget(paletteButtonBox.height),
+          `${viewport.name}: the palette button is ${paletteButtonBox.width}x${paletteButtonBox.height}, under the ${TOUCH_TARGET_PX}px touch minimum`)
       }
       const paletteKeyshortcuts = await paletteButton.getAttribute('aria-keyshortcuts')
       assert(paletteKeyshortcuts === 'Meta+K Control+K',
