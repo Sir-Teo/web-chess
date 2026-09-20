@@ -886,6 +886,14 @@ function App() {
   const gameModeRef = useRef<GameMode>('human-vs-human')
   const playerColorRef = useRef<PlayerColor>('white')
   const modalTriggerRef = useRef<HTMLElement | null>(null)
+  /**
+   * The palette's open and close are declared with the keyboard handler, well
+   * above `rememberModalTrigger` and `restoreModalTriggerFocus`. Reached
+   * through refs rather than moved, because the handler they belong to is
+   * installed once and must not be re-installed to pick up a new identity.
+   */
+  const rememberModalTriggerRef = useRef<(event?: SyntheticEvent<HTMLElement>) => void>(() => {})
+  const restoreModalTriggerFocusRef = useRef<() => void>(() => {})
   gameModeRef.current = gameMode
   playerColorRef.current = playerColor
 
@@ -1260,6 +1268,31 @@ function App() {
   /** Same again: New Game is declared with the other dialog openers, below. */
   const openNewGameDialogRef = useRef<() => void>(() => {})
 
+  /**
+   * The palette is a pointer-opened dialog like the other three, and has to
+   * come back to its button like the other three.
+   *
+   * `rememberModalTrigger` exists for this and says why in its own comment --
+   * "Safari can activate a button without focusing it" -- and New Game, PGN
+   * and Library all use it. The palette did not, so it fell back to whatever
+   * `useModalFocus` captured, which in Safari is the document body: click the
+   * Commands button, close the palette, and a keyboard reader is back at the
+   * top of the page. **Measured** in WebKit, where the suite's own assertion
+   * -- "palette did not return focus to its opener" -- had never run.
+   *
+   * Opened by the chord instead, there is no event and the fallback keeps the
+   * active element, which is what the comment on `rememberModalTrigger` asks
+   * for.
+   */
+  const closeCommandPalette = useCallback(() => {
+    setShowCommandPalette(false)
+    restoreModalTriggerFocusRef.current()
+  }, [])
+  const openCommandPalette = useCallback((event?: SyntheticEvent<HTMLElement>) => {
+    rememberModalTriggerRef.current(event)
+    setShowCommandPalette(true)
+  }, [])
+
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1275,7 +1308,12 @@ function App() {
       // too, which is where a reader often is when they reach for it.
       if (isCommandPaletteChord(e)) {
         e.preventDefault()
-        setShowCommandPalette(open => !open)
+        // Through the same pair the button uses, so the chord remembers and
+        // restores what the button remembers and restores. Toggling the state
+        // straight from here skipped both, which left Safari with a closed
+        // palette and focus on the body.
+        if (showCommandPalette) closeCommandPalette()
+        else openCommandPalette()
         return
       }
       if (shortcutsSuspended) return
@@ -1339,11 +1377,10 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [goFirst, goLast, goPrev, goNext, goSiblingVariation, pause, resume, shortcutsSuspended, showCommandPalette, workspaceMode])
+  }, [closeCommandPalette, goFirst, goLast, goPrev, goNext, goSiblingVariation, openCommandPalette, pause, resume,
+    shortcutsSuspended, showCommandPalette, workspaceMode])
 
   const closeSettings = useCallback(() => setSettingsOpen(false), [])
-  const closeCommandPalette = useCallback(() => setShowCommandPalette(false), [])
-  const openCommandPalette = useCallback(() => setShowCommandPalette(true), [])
   useModalFocus(settingsOpen, settingsBodyRef, closeSettings)
 
   // No wheel-to-navigate; it conflicts with trackpads and touch.
@@ -4464,6 +4501,8 @@ function App() {
       ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null)
   }, [])
 
+  rememberModalTriggerRef.current = rememberModalTrigger
+
   const restoreModalTriggerFocus = useCallback(() => {
     const trigger = modalTriggerRef.current
     modalTriggerRef.current = null
@@ -4475,6 +4514,7 @@ function App() {
       }
     })
   }, [])
+  restoreModalTriggerFocusRef.current = restoreModalTriggerFocus
 
   // Wrapped rather than plain functions because the command palette memoises a
   // list that calls them; a new identity each render made that memo useless.
