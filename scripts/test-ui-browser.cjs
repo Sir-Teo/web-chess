@@ -3782,7 +3782,45 @@ async function checkAFailedLookupSaysSoPlainly(browser) {
     } finally { await context.close() }
   }
 
-  console.log('  failed lookups: eight failures across four services, each a finished sentence and none still loading')
+  /*
+   * A historical game that does not arrive, which is the one failure here that
+   * a reader reaches without typing anything. The fixture is left out on
+   * purpose: it patches `window.fetch` and answers the game export itself, so
+   * a route would never see the request.
+   */
+  for (const [name, reply, forbidden] of [
+    ['a server error', { status: 500, contentType: 'text/plain', body: 'boom' }, null],
+    ['a login page', { status: 200, contentType: 'text/plain', body: '<!DOCTYPE html><html>login</html>' }, /move text|move numbers|headers/i],
+  ]) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+    const page = await context.newPage()
+    try {
+      await context.route(/lichess\.org\/game\/export/, route => route.fulfill(reply))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await inAnalysis(page)
+      await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+      await page.waitForTimeout(1200)
+      await page.locator('.sample-game-actions button').first().click()
+      await page.waitForTimeout(4000)
+      const state = await page.evaluate(() => {
+        const card = document.querySelector('.sample-library-card')
+        const button = card?.querySelector('.sample-game-actions button')
+        return { message: (card?.querySelector('.error-copy')?.textContent || '').trim(),
+                 stillLoading: /Loading/.test(button?.getAttribute('aria-label') || ''),
+                 moves: document.querySelectorAll('.mtree-chip').length }
+      })
+      readsAsASentence(state.message, `historical game, ${name}`)
+      assert(!state.stillLoading, `historical game, ${name}: the button is still loading after it failed`)
+      assert(state.moves === 0, `historical game, ${name}: something was put on the board anyway`)
+      if (forbidden) {
+        // The reader pressed Load. There is no move text of theirs to check.
+        assert(!forbidden.test(state.message),
+          `historical game, ${name}: asked the reader to check text they never wrote: ${JSON.stringify(state.message)}`)
+      }
+    } finally { await context.close() }
+  }
+
+  console.log('  failed lookups: ten failures across five services, each a finished sentence and none still loading')
 }
 
 /**

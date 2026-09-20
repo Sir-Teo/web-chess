@@ -4797,7 +4797,21 @@ function App() {
       return { ok: true }
     } catch (error) {
       setIsImportingGame(false)
-      return { ok: false, error: pgnImportUserErrorMessage(error) ?? 'Failed to parse PGN. Check the move text, headers, and move numbers.' }
+      /*
+       * The fallback is advice, and advice has to be about something the
+       * reader did.
+       *
+       * "Check the move text, headers, and move numbers" is the right thing to
+       * say to somebody who pasted a game. Said to somebody who pressed Load
+       * on a historical game it is about text they never wrote and cannot
+       * check -- **measured** by answering the game fetch with a login page,
+       * which is what a captive portal sends: the card asked them to check
+       * their move numbers.
+       */
+      const unreadable = options?.fromSample
+        ? 'That game did not arrive in a readable form. Try again shortly.'
+        : 'Failed to parse PGN. Check the move text, headers, and move numbers.'
+      return { ok: false, error: pgnImportUserErrorMessage(error) ?? unreadable }
     }
   }, [announce, cancelPendingAiMove, cancelSampleLoad, clearBatchReview, clearBoardSelection, clearImportSweep, engineEnabled, game, gameTree, newGame, requestBoardReveal, setPgnHeaders])
 
