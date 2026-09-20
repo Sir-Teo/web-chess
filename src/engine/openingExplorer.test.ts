@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   fetchOpeningExplorer,
+  getCachedOpeningExplorer,
   hasOpeningExplorerAuthToken,
   normalizeOpeningExplorerFenKey,
   openingExplorerGameCount,
@@ -104,6 +105,44 @@ describe('opening explorer client', () => {
     expect(url).toContain('ratings=1600')
     expect(url).not.toContain('5000')
     expect(options.headers).toEqual({ Authorization: 'Bearer test-token' })
+  })
+
+  /**
+   * The Masters database has no speeds and no ratings -- `buildUrl` leaves
+   * both off that request -- so two Masters requests that differ only in
+   * those fields are the same request on the wire, and must not be two
+   * entries in the cache. The key was built from every field whatever the
+   * source, so changing a filter that Masters ignores sent a second request
+   * to a rate-limited service for an answer already in hand.
+   *
+   * The app cannot reach this today: every call site strips both fields for
+   * Masters before calling. This is the module agreeing with itself, so the
+   * next caller does not have to know that.
+   */
+  it('keys a Masters request by what it actually sends', async () => {
+    const payload = {
+      white: 7, draws: 2, black: 1,
+      moves: [{ uci: 'e7e5', san: 'e5', white: 4, draws: 2, black: 1 }],
+      topGames: [], recentGames: [], opening: null,
+    }
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const base = {
+      source: 'masters' as const,
+      fen: '8/8/8/8/8/8/4K3/6k1 w - - 0 1',
+      moves: ['g1f3'],
+      authToken: 'Bearer masters-token',
+    }
+    const first = await fetchOpeningExplorer({ ...base, speeds: ['blitz'], ratings: [1600] })
+    const second = await fetchOpeningExplorer({ ...base, speeds: ['classical'], ratings: [2500] })
+
+    const [firstUrl] = fetchMock.mock.calls[0] as [string]
+    expect(firstUrl).not.toContain('speeds=')
+    expect(firstUrl).not.toContain('ratings=')
+    expect(second).toBe(first)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(getCachedOpeningExplorer({ ...base, speeds: ['bullet'], ratings: [400] })).toEqual(first)
   })
 
   it('does not prefetch when the token is missing', async () => {

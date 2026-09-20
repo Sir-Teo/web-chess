@@ -170,11 +170,24 @@ function authHeaders(authToken: string | undefined): HeadersInit {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+/**
+ * Keyed by what `buildUrl` actually sends, which is not every field.
+ *
+ * The Masters database has no speeds and no ratings and the URL leaves both
+ * off, so two Masters requests differing only there are the same request on
+ * the wire. Keying them apart sent a second request to a rate-limited service
+ * for an answer already in hand. A key finer than its request is the quieter
+ * half of the usual cache bug -- it costs a fetch rather than serving a wrong
+ * answer -- and the two functions have to be read together either way.
+ */
 function requestCacheKey(request: OpeningExplorerRequest): string {
   const fen = normalizeOpeningExplorerFenKey(request.fen)
   const moves = normalizeMoves(request.moves)
-  const speeds = (request.speeds ?? []).slice().sort().join(',')
-  const ratings = clampUniqueInts(request.ratings, 400, 3200).sort((a, b) => a - b).join(',')
+  const filtered = request.source === 'lichess'
+  const speeds = filtered ? (request.speeds ?? []).slice().sort().join(',') : ''
+  const ratings = filtered
+    ? clampUniqueInts(request.ratings, 400, 3200).sort((a, b) => a - b).join(',')
+    : ''
   return [request.source, fen, moves.join(','), speeds, ratings].join('|')
 }
 
