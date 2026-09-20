@@ -3473,15 +3473,26 @@ async function checkAnImportDoesNotSweepWhatItAlreadyKnows(browser) {
     const readings = await page.evaluate(() => document.querySelectorAll('.mtree-chip').length)
     assert(readings >= 20, `the game did not import: ${readings} moves on the board`)
     /*
-     * The root is the one position a PGN cannot carry a reading for --
-     * `[%eval]` attaches to a move -- so it is the one the sweep should still
-     * take. Everything else in this game arrived with its own, and was
-     * searched twenty-one times over before this filter.
+     * Two kinds of 70ms search share that movetime and only one is the sweep.
+     * `IMPORT_LOAD_MOVETIME_MS` gives the position the import lands on the
+     * same 70ms, and it is sent as the root plus the game's moves -- so its
+     * command carries the root FEN and anything matching on that alone counts
+     * it as a root sweep. The sweep sends each target as an absolute FEN with
+     * no move list, which is what tells them apart.
+     *
+     * Of the sweep's own searches the root is the one a PGN cannot supply:
+     * `[%eval]` attaches to a move, so the starting position never has one.
+     * Everything after it arrived with a reading and was searched anyway
+     * before this filter.
      */
-    const offTheRoot = sampled.filter(position => !/rnbqkbnr\/pppppppp\/8\/8\/8\/8\/PPPPPPPP\/RNBQKBNR/.test(position))
-    console.log(`  import sweep: ${sampled.length} sampling search(es), ${offTheRoot.length} of them for a position the game already had a reading for`)
-    assert(offTheRoot.length === 0,
-      `a game that carries [%eval] on every move was swept for readings it already had: ${JSON.stringify(offTheRoot.slice(0, 3))}`)
+    const ROOT = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
+    const sweepSearches = sampled.filter(position => !position.includes(' moves '))
+    const alreadyKnown = sweepSearches.filter(position => !position.includes(ROOT))
+    console.log(`  import sweep: ${sweepSearches.length} sampling search(es) beside the import's own,`
+      + ` ${alreadyKnown.length} of them for a position the game already had a reading for`)
+    assert(sweepSearches.length >= 1, 'no sampling search ran at all, so this check measured nothing')
+    assert(alreadyKnown.length === 0,
+      `a game that carries [%eval] on every move was swept for readings it already had: ${JSON.stringify(alreadyKnown.slice(0, 3))}`)
   } finally {
     await context.close()
   }
