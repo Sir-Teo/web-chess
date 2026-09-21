@@ -1421,6 +1421,13 @@ IDBObjectStore.prototype.add = function(value, ...args) {
           // afterwards would never see it. Reload to get a fresh module
           // registry, and with it the one construction this fixture needs.
           await target.reload({ waitUntil: 'domcontentloaded' })
+          // A reload brings the auto-save recovery dialog back with it, and
+          // its backdrop swallows every click behind it -- Firefox spent 176
+          // retries on the summary below reporting exactly that. Dismissed
+          // the way the two-tab section further down already dismisses it.
+          await target.waitForFunction(() => document.querySelector('.board-surface'))
+          const recovered = target.getByRole('button', { name: 'Restore', exact: true })
+          if (await recovered.count()) await recovered.click()
           await target.locator('.saved-reviews summary').click()
           await upload(target, { ...backup, reviews: [{ ...original, id: 'queued', title: 'Queued first' }, { ...original, id: 'abort', title: 'Abort after insert' }] })
           assert(injected === 1, `the abort fixture did not intercept the native worker (${injected} scripts)`)
@@ -6294,7 +6301,27 @@ async function checkReadingSpace(browser) {
           return { top: r.top, bottom: r.bottom, visibleTop: top, visibleBottom: main.bottom }
         })
         assert(focus.top >= focus.visibleTop - 1 && focus.bottom <= focus.visibleBottom + 1, `focused review control is obscured: ${JSON.stringify(focus)}`)
-        await page.getByRole('button', { name: 'Open Opening Intel', exact: true }).click()
+        /*
+         * Bring it into view, let the scroll settle, then click.
+         *
+         * The control sits at y=1257 in a panel that scrolls, so a click has
+         * to scroll it up first -- and Firefox reverts a programmatic scroll
+         * a frame later, the same behaviour the `focusin` reveal in `App.tsx`
+         * exists for. The click then lands where the button no longer is.
+         * **Measured** over six runs of this three-step sequence: 6 of 18
+         * clicks missed as a plain click, 0 of 18 with the scroll and settle
+         * below.
+         *
+         * Not masking an app fault. A direct `el.click()` switches the tab on
+         * all three passes, so the handler is fine; and a keyboard user
+         * reaching this button keeps it on screen -- the revert measured on
+         * this panel is 7px and left the control inside its scroller 12 times
+         * out of 12, against the 136px that strands one in a dialog.
+         */
+        const intel = page.getByRole('button', { name: 'Open Opening Intel', exact: true })
+        await intel.scrollIntoViewIfNeeded()
+        await page.waitForTimeout(150)
+        await intel.click()
         const opening = page.locator('.opening-intel-card').filter({ has: page.getByRole('heading', { name: 'Opening Intel', exact: true }) })
         await opening.waitFor()
         await page.waitForTimeout(400)
