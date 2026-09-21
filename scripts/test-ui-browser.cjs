@@ -4635,7 +4635,27 @@ async function checkAnArchiveFetchBringsBackTheGames(browser) {
                          game('ChessCom C', 'archivist', 'rival3')].join('\n\n')
 
   const run = async (source, expected, wire) => {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+    /*
+     * Service workers blocked, or this check leaves the building.
+     *
+     * The app registers a COOP/COEP worker that re-issues every request to
+     * add its headers, and a `context.route` does not intercept what a
+     * service worker originates in Firefox. **Measured**: the page makes the
+     * identical request in both engines -- the same
+     * `lichess.org/api/games/user/archivist?max=10...` URL -- and the route
+     * sees it in Chromium and not in Firefox.
+     *
+     * Failing the assertion was the good outcome. The bad one is what it was
+     * doing first: with the route bypassed the fetch went to the real
+     * lichess.org, and the dialog came back holding ten actual games --
+     * "rated blitz game", "rated bullet game" -- instead of the two-game
+     * fixture. A check that reaches a third party is not deterministic and
+     * should not exist, whichever way it happens to resolve.
+     *
+     * The comment below already names the other way this check can lose its
+     * fixture. This is the second way.
+     */
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' })
     const page = await context.newPage()
     const asked = []
     try {
@@ -4904,7 +4924,12 @@ async function checkAFailedLookupSaysSoPlainly(browser) {
       })
     }, /having trouble/i],
   ]) {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+    // Blocked for the reason `checkAnArchiveFetchBringsBackTheGames` gives:
+    // these three routes stand in for lichess.org and api.chess.com, and a
+    // route does not intercept what the app's COOP/COEP service worker
+    // re-issues in Firefox. Without this the failures being described here
+    // are whatever those two services happen to answer.
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' })
     const page = await context.newPage()
     try {
       await wire(context)
@@ -4940,7 +4965,10 @@ async function checkAFailedLookupSaysSoPlainly(browser) {
     ['a server error', { status: 500, contentType: 'text/plain', body: 'boom' }, null],
     ['a login page', { status: 200, contentType: 'text/plain', body: '<!DOCTYPE html><html>login</html>' }, /move text|move numbers|headers/i],
   ]) {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+    // Blocked for the same reason as the two loops above: this route stands in
+    // for lichess.org, and Firefox's service worker re-issues the request past
+    // it.
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' })
     const page = await context.newPage()
     try {
       await context.route(/lichess\.org\/game\/export/, route => route.fulfill(reply))
