@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardE
 import { Chessboard } from 'react-chessboard'
 import {
   buildWdlSeries,
-  buildWinrateSeries,
+  buildScoreSeries,
   buildReviewRows,
   formatWhitePovEvaluation,
   pvToSan,
@@ -14,7 +14,7 @@ import {
   type ReviewRow,
   type ReviewLabel,
   type WdlPoint,
-  type WinratePoint,
+  type ScorePoint,
 } from './engine/analysis'
 import { historicalSampleGames, type HistoricalSampleGame, type HistoricalSampleFormat } from './assets/historicalSamples'
 import {
@@ -1751,8 +1751,8 @@ function App() {
     [currentLineNodes],
   )
 
-  const winratePoints = useMemo(
-    () => buildWinrateSeries(currentLineMoves, evaluationsByFen, currentRootFen),
+  const scorePoints = useMemo(
+    () => buildScoreSeries(currentLineMoves, evaluationsByFen, currentRootFen),
     [currentLineMoves, currentRootFen, evaluationsByFen],
   )
 
@@ -2882,7 +2882,7 @@ function App() {
       </section>
 
       <div className="main-container">
-        {/* ── Left panel (winrate graph) ── */}
+        {/* ── Left panel (score and WDL graphs) ── */}
         <section className={`panel left ${autoHideLeftPanel ? 'auto-hidden' : ''}`} style={{ width: visibleLeftWidth }}>
           <div
             className="resize-handle resize-handle-right"
@@ -2904,13 +2904,13 @@ function App() {
             <div className="panel-content">
               <section className="analytics-card">
                 <header className="section-heading">
-                  <h3><span className="section-icon"><IconTrendingUp /></span> Winrate</h3>
-                  {winratePoints.length > 0 && (
-                    <strong>{winratePoints[winratePoints.length - 1]!.whiteWinrate.toFixed(1)}%</strong>
+                  <h3><span className="section-icon"><IconTrendingUp /></span> White score</h3>
+                  {scorePoints.length > 0 && (
+                    <strong>{scorePoints[scorePoints.length - 1]!.whiteScore.toFixed(1)}%</strong>
                   )}
                 </header>
-                <WinrateGraph
-                  points={winratePoints}
+                <ScoreGraph
+                  points={scorePoints}
                   currentIndex={currentPathNodes.length - 1}
                   onNavigate={(idx) => {
                     const targetNode = currentLineNodes[idx] || currentLineNodes[currentLineNodes.length - 1]
@@ -2923,10 +2923,10 @@ function App() {
                     navigateAndPause(chess)
                   }}
                 />
-                {winratePoints.length > 0 && (
+                {scorePoints.length > 0 && (
                   <div className="graph-legend">
-                    <span>White win chance</span>
-                    <strong>{winratePoints[winratePoints.length - 1]!.whiteWinrate.toFixed(1)}%</strong>
+                    <span title="Wins plus half of draws; estimated from the position when WDL is unavailable">White expected score</span>
+                    <strong>{scorePoints[scorePoints.length - 1]!.whiteScore.toFixed(1)}%</strong>
                   </div>
                 )}
               </section>
@@ -4012,7 +4012,7 @@ function EngineOptionControl({ option, onSetOption, disabled = false }: EngineOp
   )
 }
 
-// ── Winrate graph ──────────────────────────────────────────────────────────────
+// ── Score graph ────────────────────────────────────────────────────────────────
 
 const GRAPH_HEIGHT = 220
 const GRAPH_PAD_LEFT = 52
@@ -4037,18 +4037,18 @@ function formatMoveAxisLabel(index: number): string {
   return Number.isInteger(moveNumber) ? String(moveNumber) : moveNumber.toFixed(1)
 }
 
-type WinrateGraphProps = {
-  points: WinratePoint[]
+type ScoreGraphProps = {
+  points: ScorePoint[]
   currentIndex?: number
   onNavigate?: (index: number) => void
 }
 
-const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, onNavigate }: WinrateGraphProps) {
+const ScoreGraph = memo(function ScoreGraph({ points, currentIndex, onNavigate }: ScoreGraphProps) {
   if (points.length === 0) {
     return (
       <div className="empty-state">
         <span className="empty-state-icon">📈</span>
-        <p>Play and analyze moves to build the live winrate graph.</p>
+        <p>Analyze moves to build the White score trend.</p>
       </div>
     )
   }
@@ -4067,7 +4067,7 @@ const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, onNaviga
   const toY = (wr: number) => padTop + ((100 - wr) / 100) * innerHeight
 
   const path = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(p.index).toFixed(2)} ${toY(p.whiteWinrate).toFixed(2)}`)
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(p.index).toFixed(2)} ${toY(p.whiteScore).toFixed(2)}`)
     .join(' ')
 
   const area = `${path} L ${toX(maxIndex).toFixed(2)} ${(height - padBottom).toFixed(2)} L ${toX(points[0]?.index ?? 0).toFixed(2)} ${(height - padBottom).toFixed(2)} Z`
@@ -4092,7 +4092,7 @@ const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, onNaviga
     : null
 
   return (
-    <div className="graph-wrap" aria-label="White winrate graph">
+    <div className="graph-wrap" aria-label="White expected score graph">
       <div className="graph-scroll">
         <svg
           className="winrate-graph"
@@ -4122,7 +4122,7 @@ const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, onNaviga
             <circle
               key={`wr-point-${p.index}`}
               cx={toX(p.index)}
-              cy={toY(p.whiteWinrate)}
+              cy={toY(p.whiteScore)}
               r={2.8}
               className="graph-point"
             />

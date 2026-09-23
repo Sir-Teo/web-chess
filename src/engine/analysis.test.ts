@@ -1,6 +1,6 @@
 import { Chess } from 'chess.js'
 import { describe, expect, it } from 'vitest'
-import { buildReviewRows, buildWdlSeries, buildWinrateSeries, formatWhitePovEvaluation, scoreToCp, summarizeReview, uciToSan } from './analysis'
+import { buildReviewRows, buildScoreSeries, buildWdlSeries, formatWhitePovEvaluation, scoreToCp, summarizeReview, uciToSan } from './analysis'
 
 describe('review analysis helpers', () => {
   it('labels reviewed moves from side-to-move centipawn deltas', () => {
@@ -113,7 +113,7 @@ describe('review analysis helpers', () => {
     )
     expect(rows[0]).toMatchObject({ quality: 'pending', confidence: 'pending' })
 
-    expect(buildWinrateSeries([move], new Map([[rootFen, { cp: Number.NaN }], [afterFen, { cp: Number.POSITIVE_INFINITY }]]), rootFen)).toEqual([])
+    expect(buildScoreSeries([move], new Map([[rootFen, { cp: Number.NaN }], [afterFen, { cp: Number.POSITIVE_INFINITY }]]), rootFen)).toEqual([])
     expect(buildWdlSeries([move], new Map([[rootFen, { cp: 0, wdl: { w: 1, d: Number.NaN, l: 1 } }]]), rootFen)).toEqual([])
   })
 
@@ -129,7 +129,7 @@ describe('review analysis helpers', () => {
     const move = game.move('Kf3')
     const afterFen = game.fen()
 
-    const series = buildWinrateSeries(
+    const series = buildScoreSeries(
       [move],
       new Map([
         [rootFen, { cp: 0 }],
@@ -141,5 +141,23 @@ describe('review analysis helpers', () => {
     expect(series).toHaveLength(2)
     expect(series[0]?.label).toBe('Start')
     expect(series[1]?.label).toBe('1. Kf3')
+  })
+
+  it('uses wins plus half draws for White score when WDL is available', () => {
+    const game = new Chess()
+    const whiteToMove = game.fen()
+    game.move('e4')
+    const blackToMove = game.fen()
+
+    const series = buildScoreSeries(
+      [game.history({ verbose: true })[0]!],
+      new Map([
+        [whiteToMove, { cp: 0, wdl: { w: 100, d: 800, l: 100 } }],
+        [blackToMove, { cp: 0, wdl: { w: 200, d: 700, l: 100 } }],
+      ]),
+      whiteToMove,
+    )
+
+    expect(series.map(point => point.whiteScore)).toEqual([50, 45])
   })
 })

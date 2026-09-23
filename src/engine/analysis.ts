@@ -30,10 +30,10 @@ export type ReviewRow = {
   confidence: 'pending' | 'shallow' | 'standard' | 'deep'
 }
 
-export type WinratePoint = {
+export type ScorePoint = {
   index: number
   label: string
-  whiteWinrate: number
+  whiteScore: number
 }
 
 export type WdlPoint = {
@@ -233,42 +233,50 @@ function normalizeWhitePovWdl(fen: string, wdl: { w: number; d: number; l: numbe
   }
 }
 
-function cpToWhiteWinrate(cp: number): number {
+function cpToWhiteScoreEstimate(cp: number): number {
   const limited = Math.max(-2000, Math.min(2000, cp))
   const raw = 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * limited)) - 1)
   return Math.max(0, Math.min(100, raw))
 }
 
-export function buildWinrateSeries(
+function whiteScoreEstimate(fen: string, snapshot: EvalSnapshot | undefined): number | null {
+  if (!snapshot) return null
+  const wdl = snapshot.wdl && normalizeWhitePovWdl(fen, snapshot.wdl)
+  if (wdl) return wdl.white + wdl.draw / 2
+  if (!isFiniteNumber(snapshot.cp)) return null
+  return cpToWhiteScoreEstimate(normalizeWhitePovCp(fen, snapshot.cp))
+}
+
+export function buildScoreSeries(
   history: Move[],
   evaluationsByFen: Map<string, EvalSnapshot>,
   rootFen = new Chess().fen(),
-): WinratePoint[] {
+): ScorePoint[] {
   const replay = new Chess(rootFen)
-  const series: WinratePoint[] = []
+  const series: ScorePoint[] = []
 
   const startFen = replay.fen()
-  const startCp = evaluationsByFen.get(startFen)?.cp
-  if (isFiniteNumber(startCp)) {
+  const startScore = whiteScoreEstimate(startFen, evaluationsByFen.get(startFen))
+  if (startScore !== null) {
     series.push({
       index: 0,
       label: 'Start',
-      whiteWinrate: cpToWhiteWinrate(normalizeWhitePovCp(startFen, startCp)),
+      whiteScore: startScore,
     })
   }
 
   history.forEach((move, index) => {
     replay.move({ from: move.from, to: move.to, promotion: move.promotion })
     const fen = replay.fen()
-    const cp = evaluationsByFen.get(fen)?.cp
-    if (!isFiniteNumber(cp)) return
+    const whiteScore = whiteScoreEstimate(fen, evaluationsByFen.get(fen))
+    if (whiteScore === null) return
 
     const moveNumber = Math.floor(index / 2) + 1
     const prefix = index % 2 === 0 ? `${moveNumber}.` : `${moveNumber}...`
     series.push({
       index: index + 1,
       label: `${prefix} ${move.san}`,
-      whiteWinrate: cpToWhiteWinrate(normalizeWhitePovCp(fen, cp)),
+      whiteScore,
     })
   })
 
