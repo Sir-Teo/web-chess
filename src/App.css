@@ -1284,6 +1284,10 @@ body.resizing * {
   margin-bottom: var(--space-md);
 }
 
+.analysis-actions {
+  grid-template-columns: 1fr;
+}
+
 .analysis-header {
   display: flex;
   flex-direction: column;

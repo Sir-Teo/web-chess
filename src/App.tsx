@@ -3209,13 +3209,16 @@ function App() {
 
               {workspaceMode === 'analysis' && analysisTab === 'analyze' && (
                 <>
-                  <div className="inline-actions">
-                    <button type="button" className="btn-primary" aria-label="Run analysis" onClick={runAnalyze}>
-                      <IconPlay /> Analyze
-                    </button>
-                    <button type="button" aria-label="Stop analysis" onClick={stop}>
-                      <IconStop /> Stop
-                    </button>
+                  <div className="inline-actions analysis-actions">
+                    {status === 'analyzing' ? (
+                      <button type="button" aria-label="Stop analysis" onClick={stop}>
+                        <IconStop /> Stop analysis
+                      </button>
+                    ) : (
+                      <button type="button" className="btn-primary" aria-label="Run analysis" onClick={runAnalyze} disabled={status !== 'ready'}>
+                        <IconPlay /> Analyze position
+                      </button>
+                    )}
                   </div>
                   <div className="analysis-experience-toggle" aria-label="Analysis experience">
                     {([
