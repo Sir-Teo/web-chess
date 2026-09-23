@@ -676,6 +676,7 @@ function App() {
 
   // ── Game mode ────────────────────────────────────────
   const [showNewGameDialog, setShowNewGameDialog] = useState(false)
+  const [newGameMode, setNewGameMode] = useState<GameMode>('human-vs-human')
   const [showPgnDialog, setShowPgnDialog] = useState(false)
   const [gameMode, setGameMode] = useState<GameMode>('human-vs-human')
   const [playerColor, setPlayerColor] = useState<PlayerColor>('white')
@@ -2099,7 +2100,10 @@ function App() {
   }, [pendingPromotion])
 
   // ── New game ──────────────────────────────────────────
-  const openNewGameDialog = () => setShowNewGameDialog(true)
+  const openNewGameDialog = (mode: GameMode = gameMode) => {
+    setNewGameMode(mode)
+    setShowNewGameDialog(true)
+  }
   const openPgnDialog = () => setShowPgnDialog(true)
 
   const abortSampleFetch = useCallback(() => {
@@ -2290,18 +2294,6 @@ function App() {
     },
     [aiPlayer, cancelSampleLoad, clearImportSweep, game, gameTree, newGame],
   )
-
-  // ── Mode switch mid-game ──────────────────────────────
-  const handleModeChange = useCallback((mode: GameMode) => {
-    setGameMode(mode)
-    if (workspaceMode !== 'play') setWorkspaceMode('play')
-    aiMoveScheduledRef.current = false
-    if (pausedRef.current) {
-      pausedRef.current = false
-      setPaused(false)
-    }
-    setFen(f => f)
-  }, [workspaceMode])
 
   const navigateMoveListAndPause = useCallback((chess: Chess) => {
     navigateAndPause(chess)
@@ -2505,7 +2497,7 @@ function App() {
               <span className="app-brand-text">Web Chess</span>
             </div>
             <div className="mobile-actions">
-              <button type="button" onClick={openNewGameDialog} aria-label="Start new game" title="New game">
+              <button type="button" onClick={() => openNewGameDialog()} aria-label="Start new game" title="New game">
                 <span className="btn-icon"><IconRefresh /></span> <span className="btn-label">New game</span>
               </button>
               <button type="button" onClick={flipBoard} aria-label="Flip board" title="Flip board">
@@ -2541,17 +2533,18 @@ function App() {
               <span className="toolbar-divider desktop-only" />
               <div className="top-mode-pills" aria-label="Game mode">
                 {([
-                  { id: 'human-vs-human', label: 'Human vs Human', title: 'Local board for two players', icon: <IconUsers /> },
-                  { id: 'human-vs-ai', label: 'Human vs AI', title: 'Play against the engine', icon: <IconBot /> },
-                  { id: 'ai-vs-ai', label: 'AI vs AI', title: 'Watch two engines play', icon: <IconZap /> },
-                ] as const).map(({ id, label, title, icon }) => (
+                  { id: 'human-vs-human', label: 'Human vs Human', icon: <IconUsers /> },
+                  { id: 'human-vs-ai', label: 'Human vs AI', icon: <IconBot /> },
+                  { id: 'ai-vs-ai', label: 'AI vs AI', icon: <IconZap /> },
+                ] as const).map(({ id, label, icon }) => (
                   <button
                     key={id}
                     type="button"
                     className={`gc-pill ${gameMode === id ? 'gc-pill-active' : ''}`}
                     aria-pressed={gameMode === id}
-                    title={title}
-                    onClick={() => id !== gameMode && handleModeChange(id)}
+                    aria-label={`Start a new ${label} game`}
+                    title={`Start a new ${label} game`}
+                    onClick={() => openNewGameDialog(id)}
                   >
                     <span className="gc-pill-icon">{icon}</span>
                     {label}
@@ -3136,9 +3129,9 @@ function App() {
 
         {/* ── New Game Dialog ── */}
         <NewGameDialog
-          key={showNewGameDialog ? `${gameMode}-${playerColor}-${aiDifficulty}` : 'closed'}
+          key={showNewGameDialog ? `${newGameMode}-${playerColor}-${aiDifficulty}` : 'closed'}
           open={showNewGameDialog}
-          initialMode={gameMode}
+          initialMode={newGameMode}
           initialPlayerColor={playerColor}
           initialDifficulty={aiDifficulty}
           onStart={handleNewGameStart}
