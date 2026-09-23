@@ -618,6 +618,7 @@ function App() {
   const [rightWidth, setRightWidth] = useState(320)
   const [bottomPanelOpen, setBottomPanelOpen] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [compactInsightsOpen, setCompactInsightsOpen] = useState(false)
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight })
 
   // ── Engine settings ──────────────────────────────────
@@ -2883,7 +2884,7 @@ function App() {
 
       <div className="main-container">
         {/* ── Left panel (score and WDL graphs) ── */}
-        <section className={`panel left ${autoHideLeftPanel ? 'auto-hidden' : ''}`} style={{ width: visibleLeftWidth }}>
+        <section className={`panel left ${autoHideLeftPanel ? `auto-hidden ${compactInsightsOpen ? 'is-open' : ''}` : ''}`} style={{ width: visibleLeftWidth }}>
           <div
             className="resize-handle resize-handle-right"
             role="separator"
@@ -2901,6 +2902,12 @@ function App() {
             <span className="resize-pill" />
           </div>
           <div className="panel-inner" style={{ opacity: (!isMobile && leftWidth === 0) ? 0 : 1 }}>
+            {autoHideLeftPanel && (
+              <div className="compact-insights-header">
+                <strong>Insights & library</strong>
+                <button type="button" onClick={() => setCompactInsightsOpen(false)} aria-label="Close insights and library">Close</button>
+              </div>
+            )}
             <div className="panel-content">
               <section className="analytics-card">
                 <header className="section-heading">
@@ -3182,7 +3189,14 @@ function App() {
           </div>
           <div className="panel-inner" style={{ opacity: (!isMobile && rightWidth === 0) ? 0 : 1 }}>
             <header className="panel-header analysis-header">
-              <h2>{workspaceMode === 'analysis' ? 'Analysis' : 'Play'}</h2>
+              <div className="panel-title-row">
+                <h2>{workspaceMode === 'analysis' ? 'Analysis' : 'Play'}</h2>
+                {autoHideLeftPanel && (
+                  <button type="button" onClick={() => setCompactInsightsOpen(open => !open)} aria-expanded={compactInsightsOpen}>
+                    <IconBarChart /> Insights & library
+                  </button>
+                )}
+              </div>
               {workspaceMode === 'analysis' && (
                 <div className="analysis-tab-strip">
                   {([

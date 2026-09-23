@@ -792,6 +792,33 @@ body.resizing * {
   display: none;
 }
 
+.left.auto-hidden.is-open {
+  display: block;
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: min(360px, calc(100vw - 1rem)) !important;
+  z-index: 30;
+  box-shadow: var(--shadow-lg);
+}
+
+.left.auto-hidden.is-open .resize-handle {
+  display: none;
+}
+
+.compact-insights-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 0.8rem;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 0.78rem;
+}
+
+.compact-insights-header button {
+  padding: 0.35rem 0.6rem;
+}
+
 .left .panel-inner {
   border-left: none;
   border-top: none;
@@ -1293,6 +1320,18 @@ body.resizing * {
   flex-direction: column;
   gap: 0.45rem;
   align-items: stretch;
+}
+
+.panel-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.panel-title-row button {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.7rem;
 }
 
 .analysis-tab-strip {
