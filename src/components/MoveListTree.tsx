@@ -20,10 +20,23 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate }: Pro
 
     // Keyboard navigation on the container is already handled globally in App.tsx
 
-    // Auto-scroll current node into view
+    // Keep the active move visible without scrolling the board's outer layout.
     useEffect(() => {
-        const el = scrollRef.current?.querySelector(`[data-node-id="${current.id}"]`) as HTMLElement | null
-        el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+        const container = scrollRef.current
+        const el = container?.querySelector(`[data-node-id="${current.id}"]`) as HTMLElement | null
+        if (!container || !el) return
+
+        const containerRect = container.getBoundingClientRect()
+        const itemRect = el.getBoundingClientRect()
+        const top = itemRect.top - containerRect.top
+        const bottom = itemRect.bottom - containerRect.top
+        const delta = top < 0 ? top : bottom > container.clientHeight ? bottom - container.clientHeight : 0
+        if (delta !== 0) {
+            container.scrollTo({
+                top: container.scrollTop + delta,
+                behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+            })
+        }
     }, [current.id])
 
     if (line.length <= 1) {
