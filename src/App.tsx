@@ -2905,11 +2905,18 @@ function App() {
               <section className="analytics-card">
                 <header className="section-heading">
                   <h3><span className="section-icon"><IconTrendingUp /></span> White score</h3>
-                  {scorePoints.length > 0 && (
+                  {scorePoints.length > 1 && (
                     <strong>{scorePoints[scorePoints.length - 1]!.whiteScore.toFixed(1)}%</strong>
                   )}
                 </header>
-                <ScoreGraph
+                {scorePoints.length < 2 ? (
+                  <div className="graph-summary">
+                    {scorePoints.length === 1 ? (
+                      <><strong>{scorePoints[0]!.whiteScore.toFixed(1)}%</strong><span>White expected score at this position</span></>
+                    ) : <span>Analyze a position to see White's expected score.</span>}
+                    <small>Analyze another move to see a trend.</small>
+                  </div>
+                ) : <ScoreGraph
                   points={scorePoints}
                   currentIndex={currentPathNodes.length - 1}
                   onNavigate={(idx) => {
@@ -2922,8 +2929,8 @@ function App() {
                     }
                     navigateAndPause(chess)
                   }}
-                />
-                {scorePoints.length > 0 && (
+                />}
+                {scorePoints.length > 1 && (
                   <div className="graph-legend">
                     <span title="Wins plus half of draws; estimated from the position when WDL is unavailable">White expected score</span>
                     <strong>{scorePoints[scorePoints.length - 1]!.whiteScore.toFixed(1)}%</strong>
@@ -2933,9 +2940,16 @@ function App() {
               <section className="analytics-card">
                 <header className="section-heading">
                   <h3><span className="section-icon"><IconBarChart /></span> WDL Trend</h3>
-                  {wdlPoints.length > 0 && <strong>{countLabel(wdlPoints.length, 'point')}</strong>}
+                  {wdlPoints.length > 1 && <strong>{countLabel(wdlPoints.length, 'point')}</strong>}
                 </header>
-                <WdlProgressGraph
+                {wdlPoints.length < 2 ? (
+                  <div className="graph-summary">
+                    {wdlPoints.length === 1 ? (
+                      <span>White {wdlPoints[0]!.white.toFixed(1)}% · Draw {wdlPoints[0]!.draw.toFixed(1)}% · Black {wdlPoints[0]!.black.toFixed(1)}%</span>
+                    ) : <span>Analyze a position to see win, draw, and loss chances.</span>}
+                    <small>Analyze another move to see a trend.</small>
+                  </div>
+                ) : <WdlProgressGraph
                   points={wdlPoints}
                   currentIndex={currentPathNodes.length - 1}
                   onNavigate={(idx) => {
@@ -2948,8 +2962,8 @@ function App() {
                     }
                     navigateAndPause(chess)
                   }}
-                />
-                {wdlPoints.length > 0 && (
+                />}
+                {wdlPoints.length > 1 && (
                   <div className="graph-legend wdl">
                     <span className="wdl-white-label">White {wdlPoints[wdlPoints.length - 1]!.white.toFixed(1)}%</span>
                     <span className="wdl-draw-label">Draw {wdlPoints[wdlPoints.length - 1]!.draw.toFixed(1)}%</span>

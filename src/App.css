@@ -2442,6 +2442,31 @@ body.resizing * {
   font-variant-numeric: tabular-nums;
 }
 
+.graph-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(8, 10, 14, 0.42);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.graph-summary strong {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.graph-summary small {
+  color: var(--text-tertiary);
+  font-size: 0.68rem;
+}
+
 .graph-wrap {
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.045);
