@@ -1904,6 +1904,12 @@ body.resizing * {
   border-top: 1px solid var(--border-subtle);
 }
 
+.play-moves-section {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .right-section h3,
 .review-scaffold h3,
 .pv-list h3 {

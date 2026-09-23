@@ -3198,34 +3198,13 @@ function App() {
             </header>
             <div className="panel-content">
               {workspaceMode === 'play' && (
-                <>
-                  <div className="engine-lab-card">
-                    <h3><span className="section-icon"><IconSwords /></span> Play Focus</h3>
-                    <p className="panel-copy small">
-                      {playEngineActive
-                        ? `${aiPlayer.profileName} play engine is ${playEngineStatus}.`
-                        : 'Analysis engine is on standby. Use this view for clean gameplay and move navigation.'}
-                    </p>
-                    <label className="switch-control">
-                      <input
-                        type="checkbox"
-                        checked={showBoardArrows}
-                        onChange={event => setShowBoardArrows(event.target.checked)}
-                      />
-                      <span>Show board arrow overlays</span>
-                    </label>
-                    <button type="button" onClick={() => handleWorkspaceModeChange('analysis')}>
-                      Switch to Analysis mode
-                    </button>
-                  </div>
-                  <div className="right-section">
-                    <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
-                    <MoveListTree
-                      tree={gameTree}
-                      onNavigate={navigateMoveListAndPause}
-                    />
-                  </div>
-                </>
+                <div className="right-section play-moves-section">
+                  <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
+                  <MoveListTree
+                    tree={gameTree}
+                    onNavigate={navigateMoveListAndPause}
+                  />
+                </div>
               )}
 
               {workspaceMode === 'analysis' && analysisTab === 'analyze' && (
