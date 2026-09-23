@@ -2446,13 +2446,21 @@ function App() {
 
   const isMobile = viewport.width <= 900
   const desktopBoardChromeReserve = 44
+  const maxDesktopBoardHeight = viewport.height
+    - (bottomPanelOpen ? 140 : 80)
+    - (topPanelOpen ? 80 : 40)
+    - desktopBoardChromeReserve
+  const preferredBoardWidth = Math.min(680, maxDesktopBoardHeight)
+  const availableLeftWidth = viewport.width - rightWidth - preferredBoardWidth - 48
+  const autoHideLeftPanel = !isMobile && leftWidth > 0 && availableLeftWidth < 220
+  const visibleLeftWidth = autoHideLeftPanel ? 0 : Math.min(leftWidth, Math.max(0, availableLeftWidth))
 
   // Mobile: board occupies ~50% of viewport height so analysis panels are visible below
   const boardWidth = isMobile
     ? Math.min(viewport.width - 16, Math.round(viewport.height * 0.46))
     : Math.min(
-      viewport.width - leftWidth - rightWidth - 48,
-      viewport.height - (bottomPanelOpen ? 140 : 80) - (topPanelOpen ? 80 : 40) - desktopBoardChromeReserve,
+      viewport.width - visibleLeftWidth - rightWidth - 48,
+      maxDesktopBoardHeight,
       800,
     )
   const turnLabel = game.turn() === 'w' ? 'White to move' : 'Black to move'
@@ -2882,7 +2890,7 @@ function App() {
 
       <div className="main-container">
         {/* ── Left panel (winrate graph) ── */}
-        <section className="panel left" style={{ width: leftWidth }}>
+        <section className={`panel left ${autoHideLeftPanel ? 'auto-hidden' : ''}`} style={{ width: visibleLeftWidth }}>
           <div
             className="resize-handle resize-handle-right"
             role="separator"

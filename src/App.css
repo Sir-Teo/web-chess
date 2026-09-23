@@ -788,6 +788,10 @@ body.resizing * {
   height: 100%;
 }
 
+.left.auto-hidden {
+  display: none;
+}
+
 .left .panel-inner {
   border-left: none;
   border-top: none;
