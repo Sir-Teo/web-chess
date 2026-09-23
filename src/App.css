@@ -2927,6 +2927,21 @@ body.resizing * {
     min-width: 0;
   }
 
+  .top .compact-grid .mobile-actions button {
+    width: 2.75rem;
+    height: 2.75rem;
+    min-height: 2.75rem;
+  }
+
+  .top .compact-grid .mobile-actions button:first-child {
+    width: auto;
+    padding: 0 0.65rem;
+  }
+
+  .mobile-actions button:first-child .btn-label {
+    display: inline;
+  }
+
   .mobile-modes-wrapper {
     grid-area: modes;
     display: grid;
@@ -2941,7 +2956,8 @@ body.resizing * {
   }
 
   .top .settings-menu>summary {
-    width: 2.5rem;
+    width: 2.75rem;
+    height: 2.75rem;
     padding: 0;
     font-size: 0;
   }
@@ -2957,6 +2973,10 @@ body.resizing * {
 
   .top-mode-pills[aria-label="Game mode"] .gc-pill {
     flex: 1 1 0;
+  }
+
+  .top .compact-grid .top-mode-pills[aria-label="Game mode"] {
+    display: none;
   }
 
 
@@ -3062,7 +3082,7 @@ body.resizing * {
   .top-mode-pills,
   .wc-nav,
   .wc-speed {
-    min-height: 2.5rem;
+    min-height: 2.75rem;
     padding: 0.18rem;
   }
 
@@ -3080,7 +3100,7 @@ body.resizing * {
   .wc-speed-pill,
   .mode-pill,
   .analysis-tab-btn {
-    min-height: 40px;
+    min-height: 44px;
     padding: 0.4rem 0.8rem;
     font-size: 0.85rem;
   }
