@@ -28,7 +28,7 @@ describe('graph label helpers', () => {
 describe('what the slider announces', () => {
   it('reads the number along with the position', () => {
     expect(describeWinratePosition({ index: 23, label: '12. Nf3', whiteWinrate: 61.24 }, 23))
-      .toBe('After 12. Nf3, 61.2% for White')
+      .toBe('After 12. Nf3, White expected score 61.2%')
     expect(describeWdlPosition({ index: 23, label: '12. Nf3', white: 40.4, draw: 49.6, black: 10 }, 23))
       .toBe('After 12. Nf3, White 40%, draw 50%, Black 10%')
   })
@@ -42,11 +42,11 @@ describe('what the slider announces', () => {
 describe('the readout under the pointer', () => {
   it('names the position and its reading, short enough for a rail-width plot', () => {
     expect(formatWinrateReadout({ index: 23, label: '12. Nf3', whiteWinrate: 61.24 }, 23))
-      .toBe('12. Nf3 · 61.2% White')
+      .toBe('12. Nf3 · White score 61.2%')
     expect(formatWdlReadout({ index: 23, label: '12. Nf3', white: 40.4, draw: 49.6, black: 10 }, 23))
       .toBe('12. Nf3 · W 40 · D 50 · B 10')
     expect(formatWinrateReadout({ index: 0, label: 'Start', whiteWinrate: 51.7 }, 0))
-      .toBe('Start · 51.7% White')
+      .toBe('Start · White score 51.7%')
   })
 
   it('still names the position over a ply the series skipped', () => {

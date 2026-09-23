@@ -150,7 +150,7 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
     return (
       <div className="empty-state">
         <span className="empty-state-icon" aria-hidden="true"><IconTrendingUp /></span>
-        <p>Play and analyze moves to build the live winrate graph.</p>
+        <p>Analyze moves to build the White score trend.</p>
       </div>
     )
   }
@@ -174,7 +174,7 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
     : null
 
   return (
-    <div className="graph-wrap" aria-label="White winrate graph">
+    <div className="graph-wrap" aria-label="White expected score graph">
       <div className="graph-scroll" ref={scrollRef}>
         <svg
           className="winrate-graph"
@@ -182,7 +182,7 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
           viewBox={`0 0 ${width} ${height}`}
           role={isNavigable ? 'slider' : 'img'}
           tabIndex={isNavigable ? 0 : undefined}
-          aria-label={isNavigable ? 'White winrate move navigator' : 'White winrate graph'}
+          aria-label={isNavigable ? 'White expected score move navigator' : 'White expected score graph'}
           aria-valuemin={isNavigable ? 0 : undefined}
           aria-valuemax={isNavigable ? maxIndex : undefined}
           aria-valuenow={isNavigable ? selectedIndex : undefined}

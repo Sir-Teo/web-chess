@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { boardChromeWidth, MIN_DESKTOP_BOARD_PX, type BoardViewport } from './boardSizing'
-import { resizeSidePanel, sidePanelSizing } from './panelSizing'
+import { boardChromeWidth, type BoardViewport } from './boardSizing'
+import { COMFORTABLE_DESKTOP_BOARD_PX, resizeSidePanel, sidePanelSizing } from './panelSizing'
 
 const viewport = (width: number, rem = 16): BoardViewport => ({ width, height: 812, rem, scrollbar: 0 })
 
@@ -10,7 +10,7 @@ describe('desktop panel allocation', () => {
       const view = viewport(width, rem)
       const preferred = { left: 320, right: 320 }
       const fitted = sidePanelSizing(view, preferred, true)
-      expect(fitted.left + fitted.right + boardChromeWidth(view, true) + MIN_DESKTOP_BOARD_PX).toBeLessThanOrEqual(width)
+      expect(fitted.left + fitted.right + boardChromeWidth(view, true) + COMFORTABLE_DESKTOP_BOARD_PX).toBeLessThanOrEqual(width)
       expect(Math.abs(fitted.left - fitted.right)).toBeLessThanOrEqual(1)
       expect(preferred).toEqual({ left: 320, right: 320 })
     }

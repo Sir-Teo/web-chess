@@ -1130,6 +1130,15 @@ export function normalizeWhitePovWdl(fen: string, wdl: { w: number; d: number; l
   }
 }
 
+/** Expected points for White: a win counts one, a draw half. */
+function whiteScoreEstimate(fen: string, snapshot: EvalSnapshot | undefined): number | null {
+  if (!snapshot) return null
+  const wdl = snapshot.wdl && normalizeWhitePovWdl(fen, snapshot.wdl)
+  if (wdl) return wdl.white + wdl.draw / 2
+  const cp = scoreToCp(snapshot.cp, snapshot.mate)
+  return isFiniteNumber(cp) ? winPercentFromCp(normalizeWhitePovCp(fen, cp)) : null
+}
+
 
 export function buildWinrateSeries(
   history: Move[],
@@ -1139,13 +1148,12 @@ export function buildWinrateSeries(
   const { startFen, plies } = replayHistory(history, rootFen)
   const series: WinratePoint[] = []
 
-  const startSnapshot = evaluationsByFen.get(startFen)
-  const startCp = startSnapshot ? scoreToCp(startSnapshot.cp, startSnapshot.mate) : undefined
-  if (isFiniteNumber(startCp)) {
+  const startScore = whiteScoreEstimate(startFen, evaluationsByFen.get(startFen))
+  if (startScore !== null) {
     series.push({
       index: 0,
       label: 'Start',
-      whiteWinrate: winPercentFromCp(normalizeWhitePovCp(startFen, startCp)),
+      whiteWinrate: startScore,
     })
   }
 
@@ -1153,14 +1161,14 @@ export function buildWinrateSeries(
     // A terminal result is authoritative even when this FEN has a stored
     // score from a different history. Keep that override local to this line.
     const snapshot = ply.terminal ?? evaluationsByFen.get(ply.afterFen)
-    const cp = snapshot ? scoreToCp(snapshot.cp, snapshot.mate) : undefined
-    if (!isFiniteNumber(cp)) continue
+    const score = whiteScoreEstimate(ply.afterFen, snapshot)
+    if (score === null) continue
 
     const prefix = ply.sideToMove === 'w' ? `${ply.moveNumber}.` : `${ply.moveNumber}...`
     series.push({
       index: ply.index + 1,
       label: `${prefix} ${ply.san}`,
-      whiteWinrate: winPercentFromCp(normalizeWhitePovCp(ply.afterFen, cp)),
+      whiteWinrate: score,
     })
   }
 

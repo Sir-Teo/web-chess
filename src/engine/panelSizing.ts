@@ -2,13 +2,15 @@ import { boardChromeWidth, isMobileViewport, MIN_DESKTOP_BOARD_PX, type BoardVie
 
 export const MIN_SIDE_PANEL_WIDTH = 60
 export const MAX_SIDE_PANEL_WIDTH = 600
+/** Reserve more horizontal room than the emergency board floor near 901px. */
+export const COMFORTABLE_DESKTOP_BOARD_PX = 320
 export type PanelWidths = { left: number; right: number }
 type FittedPanels = PanelWidths & { available: number }
 
 /** Keep the preferred widths when they fit, reserving a complete desktop board. */
 export function sidePanelSizing(viewport: BoardViewport, preferred: PanelWidths, showEvalColumn: boolean): FittedPanels {
   const available = isMobileViewport(viewport) ? Infinity
-    : Math.max(0, Math.floor(viewport.width - viewport.scrollbar - boardChromeWidth(viewport, showEvalColumn) - MIN_DESKTOP_BOARD_PX))
+    : Math.max(0, Math.floor(viewport.width - viewport.scrollbar - boardChromeWidth(viewport, showEvalColumn) - Math.max(MIN_DESKTOP_BOARD_PX, COMFORTABLE_DESKTOP_BOARD_PX)))
   const total = preferred.left + preferred.right
   if (total <= available) return { ...preferred, available }
   const left = Math.floor(available * preferred.left / total)

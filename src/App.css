@@ -2021,6 +2021,18 @@ input[type="checkbox"] {
   flex: 1 1 0;
 }
 
+.analysis-actions button {
+  min-height: 44px;
+}
+
+.show-insights-button {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+}
+
 /* Nothing gave these buttons padding, so the panel's primary action sat at the
    UA default 16px — shorter than the 27px tabs above it and the smallest
    control in the panel. */
@@ -3691,6 +3703,31 @@ button.critical-moment-row {
   padding: 0.55rem;
 }
 
+.graph-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-inset);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.graph-summary strong {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.graph-summary small {
+  color: var(--text-tertiary);
+  font-size: 0.68rem;
+}
+
 .section-heading {
   display: flex;
   flex-wrap: wrap;
@@ -4498,6 +4535,15 @@ button.critical-moment-row {
     min-height: 2.75rem;
   }
 
+  .top .compact-grid .mobile-actions button:first-child {
+    width: auto;
+    padding-inline: 0.65rem;
+  }
+
+  .top .mobile-actions button:first-child .btn-label {
+    display: inline;
+  }
+
   .mobile-modes-wrapper {
     grid-area: modes;
     display: flex;
@@ -4549,37 +4595,8 @@ button.critical-moment-row {
     justify-content: center;
   }
 
-  /* Three long labels, one row, and the wrapper scrolls when they do not fit.
-     Wrapping instead cost a whole row of the bar on the narrowest phone the app
-     supports -- **measured** at 320x568: the group stood 99px tall with "AI vs
-     AI" alone on the second line stretched to 280px, and the bar 236px of a
-     568px screen. One row brings it to 189px, which is what the same bar
-     measures at 375px, and hands those 47px to the board.
-     `min-width: max-content` on the pills is what makes it safe: they still
-     grow to share a row that fits, and refuse to shrink below their label when
-     it does not, so the row overflows into the scroll the wrapper already has
-     rather than truncating the mode a player is reading. Without it all three
-     clip at 320px, which is the thing the rules around this one exist to stop.
-     Nothing moves at 375px and up, where the group has always been one row. */
-  .top-mode-pills[aria-label="Game mode"] {
-    flex-basis: 17rem;
-    flex-wrap: nowrap;
-  }
-
-  .app-shell[data-workspace-mode="analysis"] .top-mode-pills[aria-label="Game mode"] {
-    display: none;
-  }
-
-  .top-mode-pills[aria-label="Game mode"] .gc-pill {
-    flex: 1 1 auto;
-    min-width: max-content;
-    padding-left: 0.35rem;
-    padding-right: 0.35rem;
-    text-align: center;
-    line-height: 1;
-  }
-
-  .top-mode-pills[aria-label="Game mode"] .gc-pill-icon {
+  /* The New game dialog contains all game modes on a phone. */
+  .top .compact-grid .top-mode-pills[aria-label="Game mode"] {
     display: none;
   }
 

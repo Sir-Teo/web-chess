@@ -42,7 +42,7 @@ export function describeWinratePosition(
   index: number,
 ): string {
   const where = formatGraphPositionLabel(point, index)
-  return point ? `${where}, ${point.whiteWinrate.toFixed(1)}% for White` : where
+  return point ? `${where}, White expected score ${point.whiteWinrate.toFixed(1)}%` : where
 }
 
 export function describeWdlPosition(
@@ -79,7 +79,7 @@ export function formatWinrateReadout(
   index: number,
 ): string {
   const where = shortGraphPositionLabel(point, index)
-  return point ? `${where} · ${point.whiteWinrate.toFixed(1)}% White` : `${where} · no reading`
+  return point ? `${where} · White score ${point.whiteWinrate.toFixed(1)}%` : `${where} · no reading`
 }
 
 /** The same, for the three-way split. Whole percentages: three of them have to fit on a line. */

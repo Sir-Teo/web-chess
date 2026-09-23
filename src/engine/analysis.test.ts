@@ -55,6 +55,18 @@ describe('review analysis helpers', () => {
     expect(evaluations.get(finalFen)?.cp).toBe(900)
   })
 
+  it('plots White expected score from WDL, including when Black is to move', () => {
+    const game = new Chess()
+    const rootFen = game.fen()
+    const move = game.move('e4')!
+    const afterFen = game.fen()
+    const evaluations = new Map<string, EvalSnapshot>([
+      [rootFen, { cp: 0, wdl: { w: 100, d: 800, l: 100 } }],
+      [afterFen, { cp: 0, wdl: { w: 200, d: 700, l: 100 } }],
+    ])
+    expect(buildWinrateSeries([move], evaluations, rootFen).map(point => point.whiteWinrate)).toEqual([50, 45])
+  })
+
   it('labels reviewed moves from side-to-move centipawn deltas', () => {
     const game = new Chess()
     const rootFen = game.fen()

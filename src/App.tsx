@@ -511,6 +511,7 @@ function App() {
   const settingsBodyRef = useRef<HTMLDivElement>(null)
   const openingIntelRef = useRef<HTMLDivElement>(null)
   const mainContainerRef = useRef<HTMLDivElement>(null)
+  const insightsPanelRef = useRef<HTMLElement>(null)
   const remProbeRef = useRef<HTMLSpanElement>(null)
   const boardStageRef = useRef<HTMLElement>(null)
   const analysisPanelRef = useRef<HTMLElement>(null)
@@ -936,6 +937,7 @@ function App() {
   const [autoSaveResult, setAutoSaveResult] = useState<AutoSaveWriteResult | null>(null)
   const [autoSaveRetry, setAutoSaveRetry] = useState(0)
   const [gameMode, setGameMode] = useState<GameMode>('human-vs-human')
+  const [newGameMode, setNewGameMode] = useState<GameMode>('human-vs-human')
   const [playerColor, setPlayerColor] = useState<PlayerColor>('white')
   /**
    * What the New Game dialog was last set to, which is not the same as the
@@ -4589,13 +4591,17 @@ function App() {
 
   // Wrapped rather than plain functions because the command palette memoises a
   // list that calls them; a new identity each render made that memo useless.
-  const openNewGameDialog = useCallback((event?: SyntheticEvent<HTMLElement>) => {
+  const openNewGameDialogForMode = useCallback((mode: GameMode, event?: SyntheticEvent<HTMLElement>) => {
     rememberModalTrigger(event)
+    setNewGameMode(mode)
     setSettingsOpen(false)
     setShowPgnDialog(false)
     setShowLibraryDialog(false)
     setShowNewGameDialog(true)
   }, [rememberModalTrigger])
+  const openNewGameDialog = useCallback((event?: SyntheticEvent<HTMLElement>) => {
+    openNewGameDialogForMode(gameMode, event)
+  }, [gameMode, openNewGameDialogForMode])
   openNewGameDialogRef.current = openNewGameDialog
   const clearDroppedPgnFile = useCallback(() => setDroppedPgnFile(null), [])
   const openPgnDialog = useCallback((event?: SyntheticEvent<HTMLElement>) => {
@@ -5774,39 +5780,6 @@ function App() {
       openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger,
       reviewFaultCount, reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason, workspaceMode])
 
-  // ── Mode switch mid-game ──────────────────────────────
-  const handleModeChange = useCallback((mode: GameMode) => {
-    cancelPendingAiMove()
-    setGameMode(mode)
-    setOrientation(defaultOrientationForGameMode(mode, playerColor))
-    if (workspaceMode !== 'play') {
-      cancelStaleBackgroundAnalysis()
-      setWorkspaceMode('play')
-    }
-    if (mode === 'ai-vs-ai') clearBoardSelection()
-    if (pausedRef.current) {
-      pausedRef.current = false
-      setPaused(false)
-      // Un-pausing is `resume`, so it has to hand the clock back as `resume`
-      // does. Clearing the flag alone took the pause indicator away and left
-      // the clock stopped: `startSide` is the only thing that sets `since`,
-      // and nothing else would until the next move pressed the clock -- so
-      // whoever was to move got free time, visibly frozen, in a timed game.
-      //
-      // A game that is already over keeps its stopped clock. Switching modes
-      // after a mate must not start counting against a side with no move to
-      // make, which is the same reason `moveEndedGame` stops it in the first
-      // place.
-      if (!readBoardEnding() && !endedOffBoardRef.current) {
-        setClock(previous => (previous && !previous.flagged ? startSide(previous, game.turn(), Date.now()) : previous))
-      }
-    }
-    // Same as `resume`: the AI loop is re-entered by `gameMode`, by
-    // `workspaceMode`, or by `paused` above -- one of the three has always
-    // changed by the time this returns, since the caller only reaches here for
-    // a different mode or a different workspace.
-  }, [cancelPendingAiMove, cancelStaleBackgroundAnalysis, clearBoardSelection, game, playerColor, readBoardEnding, workspaceMode])
-
   /*
    * Every one of these is a press on a list *inside* the panel, and the stacked
    * layout puts the board above the panel -- so the thing the press changes is
@@ -6577,9 +6550,7 @@ function App() {
                     className={`gc-pill ${gameMode === id ? 'gc-pill-active' : ''}`}
                     aria-pressed={gameMode === id}
                     title={title}
-                    onClick={() => {
-                      if (id !== gameMode || workspaceMode !== 'play') handleModeChange(id)
-                    }}
+                    onClick={event => openNewGameDialogForMode(id, event)}
                   >
                     <span className="gc-pill-icon">{icon}</span>
                     {label}
@@ -7114,9 +7085,10 @@ function App() {
         aria-hidden={settingsOpen ? true : undefined}
         inert={settingsOpen ? true : undefined}
       >
-        {/* ── Left panel (winrate graph) ── */}
+        {/* ── Left panel (score, outcome trends, and library) ── */}
         <section
           className={`panel left ${leftPanelCollapsed ? 'panel-collapsed' : ''}`}
+          ref={insightsPanelRef}
           aria-hidden={leftPanelUnavailable || appModalOpen || promotionDialogOpen ? true : undefined}
           inert={leftPanelUnavailable || appModalOpen || promotionDialogOpen ? true : undefined}
           style={{ width: layoutLeftWidth }}
@@ -7149,20 +7121,27 @@ function App() {
               <GraphEstimateGuide />
               <section className="analytics-card">
                 <header className="section-heading">
-                  <h2><span className="section-icon"><IconTrendingUp /></span> Winrate</h2>
-                  {currentWinratePoint && (
+                  <h2><span className="section-icon"><IconTrendingUp /></span> White score</h2>
+                  {winratePoints.length > 1 && currentWinratePoint && (
                     <strong>{currentWinratePoint.whiteWinrate.toFixed(1)}%</strong>
                   )}
                 </header>
-                <WinrateGraph
+                {winratePoints.length < 2 ? (
+                  <div className="graph-summary">
+                    {currentWinratePoint ? (
+                      <><strong>{currentWinratePoint.whiteWinrate.toFixed(1)}%</strong><span>White expected score at this position</span></>
+                    ) : <span>Analyze this position to see White's expected score.</span>}
+                    <small>Analyze another move to see a trend.</small>
+                  </div>
+                ) : <WinrateGraph
                   points={winratePoints}
                   currentIndex={currentPathNodes.length - 1}
                   lastPlyIndex={currentLineMoves.length}
                   onNavigate={navigateToGraphPoint}
-                />
-                {currentWinratePoint && (
+                />}
+                {winratePoints.length > 1 && currentWinratePoint && (
                   <div className="graph-legend">
-                    <span>White win chance</span>
+                    <span title="Wins plus half of draws; estimated from the score when WDL is unavailable">White expected score</span>
                     <strong>{currentWinratePoint.whiteWinrate.toFixed(1)}%</strong>
                   </div>
                 )}
@@ -7170,15 +7149,22 @@ function App() {
               <section className="analytics-card">
                 <header className="section-heading">
                   <h2><span className="section-icon"><IconBarChart /></span> WDL Trend</h2>
-                  {wdlPoints.length > 0 && <strong>{countLabel(wdlPoints.length, 'point')}</strong>}
+                  {wdlPoints.length > 1 && <strong>{countLabel(wdlPoints.length, 'point')}</strong>}
                 </header>
-                <WdlProgressGraph
+                {wdlPoints.length < 2 ? (
+                  <div className="graph-summary">
+                    {currentWdlPoint ? (
+                      <span>White {currentWdlPoint.white.toFixed(1)}% · Draw {currentWdlPoint.draw.toFixed(1)}% · Black {currentWdlPoint.black.toFixed(1)}%</span>
+                    ) : <span>Analyze this position to see win, draw, and loss chances.</span>}
+                    <small>Analyze another move to see a trend.</small>
+                  </div>
+                ) : <WdlProgressGraph
                   points={wdlPoints}
                   currentIndex={currentPathNodes.length - 1}
                   lastPlyIndex={currentLineMoves.length}
                   onNavigate={navigateToGraphPoint}
-                />
-                {currentWdlPoint && (
+                />}
+                {wdlPoints.length > 1 && currentWdlPoint && (
                   <div className="graph-legend wdl">
                     <span className="wdl-white-label">White {currentWdlPoint.white.toFixed(1)}%</span>
                     <span className="wdl-draw-label">Draw {currentWdlPoint.draw.toFixed(1)}%</span>
@@ -7607,9 +7593,9 @@ function App() {
               : showLibraryDialog ? closeLibraryDialog : dismissAutoSaveRecovery} />}>
           {showNewGameDialog && (
             <NewGameDialog
-              key={`${gameMode}-${sideChoice}-${aiDifficulty}-${timeControlId}`}
+              key={`${newGameMode}-${sideChoice}-${aiDifficulty}-${timeControlId}`}
               open
-              initialMode={gameMode}
+              initialMode={newGameMode}
               initialSideChoice={sideChoice}
               initialDifficulty={aiDifficulty}
               initialTimeControlId={timeControlId}
@@ -7727,6 +7713,16 @@ function App() {
                 anything reading the document's structure. */}
             <header ref={analysisHeaderRef} className={`panel-header analysis-header${workspaceMode === 'analysis' ? '' : ' panel-header-title-only'}`}>
               <h2 id="analysis-panel-title">{workspaceMode === 'analysis' ? 'Analysis' : 'Play'}</h2>
+              {workspaceMode === 'analysis' && leftPanelCollapsed && (
+                <button type="button" className="show-insights-button" onClick={() => {
+                  setLeftWidth(DEFAULT_LEFT_PANEL_WIDTH)
+                  if (isMobileLayout) window.requestAnimationFrame(() => {
+                    insightsPanelRef.current?.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'instant' : 'smooth' })
+                  })
+                }}>
+                  <IconBarChart /> Insights &amp; library
+                </button>
+              )}
               {workspaceMode === 'analysis' && (
                 <div className="analysis-tab-strip">
                   {([
@@ -7852,6 +7848,14 @@ function App() {
                       </div>
                     </div>
                   )}
+                  <div className="right-section play-moves-section">
+                    <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
+                    <MoveListTree
+                      tree={gameTree}
+                      onNavigate={navigateMoveListAndPause}
+                      allowCommentEditing={false}
+                    />
+                  </div>
                   <div className="engine-lab-card">
                     <h3><span className="section-icon"><IconSwords /></span> {playEngineActive ? 'Opponent' : 'Game'}</h3>
                     {playEngineActive && (
@@ -7961,26 +7965,21 @@ function App() {
                       </button>
                     </div>
                   </div>
-                  <div className="right-section">
-                    <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
-                    <MoveListTree
-                      tree={gameTree}
-                      onNavigate={navigateMoveListAndPause}
-                      allowCommentEditing={false}
-                    />
-                  </div>
                 </>
               )}
 
               {workspaceMode === 'analysis' && analysisTab === 'analyze' && (
                 <>
-                  <div className="inline-actions">
-                    <button type="button" className="btn-primary" aria-label="Run analysis" onClick={runAnalyze}>
-                      <IconPlay /> Analyze
-                    </button>
-                    <button type="button" aria-label="Stop analysis" onClick={stop}>
-                      <IconStop /> Stop
-                    </button>
+                  <div className="inline-actions analysis-actions">
+                    {status === 'analyzing' ? (
+                      <button type="button" aria-label="Stop analysis" onClick={stop}>
+                        <IconStop /> Stop analysis
+                      </button>
+                    ) : (
+                      <button type="button" className="btn-primary" aria-label="Run analysis" onClick={runAnalyze} disabled={status !== 'ready'}>
+                        <IconPlay /> Analyze position
+                      </button>
+                    )}
                   </div>
                   {/* Its own row rather than a third column beside Analyze and
                       Stop. Those two are engine commands and this is a mode
