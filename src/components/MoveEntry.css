@@ -3,7 +3,23 @@
   font-size: 0.75rem;
   color: var(--text-secondary);
 }
-.move-entry summary { cursor: pointer; padding: 0.65rem 0; }
+.move-entry summary { cursor: pointer; padding: 0.65rem 0; list-style: none; }
+/* Drawn rather than left to the browser: on a phone the summary is a flex box
+   for its touch height, and a flex summary loses the native marker -- the one
+   sign this line opens. */
+.move-entry summary::-webkit-details-marker { display: none; }
+.move-entry summary::before {
+  content: '';
+  display: inline-block;
+  width: 0;
+  height: 0;
+  margin-right: 0.5rem;
+  border-top: 0.3rem solid transparent;
+  border-bottom: 0.3rem solid transparent;
+  border-left: 0.42rem solid currentColor;
+  transition: transform 120ms ease;
+}
+.move-entry[open] > summary::before { transform: rotate(90deg); }
 
 /* A disclosure a finger opens. Measured at 375x667: 331x39, five short of the
    bar every other control on a phone is held to. Not one of 2.5.8's inline
