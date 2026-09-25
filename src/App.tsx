@@ -5735,6 +5735,13 @@ function App() {
       run: () => setSoundEnabled(value => !value),
     },
     {
+      id: 'toggle-auto-flip',
+      label: autoFlipBoard ? 'Stop turning the board for each player' : 'Turn the board for each player',
+      hint: 'Pass and play: face whoever is on move',
+      keywords: ['flip', 'rotate', 'orientation', 'pass and play', 'two players', 'auto'],
+      run: () => setAutoFlipBoard(value => !value),
+    },
+    {
       id: 'autoplay',
       label: autoplay ? 'Stop autoplay' : 'Autoplay the moves',
       shortcut: 'Space',
@@ -5855,7 +5862,7 @@ function App() {
     },
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
-  ], [analysisExperience, atVariationFork, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyPgn, drill, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
+  ], [analysisExperience, atVariationFork, autoFlipBoard, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyPgn, drill, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
     goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast,
       goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
       previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay,
