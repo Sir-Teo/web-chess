@@ -6056,7 +6056,12 @@ function App() {
   const importedResult = knownPgnHeader(pgnHeaders.Result)
   const importedGameTitle = [importedPlayers, knownPgnHeader(pgnHeaders.Event), importedResult]
     .filter(Boolean).join(' · ')
-  const moveNumberLabel = `Move ${(linePreview?.fen ?? fen).split(/\s+/)[5] ?? '1'}`
+  const labelFenFields = (linePreview?.fen ?? fen).split(/\s+/)
+  const labelFullmove = Number(labelFenFields[5]) || 1
+  // Once the game is over there is no move to come, so name the move it ended
+  // on: Fool's mate is over on move 2, but the FEN already counts White's 3rd.
+  const gameEndedOnBlackMove = Boolean(gameResultLabel) && !linePreview && labelFenFields[1] === 'w'
+  const moveNumberLabel = `Move ${gameEndedOnBlackMove && labelFullmove > 1 ? labelFullmove - 1 : labelFullmove}`
   /**
    * The tab's title says what the tab is doing. It read "Web Chess" whatever
    * was on the board, so a reader who had switched away to wait for the
