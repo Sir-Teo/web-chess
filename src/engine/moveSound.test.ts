@@ -58,7 +58,7 @@ describe('moveSoundFor', () => {
 
 describe('SOUND_SHAPES', () => {
   it('describes every sound the rule can return', () => {
-    const sounds: MoveSound[] = ['move', 'capture', 'castle', 'check', 'promote', 'game-end']
+    const sounds: MoveSound[] = ['move', 'capture', 'castle', 'check', 'promote', 'game-end', 'low-time']
     for (const sound of sounds) expect(SOUND_SHAPES[sound]).toBeDefined()
   })
 

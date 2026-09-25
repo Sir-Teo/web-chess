@@ -258,6 +258,18 @@ export function lowTimeThresholdMs(control: TimeControl): number {
 }
 
 /**
+ * How long until `side`'s running clock turns low, or null when it will not
+ * this turn: the clock is stopped, it is the other side's, the game is over,
+ * or it is already low -- a warning is for the crossing, not for every move
+ * made after it.
+ */
+export function msUntilLowTime(state: ClockState, side: ClockSide, now: number): number | null {
+  if (state.flagged || state.running !== side) return null
+  const left = remainingMs(state, side, now) - lowTimeThresholdMs(state.control)
+  return left > 0 ? left : null
+}
+
+/**
  * The PGN `TimeControl` tag for a control: seconds, then increment.
  *
  * The standard's "sudden death" and "increment" forms, which is what Lichess

@@ -16,6 +16,8 @@ export type MoveSound =
   | 'castle'
   | 'capture'
   | 'move'
+  /** Not a move: the player's own clock has just turned low. */
+  | 'low-time'
 
 export type MoveSoundInput = {
   /** chess.js move flags: `c` capture, `e` en passant, `k`/`q` castling, `p` promotion. */
@@ -72,4 +74,7 @@ export const SOUND_SHAPES: Record<MoveSound, SoundShape> = {
   promote: { frequency: 520, duration: 0.16, gain: 0.45, echoDelay: 0.09, echoFrequency: 1040, noise: false },
   // Falling, and the longest thing here, so it reads as an ending.
   'game-end': { frequency: 440, duration: 0.34, gain: 0.5, echoDelay: 0.16, echoFrequency: 294, noise: false },
+  // Two quick high blips, unlike anything a move makes, so it is heard as the
+  // clock and not the board.
+  'low-time': { frequency: 988, duration: 0.07, gain: 0.38, echoDelay: 0.12, echoFrequency: 988, noise: false },
 }

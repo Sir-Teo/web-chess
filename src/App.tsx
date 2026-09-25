@@ -138,6 +138,7 @@ import {
   flagResultLabel,
   moveEndedGame,
   moveMade,
+  msUntilLowTime,
   remainingMs,
   pauseClock,
   settleFlag,
@@ -3794,6 +3795,22 @@ function App() {
   const playMoveSound = useCallback((move: Move) => {
     playSound(moveSoundFor({ flags: move.flags, san: move.san, isGameOver: Boolean(readBoardEnding()) }))
   }, [playSound, readBoardEnding])
+
+  /**
+   * Two blips when a player's own clock turns low -- the moment the faces go
+   * amber, for a player whose eyes are on the board rather than the clock.
+   * Once per crossing: armed for the instant it happens and re-armed only when
+   * the clock changes hands, so it costs one timer, not a tick. Never for the
+   * engine's clock, which cannot hear it.
+   */
+  useEffect(() => {
+    if (!clock?.running || workspaceMode !== 'play' || gameMode === 'ai-vs-ai') return
+    if (gameMode === 'human-vs-ai' && clock.running !== playerColorToTurn(playerColor)) return
+    const delay = msUntilLowTime(clock, clock.running, Date.now())
+    if (delay === null) return
+    const timer = window.setTimeout(() => playSound('low-time'), delay)
+    return () => window.clearTimeout(timer)
+  }, [clock, gameMode, playSound, playerColor, workspaceMode])
 
   /**
    * Everything that happens because a move landed on the board: it makes a

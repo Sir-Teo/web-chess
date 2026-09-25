@@ -14,6 +14,7 @@ import {
   lowTimeThresholdMs,
   moveEndedGame,
   moveMade,
+  msUntilLowTime,
   pauseClock,
   remainingMs,
   settleFlag,
@@ -260,6 +261,24 @@ describe('flagging', () => {
     expect(flagResultLabel('b', false)).toBe('Black flagged · Draw: White cannot checkmate')
     expect(flagPgnResult('w', false)).toBe('1/2-1/2')
     expect(flagPgnResult('b', false)).toBe('1/2-1/2')
+  })
+})
+
+describe('msUntilLowTime', () => {
+  it('counts down to the crossing on the side that is thinking', () => {
+    // 3:00 blitz turns low at 0:36, so 144s after the clock starts.
+    const started = startSide(createClock(BLITZ), 'w', 0)
+    expect(msUntilLowTime(started, 'w', 0)).toBe(144_000)
+    expect(msUntilLowTime(started, 'w', 100_000)).toBe(44_000)
+    expect(msUntilLowTime(started, 'b', 0)).toBeNull()
+  })
+
+  it('has nothing to say once a clock is low, stopped or flagged', () => {
+    const started = startSide(createClock(BLITZ), 'w', 0)
+    expect(msUntilLowTime(started, 'w', 150_000)).toBeNull()
+    expect(msUntilLowTime(createClock(BLITZ), 'w', 0)).toBeNull()
+    expect(msUntilLowTime(pauseClock(started, 10_000), 'w', 10_000)).toBeNull()
+    expect(msUntilLowTime({ ...started, flagged: 'b' }, 'w', 0)).toBeNull()
   })
 })
 
