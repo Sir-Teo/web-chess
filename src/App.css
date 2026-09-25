@@ -2678,15 +2678,32 @@ button.opening-move-row {
   overflow-wrap: anywhere;
 }
 
+/* Two rows of two, or one column of four -- never two, one and one. Flex
+   wrapping decided that per button: **measured** at 1280px with 200% text,
+   Copy and Clear were 0.03px and 2px wider than half the row, so each took a
+   row of its own under a Send and Stop pair. The container query makes the
+   decision once for all four, at the width where the longest label ("Copied",
+   about 4.3rem) stops fitting in half the row. The card is the container,
+   because a container cannot restyle itself; its padding is in the figure. */
+.engine-lab-card:has(> .engine-lab-console) {
+  container: lab-console / inline-size;
+}
+
 .engine-lab-console {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.35rem;
   margin-bottom: 0.5rem;
 }
 
+@container lab-console (max-width: 10.5rem) {
+  .engine-lab-console {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .engine-lab-console input {
-  flex: 1 0 100%;
+  grid-column: 1 / -1;
   min-width: 0;
   width: 100%;
   font-family: var(--font-mono);
@@ -2694,8 +2711,7 @@ button.opening-move-row {
 }
 
 .engine-lab-console button {
-  flex: 1 1 calc(50% - 0.175rem);
-  min-width: min-content;
+  min-width: 0;
 }
 
 .diagnostics-actions {
