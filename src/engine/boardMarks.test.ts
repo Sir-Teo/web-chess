@@ -8,6 +8,7 @@ import {
   LAST_MOVE_RING_ALPHA,
   LAST_MOVE_WASH_ALPHA,
   MARK_COLORS,
+  checkedKingSquare,
   hasSquareMarks,
   lastMoveSquareStyle,
   markColorForModifiers,
@@ -191,5 +192,19 @@ describe('the move that was played', () => {
   /** Amber is the board's word for this, and nothing else here may take it. */
   it('keeps amber to itself', () => {
     expect(Object.values(MARK_COLORS)).not.toContain(LAST_MOVE_COLOR)
+  })
+})
+
+describe('the king in check', () => {
+  it('finds the side to move\'s king when it is in check', () => {
+    // Fool's mate: the white king on e1 is mated.
+    expect(checkedKingSquare('rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3')).toBe('e1')
+    expect(checkedKingSquare('4k3/8/8/8/8/8/8/4K2R b - - 0 1')).toBeNull()
+    expect(checkedKingSquare('4k3/8/8/8/8/8/8/4R1K1 b - - 0 1')).toBe('e8')
+  })
+
+  it('points at nothing for a quiet or unreadable position', () => {
+    expect(checkedKingSquare('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')).toBeNull()
+    expect(checkedKingSquare('not a fen')).toBeNull()
   })
 })

@@ -7525,6 +7525,7 @@ function App() {
                     markedSquares={markedSquares}
                     selectedSquare={selectedSquare}
                     legalTargets={legalTargets}
+                    showCheck={!blindfold}
                     arrows={boardArrows}
                     allowDrawingArrows={!isPreviewingLine}
                     allowDragging={!isPreviewingLine && (!boardInputLocked || premoveAllowed)}

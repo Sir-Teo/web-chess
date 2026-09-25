@@ -5,7 +5,7 @@ import {
   type Arrow, type ChessboardOptions, type PieceDropHandlerArgs,
 } from 'react-chessboard'
 import { moveHintStyle, notationHalo, type BoardTheme } from '../engine/boardThemes'
-import { MARK_COLORS, lastMoveSquareStyle, selectedSquareStyle, squareMarkStyle, type SquareMarks } from '../engine/boardMarks'
+import { CHECK_SQUARE_STYLE, MARK_COLORS, checkedKingSquare, lastMoveSquareStyle, selectedSquareStyle, squareMarkStyle, type SquareMarks } from '../engine/boardMarks'
 import type { Premove } from '../engine/premove'
 
 const ARROW_OPTIONS = {
@@ -46,6 +46,8 @@ type Props = {
   markedSquares: SquareMarks
   selectedSquare: Square | null
   legalTargets: Square[]
+  /** False under the blindfold, where the ring would say where the king stands. */
+  showCheck: boolean
   arrows: Arrow[]
   allowDrawingArrows: boolean
   allowDragging: boolean
@@ -59,10 +61,11 @@ type Props = {
 /** Only board changes should update the library's context and its 64 squares. */
 export const BoardCanvas = memo(function BoardCanvas({
   position, orientation, width, notationFontSize, theme, previewMove, lastMove,
-  premove, markedSquares, selectedSquare, legalTargets, arrows, allowDrawingArrows,
+  premove, markedSquares, selectedSquare, legalTargets, showCheck, arrows, allowDrawingArrows,
   allowDragging, reduceMotion, onPieceDrop, onSquareClick, onSquareMouseDown, onSquareMouseUp,
 }: Props) {
   const pieces = legalTargets.length ? fenStringToPositionObject(position, 8, 8) : {}
+  const checkSquare = showCheck ? checkedKingSquare(position) : null
   return (
     <Chessboard options={{
       position,
@@ -78,6 +81,7 @@ export const BoardCanvas = memo(function BoardCanvas({
         // Played move, premove, marks, selection and legal targets retain
         // their existing order, so the most immediate interaction wins.
         ...(lastMove ? { [lastMove.from]: LAST_MOVE_STYLE, [lastMove.to]: LAST_MOVE_STYLE } : {}),
+        ...(checkSquare ? { [checkSquare]: CHECK_SQUARE_STYLE } : {}),
         ...(premove ? { [premove.from]: PREMOVE_STYLE, [premove.to]: PREMOVE_STYLE } : {}),
         ...Object.fromEntries(Object.entries(markedSquares).map(([square, color]) => [square, squareMarkStyle(color)])),
         ...(selectedSquare ? { [selectedSquare]: SELECTED_STYLE } : {}),

@@ -11,6 +11,8 @@
  * survive both square colours.
  */
 
+import { Chess, type Square } from 'chess.js'
+
 export type SquareMarks = Readonly<Record<string, string>>
 
 export type MarkModifiers = {
@@ -148,3 +150,26 @@ export function selectedSquareStyle(): { boxShadow: string; backgroundColor: str
     backgroundColor: `${SELECTED_SQUARE_COLOR}4d`,
   }
 }
+
+/**
+ * The king that is in check, if any, so the board can say so by itself.
+ *
+ * Only the status line said "Check" before; the board carried no sign of it,
+ * which is the one place every other board puts it. A position the library
+ * refuses to load has no king to point at.
+ */
+export function checkedKingSquare(fen: string): Square | null {
+  let chess: Chess
+  try {
+    chess = new Chess(fen)
+  } catch {
+    return null
+  }
+  if (!chess.isCheck()) return null
+  return chess.findPiece({ type: 'k', color: chess.turn() })[0] ?? null
+}
+
+/** Red welling up from the middle of the square, so the king stays readable. */
+export const CHECK_SQUARE_STYLE = {
+  backgroundImage: 'radial-gradient(ellipse at center, rgba(255, 0, 0, 0.9) 0%, rgba(231, 0, 0, 0.6) 30%, rgba(169, 0, 0, 0) 75%)',
+} as const
