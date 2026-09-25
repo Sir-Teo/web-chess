@@ -84,6 +84,18 @@ given, and the app answering the reader who touches it.
   Synthesized in the browser rather than shipped as audio files, and off with
   one switch in Settings. Moves you *navigate* to are silent — scrubbing a
   60-move review with the arrow keys should not be a hundred knocks.
+- **A warning when your clock runs low**: two quick blips — and a buzz on a
+  phone that can, for one on silent — the moment your own clock crosses the
+  point where its face turns amber, once per crossing. Never for the engine's
+  clock. One timer aimed at the crossing rather than a tick, and under the same
+  Move sounds switch.
+- **Check, on the board**: the king in check glows red, the way every other
+  board shows it, and its square is announced as "in check" to a screen reader.
+  Neither under the blindfold, where either would say where the king stands.
+- **Turn the board for pass and play**: an opt-in switch in Settings turns the
+  board to face whoever is on move after each move, take-back or new game.
+  Stepping back through the game leaves it alone, and a flip by hand holds
+  until the next move.
 - **A review offered where the game ends**: when a game finishes in Play mode
   the result card offers to review it, rather than leaving you to find the
   Review tab yourself.
@@ -287,6 +299,9 @@ given, and the app answering the reader who touches it.
 - **Dismiss slow-loading dialogs**: New Game, PGN and Library offer Cancel and
   Escape while their code downloads. The board is available again immediately;
   reopening can continue the same download.
+- **Keyboard**: arrows walk the game, Home and End jump to its ends, F flips,
+  N starts a new game, Escape puts a picked-up piece back, and `?` opens the
+  full list at the top of Settings.
 
 - **Export the library as PGN**: Alongside the JSON backup, which only this app
   reads, the whole library saves as one PGN database that Lichess, chess.com,
