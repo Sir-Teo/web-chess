@@ -410,6 +410,7 @@ const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['↑', '↓'], action: 'Previous / next variation at this move' },
   { keys: ['Home', 'End'], action: 'First / last position' },
   { keys: ['F'], action: 'Flip the board' },
+  { keys: ['Esc'], action: 'Put a picked-up piece back' },
   { keys: ['T'], action: 'Show what the opponent threatens (Analysis mode)' },
   { keys: ['Z'], action: 'Take back your last move (Play mode)' },
   { keys: ['H'], action: 'Ask the engine for a hint (Play mode)' },
@@ -1402,6 +1403,14 @@ function App() {
       // same rule for an app with six shortcuts.
       if (!isPlainShortcut(e)) return
 
+      // Escape puts a picked-up piece back, as on every other board. Dialogs
+      // claim the key first and mark it handled, so this never closes one
+      // and deselects in the same press.
+      if (e.key === 'Escape') {
+        setSelectedSquare(null)
+        setLegalTargets([])
+        return
+      }
       if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev() }
       if (e.key === 'ArrowRight') { e.preventDefault(); goNext() }
       // Claimed only at a fork; see goSiblingVariation for why.
