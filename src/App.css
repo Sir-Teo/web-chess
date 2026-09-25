@@ -1304,6 +1304,14 @@ input[type="checkbox"] {
   color: var(--text-tertiary);
 }
 
+/* Same as the Commands palette: no key to press on a touch-only device. */
+@media (any-hover: none) and (any-pointer: coarse) {
+  .promotion-choice kbd,
+  .promotion-cancel kbd {
+    display: none;
+  }
+}
+
 .promotion-glyph {
   font-size: 2.35rem;
   line-height: 1;

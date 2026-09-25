@@ -87,6 +87,14 @@
     opacity: 0.8;
 }
 
+/* A touch-only device has no key to press, so the chip is noise beside a
+   command it can only tap. "any-" keeps it for a tablet with a trackpad. */
+@media (any-hover: none) and (any-pointer: coarse) {
+    .command-palette-key {
+        display: none;
+    }
+}
+
 .command-palette-count {
     margin: 0.5rem 0 0;
     font-size: 0.75rem;
@@ -106,5 +114,20 @@
 @media (max-width: 900px) {
     .command-palette-button {
         min-height: 44px;
+    }
+}
+
+/* On a phone the palette is a sheet anchored to the bottom, sized to its
+   list, so every keystroke that filtered the list moved the field being typed
+   in -- and "no match" dropped it to the foot of the screen. A floor keeps it
+   still while the list changes under it. */
+@media (max-width: 560px) {
+    .command-palette-list {
+        height: min(24rem, 50dvh);
+    }
+
+    /* No list when nothing matches; hold its room so the sheet stays put. */
+    .command-palette-count:last-child {
+        margin-bottom: calc(min(24rem, 50dvh) + 0.5rem);
     }
 }
