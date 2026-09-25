@@ -31,7 +31,7 @@ export function MoveEntry({ fen, onMove, disabled = false }: {
         <label htmlFor={id}>Move for {fen.split(' ')[1] === 'b' ? 'Black' : 'White'}</label>
         <div className="move-entry-row">
           <input id={id} value={text} placeholder="e4, Nf3 or e2e4" maxLength={16}
-            autoComplete="off" autoCapitalize="off" spellCheck={false} disabled={disabled}
+            autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck={false} enterKeyHint="go" disabled={disabled}
             aria-describedby={`${id}-help${error ? ` ${id}-error` : ''}`} aria-invalid={Boolean(error)}
             onChange={event => setDraft({ fen, text: event.target.value, error: '' })} />
           {/* A dead button says why, like every other one here. Empty is the

@@ -9028,6 +9028,11 @@ function App() {
                       <input
                         type="text"
                         aria-label="UCI command"
+                        autoCapitalize="off"
+                        autoCorrect="off"
+                        autoComplete="off"
+                        spellCheck={false}
+                        enterKeyHint="send"
                         value={engineLabCommand}
                         onChange={e => setEngineLabCommand(e.target.value)}
                         placeholder="go depth 16"

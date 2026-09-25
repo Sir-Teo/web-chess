@@ -634,6 +634,8 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         type="text"
                                         inputMode="text"
                                         autoComplete="off"
+                                        autoCapitalize="off"
+                                        autoCorrect="off"
                                         spellCheck={false}
                                         placeholder={archiveSourceInfo.placeholder}
                                         aria-label={`Your ${archiveSourceInfo.label} username`}
@@ -718,6 +720,9 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                     id={importTextId}
                                     className="input-textarea"
                                     placeholder="[Event &quot;FIDE World Cup 2023&quot;]..."
+                                    autoCapitalize="off"
+                                    autoCorrect="off"
+                                    spellCheck={false}
                                     value={importText}
                                     onChange={e => {
                                         const nextText = e.target.value
@@ -911,6 +916,11 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                             <textarea
                                 id={fenTextId}
                                 className="input-textarea fen-textarea"
+                                /* FEN is case-sensitive: a phone capitalising
+                                   the first letter turns Black's rook White. */
+                                autoCapitalize="off"
+                                autoCorrect="off"
+                                spellCheck={false}
                                 placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
                                 value={fenText}
                                 onChange={e => {
