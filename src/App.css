@@ -2024,10 +2024,18 @@ input[type="checkbox"] {
 /* An icon and one word can be wider than the whole row: at 901px with 200%
    text the right panel is 198px, and "Review Game" needed 174px of a 146px
    row for its icon, the word "Review" and the padding. There the icon goes
-   above the label instead of the label past the panel's edge. */
-.panel .inline-actions > button {
-  flex-wrap: wrap;
-  row-gap: 0.2rem;
+   above the label instead of the label past the panel's edge -- only in a row
+   that narrow, because anywhere else a two-word label would rather wrap
+   beside its icon than push it onto a line of its own. */
+.panel .inline-actions {
+  container-type: inline-size;
+}
+
+@container (max-width: 10rem) {
+  .panel .inline-actions > button {
+    flex-wrap: wrap;
+    row-gap: 0.2rem;
+  }
 }
 
 .analysis-actions button {
