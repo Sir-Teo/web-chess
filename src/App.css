@@ -6037,6 +6037,14 @@ summary:active {
     scroll-behavior: auto !important;
   }
 
+  /* No transition at all for the panels' width, not a 0.01ms one: a
+     transition only advances when the page renders a frame, and a page that
+     is not being painted kept its side panels at their old width -- 46px wider
+     than the width their resize handles announced -- until one arrived. */
+  .app-shell .panel {
+    transition: none !important;
+  }
+
   .analyzing-bar.active::after,
   .thinking-dots span,
   .lazy-dialog-spinner,
