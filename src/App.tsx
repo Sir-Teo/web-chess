@@ -229,6 +229,7 @@ import { MoveTimesGraph, WdlProgressGraph, WinrateGraph } from './components/Tre
 import { buildMoveTimeSeries, formatMoveTime, parseTimeControlTag } from './engine/moveTimes'
 import { useElementHeight } from './hooks/useElementWidth'
 import { useModalFocus } from './hooks/useModalFocus'
+import { useDisarmAfter } from './hooks/useDisarmAfter'
 import { useMoveSound } from './hooks/useMoveSound'
 import { IconClock, IconBot, IconDraw, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlag, IconFlip, IconDownload, IconClipboard, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp, IconChevronLeft, IconChevronRight } from './components/icons'
 import { isPlainShortcut, isTypingTarget } from './components/shortcutKeys'
@@ -433,8 +434,6 @@ function playerColorToTurn(color: PlayerColor): 'w' | 'b' {
 
 /** How long a receipt stays up. Long enough to read, short enough to ignore. */
 const NOTICE_HOLD_MS = 2400
-/** How long Resign stays armed for its confirming second press. */
-const RESIGN_CONFIRM_MS = 4000
 /**
  * How long a notice that *explains* something stays up. A receipt can be missed
  * without cost -- "FEN copied" for something the reader just did. These two say
@@ -787,16 +786,12 @@ function App() {
    * modal: a misclick that ends a game is worth guarding against, and a dialog
    * for it would be heavier than the action deserves.
    */
-  // Armed for one position and a few seconds. It used to disarm only on blur,
-  // and a tapped button on iOS never takes focus, so it never blurs: "Confirm?"
-  // stayed live through the rest of the game for a stray tap to resign it.
+  // Armed for one position and a few seconds; see useDisarmAfter for why blur
+  // alone left "Confirm?" live for the rest of the game.
   const [resignArmedFen, setResignArmedFen] = useState<string | null>(null)
   const resignArmed = resignArmedFen === fen
-  useEffect(() => {
-    if (!resignArmed) return
-    const timer = window.setTimeout(() => setResignArmedFen(null), RESIGN_CONFIRM_MS)
-    return () => window.clearTimeout(timer)
-  }, [resignArmed])
+  const disarmResign = useCallback(() => setResignArmedFen(null), [])
+  useDisarmAfter(resignArmed, disarmResign)
   // The AI loop is an effect that must not re-install on every clock change,
   // and a clock changes on every move. Same shape as gameTreeRef.
   const endedOffBoardRef = useRef<'w' | 'b' | null>(null)

@@ -1,4 +1,5 @@
-import React, { memo, useEffect, useId, useRef, useState } from 'react'
+import React, { memo, useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useDisarmAfter } from '../hooks/useDisarmAfter'
 import type { GameTreeHandle, GameNode } from '../hooks/useGameTree'
 import { IconPawn, IconBranch } from './icons'
 import { buildVariationPreview } from './variationPreview'
@@ -64,6 +65,8 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
     // line is a discarded analysis. Reset whenever the reader moves, so the
     // armed state never outlives the move it was armed for.
     const [deleteArmed, setDeleteArmed] = useState(false)
+    const disarmDelete = useCallback(() => setDeleteArmed(false), [])
+    useDisarmAfter(deleteArmed, disarmDelete)
     /**
      * What the note field is showing, as opposed to what the tree is storing.
      *

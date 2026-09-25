@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState, useId } from 'react'
+import { useCallback, useMemo, useRef, useState, useId } from 'react'
+import { useDisarmAfter } from '../hooks/useDisarmAfter'
 import { useModalFocus } from '../hooks/useModalFocus'
 import {
     type LibraryGame,
@@ -95,6 +96,8 @@ export function LibraryDialog({
     const [backupParts, setBackupParts] = useState<string[]>([])
     const [downloadedParts, setDownloadedParts] = useState<number[]>([])
     const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null)
+    const disarmDelete = useCallback(() => setConfirmingDelete(null), [])
+    useDisarmAfter(confirmingDelete !== null, disarmDelete)
     const [visibleLimit, setVisibleLimit] = useState(PAGE_SIZE)
     /*
      * The game this dialog has already put in the library, so one gesture
