@@ -7435,7 +7435,11 @@ async function checkCompactFooter(browser) {
       if (experience === 'pro') await page.waitForFunction(() => document.querySelector('.bottom-status-row')?.textContent.includes('nps'))
       const readings = await page.locator('.bottom-status-row').innerText()
       await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
-      await page.waitForTimeout(350)
+      // Wait for the footer to fold into its compact form rather than a fixed
+      // 350ms: the switch follows a measurement, and on a loaded machine it
+      // landed after the sleep, so the check read the unfolded footer.
+      await page.getByRole('button', { name: /^Engine details:/ }).waitFor({ timeout: 5000 })
+      await page.waitForTimeout(150)
       const geometry = await page.evaluate(() => ({
         top: document.querySelector('.top').getBoundingClientRect().height,
         bottom: document.querySelector('.bottom').getBoundingClientRect().height,
