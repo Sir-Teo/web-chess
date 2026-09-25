@@ -6440,6 +6440,46 @@ function App() {
    * the board takes the height back. The same element, placed once.
    */
   const drawControlsInBottomBar = isLandscapePhoneViewport(viewport)
+  // The review says this afterwards; a learner needs it now, while the
+  // take-back is one click away. Judged from the opponent's own two searches,
+  // so it costs no search of its own and can miss a mistake but not invent one.
+  // The switch is read here as well as in the move loop: there it decides
+  // whether a nudge is ever made, and without it here one already on screen
+  // stayed on screen -- take-back button and all -- answering a reader who had
+  // just asked for exactly this to stop.
+  const blunderNudgeCard = blunderNudges && blunderNudge && !gameResultLabel ? (
+    <div className={`blunder-nudge ${blunderNudge.quality}`} role="status">
+      <p>
+        <strong>{blunderNudge.san}</strong>
+        {blunderNudge.intoMate
+          ? ' walks into a forced mate.'
+          : ` looks like a ${blunderNudge.quality}: it gave up about ${(reportedCentipawnLoss(blunderNudge.deltaCp) / 100).toFixed(1)} pawns.`}
+      </p>
+      <div className="blunder-nudge-actions">
+        <button
+          type="button"
+          className="takeback-btn"
+          onClick={takebackMove}
+          disabled={Boolean(takebackReason)}
+          aria-label={`Take back ${blunderNudge.san} and the reply`}
+        >
+          <IconRefresh /> Take it back
+        </button>
+        <button type="button" onClick={() => setBlunderNudge(null)}>
+          Play on
+        </button>
+      </div>
+    </div>
+  ) : null
+  /**
+   * Stacked on a phone, the Opponent card sits under the move list, and the
+   * move list under the board: **measured** at 390x844, a nudge about a hung
+   * queen landed at y=952 behind a bottom bar starting at 684, so "Take it
+   * back" was offered where nobody playing could see it. There it goes to the
+   * top of the panel, directly under the board the reader is looking at.
+   */
+  const blunderNudgeAboveMoves = isMobileLayout
+
   // Only where there is no right button to put these on. A mouse has both
   // gestures already and would gain a mode that costs it the ability to move
   // a piece.
@@ -7903,6 +7943,7 @@ function App() {
                       </div>
                     </div>
                   )}
+                  {blunderNudgeAboveMoves && blunderNudgeCard}
                   <div className="right-section play-moves-section">
                     <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
                     <MoveListTree
@@ -7955,39 +7996,7 @@ function App() {
                           : ' — board arrows are off, so nothing is drawn.'}
                       </p>
                     )}
-                    {/* The review says this afterwards; a learner needs it now,
-                        while the take-back is one click away. Judged from the
-                        opponent's own two searches, so it costs no search of
-                        its own and can miss a mistake but not invent one. */}
-                    {/* The switch is read here as well as in the move loop.
-                        There it decides whether a nudge is ever made; without
-                        it here, one already on the screen stayed on the
-                        screen -- take-back button and all -- answering a
-                        reader who had just asked for exactly this to stop. */}
-                    {blunderNudges && blunderNudge && !gameResultLabel && (
-                      <div className={`blunder-nudge ${blunderNudge.quality}`} role="status">
-                        <p>
-                          <strong>{blunderNudge.san}</strong>
-                          {blunderNudge.intoMate
-                            ? ' walks into a forced mate.'
-                            : ` looks like a ${blunderNudge.quality}: it gave up about ${(reportedCentipawnLoss(blunderNudge.deltaCp) / 100).toFixed(1)} pawns.`}
-                        </p>
-                        <div className="blunder-nudge-actions">
-                          <button
-                            type="button"
-                            className="takeback-btn"
-                            onClick={takebackMove}
-                            disabled={Boolean(takebackReason)}
-                            aria-label={`Take back ${blunderNudge.san} and the reply`}
-                          >
-                            <IconRefresh /> Take it back
-                          </button>
-                          <button type="button" onClick={() => setBlunderNudge(null)}>
-                            Play on
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                    {!blunderNudgeAboveMoves && blunderNudgeCard}
                     <div className="inline-actions takeback-row">
                       <button
                         type="button"

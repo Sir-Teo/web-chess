@@ -6253,8 +6253,12 @@ button.hint-btn {
 }
 
 /* Two words that stay on one line: at the panel's default width "Play on"
-   was breaking across two. */
+   was breaking across two. The pair shares one row where it fits: under the
+   board on a phone, "Take it back" took the whole width and pushed "Play on"
+   behind the bottom bar. */
 .blunder-nudge-actions button {
+  flex: 1 1 auto;
+  width: auto;
   white-space: nowrap;
 }
 
