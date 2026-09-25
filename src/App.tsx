@@ -7952,7 +7952,9 @@ function App() {
                   <div className="inline-actions"><button type="button" onClick={loadEngine}>Load engine</button></div>
                 </div>
               )}
-              {workspaceMode === 'analysis' && analysisTab !== 'engine-lab' && (
+              {/* Mate and stalemate leave no move to name; the field would only
+                  answer every one with "not legal here". */}
+              {workspaceMode === 'analysis' && analysisTab !== 'engine-lab' && !game.isCheckmate() && !game.isStalemate() && (
                 <MoveEntry fen={fen} disabled={Boolean(pendingPromotion)}
                   onMove={move => applyHumanMove(move.from, move.to, move.promotion as PromotionPiece | undefined)} />
               )}
