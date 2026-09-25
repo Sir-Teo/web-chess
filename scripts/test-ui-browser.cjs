@@ -7572,6 +7572,12 @@ async function checkNarrowDesktopLayout(browser) {
       const right = page.getByRole('separator', { name: 'Resize right panel' })
       const checkBoard = async label => {
         await page.waitForTimeout(300)
+        // The panels animate their width (220ms). A loaded machine could read
+        // one mid-transition and report the handle as announcing a different
+        // width, so wait until each panel has arrived at the width it names.
+        await page.waitForFunction(() => [...document.querySelectorAll('.panel.left, .panel.right')].every(el =>
+          Math.abs(el.getBoundingClientRect().width - Number(el.querySelector('[role="separator"]')?.getAttribute('aria-valuenow'))) <= 1),
+        null, { timeout: 3000 }).catch(() => {})
         const geometry = await page.evaluate(() => {
           const board = document.querySelector('.board-surface').getBoundingClientRect()
           const stage = document.querySelector('.board-stage').getBoundingClientRect()
