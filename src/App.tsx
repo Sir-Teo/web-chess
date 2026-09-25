@@ -8073,7 +8073,9 @@ function App() {
                     </p>
                   )}
                   <div className="coach-card">
-                    <h3><span className="section-icon"><IconKing /></span> Coach</h3>
+                    {/* Headed Coach under the Pro switch, the card contradicted the
+                        choice made one row above it. */}
+                    <h3><span className="section-icon"><IconKing /></span> {analysisExperience === 'beginner' ? 'Coach' : 'Position'}</h3>
                     {analysisExperience === 'beginner' && coachVerdict && (
                       <p className="coach-verdict" role="status">{coachVerdict}</p>
                     )}
