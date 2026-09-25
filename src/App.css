@@ -5094,6 +5094,11 @@ button.critical-moment-row {
        where this app's other dialogs sit, which is what this is. */
     z-index: 3000;
     border-radius: 0;
+    /* Over the whole window now, the board's faint inset let the panels'
+       text read through around the choices. The dialogs' own scrim. */
+    background: var(--backdrop);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
   }
 
   /* And the stage has to come up with it. `.board-stage` is `position:
