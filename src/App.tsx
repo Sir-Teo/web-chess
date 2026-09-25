@@ -6168,6 +6168,12 @@ function App() {
   // is the right one.
   const gameEndedOnBlackMove = Boolean(gameResultLabel) && !linePreview && !canGoForward && labelFenFields[1] === 'w'
   const moveNumberLabel = `Move ${gameEndedOnBlackMove && labelFullmove > 1 ? labelFullmove - 1 : labelFullmove}`
+  // Mate and stalemate leave no move to name. Read from the FEN, not the
+  // mutable `game`, so move generation runs per position, not every render.
+  const hasLegalMove = useMemo(() => {
+    const position = new Chess(fen)
+    return !position.isCheckmate() && !position.isStalemate()
+  }, [fen])
   /**
    * The tab's title says what the tab is doing. It read "Web Chess" whatever
    * was on the board, so a reader who had switched away to wait for the
@@ -7952,9 +7958,8 @@ function App() {
                   <div className="inline-actions"><button type="button" onClick={loadEngine}>Load engine</button></div>
                 </div>
               )}
-              {/* Mate and stalemate leave no move to name; the field would only
-                  answer every one with "not legal here". */}
-              {workspaceMode === 'analysis' && analysisTab !== 'engine-lab' && !game.isCheckmate() && !game.isStalemate() && (
+              {/* The field would only answer every entry with "not legal here". */}
+              {workspaceMode === 'analysis' && analysisTab !== 'engine-lab' && hasLegalMove && (
                 <MoveEntry fen={fen} disabled={Boolean(pendingPromotion)}
                   onMove={move => applyHumanMove(move.from, move.to, move.promotion as PromotionPiece | undefined)} />
               )}
