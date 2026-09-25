@@ -6670,6 +6670,24 @@ button.hint-btn {
   flex: none;
 }
 
+/* The footers wrap only on narrow screens, so a desktop footer stays one row.
+   A short window with enlarged text is the other place a row cannot hold them:
+   **measured** at 901x360 with 200% text, the PGN export row ran 113px past
+   the dialog's left edge, and Download PGN sat behind the backdrop. */
+.app-shell[data-scroll-chrome="true"] .dialog-actions {
+  flex-wrap: wrap;
+}
+
+/* At 901x256 with 200% text the whole New Game dialog is 224px tall, and each
+   mode card was 224px on its own, so no scroll position showed one whole.
+   The description is the part to give up: each card's accessible name still
+   carries it, and the label and icon say which mode it is. */
+@media (max-height: 320px) {
+  .app-shell[data-scroll-chrome="true"] .new-game-dialog .mode-desc {
+    display: none;
+  }
+}
+
 .app-shell[data-scroll-chrome="true"] .dialog-panel > .dialog-body {
   /* Enlarged headings and actions must not squeeze the form to zero height. */
   max-height: none;
