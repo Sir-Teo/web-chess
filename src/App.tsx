@@ -8199,7 +8199,7 @@ function App() {
                     )}
                     <div className="coach-grid">
                       <div>
-                        <span>Position{coachSource === 'cloud' ? ' · cloud' : coachSource === 'imported' ? ' · PGN' : ''}</span>
+                        <span>{analysisExperience === 'beginner' ? 'Position' : 'Evaluation'}{coachSource === 'cloud' ? ' · cloud' : coachSource === 'imported' ? ' · PGN' : ''}</span>
                         <strong>{coachEvaluation}</strong>
                       </div>
                       <div>
