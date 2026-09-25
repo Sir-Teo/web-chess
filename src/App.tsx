@@ -8780,7 +8780,11 @@ function App() {
                     />
                     {reviewAccuracy.pendingMoves > 0 && (
                       <p className="panel-copy small command-summary">
-                        {reviewAccuracy.pendingMoves} move{reviewAccuracy.pendingMoves === 1 ? '' : 's'} still need{reviewAccuracy.pendingMoves === 1 ? 's' : ''} deeper evaluation before accuracy is final.
+                        {/* Before anything is scored, "still need deeper evaluation"
+                            describes a review that has not begun. */}
+                        {reviewAccuracy.evaluatedMoves === 0 && !isBatchReviewing
+                          ? `Review Game scores ${reviewAccuracy.pendingMoves === 1 ? 'this move' : `these ${reviewAccuracy.pendingMoves} moves`}.`
+                          : `${reviewAccuracy.pendingMoves} move${reviewAccuracy.pendingMoves === 1 ? '' : 's'} still need${reviewAccuracy.pendingMoves === 1 ? 's' : ''} deeper evaluation before accuracy is final.`}
                       </p>
                     )}
                     <div className="review-chips">
