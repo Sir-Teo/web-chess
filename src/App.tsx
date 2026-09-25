@@ -8129,7 +8129,7 @@ function App() {
                         }}
                         onBlur={() => setResignArmedFen(null)}
                         disabled={Boolean(resignReason)}
-                        title={resignReason ?? (resignArmed ? 'Click again to resign' : 'Concede the game')}
+                        title={resignReason ?? (resignArmed ? 'Press again to resign' : 'Concede the game')}
                         aria-label={resignReason
                           ? `Resign unavailable. ${resignReason}`
                           : resignArmed ? 'Confirm resignation' : 'Resign the game'}

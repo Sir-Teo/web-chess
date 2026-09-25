@@ -321,7 +321,7 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
                             ? `Confirm discarding the line through ${current.san}. There is no undo.`
                             : `Discard the line through ${current.san}`}
                     >
-                        {deleteArmed ? 'Discard? Click again' : 'Discard line'}
+                        {deleteArmed ? 'Discard? Press again' : 'Discard line'}
                     </button>
                 </div>
             )}
