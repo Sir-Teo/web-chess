@@ -415,6 +415,7 @@ const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['H'], action: 'Ask the engine for a hint (Play mode)' },
   { keys: ['Space'], action: 'Pause or resume the AI (Play mode) · autoplay the moves (otherwise)' },
   { keys: [commandPaletteShortcutLabel()], action: 'Open the command palette' },
+  { keys: ['?'], action: 'Show these shortcuts' },
 ]
 
 function uniqueSquares(squares: Square[]): Square[] {
@@ -1385,6 +1386,15 @@ function App() {
       }
       if (shortcutsSuspended) return
       if (isTypingTarget(target)) return
+      // "?" is where most keyboard-driven apps keep their shortcut list, and
+      // this app's is at the top of Settings. It is a shifted key on every
+      // layout, so it is taken before the plain-key rule below turns Shift away.
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault()
+        rememberModalTriggerRef.current()
+        setSettingsOpen(true)
+        return
+      }
       // Every other shortcut below is a bare key, so a chord belongs to the browser.
       // Without this, Command+F flipped the board and swallowed Find, and
       // Alt/Command with an arrow stepped through the game instead of going
