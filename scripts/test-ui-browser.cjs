@@ -8460,8 +8460,10 @@ const BURIED_SWEEP = () => {
 }
 
 async function checkNothingIsDrawnBehindSomethingElse(browser) {
-  // Dimming what is behind a modal is the point of a modal.
-  const ALLOWED = /backdrop/
+  // Dimming what is behind a modal is the point of a modal. The settings
+  // sheet is one too, but on a desktop its backdrop is clear, so what it
+  // covers is covered by the sheet itself.
+  const ALLOWED = /backdrop|settings-body/
   const PROMOTION_FEN = '8/1P6/8/k7/8/8/8/7K w - - 0 1'
   const found = []
 
