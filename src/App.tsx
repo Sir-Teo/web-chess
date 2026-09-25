@@ -3808,9 +3808,14 @@ function App() {
     if (gameMode === 'human-vs-ai' && clock.running !== playerColorToTurn(playerColor)) return
     const delay = msUntilLowTime(clock, clock.running, Date.now())
     if (delay === null) return
-    const timer = window.setTimeout(() => playSound('low-time'), delay)
+    const timer = window.setTimeout(() => {
+      playSound('low-time')
+      // A phone on silent plays no blips, so it buzzes as well -- under the
+      // same switch, and a no-op wherever vibration is not offered.
+      if (soundEnabled) navigator.vibrate?.([60, 90, 60])
+    }, delay)
     return () => window.clearTimeout(timer)
-  }, [clock, gameMode, playSound, playerColor, workspaceMode])
+  }, [clock, gameMode, playSound, playerColor, soundEnabled, workspaceMode])
 
   /**
    * Everything that happens because a move landed on the board: it makes a
