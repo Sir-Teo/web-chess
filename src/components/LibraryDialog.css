@@ -197,6 +197,23 @@
         justify-content: flex-end;
     }
 
+    /* The actions have their own line here, so the name and details can
+       have the full width -- and a second line -- instead of ellipses that
+       cut off the players and the result. */
+    .library-row-text strong {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .library-row-text span {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
     .library-list {
         max-height: 50vh;
         max-height: 50dvh;
