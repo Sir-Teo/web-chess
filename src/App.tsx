@@ -1969,6 +1969,27 @@ function App() {
   const requestHintRef = useRef(requestHint)
   requestHintRef.current = requestHint
 
+  /**
+   * A hint is drawn on the board, and on a phone the Hint button sits below
+   * it: by the time the answer arrived the reader had scrolled down to press
+   * it, and the green arrow was drawn out of sight while the panel said to
+   * look at the board. Bring the board back when it is not already whole on
+   * screen -- which beside the panels, on a desktop, it always is.
+   */
+  useEffect(() => {
+    if (!hintMove || !showBoardArrows) return
+    const board = boardStageRef.current?.querySelector<HTMLElement>('.board-area')
+    if (!board) return
+    // Measured against the scrolling area, not the window: on a phone the
+    // bottom bar is fixed over the window's last few hundred pixels.
+    const rect = board.getBoundingClientRect()
+    const frame = board.closest('.main-container')?.getBoundingClientRect()
+    const top = Math.max(0, frame?.top ?? 0)
+    const bottom = Math.min(window.innerHeight, frame?.bottom ?? window.innerHeight)
+    if (rect.top >= top - 1 && rect.bottom <= bottom + 1) return
+    board.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'instant' : 'smooth' })
+  }, [hintMove, reduceMotion, showBoardArrows])
+
   const hintReason = hintDisabledReason({
     workspaceMode,
     gameMode,
