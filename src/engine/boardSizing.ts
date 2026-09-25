@@ -31,6 +31,14 @@ export const BOARD_FRAME_BORDER = 1
  */
 export const BOARD_STACK_REM = 2.25 + 0.55
 
+/**
+ * The same, sideways on a phone. The strip there holds one line of text: the
+ * drawing controls, whose 44px target made it two lines tall, live in the
+ * bottom bar in that layout. **Measured** at 740x375: a 30px strip and 4px
+ * above the board, against the 45px {@link BOARD_STACK_REM} reserves.
+ */
+export const LANDSCAPE_BOARD_STACK_REM = 1.875 + 0.25
+
 /** Below this the layout stacks; above it the board sits between two panels. */
 export const MOBILE_BREAKPOINT_PX = 900
 /** The desktop board never shrinks past this, however narrow the window. */
@@ -113,11 +121,16 @@ export function boardChromeWidth(
   ) + 2 * BOARD_FRAME_BORDER
 }
 
+/** What stands above the board inside the stage, for this layout. */
+export function boardStackRem(viewport: Pick<BoardViewport, 'width' | 'height'>): number {
+  return isLandscapePhoneViewport(viewport) ? LANDSCAPE_BOARD_STACK_REM : BOARD_STACK_REM
+}
+
 /** The height the board has, measured rather than guessed at. */
 export function boardHeightBudget(viewport: BoardViewport, stageHeight: number, extraStackHeight = 0): number {
   const chrome = boardChromeFor(viewport)
   return stageHeight
-    - viewport.rem * (2 * chrome.stagePadY + BOARD_STACK_REM + 2 * chrome.frame)
+    - viewport.rem * (2 * chrome.stagePadY + boardStackRem(viewport) + 2 * chrome.frame)
     - 2 * BOARD_FRAME_BORDER
     - extraStackHeight
 }

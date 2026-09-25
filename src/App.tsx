@@ -6432,6 +6432,46 @@ function App() {
     endedOffBoard: Boolean(endedOffBoard),
   })
 
+  /**
+   * Sideways on a phone, height is the scarce axis, and this pair made the
+   * strip above the board two lines tall: the 44px Arrows target beside one
+   * line of text, which it was already cutting to "White to mo". The bottom
+   * bar there is one row with room to spare, so the pair moves into it and
+   * the board takes the height back. The same element, placed once.
+   */
+  const drawControlsInBottomBar = isLandscapePhoneViewport(viewport)
+  // Only where there is no right button to put these on. A mouse has both
+  // gestures already and would gain a mode that costs it the ability to move
+  // a piece.
+  const drawControls = (
+    <span className="board-draw-controls">
+      {hasDrawings && (
+        <button
+          type="button"
+          className="board-draw-clear"
+          onClick={clearDrawings}
+          title="Clear your arrows and marks"
+        >
+          Clear
+        </button>
+      )}
+      <button
+        type="button"
+        className={`board-draw-toggle${touchDrawing ? ' active' : ''}`}
+        aria-pressed={touchDrawing}
+        onClick={() => setTouchDrawing(value => !value)}
+        title={touchDrawing
+          ? 'Drawing: drag for an arrow, tap to mark. Turn off to move pieces again.'
+          : 'Draw arrows and mark squares with your finger'}
+      >
+        <IconDraw aria-hidden="true" />
+        {/* Not "Draw": beside the game's status, in a chess app,
+            that reads as offering one. */}
+        <span>{touchDrawing ? 'Marking' : 'Arrows'}</span>
+      </button>
+    </span>
+  )
+
   const bottomStatusContent = (
     <>
       <span className="bottom-engine-info" title={bottomStatusTitle}>
@@ -7444,35 +7484,7 @@ function App() {
                 </span>
               )}
               </div>
-              {/* Only where there is no right button to put these on. A mouse
-                  has both gestures already and would gain a mode that costs it
-                  the ability to move a piece. */}
-              <span className="board-draw-controls">
-                {hasDrawings && (
-                  <button
-                    type="button"
-                    className="board-draw-clear"
-                    onClick={clearDrawings}
-                    title="Clear your arrows and marks"
-                  >
-                    Clear
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className={`board-draw-toggle${touchDrawing ? ' active' : ''}`}
-                  aria-pressed={touchDrawing}
-                  onClick={() => setTouchDrawing(value => !value)}
-                  title={touchDrawing
-                    ? 'Drawing: drag for an arrow, tap to mark. Turn off to move pieces again.'
-                    : 'Draw arrows and mark squares with your finger'}
-                >
-                  <IconDraw aria-hidden="true" />
-                  {/* Not "Draw": beside the game's status, in a chess app,
-                      that reads as offering one. */}
-                  <span>{touchDrawing ? 'Marking' : 'Arrows'}</span>
-                </button>
-              </span>
+              {!drawControlsInBottomBar && drawControls}
             </div>
             {/* The row is here from the first paint, named or not.
                 Rendered only once an opening had a name, it arrived between a
@@ -9177,6 +9189,7 @@ function App() {
               canAutoplay={!playEngineActive && mainLineNodes.length > 1}
               onAutoplayToggle={toggleAutoplay}
             />
+            {drawControlsInBottomBar && drawControls}
 
             <div className="bottom-status-row">
               {compactEngineStatus ? (

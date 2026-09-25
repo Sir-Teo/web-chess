@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   BOARD_CHROME,
   BOARD_STACK_REM,
+  BOARD_FRAME_BORDER,
+  LANDSCAPE_BOARD_STACK_REM,
+  boardStackRem,
   MAX_BOARD_PX,
   MIN_DESKTOP_BOARD_PX,
   MIN_TOUCH_BOARD_PX,
@@ -168,6 +171,20 @@ describe('board sizing', () => {
     const stageHeight = 340
     const { rendered } = size(phoneLandscape, stageHeight, { leftPanelWidth: 0, rightPanelWidth: 0 })
     expect(rendered).toBeLessThanOrEqual(boardHeightBudget(phoneLandscape, stageHeight))
+  })
+
+  it('reserves only a one-line strip above a landscape phone board', () => {
+    // The drawing controls sit in the bottom bar there, so the strip is one
+    // line and the board takes the difference.
+    expect(boardStackRem(phoneLandscape)).toBe(LANDSCAPE_BOARD_STACK_REM)
+    expect(boardStackRem(phone)).toBe(BOARD_STACK_REM)
+    expect(LANDSCAPE_BOARD_STACK_REM).toBeLessThan(BOARD_STACK_REM)
+    const stageHeight = 249
+    const { rendered } = size(phoneLandscape, stageHeight, { leftPanelWidth: 0, rightPanelWidth: 0 })
+    const chrome = BOARD_CHROME.landscape
+    const everything = rendered + 2 * BOARD_FRAME_BORDER
+      + phoneLandscape.rem * (2 * chrome.stagePadY + LANDSCAPE_BOARD_STACK_REM + 2 * chrome.frame)
+    expect(everything).toBeLessThanOrEqual(stageHeight)
   })
 
   it('scales the coordinates with the board, within readable bounds', () => {

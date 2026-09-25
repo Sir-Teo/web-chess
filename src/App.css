@@ -6630,6 +6630,13 @@ button.hint-btn {
     background: rgba(59, 130, 246, 0.16);
     color: #93c5fd;
   }
+
+  /* Sideways on a phone the pair lives in the bottom bar's single row (see
+     `drawControlsInBottomBar`), where it sits with the rest, not pushed off
+     to the far edge the way it is at the end of the strip. */
+  .bottom .board-draw-controls {
+    margin-left: 0;
+  }
 }
 
 .app-shell[data-scroll-chrome="true"] {
