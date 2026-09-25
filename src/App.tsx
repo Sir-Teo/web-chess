@@ -6667,6 +6667,13 @@ function App() {
                   />
                   <span>Move sounds</span>
                 </label>
+                {/* Under its own switch: below the board colours it read as a
+                    description of those. */}
+                <p className="panel-copy small">
+                  {soundEnabled
+                    ? 'A knock for a move, heavier for a capture, and a tone for check, promotion and the end of the game. Moves you navigate to are silent.'
+                    : 'Moves are silent.'}
+                </p>
                 <label
                   className="switch-control"
                   title="Hide the pieces and play from memory. The move list, the coordinates and the last move stay."
@@ -6714,11 +6721,6 @@ function App() {
                     ))}
                   </div>
                 </div>
-                <p className="panel-copy small">
-                  {soundEnabled
-                    ? 'A knock for a move, heavier for a capture, and a tone for check, promotion and the end of the game. Moves you navigate to are silent.'
-                    : 'Moves are silent.'}
-                </p>
                 <div className="board-theme-row">
                   <span className="board-theme-label" id="app-theme-label">Theme</span>
                   <div className="analysis-mode-pills" role="group" aria-labelledby="app-theme-label">
