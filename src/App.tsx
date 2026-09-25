@@ -7865,7 +7865,7 @@ function App() {
                     />
                   </div>
                   <div className="engine-lab-card">
-                    <h3><span className="section-icon"><IconSwords /></span> {playEngineActive ? 'Opponent' : 'Game'}</h3>
+                    <h3><span className="section-icon"><IconSwords /></span> {!playEngineActive ? 'Game' : gameMode === 'ai-vs-ai' ? 'Engines' : 'Opponent'}</h3>
                     {playEngineActive && (
                       <p
                         className={`panel-copy small${playEngineReport.failed ? ' error-copy' : ''}`}
