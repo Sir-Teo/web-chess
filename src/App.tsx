@@ -6750,10 +6750,10 @@ function App() {
                   move or left click.
                 </p>
                 <p className="panel-copy small pointer-coarse-only">
-                  Press <strong>Draw</strong> beside the board, then drag from square to square for an
+                  Press <strong>Arrows</strong> beside the board, then drag from square to square for an
                   arrow or tap a square to mark it. Drawing the same one again takes it away, and lifting
                   your finger off the board abandons it. Your marks are blue, so nothing the engine draws
-                  can be mistaken for them; they clear on your next move. Press Draw again to move pieces.
+                  can be mistaken for them; they clear on your next move. Press it again to move pieces.
                   The other two colours are on a mouse, where they are modifier keys.
                 </p>
                 {/* Hover has no touch equivalent either, but the click it
@@ -7445,7 +7445,9 @@ function App() {
                     : 'Draw arrows and mark squares with your finger'}
                 >
                   <IconDraw aria-hidden="true" />
-                  <span>{touchDrawing ? 'Drawing' : 'Draw'}</span>
+                  {/* Not "Draw": beside the game's status, in a chess app,
+                      that reads as offering one. */}
+                  <span>{touchDrawing ? 'Marking' : 'Arrows'}</span>
                 </button>
               </span>
             </div>
