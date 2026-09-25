@@ -210,6 +210,14 @@ describe('the three settings added in one session, which is why this file exists
     installStorage(stored({ soundEnabled: true }))
     expect(loadPersistedSettings().soundEnabled).toBe(true)
   })
+
+  it('keeps the pass-and-play board turn, off unless asked for', () => {
+    expect(DEFAULT_PERSISTED_SETTINGS.autoFlipBoard).toBe(false)
+    installStorage(stored({ autoFlipBoard: true }))
+    expect(loadPersistedSettings().autoFlipBoard).toBe(true)
+    installStorage(stored({ autoFlipBoard: 'yes' }))
+    expect(loadPersistedSettings().autoFlipBoard).toBe(false)
+  })
 })
 
 describe('the two fields with a shape of their own', () => {

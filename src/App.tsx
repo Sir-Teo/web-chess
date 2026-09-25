@@ -732,6 +732,7 @@ function App() {
    */
   const [blindfold, setBlindfold] = useState<boolean>(persistedSettings.blindfold)
   // Read by the AI loop, which must not re-install when the switch changes.
+  const [autoFlipBoard, setAutoFlipBoard] = useState<boolean>(persistedSettings.autoFlipBoard)
   const blunderNudgesRef = useRef(blunderNudges)
   blunderNudgesRef.current = blunderNudges
   /**
@@ -1919,6 +1920,9 @@ function App() {
     cancelPendingAiMove()
     const chess = tree.navigateTo(target.id)
     syncGameToNode(chess)
+    // A takeback leaves the undone move ahead of the cursor, so the
+    // end-of-line rule that turns the board after a move cannot see it.
+    if (autoFlipBoard && gameMode === 'human-vs-human') setOrientation(chess.turn() === 'b' ? 'black' : 'white')
     // Straight back to playing: a takeback that leaves the game paused makes
     // the reader find the pause control before they can try again.
     pausedRef.current = false
@@ -1931,7 +1935,7 @@ function App() {
     if (!endedOffBoardRef.current) {
       setClock(previous => (previous && !previous.flagged ? startSide(previous, chess.turn(), Date.now()) : previous))
     }
-  }, [cancelPendingAiMove, game, gameMode, playerColor, syncGameToNode])
+  }, [autoFlipBoard, cancelPendingAiMove, game, gameMode, playerColor, syncGameToNode])
   takebackMoveRef.current = takebackMove
 
   /**
@@ -2947,6 +2951,7 @@ function App() {
       soundEnabled,
       blunderNudges,
       blindfold,
+      autoFlipBoard,
       timeControlId,
       boardThemeId,
       theme,
@@ -2983,6 +2988,7 @@ function App() {
     soundEnabled,
     blunderNudges,
     blindfold,
+    autoFlipBoard,
     timeControlId,
     boardThemeId,
     theme,
@@ -3837,6 +3843,18 @@ function App() {
   // whenever the sound setting changes mid-game. Same shape as requestThreatRef.
   const playMoveSoundRef = useRef(registerMovePlayed)
   playMoveSoundRef.current = registerMovePlayed
+
+  /**
+   * Pass and play on one screen: the board turns to face whoever is on move.
+   * Only at the end of the line -- a move, a take-back or a new game -- so
+   * stepping back through the game leaves the board where the reader put it,
+   * and a flip by hand holds until the next move.
+   */
+  useEffect(() => {
+    if (!autoFlipBoard || workspaceMode !== 'play' || gameMode !== 'human-vs-human') return
+    if (canGoForward) return
+    setOrientation(fen.split(' ')[1] === 'b' ? 'black' : 'white')
+  }, [autoFlipBoard, canGoForward, fen, gameMode, workspaceMode])
 
   // ── AI move loop (with speed throttle) ───────────────
   useEffect(() => {
@@ -6830,6 +6848,17 @@ function App() {
                     onChange={event => setBlunderNudges(event.target.checked)}
                   />
                   <span>Point out my mistakes while playing</span>
+                </label>
+                <label
+                  className="switch-control"
+                  title="In pass and play, turn the board after each move so the player on move sees it from their side."
+                >
+                  <input
+                    type="checkbox"
+                    checked={autoFlipBoard}
+                    onChange={event => setAutoFlipBoard(event.target.checked)}
+                  />
+                  <span>Turn the board for each player in pass and play</span>
                 </label>
                 <div className="board-theme-row">
                   <span className="board-theme-label" id="board-theme-label">Board</span>

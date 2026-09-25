@@ -101,6 +101,8 @@ export type PersistedAppSettings = {
   blunderNudges: boolean
   /** Hide the pieces and play from memory. */
   blindfold: boolean
+  /** Pass and play: turn the board to face whoever is on move. */
+  autoFlipBoard: boolean
   timeControlId: string
   boardThemeId: string
   theme: ThemePreference
@@ -151,6 +153,7 @@ export const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
   soundEnabled: true,
   blunderNudges: true,
   blindfold: false,
+  autoFlipBoard: false,
   timeControlId: 'unlimited',
   boardThemeId: 'classic',
   theme: 'dark',
@@ -358,6 +361,9 @@ export function loadPersistedSettings(): PersistedAppSettings {
       blindfold: typeof parsed.blindfold === 'boolean'
         ? parsed.blindfold
         : DEFAULT_PERSISTED_SETTINGS.blindfold,
+      autoFlipBoard: typeof parsed.autoFlipBoard === 'boolean'
+        ? parsed.autoFlipBoard
+        : DEFAULT_PERSISTED_SETTINGS.autoFlipBoard,
       timeControlId: isTimeControlPresetId(parsed.timeControlId)
         ? parsed.timeControlId
         : DEFAULT_PERSISTED_SETTINGS.timeControlId,
