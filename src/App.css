@@ -2024,6 +2024,10 @@ input[type="checkbox"] {
 .analysis-actions button {
   min-height: 44px;
 }
+.inline-actions > .analysis-stop {
+  flex: 0 0 auto;
+  padding-inline: 1rem;
+}
 
 .show-insights-button {
   min-height: 36px;

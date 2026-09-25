@@ -7976,14 +7976,18 @@ function App() {
 
               {workspaceMode === 'analysis' && analysisTab === 'analyze' && (
                 <>
+                  {/* Analyze is always on offer: it starts a search, restarts
+                      one after a setting changed, takes the engine over from a
+                      search typed into the console, or wakes a released
+                      engine. Stop joins it while there is a search to stop,
+                      including one waiting for that engine to load. */}
                   <div className="inline-actions analysis-actions">
-                    {status === 'analyzing' ? (
-                      <button type="button" aria-label="Stop analysis" onClick={stop}>
-                        <IconStop /> Stop analysis
-                      </button>
-                    ) : (
-                      <button type="button" className="btn-primary" aria-label="Run analysis" onClick={runAnalyze} disabled={status !== 'ready'}>
-                        <IconPlay /> Analyze position
+                    <button type="button" className="btn-primary" aria-label="Run analysis" onClick={runAnalyze}>
+                      <IconPlay /> Analyze position
+                    </button>
+                    {(status === 'analyzing' || status === 'loading') && (
+                      <button type="button" className="analysis-stop" aria-label="Stop analysis" onClick={stop}>
+                        <IconStop /> Stop
                       </button>
                     )}
                   </div>
