@@ -5473,6 +5473,23 @@ button.wc-speed-pill {
   padding: 0.1rem 0;
 }
 
+/* Stacked on a phone the panel scrolls under the board, and a fixed window
+   put 200px of nothing between a two-move game and Take back and Resign.
+   There the window grows with the game up to the same cap; the fixed height
+   only earns its keep beside the board, where it stops the cards below from
+   jumping as moves arrive. */
+@media (max-width: 900px) {
+  .mtree-scroll {
+    height: auto;
+    max-height: 16.25rem;
+  }
+
+  .analyze-move-card .mtree-scroll {
+    height: auto;
+    max-height: 11.25rem;
+  }
+}
+
 /* A row = move number + white half + black half */
 .mtree-row {
   display: grid;
