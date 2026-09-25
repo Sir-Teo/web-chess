@@ -433,6 +433,8 @@ function playerColorToTurn(color: PlayerColor): 'w' | 'b' {
 
 /** How long a receipt stays up. Long enough to read, short enough to ignore. */
 const NOTICE_HOLD_MS = 2400
+/** How long Resign stays armed for its confirming second press. */
+const RESIGN_CONFIRM_MS = 4000
 /**
  * How long a notice that *explains* something stays up. A receipt can be missed
  * without cost -- "FEN copied" for something the reader just did. These two say
@@ -785,7 +787,16 @@ function App() {
    * modal: a misclick that ends a game is worth guarding against, and a dialog
    * for it would be heavier than the action deserves.
    */
-  const [resignArmed, setResignArmed] = useState(false)
+  // Armed for one position and a few seconds. It used to disarm only on blur,
+  // and a tapped button on iOS never takes focus, so it never blurs: "Confirm?"
+  // stayed live through the rest of the game for a stray tap to resign it.
+  const [resignArmedFen, setResignArmedFen] = useState<string | null>(null)
+  const resignArmed = resignArmedFen === fen
+  useEffect(() => {
+    if (!resignArmed) return
+    const timer = window.setTimeout(() => setResignArmedFen(null), RESIGN_CONFIRM_MS)
+    return () => window.clearTimeout(timer)
+  }, [resignArmed])
   // The AI loop is an effect that must not re-install on every clock change,
   // and a clock changes on every move. Same shape as gameTreeRef.
   const endedOffBoardRef = useRef<'w' | 'b' | null>(null)
@@ -8117,11 +8128,11 @@ function App() {
                         type="button"
                         className={`takeback-btn resign-btn${resignArmed ? ' armed' : ''}`}
                         onClick={() => {
-                          if (!resignArmed) { setResignArmed(true); return }
-                          setResignArmed(false)
+                          if (!resignArmed) { setResignArmedFen(fen); return }
+                          setResignArmedFen(null)
                           resignGame()
                         }}
-                        onBlur={() => setResignArmed(false)}
+                        onBlur={() => setResignArmedFen(null)}
                         disabled={Boolean(resignReason)}
                         title={resignReason ?? (resignArmed ? 'Click again to resign' : 'Concede the game')}
                         aria-label={resignReason
