@@ -8022,6 +8022,15 @@ function App() {
                       allowCommentEditing={false}
                     />
                   </div>
+                  {/* The same typed entry Analysis has, for a keyboard or a
+                      screen reader in the middle of a game: "Nf3" is one field
+                      away rather than sixty-four squares. Closed until asked
+                      for, and shut while the board is not taking the player's
+                      moves, exactly as the board itself is. */}
+                  {!gameResultLabel && (
+                    <MoveEntry fen={fen} disabled={boardInputLocked || Boolean(pendingPromotion)}
+                      onMove={move => applyHumanMove(move.from, move.to, move.promotion as PromotionPiece | undefined)} />
+                  )}
                   <div className="engine-lab-card">
                     <h3><span className="section-icon"><IconSwords /></span> {!playEngineActive ? 'Game' : gameMode === 'ai-vs-ai' ? 'Engines' : 'Opponent'}</h3>
                     {playEngineActive && (

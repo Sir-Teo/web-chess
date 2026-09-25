@@ -31,3 +31,6 @@
 .move-entry-row button { flex-shrink: 0; }
 .panel .move-entry-row input, .panel .move-entry-row button { min-height: 2.75rem; }
 .move-entry p { margin: 0; line-height: 1.5; }
+/* Read-only while it is not the reader's move, so focus stays put; drawn the
+   way a disabled field is everywhere else in the panel. */
+.move-entry-row input[aria-disabled="true"] { opacity: 0.48; cursor: not-allowed; }
