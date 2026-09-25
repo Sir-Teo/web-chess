@@ -2111,6 +2111,14 @@ input[type="checkbox"] {
   border-radius: var(--radius-sm);
 }
 
+/* The sides stop growing past their 100% size. **Measured** at 901px with 200%
+   text, the right panel's scrollbar left "Analyze" 2px short of its own width
+   once \`.panel button\` gave each side 0.66rem (21px), and a single word has
+   nowhere to wrap to. Phones set their own padding below. */
+.panel .analysis-tab-btn {
+  padding-inline: min(0.66rem, 10.56px);
+}
+
 @media (hover: hover) and (pointer: fine) {
   .analysis-tab-btn:hover {
     border-color: var(--border-default);
@@ -3730,6 +3738,19 @@ button.critical-moment-row {
   border-radius: var(--radius-md);
   background: var(--bg-card);
   padding: 0.55rem;
+}
+
+/* The narrowest left column -- 901px at 200% text -- is narrower than "WHITE
+   SCORE" beside its icon, and the title lost its last letters. The icon is
+   decoration; it goes first, and the words keep their room. */
+.analytics-card {
+  container: analytics-card / inline-size;
+}
+
+@container analytics-card (max-width: 9rem) {
+  .section-heading .section-icon {
+    display: none;
+  }
 }
 
 .graph-summary {

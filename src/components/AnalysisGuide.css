@@ -9,6 +9,8 @@
 }
 
 .analysis-guide summary {
+  /* A last resort for a word wider than the narrowest left column. */
+  overflow-wrap: anywhere;
   padding: 0.7rem;
   min-height: 44px;
   cursor: pointer;
