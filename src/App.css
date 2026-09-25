@@ -4861,13 +4861,17 @@ button.critical-moment-row {
     display: none !important;
   }
 
+  /* Wraps rather than truncating. The ellipsis this asked for never drew --
+     the row is a flex box, which does not ellipsize its items -- so at 200%
+     text the centred line ran off both edges and cut "Standby" in half. The
+     engine's state is the one word here worth keeping whole. */
   .bottom-status-row .bottom-engine-info {
     justify-content: center;
+    flex-wrap: wrap;
+    row-gap: 0;
     min-width: 0;
     max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-align: center;
   }
 
   .bottom-status-row .engine-command-inline,
