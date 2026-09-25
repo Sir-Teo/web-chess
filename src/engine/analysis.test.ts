@@ -29,6 +29,7 @@ import {
   pvLineMoves,
   pvToSan,
   describeAdvantage,
+  whiteScoreEstimate,
   terminalSnapshotForFen,
 } from './analysis'
 
@@ -1365,6 +1366,16 @@ describe('describeAdvantage', () => {
   it('agrees with the model the graph and the accuracy use', () => {
     const percent = Number(describeAdvantage(150)!.match(/(\d+)% for White/)![1])
     expect(percent).toBe(Math.round(winPercentFromCp(150)))
+  })
+
+  it('takes the White score graph\'s figure when it has one', () => {
+    // Stockfish's win/draw/loss can put White well above what the centipawns
+    // alone convert to; the sentence says the graph's number, the band stays.
+    const fen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1'
+    const score = whiteScoreEstimate(fen, { cp: -40, wdl: { w: 50, d: 700, l: 250 } })!
+    expect(score).toBeCloseTo(60)
+    expect(describeAdvantage(40, undefined, score)).toBe('White is slightly better · 60% for White')
+    expect(describeAdvantage(40, undefined, null)).toBe(`White is slightly better · ${Math.round(winPercentFromCp(40))}% for White`)
   })
 
   it('says a mate as a mate, on either side', () => {

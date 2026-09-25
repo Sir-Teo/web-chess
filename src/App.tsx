@@ -10,6 +10,7 @@ import {
   MIN_REVIEW_GRADING_DEPTH,
   formatCompactWhitePovEvaluation,
   describeAdvantage,
+  whiteScoreEstimate,
   describeReviewScope,
   normalizeWhitePovCp,
   normalizeWhitePovMate,
@@ -2305,8 +2306,8 @@ function App() {
    * Coach mode exists to say things in plain language, and the one number at
    * the top of it was the least plain thing on the panel. Whichever source the
    * evaluation came from, this is that reading turned White-relative and
-   * described; `describeAdvantage` uses `winPercentFromCp`, so the sentence
-   * cannot disagree with the trend graph beside it.
+   * described, with the percentage the White score graph plots for it, so
+   * the sentence cannot disagree with the graph beside it.
    */
   const coachVerdict = (() => {
     // A finished game is described by how it finished. "White is completely
@@ -2317,6 +2318,7 @@ function App() {
     return describeAdvantage(
       typeof source.cp === 'number' ? normalizeWhitePovCp(fen, source.cp) : undefined,
       typeof source.mate === 'number' ? normalizeWhitePovMate(fen, source.mate) : undefined,
+      whiteScoreEstimate(fen, source),
     )
   })()
 

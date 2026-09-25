@@ -1056,7 +1056,14 @@ const ADVANTAGE_BANDS: Array<{ upTo: number; label: string }> = [
   { upTo: Number.POSITIVE_INFINITY, label: 'completely winning' },
 ]
 
-export function describeAdvantage(whitePovCp?: number, whitePovMate?: number): string | null {
+/**
+ * `whiteScore` is the percentage the White score graph plots for the same
+ * reading. Once that graph took Stockfish's win/draw/loss where it had one,
+ * a sentence still converting centipawns said 42% beside a graph saying 60%;
+ * given the graph's figure, the two cannot part again. The band still comes
+ * from the centipawns, because that is what "slightly better" measures.
+ */
+export function describeAdvantage(whitePovCp?: number, whitePovMate?: number, whiteScore?: number | null): string | null {
   if (isFiniteNumber(whitePovMate)) {
     if (whitePovMate === 0) return null
     const side = whitePovMate > 0 ? 'White' : 'Black'
@@ -1065,7 +1072,7 @@ export function describeAdvantage(whitePovCp?: number, whitePovMate?: number): s
   }
   if (!isFiniteNumber(whitePovCp)) return null
 
-  const percent = Math.round(winPercentFromCp(whitePovCp))
+  const percent = Math.round(isFiniteNumber(whiteScore) ? whiteScore : winPercentFromCp(whitePovCp))
   const band = ADVANTAGE_BANDS.find(entry => Math.abs(whitePovCp) <= entry.upTo)!
   if (band.label === 'level') return `Level · ${percent}% for White`
 
@@ -1131,7 +1138,10 @@ export function normalizeWhitePovWdl(fen: string, wdl: { w: number; d: number; l
 }
 
 /** Expected points for White: a win counts one, a draw half. */
-function whiteScoreEstimate(fen: string, snapshot: EvalSnapshot | undefined): number | null {
+export function whiteScoreEstimate(
+  fen: string,
+  snapshot: (Pick<EvalSnapshot, 'mate' | 'wdl'> & { cp?: number }) | undefined,
+): number | null {
   if (!snapshot) return null
   const wdl = snapshot.wdl && normalizeWhitePovWdl(fen, snapshot.wdl)
   if (wdl) return wdl.white + wdl.draw / 2
