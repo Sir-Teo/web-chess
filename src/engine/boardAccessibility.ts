@@ -52,9 +52,15 @@ export function describeBoardSquare(
   if (legalTargets.includes(square)) {
     stateLabels.push(piece ? 'legal capture target' : 'legal move target')
   }
+  // The board paints the checked king red; a screen reader moving square by
+  // square should meet the same fact on the same square.
+  if (piece?.type === 'k' && piece.color === chess.turn() && chess.isCheck()) {
+    stateLabels.push('in check')
+  }
 
   // Under a blindfold an occupied square and an empty one have to read the
-  // same, or the tooltip answers the question the exercise is asking.
-  if (hidePiece) return [square, ...stateLabels].join(', ')
+  // same, or the tooltip answers the question the exercise is asking -- and
+  // "in check" would say where the king is.
+  if (hidePiece) return [square, ...stateLabels.filter(label => label !== 'in check')].join(', ')
   return [square, pieceLabel, ...stateLabels].join(', ')
 }

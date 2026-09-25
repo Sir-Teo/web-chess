@@ -20,6 +20,16 @@ describe('board accessibility helpers', () => {
       .toBe('e4, empty square, legal move target')
   })
 
+  it('says which king is in check, except under a blindfold', () => {
+    // Fool's mate: the white king on e1 is in check (and mated).
+    const chess = new Chess('rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3')
+
+    expect(describeBoardSquare(chess, 'e1')).toBe('e1, White king, in check')
+    expect(describeBoardSquare(chess, 'e8')).toBe('e8, Black king')
+    expect(describeBoardSquare(chess, 'e1', { hidePiece: true })).toBe('e1')
+    expect(describeBoardSquare(new Chess(), 'e1')).toBe('e1, White king')
+  })
+
   it('recognizes only real board squares', () => {
     expect(BOARD_SQUARES).toHaveLength(64)
     expect(isBoardSquare('a1')).toBe(true)
