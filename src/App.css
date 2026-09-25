@@ -2789,6 +2789,15 @@ button.opening-move-row {
   border-top: 1px solid var(--border-subtle);
 }
 
+/* A rule separates a section from the one above it. With nothing above --
+   the moves once a game has started and the Start card is gone -- it was a
+   stray line under the panel's own header. */
+.panel-content > .right-section:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .right-section h3,
 .review-scaffold h3,
 .pv-list h3 {
