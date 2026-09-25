@@ -30,6 +30,23 @@ const FOCUSABLE_SELECTOR = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ')
 
+/**
+ * Where focus goes when the dialog's own choice is not available.
+ *
+ * On a touch screen, focusing a text field opens the on-screen keyboard. The
+ * Library asks for its name field, which is disabled until there is a game to
+ * save, and the first focusable thing after it is the search box: opening the
+ * Library on a phone threw a keyboard over half the sheet before anyone asked
+ * to type. A field a dialog names on purpose still gets focus; the fallback
+ * skips text entry when the device has no hover, i.e. no keyboard to speak of.
+ */
+function firstFallbackFocus(focusable: HTMLElement[]): HTMLElement | undefined {
+  const touchOnly = typeof window.matchMedia === 'function' && window.matchMedia('(hover: none)').matches
+  if (!touchOnly) return focusable[0]
+  return focusable.find(el => !el.matches('input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea'))
+    ?? focusable[0]
+}
+
 type Options = {
   /** Selector for the element to focus first; falls back to the first focusable. */
   initialFocus?: string
@@ -147,7 +164,7 @@ export function useModalFocus(
 
     const preferredEl = initialFocus ? panelEl.querySelector<HTMLElement>(initialFocus) : null
     const preferred = preferredEl && isFocusable(preferredEl) ? preferredEl : null
-    ;(preferred ?? getFocusable()[0])?.focus()
+    ;(preferred ?? firstFallbackFocus(getFocusable()))?.focus()
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
