@@ -11310,11 +11310,12 @@ async function main() {
           await assertContrast(page, `${theme} / pgn export`, 12)
           await closeDialog('.pgn-dialog')
 
-          // The empty shelf, which is what this suite's browser has: nine text
-          // nodes and no rows. It does not reach the favourite star or the
-          // status line, whose inks only appear once something is saved.
+          // The empty shelf, which is what this suite's browser has: no rows,
+          // and no search or sort either, since there is nothing to search.
+          // It does not reach the favourite star or the status line, whose
+          // inks only appear once something is saved.
           await openDialog(/saved games library/i, '.library-dialog')
-          await assertContrast(page, `${theme} / library`, 8)
+          await assertContrast(page, `${theme} / library`, 5)
           await closeDialog('.library-dialog')
 
           await page.getByRole('button', { name: 'Play', exact: true }).first().click()
