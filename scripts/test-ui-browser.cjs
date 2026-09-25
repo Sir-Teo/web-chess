@@ -37,6 +37,19 @@ function assert(condition, message) {
   if (!condition) fail(message)
 }
 
+/**
+ * Start a game in one of the three modes. The mode pills used to switch mode
+ * in place; they now open the New game dialog, which is also the only way to
+ * choose a mode on a phone, so every check goes through the dialog.
+ */
+async function startGameMode(page, label) {
+  await page.getByRole('button', { name: 'Start new game', exact: true }).first().click()
+  await page.locator('.new-game-dialog').waitFor({ timeout: 10000 })
+  await page.locator('.mode-card', { hasText: label }).click()
+  await page.locator('.btn-start').click()
+  await page.locator('.new-game-dialog').waitFor({ state: 'detached', timeout: 10000 })
+}
+
 async function waitForHttp(url, timeoutMs) {
   const deadline = Date.now() + timeoutMs
   let lastError = 'never responded'
@@ -586,7 +599,7 @@ async function checkTypedMoveEntry(browser) {
       const guide = page.locator('details').filter({ has: page.getByText('How to read this analysis', { exact: true }) })
       await guide.locator('summary').click()
       assert(await guide.getAttribute('open') !== null, 'analysis guide did not open')
-      assert((await guide.innerText()).includes('Neither predicts your personal chance'), 'analysis guide omits the meaning of percentages')
+      assert((await guide.innerText()).includes('Neither predicts your personal result'), 'analysis guide omits the meaning of percentages')
       assert(await guide.locator('summary').evaluate(el => el.getBoundingClientRect().height >= 44), 'analysis guide has a small touch target')
       await assertContrast(page, `${theme} / analysis guide / ${width}px`, 15)
       await guide.locator('summary').click()
@@ -635,7 +648,7 @@ async function checkEngineStartupTimeout(browser) {
         if (mode === 'analysis') {
           await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
         } else {
-          await page.getByRole('button', { name: 'Human vs AI', exact: true }).click()
+          await startGameMode(page, 'Human vs AI')
         }
         if (scenario === 'silent-first') {
           await page.waitForFunction(() => window.__engineCount >= 2 && window.__uciCommands.includes('isready'))
@@ -1933,7 +1946,7 @@ async function checkPlayedMoveBecomesTheGame(browser) {
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
     await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+    await startGameMode(page, 'Human vs Human')
 
     // Click-to-move, two taps a square, which is the same path a touch device
     // takes and the one that needs no drag emulation.
@@ -2035,7 +2048,7 @@ async function checkTakingBackAMateUnfinishesTheGame(browser) {
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
     await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+    await startGameMode(page, 'Human vs Human')
 
     const play = async (from, to) => {
       await page.click(`#chessboard-square-${from}`)
@@ -2435,7 +2448,7 @@ async function checkAResultBelongsToItsOwnGame(browser) {
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
     await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+    await startGameMode(page, 'Human vs Human')
 
     const play = async (from, to) => {
       await page.click(`#chessboard-square-${from}`)
@@ -2769,7 +2782,7 @@ async function checkAHintSaysWhereToLookOnlyIfItIsDrawn(browser) {
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
     await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-    await page.click('.top-mode-pills button:has-text("Human vs AI")')
+    await startGameMode(page, 'Human vs AI')
     await page.waitForFunction(() => /ready to play/.test(document.body.innerText), null, { timeout: 20000 })
     await page.waitForTimeout(500)
 
@@ -3386,7 +3399,7 @@ async function checkAPaletteTabCommandGoesThere(browser) {
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
     await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+    await startGameMode(page, 'Human vs Human')
     await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
 
     const state = () => page.evaluate(() => ({
@@ -3653,7 +3666,7 @@ async function checkAHintDoesNotRebuildTheThreadPool(browser) {
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
     await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-    await page.click('.top-mode-pills button:has-text("Human vs AI")')
+    await startGameMode(page, 'Human vs AI')
     await page.waitForFunction(() => /ready to play/.test(document.body.innerText), null, { timeout: 20000 })
     await page.waitForTimeout(500)
 
@@ -3686,7 +3699,7 @@ async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
     await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+    await startGameMode(page, 'Human vs Human')
     await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
     await page.waitForTimeout(400)
 
@@ -3761,7 +3774,7 @@ async function checkOneGestureSavesOneGame(browser) {
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
     await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+    await startGameMode(page, 'Human vs Human')
     const play = async (from, to) => {
       await page.click(`#chessboard-square-${from}`)
       await page.click(`#chessboard-square-${to}`)
@@ -3913,7 +3926,7 @@ async function checkAPremoveWaitsForItsTurn(browser) {
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
     await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-    await page.click('.top-mode-pills button:has-text("Human vs AI")')
+    await startGameMode(page, 'Human vs AI')
     // The engine has to be ready before any of this means anything: played
     // too early, the request goes out against a board the reply no longer
     // matches and the move never lands.
@@ -4151,7 +4164,7 @@ async function checkAHintBelongsToItsPosition(browser) {
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
     await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-    await page.click('.top-mode-pills button:has-text("Human vs AI")')
+    await startGameMode(page, 'Human vs AI')
     await page.waitForFunction(() => /ready to play/.test(document.body.innerText), null, { timeout: 20000 })
     await page.waitForTimeout(500)
 
@@ -4244,7 +4257,7 @@ async function checkADrillStaysInAnalysis(browser) {
 
     // Out to Play, where the drill has no card and must have no opinion.
     await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+    await startGameMode(page, 'Human vs Human')
     await page.waitForTimeout(600)
 
     // d4 is not the drilled line. It has to land anyway.
@@ -4294,7 +4307,7 @@ async function checkAChordBelongsToTheBrowser(browser) {
       const startFresh = page.getByRole('button', { name: /start fresh/i })
       if (await startFresh.count()) await startFresh.first().click()
       await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-      await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+      await startGameMode(page, 'Human vs Human')
       await play('e2', 'e4')
       await play('e7', 'e5')
     }
@@ -5098,7 +5111,7 @@ async function checkAModeSwitchDoesNotFreezeTheClock(browser) {
     assert(await page.locator('.clock-face.running').count() === 0,
       'a paused game left a clock face marked running')
 
-    await page.getByRole('button', { name: 'Human vs AI', exact: true }).first().click()
+    await startGameMode(page, 'Human vs AI')
     await page.waitForFunction(() => document.querySelector('.clock-paused') === null, null, { timeout: 5000 })
 
     const whiteFace = page.locator('.clock-face.clock-white')
@@ -5177,7 +5190,7 @@ async function checkAutoplayWalksTheLine(browser) {
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
     await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+    await startGameMode(page, 'Human vs Human')
 
     const play = async (from, to) => {
       await page.click(`#chessboard-square-${from}`)
@@ -5303,7 +5316,7 @@ async function checkResignationEndsTakeback(browser) {
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
     await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-    await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+    await startGameMode(page, 'Human vs Human')
     await page.click('#chessboard-square-e2')
     await page.click('#chessboard-square-e4')
     await page.waitForFunction(() => /Black to move/.test(document.body.innerText), null, { timeout: 5000 })
@@ -5387,7 +5400,7 @@ async function checkBlunderIsPointedOut(browser) {
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
     await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-    await page.click('.top-mode-pills button:has-text("Human vs AI")')
+    await startGameMode(page, 'Human vs AI')
     await page.waitForFunction(() => /ready to play/.test(document.body.innerText), null, { timeout: 20000 })
 
     const play = async (from, to) => {
@@ -6073,7 +6086,7 @@ async function checkTheWinrateCardFollowsTheBoard(browser) {
 
     const readPair = () => page.evaluate(() => {
       const legend = [...document.querySelectorAll('.graph-legend')]
-        .find(el => /White win chance/i.test(el.textContent || ''))
+        .find(el => /White expected score/i.test(el.textContent || ''))
       const card = legend ? Number((legend.textContent || '').match(/([\d.]+)%/)?.[1]) : null
       const coach = Number((document.body.innerText.replace(/\s+/g, ' ')
         .match(/(\d+)% for White/) || [])[1])
@@ -6121,10 +6134,20 @@ async function checkTheWinrateCardFollowsTheBoard(browser) {
     await page.locator('#chessboard-square-a3').click()
     await page.waitForFunction(() => document.querySelector('#chessboard-square-a3')?.getAttribute('aria-label')?.includes('White pawn'))
     await page.waitForTimeout(200)
-    assert(await page.getByRole('slider', { name: 'White winrate move navigator' }).count() === 1, 'missing-reading check lost the graph entirely')
-    assert(await page.getByRole('slider', { name: 'WDL trend move navigator' }).count() === 1, 'missing-reading check lost WDL entirely')
+    // With only the root scored on this branch there is no trend yet, and each
+    // card may fold to its one-line summary instead of a plot. Either way it
+    // has to be there, and a summary must ask for this position's reading
+    // rather than show the root's as if it were this one's.
+    const cards = await page.evaluate(() => [...document.querySelectorAll('.analytics-card')].slice(0, 2).map(card => ({
+      plot: Boolean(card.querySelector('[role="slider"]')),
+      summary: card.querySelector('.graph-summary')?.textContent || null,
+    })))
+    assert(cards.length === 2 && cards.every(card => card.plot || card.summary !== null),
+      `missing-reading check lost a graph entirely: ${JSON.stringify(cards)}`)
+    assert(cards.every(card => card.summary === null || /Analyze this position/.test(card.summary)),
+      `an unscored position's summary borrowed a different move's reading: ${JSON.stringify(cards)}`)
     assert(await page.locator('.analytics-card .graph-legend').count() === 0, 'an unscored position borrowed a different move’s graph reading')
-    console.log('  graph gaps: an unscored new branch keeps the plots without borrowing the root’s readings')
+    console.log('  graph gaps: an unscored new branch keeps its graphs without borrowing the root’s readings')
   } finally { await context.close() }
 }
 
@@ -6199,7 +6222,7 @@ async function checkGraphEstimateGuide(browser) {
       await page.keyboard.press('Enter')
       assert(await guide.getAttribute('open') !== null, 'the chart explanation did not open from the keyboard in Review')
       const text = await guide.innerText()
-      assert(text.includes('human games') && text.includes('strong engines') && text.includes('including drawn positions'), 'the guide does not explain both estimates and the neutral point')
+      assert(text.includes('White score') && text.includes('strong engines') && text.includes('a draw as half a point'), 'the guide does not explain both estimates and how a draw counts')
       if (scale === 2) await page.addStyleTag({ content: 'html { font-size: 200% !important; }' })
       await summary.scrollIntoViewIfNeeded()
       const layout = await guide.evaluate(el => ({
@@ -7371,8 +7394,8 @@ async function checkCompactToolbar(browser) {
             await page.keyboard.press('Escape')
             await page.getByRole('dialog').waitFor({ state: 'detached' })
           }
-          await page.getByRole('button', { name: 'Human vs Human', exact: true }).click()
-          assert(await page.locator('.app-shell').getAttribute('data-workspace-mode') === 'play', 'game-mode button stopped switching to Play')
+          await startGameMode(page, 'Human vs Human')
+          assert(await page.locator('.app-shell').getAttribute('data-workspace-mode') === 'play', 'starting a game stopped switching to Play')
           await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
           await page.getByRole('button', { name: 'Flip board', exact: true }).click()
           await page.waitForFunction(() => document.querySelector('#chessboard-square-a1').getBoundingClientRect().x
@@ -7471,7 +7494,7 @@ async function checkCompactFooter(browser) {
 
       // The longest transport mode keeps every speed and playback button
       // reachable through native focus scrolling, even at enlarged text.
-      await page.getByRole('button', { name: 'AI vs AI', exact: true }).click()
+      await startGameMode(page, 'AI vs AI')
       await page.getByRole('button', { name: 'Set AI speed to Step', exact: true }).click()
       await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
       await page.waitForTimeout(350)
@@ -7528,8 +7551,15 @@ async function checkNarrowDesktopLayout(browser) {
         workspaceMode: 'analysis', analysisExperience: experience, autoAnalyze: false, theme: experience === 'pro' ? 'dark' : 'light',
       })), experience)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      // One reading is a summary, not a plot; the graph needs a second position.
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.locator('.analytics-card .graph-summary strong').first().waitFor()
+      await page.locator('#chessboard-square-d2').click()
+      await page.locator('#chessboard-square-d4').click()
       await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
       await page.locator('.winrate-graph').first().waitFor()
+      // Back to the start, so the e2-e4 this check ends on is White's move.
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
       const left = page.getByRole('separator', { name: 'Resize left panel' })
       const right = page.getByRole('separator', { name: 'Resize right panel' })
       const checkBoard = async label => {
@@ -7641,6 +7671,11 @@ async function checkObservedLayout(browser) {
     })))
     await page.goto(BASE, { waitUntil: 'domcontentloaded' })
     assert(await page.locator('.winrate-graph').count() === 0, 'layout check requires an initially empty graph')
+    // One reading is a summary, not a plot; the graph needs a second position.
+    await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+    await page.locator('.analytics-card .graph-summary strong').first().waitFor()
+    await page.locator('#chessboard-square-e2').click()
+    await page.locator('#chessboard-square-e4').click()
     await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
     await page.locator('.winrate-graph').first().waitFor()
     const graphFits = async () => {
@@ -11143,25 +11178,27 @@ async function main() {
 
       // The mode strip scrolls sideways at this size, and the pill saying which
       // mode you are in has to be inside it. Landscape only: it is the one
-      // viewport here where the strip is `nowrap` and narrower than its
-      // contents, so it is the only one that can park the active pill
-      // off-screen. Play mode, because that is where both groups render.
+      // viewport here where the strip is `nowrap`, so it is the only one that
+      // can park the active pill off-screen.
       //
       // Written after finding the effect that does this reading a ref nothing
       // was attached to: choosing AI vs AI left its pill 62px past the right
-      // edge, and no assertion in this file could see it.
+      // edge. Since then the game modes moved into the New game dialog on a
+      // phone, so the strip holds only Play and Analysis, and the game-mode
+      // pills must stay out of it rather than reappear half-scrolled.
       if (viewport.name === 'mobile landscape') {
         await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-        await page.getByRole('button', { name: 'AI vs AI', exact: true }).first().click()
         const strip = await page.evaluate(async () => {
           await new Promise(resolve => setTimeout(resolve, 600))
           const scroller = document.querySelector('.mobile-modes-wrapper')
           if (!scroller) return null
-          const active = scroller.querySelector('[aria-label="Game mode"] .gc-pill-active')
-          if (!active) return { scrolls: false }
+          const gameModes = scroller.querySelector('[aria-label="Game mode"]')
+          const active = scroller.querySelector('[aria-label="Workspace mode"] .gc-pill-active')
+          if (!active) return { gameModesShown: false, scrolls: false }
           const box = active.getBoundingClientRect()
           const frame = scroller.getBoundingClientRect()
           return {
+            gameModesShown: Boolean(gameModes && gameModes.getClientRects().length),
             scrolls: scroller.scrollWidth > scroller.clientWidth,
             label: active.textContent.trim(),
             clippedLeft: Math.round(Math.max(0, frame.left - box.left)),
@@ -11169,13 +11206,12 @@ async function main() {
           }
         })
         assert(strip, 'mobile landscape: no mode strip on the page')
-        if (strip.scrolls) {
-          assert(strip.clippedLeft <= 1 && strip.clippedRight <= 1,
-            `mobile landscape: the active mode pill "${strip.label}" is clipped by `
-            + `${strip.clippedLeft}px on the left and ${strip.clippedRight}px on the right`)
-          console.log(`  mode strip: "${strip.label}" scrolled into view on a strip that overflows`)
-        }
-        await page.getByRole('button', { name: 'Human vs Human', exact: true }).first().click()
+        assert(!strip.gameModesShown,
+          'mobile landscape: the game-mode pills are back in the strip; the New game dialog carries them on a phone')
+        assert(strip.clippedLeft <= 1 && strip.clippedRight <= 1,
+          `mobile landscape: the active mode pill "${strip.label}" is clipped by `
+          + `${strip.clippedLeft}px on the left and ${strip.clippedRight}px on the right`)
+        console.log(`  mode strip: "${strip.label}" in view, game modes left to the New game dialog`)
         await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
       }
 
