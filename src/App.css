@@ -4553,6 +4553,14 @@ button.critical-moment-row {
     display: inline;
   }
 
+  /* One line where it fits: wrapped, "New / game" read as two labels. Below
+     340px the one-line label pushes the last action out of the bar. */
+  @media (min-width: 340px) {
+    .top .mobile-actions button:first-child .btn-label {
+      white-space: nowrap;
+    }
+  }
+
   .mobile-modes-wrapper {
     grid-area: modes;
     display: flex;
