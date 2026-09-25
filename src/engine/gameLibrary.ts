@@ -496,3 +496,15 @@ export function parseLibraryBackup(json: string, now = 0): LibraryGame[] {
   if (!isRecord(parsed) || parsed.format !== LIBRARY_BACKUP_FORMAT) return []
   return normalizeLibraryGames(parsed.games, now)
 }
+
+/**
+ * The game without its comments and glyphs. The export carries the engine's
+ * live readings -- `[%eval]` tags and "Best Nc6" notes -- so while analysis
+ * ran every new reading made the game just saved look unsaved and lit Save
+ * again, inviting a duplicate per reading. Nothing else can change the export
+ * while this sheet covers the board, so the moves and headers are the game.
+ */
+export function sameGameKey(pgn: string): string {
+  // Move numbers too: a comment makes the exporter restate Black's ("13...").
+  return pgn.replace(/\{[^}]*\}/g, ' ').replace(/\$\d+|\b\d+\.(\.\.)?/g, ' ').replace(/\s+/g, ' ').trim()
+}

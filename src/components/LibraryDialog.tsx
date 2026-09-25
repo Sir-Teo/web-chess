@@ -6,6 +6,7 @@ import {
     formatLibrarySize,
     getLibraryStats,
     libraryGameMatchesQuery,
+    sameGameKey,
     sortLibraryGames,
 } from '../engine/gameLibrary'
 import type { LibraryWriteResult } from '../hooks/useGameLibrary'
@@ -161,15 +162,16 @@ export function LibraryDialog({
         }
     }
 
-    const alreadySaved = savedPgn !== null && savedPgn === currentPgn && !name.trim()
+    const currentKey = sameGameKey(currentPgn)
+    const alreadySaved = savedPgn !== null && savedPgn === currentKey && !name.trim()
 
     const handleSave = () => {
-        if (savedPgnRef.current === currentPgn && !name.trim()) return
+        if (savedPgnRef.current === currentKey && !name.trim()) return
         const result = onSave(name, currentPgn)
         announce(result, storageIsDurable ? 'Saved to the library.' : 'Saved for this session only.')
         if (result.ok) {
-            savedPgnRef.current = currentPgn
-            setSavedPgn(currentPgn)
+            savedPgnRef.current = currentKey
+            setSavedPgn(currentKey)
         }
         setName('')
     }

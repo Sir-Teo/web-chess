@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import { LibraryDialog } from './LibraryDialog'
-import { MAX_LIBRARY_GAMES, createLibraryGame } from '../engine/gameLibrary'
+import { MAX_LIBRARY_GAMES, createLibraryGame, sameGameKey } from '../engine/gameLibrary'
 
 const noop = vi.fn()
 const ok = vi.fn(() => ({ ok: true } as const))
@@ -134,5 +134,12 @@ describe('when the browser will not store anything', () => {
 
     it('says nothing when storage works, which is nearly always', () => {
         expect(render()).not.toContain('not letting the page store data')
+    })
+
+    it('treats a fresh engine reading as the same game, and a new move as a new one', () => {
+        const bare = '[Result "*"]\n\n1. e4 e5 2. Nf3 *'
+        const read = '[Result "*"]\n\n1. e4 { [%eval 0.3] Best d4 } 1... e5 $2 2. Nf3 *'
+        expect(sameGameKey(read)).toBe(sameGameKey(bare))
+        expect(sameGameKey('[Result "*"]\n\n1. e4 e5 2. Nc3 *')).not.toBe(sameGameKey(bare))
     })
 })
