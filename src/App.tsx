@@ -128,6 +128,7 @@ import {
   type Premove,
 } from './engine/premove'
 import { moveSoundFor } from './engine/moveSound'
+import { spokenMove } from './engine/spokenMove'
 import { hasSiblingVariations, siblingVariation } from './engine/moveTree'
 import { chessComPositionUrl, lichessAnalysisUrl } from './engine/externalLinks'
 import { BOARD_THEMES, boardThemeById } from './engine/boardThemes'
@@ -3828,8 +3829,21 @@ function App() {
    * noise and it presses the clock. One function so the two cannot drift apart,
    * and so the AI loop has one thing to reach for.
    */
+  /**
+   * The engine's last move, in words, for a screen reader. A player who moves
+   * by typing or by keyboard had no way to hear the reply: nothing announced
+   * it, and the board is sixty-four squares to walk to find out. The move
+   * number keeps two identical replies in a row from reading as no change.
+   */
+  const [engineMoveSpoken, setEngineMoveSpoken] = useState('')
   const registerMovePlayed = useCallback((move: Move, now = Date.now()) => {
     playMoveSound(move)
+    const byEngine = workspaceMode === 'play'
+      && (gameMode === 'ai-vs-ai' || (gameMode === 'human-vs-ai' && move.color !== playerColorToTurn(playerColor)))
+    if (byEngine) {
+      const moveNumber = move.before.split(' ')[5] ?? ''
+      setEngineMoveSpoken(`${move.color === 'w' ? 'White' : 'Black'}, move ${moveNumber}: ${spokenMove(move)}.`)
+    }
     setHintMove(null)
     // Read once, from the position the move created: a move that mates or
     // stalemates hands over to nobody, and the clock has to be told.
@@ -3838,7 +3852,7 @@ function App() {
       if (!previous) return previous
       return ended ? moveEndedGame(previous, move.color, now) : moveMade(previous, move.color, now)
     })
-  }, [playMoveSound, readBoardEnding])
+  }, [gameMode, playMoveSound, playerColor, readBoardEnding, workspaceMode])
   // Reached from the AI loop, which is an effect that must not re-install
   // whenever the sound setting changes mid-game. Same shape as requestThreatRef.
   const playMoveSoundRef = useRef(registerMovePlayed)
@@ -6628,6 +6642,9 @@ function App() {
       <div className="app-notice-region" role="status" aria-live="polite">
         {notice && <span className="app-notice">{notice}</span>}
       </div>
+      {/* The engine's replies, spoken and not shown: the board and the move
+          list already show them. */}
+      <p className="visually-hidden" aria-live="polite">{engineMoveSpoken}</p>
 
       {/* ── Top bar ── */}
       <section
