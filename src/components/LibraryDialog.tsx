@@ -274,7 +274,8 @@ export function LibraryDialog({
                     </div>
 
                     <div className="dialog-section">
-                        <div className="library-toolbar">
+                        {/* Nothing to search or sort until something is saved. */}
+                        {games.length > 0 && <div className="library-toolbar">
                             <input
                                 id={searchId}
                                 type="search"
@@ -299,7 +300,7 @@ export function LibraryDialog({
                                     </button>
                                 ))}
                             </div>
-                        </div>
+                        </div>}
 
                         {!loaded && <p className="library-hint">Loading…</p>}
                         {loaded && !games.length && (
@@ -452,7 +453,9 @@ export function LibraryDialog({
                         className="btn-cancel"
                         onClick={handleExportPgn}
                         disabled={!games.length}
-                        title="A PGN database every other chess program can open"
+                        title={games.length
+                            ? 'A PGN database every other chess program can open'
+                            : 'Nothing to export yet — save a game first.'}
                     >
                         <IconDownload /> Export PGN
                     </button>

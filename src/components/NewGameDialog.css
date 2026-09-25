@@ -326,16 +326,6 @@
     accent-color: var(--accent);
 }
 
-.pgn-dialog .btn-start:disabled,
-.pgn-dialog .btn-cancel:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background: var(--bg-elevated);
-    border-color: var(--border-default);
-    color: var(--text-secondary);
-    box-shadow: none;
-}
-
 .pgn-dialog {
     max-width: 560px;
 }
@@ -695,6 +685,21 @@
 .btn-start:active {
     transform: translateY(0);
     box-shadow: none;
+}
+
+/* Every dialog, not only PGN's: the Library's Save stayed the brightest
+   button on the sheet while disabled, beside a line saying there was nothing
+   to save. After the hover rule so a pointer over a dead button changes
+   nothing. */
+.btn-start:disabled,
+.btn-cancel:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--bg-elevated);
+    border-color: var(--border-default);
+    color: var(--text-secondary);
+    box-shadow: none;
+    transform: none;
 }
 
 /* ── AI thinking overlay (from App.css, kept here too) ── */

@@ -75,14 +75,21 @@ describe('LibraryDialog', () => {
     })
 
     it('labels the search field and the sort group', () => {
-        const html = render()
+        const html = render({ games: [createLibraryGame('One', PGN, 1)] })
         expect(html).toContain('aria-label="Search saved games"')
         expect(html).toContain('aria-label="Sort saved games"')
         expect(html).toContain('role="group"')
     })
 
+    it('offers no search or sort on an empty shelf', () => {
+        const html = render()
+        expect(html).not.toContain('aria-label="Search saved games"')
+        expect(html).not.toContain('aria-label="Sort saved games"')
+        expect(html).toContain('Nothing to export yet')
+    })
+
     it('marks the active sort as pressed', () => {
-        expect(render()).toContain('aria-pressed="true"')
+        expect(render({ games: [createLibraryGame('One', PGN, 1)] })).toContain('aria-pressed="true"')
     })
 
     it('renders one page of a full library rather than every row', () => {
