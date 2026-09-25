@@ -920,6 +920,15 @@ describe('ranking the moves that cost the most', () => {
     expect(ranked[0].san).toBe('turnedTheGame')
   })
 
+  it('lists moves that cost exactly the same in the order they were played', () => {
+    const ranked = rankCriticalMoments([
+      row({ san: 'third', ply: 31, deltaCp: -900, winPercentLoss: 40 }),
+      row({ san: 'first', ply: 27, deltaCp: -900, winPercentLoss: 40 }),
+      row({ san: 'second', ply: 28, deltaCp: -900, winPercentLoss: 40 }),
+    ])
+    expect(ranked.map(r => r.san)).toEqual(['first', 'second', 'third'])
+  })
+
   it('only considers moves the review called a mistake', () => {
     const ranked = rankCriticalMoments([
       row({ san: 'best', quality: 'best', deltaCp: -5, winPercentLoss: 1 }),

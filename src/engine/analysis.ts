@@ -842,7 +842,9 @@ export function rankCriticalMoments(rows: ReviewRow[], limit = 5): ReviewRow[] {
   return rows
     .filter(row => row.quality === 'inaccuracy' || row.quality === 'mistake' || row.quality === 'blunder')
     .filter(row => isFiniteNumber(row.deltaCp))
-    .sort((a, b) => cost(b) - cost(a) || (a.deltaCp ?? 0) - (b.deltaCp ?? 0))
+    // Moves that cost exactly the same -- two forced mates missed, say -- are
+    // listed in the order they were played rather than the sort's whim.
+    .sort((a, b) => cost(b) - cost(a) || (a.deltaCp ?? 0) - (b.deltaCp ?? 0) || a.ply - b.ply)
     .slice(0, Math.max(0, limit))
 }
 
