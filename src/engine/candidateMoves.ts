@@ -84,7 +84,9 @@ export function lineScoreForCandidate(line: { cp?: number; mate?: number }): num
 export function formatCandidateGap(gapCp: number | null): string | null {
   if (gapCp === null) return null
   if (gapCp >= 5000) return 'mate swing'
-  if (gapCp <= 10) return 'same tier'
+  // Within a tenth of a pawn: level with the next line, said in the same
+  // "vs #2" terms as a real margin.
+  if (gapCp <= 10) return 'level with #2'
   return `+${(gapCp / 100).toFixed(2)} vs #2`
 }
 

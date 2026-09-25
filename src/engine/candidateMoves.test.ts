@@ -114,7 +114,7 @@ describe('describing the engine move for the Coach panel', () => {
     it('labels the gap in the three bands it has', () => {
         expect(formatCandidateGap(null)).toBeNull()
         expect(formatCandidateGap(9000)).toBe('mate swing')
-        expect(formatCandidateGap(4)).toBe('same tier')
+        expect(formatCandidateGap(4)).toBe('level with #2')
         expect(formatCandidateGap(150)).toBe('+1.50 vs #2')
     })
 
