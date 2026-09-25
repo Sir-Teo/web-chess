@@ -1441,9 +1441,14 @@ IDBObjectStore.prototype.add = function(value, ...args) {
           await target.waitForFunction(() => document.querySelector('.board-surface'))
           // The offer can land a moment after the board does. Checked once, a
           // loaded machine read "no dialog" and then clicked into its backdrop.
+          // Restoring opens the game on the Analyze tab, and the saved reviews
+          // live on Review, so go back there before reaching for them.
           const recovered = target.getByRole('button', { name: 'Restore', exact: true })
           await recovered.waitFor({ timeout: 3000 }).catch(() => {})
-          if (await recovered.count()) await recovered.click()
+          if (await recovered.count()) {
+            await recovered.click()
+            await target.getByRole('button', { name: 'Review', exact: true }).first().click()
+          }
           await target.locator('.saved-reviews summary').click()
           await upload(target, { ...backup, reviews: [{ ...original, id: 'queued', title: 'Queued first' }, { ...original, id: 'abort', title: 'Abort after insert' }] })
           assert(injected === 1, `the abort fixture did not intercept the native worker (${injected} scripts)`)
