@@ -208,6 +208,19 @@ input[type="checkbox"] {
     border-color: var(--border-strong);
     color: var(--text-heading);
   }
+
+  /* The rule above outranks \`.analysis-tab-btn.active\`, \`.mode-pill.active\`
+     and the top bar's \`.gc-pill-active\` (the top bar is a \`.panel\` too), so
+     the tab or pill a reader had just pressed turned grey under the pointer --
+     the one moment they look to it for confirmation. A selected control stays
+     selected while hovered. */
+  .panel .analysis-tab-btn.active:hover,
+  .panel .mode-pill.active:hover,
+  .panel .gc-pill.gc-pill-active:hover {
+    background: var(--accent-subtle);
+    border-color: var(--border-accent);
+    color: var(--accent-ink);
+  }
 }
 
 .panel button:active {
@@ -5091,7 +5104,7 @@ button.critical-moment-row {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .top-mode-pills .gc-pill:hover {
+  .top-mode-pills .gc-pill:not(.gc-pill-active):hover {
     color: var(--text-secondary);
     background: var(--bg-elevated);
   }
