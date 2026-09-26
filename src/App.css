@@ -5095,10 +5095,16 @@ button.critical-moment-row {
     z-index: 3000;
     border-radius: 0;
     /* Over the whole window now, the board's faint inset let the panels'
-       text read through around the choices. The dialogs' own scrim. */
+       text read through around the choices. The dialogs' scrim colour, but
+       not their blur: the board stays legible behind the choice, and the
+       pawn being promoted is what the choice is about. */
     background: var(--backdrop);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+  }
+
+  /* Sideways it sits over the panels, not the board, and the panel's
+     translucent surface let their text read through the choices. */
+  .promotion-chooser {
+    background: var(--bg-elevated);
   }
 
   /* And the stage has to come up with it. `.board-stage` is `position:
