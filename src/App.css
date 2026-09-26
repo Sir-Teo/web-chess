@@ -4837,7 +4837,11 @@ button.critical-moment-row {
     right: 0;
     transform: none;
     width: 100%;
-    max-width: 100%;
+    /* A sheet of reading width, centred. At full width a phone on its side
+       (844px) and a tablet ran each switch's row 800px long for a label of a
+       few words; phones narrower than this are unchanged. */
+    max-width: 36rem;
+    margin-inline: auto;
     /* Prevent blowout here -- against the screen the reader can see. `85vh`
        is 85% of the *large* viewport, which at 390x844 behind iOS Safari's
        ~115px of chrome is 717px of a 729px screen: 98%, not 85%, and a
