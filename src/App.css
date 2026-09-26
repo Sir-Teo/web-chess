@@ -5459,11 +5459,21 @@ button.critical-moment-row {
   color: var(--text-secondary);
 }
 
+/* A place for "?" to put focus, not a control: no ring. */
+.shortcut-heading:focus {
+  outline: none;
+}
+
+/* Closed off from the switches below it: with no bottom margin "Show these
+   shortcuts" sat 4px above "Auto-analyze after every move", and the first
+   setting read as one more line of the list. */
 .shortcut-list {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  margin: 0.6rem 0 0;
+  margin: 0.6rem 0 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .shortcut-list>div {

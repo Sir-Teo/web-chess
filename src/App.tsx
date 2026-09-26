@@ -515,6 +515,8 @@ function App() {
   const [bottomPanelOpen, setBottomPanelOpen] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsBodyRef = useRef<HTMLDivElement>(null)
+  /** Settings was opened by "?", so it should open on the shortcut list. */
+  const settingsOpenedForShortcutsRef = useRef(false)
   const openingIntelRef = useRef<HTMLDivElement>(null)
   const mainContainerRef = useRef<HTMLDivElement>(null)
   const insightsPanelRef = useRef<HTMLElement>(null)
@@ -1411,6 +1413,7 @@ function App() {
       if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault()
         rememberModalTriggerRef.current()
+        settingsOpenedForShortcutsRef.current = true
         setSettingsOpen(true)
         return
       }
@@ -1486,6 +1489,17 @@ function App() {
 
   const closeSettings = useCallback(() => setSettingsOpen(false), [])
   useModalFocus(settingsOpen, settingsBodyRef, closeSettings)
+  // "?" says "show these shortcuts", but the dialog's own first focus is its
+  // first enabled switch, which sits below the list: scrolling to it carried
+  // the heading out of view, so the key opened Settings on everything except
+  // what it was pressed for. Runs after the hook above, so it has the last
+  // word, and only for "?"; Tab from the heading still reaches the switches.
+  useEffect(() => {
+    const forShortcuts = settingsOpenedForShortcutsRef.current
+    settingsOpenedForShortcutsRef.current = false
+    if (!settingsOpen || !forShortcuts) return
+    settingsBodyRef.current?.querySelector<HTMLElement>('.shortcut-heading')?.focus()
+  }, [settingsOpen])
 
   // No wheel-to-navigate; it conflicts with trackpads and touch.
 
@@ -6825,7 +6839,7 @@ function App() {
                     Engine: <strong>{activeProfile.name}</strong>
                   </p>
                 )}
-                <h4 className="settings-subhead pointer-fine-only">Keyboard shortcuts</h4>
+                <h4 className="settings-subhead shortcut-heading pointer-fine-only" tabIndex={-1}>Keyboard shortcuts</h4>
                 <dl className="shortcut-list pointer-fine-only">
                   {KEYBOARD_SHORTCUTS.map(({ keys, action }) => (
                     <div key={action}>
