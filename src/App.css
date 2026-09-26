@@ -6637,6 +6637,12 @@ button.hint-btn {
   text-transform: uppercase;
   color: var(--text-tertiary);
   margin-right: auto;
+  /* Its own width, not the third of the row \`.inline-actions > *\` deals every
+     child: in the desktop rail a third is 92px, and "Drill this line" broke
+     after "this". The buttons share what is left, and wrap below it when the
+     text is enlarged past fitting. */
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 /* The first screen's start card: one primary action, the alternatives under it. */
