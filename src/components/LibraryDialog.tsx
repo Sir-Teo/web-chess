@@ -12,7 +12,7 @@ import {
     sortLibraryGames,
 } from '../engine/gameLibrary'
 import type { LibraryWriteResult } from '../hooks/useGameLibrary'
-import { IconClipboard, IconDownload, IconUpload, IconPlay, IconRefresh } from './icons'
+import { IconClipboard, IconDownload, IconUpload, IconPlay, IconPencil } from './icons'
 import './NewGameDialog.css'
 import './LibraryDialog.css'
 import { MAX_SEARCH_QUERY_LENGTH } from '../engine/searchTerms'
@@ -355,7 +355,7 @@ export function LibraryDialog({
                                             aria-label={`Rename ${game.name}`}
                                             title="Rename"
                                         >
-                                            <IconRefresh />
+                                            <IconPencil />
                                         </button>
                                         {confirmingDelete === game.id ? (
                                             <button
