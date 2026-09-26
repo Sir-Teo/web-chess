@@ -392,11 +392,19 @@ export function LibraryDialog({
                             </button>
                         )}
 
-                        {games.length > 0 && (
+                        {/* While a search narrows the list, the count is of what
+                            it found: "2 games" over one result read as though
+                            the other had failed to draw. The library's size is
+                            back once the search is cleared. */}
+                        {games.length > 0 && (visible.length === games.length ? (
                             <p className="library-hint">
                                 {stats.count} {stats.count === 1 ? 'game' : 'games'} · {stats.moves} ply · {formatLibrarySize(stats.size)}
                             </p>
-                        )}
+                        ) : visible.length > 0 && (
+                            <p className="library-hint">
+                                {visible.length} of {stats.count} games match
+                            </p>
+                        ))}
                     </div>
 
                     {!storageIsDurable && (
