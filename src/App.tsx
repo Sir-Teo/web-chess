@@ -7984,7 +7984,9 @@ function App() {
                   aria-atomic="true"
                   aria-label={analysisStatusAnnouncement}
                 >
-                  <span>{engineName}</span>
+                  {/* Ellipsized in a narrow rail -- "Stockfish 18 Lite WASM
+                      Mul..." at 901px -- so the whole name is a hover away. */}
+                  <span title={engineName}>{engineName}</span>
                   <strong className={`status ${analysisStatusText}`}>{analysisStatusText}</strong>
                 </div>
               )}
