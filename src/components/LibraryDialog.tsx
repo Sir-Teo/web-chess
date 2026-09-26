@@ -65,8 +65,12 @@ const SORT_OPTIONS: { value: LibrarySort; label: string }[] = [
 ]
 
 function describeGame(game: LibraryGame): string {
-    const { result, date, eco } = game.metadata
+    const { result, eco } = game.metadata
     const players = libraryPlayers(game.metadata, ' — ', '?')
+    // Not twice: a suggested name already ends in the date, and the details
+    // line under it repeated it -- "Queen's Gambit · 2026.09.26" over
+    // "2026.09.26 · 3 ply".
+    const date = game.metadata.date && !game.name.includes(game.metadata.date) ? game.metadata.date : undefined
     return [players, result, date, eco, `${game.moveCount} ply`].filter(Boolean).join(' · ')
 }
 
