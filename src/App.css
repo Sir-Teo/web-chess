@@ -4542,6 +4542,26 @@ button.critical-moment-row {
     max-width: 11rem;
   }
 
+  /* Not so for an imported game, whose result the turn pill never states: at
+     the last move of a PGN that ended 1-0 by resignation it says "White to
+     move", and the 1-0 sat past the edge at 390px as a faded sliver. Where
+     the names are hidden (see the 520px rule) the result is one short badge,
+     so it goes ahead of the opening, which gives up those 37px and still
+     opens to its whole name on a tap. */
+  @media (max-width: 520px) {
+    .board-meta-flow>.board-meta-game {
+      order: 2;
+    }
+
+    .board-meta-flow>.board-meta-opening {
+      order: 3;
+    }
+
+    .board-meta-flow>.board-meta-material {
+      order: 4;
+    }
+  }
+
   /* Narrower than it would like: at its full 13rem the opening was longer than
      the rest of the row put together and pushed everything after it out of
      sight. Cut here it still says which opening -- "C95 Ruy Lopez: Cl..." --
