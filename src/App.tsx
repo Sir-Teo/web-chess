@@ -8365,7 +8365,12 @@ function App() {
                     {/* The question a player asks before every move, and the one
                         thing the panel could not answer. A null-move search:
                         the same position with the other side to move. */}
+                    {/* Not offered once the game is over: pressed there, its only
+                        answer was "nothing to threaten". Kept for the T key's
+                        reply, which is the same sentence and needs somewhere to go. */}
+                    {(!boardEnding || threatError) && (
                     <div className="coach-threat">
+                      {!boardEnding && (
                       <button
                         type="button"
                         className="coach-threat-btn"
@@ -8375,6 +8380,7 @@ function App() {
                       >
                         <IconAlert /> {isProbingThreat ? 'Reading the threat…' : 'What is threatened?'}
                       </button>
+                      )}
                       {activeThreat && (
                         <p className="coach-threat-answer" role="status">
                           <strong>{activeThreat.san}</strong>
@@ -8388,6 +8394,7 @@ function App() {
                         <p className="coach-threat-answer error-copy" role="status">{threatError}</p>
                       )}
                     </div>
+                    )}
                     {coachMoveInsight && (
                       <div className="coach-insight">
                         <div className="coach-tags" aria-label="Best move traits">
