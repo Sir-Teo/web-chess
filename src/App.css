@@ -1856,6 +1856,14 @@ button.board-meta-opening {
   container-type: inline-size;
 }
 
+/* As wide as its longest name where there is room for it: capped at the
+   10rem every other option select gets, "Auto (recommended)" read "Auto
+   (recommende" on a 768px tablet with 540px of the row empty beside it. */
+.engine-option-row.profile-picker select {
+  width: auto;
+  max-width: 100%;
+}
+
 @container (max-width: 20rem) {
   .profile-picker {
     grid-template-columns: minmax(0, 1fr);
@@ -1873,7 +1881,8 @@ button.board-meta-opening {
 }
 
 .engine-option-row input,
-.engine-option-row select {
+.engine-option-row select,
+.engine-lab-console input {
   padding: 0.36rem 0.46rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-default);
@@ -1887,7 +1896,8 @@ button.board-meta-opening {
 }
 
 .engine-option-row input:focus,
-.engine-option-row select:focus {
+.engine-option-row select:focus,
+.engine-lab-console input:focus {
   outline: none;
   border-color: rgba(45, 212, 191, 0.42);
   box-shadow: 0 0 0 2px var(--accent-subtle);
