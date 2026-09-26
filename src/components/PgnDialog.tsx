@@ -498,6 +498,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     // is looking. A position off the main line is not in the link at all, and
     // opens at the end as before.
     const sharedPly = mainLineNodes.findIndex(node => node.fen === currentFen)
+    const gameShareOpensMidGame = sharedPly >= 0 && sharedPly < mainLineNodes.length - 1
     const gameShareUrl = mainLineNodes.length > 1
         ? buildGameShareUrl(
             mainLineNodes[0]?.fen ?? currentFen,
@@ -1079,10 +1080,14 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                             className="btn-cancel"
                             onClick={handleCopyGameLink}
                             disabled={Boolean(gameShareDisabledReason)}
-                            title={gameShareDisabledReason ?? 'A link that opens this whole game, not just the position'}
+                            title={gameShareDisabledReason ?? (gameShareOpensMidGame
+                                ? 'A link to this whole game that opens at the move on the board'
+                                : 'A link that opens this whole game, not just the position')}
                             aria-label={gameShareDisabledReason
                                 ? `Copy game link unavailable. ${gameShareDisabledReason}`
-                                : 'Copy a link to this whole game'}
+                                : gameShareOpensMidGame
+                                    ? 'Copy a link to this whole game, opening at this move'
+                                    : 'Copy a link to this whole game'}
                         >
                             <IconClipboard /> {copyStatus === 'game-link-copied' ? 'Copied Link' : 'Copy Game Link'}
                         </button>
