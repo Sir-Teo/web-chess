@@ -5469,8 +5469,10 @@ button.wc-btn {
 }
 
 /* Its accent is important-flagged, so a disabled Autoplay -- the end of the
-   line, or a finished game -- stayed the brightest thing in the footer. */
-.wc-btn-resume:disabled {
+   line, or a finished game -- stayed the brightest thing in the footer. Step
+   has the same flag and the same problem while it waits for the AI's turn. */
+.wc-btn-resume:disabled,
+.wc-btn-step:disabled {
   background: var(--bg-elevated) !important;
   border-color: var(--border-default) !important;
   color: var(--text-secondary) !important;
