@@ -469,6 +469,13 @@
         grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
     }
 
+    /* Black starts its own row. Five columns at 320px put White's king on
+       Black's row and Black's queen and king beside the eraser, so a colour
+       could only be told apart glyph by glyph. */
+    .fen-setup-palette > .fen-piece-btn:nth-child(7) {
+        grid-column-start: 1;
+    }
+
     .fen-piece-btn {
         min-height: 44px;
         font-size: 1.08rem;
