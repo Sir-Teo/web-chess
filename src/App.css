@@ -275,6 +275,15 @@ input[type="checkbox"] {
   background: #12a89a !important;
 }
 
+/* Same important-flagged accent as Autoplay's, so a disabled primary kept
+   its gradient; after :hover so a pointer over it changes nothing. */
+.btn-primary:disabled {
+  background: var(--bg-elevated) !important;
+  border-color: var(--border-default) !important;
+  color: var(--text-secondary) !important;
+  box-shadow: none !important;
+}
+
 .btn-icon {
   font-size: 1rem;
   line-height: 1;
