@@ -8105,6 +8105,11 @@ function App() {
                       />
                       <span>Show board arrow overlays</span>
                     </label>
+                    {/* Hint, Take back and Resign all answer "yours": in a
+                        game between two engines each is disabled for good, and
+                        three dead buttons under a game being watched read as
+                        something that failed to load. */}
+                    {gameMode !== 'ai-vs-ai' && (
                     <div className="inline-actions hint-row">
                       <button
                         type="button"
@@ -8117,6 +8122,7 @@ function App() {
                         <IconZap /> {isHinting ? 'Looking…' : 'Hint'}
                       </button>
                     </div>
+                    )}
                     {/* The second half of the sentence is a claim about the
                         board, and the switch that makes it false is three
                         lines above this one. With overlays off the hint drew
@@ -8132,6 +8138,7 @@ function App() {
                       </p>
                     )}
                     {!blunderNudgeAboveMoves && blunderNudgeCard}
+                    {gameMode !== 'ai-vs-ai' && (
                     <div className="inline-actions takeback-row">
                       <button
                         type="button"
@@ -8163,6 +8170,7 @@ function App() {
                         <IconFlag /> {resignArmed ? 'Confirm?' : 'Resign'}
                       </button>
                     </div>
+                    )}
                   </div>
                 </>
               )}
