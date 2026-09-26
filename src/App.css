@@ -4636,6 +4636,19 @@ button.critical-moment-row {
     }
   }
 
+  /* Below that it wrapped anyway and the bar clipped it to "New / gam". The
+     icon alone, square like its neighbours; the button keeps its name. */
+  @media (max-width: 339.98px) {
+    .top .mobile-actions button:first-child .btn-label {
+      display: none;
+    }
+
+    .top .compact-grid .mobile-actions button:first-child {
+      width: 2.75rem;
+      padding-inline: 0;
+    }
+  }
+
   .mobile-modes-wrapper {
     grid-area: modes;
     display: flex;
