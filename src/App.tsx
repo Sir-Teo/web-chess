@@ -53,7 +53,7 @@ import {
 } from './engine/openingExplorer'
 import { parseCandidateMoveInput, describeBestMove } from './engine/candidateMoves'
 import { type AnalyzeMode, type UciGoLimits } from './engine/uci'
-import { exportAnnotatedPgn, flattenPgnMainLine, parsePgnMoveTree, pgnImportUserErrorMessage } from './engine/pgn'
+import { APP_PLACEHOLDER_HEADERS, exportAnnotatedPgn, flattenPgnMainLine, parsePgnMoveTree, pgnImportUserErrorMessage } from './engine/pgn'
 import { type LibraryGame, extractLibraryMetadata, suggestGameName } from './engine/gameLibrary'
 import { libraryStorageIsDurable } from './engine/gameLibraryStorage'
 import { narrativeTagToneClass, narrativeTags } from './engine/narrativeTags'
@@ -6180,13 +6180,16 @@ function App() {
       ?? `${game.turn() === 'w' ? 'White' : 'Black'} to move${game.isCheck() ? ' · Check' : ''}`
   // An imported game already carries who played it. The app parsed those
   // headers, re-exported them, and never once showed them.
-  const importedWhite = knownPgnHeader(pgnHeaders.White)
-  const importedBlack = knownPgnHeader(pgnHeaders.Black)
+  // Not this app's own "Player 1" and "Player 2", which every saved game
+  // carries: restored after a reload, a pass-and-play game was titled
+  // "Player 1 vs Player 2 · Web Chess" as though someone had imported it.
+  const importedWhite = knownPgnHeader(pgnHeaders.White, APP_PLACEHOLDER_HEADERS.White)
+  const importedBlack = knownPgnHeader(pgnHeaders.Black, APP_PLACEHOLDER_HEADERS.Black)
   const importedPlayers = importedWhite && importedBlack
     ? `${importedWhite} vs ${importedBlack}`
     : null
   const importedResult = knownPgnHeader(pgnHeaders.Result)
-  const importedGameTitle = [importedPlayers, knownPgnHeader(pgnHeaders.Event), importedResult]
+  const importedGameTitle = [importedPlayers, knownPgnHeader(pgnHeaders.Event, APP_PLACEHOLDER_HEADERS.Event), importedResult]
     .filter(Boolean).join(' · ')
   const labelFenFields = (linePreview?.fen ?? fen).split(/\s+/)
   const labelFullmove = Number(labelFenFields[5]) || 1

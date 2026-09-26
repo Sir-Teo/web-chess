@@ -821,6 +821,17 @@ export function flattenPgnMainLine(entries: GameTreeImportEntry[]): Array<{ move
     return line
 }
 
+/**
+ * What this app writes when a game has no names of its own. They round-trip
+ * through every save -- the autosave, the library, an export read back in --
+ * and on the way back they are this app's placeholders, not a game's players.
+ */
+export const APP_PLACEHOLDER_HEADERS = {
+    Event: 'Web Chess Game',
+    White: 'Player 1',
+    Black: 'Player 2',
+} as const
+
 export function exportAnnotatedPgn(
     mainLine: GameNode[],
     evaluationsByFen: Map<string, EvalSnapshot>,
@@ -834,12 +845,12 @@ export function exportAnnotatedPgn(
 
     // Set headers (Event, Site, Date, Round, White, Black, Result)
     const defaultHeaders: Record<string, string> = {
-        Event: 'Web Chess Game',
+        Event: APP_PLACEHOLDER_HEADERS.Event,
         Site: 'Web Chess',
         Date: formatPgnDate(),
         Round: '1',
-        White: 'Player 1',
-        Black: 'Player 2',
+        White: APP_PLACEHOLDER_HEADERS.White,
+        Black: APP_PLACEHOLDER_HEADERS.Black,
         Result: '*',
     }
 
