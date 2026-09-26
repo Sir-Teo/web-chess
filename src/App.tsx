@@ -5356,7 +5356,7 @@ function App() {
    * `replaySharedGame` stops at the first move the position will not take —
    * rather than being thrown away whole.
    */
-  const loadSharedGame = useCallback((shared: { rootFen: string; moves: string[]; carried?: number }): boolean => {
+  const loadSharedGame = useCallback((shared: { rootFen: string; moves: string[]; carried?: number; ply?: number }): boolean => {
     const played = replaySharedGame(shared)
     if (!played.length) return false
     // Two ways to lose the end of a link: a token the decoder could not read
@@ -5386,11 +5386,14 @@ function App() {
     setPendingPromotion(null)
     clearBoardSelection()
 
-    gameTree.loadMainLine(played.map(entry => ({ move: entry.move, fen: entry.fen })), shared.rootFen)
-    const finalFen = played[played.length - 1]!.fen
-    game.load(finalFen)
-    setFen(finalFen)
-    setPendingPonderFen(finalFen)
+    // Where the sender was standing, when the link says: the whole game is
+    // loaded either way, so the rest of it is one step forward.
+    const landAt = typeof shared.ply === 'number' && shared.ply < played.length ? shared.ply : played.length
+    gameTree.loadMainLine(played.map(entry => ({ move: entry.move, fen: entry.fen })), shared.rootFen, landAt)
+    const landingFen = landAt === 0 ? new Chess(shared.rootFen).fen() : played[landAt - 1]!.fen
+    game.load(landingFen)
+    setFen(landingFen)
+    setPendingPonderFen(landingFen)
     requestBoardReveal()
     // After the load, or the load clears it.
     if (lost > 0) announce(sharedLinkTruncated(played.length), NOTICE_EXPLAIN_MS)

@@ -494,11 +494,16 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
      * decoder's own bound — half a game in a link is worse than being told to
      * send the PGN.
      */
+    // The main-line position on the board, so the link opens where the sender
+    // is looking. A position off the main line is not in the link at all, and
+    // opens at the end as before.
+    const sharedPly = mainLineNodes.findIndex(node => node.fen === currentFen)
     const gameShareUrl = mainLineNodes.length > 1
         ? buildGameShareUrl(
             mainLineNodes[0]?.fen ?? currentFen,
             mainLineNodes.slice(1).map(node => node.uci).filter(Boolean),
             typeof window === 'undefined' ? 'https://localhost/' : window.location.href,
+            sharedPly >= 0 ? sharedPly : undefined,
         )
         : null
     const gameShareTooLong = Boolean(gameShareUrl && gameShareUrl.length > MAX_SHARED_GAME_CHARS)

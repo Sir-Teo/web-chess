@@ -46,6 +46,25 @@ describe('a game in a link', () => {
     expect(parsed?.moves).toEqual(SICILIAN)
   })
 
+  it('opens where the sender was looking, when that was not the end', () => {
+    const atThird = parseGameShareHash(new URL(buildGameShareUrl(START, SICILIAN, HREF, 3)).hash)
+    expect(atThird?.moves).toEqual(SICILIAN)
+    expect(atThird?.ply).toBe(3)
+    expect(parseGameShareHash(new URL(buildGameShareUrl(START, SICILIAN, HREF, 0)).hash)?.ply).toBe(0)
+    // The end is the default, so it is not written.
+    expect(buildGameShareUrl(START, SICILIAN, HREF, SICILIAN.length)).not.toContain('ply=')
+    expect(buildGameShareUrl(START, SICILIAN, HREF)).not.toContain('ply=')
+  })
+
+  it('ignores a ply the game does not reach, and still shows the game', () => {
+    const encoded = new URL(buildGameShareUrl(START, SICILIAN, HREF)).hash
+    for (const bad of ['99', '-1', '2.5', 'x', '']) {
+      const parsed = parseGameShareHash(`${encoded}&ply=${bad}`)
+      expect(parsed?.moves).toEqual(SICILIAN)
+      expect(parsed?.ply).toBeUndefined()
+    }
+  })
+
   it('shares an empty game as a position, not as nothing', () => {
     const parsed = parseGameShareHash(new URL(buildGameShareUrl(START, [], HREF)).hash)
     expect(parsed?.rootFen).toBe(START)

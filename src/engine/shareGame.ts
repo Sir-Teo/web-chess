@@ -25,6 +25,7 @@ import { normalizeUciMoves } from './uci'
  */
 
 export const GAME_HASH_KEY = 'game'
+export const PLY_HASH_KEY = 'ply'
 const PAYLOAD_SEPARATOR = '|'
 
 /**
@@ -44,6 +45,12 @@ export type SharedGame = {
   moves: string[]
   /** How many move tokens the link held, before any were discarded. */
   carried?: number
+  /**
+   * The position the sender was looking at, in plies from the start: 0 is the
+   * starting position. Absent means the end of the game, which is also what a
+   * link made before this existed opens at.
+   */
+  ply?: number
 }
 
 function toBase64Url(text: string): string {
@@ -140,9 +147,16 @@ export function replaySharedGame(shared: SharedGame): ReplayedSharedMove[] {
   return played
 }
 
-export function buildGameShareUrl(rootFen: string, moves: string[], href: string): string {
+/**
+ * A link to the whole game, open at `ply` when the sender was somewhere in
+ * the middle of it: "look at this move" sent from move 12 of 40 used to land
+ * the reader on move 40. Left off at the end, where it would say nothing.
+ */
+export function buildGameShareUrl(rootFen: string, moves: string[], href: string, ply?: number): string {
   const url = new URL(href)
-  url.hash = `${GAME_HASH_KEY}=${encodeSharedGame(rootFen, moves)}`
+  const count = normalizeUciMoves(moves).length
+  const at = typeof ply === 'number' && Number.isInteger(ply) && ply >= 0 && ply < count ? `&${PLY_HASH_KEY}=${ply}` : ''
+  url.hash = `${GAME_HASH_KEY}=${encodeSharedGame(rootFen, moves)}${at}`
   return url.toString()
 }
 
@@ -153,6 +167,13 @@ export function parseGameShareHash(hash: string): SharedGame | null {
   // done before the payload's own limit ever gets a look.
   if (raw.length > MAX_SHARED_GAME_CHARS + 64) return null
 
-  const encoded = new URLSearchParams(raw).get(GAME_HASH_KEY)
-  return encoded ? decodeSharedGame(encoded) : null
+  const params = new URLSearchParams(raw)
+  const encoded = params.get(GAME_HASH_KEY)
+  const shared = encoded ? decodeSharedGame(encoded) : null
+  if (!shared) return null
+  // A ply the game does not reach is ignored rather than refused: the moves
+  // are still worth showing, from their end.
+  const rawPly = params.get(PLY_HASH_KEY) ?? ''
+  const ply = Number(rawPly)
+  return /^\d{1,4}$/.test(rawPly) && ply < shared.moves.length ? { ...shared, ply } : shared
 }
