@@ -5468,6 +5468,15 @@ button.wc-btn {
   }
 }
 
+/* Its accent is important-flagged, so a disabled Autoplay -- the end of the
+   line, or a finished game -- stayed the brightest thing in the footer. */
+.wc-btn-resume:disabled {
+  background: var(--bg-elevated) !important;
+  border-color: var(--border-default) !important;
+  color: var(--text-secondary) !important;
+  box-shadow: none !important;
+}
+
 .wc-btn-step {
   background: var(--info-subtle) !important;
   border-color: rgba(88, 166, 255, 0.3) !important;
