@@ -601,7 +601,10 @@ function parenthesize(tokens: string[]): string[] {
  */
 function breakLongToken(token: string): string[] {
     if (token.length <= MOVETEXT_LINE_WIDTH) return [token]
-    return token.match(/\[%[^\]]*\]|\S+/g) ?? [token]
+    // The separator stays on the command it follows. Split off, it was
+    // rejoined with a space -- "[%eval 0.35] ;" -- and the one that fell to
+    // the next line opened it: "; Main line".
+    return token.match(/\[%[^\]]*\]\S*|\S+/g) ?? [token]
 }
 
 function wrapMovetext(tokens: string[], result: string): string {
