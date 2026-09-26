@@ -3343,14 +3343,19 @@ button.critical-moment-row {
   margin: -0.12rem 0 0.52rem;
 }
 
+/* Wrapping flex rather than an auto-fit grid: the desktop rail fits three
+   4.6rem tiles, and on a grid Coach's four went three and one -- Evaluated
+   alone at a third of the row with two empty cells beside it. Here a short
+   last row grows to fill it instead. */
 .accuracy-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(4.6rem, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.38rem;
   margin-bottom: 0.48rem;
 }
 
 .accuracy-summary div {
+  flex: 1 1 4.6rem;
   min-width: 0;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -3380,6 +3385,7 @@ button.critical-moment-row {
 
 @media (max-width: 520px) {
   .accuracy-summary {
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
