@@ -6085,6 +6085,12 @@ summary:active {
   margin: 0.15rem 0 0.35rem;
 }
 
+/* Two pickers stacked: the second label sat flush under the first row's
+   swatches and read as their caption rather than its own heading. */
+.board-theme-row + .board-theme-row {
+  margin-top: 0.6rem;
+}
+
 .board-theme-label {
   font-size: 0.68rem;
   font-weight: 700;

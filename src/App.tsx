@@ -6837,6 +6837,11 @@ function App() {
                   />
                   <span>Auto-analyze after every move</span>
                 </label>
+                {/* The title says why it is off, but a touch screen never shows
+                    a title, so a phone saw a grey box with no reason. */}
+                {!engineEnabled && (
+                  <p className="panel-copy small">Available in Analysis mode.</p>
+                )}
                 <label className="switch-control">
                   <input
                     type="checkbox"
