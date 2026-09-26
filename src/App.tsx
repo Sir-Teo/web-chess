@@ -2407,11 +2407,21 @@ function App() {
     tablebase: tablebaseTopMove,
   })
   const coachBestMoveIsTablebase = isExactTablebaseCoachMove(coachBestMove, tablebaseTopMove)
-  const coachBestMoveText = boardEnding ? 'None' : bestMoveLabel(fen, coachBestMove)
+  /**
+   * A drill asks for the next move of a line from memory, and the engine's
+   * best move is very often that move: drilling 1.e4 e5 2.Nf3 drew Nf3 in
+   * green on the board and named it in the Coach card. Review practice already
+   * keeps its answer off the board for the same reason; while the drill waits
+   * for the reader's move, so does this, until a miss reveals it.
+   */
+  const drillAwaitingAnswer = Boolean(
+    drill && !drill.revealed && drill.expectedFen === fen && isDrillTurn(drill.line, drill.ply),
+  )
+  const coachBestMoveText = boardEnding ? 'None' : drillAwaitingAnswer ? 'Hidden' : bestMoveLabel(fen, coachBestMove)
   const coachReplyMove = boardEnding || coachBestMoveIsTablebase
     ? null
     : coachLine?.pv[1] ?? currentCloudEval?.pvs[0]?.moves[1] ?? currentLastPonderMove ?? null
-  const coachReplyMoveText = boardEnding ? 'None' : ponderMoveLabel(fen, coachBestMove, coachReplyMove)
+  const coachReplyMoveText = boardEnding ? 'None' : drillAwaitingAnswer ? 'Hidden' : ponderMoveLabel(fen, coachBestMove, coachReplyMove)
   const coachDepth = currentEvaluation ? currentEvaluation.depth : unrestrictedCoachLine?.depth ?? currentCloudEval?.depth
   // A tile labelled Depth reports a depth or nothing. It used to fall back to
   // the engine status, so it read "analyzing" in a row of numbers -- and then,
@@ -3739,6 +3749,7 @@ function App() {
     if (reviewPractice && reviewPractice.status !== 'correct' && reviewPractice.attempts < 2) {
       return list
     }
+    if (drillAwaitingAnswer) return list
 
     // Violet, so it reads as neither the move that was played (amber) nor a move
     // the engine recommends (the red-to-green candidate scale). It is the move
@@ -3798,7 +3809,7 @@ function App() {
     }
 
     return list
-  }, [activeThreat, currentBoardMove, engineEnabled, fen, hintMove, linePreview, lines, reviewPractice, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
+  }, [activeThreat, currentBoardMove, drillAwaitingAnswer, engineEnabled, fen, hintMove, linePreview, lines, reviewPractice, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
 
   /**
    * What the board is handed: everything the engine has to say, and then the
@@ -6639,6 +6650,7 @@ function App() {
       {currentLastBestMove
         && !isGameOver
         && (!reviewPractice || reviewPractice.status === 'correct' || reviewPractice.attempts >= 2)
+        && !drillAwaitingAnswer
         && (
           <p className="best-move" title={currentLastBestMove}>{isCandidateSearch ? 'Candidate' : 'Best'}: {bestMoveLabel(fen, currentLastBestMove)}</p>
         )}
@@ -8275,7 +8287,7 @@ function App() {
                         {positionEngineChanged && ' Saved reading from a different engine profile.'}
                       </p>
                     )}
-                    {coachLine && !boardEnding && !coachBestMoveIsTablebase && (
+                    {coachLine && !boardEnding && !coachBestMoveIsTablebase && !drillAwaitingAnswer && (
                       <p className="panel-copy small coach-line-source">
                         Candidate line · local engine D{coachLine.depth}
                         {isCandidateSearch && ` · Candidate score ${formatWhitePovEvaluation(fen, coachLine.cp, coachLine.mate)}`}
@@ -8286,6 +8298,7 @@ function App() {
                         the Pro panel's. Same buttons, shorter line. */}
                     {(() => {
                       if (boardEnding) return <p>The game is over here. Go back to explore another continuation.</p>
+                      if (drillAwaitingAnswer) return <p className="panel-copy small">The line is hidden while you find the drill move.</p>
                       // See `selectCoachLineSource` for why a stored best move
                       // counts as a line: the card used to name one and ask for
                       // an analysis in the same breath.
@@ -8635,6 +8648,9 @@ function App() {
                   )}
                   <div className="pv-list">
                     <h3><span className="section-icon"><IconSearch /></span> {isCandidateSearch ? 'Candidate lines' : 'Lines'}</h3>
+                    {drillAwaitingAnswer ? (
+                      <p className="panel-copy small">Hidden while you find the drill move.</p>
+                    ) : (<>
                     {currentFenLines.length === 0 && !activeGoCommand && !currentLastBestMove && (
                       <div className="empty-state">
                         <span className="empty-state-icon" aria-hidden="true"><IconSearch /></span>
@@ -8699,6 +8715,7 @@ function App() {
                         Expected reply: {ponderMoveLabel(fen, currentLastBestMove, currentLastPonderMove)}
                       </p>
                     )}
+                    </>)}
                   </div>
                 </>
               )}
