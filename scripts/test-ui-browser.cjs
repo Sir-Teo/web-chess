@@ -9849,7 +9849,27 @@ async function checkDrawModeEndsWithItsPurpose(browser) {
     await page.waitForTimeout(400)
     assert(await toggle.getAttribute('aria-pressed') === 'true',
       'Draw could not be turned on inside Play, so the mode is unusable where it was asked for')
-    console.log('  draw mode: ends at the move into Play, and can still be turned on there')
+
+    // And a stroke actually drawn. Nothing above ever dragged a finger, and the
+    // move handler read the event inside a state updater, where React can run
+    // it after `currentTarget` is gone: the second touchmove of any drag threw
+    // and the whole app fell to its error screen. Several moves, like a finger.
+    const client = await context.newCDPSession(page)
+    const centre = async square => {
+      const box = await page.locator(`[data-square="${square}"]`).boundingBox()
+      return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+    }
+    const from = await centre('g1'), to = await centre('f3')
+    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x, y: from.y, id: 1 }] })
+    for (let step = 1; step <= 6; step += 1) {
+      const x = from.x + (to.x - from.x) * step / 6, y = from.y + (to.y - from.y) * step / 6
+      await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y, id: 1 }] })
+    }
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    await page.waitForTimeout(300)
+    assert(await page.locator('[data-square="e4"]').count() === 1, 'drawing an arrow with a finger took the board down')
+    assert(await page.locator('.board-draw-clear').count() === 1, 'a finger stroke from g1 to f3 drew nothing')
+    console.log('  draw mode: ends at the move into Play, can still be turned on there, and draws a finger stroke')
   } finally { await context.close() }
 }
 

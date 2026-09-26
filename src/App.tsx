@@ -4467,10 +4467,15 @@ function App() {
     setDrawInProgress({ from: square, to: square })
   }, [drawSquareFrom])
 
+  // The square is read here, in the handler, and not in the updater: React
+  // may run an updater later, during render, and by then the event's
+  // `currentTarget` is null. Reading it in there threw on the second move of
+  // a drag and took the whole app down to its error screen -- drawing any
+  // arrow with a finger crashed the board.
   const handleDrawPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const square = drawSquareFrom(event)
     setDrawInProgress(current => {
       if (!current) return current
-      const square = drawSquareFrom(event)
       return square === current.to ? current : { ...current, to: square }
     })
   }, [drawSquareFrom])
