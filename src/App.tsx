@@ -644,6 +644,15 @@ function App() {
    */
   const openingInStrip = isMobileLayout && !isLandscapePhoneViewport(viewport)
   const openingOnItsOwnRow = !isMobileLayout
+  /**
+   * In the strip the name is capped at 8.5rem, so "Ruy Lopez: Morphy Defense"
+   * reads "Ruy Lopez: Mo…" -- and its `title` is no help on a touch screen,
+   * which is the only place this copy exists. A tap lifts the cap; the strip
+   * already scrolls, so the full name costs width and no height. Held as the
+   * name that was opened rather than a flag, so the next opening arrives
+   * capped again instead of silently pushing the rest of the row away.
+   */
+  const [expandedOpeningName, setExpandedOpeningName] = useState<string | null>(null)
   // The stage is sized by the row it sits in, never by the board inside it, so
   // it is safe to measure and size the board from.
   const stageHeight = useElementHeight(boardStageRef, viewport.height)
@@ -7618,14 +7627,26 @@ function App() {
                   are. The centred row below is the desktop's, and only one of
                   the two is ever in the document. */}
               {opening && openingInStrip && (
-                <span
-                  className="board-meta-opening"
+                <button
+                  type="button"
+                  className={`board-meta-opening${expandedOpeningName === opening.name ? ' is-expanded' : ''}`}
                   aria-label={`Opening ${opening.eco}: ${opening.name}`}
+                  aria-expanded={expandedOpeningName === opening.name}
                   title={`${opening.eco} ${opening.name}`}
+                  onClick={(event) => {
+                    const expanding = expandedOpeningName !== opening.name
+                    setExpandedOpeningName(expanding ? opening.name : null)
+                    if (expanding) {
+                      const target = event.currentTarget
+                      // After the cap is lifted, bring the end of the name into
+                      // the strip's view; `nearest` keeps the page itself still.
+                      requestAnimationFrame(() => target.scrollIntoView({ block: 'nearest', inline: 'nearest' }))
+                    }
+                  }}
                 >
                   <strong>{opening.eco}</strong>
                   <span>{opening.name}</span>
-                </span>
+                </button>
               )}
               </div>
               {!drawControlsInBottomBar && drawControls}

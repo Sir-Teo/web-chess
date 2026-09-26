@@ -997,6 +997,20 @@ input[type="checkbox"] {
   color: var(--text-secondary);
 }
 
+/* A button on a phone, where a tap shows the whole name; it should still read
+   as the text it was. */
+button.board-meta-opening {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.board-meta-opening.is-expanded {
+  max-width: none;
+}
+
 .board-meta-opening>span {
   overflow: hidden;
   text-overflow: ellipsis;
