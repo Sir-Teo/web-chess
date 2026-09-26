@@ -1273,12 +1273,15 @@ button.board-meta-opening {
   z-index: 6;
 }
 
-/* AI thinking overlay */
+/* AI thinking overlay. A badge, not a wash: the board used to be dimmed to
+   about half on every engine turn, which flickered the whole board once a
+   move in a game and greyed out the very thing a player reads while waiting
+   -- the position, and the blue rings of the premove they are setting up.
+   The badge says the engine is thinking; the board stays readable. */
 .ai-thinking-overlay {
   position: absolute;
   inset: 0;
   border-radius: 14px;
-  background: var(--bg-inset);
   display: flex;
   align-items: flex-end;
   justify-content: center;
