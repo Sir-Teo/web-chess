@@ -1463,11 +1463,16 @@ button.board-meta-opening {
     overflow: visible;
   }
 
+  /* The panel's own glass, laid over the page's solid base: \`--bg-panel\` is
+     86% opaque, and without the panel's blur the text scrolling under a
+     pinned header stayed legible through it -- "Command: idle" above the
+     title, a warning icon behind the Analyze tab. Same colour, nothing
+     showing through. */
   .right .analysis-header {
     position: sticky;
     top: 0;
     z-index: 4;
-    background: var(--bg-panel);
+    background: linear-gradient(var(--bg-panel), var(--bg-panel)), var(--bg-base);
   }
 
   .right.header-in-scroll .analysis-header {
