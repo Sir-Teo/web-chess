@@ -187,6 +187,23 @@
     gap: 0.35rem;
 }
 
+/* Four actions wrapped into three ragged rows on a small phone, and the
+   footer took the room the saved games needed: at 320x568 the list was left
+   one row. Two by two keeps the footer to two rows. */
+@media (max-width: 420px) {
+    .library-dialog .dialog-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .library-dialog .dialog-actions > button {
+        width: 100%;
+        justify-content: center;
+        padding-inline: 0.5rem;
+        white-space: nowrap;
+    }
+}
+
 @media (max-width: 640px) {
     .library-row {
         flex-direction: column;
