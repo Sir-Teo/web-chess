@@ -6,6 +6,7 @@ import type { EvalSnapshot } from './analysis'
 import { hasLegalKingPlacement } from './fen'
 import { looksLikeFen, looksLikeGameUrl } from './pastedText'
 import { decodeEvaluationEngine, encodeEvaluationEngine } from './evaluationSource'
+import { APP_PLACEHOLDER_HEADERS } from './pgnPlaceholders'
 
 const INITIAL_FEN = new Chess().fen()
 const PGN_TAG_NAME_PATTERN = /^[A-Za-z0-9_]+$/
@@ -820,17 +821,6 @@ export function flattenPgnMainLine(entries: GameTreeImportEntry[]): Array<{ move
 
     return line
 }
-
-/**
- * What this app writes when a game has no names of its own. They round-trip
- * through every save -- the autosave, the library, an export read back in --
- * and on the way back they are this app's placeholders, not a game's players.
- */
-export const APP_PLACEHOLDER_HEADERS = {
-    Event: 'Web Chess Game',
-    White: 'Player 1',
-    Black: 'Player 2',
-} as const
 
 export function exportAnnotatedPgn(
     mainLine: GameNode[],

@@ -3,6 +3,7 @@
  * library rows need. Pure data handling only — persistence lives alongside it
  * so this half stays testable without a browser.
  */
+import { withoutAppPlaceholder } from './pgnPlaceholders'
 import { matchesSearchTerms, toSearchTerms } from './searchTerms'
 
 export const MAX_LIBRARY_GAMES = 500
@@ -179,10 +180,25 @@ export function countPgnMoves(pgn: string): number {
     .length
 }
 
+/**
+ * The row's players, or null when there are none to name. This app's own
+ * "Player 1" and "Player 2" are not players: every unnamed game it saves
+ * carries them, and a library of pass-and-play games read "Player 1 — Player
+ * 2" on every row.
+ */
+export function libraryPlayers(metadata: Pick<LibraryGameMetadata, 'white' | 'black'>, separator: string, unknown: string): string | null {
+  const white = withoutAppPlaceholder('White', metadata.white)
+  const black = withoutAppPlaceholder('Black', metadata.black)
+  return white || black ? `${white ?? unknown}${separator}${black ?? unknown}` : null
+}
+
 export function suggestGameName(pgn: string): string {
-  const { white, black, event, date } = extractLibraryMetadata(pgn)
-  const players = white || black ? `${white ?? 'Unknown'} vs ${black ?? 'Unknown'}` : ''
-  const parts = [players || event, date].filter(Boolean)
+  const metadata = extractLibraryMetadata(pgn)
+  const { date } = metadata
+  const event = withoutAppPlaceholder('Event', metadata.event)
+  const players = libraryPlayers(metadata, ' vs ', 'Unknown')
+  // A date alone reads as a file name, not a game.
+  const parts = [players || event || (date ? 'Game' : ''), date].filter(Boolean)
   return parts.join(' · ').slice(0, MAX_LIBRARY_NAME_LENGTH) || 'Untitled game'
 }
 

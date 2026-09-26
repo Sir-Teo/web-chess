@@ -22,6 +22,7 @@ import {
   parsePgnHeaders,
   pgnVariantName,
   sortLibraryGames,
+  libraryPlayers,
   suggestGameName,
 } from './gameLibrary'
 import { pgnImportContentError, splitPgnGames } from './pgn'
@@ -106,6 +107,13 @@ describe('counting moves', () => {
 describe('naming a saved game', () => {
   it('names it after the players and the date', () => {
     expect(suggestGameName(PGN)).toBe('Adolf Anderssen vs Jean Dufresne · 1852.??.??')
+  })
+
+  it("does not name a game after this app's own placeholders", () => {
+    const unnamed = '[Event "Web Chess Game"]\n[Date "2026.09.26"]\n[White "Player 1"]\n[Black "Player 2"]\n\n1. e4 *'
+    expect(suggestGameName(unnamed)).toBe('Game · 2026.09.26')
+    expect(libraryPlayers({ white: 'Player 1', black: 'Player 2' }, ' — ', '?')).toBeNull()
+    expect(libraryPlayers({ white: 'Player 1', black: 'Carlsen' }, ' — ', '?')).toBe('? — Carlsen')
   })
 
   it('falls back to the event, then to a placeholder', () => {

@@ -7,6 +7,7 @@ import {
     formatLibrarySize,
     getLibraryStats,
     libraryGameMatchesQuery,
+    libraryPlayers,
     sameGameKey,
     sortLibraryGames,
 } from '../engine/gameLibrary'
@@ -64,8 +65,8 @@ const SORT_OPTIONS: { value: LibrarySort; label: string }[] = [
 ]
 
 function describeGame(game: LibraryGame): string {
-    const { white, black, result, date, eco } = game.metadata
-    const players = white || black ? `${white ?? '?'} — ${black ?? '?'}` : null
+    const { result, date, eco } = game.metadata
+    const players = libraryPlayers(game.metadata, ' — ', '?')
     return [players, result, date, eco, `${game.moveCount} ply`].filter(Boolean).join(' · ')
 }
 
