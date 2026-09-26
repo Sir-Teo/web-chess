@@ -1273,35 +1273,11 @@ button.board-meta-opening {
   z-index: 6;
 }
 
-/* AI thinking overlay. A badge, not a wash: the board used to be dimmed to
-   about half on every engine turn, which flickered the whole board once a
-   move in a game and greyed out the very thing a player reads while waiting
-   -- the position, and the blue rings of the premove they are setting up.
-   The badge says the engine is thinking; the board stays readable. */
-.ai-thinking-overlay {
-  position: absolute;
-  inset: 0;
-  border-radius: 14px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 12px;
-  pointer-events: none;
-}
-
-.ai-thinking-badge {
+/* The engine's turn, in the turn pill. */
+.turn-thinking {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-panel);
-  border: 1px solid var(--border-default);
-  backdrop-filter: blur(12px);
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  box-shadow: var(--shadow-md);
+  margin-left: 0.4rem;
 }
 
 .thinking-dots {

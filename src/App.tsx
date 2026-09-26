@@ -7559,6 +7559,15 @@ function App() {
                 ? previewChess.turn() === 'w' ? 'white' : 'black'
                 : gameResultLabel ? 'final' : game.turn() === 'w' ? 'white' : 'black'}`}>
                 {turnLabel}
+                {/* The engine's turn, said where whose turn it is is already
+                    said. It was a badge on the board, over the middle of the
+                    near rank -- the player's own queen and king. */}
+                {isAiThinking && !previewChess && (
+                  <span className="turn-thinking" title="The engine is thinking">
+                    <span className="visually-hidden"> · engine thinking</span>
+                    <span className="thinking-dots" aria-hidden="true"><span /><span /><span /></span>
+                  </span>
+                )}
               </span>
               <span className="board-meta-move">{moveNumberLabel}</span>
               {reviewPractice && (
@@ -7815,16 +7824,6 @@ function App() {
                       <button type="button" className="promotion-cancel" onClick={cancelPromotion}>
                         Cancel <kbd aria-hidden="true">Esc</kbd>
                       </button>
-                    </div>
-                  </div>
-                )}
-                {/* AI thinking badge */}
-                {isAiThinking && (
-                  <div className="ai-thinking-overlay">
-                    <div className="ai-thinking-badge">
-                      <IconBot style={{ marginRight: '4px', fontSize: '1.1em', transform: 'translateY(1px)' }} />
-                      AI thinking
-                      <div className="thinking-dots"><span /><span /><span /></div>
                     </div>
                   </div>
                 )}
