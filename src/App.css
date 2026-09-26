@@ -4742,17 +4742,20 @@ button.critical-moment-row {
     display: inline;
   }
 
-  /* One line where it fits: wrapped, "New / game" read as two labels. Below
-     340px the one-line label pushes the last action out of the bar. */
-  @media (min-width: 340px) {
+  /* One line where it fits: wrapped, "New / game" read as two labels. */
+  @media (min-width: 400px) {
     .top .mobile-actions button:first-child .btn-label {
       white-space: nowrap;
     }
   }
 
-  /* Below that it wrapped anyway and the bar clipped it to "New / gam". The
-     icon alone, square like its neighbours; the button keeps its name. */
-  @media (max-width: 339.98px) {
+  /* Below that there is no room for it. The icon and one-line label need
+     about 110px, and the bar leaves the button 57px at 340px, 77 at 360, 92
+     at 375 and 107 at 390 -- so from 340, where this used to start, the
+     button was squeezed under its own content and drew "⟳ New gam" with half
+     the icon cut away. The icon alone, square like its neighbours; the
+     button keeps its name and its tooltip. */
+  @media (max-width: 399.98px) {
     .top .mobile-actions button:first-child .btn-label {
       display: none;
     }
