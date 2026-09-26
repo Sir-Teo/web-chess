@@ -511,8 +511,20 @@ function App() {
 
   // ── Layout ───────────────────────────────────────────
   const [topPanelOpen, setTopPanelOpen] = useState(true)
-  const [leftWidth, setLeftWidth] = useState(initialWorkspaceMode === 'play' ? 0 : DEFAULT_LEFT_PANEL_WIDTH)
-  const [rightWidth, setRightWidth] = useState(320)
+  const [leftWidth, setLeftWidth] = useState(initialWorkspaceMode === 'play' ? 0 : persistedSettings.leftPanelWidth)
+  const [rightWidth, setRightWidth] = useState(persistedSettings.rightPanelWidth)
+  /**
+   * The width each panel was last given, which is what it opens and reopens
+   * at. Every open used a fixed 320 and nothing was kept, so a reader who
+   * widened the analysis rail for the graphs lost it on every reload and on
+   * every collapse. Zero is a collapse, not a width, and is never recorded.
+   */
+  const preferredLeftWidthRef = useRef(persistedSettings.leftPanelWidth)
+  const preferredRightWidthRef = useRef(persistedSettings.rightPanelWidth)
+  useEffect(() => {
+    if (leftWidth > 0) preferredLeftWidthRef.current = leftWidth
+    if (rightWidth > 0) preferredRightWidthRef.current = rightWidth
+  }, [leftWidth, rightWidth])
   const [bottomPanelOpen, setBottomPanelOpen] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsBodyRef = useRef<HTMLDivElement>(null)
@@ -1263,7 +1275,7 @@ function App() {
     if (workspaceMode !== 'analysis') return
     if (hasAutoOpenedAnalysisLeftRef.current) return
     hasAutoOpenedAnalysisLeftRef.current = true
-    setLeftWidth(width => width === 0 ? DEFAULT_LEFT_PANEL_WIDTH : width)
+    setLeftWidth(width => width === 0 ? preferredLeftWidthRef.current : width)
   }, [workspaceMode])
 
   useEffect(() => {
@@ -2998,8 +3010,12 @@ function App() {
       theme,
       lastDifficulty: aiDifficulty,
       lastSideChoice: sideChoice,
+      leftPanelWidth: leftWidth > 0 ? leftWidth : preferredLeftWidthRef.current,
+      rightPanelWidth: rightWidth > 0 ? rightWidth : preferredRightWidthRef.current,
     }))
   }, [
+    leftWidth,
+    rightWidth,
     aiDifficulty,
     continuousAnalysis,
     sideChoice,
@@ -6068,8 +6084,8 @@ function App() {
 
   const toggleTopPanel = () => setTopPanelOpen(value => !value)
   const toggleBottomPanel = () => setBottomPanelOpen(value => !value)
-  const toggleLeftPanel = () => setLeftWidth(value => (value === 0 ? DEFAULT_LEFT : 0))
-  const toggleRightPanel = () => setRightWidth(value => (value === 0 ? DEFAULT_RIGHT : 0))
+  const toggleLeftPanel = () => setLeftWidth(value => (value === 0 ? preferredLeftWidthRef.current : 0))
+  const toggleRightPanel = () => setRightWidth(value => (value === 0 ? preferredRightWidthRef.current : 0))
 
   const handleLeftResizeKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -7371,7 +7387,7 @@ function App() {
             aria-valuemax={maximumSidePanelWidth(fittedPanels, 'left')}
             aria-valuenow={layoutLeftWidth}
             onMouseDown={startLeftResize}
-            onClick={() => { if (leftWidth === 0) setLeftWidth(DEFAULT_LEFT) }}
+            onClick={() => { if (leftWidth === 0) setLeftWidth(preferredLeftWidthRef.current) }}
             onKeyDown={handleLeftResizeKeyDown}
             title="Drag to resize · click to expand"
           >
@@ -7947,7 +7963,7 @@ function App() {
             aria-valuemax={maximumSidePanelWidth(fittedPanels, 'right')}
             aria-valuenow={layoutRightWidth}
             onMouseDown={startRightResize}
-            onClick={() => { if (rightWidth === 0) setRightWidth(DEFAULT_RIGHT) }}
+            onClick={() => { if (rightWidth === 0) setRightWidth(preferredRightWidthRef.current) }}
             onKeyDown={handleRightResizeKeyDown}
             title="Drag to resize · click to expand"
           >
@@ -7969,7 +7985,7 @@ function App() {
               <h2 id="analysis-panel-title">{workspaceMode === 'analysis' ? 'Analysis' : 'Play'}</h2>
               {workspaceMode === 'analysis' && leftPanelCollapsed && (
                 <button type="button" className="show-insights-button" onClick={() => {
-                  setLeftWidth(DEFAULT_LEFT_PANEL_WIDTH)
+                  setLeftWidth(preferredLeftWidthRef.current)
                   if (isMobileLayout) window.requestAnimationFrame(() => {
                     insightsPanelRef.current?.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'instant' : 'smooth' })
                   })
