@@ -2286,9 +2286,12 @@ button.board-meta-opening {
   background: var(--bg-card);
 }
 
+/* Pills inside a pill. \`.panel button\` squares them off to 8px, and at the
+   track's rounded ends their corners stood out past its edge. */
 .analysis-experience-toggle .mode-pill {
   flex: 1;
   justify-content: center;
+  border-radius: var(--radius-pill);
   min-height: 32px;
   box-sizing: border-box;
 }
