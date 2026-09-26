@@ -4839,8 +4839,8 @@ function App() {
     [showLibraryDialog, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot],
   )
   const librarySuggestedName = useMemo(
-    () => (libraryPgn ? suggestGameName(libraryPgn) : ''),
-    [libraryPgn],
+    () => (libraryPgn ? suggestGameName(libraryPgn, opening?.name) : ''),
+    [libraryPgn, opening?.name],
   )
   const closeLibraryDialog = useCallback(() => {
     setShowLibraryDialog(false)

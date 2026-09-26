@@ -171,7 +171,10 @@ export function LibraryDialog({
 
     const handleSave = () => {
         if (savedPgnRef.current === currentKey && !name.trim()) return
-        const result = onSave(name, currentPgn)
+        // An empty field saves under the name the field is showing: the
+        // placeholder is the app's suggestion, and it knows the opening,
+        // which the save path does not.
+        const result = onSave(name.trim() || suggestedName, currentPgn)
         announce(result, storageIsDurable ? 'Saved to the library.' : 'Saved for this session only.')
         if (result.ok) {
             savedPgnRef.current = currentKey
