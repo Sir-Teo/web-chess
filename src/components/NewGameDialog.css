@@ -239,6 +239,25 @@
     gap: 0.35rem;
 }
 
+/* Two options to a row need about 9rem each for "K  White kingside". Beside
+   the desktop board the column is 127px, which left each caption 3px -- one
+   stroke of the "W", read as "K \" -- so there they stack, one to a row. */
+.fen-setup-control-block:has(> .fen-castling-grid) {
+    container: fen-castling / inline-size;
+}
+
+@container fen-castling (max-width: 18rem) {
+    .fen-castling-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* Even the whole column is short of "White kingside" on one line;
+       "White / kingside" on two says all of it. */
+    .fen-castling-grid .fen-castling-option small {
+        white-space: normal;
+    }
+}
+
 .fen-castling-option {
     justify-content: flex-start;
     min-height: 38px;
