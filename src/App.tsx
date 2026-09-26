@@ -1240,10 +1240,10 @@ function App() {
   const topChromeHidden = appModalOpen || promotionDialogOpen
   const backgroundUiHidden = appModalOpen || settingsOpen || promotionDialogOpen
   const dialogLoadingLabel = showNewGameDialog
-    ? 'Loading new game...'
+    ? 'Loading new game…'
     : showLibraryDialog
-      ? 'Loading library...'
-      : 'Loading import tools...'
+      ? 'Loading library…'
+      : 'Loading import tools…'
   const shortcutsSuspended =
     appModalOpen || settingsOpen || promotionDialogOpen
 
@@ -7471,7 +7471,7 @@ function App() {
                             aria-label={`${isLoading ? 'Loading' : 'Load'} ${sample.white} vs ${sample.black}, ${sample.event}`}
                             title={`${sample.white} vs ${sample.black}, ${sample.event}`}
                           >
-                            {isLoading ? 'Loading...' : 'Load'}
+                            {isLoading ? 'Loading…' : 'Load'}
                           </button>
                         </div>
                       </article>
@@ -7997,7 +7997,7 @@ function App() {
                             disabled={pendingGameReview}
                             aria-label="Review this finished game"
                           >
-                            <IconBarChart /> {pendingGameReview ? 'Starting review...' : 'Review this game'}
+                            <IconBarChart /> {pendingGameReview ? 'Starting review…' : 'Review this game'}
                           </button>
                         )}
                         <button
@@ -8093,7 +8093,7 @@ function App() {
                         title={hintReason ?? 'Ask the engine what it would play'}
                         aria-label={hintReason ? `Hint unavailable. ${hintReason}` : 'Ask the engine for a hint'}
                       >
-                        <IconZap /> {isHinting ? 'Looking...' : 'Hint'}
+                        <IconZap /> {isHinting ? 'Looking…' : 'Hint'}
                       </button>
                     </div>
                     {/* The second half of the sentence is a claim about the
@@ -8291,7 +8291,7 @@ function App() {
                         disabled={isProbingThreat}
                         aria-label="Show what the opponent is threatening"
                       >
-                        <IconAlert /> {isProbingThreat ? 'Reading the threat...' : 'What is threatened?'}
+                        <IconAlert /> {isProbingThreat ? 'Reading the threat…' : 'What is threatened?'}
                       </button>
                       {activeThreat && (
                         <p className="coach-threat-answer" role="status">
@@ -8421,7 +8421,7 @@ function App() {
                         {currentCloudEval
                           ? `Lichess cache · D${currentCloudEval.depth} · ${formatCloudNodes(currentCloudEval.knodes)}`
                           : cloudEvalStatus === 'loading'
-                            ? 'Checking Lichess cache...'
+                            ? 'Checking Lichess cache…'
                             : cloudEvalStatus === 'missing'
                               ? 'No cloud eval for this position.'
                               : `Cloud eval: ${cloudEvalError ?? 'unavailable'}`}
