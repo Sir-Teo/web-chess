@@ -7373,7 +7373,11 @@ async function checkCompactToolbar(browser) {
       await page.waitForFunction(() => document.querySelector('.bottom')?.textContent.includes('nps'))
       for (const scale of [1, 2, 1]) {
         await page.evaluate(scale => { document.documentElement.style.fontSize = `${16 * scale}px` }, scale)
-        await page.waitForTimeout(350)
+        // Wait for the layout the scale calls for, then let it settle, rather
+        // than a fixed 350ms that a loaded machine overran in both directions.
+        await page.waitForFunction(compact => (document.querySelector('.app-shell')?.dataset.compactChrome === 'true') === compact, scale === 2, { timeout: 5000 })
+          .catch(() => {})
+        await page.waitForTimeout(250)
         const geometry = await page.evaluate(() => ({
           height: document.querySelector('.top').getBoundingClientRect().height,
           compact: document.querySelector('.app-shell').dataset.compactChrome === 'true',
