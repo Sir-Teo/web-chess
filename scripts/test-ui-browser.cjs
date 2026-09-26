@@ -7143,7 +7143,10 @@ async function checkShortDesktopWindow(browser) {
       await page.locator('#chessboard-square-e4').click()
       await page.setViewportSize({ width, height })
       await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
-      await page.waitForTimeout(400)
+      // Waited for, not slept on: the switch follows a measurement, and a
+      // fixed 400ms missed it on a loaded machine.
+      await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true', null, { timeout: 5000 })
+        .catch(() => {})
       assert(await page.locator('.app-shell').getAttribute('data-scroll-chrome') === 'true', 'short enlarged window kept both bars fixed')
       assert(await page.locator('.main-container').evaluate(el => Math.abs(el.getBoundingClientRect().height - innerHeight) < 1), 'the workspace still receives only a sliver of height')
       await visible(page.getByRole('button', { name: 'Review Game', exact: true }), 'Review Game')
