@@ -1792,6 +1792,9 @@ button.board-meta-opening {
   min-height: 32px;
   height: 32px;
   width: 100%;
+  /* Chromium's default 2px either side, on top of the full width, set every
+     slider 2px in from its label and 2px out past its column. */
+  margin-inline: 0;
   cursor: pointer;
 }
 
