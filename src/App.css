@@ -3784,8 +3784,11 @@ button.critical-moment-row {
   white-space: nowrap;
 }
 
-/* Quality-colored left borders */
-.quality-book {
+/* Quality-colored left borders, for the rows that carry one. Not the board's
+   quality pill: it is rounded, and one coloured side of a pill draws as a
+   crescent in front of the word -- "( BOOK" -- rather than as an accent. The
+   pill says its grade with its whole outline instead. */
+.quality-book:not(.board-quality-pill) {
   border-left-color: var(--quality-book) !important;
 }
 
@@ -3793,8 +3796,8 @@ button.critical-moment-row {
   color: var(--quality-book);
 }
 
-.quality-best,
-.quality-excellent {
+.quality-best:not(.board-quality-pill),
+.quality-excellent:not(.board-quality-pill) {
   border-left-color: var(--quality-best) !important;
 }
 
@@ -3803,7 +3806,7 @@ button.critical-moment-row {
   color: var(--quality-best);
 }
 
-.quality-good {
+.quality-good:not(.board-quality-pill) {
   border-left-color: var(--quality-good) !important;
 }
 
@@ -3814,7 +3817,7 @@ button.critical-moment-row {
   color: var(--quality-good-ink);
 }
 
-.quality-inaccuracy {
+.quality-inaccuracy:not(.board-quality-pill) {
   border-left-color: var(--quality-inaccuracy) !important;
 }
 
@@ -3822,7 +3825,7 @@ button.critical-moment-row {
   color: var(--quality-inaccuracy);
 }
 
-.quality-mistake {
+.quality-mistake:not(.board-quality-pill) {
   border-left-color: var(--quality-mistake) !important;
 }
 
@@ -3830,7 +3833,7 @@ button.critical-moment-row {
   color: var(--quality-mistake);
 }
 
-.quality-blunder {
+.quality-blunder:not(.board-quality-pill) {
   border-left-color: var(--quality-blunder) !important;
 }
 
