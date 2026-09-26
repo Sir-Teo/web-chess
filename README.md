@@ -116,7 +116,8 @@ given, and the app answering the reader who touches it.
   panels share the available space to keep the board's full width visible. Enlarging
   text updates that allowance too. Panel widths return to your preferences when
   the window widens; dragging or using the resize handles' arrow keys adjusts
-  the visible boundaries.
+  the visible boundaries, and the widths you set are kept between visits and
+  are what a collapsed panel reopens at.
 - **Type a move**: "Enter a move by name" at the top of the analysis panel
   takes `Nf3`, `e2e4` or `O-O` — and the forms people actually type, `nf3`,
   `0-0`, `e8q`, which it used to refuse while telling you to type `Nf3`.
@@ -221,7 +222,10 @@ given, and the app answering the reader who touches it.
   next move rather than your opponent's reply; a wrong move snaps back and is
   never recorded, so a drill cannot fill the tree with the moves you were trying
   not to play; and the answer appears after two misses, as it does in review
-  practice. It is per side, because the same line is one thing to know as White
+  practice. Until then the engine keeps it to itself: the candidate arrows,
+  the Coach's best move and line and the Pro lines are hidden while the drill
+  waits for your move, because the engine's best move is very often the move
+  being asked for. It is per side, because the same line is one thing to know as White
   and a different thing as Black. Deliberately not a new subsystem: a repertoire
   line here is a line in the game tree, which means it is also a game in the
   library, which means it already imports, exports, saves and shares — load a
@@ -328,7 +332,9 @@ given, and the app answering the reader who touches it.
 - **PGN and FEN workflows**: Import/export annotated PGN, copy FEN/share links, and build custom FEN positions with editable pieces, side to move, castling rights, and move counters.
 - **Share a game, not just a position**: `Copy Game Link` on the Export tab puts
   the whole game in the URL — the position it started from and every move — so
-  opening the link replays it rather than showing where it ended up. An 8-ply
+  opening the link replays it rather than showing where it ended up. Copied
+  from the middle of the game, it opens at that move, with the rest of the
+  game a step forward. An 8-ply
   game is a 166-character link and a 120-ply one is under 1,200. Refused rather
   than truncated past 8,000 characters, and a link that has been edited or cut
   short plays as far as it really goes instead of being thrown away.
