@@ -4766,6 +4766,16 @@ button.critical-moment-row {
     }
   }
 
+  /* Five 44px squares, their gaps and the pill's padding come to 239px, and
+     a 320px phone leaves the strip 232: the last action, Commands, started
+     7px under the scroll fade. The squares are the targets and each is
+     transparent, so they can touch; the icons stay 28px apart. */
+  @media (max-width: 339.98px) {
+    .top .compact-grid .mobile-actions {
+      gap: 0;
+    }
+  }
+
   .mobile-modes-wrapper {
     grid-area: modes;
     display: flex;
