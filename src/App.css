@@ -1795,6 +1795,24 @@ input[type="checkbox"] {
   margin-bottom: 0.4rem;
 }
 
+/* The profile names are the longest values in any option row. On a narrow
+   card the label took two lines and still left the select too little room:
+   "Auto (recommende" at 320px. Stacked there, the select gets the width. */
+.engine-lab-card:has(> .profile-picker) {
+  container-type: inline-size;
+}
+
+@container (max-width: 20rem) {
+  .profile-picker {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .engine-option-row.profile-picker select {
+    width: 100%;
+    max-width: none;
+  }
+}
+
 .engine-option-row span {
   font-size: 0.73rem;
   color: var(--text-secondary);
