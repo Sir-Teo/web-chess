@@ -424,6 +424,33 @@ input[type="checkbox"] {
   display: none;
 }
 
+/* Between the phone bar and a wide window the one-row bar ran out of room
+   by a label: from 1000 to 1139px Settings wrapped onto a second row of its
+   own and cost the board 42px. Settings goes to its icon first, as it does
+   below 900px, then the brand to its mark. The brand is the page's <h1>, so
+   its words leave the layout, not the accessibility tree. */
+@media (min-width: 901px) and (max-width: 1139.98px) {
+  .top .settings-menu>summary .btn-label {
+    display: none;
+  }
+
+  .top .settings-menu>summary {
+    padding-inline: 0.7rem !important;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1099.98px) {
+  .top .app-brand-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+}
+
 .skip-links {
   position: fixed;
   top: calc(0.5rem + env(safe-area-inset-top));
