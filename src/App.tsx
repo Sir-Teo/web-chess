@@ -2633,6 +2633,11 @@ function App() {
 
     setWorkspaceMode(DEFAULT_PERSISTED_SETTINGS.workspaceMode)
     hasAutoOpenedAnalysisLeftRef.current = false
+    // The layout is the workspace too: panels that were dragged wide come back
+    // at their defaults, rather than the reset writing the old widths back.
+    preferredLeftWidthRef.current = DEFAULT_PERSISTED_SETTINGS.leftPanelWidth
+    preferredRightWidthRef.current = DEFAULT_PERSISTED_SETTINGS.rightPanelWidth
+    setRightWidth(DEFAULT_PERSISTED_SETTINGS.rightPanelWidth)
     setLeftWidth(0)
     setSearchDepth(DEFAULT_PERSISTED_SETTINGS.searchDepth)
     setMultiPv(defaultMultiPv())
