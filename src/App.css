@@ -1005,6 +1005,9 @@ button.board-meta-opening {
   background: none;
   font: inherit;
   cursor: pointer;
+  /* A finger's height, as every other control on a phone. The Arrows toggle
+     beside it already makes the strip this tall, so it costs no height. */
+  min-height: 44px;
 }
 
 .board-meta-opening.is-expanded {
