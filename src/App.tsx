@@ -7935,6 +7935,7 @@ function App() {
               gameNodes={gameTree.nodesSnapshot}
               evaluations={evaluationsByFen}
               pgnHeaders={pgnHeaders}
+              openingName={opening?.name}
               onImportManyToLibrary={library.importGames}
               droppedFile={droppedPgnFile}
               onDroppedFileTaken={clearDroppedPgnFile}

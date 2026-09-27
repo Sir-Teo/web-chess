@@ -33,6 +33,7 @@ import {
 } from '../engine/positionSetup'
 import { buildFenShareUrl } from '../engine/shareLink'
 import { MAX_SHARED_GAME_CHARS, buildGameShareUrl } from '../engine/shareGame'
+import { pgnDownloadFilename } from '../engine/pgnFilename'
 import { chessComPositionUrl, lichessAnalysisUrl } from '../engine/externalLinks'
 import {
     ARCHIVE_SOURCES,
@@ -66,6 +67,8 @@ type PgnDialogProps = {
     gameNodes: Map<string, GameNode>
     evaluations: Map<string, EvalSnapshot>
     pgnHeaders: Record<string, string>
+    /** The opening on the board, which names a downloaded game that names nothing else. */
+    openingName?: string
     /**
      * Add every game in a database file to the library. Absent when there is
      * no library to add to; the dialog then just reports that it cannot take
@@ -112,7 +115,7 @@ const SETUP_CASTLING_OPTIONS: Array<{ right: SetupCastlingRight; label: string; 
     { right: 'q', label: 'Black queenside', short: 'q' },
 ]
 
-export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, mainLineNodes, gameNodes, evaluations, pgnHeaders, onImportManyToLibrary, droppedFile, onDroppedFileTaken }: PgnDialogProps) {
+export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, mainLineNodes, gameNodes, evaluations, pgnHeaders, openingName, onImportManyToLibrary, droppedFile, onDroppedFileTaken }: PgnDialogProps) {
     const [tab, setTab] = useState<'import' | 'fen' | 'export'>('import')
     const [importText, setImportText] = useState('')
     const [fenText, setFenText] = useState(currentFen)
@@ -465,7 +468,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
-        link.download = `web-chess-${new Date().toISOString().slice(0, 10)}.pgn`
+        link.download = pgnDownloadFilename(pgnHeaders, openingName)
         document.body.append(link)
         link.click()
         link.remove()
