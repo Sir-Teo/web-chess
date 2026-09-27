@@ -371,6 +371,29 @@ describe('PGN export helpers', () => {
     expect(loader.history()).toEqual(['e4', 'e5', 'Nf3'])
   })
 
+  it('keeps a comment\'s separators on the commands they follow when it wraps', () => {
+    // A long comment is broken at its spaces with each [%command] kept whole,
+    // and the "; " after a command used to be split off with it and rejoined
+    // with a space: "[%eval 0.35] ;", and a line opening "; Main line".
+    const root = new Chess()
+    const rootFen = root.fen()
+    const move = root.move('e4')!
+    const e4 = makeNode('e4', root.fen(), move, 'root', [], undefined, {
+      comment: 'Main line of the opening',
+      pgnCommands: ['[%cal Ge2e4,Gd2d4,Gg1f3,Gb1c3,Gf1c4,Gc2c4]'],
+    })
+    const pgn = exportAnnotatedPgn(
+      [makeNode('root', rootFen, null, null, ['e4']), e4],
+      new Map([[root.fen(), { cp: 30, bestMove: 'c7c5' }]]),
+      { Result: '*' },
+    )
+    const movetext = pgn.split('\n\n').slice(1).join('\n')
+
+    expect(movetext).not.toMatch(/\] ;/)
+    expect(movetext).not.toMatch(/^;/m)
+    expect(movetext).toContain('[%eval -0.30];')
+  })
+
   it('wraps a long variation across lines instead of exporting it as one', () => {
     // A variation was joined into a single token before wrapping, so a long
     // one came out as one line however far it ran -- here 20 plies, well past

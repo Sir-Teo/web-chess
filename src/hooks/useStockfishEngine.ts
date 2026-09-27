@@ -75,6 +75,8 @@ type QueuedCommand = {
   timeoutId?: ReturnType<typeof setTimeout>
   discard?: boolean
   suspension?: 'stopping' | 'paused'
+  /** Finished by the `readyok` of an `isready` sent after it; see below. */
+  readySentinel?: boolean
 }
 
 /**
@@ -92,6 +94,16 @@ type QueuedCommand = {
 const ENGINE_STATE_FLUSH_INTERVAL_MS = 100
 const NAVIGATION_ANALYSIS_CACHE_LIMIT = 96
 const NO_REPLY_COMMANDS = new Set(['ucinewgame', 'position', 'setoption', 'stop', 'ponderhit', 'quit'])
+/**
+ * The commands whose reply `isQueuedCommandDone` knows the end of. Anything
+ * else -- a typo, a native-only command -- this browser build of Stockfish
+ * ignores without a word: there is no "Unknown command" line to wait for. So
+ * the console sent "foo", waited fifteen seconds for a reply that could not
+ * come, and refused every command meanwhile ("wait for the pending command").
+ * Such a command is followed by `isready`; the engine reads its input in
+ * order, so the `readyok` means the first one has been dealt with.
+ */
+const COMMANDS_WITH_A_KNOWN_REPLY = new Set(['uci', 'isready', 'go', 'd', 'eval', 'bench', 'perft'])
 
 type CachedAnalysisResult = {
   lines: Map<number, EngineLine>
@@ -171,6 +183,12 @@ function firstWord(input: string): string {
 
 function hasNoReply(command: string): boolean {
   return NO_REPLY_COMMANDS.has(firstWord(command))
+}
+
+/** Whether a console command has to be ended by a following `isready`. */
+export function commandNeedsReadySentinel(command: string): boolean {
+  const first = firstWord(command)
+  return Boolean(first) && !NO_REPLY_COMMANDS.has(first) && !COMMANDS_WITH_A_KNOWN_REPLY.has(first)
 }
 
 function commandKindFromCommand(command: string): EngineCommandKind {
@@ -585,6 +603,12 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     const item = queue[queueIndex]
     if (!item) return
 
+    // The sentinel's own reply is not the command's: end it without printing it.
+    if (item.readySentinel && line === 'readyok') {
+      finishQueuedCommand(item)
+      return
+    }
+
     item.lines.push(line)
     if (item.lines.length > ENGINE_CONSOLE_LINE_LIMIT) item.lines.splice(0, item.lines.length - ENGINE_CONSOLE_LINE_LIMIT)
     item.stream?.(line)
@@ -681,15 +705,17 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         const timeoutMs =
           options?.timeoutMs ?? (first === 'go' ? 0 : first === 'bench' || first === 'perft' ? 90_000 : 15_000)
 
+        const readySentinel = commandNeedsReadySentinel(trimmed)
         const item: QueuedCommand = {
           id,
           command: trimmed,
           firstWord: first,
-          kind: commandKindFromCommand(trimmed),
+          kind: readySentinel ? 'isready' : commandKindFromCommand(trimmed),
           stream: options?.stream,
           resolve,
           reject,
           lines: [],
+          readySentinel,
         }
 
         if (timeoutMs > 0) item.timeoutId = setTimeout(() => {
@@ -734,6 +760,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
           }
         }
         send(trimmed)
+        if (readySentinel) send('isready')
       })
     },
     [cancelConsoleSuspension, send, sendRaw],

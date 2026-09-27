@@ -45,6 +45,14 @@ describe('reading settings back', () => {
     expect(loadPersistedSettings()).toMatchObject({ lastDifficulty: 4, lastSideChoice: 'white' })
   })
 
+  it('remembers the panel widths, within what a panel can be', () => {
+    installStorage(stored({ leftPanelWidth: 412, rightPanelWidth: 280 }))
+    expect(loadPersistedSettings()).toMatchObject({ leftPanelWidth: 412, rightPanelWidth: 280 })
+    // A collapse is not a width, and a width past the maximum is not one either.
+    installStorage(stored({ leftPanelWidth: 0, rightPanelWidth: 5000 }))
+    expect(loadPersistedSettings()).toMatchObject({ leftPanelWidth: 320, rightPanelWidth: 320 })
+  })
+
   it('keeps the continuous-analysis switch, and defaults it off', () => {
     installStorage(stored({ continuousAnalysis: true }))
     expect(loadPersistedSettings().continuousAnalysis).toBe(true)

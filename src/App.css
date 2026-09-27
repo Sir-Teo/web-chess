@@ -208,6 +208,19 @@ input[type="checkbox"] {
     border-color: var(--border-strong);
     color: var(--text-heading);
   }
+
+  /* The rule above outranks \`.analysis-tab-btn.active\`, \`.mode-pill.active\`
+     and the top bar's \`.gc-pill-active\` (the top bar is a \`.panel\` too), so
+     the tab or pill a reader had just pressed turned grey under the pointer --
+     the one moment they look to it for confirmation. A selected control stays
+     selected while hovered. */
+  .panel .analysis-tab-btn.active:hover,
+  .panel .mode-pill.active:hover,
+  .panel .gc-pill.gc-pill-active:hover {
+    background: var(--accent-subtle);
+    border-color: var(--border-accent);
+    color: var(--accent-ink);
+  }
 }
 
 .panel button:active {
@@ -984,6 +997,23 @@ input[type="checkbox"] {
   color: var(--text-secondary);
 }
 
+/* A button on a phone, where a tap shows the whole name; it should still read
+   as the text it was. */
+button.board-meta-opening {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  /* A finger's height, as every other control on a phone. The Arrows toggle
+     beside it already makes the strip this tall, so it costs no height. */
+  min-height: 44px;
+}
+
+.board-meta-opening.is-expanded {
+  max-width: none;
+}
+
 .board-meta-opening>span {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1246,32 +1276,11 @@ input[type="checkbox"] {
   z-index: 6;
 }
 
-/* AI thinking overlay */
-.ai-thinking-overlay {
-  position: absolute;
-  inset: 0;
-  border-radius: 14px;
-  background: var(--bg-inset);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 12px;
-  pointer-events: none;
-}
-
-.ai-thinking-badge {
+/* The engine's turn, in the turn pill. */
+.turn-thinking {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-panel);
-  border: 1px solid var(--border-default);
-  backdrop-filter: blur(12px);
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  box-shadow: var(--shadow-md);
+  margin-left: 0.4rem;
 }
 
 .thinking-dots {
@@ -1457,11 +1466,16 @@ input[type="checkbox"] {
     overflow: visible;
   }
 
+  /* The panel's own glass, laid over the page's solid base: \`--bg-panel\` is
+     86% opaque, and without the panel's blur the text scrolling under a
+     pinned header stayed legible through it -- "Command: idle" above the
+     title, a warning icon behind the Analyze tab. Same colour, nothing
+     showing through. */
   .right .analysis-header {
     position: sticky;
     top: 0;
     z-index: 4;
-    background: var(--bg-panel);
+    background: linear-gradient(var(--bg-panel), var(--bg-panel)), var(--bg-base);
   }
 
   .right.header-in-scroll .analysis-header {
@@ -1765,6 +1779,9 @@ input[type="checkbox"] {
   min-height: 32px;
   height: 32px;
   width: 100%;
+  /* Chromium's default 2px either side, on top of the full width, set every
+     slider 2px in from its label and 2px out past its column. */
+  margin-inline: 0;
   cursor: pointer;
 }
 
@@ -1829,6 +1846,14 @@ input[type="checkbox"] {
   container-type: inline-size;
 }
 
+/* As wide as its longest name where there is room for it: capped at the
+   10rem every other option select gets, "Auto (recommended)" read "Auto
+   (recommende" on a 768px tablet with 540px of the row empty beside it. */
+.engine-option-row.profile-picker select {
+  width: auto;
+  max-width: 100%;
+}
+
 @container (max-width: 20rem) {
   .profile-picker {
     grid-template-columns: minmax(0, 1fr);
@@ -1846,7 +1871,8 @@ input[type="checkbox"] {
 }
 
 .engine-option-row input,
-.engine-option-row select {
+.engine-option-row select,
+.engine-lab-console input {
   padding: 0.36rem 0.46rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-default);
@@ -1860,7 +1886,8 @@ input[type="checkbox"] {
 }
 
 .engine-option-row input:focus,
-.engine-option-row select:focus {
+.engine-option-row select:focus,
+.engine-lab-console input:focus {
   outline: none;
   border-color: rgba(45, 212, 191, 0.42);
   box-shadow: 0 0 0 2px var(--accent-subtle);
@@ -2249,9 +2276,12 @@ input[type="checkbox"] {
   background: var(--bg-card);
 }
 
+/* Pills inside a pill. \`.panel button\` squares them off to 8px, and at the
+   track's rounded ends their corners stood out past its edge. */
 .analysis-experience-toggle .mode-pill {
   flex: 1;
   justify-content: center;
+  border-radius: var(--radius-pill);
   min-height: 32px;
   box-sizing: border-box;
 }
@@ -3303,14 +3333,19 @@ button.critical-moment-row {
   margin: -0.12rem 0 0.52rem;
 }
 
+/* Wrapping flex rather than an auto-fit grid: the desktop rail fits three
+   4.6rem tiles, and on a grid Coach's four went three and one -- Evaluated
+   alone at a third of the row with two empty cells beside it. Here a short
+   last row grows to fill it instead. */
 .accuracy-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(4.6rem, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.38rem;
   margin-bottom: 0.48rem;
 }
 
 .accuracy-summary div {
+  flex: 1 1 4.6rem;
   min-width: 0;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -3340,6 +3375,7 @@ button.critical-moment-row {
 
 @media (max-width: 520px) {
   .accuracy-summary {
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -3744,8 +3780,11 @@ button.critical-moment-row {
   white-space: nowrap;
 }
 
-/* Quality-colored left borders */
-.quality-book {
+/* Quality-colored left borders, for the rows that carry one. Not the board's
+   quality pill: it is rounded, and one coloured side of a pill draws as a
+   crescent in front of the word -- "( BOOK" -- rather than as an accent. The
+   pill says its grade with its whole outline instead. */
+.quality-book:not(.board-quality-pill) {
   border-left-color: var(--quality-book) !important;
 }
 
@@ -3753,8 +3792,8 @@ button.critical-moment-row {
   color: var(--quality-book);
 }
 
-.quality-best,
-.quality-excellent {
+.quality-best:not(.board-quality-pill),
+.quality-excellent:not(.board-quality-pill) {
   border-left-color: var(--quality-best) !important;
 }
 
@@ -3763,7 +3802,7 @@ button.critical-moment-row {
   color: var(--quality-best);
 }
 
-.quality-good {
+.quality-good:not(.board-quality-pill) {
   border-left-color: var(--quality-good) !important;
 }
 
@@ -3774,7 +3813,7 @@ button.critical-moment-row {
   color: var(--quality-good-ink);
 }
 
-.quality-inaccuracy {
+.quality-inaccuracy:not(.board-quality-pill) {
   border-left-color: var(--quality-inaccuracy) !important;
 }
 
@@ -3782,7 +3821,7 @@ button.critical-moment-row {
   color: var(--quality-inaccuracy);
 }
 
-.quality-mistake {
+.quality-mistake:not(.board-quality-pill) {
   border-left-color: var(--quality-mistake) !important;
 }
 
@@ -3790,7 +3829,7 @@ button.critical-moment-row {
   color: var(--quality-mistake);
 }
 
-.quality-blunder {
+.quality-blunder:not(.board-quality-pill) {
   border-left-color: var(--quality-blunder) !important;
 }
 
@@ -4493,6 +4532,26 @@ button.critical-moment-row {
     max-width: 11rem;
   }
 
+  /* Not so for an imported game, whose result the turn pill never states: at
+     the last move of a PGN that ended 1-0 by resignation it says "White to
+     move", and the 1-0 sat past the edge at 390px as a faded sliver. Where
+     the names are hidden (see the 520px rule) the result is one short badge,
+     so it goes ahead of the opening, which gives up those 37px and still
+     opens to its whole name on a tap. */
+  @media (max-width: 520px) {
+    .board-meta-flow>.board-meta-game {
+      order: 2;
+    }
+
+    .board-meta-flow>.board-meta-opening {
+      order: 3;
+    }
+
+    .board-meta-flow>.board-meta-material {
+      order: 4;
+    }
+  }
+
   /* Narrower than it would like: at its full 13rem the opening was longer than
      the rest of the row put together and pushed everything after it out of
      sight. Cut here it still says which opening -- "C95 Ruy Lopez: Cl..." --
@@ -4673,17 +4732,20 @@ button.critical-moment-row {
     display: inline;
   }
 
-  /* One line where it fits: wrapped, "New / game" read as two labels. Below
-     340px the one-line label pushes the last action out of the bar. */
-  @media (min-width: 340px) {
+  /* One line where it fits: wrapped, "New / game" read as two labels. */
+  @media (min-width: 400px) {
     .top .mobile-actions button:first-child .btn-label {
       white-space: nowrap;
     }
   }
 
-  /* Below that it wrapped anyway and the bar clipped it to "New / gam". The
-     icon alone, square like its neighbours; the button keeps its name. */
-  @media (max-width: 339.98px) {
+  /* Below that there is no room for it. The icon and one-line label need
+     about 110px, and the bar leaves the button 57px at 340px, 77 at 360, 92
+     at 375 and 107 at 390 -- so from 340, where this used to start, the
+     button was squeezed under its own content and drew "⟳ New gam" with half
+     the icon cut away. The icon alone, square like its neighbours; the
+     button keeps its name and its tooltip. */
+  @media (max-width: 399.98px) {
     .top .mobile-actions button:first-child .btn-label {
       display: none;
     }
@@ -4691,6 +4753,16 @@ button.critical-moment-row {
     .top .compact-grid .mobile-actions button:first-child {
       width: 2.75rem;
       padding-inline: 0;
+    }
+  }
+
+  /* Five 44px squares, their gaps and the pill's padding come to 239px, and
+     a 320px phone leaves the strip 232: the last action, Commands, started
+     7px under the scroll fade. The squares are the targets and each is
+     transparent, so they can touch; the icons stay 28px apart. */
+  @media (max-width: 339.98px) {
+    .top .compact-grid .mobile-actions {
+      gap: 0;
     }
   }
 
@@ -4773,7 +4845,11 @@ button.critical-moment-row {
     right: 0;
     transform: none;
     width: 100%;
-    max-width: 100%;
+    /* A sheet of reading width, centred. At full width a phone on its side
+       (844px) and a tablet ran each switch's row 800px long for a label of a
+       few words; phones narrower than this are unchanged. */
+    max-width: 36rem;
+    margin-inline: auto;
     /* Prevent blowout here -- against the screen the reader can see. `85vh`
        is 85% of the *large* viewport, which at 390x844 behind iOS Safari's
        ~115px of chrome is 717px of a 729px screen: 98%, not 85%, and a
@@ -5091,7 +5167,7 @@ button.critical-moment-row {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .top-mode-pills .gc-pill:hover {
+  .top-mode-pills .gc-pill:not(.gc-pill-active):hover {
     color: var(--text-secondary);
     background: var(--bg-elevated);
   }
@@ -5410,11 +5486,21 @@ button.critical-moment-row {
   color: var(--text-secondary);
 }
 
+/* A place for "?" to put focus, not a control: no ring. */
+.shortcut-heading:focus {
+  outline: none;
+}
+
+/* Closed off from the switches below it: with no bottom margin "Show these
+   shortcuts" sat 4px above "Auto-analyze after every move", and the first
+   setting read as one more line of the list. */
 .shortcut-list {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  margin: 0.6rem 0 0;
+  margin: 0.6rem 0 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .shortcut-list>div {
@@ -6588,6 +6674,12 @@ button.hint-btn {
   text-transform: uppercase;
   color: var(--text-tertiary);
   margin-right: auto;
+  /* Its own width, not the third of the row \`.inline-actions > *\` deals every
+     child: in the desktop rail a third is 92px, and "Drill this line" broke
+     after "this". The buttons share what is left, and wrap below it when the
+     text is enlarged past fitting. */
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 /* The first screen's start card: one primary action, the alternatives under it. */

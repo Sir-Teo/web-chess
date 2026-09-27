@@ -7148,7 +7148,16 @@ async function checkShortDesktopWindow(browser) {
       await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true', null, { timeout: 5000 })
         .catch(() => {})
       assert(await page.locator('.app-shell').getAttribute('data-scroll-chrome') === 'true', 'short enlarged window kept both bars fixed')
-      assert(await page.locator('.main-container').evaluate(el => Math.abs(el.getBoundingClientRect().height - innerHeight) < 1), 'the workspace still receives only a sliver of height')
+      // Waited for as well. The flag above flips on a measurement and the
+      // workspace takes the window's height up to three frames later --
+      // measured over 18 runs each, the same on this commit and the one
+      // before it -- so reading it the instant the flag appeared failed about
+      // half the time on a correct layout. Same condition, a settled read.
+      const workspaceFilled = await page.waitForFunction(
+        () => Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1,
+        null, { timeout: 2000 },
+      ).then(() => true, () => false)
+      assert(workspaceFilled, 'the workspace still receives only a sliver of height')
       await visible(page.getByRole('button', { name: 'Review Game', exact: true }), 'Review Game')
       for (const square of ['a8', 'h1']) await visible(page.locator(`[data-square="${square}"] [role="button"]`), `${square} piece`)
       for (const control of await page.locator('.top .mobile-actions button, .top .gc-pill, .top .settings-menu > summary').all()) {
@@ -9849,7 +9858,27 @@ async function checkDrawModeEndsWithItsPurpose(browser) {
     await page.waitForTimeout(400)
     assert(await toggle.getAttribute('aria-pressed') === 'true',
       'Draw could not be turned on inside Play, so the mode is unusable where it was asked for')
-    console.log('  draw mode: ends at the move into Play, and can still be turned on there')
+
+    // And a stroke actually drawn. Nothing above ever dragged a finger, and the
+    // move handler read the event inside a state updater, where React can run
+    // it after `currentTarget` is gone: the second touchmove of any drag threw
+    // and the whole app fell to its error screen. Several moves, like a finger.
+    const client = await context.newCDPSession(page)
+    const centre = async square => {
+      const box = await page.locator(`[data-square="${square}"]`).boundingBox()
+      return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+    }
+    const from = await centre('g1'), to = await centre('f3')
+    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x, y: from.y, id: 1 }] })
+    for (let step = 1; step <= 6; step += 1) {
+      const x = from.x + (to.x - from.x) * step / 6, y = from.y + (to.y - from.y) * step / 6
+      await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y, id: 1 }] })
+    }
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    await page.waitForTimeout(300)
+    assert(await page.locator('[data-square="e4"]').count() === 1, 'drawing an arrow with a finger took the board down')
+    assert(await page.locator('.board-draw-clear').count() === 1, 'a finger stroke from g1 to f3 drew nothing')
+    console.log('  draw mode: ends at the move into Play, can still be turned on there, and draws a finger stroke')
   } finally { await context.close() }
 }
 

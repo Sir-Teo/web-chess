@@ -7,11 +7,12 @@ import {
     formatLibrarySize,
     getLibraryStats,
     libraryGameMatchesQuery,
+    libraryPlayers,
     sameGameKey,
     sortLibraryGames,
 } from '../engine/gameLibrary'
 import type { LibraryWriteResult } from '../hooks/useGameLibrary'
-import { IconClipboard, IconDownload, IconUpload, IconPlay, IconRefresh } from './icons'
+import { IconClipboard, IconDownload, IconUpload, IconPlay, IconPencil } from './icons'
 import './NewGameDialog.css'
 import './LibraryDialog.css'
 import { MAX_SEARCH_QUERY_LENGTH } from '../engine/searchTerms'
@@ -64,8 +65,12 @@ const SORT_OPTIONS: { value: LibrarySort; label: string }[] = [
 ]
 
 function describeGame(game: LibraryGame): string {
-    const { white, black, result, date, eco } = game.metadata
-    const players = white || black ? `${white ?? '?'} — ${black ?? '?'}` : null
+    const { result, eco } = game.metadata
+    const players = libraryPlayers(game.metadata, ' — ', '?')
+    // Not twice: a suggested name already ends in the date, and the details
+    // line under it repeated it -- "Queen's Gambit · 2026.09.26" over
+    // "2026.09.26 · 3 ply".
+    const date = game.metadata.date && !game.name.includes(game.metadata.date) ? game.metadata.date : undefined
     return [players, result, date, eco, `${game.moveCount} ply`].filter(Boolean).join(' · ')
 }
 
@@ -170,7 +175,10 @@ export function LibraryDialog({
 
     const handleSave = () => {
         if (savedPgnRef.current === currentKey && !name.trim()) return
-        const result = onSave(name, currentPgn)
+        // An empty field saves under the name the field is showing: the
+        // placeholder is the app's suggestion, and it knows the opening,
+        // which the save path does not.
+        const result = onSave(name.trim() || suggestedName, currentPgn)
         announce(result, storageIsDurable ? 'Saved to the library.' : 'Saved for this session only.')
         if (result.ok) {
             savedPgnRef.current = currentKey
@@ -354,7 +362,7 @@ export function LibraryDialog({
                                             aria-label={`Rename ${game.name}`}
                                             title="Rename"
                                         >
-                                            <IconRefresh />
+                                            <IconPencil />
                                         </button>
                                         {confirmingDelete === game.id ? (
                                             <button
@@ -392,11 +400,19 @@ export function LibraryDialog({
                             </button>
                         )}
 
-                        {games.length > 0 && (
+                        {/* While a search narrows the list, the count is of what
+                            it found: "2 games" over one result read as though
+                            the other had failed to draw. The library's size is
+                            back once the search is cleared. */}
+                        {games.length > 0 && (visible.length === games.length ? (
                             <p className="library-hint">
                                 {stats.count} {stats.count === 1 ? 'game' : 'games'} · {stats.moves} ply · {formatLibrarySize(stats.size)}
                             </p>
-                        )}
+                        ) : visible.length > 0 && (
+                            <p className="library-hint">
+                                {visible.length} of {stats.count} games match
+                            </p>
+                        ))}
                     </div>
 
                     {!storageIsDurable && (

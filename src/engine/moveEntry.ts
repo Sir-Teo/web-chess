@@ -37,3 +37,56 @@ export function parseMoveEntry(fen: string, input: string): Move | null {
     return null
   }
 }
+
+const PIECE_NAMES: Record<string, string> = { K: 'king', Q: 'queen', R: 'rook', B: 'bishop', N: 'knight' }
+
+/**
+ * Why a typed piece move was refused, when there is more to say than
+ * "not legal".
+ *
+ * With two knights on b1 and f3, `Nd2` is a legal move for either and SAN
+ * requires saying which. The strict parser refuses it -- guessing would play a
+ * move the reader did not choose -- and the field then said "That move is not
+ * legal here", about a move that is. This names the choices instead.
+ */
+export function moveEntryExplanation(fen: string, input: string): string | null {
+  const token = normalizeMoveEntry(input)
+  const pawn = token.match(/^([a-h])(?:x([a-h][1-8])|([1-8]))[+#]?$/)
+  if (pawn) return pawnMoveExplanation(fen, pawn[1], pawn[2] ?? `${pawn[1]}${pawn[3]}`, Boolean(pawn[2]))
+  const match = token.match(/^([KQRBN])x?([a-h][1-8])[+#]?$/)
+  if (!match) return null
+  try {
+    const candidates = new Chess(fen).moves({ verbose: true })
+      .filter(move => move.piece === match[1].toLowerCase() && move.to === match[2])
+    // Well formed, and no such move: say which part is impossible rather than
+    // the whole sentence about notation, which the reader got right.
+    if (!candidates.length) return `No ${PIECE_NAMES[match[1]]} can go to ${match[2]} here.`
+    if (candidates.length < 2) return null
+    const sans = candidates.map(move => move.san).sort()
+    const choices = sans.length === 2 ? `${sans[0]} or ${sans[1]}` : `${sans.slice(0, -1).join(', ')} or ${sans[sans.length - 1]}`
+    return `More than one ${PIECE_NAMES[match[1]]} can go to ${match[2]}. Say which: ${choices}.`
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The same for a pawn: `e5` with no pawn able to reach it, `exd5` with
+ * nothing to take, and a promotion typed without its piece -- `e8`, which is
+ * legal only once the reader says what the pawn becomes.
+ */
+function pawnMoveExplanation(fen: string, file: string, to: string, capture: boolean): string | null {
+  try {
+    const candidates = new Chess(fen).moves({ verbose: true })
+      .filter(move => move.piece === 'p' && move.to === to && move.from[0] === file
+        && (capture ? move.from[0] !== to[0] : move.from[0] === to[0]))
+    if (!candidates.length) return capture ? `No pawn on the ${file}-file can take on ${to} here.` : `No pawn can go to ${to} here.`
+    if (candidates.some(move => move.promotion)) {
+      const stem = capture ? `${file}x${to}` : to
+      return `Say what the pawn becomes: ${stem}=Q, ${stem}=R, ${stem}=B or ${stem}=N.`
+    }
+    return null
+  } catch {
+    return null
+  }
+}

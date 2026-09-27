@@ -33,6 +33,7 @@ import {
 } from '../engine/positionSetup'
 import { buildFenShareUrl } from '../engine/shareLink'
 import { MAX_SHARED_GAME_CHARS, buildGameShareUrl } from '../engine/shareGame'
+import { pgnDownloadFilename } from '../engine/pgnFilename'
 import { chessComPositionUrl, lichessAnalysisUrl } from '../engine/externalLinks'
 import {
     ARCHIVE_SOURCES,
@@ -66,6 +67,8 @@ type PgnDialogProps = {
     gameNodes: Map<string, GameNode>
     evaluations: Map<string, EvalSnapshot>
     pgnHeaders: Record<string, string>
+    /** The opening on the board, which names a downloaded game that names nothing else. */
+    openingName?: string
     /**
      * Add every game in a database file to the library. Absent when there is
      * no library to add to; the dialog then just reports that it cannot take
@@ -112,7 +115,7 @@ const SETUP_CASTLING_OPTIONS: Array<{ right: SetupCastlingRight; label: string; 
     { right: 'q', label: 'Black queenside', short: 'q' },
 ]
 
-export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, mainLineNodes, gameNodes, evaluations, pgnHeaders, onImportManyToLibrary, droppedFile, onDroppedFileTaken }: PgnDialogProps) {
+export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, mainLineNodes, gameNodes, evaluations, pgnHeaders, openingName, onImportManyToLibrary, droppedFile, onDroppedFileTaken }: PgnDialogProps) {
     const [tab, setTab] = useState<'import' | 'fen' | 'export'>('import')
     const [importText, setImportText] = useState('')
     const [fenText, setFenText] = useState(currentFen)
@@ -465,7 +468,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
-        link.download = `web-chess-${new Date().toISOString().slice(0, 10)}.pgn`
+        link.download = pgnDownloadFilename(pgnHeaders, openingName)
         document.body.append(link)
         link.click()
         link.remove()
@@ -494,11 +497,17 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
      * decoder's own bound — half a game in a link is worse than being told to
      * send the PGN.
      */
+    // The main-line position on the board, so the link opens where the sender
+    // is looking. A position off the main line is not in the link at all, and
+    // opens at the end as before.
+    const sharedPly = mainLineNodes.findIndex(node => node.fen === currentFen)
+    const gameShareOpensMidGame = sharedPly >= 0 && sharedPly < mainLineNodes.length - 1
     const gameShareUrl = mainLineNodes.length > 1
         ? buildGameShareUrl(
             mainLineNodes[0]?.fen ?? currentFen,
             mainLineNodes.slice(1).map(node => node.uci).filter(Boolean),
             typeof window === 'undefined' ? 'https://localhost/' : window.location.href,
+            sharedPly >= 0 ? sharedPly : undefined,
         )
         : null
     const gameShareTooLong = Boolean(gameShareUrl && gameShareUrl.length > MAX_SHARED_GAME_CHARS)
@@ -1074,10 +1083,14 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                             className="btn-cancel"
                             onClick={handleCopyGameLink}
                             disabled={Boolean(gameShareDisabledReason)}
-                            title={gameShareDisabledReason ?? 'A link that opens this whole game, not just the position'}
+                            title={gameShareDisabledReason ?? (gameShareOpensMidGame
+                                ? 'A link to this whole game that opens at the move on the board'
+                                : 'A link that opens this whole game, not just the position')}
                             aria-label={gameShareDisabledReason
                                 ? `Copy game link unavailable. ${gameShareDisabledReason}`
-                                : 'Copy a link to this whole game'}
+                                : gameShareOpensMidGame
+                                    ? 'Copy a link to this whole game, opening at this move'
+                                    : 'Copy a link to this whole game'}
                         >
                             <IconClipboard /> {copyStatus === 'game-link-copied' ? 'Copied Link' : 'Copy Game Link'}
                         </button>

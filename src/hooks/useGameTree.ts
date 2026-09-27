@@ -238,9 +238,11 @@ export function useGameTree(startFen?: string) {
      * Replace the current tree with a single imported main-line in one render pass.
      * This avoids O(n) re-render thrashing during large PGN imports.
      */
-    const loadMainLine = useCallback((entries: GameTreeImportEntry[], startFen?: string): string => {
+    /** `landAt` is the ply to stand on afterwards, 0 being the root; the end by default. */
+    const loadMainLine = useCallback((entries: GameTreeImportEntry[], startFen?: string, landAt?: number): string => {
         const nextTree = makeTree(startFen)
         let parent = nextTree.nodes.get(nextTree.rootId)!
+        const path = [parent.id]
 
         for (const entry of entries) {
             const move = entry.move
@@ -262,10 +264,12 @@ export function useGameTree(startFen?: string) {
             nextTree.nodes.set(node.id, node)
             parent.children.push(node.id)
             parent = node
+            path.push(node.id)
         }
 
-        publishTree({ ...nextTree, currentId: parent.id })
-        return parent.id
+        const currentId = typeof landAt === 'number' && path[landAt] ? path[landAt]! : parent.id
+        publishTree({ ...nextTree, currentId })
+        return currentId
     }, [publishTree])
 
     const loadTree = useCallback((entries: GameTreeImportEntry[], startFen?: string, rootCommands?: string[]): string => {

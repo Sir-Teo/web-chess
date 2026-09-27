@@ -4,6 +4,7 @@ import type { OpeningDatabaseSource, OpeningSpeed } from './openingExplorer'
 import { isBoardThemeId } from './boardThemes'
 import { isTimeControlPresetId } from './chessClock'
 import { isSideChoice, type SideChoice } from './sideChoice'
+import { MAX_SIDE_PANEL_WIDTH, MIN_SIDE_PANEL_WIDTH } from './panelSizing'
 import { ANALYSIS_SETTINGS_STORAGE_KEY } from '../storageKeys'
 
 /**
@@ -115,6 +116,13 @@ export type PersistedAppSettings = {
    */
   lastDifficulty: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
   lastSideChoice: SideChoice
+  /**
+   * The width each side panel was last dragged to on a desktop. A preference,
+   * not a layout: it is what a panel opens and reopens at, still fitted to
+   * the window it opens in, and a collapsed panel is not recorded as 0.
+   */
+  leftPanelWidth: number
+  rightPanelWidth: number
 }
 
 export const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
@@ -159,6 +167,8 @@ export const DEFAULT_PERSISTED_SETTINGS: PersistedAppSettings = {
   theme: 'dark',
   lastDifficulty: 4,
   lastSideChoice: 'white',
+  leftPanelWidth: 320,
+  rightPanelWidth: 320,
 }
 
 /**
@@ -373,6 +383,8 @@ export function loadPersistedSettings(): PersistedAppSettings {
       theme: isThemePreference(parsed.theme) ? parsed.theme : DEFAULT_PERSISTED_SETTINGS.theme,
       lastDifficulty: normalizeInteger(parsed.lastDifficulty, 1, 8, DEFAULT_PERSISTED_SETTINGS.lastDifficulty) as PersistedAppSettings['lastDifficulty'],
       lastSideChoice: isSideChoice(parsed.lastSideChoice) ? parsed.lastSideChoice : DEFAULT_PERSISTED_SETTINGS.lastSideChoice,
+      leftPanelWidth: normalizeInteger(parsed.leftPanelWidth, MIN_SIDE_PANEL_WIDTH, MAX_SIDE_PANEL_WIDTH, DEFAULT_PERSISTED_SETTINGS.leftPanelWidth),
+      rightPanelWidth: normalizeInteger(parsed.rightPanelWidth, MIN_SIDE_PANEL_WIDTH, MAX_SIDE_PANEL_WIDTH, DEFAULT_PERSISTED_SETTINGS.rightPanelWidth),
     }
   } catch {
     return defaultPersistedSettings()

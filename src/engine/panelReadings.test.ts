@@ -92,6 +92,12 @@ describe('knownPgnHeader', () => {
     expect(knownPgnHeader(undefined)).toBeNull()
   })
 
+  it("treats the app's own placeholder for that field as nothing said", () => {
+    expect(knownPgnHeader('Player 1', 'Player 1')).toBeNull()
+    expect(knownPgnHeader(' Player 2 ', 'Player 2')).toBeNull()
+    expect(knownPgnHeader('Player 2', 'Player 1')).toBe('Player 2')
+  })
+
   it('keeps a real value, trimmed', () => {
     expect(knownPgnHeader('  Carlsen, M. ')).toBe('Carlsen, M.')
     expect(knownPgnHeader('1/2-1/2')).toBe('1/2-1/2')

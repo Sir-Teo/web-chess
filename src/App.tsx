@@ -54,6 +54,8 @@ import {
 import { parseCandidateMoveInput, describeBestMove } from './engine/candidateMoves'
 import { type AnalyzeMode, type UciGoLimits } from './engine/uci'
 import { exportAnnotatedPgn, flattenPgnMainLine, parsePgnMoveTree, pgnImportUserErrorMessage } from './engine/pgn'
+import { APP_PLACEHOLDER_HEADERS } from './engine/pgnPlaceholders'
+import { pgnDownloadFilename } from './engine/pgnFilename'
 import { type LibraryGame, extractLibraryMetadata, suggestGameName } from './engine/gameLibrary'
 import { libraryStorageIsDurable } from './engine/gameLibraryStorage'
 import { narrativeTagToneClass, narrativeTags } from './engine/narrativeTags'
@@ -108,7 +110,7 @@ import { restoreSavedReview, reviewLineKey, type SavedReview } from './engine/sa
 import { SavedReviews } from './components/SavedReviews'
 import { fetchSamplePgn } from './engine/samplePgn'
 import { hashCarriesShare, parseFenShareHash } from './engine/shareLink'
-import { parseGameShareHash, replaySharedGame } from './engine/shareGame'
+import { MAX_SHARED_GAME_CHARS, buildGameShareUrl, parseGameShareHash, replaySharedGame } from './engine/shareGame'
 import { nullMoveProbe } from './engine/threats'
 import {
   tablebaseMoveActionLabel,
@@ -510,11 +512,25 @@ function App() {
 
   // ── Layout ───────────────────────────────────────────
   const [topPanelOpen, setTopPanelOpen] = useState(true)
-  const [leftWidth, setLeftWidth] = useState(initialWorkspaceMode === 'play' ? 0 : DEFAULT_LEFT_PANEL_WIDTH)
-  const [rightWidth, setRightWidth] = useState(320)
+  const [leftWidth, setLeftWidth] = useState(initialWorkspaceMode === 'play' ? 0 : persistedSettings.leftPanelWidth)
+  const [rightWidth, setRightWidth] = useState(persistedSettings.rightPanelWidth)
+  /**
+   * The width each panel was last given, which is what it opens and reopens
+   * at. Every open used a fixed 320 and nothing was kept, so a reader who
+   * widened the analysis rail for the graphs lost it on every reload and on
+   * every collapse. Zero is a collapse, not a width, and is never recorded.
+   */
+  const preferredLeftWidthRef = useRef(persistedSettings.leftPanelWidth)
+  const preferredRightWidthRef = useRef(persistedSettings.rightPanelWidth)
+  useEffect(() => {
+    if (leftWidth > 0) preferredLeftWidthRef.current = leftWidth
+    if (rightWidth > 0) preferredRightWidthRef.current = rightWidth
+  }, [leftWidth, rightWidth])
   const [bottomPanelOpen, setBottomPanelOpen] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsBodyRef = useRef<HTMLDivElement>(null)
+  /** Settings was opened by "?", so it should open on the shortcut list. */
+  const settingsOpenedForShortcutsRef = useRef(false)
   const openingIntelRef = useRef<HTMLDivElement>(null)
   const mainContainerRef = useRef<HTMLDivElement>(null)
   const insightsPanelRef = useRef<HTMLElement>(null)
@@ -644,6 +660,15 @@ function App() {
    */
   const openingInStrip = isMobileLayout && !isLandscapePhoneViewport(viewport)
   const openingOnItsOwnRow = !isMobileLayout
+  /**
+   * In the strip the name is capped at 8.5rem, so "Ruy Lopez: Morphy Defense"
+   * reads "Ruy Lopez: Mo…" -- and its `title` is no help on a touch screen,
+   * which is the only place this copy exists. A tap lifts the cap; the strip
+   * already scrolls, so the full name costs width and no height. Held as the
+   * name that was opened rather than a flag, so the next opening arrives
+   * capped again instead of silently pushing the rest of the row away.
+   */
+  const [expandedOpeningName, setExpandedOpeningName] = useState<string | null>(null)
   // The stage is sized by the row it sits in, never by the board inside it, so
   // it is safe to measure and size the board from.
   const stageHeight = useElementHeight(boardStageRef, viewport.height)
@@ -1251,7 +1276,7 @@ function App() {
     if (workspaceMode !== 'analysis') return
     if (hasAutoOpenedAnalysisLeftRef.current) return
     hasAutoOpenedAnalysisLeftRef.current = true
-    setLeftWidth(width => width === 0 ? DEFAULT_LEFT_PANEL_WIDTH : width)
+    setLeftWidth(width => width === 0 ? preferredLeftWidthRef.current : width)
   }, [workspaceMode])
 
   useEffect(() => {
@@ -1402,6 +1427,7 @@ function App() {
       if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault()
         rememberModalTriggerRef.current()
+        settingsOpenedForShortcutsRef.current = true
         setSettingsOpen(true)
         return
       }
@@ -1477,6 +1503,17 @@ function App() {
 
   const closeSettings = useCallback(() => setSettingsOpen(false), [])
   useModalFocus(settingsOpen, settingsBodyRef, closeSettings)
+  // "?" says "show these shortcuts", but the dialog's own first focus is its
+  // first enabled switch, which sits below the list: scrolling to it carried
+  // the heading out of view, so the key opened Settings on everything except
+  // what it was pressed for. Runs after the hook above, so it has the last
+  // word, and only for "?"; Tab from the heading still reaches the switches.
+  useEffect(() => {
+    const forShortcuts = settingsOpenedForShortcutsRef.current
+    settingsOpenedForShortcutsRef.current = false
+    if (!settingsOpen || !forShortcuts) return
+    settingsBodyRef.current?.querySelector<HTMLElement>('.shortcut-heading')?.focus()
+  }, [settingsOpen])
 
   // No wheel-to-navigate; it conflicts with trackpads and touch.
 
@@ -2383,11 +2420,21 @@ function App() {
     tablebase: tablebaseTopMove,
   })
   const coachBestMoveIsTablebase = isExactTablebaseCoachMove(coachBestMove, tablebaseTopMove)
-  const coachBestMoveText = boardEnding ? 'None' : bestMoveLabel(fen, coachBestMove)
+  /**
+   * A drill asks for the next move of a line from memory, and the engine's
+   * best move is very often that move: drilling 1.e4 e5 2.Nf3 drew Nf3 in
+   * green on the board and named it in the Coach card. Review practice already
+   * keeps its answer off the board for the same reason; while the drill waits
+   * for the reader's move, so does this, until a miss reveals it.
+   */
+  const drillAwaitingAnswer = Boolean(
+    drill && !drill.revealed && drill.expectedFen === fen && isDrillTurn(drill.line, drill.ply),
+  )
+  const coachBestMoveText = boardEnding ? 'None' : drillAwaitingAnswer ? 'Hidden' : bestMoveLabel(fen, coachBestMove)
   const coachReplyMove = boardEnding || coachBestMoveIsTablebase
     ? null
     : coachLine?.pv[1] ?? currentCloudEval?.pvs[0]?.moves[1] ?? currentLastPonderMove ?? null
-  const coachReplyMoveText = boardEnding ? 'None' : ponderMoveLabel(fen, coachBestMove, coachReplyMove)
+  const coachReplyMoveText = boardEnding ? 'None' : drillAwaitingAnswer ? 'Hidden' : ponderMoveLabel(fen, coachBestMove, coachReplyMove)
   const coachDepth = currentEvaluation ? currentEvaluation.depth : unrestrictedCoachLine?.depth ?? currentCloudEval?.depth
   // A tile labelled Depth reports a depth or nothing. It used to fall back to
   // the engine status, so it read "analyzing" in a row of numbers -- and then,
@@ -2587,6 +2634,11 @@ function App() {
 
     setWorkspaceMode(DEFAULT_PERSISTED_SETTINGS.workspaceMode)
     hasAutoOpenedAnalysisLeftRef.current = false
+    // The layout is the workspace too: panels that were dragged wide come back
+    // at their defaults, rather than the reset writing the old widths back.
+    preferredLeftWidthRef.current = DEFAULT_PERSISTED_SETTINGS.leftPanelWidth
+    preferredRightWidthRef.current = DEFAULT_PERSISTED_SETTINGS.rightPanelWidth
+    setRightWidth(DEFAULT_PERSISTED_SETTINGS.rightPanelWidth)
     setLeftWidth(0)
     setSearchDepth(DEFAULT_PERSISTED_SETTINGS.searchDepth)
     setMultiPv(defaultMultiPv())
@@ -2964,8 +3016,12 @@ function App() {
       theme,
       lastDifficulty: aiDifficulty,
       lastSideChoice: sideChoice,
+      leftPanelWidth: leftWidth > 0 ? leftWidth : preferredLeftWidthRef.current,
+      rightPanelWidth: rightWidth > 0 ? rightWidth : preferredRightWidthRef.current,
     }))
   }, [
+    leftWidth,
+    rightWidth,
     aiDifficulty,
     continuousAnalysis,
     sideChoice,
@@ -3029,6 +3085,14 @@ function App() {
 
   // ── Derived move data ─────────────────────────────────
   const mainLineNodes = useStableNodeList(useMemo(() => gameTree.mainLine(), [gameTree]))
+  /**
+   * The game's opening, as far as its main line reaches -- what names it in
+   * the library and its downloads. The board's own opening is the position on
+   * it: stepped back to the start (a drill ends there), a Queen's Gambit saved
+   * as "Game · <date>".
+   */
+  const mainLineFenPath = useMemo(() => mainLineNodes.map(node => node.fen), [mainLineNodes])
+  const gameOpening = useOpening(mainLineFenPath, mainLineNodes.length > 1)
 
   // The whole branch the board is standing in: the path down to the current
   // node, then its first-child chain to the tip. Equal to the main line
@@ -3157,12 +3221,15 @@ function App() {
     const url = URL.createObjectURL(new Blob([pgn], { type: 'application/x-chess-pgn;charset=utf-8' }))
     const link = document.createElement('a')
     link.href = url
-    link.download = `web-chess-review-${new Date(currentReviewReport.finishedAt).toISOString().slice(0, 10)}.pgn`
+    // Named for the game, like Download PGN, and marked as its review: dated by
+    // the game when the PGN says, otherwise by when the review finished.
+    link.download = pgnDownloadFilename(pgnHeaders, gameOpening?.name, new Date(currentReviewReport.finishedAt))
+      .replace(/\.pgn$/, '-review.pgn')
     document.body.append(link)
     link.click()
     link.remove()
     window.setTimeout(() => URL.revokeObjectURL(url), 0)
-  }, [currentReviewReport, pgnHeaders, reviewLineNodes, reviewRows, reviewsAVariation])
+  }, [currentReviewReport, gameOpening?.name, pgnHeaders, reviewLineNodes, reviewRows, reviewsAVariation])
   const visibleReviewRows = useMemo(
     () => filterReviewRowsBySide(reviewRows, reviewSideFilter),
     [reviewRows, reviewSideFilter],
@@ -3185,6 +3252,7 @@ function App() {
     : status === 'loading' || status === 'disabled'
       ? 'Wait for the engine to finish loading.'
       : status === 'error' ? 'The engine could not start. Choose another engine in Engine Lab.' : null
+  const reviewFromPlay = workspaceMode === 'play' && status === 'disabled' && mainLineNodes.length > 1
   // Same shape as the reason above: shown rather than hidden, so a reader
   // looking for the button learns why it will not do anything.
   const playFromHereDisabledReason = isGameOver
@@ -3715,6 +3783,7 @@ function App() {
     if (reviewPractice && reviewPractice.status !== 'correct' && reviewPractice.attempts < 2) {
       return list
     }
+    if (drillAwaitingAnswer) return list
 
     // Violet, so it reads as neither the move that was played (amber) nor a move
     // the engine recommends (the red-to-green candidate scale). It is the move
@@ -3774,7 +3843,7 @@ function App() {
     }
 
     return list
-  }, [activeThreat, currentBoardMove, engineEnabled, fen, hintMove, linePreview, lines, reviewPractice, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
+  }, [activeThreat, currentBoardMove, drillAwaitingAnswer, engineEnabled, fen, hintMove, linePreview, lines, reviewPractice, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
 
   /**
    * What the board is handed: everything the engine has to say, and then the
@@ -4432,10 +4501,15 @@ function App() {
     setDrawInProgress({ from: square, to: square })
   }, [drawSquareFrom])
 
+  // The square is read here, in the handler, and not in the updater: React
+  // may run an updater later, during render, and by then the event's
+  // `currentTarget` is null. Reading it in there threw on the second move of
+  // a drag and took the whole app down to its error screen -- drawing any
+  // arrow with a finger crashed the board.
   const handleDrawPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const square = drawSquareFrom(event)
     setDrawInProgress(current => {
       if (!current) return current
-      const square = drawSquareFrom(event)
       return square === current.to ? current : { ...current, to: square }
     })
   }, [drawSquareFrom])
@@ -4783,8 +4857,8 @@ function App() {
     [showLibraryDialog, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot],
   )
   const librarySuggestedName = useMemo(
-    () => (libraryPgn ? suggestGameName(libraryPgn) : ''),
-    [libraryPgn],
+    () => (libraryPgn ? suggestGameName(libraryPgn, gameOpening?.name) : ''),
+    [gameOpening?.name, libraryPgn],
   )
   const closeLibraryDialog = useCallback(() => {
     setShowLibraryDialog(false)
@@ -5300,7 +5374,7 @@ function App() {
    * `replaySharedGame` stops at the first move the position will not take —
    * rather than being thrown away whole.
    */
-  const loadSharedGame = useCallback((shared: { rootFen: string; moves: string[]; carried?: number }): boolean => {
+  const loadSharedGame = useCallback((shared: { rootFen: string; moves: string[]; carried?: number; ply?: number }): boolean => {
     const played = replaySharedGame(shared)
     if (!played.length) return false
     // Two ways to lose the end of a link: a token the decoder could not read
@@ -5330,11 +5404,14 @@ function App() {
     setPendingPromotion(null)
     clearBoardSelection()
 
-    gameTree.loadMainLine(played.map(entry => ({ move: entry.move, fen: entry.fen })), shared.rootFen)
-    const finalFen = played[played.length - 1]!.fen
-    game.load(finalFen)
-    setFen(finalFen)
-    setPendingPonderFen(finalFen)
+    // Where the sender was standing, when the link says: the whole game is
+    // loaded either way, so the rest of it is one step forward.
+    const landAt = typeof shared.ply === 'number' && shared.ply < played.length ? shared.ply : played.length
+    gameTree.loadMainLine(played.map(entry => ({ move: entry.move, fen: entry.fen })), shared.rootFen, landAt)
+    const landingFen = landAt === 0 ? new Chess(shared.rootFen).fen() : played[landAt - 1]!.fen
+    game.load(landingFen)
+    setFen(landingFen)
+    setPendingPonderFen(landingFen)
     requestBoardReveal()
     // After the load, or the load clears it.
     if (lost > 0) announce(sharedLinkTruncated(played.length), NOTICE_EXPLAIN_MS)
@@ -5642,6 +5719,35 @@ function App() {
       () => announce('Clipboard blocked — copy the PGN from the PGN dialog'),
     )
   }, [announce, evaluationsByFen, gameTree.nodesSnapshot, mainLineNodes, pgnHeaders])
+  /**
+   * The game-link button, where the other two copies already were. It lived
+   * only on the PGN dialog's Export tab, so the palette could copy the FEN and
+   * the PGN but not the one thing made for sending to a person. Same link as
+   * the dialog's: the whole game, open at the main-line move on the board.
+   */
+  const copyGameLink = useCallback(() => {
+    if (mainLineNodes.length <= 1) return
+    const ply = mainLineNodes.findIndex(node => node.id === gameTree.current.id)
+    const url = buildGameShareUrl(
+      mainLineNodes[0]!.fen,
+      mainLineNodes.slice(1).map(node => node.uci).filter(Boolean),
+      window.location.href,
+      ply >= 0 ? ply : undefined,
+    )
+    if (url.length > MAX_SHARED_GAME_CHARS) {
+      announce('This game is too long for a link — copy the PGN instead')
+      return
+    }
+    const clipboard = navigator.clipboard
+    if (!clipboard) {
+      announce('Clipboard unavailable — copy the link from the PGN dialog')
+      return
+    }
+    clipboard.writeText(url).then(
+      () => announce('Game link copied'),
+      () => announce('Clipboard blocked — copy the link from the PGN dialog'),
+    )
+  }, [announce, gameTree, mainLineNodes])
   const openInLichess = useCallback(() => {
     // The line the reader is standing in, up to where they stand -- not the
     // main line, which may be a different game by now.
@@ -5681,6 +5787,14 @@ function App() {
       run: copyPgn,
     },
     {
+      id: 'copy-game-link',
+      label: 'Copy game link',
+      hint: mainLineNodes.length > 1 ? 'A link that replays this game, from this move' : 'No moves to share yet',
+      keywords: ['clipboard', 'share', 'url', 'send', 'link'],
+      disabled: mainLineNodes.length <= 1,
+      run: copyGameLink,
+    },
+    {
       id: 'open-lichess',
       label: 'Open in Lichess',
       hint: 'This line, on the Lichess analysis board',
@@ -5705,13 +5819,17 @@ function App() {
     {
       id: 'review-game',
       label: 'Review game',
-      hint: reviewGameDisabledReason ?? undefined,
+      // From Play the engine is off, not loading, so "Wait for the engine to
+      // finish loading" was a wait with no end. The result card's offer
+      // already knows the way: switch to Analysis and review once the engine
+      // is up. The palette takes the same road.
+      hint: reviewFromPlay ? 'Opens Analysis and reviews the game' : reviewGameDisabledReason ?? undefined,
       keywords: ['accuracy', 'blunders', 'report'],
       // Shown disabled rather than hidden, with the reason as the hint: a
       // reader looking for it should learn what it needs, not wonder whether
       // they misremembered the name.
-      disabled: Boolean(reviewGameDisabledReason),
-      run: startBatchReview,
+      disabled: !reviewFromPlay && Boolean(reviewGameDisabledReason),
+      run: reviewFromPlay ? reviewFinishedGame : startBatchReview,
     },
     {
       id: 'take-back',
@@ -5882,7 +6000,7 @@ function App() {
     },
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
-  ], [analysisExperience, atVariationFork, autoFlipBoard, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyPgn, drill, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
+  ], [analysisExperience, atVariationFork, autoFlipBoard, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyGameLink, copyPgn, drill, reviewFinishedGame, reviewFromPlay, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
     goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast,
       goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
       previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay,
@@ -6028,8 +6146,8 @@ function App() {
 
   const toggleTopPanel = () => setTopPanelOpen(value => !value)
   const toggleBottomPanel = () => setBottomPanelOpen(value => !value)
-  const toggleLeftPanel = () => setLeftWidth(value => (value === 0 ? DEFAULT_LEFT : 0))
-  const toggleRightPanel = () => setRightWidth(value => (value === 0 ? DEFAULT_RIGHT : 0))
+  const toggleLeftPanel = () => setLeftWidth(value => (value === 0 ? preferredLeftWidthRef.current : 0))
+  const toggleRightPanel = () => setRightWidth(value => (value === 0 ? preferredRightWidthRef.current : 0))
 
   const handleLeftResizeKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -6157,13 +6275,16 @@ function App() {
       ?? `${game.turn() === 'w' ? 'White' : 'Black'} to move${game.isCheck() ? ' · Check' : ''}`
   // An imported game already carries who played it. The app parsed those
   // headers, re-exported them, and never once showed them.
-  const importedWhite = knownPgnHeader(pgnHeaders.White)
-  const importedBlack = knownPgnHeader(pgnHeaders.Black)
+  // Not this app's own "Player 1" and "Player 2", which every saved game
+  // carries: restored after a reload, a pass-and-play game was titled
+  // "Player 1 vs Player 2 · Web Chess" as though someone had imported it.
+  const importedWhite = knownPgnHeader(pgnHeaders.White, APP_PLACEHOLDER_HEADERS.White)
+  const importedBlack = knownPgnHeader(pgnHeaders.Black, APP_PLACEHOLDER_HEADERS.Black)
   const importedPlayers = importedWhite && importedBlack
     ? `${importedWhite} vs ${importedBlack}`
     : null
   const importedResult = knownPgnHeader(pgnHeaders.Result)
-  const importedGameTitle = [importedPlayers, knownPgnHeader(pgnHeaders.Event), importedResult]
+  const importedGameTitle = [importedPlayers, knownPgnHeader(pgnHeaders.Event, APP_PLACEHOLDER_HEADERS.Event), importedResult]
     .filter(Boolean).join(' · ')
   const labelFenFields = (linePreview?.fen ?? fen).split(/\s+/)
   const labelFullmove = Number(labelFenFields[5]) || 1
@@ -6612,6 +6733,7 @@ function App() {
       {currentLastBestMove
         && !isGameOver
         && (!reviewPractice || reviewPractice.status === 'correct' || reviewPractice.attempts >= 2)
+        && !drillAwaitingAnswer
         && (
           <p className="best-move" title={currentLastBestMove}>{isCandidateSearch ? 'Candidate' : 'Best'}: {bestMoveLabel(fen, currentLastBestMove)}</p>
         )}
@@ -6816,7 +6938,7 @@ function App() {
                     Engine: <strong>{activeProfile.name}</strong>
                   </p>
                 )}
-                <h4 className="settings-subhead pointer-fine-only">Keyboard shortcuts</h4>
+                <h4 className="settings-subhead shortcut-heading pointer-fine-only" tabIndex={-1}>Keyboard shortcuts</h4>
                 <dl className="shortcut-list pointer-fine-only">
                   {KEYBOARD_SHORTCUTS.map(({ keys, action }) => (
                     <div key={action}>
@@ -7271,7 +7393,7 @@ function App() {
                         Reset saved workspace
                       </button>
                       <p className="panel-copy small">
-                        Clears persisted analyze/lab controls for this browser.
+                        Clears persisted analyze/lab controls and panel sizes for this browser.
                       </p>
                     </div>
                   </details>
@@ -7327,7 +7449,7 @@ function App() {
             aria-valuemax={maximumSidePanelWidth(fittedPanels, 'left')}
             aria-valuenow={layoutLeftWidth}
             onMouseDown={startLeftResize}
-            onClick={() => { if (leftWidth === 0) setLeftWidth(DEFAULT_LEFT) }}
+            onClick={() => { if (leftWidth === 0) setLeftWidth(preferredLeftWidthRef.current) }}
             onKeyDown={handleLeftResizeKeyDown}
             title="Drag to resize · click to expand"
           >
@@ -7520,6 +7642,15 @@ function App() {
                 ? previewChess.turn() === 'w' ? 'white' : 'black'
                 : gameResultLabel ? 'final' : game.turn() === 'w' ? 'white' : 'black'}`}>
                 {turnLabel}
+                {/* The engine's turn, said where whose turn it is is already
+                    said. It was a badge on the board, over the middle of the
+                    near rank -- the player's own queen and king. */}
+                {isAiThinking && !previewChess && (
+                  <span className="turn-thinking" title="The engine is thinking">
+                    <span className="visually-hidden"> · engine thinking</span>
+                    <span className="thinking-dots" aria-hidden="true"><span /><span /><span /></span>
+                  </span>
+                )}
               </span>
               <span className="board-meta-move">{moveNumberLabel}</span>
               {reviewPractice && (
@@ -7618,14 +7749,26 @@ function App() {
                   are. The centred row below is the desktop's, and only one of
                   the two is ever in the document. */}
               {opening && openingInStrip && (
-                <span
-                  className="board-meta-opening"
+                <button
+                  type="button"
+                  className={`board-meta-opening${expandedOpeningName === opening.name ? ' is-expanded' : ''}`}
                   aria-label={`Opening ${opening.eco}: ${opening.name}`}
+                  aria-expanded={expandedOpeningName === opening.name}
                   title={`${opening.eco} ${opening.name}`}
+                  onClick={(event) => {
+                    const expanding = expandedOpeningName !== opening.name
+                    setExpandedOpeningName(expanding ? opening.name : null)
+                    if (expanding) {
+                      const target = event.currentTarget
+                      // After the cap is lifted, bring the end of the name into
+                      // the strip's view; `nearest` keeps the page itself still.
+                      requestAnimationFrame(() => target.scrollIntoView({ block: 'nearest', inline: 'nearest' }))
+                    }
+                  }}
                 >
                   <strong>{opening.eco}</strong>
                   <span>{opening.name}</span>
-                </span>
+                </button>
               )}
               </div>
               {!drawControlsInBottomBar && drawControls}
@@ -7767,16 +7910,6 @@ function App() {
                     </div>
                   </div>
                 )}
-                {/* AI thinking badge */}
-                {isAiThinking && (
-                  <div className="ai-thinking-overlay">
-                    <div className="ai-thinking-badge">
-                      <IconBot style={{ marginRight: '4px', fontSize: '1.1em', transform: 'translateY(1px)' }} />
-                      AI thinking
-                      <div className="thinking-dots"><span /><span /><span /></div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -7814,6 +7947,7 @@ function App() {
               gameNodes={gameTree.nodesSnapshot}
               evaluations={evaluationsByFen}
               pgnHeaders={pgnHeaders}
+              openingName={gameOpening?.name}
               onImportManyToLibrary={library.importGames}
               droppedFile={droppedPgnFile}
               onDroppedFileTaken={clearDroppedPgnFile}
@@ -7892,7 +8026,7 @@ function App() {
             aria-valuemax={maximumSidePanelWidth(fittedPanels, 'right')}
             aria-valuenow={layoutRightWidth}
             onMouseDown={startRightResize}
-            onClick={() => { if (rightWidth === 0) setRightWidth(DEFAULT_RIGHT) }}
+            onClick={() => { if (rightWidth === 0) setRightWidth(preferredRightWidthRef.current) }}
             onKeyDown={handleRightResizeKeyDown}
             title="Drag to resize · click to expand"
           >
@@ -7914,7 +8048,7 @@ function App() {
               <h2 id="analysis-panel-title">{workspaceMode === 'analysis' ? 'Analysis' : 'Play'}</h2>
               {workspaceMode === 'analysis' && leftPanelCollapsed && (
                 <button type="button" className="show-insights-button" onClick={() => {
-                  setLeftWidth(DEFAULT_LEFT_PANEL_WIDTH)
+                  setLeftWidth(preferredLeftWidthRef.current)
                   if (isMobileLayout) window.requestAnimationFrame(() => {
                     insightsPanelRef.current?.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'instant' : 'smooth' })
                   })
@@ -7949,7 +8083,9 @@ function App() {
                   aria-atomic="true"
                   aria-label={analysisStatusAnnouncement}
                 >
-                  <span>{engineName}</span>
+                  {/* Ellipsized in a narrow rail -- "Stockfish 18 Lite WASM
+                      Mul..." at 901px -- so the whole name is a hover away. */}
+                  <span title={engineName}>{engineName}</span>
                   <strong className={`status ${analysisStatusText}`}>{analysisStatusText}</strong>
                 </div>
               )}
@@ -8084,6 +8220,11 @@ function App() {
                       />
                       <span>Show board arrow overlays</span>
                     </label>
+                    {/* Hint, Take back and Resign all answer "yours": in a
+                        game between two engines each is disabled for good, and
+                        three dead buttons under a game being watched read as
+                        something that failed to load. */}
+                    {gameMode !== 'ai-vs-ai' && (
                     <div className="inline-actions hint-row">
                       <button
                         type="button"
@@ -8096,6 +8237,7 @@ function App() {
                         <IconZap /> {isHinting ? 'Looking…' : 'Hint'}
                       </button>
                     </div>
+                    )}
                     {/* The second half of the sentence is a claim about the
                         board, and the switch that makes it false is three
                         lines above this one. With overlays off the hint drew
@@ -8111,6 +8253,7 @@ function App() {
                       </p>
                     )}
                     {!blunderNudgeAboveMoves && blunderNudgeCard}
+                    {gameMode !== 'ai-vs-ai' && (
                     <div className="inline-actions takeback-row">
                       <button
                         type="button"
@@ -8142,6 +8285,7 @@ function App() {
                         <IconFlag /> {resignArmed ? 'Confirm?' : 'Resign'}
                       </button>
                     </div>
+                    )}
                   </div>
                 </>
               )}
@@ -8226,7 +8370,7 @@ function App() {
                         {positionEngineChanged && ' Saved reading from a different engine profile.'}
                       </p>
                     )}
-                    {coachLine && !boardEnding && !coachBestMoveIsTablebase && (
+                    {coachLine && !boardEnding && !coachBestMoveIsTablebase && !drillAwaitingAnswer && (
                       <p className="panel-copy small coach-line-source">
                         Candidate line · local engine D{coachLine.depth}
                         {isCandidateSearch && ` · Candidate score ${formatWhitePovEvaluation(fen, coachLine.cp, coachLine.mate)}`}
@@ -8237,6 +8381,7 @@ function App() {
                         the Pro panel's. Same buttons, shorter line. */}
                     {(() => {
                       if (boardEnding) return <p>The game is over here. Go back to explore another continuation.</p>
+                      if (drillAwaitingAnswer) return <p className="panel-copy small">The line is hidden while you find the drill move.</p>
                       // See `selectCoachLineSource` for why a stored best move
                       // counts as a line: the card used to name one and ask for
                       // an analysis in the same breath.
@@ -8283,7 +8428,12 @@ function App() {
                     {/* The question a player asks before every move, and the one
                         thing the panel could not answer. A null-move search:
                         the same position with the other side to move. */}
+                    {/* Not offered once the game is over: pressed there, its only
+                        answer was "nothing to threaten". Kept for the T key's
+                        reply, which is the same sentence and needs somewhere to go. */}
+                    {(!boardEnding || threatError) && (
                     <div className="coach-threat">
+                      {!boardEnding && (
                       <button
                         type="button"
                         className="coach-threat-btn"
@@ -8293,6 +8443,7 @@ function App() {
                       >
                         <IconAlert /> {isProbingThreat ? 'Reading the threat…' : 'What is threatened?'}
                       </button>
+                      )}
                       {activeThreat && (
                         <p className="coach-threat-answer" role="status">
                           <strong>{activeThreat.san}</strong>
@@ -8306,7 +8457,10 @@ function App() {
                         <p className="coach-threat-answer error-copy" role="status">{threatError}</p>
                       )}
                     </div>
-                    {coachMoveInsight && (
+                    )}
+                    {/* The best move's traits ("Center: claims central space") are a
+                        clue to it, and hidden with it while a drill asks for the move. */}
+                    {coachMoveInsight && !drillAwaitingAnswer && (
                       <div className="coach-insight">
                         <div className="coach-tags" aria-label="Best move traits">
                           {coachMoveInsight.tags.map(tag => <span key={tag}>{tag}</span>)}
@@ -8368,7 +8522,9 @@ function App() {
                               ? `Tablebase: ${tablebase.error}`
                               : `${tablebase.pieceCount} pieces · no tablebase result`}
                       </p>
-                      {tablebase.result?.moves.length ? (
+                      {/* Each of these is a move ranked by its result: in a drilled
+                          endgame, the answer at the top of a list. */}
+                      {tablebase.result?.moves.length && !drillAwaitingAnswer ? (
                         <div className="tablebase-move-list">
                           {tablebase.result.moves.slice(0, 4).map(move => (
                             <button
@@ -8426,7 +8582,7 @@ function App() {
                               ? 'No cloud eval for this position.'
                               : `Cloud eval: ${cloudEvalError ?? 'unavailable'}`}
                       </p>
-                      {currentCloudEval && (
+                      {currentCloudEval && !drillAwaitingAnswer && (
                         <div className="cloud-line-list">
                           {currentCloudEval.pvs.slice(0, cloudEvalMultiPv).map((line, index) => {
                             const score = cloudLineToSideToMoveScore(fen, line)
@@ -8542,7 +8698,12 @@ function App() {
                             Engine/book agreement: {engineBookAgreement ? 'yes' : 'no'}{currentEngineBestUci ? ` (${currentEngineBestUci})` : ''}
                           </p>
                         )}
-                        {openingTopMoves.length > 0 && (
+                        {/* Ranked by how often each is played: drilling an opening,
+                            the move at the top is usually the one being asked for. */}
+                        {openingTopMoves.length > 0 && drillAwaitingAnswer && (
+                          <p className="panel-copy small">The book moves are hidden while you find the drill move.</p>
+                        )}
+                        {openingTopMoves.length > 0 && !drillAwaitingAnswer && (
                           <div className="opening-move-list">
                             {openingTopMoves.map(move => {
                               const games = openingMoveGameCount(move)
@@ -8586,6 +8747,9 @@ function App() {
                   )}
                   <div className="pv-list">
                     <h3><span className="section-icon"><IconSearch /></span> {isCandidateSearch ? 'Candidate lines' : 'Lines'}</h3>
+                    {drillAwaitingAnswer ? (
+                      <p className="panel-copy small">Hidden while you find the drill move.</p>
+                    ) : (<>
                     {currentFenLines.length === 0 && !activeGoCommand && !currentLastBestMove && (
                       <div className="empty-state">
                         <span className="empty-state-icon" aria-hidden="true"><IconSearch /></span>
@@ -8650,6 +8814,7 @@ function App() {
                         Expected reply: {ponderMoveLabel(fen, currentLastBestMove, currentLastPonderMove)}
                       </p>
                     )}
+                    </>)}
                   </div>
                 </>
               )}

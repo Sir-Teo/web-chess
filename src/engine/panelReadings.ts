@@ -85,7 +85,7 @@ export function engineTelemetryLabel(
  * Seven Tag Roster fields with "?" and an unfinished result with "*", so a
  * generated or anonymised game would otherwise be labelled "? vs ?".
  */
-export function knownPgnHeader(value: string | undefined): string | null {
+export function knownPgnHeader(value: string | undefined, placeholder?: string): string | null {
   const trimmed = value?.trim()
-  return trimmed && trimmed !== '?' && trimmed !== '*' ? trimmed : null
+  return trimmed && trimmed !== '?' && trimmed !== '*' && trimmed !== placeholder ? trimmed : null
 }

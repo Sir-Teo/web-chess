@@ -6,6 +6,7 @@ import type { EvalSnapshot } from './analysis'
 import { hasLegalKingPlacement } from './fen'
 import { looksLikeFen, looksLikeGameUrl } from './pastedText'
 import { decodeEvaluationEngine, encodeEvaluationEngine } from './evaluationSource'
+import { APP_PLACEHOLDER_HEADERS } from './pgnPlaceholders'
 
 const INITIAL_FEN = new Chess().fen()
 const PGN_TAG_NAME_PATTERN = /^[A-Za-z0-9_]+$/
@@ -600,7 +601,10 @@ function parenthesize(tokens: string[]): string[] {
  */
 function breakLongToken(token: string): string[] {
     if (token.length <= MOVETEXT_LINE_WIDTH) return [token]
-    return token.match(/\[%[^\]]*\]|\S+/g) ?? [token]
+    // The separator stays on the command it follows. Split off, it was
+    // rejoined with a space -- "[%eval 0.35] ;" -- and the one that fell to
+    // the next line opened it: "; Main line".
+    return token.match(/\[%[^\]]*\]\S*|\S+/g) ?? [token]
 }
 
 function wrapMovetext(tokens: string[], result: string): string {
@@ -834,12 +838,12 @@ export function exportAnnotatedPgn(
 
     // Set headers (Event, Site, Date, Round, White, Black, Result)
     const defaultHeaders: Record<string, string> = {
-        Event: 'Web Chess Game',
+        Event: APP_PLACEHOLDER_HEADERS.Event,
         Site: 'Web Chess',
         Date: formatPgnDate(),
         Round: '1',
-        White: 'Player 1',
-        Black: 'Player 2',
+        White: APP_PLACEHOLDER_HEADERS.White,
+        Black: APP_PLACEHOLDER_HEADERS.Black,
         Result: '*',
     }
 

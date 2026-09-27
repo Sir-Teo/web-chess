@@ -239,6 +239,25 @@
     gap: 0.35rem;
 }
 
+/* Two options to a row need about 9rem each for "K  White kingside". Beside
+   the desktop board the column is 127px, which left each caption 3px -- one
+   stroke of the "W", read as "K \" -- so there they stack, one to a row. */
+.fen-setup-control-block:has(> .fen-castling-grid) {
+    container: fen-castling / inline-size;
+}
+
+@container fen-castling (max-width: 18rem) {
+    .fen-castling-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* Even the whole column is short of "White kingside" on one line;
+       "White / kingside" on two says all of it. */
+    .fen-castling-grid .fen-castling-option small {
+        white-space: normal;
+    }
+}
+
 .fen-castling-option {
     justify-content: flex-start;
     min-height: 38px;
@@ -594,11 +613,15 @@
     cursor: pointer;
 }
 
+/* Each tick is a 36px target with its dot at the centre, so laid edge to edge
+   the end dots sat 18px in while the thumb stops about 8px in -- level 1's
+   dot 10px right of the thumb at level 1 -- and the row's own height left the
+   dots 40px under the track, reading as a separate control. Pulled out to the
+   thumb's travel and up under the track; the targets keep their size. */
 .difficulty-ticks {
     display: flex;
     justify-content: space-between;
-    padding: 0 1px;
-    margin-bottom: 0.5rem;
+    margin: -0.6rem -10px 0.25rem;
 }
 
 .tick {
@@ -919,12 +942,18 @@
     white-space: nowrap;
 }
 
+/* Two lines before an ellipsis: three to a row on a desktop, "No clock"'s
+   "Take as long as you like" was cut to "Take as long as you li..." -- the
+   one card whose caption is a sentence rather than a name. */
 .time-control-card span {
     font-size: 0.64rem;
     color: var(--text-muted);
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     overflow: hidden;
-    text-overflow: ellipsis;
+    text-wrap: balance;
     max-width: 100%;
 }
 
