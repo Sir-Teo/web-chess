@@ -3235,6 +3235,7 @@ function App() {
     : status === 'loading' || status === 'disabled'
       ? 'Wait for the engine to finish loading.'
       : status === 'error' ? 'The engine could not start. Choose another engine in Engine Lab.' : null
+  const reviewFromPlay = workspaceMode === 'play' && status === 'disabled' && mainLineNodes.length > 1
   // Same shape as the reason above: shown rather than hidden, so a reader
   // looking for the button learns why it will not do anything.
   const playFromHereDisabledReason = isGameOver
@@ -5801,13 +5802,17 @@ function App() {
     {
       id: 'review-game',
       label: 'Review game',
-      hint: reviewGameDisabledReason ?? undefined,
+      // From Play the engine is off, not loading, so "Wait for the engine to
+      // finish loading" was a wait with no end. The result card's offer
+      // already knows the way: switch to Analysis and review once the engine
+      // is up. The palette takes the same road.
+      hint: reviewFromPlay ? 'Opens Analysis and reviews the game' : reviewGameDisabledReason ?? undefined,
       keywords: ['accuracy', 'blunders', 'report'],
       // Shown disabled rather than hidden, with the reason as the hint: a
       // reader looking for it should learn what it needs, not wonder whether
       // they misremembered the name.
-      disabled: Boolean(reviewGameDisabledReason),
-      run: startBatchReview,
+      disabled: !reviewFromPlay && Boolean(reviewGameDisabledReason),
+      run: reviewFromPlay ? reviewFinishedGame : startBatchReview,
     },
     {
       id: 'take-back',
@@ -5978,7 +5983,7 @@ function App() {
     },
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
-  ], [analysisExperience, atVariationFork, autoFlipBoard, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyGameLink, copyPgn, drill, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
+  ], [analysisExperience, atVariationFork, autoFlipBoard, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyGameLink, copyPgn, drill, reviewFinishedGame, reviewFromPlay, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
     goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast,
       goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
       previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay,
