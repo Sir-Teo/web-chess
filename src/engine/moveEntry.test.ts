@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Chess } from 'chess.js'
-import { normalizeMoveEntry, parseMoveEntry } from './moveEntry'
+import { moveEntryAmbiguity, normalizeMoveEntry, parseMoveEntry } from './moveEntry'
 
 const start = new Chess().fen()
 describe('typed move entry', () => {
@@ -58,5 +58,24 @@ describe('typed move entry', () => {
   it('accepts en passant and refuses a move that leaves the king in check', () => {
     expect(parseMoveEntry('7k/8/8/3pP3/8/8/8/7K w - d6 0 1', 'exd6')?.flags).toContain('e')
     expect(parseMoveEntry('4r2k/8/8/8/8/8/P7/4K3 w - - 0 1', 'a3')).toBeNull()
+  })
+})
+
+describe('an ambiguous move', () => {
+  // Knights on b1 and f3, d2 empty: both can go there.
+  const twoKnights = 'rnbqkbnr/ppp1pppp/8/3p4/3P4/5N2/PPP1PPPP/RNBQKB1R w KQkq - 2 2'
+
+  it('is refused rather than guessed, and says which moves are meant', () => {
+    expect(parseMoveEntry(twoKnights, 'Nd2')).toBeNull()
+    expect(moveEntryAmbiguity(twoKnights, 'Nd2')).toBe('More than one knight can go to d2. Say which: Nbd2 or Nfd2.')
+    expect(moveEntryAmbiguity(twoKnights, 'nd2')).toMatch(/Nbd2 or Nfd2/)
+    expect(parseMoveEntry(twoKnights, 'Nbd2')?.san).toBe('Nbd2')
+  })
+
+  it('is not claimed for a move that is simply illegal or already clear', () => {
+    expect(moveEntryAmbiguity(twoKnights, 'Nd4')).toBeNull()
+    expect(moveEntryAmbiguity(twoKnights, 'Nc3')).toBeNull()
+    expect(moveEntryAmbiguity(twoKnights, 'e4')).toBeNull()
+    expect(moveEntryAmbiguity(twoKnights, 'xyz')).toBeNull()
   })
 })

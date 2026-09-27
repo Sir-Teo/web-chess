@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import type { Move } from 'chess.js'
-import { parseMoveEntry } from '../engine/moveEntry'
+import { moveEntryAmbiguity, parseMoveEntry } from '../engine/moveEntry'
 import './MoveEntry.css'
 
 export function MoveEntry({ fen, onMove, disabled = false }: {
@@ -22,7 +22,8 @@ export function MoveEntry({ fen, onMove, disabled = false }: {
         if (disabled || !text.trim()) return
         const move = parseMoveEntry(fen, text)
         if (!move) {
-          setDraft({ fen, text, error: 'That move is not legal here. Use e4, Nf3 or e2e4; include the piece for promotion, such as a8=N.' })
+          setDraft({ fen, text, error: moveEntryAmbiguity(fen, text)
+            ?? 'That move is not legal here. Use e4, Nf3 or e2e4; include the piece for promotion, such as a8=N.' })
           return
         }
         const played = onMove(move)
