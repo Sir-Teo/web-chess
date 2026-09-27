@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { profileById, recommendedThreadCount } from '../engine/profiles'
-import { isQueuedCommandDone, parseInfoLine, parseOptionLine, profileRuntimeMessage, reusableAnalysisCacheKey, shouldApplyRecommendedThreads, shouldReplaceLiveLine, shouldStopTimedOutSearchCommand, suspendsWhileHidden } from './useStockfishEngine'
+import { commandNeedsReadySentinel, isQueuedCommandDone, parseInfoLine, parseOptionLine, profileRuntimeMessage, reusableAnalysisCacheKey, shouldApplyRecommendedThreads, shouldReplaceLiveLine, shouldStopTimedOutSearchCommand, suspendsWhileHidden } from './useStockfishEngine'
 
 describe('Stockfish engine output parsing', () => {
   it('parses finite score, telemetry, WDL, and PV values from info lines', () => {
@@ -115,6 +115,20 @@ describe('Stockfish command queue safety', () => {
   it('accepts an explanatory unknown-command reply', () => {
     const command = { command: 'unsupported', firstWord: 'unsupported', kind: 'other' as const }
     expect(isQueuedCommandDone(command, "Unknown command: 'unsupported'. Type help for more information.")).toBe(true)
+  })
+
+  it('ends a command the engine will not answer with a following isready', () => {
+    // This build ignores unknown input silently, so "foo" had nothing to wait
+    // for and held the console for its whole fifteen-second timeout.
+    expect(commandNeedsReadySentinel('foo bar')).toBe(true)
+    expect(commandNeedsReadySentinel('compiler')).toBe(true)
+    for (const known of ['uci', 'isready', 'go depth 5', 'd', 'eval', 'go perft 3']) {
+      expect(commandNeedsReadySentinel(known)).toBe(false)
+    }
+    // No reply is expected at all for these, so there is nothing to end.
+    for (const silent of ['position startpos', 'setoption name Hash value 16', 'ucinewgame', 'stop']) {
+      expect(commandNeedsReadySentinel(silent)).toBe(false)
+    }
   })
 
   it('sends stop only for timed-out UCI search commands', () => {

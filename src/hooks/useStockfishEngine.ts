@@ -185,6 +185,12 @@ function hasNoReply(command: string): boolean {
   return NO_REPLY_COMMANDS.has(firstWord(command))
 }
 
+/** Whether a console command has to be ended by a following `isready`. */
+export function commandNeedsReadySentinel(command: string): boolean {
+  const first = firstWord(command)
+  return Boolean(first) && !NO_REPLY_COMMANDS.has(first) && !COMMANDS_WITH_A_KNOWN_REPLY.has(first)
+}
+
 function commandKindFromCommand(command: string): EngineCommandKind {
   const fw = firstWord(command)
   if (fw === 'uci') return 'uci'
@@ -699,7 +705,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         const timeoutMs =
           options?.timeoutMs ?? (first === 'go' ? 0 : first === 'bench' || first === 'perft' ? 90_000 : 15_000)
 
-        const readySentinel = !COMMANDS_WITH_A_KNOWN_REPLY.has(first)
+        const readySentinel = commandNeedsReadySentinel(trimmed)
         const item: QueuedCommand = {
           id,
           command: trimmed,
