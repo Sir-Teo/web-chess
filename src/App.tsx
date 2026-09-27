@@ -55,6 +55,7 @@ import { parseCandidateMoveInput, describeBestMove } from './engine/candidateMov
 import { type AnalyzeMode, type UciGoLimits } from './engine/uci'
 import { exportAnnotatedPgn, flattenPgnMainLine, parsePgnMoveTree, pgnImportUserErrorMessage } from './engine/pgn'
 import { APP_PLACEHOLDER_HEADERS } from './engine/pgnPlaceholders'
+import { pgnDownloadFilename } from './engine/pgnFilename'
 import { type LibraryGame, extractLibraryMetadata, suggestGameName } from './engine/gameLibrary'
 import { libraryStorageIsDurable } from './engine/gameLibraryStorage'
 import { narrativeTagToneClass, narrativeTags } from './engine/narrativeTags'
@@ -3212,12 +3213,15 @@ function App() {
     const url = URL.createObjectURL(new Blob([pgn], { type: 'application/x-chess-pgn;charset=utf-8' }))
     const link = document.createElement('a')
     link.href = url
-    link.download = `web-chess-review-${new Date(currentReviewReport.finishedAt).toISOString().slice(0, 10)}.pgn`
+    // Named for the game, like Download PGN, and marked as its review: dated by
+    // the game when the PGN says, otherwise by when the review finished.
+    link.download = pgnDownloadFilename(pgnHeaders, opening?.name, new Date(currentReviewReport.finishedAt))
+      .replace(/\.pgn$/, '-review.pgn')
     document.body.append(link)
     link.click()
     link.remove()
     window.setTimeout(() => URL.revokeObjectURL(url), 0)
-  }, [currentReviewReport, pgnHeaders, reviewLineNodes, reviewRows, reviewsAVariation])
+  }, [currentReviewReport, opening?.name, pgnHeaders, reviewLineNodes, reviewRows, reviewsAVariation])
   const visibleReviewRows = useMemo(
     () => filterReviewRowsBySide(reviewRows, reviewSideFilter),
     [reviewRows, reviewSideFilter],
