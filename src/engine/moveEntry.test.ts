@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Chess } from 'chess.js'
-import { moveEntryAmbiguity, normalizeMoveEntry, parseMoveEntry } from './moveEntry'
+import { moveEntryExplanation, normalizeMoveEntry, parseMoveEntry } from './moveEntry'
 
 const start = new Chess().fen()
 describe('typed move entry', () => {
@@ -67,15 +67,19 @@ describe('an ambiguous move', () => {
 
   it('is refused rather than guessed, and says which moves are meant', () => {
     expect(parseMoveEntry(twoKnights, 'Nd2')).toBeNull()
-    expect(moveEntryAmbiguity(twoKnights, 'Nd2')).toBe('More than one knight can go to d2. Say which: Nbd2 or Nfd2.')
-    expect(moveEntryAmbiguity(twoKnights, 'nd2')).toMatch(/Nbd2 or Nfd2/)
+    expect(moveEntryExplanation(twoKnights, 'Nd2')).toBe('More than one knight can go to d2. Say which: Nbd2 or Nfd2.')
+    expect(moveEntryExplanation(twoKnights, 'nd2')).toMatch(/Nbd2 or Nfd2/)
     expect(parseMoveEntry(twoKnights, 'Nbd2')?.san).toBe('Nbd2')
   })
 
-  it('is not claimed for a move that is simply illegal or already clear', () => {
-    expect(moveEntryAmbiguity(twoKnights, 'Nd4')).toBeNull()
-    expect(moveEntryAmbiguity(twoKnights, 'Nc3')).toBeNull()
-    expect(moveEntryAmbiguity(twoKnights, 'e4')).toBeNull()
-    expect(moveEntryAmbiguity(twoKnights, 'xyz')).toBeNull()
+  it('says plainly when no such piece can make the move', () => {
+    expect(moveEntryExplanation(twoKnights, 'Nd4')).toBe('No knight can go to d4 here.')
+    expect(moveEntryExplanation(twoKnights, 'Ke3')).toBe('No king can go to e3 here.')
+  })
+
+  it('has nothing to add for a move that is clear or not a piece move', () => {
+    expect(moveEntryExplanation(twoKnights, 'Nc3')).toBeNull()
+    expect(moveEntryExplanation(twoKnights, 'e4')).toBeNull()
+    expect(moveEntryExplanation(twoKnights, 'xyz')).toBeNull()
   })
 })

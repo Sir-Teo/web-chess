@@ -41,20 +41,24 @@ export function parseMoveEntry(fen: string, input: string): Move | null {
 const PIECE_NAMES: Record<string, string> = { K: 'king', Q: 'queen', R: 'rook', B: 'bishop', N: 'knight' }
 
 /**
- * Why a typed move was refused, when the reason is not that it is illegal.
+ * Why a typed piece move was refused, when there is more to say than
+ * "not legal".
  *
  * With two knights on b1 and f3, `Nd2` is a legal move for either and SAN
  * requires saying which. The strict parser refuses it -- guessing would play a
  * move the reader did not choose -- and the field then said "That move is not
  * legal here", about a move that is. This names the choices instead.
  */
-export function moveEntryAmbiguity(fen: string, input: string): string | null {
+export function moveEntryExplanation(fen: string, input: string): string | null {
   const token = normalizeMoveEntry(input)
   const match = token.match(/^([KQRBN])x?([a-h][1-8])[+#]?$/)
   if (!match) return null
   try {
     const candidates = new Chess(fen).moves({ verbose: true })
       .filter(move => move.piece === match[1].toLowerCase() && move.to === match[2])
+    // Well formed, and no such move: say which part is impossible rather than
+    // the whole sentence about notation, which the reader got right.
+    if (!candidates.length) return `No ${PIECE_NAMES[match[1]]} can go to ${match[2]} here.`
     if (candidates.length < 2) return null
     const sans = candidates.map(move => move.san).sort()
     const choices = sans.length === 2 ? `${sans[0]} or ${sans[1]}` : `${sans.slice(0, -1).join(', ')} or ${sans[sans.length - 1]}`
