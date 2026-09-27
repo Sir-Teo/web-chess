@@ -3085,6 +3085,14 @@ function App() {
 
   // ── Derived move data ─────────────────────────────────
   const mainLineNodes = useStableNodeList(useMemo(() => gameTree.mainLine(), [gameTree]))
+  /**
+   * The game's opening, as far as its main line reaches -- what names it in
+   * the library and its downloads. The board's own opening is the position on
+   * it: stepped back to the start (a drill ends there), a Queen's Gambit saved
+   * as "Game · <date>".
+   */
+  const mainLineFenPath = useMemo(() => mainLineNodes.map(node => node.fen), [mainLineNodes])
+  const gameOpening = useOpening(mainLineFenPath, mainLineNodes.length > 1)
 
   // The whole branch the board is standing in: the path down to the current
   // node, then its first-child chain to the tip. Equal to the main line
@@ -3215,13 +3223,13 @@ function App() {
     link.href = url
     // Named for the game, like Download PGN, and marked as its review: dated by
     // the game when the PGN says, otherwise by when the review finished.
-    link.download = pgnDownloadFilename(pgnHeaders, opening?.name, new Date(currentReviewReport.finishedAt))
+    link.download = pgnDownloadFilename(pgnHeaders, gameOpening?.name, new Date(currentReviewReport.finishedAt))
       .replace(/\.pgn$/, '-review.pgn')
     document.body.append(link)
     link.click()
     link.remove()
     window.setTimeout(() => URL.revokeObjectURL(url), 0)
-  }, [currentReviewReport, opening?.name, pgnHeaders, reviewLineNodes, reviewRows, reviewsAVariation])
+  }, [currentReviewReport, gameOpening?.name, pgnHeaders, reviewLineNodes, reviewRows, reviewsAVariation])
   const visibleReviewRows = useMemo(
     () => filterReviewRowsBySide(reviewRows, reviewSideFilter),
     [reviewRows, reviewSideFilter],
@@ -4849,8 +4857,8 @@ function App() {
     [showLibraryDialog, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot],
   )
   const librarySuggestedName = useMemo(
-    () => (libraryPgn ? suggestGameName(libraryPgn, opening?.name) : ''),
-    [libraryPgn, opening?.name],
+    () => (libraryPgn ? suggestGameName(libraryPgn, gameOpening?.name) : ''),
+    [gameOpening?.name, libraryPgn],
   )
   const closeLibraryDialog = useCallback(() => {
     setShowLibraryDialog(false)
@@ -7939,7 +7947,7 @@ function App() {
               gameNodes={gameTree.nodesSnapshot}
               evaluations={evaluationsByFen}
               pgnHeaders={pgnHeaders}
-              openingName={opening?.name}
+              openingName={gameOpening?.name}
               onImportManyToLibrary={library.importGames}
               droppedFile={droppedPgnFile}
               onDroppedFileTaken={clearDroppedPgnFile}
@@ -8450,7 +8458,9 @@ function App() {
                       )}
                     </div>
                     )}
-                    {coachMoveInsight && (
+                    {/* The best move's traits ("Center: claims central space") are a
+                        clue to it, and hidden with it while a drill asks for the move. */}
+                    {coachMoveInsight && !drillAwaitingAnswer && (
                       <div className="coach-insight">
                         <div className="coach-tags" aria-label="Best move traits">
                           {coachMoveInsight.tags.map(tag => <span key={tag}>{tag}</span>)}
