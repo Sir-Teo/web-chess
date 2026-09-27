@@ -8522,7 +8522,9 @@ function App() {
                               ? `Tablebase: ${tablebase.error}`
                               : `${tablebase.pieceCount} pieces · no tablebase result`}
                       </p>
-                      {tablebase.result?.moves.length ? (
+                      {/* Each of these is a move ranked by its result: in a drilled
+                          endgame, the answer at the top of a list. */}
+                      {tablebase.result?.moves.length && !drillAwaitingAnswer ? (
                         <div className="tablebase-move-list">
                           {tablebase.result.moves.slice(0, 4).map(move => (
                             <button
@@ -8580,7 +8582,7 @@ function App() {
                               ? 'No cloud eval for this position.'
                               : `Cloud eval: ${cloudEvalError ?? 'unavailable'}`}
                       </p>
-                      {currentCloudEval && (
+                      {currentCloudEval && !drillAwaitingAnswer && (
                         <div className="cloud-line-list">
                           {currentCloudEval.pvs.slice(0, cloudEvalMultiPv).map((line, index) => {
                             const score = cloudLineToSideToMoveScore(fen, line)
@@ -8696,7 +8698,12 @@ function App() {
                             Engine/book agreement: {engineBookAgreement ? 'yes' : 'no'}{currentEngineBestUci ? ` (${currentEngineBestUci})` : ''}
                           </p>
                         )}
-                        {openingTopMoves.length > 0 && (
+                        {/* Ranked by how often each is played: drilling an opening,
+                            the move at the top is usually the one being asked for. */}
+                        {openingTopMoves.length > 0 && drillAwaitingAnswer && (
+                          <p className="panel-copy small">The book moves are hidden while you find the drill move.</p>
+                        )}
+                        {openingTopMoves.length > 0 && !drillAwaitingAnswer && (
                           <div className="opening-move-list">
                             {openingTopMoves.map(move => {
                               const games = openingMoveGameCount(move)
