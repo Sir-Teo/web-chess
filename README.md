@@ -222,10 +222,11 @@ given, and the app answering the reader who touches it.
   next move rather than your opponent's reply; a wrong move snaps back and is
   never recorded, so a drill cannot fill the tree with the moves you were trying
   not to play; and the answer appears after two misses, as it does in review
-  practice. Until then the engine keeps it to itself: the candidate arrows,
-  the Coach's best move and line and the Pro lines are hidden while the drill
-  waits for your move, because the engine's best move is very often the move
-  being asked for. It is per side, because the same line is one thing to know as White
+  practice. Until then nothing on screen gives it away: the candidate arrows,
+  the Coach's best move, its traits and line, the Pro lines, the cloud eval's
+  lines, the tablebase's moves and the opening explorer's book moves are held
+  back while the drill waits for your move, because each of them very often
+  names the move being asked for. It is per side, because the same line is one thing to know as White
   and a different thing as Black. Deliberately not a new subsystem: a repertoire
   line here is a line in the game tree, which means it is also a game in the
   library, which means it already imports, exports, saves and shares — load a
