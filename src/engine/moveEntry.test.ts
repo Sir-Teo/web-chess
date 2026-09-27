@@ -83,3 +83,19 @@ describe('an ambiguous move', () => {
     expect(moveEntryExplanation(twoKnights, 'xyz')).toBeNull()
   })
 })
+
+describe('a pawn move that cannot be played as typed', () => {
+  it('says no pawn can go there, or take there', () => {
+    const start = new Chess().fen()
+    expect(moveEntryExplanation(start, 'e5')).toBe('No pawn can go to e5 here.')
+    expect(moveEntryExplanation(start, 'exd3')).toBe('No pawn on the e-file can take on d3 here.')
+    expect(moveEntryExplanation(start, 'e4')).toBeNull()
+  })
+
+  it('asks what a promoting pawn becomes', () => {
+    const promotion = '8/4P2k/8/8/8/8/7K/8 w - - 0 1'
+    expect(parseMoveEntry(promotion, 'e8')).toBeNull()
+    expect(moveEntryExplanation(promotion, 'e8')).toBe('Say what the pawn becomes: e8=Q, e8=R, e8=B or e8=N.')
+    expect(parseMoveEntry(promotion, 'e8=N')?.san).toBe('e8=N')
+  })
+})
