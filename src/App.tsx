@@ -7381,7 +7381,7 @@ function App() {
                         Reset saved workspace
                       </button>
                       <p className="panel-copy small">
-                        Clears persisted analyze/lab controls for this browser.
+                        Clears persisted analyze/lab controls and panel sizes for this browser.
                       </p>
                     </div>
                   </details>
