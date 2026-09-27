@@ -109,7 +109,7 @@ import { restoreSavedReview, reviewLineKey, type SavedReview } from './engine/sa
 import { SavedReviews } from './components/SavedReviews'
 import { fetchSamplePgn } from './engine/samplePgn'
 import { hashCarriesShare, parseFenShareHash } from './engine/shareLink'
-import { parseGameShareHash, replaySharedGame } from './engine/shareGame'
+import { MAX_SHARED_GAME_CHARS, buildGameShareUrl, parseGameShareHash, replaySharedGame } from './engine/shareGame'
 import { nullMoveProbe } from './engine/threats'
 import {
   tablebaseMoveActionLabel,
@@ -5701,6 +5701,35 @@ function App() {
       () => announce('Clipboard blocked — copy the PGN from the PGN dialog'),
     )
   }, [announce, evaluationsByFen, gameTree.nodesSnapshot, mainLineNodes, pgnHeaders])
+  /**
+   * The game-link button, where the other two copies already were. It lived
+   * only on the PGN dialog's Export tab, so the palette could copy the FEN and
+   * the PGN but not the one thing made for sending to a person. Same link as
+   * the dialog's: the whole game, open at the main-line move on the board.
+   */
+  const copyGameLink = useCallback(() => {
+    if (mainLineNodes.length <= 1) return
+    const ply = mainLineNodes.findIndex(node => node.id === gameTree.current.id)
+    const url = buildGameShareUrl(
+      mainLineNodes[0]!.fen,
+      mainLineNodes.slice(1).map(node => node.uci).filter(Boolean),
+      window.location.href,
+      ply >= 0 ? ply : undefined,
+    )
+    if (url.length > MAX_SHARED_GAME_CHARS) {
+      announce('This game is too long for a link — copy the PGN instead')
+      return
+    }
+    const clipboard = navigator.clipboard
+    if (!clipboard) {
+      announce('Clipboard unavailable — copy the link from the PGN dialog')
+      return
+    }
+    clipboard.writeText(url).then(
+      () => announce('Game link copied'),
+      () => announce('Clipboard blocked — copy the link from the PGN dialog'),
+    )
+  }, [announce, gameTree, mainLineNodes])
   const openInLichess = useCallback(() => {
     // The line the reader is standing in, up to where they stand -- not the
     // main line, which may be a different game by now.
@@ -5738,6 +5767,14 @@ function App() {
       keywords: ['clipboard', 'game', 'export', 'share'],
       disabled: mainLineNodes.length <= 1,
       run: copyPgn,
+    },
+    {
+      id: 'copy-game-link',
+      label: 'Copy game link',
+      hint: mainLineNodes.length > 1 ? 'A link that replays this game, from this move' : 'No moves to share yet',
+      keywords: ['clipboard', 'share', 'url', 'send', 'link'],
+      disabled: mainLineNodes.length <= 1,
+      run: copyGameLink,
     },
     {
       id: 'open-lichess',
@@ -5941,7 +5978,7 @@ function App() {
     },
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
-  ], [analysisExperience, atVariationFork, autoFlipBoard, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyPgn, drill, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
+  ], [analysisExperience, atVariationFork, autoFlipBoard, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyGameLink, copyPgn, drill, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
     goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast,
       goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
       previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay,
