@@ -1,0 +1,29 @@
+schema = 1
+name = "Web Chess"
+
+[runtime]
+kind = "node"
+version = "24"
+package_manager = "npm"
+
+[[setup.steps]]
+kind = "dependencies"
+locked = true
+
+[[setup.steps]]
+run = ["npm", "run", "build"]
+
+[launch]
+command = ["npm", "run", "preview", "--", "--host", "{host}", "--port", "{port}", "--strictPort"]
+host = "127.0.0.1"
+port = 4324
+
+[health]
+type = "http"
+path = "/web-chess/"
+timeout_seconds = 90
+
+[persistence]
+# Saved games and reviews use browser IndexedDB; settings use localStorage.
+# Browser data is separate from the checkout and depends on the browser origin.
+paths = []

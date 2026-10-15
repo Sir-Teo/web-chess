@@ -486,6 +486,14 @@ The Lichess Opening Explorer endpoints require API authentication. Create a pers
 
 ## Getting Started
 
+[![Launch on PicoRunner](https://picorunner.com/badges/launch.svg)](https://picorunner.com/launch/?repository=https%3A%2F%2Fgithub.com%2FSir-Teo%2Fweb-chess)
+
+PicoRunner installs the locked dependencies with Node.js 24, builds the app, and
+serves it on a loopback address. The bundled local Stockfish engine needs no
+account or API key. Saved games, reviews, and settings stay in your browser; use
+the same browser and local address to reopen them, and export backups before
+clearing browser data. Optional online features retain their usual requirements.
+
 1. **Clone the repository:**
    ```bash
    git clone <repo-url>
