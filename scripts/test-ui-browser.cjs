@@ -14561,6 +14561,89 @@ async function checkDialogDownloadFailure(browser) {
   }
 }
 
+async function checkCommandCopyFailures(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme }))
+        window.__commandCopyMode = 'missing'; window.__commandCopies = []; window.__commandCopyPending = []
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, get() {
+          if (window.__commandCopyMode === 'getter') throw new DOMException('Clipboard inaccessible', 'SecurityError')
+          if (window.__commandCopyMode === 'missing') return undefined
+          if (window.__commandCopyMode === 'method-missing') return {}
+          return { writeText: text => {
+            window.__commandCopies.push(text)
+            if (window.__commandCopyMode === 'throw') throw new DOMException('Clipboard blocked synchronously', 'NotAllowedError')
+            if (window.__commandCopyMode === 'deny') return Promise.reject(new DOMException('Clipboard denied', 'NotAllowedError'))
+            if (window.__commandCopyMode === 'deferred') return new Promise((resolve, reject) => window.__commandCopyPending.push({ resolve, reject }))
+            return Promise.resolve()
+          } }
+        } })
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog textarea').fill('[White "José"]\n[Event "Łódź"]\n\n1. e4 e5 *')
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      const run = async (id, query) => {
+        await page.getByTestId('command-palette-btn').click()
+        await page.getByRole('combobox', { name: 'Search commands', exact: true }).fill(query)
+        await page.locator(`[data-command-id="${id}"] button`).click()
+        await page.locator('[data-command-palette="true"]').waitFor({ state: 'detached' })
+      }
+      const commands = [['copy-fen', 'copy fen', 'FEN'], ['copy-pgn', 'copy pgn', 'PGN'], ['copy-game-link', 'copy game link', 'Game link']]
+      const notice = page.locator('.app-notice-region')
+      for (const mode of ['missing', 'method-missing', 'getter', 'throw', 'deny', 'success']) {
+        await page.evaluate(mode => { window.__commandCopyMode = mode }, mode)
+        for (const [id, query, label] of commands) {
+          await run(id, query)
+          const expected = mode === 'success' ? `${label} copied`
+            : `Clipboard ${mode === 'missing' || mode === 'method-missing' ? 'unavailable' : 'blocked'} — copy the ${label === 'Game link' ? 'link' : label} from the PGN dialog`
+          await page.waitForFunction(text => document.querySelector('.app-notice-region')?.textContent === text, expected)
+          await page.waitForFunction(() => document.activeElement?.getAttribute('data-testid') === 'command-palette-btn', null, { timeout: 5000 })
+          assert(await page.locator('#chessboard-square-e5 [data-piece="bP"]').count() === 1, 'copying changed the current position')
+        }
+        console.log(`  command copy (${width}px, ${scale}x, ${theme}, ${mode}): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved`)
+      }
+      const copied = await page.evaluate(() => window.__commandCopies.slice(-3))
+      const chess = new (require('chess.js').Chess)()
+      chess.move('e4'); chess.move('e5')
+      assert(copied[0] === chess.fen(), 'Commands copied a different FEN')
+      const parsed = new (require('chess.js').Chess)(); parsed.loadPgn(copied[1])
+      assert(parsed.history().join(' ') === 'e4 e5' && copied[1].includes('José') && copied[1].includes('Łódź'), 'Commands PGN lost moves or Unicode headers')
+      await page.evaluate(() => { window.__commandCopyMode = 'deferred' })
+      await run('copy-fen', 'copy fen')
+      await run('copy-pgn', 'copy pgn')
+      await page.evaluate(() => window.__commandCopyPending[1].resolve())
+      await page.waitForFunction(() => document.querySelector('.app-notice-region')?.textContent === 'PGN copied')
+      await page.evaluate(() => window.__commandCopyPending[0].reject(new Error('Older FEN copy denied')))
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      assert(await notice.innerText() === 'PGN copied', 'an older failed copy replaced the newest command feedback')
+      await run('copy-game-link', 'copy game link')
+      await run('copy-fen', 'copy fen')
+      await page.evaluate(() => window.__commandCopyPending[3].resolve())
+      await page.waitForFunction(() => document.querySelector('.app-notice-region')?.textContent === 'FEN copied')
+      await page.evaluate(() => window.__commandCopyPending[2].resolve())
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      assert(await notice.innerText() === 'FEN copied', 'an older successful copy replaced the newest command feedback')
+      const shared = await context.newPage()
+      shared.on('pageerror', error => errors.push(error.message))
+      await shared.addInitScript(fakeEngineScript())
+      await shared.goto(copied[2], { waitUntil: 'domcontentloaded' })
+      await shared.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+      await shared.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+      assert(errors.length === 0, `Commands clipboard errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'Commands clipboard feedback overflows')
+      console.log(`  command copy (${width}px, ${scale}x): successful payloads include exact FEN, parsed Unicode PGN and an actual replayable game link; old rejected/successful replies cannot replace newer feedback`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkCommandPaletteKeyboard(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 812 } })
@@ -14880,6 +14963,7 @@ async function main() {
       'console-layout': checkConsoleLayout,
       continuous: checkKeepSearchingIsUnbounded,
       'palette-keyboard': checkCommandPaletteKeyboard,
+      'command-copy': checkCommandCopyFailures,
       'palette-layout': checkCommandPaletteLayout,
       'palette-reading': checkPaletteReading,
       'big-text': checkLabelsSurviveBigText,
@@ -15651,6 +15735,7 @@ async function main() {
     }
 
     await checkCommandPaletteKeyboard(browser)
+    await checkCommandCopyFailures(browser)
     await checkCommandPaletteLayout(browser)
     await checkPaletteReading(browser)
     await checkDialogDownloadFailure(browser)

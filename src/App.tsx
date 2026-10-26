@@ -5858,30 +5858,30 @@ function App() {
    * else, and had to open the PGN dialog for: put the FEN or the PGN on the
    * clipboard, or take the line to Lichess for a second opinion.
    */
-  const copyFen = useCallback(() => {
-    const clipboard = navigator.clipboard
-    if (!clipboard) {
-      announce('Clipboard unavailable — copy the FEN from the PGN dialog')
-      return
+  const commandCopyVersion = useRef(0)
+  const copyCommandText = useCallback(async (text: string, label: 'FEN' | 'PGN' | 'Game link') => {
+    const version = ++commandCopyVersion.current
+    const source = label === 'Game link' ? 'link' : label
+    try {
+      const clipboard = navigator.clipboard
+      if (!clipboard?.writeText) {
+        announce(`Clipboard unavailable — copy the ${source} from the PGN dialog`)
+        return
+      }
+      await clipboard.writeText(text)
+      if (commandCopyVersion.current === version) announce(`${label} copied`)
+    } catch {
+      if (commandCopyVersion.current === version) announce(`Clipboard blocked — copy the ${source} from the PGN dialog`)
     }
-    clipboard.writeText(fen).then(
-      () => announce('FEN copied'),
-      () => announce('Clipboard blocked — copy the FEN from the PGN dialog'),
-    )
-  }, [announce, fen])
+  }, [announce])
+  const copyFen = useCallback(() => {
+    void copyCommandText(fen, 'FEN')
+  }, [copyCommandText, fen])
   const copyPgn = useCallback(() => {
     if (mainLineNodes.length <= 1) return
-    const clipboard = navigator.clipboard
-    if (!clipboard) {
-      announce('Clipboard unavailable — copy the PGN from the PGN dialog')
-      return
-    }
     const pgn = exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
-    clipboard.writeText(pgn).then(
-      () => announce('PGN copied'),
-      () => announce('Clipboard blocked — copy the PGN from the PGN dialog'),
-    )
-  }, [announce, evaluationsByFen, gameTree.nodesSnapshot, mainLineNodes, pgnHeaders])
+    void copyCommandText(pgn, 'PGN')
+  }, [copyCommandText, evaluationsByFen, gameTree.nodesSnapshot, mainLineNodes, pgnHeaders])
   /**
    * The game-link button, where the other two copies already were. It lived
    * only on the PGN dialog's Export tab, so the palette could copy the FEN and
@@ -5901,16 +5901,8 @@ function App() {
       announce('This game is too long for a link — copy the PGN instead')
       return
     }
-    const clipboard = navigator.clipboard
-    if (!clipboard) {
-      announce('Clipboard unavailable — copy the link from the PGN dialog')
-      return
-    }
-    clipboard.writeText(url).then(
-      () => announce('Game link copied'),
-      () => announce('Clipboard blocked — copy the link from the PGN dialog'),
-    )
-  }, [announce, gameTree, mainLineNodes])
+    void copyCommandText(url, 'Game link')
+  }, [announce, copyCommandText, gameTree, mainLineNodes])
   const openInLichess = useCallback(() => {
     // The line the reader is standing in, up to where they stand -- not the
     // main line, which may be a different game by now.
