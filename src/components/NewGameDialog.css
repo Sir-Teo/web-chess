@@ -1034,6 +1034,9 @@
    unselected and 3.80:1 once chosen, at 10px. One rung up on the selected card
    only, which measures 5.13 there. The same trade the analysis presets make in
    App.css, and the third place a selected state has cost contrast. */
+/* Hover also lifts the background: muted captions fall to 4.15:1 in
+   the dark theme. Keep the same readable ink as the selected state. */
+.time-control-card:hover span,
 .time-control-card.selected span {
     color: var(--text-tertiary);
 }
