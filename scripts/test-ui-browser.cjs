@@ -1416,8 +1416,8 @@ async function checkReviewListFollowsPosition(browser) {
 }
 
 async function checkSavedReviews(browser) {
-  for (const [width, theme] of [[1280, 'dark'], [375, 'light']]) {
-    const context = await browser.newContext({ viewport: { width, height: 812 } })
+  for (const [width, height, theme] of [[1280, 900, 'dark'], [375, 812, 'light'], [320, 812, 'light'], [844, 390, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height } })
     const page = await context.newPage()
     const errors = []
     page.on('pageerror', error => errors.push(error.message))
@@ -1497,9 +1497,22 @@ async function checkSavedReviews(browser) {
       assert((await page.getByTestId('review-engine-source').innerText()).includes('QA Full'), 'Full saved report did not restore its own source')
 
       await page.getByLabel('Choose a saved review').selectOption(liteId)
-      await page.getByRole('button', { name: 'Compare with open review', exact: true }).click()
+      const compare = page.getByRole('button', { name: 'Compare with open review', exact: true })
+      await page.evaluate(() => {
+        const get = IDBObjectStore.prototype.get
+        IDBObjectStore.prototype.get = function (...args) {
+          if (this.name === 'runs') { IDBObjectStore.prototype.get = get; throw new Error('QA comparison read failed. Try again.') }
+          return get.apply(this, args)
+        }
+      })
+      await compare.focus()
+      await compare.press('Enter')
+      await page.locator('.saved-review-notice').filter({ hasText: 'QA comparison read failed.' }).waitFor()
+      await page.waitForFunction(() => document.activeElement?.textContent === 'Compare with open review' && !document.activeElement.disabled)
+      await compare.press('Space')
       const comparison = page.getByRole('region', { name: 'Review comparison', exact: true })
       await comparison.waitFor()
+      await page.waitForFunction(() => document.activeElement?.matches('.review-comparison h4'))
       const summary = await page.getByTestId('review-comparison-summary').innerText()
       assert(summary.includes('117/117 positions') && summary.includes('117 score changes') && summary.includes('117 WDL changes'), `comparison missed differences: ${summary}`)
       assert((await page.getByTestId('review-engine-source').innerText()).includes('QA Full'), 'comparison replaced the open report with the saved one')
@@ -1513,8 +1526,18 @@ async function checkSavedReviews(browser) {
       })
       await comparison.getByRole('button', { name: 'Show position after 1. e3', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('#chessboard-square-e3 [data-piece="wP"]'))
-      await comparison.getByRole('button', { name: 'Show 10 more positions', exact: true }).click()
+      const more = comparison.getByRole('button', { name: /^Show \d+ more positions$/ })
+      const listId = await comparison.locator('ol').getAttribute('id')
+      const countId = await comparison.getByRole('status').getAttribute('id')
+      assert(await more.getAttribute('aria-controls') === listId && await more.getAttribute('aria-describedby') === countId,
+        'comparison reveal button is not associated with its list and current count')
+      await more.focus()
+      await more.press('Enter')
       assert(await comparison.locator('.comparison-positions li').count() === 20, 'comparison did not reveal the next ten positions')
+      assert(await comparison.locator('.comparison-position').nth(10).evaluate(el => el === document.activeElement), 'reveal skipped the first new comparison position')
+      assert((await comparison.getByRole('status').innerText()).includes('Showing 20 of 117'), 'comparison did not announce its new visible count')
+      await page.keyboard.press('Tab')
+      assert(await comparison.locator('.comparison-position').nth(11).evaluate(el => el === document.activeElement), 'comparison Tab order skipped newly revealed positions')
       await comparison.locator('.comparison-positions li').first().scrollIntoViewIfNeeded()
       await page.screenshot({ path: `/tmp/web-chess-review-comparison-${width}.png` })
       await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
@@ -1525,9 +1548,59 @@ async function checkSavedReviews(browser) {
       assert(!comparisonLayout.overflow && comparisonLayout.clipped.length === 0, `comparison fails at 200% text: ${JSON.stringify(comparisonLayout)}`)
       await comparison.locator('.comparison-positions li').first().scrollIntoViewIfNeeded()
       await page.screenshot({ path: `/tmp/web-chess-review-comparison-${width}-large.png` })
+      for (let count = 20; count < 117; count += 10) {
+        const increment = Math.min(10, 117 - count)
+        assert(await more.innerText() === `Show ${increment} more positions`, 'comparison reveal count overstates its remaining rows')
+        await more.focus()
+        await more.press(count === 110 ? 'Space' : 'Enter')
+        assert(await comparison.locator('.comparison-positions li').count() === count + increment, 'comparison reveal lost or duplicated positions')
+        assert(await comparison.locator('.comparison-position').nth(count).evaluate(el => el === document.activeElement), 'enlarged comparison reveal skipped the first new position')
+        assert(await comparison.locator('.comparison-position').nth(count).evaluate(el => {
+          const r = el.getBoundingClientRect()
+          return r.left >= 0 && r.right <= innerWidth + 1 && r.top >= 0 && r.bottom <= innerHeight + 1
+            && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+        }), 'new comparison focus is obscured at 200% text')
+      }
+      assert(await more.count() === 0 && (await comparison.getByRole('status').innerText()).includes('Showing 117 of 117'), 'final comparison page did not finish its list/count')
+      await page.screenshot({ path: `/tmp/web-chess-review-comparison-focus-${width}.png` })
+      const filter = comparison.getByRole('checkbox', { name: 'Only differences', exact: true })
+      await filter.focus()
+      await filter.press('Space')
+      assert(await filter.evaluate(el => el === document.activeElement) && await comparison.locator('.comparison-positions li').count() === 10,
+        'changing the comparison filter replayed reveal focus or retained an expanded page')
       await comparison.getByRole('button', { name: 'Close comparison', exact: true }).click()
+      assert(await compare.evaluate(el => el === document.activeElement), 'closing comparison lost its trigger focus')
       await page.evaluate(() => { document.documentElement.style.fontSize = '' })
       await page.getByLabel('Choose a saved review').selectOption(fullId)
+      // A slow read must respect focus moved elsewhere before it completes.
+      await page.evaluate(() => {
+        const open = IDBFactory.prototype.open
+        IDBFactory.prototype.open = function (name, ...args) {
+          const request = open.call(this, name, ...args)
+          if (name === 'web-chess-reviews') {
+            IDBFactory.prototype.open = open
+            Object.defineProperty(request, 'onsuccess', { set(handler) {
+              request.addEventListener('success', event => { window.__releaseComparisonRead = () => handler.call(request, event) })
+            } })
+          }
+          return request
+        }
+      })
+      await compare.click()
+      await page.waitForFunction(() => typeof window.__releaseComparisonRead === 'function')
+      const reviewAgain = page.getByRole('button', { name: 'Review Game', exact: true })
+      await reviewAgain.focus()
+      await page.evaluate(() => window.__releaseComparisonRead())
+      await comparison.waitFor()
+      await page.waitForFunction(() => [...document.querySelectorAll('button')].some(el => el.textContent === 'Compare with open review' && !el.disabled))
+      assert(await reviewAgain.evaluate(el => el === document.activeElement), 'delayed comparison stole a newly focused destination')
+      assert((await comparison.getByRole('status').innerText()).includes('No differences'), 'identical saved and open reports showed differences')
+      assert(await comparison.locator('.comparison-positions li').count() === 0, 'empty differences rendered positions')
+      await comparison.getByRole('checkbox', { name: 'Only differences', exact: true }).uncheck()
+      assert(await comparison.locator('.comparison-positions li').count() === 10, 'the all-positions filter did not restore identical positions')
+      await comparison.getByRole('button', { name: 'Close comparison', exact: true }).focus()
+      await page.keyboard.press('Space')
+      assert(await compare.evaluate(el => el === document.activeElement), 'keyboard close lost the comparison trigger')
 
       await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
       await page.locator('#chessboard-square-d2').click()
@@ -1559,7 +1632,7 @@ async function checkSavedReviews(browser) {
       await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 1)
       assert(await page.getByLabel('Choose a saved review').inputValue() === liteId, 'deleting one review removed the other or returned after reload')
       assert(errors.length === 0, `saved review page errors: ${errors.join('; ')}`)
-      console.log(`  saved reviews (${width}px, ${theme}): two producers survive reload; comparison keeps own scores/WDL and navigates; open another line, export, delete and 200% text fit`)
+      console.log(`  saved reviews (${width}px, ${theme}): two producers survive reload; comparison keeps own scores/WDL, navigates, focuses all reveal pages and close, announces counts and preserves delayed-read focus; open another line, export, delete and 200% text fit`)
     } finally { await context.close() }
   }
 }
@@ -1630,7 +1703,13 @@ async function checkSavedReviewDeleteFocus(browser) {
       const choice = page.getByLabel('Choose a saved review', { exact: true })
       await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 2)
       await choice.selectOption(original.id)
-      await page.evaluate(scale => { document.documentElement.style.fontSize = `${16 * scale}px` }, scale)
+      await page.evaluate(async scale => {
+        document.documentElement.style.fontSize = `${16 * scale}px`
+        // The rem ResizeObserver schedules React's responsive layout in the
+        // next frame. Start keyboard actions after that layout is committed.
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      }, scale)
+      if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.hasAttribute('data-scroll-chrome'))
       const remove = panel.getByRole('button', { name: 'Delete saved review', exact: true })
       const focused = control => control.evaluate(el => document.activeElement === el)
       const visibleFocus = control => control.evaluate(el => {
@@ -15584,6 +15663,7 @@ async function main() {
       'review-source': checkReviewUsesSelectedEngine,
       'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
       'review-list-scroll': checkReviewListFollowsPosition,
+      'review-comparison': checkSavedReviews,
       'review-delete-focus': checkSavedReviewDeleteFocus,
       'saved-reviews': async browser => { await checkSavedReviews(browser); await checkSavedReviewStorage(browser); await checkSavedReviewEndings(browser) },
       'review-renaming': checkSavedReviewRenaming,

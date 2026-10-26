@@ -1,0 +1,9 @@
+  review deletion focus (1280×900, 1x, dark): retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained
+  review deletion focus (375×812, 1x, light): retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained
+  review deletion focus (320×812, 2x, light): retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained
+page.waitForFunction: Timeout 30000ms exceeded.
+    at Object.checkSavedReviewDeleteFocus (/workspace/web-chess/scripts/test-ui-browser.cjs:1712:44)
+    at async /tmp/web-chess-review-delete-check.cjs:1:555 {
+  log: [],
+  name: 'TimeoutError'
+}

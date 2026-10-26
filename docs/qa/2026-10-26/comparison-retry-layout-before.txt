@@ -1,0 +1,7 @@
+{"step":"immediate","geometry":{"rect":{"x":389.6000061035156,"y":141.36666870117188,"width":141.63333129882812,"height":44,"top":141.36666870117188,"right":531.2333374023438,"bottom":185.36666870117188,"left":389.6000061035156},"hit":"<button type=\"button\">Delete saved review</button>","ancestors":[{"class":"panel right  ","rect":{"x":322,"y":103.39999389648438,"width":261,"height":120.51667785644531,"top":103.39999389648438,"right":583,"bottom":223.9166717529297,"left":322},"scrollTop":2451.2666015625,"scrollHeight":7558,"clientHeight":121}]}}
+{"step":"frames","fits":false,"rect":{"x":457.6000061035156,"y":505.0833435058594,"width":141.63333129882812,"height":103.76669311523438}}
+Error: retry focus is obscured
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkSavedReviewDeleteFocus (/workspace/web-chess/scripts/test-ui-browser.cjs:1719:812)
+    at async /tmp/web-chess-review-focus-diagnostic.cjs:1:1627

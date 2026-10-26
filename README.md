@@ -232,6 +232,8 @@ given, and the app answering the reader who touches it.
   the run name, so typing its beginning selects it. Run names are included
   in review backups. Comparison shows scores from White's point of view,
   best-move and WDL differences, missing readings and links back to positions.
+  **Show more positions** continues keyboard focus at the first new position;
+  **Close comparison** returns to the comparison button.
   Mate distances stay distinct from pawn-score changes. Up to 50 runs are
   retained, with no automatic eviction (2,048 plies / 512 KB per run). These
   records are separate from the game library and its backup. **Export review

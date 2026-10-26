@@ -21,6 +21,8 @@ type Props = {
   onNavigate: (node: GameNode) => void
 }
 
+type ActionFocus = { trigger: HTMLButtonElement; destination: 'trigger' | 'remaining' | 'comparison' }
+
 function failure(error: unknown, action: string): string {
   if (error instanceof Error && error.name === 'Error') return error.message
   return `The browser could not ${action}. Export the current review before closing this tab.`
@@ -62,18 +64,21 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
   const details = useRef<HTMLDetailsElement>(null)
   const summary = useRef<HTMLElement>(null)
   const choice = useRef<HTMLSelectElement>(null)
-  const deleteFocus = useRef<{ trigger: HTMLButtonElement; deleted: boolean } | null>(null)
+  const compareTrigger = useRef<HTMLButtonElement>(null)
+  const actionFocus = useRef<ActionFocus | null>(null)
 
   useLayoutEffect(() => {
-    if (working || !deleteFocus.current) return
-    const request = deleteFocus.current
-    deleteFocus.current = null
+    if (working || !actionFocus.current) return
+    const request = actionFocus.current
+    actionFocus.current = null
     // Disabling or removing the button can leave focus on the document.
     // Preserve any new destination chosen while the storage write was pending.
     if (document.activeElement !== document.body && document.activeElement !== request.trigger) return
-    const target = request.deleted
+    const target = request.destination === 'remaining'
       ? (details.current?.open ? choice.current ?? summary.current : summary.current)
-      : request.trigger
+      : request.destination === 'comparison'
+        ? details.current?.querySelector<HTMLElement>('.review-comparison h4') ?? request.trigger
+        : request.trigger
     target?.focus()
   }, [working])
   const backupInput = useRef<HTMLInputElement>(null)
@@ -127,11 +132,11 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
     if (!selected || workingRef.current) return
     if (!beginWork()) return
     trigger.focus({ preventScroll: true })
-    const focusRequest = { trigger, deleted: false }
-    deleteFocus.current = focusRequest
+    const focusRequest: ActionFocus = { trigger, destination: 'trigger' }
+    actionFocus.current = focusRequest
     try {
       await deleteSavedReview(selected.id)
-      focusRequest.deleted = true
+      focusRequest.destination = 'remaining'
       setLastSavedReport(null)
       setNotice('Saved copy deleted. The review currently on screen is still available.')
       await refresh()
@@ -151,11 +156,15 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
     } finally { endWork() }
   }
 
-  async function compare() {
+  async function compare(trigger: HTMLButtonElement) {
     if (!selected || !report || !sameLine || busy || workingRef.current) return
     if (!beginWork()) return
+    trigger.focus({ preventScroll: true })
+    const focusRequest: ActionFocus = { trigger, destination: 'trigger' }
+    actionFocus.current = focusRequest
     try {
       const saved = await loadSavedReview(selected.id)
+      focusRequest.destination = 'comparison'
       setComparison({ saved, report })
       setNotice('Comparison opened below. The current report is unchanged.')
     } catch (error) { setNotice(failure(error, 'compare this review')) }
@@ -238,14 +247,14 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
                     {sameLine ? 'Use saved review' : 'Open reviewed line'}
                   </button>
                   <button type="button" disabled={working} onClick={event => { void remove(event.currentTarget) }}>Delete saved review</button>
-                  <button type="button" disabled={busy || working || !report || !sameLine} onClick={() => { void compare() }}
+                  <button ref={compareTrigger} type="button" disabled={busy || working || !report || !sameLine} onClick={event => { void compare(event.currentTarget) }}
                     title={sameLine && report ? 'Compare position readings with the report currently open.' : 'Open or review this same line first.'}>
                     Compare with open review
                   </button>
                 </div>
                 {comparison && comparison.report === report && comparison.saved.id === selectedId && sameLine && !busy && (
                   <ReviewComparison key={`${comparison.saved.id}:${report.finishedAt}`} line={line} report={report}
-                    saved={comparison.saved} onNavigate={onNavigate} onClose={() => setComparison(null)} />
+                    saved={comparison.saved} onNavigate={onNavigate} onClose={() => { setComparison(null); compareTrigger.current?.focus() }} />
                 )}
               </>}
             </>}
