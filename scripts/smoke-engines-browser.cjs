@@ -105,6 +105,40 @@ async function checkNativePerftCancellation(page) {
   await expert.uncheck()
 }
 
+async function checkNativeSpinOptions(page) {
+  const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+  const threads = page.getByRole('spinbutton', { name: 'Threads', exact: true })
+  const original = await threads.inputValue()
+  const maximum = Number(await threads.getAttribute('max'))
+  const submit = async text => { await command.fill(text); await command.press('Enter') }
+  const run = async text => {
+    await submit(text)
+    await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+  }
+  for (const value of ['0', String(maximum + 1), '1.5', 'nope']) {
+    const text = `setoption name Threads value ${value}`
+    await submit(text)
+    await page.getByRole('alert').filter({ hasText: `for Threads.` }).waitFor()
+    assert.equal(await threads.inputValue(), original)
+    assert.equal(await command.inputValue(), text)
+    assert.equal(await page.evaluate(text => window.__smokeCommands.includes(text), text), false)
+  }
+  const valid = Math.min(2, maximum)
+  await run(`SETOPTION NAME tHrEaDs VALUE +000${valid}`)
+  assert.equal(await threads.inputValue(), String(valid))
+  assert.equal(await page.evaluate(value => window.__smokeCommands.includes(`setoption name Threads value ${value}`), valid), true)
+  await run('isready')
+  await run(`setoption name Threads value ${original}`)
+  await run('isready')
+  const overhead = page.getByRole('spinbutton', { name: 'Move Overhead', exact: true })
+  const originalOverhead = await overhead.inputValue()
+  await run('setoption name mOvE    OvErHeAd VALUE -0')
+  assert.equal(await overhead.inputValue(), '0')
+  await run(`setoption name Move Overhead value ${originalOverhead}`)
+  await run('isready')
+  assert.match(await page.getByLabel('UCI console output', { exact: true }).textContent(), /readyok/)
+}
+
 async function main() {
   assert(widths.length > 0 && widths.every(width => Number.isInteger(width) && width >= 320), 'SMOKE_WIDTHS must contain viewport widths of at least 320px')
   fs.mkdirSync(output, { recursive: true })
@@ -201,6 +235,7 @@ async function main() {
               const field = document.querySelector('input[aria-label="Hash"]')
               return field?.value === value && window.__smokeCommands.slice(sentBefore).includes(`setoption name Hash value ${value}`)
                 && JSON.parse(localStorage.getItem('webchess:analysis-settings:v1')).hashMb === Number(value)
+                && document.querySelector('[aria-label="UCI command"]')?.value === ''
             }, { value, sentBefore })
           }
 
@@ -208,6 +243,8 @@ async function main() {
           await checkNativeConsoleLimits(page)
           stage = 'native perft cancellation'
           await checkNativePerftCancellation(page)
+          stage = 'native spin option validation'
+          await checkNativeSpinOptions(page)
 
           stage = 'game review and export'
           await page.getByRole('button', { name: 'Review', exact: true }).click()
@@ -347,7 +384,7 @@ async function main() {
           assert.equal(await depthTenSearches(), rerunBefore, 'reopening lost reusable real-engine readings')
           assert.deepEqual(errors, [])
           results.push({ browser: name, width, status: 'passed', source, positionScore: before,
-            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'shared console options', 'native console limits and next command drafts: rejected syntax, duplicate limits, zero-perft depth-1, pause/resume, preserved and submitted drafts', 'perft 8 cancellation releases worker, preserves draft and reloads a reset console position', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus', 'repetition review: eight depth-10 searches, save, reopen, backup and reuse'] })
+            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'shared console options', 'native console limits and next command drafts: rejected syntax, duplicate limits, zero-perft depth-1, pause/resume, preserved and submitted drafts', 'perft 8 cancellation releases worker, preserves draft and reloads a reset console position', 'native spin validation and canonical option updates with readiness acknowledgements', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus', 'repetition review: eight depth-10 searches, save, reopen, backup and reuse'] })
         } catch (error) {
           const diagnostics = await page.evaluate(() => ({
             commands: window.__smokeCommands?.slice(-80),

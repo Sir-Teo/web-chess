@@ -140,6 +140,15 @@ export function isEngineLabPerftDiagnostic(command: string): boolean {
   return !parsed.issue && (parsed.limits.get('perft') ?? 0n) !== 0n
 }
 
+/** Spin options use native int32 values, just like the depth field. */
+export function engineLabSpinOptionValue(value: string | undefined, bounds: { min?: number; max?: number }): number | null {
+  const parsed = numericGoValue('depth', value)
+  if (parsed === null) return null
+  const number = Number(parsed)
+  if ((bounds.min !== undefined && number < bounds.min) || (bounds.max !== undefined && number > bounds.max)) return null
+  return number
+}
+
 export function engineLabCommandBlockMessage(command: string): string | null {
   const parts = commandParts(command)
   const verb = parts[0]?.toLowerCase()

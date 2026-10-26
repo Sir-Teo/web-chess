@@ -53,7 +53,7 @@ import {
   type OpeningSpeed,
 } from './engine/openingExplorer'
 import { parseCandidateMoveInput, describeBestMove } from './engine/candidateMoves'
-import { type AnalyzeMode, type UciGoLimits } from './engine/uci'
+import { parseSetOptionCommand, type AnalyzeMode, type UciGoLimits } from './engine/uci'
 import { exportAnnotatedPgn, flattenPgnMainLine, parsePgnMoveTree, pgnImportUserErrorMessage } from './engine/pgn'
 import { APP_PLACEHOLDER_HEADERS } from './engine/pgnPlaceholders'
 import { pgnDownloadFilename } from './engine/pgnFilename'
@@ -187,7 +187,7 @@ import {
   judgeDrillMove,
   opponentMovesFrom,
 } from './engine/lineDrill'
-import { ENGINE_CONSOLE_LINE_LIMIT, engineLabCommandBlockMessage, engineLabCommandSafetyMessage } from './engine/labCommands'
+import { ENGINE_CONSOLE_LINE_LIMIT, engineLabCommandBlockMessage, engineLabCommandSafetyMessage, engineLabSpinOptionValue } from './engine/labCommands'
 import { aiSearchHistory, defaultOrientationForGameMode, describePlayEngine, hintDisabledReason, sideToMoveColor, takebackDisabledReason, takebackPlyCount, judgeMoveBetweenSearches, type AiSearchReading, type MoveJudgement } from './engine/playMode'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { DIFFICULTY_LABELS, useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
@@ -1594,13 +1594,14 @@ function App() {
   // Show and edit their persisted values in both places so a later search
   // cannot silently restore a different setting.
   const labOptions = useMemo(() => options.map(option => {
-    if (option.name === 'Hash') return { ...option, min: 16, max: 512, currentValue: String(hashMb) }
-    if (option.name === 'MultiPV') return { ...option, min: 1, max: 5, currentValue: String(multiPv) }
-    if (option.name === 'UCI_ShowWDL') return { ...option, currentValue: String(showWdl) }
+    const appliedValue = option.currentValue ?? option.defaultValue ?? ''
+    if (option.name === 'Hash') return { ...option, appliedValue, min: 16, max: 512, currentValue: String(hashMb) }
+    if (option.name === 'MultiPV') return { ...option, appliedValue, min: 1, max: 5, currentValue: String(multiPv) }
+    if (option.name === 'UCI_ShowWDL') return { ...option, appliedValue, currentValue: String(showWdl) }
     return option
   }), [hashMb, multiPv, options, showWdl])
 
-  const setLabOption = useCallback((name: string, value?: string | number | boolean) => {
+  const setLabOption = useCallback((name: string, value?: string | number | boolean, sendToEngine = true) => {
     let applied = value
     if (name === 'Hash' || name === 'MultiPV') {
       const option = labOptions.find(option => option.name === name)
@@ -1614,7 +1615,7 @@ function App() {
       applied = value === true || value === 'true'
       setShowWdl(applied)
     }
-    setOption(name, applied)
+    if (sendToEngine) setOption(name, applied, true)
     return applied
   }, [labOptions, setOption])
 
@@ -2964,6 +2965,12 @@ function App() {
         setEngineLabError('Stop the active analysis before sending Engine Lab commands.')
         return
       }
+      if (trimmed !== 'stop' && (status !== 'ready' || queueLength > 0)) {
+        setEngineLabError(status !== 'ready'
+          ? 'Wait for the engine to finish starting before sending commands.'
+          : 'Stop the active search or wait for the pending command before sending another command.')
+        return
+      }
       const blockMessage = engineLabCommandBlockMessage(trimmed)
       if (blockMessage) {
         setEngineLabError(blockMessage)
@@ -2975,6 +2982,8 @@ function App() {
         return
       }
 
+      let dispatchedCommand = trimmed
+      let settingNotice: string | undefined
       const managedOption = trimmed.match(/^setoption\s+name\s+(Hash|MultiPV|UCI_ShowWDL)\s+value\s+(.+)$/i)
       if (managedOption) {
         const name = labOptions.find(option => option.name.toLowerCase() === managedOption[1].toLowerCase())?.name
@@ -2983,17 +2992,22 @@ function App() {
           setEngineLabError('Use a number for Hash/MultiPV, or true/false for UCI_ShowWDL.')
           return
         }
-        const applied = setLabOption(name, value)
-        cancelLabConsolePublication()
-        labConsoleBufferRef.current = []
-        setLabConsoleSession(session => session + 1)
-        setEngineLabOutputLines([`> ${trimmed}`, `Saved analysis setting: ${name} = ${String(applied)}`])
-        setEngineLabCopyStatus('idle')
-        setEngineLabCommand('')
-        setLabCommandHistory(previous => [trimmed, ...previous.filter(item => item !== trimmed)].slice(0, 20))
-        return
+        const applied = setLabOption(name, value, false)
+        dispatchedCommand = `setoption name ${name} value ${String(applied)}`
+        settingNotice = `Saved analysis setting: ${name} = ${String(applied)}`
       }
 
+      const optionCommand = parseSetOptionCommand(dispatchedCommand)
+      const optionName = optionCommand?.name.replace(/\s+/g, ' ').toLowerCase()
+      const spinOption = labOptions.find(option => option.type === 'spin' && option.name.toLowerCase() === optionName)
+      if (spinOption) {
+        const value = engineLabSpinOptionValue(optionCommand?.value, spinOption)
+        if (value === null) {
+          setEngineLabError(`Use a whole decimal integer from ${spinOption.min ?? -2147483648} to ${spinOption.max ?? 2147483647} for ${spinOption.name}.`)
+          return
+        }
+        dispatchedCommand = `setoption name ${spinOption.name} value ${value}`
+      }
       setLabCommandHistory(previous => [trimmed, ...previous.filter(item => item !== trimmed)].slice(0, 20))
       const startTime = performance.now()
       const draftVersion = labCommandDraftVersionRef.current
@@ -3004,7 +3018,7 @@ function App() {
       setEngineLabOutputLines(outputLines.slice())
       setEngineLabCopyStatus('idle')
       try {
-        const lines = await sendCommand(trimmed, {
+        const lines = await sendCommand(dispatchedCommand, {
           stream: line => {
             if (labConsoleBufferRef.current !== outputLines) return
             outputLines.push(line)
@@ -3021,8 +3035,12 @@ function App() {
         })
         if (labConsoleBufferRef.current !== outputLines) return
         cancelLabConsolePublication()
+        if (settingNotice) {
+          outputLines.push(settingNotice)
+          if (outputLines.length > ENGINE_CONSOLE_LINE_LIMIT) outputLines.splice(0, outputLines.length - ENGINE_CONSOLE_LINE_LIMIT)
+        }
         // A command can finish while the document cannot paint frames.
-        setEngineLabOutputLines(lines.length ? outputLines.slice() : [`> ${trimmed}`, '(no direct response)'])
+        setEngineLabOutputLines(lines.length || settingNotice ? outputLines.slice() : [`> ${trimmed}`, '(no direct response)'])
         setLastLabRun({ command: trimmed, durationMs: Math.round(performance.now() - startTime) })
         if (labCommandDraftVersionRef.current === draftVersion) setEngineLabCommand('')
       } catch (error) {
@@ -3034,7 +3052,7 @@ function App() {
         setEngineLabError(error instanceof Error ? error.message : String(error))
       }
     },
-    [cancelLabConsolePublication, engineEnabled, expertModeEnabled, labOptions, sendCommand, setLabOption, status, stop],
+    [cancelLabConsolePublication, engineEnabled, expertModeEnabled, labOptions, queueLength, sendCommand, setLabOption, status, stop],
   )
 
   const clearLabConsole = useCallback(() => {
@@ -3352,10 +3370,12 @@ function App() {
   const playFromHereDisabledReason = isGameOver
     ? 'This game is already over.'
     : null
-  // The Engine Lab greys controls out behind two gates. Both used to be silent.
+  // Explain every state that prevents an engine command from being applied.
   const engineBusyDisabledReason = status === 'analyzing'
     ? 'The engine is mid-search. Stop the analysis first.'
-    : status === 'unloaded' ? 'Load the engine before sending console commands.' : null
+    : status === 'unloaded' ? 'Load the engine before sending console commands.'
+      : status !== 'ready' ? 'Wait for the engine to finish loading.'
+        : queueLength > 0 ? 'Wait for the pending engine command to finish.' : null
   const engineReleaseDisabledReason = isBatchReviewing || pendingGameReview || isImportingGame
     || importSweepProgress.done < importSweepProgress.total
     ? 'Finish or stop the current review or import analysis before releasing the engine.'

@@ -1,0 +1,108 @@
+[
+  {
+    "browser": "chromium",
+    "width": 1280,
+    "passed": true,
+    "checks": [
+      "native spin syntax and range validation",
+      "canonical native option command",
+      "valid multiword zero option",
+      "settings restored and engine responsive"
+    ],
+    "commands": [
+      "uci",
+      "setoption name Threads value 3",
+      "isready",
+      "setoption name Threads value 2",
+      "isready",
+      "isready",
+      "setoption name Threads value 3",
+      "isready",
+      "isready",
+      "setoption name Move Overhead value 0",
+      "isready",
+      "setoption name Move Overhead value 10",
+      "isready",
+      "isready"
+    ]
+  },
+  {
+    "browser": "chromium",
+    "width": 375,
+    "passed": true,
+    "checks": [
+      "native spin syntax and range validation",
+      "canonical native option command",
+      "valid multiword zero option",
+      "settings restored and engine responsive"
+    ],
+    "commands": [
+      "uci",
+      "isready",
+      "setoption name Threads value 1",
+      "isready",
+      "isready",
+      "setoption name Threads value 1",
+      "isready",
+      "isready",
+      "setoption name Move Overhead value 0",
+      "isready",
+      "setoption name Move Overhead value 10",
+      "isready",
+      "isready"
+    ]
+  },
+  {
+    "browser": "firefox",
+    "width": 1280,
+    "passed": true,
+    "checks": [
+      "native spin syntax and range validation",
+      "canonical native option command",
+      "valid multiword zero option",
+      "settings restored and engine responsive"
+    ],
+    "commands": [
+      "uci",
+      "setoption name Threads value 3",
+      "isready",
+      "setoption name Threads value 2",
+      "isready",
+      "isready",
+      "setoption name Threads value 3",
+      "isready",
+      "isready",
+      "setoption name Move Overhead value 0",
+      "isready",
+      "setoption name Move Overhead value 10",
+      "isready",
+      "isready"
+    ]
+  },
+  {
+    "browser": "firefox",
+    "width": 375,
+    "passed": true,
+    "checks": [
+      "native spin syntax and range validation",
+      "canonical native option command",
+      "valid multiword zero option",
+      "settings restored and engine responsive"
+    ],
+    "commands": [
+      "uci",
+      "isready",
+      "setoption name Threads value 1",
+      "isready",
+      "isready",
+      "setoption name Threads value 1",
+      "isready",
+      "isready",
+      "setoption name Move Overhead value 0",
+      "isready",
+      "setoption name Move Overhead value 10",
+      "isready",
+      "isready"
+    ]
+  }
+]

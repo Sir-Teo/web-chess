@@ -307,6 +307,10 @@ const SCENARIO = ${JSON.stringify(scenario)};
     postMessage(command) {
       const text = String(command);
       window.__uciCommands.push(text);
+      if (window.__holdThreadConfiguration && text.startsWith('setoption name Threads value ')) {
+        this.waitingForThreadSetup = true;
+        return;
+      }
       if (SCENARIO === 'console-search' && text === 'uci' && window.__failConsoleBoot) {
         window.__failConsoleBoot = false;
         setTimeout(() => this.onerror?.({ message: 'QA reload boot failure' }), 0);
@@ -320,11 +324,19 @@ const SCENARIO = ${JSON.stringify(scenario)};
         this.send('option name Hash type spin default 16 min 1 max 512');
         this.send('option name MultiPV type spin default 1 min 1 max 8');
         this.send('option name UCI_ShowWDL type check default false');
+        if (SCENARIO === 'console-search' && window.__testSpinOptions) this.send('option name Move Overhead type spin default 10 min 0 max 5000');
+        if (SCENARIO === 'console-search' && window.__testConfigurationOptions) this.send('option name Clear Hash type button');
         this.send('uciok');
         return;
       }
       if (text === 'isready') {
-        if (SCENARIO === 'console-search' && window.__holdConsoleReady) {
+        if (window.__holdThreadConfiguration && this.waitingForThreadSetup) {
+          window.__ackThreadConfiguration = () => {
+            this.waitingForThreadSetup = false;
+            window.__ackThreadConfiguration = null;
+            this.send('readyok');
+          };
+        } else if (SCENARIO === 'console-search' && window.__holdConsoleReady) {
           window.__releaseConsoleReady = () => { window.__holdConsoleReady = false; this.send('readyok'); };
         } else if (SCENARIO === 'slow-boot' && window.__holdPlayReady) {
           // The opponent still loading, on demand. Same shape as the console
@@ -7760,6 +7772,156 @@ async function checkConsoleVisibility(browser) {
   }
 }
 
+async function checkThreadConfigurationOwnership(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 812 }, reducedMotion: 'reduce' })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript('console-search'))
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'hardwareConcurrency', { configurable: true, get: () => 16 })
+      Object.defineProperty(navigator, 'deviceMemory', { configurable: true, get: () => 8 })
+      window.__holdThreadConfiguration = true
+      window.__testConfigurationOptions = true
+      localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+        continuousAnalysis: false, engineProfile: 'lite-multi-local', multiPv: 1, showWdl: false,
+      }))
+    })
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    await page.waitForFunction(() => typeof window.__ackThreadConfiguration === 'function')
+    assert(await page.locator('.bottom .status').textContent() === 'loading', 'the app announced Ready before startup thread configuration finished')
+    const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+    const threads = page.getByRole('spinbutton', { name: 'Threads', exact: true })
+    const hash = page.getByRole('spinbutton', { name: 'Hash', exact: true })
+    const submit = async text => { await command.fill(text); await command.press('Enter') }
+    await submit('setoption name Hash value 128')
+    await page.getByRole('alert').filter({ hasText: 'finish starting' }).waitFor()
+    assert(await page.evaluate(() => !window.__uciCommands.includes('setoption name Hash value 128')), 'managed console settings bypassed startup readiness')
+    assert(await threads.isDisabled(), 'thread controls are editable before startup finishes')
+    await page.evaluate(() => window.__ackThreadConfiguration())
+    await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+    const initialThreads = await threads.inputValue()
+    const next = initialThreads === '2' ? '3' : '2'
+    await submit(`setoption name Threads value ${next}`)
+    await page.waitForFunction(() => typeof window.__ackThreadConfiguration === 'function')
+    assert(await command.inputValue() === `setoption name Threads value ${next}`, 'thread command completed before its ready acknowledgement')
+    assert(await threads.isDisabled() && await hash.isDisabled(), 'option controls can overlap a pending thread resize')
+    const sentHash = await page.evaluate(() => window.__uciCommands.filter(text => text === 'setoption name Hash value 128').length)
+    await submit('setoption name Hash value 128')
+    await page.getByRole('alert').filter({ hasText: 'pending command' }).waitFor()
+    assert(await page.evaluate(() => window.__uciCommands.filter(text => text === 'setoption name Hash value 128').length) === sentHash,
+      'managed settings bypassed a pending thread resize')
+    await page.evaluate(() => window.__ackThreadConfiguration())
+    await page.waitForFunction(() => !document.querySelector('input[aria-label="Threads"]').disabled)
+    assert(await command.inputValue() === 'setoption name Hash value 128', 'a finished thread configuration erased a newer draft')
+    await command.press('Enter')
+    await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+    assert(await hash.inputValue() === '128', 'managed settings could not resume after thread readiness')
+    // The visible Threads control uses the same acknowledgement queue.
+    await threads.fill(initialThreads)
+    await threads.press('Tab')
+    await page.waitForFunction(() => typeof window.__ackThreadConfiguration === 'function')
+    assert(await threads.isDisabled(), 'the direct Threads control skipped acknowledgement ownership')
+    await page.evaluate(() => window.__ackThreadConfiguration())
+    await page.waitForFunction(() => !document.querySelector('input[aria-label="Threads"]').disabled)
+    await page.waitForFunction(() => document.activeElement === document.querySelector('input[aria-label="Hash"]'))
+    await threads.fill(next)
+    await threads.press('Tab')
+    await page.waitForFunction(() => typeof window.__ackThreadConfiguration === 'function')
+    await command.click()
+    await command.fill('go depth 1')
+    await page.evaluate(() => window.__ackThreadConfiguration())
+    await page.waitForFunction(() => !document.querySelector('input[aria-label="Threads"]').disabled)
+    assert(await command.evaluate(el => el === document.activeElement), 'thread completion stole focus from a newer action')
+    await command.press('Enter')
+    await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+    assert((await page.getByLabel('UCI console output', { exact: true }).textContent()).includes('bestmove'), 'the engine did not search after thread configuration')
+    const holdOption = () => page.evaluate(() => { window.__holdConsoleReady = true; window.__releaseConsoleReady = null })
+    const releaseOption = async () => {
+      await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
+      await page.evaluate(() => window.__releaseConsoleReady())
+      await page.waitForFunction(() => !document.querySelector('input[aria-label="Threads"]').disabled)
+    }
+    const wdl = page.getByRole('checkbox', { name: 'UCI_ShowWDL', exact: true })
+    await holdOption()
+    await wdl.setChecked(!await wdl.isChecked())
+    await page.waitForFunction(() => document.querySelector('input[aria-label="UCI_ShowWDL"]').disabled)
+    await releaseOption()
+    await page.waitForFunction(() => document.activeElement === document.querySelector('input[aria-label="UCI_ShowWDL"]'))
+    await holdOption()
+    await hash.fill('64')
+    await hash.press('Tab')
+    await releaseOption()
+    await page.waitForFunction(() => document.activeElement === document.querySelector('input[aria-label="MultiPV"]'))
+    const multiCommands = await page.evaluate(() => window.__uciCommands.filter(text => text.startsWith('setoption name MultiPV ')).length)
+    await page.getByRole('spinbutton', { name: 'MultiPV', exact: true }).press('Tab')
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    assert(await page.evaluate(() => window.__uciCommands.filter(text => text.startsWith('setoption name MultiPV ')).length) === multiCommands,
+      'tabbing through an unchanged spin option reconfigured the engine')
+    const clear = page.getByRole('button', { name: 'Clear Hash', exact: true })
+    await holdOption()
+    await clear.click()
+    await releaseOption()
+    assert(await clear.evaluate(el => el === document.activeElement), 'button option acknowledgement stranded focus')
+    console.log('  thread configuration: startup readiness, console/direct-control acknowledgements, managed-command guards, newer drafts and subsequent search')
+  } finally { await context.close() }
+}
+
+async function checkRawSpinOptionValues(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(() => {
+        window.__testSpinOptions = true
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+          continuousAnalysis: false, engineProfile: 'lite-single-local', hashMb: 64,
+        }))
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      const threads = page.getByRole('spinbutton', { name: 'Threads', exact: true })
+      const output = page.getByLabel('UCI console output', { exact: true })
+      const submit = async text => { await command.fill(text); await command.press('Enter') }
+      const run = async text => {
+        await submit(text)
+        await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      }
+      const hash = page.getByRole('spinbutton', { name: 'Hash', exact: true })
+      await hash.focus()
+      await hash.press('Tab')
+      await page.waitForFunction(() => window.__uciCommands.includes('setoption name Hash value 64'))
+      await page.waitForFunction(() => !document.querySelector('input[aria-label="Hash"]').disabled)
+      await run('isready')
+      const originalOutput = await output.textContent(), originalThreads = await threads.inputValue()
+      for (const text of ['0', '9', '1.5', '0x2', '1e1', 'nope', '2147483648', null].map(value =>
+        value === null ? 'setoption name Threads' : `setoption name Threads value ${value}`)) {
+        await submit(text)
+        await page.getByRole('alert').filter({ hasText: 'whole decimal integer from 1 to 8 for Threads' }).waitFor()
+        assert(await threads.inputValue() === originalThreads && await output.textContent() === originalOutput, 'invalid raw spin command changed settings or the previous output')
+        assert(await command.inputValue() === text, 'invalid spin command lost its editable draft')
+        assert(await page.evaluate(text => !window.__uciCommands.includes(text), text), 'invalid spin command reached Stockfish')
+      }
+      await run('  SETOPTION   NAME   tHrEaDs   VALUE  +0002  ')
+      assert(await threads.inputValue() === '2', 'valid signed/zero-padded spin did not update the control')
+      assert(await page.evaluate(() => window.__uciCommands.includes('setoption name Threads value 2')), 'known spin command was not canonicalized for native parsing')
+      await run('setoption name mOvE    OvErHeAd VALUE -0')
+      assert(await page.getByRole('spinbutton', { name: 'Move Overhead', exact: true }).inputValue() === '0', 'zero-valued multiword spin option was rejected')
+      await submit('setoption name Move   Overhead value 5001')
+      await page.getByRole('alert').filter({ hasText: 'whole decimal integer from 0 to 5000 for Move Overhead' }).waitFor()
+      assert(await page.getByRole('spinbutton', { name: 'Move Overhead', exact: true }).inputValue() === '0', 'an invalid multiword option replaced its accepted value')
+      await run('setoption name Hash value 999')
+      assert(await page.getByRole('spinbutton', { name: 'Hash', exact: true }).inputValue() === '512', 'raw spin validation changed managed Hash normalization')
+      assert(await page.getByRole('alert').count() === 0, 'valid retry retained stale spin validation')
+      console.log(`  raw spin options (${width}px, ${scale}x): native syntax/ranges, retained settings/output/drafts, missing values, canonical keywords/names, multiword zero value and managed Hash behavior`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkPerftStopReleasesWorker(browser) {
   for (const [width, scale] of [[1280, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -12806,6 +12968,8 @@ async function main() {
       'console-tools': checkConsoleTools,
       'console-parsing': checkConsoleLimitParsing,
       'perft-stop': checkPerftStopReleasesWorker,
+      'spin-options': checkRawSpinOptionValues,
+      'thread-configuration': checkThreadConfigurationOwnership,
       'console-drafts': checkConsoleDraftOwnership,
       'console-history': checkConsoleHistoryAndErrors,
       'console-following': checkConsoleOutputFollowing,
@@ -13568,6 +13732,8 @@ async function main() {
     await checkConsoleTools(browser)
     await checkConsoleLimitParsing(browser)
     await checkPerftStopReleasesWorker(browser)
+    await checkRawSpinOptionValues(browser)
+    await checkThreadConfigurationOwnership(browser)
     await checkConsoleDraftOwnership(browser)
     await checkConsoleHistoryAndErrors(browser)
     await checkConsoleOutputFollowing(browser)

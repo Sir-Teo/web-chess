@@ -93,7 +93,7 @@ type QueuedCommand = {
  */
 const ENGINE_STATE_FLUSH_INTERVAL_MS = 100
 const NAVIGATION_ANALYSIS_CACHE_LIMIT = 96
-const NO_REPLY_COMMANDS = new Set(['ucinewgame', 'position', 'setoption', 'stop', 'ponderhit', 'quit'])
+const NO_REPLY_COMMANDS = new Set(['ucinewgame', 'position', 'stop', 'ponderhit', 'quit'])
 /**
  * The commands whose reply `isQueuedCommandDone` knows the end of. Anything
  * else -- a typo, a native-only command -- this browser build of Stockfish
@@ -780,7 +780,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
             return
           }
         }
-        send(trimmed)
+        sendRaw(trimmed)
         if (readySentinel) send('isready')
       })
     },
@@ -788,19 +788,27 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
   )
 
   const setOption = useCallback(
-    (name: string, value?: string | number | boolean) => {
+    (name: string, value?: string | number | boolean, awaitReady = false) => {
       analysisCacheRef.current = new Map()
       currentAnalysisCacheKeyRef.current = null
-      if (value === undefined) {
-        send(`setoption name ${name}`)
+      const normalized = value === undefined ? undefined : engineOptionValueToString(value)
+      const command = `setoption name ${name}${normalized === undefined ? '' : ` value ${normalized}`}`
+      if (isReadyRef.current && (awaitReady || optionKey(name) === 'threads')) {
+        // Lab mutations finish before another control can reconfigure the worker.
+        // Startup and managed search batches own their own ordering.
+        void sendCommand(command).catch(error => {
+          setProfileMessage(error instanceof Error ? error.message : String(error))
+        })
         return
       }
-
-      const normalized = engineOptionValueToString(value)
+      if (normalized === undefined) {
+        send(command)
+        return
+      }
       recordSentOption(name, normalized)
-      send(`setoption name ${name} value ${normalized}`)
+      send(command)
     },
-    [recordSentOption, send],
+    [recordSentOption, send, sendCommand],
   )
 
   const startAnalysis = useCallback(
@@ -1230,6 +1238,14 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         }
 
         if (line === 'uciok') {
+          // Configure the worker before advertising readiness. Overlapping a
+          // new Threads command with initial setup can stall native pthreads.
+          if (shouldApplyRecommendedThreads(
+            recommendedThreadCount(profile, capabilities),
+            appliedOptionsRef.current.get(optionKey('Threads')),
+          )) {
+            setOption('Threads', recommendedThreadCount(profile, capabilities))
+          }
           send('isready')
         }
 
@@ -1239,13 +1255,6 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
           // A failed preferred boot can create a fallback worker. Retain the
           // old readings through that replacement until startup succeeds.
           preserveReadingsOnBootRef.current = false
-          // A default, applied once per worker; see shouldApplyRecommendedThreads.
-          if (shouldApplyRecommendedThreads(
-            recommendedThreadCount(profile, capabilities),
-            appliedOptionsRef.current.get(optionKey('Threads')),
-          )) {
-            setOption('Threads', recommendedThreadCount(profile, capabilities))
-          }
           setStatus((value) => (value === 'error' ? value : isSearchingRef.current ? 'analyzing' : 'ready'))
           flushPendingAnalyze()
         }

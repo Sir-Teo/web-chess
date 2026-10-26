@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage, isEngineLabPerftDiagnostic, isHeavyEngineLabCommand, isUnboundedEngineLabSearch } from './labCommands'
+import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage, engineLabSpinOptionValue, isEngineLabPerftDiagnostic, isHeavyEngineLabCommand, isUnboundedEngineLabSearch } from './labCommands'
 
 describe('Engine Lab command safety', () => {
+  it('validates raw spin values before native stoi and option recording', () => {
+    for (const value of [undefined, '', 'nope', '1.5', '0x10', '1e2', '0', '33', '2147483648']) {
+      expect(engineLabSpinOptionValue(value, { min: 1, max: 32 }), String(value)).toBeNull()
+    }
+    expect(engineLabSpinOptionValue('+0002', { min: 1, max: 32 })).toBe(2)
+    expect(engineLabSpinOptionValue('-3', { min: -4, max: 4 })).toBe(-3)
+    expect(engineLabSpinOptionValue('2147483647', {})).toBe(2147483647)
+  })
+
   it('distinguishes uncancellable perft from ordinary zero-perft searches for Stop', () => {
     for (const command of ['go perft 8', 'go depth 12 perft 3', 'go perft 0 perft 3', 'go perft 3 searchmoves e2e4']) {
       expect(isEngineLabPerftDiagnostic(command), command).toBe(true)

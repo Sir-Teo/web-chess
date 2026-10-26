@@ -144,6 +144,9 @@ given, and the app answering the reader who touches it.
   Stopping a perft diagnostic releases its worker because native perft cannot
   process Stop while counting. **Load engine** starts a fresh console session;
   the board, displayed analysis, and saved controls remain available.
+- **Engine settings apply in order**: Numeric console options use the engine's
+  advertised limits. Configuration finishes before another setting is sent,
+  and keyboard focus returns after a temporarily disabled control is ready.
 - **An evaluation bar that never goes blank**: The bar beside the board draws
   the engine's win/draw/loss split when it has one, and White's winning chances
   from the score when it does not — a Lichess cloud evaluation, an `[%eval]`

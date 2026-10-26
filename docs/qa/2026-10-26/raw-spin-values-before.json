@@ -1,0 +1,9 @@
+{
+  "before": "3",
+  "afterInvalidCommand": "0",
+  "fieldValid": false,
+  "output": "> go depth 1\ninfo string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))\ninfo string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback.\ninfo depth 1 seldepth 2 multipv 1 score cp 16 nodes 418 nps 46444 hashfull 0 time 9 pv d2d4\nbestmove d2d4 ponder d7d5",
+  "nativeInfo": [
+    "option name Threads type spin default 1 min 1 max 32"
+  ]
+}
