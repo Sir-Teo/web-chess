@@ -724,6 +724,12 @@ function App() {
   const [engineLabError, setEngineLabError] = useState<string | null>(null)
   const [engineLabOutputLines, setEngineLabOutputLines] = useState<string[]>([])
   const labConsoleBufferRef = useRef<string[]>([])
+  const labConsoleFrameRef = useRef<number | null>(null)
+  const cancelLabConsolePublication = useCallback(() => {
+    if (labConsoleFrameRef.current !== null) window.cancelAnimationFrame(labConsoleFrameRef.current)
+    labConsoleFrameRef.current = null
+  }, [])
+  useEffect(() => cancelLabConsolePublication, [cancelLabConsolePublication])
   const [engineLabCopyStatus, setEngineLabCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
   const [expertModeEnabled, setExpertModeEnabled] = useState(persistedSettings.expertModeEnabled)
   const [labCommandHistory, setLabCommandHistory] = useState<string[]>(persistedSettings.labCommandHistory)
@@ -2924,6 +2930,7 @@ function App() {
           return
         }
         const applied = setLabOption(name, value)
+        cancelLabConsolePublication()
         labConsoleBufferRef.current = []
         setEngineLabOutputLines([`> ${trimmed}`, `Saved analysis setting: ${name} = ${String(applied)}`])
         setEngineLabCopyStatus('idle')
@@ -2935,6 +2942,7 @@ function App() {
       setLabCommandHistory(previous => [trimmed, ...previous.filter(item => item !== trimmed)].slice(0, 20))
       const startTime = performance.now()
       const outputLines = [`> ${trimmed}`]
+      cancelLabConsolePublication()
       labConsoleBufferRef.current = outputLines
       setEngineLabOutputLines(outputLines.slice())
       setEngineLabCopyStatus('idle')
@@ -2944,29 +2952,40 @@ function App() {
             if (labConsoleBufferRef.current !== outputLines) return
             outputLines.push(line)
             if (outputLines.length > ENGINE_CONSOLE_LINE_LIMIT) outputLines.splice(0, outputLines.length - ENGINE_CONSOLE_LINE_LIMIT)
-            setEngineLabOutputLines(outputLines.slice())
+            // Keep every retained line immediately; publish at most once per
+            // frame while native multi-PV output arrives in bursts.
+            if (labConsoleFrameRef.current === null) {
+              labConsoleFrameRef.current = window.requestAnimationFrame(() => {
+                labConsoleFrameRef.current = null
+                if (labConsoleBufferRef.current === outputLines) setEngineLabOutputLines(outputLines.slice())
+              })
+            }
           },
         })
         if (labConsoleBufferRef.current !== outputLines) return
-        if (!lines.length) setEngineLabOutputLines([`> ${trimmed}`, '(no direct response)'])
+        cancelLabConsolePublication()
+        // A command can finish while the document cannot paint frames.
+        setEngineLabOutputLines(lines.length ? outputLines.slice() : [`> ${trimmed}`, '(no direct response)'])
         setLastLabRun({ command: trimmed, durationMs: Math.round(performance.now() - startTime) })
         setEngineLabCommand('')
       } catch (error) {
         if (labConsoleBufferRef.current !== outputLines) return
-        if (outputLines.length === 1) setEngineLabOutputLines([`> ${trimmed}`, '(no response before error)'])
+        cancelLabConsolePublication()
+        setEngineLabOutputLines(outputLines.length === 1 ? [`> ${trimmed}`, '(no response before error)'] : outputLines.slice())
         setLastLabRun({ command: trimmed, durationMs: Math.round(performance.now() - startTime) })
         setEngineLabError(error instanceof Error ? error.message : String(error))
       }
     },
-    [engineEnabled, expertModeEnabled, labOptions, sendCommand, setLabOption, status],
+    [cancelLabConsolePublication, engineEnabled, expertModeEnabled, labOptions, sendCommand, setLabOption, status],
   )
 
   const clearLabConsole = useCallback(() => {
+    cancelLabConsolePublication()
     labConsoleBufferRef.current.length = 0
     setEngineLabOutputLines([])
     setEngineLabError(null)
     setEngineLabCopyStatus('idle')
-  }, [])
+  }, [cancelLabConsolePublication])
 
   const copyLabConsole = useCallback(async () => {
     try {

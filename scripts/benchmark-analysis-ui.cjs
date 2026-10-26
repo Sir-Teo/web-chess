@@ -5,6 +5,7 @@
  * Set BENCH_TRACE=scripts/fixtures/analysis-stockfish-18.json to replay changing
  * lines at their recorded timings. Refresh with capture-analysis-trace.cjs
  * against the dev server; no live engine runs during the measured interval.
+ * BENCH_CONSOLE=1 replays that trace into Engine Lab's full output buffer.
  */
 const { chromium } = require('playwright')
 const { Chess } = require('chess.js')
@@ -23,6 +24,7 @@ const width = Number(process.env.BENCH_WIDTH || 1280)
 const cpuRate = Number(process.env.BENCH_CPU_RATE || 4)
 const flipIntervalMs = Number(process.env.BENCH_FLIP_MS ?? 500)
 const reducedMotion = process.env.BENCH_REDUCED_MOTION === '1'
+const consoleWorkload = process.env.BENCH_CONSOLE === '1'
 const pgn = fs.readFileSync(path.join(__dirname, 'fixtures/review-game.pgn'), 'utf8')
 const tracePath = process.env.BENCH_TRACE
 const trace = tracePath ? JSON.parse(fs.readFileSync(tracePath, 'utf8')) : null
@@ -165,6 +167,7 @@ function profileSummary(profile) {
 }
 
 async function main() {
+  if (consoleWorkload && !trace) throw new Error('BENCH_CONSOLE=1 requires BENCH_TRACE')
   validateTrace()
   fs.mkdirSync(output, { recursive: true })
   const positions = fixturePositions()
@@ -188,9 +191,29 @@ async function main() {
       await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
       await page.waitForTimeout(2000)
       await page.locator('.sample-sweep-copy').waitFor({ state: 'hidden' })
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      if (consoleWorkload) {
+        await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+        await page.getByRole('checkbox', { name: 'Enable expert engine commands', exact: true }).check()
+        const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+        await command.fill('setoption name MultiPV value 5')
+        await command.press('Enter')
+        await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+        await command.fill(`position fen ${trace.fen}`)
+        await command.press('Enter')
+        await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+        await command.fill('go infinite')
+        await command.press('Enter')
+      } else await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
       await page.waitForFunction(() => window.__benchmarkWorkers.some(worker => worker.searching && worker.multiPv === 5))
-      await page.waitForTimeout(500)
+      if (consoleWorkload) {
+        await page.evaluate(() => {
+          const worker = window.__benchmarkWorkers.findLast(item => item.searching && item.multiPv === 5)
+          worker.send(Array.from({ length: 300 }, (_, index) => `info string earlier output ${index}`).join('\n'))
+        })
+        await page.getByLabel('UCI console output', { exact: true }).filter({ hasText: 'earlier output 299' }).waitFor()
+        await page.getByLabel('UCI console output', { exact: true }).scrollIntoViewIfNeeded()
+      }
+      await page.waitForTimeout(consoleWorkload ? 1000 : 500)
       const client = await context.newCDPSession(page)
       await client.send('Emulation.setCPUThrottlingRate', { rate: cpuRate })
       await client.send('Performance.enable')
@@ -198,10 +221,13 @@ async function main() {
       await client.send('Profiler.setSamplingInterval', { interval: 1000 })
       const before = Object.fromEntries((await client.send('Performance.getMetrics')).metrics.map(item => [item.name, item.value]))
       await client.send('Profiler.start')
-      const observed = await page.evaluate(async ({ duration, flipInterval, trace }) => {
+      const observed = await page.evaluate(async ({ duration, flipInterval, trace, consoleWorkload }) => {
         const longTasks = []
         const observer = new PerformanceObserver(list => list.getEntries().forEach(entry => longTasks.push(entry.duration)))
         observer.observe({ type: 'longtask' })
+        let consolePublishes = 0
+        const consoleObserver = consoleWorkload ? new MutationObserver(() => { consolePublishes++ }) : null
+        if (consoleObserver) consoleObserver.observe(document.querySelector('.engine-lab-output'), { characterData: true, childList: true, subtree: true })
         let updates = 0
         const worker = window.__benchmarkWorkers.findLast(item => item.searching && item.multiPv === 5)
         if (trace && worker?.fen !== trace.fen) throw new Error('Trace position is not active')
@@ -226,20 +252,30 @@ async function main() {
         traceTimers.forEach(clearTimeout)
         if (inputTimer !== null) clearInterval(inputTimer)
         observer.disconnect()
-        return { updates, longTasks, flipToTwoFramesMs: flips }
-      }, { duration: durationMs, flipInterval: flipIntervalMs, trace })
+        consoleObserver?.disconnect()
+        return { updates, longTasks, flipToTwoFramesMs: flips, consolePublishes }
+      }, { duration: durationMs, flipInterval: flipIntervalMs, trace, consoleWorkload })
       const { profile } = await client.send('Profiler.stop')
       const after = Object.fromEntries((await client.send('Performance.getMetrics')).metrics.map(item => [item.name, item.value]))
       const metrics = Object.fromEntries(['TaskDuration', 'ScriptDuration', 'LayoutDuration', 'RecalcStyleDuration', 'LayoutCount', 'RecalcStyleCount'].map(key => [key, after[key] - before[key]]))
       let finalPositionDepth = null
+      let finalConsoleDepth = null
       if (trace) {
         const expectedDepth = Math.max(...trace.events.filter(event => /multipv 1 /.test(event.line)).map(event => Number(event.line.match(/\bdepth (\d+)/)[1])))
-        const depth = page.locator('.coach-grid > div').filter({ hasText: 'Position depth' }).getByText(`D${expectedDepth}`, { exact: true })
-        await depth.waitFor()
-        finalPositionDepth = await depth.innerText()
+        if (consoleWorkload) {
+          const output = await page.getByLabel('UCI console output', { exact: true }).textContent()
+          if (output.split('\n').length !== 300 || !output.includes(trace.events.at(-1).line)) throw new Error('Console lost the bounded trace output')
+          const depth = Math.max(...[...output.matchAll(/\binfo depth (\d+)/g)].map(match => Number(match[1])))
+          if (depth !== expectedDepth) throw new Error('Console did not reach the trace depth')
+          finalConsoleDepth = `D${depth}`
+        } else {
+          const depth = page.locator('.coach-grid > div').filter({ hasText: 'Position depth' }).getByText(`D${expectedDepth}`, { exact: true })
+          await depth.waitFor()
+          finalPositionDepth = await depth.innerText()
+        }
       }
       fs.writeFileSync(path.join(output, `sample-${sample + 1}.cpuprofile`), JSON.stringify(profile))
-      const result = { sample: sample + 1, metrics, observed, finalPositionDepth, errors, topFrames: profileSummary(profile) }
+      const result = { sample: sample + 1, metrics, observed, finalPositionDepth, finalConsoleDepth, errors, topFrames: profileSummary(profile) }
       results.push(result)
       console.log(JSON.stringify(result))
       if (errors.length || (trace ? observed.updates !== trace.events.length : observed.updates < 30)) throw new Error('Fixture did not run a valid telemetry workload')
@@ -249,12 +285,13 @@ async function main() {
   } finally {
     fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({
       benchmarkCommit: execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: path.join(__dirname, '..'), encoding: 'utf8' }).trim(),
+      benchmarkSourceDiff: execFileSync('git', ['diff', '--', 'scripts/benchmark-analysis-ui.cjs'], { cwd: path.join(__dirname, '..'), encoding: 'utf8' }),
       commit: execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: sourceRoot, encoding: 'utf8' }).trim(),
       sourceDiff: execFileSync('git', ['diff', '--', 'src'], { cwd: sourceRoot, encoding: 'utf8' }),
       productionAssets: fs.readdirSync(path.join(sourceRoot, 'dist/assets')).filter(file => file.endsWith('.js')),
-      base, width, cpuRate, durationMs, flipIntervalMs, reducedMotion,
+      base, width, cpuRate, durationMs, flipIntervalMs, reducedMotion, consoleWorkload,
       trace: trace ? { ...trace, events: undefined, path: tracePath, eventCount: trace.events.length, uniquePvs: new Set(trace.events.map(event => event.line.split(' pv ')[1])).size } : null,
-      workload: `116-ply game, five legal PVs, ${trace ? 'recorded Stockfish output at original timings' : 'telemetry every 100ms'}, ${flipIntervalMs > 0 ? `board flip every ${flipIntervalMs}ms` : 'no board flips'}; production build, main thread only`, results,
+      workload: `116-ply game, ${consoleWorkload ? 'Engine Lab with a 300-line output buffer' : 'five legal PVs'}, ${trace ? 'recorded Stockfish output at original timings' : 'telemetry every 100ms'}, ${flipIntervalMs > 0 ? `board flip every ${flipIntervalMs}ms` : 'no board flips'}; production build, main thread only`, results,
     }, null, 2) + '\n')
     await browser.close()
   }

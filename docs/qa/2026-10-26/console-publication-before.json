@@ -1,0 +1,517 @@
+{
+  "benchmarkCommit": "7868f9a",
+  "benchmarkSourceDiff": "diff --git a/scripts/benchmark-analysis-ui.cjs b/scripts/benchmark-analysis-ui.cjs\nindex 6807ef0..cc5f6cf 100644\n--- a/scripts/benchmark-analysis-ui.cjs\n+++ b/scripts/benchmark-analysis-ui.cjs\n@@ -5,6 +5,7 @@\n  * Set BENCH_TRACE=scripts/fixtures/analysis-stockfish-18.json to replay changing\n  * lines at their recorded timings. Refresh with capture-analysis-trace.cjs\n  * against the dev server; no live engine runs during the measured interval.\n+ * BENCH_CONSOLE=1 replays that trace into Engine Lab's full output buffer.\n  */\n const { chromium } = require('playwright')\n const { Chess } = require('chess.js')\n@@ -23,6 +24,7 @@ const width = Number(process.env.BENCH_WIDTH || 1280)\n const cpuRate = Number(process.env.BENCH_CPU_RATE || 4)\n const flipIntervalMs = Number(process.env.BENCH_FLIP_MS ?? 500)\n const reducedMotion = process.env.BENCH_REDUCED_MOTION === '1'\n+const consoleWorkload = process.env.BENCH_CONSOLE === '1'\n const pgn = fs.readFileSync(path.join(__dirname, 'fixtures/review-game.pgn'), 'utf8')\n const tracePath = process.env.BENCH_TRACE\n const trace = tracePath ? JSON.parse(fs.readFileSync(tracePath, 'utf8')) : null\n@@ -165,6 +167,7 @@ function profileSummary(profile) {\n }\n \n async function main() {\n+  if (consoleWorkload && !trace) throw new Error('BENCH_CONSOLE=1 requires BENCH_TRACE')\n   validateTrace()\n   fs.mkdirSync(output, { recursive: true })\n   const positions = fixturePositions()\n@@ -188,9 +191,29 @@ async function main() {\n       await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()\n       await page.waitForTimeout(2000)\n       await page.locator('.sample-sweep-copy').waitFor({ state: 'hidden' })\n-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()\n+      if (consoleWorkload) {\n+        await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()\n+        await page.getByRole('checkbox', { name: 'Enable expert engine commands', exact: true }).check()\n+        const command = page.getByRole('textbox', { name: 'UCI command', exact: true })\n+        await command.fill('setoption name MultiPV value 5')\n+        await command.press('Enter')\n+        await page.waitForFunction(() => document.querySelector('[aria-label=\"UCI command\"]')?.value === '')\n+        await command.fill(`position fen ${trace.fen}`)\n+        await command.press('Enter')\n+        await page.waitForFunction(() => document.querySelector('[aria-label=\"UCI command\"]')?.value === '')\n+        await command.fill('go infinite')\n+        await command.press('Enter')\n+      } else await page.getByRole('button', { name: 'Run analysis', exact: true }).click()\n       await page.waitForFunction(() => window.__benchmarkWorkers.some(worker => worker.searching && worker.multiPv === 5))\n-      await page.waitForTimeout(500)\n+      if (consoleWorkload) {\n+        await page.evaluate(() => {\n+          const worker = window.__benchmarkWorkers.findLast(item => item.searching && item.multiPv === 5)\n+          worker.send(Array.from({ length: 300 }, (_, index) => `info string earlier output ${index}`).join('\\n'))\n+        })\n+        await page.getByLabel('UCI console output', { exact: true }).filter({ hasText: 'earlier output 299' }).waitFor()\n+        await page.getByLabel('UCI console output', { exact: true }).scrollIntoViewIfNeeded()\n+      }\n+      await page.waitForTimeout(consoleWorkload ? 1000 : 500)\n       const client = await context.newCDPSession(page)\n       await client.send('Emulation.setCPUThrottlingRate', { rate: cpuRate })\n       await client.send('Performance.enable')\n@@ -198,10 +221,13 @@ async function main() {\n       await client.send('Profiler.setSamplingInterval', { interval: 1000 })\n       const before = Object.fromEntries((await client.send('Performance.getMetrics')).metrics.map(item => [item.name, item.value]))\n       await client.send('Profiler.start')\n-      const observed = await page.evaluate(async ({ duration, flipInterval, trace }) => {\n+      const observed = await page.evaluate(async ({ duration, flipInterval, trace, consoleWorkload }) => {\n         const longTasks = []\n         const observer = new PerformanceObserver(list => list.getEntries().forEach(entry => longTasks.push(entry.duration)))\n         observer.observe({ type: 'longtask' })\n+        let consolePublishes = 0\n+        const consoleObserver = consoleWorkload ? new MutationObserver(() => { consolePublishes++ }) : null\n+        if (consoleObserver) consoleObserver.observe(document.querySelector('.engine-lab-output'), { characterData: true, childList: true, subtree: true })\n         let updates = 0\n         const worker = window.__benchmarkWorkers.findLast(item => item.searching && item.multiPv === 5)\n         if (trace && worker?.fen !== trace.fen) throw new Error('Trace position is not active')\n@@ -226,20 +252,30 @@ async function main() {\n         traceTimers.forEach(clearTimeout)\n         if (inputTimer !== null) clearInterval(inputTimer)\n         observer.disconnect()\n-        return { updates, longTasks, flipToTwoFramesMs: flips }\n-      }, { duration: durationMs, flipInterval: flipIntervalMs, trace })\n+        consoleObserver?.disconnect()\n+        return { updates, longTasks, flipToTwoFramesMs: flips, consolePublishes }\n+      }, { duration: durationMs, flipInterval: flipIntervalMs, trace, consoleWorkload })\n       const { profile } = await client.send('Profiler.stop')\n       const after = Object.fromEntries((await client.send('Performance.getMetrics')).metrics.map(item => [item.name, item.value]))\n       const metrics = Object.fromEntries(['TaskDuration', 'ScriptDuration', 'LayoutDuration', 'RecalcStyleDuration', 'LayoutCount', 'RecalcStyleCount'].map(key => [key, after[key] - before[key]]))\n       let finalPositionDepth = null\n+      let finalConsoleDepth = null\n       if (trace) {\n         const expectedDepth = Math.max(...trace.events.filter(event => /multipv 1 /.test(event.line)).map(event => Number(event.line.match(/\\bdepth (\\d+)/)[1])))\n-        const depth = page.locator('.coach-grid > div').filter({ hasText: 'Position depth' }).getByText(`D${expectedDepth}`, { exact: true })\n-        await depth.waitFor()\n-        finalPositionDepth = await depth.innerText()\n+        if (consoleWorkload) {\n+          const output = await page.getByLabel('UCI console output', { exact: true }).textContent()\n+          if (output.split('\\n').length !== 300 || !output.includes(trace.events.at(-1).line)) throw new Error('Console lost the bounded trace output')\n+          const depth = Math.max(...[...output.matchAll(/\\binfo depth (\\d+)/g)].map(match => Number(match[1])))\n+          if (depth !== expectedDepth) throw new Error('Console did not reach the trace depth')\n+          finalConsoleDepth = `D${depth}`\n+        } else {\n+          const depth = page.locator('.coach-grid > div').filter({ hasText: 'Position depth' }).getByText(`D${expectedDepth}`, { exact: true })\n+          await depth.waitFor()\n+          finalPositionDepth = await depth.innerText()\n+        }\n       }\n       fs.writeFileSync(path.join(output, `sample-${sample + 1}.cpuprofile`), JSON.stringify(profile))\n-      const result = { sample: sample + 1, metrics, observed, finalPositionDepth, errors, topFrames: profileSummary(profile) }\n+      const result = { sample: sample + 1, metrics, observed, finalPositionDepth, finalConsoleDepth, errors, topFrames: profileSummary(profile) }\n       results.push(result)\n       console.log(JSON.stringify(result))\n       if (errors.length || (trace ? observed.updates !== trace.events.length : observed.updates < 30)) throw new Error('Fixture did not run a valid telemetry workload')\n@@ -249,12 +285,13 @@ async function main() {\n   } finally {\n     fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({\n       benchmarkCommit: execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: path.join(__dirname, '..'), encoding: 'utf8' }).trim(),\n+      benchmarkSourceDiff: execFileSync('git', ['diff', '--', 'scripts/benchmark-analysis-ui.cjs'], { cwd: path.join(__dirname, '..'), encoding: 'utf8' }),\n       commit: execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: sourceRoot, encoding: 'utf8' }).trim(),\n       sourceDiff: execFileSync('git', ['diff', '--', 'src'], { cwd: sourceRoot, encoding: 'utf8' }),\n       productionAssets: fs.readdirSync(path.join(sourceRoot, 'dist/assets')).filter(file => file.endsWith('.js')),\n-      base, width, cpuRate, durationMs, flipIntervalMs, reducedMotion,\n+      base, width, cpuRate, durationMs, flipIntervalMs, reducedMotion, consoleWorkload,\n       trace: trace ? { ...trace, events: undefined, path: tracePath, eventCount: trace.events.length, uniquePvs: new Set(trace.events.map(event => event.line.split(' pv ')[1])).size } : null,\n-      workload: `116-ply game, five legal PVs, ${trace ? 'recorded Stockfish output at original timings' : 'telemetry every 100ms'}, ${flipIntervalMs > 0 ? `board flip every ${flipIntervalMs}ms` : 'no board flips'}; production build, main thread only`, results,\n+      workload: `116-ply game, ${consoleWorkload ? 'Engine Lab with a 300-line output buffer' : 'five legal PVs'}, ${trace ? 'recorded Stockfish output at original timings' : 'telemetry every 100ms'}, ${flipIntervalMs > 0 ? `board flip every ${flipIntervalMs}ms` : 'no board flips'}; production build, main thread only`, results,\n     }, null, 2) + '\\n')\n     await browser.close()\n   }\n",
+  "commit": "7868f9a",
+  "sourceDiff": "",
+  "productionAssets": [
+    "LibraryDialog-CW0f4UwZ.js",
+    "NewGameDialog-CETImCKs.js",
+    "PgnDialog-myM2Tv5d.js",
+    "chess-BgZTH1rp.js",
+    "eco-Y2BFBEFE.js",
+    "index-DHbDAe6z.js",
+    "react-CIDWvPgF.js",
+    "reviewBackupWorker-xH5xZh9_.js"
+  ],
+  "base": "http://127.0.0.1:4336/web-chess/",
+  "width": 1280,
+  "cpuRate": 4,
+  "durationMs": 6000,
+  "flipIntervalMs": 500,
+  "reducedMotion": true,
+  "consoleWorkload": true,
+  "trace": {
+    "recordedAt": "2026-09-12T19:04:11.944Z",
+    "packageVersion": "18.0.7",
+    "fixtureSha256": "c2e3faf8e84d507d6d4af48b6a7172685482080d770a75fa5a11da96218bc415",
+    "fen": "3kn3/7p/3r3P/1p2p3/p2p2R1/P2P2B1/R2K4/2N5 w - - 1 59",
+    "durationMs": 6000,
+    "engine": "id name Stockfish 18 Lite WASM",
+    "commands": [
+      "uci",
+      "setoption name Hash value 64",
+      "setoption name MultiPV value 5",
+      "setoption name UCI_ShowWDL value true",
+      "isready",
+      "position startpos moves e2e3 b7b5 b2b3 e7e5 e1e2 d8f6 d2d3 b8a6 e2d2 f6d8 d2c3 g7g6 e3e4 a6b8 c1a3 a7a5 f2f4 f8h6 a3c5 d8h4 d1e2 h4f4 a2a3 h6g5 h2h4 f4f1 e2d1 d7d5 d1e2 f7f5 c5b4 d5d4 c3b2 f1f4 b1d2 f5e4 b4d6 g8h6 d2b1 f4h2 e2f1 h2g2 h4h5 g2e2 f1e2 a8a6 b1d2 g5e3 b2a2 e3d2 e2f2 b8d7 c2c4 d7b6 d6b4 b6a8 g1e2 h8g8 h1h3 a5a4 c4c5 d2c1 f2f1 a6f6 e2c1 f6d6 f1e1 h6g4 h3f3 g6g5 h5h6 g4f2 a2b2 c8f5 e1f1 d6a6 b4e1 f2g4 f3g3 g4e3 b2b1 f5d7 b3b4 a6d6 c5d6 c7c5 g3g1 e3f1 b4c5 g8g6 c5c6 f1e3 c1e2 g6e6 b1b2 a8c7 c6d7 e8d8 e2c1 e3d5 d6c7 d5c7 a1a2 e6a6 e1g3 a6e6 g1e1 e6d6 b2c2 d6d7 c2d2 d7d6 e1e4 g5g4 e4g4 c7e8",
+      "go infinite",
+      "stop"
+    ],
+    "path": "scripts/fixtures/analysis-stockfish-18.json",
+    "eventCount": 115,
+    "uniquePvs": 96
+  },
+  "workload": "116-ply game, Engine Lab with a 300-line output buffer, recorded Stockfish output at original timings, board flip every 500ms; production build, main thread only",
+  "results": [
+    {
+      "sample": 1,
+      "metrics": {
+        "TaskDuration": 2.6029310000000003,
+        "ScriptDuration": 0.851868,
+        "LayoutDuration": 0.246188,
+        "RecalcStyleDuration": 0.175683,
+        "LayoutCount": 41,
+        "RecalcStyleCount": 24
+      },
+      "observed": {
+        "updates": 115,
+        "longTasks": [
+          109,
+          85,
+          95
+        ],
+        "flipToTwoFramesMs": [
+          95.08500000089407,
+          86.53500000014901,
+          209.61499999836087,
+          63.975000001490116,
+          90.33999999985099,
+          75.91000000014901,
+          68.91500000283122,
+          74.60999999940395,
+          68.10999999940395,
+          69.33500000089407,
+          58.07999999821186
+        ],
+        "consolePublishes": 23
+      },
+      "finalPositionDepth": null,
+      "finalConsoleDepth": "D21",
+      "errors": [],
+      "topFrames": [
+        {
+          "frame": "(idle) :0",
+          "selfMs": 4197
+        },
+        {
+          "frame": "(program) :0",
+          "selfMs": 1698
+        },
+        {
+          "frame": "setValueForStyle ../../node_modules/react-dom/cjs/react-dom-client.production.js:1273",
+          "selfMs": 50
+        },
+        {
+          "frame": "(garbage collector) :0",
+          "selfMs": 48
+        },
+        {
+          "frame": "App ../../src/App.tsx:504",
+          "selfMs": 45
+        },
+        {
+          "frame": "renderWithHooks ../../node_modules/react-dom/cjs/react-dom-client.production.js:4333",
+          "selfMs": 39
+        },
+        {
+          "frame": "removeChild :0",
+          "selfMs": 33
+        },
+        {
+          "frame": "updateProperties ../../node_modules/react-dom/cjs/react-dom-client.production.js:13577",
+          "selfMs": 25
+        },
+        {
+          "frame": "commitHostUpdate ../../node_modules/react-dom/cjs/react-dom-client.production.js:8725",
+          "selfMs": 19
+        },
+        {
+          "frame": "commitHookEffectListUnmount ../../node_modules/react-dom/cjs/react-dom-client.production.js:8593",
+          "selfMs": 19
+        },
+        {
+          "frame": "setAttribute :0",
+          "selfMs": 17
+        },
+        {
+          "frame": "summarizeBoard ../../src/engine/tablebase.ts:148",
+          "selfMs": 16
+        },
+        {
+          "frame": "reconcileChildrenArray ../../node_modules/react-dom/cjs/react-dom-client.production.js:3622",
+          "selfMs": 15
+        },
+        {
+          "frame": "jsxProd ../../node_modules/react/cjs/react-jsx-runtime.production.js:14",
+          "selfMs": 14
+        },
+        {
+          "frame": "setProp ../../node_modules/react-dom/cjs/react-dom-client.production.js:12957",
+          "selfMs": 13
+        },
+        {
+          "frame": "setValueForStyles ../../node_modules/react-dom/cjs/react-dom-client.production.js:1291",
+          "selfMs": 13
+        },
+        {
+          "frame": "setTextContent ../../node_modules/react-dom/cjs/react-dom-client.production.js:1254",
+          "selfMs": 12
+        },
+        {
+          "frame": "commitMutationEffectsOnFiber ../../node_modules/react-dom/cjs/react-dom-client.production.js:9427",
+          "selfMs": 12
+        },
+        {
+          "frame": "click :0",
+          "selfMs": 12
+        },
+        {
+          "frame": "completeWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:7955",
+          "selfMs": 12
+        },
+        {
+          "frame": "beginWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:7392",
+          "selfMs": 11
+        },
+        {
+          "frame": "updateInput ../../node_modules/react-dom/cjs/react-dom-client.production.js:1103",
+          "selfMs": 11
+        },
+        {
+          "frame": "updateMemo ../../node_modules/react-dom/cjs/react-dom-client.production.js:5162",
+          "selfMs": 11
+        },
+        {
+          "frame": "updateElement ../../node_modules/react-dom/cjs/react-dom-client.production.js:3365",
+          "selfMs": 10
+        },
+        {
+          "frame": "postMessage :0",
+          "selfMs": 10
+        },
+        {
+          "frame": "commitDeletionEffectsOnFiber ../../node_modules/react-dom/cjs/react-dom-client.production.js:9159",
+          "selfMs": 10
+        },
+        {
+          "frame": "updateCallback ../../node_modules/react-dom/cjs/react-dom-client.production.js:5153",
+          "selfMs": 9
+        },
+        {
+          "frame": "createElementNS :0",
+          "selfMs": 9
+        },
+        {
+          "frame": "shouldSetTextContent ../../node_modules/react-dom/cjs/react-dom-client.production.js:13997",
+          "selfMs": 8
+        },
+        {
+          "frame": "Bt ../../node_modules/react-chessboard/dist/index.esm.js:2773",
+          "selfMs": 8
+        }
+      ]
+    },
+    {
+      "sample": 2,
+      "metrics": {
+        "TaskDuration": 2.3470120000000003,
+        "ScriptDuration": 0.753072,
+        "LayoutDuration": 0.218462,
+        "RecalcStyleDuration": 0.199763,
+        "LayoutCount": 44,
+        "RecalcStyleCount": 24
+      },
+      "observed": {
+        "updates": 115,
+        "longTasks": [
+          51,
+          74
+        ],
+        "flipToTwoFramesMs": [
+          108.48000000044703,
+          87.26999999955297,
+          84.97500000149012,
+          78.58500000089407,
+          84.61499999836087,
+          82.06499999761581,
+          87.54999999701977,
+          113.48499999940395,
+          70.74500000104308,
+          74.67000000178814,
+          65.1549999974668
+        ],
+        "consolePublishes": 22
+      },
+      "finalPositionDepth": null,
+      "finalConsoleDepth": "D21",
+      "errors": [],
+      "topFrames": [
+        {
+          "frame": "(idle) :0",
+          "selfMs": 4359
+        },
+        {
+          "frame": "(program) :0",
+          "selfMs": 1490
+        },
+        {
+          "frame": "(garbage collector) :0",
+          "selfMs": 61
+        },
+        {
+          "frame": "setValueForStyle ../../node_modules/react-dom/cjs/react-dom-client.production.js:1273",
+          "selfMs": 46
+        },
+        {
+          "frame": "App ../../src/App.tsx:504",
+          "selfMs": 39
+        },
+        {
+          "frame": "updateProperties ../../node_modules/react-dom/cjs/react-dom-client.production.js:13577",
+          "selfMs": 37
+        },
+        {
+          "frame": "renderWithHooks ../../node_modules/react-dom/cjs/react-dom-client.production.js:4333",
+          "selfMs": 28
+        },
+        {
+          "frame": "removeChild :0",
+          "selfMs": 27
+        },
+        {
+          "frame": "setAttribute :0",
+          "selfMs": 21
+        },
+        {
+          "frame": "setProp ../../node_modules/react-dom/cjs/react-dom-client.production.js:12957",
+          "selfMs": 19
+        },
+        {
+          "frame": "setValueForStyles ../../node_modules/react-dom/cjs/react-dom-client.production.js:1291",
+          "selfMs": 19
+        },
+        {
+          "frame": "commitHookEffectListUnmount ../../node_modules/react-dom/cjs/react-dom-client.production.js:8593",
+          "selfMs": 14
+        },
+        {
+          "frame": "updateElement ../../node_modules/react-dom/cjs/react-dom-client.production.js:3365",
+          "selfMs": 13
+        },
+        {
+          "frame": "reconcileChildrenArray ../../node_modules/react-dom/cjs/react-dom-client.production.js:3622",
+          "selfMs": 12
+        },
+        {
+          "frame": "completeWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:7955",
+          "selfMs": 12
+        },
+        {
+          "frame": "detachDeletedInstance ../../node_modules/react-dom/cjs/react-dom-client.production.js:852",
+          "selfMs": 12
+        },
+        {
+          "frame": "performUnitOfWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:11304",
+          "selfMs": 11
+        },
+        {
+          "frame": "(anonymous) ../../node_modules/react-chessboard/dist/index.esm.js:5350",
+          "selfMs": 11
+        },
+        {
+          "frame": "parseEvaluationResultValue :106",
+          "selfMs": 10
+        },
+        {
+          "frame": "commitHostUpdate ../../node_modules/react-dom/cjs/react-dom-client.production.js:8725",
+          "selfMs": 10
+        },
+        {
+          "frame": "Bt ../../node_modules/react-chessboard/dist/index.esm.js:2773",
+          "selfMs": 10
+        },
+        {
+          "frame": "commitBeforeMutationEffects ../../node_modules/react-dom/cjs/react-dom-client.production.js:8842",
+          "selfMs": 10
+        },
+        {
+          "frame": "jsxProd ../../node_modules/react/cjs/react-jsx-runtime.production.js:14",
+          "selfMs": 8
+        },
+        {
+          "frame": "setTextContent ../../node_modules/react-dom/cjs/react-dom-client.production.js:1254",
+          "selfMs": 8
+        },
+        {
+          "frame": "reconcileChildFibersImpl ../../node_modules/react-dom/cjs/react-dom-client.production.js:3793",
+          "selfMs": 8
+        },
+        {
+          "frame": "getEnabled ../../node_modules/react-chessboard/dist/index.esm.js:2784",
+          "selfMs": 8
+        },
+        {
+          "frame": "createElement :0",
+          "selfMs": 7
+        },
+        {
+          "frame": "beginWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:7392",
+          "selfMs": 7
+        },
+        {
+          "frame": "updateReducerImpl ../../node_modules/react-dom/cjs/react-dom-client.production.js:4557",
+          "selfMs": 6
+        },
+        {
+          "frame": "appendChild :0",
+          "selfMs": 6
+        }
+      ]
+    },
+    {
+      "sample": 3,
+      "metrics": {
+        "TaskDuration": 2.152749,
+        "ScriptDuration": 0.677713,
+        "LayoutDuration": 0.211204,
+        "RecalcStyleDuration": 0.157414,
+        "LayoutCount": 42,
+        "RecalcStyleCount": 24
+      },
+      "observed": {
+        "updates": 115,
+        "longTasks": [],
+        "flipToTwoFramesMs": [
+          82.71499999985099,
+          73.9700000025332,
+          69.41500000283122,
+          62.92999999970198,
+          79.07999999821186,
+          75.18999999761581,
+          65.5599999986589,
+          85.13499999791384,
+          74.66499999910593,
+          71.95500000193715,
+          70.88500000163913
+        ],
+        "consolePublishes": 22
+      },
+      "finalPositionDepth": null,
+      "finalConsoleDepth": "D21",
+      "errors": [],
+      "topFrames": [
+        {
+          "frame": "(idle) :0",
+          "selfMs": 4513
+        },
+        {
+          "frame": "(program) :0",
+          "selfMs": 1398
+        },
+        {
+          "frame": "(garbage collector) :0",
+          "selfMs": 53
+        },
+        {
+          "frame": "setValueForStyle ../../node_modules/react-dom/cjs/react-dom-client.production.js:1273",
+          "selfMs": 35
+        },
+        {
+          "frame": "removeChild :0",
+          "selfMs": 29
+        },
+        {
+          "frame": "renderWithHooks ../../node_modules/react-dom/cjs/react-dom-client.production.js:4333",
+          "selfMs": 27
+        },
+        {
+          "frame": "updateProperties ../../node_modules/react-dom/cjs/react-dom-client.production.js:13577",
+          "selfMs": 22
+        },
+        {
+          "frame": "App ../../src/App.tsx:504",
+          "selfMs": 21
+        },
+        {
+          "frame": "commitHostUpdate ../../node_modules/react-dom/cjs/react-dom-client.production.js:8725",
+          "selfMs": 17
+        },
+        {
+          "frame": "setValueForStyles ../../node_modules/react-dom/cjs/react-dom-client.production.js:1291",
+          "selfMs": 16
+        },
+        {
+          "frame": "Bt ../../node_modules/react-chessboard/dist/index.esm.js:2773",
+          "selfMs": 16
+        },
+        {
+          "frame": "setAttribute :0",
+          "selfMs": 15
+        },
+        {
+          "frame": "commitBeforeMutationEffects ../../node_modules/react-dom/cjs/react-dom-client.production.js:8842",
+          "selfMs": 15
+        },
+        {
+          "frame": "completeWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:7955",
+          "selfMs": 14
+        },
+        {
+          "frame": "jsxProd ../../node_modules/react/cjs/react-jsx-runtime.production.js:14",
+          "selfMs": 13
+        },
+        {
+          "frame": "commitHookEffectListUnmount ../../node_modules/react-dom/cjs/react-dom-client.production.js:8593",
+          "selfMs": 13
+        },
+        {
+          "frame": "updateInput ../../node_modules/react-dom/cjs/react-dom-client.production.js:1103",
+          "selfMs": 12
+        },
+        {
+          "frame": "reconcileChildrenArray ../../node_modules/react-dom/cjs/react-dom-client.production.js:3622",
+          "selfMs": 12
+        },
+        {
+          "frame": "dispatchEvent ../../node_modules/react-dom/cjs/react-dom-client.production.js:15297",
+          "selfMs": 12
+        },
+        {
+          "frame": "setInitialProperties ../../node_modules/react-dom/cjs/react-dom-client.production.js:13346",
+          "selfMs": 12
+        },
+        {
+          "frame": "setTextContent ../../node_modules/react-dom/cjs/react-dom-client.production.js:1254",
+          "selfMs": 11
+        },
+        {
+          "frame": "detachFiberAfterEffects ../../node_modules/react-dom/cjs/react-dom-client.production.js:9129",
+          "selfMs": 10
+        },
+        {
+          "frame": "appendChild :0",
+          "selfMs": 9
+        },
+        {
+          "frame": "pushSimpleEffect ../../node_modules/react-dom/cjs/react-dom-client.production.js:5053",
+          "selfMs": 9
+        },
+        {
+          "frame": "updateCallback ../../node_modules/react-dom/cjs/react-dom-client.production.js:5153",
+          "selfMs": 8
+        },
+        {
+          "frame": "setProp ../../node_modules/react-dom/cjs/react-dom-client.production.js:12957",
+          "selfMs": 8
+        },
+        {
+          "frame": "recursivelyTraverseMutationEffects ../../node_modules/react-dom/cjs/react-dom-client.production.js:9384",
+          "selfMs": 7
+        },
+        {
+          "frame": "_isKingAttacked ../../node_modules/chess.js/dist/esm/chess.js:2251",
+          "selfMs": 7
+        },
+        {
+          "frame": "validateFen ../../node_modules/chess.js/dist/esm/chess.js:1598",
+          "selfMs": 7
+        },
+        {
+          "frame": "updateElement ../../node_modules/react-dom/cjs/react-dom-client.production.js:3365",
+          "selfMs": 6
+        }
+      ]
+    }
+  ],
+  "artifactNote": "Three sequential production samples per group on the same host. Recorded 115-line Stockfish trace, full 300-line Engine Lab buffer, board flip every 500ms, 4x Chromium CPU throttle, reduced motion. Raw CPU profiles/screenshots remain temporary QA artifacts. Synthetic two-frame timings include scheduling/profiling overhead and are not field INP."
+}

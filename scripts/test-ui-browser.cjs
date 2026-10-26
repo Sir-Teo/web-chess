@@ -7609,6 +7609,24 @@ async function checkConsoleVisibility(browser) {
         await submit('position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
         await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
       }
+      const holdFrames = () => page.evaluate(() => {
+        const nativeRequest = window.requestAnimationFrame, nativeCancel = window.cancelAnimationFrame
+        const callbacks = new Map()
+        let next = -1
+        window.__consoleCancelledFrames = 0
+        window.__consolePendingFrames = () => callbacks.size
+        window.requestAnimationFrame = callback => { const id = next--; callbacks.set(id, callback); return id }
+        window.cancelAnimationFrame = id => {
+          if (callbacks.delete(id)) window.__consoleCancelledFrames++
+          else nativeCancel.call(window, id)
+        }
+        window.__restoreConsoleFrames = () => {
+          window.requestAnimationFrame = nativeRequest
+          window.cancelAnimationFrame = nativeCancel
+          for (const callback of callbacks.values()) nativeRequest.call(window, callback)
+          callbacks.clear()
+        }
+      })
       await position()
       await submit(rawCommand)
       await output.filter({ hasText: 'score cp 900' }).waitFor()
@@ -7618,7 +7636,18 @@ async function checkConsoleVisibility(browser) {
       await page.evaluate(() => { for (let i = 0; i < 600; i++) window.__consoleEngine.send(`info string trace ${i}`) })
       await output.filter({ hasText: 'trace 599' }).waitFor()
       assert((await output.textContent()).split('\n').length === 300, 'console output did not stay bounded')
-      await page.locator('.engine-lab-console').getByRole('button', { name: 'Clear', exact: true }).click()
+      await holdFrames()
+      await page.evaluate(() => window.__consoleEngine.send('info string pending-before-clear'))
+      await page.waitForFunction(() => window.__consolePendingFrames() > 0, null, { polling: 10 })
+      const visibleOutput = await output.textContent()
+      await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+        writeText: async text => { window.__copiedConsoleOutput = text },
+      } }))
+      await page.locator('.engine-lab-console').getByRole('button', { name: 'Copy', exact: true }).evaluate(button => button.click())
+      assert(await page.evaluate(() => window.__copiedConsoleOutput) === visibleOutput, 'Copy included output that was not yet visible')
+      await page.locator('.engine-lab-console').getByRole('button', { name: 'Clear', exact: true }).evaluate(button => button.click())
+      assert(await page.evaluate(() => window.__consoleCancelledFrames) > 0, 'Clear left a console publication pending')
+      await page.evaluate(() => window.__restoreConsoleFrames())
       await page.evaluate(() => window.__consoleEngine.send('info string after-clear'))
       await output.filter({ hasText: 'after-clear' }).waitFor()
       assert(await output.textContent() === 'info string after-clear', 'cleared output returned on the next reply')
@@ -7705,8 +7734,21 @@ async function checkConsoleVisibility(browser) {
       await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
       await waitStatus('ready')
       assert(await count(rawCommand) === 5, 'worker teardown retained a console resume')
+      await position()
+      await submit('go depth 12')
+      await output.filter({ hasText: 'score cp 900' }).waitFor()
+      await holdFrames()
+      await page.evaluate(() => {
+        window.__consoleEngine.send('info string terminal-tail')
+        window.__consoleEngine.finishSearch()
+      })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready'
+        && document.querySelector('.engine-lab-output')?.textContent.includes('terminal-tail')
+        && document.querySelector('.engine-lab-output')?.textContent.includes('bestmove '), null, { polling: 10 })
+      assert(await page.evaluate(() => window.__consoleCancelledFrames) > 0, 'completion left a console publication pending')
+      await page.evaluate(() => window.__restoreConsoleFrames())
       assert(errors.length === 0, `console visibility errors: ${errors.join('; ')}`)
-      console.log(`  console visibility (${width}px, ${scale}x): survives 95s, bounded/Clear output, stop/ack/resume, rapid return, hidden submission, Stop cancellation, board handoff, finite work and teardown`)
+      console.log(`  console visibility (${width}px, ${scale}x): survives 95s, bounded/Clear output, held-frame Clear and completion, stop/ack/resume, rapid return, hidden submission, Stop cancellation, board handoff, finite work and teardown`)
     } finally { await context.close() }
   }
 }

@@ -467,6 +467,10 @@ profiles go to `/tmp/web-chess-analysis-profile`; `BENCH_URL`, `BENCH_OUTPUT`,
 Set `BENCH_FLIP_MS=0` to isolate stationary telemetry updates, or another
 interval in milliseconds to change flip frequency. `BENCH_REDUCED_MOTION=1`
 profiles the reduced-motion preference.
+`BENCH_TRACE=scripts/fixtures/analysis-stockfish-18.json` replays recorded
+Stockfish output at its original timings. Add `BENCH_CONSOLE=1` to profile
+Engine Lab publication into a full 300-line buffer; results include output
+publication counts and require every recorded line and the final depth.
 It measures main-thread UI work with a simulated engine, not Stockfish speed
 or field INP. Hold `dist/` fixed while profiling or running browser tests.
 
