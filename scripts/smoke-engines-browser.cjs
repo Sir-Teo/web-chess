@@ -32,6 +32,19 @@ async function checkNativeConsoleLimits(page) {
     assert.match(output, /bestmove /)
     assert.deepEqual([...new Set([...output.matchAll(/\binfo depth (\d+)/g)].map(match => Number(match[1])))], [1])
   }
+  // Native root perft treats negative int32 depths like depth one. Keep
+  // this distinct from zero, which falls through to an ordinary search.
+  for (const text of ['go perft -1', 'go perft -2', 'go perft -2147483648']) {
+    await submit(text)
+    await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+    await ready()
+    const output = await page.getByLabel('UCI console output', { exact: true }).textContent()
+    assert.match(output, /Nodes searched: 20(?:\s|$)/)
+    assert.doesNotMatch(output, /bestmove |\binfo depth /)
+    await submit('isready')
+    await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+    assert.match(await page.getByLabel('UCI console output', { exact: true }).textContent(), /readyok/)
+  }
   await page.evaluate(() => {
     window.__consoleProbeVisibility = 'visible'
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => window.__consoleProbeVisibility })
@@ -384,7 +397,7 @@ async function main() {
           assert.equal(await depthTenSearches(), rerunBefore, 'reopening lost reusable real-engine readings')
           assert.deepEqual(errors, [])
           results.push({ browser: name, width, status: 'passed', source, positionScore: before,
-            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'shared console options', 'native console limits and next command drafts: rejected syntax, duplicate limits, zero-perft depth-1, pause/resume, preserved and submitted drafts', 'perft 8 cancellation releases worker, preserves draft and reloads a reset console position', 'native spin validation and canonical option updates with readiness acknowledgements', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus', 'repetition review: eight depth-10 searches, save, reopen, backup and reuse'] })
+            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'shared console options', 'native console limits and next command drafts: rejected syntax, duplicate limits, zero-perft depth-1, negative perft int32 depths and readiness recovery, pause/resume, preserved and submitted drafts', 'perft 8 cancellation releases worker, preserves draft and reloads a reset console position', 'native spin validation and canonical option updates with readiness acknowledgements', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus', 'repetition review: eight depth-10 searches, save, reopen, backup and reuse'] })
         } catch (error) {
           const diagnostics = await page.evaluate(() => ({
             commands: window.__smokeCommands?.slice(-80),
