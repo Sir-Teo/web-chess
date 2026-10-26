@@ -5671,6 +5671,49 @@ async function checkOpeningNumbersBelongToTheirPosition(browser) {
   }
 }
 
+async function checkFenCounterMeaning(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.locator('#chessboard-square-e2 [data-piece="wP"]').waitFor()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.getByRole('button', { name: 'FEN', exact: true }).click()
+      const input = page.locator('.fen-textarea')
+      const load = page.getByRole('button', { name: 'Load & Analyze', exact: true })
+      const position = '7k/8/8/8/8/8/7P/K7 w - -'
+      for (const [half, full, field] of [
+        ['0junk', '1', 'halfmove'], ['1.5', '1', 'halfmove'], ['0x10', '1', 'halfmove'],
+        ['0', '1junk', 'fullmove'], ['0', '1e3', 'fullmove'], ['0', '+1', 'fullmove'],
+        ['0', '9007199254740993', 'fullmove'], ['1000000000000000000000', '1', 'halfmove'],
+      ]) {
+        const draft = `${position} ${half} ${full}`
+        await input.fill(draft)
+        assert(await load.isDisabled(), `malformed ${field} can be loaded: ${draft}`)
+        assert(await input.getAttribute('aria-invalid') === 'true', 'invalid FEN is not marked for assistive technology')
+        const error = await input.evaluate(el => document.getElementById(el.getAttribute('aria-describedby'))?.textContent)
+        assert(error?.toLowerCase().includes(field), `FEN does not identify its invalid ${field}: ${error}`)
+        assert(await input.inputValue() === draft, 'validation changed the counter draft')
+        assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'invalid FEN changed the board')
+      }
+      await input.fill(`${position} 00042 00123`)
+      assert(await load.isEnabled() && await input.getAttribute('aria-invalid') === 'false', 'correcting the FEN did not clear validation')
+      assert(!await input.getAttribute('aria-describedby'), 'corrected FEN kept an obsolete error description')
+      await load.click()
+      await page.locator('.dialog-panel').waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-a1 [data-piece="wK"]').waitFor()
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.getByRole('button', { name: 'FEN', exact: true }).click()
+      assert(await input.inputValue() === `${position} 42 123`, 'loaded FEN changed the valid counter values')
+      console.log(`  FEN counters (${width}px, ${scale}x): malformed/rounded values refused with associated errors; draft/board retained; corrected decimal counters round-trip`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkTablebaseMoveReading(browser) {
   const fen = '1r5k/P7/8/8/8/8/8/7K w - - 0 1'
   for (const [width, scale] of [[1280, 1], [375, 1], [375, 2], [320, 2]]) {
@@ -13277,6 +13320,7 @@ async function main() {
       'autoplay-speed': checkReplaySpeedAfterStep,
       'remote-retry': checkRemoteAnalysisRetry,
       'tablebase-reading': checkTablebaseMoveReading,
+      'fen-counters': checkFenCounterMeaning,
       'takeback-result': checkTakingBackAMateUnfinishesTheGame,
       'result-ownership': checkAResultBelongsToItsOwnGame,
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
@@ -14079,6 +14123,7 @@ async function main() {
     await checkTheTablebaseAnswersForThisPosition(browser)
     await checkRemoteAnalysisRetry(browser)
     await checkTablebaseMoveReading(browser)
+    await checkFenCounterMeaning(browser)
     await checkBoardCanvas(browser)
     await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)

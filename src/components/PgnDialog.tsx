@@ -944,10 +944,11 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                     resetFeedback()
                                 }}
                                 aria-invalid={Boolean(error || fenValidationError)}
+                                aria-describedby={error || fenValidationError ? `${fenTextId}-error` : undefined}
                             />
-                            {error && <p className="dialog-error" role="alert">{error}</p>}
+                            {error && <p id={`${fenTextId}-error`} className="dialog-error" role="alert">{error}</p>}
                             {!error && fenValidationError && (
-                                <p className="dialog-error" role="status">{fenValidationError}</p>
+                                <p id={`${fenTextId}-error`} className="dialog-error" role="status">{fenValidationError}</p>
                             )}
                             {copyStatus === 'failed' && (
                                 shareLinkFallback ? (

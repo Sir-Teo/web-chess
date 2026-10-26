@@ -172,6 +172,18 @@ export function validateFenForAnalysis(fenText: string): FenValidationResult {
     return { ok: false, error: fenSyntaxUserError(syntax.error, trimmed) }
   }
 
+  // chess.js uses parseInt for these fields: "1.5", "1junk" and "1e3"
+  // all became 1. Large integers could also round or serialize as exponents.
+  const fields = trimmed.split(/\s+/)
+  for (const [name, value] of [['halfmove clock', fields[4]], ['fullmove number', fields[5]]]) {
+    if (!/^\d+$/.test(value)) {
+      return { ok: false, error: `Invalid FEN: ${name} must be a whole decimal number.` }
+    }
+    if (!Number.isSafeInteger(Number(value))) {
+      return { ok: false, error: `Invalid FEN: ${name} is too large to read accurately.` }
+    }
+  }
+
   try {
     const fen = new Chess(trimmed).fen()
     const kingError = kingPlacementError(fen)

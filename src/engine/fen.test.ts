@@ -28,6 +28,34 @@ describe('FEN validation helpers', () => {
   })
 })
 
+describe('FEN move counters retain their exact meaning', () => {
+  const position = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -'
+
+  it.each(['0junk', '1.5', '1e3', '0x10', '+1'])('refuses a partial or non-decimal halfmove clock: %s', counter => {
+    const result = validateFenForAnalysis(`${position} ${counter} 1`)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(/halfmove/i)
+  })
+
+  it.each(['1junk', '1.5', '1e3', '+1'])('refuses a partial or non-decimal fullmove number: %s', counter => {
+    const result = validateFenForAnalysis(`${position} 0 ${counter}`)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(/fullmove/i)
+  })
+
+  it.each(['9007199254740992', '9007199254740993', '1000000000000000000000'])('refuses counters that cannot round-trip as exact decimal integers: %s', counter => {
+    for (const [halfmove, fullmove] of [[counter, '1'], ['0', counter]]) {
+      const result = validateFenForAnalysis(`${position} ${halfmove} ${fullmove}`)
+      expect(result.ok).toBe(false)
+      expect(!result.ok && result.error).toMatch(/too large/i)
+    }
+  })
+
+  it('normalizes leading zeros while preserving ordinary counter values', () => {
+    expect(validateFenForAnalysis(`${position} 00042 00123`)).toEqual({ ok: true, fen: `${position} 42 123` })
+  })
+})
+
 describe('opponentIsInCheck', () => {
   // Impossible for the same reason adjacent kings are: the player who just
   // moved cannot have left their own king attacked.
