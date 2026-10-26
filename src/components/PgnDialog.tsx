@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import type { Square } from 'chess.js'
 import { useModalFocus } from '../hooks/useModalFocus'
 import type { GameNode } from '../hooks/useGameTree'
@@ -125,6 +125,8 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const [error, setError] = useState<string | null>(null)
     const [status, setStatus] = useState<string | null>(null)
     const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
+    const [copiedText, setCopiedText] = useState<string | null>(null)
+    const [exportTextSnapshot, setExportTextSnapshot] = useState<string | null>(null)
     const [exportOptions, setExportOptions] = useState(DEFAULT_EXPORT_OPTIONS)
     const [setup, setSetup] = useState<PositionSetup>(() => parsePositionSetupFen(currentFen) ?? createStartingPositionSetup())
     const [selectedSetupPiece, setSelectedSetupPiece] = useState<SetupPiece | null>('P')
@@ -162,6 +164,8 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         setError(null)
         setStatus(null)
         setCopyStatus('idle')
+        setCopiedText(null)
+        setExportTextSnapshot(null)
         setShareLinkFallback('')
     }, [])
 
@@ -425,6 +429,14 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
             : '',
         [evaluations, exportOptions, gameNodes, mainLineNodes, pgnHeaders, tab],
     )
+    const displayedExportText = exportTextSnapshot ?? exportText
+    useLayoutEffect(() => {
+        // Some browsers activate a button without moving focus. Explicit copy,
+        // download or option changes refresh the reading, then hold it again.
+        if (exportTextSnapshot === null && exportTextRef.current === document.activeElement) {
+            setExportTextSnapshot(exportText)
+        }
+    }, [exportText, exportTextSnapshot])
     const fenValidation = useMemo(
         () => fenText.trim() ? validateFenForAnalysis(fenText) : null,
         [fenText],
@@ -487,7 +499,10 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         const generation = feedbackGenerationRef.current
         try {
             await navigator.clipboard.writeText(text)
-            if (generation === feedbackGenerationRef.current) setCopyStatus(success)
+            if (generation === feedbackGenerationRef.current) {
+                setCopyStatus(success)
+                setCopiedText(text)
+            }
         } catch {
             if (generation !== feedbackGenerationRef.current) return
             setCopyStatus('failed')
@@ -502,6 +517,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     }
 
     const handleDownload = () => {
+        setExportTextSnapshot(null)
         const blob = new Blob([exportText], { type: 'application/x-chess-pgn;charset=utf-8' })
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
@@ -539,6 +555,10 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
             sharedPly >= 0 ? sharedPly : undefined,
         )
         : null
+    const fenShareUrl = fenShareValidation.ok
+        ? buildFenShareUrl(fenTextForShareLink(fenText, currentFen),
+            typeof window === 'undefined' ? 'https://localhost/' : window.location.href)
+        : ''
     const gameShareTooLong = Boolean(gameShareUrl && gameShareUrl.length > MAX_SHARED_GAME_CHARS)
     /**
      * The same game on Lichess's board. A link rather than a button that
@@ -571,8 +591,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
             return
         }
 
-        const shareUrl = buildFenShareUrl(fenToShare, window.location.href)
-        await copyText(shareUrl, 'link-copied', shareUrl)
+        await copyText(fenShareUrl, 'link-copied', fenShareUrl)
     }
 
     useModalFocus(open, panelRef, closeDialog)
@@ -824,10 +843,10 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                     <IconFlip /> Flip board
                                 </button>
                                 <button type="button" className="btn-cancel" onClick={handleCopyFen} disabled={!fenText.trim()}>
-                                    {copyStatus === 'fen-copied' ? 'Copied FEN' : 'Copy FEN'}
+                                    {copyStatus === 'fen-copied' && copiedText === fenText.trim() ? 'Copied FEN' : 'Copy FEN'}
                                 </button>
                                 <button type="button" className="btn-cancel" onClick={handleCopyShareLink} disabled={!canCopyShareLink}>
-                                    <IconClipboard /> {copyStatus === 'link-copied' ? 'Copied Link' : 'Copy Share Link'}
+                                    <IconClipboard /> {copyStatus === 'link-copied' && copiedText === fenShareUrl ? 'Copied Link' : 'Copy Share Link'}
                                 </button>
                             </div>
                             <div className="fen-setup-card" aria-label="Position setup">
@@ -1024,8 +1043,14 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                 ref={exportTextRef}
                                 className="input-textarea"
                                 readOnly
-                                value={exportText}
+                                value={displayedExportText}
+                                onFocus={event => setExportTextSnapshot(event.currentTarget.value)}
+                                onBlur={() => setExportTextSnapshot(null)}
+                                aria-describedby={`${exportTextId}-help`}
                             />
+                            <p id={`${exportTextId}-help`} className="dialog-export-help">
+                                Text stays still while focused; updates resume when you leave this field.
+                            </p>
                             {/* Two buttons on this tab can fail, and they fail
                                 differently. The PGN is already in the box above, so
                                 "select the text" is a real instruction for it. The
@@ -1118,10 +1143,10 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                     ? 'Copy a link to this whole game, opening at this move'
                                     : 'Copy a link to this whole game'}
                         >
-                            <IconClipboard /> {copyStatus === 'game-link-copied' ? 'Copied Link' : 'Copy Game Link'}
+                            <IconClipboard /> {copyStatus === 'game-link-copied' && copiedText === gameShareUrl ? 'Copied Link' : 'Copy Game Link'}
                         </button>
                         <button type="button" className="btn-start" onClick={handleCopy}>
-                            {copyStatus === 'pgn-copied' ? 'Copied' : 'Copy PGN'}
+                            {copyStatus === 'pgn-copied' && copiedText === displayedExportText ? 'Copied' : 'Copy PGN'}
                         </button>
                     </div>
                 )}

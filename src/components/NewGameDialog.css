@@ -134,6 +134,13 @@
     margin: 0 0 0.65rem;
 }
 
+.dialog-export-help {
+    margin: 0.5rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--text-secondary);
+}
+
 .fen-setup-card {
     display: grid;
     gap: 0.45rem;

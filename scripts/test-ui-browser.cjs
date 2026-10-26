@@ -4465,6 +4465,174 @@ async function checkPositionSetupKeyboard(browser) {
   }
 }
 
+async function checkLiveShareFeedback(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 2]]) for (const kind of ['game', 'fen']) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('hold-search').replace('this.ordinal = window.__engineCount;', 'this.ordinal = window.__engineCount; window.__liveShareEngine = this;'))
+      await page.addInitScript(() => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play' }))
+        window.__liveSharedLinks = []
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => {
+          if (window.__holdLiveShareCopy) await new Promise(resolve => { window.__releaseLiveShareCopy = resolve })
+          window.__liveSharedLinks.push(text)
+        } } })
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await startGameMode(page, 'AI vs AI')
+      const play = async move => {
+        await page.waitForFunction(() => window.__liveShareEngine.searching, null, { timeout: 5000 })
+        await page.evaluate(move => { window.__liveShareEngine.scriptedLine = () => ({ cp: 35, move }); window.__liveShareEngine.finishSearch() }, move)
+        await page.locator(`#chessboard-square-${move.slice(2, 4)} [data-piece]`).waitFor()
+      }
+      await play('e2e4')
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      const dialog = page.locator('.pgn-dialog')
+      await dialog.getByRole('button', { name: kind === 'game' ? 'Export' : 'FEN', exact: true }).click()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      if (kind === 'fen') await dialog.locator('.fen-textarea').fill('   ')
+      const link = () => kind === 'game'
+        ? dialog.locator('.dialog-actions button').filter({ hasText: /Copy Game Link|Copied Link/ })
+        : dialog.locator('.dialog-quick-actions button').filter({ hasText: /Copy Share Link|Copied Link/ })
+      const copied = () => dialog.getByRole('button').filter({ hasText: 'Copied Link' })
+      await link().click(); await copied().waitFor()
+      const first = await page.evaluate(() => window.__liveSharedLinks.at(-1))
+      await play('e7e5')
+      await copied().waitFor({ state: 'detached', timeout: 5000 })
+      await link().click(); await copied().waitFor()
+      const second = await page.evaluate(() => window.__liveSharedLinks.at(-1))
+      assert(first !== second, 'opponent reply did not change the share URL')
+      await page.evaluate(() => { window.__holdLiveShareCopy = true })
+      await link().click()
+      await page.waitForFunction(() => typeof window.__releaseLiveShareCopy === 'function')
+      await play('g1f3')
+      await page.evaluate(() => { window.__holdLiveShareCopy = false; window.__releaseLiveShareCopy() })
+      await page.waitForFunction(() => window.__liveSharedLinks.length === 3)
+      assert(await page.evaluate(() => window.__liveSharedLinks.at(-1)) === second && await copied().count() === 0, 'delayed link copy claimed the newer position or game was copied')
+      await link().click(); await copied().waitFor()
+      assert(await page.evaluate(() => window.__liveSharedLinks.at(-1)) !== second, 'retry reused the older share URL')
+      if (kind === 'fen') assert(await dialog.locator('.fen-textarea').inputValue() === '   ', 'live position changes overwrote the empty FEN draft')
+      assert(errors.length === 0, `live-share errors: ${errors.join('; ')}`)
+      console.log(`  live share (${width}px, ${scale}x, ${kind}): opponent moves invalidate copied feedback; delayed old completion stays unconfirmed; retry copies the new URL${kind === 'fen' ? '; blank draft stays intact' : ''}`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkLiveExportCopy(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [375, 2, 'dark'], [320, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const nativeClipboard = browser.browserType().name() === 'chromium'
+    if (nativeClipboard) await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('hold-search').replace('this.ordinal = window.__engineCount;', 'this.ordinal = window.__engineCount; window.__liveExportEngine = this;'))
+      await page.addInitScript(theme => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, theme }))
+        window.__liveExportCopies = []
+        const clipboard = navigator.clipboard
+        window.__readLiveClipboard = () => clipboard.readText()
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => {
+          if (window.__holdLiveExportCopy) await new Promise(resolve => { window.__releaseLiveExportCopy = resolve })
+          if (window.__denyLiveExportCopy) throw new DOMException('Clipboard denied', 'NotAllowedError')
+          window.__liveExportCopies.push(text)
+        } } })
+        document.addEventListener('copy', () => {
+          const field = document.activeElement
+          if (field instanceof HTMLTextAreaElement) window.__liveNativeSelection = field.value.slice(field.selectionStart, field.selectionEnd)
+        })
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.locator('#chessboard-square-e2').click(); await page.locator('#chessboard-square-e4').click()
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.waitForFunction(() => window.__liveExportEngine.searching)
+      const opener = page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true })
+      await opener.click()
+      const dialog = page.locator('.pgn-dialog')
+      await dialog.getByRole('button', { name: 'Export', exact: true }).click()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const output = dialog.getByRole('textbox', { name: 'Annotated Output', exact: true })
+      await page.waitForFunction(() => document.querySelector('.pgn-dialog textarea')?.value.includes('[%eval'))
+      const publish = async (depth, cp) => {
+        await page.evaluate(({ depth, cp }) => window.__liveExportEngine.send(`info depth ${depth} seldepth ${depth + 4} multipv 1 score cp ${cp} nodes 10000 time 100 pv e7e5 g1f3 b8c6`), { depth, cp })
+        await page.waitForFunction(depth => [...document.querySelectorAll('.pv-list article header')].some(el => el.textContent.includes(`D${depth}`)), depth, { timeout: 5000 })
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      }
+      const assertSelectedCopy = async expected => {
+        assert(await output.inputValue() === expected && await output.evaluate(el => el === document.activeElement && el.selectionStart === 0 && el.selectionEnd === el.value.length), 'live analysis replaced selected export text or collapsed its selection')
+        await page.keyboard.press('Control+c')
+        assert(await page.evaluate(() => window.__liveNativeSelection) === expected, 'native Copy received different text from the selected snapshot')
+        if (nativeClipboard) await page.waitForFunction(async text => await window.__readLiveClipboard() === text, expected, { timeout: 5000 })
+      }
+      await output.focus(); await output.press('Control+a')
+      const original = await output.inputValue()
+      assert(await output.evaluate(el => document.getElementById(el.getAttribute('aria-describedby'))?.textContent.includes('updates resume')), 'export field does not explain when live updates resume')
+      await publish(40, 125)
+      await assertSelectedCopy(original)
+      // Download leaves the reading field and must use the newest analysis.
+      const downloaded = page.waitForEvent('download')
+      await dialog.getByRole('button', { name: 'Download PGN', exact: true }).click()
+      const refreshed = await output.inputValue()
+      assert(refreshed !== original && refreshed.includes('[%eval -1.25]'), 'leaving the field did not reveal the latest analysis')
+      assert(fs.readFileSync(await (await downloaded).path(), 'utf8') === refreshed, 'download used the held reading instead of the current export')
+      await dialog.getByRole('button', { name: 'Copy PGN', exact: true }).click()
+      await dialog.getByRole('button', { name: 'Copied', exact: true }).waitFor()
+      await publish(42, 300)
+      await dialog.getByRole('button', { name: 'Copy PGN', exact: true }).waitFor({ timeout: 5000 })
+      assert(await page.evaluate(() => window.__liveExportCopies.at(-1)) === refreshed && await output.inputValue() !== refreshed, 'copy-feedback check did not change the export after a completed copy')
+      await page.evaluate(() => { window.__holdLiveExportCopy = true })
+      const pendingText = await output.inputValue()
+      await dialog.getByRole('button', { name: 'Copy PGN', exact: true }).click()
+      await page.waitForFunction(() => typeof window.__releaseLiveExportCopy === 'function')
+      await publish(44, 475)
+      await page.evaluate(() => { window.__holdLiveExportCopy = false; window.__releaseLiveExportCopy() })
+      await page.waitForFunction(() => window.__liveExportCopies.length === 2)
+      assert(await page.evaluate(() => window.__liveExportCopies.at(-1)) === pendingText, 'pending copy changed its submitted payload')
+      assert(await dialog.getByRole('button', { name: 'Copied', exact: true }).count() === 0, 'a delayed old copy marked a newer export as copied')
+      await page.evaluate(() => { window.__denyLiveExportCopy = true })
+      await dialog.getByRole('button', { name: 'Copy PGN', exact: true }).click()
+      await dialog.getByRole('button', { name: 'Select PGN text', exact: true }).click()
+      const manualText = await output.inputValue()
+      await publish(46, 600)
+      await assertSelectedCopy(manualText)
+      await dialog.getByRole('checkbox', { name: 'Engine evals', exact: true }).uncheck()
+      assert(!(await output.inputValue()).includes('[%eval') && await dialog.getByRole('button', { name: 'Select PGN text', exact: true }).count() === 0, 'changing options retained the held export or obsolete fallback')
+      await dialog.getByRole('checkbox', { name: 'Engine evals', exact: true }).check()
+      await page.evaluate(() => { window.__denyLiveExportCopy = false })
+      await dialog.getByRole('button', { name: 'Copy PGN', exact: true }).click()
+      await dialog.getByRole('button', { name: 'Copied', exact: true }).waitFor()
+      assert(await page.evaluate(() => window.__liveExportCopies.at(-1)) === await output.inputValue(), 'retry copied a held snapshot instead of the newest export')
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      await dialog.getByRole('button', { name: 'Export', exact: true }).click()
+      assert((await output.inputValue()).includes('[%eval -6.00]') && await dialog.getByRole('button', { name: 'Copied', exact: true }).count() === 0, 'returning to Export retained old text or copy feedback')
+      // Safari and scripted activation can click a button without blurring
+      // the textarea. An explicit action refreshes it, then keeps it held.
+      await output.focus(); await output.press('Control+a')
+      await publish(48, 700)
+      const unfocusedDownload = page.waitForEvent('download')
+      await dialog.getByRole('button', { name: 'Download PGN', exact: true }).evaluate(el => el.click())
+      const downloadedText = fs.readFileSync(await (await unfocusedDownload).path(), 'utf8')
+      assert((await output.inputValue()).includes('[%eval -7.00]') && downloadedText === await output.inputValue(), 'non-focusing Download did not show and export the current analysis')
+      const heldAfterDownload = await output.inputValue()
+      await publish(50, 800)
+      assert(await output.inputValue() === heldAfterDownload && await output.evaluate(el => el === document.activeElement), 'non-focusing Download left the focused text exposed to live changes')
+      await dialog.getByRole('button', { name: 'Copy PGN', exact: true }).evaluate(el => el.click())
+      await dialog.getByRole('button', { name: 'Copied', exact: true }).waitFor()
+      const heldAfterCopy = await output.inputValue()
+      assert(heldAfterCopy.includes('[%eval -8.00]') && await page.evaluate(() => window.__liveExportCopies.at(-1)) === heldAfterCopy, 'non-focusing Copy did not match the visible text')
+      await publish(52, 900)
+      assert(await output.inputValue() === heldAfterCopy && await dialog.getByRole('button', { name: 'Copied', exact: true }).count() === 1, 'live updates changed focused copied text or its matching confirmation')
+      await dialog.getByRole('checkbox', { name: 'Comments', exact: true }).focus()
+      assert((await output.inputValue()).includes('[%eval -9.00]') && await dialog.getByRole('button', { name: 'Copied', exact: true }).count() === 0, 'leaving the held reading did not reveal and unconfirm newer text')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'live export explanation overflows the viewport')
+      assert(errors.length === 0, `live export errors: ${errors.join('; ')}`)
+      console.log(`  live export (${width}px, ${scale}x, ${theme}): selected text survives engine score updates; native Copy${nativeClipboard ? ' + clipboard' : ' event'}; latest download; current and delayed copy feedback; fallback/options/tab recovery; non-focusing action refresh and hold`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkManualClipboardFallback(browser) {
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [375, 812, 2, 'dark'], [320, 568, 2, 'light'], [844, 390, 2, 'dark']]) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
@@ -14068,6 +14236,8 @@ async function main() {
       'drawing-cancel': checkDrawingCancellation,
       'draw-mode': checkDrawModeEndsWithItsPurpose,
       'manual-copy': checkManualClipboardFallback,
+      'live-export-copy': checkLiveExportCopy,
+      'live-share-copy': checkLiveShareFeedback,
       'text-composition': checkTextCompositionKeys,
       'reveal-dialogs': checkRevealTimersRespectDialogs,
       'reveal-interaction': checkRevealRetriesYieldToInteraction,
@@ -14875,6 +15045,8 @@ async function main() {
     await checkPositionSetupOrientation(browser)
     await checkFenCopyPreservesDraft(browser)
     await checkManualClipboardFallback(browser)
+    await checkLiveExportCopy(browser)
+    await checkLiveShareFeedback(browser)
     await checkTextCompositionKeys(browser)
     await checkRevealTimersRespectDialogs(browser)
     await checkRevealRetriesYieldToInteraction(browser)
