@@ -778,9 +778,10 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         setError(nextText.trim() ? pgnImportContentError(nextText) : null)
                                     }}
                                     aria-invalid={Boolean(error)}
+                                    aria-describedby={error ? `${importTextId}-error` : undefined}
                                 />
                             )}
-                            {error && <p className="dialog-error" role="alert">{error}</p>}
+                            {error && <p id={`${importTextId}-error`} className="dialog-error" role="alert">{error}</p>}
                             {databaseGames && databaseGames.length > 1 && (
                                 <div className="dialog-database-offer">
                                     <button

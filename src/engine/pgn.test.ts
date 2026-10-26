@@ -24,6 +24,32 @@ import {
   stripPgnByteOrderMark,
 } from './pgn'
 
+describe('PGN starting-position counter precision', () => {
+  const position = '7k/8/8/8/8/8/7P/K7 w - -'
+  const documentFor = (fen: string) => `[SetUp "1"]\n[FEN "${fen}"]\n\n*`
+
+  it.each(['1junk', '1.5', '1e3', '+1', '9007199254740993', '1000000000000000000000'])(
+    'refuses a FEN counter before a PGN normalizes it: %s', counter => {
+      for (const [half, full, field] of [[counter, '1', 'halfmove'], ['0', counter, 'fullmove']]) {
+        const text = documentFor(`${position} ${half} ${full}`)
+        expect(() => parsePgnMoveTree(text)).toThrow(new RegExp(field))
+        try { parsePgnMoveTree(text) } catch (error) {
+          expect(pgnImportUserErrorMessage(error)).toMatch(new RegExp(`PGN starting position:.*${field}`))
+        }
+      }
+    },
+  )
+
+  it('preserves valid counter values after leading-zero normalization', () => {
+    expect(parsePgnMoveTree(documentFor(`${position} 00042 00123`)).rootFen).toBe(`${position} 42 123`)
+  })
+
+  it('retains the existing defaults for abbreviated starting-position headers', () => {
+    expect(rootFenFromPgnHeaders({ FEN: position })).toBe(`${position} 0 1`)
+    expect(rootFenFromPgnHeaders({ FEN: `${position} 42` })).toBe(`${position} 42 1`)
+  })
+})
+
 function makeNode(
   id: string,
   fen: string,

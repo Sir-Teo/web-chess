@@ -13,6 +13,26 @@ const START = new Chess().fen()
 const HREF = 'https://example.test/web-chess/'
 const SICILIAN = ['e2e4', 'c7c5', 'g1f3', 'd7d6', 'd2d4', 'c5d4', 'f3d4', 'g8f6']
 
+describe('shared starting-position counter precision', () => {
+  const position = '7k/8/8/8/8/8/7P/K7 w - -'
+
+  it.each(['1junk', '1.5', '1e3', '+1', '9007199254740993', '1000000000000000000000'])(
+    'refuses a counter before decoding can normalize it: %s', counter => {
+      expect(decodeSharedGame(encodeSharedGame(`${position} ${counter} 1`, []))).toBeNull()
+      expect(decodeSharedGame(encodeSharedGame(`${position} 0 ${counter}`, []))).toBeNull()
+    },
+  )
+
+  it('normalizes leading zeros without changing valid counter values', () => {
+    expect(decodeSharedGame(encodeSharedGame(`${position} 00042 00123`, []))?.rootFen).toBe(`${position} 42 123`)
+  })
+
+  it('retains the existing defaults for abbreviated shared starting positions', () => {
+    expect(decodeSharedGame(encodeSharedGame(position, []))?.rootFen).toBe(`${position} 0 1`)
+    expect(decodeSharedGame(encodeSharedGame(`${position} 42`, []))?.rootFen).toBe(`${position} 42 1`)
+  })
+})
+
 function sansOf(rootFen: string, moves: string[]): string[] {
   const shared = decodeSharedGame(encodeSharedGame(rootFen, moves))!
   return replaySharedGame(shared).map(entry => entry.move.san)

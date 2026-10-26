@@ -5671,6 +5671,52 @@ async function checkOpeningNumbersBelongToTheirPosition(browser) {
   }
 }
 
+async function checkImportedCounterMeaning(browser) {
+  const position = '7k/8/8/8/8/8/7P/K7 w - -'
+  for (const [width, scale] of [[1280, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false })))
+      for (const counter of ['1e3', '9007199254740993']) {
+        const payload = Buffer.from(`${position} 0 ${counter}|`).toString('base64url')
+        await page.goto(`${BASE}#game=${payload}`, { waitUntil: 'domcontentloaded' })
+        await page.locator('#chessboard-square-e2 [data-piece="wP"]').waitFor()
+        await page.locator('.app-notice').filter({ hasText: 'could not be read' }).waitFor()
+        assert(await page.locator('#chessboard-square-a1 [data-piece="wK"]').count() === 0, 'shared game normalized and loaded a malformed starting position')
+      }
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      const input = page.locator('.dialog-section textarea').first()
+      const pgn = (half, full) => `[SetUp "1"]\n[FEN "${position} ${half} ${full}"]\n\n*`
+      for (const [half, full, field, file] of [
+        ['0', '1junk', 'fullmove', false], ['1.5', '1', 'halfmove', true], ['0', '9007199254740993', 'fullmove', true],
+      ]) {
+        const draft = pgn(half, full)
+        if (file) {
+          await page.locator('.dialog-section input[type="file"]').setInputFiles({ name: 'counter-game.pgn', mimeType: 'application/x-chess-pgn', buffer: Buffer.from(draft) })
+          await page.waitForFunction(text => document.querySelector('.dialog-section textarea')?.value === text, draft)
+        } else await input.fill(draft)
+        await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await page.locator('.dialog-error[role="alert"]').waitFor()
+        const error = await input.evaluate(el => document.getElementById(el.getAttribute('aria-describedby'))?.textContent)
+        assert(error?.includes('PGN starting position:') && error.includes(field), `PGN counter failure has no specific associated error: ${error}`)
+        assert(await input.inputValue() === draft, 'failed PGN import discarded or changed its draft')
+        assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'failed PGN counter import changed the board')
+      }
+      await input.fill(pgn('00042', '00123'))
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.dialog-panel').waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-a1 [data-piece="wK"]').waitFor()
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.getByRole('button', { name: 'FEN', exact: true }).click()
+      assert(await page.locator('.fen-textarea').inputValue() === `${position} 42 123`, 'corrected PGN starting counters did not round-trip')
+      console.log(`  imported counters (${width}px, ${scale}x): malformed shared roots refused; pasted/file PGNs preserve draft/board and identify the field; corrected counters load exactly`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkHeldToggleShortcuts(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -13400,6 +13446,7 @@ async function main() {
       'tablebase-reading': checkTablebaseMoveReading,
       'fen-counters': checkFenCounterMeaning,
       'held-shortcuts': checkHeldToggleShortcuts,
+      'imported-counters': checkImportedCounterMeaning,
       'takeback-result': checkTakingBackAMateUnfinishesTheGame,
       'result-ownership': checkAResultBelongsToItsOwnGame,
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
@@ -14204,6 +14251,7 @@ async function main() {
     await checkTablebaseMoveReading(browser)
     await checkFenCounterMeaning(browser)
     await checkHeldToggleShortcuts(browser)
+    await checkImportedCounterMeaning(browser)
     await checkBoardCanvas(browser)
     await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)

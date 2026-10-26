@@ -1,5 +1,6 @@
 import { Chess, type Move } from 'chess.js'
 import { normalizeUciMoves } from './uci'
+import { fenCounterInputError } from './fen'
 
 /**
  * A whole game in a link, not just a position.
@@ -97,6 +98,7 @@ export function decodeSharedGame(encoded: string): SharedGame | null {
 
   const rootFen = text.slice(0, separator).trim()
   if (!rootFen) return null
+  if (fenCounterInputError(rootFen)) return null
 
   let position: Chess
   try {

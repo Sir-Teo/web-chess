@@ -3,7 +3,7 @@ import { parse as parsePgn } from 'chess.js/src/pgn.js'
 import type { Node as ParsedPgnNode } from 'chess.js/src/node'
 import type { GameNode, GameTreeImportEntry } from '../hooks/useGameTree'
 import { uciToSan, type EvalSnapshot } from './analysis'
-import { hasLegalKingPlacement } from './fen'
+import { fenCounterInputError, hasLegalKingPlacement } from './fen'
 import { looksLikeFen, looksLikeGameUrl } from './pastedText'
 import { decodeEvaluationEngine, encodeEvaluationEngine } from './evaluationSource'
 import { APP_PLACEHOLDER_HEADERS } from './pgnPlaceholders'
@@ -75,6 +75,8 @@ const PGN_IMPORT_USER_ERRORS = new Set([
     PGN_LOOKS_LIKE_FEN_ERROR,
     PGN_LOOKS_LIKE_URL_ERROR,
 ])
+
+class PgnFenCounterError extends Error {}
 
 const QUALITY_EXPORT_LABELS: Record<NonNullable<GameNode['quality']>, string> = {
     book: 'Book',
@@ -222,6 +224,7 @@ export function pgnImportContentError(pgnText: string): string | null {
 
 export function pgnImportUserErrorMessage(error: unknown): string | null {
     if (!(error instanceof Error)) return null
+    if (error instanceof PgnFenCounterError) return error.message
     for (const prefix of [PGN_INVALID_MOVE_ERROR_PREFIX, CHESS_JS_INVALID_MOVE_PREFIX]) {
         // The app's own prefix is checked first: it also begins "Invalid move".
         if (error.message.startsWith(prefix)) {
@@ -628,6 +631,8 @@ export function rootFenFromPgnHeaders(headers: Record<string, string>): string {
     const fenHeader = headers.FEN?.trim()
     if (!fenHeader) return INITIAL_FEN
 
+    const counterError = fenCounterInputError(fenHeader)
+    if (counterError) throw new PgnFenCounterError(`PGN starting position: ${counterError.replace(/^Invalid FEN: /, '')}`)
     const fen = new Chess(fenHeader).fen()
     if (!hasLegalKingPlacement(fen)) throw new Error('Invalid FEN king placement.')
     return fen

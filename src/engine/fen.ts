@@ -161,6 +161,18 @@ export function opponentIsInCheck(fen: string): boolean {
   }
 }
 
+/** Check counters before a parser can truncate or round them. Missing trailing
+ * fields retain the caller's existing syntax/default rules. */
+export function fenCounterInputError(fenText: string): string | null {
+  const fields = fenText.trim().split(/\s+/)
+  for (const [name, value] of [['halfmove clock', fields[4]], ['fullmove number', fields[5]]]) {
+    if (value === undefined) continue
+    if (!/^\d+$/.test(value)) return `Invalid FEN: ${name} must be a whole decimal number.`
+    if (!Number.isSafeInteger(Number(value))) return `Invalid FEN: ${name} is too large to read accurately.`
+  }
+  return null
+}
+
 export function validateFenForAnalysis(fenText: string): FenValidationResult {
   const trimmed = fenText.trim()
   // What it is, before what is wrong with it: a game and a link are both
@@ -174,15 +186,8 @@ export function validateFenForAnalysis(fenText: string): FenValidationResult {
 
   // chess.js uses parseInt for these fields: "1.5", "1junk" and "1e3"
   // all became 1. Large integers could also round or serialize as exponents.
-  const fields = trimmed.split(/\s+/)
-  for (const [name, value] of [['halfmove clock', fields[4]], ['fullmove number', fields[5]]]) {
-    if (!/^\d+$/.test(value)) {
-      return { ok: false, error: `Invalid FEN: ${name} must be a whole decimal number.` }
-    }
-    if (!Number.isSafeInteger(Number(value))) {
-      return { ok: false, error: `Invalid FEN: ${name} is too large to read accurately.` }
-    }
-  }
+  const counterError = fenCounterInputError(trimmed)
+  if (counterError) return { ok: false, error: counterError }
 
   try {
     const fen = new Chess(trimmed).fen()
