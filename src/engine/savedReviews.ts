@@ -9,6 +9,7 @@ import { truncateUtf16 } from './textLength'
 
 export const MAX_SAVED_REVIEWS = 50
 export const MAX_SAVED_REVIEW_BYTES = 512 * 1024
+export const MAX_SAVED_REVIEW_TITLE_LENGTH = 200
 const MAX_POSITIONS = 2049
 
 export type SavedReviewSummary = {
@@ -54,7 +55,7 @@ function settingsFrom(value: unknown): ReviewSettings | null {
 /** Read only small metadata when listing runs; validate the PGN/readings on opening. */
 export function savedReviewSummary(value: unknown): SavedReviewSummary | null {
   if (!object(value) || value.version !== 1 || typeof value.id !== 'string' || !/^[\w-]{1,100}$/.test(value.id)
-    || typeof value.title !== 'string' || !value.title || value.title.length > 200
+    || typeof value.title !== 'string' || !value.title || value.title.length > MAX_SAVED_REVIEW_TITLE_LENGTH
     || typeof value.lineKey !== 'string' || value.lineKey.length > 15000
     || !integer(value.startedAt, 0, 8.64e15) || !integer(value.finishedAt, value.startedAt, 8.64e15)
     || !integer(value.total, 0, MAX_POSITIONS) || !integer(value.reused, 0, value.total)
@@ -139,7 +140,7 @@ export function createSavedReview(
   if (!pgn) throw new Error('This report belongs to a different line. Return to its reviewed line before saving.')
   const title = headers.White && headers.Black ? `${headers.White} – ${headers.Black}` : headers.Event || 'Reviewed line'
   const saved = readSavedReview({
-    version: 1, id, title: truncateUtf16(title, 200), lineKey: reviewLineKey(line), pgn,
+    version: 1, id, title: truncateUtf16(title, MAX_SAVED_REVIEW_TITLE_LENGTH), lineKey: reviewLineKey(line), pgn,
     settings: report.settings, startedAt: report.startedAt, finishedAt: report.finishedAt,
     total: report.total, reused: report.reused, complete: report.complete,
     evaluated: report.evaluations.size, evaluations: [...report.evaluations],

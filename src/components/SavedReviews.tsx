@@ -2,9 +2,10 @@ import { useRef, useState } from 'react'
 import type { GameNode } from '../hooks/useGameTree'
 import { evaluationEngineLabel } from '../engine/evaluationSource'
 import { createSavedReview, reviewLineKey, type SavedReview, type SavedReviewSummary } from '../engine/savedReviews'
-import { deleteSavedReview, listSavedReviews, loadSavedReview, saveReview } from '../engine/savedReviewStorage'
+import { deleteSavedReview, listSavedReviews, loadSavedReview, renameSavedReview, saveReview } from '../engine/savedReviewStorage'
 import type { ReviewSnapshot } from '../engine/reviewSession'
 import { ReviewComparison } from './ReviewComparison'
+import { SavedReviewNameEditor } from './SavedReviewNameEditor'
 import { exportReviewBackup, importReviewBackup } from '../engine/reviewBackupClient'
 import { formatLocalDate } from '../engine/localDate'
 import './SavedReviews.css'
@@ -117,6 +118,18 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
     finally { endWork() }
   }
 
+  async function rename(title: string): Promise<string | null> {
+    if (!selected || busy || workingRef.current || !beginWork()) return 'Wait for the current operation to finish, then try again.'
+    try {
+      await renameSavedReview(selected.id, title)
+      setNotice('Saved review renamed.')
+      await refresh(selected.id)
+      return null
+    } catch (error) {
+      return failure(error, 'rename this saved review')
+    } finally { endWork() }
+  }
+
   async function compare() {
     if (!selected || !report || !sameLine || busy || workingRef.current) return
     if (!beginWork()) return
@@ -198,6 +211,7 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
                   {selected.complete ? 'Complete' : 'Partial'} · {selected.evaluated}/{selected.total} positions · {selected.reused} reused
                 </p>
                 {!sameLine && <p className="panel-copy small">Opening replaces the board with this saved line. Other variations are not included.</p>}
+                <SavedReviewNameEditor key={selected.id} title={selected.title} disabled={busy || working} onRename={rename} />
                 <div className="review-report-actions">
                   <button type="button" disabled={busy || working} onClick={() => { void open() }}>
                     {sameLine ? 'Use saved review' : 'Open reviewed line'}

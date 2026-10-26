@@ -1236,6 +1236,156 @@ async function checkSavedReviews(browser) {
   }
 }
 
+async function checkSavedReviewRenaming(browser) {
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 900 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, engineProfile: 'lite-single-local', reviewMaxWorkers: 1,
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+      const report = await page.getByTestId('review-run-summary').innerText()
+      await page.getByRole('button', { name: 'Save review', exact: true }).click()
+      await page.getByText('Review saved on this device.', { exact: false }).waitFor()
+      const original = await page.evaluate(() => new Promise((resolve, reject) => {
+        const request = indexedDB.open('web-chess-reviews', 1)
+        request.onsuccess = () => {
+          const db = request.result, tx = db.transaction('runs', 'readwrite'), store = tx.objectStore('runs')
+          let first
+          const read = store.getAll()
+          read.onsuccess = () => {
+            first = read.result[0]
+            for (let i = 1; i < 50; i++) store.put({ ...first, id: `rename-filler-${i}`, title: `Filler ${i}`, finishedAt: first.finishedAt + i })
+          }
+          tx.oncomplete = () => { db.close(); resolve(first) }
+          tx.onabort = () => { db.close(); reject(tx.error) }
+        }
+      }))
+      const panel = page.locator('.saved-reviews')
+      await panel.locator('summary').click()
+      await panel.locator('summary').click()
+      const choice = panel.getByLabel('Choose a saved review')
+      await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 50)
+      await choice.selectOption(original.id)
+      const trigger = panel.getByRole('button', { name: 'Rename saved review', exact: true })
+      const input = panel.getByRole('textbox', { name: 'Saved review name', exact: true })
+      await trigger.click()
+      assert(await input.evaluate(el => el === document.activeElement && el.selectionStart === 0 && el.selectionEnd === el.value.length),
+        'renaming did not select the current review title')
+      await input.fill('   ')
+      assert(await panel.getByRole('button', { name: 'Save name', exact: true }).isDisabled(), 'a blank review title can be saved')
+      await input.fill('Cancel this draft')
+      await input.dispatchEvent('keydown', { key: 'Escape', code: 'Escape', isComposing: true })
+      assert(await input.isVisible(), 'composing Escape discarded a review-name draft')
+      await input.press('Escape')
+      assert(await input.count() === 0 && await trigger.evaluate(el => el === document.activeElement), 'canceling a review rename lost focus')
+      await trigger.click()
+      const title = 'Round 3 — preparation ♞'
+      await input.fill(title)
+      await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
+      assert(await panel.locator('.saved-review-name-editor form').evaluate(form => {
+        const bounds = form.getBoundingClientRect()
+        return [...form.querySelectorAll('input, button')].every(el => {
+          const rect = el.getBoundingClientRect()
+          return rect.width > 0 && rect.height >= 43.75 && rect.left >= bounds.left - 1 && rect.right <= bounds.right + 1
+        })
+      }), 'review naming controls clip at 200% text')
+      await input.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: `/tmp/web-chess-review-name-${width}.png` })
+      await page.evaluate(() => { document.documentElement.style.fontSize = '' })
+      await input.press('Enter')
+      await panel.getByText('Saved review renamed.', { exact: true }).waitFor()
+      await page.waitForFunction(() => document.activeElement?.textContent === 'Rename saved review')
+      assert((await choice.locator('option:checked').innerText()).includes(title), 'the renamed run is not selected')
+      const stored = await page.evaluate(() => new Promise((resolve, reject) => {
+        const request = indexedDB.open('web-chess-reviews', 1)
+        request.onsuccess = () => {
+          const db = request.result, tx = db.transaction('runs', 'readonly'), read = tx.objectStore('runs').getAll()
+          read.onsuccess = () => { db.close(); resolve(read.result) }
+          read.onerror = () => { db.close(); reject(read.error) }
+        }
+      }))
+      const changed = stored.find(run => run.id === original.id)
+      assert(stored.length === 50 && changed.title === title && JSON.stringify({ ...changed, title: original.title }) === JSON.stringify(original),
+        'renaming at capacity changed the stored report, PGN, provenance, timestamps or run count')
+      assert(await page.getByTestId('review-run-summary').innerText() === report, 'renaming changed the open report')
+      const download = page.waitForEvent('download')
+      await panel.getByRole('button', { name: 'Export review backup', exact: true }).click()
+      const backup = JSON.parse(fs.readFileSync(await (await download).path(), 'utf8'))
+      assert(backup.reviews.find(run => run.id === original.id).title === title, 'review backup lost the custom name')
+      // A valid run at the byte ceiling must stay readable after a rename.
+      await page.evaluate(original => new Promise((resolve, reject) => {
+        const boundary = { ...original, id: 'rename-size-boundary', title: 'A',
+          pgn: original.pgn.replace(/\*\s*$/, '') + '{} *' }
+        const room = 512 * 1024 - 1 - new TextEncoder().encode(JSON.stringify(boundary)).length
+        boundary.pgn = boundary.pgn.replace('{} *', `{${'x'.repeat(room)}} *`)
+        const request = indexedDB.open('web-chess-reviews', 1)
+        request.onsuccess = () => {
+          const db = request.result, tx = db.transaction('runs', 'readwrite'), store = tx.objectStore('runs')
+          store.delete('rename-filler-1')
+          store.put(boundary)
+          tx.oncomplete = () => { db.close(); resolve() }
+          tx.onabort = () => { db.close(); reject(tx.error) }
+        }
+      }), original)
+      await panel.locator('summary').click()
+      await panel.locator('summary').click()
+      await choice.locator('option[value="rename-size-boundary"]').waitFor({ state: 'attached' })
+      await choice.selectOption('rename-size-boundary')
+      await trigger.click()
+      await input.fill('😀'.repeat(100))
+      await input.press('Enter')
+      await panel.getByRole('alert').filter({ hasText: 'too large' }).waitFor()
+      assert(await input.inputValue() === '😀'.repeat(100), 'size rejection discarded the name draft')
+      const keptTitle = await page.evaluate(() => new Promise(resolve => {
+        const request = indexedDB.open('web-chess-reviews', 1)
+        request.onsuccess = () => {
+          const db = request.result, read = db.transaction('runs', 'readonly').objectStore('runs').get('rename-size-boundary')
+          read.onsuccess = () => { db.close(); resolve(read.result.title) }
+        }
+      }))
+      assert(keptTitle === 'A', 'size rejection replaced the stored name with an unreadable oversized run')
+      await input.fill('B')
+      await input.press('Enter')
+      await input.waitFor({ state: 'detached' })
+      assert(await panel.locator('.saved-review-description strong').innerText() === 'B', 'a shorter retry did not rename the boundary run')
+      const boundaryDownload = page.waitForEvent('download')
+      await panel.getByRole('button', { name: 'Export review backup', exact: true }).click()
+      const boundaryBackup = JSON.parse(fs.readFileSync(await (await boundaryDownload).path(), 'utf8'))
+      assert(boundaryBackup.reviews.find(run => run.id === 'rename-size-boundary').title === 'B',
+        'the size-boundary run became unreadable after a shorter name was accepted')
+      await choice.selectOption(original.id)
+      await trigger.click()
+      await input.fill('Keep after a failed rename')
+      await page.evaluate(id => new Promise((resolve, reject) => {
+        const request = indexedDB.open('web-chess-reviews', 1)
+        request.onsuccess = () => {
+          const db = request.result, tx = db.transaction('runs', 'readwrite')
+          tx.objectStore('runs').delete(id)
+          tx.oncomplete = () => { db.close(); resolve() }
+          tx.onabort = () => { db.close(); reject(tx.error) }
+        }
+      }), original.id)
+      await input.press('Enter')
+      await panel.getByText(/This saved review is missing or unreadable/).waitFor()
+      assert(await input.inputValue() === 'Keep after a failed rename' && await input.evaluate(el => el === document.activeElement),
+        'a failed rename discarded its draft or focus')
+      await panel.getByRole('button', { name: 'Cancel', exact: true }).click()
+      await panel.locator('summary').click()
+      await panel.locator('summary').click()
+      await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 49)
+      console.log(`  review naming (${width}px): selected draft/cancel, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkReviewBackupExport(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 812 } })
@@ -11537,6 +11687,7 @@ async function main() {
       'review-source': checkReviewUsesSelectedEngine,
       'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
       'saved-reviews': async browser => { await checkSavedReviews(browser); await checkSavedReviewStorage(browser); await checkSavedReviewEndings(browser) },
+      'review-renaming': checkSavedReviewRenaming,
       'saved-endings': checkSavedReviewEndings,
       'repetition': checkRepetitionEndings,
       'repetition-review': checkRepetitionReviewCompatibility,
@@ -12278,6 +12429,7 @@ async function main() {
     await checkPvPreviewAndCommit(browser)
     await checkReviewUsesSelectedEngine(browser, true)
     await checkSavedReviews(browser)
+    await checkSavedReviewRenaming(browser)
     await checkSavedReviewStorage(browser)
     await checkSavedReviewEndings(browser)
     await checkRepetitionEndings(browser)

@@ -203,8 +203,9 @@ given, and the app answering the reader who touches it.
   evaluations. Choose Save review to keep the report after this session.
 - **Saved reviews and comparisons**: In Pro, **Save review** keeps the report,
   engine limits, WDL and reviewed branch on this device. Open **Saved reviews**
-  to reopen a run, delete its stored copy, or compare it with the open report
-  for the same line. Comparison shows scores from White's point of view,
+  to reopen a run, rename it for a study session, delete its stored copy, or
+  compare it with the open report for the same line. Run names are included
+  in review backups. Comparison shows scores from White's point of view,
   best-move and WDL differences, missing readings and links back to positions.
   Mate distances stay distinct from pawn-score changes. Up to 50 runs are
   retained, with no automatic eviction (2,048 plies / 512 KB per run). These

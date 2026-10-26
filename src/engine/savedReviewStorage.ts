@@ -1,5 +1,6 @@
-import { MAX_SAVED_REVIEWS, savedReviewSummary, readSavedReview, type SavedReview, type SavedReviewSummary } from './savedReviews'
+import { MAX_SAVED_REVIEWS, MAX_SAVED_REVIEW_BYTES, MAX_SAVED_REVIEW_TITLE_LENGTH, savedReviewSummary, readSavedReview, type SavedReview, type SavedReviewSummary } from './savedReviews'
 import { planReviewImport, type ReviewImportResult } from './reviewBackup'
+import { truncateUtf16 } from './textLength'
 
 const DB_NAME = 'web-chess-reviews'
 const STORE = 'runs'
@@ -101,4 +102,28 @@ export async function saveReview(saved: SavedReview): Promise<void> {
 
 export async function deleteSavedReview(id: string): Promise<void> {
   await transaction<void>('readwrite', store => { store.delete(id) })
+}
+
+/** Read and change only the title in one transaction, retaining the latest run. */
+export async function renameSavedReview(id: string, title: string): Promise<void> {
+  const name = truncateUtf16(title.trim(), MAX_SAVED_REVIEW_TITLE_LENGTH)
+  if (!name) throw new Error('Enter a name for the saved review.')
+  await transaction<void>('readwrite', (store, _setResult, abort) => {
+    const request = store.get(id)
+    request.onsuccess = () => {
+      try {
+        const saved = request.result as SavedReview | undefined
+        if (!saved || !savedReviewSummary(saved)) {
+          abort(new Error('This saved review is missing or unreadable. Reopen Saved reviews to refresh the list.'))
+          return
+        }
+        const renamed = { ...saved, title: name }
+        if (new TextEncoder().encode(JSON.stringify(renamed)).length > MAX_SAVED_REVIEW_BYTES) {
+          abort(new Error('That name makes this saved review too large. Choose a shorter name.'))
+          return
+        }
+        store.put(renamed)
+      } catch (error) { abort(error) }
+    }
+  })
 }
