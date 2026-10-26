@@ -137,6 +137,11 @@
     gap: 0.24rem;
 }
 
+.fen-piece-btn, .fen-setup-square {
+    font-family: 'Segoe UI Symbol', 'Apple Symbols', 'Noto Sans Symbols 2', 'DejaVu Sans', sans-serif;
+    font-variant-emoji: text;
+}
+
 .fen-piece-btn {
     min-width: 0;
     min-height: 34px;
@@ -175,13 +180,33 @@
     gap: 0.5rem;
 }
 
+.fen-setup-board-frame {
+    display: grid;
+    grid-template-columns: 0.8rem minmax(0, 1fr);
+    grid-template-rows: auto 0.8rem;
+    width: min(100%, 16.25rem);
+}
+
+.fen-setup-ranks, .fen-setup-files {
+    display: grid;
+    align-items: center;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.5rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.fen-setup-ranks { grid-template-rows: repeat(8, 1fr); }
+.fen-setup-files { grid-column: 2; grid-template-columns: repeat(8, 1fr); }
+
 .fen-setup-board {
     container-type: inline-size;
     display: grid;
     grid-template-columns: repeat(8, minmax(0, 1fr));
     grid-template-rows: repeat(8, minmax(0, 1fr));
     aspect-ratio: 1;
-    width: min(100%, 16.25rem);
+    width: 100%;
     border: 1px solid var(--border-default);
     border-radius: var(--radius-sm);
     overflow: hidden;
@@ -525,7 +550,7 @@
         grid-template-columns: 1fr;
     }
 
-    .fen-setup-board {
+    .fen-setup-board-frame {
         width: min(100%, 23rem);
         justify-self: center;
     }

@@ -42,7 +42,8 @@ export const SETUP_PIECE_OPTIONS: Array<{ piece: SetupPiece; label: string; glyp
   { piece: 'R', label: 'White rook', glyph: '♖' },
   { piece: 'Q', label: 'White queen', glyph: '♕' },
   { piece: 'K', label: 'White king', glyph: '♔' },
-  { piece: 'p', label: 'Black pawn', glyph: '♟' },
+  // Keep the pawn in text presentation, like the other chess symbols.
+  { piece: 'p', label: 'Black pawn', glyph: '♟\uFE0E' },
   { piece: 'n', label: 'Black knight', glyph: '♞' },
   { piece: 'b', label: 'Black bishop', glyph: '♝' },
   { piece: 'r', label: 'Black rook', glyph: '♜' },
