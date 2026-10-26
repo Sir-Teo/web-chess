@@ -1,0 +1,527 @@
+{
+  "benchmarkCommit": "5a8bacb",
+  "benchmarkSourceDiff": "",
+  "commit": "5a8bacb",
+  "sourceDiff": "diff --git a/src/App.css b/src/App.css\nindex 0682030..0e678c4 100644\n--- a/src/App.css\n+++ b/src/App.css\n@@ -2906,6 +2906,26 @@ button.opening-move-row {\n   font-family: var(--font-mono);\n }\n \n+.engine-console-output {\n+  min-width: 0;\n+}\n+\n+.engine-lab-output:focus-visible {\n+  outline: 2px solid var(--accent);\n+  outline-offset: 2px;\n+}\n+\n+.engine-lab-output-actions {\n+  display: flex;\n+  justify-content: flex-end;\n+  margin-top: 0.5rem;\n+}\n+\n+.panel .engine-lab-output-actions button {\n+  min-height: 44px;\n+  white-space: normal;\n+}\n+\n .engine-lab-inline {\n   margin-top: 0.4rem;\n   display: grid;\ndiff --git a/src/App.tsx b/src/App.tsx\nindex d2de6ae..dce259a 100644\n--- a/src/App.tsx\n+++ b/src/App.tsx\n@@ -3,6 +3,7 @@ import { Suspense, lazy, useCallback, useEffect, useId, useLayoutEffect, useMemo\n import type { PieceDropHandlerArgs } from 'react-chessboard'\n import { BoardCanvas } from './components/BoardCanvas'\n import { EngineDetails } from './components/EngineDetails'\n+import { EngineConsoleOutput } from './components/EngineConsoleOutput'\n import {\n   buildWdlSeries,\n   buildWinrateSeries,\n@@ -746,6 +747,7 @@ function App() {\n     }\n   }, [engineLabError])\n   const [engineLabOutputLines, setEngineLabOutputLines] = useState<string[]>([])\n+  const [labConsoleSession, setLabConsoleSession] = useState(0)\n   const labConsoleBufferRef = useRef<string[]>([])\n   const labConsoleFrameRef = useRef<number | null>(null)\n   const cancelLabConsolePublication = useCallback(() => {\n@@ -2727,6 +2729,7 @@ function App() {\n     cancelLabConsolePublication()\n     labConsoleBufferRef.current = []\n     setEngineLabOutputLines([])\n+    setLabConsoleSession(0)\n     setEngineLabCopyStatus('idle')\n     setLastLabRun(null)\n     setPendingPromotion(null)\n@@ -2966,6 +2969,7 @@ function App() {\n         const applied = setLabOption(name, value)\n         cancelLabConsolePublication()\n         labConsoleBufferRef.current = []\n+        setLabConsoleSession(session => session + 1)\n         setEngineLabOutputLines([`> ${trimmed}`, `Saved analysis setting: ${name} = ${String(applied)}`])\n         setEngineLabCopyStatus('idle')\n         setEngineLabCommand('')\n@@ -2979,6 +2983,7 @@ function App() {\n       const outputLines = [`> ${trimmed}`]\n       cancelLabConsolePublication()\n       labConsoleBufferRef.current = outputLines\n+      setLabConsoleSession(session => session + 1)\n       setEngineLabOutputLines(outputLines.slice())\n       setEngineLabCopyStatus('idle')\n       try {\n@@ -9446,9 +9451,7 @@ function App() {\n                       bigger change than this one and not worth it until someone\n                       wants the announcement.\n                     */}\n-                    <pre className=\"engine-lab-output\" aria-label=\"UCI console output\">\n-                      {(engineLabOutputLines.join('\\n')) || 'No command output yet.'}\n-                    </pre>\n+                    <EngineConsoleOutput lines={engineLabOutputLines} session={labConsoleSession} />\n                     {engineLabOutputLines.length === ENGINE_CONSOLE_LINE_LIMIT && (\n                       <p className=\"panel-copy small\">Showing the latest {ENGINE_CONSOLE_LINE_LIMIT} output lines. Copy uses these visible lines.</p>\n                     )}\ndiff --git a/src/components/EngineConsoleOutput.tsx b/src/components/EngineConsoleOutput.tsx\nnew file mode 100644\nindex 0000000..f2072f3\n--- /dev/null\n+++ b/src/components/EngineConsoleOutput.tsx\n@@ -0,0 +1,70 @@\n+import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react'\n+import { isCommandPaletteChord } from './commandPalette'\n+import { isCompositionKey } from './shortcutKeys'\n+\n+/** A bounded console follows new output until the reader scrolls back. */\n+export function EngineConsoleOutput({ lines, session }: { lines: readonly string[]; session: number }) {\n+  const output = useRef<HTMLPreElement>(null)\n+  const latestButton = useRef<HTMLButtonElement>(null)\n+  const followingRef = useRef(true)\n+  const previousSession = useRef(session)\n+  const [following, setFollowing] = useState(true)\n+  const outputId = useId()\n+\n+  const changeFollowing = useCallback((next: boolean) => {\n+    if (followingRef.current === next) return\n+    if (next && document.activeElement === latestButton.current) output.current?.focus({ preventScroll: true })\n+    followingRef.current = next\n+    setFollowing(next)\n+  }, [])\n+\n+  useLayoutEffect(() => {\n+    if (previousSession.current !== session || !lines.length) changeFollowing(true)\n+    previousSession.current = session\n+    if (followingRef.current && output.current) output.current.scrollTop = output.current.scrollHeight\n+  }, [changeFollowing, lines, session])\n+\n+  return <div className=\"engine-console-output\" onKeyDown={event => {\n+    if (isCommandPaletteChord(event.nativeEvent)) return\n+    event.stopPropagation()\n+    const pane = output.current\n+    if (!pane || event.target !== pane || event.altKey || event.ctrlKey || event.metaKey\n+      || (event.shiftKey && event.key !== ' ') || isCompositionKey(event.nativeEvent)) return\n+    const line = Number.parseFloat(getComputedStyle(pane).lineHeight) || 16\n+    const page = Math.max(line, pane.clientHeight - line)\n+    let top: number\n+    switch (event.key) {\n+      case 'Home': top = 0; break\n+      case 'End': top = pane.scrollHeight; break\n+      case 'ArrowUp': top = pane.scrollTop - line; break\n+      case 'ArrowDown': top = pane.scrollTop + line; break\n+      case 'PageUp': top = pane.scrollTop - page; break\n+      case 'PageDown': top = pane.scrollTop + page; break\n+      case ' ': top = pane.scrollTop + (event.shiftKey ? -page : page); break\n+      default: return\n+    }\n+    // Scrollable pre elements do not consistently implement Home/End across\n+    // browsers. Handle reading keys here without invoking board shortcuts.\n+    event.preventDefault()\n+    pane.scrollTo({ top, behavior: 'instant' })\n+  }}>\n+    <pre ref={output} id={outputId} className=\"engine-lab-output\" role=\"region\" aria-label=\"UCI console output\"\n+      aria-describedby={`${outputId}-help`} tabIndex={0}\n+      onScroll={event => {\n+        const pane = event.currentTarget\n+        changeFollowing(pane.scrollHeight - pane.scrollTop - pane.clientHeight <= 2)\n+      }}>\n+      {lines.join('\\n') || 'No command output yet.'}\n+    </pre>\n+    <p id={`${outputId}-help`} className=\"visually-hidden\">Use arrows or Page Up and Page Down to scroll. Home goes to the start; End follows the latest output.</p>\n+    {!following && <div className=\"engine-lab-output-actions\">\n+      <button ref={latestButton} type=\"button\" aria-controls={outputId} onClick={() => {\n+        changeFollowing(true)\n+        if (output.current) {\n+          output.current.scrollTop = output.current.scrollHeight\n+          output.current.focus({ preventScroll: true })\n+        }\n+      }}>Jump to latest output</button>\n+    </div>}\n+  </div>\n+}\n",
+  "productionAssets": [
+    "LibraryDialog-Dl7unZW7.js",
+    "NewGameDialog-gTNQvDxq.js",
+    "PgnDialog-C2pyD3GI.js",
+    "chess-BgZTH1rp.js",
+    "eco-Y2BFBEFE.js",
+    "index-AnXNCISf.js",
+    "react-CIDWvPgF.js",
+    "reviewBackupWorker-xH5xZh9_.js"
+  ],
+  "base": "http://127.0.0.1:4336/web-chess/",
+  "width": 1280,
+  "cpuRate": 4,
+  "durationMs": 6000,
+  "flipIntervalMs": 500,
+  "reducedMotion": true,
+  "consoleWorkload": true,
+  "trace": {
+    "recordedAt": "2026-09-12T19:04:11.944Z",
+    "packageVersion": "18.0.7",
+    "fixtureSha256": "c2e3faf8e84d507d6d4af48b6a7172685482080d770a75fa5a11da96218bc415",
+    "fen": "3kn3/7p/3r3P/1p2p3/p2p2R1/P2P2B1/R2K4/2N5 w - - 1 59",
+    "durationMs": 6000,
+    "engine": "id name Stockfish 18 Lite WASM",
+    "commands": [
+      "uci",
+      "setoption name Hash value 64",
+      "setoption name MultiPV value 5",
+      "setoption name UCI_ShowWDL value true",
+      "isready",
+      "position startpos moves e2e3 b7b5 b2b3 e7e5 e1e2 d8f6 d2d3 b8a6 e2d2 f6d8 d2c3 g7g6 e3e4 a6b8 c1a3 a7a5 f2f4 f8h6 a3c5 d8h4 d1e2 h4f4 a2a3 h6g5 h2h4 f4f1 e2d1 d7d5 d1e2 f7f5 c5b4 d5d4 c3b2 f1f4 b1d2 f5e4 b4d6 g8h6 d2b1 f4h2 e2f1 h2g2 h4h5 g2e2 f1e2 a8a6 b1d2 g5e3 b2a2 e3d2 e2f2 b8d7 c2c4 d7b6 d6b4 b6a8 g1e2 h8g8 h1h3 a5a4 c4c5 d2c1 f2f1 a6f6 e2c1 f6d6 f1e1 h6g4 h3f3 g6g5 h5h6 g4f2 a2b2 c8f5 e1f1 d6a6 b4e1 f2g4 f3g3 g4e3 b2b1 f5d7 b3b4 a6d6 c5d6 c7c5 g3g1 e3f1 b4c5 g8g6 c5c6 f1e3 c1e2 g6e6 b1b2 a8c7 c6d7 e8d8 e2c1 e3d5 d6c7 d5c7 a1a2 e6a6 e1g3 a6e6 g1e1 e6d6 b2c2 d6d7 c2d2 d7d6 e1e4 g5g4 e4g4 c7e8",
+      "go infinite",
+      "stop"
+    ],
+    "path": "scripts/fixtures/analysis-stockfish-18.json",
+    "eventCount": 115,
+    "uniquePvs": 96
+  },
+  "workload": "116-ply game, Engine Lab with a 300-line output buffer, recorded Stockfish output at original timings, board flip every 500ms; production build, main thread only",
+  "results": [
+    {
+      "sample": 1,
+      "metrics": {
+        "TaskDuration": 2.694028,
+        "ScriptDuration": 0.971062,
+        "LayoutDuration": 0.241208,
+        "RecalcStyleDuration": 0.257802,
+        "LayoutCount": 37,
+        "RecalcStyleCount": 24
+      },
+      "observed": {
+        "updates": 115,
+        "longTasks": [
+          92,
+          81,
+          79,
+          73,
+          87,
+          93,
+          96,
+          104,
+          57
+        ],
+        "flipToTwoFramesMs": [
+          81.08999999985099,
+          67.73000000044703,
+          69.0950000025332,
+          68.2199999988079,
+          218.90000000223517,
+          65.83000000193715,
+          180.23000000044703,
+          201.77499999850988,
+          239.285000000149,
+          90.94999999925494,
+          60.644999999552965
+        ],
+        "consolePublishes": 13
+      },
+      "finalPositionDepth": null,
+      "finalConsoleDepth": "D21",
+      "errors": [],
+      "topFrames": [
+        {
+          "frame": "(idle) :0",
+          "selfMs": 3938
+        },
+        {
+          "frame": "(program) :0",
+          "selfMs": 1528
+        },
+        {
+          "frame": "(anonymous) ../../src/components/EngineConsoleOutput.tsx:21",
+          "selfMs": 119
+        },
+        {
+          "frame": "setValueForStyle ../../node_modules/react-dom/cjs/react-dom-client.production.js:1273",
+          "selfMs": 109
+        },
+        {
+          "frame": "(garbage collector) :0",
+          "selfMs": 55
+        },
+        {
+          "frame": "setProp ../../node_modules/react-dom/cjs/react-dom-client.production.js:12957",
+          "selfMs": 49
+        },
+        {
+          "frame": "commitHookEffectListUnmount ../../node_modules/react-dom/cjs/react-dom-client.production.js:8593",
+          "selfMs": 39
+        },
+        {
+          "frame": "renderWithHooks ../../node_modules/react-dom/cjs/react-dom-client.production.js:4333",
+          "selfMs": 38
+        },
+        {
+          "frame": "App ../../src/App.tsx:505",
+          "selfMs": 36
+        },
+        {
+          "frame": "removeChild :0",
+          "selfMs": 36
+        },
+        {
+          "frame": "insertBefore :0",
+          "selfMs": 22
+        },
+        {
+          "frame": "updateProperties ../../node_modules/react-dom/cjs/react-dom-client.production.js:13577",
+          "selfMs": 21
+        },
+        {
+          "frame": "setAttribute :0",
+          "selfMs": 21
+        },
+        {
+          "frame": "Bt ../../node_modules/react-chessboard/dist/index.esm.js:2773",
+          "selfMs": 20
+        },
+        {
+          "frame": "jsxProd ../../node_modules/react/cjs/react-jsx-runtime.production.js:14",
+          "selfMs": 19
+        },
+        {
+          "frame": "commitHostUpdate ../../node_modules/react-dom/cjs/react-dom-client.production.js:8725",
+          "selfMs": 18
+        },
+        {
+          "frame": "appendChild :0",
+          "selfMs": 17
+        },
+        {
+          "frame": "reconcileChildFibersImpl ../../node_modules/react-dom/cjs/react-dom-client.production.js:3793",
+          "selfMs": 15
+        },
+        {
+          "frame": "reconcileChildrenArray ../../node_modules/react-dom/cjs/react-dom-client.production.js:3622",
+          "selfMs": 14
+        },
+        {
+          "frame": "completeWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:7955",
+          "selfMs": 14
+        },
+        {
+          "frame": "useOpeningExplorer ../../src/hooks/useOpeningExplorer.ts:35",
+          "selfMs": 12
+        },
+        {
+          "frame": "commitMutationEffectsOnFiber ../../node_modules/react-dom/cjs/react-dom-client.production.js:9427",
+          "selfMs": 12
+        },
+        {
+          "frame": "fenStringToPositionObject ../../node_modules/react-chessboard/dist/index.esm.js:4306",
+          "selfMs": 12
+        },
+        {
+          "frame": "processRootScheduleInMicrotask ../../node_modules/react-dom/cjs/react-dom-client.production.js:11966",
+          "selfMs": 12
+        },
+        {
+          "frame": "square ../../node_modules/react-chessboard/dist/index.esm.js:5557",
+          "selfMs": 11
+        },
+        {
+          "frame": "(anonymous) ../../node_modules/react-chessboard/dist/index.esm.js:5350",
+          "selfMs": 11
+        },
+        {
+          "frame": "(anonymous) :25",
+          "selfMs": 11
+        },
+        {
+          "frame": "shouldSetTextContent ../../node_modules/react-dom/cjs/react-dom-client.production.js:13997",
+          "selfMs": 10
+        },
+        {
+          "frame": "createWorkInProgress ../../node_modules/react-dom/cjs/react-dom-client.production.js:2452",
+          "selfMs": 9
+        },
+        {
+          "frame": "_put ../../node_modules/chess.js/dist/esm/chess.js:2081",
+          "selfMs": 9
+        }
+      ]
+    },
+    {
+      "sample": 2,
+      "metrics": {
+        "TaskDuration": 1.9892800000000002,
+        "ScriptDuration": 0.645788,
+        "LayoutDuration": 0.197574,
+        "RecalcStyleDuration": 0.161116,
+        "LayoutCount": 40,
+        "RecalcStyleCount": 24
+      },
+      "observed": {
+        "updates": 115,
+        "longTasks": [
+          74
+        ],
+        "flipToTwoFramesMs": [
+          81.27499999850988,
+          68.78500000014901,
+          70.60999999940395,
+          66.28500000014901,
+          71.17000000178814,
+          64.66499999910593,
+          66.375,
+          73.14000000059605,
+          123.24000000208616,
+          66.25499999895692,
+          69.97499999776483
+        ],
+        "consolePublishes": 16
+      },
+      "finalPositionDepth": null,
+      "finalConsoleDepth": "D21",
+      "errors": [],
+      "topFrames": [
+        {
+          "frame": "(idle) :0",
+          "selfMs": 4692
+        },
+        {
+          "frame": "(program) :0",
+          "selfMs": 1164
+        },
+        {
+          "frame": "(anonymous) ../../src/components/EngineConsoleOutput.tsx:21",
+          "selfMs": 140
+        },
+        {
+          "frame": "setValueForStyle ../../node_modules/react-dom/cjs/react-dom-client.production.js:1273",
+          "selfMs": 46
+        },
+        {
+          "frame": "App ../../src/App.tsx:505",
+          "selfMs": 32
+        },
+        {
+          "frame": "removeChild :0",
+          "selfMs": 32
+        },
+        {
+          "frame": "renderWithHooks ../../node_modules/react-dom/cjs/react-dom-client.production.js:4333",
+          "selfMs": 28
+        },
+        {
+          "frame": "setValueForStyles ../../node_modules/react-dom/cjs/react-dom-client.production.js:1291",
+          "selfMs": 19
+        },
+        {
+          "frame": "updateProperties ../../node_modules/react-dom/cjs/react-dom-client.production.js:13577",
+          "selfMs": 18
+        },
+        {
+          "frame": "(garbage collector) :0",
+          "selfMs": 18
+        },
+        {
+          "frame": "setProp ../../node_modules/react-dom/cjs/react-dom-client.production.js:12957",
+          "selfMs": 17
+        },
+        {
+          "frame": "setAttribute :0",
+          "selfMs": 16
+        },
+        {
+          "frame": "Bt ../../node_modules/react-chessboard/dist/index.esm.js:2773",
+          "selfMs": 15
+        },
+        {
+          "frame": "(anonymous) ../../node_modules/react-chessboard/dist/index.esm.js:5350",
+          "selfMs": 11
+        },
+        {
+          "frame": "appendChild :0",
+          "selfMs": 11
+        },
+        {
+          "frame": "commitLayoutEffectOnFiber ../../node_modules/react-dom/cjs/react-dom-client.production.js:9008",
+          "selfMs": 10
+        },
+        {
+          "frame": "commitBeforeMutationEffects ../../node_modules/react-dom/cjs/react-dom-client.production.js:8842",
+          "selfMs": 10
+        },
+        {
+          "frame": "commitHookEffectListUnmount ../../node_modules/react-dom/cjs/react-dom-client.production.js:8593",
+          "selfMs": 10
+        },
+        {
+          "frame": "updateMemo ../../node_modules/react-dom/cjs/react-dom-client.production.js:5162",
+          "selfMs": 9
+        },
+        {
+          "frame": "beginWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:7392",
+          "selfMs": 9
+        },
+        {
+          "frame": "shouldSetTextContent ../../node_modules/react-dom/cjs/react-dom-client.production.js:13997",
+          "selfMs": 8
+        },
+        {
+          "frame": "commitMutationEffectsOnFiber ../../node_modules/react-dom/cjs/react-dom-client.production.js:9427",
+          "selfMs": 8
+        },
+        {
+          "frame": "createElement :0",
+          "selfMs": 8
+        },
+        {
+          "frame": "commitHostUpdate ../../node_modules/react-dom/cjs/react-dom-client.production.js:8725",
+          "selfMs": 8
+        },
+        {
+          "frame": "useDroppable ../../node_modules/react-chessboard/dist/index.esm.js:3744",
+          "selfMs": 8
+        },
+        {
+          "frame": "createElementNS :0",
+          "selfMs": 7
+        },
+        {
+          "frame": "children ../../node_modules/react-chessboard/dist/index.esm.js:5559",
+          "selfMs": 7
+        },
+        {
+          "frame": "updateElement ../../node_modules/react-dom/cjs/react-dom-client.production.js:3365",
+          "selfMs": 6
+        },
+        {
+          "frame": "setInitialProperties ../../node_modules/react-dom/cjs/react-dom-client.production.js:13346",
+          "selfMs": 6
+        },
+        {
+          "frame": "r.reduce ../../node_modules/react-chessboard/dist/index.esm.js:179",
+          "selfMs": 6
+        }
+      ]
+    },
+    {
+      "sample": 3,
+      "metrics": {
+        "TaskDuration": 3.076534,
+        "ScriptDuration": 0.938748,
+        "LayoutDuration": 0.307622,
+        "RecalcStyleDuration": 0.180731,
+        "LayoutCount": 41,
+        "RecalcStyleCount": 24
+      },
+      "observed": {
+        "updates": 115,
+        "longTasks": [
+          53,
+          111,
+          51,
+          83,
+          192
+        ],
+        "flipToTwoFramesMs": [
+          92.66500000283122,
+          93.51000000163913,
+          74.30499999970198,
+          68.77500000223517,
+          71.80000000074506,
+          65.6900000013411,
+          61.41500000283122,
+          102.73000000044703,
+          172.08499999716878,
+          122.90000000223517,
+          69.39499999955297
+        ],
+        "consolePublishes": 17
+      },
+      "finalPositionDepth": null,
+      "finalConsoleDepth": "D21",
+      "errors": [],
+      "topFrames": [
+        {
+          "frame": "(idle) :0",
+          "selfMs": 4150
+        },
+        {
+          "frame": "(program) :0",
+          "selfMs": 1692
+        },
+        {
+          "frame": "(anonymous) ../../src/components/EngineConsoleOutput.tsx:21",
+          "selfMs": 235
+        },
+        {
+          "frame": "setValueForStyle ../../node_modules/react-dom/cjs/react-dom-client.production.js:1273",
+          "selfMs": 57
+        },
+        {
+          "frame": "(garbage collector) :0",
+          "selfMs": 49
+        },
+        {
+          "frame": "removeChild :0",
+          "selfMs": 46
+        },
+        {
+          "frame": "App ../../src/App.tsx:505",
+          "selfMs": 42
+        },
+        {
+          "frame": "updateProperties ../../node_modules/react-dom/cjs/react-dom-client.production.js:13577",
+          "selfMs": 38
+        },
+        {
+          "frame": "commitHookEffectListUnmount ../../node_modules/react-dom/cjs/react-dom-client.production.js:8593",
+          "selfMs": 32
+        },
+        {
+          "frame": "renderWithHooks ../../node_modules/react-dom/cjs/react-dom-client.production.js:4333",
+          "selfMs": 29
+        },
+        {
+          "frame": "(anonymous) ../../node_modules/react-chessboard/dist/index.esm.js:5350",
+          "selfMs": 23
+        },
+        {
+          "frame": "setAttribute :0",
+          "selfMs": 22
+        },
+        {
+          "frame": "setValueForStyles ../../node_modules/react-dom/cjs/react-dom-client.production.js:1291",
+          "selfMs": 22
+        },
+        {
+          "frame": "commitHostUpdate ../../node_modules/react-dom/cjs/react-dom-client.production.js:8725",
+          "selfMs": 21
+        },
+        {
+          "frame": "setProp ../../node_modules/react-dom/cjs/react-dom-client.production.js:12957",
+          "selfMs": 21
+        },
+        {
+          "frame": "updateInput ../../node_modules/react-dom/cjs/react-dom-client.production.js:1103",
+          "selfMs": 19
+        },
+        {
+          "frame": "jsxProd ../../node_modules/react/cjs/react-jsx-runtime.production.js:14",
+          "selfMs": 19
+        },
+        {
+          "frame": "setTextContent ../../node_modules/react-dom/cjs/react-dom-client.production.js:1254",
+          "selfMs": 17
+        },
+        {
+          "frame": "appendChild :0",
+          "selfMs": 14
+        },
+        {
+          "frame": "completeWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:7955",
+          "selfMs": 13
+        },
+        {
+          "frame": "Bt ../../node_modules/react-chessboard/dist/index.esm.js:2773",
+          "selfMs": 13
+        },
+        {
+          "frame": "updateCallback ../../node_modules/react-dom/cjs/react-dom-client.production.js:5153",
+          "selfMs": 13
+        },
+        {
+          "frame": "click :0",
+          "selfMs": 12
+        },
+        {
+          "frame": "reconcileChildrenArray ../../node_modules/react-dom/cjs/react-dom-client.production.js:3622",
+          "selfMs": 10
+        },
+        {
+          "frame": "performWorkUntilDeadline ../../node_modules/scheduler/cjs/scheduler.production.js:121",
+          "selfMs": 10
+        },
+        {
+          "frame": "createElementNS :0",
+          "selfMs": 10
+        },
+        {
+          "frame": "beginWork ../../node_modules/react-dom/cjs/react-dom-client.production.js:7392",
+          "selfMs": 10
+        },
+        {
+          "frame": "commitLayoutEffectOnFiber ../../node_modules/react-dom/cjs/react-dom-client.production.js:9008",
+          "selfMs": 9
+        },
+        {
+          "frame": "get userAgentData :0",
+          "selfMs": 9
+        },
+        {
+          "frame": "createElement :0",
+          "selfMs": 9
+        }
+      ]
+    }
+  ]
+}

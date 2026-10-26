@@ -7753,6 +7753,118 @@ async function checkConsoleVisibility(browser) {
   }
 }
 
+async function checkConsoleOutputFollowing(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+        continuousAnalysis: false, engineProfile: 'lite-single-local', expertModeEnabled: true,
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const ready = () => page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await ready()
+      for (const square of ['e2', 'e4', 'e7', 'e5']) await page.locator(`#chessboard-square-${square}`).click()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      const output = page.getByRole('region', { name: 'UCI console output', exact: true })
+      const latest = page.getByRole('button', { name: 'Jump to latest output', exact: true })
+      const submit = async text => { await command.fill(text); await command.press('Enter') }
+      await submit('position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      await submit('go infinite')
+      await output.filter({ hasText: 'score cp 900' }).waitFor()
+      await page.evaluate(() => document.fonts.ready)
+      let nextLine = 0
+      const emit = async count => {
+        const start = nextLine
+        nextLine += count
+        await page.evaluate(({ start, count }) => {
+          for (let index = start; index < start + count; index++) window.__consoleEngine.send(`info string output ${String(index).padStart(4, '0')}`)
+        }, { start, count })
+        await output.filter({ hasText: `output ${String(nextLine - 1).padStart(4, '0')}` }).waitFor()
+      }
+      const atBottom = () => page.waitForFunction(() => {
+        const pane = document.querySelector('.engine-lab-output')
+        return pane.scrollHeight - pane.scrollTop - pane.clientHeight <= 2
+      }, null, { timeout: 5000 }).catch(async error => {
+        const state = await output.evaluate(el => ({ top: el.scrollTop, height: el.clientHeight, total: el.scrollHeight,
+          padding: getComputedStyle(el).padding, focused: document.activeElement?.getAttribute('aria-label'),
+          activeTag: document.activeElement?.tagName, selection: window.getSelection()?.focusOffset }))
+        throw new Error(`Console did not reach its latest output: ${JSON.stringify(state)}`, { cause: error })
+      })
+      const boardState = () => page.locator('[id^="chessboard-square-"]').evaluateAll(els => els.map(el => `${el.id}:${el.getAttribute('aria-label')}`).join('|'))
+      await emit(600)
+      await atBottom()
+      assert((await output.textContent()).split('\n').length === 300, 'following output changed the retention limit')
+      const position = await boardState()
+      await output.focus()
+      await output.press('Home')
+      await page.waitForFunction(() => document.querySelector('.engine-lab-output').scrollTop <= 1)
+      await latest.waitFor()
+      assert(await boardState() === position, 'Home in console output moved the board')
+      const paused = await output.evaluate(el => el.scrollTop)
+      const outerPositions = () => output.evaluate(el => {
+        const positions = []
+        for (let parent = el.parentElement; parent; parent = parent.parentElement) positions.push([parent.scrollLeft, parent.scrollTop])
+        return positions
+      })
+      const outerBefore = await outerPositions()
+      await emit(20)
+      assert(Math.abs(await output.evaluate(el => el.scrollTop) - paused) <= 1, 'new output interrupted manual reading')
+      const outerAfter = await outerPositions()
+      assert(outerBefore.every((axes, index) => axes.every((value, axis) => Math.abs(value - outerAfter[index][axis]) <= 1)), 'output following moved an outer panel')
+      assert(meetsTouchTarget(await latest.evaluate(el => el.getBoundingClientRect().height)), 'latest-output action is too small')
+      await latest.click()
+      await atBottom()
+      assert(await output.evaluate(el => el === document.activeElement), 'latest-output action left focus on a removed button')
+      assert(await latest.count() === 0, 'following output still shows the jump action')
+      await emit(20)
+      await atBottom()
+      await output.press('Home')
+      await page.waitForFunction(() => document.querySelector('.engine-lab-output').scrollTop <= 1)
+      await output.press('End')
+      await atBottom()
+      const stops = await page.evaluate(() => window.__uciCommands.filter(command => command === 'stop').length)
+      for (const key of ['ArrowLeft', 'ArrowRight', 'f', 'Space']) {
+        await output.press(key)
+        assert(await boardState() === position, `${key} in console output reached a board shortcut`)
+      }
+      assert(await page.evaluate(() => window.__uciCommands.filter(command => command === 'stop').length) === stops, 'Space in output stopped the engine')
+      await output.press('ControlOrMeta+k')
+      await page.getByRole('combobox', { name: 'Search commands' }).waitFor()
+      await page.keyboard.press('Escape')
+      await page.waitForFunction(() => document.activeElement === document.querySelector('.engine-lab-output'))
+      await output.press('Home')
+      await latest.waitFor()
+      await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
+      await ready()
+      await submit('isready')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      await atBottom()
+      assert(await latest.count() === 0, 'a new command inherited paused following')
+      await submit('go infinite')
+      await output.filter({ hasText: 'score cp 900' }).waitFor()
+      await emit(400)
+      await atBottom()
+      await output.focus()
+      await output.press('Home')
+      await latest.waitFor()
+      await page.locator('.engine-lab-console').getByRole('button', { name: 'Clear', exact: true }).click()
+      await output.filter({ hasText: 'No command output yet.' }).waitFor()
+      assert(await latest.count() === 0, 'Clear retained paused following')
+      await emit(5)
+      await atBottom()
+      assert((await output.textContent()).split('\n').length === 5, 'Clear restored earlier output')
+      await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
+      await ready()
+      console.log(`  console following (${width}px, ${scale}x): 300-line tail, manual reading retained, latest/focus restored, keyboard scope/Commands, new command and Clear reset following`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkConsoleHistoryAndErrors(browser) {
   for (const [width, scale] of [[1280, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -12299,6 +12411,7 @@ async function main() {
       'console-parsing': checkConsoleLimitParsing,
       'console-drafts': checkConsoleDraftOwnership,
       'console-history': checkConsoleHistoryAndErrors,
+      'console-following': checkConsoleOutputFollowing,
       'console-visibility': checkConsoleVisibility,
       'console-layout': checkConsoleLayout,
       continuous: checkKeepSearchingIsUnbounded,
@@ -13055,6 +13168,7 @@ async function main() {
     await checkConsoleLimitParsing(browser)
     await checkConsoleDraftOwnership(browser)
     await checkConsoleHistoryAndErrors(browser)
+    await checkConsoleOutputFollowing(browser)
     await checkConsoleVisibility(browser)
     await checkConsoleLayout(browser)
     await checkSingleThreadReviewPool(browser)

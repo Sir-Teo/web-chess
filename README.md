@@ -135,6 +135,10 @@ given, and the app answering the reader who touches it.
   analysis and navigating moves respect the release. Saved settings remain;
   the engine's hash table, console position and session-only UCI options reset
   on reload. Stop a search or review before releasing its workers.
+- **Read live console output**: Engine Lab follows new lines while you are at
+  the end. Scroll back to read earlier output without being pulled down, then
+  choose **Jump to latest output** or press End in the focused output to follow
+  again. A new command or Clear starts following again.
 - **An evaluation bar that never goes blank**: The bar beside the board draws
   the engine's win/draw/loss split when it has one, and White's winning chances
   from the score when it does not — a Lichess cloud evaluation, an `[%eval]`

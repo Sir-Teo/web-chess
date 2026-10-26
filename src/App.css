@@ -2906,6 +2906,30 @@ button.opening-move-row {
   font-family: var(--font-mono);
 }
 
+.engine-console-output {
+  min-width: 0;
+}
+
+.engine-lab-output-lines {
+  display: block;
+}
+
+.engine-lab-output:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.engine-lab-output-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.panel .engine-lab-output-actions button {
+  min-height: 44px;
+  white-space: normal;
+}
+
 .engine-lab-inline {
   margin-top: 0.4rem;
   display: grid;
