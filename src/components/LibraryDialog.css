@@ -133,6 +133,34 @@
     flex-shrink: 0;
 }
 
+.library-row-editing {
+    flex-wrap: wrap;
+}
+
+.library-rename {
+    flex-basis: 100%;
+    min-width: 0;
+}
+
+.library-rename label {
+    display: block;
+    margin-bottom: 0.4rem;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+}
+
+.library-rename .library-save-row {
+    flex-wrap: wrap;
+}
+
+.library-rename input {
+    flex-basis: 100%;
+}
+
+.library-rename .btn-cancel {
+    min-height: 36px;
+}
+
 .library-row-actions .btn-cancel {
     min-height: 30px;
     padding: 0.3rem 0.5rem;
@@ -273,6 +301,7 @@
     .library-sort button,
     .library-save-row input,
     .library-save-row .btn-start,
+    .library-rename .btn-cancel,
     .library-row-actions .btn-cancel,
     .library-favorite {
         min-height: 44px;

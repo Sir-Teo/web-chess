@@ -329,7 +329,7 @@ given, and the app answering the reader who touches it.
   in one go, each named from its own headers. A game in the file that will not
   parse is skipped and counted rather than silently dropped, and a file that
   would overflow the library says how many were left out.
-- **Saved games**: Keep games in a library stored in IndexedDB, search them by player, event or opening, star and rename them, and export or import the whole shelf as JSON. The game in progress is auto-saved separately, so a reload offers to pick up where you left off — and for a game that was being *played*, that now includes the opponent, the side you had and the clock, stopped where it stood.
+- **Saved games**: Keep games in a library stored in IndexedDB, search them by player, event or opening, star and rename them, and export or import the whole shelf as JSON. Rename inline with Enter to save or Escape to cancel. A rejected save keeps the name you typed so you can retry. The game in progress is auto-saved separately, so a reload offers to pick up where you left off — and for a game that was being *played*, that now includes the opponent, the side you had and the clock, stopped where it stood.
 - **PGN and FEN workflows**: Import/export annotated PGN, copy FEN/share links, and build custom FEN positions with editable pieces, side to move, castling rights, and move counters.
 - **Share a game, not just a position**: `Copy Game Link` on the Export tab puts
   the whole game in the URL — the position it started from and every move — so

@@ -3773,6 +3773,88 @@ async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
  * here: typing a name, and playing on. Either is a different entry and both
  * work immediately.
  */
+async function checkLibraryEditing(browser) {
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 900 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.locator('#chessboard-square-e2').waitFor()
+      // Fill the persistent store before reloading, so Save meets a real
+      // capacity error through the hook rather than a stubbed callback.
+      await page.evaluate(() => new Promise((resolve, reject) => {
+        const request = indexedDB.open('web-chess-library', 1)
+        request.onupgradeneeded = () => request.result.createObjectStore('games', { keyPath: 'id' })
+        request.onerror = () => reject(request.error)
+        request.onsuccess = () => {
+          const db = request.result
+          const tx = db.transaction('games', 'readwrite')
+          const pgn = '1. d4 d5 *'
+          for (let i = 0; i < 500; i++) tx.objectStore('games').put({
+            id: `editing-${i}`, name: `Saved game ${i}`, pgn,
+            createdAt: i + 1, updatedAt: i + 1, favorite: false,
+            moveCount: 2, size: pgn.length, metadata: {},
+          })
+          tx.oncomplete = () => { db.close(); resolve() }
+          tx.onerror = () => { db.close(); reject(tx.error) }
+        }
+      }))
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.click('#chessboard-square-e2')
+      await page.click('#chessboard-square-e4')
+      await page.getByRole('button', { name: 'Open saved games library' }).click()
+      const dialog = page.locator('.library-dialog')
+      const name = dialog.locator('[data-library-name]')
+      await name.fill('My carefully named game')
+      await name.press('Enter')
+      await dialog.getByRole('alert').filter({ hasText: 'holds 500 games' }).waitFor()
+      assert(await name.inputValue() === 'My carefully named game', 'a rejected save erased the typed game name')
+
+      const firstRow = dialog.locator('.library-row').first()
+      const original = await firstRow.locator('strong').innerText()
+      await firstRow.getByRole('button', { name: `Rename ${original}`, exact: true }).click()
+      const rename = dialog.getByRole('textbox', { name: 'New game name', exact: true })
+      await rename.waitFor()
+      assert(await rename.evaluate(el => el === document.activeElement && el.selectionStart === 0 && el.selectionEnd === el.value.length),
+        'rename should focus and select the current name')
+      await rename.fill('   ')
+      assert(await dialog.getByRole('button', { name: 'Save name', exact: true }).isDisabled(), 'an empty rename can be submitted')
+      await rename.fill('Discard this draft')
+      await rename.press('Escape')
+      assert(await dialog.isVisible() && await rename.count() === 0, 'Escape should cancel renaming and keep the library open')
+      assert(await dialog.getByRole('button', { name: `Rename ${original}`, exact: true }).evaluate(el => el === document.activeElement),
+        'cancelling rename lost keyboard focus')
+
+      await dialog.getByRole('button', { name: `Rename ${original}`, exact: true }).click()
+      await rename.fill('My renamed game')
+      await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
+      assert(await dialog.locator('.library-rename').evaluate(form => {
+        const parent = form.getBoundingClientRect()
+        return [...form.querySelectorAll('input, button')].every(el => {
+          const box = el.getBoundingClientRect()
+          return box.width > 0 && box.left >= parent.left - 1 && box.right <= parent.right + 1
+            && el.scrollWidth <= el.clientWidth + 1
+        })
+      }), 'rename controls clip at 200% text')
+      await page.evaluate(() => { document.documentElement.style.fontSize = '' })
+      await rename.press('Enter')
+      await dialog.getByRole('button', { name: 'Rename My renamed game', exact: true }).waitFor()
+      await dialog.getByRole('button', { name: 'Delete Saved game 498', exact: true }).click()
+      await dialog.getByRole('button', { name: 'Confirm deleting Saved game 498', exact: true }).click()
+      await name.press('Enter')
+      await dialog.getByRole('button', { name: 'Load My carefully named game', exact: true }).waitFor()
+      await page.waitForFunction(() => !document.querySelector('.library-status')?.textContent.includes('Saving library changes'))
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      const restore = page.getByRole('button', { name: 'Restore', exact: true })
+      if (await restore.count()) await restore.click()
+      await page.getByRole('button', { name: 'Open saved games library' }).click()
+      await page.getByRole('button', { name: 'Rename My renamed game', exact: true }).waitFor()
+      console.log(`  library (${width}px): rejected save preserves its name; inline rename selects, cancels, commits and persists`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkOneGestureSavesOneGame(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -10920,6 +11002,7 @@ async function main() {
       'chords': checkAChordBelongsToTheBrowser,
       'eval-bar': checkTheEvaluationBarSurvivesTheWdlSwitch,
       'library-double-save': checkOneGestureSavesOneGame,
+      'library-editing': checkLibraryEditing,
       'database-once': checkADatabaseIsAddedOnce,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
       'finished-clock': checkAFinishedGameKeepsItsStoppedClock,
@@ -11671,6 +11754,7 @@ async function main() {
     await checkAFailedLookupSaysSoPlainly(browser)
     await checkTheLibrarySurvivesABackup(browser)
     await checkOneGestureSavesOneGame(browser)
+    await checkLibraryEditing(browser)
     await checkADatabaseIsAddedOnce(browser)
     await checkAnExportedGameComesBack(browser)
     await checkAnInterruptedGameComesBack(browser)

@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useRef, useState, useId } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, useId } from 'react'
 import { useDisarmAfter } from '../hooks/useDisarmAfter'
 import { useModalFocus } from '../hooks/useModalFocus'
 import {
     type LibraryGame,
     type LibrarySort,
+    MAX_LIBRARY_NAME_LENGTH,
     formatLibrarySize,
     getLibraryStats,
     libraryGameMatchesQuery,
@@ -101,6 +102,9 @@ export function LibraryDialog({
     const [backupParts, setBackupParts] = useState<string[]>([])
     const [downloadedParts, setDownloadedParts] = useState<number[]>([])
     const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null)
+    const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
+    const renameInputRef = useRef<HTMLInputElement>(null)
+    const renameButtonRef = useRef<HTMLButtonElement | null>(null)
     const disarmDelete = useCallback(() => setConfirmingDelete(null), [])
     useDisarmAfter(confirmingDelete !== null, disarmDelete)
     const [visibleLimit, setVisibleLimit] = useState(PAGE_SIZE)
@@ -131,8 +135,16 @@ export function LibraryDialog({
     const titleId = useId()
     const nameId = useId()
     const searchId = useId()
+    const renameId = useId()
+    const renamingId = renaming?.id
 
     useModalFocus(open, panelRef, onClose, { initialFocus: '[data-library-name]' })
+
+    useLayoutEffect(() => {
+        if (!open || !renamingId) return
+        renameInputRef.current?.focus()
+        renameInputRef.current?.select()
+    }, [open, renamingId])
 
     const visible = useMemo(() => {
         const matched = games.filter(game => libraryGameMatchesQuery(game, query))
@@ -149,11 +161,13 @@ export function LibraryDialog({
     // limit raised for a previous search. Batched with the state it belongs to,
     // so the full list is never rendered on the way.
     const changeQuery = (next: string) => {
+        setRenaming(null)
         setQuery(next)
         setVisibleLimit(PAGE_SIZE)
     }
 
     const changeSort = (next: LibrarySort) => {
+        setRenaming(null)
         setSort(next)
         setVisibleLimit(PAGE_SIZE)
     }
@@ -174,6 +188,7 @@ export function LibraryDialog({
     const alreadySaved = savedPgn !== null && savedPgn === currentKey && !name.trim()
 
     const handleSave = () => {
+        if (!currentPgn || !loaded) return
         if (savedPgnRef.current === currentKey && !name.trim()) return
         // An empty field saves under the name the field is showing: the
         // placeholder is the app's suggestion, and it knows the opening,
@@ -183,8 +198,13 @@ export function LibraryDialog({
         if (result.ok) {
             savedPgnRef.current = currentKey
             setSavedPgn(currentKey)
+            setName('')
         }
-        setName('')
+    }
+
+    const finishRenaming = () => {
+        setRenaming(null)
+        renameButtonRef.current?.focus()
     }
 
     const download = (text: string, filename: string, type: string) => {
@@ -260,27 +280,29 @@ export function LibraryDialog({
                 <div className="dialog-body">
                     <div className="dialog-section">
                         <label className="dialog-label" htmlFor={nameId}>Save the current game</label>
-                        <div className="library-save-row">
+                        <form className="library-save-row" onSubmit={event => {
+                            event.preventDefault()
+                            handleSave()
+                        }}>
                             <input
                                 id={nameId}
                                 data-library-name
                                 type="text"
                                 value={name}
+                                maxLength={MAX_LIBRARY_NAME_LENGTH}
                                 placeholder={suggestedName || 'Untitled game'}
                                 onChange={event => setName(event.target.value)}
-                                onKeyDown={event => { if (event.key === 'Enter') handleSave() }}
-                                disabled={!currentPgn}
+                                disabled={!currentPgn || !loaded}
                             />
                             <button
-                                type="button"
+                                type="submit"
                                 className="btn-start"
-                                onClick={handleSave}
-                                disabled={!currentPgn || alreadySaved}
+                                disabled={!currentPgn || !loaded || alreadySaved}
                                 title={alreadySaved ? 'This game is already in the library. Type a name to save another copy.' : undefined}
                             >
                                 Save
                             </button>
-                        </div>
+                        </form>
                         {!currentPgn && (
                             <p className="library-hint">Play or import a game to have something to save.</p>
                         )}
@@ -325,7 +347,14 @@ export function LibraryDialog({
 
                         <ul className="library-list">
                             {shown.map(game => (
-                                <li key={game.id} className="library-row">
+                                <li key={game.id} className={`library-row${renaming?.id === game.id ? ' library-row-editing' : ''}`}
+                                    onKeyDown={event => {
+                                        if (event.key === 'Escape' && renaming?.id === game.id) {
+                                            event.preventDefault()
+                                            event.stopPropagation()
+                                            finishRenaming()
+                                        }
+                                    }}>
                                     <div className="library-row-main">
                                         <button
                                             type="button"
@@ -355,10 +384,13 @@ export function LibraryDialog({
                                         <button
                                             type="button"
                                             className="btn-cancel"
-                                            onClick={() => {
-                                                const next = window.prompt('Rename saved game', game.name)
-                                                if (next !== null) onRename(game.id, next)
+                                            onClick={event => {
+                                                renameButtonRef.current = event.currentTarget
+                                                setConfirmingDelete(null)
+                                                setRenaming({ id: game.id, name: game.name })
                                             }}
+                                            aria-expanded={renaming?.id === game.id}
+                                            aria-controls={renaming?.id === game.id ? renameId : undefined}
                                             aria-label={`Rename ${game.name}`}
                                             title="Rename"
                                         >
@@ -386,6 +418,25 @@ export function LibraryDialog({
                                             </button>
                                         )}
                                     </div>
+                                    {renaming?.id === game.id && (
+                                        <form id={renameId} className="library-rename" onSubmit={event => {
+                                            event.preventDefault()
+                                            if (!renaming.name.trim()) return
+                                            onRename(game.id, renaming.name.trim())
+                                            setError(null)
+                                            setStatus('Renamed saved game.')
+                                            finishRenaming()
+                                        }}>
+                                            <label htmlFor={`${renameId}-name`}>New game name</label>
+                                            <div className="library-save-row">
+                                                <input id={`${renameId}-name`} ref={renameInputRef}
+                                                    value={renaming.name} maxLength={MAX_LIBRARY_NAME_LENGTH}
+                                                    onChange={event => setRenaming({ id: game.id, name: event.target.value })} />
+                                                <button type="submit" className="btn-start" disabled={!renaming.name.trim()}>Save name</button>
+                                                <button type="button" className="btn-cancel" onClick={finishRenaming}>Cancel</button>
+                                            </div>
+                                        </form>
+                                    )}
                                 </li>
                             ))}
                         </ul>
