@@ -5311,6 +5311,85 @@ async function checkLibraryBackupLimits(browser) {
   }
 }
 
+async function checkLibraryLockFallback(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 1], [375, 2], [320, 2]]) {
+    for (const mode of ['async-denied', 'sync-denied', 'getter-denied', 'memory-only']) {
+      const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(mode => {
+          localStorage.removeItem('webchess:auto-saved-game:v1')
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false }))
+          Object.defineProperty(window, 'indexedDB', { configurable: true, value: undefined })
+          window.__libraryLockMode = mode
+          window.__libraryDenyWrites = mode === 'memory-only'
+          window.__libraryLockRequests = 0
+          const nativeSet = Storage.prototype.setItem
+          Storage.prototype.setItem = function (key, value) {
+            if (window.__libraryDenyWrites && String(key).startsWith('webchess:library:v1')) throw new DOMException('Quota', 'QuotaExceededError')
+            return nativeSet.call(this, key, value)
+          }
+          Object.defineProperty(navigator, 'locks', { configurable: true, get() {
+            if (window.__libraryLockMode === 'getter-denied') throw new DOMException('Capability blocked', 'SecurityError')
+            return { request: (_name, callback) => {
+              window.__libraryLockRequests++
+              if (window.__libraryLockMode === 'sync-denied') throw new DOMException('Lock blocked', 'SecurityError')
+              if (window.__libraryLockMode !== 'available') return Promise.reject(new DOMException('Lock denied', 'SecurityError'))
+              return Promise.resolve(callback())
+            } }
+          } })
+        }, mode)
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        const pgn = page.locator('.pgn-dialog')
+        await pgn.locator('textarea').fill('1. e4 e5 *')
+        await pgn.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await pgn.waitFor({ state: 'detached' })
+        await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+        const dialog = page.locator('.library-dialog')
+        await dialog.locator('[data-library-name]').fill('Keep this game')
+        await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+        await dialog.getByRole('button', { name: 'Load Keep this game', exact: true }).waitFor()
+        const settled = () => page.waitForFunction(() => !document.querySelector('.library-status')?.textContent.includes('Saving library changes'))
+        await settled()
+        assert(await dialog.getByRole('alert').count() === 0, 'a denied optional lock made saving fail')
+        assert(await dialog.locator('.library-row').count() === 1, 'a denied optional lock dropped the saved game')
+        if (mode === 'memory-only') {
+          await dialog.locator('.library-not-durable').waitFor()
+          assert(await page.evaluate(() => localStorage.getItem('webchess:library:v1')) === null, 'memory-only fixture unexpectedly persisted a game')
+        } else assert(await page.evaluate(() => JSON.parse(localStorage.getItem('webchess:library:v1'))[0].name) === 'Keep this game', 'fallback save did not reach localStorage')
+        await dialog.getByRole('button', { name: 'Star Keep this game', exact: true }).click()
+        await settled()
+        assert(await dialog.getByRole('button', { name: 'Unstar Keep this game', exact: true }).count() === 1, 'editing under denied capabilities lost the game')
+        await page.evaluate(() => { window.__libraryDenyWrites = false; window.__libraryLockMode = 'available' })
+        await dialog.getByRole('button', { name: 'Unstar Keep this game', exact: true }).click()
+        await settled()
+        assert(await dialog.getByRole('button', { name: 'Load Keep this game', exact: true }).count() === 1, 'a recovered lock made the previously saved game disappear')
+        assert(await dialog.locator('.library-not-durable').count() === 0 && await dialog.getByRole('alert').count() === 0, 'restored storage kept obsolete warning feedback')
+        const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('webchess:library:v1')))
+        assert(saved.length === 1 && saved[0].name === 'Keep this game' && saved[0].favorite === false && saved[0].moveCount === 2, `recovery changed the saved game or did not persist the latest edit: ${JSON.stringify(saved)}`)
+        const savedGame = new (require('chess.js').Chess)()
+        savedGame.loadPgn(saved[0].pgn)
+        assert(savedGame.history().join(' ') === 'e4 e5', 'fallback recovery changed the saved move sequence')
+        assert(await page.evaluate(() => window.__libraryLockRequests) >= 1, 'restored storage never used an available lock')
+        await page.reload({ waitUntil: 'domcontentloaded' })
+        await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+        await dialog.getByRole('button', { name: 'Load Keep this game', exact: true }).waitFor()
+        assert(await dialog.locator('.library-row').count() === 1, 'fallback game did not survive reload')
+        await dialog.getByRole('button', { name: 'Load Keep this game', exact: true }).click()
+        await dialog.waitFor({ state: 'detached' })
+        await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+        assert(errors.length === 0, `optional-lock errors: ${errors.join('; ')}`)
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'optional-lock fallback overflows')
+        console.log(`  library lock fallback (${width}px, ${scale}x, ${mode}): actual named Save and star while restricted; durable or explicitly session-only storage; restored lock/storage keeps and persists the game; reload and actual Load succeed`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkLibrarySorting(browser) {
   const games = [
     { id: 'sort-alpha', name: 'Alpha study', pgn: '1. e4 *', updatedAt: 10 },
@@ -14890,6 +14969,7 @@ async function main() {
       'international-search': checkInternationalLibrarySearch,
       'library-browsing': checkLibraryBrowsing,
       'library-sorting': checkLibrarySorting,
+      'library-lock-fallback': checkLibraryLockFallback,
       'library-capacity': checkAFullLibraryStopsReadingTheFile,
       'import-drafts': checkImportDraftOwnership,
       'setup-en-passant': checkPositionSetupEnPassant,
@@ -15713,6 +15793,7 @@ async function main() {
     await checkInternationalLibrarySearch(browser)
     await checkLibraryBrowsing(browser)
     await checkLibrarySorting(browser)
+    await checkLibraryLockFallback(browser)
     await checkImportDraftOwnership(browser)
     await checkPositionSetupEnPassant(browser)
     await checkPositionSetupKeyboard(browser)

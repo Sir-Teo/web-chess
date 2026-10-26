@@ -1,0 +1,93 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/gameLibraryStorage.test.ts (31 tests | 4 failed) 53ms
+     × persists without a lock when acquiring it is denied 8ms
+     × keeps existing games when requesting a lock throws synchronously 1ms
+     × treats an inaccessible locks getter as an unavailable capability 1ms
+     × still retains session games when both locks and durable writes are denied 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/gameLibraryStorage.test.ts > optional Web Locks in fallback storage > persists without a lock when acquiring it is denied
+AssertionError: promise rejected "DOMException{ stack: 'SecurityError:…' }" instead of resolving
+ ❯ src/engine/gameLibraryStorage.test.ts:367:48
+    365|     stubLocalStorage()
+    366|     stubLocks({ request: () => Promise.reject(new DOMException('Denied…
+    367|     await expect(saveLibraryChanges([], [game])).resolves.toEqual([gam…
+       |                                                ^
+    368|     resetLibraryStorageState()
+    369|     expect(await loadLibraryGames()).toEqual([game])
+
+Caused by: SecurityError: Denied
+ ❯ Object.request src/engine/gameLibraryStorage.test.ts:366:47
+ ❯ saveLibraryChanges src/engine/gameLibraryStorage.ts:317:28
+ ❯ src/engine/gameLibraryStorage.test.ts:367:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 18, INDEX_SIZE_ERR: 1, DOMSTRING_SIZE_ERR: 2, HIERARCHY_REQUEST_ERR: 3, WRONG_DOCUMENT_ERR: 4, INVALID_CHARACTER_ERR: 5, NO_DATA_ALLOWED_ERR: 6, NO_MODIFICATION_ALLOWED_ERR: 7, NOT_FOUND_ERR: 8, NOT_SUPPORTED_ERR: 9, INUSE_ATTRIBUTE_ERR: 10, INVALID_STATE_ERR: 11, SYNTAX_ERR: 12, INVALID_MODIFICATION_ERR: 13, NAMESPACE_ERR: 14, INVALID_ACCESS_ERR: 15, VALIDATION_ERR: 16, TYPE_MISMATCH_ERR: 17, SECURITY_ERR: 18, NETWORK_ERR: 19, ABORT_ERR: 20, URL_MISMATCH_ERR: 21, QUOTA_EXCEEDED_ERR: 22, TIMEOUT_ERR: 23, INVALID_NODE_TYPE_ERR: 24, DATA_CLONE_ERR: 25 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/engine/gameLibraryStorage.test.ts > optional Web Locks in fallback storage > keeps existing games when requesting a lock throws synchronously
+AssertionError: promise rejected "DOMException{ stack: 'SecurityError:…' }" instead of resolving
+ ❯ src/engine/gameLibraryStorage.test.ts:378:60
+    376|     await saveLibraryGames([other])
+    377|     stubLocks({ request: () => { throw new DOMException('Blocked', 'Se…
+    378|     await expect(saveLibraryChanges([other], [game, other])).resolves.…
+       |                                                            ^
+    379|     expect(await loadLibraryGames()).toEqual([game, other])
+    380|   })
+
+Caused by: SecurityError: Blocked
+ ❯ Object.request src/engine/gameLibraryStorage.test.ts:377:40
+ ❯ saveLibraryChanges src/engine/gameLibraryStorage.ts:317:28
+ ❯ src/engine/gameLibraryStorage.test.ts:378:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 18, INDEX_SIZE_ERR: 1, DOMSTRING_SIZE_ERR: 2, HIERARCHY_REQUEST_ERR: 3, WRONG_DOCUMENT_ERR: 4, INVALID_CHARACTER_ERR: 5, NO_DATA_ALLOWED_ERR: 6, NO_MODIFICATION_ALLOWED_ERR: 7, NOT_FOUND_ERR: 8, NOT_SUPPORTED_ERR: 9, INUSE_ATTRIBUTE_ERR: 10, INVALID_STATE_ERR: 11, SYNTAX_ERR: 12, INVALID_MODIFICATION_ERR: 13, NAMESPACE_ERR: 14, INVALID_ACCESS_ERR: 15, VALIDATION_ERR: 16, TYPE_MISMATCH_ERR: 17, SECURITY_ERR: 18, NETWORK_ERR: 19, ABORT_ERR: 20, URL_MISMATCH_ERR: 21, QUOTA_EXCEEDED_ERR: 22, TIMEOUT_ERR: 23, INVALID_NODE_TYPE_ERR: 24, DATA_CLONE_ERR: 25 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/engine/gameLibraryStorage.test.ts > optional Web Locks in fallback storage > treats an inaccessible locks getter as an unavailable capability
+AssertionError: promise rejected "DOMException{ stack: 'SecurityError:…' }" instead of resolving
+ ❯ src/engine/gameLibraryStorage.test.ts:387:48
+    385|       get locks() { throw new DOMException('Blocked', 'SecurityError')…
+    386|     } })
+    387|     await expect(saveLibraryChanges([], [game])).resolves.toEqual([gam…
+       |                                                ^
+    388|     expect(await loadLibraryGames()).toEqual([game])
+    389|   })
+
+Caused by: SecurityError: Blocked
+ ❯ Object.get locks [as locks] src/engine/gameLibraryStorage.test.ts:385:27
+ ❯ saveLibraryChanges src/engine/gameLibraryStorage.ts:316:53
+ ❯ src/engine/gameLibraryStorage.test.ts:387:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 18, INDEX_SIZE_ERR: 1, DOMSTRING_SIZE_ERR: 2, HIERARCHY_REQUEST_ERR: 3, WRONG_DOCUMENT_ERR: 4, INVALID_CHARACTER_ERR: 5, NO_DATA_ALLOWED_ERR: 6, NO_MODIFICATION_ALLOWED_ERR: 7, NOT_FOUND_ERR: 8, NOT_SUPPORTED_ERR: 9, INUSE_ATTRIBUTE_ERR: 10, INVALID_STATE_ERR: 11, SYNTAX_ERR: 12, INVALID_MODIFICATION_ERR: 13, NAMESPACE_ERR: 14, INVALID_ACCESS_ERR: 15, VALIDATION_ERR: 16, TYPE_MISMATCH_ERR: 17, SECURITY_ERR: 18, NETWORK_ERR: 19, ABORT_ERR: 20, URL_MISMATCH_ERR: 21, QUOTA_EXCEEDED_ERR: 22, TIMEOUT_ERR: 23, INVALID_NODE_TYPE_ERR: 24, DATA_CLONE_ERR: 25 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/engine/gameLibraryStorage.test.ts > optional Web Locks in fallback storage > still retains session games when both locks and durable writes are denied
+AssertionError: promise rejected "DOMException{ stack: 'SecurityError:…' }" instead of resolving
+ ❯ src/engine/gameLibraryStorage.test.ts:394:48
+    392|     stubLocalStorage({ setItem: () => { throw new DOMException('Quota'…
+    393|     stubLocks({ request: () => Promise.reject(new DOMException('Denied…
+    394|     await expect(saveLibraryChanges([], [game])).resolves.toEqual([gam…
+       |                                                ^
+    395|     expect(await loadLibraryGames()).toEqual([game])
+    396|     expect(libraryStorageIsDurable()).toBe(false)
+
+Caused by: SecurityError: Denied
+ ❯ Object.request src/engine/gameLibraryStorage.test.ts:393:47
+ ❯ saveLibraryChanges src/engine/gameLibraryStorage.ts:317:28
+ ❯ src/engine/gameLibraryStorage.test.ts:394:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 18, INDEX_SIZE_ERR: 1, DOMSTRING_SIZE_ERR: 2, HIERARCHY_REQUEST_ERR: 3, WRONG_DOCUMENT_ERR: 4, INVALID_CHARACTER_ERR: 5, NO_DATA_ALLOWED_ERR: 6, NO_MODIFICATION_ALLOWED_ERR: 7, NOT_FOUND_ERR: 8, NOT_SUPPORTED_ERR: 9, INUSE_ATTRIBUTE_ERR: 10, INVALID_STATE_ERR: 11, SYNTAX_ERR: 12, INVALID_MODIFICATION_ERR: 13, NAMESPACE_ERR: 14, INVALID_ACCESS_ERR: 15, VALIDATION_ERR: 16, TYPE_MISMATCH_ERR: 17, SECURITY_ERR: 18, NETWORK_ERR: 19, ABORT_ERR: 20, URL_MISMATCH_ERR: 21, QUOTA_EXCEEDED_ERR: 22, TIMEOUT_ERR: 23, INVALID_NODE_TYPE_ERR: 24, DATA_CLONE_ERR: 25 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 27 passed (31)
+   Start at  18:07:51
+   Duration  452ms (transform 139ms, setup 0ms, import 175ms, tests 53ms, environment 0ms)
+

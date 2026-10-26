@@ -313,8 +313,23 @@ export async function saveLibraryChanges(before: LibraryGame[], after: LibraryGa
   }
   // localStorage has no transactions. Web Locks serialize its read/modify/write
   // across tabs in browsers supporting the fallback's concurrency guarantee.
-  if (typeof navigator !== 'undefined' && navigator.locks) {
-    return navigator.locks.request('web-chess-library-write', write)
+  let locks: LockManager | undefined
+  try {
+    if (typeof navigator !== 'undefined') locks = navigator.locks
+  } catch {
+    // A restricted browser can expose the capability through a throwing getter.
   }
-  return write()
+  if (!locks) return write()
+  let entered = false
+  try {
+    return await locks.request('web-chess-library-write', () => {
+      entered = true
+      return write()
+    })
+  } catch (error) {
+    // Denied acquisition uses the same fallback as an unavailable API. Once a
+    // callback starts, propagate its failure so a write cannot run twice.
+    if (entered) throw error
+    return write()
+  }
 }

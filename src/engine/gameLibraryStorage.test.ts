@@ -14,6 +14,7 @@ const PGN = '[White "A"]\n[Black "B"]\n\n1. e4 e5 *'
 
 const originalIndexedDb = Object.getOwnPropertyDescriptor(globalThis, 'indexedDB')
 const originalLocalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
 
 function restore(name: string, descriptor: PropertyDescriptor | undefined) {
   if (descriptor) Object.defineProperty(globalThis, name, descriptor)
@@ -45,6 +46,7 @@ beforeEach(() => {
 afterEach(() => {
   restore('indexedDB', originalIndexedDb)
   restore('localStorage', originalLocalStorage)
+  restore('navigator', originalNavigator)
   resetLibraryStorageState()
 })
 
@@ -351,5 +353,67 @@ describe('changes from stale library tabs', () => {
   it('never evicts another game when concurrent additions reach the cap', () => {
     const full = Array.from({ length: 500 }, (_, i) => ({ ...a, id: `saved-${i}` }))
     expect(mergeLibraryChanges(full, [], [b])).toEqual(full)
+  })
+})
+
+
+describe('optional Web Locks in fallback storage', () => {
+  const game = createLibraryGame('Keep this game', PGN, 1, 'lock-game')
+  const stubLocks = (locks: unknown) => Object.defineProperty(globalThis, 'navigator', { value: { locks }, configurable: true })
+
+  it('persists without a lock when acquiring it is denied', async () => {
+    stubLocalStorage()
+    stubLocks({ request: () => Promise.reject(new DOMException('Denied', 'SecurityError')) })
+    await expect(saveLibraryChanges([], [game])).resolves.toEqual([game])
+    resetLibraryStorageState()
+    expect(await loadLibraryGames()).toEqual([game])
+    expect(libraryStorageIsDurable()).toBe(true)
+  })
+
+  it('keeps existing games when requesting a lock throws synchronously', async () => {
+    stubLocalStorage()
+    const other = createLibraryGame('Existing game', PGN, 2, 'lock-other')
+    await saveLibraryGames([other])
+    stubLocks({ request: () => { throw new DOMException('Blocked', 'SecurityError') } })
+    await expect(saveLibraryChanges([other], [game, other])).resolves.toEqual([game, other])
+    expect(await loadLibraryGames()).toEqual([game, other])
+  })
+
+  it('treats an inaccessible locks getter as an unavailable capability', async () => {
+    stubLocalStorage()
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: {
+      get locks() { throw new DOMException('Blocked', 'SecurityError') },
+    } })
+    await expect(saveLibraryChanges([], [game])).resolves.toEqual([game])
+    expect(await loadLibraryGames()).toEqual([game])
+  })
+
+  it('still retains session games when both locks and durable writes are denied', async () => {
+    stubLocalStorage({ setItem: () => { throw new DOMException('Quota', 'QuotaExceededError') } })
+    stubLocks({ request: () => Promise.reject(new DOMException('Denied', 'SecurityError')) })
+    await expect(saveLibraryChanges([], [game])).resolves.toEqual([game])
+    expect(await loadLibraryGames()).toEqual([game])
+    expect(libraryStorageIsDurable()).toBe(false)
+  })
+
+  it('continues to use an available lock once for the write', async () => {
+    const setItem = vi.fn()
+    stubLocalStorage({ setItem })
+    const request = vi.fn(async (_name: string, callback: () => unknown) => callback())
+    stubLocks({ request })
+    await expect(saveLibraryChanges([], [game])).resolves.toEqual([game])
+    expect(request).toHaveBeenCalledExactlyOnceWith('web-chess-library-write', expect.any(Function))
+    expect(setItem).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not retry a write whose lock callback has already started', async () => {
+    const setItem = vi.fn()
+    stubLocalStorage({ setItem })
+    stubLocks({ request: async (_name: string, callback: () => unknown) => {
+      callback()
+      throw new Error('Failure after callback began')
+    } })
+    await expect(saveLibraryChanges([], [game])).rejects.toThrow('Failure after callback began')
+    expect(setItem).toHaveBeenCalledTimes(1)
   })
 })
