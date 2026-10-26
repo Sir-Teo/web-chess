@@ -6,6 +6,27 @@
     width: min(32rem, calc(100% - 2rem));
 }
 
+.command-palette .dialog-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem 0;
+}
+
+.command-palette .dialog-header h2 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.command-palette-close {
+    display: grid;
+    place-items: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.35rem;
+    line-height: 1;
+}
+
 .command-palette-input {
     width: 100%;
     min-height: 44px;
@@ -124,10 +145,5 @@
 @media (max-width: 560px) {
     .command-palette-list {
         height: min(24rem, 50dvh);
-    }
-
-    /* No list when nothing matches; hold its room so the sheet stays put. */
-    .command-palette-count:last-child {
-        margin-bottom: calc(min(24rem, 50dvh) + 0.5rem);
     }
 }

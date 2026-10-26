@@ -3,6 +3,7 @@ import { useModalFocus } from '../hooks/useModalFocus'
 import { MAX_SEARCH_QUERY_LENGTH } from '../engine/searchTerms'
 import { type Command, rankCommands, readRecentCommandIds, rememberCommandId } from './commandPalette'
 import { isCompositionKey } from './shortcutKeys'
+import { IconClose } from './icons'
 import './NewGameDialog.css'
 import './CommandPaletteDialog.css'
 
@@ -48,11 +49,11 @@ export function CommandPaletteDialog({ open, commands, onClose }: Props) {
         setActiveIndex(index => (index >= ranked.length ? 0 : index))
     }, [ranked.length])
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (!open) return
         const active = listRef.current?.querySelector('[data-active="true"]')
         active?.scrollIntoView({ block: 'nearest' })
-    }, [activeIndex, open])
+    }, [activeIndex, open, query])
 
     if (!open) return null
 
@@ -91,6 +92,10 @@ export function CommandPaletteDialog({ open, commands, onClose }: Props) {
             >
                 <header className="dialog-header">
                     <h2 id={titleId}>Commands</h2>
+                    <button type="button" className="btn-cancel command-palette-close" onClick={onClose}
+                        aria-label="Close Commands" title="Close Commands">
+                        <IconClose aria-hidden="true" focusable="false" />
+                    </button>
                 </header>
 
                 <div className="dialog-body">
@@ -101,6 +106,7 @@ export function CommandPaletteDialog({ open, commands, onClose }: Props) {
                         className="command-palette-input"
                         type="text"
                         role="combobox"
+                        aria-autocomplete="list"
                         aria-expanded="true"
                         aria-controls={`${titleId}-list`}
                         aria-activedescendant={ranked[activeIndex] ? `${titleId}-${ranked[activeIndex].id}` : undefined}
@@ -124,37 +130,35 @@ export function CommandPaletteDialog({ open, commands, onClose }: Props) {
                             : `${ranked.length} command${ranked.length === 1 ? '' : 's'}`}
                     </p>
 
-                    {ranked.length > 0 && (
-                        <ul className="command-palette-list" id={`${titleId}-list`} role="listbox" ref={listRef}>
-                            {ranked.map((command, index) => (
-                                <li
-                                    key={command.id}
-                                    id={`${titleId}-${command.id}`}
-                                    role="option"
-                                    aria-selected={index === activeIndex}
-                                    aria-disabled={command.disabled || undefined}
-                                    data-active={index === activeIndex}
-                                    data-command-id={command.id}
-                                    className="command-palette-row"
+                    <ul className="command-palette-list" id={`${titleId}-list`} role="listbox" aria-labelledby={titleId} ref={listRef}>
+                        {ranked.map((command, index) => (
+                            <li
+                                key={command.id}
+                                id={`${titleId}-${command.id}`}
+                                role="option"
+                                aria-selected={index === activeIndex}
+                                aria-disabled={command.disabled || undefined}
+                                data-active={index === activeIndex}
+                                data-command-id={command.id}
+                                className="command-palette-row"
+                            >
+                                <button
+                                    type="button"
+                                    className="command-palette-button"
+                                    disabled={command.disabled}
+                                    onFocus={() => setActiveIndex(index)}
+                                    onMouseEnter={() => setActiveIndex(index)}
+                                    onClick={() => runCommand(command)}
                                 >
-                                    <button
-                                        type="button"
-                                        className="command-palette-button"
-                                        disabled={command.disabled}
-                                        onFocus={() => setActiveIndex(index)}
-                                        onMouseEnter={() => setActiveIndex(index)}
-                                        onClick={() => runCommand(command)}
-                                    >
-                                        <span className="command-palette-label">{command.label}</span>
-                                        {command.hint && (
-                                            <span className="command-palette-hint" title={command.hint}>{command.hint}</span>
-                                        )}
-                                        {command.shortcut && <kbd className="command-palette-key">{command.shortcut}</kbd>}
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
+                                    <span className="command-palette-label">{command.label}</span>
+                                    {command.hint && (
+                                        <span className="command-palette-hint" title={command.hint}>{command.hint}</span>
+                                    )}
+                                    {command.shortcut && <kbd className="command-palette-key">{command.shortcut}</kbd>}
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
             </div>
         </div>
