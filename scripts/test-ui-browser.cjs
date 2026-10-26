@@ -5661,6 +5661,61 @@ async function checkOpeningNumbersBelongToTheirPosition(browser) {
   }
 }
 
+async function checkTablebaseMoveReading(browser) {
+  const fen = '1r5k/P7/8/8/8/8/8/7K w - - 0 1'
+  for (const [width, scale] of [[1280, 1], [375, 1], [375, 2], [320, 2]]) {
+    for (const experience of ['pro', 'beginner']) {
+      const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+      const page = await context.newPage()
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(lichessServiceScript({
+          host: 'tablebase.lichess.org',
+          bodyJs: `JSON.stringify({ category: 'win', dtz: 5, moves: [
+            { uci: 'a7b8q', san: 'axb8=Q+', category: 'loss', dtz: -5, dtm: -123, dtc: -12 },
+            { uci: 'a7b8r', san: 'axb8=R+', category: 'blessed-loss', dtz: -101 },
+            { uci: 'a7b8n', san: 'axb8=N', category: 'draw', dtz: 0 },
+            { uci: 'a7b8b', san: 'axb8=B', category: 'unknown' },
+          ] })`,
+        }))
+        await page.addInitScript(experience => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: experience, autoAnalyze: false, engineProfile: 'lite-single-local',
+          theme: experience === 'pro' ? 'dark' : 'light',
+        })), experience)
+        await page.goto(`${BASE}#fen=${encodeURIComponent(fen)}`, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        const rows = page.locator('.tablebase-move-row')
+        await rows.nth(3).waitFor()
+        const reading = await rows.evaluateAll(nodes => nodes.map(row => ({
+          text: row.textContent,
+          clipped: [...row.children].filter(el => el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1).map(el => el.textContent),
+          height: row.getBoundingClientRect().height,
+        })))
+        assert(reading.every(row => row.clipped.length === 0 && row.height >= 43.75), `tablebase move text is clipped: ${JSON.stringify(reading)}`)
+        assert(reading[0].text.includes('Win · DTM 123 · DTC 12 · DTZ 5') && reading[1].text.includes('Cursed win · DTZ 101'), 'tablebase verdict or distances disappeared')
+        assert((await rows.first().locator('span').count()) === (experience === 'pro' ? 2 : 1), 'Coach/Pro move notation changed')
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'tablebase move reading overflows the page')
+        // A real keyboard transition takes over from the initial URL reveal.
+        // Programmatic focus alone intentionally does not cancel its retries.
+        await page.keyboard.press('Tab')
+        await rows.first().focus()
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        assert(await rows.first().evaluate(el => {
+          const r = el.getBoundingClientRect()
+          return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+        }), 'focused tablebase move is covered')
+        if (width === 320) await assertContrast(page, `tablebase moves / ${experience} / 200% text`, 5)
+        if (width === 320) await page.screenshot({ path: path.join(os.tmpdir(), `web-chess-tablebase-moves-${experience}-200.png`) })
+        await rows.first().press('Enter')
+        assert(await page.locator('#chessboard-square-a7 [data-piece="wP"]').count() === 1, 'selecting a tablebase move unexpectedly played it')
+        await openSettings(page)
+        assert(await page.getByLabel('Candidate moves', { exact: true }).inputValue() === 'a7b8q', 'tablebase move did not restrict engine analysis')
+        console.log(`  tablebase move reading (${width}px, ${scale}x, ${experience}): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkRemoteAnalysisRetry(browser) {
   for (const [width, scale] of [[1280, 1], [375, 2]]) {
     for (const service of ['tablebase', 'cloud']) {
@@ -13211,6 +13266,7 @@ async function main() {
       'autoplay': checkAutoplayWalksTheLine,
       'autoplay-speed': checkReplaySpeedAfterStep,
       'remote-retry': checkRemoteAnalysisRetry,
+      'tablebase-reading': checkTablebaseMoveReading,
       'takeback-result': checkTakingBackAMateUnfinishesTheGame,
       'result-ownership': checkAResultBelongsToItsOwnGame,
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
@@ -14012,6 +14068,7 @@ async function main() {
     await checkOpeningNumbersBelongToTheirPosition(browser)
     await checkTheTablebaseAnswersForThisPosition(browser)
     await checkRemoteAnalysisRetry(browser)
+    await checkTablebaseMoveReading(browser)
     await checkBoardCanvas(browser)
     await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)

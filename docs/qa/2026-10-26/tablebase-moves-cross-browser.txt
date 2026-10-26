@@ -1,0 +1,20 @@
+  tablebase move reading (1280px, 1x, pro): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  tablebase move reading (1280px, 1x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  tablebase move reading (375px, 1x, pro): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  tablebase move reading (375px, 1x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  tablebase move reading (375px, 2x, pro): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  tablebase move reading (375px, 2x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  contrast (tablebase moves / pro / 200% text): 157 measured, 0 under the floor (138 on a gradient, measured against its worst stop)
+  tablebase move reading (320px, 2x, pro): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  contrast (tablebase moves / beginner / 200% text): 142 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  tablebase move reading (320px, 2x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  tablebase move reading (1280px, 1x, pro): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  tablebase move reading (1280px, 1x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  tablebase move reading (375px, 1x, pro): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  tablebase move reading (375px, 1x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  tablebase move reading (375px, 2x, pro): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  tablebase move reading (375px, 2x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  contrast (tablebase moves / pro / 200% text): 157 measured, 0 under the floor (138 on a gradient, measured against its worst stop)
+  tablebase move reading (320px, 2x, pro): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  contrast (tablebase moves / beginner / 200% text): 142 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  tablebase move reading (320px, 2x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis

@@ -1,0 +1,40 @@
+[
+  [
+    {
+      "text": "Kd2",
+      "width": 79,
+      "scroll": 79
+    },
+    {
+      "text": "Win · DTZ 5",
+      "width": 135,
+      "scroll": 135
+    },
+    {
+      "text": "e1d2",
+      "width": 26,
+      "scroll": 26
+    }
+  ]
+]
+  tablebase retry (1280px, 1x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+[
+  [
+    {
+      "text": "Kd2",
+      "width": 96,
+      "scroll": 96
+    },
+    {
+      "text": "Win · DTZ 5",
+      "width": 40,
+      "scroll": 114
+    },
+    {
+      "text": "e1d2",
+      "width": 52,
+      "scroll": 52
+    }
+  ]
+]
+  tablebase retry (375px, 2x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery

@@ -8637,11 +8637,12 @@ function App() {
                           endgame, the answer at the top of a list. */}
                       {tablebase.result?.moves.length && !drillAwaitingAnswer ? (
                         <div className="tablebase-move-list">
+                          <p className="panel-copy small">Choose a move to focus engine analysis.</p>
                           {tablebase.result.moves.slice(0, 4).map(move => (
                             <button
                               key={move.uci}
                               type="button"
-                              className={`tablebase-move-row ${analysisExperience === 'pro' ? '' : 'compact'}`}
+                              className="tablebase-move-row"
                               aria-label={tablebaseMoveActionLabel(move)}
                               title={tablebaseMoveActionLabel(move)}
                               onClick={() => {

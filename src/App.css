@@ -2461,6 +2461,7 @@ button.board-meta-opening {
 }
 
 .tablebase-card {
+  container: tablebase / inline-size;
   margin-bottom: var(--space-md);
   border: 1px solid var(--border-strong);
   border-left: 3px solid var(--info);
@@ -2489,43 +2490,59 @@ button.board-meta-opening {
 /* Element+class so `display: grid` survives `.panel button`'s inline-flex,
    which was leaving the column template inert and the rows ragged. */
 button.tablebase-move-row {
+  min-height: 44px;
+  min-width: 0;
   border: 1px solid var(--border-subtle);
   background: var(--bg-card);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   font-size: 0.68rem;
+  line-height: 1.4;
   display: grid;
-  grid-template-columns: minmax(3rem, 0.7fr) minmax(0, 1.2fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.42rem;
   text-align: left;
   padding: 0.3rem 0.45rem;
 }
 
-/* Coach view keeps the move and the verdict. The raw UCI is already the row's
-   tooltip, and it stays visible in Pro — same split as the review list. */
-button.tablebase-move-row.compact {
-  grid-template-columns: minmax(3rem, 0.7fr) minmax(0, 1fr);
-}
-
 .tablebase-move-row strong {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-primary);
 }
 
 .tablebase-move-row span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.tablebase-move-row span:last-child {
+/* The proven verdict needs its own line: three columns reduced "Win · DTZ 5"
+   to "W…" at enlarged phone text. Pro keeps raw UCI beside the SAN move, or
+   below the verdict when the card is too narrow for both notations. */
+.tablebase-move-row > span:nth-child(2) {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.tablebase-move-row > span:nth-child(3) {
+  grid-column: 2;
+  grid-row: 1;
+  white-space: nowrap;
   font-family: var(--font-mono);
   color: var(--text-muted);
+}
+
+@container tablebase (max-width: 8rem) {
+  .tablebase-move-row strong {
+    grid-column: 1 / -1;
+  }
+
+  .tablebase-move-row > span:nth-child(3) {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
 }
 
 .preset-grid {
