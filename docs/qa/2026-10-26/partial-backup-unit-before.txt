@@ -1,0 +1,110 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/gameLibrary.test.ts (102 tests | 5 failed) 889ms
+     × reports damaged and repeated entries without losing the usable record 6ms
+     × counts entries beyond the per-file normalization ceiling 7ms
+     × reports skipped backup entries even when all readable games fit 1ms
+     × counts a single skipped entry in the singular 1ms
+     × separates unread entries from existing games and library capacity 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > backup round trip > reports damaged and repeated entries without losing the usable record
+AssertionError: expected undefined to be 3 // Object.is equality
+
+- Expected:
+3
+
++ Received:
+undefined
+
+ ❯ src/engine/gameLibrary.test.ts:290:37
+    288|     if (result.ok) {
+    289|       expect(result.games).toEqual([game])
+    290|       expect(result.skippedEntries).toBe(3)
+       |                                     ^
+    291|     }
+    292|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > backup round trip > counts entries beyond the per-file normalization ceiling
+AssertionError: expected undefined to be 3 // Object.is equality
+
+- Expected:
+3
+
++ Received:
+undefined
+
+ ❯ src/engine/gameLibrary.test.ts:300:37
+    298|     if (result.ok) {
+    299|       expect(result.games).toHaveLength(MAX_LIBRARY_GAMES)
+    300|       expect(result.skippedEntries).toBe(3)
+       |                                     ^
+    301|     }
+    302|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > what the reader is told about a merge > reports skipped backup entries even when all readable games fit
+AssertionError: expected null to be 'Added 1 game; 2 backup entries skippe…' // Object.is equality
+
+- Expected:
+"Added 1 game; 2 backup entries skipped while reading the file."
+
++ Received:
+null
+
+ ❯ src/engine/gameLibrary.test.ts:536:8
+    534|   it('reports skipped backup entries even when all readable games fit'…
+    535|     expect(backupMergeNote({ games: [], added: 1, duplicates: 0, omitt…
+    536|       .toBe('Added 1 game; 2 backup entries skipped while reading the …
+       |        ^
+    537|   })
+    538|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > what the reader is told about a merge > counts a single skipped entry in the singular
+AssertionError: expected null to be 'Added 2 games; 1 backup entry skipped…' // Object.is equality
+
+- Expected:
+"Added 2 games; 1 backup entry skipped while reading the file."
+
++ Received:
+null
+
+ ❯ src/engine/gameLibrary.test.ts:541:8
+    539|   it('counts a single skipped entry in the singular', () => {
+    540|     expect(backupMergeNote({ games: [], added: 2, duplicates: 0, omitt…
+    541|       .toBe('Added 2 games; 1 backup entry skipped while reading the f…
+       |        ^
+    542|   })
+    543|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > what the reader is told about a merge > separates unread entries from existing games and library capacity
+AssertionError: expected 'Added nothing: 1 game already in the …' to be 'Added nothing: 1 game already in the …' // Object.is equality
+
+Expected: "Added nothing: 1 game already in the library, 2 games left out — the library holds 500, 3 backup entries skipped while reading the file."
+Received: "Added nothing: 1 game already in the library, 2 games left out — the library holds 500."
+
+ ❯ src/engine/gameLibrary.test.ts:546:8
+    544|   it('separates unread entries from existing games and library capacit…
+    545|     expect(backupMergeNote({ games: [], added: 0, duplicates: 1, omitt…
+    546|       .toBe(`Added nothing: 1 game already in the library, 2 games lef…
+       |        ^
+    547|   })
+    548|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 97 passed (102)
+   Start at  17:46:53
+   Duration  1.32s (transform 227ms, setup 0ms, import 288ms, tests 889ms, environment 0ms)
+

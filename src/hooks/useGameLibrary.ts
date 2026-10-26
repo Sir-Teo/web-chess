@@ -198,7 +198,9 @@ export function useGameLibrary() {
     // handing the whole lot to `commit` used to drop the reader's own games
     // off the end of it.
     const merge = mergeLibraryBackup(gamesRef.current, restored)
+    const note = backupMergeNote(merge, backup.skippedEntries)
     if (!merge.added) {
+      if (backup.skippedEntries > 0 && note) return { ok: false, error: note }
       return {
         ok: false,
         error: merge.omitted > 0
@@ -208,7 +210,6 @@ export function useGameLibrary() {
     }
 
     commit(merge.games)
-    const note = backupMergeNote(merge)
     return note ? { ok: true, note } : { ok: true }
   }, [commit])
 

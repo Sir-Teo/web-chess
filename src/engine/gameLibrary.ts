@@ -358,7 +358,7 @@ export function mergeLibraryBackup(
  * handed over and what they got, and they should hear it from the app rather
  * than notice it later.
  */
-export function backupMergeNote(merge: LibraryBackupMerge): string | null {
+export function backupMergeNote(merge: LibraryBackupMerge, skippedEntries = 0): string | null {
   const plural = (count: number) => (count === 1 ? 'game' : 'games')
   const parts: string[] = []
 
@@ -367,6 +367,9 @@ export function backupMergeNote(merge: LibraryBackupMerge): string | null {
   }
   if (merge.omitted > 0) {
     parts.push(`${merge.omitted} ${plural(merge.omitted)} left out — the library holds ${MAX_LIBRARY_GAMES}`)
+  }
+  if (skippedEntries > 0) {
+    parts.push(`${skippedEntries} backup ${skippedEntries === 1 ? 'entry' : 'entries'} skipped while reading the file`)
   }
   if (!parts.length) return null
 
@@ -513,8 +516,9 @@ export function createLibraryBackup(games: LibraryGame[]): string {
   return parts[0]
 }
 
+/** Skipped entries include malformed records, repeated IDs and the file cap. */
 export type LibraryBackupReadResult =
-  | { ok: true; games: LibraryGame[] }
+  | { ok: true; games: LibraryGame[]; skippedEntries: number }
   | { ok: false; error: string }
 
 /** Read an import envelope without confusing an unsupported backup with a PGN. */
@@ -534,7 +538,7 @@ export function readLibraryBackup(json: string, now = 0): LibraryBackupReadResul
   if (!Array.isArray(parsed.games)) return { ok: false, error: 'The library backup is incomplete or damaged. Nothing was imported.' }
   const games = normalizeLibraryGames(parsed.games, now)
   if (parsed.games.length > 0 && games.length === 0) return { ok: false, error: 'No saved games could be read from this library backup.' }
-  return { ok: true, games }
+  return { ok: true, games, skippedEntries: parsed.games.length - games.length }
 }
 
 /** Storage/fuzz callers retain the non-throwing, empty-array fallback. */

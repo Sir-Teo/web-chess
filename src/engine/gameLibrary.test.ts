@@ -279,6 +279,28 @@ describe('searching and sorting', () => {
 })
 
 describe('backup round trip', () => {
+  it('reports damaged and repeated entries without losing the usable record', () => {
+    const game = createLibraryGame('Réti', PGN, 7, 'partial-valid')
+    const result = readLibraryBackup(JSON.stringify({ format: 'web-chess-library', version: 1,
+      games: [game, null, { pgn: 5 }, { ...game, pgn: '1. d4 *' }],
+    }))
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.games).toEqual([game])
+      expect(result.skippedEntries).toBe(3)
+    }
+  })
+
+  it('counts entries beyond the per-file normalization ceiling', () => {
+    const games = Array.from({ length: MAX_LIBRARY_GAMES + 3 }, (_, i) => createLibraryGame(`Study ${i}`, '1. e4 *', 1, `large-${i}`))
+    const result = readLibraryBackup(createLibraryBackup(games))
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.games).toHaveLength(MAX_LIBRARY_GAMES)
+      expect(result.skippedEntries).toBe(3)
+    }
+  })
+
   it.each([
     ['not json', 'not a Web Chess library backup'],
     [JSON.stringify({ format: 'web-chess-review', version: 1, games: [] }), 'not a Web Chess library backup'],
@@ -292,7 +314,7 @@ describe('backup round trip', () => {
   })
 
   it('recognizes an empty exported backup without calling it the wrong file', () => {
-    expect(readLibraryBackup(createLibraryBackup([]))).toEqual({ ok: true, games: [] })
+    expect(readLibraryBackup(createLibraryBackup([]))).toEqual({ ok: true, games: [], skippedEntries: 0 })
   })
 
   it('accepts a UTF-8 byte-order mark without changing the restored Unicode game', () => {
@@ -509,6 +531,21 @@ describe('the data loss this merge exists to stop', () => {
 })
 
 describe('what the reader is told about a merge', () => {
+  it('reports skipped backup entries even when all readable games fit', () => {
+    expect(backupMergeNote({ games: [], added: 1, duplicates: 0, omitted: 0 }, 2))
+      .toBe('Added 1 game; 2 backup entries skipped while reading the file.')
+  })
+
+  it('counts a single skipped entry in the singular', () => {
+    expect(backupMergeNote({ games: [], added: 2, duplicates: 0, omitted: 0 }, 1))
+      .toBe('Added 2 games; 1 backup entry skipped while reading the file.')
+  })
+
+  it('separates unread entries from existing games and library capacity', () => {
+    expect(backupMergeNote({ games: [], added: 0, duplicates: 1, omitted: 2 }, 3))
+      .toBe(`Added nothing: 1 game already in the library, 2 games left out — the library holds ${MAX_LIBRARY_GAMES}, 3 backup entries skipped while reading the file.`)
+  })
+
   const merge = (added: number, duplicates: number, omitted: number) =>
     backupMergeNote({ games: [], added, duplicates, omitted })
 

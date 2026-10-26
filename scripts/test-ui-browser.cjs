@@ -5108,6 +5108,59 @@ async function checkImportDraftOwnership(browser) {
   }
 }
 
+async function checkPartialLibraryBackup(browser) {
+  const kept = { id: 'partial-kept', name: 'Protected study', pgn: '1. Nf3 d5 *', createdAt: 1, updatedAt: 1 }
+  const recovered = { id: 'partial-recovered', name: 'Recovered Réti', pgn: '[White "José"]\n\n1. e4 e5 *', createdAt: 2, updatedAt: 2 }
+  const corrected = { id: 'partial-corrected', name: 'Corrected game', pgn: '1. c4 e5 *', createdAt: 3, updatedAt: 3 }
+  const backup = games => JSON.stringify({ format: 'web-chess-library', version: 1, games })
+  const partial = backup([recovered, null, { ...recovered, pgn: '1. d4 d5 *' }, { id: 'damaged', pgn: 5 }])
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [375, 2, 'dark'], [320, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      const dialog = page.locator('.library-dialog'), input = dialog.locator('input[type="file"]')
+      const importFile = text => input.setInputFiles({ name: 'partial-library.json', mimeType: 'application/json', buffer: Buffer.from(text, 'utf8') })
+      const exportFile = async () => {
+        const downloaded = page.waitForEvent('download')
+        await dialog.getByRole('button', { name: 'Export backup', exact: true }).click()
+        return fs.readFileSync(await (await downloaded).path(), 'utf8')
+      }
+      await importFile(backup([kept]))
+      await dialog.getByRole('button', { name: `Load ${kept.name}`, exact: true }).waitFor()
+      await importFile(partial)
+      const notice = dialog.getByRole('status').filter({ hasText: 'Added 1 game; 3 backup entries skipped while reading the file.' })
+      await notice.waitFor()
+      assert(await dialog.locator('.library-row').count() === 2, 'partial import did not retain the protected game plus the usable record')
+      await notice.scrollIntoViewIfNeeded()
+      assert(await notice.evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'partial-import counts do not wrap at enlarged text')
+      const before = await exportFile(), contents = JSON.parse(before)
+      assert(contents.games.find(game => game.id === kept.id)?.pgn === kept.pgn && contents.games.find(game => game.id === recovered.id)?.pgn === recovered.pgn, 'partial recovery changed an existing game or preferred a repeated ID over the first usable record')
+      await importFile(partial)
+      await dialog.getByRole('alert').filter({ hasText: 'Added nothing: 1 game already in the library, 3 backup entries skipped while reading the file.' }).waitFor()
+      assert(await exportFile() === before, 'repeating a partial import changed the library or duplicated a usable game')
+      await importFile(backup([recovered]))
+      await dialog.getByRole('alert').filter({ hasText: 'Every game in that backup is already in the library.' }).waitFor()
+      await importFile(backup([corrected]))
+      await dialog.getByRole('status').filter({ hasText: 'Backup imported.' }).waitFor()
+      assert(await dialog.getByRole('alert').count() === 0 && await dialog.locator('.library-row').count() === 3, 'a clean retry retained stale skip/error feedback or lost an earlier game')
+      assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'backup recovery changed the board before Load')
+      await dialog.getByRole('button', { name: `Load ${recovered.name}`, exact: true }).click()
+      await dialog.waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+      await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+      assert(errors.length === 0, `partial backup errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'partial backup recovery overflows')
+      console.log(`  partial backup (${width}px, ${scale}x, ${theme}): readable Unicode game salvaged; invalid/repeated entries counted; original game retained; repeated partial import reports both categories without changing export; clean retry clears feedback; recovered game actually loads`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkLibraryBackupEnvelope(browser) {
   const envelope = games => ({ format: 'web-chess-library', version: 1, games })
   const kept = { id: 'envelope-kept', name: 'Protected café study', pgn: '[White "José"]\n\n1. Nf3 d5 *', createdAt: 1, updatedAt: 1, favorite: true }
@@ -14774,6 +14827,7 @@ async function main() {
       'library-backup': checkTheLibrarySurvivesABackup,
       'library-backup-limits': checkLibraryBackupLimits,
       'backup-envelope': checkLibraryBackupEnvelope,
+      'partial-backup': checkPartialLibraryBackup,
       'export-roundtrip': checkAnExportedGameComesBack,
       'autosave-roundtrip': checkAnInterruptedGameComesBack,
       'recovery-export': checkFailedRecoveryExport,
@@ -15562,6 +15616,7 @@ async function main() {
     await checkTheLibrarySurvivesABackup(browser)
     await checkLibraryBackupLimits(browser)
     await checkLibraryBackupEnvelope(browser)
+    await checkPartialLibraryBackup(browser)
     await checkOneGestureSavesOneGame(browser)
     await checkLibraryEditing(browser)
     await checkInternationalLibrarySearch(browser)
