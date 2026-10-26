@@ -1386,6 +1386,55 @@ async function checkSavedReviewRenaming(browser) {
   }
 }
 
+async function checkReviewBranchNames(browser) {
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 900 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, engineProfile: 'lite-single-local', reviewMaxWorkers: 1,
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      await page.locator('.pgn-dialog textarea').fill('[Event "Web Chess Game"]\n[White "Player 1"]\n[Black "Player 2"]\n[Date "2021.12.03"]\n[Result "*"]\n\n1. e4 e5 2. Nf3 *')
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      // A new variation leaves the e4/e5/Nf3 main line intact.
+      for (const [from, to] of [['d2', 'd4'], ['d7', 'd5'], ['c2', 'c4']]) {
+        await page.locator(`#chessboard-square-${from}`).click()
+        await page.locator(`#chessboard-square-${to}`).click()
+      }
+      await page.getByLabel(/^Opening .+: Queen's Gambit$/).first().waitFor()
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+      // The name follows the complete reviewed line even after stepping back
+      // to a position before the gambit was played.
+      await page.getByRole('button', { name: 'Go to previous move', exact: true }).click()
+      const downloaded = page.waitForEvent('download')
+      await page.getByRole('button', { name: 'Export review', exact: true }).click()
+      const reviewFile = await downloaded
+      assert(reviewFile.suggestedFilename() === 'queen-s-gambit-2021-12-03-review.pgn',
+        `the branch review borrowed the main line or board position's name: ${reviewFile.suggestedFilename()}`)
+      const reviewPgn = fs.readFileSync(await reviewFile.path(), 'utf8')
+      assert(/\b1\.\s+d4\b/.test(reviewPgn) && !/\b1\.\s+e4\b/.test(reviewPgn), 'the named review does not contain its branch')
+      await page.getByRole('button', { name: 'Save review', exact: true }).click()
+      await page.getByText('Review saved on this device.', { exact: false }).waitFor()
+      await page.locator('.saved-review-description strong').filter({ hasText: /^Queen's Gambit$/ }).waitFor()
+
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      await page.locator('.pgn-dialog').getByRole('button', { name: 'Export', exact: true }).click()
+      const gameDownloaded = page.waitForEvent('download')
+      await page.getByRole('button', { name: 'Download PGN', exact: true }).click()
+      const gameFile = await gameDownloaded
+      assert(gameFile.suggestedFilename() === 'king-s-knight-opening-2021-12-03.pgn', 'the whole-game filename lost its main-line identity')
+      assert(/\b1\.\s+e4\b/.test(fs.readFileSync(await gameFile.path(), 'utf8')), 'the whole-game export lost its main line')
+      console.log(`  review names (${width}px): saved title and dated download follow the reviewed Queen's Gambit branch after stepping back; whole-game export retains the King's Knight main line`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkReviewBackupExport(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 812 } })
@@ -11711,6 +11760,7 @@ async function main() {
       'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
       'saved-reviews': async browser => { await checkSavedReviews(browser); await checkSavedReviewStorage(browser); await checkSavedReviewEndings(browser) },
       'review-renaming': checkSavedReviewRenaming,
+      'review-branch-names': checkReviewBranchNames,
       'saved-endings': checkSavedReviewEndings,
       'repetition': checkRepetitionEndings,
       'repetition-review': checkRepetitionReviewCompatibility,
@@ -12453,6 +12503,7 @@ async function main() {
     await checkReviewUsesSelectedEngine(browser, true)
     await checkSavedReviews(browser)
     await checkSavedReviewRenaming(browser)
+    await checkReviewBranchNames(browser)
     await checkSavedReviewStorage(browser)
     await checkSavedReviewEndings(browser)
     await checkRepetitionEndings(browser)

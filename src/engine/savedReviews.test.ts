@@ -22,6 +22,19 @@ function fixture(moves = ['Nf3', 'Nf6', 'g3'], rootFen?: string, depth = 16) {
 }
 
 describe('portable, isolated saved reviews', () => {
+  it.each([
+    [{ White: 'Player 1', Black: 'Player 2', Event: 'Web Chess Game', Opening: "King's Knight Opening" }, "Queen's Gambit", "Queen's Gambit"],
+    [{ White: 'Player 1', Black: 'Player 2', Event: 'Tournament round 3' }, "Queen's Gambit", 'Tournament round 3'],
+    [{ White: 'Real White', Black: 'Real Black', Event: 'Tournament round 3' }, "Queen's Gambit", 'Real White – Real Black'],
+    [{ White: '?', Black: '?', Event: '?' }, undefined, 'Reviewed line'],
+    [{ White: '?', Black: '?', Event: '?', Opening: 'Custom repertoire' }, undefined, 'Custom repertoire'],
+  ] as Array<[Record<string, string>, string | undefined, string]>)('names a new run from meaningful game details: %j', (headers, opening, expected) => {
+    const { line, report } = fixture()
+    const saved = createSavedReview(line, report, headers, [], 'named-run', opening)
+    expect(saved.title).toBe(expected)
+    expect(saved.lineKey).toBe(reviewLineKey(line))
+  })
+
   it('repairs older title fragments without losing the saved report', () => {
     const { saved } = fixture()
     const old = { ...saved, title: 'Prep\uD83D (2) 😀' }

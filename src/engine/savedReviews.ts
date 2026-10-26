@@ -6,6 +6,8 @@ import { exportReviewPgn } from './reviewPgn'
 import type { ReviewSettings, ReviewSnapshot } from './reviewSession'
 import { reviewTargetFens } from './batchReview'
 import { truncateUtf16 } from './textLength'
+import { extractLibraryMetadata, libraryPlayers } from './gameLibrary'
+import { withoutAppPlaceholder } from './pgnPlaceholders'
 
 export const MAX_SAVED_REVIEWS = 50
 export const MAX_SAVED_REVIEW_BYTES = 512 * 1024
@@ -134,11 +136,14 @@ export function readSavedReview(value: unknown): SavedReview | null {
 
 export function createSavedReview(
   line: GameNode[], report: ReviewSnapshot, headers: Record<string, string>, qualities: Array<GameNode['quality']>,
-  id: string = crypto.randomUUID(),
+  id: string = crypto.randomUUID(), openingName?: string,
 ): SavedReview {
   const pgn = exportReviewPgn(line, report, headers, qualities)
   if (!pgn) throw new Error('This report belongs to a different line. Return to its reviewed line before saving.')
-  const title = headers.White && headers.Black ? `${headers.White} – ${headers.Black}` : headers.Event || 'Reviewed line'
+  const metadata = extractLibraryMetadata(pgn)
+  const title = libraryPlayers(metadata, ' – ', 'Unknown')
+    || withoutAppPlaceholder('Event', metadata.event)
+    || openingName?.trim() || metadata.opening || 'Reviewed line'
   const saved = readSavedReview({
     version: 1, id, title: truncateUtf16(title, MAX_SAVED_REVIEW_TITLE_LENGTH) || 'Reviewed line', lineKey: reviewLineKey(line), pgn,
     settings: report.settings, startedAt: report.startedAt, finishedAt: report.finishedAt,

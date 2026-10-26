@@ -3144,6 +3144,11 @@ function App() {
    */
   const reviewLineNodes = currentLineNodes
   const reviewLineMoves = currentLineMoves
+  const reviewLineFenPath = useMemo(
+    () => workspaceMode === 'analysis' && analysisTab === 'review' ? reviewLineNodes.map(node => node.fen) : [],
+    [analysisTab, reviewLineNodes, workspaceMode],
+  )
+  const reviewOpening = useOpening(reviewLineFenPath, reviewLineFenPath.length > 1)
   const reviewLineUciMoves = useMemo(
     () => reviewLineNodes.slice(1).map(node => node.uci).filter(Boolean),
     [reviewLineNodes],
@@ -3227,15 +3232,15 @@ function App() {
     const url = URL.createObjectURL(new Blob([pgn], { type: 'application/x-chess-pgn;charset=utf-8' }))
     const link = document.createElement('a')
     link.href = url
-    // Named for the game, like Download PGN, and marked as its review: dated by
-    // the game when the PGN says, otherwise by when the review finished.
-    link.download = pgnDownloadFilename(pgnHeaders, gameOpening?.name, new Date(currentReviewReport.finishedAt))
+    // Use this reviewed branch's opening and the game's date when known,
+    // otherwise the day the review finished.
+    link.download = pgnDownloadFilename(pgnHeaders, reviewOpening?.name, new Date(currentReviewReport.finishedAt))
       .replace(/\.pgn$/, '-review.pgn')
     document.body.append(link)
     link.click()
     link.remove()
     window.setTimeout(() => URL.revokeObjectURL(url), 0)
-  }, [currentReviewReport, gameOpening?.name, pgnHeaders, reviewLineNodes, reviewRows, reviewsAVariation])
+  }, [currentReviewReport, reviewOpening?.name, pgnHeaders, reviewLineNodes, reviewRows, reviewsAVariation])
   const visibleReviewRows = useMemo(
     () => filterReviewRowsBySide(reviewRows, reviewSideFilter),
     [reviewRows, reviewSideFilter],
@@ -8867,6 +8872,7 @@ function App() {
                     )}
                     {analysisExperience === 'pro' && (
                       <SavedReviews line={reviewLineNodes} report={currentReviewReport}
+                        openingName={reviewOpening?.name}
                         headers={{ ...pgnHeaders, Result: reviewsAVariation ? '*' : pgnHeaders.Result ?? '*' }}
                         qualities={reviewRows.map(row => row.quality)} busy={isBatchReviewing} onOpen={openSavedReview} onNavigate={navigateReviewNode} />
                     )}

@@ -14,6 +14,7 @@ type Props = {
   line: GameNode[]
   report: ReviewSnapshot | null
   headers: Record<string, string>
+  openingName?: string
   qualities: Array<GameNode['quality']>
   busy: boolean
   onOpen: (saved: SavedReview) => void
@@ -25,7 +26,7 @@ function failure(error: unknown, action: string): string {
   return `The browser could not ${action}. Export the current review before closing this tab.`
 }
 
-export function SavedReviews({ line, report, headers, qualities, busy, onOpen, onNavigate }: Props) {
+export function SavedReviews({ line, report, headers, openingName, qualities, busy, onOpen, onNavigate }: Props) {
   const [runs, setRuns] = useState<SavedReviewSummary[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [loaded, setLoaded] = useState(false)
@@ -85,7 +86,7 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
     if (!beginWork()) return
     setNotice('Saving review…')
     try {
-      const saved = createSavedReview(line, report, headers, qualities)
+      const saved = createSavedReview(line, report, headers, qualities, undefined, openingName)
       await saveReview(saved)
       setLastSavedReport(report)
       setNotice('Review saved on this device. Export a review backup to keep a complete separate copy.')
