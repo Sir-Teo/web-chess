@@ -165,7 +165,9 @@ describe('a game exported and read back', () => {
    * is broken at its spaces -- with `[%clk ...]` kept whole so a reader
    * scanning line by line still finds it. A newline inside a comment is
    * whitespace to every reader, including this app's importer, and that is the
-   * claim being tested.
+   * claim being tested. Generating and replaying the seeded branches can take
+   * over five seconds alongside other chess tests (seed 8 measured 5.36s in
+   * the full run, 2.27s alone). This checks correctness, not a timing budget.
    */
   for (let seed = 1; seed <= 12; seed += 1) {
     it(`survives the wrap, with notes longer than a line — seed ${seed}`, () => {
@@ -175,7 +177,7 @@ describe('a game exported and read back', () => {
       expect(pgn.split('\n').every(line => line.length <= 255),
         'a line went past what the standard allows').toBe(true)
       expect(shapeOfEntries(parsePgnMoveTree(pgn).moves)).toEqual(expected)
-    })
+    }, 15_000)
   }
 
   /** Variations inside variations, which a study has and a fixture rarely does. */
