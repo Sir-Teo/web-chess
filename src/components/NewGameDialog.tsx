@@ -71,6 +71,8 @@ export function NewGameDialog({
     const [timeControlId, setTimeControlId] = useState<string>(initialTimeControlId)
     const panelRef = useRef<HTMLDivElement>(null)
     const titleId = useId()
+    const modeLabelId = useId()
+    const sideLabelId = useId()
     const difficultyLabelId = useId()
     const timeControlLabelId = useId()
 
@@ -113,8 +115,8 @@ export function NewGameDialog({
                 <div className="dialog-body">
                     {/* Mode selector */}
                     <div className="dialog-section">
-                        <p className="dialog-label">Game mode</p>
-                        <div className="mode-grid">
+                        <p className="dialog-label" id={modeLabelId}>Game mode</p>
+                        <div className="mode-grid" role="group" aria-labelledby={modeLabelId}>
                             {MODE_OPTIONS.map((opt) => (
                                 <button
                                     key={opt.value}
@@ -156,8 +158,8 @@ export function NewGameDialog({
                     {/* Color picker */}
                     {showColorPicker && (
                         <div className="dialog-section">
-                            <p className="dialog-label">Play as</p>
-                            <div className="color-picker">
+                            <p className="dialog-label" id={sideLabelId}>Play as</p>
+                            <div className="color-picker" role="group" aria-labelledby={sideLabelId}>
                                 {SIDE_CHOICES.map(({ id, label }) => (
                                     <button
                                         key={id}
