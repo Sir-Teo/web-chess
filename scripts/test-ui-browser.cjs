@@ -339,6 +339,12 @@ const SCENARIO = ${JSON.stringify(scenario)};
         return;
       }
       if (text.startsWith('go')) {
+        if (SCENARIO === 'console-search' && window.__holdConsolePerft
+          && ['go perft 8', 'go depth 12 perft 8'].includes(text)) {
+          this.perftHeld = true;
+          this.send('a2a3: 446326047');
+          return;
+        }
         if (SCENARIO === 'console-search' && ['go perft 3', 'go depth 12 perft 3', 'go perft 3 depth 12', 'go\tmovetime\t5000\tperft\t3'].includes(text)) {
           this.send('e2e4: 600');
           setTimeout(() => this.send('Nodes searched: 8902'), 15);
@@ -364,6 +370,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
         return;
       }
       if (text === 'stop') {
+        if (this.perftHeld) return;
         if (SCENARIO === 'console-search' && this.searching && this.fen.includes('rnb1kbnr')) this.emitInfo();
         if (SCENARIO === 'console-search' && window.__holdConsoleStopAck) {
           window.__releaseConsoleStop = () => { window.__holdConsoleStopAck = false; this.finishSearch(); };
@@ -7753,6 +7760,67 @@ async function checkConsoleVisibility(browser) {
   }
 }
 
+async function checkPerftStopReleasesWorker(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(() => {
+        window.__holdConsolePerft = true
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+          continuousAnalysis: false, engineProfile: 'lite-single-local', expertModeEnabled: true, hashMb: 64,
+        }))
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const ready = () => page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await ready()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      const output = page.getByLabel('UCI console output', { exact: true })
+      const submit = async text => { await command.fill(text); await command.press('Enter') }
+      const originalBoard = await page.locator('#chessboard-square-e2').getAttribute('aria-label')
+      for (const [text, typed] of [['go perft 8', false], ['go depth 12 perft 8', true]]) {
+        const terminated = await page.evaluate(() => window.__terminatedEngines)
+        await submit(text)
+        await output.filter({ hasText: 'a2a3: 446326047' }).waitFor()
+        await page.evaluate(() => { window.__oldPerftEngine = window.__consoleEngine })
+        await command.fill(typed ? 'stop' : 'isready')
+        if (typed) await command.press('Enter')
+        else await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
+        await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'unloaded')
+        await output.filter({ hasText: '[app] Perft canceled; engine released.' }).waitFor()
+        await page.waitForFunction(count => window.__terminatedEngines === count + 1, terminated)
+        const textAfter = await output.textContent()
+        assert(textAfter.startsWith(`> ${text}\n`) && !textAfter.includes('bestmove') && !textAfter.includes('Nodes searched:'), 'canceling perft invented a completed result or replaced its output')
+        assert(await command.inputValue() === (typed ? '' : 'isready'), 'perft cancellation erased a newer draft or retained typed Stop')
+        assert(await page.getByRole('alert').count() === 0, 'user-requested diagnostic cancellation was shown as an error')
+        assert(await page.locator('#chessboard-square-e2').getAttribute('aria-label') === originalBoard, 'canceling console perft changed the board')
+        await page.getByRole('button', { name: 'Load engine', exact: true }).click()
+        await ready()
+        assert(await page.getByRole('spinbutton', { name: 'Hash', exact: true }).inputValue() === '64', 'reloading after perft cancellation lost managed Hash')
+        await submit('isready')
+        await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+        const fresh = await output.textContent()
+        await page.evaluate(() => window.__oldPerftEngine.send('info string stale-perft-worker'))
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        assert(await output.textContent() === fresh && fresh.includes('readyok'), 'an old diagnostic worker changed the reloaded console')
+      }
+      await submit('position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      const terminated = await page.evaluate(() => window.__terminatedEngines)
+      await submit('go perft 0 depth 1')
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
+      await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
+      await ready()
+      assert(await page.evaluate(() => window.__terminatedEngines) === terminated, 'ordinary zero-perft search released its worker')
+      assert((await output.textContent()).includes('bestmove'), 'ordinary Stop lost its bestmove')
+      console.log(`  perft Stop (${width}px, ${scale}x): button/typed cancellation releases worker, retains output/draft/board/managed options, reloads cleanly and ignores late replies; zero-perft uses ordinary Stop`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkBoardAccessAtShortHeight(page, label) {
   await page.waitForFunction(() => document.querySelector('.board-surface')?.getBoundingClientRect().width >= 192)
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${label} overflows horizontally`)
@@ -12726,6 +12794,7 @@ async function main() {
       'console-deadlines': checkConsoleSearchDeadlines,
       'console-tools': checkConsoleTools,
       'console-parsing': checkConsoleLimitParsing,
+      'perft-stop': checkPerftStopReleasesWorker,
       'console-drafts': checkConsoleDraftOwnership,
       'console-history': checkConsoleHistoryAndErrors,
       'console-following': checkConsoleOutputFollowing,
@@ -13487,6 +13556,7 @@ async function main() {
     await checkConsoleSearchDeadlines(browser)
     await checkConsoleTools(browser)
     await checkConsoleLimitParsing(browser)
+    await checkPerftStopReleasesWorker(browser)
     await checkConsoleDraftOwnership(browser)
     await checkConsoleHistoryAndErrors(browser)
     await checkConsoleOutputFollowing(browser)

@@ -12,7 +12,7 @@ import { createStockfishWorker } from '../engine/stockfishWorker'
 import { engineStartupTimeoutMs } from '../engine/engineStartup'
 import { buildAnalyzeCommand, buildNewGameCommands, changedSetOptions, engineOptionValueToString, normalizeUciMoves, optionKey, parseBestMoveLine, parseSetOptionCommand, type AnalyzeMode, type AnalyzePurpose, type AnalyzeRequest, type UciGoLimits } from '../engine/uci'
 import { engineBootFailureMessage } from '../engine/engineBootError'
-import { ENGINE_CONSOLE_LINE_LIMIT, isUnboundedEngineLabSearch } from '../engine/labCommands'
+import { ENGINE_CONSOLE_LINE_LIMIT, isEngineLabPerftDiagnostic, isUnboundedEngineLabSearch } from '../engine/labCommands'
 import { withBoundedMapEntry } from './cacheLimit'
 import { evaluationEngine, type EvaluationEngine } from '../engine/evaluationSource'
 
@@ -551,6 +551,27 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     if (!item.discard) item.resolve(item.lines)
   }, [])
 
+  const cancelPerftDiagnostic = useCallback(() => {
+    const item = rawWorkRef.current
+    if (!item || !isEngineLabPerftDiagnostic(item.command)) return false
+    // Native perft does not poll Stop, so release its worker instead of waiting
+    // indefinitely for an acknowledgement. Loading again starts a fresh session.
+    releasedRef.current = true
+    visibilityResumeRequestRef.current = null
+    currentAnalysisRequestRef.current = null
+    pendingAnalyzeRef.current = null
+    wakeAnalyzeRef.current = null
+    setReleased(true)
+    setStatus('unloaded')
+    const message = '[app] Perft canceled; engine released. Load engine to continue. Console position and session-only options reset on reload.'
+    item.lines.push(message)
+    if (item.lines.length > ENGINE_CONSOLE_LINE_LIMIT) item.lines.splice(0, item.lines.length - ENGINE_CONSOLE_LINE_LIMIT)
+    item.stream?.(message)
+    finishQueuedCommand(item)
+    rawWorkRef.current = null
+    return true
+  }, [finishQueuedCommand])
+
   // A hidden console command keeps its queue entry and stream callback. Stop,
   // a board search or a new game cancels that reservation before doing new work.
   const cancelConsoleSuspension = useCallback(() => {
@@ -674,7 +695,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       if (!trimmed) return Promise.resolve([])
       if (releasedRef.current) return Promise.reject(new Error('Load the engine before sending console commands. Its console position and session options reset when reloaded.'))
       if (!workerRef.current) return Promise.reject(new Error('Engine worker is not available.'))
-      if (trimmed === 'stop' && cancelConsoleSuspension()) return Promise.resolve([])
+      if (trimmed === 'stop' && (cancelConsoleSuspension() || cancelPerftDiagnostic())) return Promise.resolve([])
       if (trimmed !== 'stop') {
         if (!isReadyRef.current) return Promise.reject(new Error('Wait for the engine to finish starting before sending commands.'))
         if (isSearchingRef.current || commandQueueRef.current.length) {
@@ -763,7 +784,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         if (readySentinel) send('isready')
       })
     },
-    [cancelConsoleSuspension, send, sendRaw],
+    [cancelConsoleSuspension, cancelPerftDiagnostic, send, sendRaw],
   )
 
   const setOption = useCallback(
@@ -919,6 +940,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     visibilityResumeRequestRef.current = null
     pendingAnalyzeRef.current = null
     wakeAnalyzeRef.current = null
+    if (cancelPerftDiagnostic()) return
     if (!enabled) {
       setStatus('disabled')
       return
@@ -938,7 +960,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       if (value === 'error') return value
       return isReadyRef.current ? 'ready' : value
     })
-  }, [cancelConsoleSuspension, enabled, send])
+  }, [cancelConsoleSuspension, cancelPerftDiagnostic, enabled, send])
 
   const newGame = useCallback(() => {
     cancelConsoleSuspension()

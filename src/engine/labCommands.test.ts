@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage, isHeavyEngineLabCommand, isUnboundedEngineLabSearch } from './labCommands'
+import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage, isEngineLabPerftDiagnostic, isHeavyEngineLabCommand, isUnboundedEngineLabSearch } from './labCommands'
 
 describe('Engine Lab command safety', () => {
+  it('distinguishes uncancellable perft from ordinary zero-perft searches for Stop', () => {
+    for (const command of ['go perft 8', 'go depth 12 perft 3', 'go perft 0 perft 3', 'go perft 3 searchmoves e2e4']) {
+      expect(isEngineLabPerftDiagnostic(command), command).toBe(true)
+    }
+    for (const command of ['go perft 0', 'go perft 3 perft 0 depth 1', 'go depth 1 searchmoves e2e4 perft 3', 'go perft nope', 'perft 3']) {
+      expect(isEngineLabPerftDiagnostic(command), command).toBe(false)
+    }
+  })
+
   it.each(['go DEPTH 1', 'GO depth 1', 'go MoveTime 20', 'go SEARCHMOVES e2e4 depth 1'])(
     'explains case-sensitive native keywords in %s', command => {
       expect(engineLabCommandBlockMessage(command)).toContain('lowercase UCI keywords')

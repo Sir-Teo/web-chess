@@ -75,6 +75,36 @@ async function checkNativeConsoleLimits(page) {
   await expert.uncheck()
 }
 
+async function checkNativePerftCancellation(page) {
+  const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+  const output = page.getByLabel('UCI console output', { exact: true })
+  const expert = page.getByRole('checkbox', { name: 'Enable expert engine commands', exact: true })
+  await expert.check()
+  await command.fill('position startpos moves e2e4')
+  await command.press('Enter')
+  await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+  await command.fill('go perft 8')
+  await command.press('Enter')
+  await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
+  await command.fill('isready')
+  await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
+  await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'unloaded', null, { timeout: 5000 })
+  await output.filter({ hasText: '[app] Perft canceled; engine released.' }).waitFor()
+  assert.equal(await command.inputValue(), 'isready')
+  assert.doesNotMatch(await output.textContent(), /Nodes searched:|bestmove /)
+  await page.getByRole('button', { name: 'Load engine', exact: true }).click()
+  await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+  await command.press('Enter')
+  await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+  assert.match(await output.textContent(), /readyok/)
+  // A fresh worker resets the prior e2-e4 console position to the start.
+  await command.fill('go perft 3')
+  await command.press('Enter')
+  await output.filter({ hasText: 'Nodes searched: 8902' }).waitFor()
+  await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+  await expert.uncheck()
+}
+
 async function main() {
   assert(widths.length > 0 && widths.every(width => Number.isInteger(width) && width >= 320), 'SMOKE_WIDTHS must contain viewport widths of at least 320px')
   fs.mkdirSync(output, { recursive: true })
@@ -176,6 +206,8 @@ async function main() {
 
           stage = 'native console limit parsing'
           await checkNativeConsoleLimits(page)
+          stage = 'native perft cancellation'
+          await checkNativePerftCancellation(page)
 
           stage = 'game review and export'
           await page.getByRole('button', { name: 'Review', exact: true }).click()
@@ -315,7 +347,7 @@ async function main() {
           assert.equal(await depthTenSearches(), rerunBefore, 'reopening lost reusable real-engine readings')
           assert.deepEqual(errors, [])
           results.push({ browser: name, width, status: 'passed', source, positionScore: before,
-            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'shared console options', 'native console limits and next command drafts: rejected syntax, duplicate limits, zero-perft depth-1, pause/resume, preserved and submitted drafts', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus', 'repetition review: eight depth-10 searches, save, reopen, backup and reuse'] })
+            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'shared console options', 'native console limits and next command drafts: rejected syntax, duplicate limits, zero-perft depth-1, pause/resume, preserved and submitted drafts', 'perft 8 cancellation releases worker, preserves draft and reloads a reset console position', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus', 'repetition review: eight depth-10 searches, save, reopen, backup and reuse'] })
         } catch (error) {
           const diagnostics = await page.evaluate(() => ({
             commands: window.__smokeCommands?.slice(-80),

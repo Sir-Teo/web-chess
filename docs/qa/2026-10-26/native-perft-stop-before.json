@@ -1,0 +1,30 @@
+[
+  {
+    "go": "go infinite",
+    "stopAfterMs": 100,
+    "observedMs": 501,
+    "bestmove": "bestmove e2e4 ponder e7e5",
+    "nodeCount": null,
+    "readyAfterStop": true,
+    "tail": [
+      "info depth 14 seldepth 20 multipv 1 score cp 40 nodes 47416 nps 373354 hashfull 16 time 127 pv e2e4 e7e5 g1f3 d7d5 e4d5 e5e4 f3e5 d8d5 d2d4 e4d3 e5d3 b8c6",
+      "readyok",
+      "info depth 15 seldepth 20 multipv 1 score cp 40 nodes 54774 nps 396913 hashfull 19 time 138 pv e2e4 e7e5 g1f3 d7d5 e4d5 e5e4 f3e5 d8d5 d2d4 e4d3 e5d3 b8c6",
+      "bestmove e2e4 ponder e7e5"
+    ]
+  },
+  {
+    "go": "go perft 6",
+    "stopAfterMs": 100,
+    "observedMs": 500,
+    "bestmove": null,
+    "nodeCount": null,
+    "readyAfterStop": false,
+    "tail": [
+      "g2g3: 5346260",
+      "h2h3: 4463070",
+      "a2a4: 5363555",
+      "b2b4: 5293555"
+    ]
+  }
+]

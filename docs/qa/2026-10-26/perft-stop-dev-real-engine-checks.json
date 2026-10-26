@@ -1,0 +1,90 @@
+[
+  {
+    "browser": "chromium",
+    "width": 1280,
+    "passed": true,
+    "checks": [
+      "real perft 8 cancellation and reload",
+      "new draft preserved and submitted",
+      "fresh worker perft 3 returns 8902"
+    ],
+    "commands": [
+      "uci",
+      "isready",
+      "setoption name Threads value 3",
+      "position startpos moves e2e4",
+      "go perft 8",
+      "quit",
+      "uci",
+      "isready",
+      "setoption name Threads value 3",
+      "isready",
+      "go perft 3"
+    ]
+  },
+  {
+    "browser": "chromium",
+    "width": 375,
+    "passed": true,
+    "checks": [
+      "real perft 8 cancellation and reload",
+      "new draft preserved and submitted",
+      "fresh worker perft 3 returns 8902"
+    ],
+    "commands": [
+      "uci",
+      "isready",
+      "position startpos moves e2e4",
+      "go perft 8",
+      "quit",
+      "uci",
+      "isready",
+      "isready",
+      "go perft 3"
+    ]
+  },
+  {
+    "browser": "firefox",
+    "width": 1280,
+    "passed": true,
+    "checks": [
+      "real perft 8 cancellation and reload",
+      "new draft preserved and submitted",
+      "fresh worker perft 3 returns 8902"
+    ],
+    "commands": [
+      "uci",
+      "isready",
+      "setoption name Threads value 3",
+      "position startpos moves e2e4",
+      "go perft 8",
+      "quit",
+      "uci",
+      "isready",
+      "setoption name Threads value 3",
+      "isready",
+      "go perft 3"
+    ]
+  },
+  {
+    "browser": "firefox",
+    "width": 375,
+    "passed": true,
+    "checks": [
+      "real perft 8 cancellation and reload",
+      "new draft preserved and submitted",
+      "fresh worker perft 3 returns 8902"
+    ],
+    "commands": [
+      "uci",
+      "isready",
+      "position startpos moves e2e4",
+      "go perft 8",
+      "quit",
+      "uci",
+      "isready",
+      "isready",
+      "go perft 3"
+    ]
+  }
+]

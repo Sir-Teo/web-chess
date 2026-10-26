@@ -132,6 +132,14 @@ export function isUnboundedEngineLabSearch(command: string): boolean {
   return !(parsed.limits.get('perft') ?? 0n) && hasUnboundedSearch(parsed)
 }
 
+/** Native nonzero perft runs synchronously and cannot acknowledge Stop. */
+export function isEngineLabPerftDiagnostic(command: string): boolean {
+  const parts = commandParts(command)
+  if (parts[0] !== 'go') return false
+  const parsed = parseGoParameters(parts)
+  return !parsed.issue && (parsed.limits.get('perft') ?? 0n) !== 0n
+}
+
 export function engineLabCommandBlockMessage(command: string): string | null {
   const parts = commandParts(command)
   const verb = parts[0]?.toLowerCase()

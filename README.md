@@ -141,6 +141,9 @@ given, and the app answering the reader who touches it.
   again. A new command or Clear starts following again.
   In the command field, Up/Down recall history; Down past the newest command
   restores your unsent draft so you can keep typing.
+  Stopping a perft diagnostic releases its worker because native perft cannot
+  process Stop while counting. **Load engine** starts a fresh console session;
+  the board, displayed analysis, and saved controls remain available.
 - **An evaluation bar that never goes blank**: The bar beside the board draws
   the engine's win/draw/loss split when it has one, and White's winning chances
   from the score when it does not — a Lichess cloud evaluation, an `[%eval]`
