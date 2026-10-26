@@ -236,7 +236,9 @@ input[type="checkbox"] {
   a,
   [role="button"],
   [role="slider"],
-  [role="separator"]):focus-visible {
+  [role="separator"],
+  .tablebase-card > [role="status"],
+  .cloud-eval-card > [role="status"]):focus-visible {
   outline: 2px solid var(--info);
   outline-offset: 2px;
 }
@@ -2450,6 +2452,12 @@ button.board-meta-opening {
   color: var(--accent-ink);
   font-family: var(--font-mono);
   margin-right: 0.2rem;
+}
+
+.panel button.remote-retry {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
 }
 
 .tablebase-card {

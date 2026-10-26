@@ -21,6 +21,7 @@ const { spawn, spawnSync } = require('node:child_process')
 const fs = require('node:fs')
 const http = require('node:http')
 const path = require('node:path')
+const os = require('node:os')
 
 const PORT = Number(process.env.UI_TEST_PORT || 4319)
 // A second server that sends no COOP/COEP, the way GitHub Pages does.
@@ -5657,6 +5658,84 @@ async function checkOpeningNumbersBelongToTheirPosition(browser) {
     console.log(`  opening explorer: counts cleared on the move and came back as ${JSON.stringify(settled.position)}`)
   } finally {
     await context.close()
+  }
+}
+
+async function checkRemoteAnalysisRetry(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 2]]) {
+    for (const service of ['tablebase', 'cloud']) {
+      const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+      const page = await context.newPage()
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(service => {
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+            workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, engineProfile: 'lite-single-local',
+          }))
+          window.__retryRequests = []
+          window.__retryReplies = new Map()
+          const fetchBefore = window.fetch
+          window.fetch = (input, init) => {
+            const url = new URL(typeof input === 'string' ? input : input.url || String(input), location.href)
+            const matches = service === 'tablebase' ? url.hostname === 'tablebase.lichess.org' : url.pathname === '/api/cloud-eval'
+            if (!matches) return fetchBefore(input, init)
+            const n = window.__retryRequests.push(url.href)
+            if (n === 1) return Promise.resolve(new Response('Temporary failure', { status: 503 }))
+            // Deliberately ignore AbortSignal to exercise stale reply ownership.
+            return new Promise(resolve => window.__retryReplies.set(n, status => {
+              const fen = url.searchParams.get('fen')
+              const body = service === 'tablebase'
+                ? { category: 'win', dtz: n, moves: [{ uci: 'e1d2', san: 'Kd2', category: 'loss', dtz: -n }] }
+                : { fen, depth: 40 + n, knodes: 1000, pvs: [{ cp: n, moves: 'e7e5 g1f3' }] }
+              resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }))
+            }))
+          }
+        }, service)
+        const fen = service === 'tablebase' ? '8/8/8/4k3/8/8/4P3/4K3 w - - 0 1' : null
+        await page.goto(`${BASE}${fen ? `#fen=${encodeURIComponent(fen)}` : ''}`, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        const card = page.locator(service === 'tablebase' ? '.tablebase-card' : '.cloud-eval-card')
+        const retry = page.getByRole('button', { name: service === 'tablebase' ? 'Retry tablebase' : 'Retry cloud eval', exact: true })
+        await retry.waitFor()
+        await retry.scrollIntoViewIfNeeded()
+        assert(await retry.evaluate(el => el.getBoundingClientRect().height >= 43.75), 'network retry has a small touch target')
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'network retry overflows enlarged text')
+        const boardBefore = await page.locator('[id^="chessboard-square-"]').evaluateAll(nodes => nodes.map(el => el.getAttribute('aria-label')))
+        await retry.evaluate(el => { el.click(); el.click() })
+        await page.waitForFunction(() => window.__retryReplies.has(2))
+        assert(await retry.count() === 0 && await card.locator('.error-copy').count() === 0, 'retry kept the old error or another active Retry')
+        assert(await card.getByRole('status').evaluate(el => el === document.activeElement), 'retry lost keyboard focus')
+        assert(await page.evaluate(() => window.__retryRequests.length) === 2, 'double activation launched duplicate network requests')
+        await page.evaluate(() => window.__retryReplies.get(2)(503))
+        await retry.waitFor()
+        assert(await card.getByRole('status').evaluate(el => el === document.activeElement), 'repeated failure lost keyboard focus')
+        assert(JSON.stringify(boardBefore) === JSON.stringify(await page.locator('[id^="chessboard-square-"]').evaluateAll(nodes => nodes.map(el => el.getAttribute('aria-label')))), 'retry changed the position')
+        await retry.click()
+        await page.waitForFunction(() => window.__retryReplies.has(3))
+        // Change the position while the retry is pending, then complete the old request.
+        await page.locator('#chessboard-square-e2').click()
+        await page.locator(service === 'tablebase' ? '#chessboard-square-e3' : '#chessboard-square-e4').click()
+        await page.evaluate(() => window.__retryReplies.get(3)(200))
+        await page.waitForFunction(() => window.__retryReplies.has(4))
+        assert(await card.locator('.tablebase-move-row, .cloud-line-row').count() === 0, 'stale retried result entered the new position')
+        await page.evaluate(() => window.__retryReplies.get(4)(503))
+        await retry.waitFor()
+        await retry.click()
+        await page.waitForFunction(() => window.__retryReplies.has(5))
+        await page.evaluate(() => window.__retryReplies.get(5)(200))
+        await card.locator(service === 'tablebase' ? '.tablebase-move-row' : '.cloud-line-row').first().waitFor()
+        assert(await retry.count() === 0 && await card.locator('.error-copy').count() === 0, 'successful retry left failure UI')
+        assert(await card.getByRole('status').evaluate(el => el === document.activeElement), 'successful retry lost keyboard focus')
+        assert(await card.getByRole('status').evaluate(el => {
+          const r = el.getBoundingClientRect()
+          return r.top >= 0 && r.bottom <= innerHeight && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+        }), 'successful retry left its focused status covered or off screen')
+        assert((await card.getByRole('status').textContent()).includes(service === 'tablebase' ? 'DTZ 5' : 'D45'), 'successful retry displayed an older result')
+        assert(await page.locator(`${service === 'tablebase' ? '#chessboard-square-e3' : '#chessboard-square-e4'} [data-piece="wP"]`).count() === 1, 'successful retry changed the newer position')
+        if (width === 375) await page.screenshot({ path: path.join(os.tmpdir(), `web-chess-${service}-retry-200.png`) })
+        console.log(`  ${service} retry (${width}px, ${scale}x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery`)
+      } finally { await context.close() }
+    }
   }
 }
 
@@ -13131,6 +13210,7 @@ async function main() {
       'typed-moves': checkTypedMoveEntry,
       'autoplay': checkAutoplayWalksTheLine,
       'autoplay-speed': checkReplaySpeedAfterStep,
+      'remote-retry': checkRemoteAnalysisRetry,
       'takeback-result': checkTakingBackAMateUnfinishesTheGame,
       'result-ownership': checkAResultBelongsToItsOwnGame,
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
@@ -13931,6 +14011,7 @@ async function main() {
     await checkOpeningLayout(browser)
     await checkOpeningNumbersBelongToTheirPosition(browser)
     await checkTheTablebaseAnswersForThisPosition(browser)
+    await checkRemoteAnalysisRetry(browser)
     await checkBoardCanvas(browser)
     await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)

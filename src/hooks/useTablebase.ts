@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   fetchTablebase,
   getCachedTablebase,
@@ -27,6 +27,7 @@ export function useTablebase({ fen, enabled, debounceMs = 280 }: UseTablebaseArg
   const cachedMissing = eligible ? hasCachedTablebaseMiss(fenKey) : false
   const [resultByFen, setResultByFen] = useState<Record<string, TablebaseResult>>({})
   const [missingByFen, setMissingByFen] = useState<Record<string, true>>({})
+  const [retryAttempt, setRetryAttempt] = useState(0)
   const [requestState, setRequestState] = useState<{
     error: string | null
     fenKey: string
@@ -47,6 +48,11 @@ export function useTablebase({ fen, enabled, debounceMs = 280 }: UseTablebaseArg
           ? requestState.status
           : 'idle'
   const error = status === 'error' && requestState.fenKey === fenKey ? requestState.error : null
+  const retry = useCallback(() => {
+    if (!eligible || status !== 'error') return
+    setRequestState({ error: null, fenKey, status: 'loading' })
+    setRetryAttempt(attempt => attempt + 1)
+  }, [eligible, fenKey, status])
 
   useEffect(() => {
     if (!eligible || cached || missing) return
@@ -82,13 +88,14 @@ export function useTablebase({ fen, enabled, debounceMs = 280 }: UseTablebaseArg
       window.clearTimeout(timer)
       controller.abort()
     }
-  }, [cached, debounceMs, eligible, fenKey, missing])
+  }, [cached, debounceMs, eligible, fenKey, missing, retryAttempt])
 
   return {
     eligible,
     error,
     pieceCount,
     result,
+    retry,
     status,
   }
 }

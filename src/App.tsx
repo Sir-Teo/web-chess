@@ -1680,6 +1680,8 @@ function App() {
    * engines and the shared one is free for the panel.
    */
   const reviewPoolRunRef = useRef<ReviewPoolRun | null>(null)
+  const tablebaseStatusRef = useRef<HTMLParagraphElement>(null)
+  const cloudEvalStatusRef = useRef<HTMLParagraphElement>(null)
   const tablebase = useTablebase({
     fen,
     enabled: workspaceMode === 'analysis',
@@ -1688,6 +1690,7 @@ function App() {
     error: cloudEvalError,
     multiPv: cloudEvalMultiPv,
     result: currentCloudEval,
+    retry: retryCloudEvaluation,
     status: cloudEvalStatus,
   } = useCloudEvaluation({
     fen,
@@ -1700,6 +1703,16 @@ function App() {
       tablebaseStatus: tablebase.status,
     }),
   })
+  useLayoutEffect(() => {
+    // Retry hands focus to a persistent status. Its text changes height as the
+    // request settles; keep it exposed only while the reader is still on it.
+    for (const ref of [tablebaseStatusRef, cloudEvalStatusRef]) {
+      const target = ref.current
+      if (target && document.activeElement === target) {
+        target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+      }
+    }
+  }, [cloudEvalStatus, currentCloudEval, tablebase.result, tablebase.status])
 
   const finishBatchReview = useCallback(() => {
     flushReviewResults()
@@ -8604,8 +8617,9 @@ function App() {
                   {tablebase.eligible && (
                     <div className="tablebase-card">
                       <h3><span className="section-icon"><IconKing /></span> Endgame Tablebase</h3>
-                      <p className={`panel-copy small command-summary ${tablebase.error ? 'error-copy' : ''}`}>
-                        {tablebase.status === 'loading'
+                      <p ref={tablebaseStatusRef} tabIndex={-1} role="status"
+                        className={`panel-copy small command-summary ${tablebase.error ? 'error-copy' : ''}`}>
+                        {tablebase.status === 'loading' || tablebase.status === 'idle'
                           ? `${tablebase.pieceCount} pieces · checking exact result...`
                           : tablebase.result
                             ? `${tablebase.pieceCount} pieces · ${tablebaseSummary(tablebase.result)}`
@@ -8613,6 +8627,12 @@ function App() {
                               ? `Tablebase: ${tablebase.error}`
                               : `${tablebase.pieceCount} pieces · no tablebase result`}
                       </p>
+                      {tablebase.status === 'error' && (
+                        <button type="button" className="remote-retry" onClick={() => {
+                          tablebaseStatusRef.current?.focus()
+                          tablebase.retry()
+                        }}>Retry tablebase</button>
+                      )}
                       {/* Each of these is a move ranked by its result: in a drilled
                           endgame, the answer at the top of a list. */}
                       {tablebase.result?.moves.length && !drillAwaitingAnswer ? (
@@ -8664,7 +8684,8 @@ function App() {
                   {analysisExperience === 'pro' && (currentCloudEval || cloudEvalStatus === 'loading' || cloudEvalStatus === 'missing' || cloudEvalStatus === 'error') && (
                     <div className="cloud-eval-card">
                       <h3><span className="section-icon"><IconZap /></span> Cloud Eval</h3>
-                      <p className={`panel-copy small command-summary ${cloudEvalStatus === 'error' ? 'error-copy' : ''}`}>
+                      <p ref={cloudEvalStatusRef} tabIndex={-1} role="status"
+                        className={`panel-copy small command-summary ${cloudEvalStatus === 'error' ? 'error-copy' : ''}`}>
                         {currentCloudEval
                           ? `Lichess cache · D${currentCloudEval.depth} · ${formatCloudNodes(currentCloudEval.knodes)}`
                           : cloudEvalStatus === 'loading'
@@ -8673,6 +8694,12 @@ function App() {
                               ? 'No cloud eval for this position.'
                               : `Cloud eval: ${cloudEvalError ?? 'unavailable'}`}
                       </p>
+                      {cloudEvalStatus === 'error' && (
+                        <button type="button" className="remote-retry" onClick={() => {
+                          cloudEvalStatusRef.current?.focus()
+                          retryCloudEvaluation()
+                        }}>Retry cloud eval</button>
+                      )}
                       {currentCloudEval && !drillAwaitingAnswer && (
                         <div className="cloud-line-list">
                           {currentCloudEval.pvs.slice(0, cloudEvalMultiPv).map((line, index) => {

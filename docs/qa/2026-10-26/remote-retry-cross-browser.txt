@@ -1,0 +1,8 @@
+  tablebase retry (1280px, 1x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  cloud retry (1280px, 1x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  tablebase retry (375px, 2x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  cloud retry (375px, 2x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  tablebase retry (1280px, 1x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  cloud retry (1280px, 1x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  tablebase retry (375px, 2x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  cloud retry (375px, 2x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery

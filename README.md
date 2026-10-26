@@ -310,7 +310,7 @@ given, and the app answering the reader who touches it.
   only: both gestures live on the right button and there is no touch equivalent
   yet, which Settings says on a touch device rather than describing a gesture
   the screen cannot perform.
-- **Opening and endgame intelligence**: Offline ECO names work immediately; optional session-only Lichess tokens unlock Masters/Lichess opening stats, while eligible endgames use Lichess tablebase data.
+- **Opening and endgame intelligence**: Offline ECO names work immediately; optional session-only Lichess tokens unlock Masters/Lichess opening stats, while eligible endgames use Lichess tablebase data. Failed tablebase and cloud-evaluation requests offer Retry, preserving the current position and keyboard focus.
 
 ### Throughout
 
