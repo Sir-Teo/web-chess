@@ -235,3 +235,11 @@ describe('mate goals without a stopping limit', () => {
     expect(isHeavyEngineLabCommand('go depth 2 searchmoves e2e4 mate 1')).toBe(false)
   })
 })
+
+describe('native command string boundaries', () => {
+  it('rejects null characters before native code can truncate the command', () => {
+    for (const command of ['go\u0000 depth 1', 'go depth 1\u0000 depth 0', 'setoption name Hash value 16\u0000', 'position startpos\u0000go infinite', 'isready\u0000go depth 1', '\u0000go depth 1']) {
+      expect(engineLabCommandBlockMessage(command), JSON.stringify(command)).toContain('null character')
+    }
+  })
+})

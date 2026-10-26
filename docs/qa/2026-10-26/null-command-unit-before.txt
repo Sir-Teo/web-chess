@@ -1,0 +1,26 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/labCommands.test.ts (47 tests | 1 failed) 14ms
+     × rejects null characters before native code can truncate the command 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/labCommands.test.ts > native command string boundaries > rejects null characters before native code can truncate the command
+AssertionError: "go\u0000 depth 1": the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ src/engine/labCommands.test.ts:242:78
+    240|   it('rejects null characters before native code can truncate the comm…
+    241|     for (const command of ['go\u0000 depth 1', 'go depth 1\u0000 depth…
+    242|       expect(engineLabCommandBlockMessage(command), JSON.stringify(com…
+       |                                                                              ^
+    243|     }
+    244|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 46 passed (47)
+   Start at  23:49:54
+   Duration  247ms (transform 64ms, setup 0ms, import 80ms, tests 14ms, environment 0ms)
+

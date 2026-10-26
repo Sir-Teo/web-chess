@@ -24,6 +24,20 @@ async function checkNativeConsoleLimits(page) {
     await page.locator('.error-copy').filter({ hasText: reason }).waitFor()
     assert.equal(await page.evaluate(text => window.__smokeCommands.includes(text), text), false, `${text} reached real Stockfish`)
   }
+  const nullCommand = 'go\u0000 depth 1'
+  await command.fill(nullCommand)
+  const enteredNull = await command.inputValue()
+  await command.press('Enter')
+  if (enteredNull.includes('\u0000')) {
+    await page.locator('.error-copy').filter({ hasText: 'null character' }).waitFor()
+    assert.equal(await command.inputValue(), nullCommand)
+    assert.equal(await page.evaluate(text => window.__smokeCommands.includes(text), nullCommand), false)
+  } else {
+    assert.equal(enteredNull, 'go depth 1')
+    await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+    await ready()
+    assert.match(await page.getByLabel('UCI console output', { exact: true }).textContent(), /bestmove /)
+  }
   for (const text of ['go mate 1 depth 2', 'go mate 1 movetime 20']) {
     await submit(text)
     await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')

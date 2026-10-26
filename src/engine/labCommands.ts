@@ -166,6 +166,9 @@ export function engineLabSpinOptionValue(value: string | undefined, bounds: { mi
 }
 
 export function engineLabCommandBlockMessage(command: string): string | null {
+  // Native C strings end at NUL; validating the suffix would describe a
+  // different command from the one Stockfish actually receives.
+  if (command.includes('\u0000')) return 'Command contains a null character. Retype it so Stockfish receives the complete command.'
   const parts = commandParts(command)
   const verb = parts[0]?.toLowerCase()
   if (verb === 'quit') return QUIT_COMMAND_MESSAGE

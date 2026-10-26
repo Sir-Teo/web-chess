@@ -11227,6 +11227,20 @@ async function checkConsoleLimitParsing(browser) {
         assert(await page.evaluate(text => !window.__uciCommands.includes(text), text), `misread console limit reached the worker: ${text}`)
         assert(await command.inputValue() === text, 'a rejected console command lost the editable draft')
       }
+      const nullCommand = 'go\u0000 depth 1'
+      await command.fill(nullCommand)
+      const enteredNull = await command.inputValue()
+      await command.press('Enter')
+      if (enteredNull.includes('\u0000')) {
+        await page.locator('.error-copy').filter({ hasText: 'null character' }).waitFor()
+        assert(await command.inputValue() === nullCommand && await page.evaluate(text => !window.__uciCommands.includes(text), nullCommand),
+          'a native-truncated command reached the worker or lost its editable draft')
+      } else {
+        assert(enteredNull === 'go depth 1', 'the browser changed more than the null character')
+        await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+        await ready()
+        assert(await page.evaluate(() => window.__uciCommands.includes('go depth 1')), 'the browser-sanitized bounded command did not complete')
+      }
       await submit('go depth 0 depth +0001')
       await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
       await ready()

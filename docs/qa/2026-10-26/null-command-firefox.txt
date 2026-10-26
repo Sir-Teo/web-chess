@@ -1,0 +1,2 @@
+  console limits (1280px, 1x): native keyword/integer rules, final duplicate limits, zero-perft/mate-only pause/resume, and finite work preserved
+  console limits (375px, 2x): native keyword/integer rules, final duplicate limits, zero-perft/mate-only pause/resume, and finite work preserved
