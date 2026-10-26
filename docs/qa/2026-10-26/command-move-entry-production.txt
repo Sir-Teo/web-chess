@@ -1,0 +1,71 @@
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 191 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-m_0vzQ90.js   60.55 kB
+dist/assets/LibraryDialog-BCEY11vH.css        4.23 kB │ gzip:   1.17 kB
+dist/assets/index-4BMsZQx2.css              131.03 kB │ gzip:  24.43 kB
+dist/assets/NewGameDialog-B5WqTr_x.js         4.25 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-DuTsr6rD.js        10.23 kB │ gzip:   3.67 kB
+dist/assets/PgnDialog-DMXQzNdg.js            29.75 kB │ gzip:   9.95 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-BxT-6TOJ.js               382.38 kB │ gzip: 123.32 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.81s
+  command move entry (1280px, 1x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  command move entry (375px, 1x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  command move entry (375px, 2x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  command move entry (320px, 2x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  move entry availability (1280px, 1x, hold-search): visible associated reason, matching editability, intact focus and no clipping; reply, Step, paused editing, watch-mode omission and pass-and-play
+  move entry availability (1280px, 1x, slow-boot): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (1280px, 1x, silent-all): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (375px, 2x, hold-search): visible associated reason, matching editability, intact focus and no clipping; reply, Step, paused editing, watch-mode omission and pass-and-play
+  move entry availability (375px, 2x, slow-boot): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (375px, 2x, silent-all): visible associated reason, matching editability, intact focus and no clipping
+  contrast (Dark / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 1280px): 156 measured, 0 under the floor (139 on a gradient, measured against its worst stop)
+  typed moves (1280px, Dark): SAN, UCI, lowercase bishop/pawn distinction, invalid input, focus and navigation OK
+  contrast (Dark / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 375px): 153 measured, 0 under the floor (135 on a gradient, measured against its worst stop)
+  typed moves (375px, Dark): SAN, UCI, lowercase bishop/pawn distinction, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 1280px): 156 measured, 0 under the floor (139 on a gradient, measured against its worst stop)
+  typed moves (1280px, Light): SAN, UCI, lowercase bishop/pawn distinction, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 375px): 153 measured, 0 under the floor (135 on a gradient, measured against its worst stop)
+  typed moves (375px, Light): SAN, UCI, lowercase bishop/pawn distinction, invalid input, focus and navigation OK
+  command reopen (1280px): query and selection reset before the first key, across three reopen cycles
+  command keyboard (1280px): Tab activates the focused button; search editing and Enter work
+  command reopen (375px): query and selection reset before the first key, across three reopen cycles
+  command keyboard (375px): Tab activates the focused button; search editing and Enter work
+  palette dialog return (1280px, 1x, button): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (1280px, 1x, typing): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (1280px, 1x, graph): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, button): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, typing): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, graph): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  dialog focus handoff (1280px, 1x): explicit opener restored; held callbacks yield to a newer preview and modal
+  dialog focus handoff (375px, 1x): explicit opener restored; held callbacks yield to a newer preview and modal
+  dialog focus handoff (375px, 2x): explicit opener restored; held callbacks yield to a newer preview and modal
+  reveal timers: dialogs retain focused drafts through delayed board/analysis callbacks; closing keeps opener focus
+  reveal interaction: held board retries cannot move Fresh review during a click; the requested review completes
+  portrait dialogs (320px, light, New Game difficulty): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (320px, light, PGN import): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (320px, light, PGN export): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (320px, light, FEN draft): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (320px, light, Library name): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (320px, light, Commands search): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, New Game difficulty): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, PGN import): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, PGN export): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, FEN draft): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, Library name): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, Commands search): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+Focused browser UI checks passed.

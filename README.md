@@ -123,7 +123,9 @@ given, and the app answering the reader who touches it.
 - **Type a move**: Open "Enter a move by name" in Play or Analysis for `Nf3`,
   `e2e4` or `O-O`; lowercase `nf3`, `0-0` and `e8q` work too. The field keeps
   focus while the opponent moves and explains loading, waiting and Step mode.
-  It is omitted while watching two engines.
+  Find it in **Commands** (`Ctrl/Cmd+K`) to open the panel and focus the field;
+  reopening an existing field keeps its draft and selection. It is omitted
+  while watching two engines.
 - **Keep searching**: The automatic analysis stops at the depth slider, which
   on a desktop is over in a second. Pro mode has a switch under the Coach/Pro
   toggle that asks for `go infinite` instead, so the depth climbs for as long

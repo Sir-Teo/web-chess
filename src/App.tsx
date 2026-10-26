@@ -889,6 +889,8 @@ function App() {
   const [analysisPanelRevealTick, setAnalysisPanelRevealTick] = useState(0)
   const handledBoardRevealRef = useRef(0)
   const handledAnalysisRevealRef = useRef(0)
+  const [moveEntryFocusTick, setMoveEntryFocusTick] = useState(0)
+  const handledMoveEntryFocusRef = useRef(0)
   const [pendingShallowAnalyzeFen, setPendingShallowAnalyzeFen] = useState<string | null>(null)
   const [pendingPonderFen, setPendingPonderFen] = useState<string | null>(null)
   // The null-move position the "What is threatened?" probe is asking about, and
@@ -5158,7 +5160,7 @@ function App() {
     // Focus belongs to the explicit request. Later layout retries only scroll.
     scrollBoardToTop(true)
     return scheduleRevealRetries(scrollBoardToTop, [160, 360, 1200])
-  }, [analysisPanelRevealTick, backgroundUiHidden, boardRevealTick, isMobileLayout, scrollWorkspaceChrome])
+  }, [analysisPanelRevealTick, backgroundUiHidden, boardRevealTick, isMobileLayout, moveEntryFocusTick, scrollWorkspaceChrome])
 
   useEffect(() => {
     if (analysisPanelRevealTick === 0 || backgroundUiHidden || handledAnalysisRevealRef.current === analysisPanelRevealTick) return
@@ -5179,7 +5181,7 @@ function App() {
 
     scrollAnalysisPanelToTop(true)
     return scheduleRevealRetries(scrollAnalysisPanelToTop, [120, 320])
-  }, [analysisPanelRevealTick, backgroundUiHidden, boardRevealTick, isMobileLayout, workspaceMode])
+  }, [analysisPanelRevealTick, backgroundUiHidden, boardRevealTick, isMobileLayout, moveEntryFocusTick, workspaceMode])
 
   const readCachedSamplePgn = useCallback((sampleId: string): string | null => {
     const cached = samplePgnCacheRef.current.get(sampleId)
@@ -5923,8 +5925,65 @@ function App() {
       ? 'No moves ahead of this position.'
       : null
 
+  // Mate and stalemate leave no move to name. Read from the FEN, not the
+  // mutable `game`, so move generation runs per position, not every render.
+  const hasLegalMove = useMemo(() => {
+    const position = new Chess(fen)
+    return !position.isCheckmate() && !position.isStalemate()
+  }, [fen])
+  const boardInputLocked = isBoardInputLocked({
+    gameOver: isGameOver,
+    workspaceMode,
+    gameMode,
+    isAiThinking,
+    paused,
+    turn: game.turn(),
+    playerColor: playerColorToTurn(playerColor),
+    endedOffBoard: Boolean(endedOffBoard),
+  })
+  const moveEntryDisabledReason = pendingPromotion ? 'Choose a promotion piece on the board.'
+    : isAiThinking ? 'Waiting for the engine’s move.'
+      : aiPlayerStatus === 'error' ? 'The opponent is unavailable. Start a new game or switch to Analysis.'
+        : aiPlayerStatus === 'loading' ? 'The opponent is loading. Move entry opens on your turn.'
+          : aiSpeed === 'step' ? 'Press Step for the engine’s move.'
+            : 'Waiting for the engine’s move.'
+
+  const moveEntryCommandReason = workspaceMode === 'play' && gameMode === 'ai-vs-ai'
+    ? 'Start a human game or switch to Analysis to enter moves.'
+    : workspaceMode === 'play' && (isGameOver || endedOffBoard)
+      ? 'The game has ended. Switch to Analysis to explore.'
+      : !hasLegalMove ? 'This position has no legal moves.'
+        : boardInputLocked || pendingPromotion ? moveEntryDisabledReason : null
+  const requestMoveEntry = useCallback(() => {
+    // This explicit destination supersedes pending board/panel reveals.
+    handledBoardRevealRef.current = boardRevealTick
+    handledAnalysisRevealRef.current = analysisPanelRevealTick
+    endTouchDrawing()
+    if (workspaceMode === 'analysis' && analysisTab === 'engine-lab') setAnalysisTab('analyze')
+    setRightWidth(width => width || preferredRightWidthRef.current)
+    setMoveEntryFocusTick(tick => tick + 1)
+  }, [analysisPanelRevealTick, analysisTab, boardRevealTick, endTouchDrawing, workspaceMode])
+  useEffect(() => {
+    if (!moveEntryFocusTick || handledMoveEntryFocusRef.current === moveEntryFocusTick) return
+    handledMoveEntryFocusRef.current = moveEntryFocusTick
+    if (backgroundUiHidden) return
+    const entry = analysisPanelRef.current?.querySelector<HTMLDetailsElement>('.move-entry')
+    const input = entry?.querySelector<HTMLInputElement>('input')
+    if (!entry || !input) return
+    entry.open = true
+    input.focus({ preventScroll: true })
+    const reveal = () => {
+      if (document.activeElement === input) input.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+    }
+    reveal()
+    return scheduleRevealRetries(reveal, [120, 320])
+  }, [analysisPanelRevealTick, backgroundUiHidden, boardRevealTick, moveEntryFocusTick])
+
   const paletteCommands = useMemo<Command[]>(() => [
     { id: 'new-game', label: 'New game', shortcut: 'N', keywords: ['restart', 'reset'], run: openNewGameDialog },
+    { id: 'enter-move', label: 'Enter a move by name',
+      hint: moveEntryCommandReason ?? 'Focus the field for Nf3, e4 or e2e4',
+      keywords: ['type', 'keyboard', 'san', 'coordinates', 'notation'], disabled: Boolean(moveEntryCommandReason), run: requestMoveEntry },
     { id: 'flip-board', label: 'Flip board', shortcut: 'F', keywords: ['orientation', 'rotate', 'side'],
       run: () => setOrientation(value => (value === 'white' ? 'black' : 'white')) },
     { id: 'pgn', label: 'PGN and FEN', hint: 'Import, export, share', keywords: ['paste', 'copy', 'link', 'position'],
@@ -6154,7 +6213,7 @@ function App() {
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
   ], [analysisExperience, atVariationFork, autoFlipBoard, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyGameLink, copyPgn, drill, reviewFinishedGame, reviewFromPlay, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
-    goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast,
+    goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, moveEntryCommandReason, requestMoveEntry,
       goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
       previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay,
       openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger,
@@ -6448,12 +6507,6 @@ function App() {
   // is the right one.
   const gameEndedOnBlackMove = Boolean(displayedResultLabel) && (isPreviewingLine || !canGoForward) && labelFenFields[1] === 'w'
   const moveNumberLabel = `Move ${gameEndedOnBlackMove && labelFullmove > 1 ? labelFullmove - 1 : labelFullmove}`
-  // Mate and stalemate leave no move to name. Read from the FEN, not the
-  // mutable `game`, so move generation runs per position, not every render.
-  const hasLegalMove = useMemo(() => {
-    const position = new Chess(fen)
-    return !position.isCheckmate() && !position.isStalemate()
-  }, [fen])
   /**
    * The tab's title says what the tab is doing. It read "Web Chess" whatever
    * was on the board, so a reader who had switched away to wait for the
@@ -6785,23 +6838,6 @@ function App() {
     if (stepPendingRef.current || aiMoveScheduledRef.current) return
     setClock(previous => (previous && previous.running !== null ? pauseClock(previous, Date.now()) : previous))
   }, [awaitingAiStep, clock])
-  const boardInputLocked = isBoardInputLocked({
-    gameOver: isGameOver,
-    workspaceMode,
-    gameMode,
-    isAiThinking,
-    paused,
-    turn: game.turn(),
-    playerColor: playerColorToTurn(playerColor),
-    endedOffBoard: Boolean(endedOffBoard),
-  })
-  const moveEntryDisabledReason = pendingPromotion ? 'Choose a promotion piece on the board.'
-    : isAiThinking ? 'Waiting for the engine’s move.'
-      : aiPlayerStatus === 'error' ? 'The opponent is unavailable. Start a new game or switch to Analysis.'
-        : aiPlayerStatus === 'loading' ? 'The opponent is loading. Move entry opens on your turn.'
-          : aiSpeed === 'step' ? 'Press Step for the engine’s move.'
-            : 'Waiting for the engine’s move.'
-
   /**
    * Sideways on a phone, height is the scarce axis, and this pair made the
    * strip above the board two lines tall: the 44px Arrows target beside one

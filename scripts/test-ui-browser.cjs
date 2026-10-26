@@ -664,6 +664,93 @@ async function checkTypedMoveEntry(browser) {
   }
 }
 
+async function checkCommandMoveEntry(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 1], [375, 2], [320, 2]]) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 812 }, hasTouch: true, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('hold-search'))
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const handle = page.getByRole('separator', { name: 'Resize right panel', exact: true })
+      await handle.focus(); await handle.press('Home')
+      await page.waitForFunction(() => document.querySelector('.panel.right')?.classList.contains('panel-collapsed'))
+      await page.setViewportSize({ width, height: 812 })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const toggle = page.locator('.board-draw-toggle')
+      await toggle.click()
+      const paletteInput = page.getByRole('combobox', { name: 'Search commands', exact: true })
+      const entry = page.locator('.move-entry input')
+      const command = page.locator('[data-command-id="enter-move"] button')
+      const query = async (chord = false) => {
+        if (chord) await page.keyboard.press('Control+k')
+        else await page.getByTestId('command-palette-btn').click()
+        await paletteInput.fill('Enter a move')
+        await command.waitFor()
+      }
+      const run = async chord => {
+        await query(chord)
+        assert(await command.isEnabled(), 'move-entry command is unavailable for an editable position')
+        await paletteInput.press('Enter')
+        await paletteInput.waitFor({ state: 'detached' })
+        await page.waitForFunction(() => document.querySelector('.move-entry input') === document.activeElement, null, { timeout: 5000 })
+        await page.waitForFunction(() => {
+          const el = document.querySelector('.move-entry input'), r = el.getBoundingClientRect(), main = document.querySelector('.main-container').getBoundingClientRect()
+          return r.top >= main.top - 1 && r.bottom <= main.bottom + 1
+            && [r.top + 4, r.top + r.height / 2, r.bottom - 4].every(y => el.contains(document.elementFromPoint(r.x + r.width / 2, y)))
+        }, null, { timeout: 5000 })
+        assert(await entry.evaluate(el => el.closest('details').open), 'move-entry disclosure stayed closed')
+      }
+      await run(false)
+      assert(await toggle.getAttribute('aria-pressed') === 'false', 'typing destination left drawing mode active')
+      await entry.fill('e4'); await entry.press('Enter')
+      await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+      await entry.fill('e7e5'); await entry.evaluate(el => el.setSelectionRange(1, 3))
+      await run(true)
+      assert(await entry.inputValue() === 'e7e5' && JSON.stringify(await entry.evaluate(el => [el.selectionStart, el.selectionEnd])) === '[1,3]', 'Commands discarded the unsent move or its selection')
+      await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      await page.waitForFunction(() => !document.querySelector('.move-entry'))
+      await run(false)
+      assert(await page.getByRole('button', { name: 'Analyze', exact: true }).getAttribute('aria-pressed') === 'true', 'move-entry command did not leave Engine Lab')
+      await entry.fill('e5'); await entry.press('Enter')
+      await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+      // A newer dialog must keep its focused draft through old settle timers.
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      const pgn = page.locator('.pgn-dialog'), draft = pgn.locator('textarea')
+      await draft.fill('1. d4 d5 *')
+      await page.waitForTimeout(450)
+      assert(await draft.evaluate(el => document.activeElement === el) && await draft.inputValue() === '1. d4 d5 *', 'move-entry reveal stole focus from a newer dialog')
+      await pgn.getByRole('button', { name: 'FEN', exact: true }).click()
+      await pgn.locator('.fen-textarea').fill('7k/6Q1/6K1/8/8/8/8/8 b - - 0 1')
+      await pgn.getByRole('button', { name: 'Load & Analyze', exact: true }).click()
+      await pgn.waitFor({ state: 'detached' })
+      await query()
+      assert(await command.isDisabled() && (await command.innerText()).includes('no legal moves'), 'terminal position lacks an explained unavailable command')
+      await paletteInput.press('Enter')
+      assert(await paletteInput.count() === 1, 'disabled move entry closed Commands')
+      await page.keyboard.press('Escape')
+      await startGameMode(page, 'AI vs AI')
+      await query()
+      assert(await command.isDisabled() && (await command.innerText()).includes('human game'), 'watch mode offers a move input it cannot use')
+      await page.keyboard.press('Escape')
+      await page.getByRole('button', { name: 'Start new game', exact: true }).first().click()
+      await page.locator('.mode-card', { hasText: 'Human vs AI' }).click()
+      await page.locator('.new-game-dialog').getByRole('button', { name: 'White', exact: true }).click()
+      await page.locator('.btn-start').click()
+      await page.locator('.new-game-dialog').waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-e2').click(); await page.locator('#chessboard-square-e4').click()
+      await page.waitForFunction(() => document.title.startsWith('Engine thinking'))
+      await query()
+      assert(await command.isDisabled() && (await command.innerText()).includes('Waiting for the engine'), 'opponent turn lacks the actual waiting reason')
+      await page.keyboard.press('Escape')
+      assert(errors.length === 0, `command move-entry errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'command move entry overflows the page')
+      console.log(`  command move entry (${width}px, ${scale}x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkMoveEntryAvailability(browser) {
   for (const [width, scale] of [[1280, 1], [375, 2]]) for (const scenario of ['hold-search', 'slow-boot', 'silent-all']) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -14277,6 +14364,7 @@ async function main() {
       'board-canvas': checkBoardCanvas,
       'typed-moves': checkTypedMoveEntry,
       'move-entry-availability': checkMoveEntryAvailability,
+      'command-move-entry': checkCommandMoveEntry,
       'autoplay': checkAutoplayWalksTheLine,
       'autoplay-speed': checkReplaySpeedAfterStep,
       'remote-retry': checkRemoteAnalysisRetry,
@@ -15109,6 +15197,7 @@ async function main() {
     await checkPaletteDialogReturn(browser)
     await checkSettingsGearToggle(browser)
     await checkMoveEntryAvailability(browser)
+    await checkCommandMoveEntry(browser)
     await checkBoardCanvas(browser)
     await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)
