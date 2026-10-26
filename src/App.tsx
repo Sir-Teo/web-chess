@@ -6630,7 +6630,7 @@ function App() {
    * with no control in front of them to explain it.
    */
   const experienceToggle = (
-    <div className="analysis-experience-toggle" aria-label="Analysis experience">
+    <div className="analysis-experience-toggle" role="group" aria-label="Analysis experience">
       {([
         { id: 'beginner', label: 'Coach' },
         { id: 'pro', label: 'Pro' },
@@ -7113,7 +7113,7 @@ function App() {
               aria-hidden={settingsOpen ? true : undefined}
               inert={settingsOpen ? true : undefined}
             >
-              <div className="top-mode-pills" data-mode-group="workspace" aria-label="Workspace mode">
+              <div className="top-mode-pills" data-mode-group="workspace" role="group" aria-label="Workspace mode">
                 {([
                   { id: 'play', label: 'Play', icon: <IconSwords /> },
                   { id: 'analysis', label: 'Analysis', icon: <IconSearch /> },
@@ -7133,7 +7133,7 @@ function App() {
 
               {/* Game mode switcher */}
               <span className="toolbar-divider desktop-only" />
-              <div className="top-mode-pills" data-mode-group="game" aria-label="Game mode">
+              <div className="top-mode-pills" data-mode-group="game" role="group" aria-label="Game mode">
                 {([
                   { id: 'human-vs-human', label: 'Human vs Human', title: 'Local board for two players', icon: <IconUsers /> },
                   { id: 'human-vs-ai', label: 'Human vs AI', title: 'Play against the engine', icon: <IconBot /> },
@@ -7364,7 +7364,7 @@ function App() {
                   <details className="advanced-settings" open>
                     <summary>Analyze controls</summary>
                     <div className="advanced-section">
-                      <div className="analysis-mode-pills" aria-label="Analysis search mode">
+                      <div className="analysis-mode-pills" role="group" aria-label="Analysis search mode">
                         {([
                           { id: 'quick', label: 'Quick' },
                           { id: 'deep', label: 'Deep' },
@@ -7810,7 +7810,7 @@ function App() {
                   <h2><span className="section-icon"><IconKing /></span> Historical Library</h2>
                   <span>{filteredSampleGames.length} games</span>
                 </header>
-                <div className="sample-filter-row" aria-label="Historical game filter">
+                <div className="sample-filter-row" role="group" aria-label="Historical game filter">
                   {([
                     { id: 'all', label: 'All' },
                     { id: 'classical', label: 'Classical' },
@@ -7894,7 +7894,7 @@ function App() {
           tabIndex={-1}
         >
           <div className="board-layout">
-            <div className="board-meta-strip" aria-label="Current game state">
+            <div className="board-meta-strip" role="group" aria-label="Current game state">
               {/* What the strip says scrolls; what it offers to press does not.
                   The same split the top bar makes, and for the same reason: at
                   375px this row already holds six things, and a flex row with
@@ -8730,7 +8730,7 @@ function App() {
                         clue to it, and hidden with it while a drill asks for the move. */}
                     {coachMoveInsight && !drillAwaitingAnswer && (
                       <div className="coach-insight">
-                        <div className="coach-tags" aria-label="Best move traits">
+                        <div className="coach-tags" role="group" aria-label="Best move traits">
                           {coachMoveInsight.tags.map(tag => <span key={tag}>{tag}</span>)}
                         </div>
                         <p>{coachMoveInsight.summary}</p>
@@ -8889,7 +8889,7 @@ function App() {
                   <div className="opening-intel-card" ref={openingIntelRef}>
                     <div className="opening-intel-head">
                       <h3><span className="section-icon"><IconBarChart /></span> Opening Intel</h3>
-                      <div className="opening-source-toggle" aria-label="Opening database source">
+                      <div className="opening-source-toggle" role="group" aria-label="Opening database source">
                         {OPENING_SOURCES.map(source => (
                           <button
                             key={source}
@@ -8924,7 +8924,7 @@ function App() {
                     </div>
                     {openingSource === 'lichess' && (
                       <>
-                        <div className="opening-speed-toggle" aria-label="Lichess time controls">
+                        <div className="opening-speed-toggle" role="group" aria-label="Lichess time controls">
                           {OPENING_SPEEDS.map(speed => (
                             <button
                               key={speed}
@@ -9196,7 +9196,7 @@ function App() {
                         Promote it in the move list below to make it the game.
                       </p>
                     )}
-                    <div className="review-filter-row" aria-label="Review side filter">
+                    <div className="review-filter-row" role="group" aria-label="Review side filter">
                       {REVIEW_SIDE_FILTERS.map(filter => (
                         <button
                           key={filter.id}
@@ -9212,7 +9212,7 @@ function App() {
                         </button>
                       ))}
                     </div>
-                    <div className="accuracy-summary" aria-label="Accuracy summary">
+                    <div className="accuracy-summary" role="group" aria-label="Accuracy summary">
                       <div>
                         <span>Overall</span>
                         <strong>{formatAccuracyValue(reviewAccuracy.overall)}</strong>
@@ -9320,7 +9320,7 @@ function App() {
                       </div>
                     )}
                     {gameNarrativeTags.length > 0 && (
-                      <div className="review-chips" aria-label="Game summary">
+                      <div className="review-chips" role="group" aria-label="Game summary">
                         {gameNarrativeTags.map(tag => (
                           <span key={tag.id} className={narrativeTagToneClass(tag.tone)} title={tag.title}>
                             {tag.label}

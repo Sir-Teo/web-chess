@@ -549,7 +549,7 @@ export function LibraryDialog({
                     {saving && <p className="library-status" role="status">Saving library changes…</p>}
                     {status && !writeError && !saving && <p className="library-status" role="status">{status}</p>}
                     {backupParts.length > 0 && (
-                        <div className="library-backup-parts" aria-label="Backup files">
+                        <div className="library-backup-parts" role="group" aria-label="Backup files">
                             {backupParts.map((part, index) => (
                                 <button type="button" className="btn-cancel" key={index} onClick={() => {
                                     download(part, `web-chess-library-${today()}-part-${index + 1}-of-${backupParts.length}.json`, 'application/json')

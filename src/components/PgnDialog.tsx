@@ -849,7 +849,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                     <IconClipboard /> {copyStatus === 'link-copied' && copiedText === fenShareUrl ? 'Copied Link' : 'Copy Share Link'}
                                 </button>
                             </div>
-                            <div className="fen-setup-card" aria-label="Position setup">
+                            <div className="fen-setup-card" role="group" aria-label="Position setup">
                                 <PositionSetupPalette selectedPiece={selectedSetupPiece} onSelect={setSelectedSetupPiece} />
                                 <div className="fen-setup-grid">
                                     <PositionSetupBoard pieces={setup.pieces} selectedPiece={selectedSetupPiece} flipped={setupFlipped}
@@ -857,7 +857,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                     <div className="fen-setup-controls">
                                         <div className="fen-setup-control-block">
                                             <span className="dialog-label">Side</span>
-                                            <div className="fen-side-toggle" aria-label="Side to move">
+                                            <div className="fen-side-toggle" role="group" aria-label="Side to move">
                                                 {([
                                                     { value: 'w', label: 'White' },
                                                     { value: 'b', label: 'Black' },
