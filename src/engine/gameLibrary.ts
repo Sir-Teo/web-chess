@@ -38,6 +38,7 @@ export type LibraryGame = {
   createdAt: number
   updatedAt: number
   moveCount: number
+  /** UTF-8 bytes in the PGN, excluding library metadata. */
   size: number
   favorite: boolean
   metadata: LibraryGameMetadata
@@ -241,7 +242,7 @@ export function createLibraryGame(name: string, pgn: string, now: number, id?: s
     createdAt: now,
     updatedAt: now,
     moveCount: countPgnMoves(text),
-    size: text.length,
+    size: new TextEncoder().encode(text).byteLength,
     favorite: false,
     metadata: extractLibraryMetadata(text),
   }
@@ -286,7 +287,7 @@ export function normalizeLibraryGames(value: unknown, now = 0): LibraryGame[] {
       createdAt,
       updatedAt: finiteTimestamp(entry.updatedAt, createdAt),
       moveCount: countPgnMoves(pgn),
-      size: pgn.length,
+      size: new TextEncoder().encode(pgn).byteLength,
       favorite: entry.favorite === true,
       metadata: extractLibraryMetadata(pgn),
     })

@@ -137,6 +137,16 @@ describe('naming a saved game', () => {
 })
 
 describe('creating records', () => {
+  it('reports UTF-8 file sizes for accented text, CJK, and surrogate pairs, including older saved records', () => {
+    // Ten ASCII bytes, plus é (2), 棋 (3), and 😀 (4).
+    const pgn = '1. e4 {é棋😀} *'
+    const game = createLibraryGame('Unicode comments', pgn, 123)
+    expect(game.size).toBe(19)
+    const [restored] = normalizeLibraryGames([{ ...game, size: pgn.length }])
+    expect(restored.size).toBe(19)
+    expect(formatLibrarySize(getLibraryStats([restored]).size)).toBe('19 B')
+  })
+
   it('captures the counts and metadata the rows need', () => {
     const game = createLibraryGame('Evergreen', PGN, 123)
     expect(game).toMatchObject({
