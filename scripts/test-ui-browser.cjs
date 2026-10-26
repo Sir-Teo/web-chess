@@ -1070,6 +1070,10 @@ async function checkReviewUsesSelectedEngine(browser, controls = false) {
         assert([...pgn.matchAll(/\[%wcengine\s+([^\]]+)\]/g)].every(match => JSON.parse(decodeURIComponent(match[1]))[0] === 'full-single-cdn'),
           'exported review lost its actual producer')
         assert(pgn.includes('[WebChessReviewStatus "complete"]') && pgn.includes('[WebChessReviewReused "0"]'), 'export omitted review provenance')
+        for (const button of await page.locator('.review-report-actions button:visible').all()) {
+          const height = await button.evaluate(el => el.getBoundingClientRect().height)
+          assert(meetsTouchTarget(height), `review action is smaller than its touch target: ${height}px`)
+        }
         await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
         await page.locator('.review-scaffold > .review-report-actions').scrollIntoViewIfNeeded()
         // Backup controls inside a closed Saved reviews disclosure are tested

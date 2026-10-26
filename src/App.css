@@ -130,7 +130,7 @@ body.resizing * {
   margin-bottom: 0.75rem;
 }
 
-.review-report-actions button {
+.panel .review-report-actions button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
