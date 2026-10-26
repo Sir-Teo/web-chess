@@ -5,6 +5,7 @@
  */
 import { withoutAppPlaceholder } from './pgnPlaceholders'
 import { matchesSearchTerms, toSearchTerms } from './searchTerms'
+import { truncateUtf16 } from './textLength'
 
 export const MAX_LIBRARY_GAMES = 500
 export const MAX_LIBRARY_PGN_LENGTH = 512_000
@@ -210,17 +211,17 @@ export function suggestGameName(pgn: string, openingName?: string): string {
   // A date alone reads as a file name, not a game.
   const label = players || event || openingName?.trim() || (date ? 'Game' : '')
   const parts = [label, date].filter(Boolean)
-  return parts.join(' · ').slice(0, MAX_LIBRARY_NAME_LENGTH) || 'Untitled game'
+  return truncateUtf16(parts.join(' · '), MAX_LIBRARY_NAME_LENGTH) || 'Untitled game'
 }
 
 export function getUniqueGameName(name: string, existingNames: Iterable<string>): string {
   const taken = new Set(existingNames)
-  const base = name.trim().slice(0, MAX_LIBRARY_NAME_LENGTH) || 'Untitled game'
+  const base = truncateUtf16(name.trim(), MAX_LIBRARY_NAME_LENGTH) || 'Untitled game'
   if (!taken.has(base)) return base
 
   for (let suffix = 2; suffix < 1000; suffix += 1) {
     const tail = ` (${suffix})`
-    const candidate = `${base.slice(0, MAX_LIBRARY_NAME_LENGTH - tail.length)}${tail}`
+    const candidate = `${truncateUtf16(base, MAX_LIBRARY_NAME_LENGTH - tail.length)}${tail}`
     if (!taken.has(candidate)) return candidate
   }
   return base
@@ -237,7 +238,7 @@ export function createLibraryGame(name: string, pgn: string, now: number, id?: s
   const text = String(pgn ?? '')
   return {
     id: id ?? makeLibraryId(now),
-    name: name.trim().slice(0, MAX_LIBRARY_NAME_LENGTH) || suggestGameName(text),
+    name: truncateUtf16(name.trim(), MAX_LIBRARY_NAME_LENGTH) || suggestGameName(text),
     pgn: text,
     createdAt: now,
     updatedAt: now,
@@ -282,7 +283,7 @@ export function normalizeLibraryGames(value: unknown, now = 0): LibraryGame[] {
     const rawName = typeof entry.name === 'string' ? entry.name.trim() : ''
     games.push({
       id,
-      name: (rawName || suggestGameName(pgn)).slice(0, MAX_LIBRARY_NAME_LENGTH),
+      name: truncateUtf16(rawName || suggestGameName(pgn), MAX_LIBRARY_NAME_LENGTH),
       pgn,
       createdAt,
       updatedAt: finiteTimestamp(entry.updatedAt, createdAt),

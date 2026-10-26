@@ -5,6 +5,7 @@ import { flattenPgnMainLine, parsePgnMoveTree } from './pgn'
 import { exportReviewPgn } from './reviewPgn'
 import type { ReviewSettings, ReviewSnapshot } from './reviewSession'
 import { reviewTargetFens } from './batchReview'
+import { truncateUtf16 } from './textLength'
 
 export const MAX_SAVED_REVIEWS = 50
 export const MAX_SAVED_REVIEW_BYTES = 512 * 1024
@@ -138,7 +139,7 @@ export function createSavedReview(
   if (!pgn) throw new Error('This report belongs to a different line. Return to its reviewed line before saving.')
   const title = headers.White && headers.Black ? `${headers.White} – ${headers.Black}` : headers.Event || 'Reviewed line'
   const saved = readSavedReview({
-    version: 1, id, title: title.slice(0, 200), lineKey: reviewLineKey(line), pgn,
+    version: 1, id, title: truncateUtf16(title, 200), lineKey: reviewLineKey(line), pgn,
     settings: report.settings, startedAt: report.startedAt, finishedAt: report.finishedAt,
     total: report.total, reused: report.reused, complete: report.complete,
     evaluated: report.evaluations.size, evaluations: [...report.evaluations],

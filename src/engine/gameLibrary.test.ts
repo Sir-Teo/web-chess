@@ -134,9 +134,24 @@ describe('naming a saved game', () => {
     const long = 'x'.repeat(MAX_LIBRARY_NAME_LENGTH)
     expect(getUniqueGameName(long, [long]).length).toBeLessThanOrEqual(MAX_LIBRARY_NAME_LENGTH)
   })
+
+  it('keeps Unicode code points whole when making room for a duplicate-name suffix', () => {
+    const prefix = 'x'.repeat(115)
+    const name = `${prefix}😀abc`
+    expect(getUniqueGameName(name, [name])).toBe(`${prefix} (2)`)
+  })
 })
 
 describe('creating records', () => {
+  it('keeps whole Unicode code points at the saved and suggested name limits', () => {
+    const prefix = 'x'.repeat(119)
+    const name = `${prefix}😀`
+    expect(createLibraryGame(name, PGN, 1).name).toBe(prefix)
+    expect(suggestGameName(`[Event "${name}"]\n\n1. e4 *`)).toBe(prefix)
+    expect(normalizeLibraryGames([{ name, pgn: PGN }])[0].name).toBe(prefix)
+    const fits = `${'x'.repeat(118)}😀`
+    expect(createLibraryGame(fits, PGN, 1).name).toBe(fits)
+  })
   it('reports UTF-8 file sizes for accented text, CJK, and surrogate pairs, including older saved records', () => {
     // Ten ASCII bytes, plus é (2), 棋 (3), and 😀 (4).
     const pgn = '1. e4 {é棋😀} *'

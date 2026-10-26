@@ -22,6 +22,13 @@ function fixture(moves = ['Nf3', 'Nf6', 'g3'], rootFen?: string, depth = 16) {
 }
 
 describe('portable, isolated saved reviews', () => {
+  it('keeps the saved title within its limit without splitting an emoji', () => {
+    const { line, report } = fixture()
+    const title = `${'x'.repeat(199)}😀`
+    const saved = createSavedReview(line, report, { Event: title }, [], 'unicode-title')
+    expect(saved.title).toBe('x'.repeat(199))
+    expect(readSavedReview(saved)?.title).toBe(saved.title)
+  })
   it('keeps exact scores, WDL, source, limits, notes and timestamps across JSON and fresh node IDs', () => {
     const { line, report, saved } = fixture()
     const reopened = readSavedReview(JSON.parse(JSON.stringify(saved)))!
