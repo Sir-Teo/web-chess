@@ -5673,6 +5673,64 @@ async function checkOpeningNumbersBelongToTheirPosition(browser) {
   }
 }
 
+async function checkPaletteDialogReturn(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 2]]) {
+    for (const via of ['button', 'typing', 'graph']) {
+      const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+      const page = await context.newPage()
+      const frames = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false })))
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.locator('#chessboard-square-e2 [data-piece="wP"]').waitFor()
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        if (via === 'typing') {
+          await page.locator('.move-entry summary').click()
+          await page.locator('.move-entry input').fill('e4')
+        }
+        if (via === 'graph') {
+          const run = page.getByRole('button', { name: 'Run analysis', exact: true })
+          await run.click()
+          await page.waitForFunction(() => window.__uciBestmoves >= 1)
+          await page.locator('#chessboard-square-e2').click(); await page.locator('#chessboard-square-e4').click()
+          await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+          await run.click()
+          await page.getByRole('slider', { name: 'White expected score move navigator', exact: true }).waitFor()
+        }
+        const opener = via === 'typing' ? page.locator('.move-entry input')
+          : via === 'graph' ? page.getByRole('slider', { name: 'White expected score move navigator', exact: true })
+          : page.getByTestId('command-palette-btn')
+        const graphPosition = via === 'graph' ? await opener.getAttribute('aria-valuenow') : null
+        for (const [query, selector, closeWithBackdrop] of [
+          ['New game', '.new-game-dialog', false], ['PGN and FEN', '.pgn-dialog', false],
+          ['Library', '.library-dialog', false], ['Settings', '.settings-body', false], ['Settings', '.settings-body', true],
+        ]) {
+          if (via !== 'button') { await opener.focus(); await page.keyboard.press('Control+k') }
+          else await opener.click()
+          await page.locator('[data-command-input]').fill(query)
+          await page.locator('[data-command-input]').press('Enter')
+          await page.locator(selector).waitFor()
+          assert(await page.locator('[data-command-input]').count() === 0, 'Commands remained open behind its dialog')
+          if (closeWithBackdrop) await page.locator('.settings-backdrop').click({ position: { x: 2, y: 2 } })
+          else await page.keyboard.press('Escape')
+          await page.locator(selector).waitFor({ state: 'detached' })
+          await frames()
+          assert(await opener.evaluate(el => el === document.activeElement), `${query} from Commands lost its ${via} opener`)
+          if (via === 'typing') assert(await opener.inputValue() === 'e4', 'dialog handoff changed the move-entry draft')
+          if (via === 'graph') assert(await opener.getAttribute('aria-valuenow') === graphPosition, 'dialog handoff changed the graph cursor')
+        }
+        const settings = page.getByRole('button', { name: 'Open settings', exact: true })
+        await settings.click(); await page.locator('.settings-body').waitFor()
+        await page.keyboard.press('Escape'); await page.locator('.settings-body').waitFor({ state: 'detached' })
+        await frames()
+        assert(await settings.evaluate(el => el === document.activeElement), 'normal Settings no longer returned to its summary')
+        console.log(`  palette dialog return (${width}px, ${scale}x, ${via}): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkDialogFocusHandoff(browser) {
   for (const [width, scale] of [[1280, 1], [375, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -13688,6 +13746,7 @@ async function main() {
       'play-title': checkPlayTabTitle,
       'preview-endings': checkPreviewEndingFeedback,
       'dialog-handoff': checkDialogFocusHandoff,
+      'palette-dialog-return': checkPaletteDialogReturn,
       'takeback-result': checkTakingBackAMateUnfinishesTheGame,
       'result-ownership': checkAResultBelongsToItsOwnGame,
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
@@ -14497,6 +14556,7 @@ async function main() {
     await checkPlayTabTitle(browser)
     await checkPreviewEndingFeedback(browser)
     await checkDialogFocusHandoff(browser)
+    await checkPaletteDialogReturn(browser)
     await checkBoardCanvas(browser)
     await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)

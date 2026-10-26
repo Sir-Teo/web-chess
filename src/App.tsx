@@ -1037,7 +1037,7 @@ function App() {
   const aiMoveScheduledRef = useRef(false)
   const gameModeRef = useRef<GameMode>('human-vs-human')
   const playerColorRef = useRef<PlayerColor>('white')
-  const modalTriggerRef = useRef<HTMLElement | null>(null)
+  const modalTriggerRef = useRef<{ element: HTMLElement | SVGElement; restoring: boolean } | null>(null)
   /**
    * The palette's open and close are declared with the keyboard handler, well
    * above `rememberModalTrigger` and `restoreModalTriggerFocus`. Reached
@@ -1554,7 +1554,10 @@ function App() {
   }, [closeCommandPalette, goFirst, goLast, goPrev, goNext, goSiblingVariation, openCommandPalette, pause, resume,
     shortcutsSuspended, showCommandPalette, workspaceMode])
 
-  const closeSettings = useCallback(() => setSettingsOpen(false), [])
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false)
+    restoreModalTriggerFocusRef.current()
+  }, [])
   useModalFocus(settingsOpen, settingsBodyRef, closeSettings)
   // "?" says "show these shortcuts", but the dialog's own first focus is its
   // first enabled switch, which sits below the list: scrolling to it carried
@@ -4878,22 +4881,33 @@ function App() {
   const rememberModalTrigger = useCallback((event?: SyntheticEvent<HTMLElement>) => {
     // Safari can activate a button without focusing it. Pointer-opened dialogs
     // must return to that button; shortcuts and drops retain the active element.
-    const trigger = event?.currentTarget
-      ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null)
+    const active = document.activeElement instanceof HTMLElement || document.activeElement instanceof SVGElement
+      ? document.activeElement : null
+    const candidate = event?.currentTarget ?? active
+    const previousOwner = modalTriggerRef.current
+    const previous = previousOwner?.element
+    // Commands can replace themselves with another dialog before their close
+    // frame. Carry the original opener instead of a command that will detach.
+    const trigger = previous?.isConnected
+      && (candidate?.closest('[aria-modal="true"]') || (!event && active === document.body && previousOwner?.restoring))
+      ? previous : candidate
     // Give the focus hook the explicit opener even in browsers whose pointer
     // activation leaves focus on the previous control.
     if (event && trigger && document.activeElement !== trigger) trigger.focus({ preventScroll: true })
-    modalTriggerRef.current = trigger
+    modalTriggerRef.current = trigger ? { element: trigger, restoring: false } : null
   }, [])
 
   rememberModalTriggerRef.current = rememberModalTrigger
 
   const restoreModalTriggerFocus = useCallback(() => {
-    const trigger = modalTriggerRef.current
-    modalTriggerRef.current = null
-    if (!trigger) return
+    const owner = modalTriggerRef.current
+    if (!owner) return
+    owner.restoring = true
 
     window.requestAnimationFrame(() => {
+      if (modalTriggerRef.current !== owner) return
+      modalTriggerRef.current = null
+      const trigger = owner.element
       // The reader may already have focused a preview or opened another modal
       // before this frame. Restore only when focus still needs a destination.
       if (document.activeElement === document.body && document.contains(trigger)) {
@@ -5064,8 +5078,13 @@ function App() {
   }, [closeEveryOverlay])
   const handleSettingsToggle = (event: SyntheticEvent<HTMLDetailsElement>) => {
     const nextOpen = event.currentTarget.open
-    setSettingsOpen(nextOpen)
-    if (!nextOpen) return
+    // A controlled open/close also dispatches toggle. Only a native toggle
+    // starts or consumes an opener; a successor dialog already owns its own.
+    if (nextOpen === settingsOpen) return
+    if (!nextOpen) { closeSettings(); return }
+    event.currentTarget.querySelector('summary')?.focus({ preventScroll: true })
+    rememberModalTriggerRef.current()
+    setSettingsOpen(true)
     setShowNewGameDialog(false)
     setShowPgnDialog(false)
     setShowLibraryDialog(false)
@@ -7026,7 +7045,7 @@ function App() {
                 <>
                   <div className="settings-backdrop" onClick={(e) => {
                     e.preventDefault()
-                    setSettingsOpen(false)
+                    closeSettings()
                   }}></div>
                   <div
                     className="settings-body"
@@ -7039,7 +7058,7 @@ function App() {
                   <h2>Settings</h2>
                   <button type="button" className="settings-close-btn" onClick={(e) => {
                     e.preventDefault()
-                    setSettingsOpen(false)
+                    closeSettings()
                   }}>
                     Done
                   </button>
