@@ -9230,8 +9230,10 @@ async function checkCompactFooter(browser) {
       await popup.screenshot({ path: `/tmp/web-chess-compact-footer-${width}-${experience}.png` })
       await popup.getByRole('button', { name: 'Close', exact: true }).focus()
       await page.evaluate(() => { document.documentElement.style.fontSize = '16px' })
-      await page.waitForTimeout(350)
-      assert(await trigger.count() === 0 && await page.locator('#chessboard-stage').evaluate(el => el === document.activeElement), 'leaving compact layout stranded focus')
+      // The return transition also follows ResizeObserver, just like opening
+      // the compact layout above. A fixed sleep can read the still-open popup.
+      await trigger.waitFor({ state: 'detached', timeout: 5000 })
+      assert(await page.locator('#chessboard-stage').evaluate(el => el === document.activeElement), 'leaving compact layout stranded focus')
       assert((await page.locator('.bottom-status-row').innerText()).includes('e4'), 'restoring normal text lost footer readings')
 
       // The longest transport mode keeps every speed and playback button

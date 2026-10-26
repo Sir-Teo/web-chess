@@ -1,0 +1,260 @@
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 191 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-xH5xZh9_.js   60.12 kB
+dist/assets/LibraryDialog-BCEY11vH.css        4.23 kB │ gzip:   1.17 kB
+dist/assets/index-B_jahhG7.css              129.88 kB │ gzip:  24.16 kB
+dist/assets/NewGameDialog-CBWNfSI_.js         4.25 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-D6ikcCeM.js        10.23 kB │ gzip:   3.67 kB
+dist/assets/PgnDialog-DW4e3IiO.js            28.71 kB │ gzip:   9.68 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-CyOdVEQK.js               374.72 kB │ gzip: 120.78 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 3.51s
+  review: 116 moves, overall 95.8, white 95.3, black 96.3, ACPL 10
+  review engines: 1 (single)
+  practice: Coach hides the answer and opens a playable retry position
+  contrast (dark / settings): 68 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (dark / analyze): 228 measured, 0 under the floor (211 on a gradient, measured against its worst stop)
+  contrast (dark / review): 836 measured, 0 under the floor (818 on a gradient, measured against its worst stop)
+  contrast (dark / new game): 22 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (dark / pgn export): 15 measured, 0 under the floor (1 on a gradient, measured against its worst stop)
+  contrast (dark / library): 5 measured, 0 under the floor (2 on a gradient, measured against its worst stop)
+  contrast (dark / play): 92 measured, 0 under the floor (75 on a gradient, measured against its worst stop)
+  contrast (light / settings): 68 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (light / analyze): 222 measured, 0 under the floor (205 on a gradient, measured against its worst stop)
+  contrast (light / review): 835 measured, 0 under the floor (817 on a gradient, measured against its worst stop)
+  contrast (light / new game): 22 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (light / pgn export): 15 measured, 0 under the floor (1 on a gradient, measured against its worst stop)
+  contrast (light / library): 5 measured, 0 under the floor (2 on a gradient, measured against its worst stop)
+  contrast (light / play): 92 measured, 0 under the floor (75 on a gradient, measured against its worst stop)
+  desktop: boot, engine handshake, layout, control names, board 550x550 OK
+  contrast (mobile / dark): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (mobile / dark settings): 69 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (mobile / light settings): 69 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (mobile / light): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  mobile: boot, engine handshake, layout, control names, board 325x325 OK
+  mode strip: "Play" in view, game modes left to the New game dialog
+  contrast (mobile landscape / dark): 139 measured, 0 under the floor (121 on a gradient, measured against its worst stop)
+  contrast (mobile landscape / dark settings): 69 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (mobile landscape / light settings): 69 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (mobile landscape / light): 139 measured, 0 under the floor (121 on a gradient, measured against its worst stop)
+  mobile landscape: boot, engine handshake, layout, control names, board 214x214 OK
+  command reopen (1280px): query and selection reset before the first key, across three reopen cycles
+  command keyboard (1280px): Tab activates the focused button; search editing and Enter work
+  command reopen (375px): query and selection reset before the first key, across three reopen cycles
+  command keyboard (375px): Tab activates the focused button; search editing and Enter work
+  command layout (320x568, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (375x812, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (768x1024, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (844x390, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (1280x800, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (320x568, 2x text): dialog, full label and reason fit; selection opens Settings
+  command layout (1280x800, 2x text): dialog, full label and reason fit; selection opens Settings
+  failed dialog (1280px): board stays playable after repeated failures; other dialogs still open
+  failed dialog (375px): board stays playable after repeated failures; other dialogs still open
+  slow dialog (NewGameDialog, 1280px, 200% text): Escape, Cancel, focus trap, reopen, completed download and playable board
+  slow dialog (PgnDialog, 1280px, 200% text): Escape, Cancel, focus trap, reopen, completed download and playable board
+  slow dialog (LibraryDialog, 1280px, 200% text): Escape, Cancel, focus trap, reopen, completed download and playable board
+  slow dialog (NewGameDialog, 375px, 200% text): Escape, Cancel, focus trap, reopen, completed download and playable board
+  slow dialog (PgnDialog, 375px, 200% text): Escape, Cancel, focus trap, reopen, completed download and playable board
+  slow dialog (LibraryDialog, 375px, 200% text): Escape, Cancel, focus trap, reopen, completed download and playable board
+  contrast (Dark / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 1280px): 141 measured, 0 under the floor (124 on a gradient, measured against its worst stop)
+  typed moves (1280px, Dark): SAN, UCI, invalid input, focus and navigation OK
+  contrast (Dark / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 375px): 138 measured, 0 under the floor (120 on a gradient, measured against its worst stop)
+  typed moves (375px, Dark): SAN, UCI, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 1280px): 141 measured, 0 under the floor (124 on a gradient, measured against its worst stop)
+  typed moves (1280px, Light): SAN, UCI, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 375px): 150 measured, 0 under the floor (132 on a gradient, measured against its worst stop)
+  typed moves (375px, Light): SAN, UCI, invalid input, focus and navigation OK
+  contrast (Dark / recovery warning / 1280px): 162 measured, 0 under the floor (144 on a gradient, measured against its worst stop)
+  autosave (1280px, Dark): denied storage is visible, PGN downloads, retry recovers
+  contrast (Dark / recovery warning / 375px): 159 measured, 0 under the floor (137 on a gradient, measured against its worst stop)
+  autosave (375px, Dark): denied storage is visible, PGN downloads, retry recovers
+  contrast (Light / recovery warning / 1280px): 162 measured, 0 under the floor (144 on a gradient, measured against its worst stop)
+  autosave (1280px, Light): denied storage is visible, PGN downloads, retry recovers
+  contrast (Light / recovery warning / 375px): 159 measured, 0 under the floor (137 on a gradient, measured against its worst stop)
+  autosave (375px, Light): denied storage is visible, PGN downloads, retry recovers
+  startup (analysis, silent-first): fallback answered
+  startup (analysis, silent-all): failure is visible
+  startup (play, silent-first): fallback answered
+  startup (play, silent-all): failure is visible
+  contrast (Engine Lab shared settings / 1280px): 127 measured, 0 under the floor (109 on a gradient, measured against its worst stop)
+  Engine Lab (1280px): shared settings, next search, reload, and console updates agree
+  contrast (Engine Lab shared settings / 375px): 125 measured, 0 under the floor (106 on a gradient, measured against its worst stop)
+  Engine Lab (375px): shared settings, next search, reload, and console updates agree
+  console search (1280px): startup guard, tab/space commands, busy status, stop/acknowledge before new position, isolated late scores, working Stop and completed perft
+  console search (375px): startup guard, tab/space commands, busy status, stop/acknowledge before new position, isolated late scores, working Stop and completed perft
+  engine release (1280px, 1x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (1280px, 2x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (375px, 1x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (375px, 2x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release: import stays unloaded; explicit Review loads; busy two-worker review pool blocks release even when foreground is Ready; Stop then Release closes every worker
+  engine release (hidden): hidden infinite search waits for visibility; Stop during reload cancels it
+  engine release (fallback): explicit search survives a failed boot and runs once on fallback
+  engine release (fallback-load): Load preserves prior lines through a failed boot and fallback handshake, without another search
+  console deadlines (1280px, 1x): timed/depth/node/clock searches survive 95s, hidden finite completion, reachable Stop, isolated scores, diagnostic timeout and recovery
+  console deadlines (1280px, 2x): timed/depth/node/clock searches survive 95s, hidden finite completion, reachable Stop, isolated scores, diagnostic timeout and recovery
+  console deadlines (375px, 1x): timed/depth/node/clock searches survive 95s, hidden finite completion, reachable Stop, isolated scores, diagnostic timeout and recovery
+  console deadlines (375px, 2x): timed/depth/node/clock searches survive 95s, hidden finite completion, reachable Stop, isolated scores, diagnostic timeout and recovery
+  console tools (1280px, 1x text, dark): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable
+  console tools (1280px, 2x text, light): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable
+  console tools (375px, 1x text, light): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable
+  console tools (375px, 2x text, dark): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable
+  console limits (1280px, 1x): native keyword/integer rules, final duplicate limits, zero-perft pause/resume, and finite work preserved
+  console limits (375px, 2x): native keyword/integer rules, final duplicate limits, zero-perft pause/resume, and finite work preserved
+  console drafts (1280px, 1x): new drafts survive completion and Stop, typed Stop retains terminal output/history, unchanged submissions clear, and reset discards late output
+  console drafts (375px, 2x): new drafts survive completion and Stop, typed Stop retains terminal output/history, unchanged submissions clear, and reset discards late output
+  console history (1280px, 1x): full history leaves feedback visible and output first; recall focuses/selects, Enter repeats, typing replaces, and associated alerts clear on new edits
+  console history (375px, 2x): full history leaves feedback visible and output first; recall focuses/selects, Enter repeats, typing replaces, and associated alerts clear on new edits
+  console following (1280px, 1x): 300-line tail, manual reading retained, latest/focus restored, keyboard scope/Commands, new command and Clear reset following
+  console following (375px, 1x): 300-line tail, manual reading retained, latest/focus restored, keyboard scope/Commands, new command and Clear reset following
+  console following (375px, 2x): 300-line tail, manual reading retained, latest/focus restored, keyboard scope/Commands, new command and Clear reset following
+  console copy (1280px, 1x): rendered snapshot, Clear/new command ownership, newer validation/runtime errors, overlapping results, retry, tab change and workspace reset
+  console copy (375px, 2x): rendered snapshot, Clear/new command ownership, newer validation/runtime errors, overlapping results, retry, tab change and workspace reset
+  console visibility (1280px, 1x): survives 95s, bounded/Clear output, held-frame Clear and completion, stop/ack/resume, rapid return, hidden submission, Stop cancellation, board handoff, finite work and teardown
+  console visibility (1280px, 2x): survives 95s, bounded/Clear output, held-frame Clear and completion, stop/ack/resume, rapid return, hidden submission, Stop cancellation, board handoff, finite work and teardown
+  console visibility (375px, 1x): survives 95s, bounded/Clear output, held-frame Clear and completion, stop/ack/resume, rapid return, hidden submission, Stop cancellation, board handoff, finite work and teardown
+  console visibility (375px, 2x): survives 95s, bounded/Clear output, held-frame Clear and completion, stop/ack/resume, rapid return, hidden submission, Stop cancellation, board handoff, finite work and teardown
+  console layout (1280px, 1x): full FEN summary and history, complete recalled command, 2 balanced action rows and 32px minimum targets
+  console layout (1280px, 2x): full FEN summary and history, complete recalled command, 4 balanced action rows and 32px minimum targets
+  console layout (375px, 1x): full FEN summary and history, complete recalled command, 2 balanced action rows and 44px minimum targets
+  console layout (375px, 2x): full FEN summary and history, complete recalled command, 4 balanced action rows and 44px minimum targets
+  console layout (320px, 1x): full FEN summary and history, complete recalled command, 2 balanced action rows and 44px minimum targets
+  console layout (320px, 2x): full FEN summary and history, complete recalled command, 4 balanced action rows and 44px minimum targets
+  single-thread profile: 64 MB / limit 4, 4 pool workers; resource control persists
+  single-thread profile: 32 MB / limit 4, 2 pool workers; resource control persists
+  single-thread profile: 64 MB / limit 1, 0 pool workers; resource control persists
+  Coach: cloud position score agrees with the bar; local candidate depth is labeled separately
+  bounded score: eval bar reads -2.2, not the bound
+  candidate search (1280px, known position): preserves position/export, labels candidates, and clears the restriction on the next search
+  candidate search (375px, known position): preserves position/export, labels candidates, and clears the restriction on the next search
+  candidate search (375px, unevaluated position): preserves position/export, labels candidates, and clears the restriction on the next search
+  evaluation provenance (1280px): actual worker identity, retained score after engine switch, review source, deeper replacement, and optional PGN metadata
+  evaluation provenance (375px): actual worker identity, retained score after engine switch, review source, deeper replacement, and optional PGN metadata
+  PV reuse (1280px): focus previews and restores the board; repeated search keeps the line clickable; export contains both committed plies
+  PV reuse (375px): focus previews and restores the board; repeated search keeps the line clickable; export contains both committed plies
+  review controls (1280px): fresh search, exact report PGN download, and 200% text fit
+  review engine (1280px, limit 4): switched engine searches the full game, report excludes deeper old scores, completed readings are reusable
+  review controls (375px): fresh search, exact report PGN download, and 200% text fit
+  review engine (375px, limit 1): switched engine searches the full game, report excludes deeper old scores, completed readings are reusable
+  review controls (1280px): fresh search, exact report PGN download, and 200% text fit
+  review engine (1280px, limit 4, mid-search pool failure): switched engine searches the full game, report excludes deeper old scores, completed readings are reusable
+  saved reviews (1280px, dark): two producers survive reload; comparison keeps own scores/WDL and navigates; open another line, export, delete and 200% text fit
+  saved reviews (375px, light): two producers survive reload; comparison keeps own scores/WDL and navigates; open another line, export, delete and 200% text fit
+  review naming (1280px): selected draft/cancel, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery
+  review naming (375px): selected draft/cancel, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery
+  review names (1280px): saved title and dated download follow the reviewed Queen's Gambit branch after stepping back; whole-game export retains the King's Knight main line
+  review names (375px): saved title and dated download follow the reviewed Queen's Gambit branch after stepping back; whole-game export retains the King's Knight main line
+  saved review storage: quota failure is explicit and retryable; corrupt readings preserve the board; two tabs fill one free slot without eviction
+  saved ending (checkmate, 375px): completed report saves, reopens and exports with 1 engine readings
+  saved ending (insufficient material, 375px): completed report saves, reopens and exports with 0 engine readings
+  repetition (1280px): import, navigation, charts and Play keep the draw; same-FEN histories and sibling lines stay separate; complete Coach readings at 200% text
+  repetition (375px): import, navigation, charts and Play keep the draw; same-FEN histories and sibling lines stay separate; complete Coach readings at 200% text
+  repetition review (1280px, 4 workers): 14 engine searches, draw omitted; old complete/partial runs open, compare and back up unchanged; resume needs no search
+  repetition review (375px, 1 workers): 14 engine searches, draw omitted; old complete/partial runs open, compare and back up unchanged; resume needs no search
+  finished automatic analysis (1280px): import omits the draw, returning stops the old infinite search; explicit Analyze/Stop remain usable and unfinished navigation resumes
+  finished automatic analysis (375px): import omits the draw, returning stops the old infinite search; explicit Analyze/Stop remain usable and unfinished navigation resumes
+  review backup export (1280px): a native worker exports complete/partial runs with exact WDL, settings and timestamps; 200% text and download failure preserve the open report
+  review backup export (375px): a native worker exports complete/partial runs with exact WDL, settings and timestamps; 200% text and download failure preserve the open report
+  review backup import (1280px): a clean browser restores exact complete/partial runs, preserves ID collisions, deduplicates retries, keeps the current board and rejects corrupt data; post-insert abort, capacity and concurrent imports are atomic
+  review backup import (375px): a clean browser restores exact complete/partial runs, preserves ID collisions, deduplicates retries, keeps the current board and rejects corrupt data; the cached worker imports and exports offline
+  review depth (1280px, max 4 workers): D6 completes and reuses, preserves 117 saved/exported scores without accuracy grades; Deepen review runs D10 and grades every move
+  review depth (375px, max 1 workers): D6 completes and reuses, preserves 117 saved/exported scores without accuracy grades; Deepen review runs D10 and grades every move
+  takeback: the game follows the move played, not the one undone
+  takeback: the clock follows the turn back
+  takeback: the mate's 0-1 came off with the mate
+  results: cleared with their own mate, kept across three games, and an imported 1-0 survived
+  mode switch: the clock started again, 2:59 -> 2:58
+  recorded clocks: 0:03:01 and 0:03:01, the readings on the faces
+  replayed clock: 3:01 before the take-back, 2:57 after, and 0:02:57 recorded
+  step mode: held at 2:59 and 3:01 through five-second waits, and paid 3:01 and 3:03 for the moves it was let go to make
+  engine boot: held at 2:59 through a five-second load, then paid 3:01 for the move it made
+  top arrows: slider 3, MultiPV 2, 2 drawn, and the card says which limit applies
+  opening filters: Lichess asked with blitz,bullet,classical,rapid and ratings 1600,1800,2000,2200; 1 Masters request(s) carried neither
+  advanced limits: go depth 16 nodes 50000 wtime 61000 btime 62000 winc 3000 binc 4000 movestogo 7
+  palette tabs: Engine Lab from Play mode lands on ["Analyze:false","Review:false","Engine Lab:true"]
+  hint threads: 0 thread change(s) for one hint []
+  reset workspace: analyze controls go back to defaults, the light theme stays light
+  sound release: one context per on-period, closed the moment the switch says off ({"supported":true,"made":2,"closed":1})
+  small device: 2GB dual-core gets 16 MB hash, 1 line, and "up to 1 engine, 1 thread each, 16 MB hash each"
+  settings dialog: all 26 focusable controls are inside the trap, disclosure included
+  backdrop: clicking away closes the dialog and returns focus to its opener
+  New game: 11 focusable controls, all inside the trap
+  PGN and FEN: 10 focusable controls, all inside the trap
+  Library: 2 focusable controls, all inside the trap
+  Command palette: 23 focusable controls, all inside the trap
+  Promotion chooser: 5 focusable controls, all inside the trap
+  markup: skip link reachable and lands on the board, heading outline unbroken, nothing stranded behind a dialog, inert honoured, every field named, no id used twice
+  keyboard: e2 selected, e3 and e4 offered and named, Enter played e4, focus stayed on the board
+  finished game: the clock held at 3:03 through a pause, a resume and a walk
+  navigation: pass and play hands the clock back with the turn
+  navigation: exploring against the engine holds both clocks at 2:58|3:01
+  keep searching: off asks for "go depth 16", on asks for "go infinite"
+  autoplay: walked to the end of the line and stopped
+  typed move: nf3 and e7e5 landed, a repeated Nf3 was refused and kept
+  move times: ten timed moves drawn, longest think 47s
+  review offer: one press from Analyze reviewed all ten moves
+  resignation: take back is off, with the reason; Play again starts afresh
+  quick start: a Master, Black, 3+2 game from one press
+  premove: played in turn as e4 e5 d4 Nc6, and dropped by a takeback
+  threat: asked with the move handed over and no en passant, bounded, board handed back, cleared by a move
+  blindfold: no tooltip names a piece, occupied reads as empty, the accessible name is untouched
+  hint: three presses asked once, drew an arrow, and did not outlive the position
+  hint copy: "Try e4 — drawn on the board in green." with arrows on, "Try e4 — board arrows are off, so nothing is drawn." with them off
+  import sweep: reached 39/40 and closed
+  nudge: a blunder is pointed out where it happens, and the take-back clears it
+  review report: holds still after 4 positions were re-searched and disagreed
+  review offer: spent on the reviewed line, offered again for the game played from that position (Ba4)
+  drill: two wrong moves and a right one leave the line byte for byte
+  drill: left behind on the way out of Analysis, so Play still takes a move off the line
+  shortcuts: six chords left to the browser, and f and ArrowLeft still the app's
+  evaluation bar: drawn either way, reading "-2.2" with the detail off
+  draw mode: ends at the move into Play, can still be turned on there, and draws a finger stroke
+  reach (320x568): all 64 squares answer a press, at 34px a square
+  reach (360x640): all 64 squares answer a press, at 38px a square
+  reach (375x812): all 64 squares answer a press, at 44px a square
+  tap: a finger drifting 3px still selects (2 targets lit), and a drag still drags
+  thumb: the board pans, a piece keeps the drag, and both the drag and the second tap still play
+  targets: 226 controls across 8 surfaces all clear 44px (10 cleared by their label, 2 inline links exempt under 2.5.8)
+  graph readings: winrate (60, 40, 60, 40%) and WDL White (40, 20, 40, 20%) follow the board and agree with their selected positions
+  graph gaps: an unscored new branch keeps its graphs without borrowing the root’s readings
+  observed layout: late graphs, keyboard panel resize, collapse/reopen, phone rotation and e2-e4 remain correct
+  narrow desktop (901px, beginner): whole board and graph headings at 100%/200% text, four focused corners, accurate keyboard/pointer resizing, collapse/reopen, preference restoration and e2-e4
+  narrow desktop (901px, pro): whole board and graph headings at 100%/200% text, four focused corners, accurate keyboard/pointer resizing, collapse/reopen, preference restoration and e2-e4
+  narrow desktop (950px, beginner): whole board and graph headings at 100%/200% text, four focused corners, accurate keyboard/pointer resizing, collapse/reopen, preference restoration and e2-e4
+  narrow desktop (950px, pro): whole board and graph headings at 100%/200% text, four focused corners, accurate keyboard/pointer resizing, collapse/reopen, preference restoration and e2-e4
+  narrow desktop (1024px, beginner): whole board and graph headings at 100%/200% text, four focused corners, accurate keyboard/pointer resizing, collapse/reopen, preference restoration and e2-e4
+  narrow desktop (1024px, pro): whole board and graph headings at 100%/200% text, four focused corners, accurate keyboard/pointer resizing, collapse/reopen, preference restoration and e2-e4
+  compact toolbar (901px): 100% → 200% → 100%, eleven reachable controls, all dialogs, modes and Flip; enlarged top bar stays within 215px
+  compact toolbar (1280px): 100% → 200% → 100%, eleven reachable controls, all dialogs, modes and Flip; enlarged top bar stays within 215px
+  compact toolbar (1440px): 100% → 200% → 100%, eleven reachable controls, all dialogs, modes and Flip; enlarged top bar stays within 215px
+  short window (901×360, beginner): complete focused controls, all board corners, move reveal, bars, settings, clocks, practice; 200% → 100% text restores the fixed layout
+  short window (901×360, pro): complete focused controls, all board corners, move reveal, bars, settings, clocks; 200% → 100% text restores the fixed layout
+  short window (1280×480, beginner): complete focused controls, all board corners, move reveal, bars, settings, clocks, practice; 200% → 100% text restores the fixed layout
+  short window (1280×480, pro): complete focused controls, all board corners, move reveal, bars, settings, clocks; 200% → 100% text restores the fixed layout
+  short window (1600×600, beginner): complete focused controls, all board corners, move reveal, bars, settings, clocks, practice; 200% → 100% text restores the fixed layout
+  short window (1600×600, pro): complete focused controls, all board corners, move reveal, bars, settings, clocks; 200% → 100% text restores the fixed layout
+  short dialogs (901×360, 200% text, dark): whole mode choices, engine readings, PGN download, library save/load and Commands search remain reachable
+  short dialogs (901×256, 100% text, dark): whole mode choices, engine readings, PGN download, library save/load and Commands search remain reachable
+  short dialogs (901×256, 200% text, dark): whole mode choices, engine readings, PGN download, library save/load and Commands search remain reachable
+  short dialogs (901×256, 200% text, light): whole mode choices, engine readings, PGN download, library save/load and Commands search remain reachable
+  compact footer (901px, beginner): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+  compact footer (901px, pro): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+Error: leaving compact layout stranded focus
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:33:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:37:19)
+    at checkCompactFooter (/workspace/web-chess/scripts/test-ui-browser.cjs:9149:7)
+    at async main (/workspace/web-chess/scripts/test-ui-browser.cjs:13353:5)
