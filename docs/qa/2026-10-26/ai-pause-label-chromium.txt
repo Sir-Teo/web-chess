@@ -1,0 +1,5 @@
+{"width":1280,"height":900,"scale":1,"label":" AI paused","geometry":{"rect":{"x":489.53125,"y":862.734375,"width":89.125,"height":24.546875,"top":862.734375,"right":578.65625,"bottom":887.28125,"left":489.53125},"fits":true}}
+{"width":375,"height":812,"scale":1,"label":" AI paused","geometry":{"rect":{"x":142.9375,"y":748.03125,"width":89.125,"height":24.546875,"top":748.03125,"right":232.0625,"bottom":772.578125,"left":142.9375},"fits":true}}
+{"width":320,"height":812,"scale":2,"label":" AI paused","geometry":{"rect":{"x":143.90625,"y":617.859375,"width":176.328125,"height":47.109375,"top":617.859375,"right":320.234375,"bottom":664.96875,"left":143.90625},"fits":true}}
+{"width":844,"height":390,"scale":2,"label":" AI paused","geometry":{"rect":{"x":667.328125,"y":252.59375,"width":176.328125,"height":47.109375,"top":252.59375,"right":843.65625,"bottom":299.703125,"left":667.328125},"fits":true}}
+  step mode: held at 2:59 and 3:01 through five-second waits, and paid 3:01 and 3:03 for released moves; the human timer stays accessible and the first Space pauses it; the next Space resumes it
