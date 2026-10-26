@@ -38,6 +38,17 @@ function assert(condition, message) {
   if (!condition) fail(message)
 }
 
+/** A square is a passive image or contains the board library's piece button. */
+function readBoardSquareLabel(element) {
+  return element.getAttribute('aria-label')
+    || element.querySelector('button, [role="button"]')?.getAttribute('aria-label') || ''
+}
+
+async function waitForBoardPiece(page, square, description) {
+  const options = { name: new RegExp(`^${square}, ${description}(?:,|$)`) }
+  await page.getByRole('button', options).or(page.getByRole('img', options)).first().waitFor({ state: 'attached' })
+}
+
 /**
  * Start a game in one of the three modes. The mode pills used to switch mode
  * in place; they now open the New game dialog, which is also the only way to
@@ -678,19 +689,19 @@ async function checkTypedMoveEntry(browser) {
       const input = page.locator('.move-entry input')
       await input.fill('e4')
       await input.press('Enter')
-      await page.waitForFunction(() => document.querySelector('#chessboard-square-e4')?.getAttribute('aria-label')?.includes('White pawn'))
+      await waitForBoardPiece(page, 'e4', 'White pawn')
       assert(await input.evaluate(el => document.activeElement === el), 'typing a move lost input focus')
       assert(await input.inputValue() === '', 'the previous move remained in the input')
       await input.fill('e7e5')
       await input.press('Enter')
-      await page.waitForFunction(() => document.querySelector('#chessboard-square-e5')?.getAttribute('aria-label')?.includes('Black pawn'))
+      await waitForBoardPiece(page, 'e5', 'Black pawn')
       await input.fill('e5')
       await input.press('Enter')
       assert(await page.locator('.move-entry [role="alert"]').count() === 1, 'illegal input was not explained')
-      assert((await page.locator('#chessboard-square-e4').getAttribute('aria-label')).includes('White pawn'), 'illegal input changed the board')
+      assert((await page.locator('#chessboard-square-e4').evaluate(readBoardSquareLabel)).includes('White pawn'), 'illegal input changed the board')
       await input.fill('Nf3')
       await input.press('Enter')
-      await page.waitForFunction(() => document.querySelector('#chessboard-square-f3')?.getAttribute('aria-label')?.includes('White knight'))
+      await waitForBoardPiece(page, 'f3', 'White knight')
       await input.fill('Nc6')
       await input.press('Enter')
       await page.locator('#chessboard-square-c6 [data-piece="bN"]').waitFor()
@@ -5009,8 +5020,8 @@ async function checkPositionSetupKeyboard(browser) {
       await page.keyboard.press('Enter')
       await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).click()
       await dialog.waitFor({ state: 'detached' })
-      await page.waitForFunction(() => document.querySelector('#chessboard-square-e8')?.getAttribute('aria-label')?.includes('Black king'))
-      assert((await page.locator('#chessboard-square-e1').getAttribute('aria-label')).includes('White king'),
+      await waitForBoardPiece(page, 'e8', 'Black king')
+      assert((await page.locator('#chessboard-square-e1').evaluate(readBoardSquareLabel)).includes('White king'),
         'the keyboard-built position did not reach the analysis board')
       console.log(`  setup keyboard (${width}px, ${scale}x text): palette/board each use one Tab stop; arrow/Home/End navigation, keyboard tool selection, placement and erasure load a real position`)
     } finally { await context.close() }
@@ -5385,7 +5396,7 @@ async function checkPositionSetupOrientation(browser) {
       await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).click()
       await dialog.waitFor({ state: 'detached' })
       for (const [square, piece] of [['e1', 'White king'], ['e8', 'Black king'], ['d2', 'White pawn']]) {
-        await page.waitForFunction(({ square, piece }) => document.querySelector(`#chessboard-square-${square}`)?.getAttribute('aria-label')?.includes(piece), { square, piece })
+        await waitForBoardPiece(page, square, piece)
       }
       console.log(`  setup orientation (${width}px, ${scale}x): view-only flip, reversed coordinates/arrows/Home/End, keyboard and pointer placement, and unchanged FEN loading`)
     } finally { await context.close() }
@@ -5456,7 +5467,7 @@ async function checkPositionSetupEnPassant(browser) {
       await page.click(`#chessboard-square-${from}`)
       await page.click(`#chessboard-square-${target}`)
       await page.waitForFunction(square => document.querySelector(`#chessboard-square-${square}`)?.getAttribute('aria-label')?.includes('empty'), captured)
-      assert((await page.locator(`#chessboard-square-${target}`).getAttribute('aria-label')).includes('pawn'), 'the en passant move did not reach the board')
+      assert((await page.locator(`#chessboard-square-${target}`).evaluate(readBoardSquareLabel)).includes('pawn'), 'the en passant move did not reach the board')
       console.log(`  position setup (${width}px): ${target} survives a counter edit, can be cleared/restored, and allows a real en passant capture`)
     } finally { await context.close() }
   }
@@ -6492,6 +6503,98 @@ async function checkTheThreatProbeAsksTheOtherSide(browser) {
   }
 }
 
+/** Keep every square named as piece controls arrive, leave and become targets. */
+async function checkBoardSquareSemantics(browser) {
+  for (const [width, theme] of [[1280, 'dark'], [375, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'play', gameMode: 'human-vs-human', autoAnalyze: false,
+        engineProfile: 'lite-single-local', theme,
+      })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await waitForBoardPiece(page, 'e2', 'White pawn')
+      const board = page.locator('.board-area')
+      const names = /^[a-h][1-8],/
+      const buttons = board.getByRole('button', { name: names })
+      const images = board.getByRole('img', { name: names })
+      const described = buttons.or(images)
+      const verify = async (pieceCount, targetCount = 0) => {
+        // React and the third-party board settle in separate renders. Wait for
+        // the observed structure to reflect the position before inspecting it.
+        await page.waitForFunction(({ pieceCount, targetCount }) => {
+          const squares = [...document.querySelectorAll('[id^="chessboard-square-"]')]
+          const objects = squares.flatMap(square => [square, ...square.querySelectorAll('button, [role="button"]')]
+            .filter(el => ['button', 'img'].includes(el.getAttribute('role')) || el.tagName === 'BUTTON')
+            .filter(el => /^[a-h][1-8],/.test(el.getAttribute('aria-label') || '')))
+          return objects.length === 64
+            && objects.filter(el => el.getAttribute('role') === 'img').length === 64 - pieceCount - targetCount
+            && squares.every(square => !square.matches('[role="img"]') || !square.querySelector('button, [role="button"]'))
+        }, { pieceCount, targetCount })
+        assert(await described.count() === 64, 'not every board square has exactly one named accessible object')
+        assert(await buttons.count() === pieceCount + targetCount && await images.count() === 64 - pieceCount - targetCount,
+          'passive squares or legal targets have the wrong accessible role')
+        const descriptions = await described.evaluateAll(els => els.map(el => ({
+          square: el.closest('[id^="chessboard-square-"]')?.id.replace('chessboard-square-', ''),
+          label: el.getAttribute('aria-label'),
+        })))
+        assert(new Set(descriptions.map(item => item.square)).size === 64
+          && descriptions.every(item => item.label.startsWith(`${item.square}, `)), 'square descriptions are duplicated or attached to another coordinate')
+        assert(await board.locator('[data-webchess-a11y-description] [role="button"]').count() === 0,
+          'a passive image role hides an arriving piece button')
+        assert(await board.locator('[role="img"][tabindex="0"]').count() === 0, 'passive square descriptions added tab stops')
+        assert(await board.locator('[id^="chessboard-square-"][aria-label]:not([role])').count() === 0,
+          'generic square wrappers still carry unsupported names')
+      }
+      await verify(32)
+      const pawn = board.getByRole('button', { name: /^e2, White pawn/ })
+      await pawn.focus()
+      await pawn.press('Enter')
+      await board.getByRole('button', { name: /^e4, empty square, legal move target/ }).waitFor()
+      await verify(32, 2)
+      await pawn.press('Enter')
+      await board.getByRole('img', { name: 'e4, empty square', exact: true }).waitFor()
+      await verify(32)
+      const move = async (from, to, description) => {
+        const source = board.getByRole('button', { name: new RegExp(`^${from},`) })
+        await source.focus()
+        await source.press('Enter')
+        const target = board.getByRole('button', { name: new RegExp(`^${to}, .*legal (?:move|capture) target`) })
+        await target.waitFor()
+        await target.focus()
+        await target.press('Space')
+        await waitForBoardPiece(page, to, description)
+        await page.waitForFunction(square => document.activeElement?.matches('button, [role="button"]')
+          && document.activeElement.closest('[id^="chessboard-square-"]')?.id === `chessboard-square-${square}`, to)
+      }
+      await move('e2', 'e4', 'White pawn')
+      await board.getByRole('img', { name: 'e2, empty square', exact: true }).waitFor()
+      await verify(32)
+      await move('d7', 'd5', 'Black pawn')
+      await move('e4', 'd5', 'White pawn')
+      await board.getByRole('img', { name: 'e4, empty square', exact: true }).waitFor()
+      await verify(31)
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      await waitForBoardPiece(page, 'e2', 'White pawn')
+      await verify(32)
+      await page.getByRole('button', { name: 'Flip board', exact: true }).click()
+      await verify(32)
+      await openSettings(page)
+      await page.getByRole('checkbox', { name: /blindfold/i }).first().check()
+      await closeSettings(page)
+      await verify(32)
+      assert(await board.getByRole('button', { name: /^e2, White pawn/ }).count() === 1,
+        'blindfold removed the accessible piece description')
+      assert(await page.locator('#chessboard-square-e2').getAttribute('title') === 'e2', 'blindfold exposed the piece in a visual tooltip')
+      assert(errors.length === 0, `board semantic errors: ${errors.join('; ')}`)
+      console.log(`  board semantics (${width}px, ${theme}): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture, arrival/departure cleanup, root navigation, flip and blindfold preserved`)
+    } finally { await context.close() }
+  }
+}
+
 /**
  * A blindfold hides the pieces from the eye and not from the screen reader.
  *
@@ -6539,7 +6642,8 @@ async function checkABlindfoldHidesThePieces(browser) {
         naming: [...new Set(titles.filter(title => PIECES.test(title)))].slice(0, 4),
         occupied: document.getElementById('chessboard-square-e2').getAttribute('title'),
         empty: document.getElementById('chessboard-square-e5').getAttribute('title'),
-        name: document.getElementById('chessboard-square-e2').getAttribute('aria-label'),
+        name: document.querySelector('#chessboard-square-e2 [role="button"]')?.getAttribute('aria-label')
+          || document.getElementById('chessboard-square-e2').getAttribute('aria-label'),
       }
     })
 
@@ -7561,7 +7665,7 @@ async function checkRemoteAnalysisRetry(browser) {
         await retry.scrollIntoViewIfNeeded()
         assert(await retry.evaluate(el => el.getBoundingClientRect().height >= 43.75), 'network retry has a small touch target')
         assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'network retry overflows enlarged text')
-        const boardBefore = await page.locator('[id^="chessboard-square-"]').evaluateAll(nodes => nodes.map(el => el.getAttribute('aria-label')))
+        const boardBefore = await page.locator('[id^="chessboard-square-"]').evaluateAll(nodes => nodes.map(el => el.getAttribute('aria-label') || el.querySelector('button, [role="button"]')?.getAttribute('aria-label')))
         await retry.evaluate(el => { el.click(); el.click() })
         await page.waitForFunction(() => window.__retryReplies.has(2))
         assert(await retry.count() === 0 && await card.locator('.error-copy').count() === 0, 'retry kept the old error or another active Retry')
@@ -7570,7 +7674,7 @@ async function checkRemoteAnalysisRetry(browser) {
         await page.evaluate(() => window.__retryReplies.get(2)(503))
         await retry.waitFor()
         assert(await card.getByRole('status').evaluate(el => el === document.activeElement), 'repeated failure lost keyboard focus')
-        assert(JSON.stringify(boardBefore) === JSON.stringify(await page.locator('[id^="chessboard-square-"]').evaluateAll(nodes => nodes.map(el => el.getAttribute('aria-label')))), 'retry changed the position')
+        assert(JSON.stringify(boardBefore) === JSON.stringify(await page.locator('[id^="chessboard-square-"]').evaluateAll(nodes => nodes.map(el => el.getAttribute('aria-label') || el.querySelector('button, [role="button"]')?.getAttribute('aria-label')))), 'retry changed the position')
         await retry.click()
         await page.waitForFunction(() => window.__retryReplies.has(3))
         // Change the position while the retry is pending, then complete the old request.
@@ -9248,7 +9352,7 @@ async function checkTheWinrateCardFollowsTheBoard(browser) {
     await page.evaluate(() => { window.__withholdEngineInfo = true })
     await page.locator('#chessboard-square-a2').click()
     await page.locator('#chessboard-square-a3').click()
-    await page.waitForFunction(() => document.querySelector('#chessboard-square-a3')?.getAttribute('aria-label')?.includes('White pawn'))
+    await waitForBoardPiece(page, 'a3', 'White pawn')
     await page.waitForTimeout(200)
     // With only the root scored on this branch there is no trend yet, and each
     // card may fold to its one-line summary instead of a plot. Either way it
@@ -9304,12 +9408,12 @@ async function checkBoardCanvas(browser) {
       assert(flipped.x > restored.x + 100, 'board memoization swallowed orientation changes')
       await page.locator('#chessboard-square-e2').click()
       await page.locator('#chessboard-square-e4').click()
-      await page.waitForFunction(() => document.querySelector('#chessboard-square-e4')?.getAttribute('aria-label')?.includes('White pawn'))
+      await waitForBoardPiece(page, 'e4', 'White pawn')
       await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
-      await page.waitForFunction(() => document.querySelector('#chessboard-square-e2')?.getAttribute('aria-label')?.includes('White pawn'))
+      await waitForBoardPiece(page, 'e2', 'White pawn')
       await page.locator('#chessboard-square-d2').click()
       await page.locator('#chessboard-square-d4').click()
-      await page.waitForFunction(() => document.querySelector('#chessboard-square-d4')?.getAttribute('aria-label')?.includes('White pawn'))
+      await waitForBoardPiece(page, 'd4', 'White pawn')
       assert(await page.locator('[id^="chessboard-square-"]').count() === 64, 'board lost squares after navigating and branching')
       await page.locator('.board-surface').scrollIntoViewIfNeeded()
       await page.screenshot({ path: `/tmp/web-chess-board-canvas-${width}.png` })
@@ -9926,7 +10030,7 @@ async function checkPerftStopReleasesWorker(browser) {
       const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
       const output = page.getByLabel('UCI console output', { exact: true })
       const submit = async text => { await command.fill(text); await command.press('Enter') }
-      const originalBoard = await page.locator('#chessboard-square-e2').getAttribute('aria-label')
+      const originalBoard = await page.locator('#chessboard-square-e2').evaluate(readBoardSquareLabel)
       for (const [text, typed] of [['go perft 8', false], ['go depth 12 perft 8', true]]) {
         const terminated = await page.evaluate(() => window.__terminatedEngines)
         await submit(text)
@@ -9942,7 +10046,7 @@ async function checkPerftStopReleasesWorker(browser) {
         assert(textAfter.startsWith(`> ${text}\n`) && !textAfter.includes('bestmove') && !textAfter.includes('Nodes searched:'), 'canceling perft invented a completed result or replaced its output')
         assert(await command.inputValue() === (typed ? '' : 'isready'), 'perft cancellation erased a newer draft or retained typed Stop')
         assert(await page.getByRole('alert').count() === 0, 'user-requested diagnostic cancellation was shown as an error')
-        assert(await page.locator('#chessboard-square-e2').getAttribute('aria-label') === originalBoard, 'canceling console perft changed the board')
+        assert(await page.locator('#chessboard-square-e2').evaluate(readBoardSquareLabel) === originalBoard, 'canceling console perft changed the board')
         await page.getByRole('button', { name: 'Load engine', exact: true }).click()
         await ready()
         assert(await page.getByRole('spinbutton', { name: 'Hash', exact: true }).inputValue() === '64', 'reloading after perft cancellation lost managed Hash')
@@ -10683,7 +10787,7 @@ async function checkConsoleOutputFollowing(browser) {
           activeTag: document.activeElement?.tagName, selection: window.getSelection()?.focusOffset }))
         throw new Error(`Console did not reach its latest output: ${JSON.stringify(state)}`, { cause: error })
       })
-      const boardState = () => page.locator('[id^="chessboard-square-"]').evaluateAll(els => els.map(el => `${el.id}:${el.getAttribute('aria-label')}`).join('|'))
+      const boardState = () => page.locator('[id^="chessboard-square-"]').evaluateAll(els => els.map(el => `${el.id}:${el.getAttribute('aria-label') || el.querySelector('button, [role="button"]')?.getAttribute('aria-label')}`).join('|'))
       await emit(600)
       await atBottom()
       assert((await output.textContent()).split('\n').length === 300, 'following output changed the retention limit')
@@ -12257,7 +12361,7 @@ async function checkNarrowDesktopLayout(browser) {
       await checkBoard('restored narrow viewport')
       await page.locator('#chessboard-square-e2').click()
       await page.locator('#chessboard-square-e4').click()
-      await page.waitForFunction(() => document.querySelector('#chessboard-square-e4')?.getAttribute('aria-label')?.includes('White pawn'))
+      await waitForBoardPiece(page, 'e4', 'White pawn')
       await page.screenshot({ path: `/tmp/web-chess-narrow-board-${width}-${experience}.png` })
       assert(errors.length === 0, `narrow-desktop errors: ${errors.join('; ')}`)
       console.log(`  narrow desktop (${width}px, ${experience}): whole board and graph headings at 100%/200% text, four focused corners, accurate keyboard/pointer resizing, collapse/reopen, preference restoration and e2-e4`)
@@ -12320,7 +12424,7 @@ async function checkObservedLayout(browser) {
     await graphFits()
     await page.locator('#chessboard-square-e2').click()
     await page.locator('#chessboard-square-e4').click()
-    await page.waitForFunction(() => document.querySelector('#chessboard-square-e4')?.getAttribute('aria-label')?.includes('White pawn'))
+    await waitForBoardPiece(page, 'e4', 'White pawn')
     console.log('  observed layout: late graphs, keyboard panel resize, collapse/reopen, phone rotation and e2-e4 remain correct')
   } finally { await context.close() }
 }
@@ -15933,6 +16037,7 @@ async function main() {
       'markup': checkTheMarkupSaysWhatItShows,
       'premove': checkAPremoveWaitsForItsTurn,
       'threat': checkTheThreatProbeAsksTheOtherSide,
+      'board-semantics': checkBoardSquareSemantics,
       'blindfold': checkABlindfoldHidesThePieces,
       'hint': checkAHintBelongsToItsPosition,
       'drill-exit': checkADrillStaysInAnalysis,
@@ -16077,8 +16182,8 @@ async function main() {
         const squares = [...document.querySelectorAll('div[id^="chessboard-square-"]')]
         return {
           total: squares.length,
-          labelled: squares.filter(el => el.getAttribute('aria-label')).length,
-          sample: squares[0]?.getAttribute('aria-label') ?? null,
+          labelled: squares.filter(el => el.getAttribute('aria-label') || el.querySelector('button, [role="button"]')?.getAttribute('aria-label')).length,
+          sample: squares[0]?.getAttribute('aria-label') || squares[0]?.querySelector('button, [role="button"]')?.getAttribute('aria-label') || null,
         }
       })
       assert(boardLabels.total === 64, `${viewport.name}: the board rendered ${boardLabels.total} squares`)
@@ -16706,6 +16811,7 @@ async function main() {
     await checkQuickStartRemembersTheLastGame(browser)
     await checkAPremoveWaitsForItsTurn(browser)
     await checkTheThreatProbeAsksTheOtherSide(browser)
+    await checkBoardSquareSemantics(browser)
     await checkABlindfoldHidesThePieces(browser)
     await checkAHintBelongsToItsPosition(browser)
     await checkAHintSaysWhereToLookOnlyIfItIsDrawn(browser)

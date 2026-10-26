@@ -4849,17 +4849,18 @@ function App() {
         restoreBoardFocusRef.current = null
         return
       }
-      // Focus the square, not the piece inside it: the board replaces the piece
-      // element as it animates in, which would drop focus straight back to
-      // <body>, while the square itself persists. It already carries the label
-      // a screen reader should hear ("e4, White pawn"), and -1 keeps it out of
-      // the tab order — the sync above only strips tabindex from squares it
-      // marked itself, so this survives.
+      // Use the named piece control once it exists. During animation the
+      // passive square is a named fallback; the structural observer retries
+      // when the board replaces it with the arriving piece.
       const squareEl = document.getElementById(`chessboard-square-${square}`)
       if (!squareEl) return
-      if (!squareEl.hasAttribute('tabindex')) squareEl.setAttribute('tabindex', '-1')
-      squareEl.focus()
-      if (settled) restoreBoardFocusRef.current = null
+      const pieceControl = squareEl.querySelector<HTMLElement>('button, [role="button"]')
+      const focusTarget = pieceControl ?? squareEl
+      if (!focusTarget.hasAttribute('tabindex')) focusTarget.setAttribute('tabindex', '-1')
+      focusTarget.focus()
+      if (settled && (pieceControl || !(previewChess ?? game).get(square))) {
+        restoreBoardFocusRef.current = null
+      }
     }
 
     const sync = (settled = false) => {
@@ -4890,14 +4891,30 @@ function App() {
       retryFrame = window.requestAnimationFrame(syncUntilBoardExists)
     }
 
+    // Piece children arrive after the position update, and the board can
+    // remount without changing the position (for example after resizing).
+    // Observe structure only: our own label/role writes must not reschedule us.
+    let structureFrame: number | null = null
+    const observer = new MutationObserver(() => {
+      if (structureFrame !== null) return
+      structureFrame = window.requestAnimationFrame(() => {
+        structureFrame = null
+        sync()
+      })
+    })
+    const boardArea = boardStageRef.current?.querySelector('.board-area')
+    if (boardArea) observer.observe(boardArea, { childList: true, subtree: true })
+
     const frame = window.requestAnimationFrame(syncUntilBoardExists)
     const settleTimer = window.setTimeout(() => sync(true), 360)
 
     sync()
 
     return () => {
+      observer.disconnect()
       window.cancelAnimationFrame(frame)
       if (retryFrame !== null) window.cancelAnimationFrame(retryFrame)
+      if (structureFrame !== null) window.cancelAnimationFrame(structureFrame)
       window.clearTimeout(settleTimer)
     }
   }, [blindfold, fen, game, legalTargets, previewChess, selectedSquare])

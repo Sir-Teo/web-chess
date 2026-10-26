@@ -221,7 +221,7 @@ async function main() {
           await page.keyboard.press('Escape')
           await page.locator('#chessboard-square-e2').click()
           await page.locator('#chessboard-square-e4').click()
-          await page.waitForFunction(() => document.querySelector('#chessboard-square-e4')?.getAttribute('aria-label')?.includes('White pawn'))
+          await page.getByRole('button', { name: /^e4, White pawn(?:,|$)/ }).waitFor()
           assert.equal(await page.locator('[id^="chessboard-square-"]').count(), 64)
 
           stage = 'shared engine options'

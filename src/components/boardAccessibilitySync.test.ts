@@ -3,18 +3,19 @@ import { Chess } from 'chess.js'
 import { syncRenderedBoardAccessibility } from './boardAccessibilitySync'
 
 /**
- * A square element, thin enough to run in the node environment this suite uses.
- * The sync only ever calls these four things on one.
+ * Thin square/control mocks for label and role-ownership transitions.
  */
 function fakeSquare() {
   const attributes = new Map<string, string>()
+  const interactiveChildren: Array<{ setAttribute: (name: string, value: string) => void }> = []
   return {
+    interactiveChildren,
     attributes,
     setAttribute: (name: string, value: string) => attributes.set(name, value),
     getAttribute: (name: string) => attributes.get(name) ?? null,
     removeAttribute: (name: string) => attributes.delete(name),
-    querySelector: () => null,
-    querySelectorAll: () => [] as unknown[],
+    querySelector: () => interactiveChildren[0] ?? null,
+    querySelectorAll: () => interactiveChildren,
   }
 }
 
@@ -57,7 +58,7 @@ describe('syncRenderedBoardAccessibility', () => {
 
     // Deselect: it stops being a target and must stop being a tab stop.
     syncRenderedBoardAccessibility(new Chess(), null, [])
-    expect(square.getAttribute('role')).toBeNull()
+    expect(square.getAttribute('role')).toBe('img')
     expect(square.getAttribute('tabindex')).toBeNull()
   })
 
@@ -69,4 +70,62 @@ describe('syncRenderedBoardAccessibility', () => {
     syncRenderedBoardAccessibility(new Chess(), null, [])
     expect(square.getAttribute('tabindex')).toBe('-1')
   })
+
+  it('exposes a passive square description without adding a tab stop', () => {
+    const square = mountBoard(['e4']).get('chessboard-square-e4')!
+    syncRenderedBoardAccessibility(new Chess(), null, [])
+    expect(square.getAttribute('role')).toBe('img')
+    expect(square.getAttribute('aria-label')).toBe('e4, empty square')
+    expect(square.getAttribute('tabindex')).toBeNull()
+  })
+
+  it('names the piece control without naming its generic wrapper', () => {
+    const square = mountBoard(['e2']).get('chessboard-square-e2')!
+    const piece = fakeSquare()
+    piece.setAttribute('role', 'button')
+    square.interactiveChildren.push(piece)
+    syncRenderedBoardAccessibility(new Chess(), null, [])
+    expect(piece.getAttribute('aria-label')).toBe('e2, White pawn')
+    expect(square.getAttribute('aria-label')).toBeNull()
+    expect(square.getAttribute('role')).toBeNull()
+    expect(square.getAttribute('title')).toBe('e2, White pawn')
+  })
+
+  it('removes its passive role when a piece arrives and restores it after departure', () => {
+    const square = mountBoard(['e4']).get('chessboard-square-e4')!
+    const game = new Chess()
+    syncRenderedBoardAccessibility(game, null, [])
+    expect(square.getAttribute('role')).toBe('img')
+
+    game.move('e4')
+    const piece = fakeSquare()
+    piece.setAttribute('role', 'button')
+    square.interactiveChildren.push(piece)
+    syncRenderedBoardAccessibility(game, null, [])
+    expect(square.getAttribute('role')).toBeNull()
+    expect(square.getAttribute('aria-label')).toBeNull()
+    expect(piece.getAttribute('aria-label')).toBe('e4, White pawn')
+
+    game.move('d5')
+    game.move('exd5')
+    square.interactiveChildren.length = 0
+    syncRenderedBoardAccessibility(game, null, [])
+    expect(square.getAttribute('role')).toBe('img')
+    expect(square.getAttribute('aria-label')).toBe('e4, empty square')
+    expect(square.getAttribute('tabindex')).toBeNull()
+  })
+
+  it('preserves a square control and tab order supplied by its owner', () => {
+    const square = mountBoard(['e4']).get('chessboard-square-e4')!
+    square.setAttribute('role', 'button')
+    square.setAttribute('tabindex', '-1')
+    syncRenderedBoardAccessibility(new Chess(), 'e2', ['e4'])
+    expect(square.getAttribute('role')).toBe('button')
+    expect(square.getAttribute('tabindex')).toBe('-1')
+    expect(square.getAttribute('data-webchess-a11y-target')).toBeNull()
+    syncRenderedBoardAccessibility(new Chess(), null, [])
+    expect(square.getAttribute('role')).toBe('button')
+    expect(square.getAttribute('tabindex')).toBe('-1')
+  })
+
 })

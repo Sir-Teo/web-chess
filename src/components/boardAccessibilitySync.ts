@@ -58,25 +58,50 @@ export function syncRenderedBoardAccessibility(
     const shown = blindfold
       ? describeBoardSquare(chess, square, { selectedSquare, legalTargets, hidePiece: true })
       : label
-    squareEl.setAttribute('aria-label', label)
     squareEl.setAttribute('title', shown)
+    const controls = [...squareEl.querySelectorAll<HTMLElement>('button, [role="button"]')]
 
-    for (const interactiveEl of squareEl.querySelectorAll<HTMLElement>('button, [role="button"]')) {
+    for (const interactiveEl of controls) {
       interactiveEl.setAttribute('aria-label', label)
       interactiveEl.setAttribute('title', shown)
     }
 
-    const shouldExposeEmptyTarget = !squareEl.querySelector('button, [role="button"]')
-      && Boolean(selectedSquare)
-      && legalTargetSet.has(square)
+    const ownsTarget = squareEl.getAttribute('data-webchess-a11y-target') === 'true'
+    const ownsDescription = squareEl.getAttribute('data-webchess-a11y-description') === 'true'
+    const ownRole = squareEl.getAttribute('role')
+    const suppliedControl = squareEl.tagName === 'BUTTON' || (ownRole === 'button' && !ownsTarget)
+    const shouldExposeEmptyTarget = controls.length === 0 && !suppliedControl
+      && Boolean(selectedSquare) && legalTargetSet.has(square)
+
+    // An image is a passive square description, never a wrapper around a
+    // piece button: the image role would hide that interactive descendant.
+    if (ownsDescription && (controls.length > 0 || shouldExposeEmptyTarget || ownRole !== 'img')) {
+      if (ownRole === 'img') squareEl.removeAttribute('role')
+      squareEl.removeAttribute('data-webchess-a11y-description')
+    }
     if (shouldExposeEmptyTarget) {
       squareEl.setAttribute('role', 'button')
       squareEl.setAttribute('tabindex', '0')
       squareEl.setAttribute('data-webchess-a11y-target', 'true')
-    } else if (squareEl.getAttribute('data-webchess-a11y-target') === 'true') {
-      squareEl.removeAttribute('role')
-      squareEl.removeAttribute('tabindex')
-      squareEl.removeAttribute('data-webchess-a11y-target')
+    } else {
+      if (ownsTarget) {
+        if (squareEl.getAttribute('role') === 'button') squareEl.removeAttribute('role')
+        if (squareEl.getAttribute('tabindex') === '0') squareEl.removeAttribute('tabindex')
+        squareEl.removeAttribute('data-webchess-a11y-target')
+      }
+      if (controls.length === 0 && !suppliedControl && !squareEl.getAttribute('role')) {
+        squareEl.setAttribute('role', 'img')
+        squareEl.setAttribute('data-webchess-a11y-description', 'true')
+      }
+    }
+
+    const role = squareEl.getAttribute('role')
+    if (suppliedControl || (role && !['none', 'presentation', 'generic'].includes(role))) {
+      squareEl.setAttribute('aria-label', label)
+    } else {
+      // Generic wrappers cannot be named. Their piece button already carries
+      // the description, without duplicating it in the accessibility tree.
+      squareEl.removeAttribute('aria-label')
     }
   }
 

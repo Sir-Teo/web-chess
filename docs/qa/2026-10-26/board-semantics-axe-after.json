@@ -1,0 +1,184 @@
+[
+  {
+    "theme": "dark",
+    "view": "play",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 39
+      }
+    ]
+  },
+  {
+    "theme": "dark",
+    "view": "review",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "aria-prohibited-attr",
+        "nodes": 4
+      },
+      {
+        "id": "color-contrast",
+        "nodes": 1
+      }
+    ]
+  },
+  {
+    "theme": "dark",
+    "view": "fen",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 30
+      }
+    ]
+  },
+  {
+    "theme": "dark",
+    "view": "settings",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 16
+      }
+    ]
+  },
+  {
+    "theme": "dark",
+    "view": "new-game",
+    "version": "4.14.0",
+    "violations": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "button[aria-label=\"1 + 0: Bullet\"] > span"
+            ],
+            "html": "<span>Bullet</span>",
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 4.12 (foreground color: #7c8391, background color: #1f232c, font size: 7.7pt (10.24px), font weight: normal). Expected contrast ratio of 4.5:1",
+            "checks": [
+              {
+                "id": "color-contrast",
+                "data": {
+                  "fgColor": "#7c8391",
+                  "bgColor": "#1f232c",
+                  "contrastRatio": 4.12,
+                  "fontSize": "7.7pt (10.24px)",
+                  "fontWeight": "normal",
+                  "messageKey": null,
+                  "expectedContrastRatio": "4.5:1"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 3
+      }
+    ]
+  },
+  {
+    "theme": "dark",
+    "view": "library",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 5
+      }
+    ]
+  },
+  {
+    "theme": "light",
+    "view": "play",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 39
+      }
+    ]
+  },
+  {
+    "theme": "light",
+    "view": "review",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "aria-prohibited-attr",
+        "nodes": 4
+      },
+      {
+        "id": "color-contrast",
+        "nodes": 1
+      }
+    ]
+  },
+  {
+    "theme": "light",
+    "view": "fen",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 30
+      }
+    ]
+  },
+  {
+    "theme": "light",
+    "view": "settings",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 16
+      }
+    ]
+  },
+  {
+    "theme": "light",
+    "view": "new-game",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 3
+      }
+    ]
+  },
+  {
+    "theme": "light",
+    "view": "library",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 5
+      }
+    ]
+  }
+]

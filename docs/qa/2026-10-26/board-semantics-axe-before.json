@@ -1,0 +1,442 @@
+[
+  {
+    "theme": "dark",
+    "view": "play",
+    "version": "4.14.0",
+    "violations": [
+      {
+        "id": "aria-prohibited-attr",
+        "impact": "serious",
+        "help": "Elements must only use permitted ARIA attributes",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/aria-prohibited-attr?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "#chessboard-square-b6"
+            ],
+            "html": "<div id=\"chessboard-square-b6\" data-column=\"b\" data-row=\"6\" data-square=\"b6\" aria-label=\"b6, empty square\" title=\"b6, empty square\" style=\"aspect-ratio: 1 / 1; display: flex; justify-content: center; align-items: center; position: relative; background-color: rgb(181, 136, 99);\">",
+            "summary": "Fix all of the following:\n  aria-label attribute cannot be used on \"div\" elements with no valid role attribute.",
+            "checks": [
+              {
+                "id": "aria-prohibited-attr",
+                "data": {
+                  "role": null,
+                  "nodeName": "div",
+                  "messageKey": "noRoleSingular",
+                  "prohibited": [
+                    "aria-label"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "target": [
+              "#chessboard-square-c6"
+            ],
+            "html": "<div id=\"chessboard-square-c6\" data-column=\"c\" data-row=\"6\" data-square=\"c6\" aria-label=\"c6, empty square\" title=\"c6, empty square\" style=\"aspect-ratio: 1 / 1; display: flex; justify-content: center; align-items: center; position: relative; background-color: rgb(240, 217, 181);\">",
+            "summary": "Fix all of the following:\n  aria-label attribute cannot be used on \"div\" elements with no valid role attribute.",
+            "checks": [
+              {
+                "id": "aria-prohibited-attr",
+                "data": {
+                  "role": null,
+                  "nodeName": "div",
+                  "messageKey": "noRoleSingular",
+                  "prohibited": [
+                    "aria-label"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "target": [
+              "#chessboard-square-d6"
+            ],
+            "html": "<div id=\"chessboard-square-d6\" data-column=\"d\" data-row=\"6\" data-square=\"d6\" aria-label=\"d6, empty square\" title=\"d6, empty square\" style=\"aspect-ratio: 1 / 1; display: flex; justify-content: center; align-items: center; position: relative; background-color: rgb(181, 136, 99);\">",
+            "summary": "Fix all of the following:\n  aria-label attribute cannot be used on \"div\" elements with no valid role attribute.",
+            "checks": [
+              {
+                "id": "aria-prohibited-attr",
+                "data": {
+                  "role": null,
+                  "nodeName": "div",
+                  "messageKey": "noRoleSingular",
+                  "prohibited": [
+                    "aria-label"
+                  ]
+                }
+              }
+            ]
+          }
+        ],
+        "nodeCount": 28
+      }
+    ],
+    "incomplete": [
+      {
+        "id": "aria-prohibited-attr",
+        "nodes": 36
+      },
+      {
+        "id": "color-contrast",
+        "nodes": 39
+      }
+    ]
+  },
+  {
+    "theme": "dark",
+    "view": "review",
+    "version": "4.14.0",
+    "violations": [
+      {
+        "id": "aria-prohibited-attr",
+        "impact": "serious",
+        "help": "Elements must only use permitted ARIA attributes",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/aria-prohibited-attr?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "#chessboard-square-b8"
+            ],
+            "html": "<div id=\"chessboard-square-b8\" data-column=\"b\" data-row=\"8\" data-square=\"b8\" aria-label=\"b8, empty square\" title=\"b8, empty square\" style=\"aspect-ratio: 1 / 1; display: flex; justify-content: center; align-items: center; position: relative; background-color: rgb(181, 136, 99);\">",
+            "summary": "Fix all of the following:\n  aria-label attribute cannot be used on \"div\" elements with no valid role attribute.",
+            "checks": [
+              {
+                "id": "aria-prohibited-attr",
+                "data": {
+                  "role": null,
+                  "nodeName": "div",
+                  "messageKey": "noRoleSingular",
+                  "prohibited": [
+                    "aria-label"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "target": [
+              "#chessboard-square-c8"
+            ],
+            "html": "<div id=\"chessboard-square-c8\" data-column=\"c\" data-row=\"8\" data-square=\"c8\" aria-label=\"c8, empty square\" title=\"c8, empty square\" style=\"aspect-ratio: 1 / 1; display: flex; justify-content: center; align-items: center; position: relative; background-color: rgb(240, 217, 181);\">",
+            "summary": "Fix all of the following:\n  aria-label attribute cannot be used on \"div\" elements with no valid role attribute.",
+            "checks": [
+              {
+                "id": "aria-prohibited-attr",
+                "data": {
+                  "role": null,
+                  "nodeName": "div",
+                  "messageKey": "noRoleSingular",
+                  "prohibited": [
+                    "aria-label"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "target": [
+              "#chessboard-square-f8"
+            ],
+            "html": "<div id=\"chessboard-square-f8\" data-column=\"f\" data-row=\"8\" data-square=\"f8\" aria-label=\"f8, empty square\" title=\"f8, empty square\" style=\"aspect-ratio: 1 / 1; display: flex; justify-content: center; align-items: center; position: relative; background-color: rgb(181, 136, 99);\">",
+            "summary": "Fix all of the following:\n  aria-label attribute cannot be used on \"div\" elements with no valid role attribute.",
+            "checks": [
+              {
+                "id": "aria-prohibited-attr",
+                "data": {
+                  "role": null,
+                  "nodeName": "div",
+                  "messageKey": "noRoleSingular",
+                  "prohibited": [
+                    "aria-label"
+                  ]
+                }
+              }
+            ]
+          }
+        ],
+        "nodeCount": 37
+      }
+    ],
+    "incomplete": [
+      {
+        "id": "aria-prohibited-attr",
+        "nodes": 31
+      },
+      {
+        "id": "color-contrast",
+        "nodes": 1
+      }
+    ]
+  },
+  {
+    "theme": "dark",
+    "view": "fen",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 30
+      }
+    ]
+  },
+  {
+    "theme": "dark",
+    "view": "settings",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 16
+      }
+    ]
+  },
+  {
+    "theme": "dark",
+    "view": "new-game",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 3
+      }
+    ]
+  },
+  {
+    "theme": "dark",
+    "view": "library",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 5
+      }
+    ]
+  },
+  {
+    "theme": "light",
+    "view": "play",
+    "version": "4.14.0",
+    "violations": [
+      {
+        "id": "aria-prohibited-attr",
+        "impact": "serious",
+        "help": "Elements must only use permitted ARIA attributes",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/aria-prohibited-attr?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "#chessboard-square-b6"
+            ],
+            "html": "<div id=\"chessboard-square-b6\" data-column=\"b\" data-row=\"6\" data-square=\"b6\" aria-label=\"b6, empty square\" title=\"b6, empty square\" style=\"aspect-ratio: 1 / 1; display: flex; justify-content: center; align-items: center; position: relative; background-color: rgb(181, 136, 99);\">",
+            "summary": "Fix all of the following:\n  aria-label attribute cannot be used on \"div\" elements with no valid role attribute.",
+            "checks": [
+              {
+                "id": "aria-prohibited-attr",
+                "data": {
+                  "role": null,
+                  "nodeName": "div",
+                  "messageKey": "noRoleSingular",
+                  "prohibited": [
+                    "aria-label"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "target": [
+              "#chessboard-square-c6"
+            ],
+            "html": "<div id=\"chessboard-square-c6\" data-column=\"c\" data-row=\"6\" data-square=\"c6\" aria-label=\"c6, empty square\" title=\"c6, empty square\" style=\"aspect-ratio: 1 / 1; display: flex; justify-content: center; align-items: center; position: relative; background-color: rgb(240, 217, 181);\">",
+            "summary": "Fix all of the following:\n  aria-label attribute cannot be used on \"div\" elements with no valid role attribute.",
+            "checks": [
+              {
+                "id": "aria-prohibited-attr",
+                "data": {
+                  "role": null,
+                  "nodeName": "div",
+                  "messageKey": "noRoleSingular",
+                  "prohibited": [
+                    "aria-label"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "target": [
+              "#chessboard-square-d6"
+            ],
+            "html": "<div id=\"chessboard-square-d6\" data-column=\"d\" data-row=\"6\" data-square=\"d6\" aria-label=\"d6, empty square\" title=\"d6, empty square\" style=\"aspect-ratio: 1 / 1; display: flex; justify-content: center; align-items: center; position: relative; background-color: rgb(181, 136, 99);\">",
+            "summary": "Fix all of the following:\n  aria-label attribute cannot be used on \"div\" elements with no valid role attribute.",
+            "checks": [
+              {
+                "id": "aria-prohibited-attr",
+                "data": {
+                  "role": null,
+                  "nodeName": "div",
+                  "messageKey": "noRoleSingular",
+                  "prohibited": [
+                    "aria-label"
+                  ]
+                }
+              }
+            ]
+          }
+        ],
+        "nodeCount": 28
+      }
+    ],
+    "incomplete": [
+      {
+        "id": "aria-prohibited-attr",
+        "nodes": 36
+      },
+      {
+        "id": "color-contrast",
+        "nodes": 39
+      }
+    ]
+  },
+  {
+    "theme": "light",
+    "view": "review",
+    "version": "4.14.0",
+    "violations": [
+      {
+        "id": "aria-prohibited-attr",
+        "impact": "serious",
+        "help": "Elements must only use permitted ARIA attributes",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/aria-prohibited-attr?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "#chessboard-square-b8"
+            ],
+            "html": "<div id=\"chessboard-square-b8\" data-column=\"b\" data-row=\"8\" data-square=\"b8\" aria-label=\"b8, empty square\" title=\"b8, empty square\" style=\"aspect-ratio: 1 / 1; display: flex; justify-content: center; align-items: center; position: relative; background-color: rgb(181, 136, 99);\">",
+            "summary": "Fix all of the following:\n  aria-label attribute cannot be used on \"div\" elements with no valid role attribute.",
+            "checks": [
+              {
+                "id": "aria-prohibited-attr",
+                "data": {
+                  "role": null,
+                  "nodeName": "div",
+                  "messageKey": "noRoleSingular",
+                  "prohibited": [
+                    "aria-label"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "target": [
+              "#chessboard-square-c8"
+            ],
+            "html": "<div id=\"chessboard-square-c8\" data-column=\"c\" data-row=\"8\" data-square=\"c8\" aria-label=\"c8, empty square\" title=\"c8, empty square\" style=\"aspect-ratio: 1 / 1; display: flex; justify-content: center; align-items: center; position: relative; background-color: rgb(240, 217, 181);\">",
+            "summary": "Fix all of the following:\n  aria-label attribute cannot be used on \"div\" elements with no valid role attribute.",
+            "checks": [
+              {
+                "id": "aria-prohibited-attr",
+                "data": {
+                  "role": null,
+                  "nodeName": "div",
+                  "messageKey": "noRoleSingular",
+                  "prohibited": [
+                    "aria-label"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "target": [
+              "#chessboard-square-f8"
+            ],
+            "html": "<div id=\"chessboard-square-f8\" data-column=\"f\" data-row=\"8\" data-square=\"f8\" aria-label=\"f8, empty square\" title=\"f8, empty square\" style=\"aspect-ratio: 1 / 1; display: flex; justify-content: center; align-items: center; position: relative; background-color: rgb(181, 136, 99);\">",
+            "summary": "Fix all of the following:\n  aria-label attribute cannot be used on \"div\" elements with no valid role attribute.",
+            "checks": [
+              {
+                "id": "aria-prohibited-attr",
+                "data": {
+                  "role": null,
+                  "nodeName": "div",
+                  "messageKey": "noRoleSingular",
+                  "prohibited": [
+                    "aria-label"
+                  ]
+                }
+              }
+            ]
+          }
+        ],
+        "nodeCount": 37
+      }
+    ],
+    "incomplete": [
+      {
+        "id": "aria-prohibited-attr",
+        "nodes": 31
+      },
+      {
+        "id": "color-contrast",
+        "nodes": 1
+      }
+    ]
+  },
+  {
+    "theme": "light",
+    "view": "fen",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 30
+      }
+    ]
+  },
+  {
+    "theme": "light",
+    "view": "settings",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 16
+      }
+    ]
+  },
+  {
+    "theme": "light",
+    "view": "new-game",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 3
+      }
+    ]
+  },
+  {
+    "theme": "light",
+    "view": "library",
+    "version": "4.14.0",
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 5
+      }
+    ]
+  }
+]
