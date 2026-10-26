@@ -5202,6 +5202,76 @@ async function checkLibraryBackupLimits(browser) {
   }
 }
 
+async function checkLibraryBrowsing(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 1], [375, 2], [320, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(() => new Promise((resolve, reject) => {
+        const request = indexedDB.open('web-chess-library', 1)
+        request.onupgradeneeded = () => request.result.createObjectStore('games', { keyPath: 'id' })
+        request.onerror = () => reject(request.error)
+        request.onsuccess = () => {
+          const db = request.result, tx = db.transaction('games', 'readwrite')
+          for (let i = 0; i < 201; i++) {
+            const pgn = i === 0 ? '1. e4 e5 *' : '1. d4 d5 *'
+            tx.objectStore('games').put({ id: `browsing-${i}`, name: `Study ${String(i).padStart(3, '0')}`, pgn,
+              createdAt: i + 1, updatedAt: i + 1, favorite: false, moveCount: 2, size: pgn.length, metadata: {} })
+          }
+          tx.onerror = () => reject(tx.error)
+          tx.oncomplete = () => { db.close(); resolve() }
+        }
+      }))
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      const dialog = page.locator('.library-dialog'), rows = dialog.locator('.library-row')
+      const search = dialog.getByRole('searchbox', { name: 'Search saved games', exact: true })
+      const results = dialog.locator('[aria-live="polite"][aria-atomic="true"]')
+      await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 100)
+      assert(await search.getAttribute('aria-describedby') === await results.getAttribute('id'), 'search does not expose its live results description')
+      assert(await search.getAttribute('aria-controls') === await dialog.locator('.library-list').getAttribute('id'), 'search does not identify its results list')
+      assert((await results.innerText()).includes('201 games') && (await results.innerText()).includes('100 shown'), 'initial page reports the wrong available/shown counts')
+      const showPage = async (label, expectedName, expectedCount, keyboard) => {
+        const more = dialog.getByRole('button', { name: label, exact: true })
+        assert(await more.getAttribute('aria-controls') === await search.getAttribute('aria-controls'), 'Show more does not identify the list it expands')
+        if (keyboard) { await more.focus(); await more.press('Enter') } else await more.click()
+        await page.waitForFunction(count => document.querySelectorAll('.library-row').length === count, expectedCount)
+        const first = dialog.getByRole('button', { name: `Star ${expectedName}`, exact: true })
+        assert(await first.evaluate(el => {
+          const rect = el.getBoundingClientRect(), hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
+          return document.activeElement === el && el.contains(hit)
+        }), 'Show more did not focus and reveal the first new row')
+        assert((await results.innerText()).includes(`${expectedCount} shown`), 'newly shown count was not updated in the polite region')
+        await page.keyboard.press('Tab')
+        assert(await dialog.getByRole('button', { name: `Load ${expectedName}`, exact: true }).evaluate(el => el === document.activeElement), 'Tab skipped the newly revealed game actions')
+      }
+      await showPage('Show 100 more', 'Study 100', 200, true)
+      await showPage('Show 1 more', 'Study 000', 201, false)
+      assert(await dialog.locator('.library-show-more').count() === 0, 'the last page left a misleading Show more action')
+      await search.fill('study tokyo')
+      assert((await results.innerText()).includes('No saved game matches “study tokyo”.') && await rows.count() === 0, 'empty search is missing from the persistent live region')
+      assert(await search.evaluate(el => el === document.activeElement), 'a consumed page reveal stole search focus')
+      await search.fill('study 1')
+      assert(await rows.count() === 100 && (await results.innerText()).includes('119 of 201 games match'), 'filtered results do not report their matching count')
+      await search.fill('')
+      assert(await rows.count() === 100 && (await results.innerText()).includes('100 shown'), 'clearing the query did not reset pagination')
+      await showPage('Show 100 more', 'Study 100', 200, false)
+      await showPage('Show 1 more', 'Study 000', 201, true)
+      await page.keyboard.press('Enter')
+      await dialog.waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+      assert(errors.length === 0, `library browsing errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'library pagination overflows the viewport')
+      console.log(`  library browsing (${width}px, ${scale}x): keyboard and pointer pages focus/reveal first new row; Tab reaches Load; final page keeps focus; persistent described live counts cover empty/matched/reset filters; final game actually loads`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkInternationalLibrarySearch(browser) {
   const savedName = 'Søren’s Réti café'
   const unicodePgn = '[Event "Łódź Invitational"]\n[Site "Malmö"]\n[White "José Raúl Capablanca"]\n[Black "Zsófia Polgár"]\n\n1. Nf3 d5 *'
@@ -14534,6 +14604,7 @@ async function main() {
       'library-double-save': checkOneGestureSavesOneGame,
       'library-editing': checkLibraryEditing,
       'international-search': checkInternationalLibrarySearch,
+      'library-browsing': checkLibraryBrowsing,
       'library-capacity': checkAFullLibraryStopsReadingTheFile,
       'import-drafts': checkImportDraftOwnership,
       'setup-en-passant': checkPositionSetupEnPassant,
@@ -15350,6 +15421,7 @@ async function main() {
     await checkOneGestureSavesOneGame(browser)
     await checkLibraryEditing(browser)
     await checkInternationalLibrarySearch(browser)
+    await checkLibraryBrowsing(browser)
     await checkImportDraftOwnership(browser)
     await checkPositionSetupEnPassant(browser)
     await checkPositionSetupKeyboard(browser)

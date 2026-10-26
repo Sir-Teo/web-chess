@@ -114,6 +114,7 @@ export function LibraryDialog({
     const disarmDelete = useCallback(() => setConfirmingDelete(null), [])
     useDisarmAfter(confirmingDelete !== null, disarmDelete)
     const [visibleLimit, setVisibleLimit] = useState(PAGE_SIZE)
+    const moreFocusRef = useRef<string | null>(null)
     /*
      * The game this dialog has already put in the library, so one gesture
      * cannot put it there three times.
@@ -175,6 +176,18 @@ export function LibraryDialog({
     const shown = useMemo(() => visible.slice(0, visibleLimit), [visible, visibleLimit])
     const hiddenCount = visible.length - shown.length
     const stats = useMemo(() => getLibraryStats(games), [games])
+
+    // Continue through the newly revealed rows, including when the last page
+    // removes Show more. Consume the request before later filtering or sorting.
+    useLayoutEffect(() => {
+        const id = moreFocusRef.current
+        moreFocusRef.current = null
+        if (!open || !id) return
+        const row = [...panelRef.current?.querySelectorAll<HTMLElement>('[data-library-game-id]') ?? []]
+            .find(element => element.dataset.libraryGameId === id)
+        row?.querySelector<HTMLButtonElement>('button')?.focus()
+        row?.scrollIntoView({ block: 'nearest', behavior: 'auto' })
+    }, [open, shown])
 
     // Changing what is listed starts the page count over, rather than keeping a
     // limit raised for a previous search. Batched with the state it belongs to,
@@ -356,6 +369,8 @@ export function LibraryDialog({
                                 id={searchId}
                                 type="search"
                                 aria-label="Search saved games"
+                                aria-controls={`${searchId}-list`}
+                                aria-describedby={`${searchId}-results`}
                                 value={query}
                                 // Matching truncates past this anyway; stopping it at the
                                 // input keeps a pasted game out of React state as well.
@@ -382,13 +397,10 @@ export function LibraryDialog({
                         {loaded && !games.length && (
                             <p className="library-hint">Nothing saved yet.</p>
                         )}
-                        {loaded && games.length > 0 && !visible.length && (
-                            <p className="library-hint">No saved game matches “{query}”.</p>
-                        )}
-
-                        <ul className="library-list">
+                        <ul className="library-list" id={`${searchId}-list`}>
                             {shown.map(game => (
                                 <li key={game.id} className={`library-row${renaming?.id === game.id ? ' library-row-editing' : ''}`}
+                                    data-library-game-id={game.id}
                                     onKeyDown={event => {
                                         if (isCompositionKey(event.nativeEvent)) return
                                         if (event.key === 'Escape' && renaming?.id === game.id) {
@@ -500,7 +512,11 @@ export function LibraryDialog({
                             <button
                                 type="button"
                                 className="btn-cancel library-show-more"
-                                onClick={() => setVisibleLimit(limit => limit + PAGE_SIZE)}
+                                aria-controls={`${searchId}-list`}
+                                onClick={() => {
+                                    moreFocusRef.current = visible[shown.length]?.id ?? null
+                                    setVisibleLimit(limit => limit + PAGE_SIZE)
+                                }}
                             >
                                 Show {Math.min(hiddenCount, PAGE_SIZE)} more
                             </button>
@@ -510,15 +526,16 @@ export function LibraryDialog({
                             it found: "2 games" over one result read as though
                             the other had failed to draw. The library's size is
                             back once the search is cleared. */}
-                        {games.length > 0 && (visible.length === games.length ? (
-                            <p className="library-hint">
-                                {stats.count} {stats.count === 1 ? 'game' : 'games'} · {stats.moves} ply · {formatLibrarySize(stats.size)}
-                            </p>
-                        ) : visible.length > 0 && (
-                            <p className="library-hint">
-                                {visible.length} of {stats.count} games match
-                            </p>
-                        ))}
+                        <div id={`${searchId}-results`} aria-live="polite" aria-atomic="true">
+                            {loaded && games.length > 0 && <p className="library-hint">
+                                {visible.length === 0 ? <>No saved game matches “{query}”.</> : <>
+                                    {visible.length === games.length
+                                        ? <>{stats.count} {stats.count === 1 ? 'game' : 'games'} · {stats.moves} ply · {formatLibrarySize(stats.size)}</>
+                                        : <>{visible.length} of {stats.count} games match</>}
+                                    {visible.length > PAGE_SIZE && <> · {shown.length} shown</>}
+                                </>}
+                            </p>}
+                        </div>
                     </div>
 
                     {!storageIsDurable && (
