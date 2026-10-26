@@ -15,7 +15,7 @@ import {
     sortLibraryGames,
 } from '../engine/gameLibrary'
 import type { LibraryWriteResult } from '../hooks/useGameLibrary'
-import { IconClipboard, IconDownload, IconUpload, IconPlay, IconPencil } from './icons'
+import { IconClipboard, IconDownload, IconUpload, IconPlay, IconPencil, IconClose } from './icons'
 import './NewGameDialog.css'
 import './LibraryDialog.css'
 import { MAX_SEARCH_QUERY_LENGTH } from '../engine/searchTerms'
@@ -109,6 +109,7 @@ export function LibraryDialog({
     const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null)
     const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
     const renameInputRef = useRef<HTMLInputElement>(null)
+    const searchInputRef = useRef<HTMLInputElement>(null)
     const renameButtonRef = useRef<HTMLButtonElement | null>(null)
     const renameReturnFocusRef = useRef<HTMLElement | null>(null)
     const disarmDelete = useCallback(() => setConfirmingDelete(null), [])
@@ -365,19 +366,27 @@ export function LibraryDialog({
                     <div className="dialog-section">
                         {/* Nothing to search or sort until something is saved. */}
                         {games.length > 0 && <div className="library-toolbar">
-                            <input
-                                id={searchId}
-                                type="search"
-                                aria-label="Search saved games"
-                                aria-controls={`${searchId}-list`}
-                                aria-describedby={`${searchId}-results`}
-                                value={query}
-                                // Matching truncates past this anyway; stopping it at the
-                                // input keeps a pasted game out of React state as well.
-                                maxLength={MAX_SEARCH_QUERY_LENGTH}
-                                placeholder="Search players, event, opening…"
-                                onChange={event => changeQuery(event.target.value)}
-                            />
+                            <div className="library-search">
+                                <input
+                                    ref={searchInputRef}
+                                    id={searchId}
+                                    type="search"
+                                    aria-label="Search saved games"
+                                    aria-controls={`${searchId}-list`}
+                                    aria-describedby={`${searchId}-results`}
+                                    value={query}
+                                    // Matching truncates past this anyway; stopping it at the
+                                    // input keeps a pasted game out of React state as well.
+                                    maxLength={MAX_SEARCH_QUERY_LENGTH}
+                                    placeholder="Search players, event, opening…"
+                                    onChange={event => changeQuery(event.target.value)}
+                                />
+                                {query.length > 0 && <button type="button" className="btn-cancel library-clear-search"
+                                    aria-label="Clear saved-game search" title="Clear search"
+                                    onClick={() => { changeQuery(''); searchInputRef.current?.focus() }}>
+                                    <IconClose aria-hidden="true" />
+                                </button>}
+                            </div>
                             <div className="library-sort" role="group" aria-label="Sort saved games">
                                 {SORT_OPTIONS.map(option => (
                                     <button
