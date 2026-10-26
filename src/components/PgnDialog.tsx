@@ -50,6 +50,7 @@ import { fetchArchiveGames } from '../engine/archiveFetch'
 import { IconDownload, IconClipboard, IconUpload } from './icons'
 import { fenTextForShareLink } from './pgnDialogHelpers'
 import { isCompositionKey } from './shortcutKeys'
+import { PositionCounterInput } from './PositionCounterInput'
 import {
     MAX_PGN_IMPORT_BYTES,
     PGN_IMPORT_LIMIT_MESSAGE,
@@ -934,32 +935,28 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                             <div className="fen-counter-grid">
                                                 <label className="fen-counter-field" htmlFor={halfmoveId}>
                                                     <span>Halfmove</span>
-                                                    <input
+                                                    <PositionCounterInput
                                                         id={halfmoveId}
-                                                        type="number"
                                                         min={0}
-                                                        step={1}
-                                                        inputMode="numeric"
                                                         value={setup.halfmove}
-                                                        onChange={event => {
+                                                        position={setup}
+                                                        onValueChange={value => {
                                                             applySetupChange(current =>
-                                                                updateSetupHalfmove(current, Number(event.target.value)),
+                                                                updateSetupHalfmove(current, value),
                                                             )
                                                         }}
                                                     />
                                                 </label>
                                                 <label className="fen-counter-field" htmlFor={fullmoveId}>
                                                     <span>Fullmove</span>
-                                                    <input
+                                                    <PositionCounterInput
                                                         id={fullmoveId}
-                                                        type="number"
                                                         min={1}
-                                                        step={1}
-                                                        inputMode="numeric"
                                                         value={setup.fullmove}
-                                                        onChange={event => {
+                                                        position={setup}
+                                                        onValueChange={value => {
                                                             applySetupChange(current =>
-                                                                updateSetupFullmove(current, Number(event.target.value)),
+                                                                updateSetupFullmove(current, value),
                                                             )
                                                         }}
                                                     />
