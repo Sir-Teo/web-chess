@@ -22,6 +22,14 @@ function fixture(moves = ['Nf3', 'Nf6', 'g3'], rootFen?: string, depth = 16) {
 }
 
 describe('portable, isolated saved reviews', () => {
+  it('repairs older title fragments without losing the saved report', () => {
+    const { saved } = fixture()
+    const old = { ...saved, title: 'Prep\uD83D (2) 😀' }
+    expect(savedReviewSummary(old)?.title).toBe('Prep (2) 😀')
+    expect(readSavedReview(old)).toEqual({ ...saved, title: 'Prep (2) 😀' })
+    expect(readSavedReview({ ...saved, title: '\uDC00' })?.title).toBe('Reviewed line')
+  })
+
   it('keeps the saved title within its limit without splitting an emoji', () => {
     const { line, report } = fixture()
     const title = `${'x'.repeat(199)}😀`

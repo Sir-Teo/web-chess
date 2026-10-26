@@ -63,7 +63,7 @@ export function savedReviewSummary(value: unknown): SavedReviewSummary | null {
   const settings = settingsFrom(value.settings)
   if (!settings || value.complete !== (value.evaluated === value.total) || value.reused > value.evaluated) return null
   return {
-    id: value.id, title: value.title, lineKey: value.lineKey, settings,
+    id: value.id, title: truncateUtf16(value.title, MAX_SAVED_REVIEW_TITLE_LENGTH) || 'Reviewed line', lineKey: value.lineKey, settings,
     startedAt: value.startedAt, finishedAt: value.finishedAt, total: value.total,
     complete: value.complete, reused: value.reused, evaluated: value.evaluated,
   }
@@ -140,7 +140,7 @@ export function createSavedReview(
   if (!pgn) throw new Error('This report belongs to a different line. Return to its reviewed line before saving.')
   const title = headers.White && headers.Black ? `${headers.White} – ${headers.Black}` : headers.Event || 'Reviewed line'
   const saved = readSavedReview({
-    version: 1, id, title: truncateUtf16(title, MAX_SAVED_REVIEW_TITLE_LENGTH), lineKey: reviewLineKey(line), pgn,
+    version: 1, id, title: truncateUtf16(title, MAX_SAVED_REVIEW_TITLE_LENGTH) || 'Reviewed line', lineKey: reviewLineKey(line), pgn,
     settings: report.settings, startedAt: report.startedAt, finishedAt: report.finishedAt,
     total: report.total, reused: report.reused, complete: report.complete,
     evaluated: report.evaluations.size, evaluations: [...report.evaluations],

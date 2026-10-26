@@ -186,6 +186,16 @@ describe('creating records', () => {
 })
 
 describe('normalizing what came back from storage', () => {
+  it('cleans fragments from older truncated names while retaining complete emoji and suffixes', () => {
+    const games = normalizeLibraryGames([
+      { id: 'old-copy', name: 'Prep\uD83D (2) 😀', pgn: PGN },
+      { id: 'empty-after-repair', name: '\uDC00', pgn: PGN },
+    ])
+    expect(games[0].name).toBe('Prep (2) 😀')
+    expect(games[1].name).toBe(suggestGameName(PGN))
+    expect(games.map(game => game.pgn)).toEqual([PGN, PGN])
+  })
+
   it('keeps well-formed rows and recomputes what it can', () => {
     const games = normalizeLibraryGames([
       { id: 'a', name: 'Kept', pgn: PGN, createdAt: 1, updatedAt: 2, favorite: true },

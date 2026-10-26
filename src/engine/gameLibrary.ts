@@ -283,7 +283,7 @@ export function normalizeLibraryGames(value: unknown, now = 0): LibraryGame[] {
     const rawName = typeof entry.name === 'string' ? entry.name.trim() : ''
     games.push({
       id,
-      name: truncateUtf16(rawName || suggestGameName(pgn), MAX_LIBRARY_NAME_LENGTH),
+      name: truncateUtf16(rawName, MAX_LIBRARY_NAME_LENGTH) || suggestGameName(pgn),
       pgn,
       createdAt,
       updatedAt: finiteTimestamp(entry.updatedAt, createdAt),
