@@ -1,0 +1,10 @@
+  manual copy (1280×900, 1x, dark): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy + actual clipboard, 44px actions and opener focus
+  manual copy (375×812, 1x, light): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy + actual clipboard, 44px actions and opener focus
+  manual copy (375×812, 2x, dark): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy + actual clipboard, 44px actions and opener focus
+  manual copy (320×568, 2x, light): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy + actual clipboard, 44px actions and opener focus
+  manual copy (844×390, 2x, dark): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy + actual clipboard, 44px actions and opener focus
+  manual copy (1280×900, 1x, dark): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy event, 44px actions and opener focus
+  manual copy (375×812, 1x, light): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy event, 44px actions and opener focus
+  manual copy (375×812, 2x, dark): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy event, 44px actions and opener focus
+  manual copy (320×568, 2x, light): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy event, 44px actions and opener focus
+  manual copy (844×390, 2x, dark): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy event, 44px actions and opener focus

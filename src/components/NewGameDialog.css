@@ -106,6 +106,13 @@
     gap: 0.45rem;
 }
 
+.dialog-share-fallback .btn-cancel {
+    min-height: 44px;
+    max-width: 100%;
+    justify-self: start;
+    white-space: normal;
+}
+
 .dialog-share-fallback input {
     width: 100%;
     min-width: 0;

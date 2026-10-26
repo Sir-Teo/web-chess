@@ -141,6 +141,8 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const archiveAbortRef = useRef<AbortController | null>(null)
     const importRequestRef = useRef(0)
     const panelRef = useRef<HTMLDivElement>(null)
+    const fenTextRef = useRef<HTMLTextAreaElement>(null)
+    const exportTextRef = useRef<HTMLTextAreaElement>(null)
     const importFileInputRef = useRef<HTMLInputElement>(null)
     const wasOpenRef = useRef(false)
     const [importFileName, setImportFileName] = useState<string | null>(null)
@@ -494,6 +496,10 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     }
 
     const handleCopy = () => copyText(exportText, 'pgn-copied')
+    const selectForManualCopy = (field: HTMLTextAreaElement | null) => {
+        field?.focus()
+        field?.select()
+    }
 
     const handleDownload = () => {
         const blob = new Blob([exportText], { type: 'application/x-chess-pgn;charset=utf-8' })
@@ -932,6 +938,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                             </div>
                             <textarea
                                 id={fenTextId}
+                                ref={fenTextRef}
                                 className="input-textarea fen-textarea"
                                 /* FEN is case-sensitive: a phone capitalising
                                    the first letter turns Black's rook White. */
@@ -964,7 +971,12 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         />
                                     </div>
                                 ) : (
-                                    <p className="dialog-error" role="alert">Clipboard access failed. Select the FEN text and copy it manually.</p>
+                                    <div className="dialog-share-fallback">
+                                        <p className="dialog-error" role="alert">Clipboard access failed. Select the FEN text and copy it manually.</p>
+                                        <button type="button" className="btn-cancel" onClick={() => selectForManualCopy(fenTextRef.current)}>
+                                            Select FEN text
+                                        </button>
+                                    </div>
                                 )
                             )}
                         </div>
@@ -1009,6 +1021,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                             </div>
                             <textarea
                                 id={exportTextId}
+                                ref={exportTextRef}
                                 className="input-textarea"
                                 readOnly
                                 value={exportText}
@@ -1035,7 +1048,12 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         />
                                     </div>
                                 ) : (
-                                    <p className="dialog-error" role="alert">Clipboard access failed. Select the text and copy it manually.</p>
+                                    <div className="dialog-share-fallback">
+                                        <p className="dialog-error" role="alert">Clipboard access failed. Select the text and copy it manually.</p>
+                                        <button type="button" className="btn-cancel" onClick={() => selectForManualCopy(exportTextRef.current)}>
+                                            Select PGN text
+                                        </button>
+                                    </div>
                                 )
                             )}
                             {/* Under the output rather than in the button row, which

@@ -4465,6 +4465,80 @@ async function checkPositionSetupKeyboard(browser) {
   }
 }
 
+async function checkManualClipboardFallback(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [375, 812, 2, 'dark'], [320, 568, 2, 'light'], [844, 390, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const nativeClipboard = browser.browserType().name() === 'chromium'
+    if (nativeClipboard) await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme }))
+        const clipboard = navigator.clipboard
+        window.__readManualClipboard = () => clipboard.readText()
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+          writeText: async () => { throw new DOMException('Clipboard denied', 'NotAllowedError') },
+        } })
+        document.addEventListener('copy', () => {
+          const field = document.activeElement
+          if (field instanceof HTMLTextAreaElement) window.__manualCopySelection = field.value.slice(field.selectionStart, field.selectionEnd)
+        })
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const opener = page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true })
+      await opener.click()
+      const dialog = page.locator('.pgn-dialog')
+      const pgn = '[Event "Manual Copy QA"]\n\n1. e4 { ' + 'Unicode note ♞ 中文 😀. '.repeat(350) + '} e5 (1... c5 {Alternative}) 2. Nf3 Nc6 *'
+      await dialog.locator('textarea').fill(pgn)
+      await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await dialog.waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-c6 [data-piece="bN"]').waitFor()
+      await opener.click()
+      await dialog.getByRole('button', { name: 'Export', exact: true }).click()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const selectedCopy = async (field, selectLabel) => {
+        const value = await field.inputValue()
+        const select = dialog.getByRole('button', { name: selectLabel, exact: true })
+        await select.waitFor({ timeout: 5000 })
+        assert(await select.evaluate(el => { const r = el.getBoundingClientRect(); return r.width >= 44 && r.height >= 44 && el.scrollWidth <= el.clientWidth + 1 }), 'manual-selection action clips its label or misses its touch target')
+        await select.click()
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        assert(await field.evaluate(el => el === document.activeElement && el.selectionStart === 0 && el.selectionEnd === el.value.length), 'manual selection did not focus and select the whole current field')
+        assert(await field.inputValue() === value, 'manual selection changed the text')
+        await page.keyboard.press('Control+c')
+        assert(await page.evaluate(() => window.__manualCopySelection) === value, 'native Copy did not receive the entire selected text')
+        if (nativeClipboard) await page.waitForFunction(async value => await window.__readManualClipboard() === value, value, { timeout: 5000 })
+      }
+      const output = dialog.getByRole('textbox', { name: 'Annotated Output', exact: true })
+      assert(await output.evaluate(el => el.scrollHeight > el.clientHeight * 2), 'manual-copy fixture does not extend beyond the visible field')
+      await dialog.getByRole('button', { name: 'Copy PGN', exact: true }).click()
+      await selectedCopy(output, 'Select PGN text')
+      await dialog.getByRole('checkbox', { name: 'Comments', exact: true }).uncheck()
+      assert(await dialog.getByRole('button', { name: 'Select PGN text', exact: true }).count() === 0, 'changing export options retains obsolete copy feedback')
+      assert(!(await output.inputValue()).includes('Unicode note'), 'Comments option did not change the exported text')
+      await dialog.getByRole('button', { name: 'Copy PGN', exact: true }).click()
+      await selectedCopy(output, 'Select PGN text')
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      assert(await dialog.getByRole('button', { name: 'Select PGN text', exact: true }).count() === 0, 'FEN tab offers selection of the previous PGN')
+      const fen = dialog.locator('.fen-textarea')
+      const draft = '  4k3/8  '
+      await fen.fill(draft)
+      await dialog.getByRole('button', { name: 'Copy FEN', exact: true }).click()
+      await selectedCopy(fen, 'Select FEN text')
+      assert(await fen.inputValue() === draft, 'manual copy normalized the unfinished FEN draft')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'manual-copy fallback overflows the viewport')
+      await page.keyboard.press('Escape')
+      await dialog.waitFor({ state: 'detached' })
+      await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Open PGN and FEN dialog', null, { timeout: 5000 })
+      assert(errors.length === 0, `manual-copy errors: ${errors.join('; ')}`)
+      console.log(`  manual copy (${width}×${height}, ${scale}x, ${theme}): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy${nativeClipboard ? ' + actual clipboard' : ' event'}, 44px actions and opener focus`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkFenCopyPreservesDraft(browser) {
   for (const [width, scale] of [[1280, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: 'reduce' })
@@ -13914,6 +13988,7 @@ async function main() {
       'setup-keyboard': checkPositionSetupKeyboard,
       'setup-orientation': checkPositionSetupOrientation,
       'fen-copy': checkFenCopyPreservesDraft,
+      'manual-copy': checkManualClipboardFallback,
       'text-composition': checkTextCompositionKeys,
       'reveal-dialogs': checkRevealTimersRespectDialogs,
       'reveal-interaction': checkRevealRetriesYieldToInteraction,
@@ -14719,6 +14794,7 @@ async function main() {
     await checkPositionSetupKeyboard(browser)
     await checkPositionSetupOrientation(browser)
     await checkFenCopyPreservesDraft(browser)
+    await checkManualClipboardFallback(browser)
     await checkTextCompositionKeys(browser)
     await checkRevealTimersRespectDialogs(browser)
     await checkRevealRetriesYieldToInteraction(browser)
