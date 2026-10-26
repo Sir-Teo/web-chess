@@ -1,0 +1,3 @@
+{"mode":"missing","copyLabel":"Copy PGN","downloadActions":0,"errors":[]}
+{"mode":"denied","copyLabel":"Copy failed","downloadActions":0,"errors":[]}
+{"mode":"throw","copyLabel":"Copy PGN","downloadActions":0,"errors":["Blocked synchronously"]}

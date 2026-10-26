@@ -1022,7 +1022,8 @@ function App() {
   }, [])
   const [autoSaveRecovery, setAutoSaveRecovery] = useState<AutoSavedGame | null>(null)
   const [autoSaveRestoreError, setAutoSaveRestoreError] = useState<string | null>(null)
-  const [autoSaveCopyLabel, setAutoSaveCopyLabel] = useState('Copy PGN')
+  const [autoSaveCopyState, setAutoSaveCopyState] = useState<'idle' | 'copying' | 'copied' | 'failed'>('idle')
+  const autoSaveCopyGeneration = useRef(0)
   const [autoSaveResult, setAutoSaveResult] = useState<AutoSaveWriteResult | null>(null)
   const [autoSaveRetry, setAutoSaveRetry] = useState(0)
   const [gameMode, setGameMode] = useState<GameMode>('human-vs-human')
@@ -5389,7 +5390,7 @@ function App() {
   }, [autoSaveRecovery, autoSaveRetry, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
 
   const downloadRecoveryPgn = useCallback(() => {
-    const pgn = exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
+    const pgn = autoSaveRecovery?.pgn ?? exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
     const url = URL.createObjectURL(new Blob([pgn], { type: 'application/x-chess-pgn;charset=utf-8' }))
     const link = document.createElement('a')
     link.href = url
@@ -5398,10 +5399,12 @@ function App() {
     link.click()
     link.remove()
     window.setTimeout(() => URL.revokeObjectURL(url), 0)
-  }, [mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
+  }, [autoSaveRecovery, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
 
   const dismissAutoSaveRecovery = useCallback(() => {
+    autoSaveCopyGeneration.current++
     clearAutoSavedGame()
+    setAutoSaveCopyState('idle')
     setAutoSaveRestoreError(null)
     setAutoSaveRecovery(null)
   }, [])
@@ -5411,7 +5414,7 @@ function App() {
    * word, so the reader pressed Restore and watched their unfinished game
    * vanish into an empty board. Nothing here is recoverable once the slot is
    * gone, so the failure now says what went wrong, keeps the snapshot, and
-   * offers the moves to the clipboard before anything is discarded.
+   * offers the original text to copy or download before anything is discarded.
    */
   const restoreAutoSavedGame = useCallback(() => {
     if (!autoSaveRecovery) return
@@ -5455,13 +5458,18 @@ function App() {
     }
   }, [autoSaveRecovery, handleAnalysisPgnImport, setAiPlayerDifficulty])
 
-  const copyAutoSavedPgn = useCallback(() => {
+  const copyAutoSavedPgn = useCallback(async () => {
     const pgn = autoSaveRecovery?.pgn
     if (!pgn) return
-    navigator.clipboard?.writeText(pgn).then(
-      () => setAutoSaveCopyLabel('Copied'),
-      () => setAutoSaveCopyLabel('Copy failed'),
-    )
+    const generation = ++autoSaveCopyGeneration.current
+    setAutoSaveCopyState('copying')
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
+      await navigator.clipboard.writeText(pgn)
+      if (autoSaveCopyGeneration.current === generation) setAutoSaveCopyState('copied')
+    } catch {
+      if (autoSaveCopyGeneration.current === generation) setAutoSaveCopyState('failed')
+    }
   }, [autoSaveRecovery])
 
   const handleFenLoad = useCallback((fenText: string, options?: FenLoadOptions) => {
@@ -8163,7 +8171,10 @@ function App() {
               onDismiss={dismissAutoSaveRecovery}
               error={autoSaveRestoreError}
               onCopyPgn={copyAutoSavedPgn}
-              copyLabel={autoSaveCopyLabel}
+              onDownloadPgn={downloadRecoveryPgn}
+              copyLabel={autoSaveCopyState === 'copied' ? 'Copied' : autoSaveCopyState === 'copying' ? 'Copying…' : 'Copy PGN'}
+              copying={autoSaveCopyState === 'copying'}
+              copyError={autoSaveCopyState === 'failed' ? 'Copy failed. Download the PGN to keep the saved text.' : undefined}
             />
           )}
 

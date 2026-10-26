@@ -12838,6 +12838,91 @@ async function checkAnExportedGameComesBack(browser) {
  * which a game could go unwritten for as long as a search runs. Measured, every
  * move lands in about 810ms; this allows 3s before calling it a regression.
  */
+async function checkFailedRecoveryExport(browser) {
+  const key = 'webchess:auto-saved-game:v1'
+  const original = '  [White "José Raúl"]\r\n[Event "Łódź"]\r\n\r\n1. e4 { Keep café ♞ — exactly } Qh9 *\r\n'
+  for (const [width, height, scale, theme] of [[1280, 812, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    for (const mode of ['missing', 'denied', 'throw', 'deferred']) {
+      const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(({ key, original, mode, theme }) => {
+          if (!sessionStorage.getItem('recovery-export-seeded')) {
+            localStorage.setItem(key, JSON.stringify({ version: 1, savedAt: Date.now(), pgn: original, moveCount: 2 }))
+            sessionStorage.setItem('recovery-export-seeded', 'true')
+          }
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme }))
+          window.__recoveryCopies = []; window.__recoveryPending = []
+          window.__installRecoveryClipboard = next => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: next === 'missing' ? undefined : {
+            writeText: text => {
+              window.__recoveryCopies.push(text)
+              if (next === 'throw') throw new Error('Clipboard blocked synchronously')
+              if (next === 'denied') return Promise.reject(new Error('Clipboard denied'))
+              if (next === 'deferred') return new Promise((resolve, reject) => window.__recoveryPending.push({ resolve, reject }))
+              return Promise.resolve()
+            },
+          } })
+          window.__installRecoveryClipboard(mode)
+        }, { key, original, mode, theme })
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        const dialog = page.locator('.auto-save-recovery')
+        await dialog.getByRole('button', { name: 'Restore', exact: true }).click()
+        await dialog.getByRole('button', { name: 'Download PGN', exact: true }).waitFor()
+        const copy = dialog.locator('[data-restore]')
+        await copy.click()
+        if (mode === 'deferred') {
+          await page.waitForFunction(() => document.querySelector('[data-restore]')?.getAttribute('aria-busy') === 'true')
+          assert(await copy.evaluate(el => el === document.activeElement), 'a pending recovery copy lost button focus')
+        } else {
+          await dialog.getByRole('alert').filter({ hasText: 'Copy failed. Download the PGN' }).waitFor()
+          assert(await copy.innerText() === 'Copy PGN', 'failed recovery copy does not offer a clear retry')
+        }
+        const downloaded = page.waitForEvent('download')
+        await dialog.getByRole('button', { name: 'Download PGN', exact: true }).click()
+        const download = await downloaded
+        assert(/^web-chess-recovery-\d{4}-\d{2}-\d{2}\.pgn$/.test(download.suggestedFilename()), 'recovery download has no dated PGN filename')
+        assert(fs.readFileSync(await download.path(), 'utf8') === original, 'failed recovery download changed Unicode, whitespace, line endings or the original invalid move')
+        assert(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).pgn, key) === original, 'copy/download replaced or discarded the recovery slot')
+        if (mode === 'deferred') {
+          await copy.click()
+          await page.evaluate(() => window.__recoveryPending[1].resolve())
+          await dialog.getByRole('button', { name: 'Copied', exact: true }).waitFor()
+          await page.evaluate(() => window.__recoveryPending[0].reject(new Error('Older copy denied')))
+          await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+          assert(await copy.innerText() === 'Copied' && await dialog.getByRole('alert').count() === 0, 'an older copy failure replaced newer successful feedback')
+        } else {
+          await page.evaluate(() => window.__installRecoveryClipboard('success'))
+          await copy.click()
+          await dialog.getByRole('button', { name: 'Copied', exact: true }).waitFor()
+          assert(await dialog.getByRole('alert').count() === 0, 'copy retry left its earlier failure visible')
+        }
+        assert(await page.evaluate(text => window.__recoveryCopies.every(copy => copy === text) && window.__recoveryCopies.length > 0, original), 'clipboard did not receive the original recovery text')
+        for (const button of await dialog.locator('.dialog-actions button').all()) {
+          await button.scrollIntoViewIfNeeded()
+          assert(await button.evaluate((el, minHeight) => {
+            const r = el.getBoundingClientRect(), hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
+            return r.width > 0 && r.height >= minHeight && r.left >= 0 && r.right <= innerWidth + 1 && el.scrollWidth <= el.clientWidth + 1 && el.contains(hit)
+          }, width <= 620 ? 44 : 36), 'a recovery action clips, is too small or is covered')
+        }
+        await page.keyboard.press('Escape')
+        await page.locator('.dialog-backdrop').click({ position: { x: 5, y: 5 } })
+        assert(await dialog.isVisible() && await page.evaluate(key => JSON.parse(localStorage.getItem(key)).pgn, key) === original, 'incidental dismissal lost the failed recovery')
+        if (mode === 'deferred') { await copy.click(); await page.waitForFunction(() => window.__recoveryPending.length === 3) }
+        await dialog.getByRole('button', { name: 'Discard it', exact: true }).click()
+        await dialog.waitFor({ state: 'detached' })
+        if (mode === 'deferred') await page.evaluate(() => window.__recoveryPending[2].resolve())
+        assert(await page.evaluate(key => localStorage.getItem(key), key) === null, 'explicit discard retained the unreadable snapshot')
+        assert(errors.length === 0, `recovery export errors: ${errors.join('; ')}`)
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'recovery export overflows the viewport')
+        console.log(`  failed recovery (${width}×${height}, ${scale}x, ${theme}, ${mode} clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkAnInterruptedGameComesBack(browser) {
   const MOVES = [['e2', 'e4'], ['e7', 'e5'], ['g1', 'f3']]
   const AUTOSAVE_KEY = 'webchess:auto-saved-game:v1'
@@ -14634,6 +14719,7 @@ async function main() {
       'library-backup-limits': checkLibraryBackupLimits,
       'export-roundtrip': checkAnExportedGameComesBack,
       'autosave-roundtrip': checkAnInterruptedGameComesBack,
+      'recovery-export': checkFailedRecoveryExport,
       'saved-game-roundtrip': checkASavedGameComesBack,
       'share-roundtrip': checkASharedLinkCarriesTheGame,
       'settings-reload': checkSettingsSurviveAReload,
@@ -15438,6 +15524,7 @@ async function main() {
     await checkADatabaseIsAddedOnce(browser)
     await checkAnExportedGameComesBack(browser)
     await checkAnInterruptedGameComesBack(browser)
+    await checkFailedRecoveryExport(browser)
     await checkASavedGameComesBack(browser)
     await checkASharedLinkCarriesTheGame(browser)
     await checkSettingsSurviveAReload(browser)

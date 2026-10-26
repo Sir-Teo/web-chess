@@ -736,6 +736,10 @@
     border-top: 1px solid var(--border-subtle);
 }
 
+.auto-save-recovery .dialog-actions {
+    flex-wrap: wrap;
+}
+
 .btn-cancel {
     min-height: 36px;
     padding: 0.5rem 1rem;

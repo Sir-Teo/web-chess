@@ -23,7 +23,10 @@ type Props = {
     error?: string | null
     /** Hands the unreadable PGN to the clipboard, so it is not simply lost. */
     onCopyPgn?: () => void
+    onDownloadPgn?: () => void
     copyLabel?: string
+    copying?: boolean
+    copyError?: string
     /**
      * The saved game's PGN `Result`, when it has one. A game that ended is not
      * "in progress", and asking someone to pick up where they left off after a
@@ -42,7 +45,7 @@ function describeSavedOutcome(result: string | undefined): string | null {
     return null
 }
 
-export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss, error, onCopyPgn, copyLabel, result }: Props) {
+export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss, error, onCopyPgn, onDownloadPgn, copyLabel, copying, copyError, result }: Props) {
     const moveCount = Math.ceil(Math.max(0, plyCount) / 2)
     const outcome = describeSavedOutcome(result)
     const panelRef = useRef<HTMLDivElement>(null)
@@ -54,7 +57,7 @@ export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss
         <div className="dialog-backdrop">
             <div
                 ref={panelRef}
-                className="dialog-panel"
+                className="dialog-panel auto-save-recovery"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="auto-save-title"
@@ -81,10 +84,10 @@ export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss
                         </p>
                         {error && (
                             <p className="dialog-note">
-                                Copy it first if you want to keep the moves — discarding is the only way to stop
-                                being asked, and it cannot be undone.
+                                Copy or download the PGN first. Discarding cannot be undone.
                             </p>
                         )}
+                        {copyError && <p className="dialog-error" role="alert">{copyError}</p>}
                     </div>
                 </div>
 
@@ -93,7 +96,8 @@ export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss
                         ? (
                             <>
                                 <button type="button" className="btn-cancel" onClick={onDismiss}>Discard it</button>
-                                <button type="button" className="btn-start" data-restore onClick={onCopyPgn}>
+                                {onDownloadPgn && <button type="button" className="btn-cancel" onClick={onDownloadPgn}>Download PGN</button>}
+                                <button type="button" className="btn-start" data-restore aria-busy={copying || undefined} onClick={onCopyPgn}>
                                     {copyLabel ?? 'Copy PGN'}
                                 </button>
                             </>
