@@ -3870,6 +3870,21 @@ async function checkStepModeDoesNotChargeTheHeldEngine(browser) {
       humanTime, { timeout: 3000 })
     assert(await white.evaluate(el => el.classList.contains('running') && el.getAttribute('aria-label').endsWith(', running') && /thinking/.test(el.title)),
       'the human clock counts after Step without its running highlight or accessible label')
+    // The AI's Step pause is already true. Space must still stop the
+    // running human clock immediately, then resume it on the next press.
+    await page.evaluate(() => document.activeElement?.blur())
+    await page.keyboard.press('Space')
+    await page.locator('.clock-paused').waitFor()
+    assert(await page.getByRole('timer', { name: /, running$/ }).count() === 0
+      && await page.locator('.clock-face.running').count() === 0, 'first Space after Step left a clock running')
+    const pausedHumanTime = await white.locator('strong').textContent()
+    await page.waitForTimeout(1100)
+    assert(await white.locator('strong').textContent() === pausedHumanTime, 'the first Space press did not freeze the human countdown')
+    await page.keyboard.press('Space')
+    await page.waitForFunction(previous => document.querySelector('.clock-face.clock-white strong')?.textContent !== previous,
+      pausedHumanTime, { timeout: 3000 })
+    assert(await white.evaluate(el => el.classList.contains('running') && el.getAttribute('aria-label').endsWith(', running'))
+      && await page.locator('.clock-paused').count() === 0, 'second Space did not resume the human timer')
     assert(seconds(afterMoveOne) > seconds(heldOne),
       `the engine searched on a stopped clock and earned no increment: ${heldOne} before its move, ${afterMoveOne} after`)
 
@@ -3894,7 +3909,7 @@ async function checkStepModeDoesNotChargeTheHeldEngine(browser) {
       `the engine's second move earned no increment either: ${heldTwo} before, ${afterMoveTwo} after`)
     await page.screenshot({ path: '/tmp/web-chess-step-clock-face.png' })
     console.log(`  step mode: held at ${heldOne} and ${heldTwo} through five-second waits, `
-      + `and paid ${afterMoveOne} and ${afterMoveTwo} for released moves; the running human clock stays highlighted and exposed as a named timer`)
+      + `and paid ${afterMoveOne} and ${afterMoveTwo} for released moves; the human timer stays accessible and the first Space pauses it; the next Space resumes it`)
   } finally {
     await context.close()
   }

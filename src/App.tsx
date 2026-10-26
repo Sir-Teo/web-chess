@@ -1562,8 +1562,9 @@ function App() {
         // A held toggle acts once; move-navigation arrows still repeat.
         if (e.repeat) return
         if (workspaceMode === 'play') {
-          // A game: Space holds it, clock and engine both.
-          if (pausedRef.current) resume()
+          // Step holds the AI between replies while a human clock can still
+          // run. A running clock must pause on the first Space press.
+          if (pausedRef.current && !clockRef.current?.running) resume()
           else pause()
           return
         }

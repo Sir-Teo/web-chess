@@ -1,0 +1,27 @@
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 191 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-m_0vzQ90.js   60.55 kB
+dist/assets/LibraryDialog-BG8YTy1f.css        4.36 kB │ gzip:   1.17 kB
+dist/assets/index-B-m6fNJs.css              132.04 kB │ gzip:  24.62 kB
+dist/assets/NewGameDialog-Cu2Qu4ur.js         4.26 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-CNA8zYD0.js        11.14 kB │ gzip:   3.98 kB
+dist/assets/PgnDialog-DYQtg5tR.js            29.75 kB │ gzip:   9.95 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-D7fuUIzK.js               387.19 kB │ gzip: 125.08 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.37s
+  step mode: held at 2:59 and 3:01 through five-second waits, and paid 3:01 and 3:03 for released moves; the human timer stays accessible and the first Space pauses it; the next Space resumes it
+  held shortcuts (1280px): Flip, autoplay, timed Pause and Commands act once; fresh presses work; navigation arrows repeat
+  held shortcuts (375px): Flip, autoplay, timed Pause and Commands act once; fresh presses work; navigation arrows repeat
+  mode switch: the clock started again, 2:59 -> 2:58
+  takeback: the mate's 0-1 came off with the mate
+Focused browser UI checks passed.
