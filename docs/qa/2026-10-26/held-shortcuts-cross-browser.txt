@@ -1,0 +1,4 @@
+  held shortcuts (1280px): Flip, autoplay, timed Pause and Commands act once; fresh presses work; navigation arrows repeat
+  held shortcuts (375px): Flip, autoplay, timed Pause and Commands act once; fresh presses work; navigation arrows repeat
+  held shortcuts (1280px): Flip, autoplay, timed Pause and Commands act once; fresh presses work; navigation arrows repeat
+  held shortcuts (375px): Flip, autoplay, timed Pause and Commands act once; fresh presses work; navigation arrows repeat

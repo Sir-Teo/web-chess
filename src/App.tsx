@@ -1460,6 +1460,7 @@ function App() {
       // too, which is where a reader often is when they reach for it.
       if (isCommandPaletteChord(e)) {
         e.preventDefault()
+        if (e.repeat) return
         // Through the same pair the button uses, so the chord remembers and
         // restores what the button remembers and restores. Toggling the state
         // straight from here skipped both, which left Safari with a closed
@@ -1505,7 +1506,7 @@ function App() {
       if (e.key === 'End') { e.preventDefault(); goLast() }
       if (e.key.toLowerCase() === 'f') {
         e.preventDefault()
-        setOrientation(value => value === 'white' ? 'black' : 'white')
+        if (!e.repeat) setOrientation(value => value === 'white' ? 'black' : 'white')
       }
       // The command palette printed "N" beside New game from the day it landed
       // and nothing here answered it. A shortcut a reader is shown and cannot
@@ -1534,6 +1535,8 @@ function App() {
       if (e.key === ' ') {
         if (tag === 'BUTTON') return
         e.preventDefault()
+        // A held toggle acts once; move-navigation arrows still repeat.
+        if (e.repeat) return
         if (workspaceMode === 'play') {
           // A game: Space holds it, clock and engine both.
           if (pausedRef.current) resume()

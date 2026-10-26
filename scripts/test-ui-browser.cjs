@@ -5671,6 +5671,84 @@ async function checkOpeningNumbersBelongToTheirPosition(browser) {
   }
 }
 
+async function checkHeldToggleShortcuts(browser) {
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    const blur = () => page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
+    const isBlackView = () => page.evaluate(() => document.querySelector('#chessboard-square-a1').getBoundingClientRect().x > document.querySelector('#chessboard-square-h1').getBoundingClientRect().x)
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false }))
+        window.__heldRepeats = []
+        document.addEventListener('keydown', event => { if (event.repeat) window.__heldRepeats.push(event.key) })
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.locator('#chessboard-square-e2 [data-piece="wP"]').waitFor()
+      await blur()
+      await page.keyboard.down('f')
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-a1').getBoundingClientRect().x > document.querySelector('#chessboard-square-h1').getBoundingClientRect().x)
+      await page.keyboard.down('f')
+      await page.keyboard.up('f')
+      assert(await isBlackView(), 'holding F flipped the board back on a repeated keydown')
+      await page.keyboard.press('f')
+      assert(!await isBlackView(), 'a fresh F press did not flip the board back')
+      await page.locator('.move-entry summary').click()
+      for (const [move, square] of [['e4', 'e4'], ['e5', 'e5'], ['Nf3', 'f3'], ['Nc6', 'c6']]) {
+        await page.locator('.move-entry input').fill(move)
+        await page.locator('.move-entry input').press('Enter')
+        await page.locator(`#chessboard-square-${square} [data-piece]`).waitFor()
+      }
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      await blur()
+      await page.keyboard.down('Space')
+      await page.getByRole('button', { name: 'Stop autoplay', exact: true }).waitFor()
+      await page.keyboard.down('Space')
+      await page.keyboard.up('Space')
+      assert(await page.getByRole('button', { name: 'Stop autoplay', exact: true }).count() === 1, 'holding Space toggled autoplay off')
+      await page.keyboard.press('Space')
+      await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).waitFor()
+      const first = page.getByRole('button', { name: 'Go to first position', exact: true })
+      if (await first.isEnabled()) await first.click()
+      await blur()
+      await page.keyboard.down('ArrowRight')
+      await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+      await page.keyboard.down('ArrowRight')
+      await page.keyboard.up('ArrowRight')
+      await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+      await page.keyboard.down('Control')
+      await page.keyboard.down('k')
+      await page.locator('[data-command-input]').waitFor()
+      await page.locator('[data-command-input]').fill('flip')
+      await page.keyboard.down('k')
+      await page.keyboard.up('k')
+      await page.keyboard.up('Control')
+      assert(await page.locator('[data-command-input]').count() === 1, 'holding Ctrl+K closed Commands')
+      assert(await page.locator('[data-command-input]').inputValue() === 'flip', 'holding Ctrl+K reset the Commands query')
+      await page.keyboard.press('Control+k')
+      await page.locator('[data-command-input]').waitFor({ state: 'detached' })
+      await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+      await page.getByRole('button', { name: 'Start new game', exact: true }).first().click()
+      await page.locator('.mode-card', { hasText: 'Human vs Human' }).click()
+      await page.locator('.time-control-card', { hasText: '3 + 2' }).click()
+      await page.locator('.btn-start').click()
+      await page.locator('.clock-face.clock-white.running').waitFor()
+      await blur()
+      await page.keyboard.down('Space')
+      await page.locator('.clock-paused').waitFor()
+      await page.keyboard.down('Space')
+      await page.keyboard.up('Space')
+      assert(await page.locator('.clock-paused').count() === 1 && await page.locator('.clock-face.running').count() === 0, 'holding Space resumed the paused game clock')
+      await page.keyboard.press('Space')
+      await page.locator('.clock-face.clock-white.running').waitFor()
+      const repeats = await page.evaluate(() => window.__heldRepeats)
+      assert(['f', ' ', 'ArrowRight', 'k'].every(key => repeats.includes(key)), `the browser did not generate the expected repeated keydowns: ${repeats}`)
+      console.log(`  held shortcuts (${width}px): Flip, autoplay, timed Pause and Commands act once; fresh presses work; navigation arrows repeat`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkFenCounterMeaning(browser) {
   for (const [width, scale] of [[1280, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -13321,6 +13399,7 @@ async function main() {
       'remote-retry': checkRemoteAnalysisRetry,
       'tablebase-reading': checkTablebaseMoveReading,
       'fen-counters': checkFenCounterMeaning,
+      'held-shortcuts': checkHeldToggleShortcuts,
       'takeback-result': checkTakingBackAMateUnfinishesTheGame,
       'result-ownership': checkAResultBelongsToItsOwnGame,
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
@@ -14124,6 +14203,7 @@ async function main() {
     await checkRemoteAnalysisRetry(browser)
     await checkTablebaseMoveReading(browser)
     await checkFenCounterMeaning(browser)
+    await checkHeldToggleShortcuts(browser)
     await checkBoardCanvas(browser)
     await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)
