@@ -120,9 +120,10 @@ given, and the app answering the reader who touches it.
   the window widens; dragging or using the resize handles' arrow keys adjusts
   the visible boundaries, and the widths you set are kept between visits and
   are what a collapsed panel reopens at.
-- **Type a move**: "Enter a move by name" at the top of the analysis panel
-  takes `Nf3`, `e2e4` or `O-O` — and the forms people actually type, `nf3`,
-  `0-0`, `e8q`, which it used to refuse while telling you to type `Nf3`.
+- **Type a move**: Open "Enter a move by name" in Play or Analysis for `Nf3`,
+  `e2e4` or `O-O`; lowercase `nf3`, `0-0` and `e8q` work too. The field keeps
+  focus while the opponent moves and explains loading, waiting and Step mode.
+  It is omitted while watching two engines.
 - **Keep searching**: The automatic analysis stops at the depth slider, which
   on a desktop is over in a second. Pro mode has a switch under the Coach/Pro
   toggle that asks for `go infinite` instead, so the depth climbs for as long
@@ -495,7 +496,7 @@ publication counts and require every recorded line and the final depth.
 It measures main-thread UI work with a simulated engine, not Stockfish speed
 or field INP. Hold `dist/` fixed while profiling or running browser tests.
 
-Analysis also supports keyboard move entry: open **Enter a move by name** and
+Play and Analysis support keyboard move entry: open **Enter a move by name** and
 type SAN (`Nf3`) or UCI (`g1f3`). Clear lowercase piece moves such as `nf3`
 and `bc4` work too; `b4` and `bxc3` remain pawn moves. Independent single-thread engines can now pool
 long desktop reviews; the latest audit records the measured speedup and limits.

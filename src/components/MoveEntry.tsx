@@ -3,10 +3,11 @@ import type { Move } from 'chess.js'
 import { moveEntryExplanation, parseMoveEntry } from '../engine/moveEntry'
 import './MoveEntry.css'
 
-export function MoveEntry({ fen, onMove, disabled = false }: {
+export function MoveEntry({ fen, onMove, disabled = false, disabledReason = 'The board is not taking moves right now.' }: {
   fen: string
   onMove: (move: Move) => boolean
   disabled?: boolean
+  disabledReason?: string
 }) {
   const id = useId()
   // Keep the input mounted and focused between moves; a draft belongs only to
@@ -36,7 +37,7 @@ export function MoveEntry({ fen, onMove, disabled = false }: {
             // Read-only rather than disabled: a disabled field drops focus, and in
             // a game it is disabled for every one of the opponent's moves.
             readOnly={disabled} aria-disabled={disabled || undefined}
-            aria-describedby={`${id}-help${error ? ` ${id}-error` : ''}`} aria-invalid={Boolean(error)}
+            aria-describedby={`${id}-help${disabled ? ` ${id}-unavailable` : ''}${error ? ` ${id}-error` : ''}`} aria-invalid={Boolean(error)}
             onChange={event => setDraft({ fen, text: event.target.value, error: '' })} />
           {/* A dead button says why, like every other one here. Empty is the
               ordinary case -- the reader has opened the field and not typed
@@ -45,7 +46,7 @@ export function MoveEntry({ fen, onMove, disabled = false }: {
             type="submit"
             disabled={disabled || !text.trim()}
             title={disabled
-              ? 'The board is not taking moves right now.'
+              ? disabledReason
               : !text.trim()
                 ? 'Type a move first, such as e4 or Nf3.'
                 : 'Play this move on the board'}
@@ -54,6 +55,7 @@ export function MoveEntry({ fen, onMove, disabled = false }: {
           </button>
         </div>
         <p id={`${id}-help`}>Type one move and press Enter. Castle with O-O; promote with a8=Q or a7a8n.</p>
+        {disabled && <p id={`${id}-unavailable`} role="status">{disabledReason}</p>}
         {error && <p id={`${id}-error`} className="error-copy" role="alert">{error}</p>}
       </form>
     </details>

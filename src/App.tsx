@@ -6776,6 +6776,12 @@ function App() {
     playerColor: playerColorToTurn(playerColor),
     endedOffBoard: Boolean(endedOffBoard),
   })
+  const moveEntryDisabledReason = pendingPromotion ? 'Choose a promotion piece on the board.'
+    : isAiThinking ? 'Waiting for the engine’s move.'
+      : aiPlayerStatus === 'error' ? 'The opponent is unavailable. Start a new game or switch to Analysis.'
+        : aiPlayerStatus === 'loading' ? 'The opponent is loading. Move entry opens on your turn.'
+          : aiSpeed === 'step' ? 'Press Step for the engine’s move.'
+            : 'Waiting for the engine’s move.'
 
   /**
    * Sideways on a phone, height is the scarce axis, and this pair made the
@@ -8243,6 +8249,7 @@ function App() {
               {/* The field would only answer every entry with "not legal here". */}
               {workspaceMode === 'analysis' && analysisTab !== 'engine-lab' && hasLegalMove && (
                 <MoveEntry fen={fen} disabled={Boolean(pendingPromotion)}
+                  disabledReason={moveEntryDisabledReason}
                   onMove={move => applyHumanMove(move.from, move.to, move.promotion as PromotionPiece | undefined)} />
               )}
               {workspaceMode === 'analysis' && analysisExperience === 'beginner' && analysisTab === 'analyze' && <AnalysisGuide />}
@@ -8330,11 +8337,12 @@ function App() {
                   </div>
                   {/* The same typed entry Analysis has, for a keyboard or a
                       screen reader in the middle of a game: "Nf3" is one field
-                      away rather than sixty-four squares. Closed until asked
-                      for, and shut while the board is not taking the player's
-                      moves, exactly as the board itself is. */}
-                  {!gameResultLabel && (
+                      away rather than sixty-four squares. Read-only while
+                      waiting for the opponent, with a visible reason. Omitted
+                      while watching two engines, which accepts no human moves. */}
+                  {!gameResultLabel && gameMode !== 'ai-vs-ai' && (
                     <MoveEntry fen={fen} disabled={boardInputLocked || Boolean(pendingPromotion)}
+                      disabledReason={moveEntryDisabledReason}
                       onMove={move => applyHumanMove(move.from, move.to, move.promotion as PromotionPiece | undefined)} />
                   )}
                   <div className="engine-lab-card">

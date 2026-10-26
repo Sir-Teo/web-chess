@@ -1,0 +1,20 @@
+  move entry availability (1280px, 1x, hold-search): visible associated reason, matching editability, intact focus and no clipping; reply, Step, paused editing, watch-mode omission and pass-and-play
+reason failure opponent is loading {
+  title: 'Engine thinking · Web Chess',
+  entry: 'Enter a move by name\n' +
+    'Move for White\n' +
+    'Play move\n' +
+    '\n' +
+    'Type one move and press Enter. Castle with O-O; promote with a8=Q or a7a8n.\n' +
+    '\n' +
+    'Waiting for the engine’s move.',
+  status: 'Human vs AI · Intermediate AI\nStandby',
+  cmds: [ 'uci', 'isready' ]
+}
+page.waitForFunction: Timeout 5000ms exceeded.
+    at waitReason (/workspace/web-chess/scripts/test-ui-browser.cjs:686:39)
+    at Object.checkMoveEntryAvailability (/workspace/web-chess/scripts/test-ui-browser.cjs:726:15)
+    at async main (/tmp/web-chess-move-entry-status-diagnostic.cjs:11:8) {
+  log: [],
+  name: 'TimeoutError'
+}

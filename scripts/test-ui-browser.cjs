@@ -664,6 +664,78 @@ async function checkTypedMoveEntry(browser) {
   }
 }
 
+async function checkMoveEntryAvailability(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 2]]) for (const scenario of ['hold-search', 'slow-boot', 'silent-all']) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript(scenario).replace('this.ordinal = window.__engineCount;', 'this.ordinal = window.__engineCount; window.__moveEntryEngine = this;'))
+      await page.addInitScript(() => {
+        window.__holdPlayReady = true
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', engineProfile: 'lite-single-local' }))
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Start new game', exact: true }).first().click()
+      await page.locator('.mode-card', { hasText: 'Human vs AI' }).click()
+      if (scenario !== 'hold-search') await page.locator('.new-game-dialog').getByRole('button', { name: 'Black', exact: true }).click()
+      await page.locator('.btn-start').click()
+      await page.locator('.new-game-dialog').waitFor({ state: 'detached' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.locator('.move-entry summary').click()
+      const input = page.locator('.move-entry input'), status = page.locator('.move-entry [role="status"]')
+      const waitReason = text => page.waitForFunction(text => document.querySelector('.move-entry [role="status"]')?.textContent.includes(text), text, { timeout: 5000 })
+      const checkUnavailable = async () => {
+        assert(await input.evaluate(el => el.readOnly && el.getAttribute('aria-disabled') === 'true'), 'unavailable move input is editable or loses its announced state')
+        assert(await input.evaluate(el => el.getAttribute('aria-describedby').split(/\s+/).some(id => document.getElementById(id)?.getAttribute('role') === 'status')), 'waiting reason is not associated with the field')
+        assert(await status.evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'waiting reason is clipped')
+        assert(await page.getByRole('button', { name: 'Play move', exact: true }).isDisabled(), 'waiting field offers Play move')
+      }
+      if (scenario === 'hold-search') {
+        assert(!await input.evaluate(el => el.readOnly), 'human turn begins with a read-only input')
+        await input.fill('e4'); await input.press('Enter')
+        await waitReason('Waiting for the engine'); await checkUnavailable()
+        assert(await input.evaluate(el => el === document.activeElement), 'waiting for the opponent dropped input focus')
+        await page.waitForFunction(() => window.__moveEntryEngine.searching, null, { timeout: 5000 })
+        await page.evaluate(() => { window.__moveEntryEngine.scriptedLine = () => ({ cp: 35, move: 'e7e5' }); window.__moveEntryEngine.finishSearch() })
+        await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+        await page.waitForFunction(() => !document.querySelector('.move-entry input').readOnly)
+        assert(await input.evaluate(el => el === document.activeElement), 'opponent reply dropped input focus')
+        assert(await status.count() === 0, 'obsolete waiting message remains on the human turn')
+        await page.getByRole('button', { name: 'Set AI speed to Step', exact: true }).click()
+        await input.fill('Nf3'); await input.press('Enter')
+        await waitReason('Press Step'); await checkUnavailable()
+        await page.getByRole('button', { name: 'Advance one AI move', exact: true }).click()
+        await waitReason('Waiting for the engine')
+        // Pause deliberately allows editing either side, like the board.
+        await page.getByRole('button', { name: 'Set AI speed to Normal', exact: true }).click()
+        await page.getByRole('button', { name: 'Pause AI', exact: true }).click()
+        await page.waitForFunction(() => !document.querySelector('.move-entry input').readOnly)
+        assert(await status.count() === 0, 'paused editable position still says it is waiting')
+        await input.fill('Nc6'); await input.press('Enter')
+        await page.locator('#chessboard-square-c6 [data-piece="bN"]').waitFor()
+        await startGameMode(page, 'AI vs AI')
+        assert(await page.locator('.move-entry').count() === 0, 'watching two engines offers a permanently unavailable move form')
+        await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+        await page.locator('.move-entry summary').waitFor()
+        await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+        assert(await page.locator('.move-entry').count() === 0, 'returning to watch mode restored the unavailable form')
+        await startGameMode(page, 'Human vs Human')
+        await page.locator('.move-entry summary').click()
+        assert(!await input.evaluate(el => el.readOnly) && await status.count() === 0, 'pass-and-play move entry is unavailable')
+      } else if (scenario === 'slow-boot') {
+        await waitReason('opponent is loading'); await checkUnavailable()
+        await page.getByRole('button', { name: 'Set AI speed to Step', exact: true }).click()
+        await page.evaluate(() => window.__releasePlayReady())
+        await waitReason('Press Step'); await checkUnavailable()
+      } else {
+        await waitReason('opponent is unavailable'); await checkUnavailable()
+      }
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'move-entry availability overflows the page')
+      console.log(`  move entry availability (${width}px, ${scale}x, ${scenario}): visible associated reason, matching editability, intact focus and no clipping${scenario === 'hold-search' ? '; reply, Step, paused editing, watch-mode omission and pass-and-play' : ''}`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkEngineStartupTimeout(browser) {
   for (const mode of ['analysis', 'play']) {
     for (const scenario of ['silent-first', 'silent-all']) {
@@ -13794,6 +13866,7 @@ async function main() {
       'graph-guide': checkGraphEstimateGuide,
       'board-canvas': checkBoardCanvas,
       'typed-moves': checkTypedMoveEntry,
+      'move-entry-availability': checkMoveEntryAvailability,
       'autoplay': checkAutoplayWalksTheLine,
       'autoplay-speed': checkReplaySpeedAfterStep,
       'remote-retry': checkRemoteAnalysisRetry,
@@ -14618,6 +14691,7 @@ async function main() {
     await checkDialogFocusHandoff(browser)
     await checkPaletteDialogReturn(browser)
     await checkSettingsGearToggle(browser)
+    await checkMoveEntryAvailability(browser)
     await checkBoardCanvas(browser)
     await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)

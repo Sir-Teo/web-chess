@@ -1,0 +1,12 @@
+  move entry availability (1280px, 1x, hold-search): visible associated reason, matching editability, intact focus and no clipping; reply, Step, paused editing, watch-mode omission and pass-and-play
+  move entry availability (1280px, 1x, slow-boot): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (1280px, 1x, silent-all): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (375px, 2x, hold-search): visible associated reason, matching editability, intact focus and no clipping; reply, Step, paused editing, watch-mode omission and pass-and-play
+  move entry availability (375px, 2x, slow-boot): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (375px, 2x, silent-all): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (1280px, 1x, hold-search): visible associated reason, matching editability, intact focus and no clipping; reply, Step, paused editing, watch-mode omission and pass-and-play
+  move entry availability (1280px, 1x, slow-boot): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (1280px, 1x, silent-all): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (375px, 2x, hold-search): visible associated reason, matching editability, intact focus and no clipping; reply, Step, paused editing, watch-mode omission and pass-and-play
+  move entry availability (375px, 2x, slow-boot): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (375px, 2x, silent-all): visible associated reason, matching editability, intact focus and no clipping

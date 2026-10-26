@@ -502,6 +502,8 @@ export function useAiPlayer(enabled = true) {
         awaitingReadyRef.current = 0
         queueMicrotask(() => {
             if (active) {
+                // Enabling after Analysis or a human game starts from 'disabled'.
+                setStatus('loading')
                 setProfileName(profile.name)
                 setThreadCount(aiThreadCount(profile, capabilities, difficultyRef.current))
             }
