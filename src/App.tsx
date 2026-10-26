@@ -1534,7 +1534,7 @@ function App() {
         requestHintRef.current()
       }
       if (e.key === ' ') {
-        if (tag === 'BUTTON') return
+        if (tag === 'BUTTON' || tag === 'SUMMARY') return
         e.preventDefault()
         // A held toggle acts once; move-navigation arrows still repeat.
         if (e.repeat) return
@@ -7025,8 +7025,6 @@ function App() {
                 ))}
               </div>
             </div>
-
-            <span className="toolbar-divider desktop-only" />
 
             <details
               className="settings-menu"

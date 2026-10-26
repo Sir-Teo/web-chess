@@ -641,7 +641,7 @@ input[type="checkbox"] {
 /* Settings dropdown */
 .top .settings-menu {
   margin-bottom: 0;
-  margin-left: 0.2rem;
+  margin-left: auto;
   border: none;
   background: none;
   position: relative;
@@ -679,6 +679,12 @@ input[type="checkbox"] {
 
 .top .settings-menu[open] {
   position: relative;
+}
+
+.top .settings-menu[open]>summary {
+  /* The dismissal layer is 990; the panel stays above both at 1000. */
+  position: relative;
+  z-index: 991;
 }
 
 .top .settings-body {

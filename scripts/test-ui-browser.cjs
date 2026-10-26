@@ -5673,6 +5673,59 @@ async function checkOpeningNumbersBelongToTheirPosition(browser) {
   }
 }
 
+async function checkSettingsGearToggle(browser) {
+  for (const [width, height, scale, theme] of [
+    [1280, 900, 1, 'dark'], [901, 812, 1, 'light'], [375, 812, 1, 'dark'],
+    [375, 812, 2, 'light'], [844, 390, 1, 'dark'],
+  ]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    const frames = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await frames()
+      const open = page.getByRole('button', { name: 'Open settings', exact: true })
+      await open.click()
+      const body = page.locator('.settings-body')
+      await body.waitFor()
+      assert(await body.evaluate(el => {
+        const r = el.getBoundingClientRect()
+        return r.left >= -1 && r.right <= innerWidth + 1 && r.top >= -1 && r.bottom <= innerHeight + 1
+      }), 'Settings dropdown extends outside the visible viewport')
+      const close = page.getByRole('button', { name: 'Close settings', exact: true })
+      const hit = await close.evaluate(el => {
+        const r = el.getBoundingClientRect(), top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
+        return { own: el.contains(top), covering: top?.className, width: r.width, height: r.height }
+      })
+      assert(hit.own, `Settings gear is covered while it says Close settings: ${JSON.stringify({ viewport: [width, height], scale, target: hit })}`)
+      const arrows = body.getByRole('checkbox', { name: 'Show board arrow overlays', exact: true })
+      const initial = await arrows.isChecked()
+      await arrows.setChecked(!initial)
+      await close.click()
+      await body.waitFor({ state: 'detached' })
+      await frames()
+      assert(await open.evaluate(el => el === document.activeElement), 'gear dismissal did not return focus to its opener')
+      await open.click(); await body.waitFor()
+      assert(await arrows.isChecked() === !initial, 'gear dismissal lost the changed preference')
+      await arrows.setChecked(initial)
+      await close.click(); await body.waitFor({ state: 'detached' })
+      await open.focus(); await page.keyboard.press('Space')
+      await body.waitFor({ timeout: 5000 })
+      await page.keyboard.press('Escape'); await body.waitFor({ state: 'detached' })
+      const moveEntry = page.locator('.move-entry')
+      await moveEntry.locator('summary').focus(); await page.keyboard.press('Space')
+      assert(await moveEntry.getAttribute('open') !== null, 'Space on the move-entry disclosure toggled the app instead of opening the field')
+      await moveEntry.locator('summary').press('Space')
+      assert(await moveEntry.getAttribute('open') === null, 'Space did not close the move-entry disclosure')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'Settings toggle overflows the page')
+      console.log(`  settings gear (${width}×${height}, ${scale}x, ${theme}): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkPaletteDialogReturn(browser) {
   for (const [width, scale] of [[1280, 1], [375, 2]]) {
     for (const via of ['button', 'typing', 'graph']) {
@@ -10318,11 +10371,17 @@ async function checkNarrowDesktopLayout(browser) {
       const right = page.getByRole('separator', { name: 'Resize right panel' })
       const checkBoard = async label => {
         await page.waitForTimeout(300)
-        // The panels animate their width (220ms). A loaded machine could read
-        // one mid-transition and report the handle as announcing a different
-        // width, so wait until each panel has arrived at the width it names.
-        await page.waitForFunction(() => [...document.querySelectorAll('.panel.left, .panel.right')].every(el =>
-          Math.abs(el.getBoundingClientRect().width - Number(el.querySelector('[role="separator"]')?.getAttribute('aria-valuenow'))) <= 1),
+        // Panel transitions and the rem observer settle separately. A panel
+        // can match its old announced width while a font/viewport resize is
+        // still awaiting its frame. Wait for the board too; persistent clipping
+        // still fails with the detailed geometry below.
+        await page.waitForFunction(() => {
+          const board = document.querySelector('.board-surface').getBoundingClientRect()
+          const stage = document.querySelector('.board-stage').getBoundingClientRect()
+          return board.width >= 260 && board.left >= stage.left && board.right <= stage.right + 1
+            && [...document.querySelectorAll('.panel.left, .panel.right')].every(el =>
+              Math.abs(el.getBoundingClientRect().width - Number(el.querySelector('[role="separator"]')?.getAttribute('aria-valuenow'))) <= 1)
+        },
         null, { timeout: 3000 }).catch(() => {})
         const geometry = await page.evaluate(() => {
           const board = document.querySelector('.board-surface').getBoundingClientRect()
@@ -13747,6 +13806,7 @@ async function main() {
       'preview-endings': checkPreviewEndingFeedback,
       'dialog-handoff': checkDialogFocusHandoff,
       'palette-dialog-return': checkPaletteDialogReturn,
+      'settings-toggle': checkSettingsGearToggle,
       'takeback-result': checkTakingBackAMateUnfinishesTheGame,
       'result-ownership': checkAResultBelongsToItsOwnGame,
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
@@ -14557,6 +14617,7 @@ async function main() {
     await checkPreviewEndingFeedback(browser)
     await checkDialogFocusHandoff(browser)
     await checkPaletteDialogReturn(browser)
+    await checkSettingsGearToggle(browser)
     await checkBoardCanvas(browser)
     await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)
