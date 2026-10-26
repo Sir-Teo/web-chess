@@ -18,7 +18,6 @@ import {
     hasSetupCastlingRight,
     parsePositionSetupFen,
     positionSetupToFen,
-    SETUP_PIECE_OPTIONS,
     setupEnPassantTargets,
     updateSetupCastlingRight,
     updateSetupFullmove,
@@ -49,6 +48,7 @@ import { fenTextForShareLink } from './pgnDialogHelpers'
 import { isCompositionKey } from './shortcutKeys'
 import { PositionCounterInput } from './PositionCounterInput'
 import { PositionSetupBoard } from './PositionSetupBoard'
+import { PositionSetupPalette } from './PositionSetupPalette'
 import {
     MAX_PGN_IMPORT_BYTES,
     PGN_IMPORT_LIMIT_MESSAGE,
@@ -836,31 +836,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                 </button>
                             </div>
                             <div className="fen-setup-card" aria-label="Position setup">
-                                <div className="fen-setup-palette" aria-label="Piece palette">
-                                    {SETUP_PIECE_OPTIONS.map(option => (
-                                        <button
-                                            key={option.piece}
-                                            type="button"
-                                            className={`fen-piece-btn ${selectedSetupPiece === option.piece ? 'active' : ''}`}
-                                            aria-pressed={selectedSetupPiece === option.piece}
-                                            aria-label={`Select ${option.label}`}
-                                            title={option.label}
-                                            onClick={() => setSelectedSetupPiece(option.piece)}
-                                        >
-                                            {option.glyph}
-                                        </button>
-                                    ))}
-                                    <button
-                                        type="button"
-                                        className={`fen-piece-btn eraser ${selectedSetupPiece === null ? 'active' : ''}`}
-                                        aria-pressed={selectedSetupPiece === null}
-                                        aria-label="Select empty square eraser"
-                                        title="Clear square"
-                                        onClick={() => setSelectedSetupPiece(null)}
-                                    >
-                                        ×
-                                    </button>
-                                </div>
+                                <PositionSetupPalette selectedPiece={selectedSetupPiece} onSelect={setSelectedSetupPiece} />
                                 <div className="fen-setup-grid">
                                     <PositionSetupBoard pieces={setup.pieces} selectedPiece={selectedSetupPiece}
                                         onPlace={square => applySetupChange(current => updateSetupSquare(current, square, selectedSetupPiece))} />

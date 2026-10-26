@@ -4102,7 +4102,23 @@ async function checkPositionSetupKeyboard(browser) {
         document.activeElement?.closest('.fen-setup-board')
           && document.activeElement.getAttribute('aria-label').startsWith(`${square},`), square),
       `setup keyboard focus should be on ${square}`)
-      await eraser.click()
+      const palette = dialog.getByRole('toolbar', { name: 'Piece palette', exact: true })
+      const pawn = palette.getByRole('button', { name: 'Select White pawn', exact: true })
+      await pawn.focus()
+      assert(await palette.locator('button').evaluateAll(els => els.filter(el => el.tabIndex === 0).length) === 1,
+        'the piece palette requires more than one Tab stop')
+      await page.keyboard.press('ArrowRight')
+      assert(await palette.getByRole('button', { name: 'Select White knight', exact: true }).evaluate(el => el === document.activeElement),
+        'Right did not move to the next piece tool')
+      assert(await pawn.getAttribute('aria-pressed') === 'true', 'moving tool focus changed the selected piece')
+      await page.keyboard.press('Home')
+      await page.keyboard.press('ArrowLeft')
+      assert(await eraser.evaluate(el => el === document.activeElement), 'Left did not wrap to the last piece tool')
+      await page.keyboard.press('ArrowRight')
+      assert(await pawn.evaluate(el => el === document.activeElement), 'Right did not wrap back to the first tool')
+      await page.keyboard.press('End')
+      await page.keyboard.press('Enter')
+      assert(await eraser.getAttribute('aria-pressed') === 'true', 'Enter did not select the focused eraser')
       await page.keyboard.press('Tab')
       await expectSquare('a8')
       assert(await board.locator('button').evaluateAll(els => els.filter(el => el.tabIndex === 0).length) === 1,
@@ -4128,30 +4144,37 @@ async function checkPositionSetupKeyboard(browser) {
       await expectSquare('e1')
 
       // Choosing a piece and returning to the board retains the last square.
-      await dialog.getByRole('button', { name: 'Select White king', exact: true }).click()
-      await eraser.focus()
+      await page.keyboard.press('Shift+Tab')
+      await page.keyboard.press('Home')
+      for (let piece = 0; piece < 5; piece += 1) await page.keyboard.press('ArrowRight')
+      await page.keyboard.press('Enter')
       await page.keyboard.press('Tab')
       await expectSquare('e1')
       await page.keyboard.press('Enter')
       await expectSquare('e1')
       assert(await board.getByRole('button', { name: /^e1, White king,/ }).count() === 1,
         'Enter did not place the selected White king')
-      await dialog.getByRole('button', { name: 'Select Black king', exact: true }).click()
-      await eraser.focus()
+      await page.keyboard.press('Shift+Tab')
+      await page.keyboard.press('End')
+      await page.keyboard.press('ArrowLeft')
+      await page.keyboard.press('Space')
       await page.keyboard.press('Tab')
       for (let rank = 0; rank < 7; rank += 1) await page.keyboard.press('ArrowUp')
       await expectSquare('e8')
       await page.keyboard.press('Space')
       const kingsFen = '4k3/8/8/8/8/8/8/4K3 w - - 0 1'
       assert(await text.inputValue() === kingsFen, 'Space did not place the Black king in the FEN')
-      await eraser.click()
+      await page.keyboard.press('Shift+Tab')
+      await page.keyboard.press('End')
+      await page.keyboard.press('Enter')
       await page.keyboard.press('Tab')
       await expectSquare('e8')
       await page.keyboard.press('Space')
       assert(await board.getByRole('button', { name: /^e8, empty square,/ }).count() === 1,
         'Space did not erase the selected square')
-      await dialog.getByRole('button', { name: 'Select Black king', exact: true }).click()
-      await eraser.focus()
+      await page.keyboard.press('Shift+Tab')
+      await page.keyboard.press('ArrowLeft')
+      await page.keyboard.press('Enter')
       await page.keyboard.press('Tab')
       await page.keyboard.press('Enter')
       await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).click()
@@ -4159,7 +4182,7 @@ async function checkPositionSetupKeyboard(browser) {
       await page.waitForFunction(() => document.querySelector('#chessboard-square-e8')?.getAttribute('aria-label')?.includes('Black king'))
       assert((await page.locator('#chessboard-square-e1').getAttribute('aria-label')).includes('White king'),
         'the keyboard-built position did not reach the analysis board')
-      console.log(`  setup keyboard (${width}px, ${scale}x text): pieces fit, one Tab stop, spatial boundaries, Home/End, retained focus, placement and erasure load a real position`)
+      console.log(`  setup keyboard (${width}px, ${scale}x text): palette/board each use one Tab stop; arrow/Home/End navigation, keyboard tool selection, placement and erasure load a real position`)
     } finally { await context.close() }
   }
 }
