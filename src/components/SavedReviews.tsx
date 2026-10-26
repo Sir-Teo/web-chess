@@ -199,7 +199,7 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
               <label htmlFor="saved-review-choice">Choose a saved review</label>
               <select id="saved-review-choice" value={selectedId} disabled={working} onChange={event => setSelectedId(event.target.value)}>
                 {runs.map(run => <option key={run.id} value={run.id}>
-                  {run.settings.engine.name} · D{run.settings.depth} · {run.title} · {new Date(run.finishedAt).toLocaleString()}{run.complete ? '' : ' · Partial'}
+                  {run.title} · {run.settings.engine.name} · D{run.settings.depth} · {new Date(run.finishedAt).toLocaleString()}{run.complete ? '' : ' · Partial'}
                 </option>)}
               </select>
               {selected && <>
