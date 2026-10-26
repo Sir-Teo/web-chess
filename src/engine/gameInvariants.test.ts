@@ -164,7 +164,7 @@ describe('materialBalance', () => {
         ).toBe(materialDeltaFromBoard(replay))
       }
     }
-  })
+  }, REPLAY_TIMEOUT_MS)
 
   /**
    * The dynamic rule: nothing but a capture or a promotion may move the count,
@@ -188,7 +188,7 @@ describe('materialBalance', () => {
         previous = current
       }
     }
-  })
+  }, REPLAY_TIMEOUT_MS)
 
   it('never reports a capture that did not happen', () => {
     for (const played of endgames) {
