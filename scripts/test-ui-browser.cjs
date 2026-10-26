@@ -4445,7 +4445,7 @@ async function checkPositionSetupOrientation(browser) {
       const board = dialog.getByRole('group', { name: 'Editable chessboard', exact: true })
       const text = dialog.locator('.fen-textarea')
       const initialFen = await text.inputValue()
-      const flip = dialog.getByRole('button', { name: 'Flip setup board', exact: true })
+      const flip = dialog.getByRole('button', { name: 'Flip board', exact: true })
       await flip.click()
       assert(await flip.getAttribute('aria-pressed') === 'true', 'the setup flip does not expose its state')
       assert((await board.locator('button').first().getAttribute('aria-label')).startsWith('h1,'), 'the flipped setup does not start at h1')

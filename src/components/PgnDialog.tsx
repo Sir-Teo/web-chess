@@ -812,7 +812,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                 <button type="button" className="btn-cancel" onClick={() => loadSetupPreset(createEmptyPositionSetup())}>
                                     Clear Board
                                 </button>
-                                <button type="button" className="btn-cancel" aria-label="Flip setup board" aria-pressed={setupFlipped}
+                                <button type="button" className="btn-cancel" aria-pressed={setupFlipped}
                                     onClick={() => setSetupFlipped(flipped => !flipped)}>
                                     <IconFlip /> Flip board
                                 </button>
