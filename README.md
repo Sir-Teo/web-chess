@@ -155,6 +155,8 @@ given, and the app answering the reader who touches it.
   Stopping a perft diagnostic releases its worker because native perft cannot
   process Stop while counting. **Load engine** starts a fresh console session;
   the board, displayed analysis, and saved controls remain available.
+  The browser console does not support ponder searches or ponderhit; use a
+  bounded search such as `go depth 12`, or `go infinite` followed by Stop.
 - **Engine settings apply in order**: Numeric console options use the engine's
   advertised limits. Configuration finishes before another setting is sent,
   and keyboard focus returns after a temporarily disabled control is ready.

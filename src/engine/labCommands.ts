@@ -30,6 +30,7 @@ type GoParameters = {
   limits: Map<string, bigint>
   perft: boolean
   indefinite: boolean
+  ponder: boolean
   issue: string | null
 }
 
@@ -49,7 +50,7 @@ function numericGoValue(keyword: string, text: string | undefined): bigint | nul
 }
 
 function parseGoParameters(parts: string[]): GoParameters {
-  const parsed: GoParameters = { limits: new Map(), perft: false, indefinite: false, issue: null }
+  const parsed: GoParameters = { limits: new Map(), perft: false, indefinite: false, ponder: false, issue: null }
   if (parts[0] !== 'go') {
     parsed.issue = 'Stockfish uses lowercase UCI keywords. Use go depth 12, for example.'
     return parsed
@@ -63,6 +64,7 @@ function parseGoParameters(parts: string[]): GoParameters {
     // Stockfish consumes everything after searchmoves as move text.
     if (keyword === 'searchmoves') break
     if (keyword === 'infinite' || keyword === 'ponder') parsed.indefinite = true
+    if (keyword === 'ponder') parsed.ponder = true
     if (!NUMERIC_GO_PARAMETERS.has(keyword)) continue
     const value = numericGoValue(keyword, parts[++index])
     if (value === null) {
@@ -88,6 +90,7 @@ const HEAVY_COMMAND_MESSAGE =
   'Enable expert mode to run perft and unbounded go — they are locked because they can stall the UI.'
 const SEARCHMOVES_ORDER_MESSAGE =
   'Stockfish treats searchmoves as the final go parameter. Put limits before searchmoves, for example: go depth 12 searchmoves e2e4.'
+const PONDER_COMMAND_MESSAGE = 'Ponder searches are not supported by this browser console. Use go depth 12, or go infinite and Stop.'
 const QUIT_COMMAND_MESSAGE = 'Engine shutdown is managed by the app. Switch engine profile or reload the page instead of sending quit.'
 
 function commandParts(command: string): string[] {
@@ -160,12 +163,19 @@ export function engineLabCommandBlockMessage(command: string): string | null {
   const parts = commandParts(command)
   const verb = parts[0]?.toLowerCase()
   if (verb === 'quit') return QUIT_COMMAND_MESSAGE
+  if (verb === 'ponderhit') return PONDER_COMMAND_MESSAGE
   if (verb === 'bench' || verb === 'benchmark') {
     return 'The native Stockfish benchmark is not included in this browser build. Use go movetime 5000 for a five-second search at the console position, or native Stockfish for its benchmark.'
   }
   if (verb === 'perft') {
     return 'Use go perft 3 to count legal move paths three plies deep at the console position. This browser build does not support bare perft commands.'
   }
-  if (verb === 'go') return parseGoParameters(parts).issue
+  if (verb === 'go') {
+    const parsed = parseGoParameters(parts)
+    if (parsed.issue) return parsed.issue
+    // The pinned Emscripten build omits the native wait for ponderhit after
+    // reaching a depth limit. Perft diagnostics bypass ordinary searching.
+    if (parsed.ponder && !(parsed.limits.get('perft') ?? 0n)) return PONDER_COMMAND_MESSAGE
+  }
   return null
 }

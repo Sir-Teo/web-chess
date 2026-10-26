@@ -1,0 +1,26 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/labCommands.test.ts (43 tests | 1 failed) 14ms
+     × explains unsupported ponder searches and ponderhit instead of dispatching them 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/labCommands.test.ts > browser pondering limitations > explains unsupported ponder searches and ponderhit instead of dispatching them
+AssertionError: the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ src/engine/labCommands.test.ts:196:53
+    194|   it('explains unsupported ponder searches and ponderhit instead of di…
+    195|     for (const command of ['go ponder', 'go ponder depth 1', 'go depth…
+    196|       expect(engineLabCommandBlockMessage(command)).toContain('Ponder …
+       |                                                     ^
+    197|       expect(engineLabCommandBlockMessage(command)).toContain('go dept…
+    198|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 42 passed (43)
+   Start at  23:36:12
+   Duration  197ms (transform 49ms, setup 0ms, import 63ms, tests 14ms, environment 0ms)
+

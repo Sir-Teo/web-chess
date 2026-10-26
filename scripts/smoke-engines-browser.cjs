@@ -17,6 +17,7 @@ async function checkNativeConsoleLimits(page) {
     ['go DEPTH 1', 'lowercase UCI keywords'], ['go depth 0x10', 'whole decimal integer'],
     ['go nodes 0b10', 'whole decimal integer'], ['go depth nope movetime 20', 'whole decimal integer'],
     ['go depth 1 depth 0', 'Enable expert mode'],
+    ['go ponder depth 1', 'Ponder searches are not supported'], ['ponderhit', 'Ponder searches are not supported'],
   ]) {
     await submit(text)
     await page.locator('.error-copy').filter({ hasText: reason }).waitFor()

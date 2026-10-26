@@ -189,3 +189,23 @@ describe('native search command whitespace', () => {
     expect(isHeavyEngineLabCommand(command)).toBe(true)
   })
 })
+
+describe('browser pondering limitations', () => {
+  it('explains unsupported ponder searches and ponderhit instead of dispatching them', () => {
+    for (const command of ['go ponder', 'go ponder depth 1', 'go depth 12 ponder', 'go perft 0 ponder depth 1', 'ponderhit', ' PONDERHIT ']) {
+      expect(engineLabCommandBlockMessage(command)).toContain('Ponder searches are not supported by this browser console')
+      expect(engineLabCommandBlockMessage(command)).toContain('go depth 12')
+    }
+  })
+
+  it('keeps ordinary searches, diagnostic perft and consumed searchmoves text available', () => {
+    for (const command of ['go depth 1', 'go infinite', 'go perft 3 ponder', 'go perft -1 ponder', 'go ponder perft 3', 'go depth 1 searchmoves e2e4 ponder']) {
+      expect(engineLabCommandBlockMessage(command)).toBeNull()
+    }
+  })
+
+  it('retains malformed numeric and keyword feedback before the provider limitation', () => {
+    expect(engineLabCommandBlockMessage('go depth nope ponder')).toContain('whole decimal integer')
+    expect(engineLabCommandBlockMessage('go PONDER depth 1')).toContain('lowercase UCI keywords')
+  })
+})

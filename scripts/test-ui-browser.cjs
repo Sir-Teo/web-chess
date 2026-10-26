@@ -11302,7 +11302,7 @@ async function checkConsoleTools(browser) {
       assert(await perft.isDisabled() && /expert/i.test(await perft.getAttribute('title')), 'perft needs an explained expert gate')
       assert(await search.isEnabled(), 'bounded search should work without expert mode')
       assert((await search.getAttribute('title')).includes('console position'), 'search shortcut does not explain its position')
-      for (const [text, reason] of [['bench', 'not included in this browser build'], ['benchmark', 'not included in this browser build'], ['perft 3', 'Use go perft 3']]) {
+      for (const [text, reason] of [['bench', 'not included in this browser build'], ['benchmark', 'not included in this browser build'], ['perft 3', 'Use go perft 3'], ['go ponder depth 1', 'Ponder searches are not supported'], ['ponderhit', 'Ponder searches are not supported']]) {
         await command.fill(text)
         await command.press('Enter')
         await page.locator('.error-copy').filter({ hasText: reason }).waitFor()
@@ -11321,6 +11321,12 @@ async function checkConsoleTools(browser) {
       assert((await page.getByLabel('UCI console output', { exact: true }).innerText()).includes('bestmove e2e4'), 'timed search did not finish')
       assert(await page.evaluate(() => window.__uciCommands.includes('go movetime 5000')), 'timed shortcut sent the wrong command')
       await page.getByRole('checkbox', { name: 'Enable expert engine commands', exact: true }).check()
+      for (const text of ['go ponder depth 1', 'ponderhit']) {
+        await command.fill(text)
+        await command.press('Enter')
+        await page.locator('.error-copy').filter({ hasText: 'Ponder searches are not supported' }).waitFor()
+        assert(await command.inputValue() === text && await page.evaluate(text => !window.__uciCommands.includes(text), text), 'expert mode dispatched an unsupported ponder command or lost its draft')
+      }
       await perft.click()
       await page.getByLabel('UCI console output', { exact: true }).filter({ hasText: 'Nodes searched: 8902' }).waitFor()
       await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
