@@ -183,6 +183,10 @@ given, and the app answering the reader who touches it.
   why a neutral 50% on one graph can accompany a high draw probability. It is
   available in Coach and Pro, including Review, with links to both models.
 - **Game review, of the line you are on**: Import a PGN, run a review pass, filter critical moments by side, inspect accuracy, and jump from a review row back to the board. The review follows the branch the board is standing in, so a variation can be reviewed like the game — and when that is not the main line it says so. Accuracy and move labels are scored on winning chances rather than raw centipawns, so an imprecision in a decided game is not called a blunder. The labels are the ones readers arrive knowing: *Book* while a sound move stays in the opening table, *Best* for the engine's own move and nothing else, *Excellent* for one that gave up almost nothing, then Good, Inaccuracy, Mistake and Blunder — so a row never reads "Best e4" beside a move it also calls Best. A best-move hint appears only once a search deep enough to grade the move has run; the 70 ms import sweep's choice is not one.
+- **Accuracy by phase**: When a line spans multiple phases, Opening,
+  Middlegame and Endgame show both players’ accuracy and scored-move counts.
+  Choose a phase to filter the review; choose it again to return to the whole
+  line. Narrow panels and enlarged text stack these details to keep them readable.
 - **A review that uses the whole machine**: the positions in a game review are
   independent of one another, so on a desktop the review runs several engines
   at once. The latest real Stockfish measurement uses the Opera Game's 33

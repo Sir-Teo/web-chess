@@ -1338,6 +1338,94 @@ async function checkReviewUsesSelectedEngine(browser, controls = false) {
   }
 }
 
+async function checkReviewPhaseAccessibility(browser) {
+  for (const [width, theme] of [[1280, 'dark'], [375, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: width === 375 ? 812 : 900 } })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false,
+        engineProfile: 'lite-single-local', reviewMaxWorkers: 1, theme,
+      })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: /^Load / }).first().click()
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+      const phases = page.getByRole('group', { name: 'Accuracy by phase', exact: true })
+      await phases.waitFor()
+      const report = await page.getByTestId('review-run-summary').innerText()
+      const board = () => page.locator('[id^="chessboard-square-"]').evaluateAll(els => els.map(el => `${el.id}:${el.querySelector('[data-piece]')?.getAttribute('data-piece') || '-'}`).join('|'))
+      const position = await board()
+      const allMoves = await page.locator('.review-move-list li').count()
+      const assertNames = async () => {
+        const data = []
+        for (const button of await phases.getByRole('button').all()) {
+          const label = await button.locator('.phase-accuracy-label').textContent()
+          const scores = await button.locator('strong').allTextContents()
+          const count = await button.locator('.phase-accuracy-count').innerText()
+          const readable = value => value === '--' ? 'not available' : value
+          const scope = label.toLowerCase()
+          const name = `${label}. White accuracy in the ${scope}: ${readable(scores[0])}. Black accuracy in the ${scope}: ${readable(scores[1])}. ${count}.`
+          assert(await phases.getByRole('button', { name, exact: true }).count() === 1,
+            `the ${label} button name omits its visible scores or side labels`)
+          data.push({ label, scores, count, name })
+        }
+        return data
+      }
+      const initial = await assertNames()
+      assert(initial.length === 3 && initial.every(item => item.scores.every(score => score !== '--')), 'the reviewed fixture did not exercise both sides of all three phases')
+      for (const [index, item] of initial.entries()) {
+        const button = phases.getByRole('button', { name: item.name, exact: true })
+        await button.focus()
+        await button.press(index % 2 ? 'Space' : 'Enter')
+        assert(await button.getAttribute('aria-pressed') === 'true' && await button.evaluate(el => document.activeElement === el), 'phase selection lost its pressed state or keyboard focus')
+        assert(await page.locator('.review-move-list li').count() === Number.parseInt(item.count), 'phase selection did not filter the displayed reviewed moves')
+        await button.press(index % 2 ? 'Space' : 'Enter')
+        assert(await button.getAttribute('aria-pressed') === 'false' && await page.locator('.review-move-list li').count() === allMoves, 'pressing the phase again did not restore the full reviewed list')
+      }
+      const side = page.locator('.review-filter-row')
+      await side.getByRole('button', { name: 'White', exact: true }).click()
+      const whiteOnly = await assertNames()
+      assert(whiteOnly.every(item => item.scores[1] === '--' && item.name.includes('Black accuracy') && item.name.includes('not available')), 'unscored Black accuracy is ambiguous in the White-only filter')
+      await phases.getByRole('button').first().focus()
+      await page.keyboard.press('Enter')
+      await side.getByRole('button', { name: 'Black', exact: true }).click()
+      const blackOnly = await assertNames()
+      assert(blackOnly.every(item => item.scores[0] === '--' && item.name.includes('White accuracy') && item.name.includes('not available')), 'unscored White accuracy is ambiguous in the Black-only filter')
+      assert(await phases.getByRole('button', { pressed: true }).count() === 0, 'changing the side retained an obsolete phase filter')
+      await side.getByRole('button', { name: 'Both', exact: true }).click()
+      await assertNames()
+      await page.evaluate(async () => {
+        document.documentElement.style.fontSize = '32px'
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      })
+      await side.getByRole('button', { name: 'Black', exact: true }).focus()
+      for (const button of await phases.getByRole('button').all()) {
+        await page.keyboard.press('Tab')
+        assert(await button.evaluate(el => document.activeElement === el), 'Tab skipped a phase control')
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        const geometry = await button.evaluate(el => {
+          const r = el.getBoundingClientRect()
+          return { rect: r.toJSON(), width: el.clientWidth, content: el.scrollWidth,
+            fits: r.left >= 0 && r.right <= innerWidth + 1 && r.top >= 0 && r.bottom <= innerHeight + 1
+              && r.height >= 44 && el.scrollWidth <= el.clientWidth + 1
+              && [r.top + 2, r.bottom - 2].every(y => el.contains(document.elementFromPoint(r.x + r.width / 2, y))) }
+        })
+        if (!geometry.fits) await page.screenshot({ path: `/tmp/web-chess-phase-layout-failure-${width}.png` })
+        assert(geometry.fits, `phase scores clip at ${width}px/200%: ${JSON.stringify(geometry)}`)
+      }
+      await phases.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: `/tmp/web-chess-phase-accessibility-${width}.png` })
+      assert(await board() === position && await page.getByTestId('review-run-summary').innerText() === report, 'phase filtering changed the board or frozen report')
+      assert(errors.length === 0, `review phase page errors: ${errors.join('; ')}`)
+      console.log(`  review phases (${width}px, ${theme}): all three native button names include both scores and move counts; unscored side says not available; Enter/Space select and clear filters with stable focus, board and report; enlarged text fits`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkReviewExportRecovery(browser) {
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
     const context = await browser.newContext({ viewport: { width, height } })
@@ -15774,6 +15862,7 @@ async function main() {
       'review-source': checkReviewUsesSelectedEngine,
       'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
       'review-export-recovery': checkReviewExportRecovery,
+      'review-phase-accessibility': checkReviewPhaseAccessibility,
       'review-list-scroll': checkReviewListFollowsPosition,
       'review-comparison': checkSavedReviews,
       'review-delete-focus': checkSavedReviewDeleteFocus,
@@ -16699,6 +16788,7 @@ async function main() {
     await checkTextCompositionKeys(browser)
     await checkRevealTimersRespectDialogs(browser)
     await checkRevealRetriesYieldToInteraction(browser)
+    await checkReviewPhaseAccessibility(browser)
     await checkReviewExportRecovery(browser)
     await checkReviewListFollowsPosition(browser)
     await checkDialogResizeFocus(browser)

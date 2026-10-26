@@ -1,0 +1,2 @@
+  review phases (1280px, dark): all three native button names include both scores and move counts; unscored side says not available; Enter/Space select and clear filters with stable focus, board and report; enlarged text fits
+  review phases (375px, light): all three native button names include both scores and move counts; unscored side says not available; Enter/Space select and clear filters with stable focus, board and report; enlarged text fits

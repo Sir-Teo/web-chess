@@ -27,26 +27,41 @@ export function PhaseAccuracy({ rows, formatAccuracy, selected, onSelect }: Prop
   if (phases.length < 2) return null
 
   return (
-    <div className="phase-accuracy" aria-label="Accuracy by phase">
-      {phases.map(({ phase, summary }) => (
-        <button
+    <div className="phase-accuracy" role="group" aria-label="Accuracy by phase">
+      {phases.map(({ phase, summary }) => {
+        const label = getPhaseLabel(phase)
+        const scope = label.toLowerCase()
+        const white = summary.white === null ? 'not available' : formatAccuracy(summary.white)
+        const black = summary.black === null ? 'not available' : formatAccuracy(summary.black)
+        const count = `${summary.evaluatedMoves} ${summary.evaluatedMoves === 1 ? 'move' : 'moves'}`
+        return <button
           key={phase}
           type="button"
           className={`phase-accuracy-row${selected === phase ? ' selected' : ''}`}
+          aria-label={`${label}. White accuracy in the ${scope}: ${white}. Black accuracy in the ${scope}: ${black}. ${count}.`}
           aria-pressed={selected === phase}
-          title={selected === phase ? 'Show the whole game again' : `Show only the ${getPhaseLabel(phase).toLowerCase()}`}
+          title={selected === phase ? 'Show the whole game again' : `Show only the ${scope}`}
           onClick={() => onSelect(selected === phase ? 'all' : phase)}
+          onFocus={event => {
+            const target = event.currentTarget
+            if (!target.matches(':focus-visible')) return
+            // Firefox can stop scrolling once the first line is visible.
+            // Reveal the complete keyboard control after native focus settles.
+            requestAnimationFrame(() => {
+              if (document.activeElement === target) {
+                target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+              }
+            })
+          }}
         >
-          <span className="phase-accuracy-label">{getPhaseLabel(phase)}</span>
+          <span className="phase-accuracy-label">{label}</span>
           <span className="phase-accuracy-scores">
-            <span><i aria-hidden="true">W</i> <strong aria-label={`White accuracy in the ${getPhaseLabel(phase).toLowerCase()}`}>{formatAccuracy(summary.white)}</strong></span>
-            <span><i aria-hidden="true">B</i> <strong aria-label={`Black accuracy in the ${getPhaseLabel(phase).toLowerCase()}`}>{formatAccuracy(summary.black)}</strong></span>
+            <span><i aria-hidden="true">W</i> <strong>{formatAccuracy(summary.white)}</strong></span>
+            <span><i aria-hidden="true">B</i> <strong>{formatAccuracy(summary.black)}</strong></span>
           </span>
-          <span className="phase-accuracy-count">
-            {summary.evaluatedMoves} {summary.evaluatedMoves === 1 ? 'move' : 'moves'}
-          </span>
+          <span className="phase-accuracy-count">{count}</span>
         </button>
-      ))}
+      })}
     </div>
   )
 }
