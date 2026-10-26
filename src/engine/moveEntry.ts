@@ -7,7 +7,8 @@ import { Chess, type Move } from 'chess.js'
  * from-to pair below, but nothing looser: `nf3`, `0-0`, `e8q` were all refused
  * as typed, with a message saying to use `Nf3`, which is what the reader
  * thought they had done. A lowercase `b` ahead of a square (`bf4`) is clearly
- * a bishop; `b4` and `bxc3` stay pawn moves, distinct from `Bxc3`.
+ * a bishop, as are captures outside the a- and c-files. `b4`, `bxa3` and
+ * `bxc3` stay pawn moves, distinct from `Bxa3` and `Bxc3`.
  */
 export function normalizeMoveEntry(input: string): string {
   let token = input.trim()
@@ -16,7 +17,7 @@ export function normalizeMoveEntry(input: string): string {
   if (/^[0oO]-[0oO](-[0oO])?[+#]?$/.test(token)) return token.replace(/[0o]/g, 'O')
   // A lowercase piece letter ahead of a square or a capture. Not `b`.
   token = token.replace(/^([kqrn])(?=[a-h1-8x])/, letter => letter.toUpperCase())
-  token = token.replace(/^b(?=[a-h][1-8])/, 'B')
+  token = token.replace(/^b(?=[a-h][1-8]|x[bdefgh][1-8])/, 'B')
   // A promotion piece written without the `=`, or in lowercase: `e8q`, `e8=q`.
   const promotion = token.match(/^([a-h]?x?[a-h][18])=?([qrbnQRBN])([+#]?)$/)
   if (promotion) token = `${promotion[1]}=${promotion[2].toUpperCase()}${promotion[3]}`

@@ -35,6 +35,28 @@ describe('typed move entry', () => {
     expect(parseMoveEntry(fen, input)).toMatchObject({ from, to, piece: 'b' })
   })
 
+  it.each([
+    ['7k/8/8/8/1p6/B7/8/7K w - - 0 1', 'bxb4', 'a3', 'b4'],
+    ['7k/8/8/8/3p4/2B5/8/7K w - - 0 1', 'bxd4', 'c3', 'd4'],
+    ['7k/8/6b1/5P2/8/8/8/7K b - - 0 1', 'bxf5', 'g6', 'f5'],
+    ['7k/8/6b1/7P/8/8/8/7K b - - 0 1', 'bxh5', 'g6', 'h5'],
+  ])('plays an unambiguous lowercase bishop capture %s %s', (fen, input, from, to) => {
+    expect(parseMoveEntry(fen, input)).toMatchObject({ from, to, piece: 'b', captured: 'p' })
+  })
+
+  it('keeps an a-file capture as a pawn move when both pawn and bishop can capture', () => {
+    const fen = '7k/8/3B4/8/8/n7/1P6/7K w - - 0 1'
+    expect(parseMoveEntry(fen, 'bxa3')).toMatchObject({ from: 'b2', to: 'a3', piece: 'p' })
+    expect(parseMoveEntry(fen, 'Bxa3')).toMatchObject({ from: 'd6', to: 'a3', piece: 'b' })
+  })
+
+  it.each([
+    ['r6k/1P6/8/8/8/8/8/7K w - - 0 1', 'bxa8q', 'a8', 'q'],
+    ['2r4k/1P6/8/8/8/8/8/7K w - - 0 1', 'bxc8n', 'c8', 'n'],
+  ])('keeps b-file pawn capture promotion %s %s', (fen, input, to, promotion) => {
+    expect(parseMoveEntry(fen, input)).toMatchObject({ from: 'b7', to, piece: 'p', captured: 'r', promotion })
+  })
+
   it('preserves pawn notation when a b-file capture and bishop capture are both legal', () => {
     const fen = '4k3/8/5B2/8/8/2n5/1P6/4K3 w - - 0 1'
     expect(parseMoveEntry(fen, 'bxc3')).toMatchObject({ from: 'b2', to: 'c3', piece: 'p' })
