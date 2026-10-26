@@ -18,10 +18,7 @@ import {
     hasSetupCastlingRight,
     parsePositionSetupFen,
     positionSetupToFen,
-    SETUP_BOARD_SQUARES,
     SETUP_PIECE_OPTIONS,
-    setupPieceGlyph,
-    setupPieceLabel,
     setupEnPassantTargets,
     updateSetupCastlingRight,
     updateSetupFullmove,
@@ -51,6 +48,7 @@ import { IconDownload, IconClipboard, IconUpload } from './icons'
 import { fenTextForShareLink } from './pgnDialogHelpers'
 import { isCompositionKey } from './shortcutKeys'
 import { PositionCounterInput } from './PositionCounterInput'
+import { PositionSetupBoard } from './PositionSetupBoard'
 import {
     MAX_PGN_IMPORT_BYTES,
     PGN_IMPORT_LIMIT_MESSAGE,
@@ -864,26 +862,8 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                     </button>
                                 </div>
                                 <div className="fen-setup-grid">
-                                    <div className="fen-setup-board" role="group" aria-label="Editable chessboard">
-                                        {SETUP_BOARD_SQUARES.map(square => {
-                                            const piece = setup.pieces[square]
-                                            const squareLabel = piece ? setupPieceLabel(piece) : 'empty square'
-                                            const actionLabel = selectedSetupPiece
-                                                ? `place ${setupPieceLabel(selectedSetupPiece)}`
-                                                : 'clear square'
-                                            return (
-                                                <button
-                                                    key={square}
-                                                    type="button"
-                                                    className={`fen-setup-square ${piece && piece === piece.toLowerCase() ? 'black-piece' : ''}`}
-                                                    aria-label={`${square}, ${squareLabel}, ${actionLabel}`}
-                                                    onClick={() => applySetupChange(current => updateSetupSquare(current, square, selectedSetupPiece))}
-                                                >
-                                                    {piece ? setupPieceGlyph(piece) : ''}
-                                                </button>
-                                            )
-                                        })}
-                                    </div>
+                                    <PositionSetupBoard pieces={setup.pieces} selectedPiece={selectedSetupPiece}
+                                        onPlace={square => applySetupChange(current => updateSetupSquare(current, square, selectedSetupPiece))} />
                                     <div className="fen-setup-controls">
                                         <div className="fen-setup-control-block">
                                             <span className="dialog-label">Side</span>

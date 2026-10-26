@@ -169,7 +169,14 @@
     align-items: start;
 }
 
+.fen-setup-board-region {
+    min-width: 0;
+    display: grid;
+    gap: 0.5rem;
+}
+
 .fen-setup-board {
+    container-type: inline-size;
     display: grid;
     grid-template-columns: repeat(8, minmax(0, 1fr));
     grid-template-rows: repeat(8, minmax(0, 1fr));
@@ -189,7 +196,7 @@
     border-radius: 0;
     background: #f0d9b5;
     color: #f8fafc;
-    font-size: 1.2rem;
+    font-size: min(1.2rem, 8cqi);
     line-height: 1;
     display: grid;
     place-items: center;
@@ -211,6 +218,11 @@
 .fen-setup-square.black-piece {
     color: #16191f;
     text-shadow: 0 1px 2px rgba(255, 255, 255, 0.38);
+}
+
+.app-shell button.fen-setup-square:focus-visible {
+    outline: 2px solid #101218;
+    outline-offset: -3px;
 }
 
 .fen-setup-controls {
@@ -519,7 +531,7 @@
     }
 
     .fen-setup-square {
-        font-size: 1.35rem;
+        font-size: min(1.35rem, 8cqi);
     }
 
     .fen-side-toggle {

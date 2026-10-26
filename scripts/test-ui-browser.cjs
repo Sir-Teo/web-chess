@@ -3862,6 +3862,92 @@ async function checkRevealTimersRespectDialogs(browser) {
   } finally { await context.close() }
 }
 
+/** One Tab stop, spatial navigation, and native keyboard placement/erasure. */
+async function checkPositionSetupKeyboard(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 1], [320, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 900 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      const dialog = page.locator('.pgn-dialog')
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      assert(await dialog.locator('.fen-setup-square').evaluateAll(squares => squares.every(square =>
+        square.scrollHeight <= square.clientHeight + 1 && square.scrollWidth <= square.clientWidth + 1)),
+      'setup pieces overlap their squares when text is enlarged')
+      await dialog.getByRole('button', { name: 'Clear Board', exact: true }).click()
+      const board = dialog.getByRole('group', { name: 'Editable chessboard', exact: true })
+      const eraser = dialog.getByRole('button', { name: 'Select empty square eraser', exact: true })
+      const text = dialog.locator('.fen-textarea')
+      const emptyFen = await text.inputValue()
+      const expectSquare = async square => assert(await page.evaluate(square =>
+        document.activeElement?.closest('.fen-setup-board')
+          && document.activeElement.getAttribute('aria-label').startsWith(`${square},`), square),
+      `setup keyboard focus should be on ${square}`)
+      await eraser.click()
+      await page.keyboard.press('Tab')
+      await expectSquare('a8')
+      assert(await board.locator('button').evaluateAll(els => els.filter(el => el.tabIndex === 0).length) === 1,
+        'the setup board requires more than one Tab stop')
+      await page.keyboard.press('ArrowLeft')
+      await page.keyboard.press('ArrowUp')
+      await expectSquare('a8')
+      await page.keyboard.press('End')
+      await expectSquare('h8')
+      await page.keyboard.press('ArrowRight')
+      await expectSquare('h8')
+      for (let rank = 0; rank < 8; rank += 1) await page.keyboard.press('ArrowDown')
+      await expectSquare('h1')
+      await page.keyboard.press('Home')
+      await expectSquare('a1')
+      for (let file = 0; file < 4; file += 1) await page.keyboard.press('ArrowRight')
+      await expectSquare('e1')
+      assert(await text.inputValue() === emptyFen, 'moving focus edited the setup position')
+      await page.keyboard.press('Tab')
+      assert(!await page.evaluate(() => document.activeElement?.closest('.fen-setup-board')),
+        'Tab stepped through the board instead of leaving it')
+      await page.keyboard.press('Shift+Tab')
+      await expectSquare('e1')
+
+      // Choosing a piece and returning to the board retains the last square.
+      await dialog.getByRole('button', { name: 'Select White king', exact: true }).click()
+      await eraser.focus()
+      await page.keyboard.press('Tab')
+      await expectSquare('e1')
+      await page.keyboard.press('Enter')
+      await expectSquare('e1')
+      assert(await board.getByRole('button', { name: /^e1, White king,/ }).count() === 1,
+        'Enter did not place the selected White king')
+      await dialog.getByRole('button', { name: 'Select Black king', exact: true }).click()
+      await eraser.focus()
+      await page.keyboard.press('Tab')
+      for (let rank = 0; rank < 7; rank += 1) await page.keyboard.press('ArrowUp')
+      await expectSquare('e8')
+      await page.keyboard.press('Space')
+      const kingsFen = '4k3/8/8/8/8/8/8/4K3 w - - 0 1'
+      assert(await text.inputValue() === kingsFen, 'Space did not place the Black king in the FEN')
+      await eraser.click()
+      await page.keyboard.press('Tab')
+      await expectSquare('e8')
+      await page.keyboard.press('Space')
+      assert(await board.getByRole('button', { name: /^e8, empty square,/ }).count() === 1,
+        'Space did not erase the selected square')
+      await dialog.getByRole('button', { name: 'Select Black king', exact: true }).click()
+      await eraser.focus()
+      await page.keyboard.press('Tab')
+      await page.keyboard.press('Enter')
+      await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).click()
+      await dialog.waitFor({ state: 'detached' })
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e8')?.getAttribute('aria-label')?.includes('Black king'))
+      assert((await page.locator('#chessboard-square-e1').getAttribute('aria-label')).includes('White king'),
+        'the keyboard-built position did not reach the analysis board')
+      console.log(`  setup keyboard (${width}px, ${scale}x text): pieces fit, one Tab stop, spatial boundaries, Home/End, retained focus, placement and erasure load a real position`)
+    } finally { await context.close() }
+  }
+}
+
 /** Setup edits must preserve the special capture described by the FEN. */
 async function checkPositionSetupEnPassant(browser) {
   for (const [width, fen, target, from, captured] of [
@@ -11440,6 +11526,7 @@ async function main() {
       'library-capacity': checkAFullLibraryStopsReadingTheFile,
       'import-drafts': checkImportDraftOwnership,
       'setup-en-passant': checkPositionSetupEnPassant,
+      'setup-keyboard': checkPositionSetupKeyboard,
       'text-composition': checkTextCompositionKeys,
       'reveal-dialogs': checkRevealTimersRespectDialogs,
       'database-once': checkADatabaseIsAddedOnce,
@@ -12212,6 +12299,7 @@ async function main() {
     await checkLibraryEditing(browser)
     await checkImportDraftOwnership(browser)
     await checkPositionSetupEnPassant(browser)
+    await checkPositionSetupKeyboard(browser)
     await checkTextCompositionKeys(browser)
     await checkRevealTimersRespectDialogs(browser)
     await checkADatabaseIsAddedOnce(browser)
