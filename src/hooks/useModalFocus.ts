@@ -126,6 +126,27 @@ export function useModalFocus(
     }
     panelEl.addEventListener('focusin', revealFocusedControl)
 
+    // A viewport change can clip a field that already has focus, so there is
+    // no new focusin event for the browser or the handler above to respond to.
+    // Wait for layout, reveal that same control, and cancel on close so a late
+    // callback cannot move the underlying page after its dialog is gone.
+    let resizeFrame: number | null = null
+    const revealAfterResize = () => {
+      if (resizeFrame !== null) return
+      resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = null
+        const active = document.activeElement
+        if (active instanceof HTMLElement && panelEl.isConnected && panelEl.contains(active)) {
+          active.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+        }
+      })
+    }
+    const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(revealAfterResize)
+    resizeObserver?.observe(panelEl)
+    // Headers and footers can grow while the panel itself stays at max-height.
+    for (const child of panelEl.children) resizeObserver?.observe(child)
+    window.addEventListener('resize', revealAfterResize)
+
     /*
      * Which way the reader is walking, for the net below.
      */
@@ -202,6 +223,9 @@ export function useModalFocus(
 
     document.addEventListener('keydown', onKeyDown)
     return () => {
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', revealAfterResize)
+      if (resizeFrame !== null) cancelAnimationFrame(resizeFrame)
       document.removeEventListener('keydown', onKeyDown)
       document.removeEventListener('focusin', containFocus)
       panelEl.removeEventListener('focusin', revealFocusedControl)

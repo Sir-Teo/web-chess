@@ -6864,17 +6864,17 @@ button.hint-btn {
   height: 100dvh;
 }
 
-.app-shell[data-scroll-chrome="true"] .dialog-backdrop {
+.app-shell[data-scroll-dialogs="true"] .dialog-backdrop {
   padding: 0.5rem;
 }
 
-.app-shell[data-scroll-chrome="true"] .dialog-panel {
+.app-shell[data-scroll-dialogs="true"] .dialog-panel {
   max-height: calc(100dvh - 1rem);
   overflow-y: auto;
   scroll-padding-block: 8px;
 }
 
-.app-shell[data-scroll-chrome="true"] .new-game-dialog {
+.app-shell[data-scroll-dialogs="true"] .new-game-dialog {
   /* Keep the choices readable as text grows, using the available width. */
   max-width: 28.75rem;
 }
@@ -6884,7 +6884,7 @@ button.hint-btn {
   max-height: calc(100dvh - 2rem);
 }
 
-.app-shell[data-scroll-chrome="true"] .command-palette-input {
+.app-shell[data-scroll-dialogs="true"] .command-palette-input {
   /* Revealing an active command must not scroll the focused search away. */
   position: sticky;
   top: 0;
@@ -6892,7 +6892,7 @@ button.hint-btn {
   background: var(--bg-base);
 }
 
-.app-shell[data-scroll-chrome="true"] .dialog-panel > :is(.dialog-header, .dialog-body, .dialog-actions) {
+.app-shell[data-scroll-dialogs="true"] .dialog-panel > :is(.dialog-header, .dialog-body, .dialog-actions) {
   flex: none;
 }
 
@@ -6900,8 +6900,11 @@ button.hint-btn {
    A short window with enlarged text is the other place a row cannot hold them:
    **measured** at 901x360 with 200% text, the PGN export row ran 113px past
    the dialog's left edge, and Download PGN sat behind the backdrop. */
-.app-shell[data-scroll-chrome="true"] .dialog-actions {
+.app-shell[data-scroll-dialogs="true"] .dialog-actions {
   flex-wrap: wrap;
+  /* The whole panel scrolls here; a sticky phone footer would cover the form
+     instead of giving it the space recovered above. */
+  position: static;
 }
 
 /* At 901x256 with 200% text the whole New Game dialog is 224px tall, and each
@@ -6909,12 +6912,12 @@ button.hint-btn {
    The description is the part to give up: each card's accessible name still
    carries it, and the label and icon say which mode it is. */
 @media (max-height: 320px) {
-  .app-shell[data-scroll-chrome="true"] .new-game-dialog .mode-desc {
+  .app-shell[data-scroll-dialogs="true"] .new-game-dialog .mode-desc {
     display: none;
   }
 }
 
-.app-shell[data-scroll-chrome="true"] .dialog-panel > .dialog-body {
+.app-shell[data-scroll-dialogs="true"] .dialog-panel > .dialog-body {
   /* Enlarged headings and actions must not squeeze the form to zero height. */
   max-height: none;
   overflow: visible;

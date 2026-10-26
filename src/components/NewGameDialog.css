@@ -1058,13 +1058,16 @@
 
 .archive-fetch-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: stretch;
     gap: 0.4rem;
 }
 
 .archive-input {
-    flex: 1 1 auto;
-    min-width: 0;
+    /* Enlarged text also needs wrapping above the phone breakpoint. Without
+       a readable minimum the username shrank to 44px at 844px / 200% text. */
+    flex: 1 1 12rem;
+    min-width: min(100%, 12rem);
     padding: 0.5rem 0.65rem;
     border-radius: var(--radius-md);
     border: 1.5px solid var(--border-subtle);

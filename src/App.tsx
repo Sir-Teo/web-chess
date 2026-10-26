@@ -564,7 +564,10 @@ function App() {
   // Derive this from the viewport, not toolbar height, to avoid resize feedback.
   const compactDesktopChrome = !isMobileLayout
     && (viewport.width < 56.25 * viewport.rem || viewport.height < 30 * viewport.rem)
-  const scrollDesktopChrome = !isMobileLayout && viewport.height < 20 * viewport.rem
+  // Short phone viewports need the same whole-dialog scrolling as desktops:
+  // enlarged headings and footers can otherwise squeeze the form to zero.
+  const scrollDialogs = viewport.height < 20 * viewport.rem
+  const scrollDesktopChrome = !isMobileLayout && scrollDialogs
   const previousBarStateRef = useRef({ top: topPanelOpen, bottom: bottomPanelOpen })
   useEffect(() => {
     const previous = previousBarStateRef.current
@@ -6747,7 +6750,7 @@ function App() {
   // ─────────────────────────────────────────────────────
   return (
     <main className="app-shell" data-workspace-mode={workspaceMode} data-compact-chrome={compactDesktopChrome || undefined}
-      data-scroll-chrome={scrollDesktopChrome || undefined}>
+      data-scroll-chrome={scrollDesktopChrome || undefined} data-scroll-dialogs={scrollDialogs || undefined}>
       <span className="rem-probe" ref={remProbeRef} aria-hidden="true" />
       <nav
         className="skip-links"

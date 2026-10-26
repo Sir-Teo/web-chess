@@ -3862,6 +3862,72 @@ async function checkRevealTimersRespectDialogs(browser) {
   } finally { await context.close() }
 }
 
+/** Resize open dialogs rather than testing only their initial viewport. */
+async function checkDialogResizeFocus(browser) {
+  for (const scale of [1, 2]) {
+    const context = await browser.newContext({ viewport: { width: 375, height: 812 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const expectVisibleFocus = async selector => {
+        await page.waitForFunction(selector => {
+          const target = document.querySelector(selector)
+          if (!(target instanceof HTMLElement) || target !== document.activeElement) return false
+          const rect = target.getBoundingClientRect()
+          if (rect.top < -1 || rect.bottom > innerHeight + 1 || rect.left < -1 || rect.right > innerWidth + 1) return false
+          // Hit testing respects fixed descendants escaping an ancestor's
+          // overflow clip, and catches dialog footers covering a field.
+          const middleX = (rect.left + rect.right) / 2
+          const middleY = (rect.top + rect.bottom) / 2
+          return [[middleX, rect.top + 2], [middleX, rect.bottom - 2],
+            [rect.left + 2, middleY], [rect.right - 2, middleY]].every(([x, y]) => {
+            const hit = document.elementFromPoint(x, y)
+            return hit === target || target.contains(hit)
+          })
+        }, selector, { timeout: 5000 })
+      }
+      const resizeWithDraft = async (input, selector, draft) => {
+        await input.fill(draft)
+        for (const viewport of [{ width: 375, height: 360 }, { width: 375, height: 300 },
+          { width: 844, height: 390 }, { width: 375, height: 812 }]) {
+          await page.setViewportSize(viewport)
+          await expectVisibleFocus(selector).catch(error => {
+            throw new Error(`${selector} lost visible focus at ${viewport.width}x${viewport.height}, ${scale}x text`, { cause: error })
+          })
+          assert(await input.inputValue() === draft, 'resizing changed the focused draft')
+          if (selector === '.archive-input') {
+            assert(await input.evaluate(el => el.clientWidth >= Math.min(el.parentElement.clientWidth - 3, 160)),
+              'the archive username shrank to an unreadable sliver after resizing')
+          }
+        }
+      }
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      await resizeWithDraft(page.getByRole('textbox', { name: 'Your Lichess username' }), '.archive-input', 'typing-player')
+      await page.keyboard.press('Escape')
+      await page.getByTestId('command-palette-btn').click()
+      const commands = page.getByRole('combobox', { name: 'Search commands' })
+      await resizeWithDraft(commands, '[data-command-input]', 'a')
+      await page.setViewportSize({ width: 375, height: 300 })
+      for (let index = 0; index < 7; index += 1) await commands.press('ArrowDown')
+      await expectVisibleFocus('[data-command-input]')
+      await page.keyboard.press('Escape')
+      // Pending resize callbacks belong to the closed dialog, too.
+      await page.waitForFunction(() => document.activeElement?.getAttribute('data-testid') === 'command-palette-btn')
+      await page.setViewportSize({ width: 375, height: 812 })
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.getByRole('button', { name: 'Open saved games library' }).click()
+      const libraryName = page.locator('[data-library-name]')
+      await resizeWithDraft(libraryName, '[data-library-name]', 'Keep this library name')
+      await page.keyboard.press('Escape')
+      await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Open saved games library')
+      console.log(`  dialog resizing (${scale}x text): PGN, Commands and library drafts retain focus and stay visible through short-phone and landscape viewports`)
+    } finally { await context.close() }
+  }
+}
+
 /** One Tab stop, spatial navigation, and native keyboard placement/erasure. */
 async function checkPositionSetupKeyboard(browser) {
   for (const [width, scale] of [[1280, 1], [375, 1], [320, 2]]) {
@@ -11529,6 +11595,7 @@ async function main() {
       'setup-keyboard': checkPositionSetupKeyboard,
       'text-composition': checkTextCompositionKeys,
       'reveal-dialogs': checkRevealTimersRespectDialogs,
+      'dialog-resize': checkDialogResizeFocus,
       'database-once': checkADatabaseIsAddedOnce,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
       'finished-clock': checkAFinishedGameKeepsItsStoppedClock,
@@ -12302,6 +12369,7 @@ async function main() {
     await checkPositionSetupKeyboard(browser)
     await checkTextCompositionKeys(browser)
     await checkRevealTimersRespectDialogs(browser)
+    await checkDialogResizeFocus(browser)
     await checkADatabaseIsAddedOnce(browser)
     await checkAnExportedGameComesBack(browser)
     await checkAnInterruptedGameComesBack(browser)
