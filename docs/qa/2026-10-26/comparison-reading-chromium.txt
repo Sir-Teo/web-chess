@@ -1,0 +1,4 @@
+  saved reviews (1280px, dark): two producers survive reload; comparison keeps own scores/WDL, navigates, focuses all reveal pages and close, announces counts and preserves delayed-read focus; open another line, export, delete and 200% text fit
+  saved reviews (375px, light): two producers survive reload; comparison keeps own scores/WDL, navigates, focuses all reveal pages and close, announces counts and preserves delayed-read focus; open another line, export, delete and 200% text fit
+  saved reviews (320px, light): two producers survive reload; comparison keeps own scores/WDL, navigates, focuses all reveal pages and close, announces counts and preserves delayed-read focus; open another line, export, delete and 200% text fit
+  saved reviews (844px, dark): two producers survive reload; comparison keeps own scores/WDL, navigates, focuses all reveal pages and close, announces counts and preserves delayed-read focus; open another line, export, delete and 200% text fit
