@@ -7993,8 +7993,11 @@ function App() {
                 </span>
               )}
               {!reviewPractice && materialLeader && materialDetail && (
-                <span className="board-meta-material" title={materialDetail} aria-label={materialDetail}>
-                  {materialLeader === 'w' ? 'White' : 'Black'} {materialAdvantageLabel(material.delta, materialLeader)}
+                <span className="board-meta-material" title={materialDetail}>
+                  <span aria-hidden="true">
+                    {materialLeader === 'w' ? 'White' : 'Black'} {materialAdvantageLabel(material.delta, materialLeader)}
+                  </span>
+                  <span className="visually-hidden">{materialDetail}</span>
                 </span>
               )}
               {!reviewPractice && importedPlayers && (
@@ -8067,6 +8070,7 @@ function App() {
             <div
               className={`board-opening-label${opening ? ' fade-in-slide' : ' is-empty'}`}
               ref={boardOpeningRef}
+              role="group"
               aria-label={opening ? `Opening ${opening.eco}: ${opening.name}` : undefined}
               title={opening ? `${opening.eco} ${opening.name}` : undefined}
               aria-hidden={opening ? undefined : true}
