@@ -8152,7 +8152,11 @@ async function checkAFullLibraryStopsReadingTheFile(browser) {
     await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
     const textarea = page.locator('.dialog-panel textarea').first()
     await textarea.waitFor({ timeout: 10000 })
-    await textarea.fill(database)
+    // Use the database file workflow this check describes. Large CDP text
+    // insertion can stall Chromium's editor before the import is exercised.
+    await page.locator('.pgn-dialog input[type="file"]').setInputFiles({
+      name: 'capacity.pgn', mimeType: 'application/x-chess-pgn', buffer: Buffer.from(database),
+    })
 
     const offer = page.locator('.dialog-database-offer button')
     await offer.waitFor({ timeout: 15000 })
@@ -11211,6 +11215,7 @@ async function main() {
       'eval-bar': checkTheEvaluationBarSurvivesTheWdlSwitch,
       'library-double-save': checkOneGestureSavesOneGame,
       'library-editing': checkLibraryEditing,
+      'library-capacity': checkAFullLibraryStopsReadingTheFile,
       'import-drafts': checkImportDraftOwnership,
       'setup-en-passant': checkPositionSetupEnPassant,
       'text-composition': checkTextCompositionKeys,
