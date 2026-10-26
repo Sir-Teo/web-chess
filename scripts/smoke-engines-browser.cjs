@@ -28,8 +28,16 @@ async function main() {
         page.on('pageerror', error => errors.push(error.message))
         let stage = 'boot'
         try {
-          await page.route(/https:\/\/(lichess\.org|[^/]*lichess\.ovh)\//, route => route.fulfill({ status: 404, body: '{}' }))
           await page.addInitScript(() => {
+            // Page routing cannot intercept service-worker-owned requests.
+            // Keep cloud readings out before the production worker can fetch
+            // them, so this smoke measures the real local engine in isolation.
+            const nativeFetch = window.fetch.bind(window)
+            window.fetch = (input, init) => {
+              const url = new URL(input instanceof Request ? input.url : String(input), location.href)
+              return url.hostname === 'lichess.org' || url.hostname.endsWith('.lichess.ovh')
+                ? Promise.resolve(new Response('{}', { status: 404 })) : nativeFetch(input, init)
+            }
             localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
               workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false,
               showAdvancedAnalyze: true, analyzeMode: 'deep', searchDepth: 12,
@@ -162,7 +170,8 @@ async function main() {
           await guide.locator('summary').focus()
           await page.keyboard.press('Enter')
           assert.notEqual(await guide.getAttribute('open'), null)
-          assert.match(await guide.innerText(), /human games/)
+          assert.match(await guide.innerText(), /win as one point and a draw as half a point/)
+          assert.match(await guide.innerText(), /score-based estimate otherwise/)
           assert.match(await guide.innerText(), /strong engines/)
           assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
           await page.keyboard.press('Enter')
@@ -239,7 +248,17 @@ async function main() {
           results.push({ browser: name, width, status: 'passed', source, positionScore: before,
             isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'shared console options', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus', 'repetition review: eight depth-10 searches, save, reopen, backup and reuse'] })
         } catch (error) {
-          results.push({ browser: name, width, status: 'failed', stage, error: String(error), pageErrors: errors })
+          const diagnostics = await page.evaluate(() => ({
+            commands: window.__smokeCommands?.slice(-80),
+            bestmoves: window.__smokeBestmoves,
+            review: document.querySelector('[data-testid="review-run-summary"]')?.textContent,
+            reviewControls: [...document.querySelectorAll('button')]
+              .filter(button => /^(Fresh review|Review Game|Reviewing)/.test(button.textContent.trim()))
+              .map(button => ({ text: button.textContent.trim(), disabled: button.disabled })),
+            notices: [...document.querySelectorAll('[role="alert"], [role="status"]')]
+              .map(node => node.textContent.trim().slice(0, 250)).filter(Boolean).slice(-8),
+          })).catch(() => null)
+          results.push({ browser: name, width, status: 'failed', stage, error: String(error), pageErrors: errors, diagnostics })
           await page.screenshot({ path: path.join(output, `${name}-${width}-failure.png`) }).catch(() => {})
           process.exitCode = 1
         } finally { await context.close() }
