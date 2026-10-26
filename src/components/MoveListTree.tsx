@@ -6,6 +6,7 @@ import { buildVariationPreview } from './variationPreview'
 import { isOnMainLine } from '../engine/moveTree'
 import { moveNumberPrefix } from '../engine/moveLabels'
 import { MOVE_GLYPHS, glyphName, moveGlyphFor, positionGlyphsFor } from '../engine/nags'
+import { scrollWithinContainer } from './scrollWithinContainer'
 
 type Props = {
     tree: GameTreeHandle
@@ -20,37 +21,6 @@ type Props = {
  * line, where it becomes the one being drawn from.
  */
 const MAX_VARIATION_DEPTH = 6
-
-function scrollWithinMoveList(container: HTMLElement, element: HTMLElement) {
-    const outerScrollPositions: Array<{ element: Element; left: number; top: number }> = []
-    let parent = container.parentElement
-
-    while (parent) {
-        if (parent.scrollHeight > parent.clientHeight || parent.scrollWidth > parent.clientWidth) {
-            outerScrollPositions.push({
-                element: parent,
-                left: parent.scrollLeft,
-                top: parent.scrollTop,
-            })
-        }
-        parent = parent.parentElement
-    }
-
-    if (document.scrollingElement) {
-        outerScrollPositions.push({
-            element: document.scrollingElement,
-            left: document.scrollingElement.scrollLeft,
-            top: document.scrollingElement.scrollTop,
-        })
-    }
-
-    element.scrollIntoView({ block: 'nearest', behavior: 'auto' })
-
-    for (const { element: scrollElement, left, top } of outerScrollPositions) {
-        scrollElement.scrollLeft = left
-        scrollElement.scrollTop = top
-    }
-}
 
 /**
  * Renders the game tree as a flat, numbered move list with inline variations.
@@ -114,7 +84,7 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
         const container = scrollRef.current
         const el = container?.querySelector(`[data-node-id="${current.id}"]`) as HTMLElement | null
         if (!container || !el) return
-        scrollWithinMoveList(container, el)
+        scrollWithinContainer(container, el)
     }, [current.id])
 
     if (line.length <= 1) {

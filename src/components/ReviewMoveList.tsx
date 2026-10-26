@@ -1,9 +1,10 @@
-import { memo } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import type { ReviewRow } from '../engine/analysis'
 import type { GameNode } from '../hooks/useGameTree'
 import { REVIEW_LABELS, reviewConfidenceLabel } from '../engine/reviewLabels'
 import { reviewImpactLabel } from '../engine/reviewImpact'
 import { describeClockTime, formatClockTime } from '../engine/chessClock'
+import { scrollWithinContainer } from './scrollWithinContainer'
 
 type ReviewMoveListProps = {
   rows: ReviewRow[]
@@ -15,8 +16,21 @@ type ReviewMoveListProps = {
 }
 
 export const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, currentNodeId, showEngineDetail, hideBestMoves = false, onSelectNode }: ReviewMoveListProps) {
+  const listRef = useRef<HTMLOListElement>(null)
+  useEffect(() => {
+    const list = listRef.current
+    if (!list) return
+    const selected = list.querySelector<HTMLElement>('[aria-current="true"]')
+    if (!selected) {
+      list.scrollTop = 0
+      return
+    }
+    scrollWithinContainer(list, selected)
+    // New engine readings must not undo the reader's manual list scrolling.
+  }, [currentNodeId])
+
   return (
-    <ol className="moves-list review-move-list">
+    <ol className="moves-list review-move-list" ref={listRef}>
       {rows.map(row => {
         const node = nodes[row.ply]
         const movePrefix = row.sideToMove === 'w' ? `${row.moveNumber}.` : `${row.moveNumber}...`

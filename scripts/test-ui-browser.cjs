@@ -1091,6 +1091,83 @@ async function checkReviewUsesSelectedEngine(browser, controls = false) {
   }
 }
 
+async function checkReviewListFollowsPosition(browser) {
+  for (const [width, scale] of [[1280, 1], [1280, 2], [375, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false,
+        engineProfile: 'lite-single-local', reviewMaxWorkers: 1,
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      await page.locator('.pgn-dialog textarea').first().fill('1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Nb8 10. d4 Nbd7 *')
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.sample-sweep-copy').waitFor({ state: 'hidden' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.evaluate(() => document.fonts.ready)
+      const list = page.locator('.review-move-list')
+      const expectSelectionVisible = () => page.waitForFunction(() => {
+        const list = document.querySelector('.review-move-list')
+        const selected = list?.querySelector('[aria-current="true"]')
+        if (!list || !selected) return false
+        const viewport = list.getBoundingClientRect(), row = selected.getBoundingClientRect()
+        return row.top >= viewport.top - 1 && row.bottom <= viewport.bottom + 1
+      })
+      await list.scrollIntoViewIfNeeded()
+      await expectSelectionVisible()
+      const selectedText = await list.locator('[aria-current="true"]').textContent()
+      assert(selectedText.includes('Nbd7'), `the imported final move is not selected: ${selectedText}`)
+
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      assert(await list.evaluate(el => el.scrollTop) === 0, 'returning to the root did not reset the review list')
+      await page.getByRole('button', { name: 'Go to next move', exact: true }).click()
+      await expectSelectionVisible()
+      await list.scrollIntoViewIfNeeded()
+      const outerPositions = () => list.evaluate(el => {
+        const positions = []
+        for (let parent = el.parentElement; parent; parent = parent.parentElement) positions.push([parent.scrollLeft, parent.scrollTop])
+        return positions
+      })
+      const before = await outerPositions()
+      const last = page.getByRole('button', { name: 'Go to last position', exact: true })
+      await last.click()
+      await expectSelectionVisible()
+      const after = await outerPositions()
+      assert(before.every((position, index) => position.every((value, axis) => Math.abs(value - after[index][axis]) <= 1)),
+        `following a review move scrolled the workspace: ${JSON.stringify({ before, after })}`)
+      // Last disables itself at the tip, so check focus with a navigation
+      // control that remains enabled after moving instead.
+      const previous = page.getByRole('button', { name: 'Go to previous move', exact: true })
+      await previous.click()
+      await expectSelectionVisible()
+      assert(await previous.evaluate(el => el === document.activeElement), 'following a review move stole focus from navigation')
+      await last.click()
+      await expectSelectionVisible()
+
+      // Reading earlier rows is independent of the selected board position.
+      // A fresh run replaces the report as real search replies arrive.
+      await list.evaluate(el => { el.scrollTop = 0 })
+      const searches = await page.evaluate(() => window.__uciCommands.filter(command => command.startsWith('go ')).length)
+      await page.getByRole('button', { name: 'Fresh review', exact: true }).click()
+      await page.getByTestId('review-run-summary').filter({ hasText: 'Completed review' }).waitFor()
+      assert(await page.evaluate(() => window.__uciCommands.filter(command => command.startsWith('go ')).length) > searches, 'the fresh run did not publish new search replies')
+      assert(await list.evaluate(el => el.scrollTop) === 0, 'new review readings undid manual list scrolling')
+      await page.keyboard.press('Home')
+      assert(await list.evaluate(el => el.scrollTop) === 0, 'Home did not reset the review list')
+      await page.keyboard.press('ArrowRight')
+      await expectSelectionVisible()
+      await page.keyboard.press('End')
+      await expectSelectionVisible()
+      assert((await list.locator('[aria-current="true"]').textContent()).includes('Nbd7'), 'End did not reveal the final reviewed move')
+      console.log(`  review list (${width}px, ${scale}x): selected moves follow buttons/keys, root resets, outer scroll/focus stays put, and new readings preserve manual scrolling`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkSavedReviews(browser) {
   for (const [width, theme] of [[1280, 'dark'], [375, 'light']]) {
     const context = await browser.newContext({ viewport: { width, height: 812 } })
@@ -11806,6 +11883,7 @@ async function main() {
       'pv-reuse': checkPvPreviewAndCommit,
       'review-source': checkReviewUsesSelectedEngine,
       'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
+      'review-list-scroll': checkReviewListFollowsPosition,
       'saved-reviews': async browser => { await checkSavedReviews(browser); await checkSavedReviewStorage(browser); await checkSavedReviewEndings(browser) },
       'review-renaming': checkSavedReviewRenaming,
       'review-branch-names': checkReviewBranchNames,
@@ -12645,6 +12723,7 @@ async function main() {
     await checkTextCompositionKeys(browser)
     await checkRevealTimersRespectDialogs(browser)
     await checkRevealRetriesYieldToInteraction(browser)
+    await checkReviewListFollowsPosition(browser)
     await checkDialogResizeFocus(browser)
     await checkADatabaseIsAddedOnce(browser)
     await checkAnExportedGameComesBack(browser)
