@@ -7753,6 +7753,129 @@ async function checkConsoleVisibility(browser) {
   }
 }
 
+async function checkBoardAccessAtShortHeight(page, label) {
+  await page.waitForFunction(() => document.querySelector('.board-surface')?.getBoundingClientRect().width >= 192)
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${label} overflows horizontally`)
+  for (const square of ['a8', 'h8', 'a1', 'h1']) {
+    const target = page.locator(`[data-square="${square}"] [role="button"]`)
+    await target.focus()
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    assert(await target.evaluate(el => {
+      const r = el.getBoundingClientRect()
+      return document.activeElement === el && r.top >= -1 && r.bottom <= innerHeight + 1
+        && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+    }), `${label} hides focused board corner ${square}`)
+  }
+}
+
+async function checkShortMobileWorkspace(browser) {
+  for (const [width, height] of [[320, 225], [375, 250], [599, 300], [600, 375], [640, 450]]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('normal'))
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'play', autoAnalyze: false, engineProfile: 'lite-single-local',
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await checkBoardAccessAtShortHeight(page, `${width}×${height}`)
+      if (height < 320) assert(await page.locator('.main-container').evaluate(el => el.clientHeight >= innerHeight - 1), 'fixed bars still squeeze the short workspace')
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+      console.log(`  short mobile workspace (${width}×${height}): usable board, four exposed focused corners, e2-e4 and no horizontal spill`)
+    } finally { await context.close() }
+  }
+}
+
+/** Native browser page zoom, using a temporary extension in a fresh profile. */
+async function checkNativeBrowserZoom() {
+  const { chromium } = require('playwright')
+  const temporary = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'web-chess-page-zoom-'))
+  const extension = path.join(temporary, 'extension')
+  fs.mkdirSync(extension)
+  fs.writeFileSync(path.join(extension, 'manifest.json'), JSON.stringify({
+    manifest_version: 3, name: 'Local page zoom QA', version: '1.0', permissions: ['tabs'],
+    background: { service_worker: 'background.js' },
+  }))
+  fs.writeFileSync(path.join(extension, 'background.js'), 'chrome.runtime.onInstalled.addListener(() => {});')
+  let context
+  try {
+    context = await chromium.launchPersistentContext(path.join(temporary, 'profile'), {
+      channel: 'chromium', headless: true, viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce',
+      args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
+    })
+    const worker = context.serviceWorkers().find(item => item.url().startsWith('chrome-extension://'))
+      || await context.waitForEvent('serviceworker', { predicate: item => item.url().startsWith('chrome-extension://') })
+    const page = context.pages()[0] || await context.newPage()
+    const errors = [], measurements = []
+    page.on('pageerror', error => errors.push(String(error)))
+    await page.addInitScript(fakeEngineScript('normal'))
+    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+      workspaceMode: 'play', autoAnalyze: false, engineProfile: 'lite-single-local',
+    })))
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    const zoomTo = async zoom => {
+      const actual = await worker.evaluate(async ({ zoom, origin }) => {
+        const tabs = await chrome.tabs.query({ url: `${origin}/*` })
+        await chrome.tabs.setZoom(tabs[0].id, zoom)
+        return chrome.tabs.getZoom(tabs[0].id)
+      }, { zoom, origin: new URL(BASE).origin })
+      await page.waitForFunction(zoom => Math.abs(innerWidth * zoom - 1280) <= 2
+        && Math.abs(devicePixelRatio - zoom) < 0.01, zoom)
+      return actual
+    }
+    for (const zoom of [1, 2, 4]) {
+      const actual = await zoomTo(zoom)
+      await checkBoardAccessAtShortHeight(page, `${zoom * 100}% native zoom`)
+      measurements.push({ zoom: actual, ...await page.evaluate(() => ({
+        width: innerWidth, height: innerHeight, dpr: devicePixelRatio,
+        rootFont: getComputedStyle(document.documentElement).fontSize,
+        board: document.querySelector('.board-surface').getBoundingClientRect().width,
+        workspace: document.querySelector('.main-container').clientHeight,
+      })) })
+    }
+    await page.locator('#chessboard-square-e2').click()
+    await page.locator('#chessboard-square-e4').click()
+    await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+    await zoomTo(2)
+    const opener = page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true })
+    await opener.click()
+    const dialog = page.getByRole('dialog')
+    const draft = dialog.locator('textarea').first()
+    await draft.fill('1. d4 d5 *')
+    await zoomTo(4)
+    await page.waitForFunction(() => {
+      const input = document.activeElement
+      if (!(input instanceof HTMLTextAreaElement)) return false
+      const r = input.getBoundingClientRect()
+      return input.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+    })
+    assert(await draft.inputValue() === '1. d4 d5 *', 'native zoom replaced the import draft')
+    await draft.press('End')
+    await draft.pressSequentially(' ')
+    assert(await draft.inputValue() === '1. d4 d5 * ', 'zoomed import field could not be edited')
+    await page.keyboard.press('Escape')
+    await dialog.waitFor({ state: 'detached' })
+    // The app restores the remembered trigger on the next animation frame,
+    // after removing background inertness.
+    await page.waitForFunction(el => document.activeElement === el, await opener.elementHandle())
+    await page.screenshot({ path: '/tmp/web-chess-native-page-zoom-400.png' })
+    await zoomTo(1)
+    await page.waitForFunction(() => !document.querySelector('.app-shell').hasAttribute('data-scroll-chrome'))
+    await checkBoardAccessAtShortHeight(page, 'restored native zoom')
+    assert(errors.length === 0, `native zoom page errors: ${errors.join('; ')}`)
+    const result = { browser: context.browser().version(), base: BASE, measurements,
+      checks: ['native zoom API and DPR', 'four focused corners', 'usable board', 'e2-e4 at 400%',
+        'live dialog draft/focus/editing at 200% to 400%', 'opener focus', 'restored fixed layout'], errors }
+    fs.writeFileSync(process.env.UI_ZOOM_OUTPUT || '/tmp/web-chess-native-browser-zoom.json', JSON.stringify(result, null, 2) + '\n')
+    console.log(`  native browser zoom: ${JSON.stringify(result)}`)
+  } finally {
+    if (context) await context.close()
+    fs.rmSync(temporary, { recursive: true, force: true })
+  }
+}
+
 async function checkConsoleKeyboardHistory(browser) {
   for (const [width, scale] of [[1280, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -12639,6 +12762,8 @@ async function main() {
       'narrow-desktop': checkNarrowDesktopLayout,
       'compact-toolbar': checkCompactToolbar,
       'short-window': checkShortDesktopWindow,
+      'short-mobile': checkShortMobileWorkspace,
+      'native-zoom': checkNativeBrowserZoom,
       'short-dialogs': checkShortDesktopDialogs,
       'compact-footer': checkCompactFooter,
       'reading-space': checkReadingSpace,
@@ -13438,6 +13563,7 @@ async function main() {
     await checkNarrowDesktopLayout(browser)
     await checkCompactToolbar(browser)
     await checkShortDesktopWindow(browser)
+    await checkShortMobileWorkspace(browser)
     await checkShortDesktopDialogs(browser)
     await checkCompactFooter(browser)
     await checkReadingSpace(browser)

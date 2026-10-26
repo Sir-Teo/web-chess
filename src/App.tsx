@@ -569,18 +569,18 @@ function App() {
   // Short phone viewports need the same whole-dialog scrolling as desktops:
   // enlarged headings and footers can otherwise squeeze the form to zero.
   const scrollDialogs = viewport.height < 20 * viewport.rem
-  const scrollDesktopChrome = !isMobileLayout && scrollDialogs
+  const scrollWorkspaceChrome = scrollDialogs
   const previousBarStateRef = useRef({ top: topPanelOpen, bottom: bottomPanelOpen })
   useEffect(() => {
     const previous = previousBarStateRef.current
     previousBarStateRef.current = { top: topPanelOpen, bottom: bottomPanelOpen }
-    if (!scrollDesktopChrome) return
+    if (!scrollWorkspaceChrome) return
     const changed = previous.top !== topPanelOpen ? 'top' : previous.bottom !== bottomPanelOpen ? 'bottom' : null
     // A collapsed bar moves its still-focused handle. Focusing it again does
     // not make browsers reveal it, so keep the action's way back on screen.
     if (changed) document.querySelector(`.app-shell > .${changed} > .resize-handle`)
       ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
-  }, [topPanelOpen, bottomPanelOpen, scrollDesktopChrome])
+  }, [topPanelOpen, bottomPanelOpen, scrollWorkspaceChrome])
 
   /**
    * Keep a focused control inside a dialog that scrolls.
@@ -5052,7 +5052,7 @@ function App() {
   useEffect(() => {
     if (boardRevealTick === 0 || backgroundUiHidden || handledBoardRevealRef.current === boardRevealTick) return
     handledBoardRevealRef.current = boardRevealTick
-    if (scrollDesktopChrome) {
+    if (scrollWorkspaceChrome) {
       const stage = boardStageRef.current
       stage?.focus({ preventScroll: true })
       stage?.querySelector('.board-surface')?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' })
@@ -5074,7 +5074,7 @@ function App() {
     // Focus belongs to the explicit request. Later layout retries only scroll.
     scrollBoardToTop(true)
     return scheduleRevealRetries(scrollBoardToTop, [160, 360, 1200])
-  }, [analysisPanelRevealTick, backgroundUiHidden, boardRevealTick, isMobileLayout, scrollDesktopChrome])
+  }, [analysisPanelRevealTick, backgroundUiHidden, boardRevealTick, isMobileLayout, scrollWorkspaceChrome])
 
   useEffect(() => {
     if (analysisPanelRevealTick === 0 || backgroundUiHidden || handledAnalysisRevealRef.current === analysisPanelRevealTick) return
@@ -6812,7 +6812,7 @@ function App() {
   // ─────────────────────────────────────────────────────
   return (
     <main className="app-shell" data-workspace-mode={workspaceMode} data-compact-chrome={compactDesktopChrome || undefined}
-      data-scroll-chrome={scrollDesktopChrome || undefined} data-scroll-dialogs={scrollDialogs || undefined}>
+      data-scroll-chrome={scrollWorkspaceChrome || undefined} data-scroll-dialogs={scrollDialogs || undefined}>
       <span className="rem-probe" ref={remProbeRef} aria-hidden="true" />
       <nav
         className="skip-links"

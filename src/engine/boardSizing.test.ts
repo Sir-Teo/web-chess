@@ -167,10 +167,22 @@ describe('board sizing', () => {
     })
   })
 
-  it('holds a landscape phone to its measured budget, having nowhere to scroll', () => {
+  it('fits a landscape phone to its measured budget when touch targets fit', () => {
     const stageHeight = 340
     const { rendered } = size(phoneLandscape, stageHeight, { leftPanelWidth: 0, rightPanelWidth: 0 })
     expect(rendered).toBeLessThanOrEqual(boardHeightBudget(phoneLandscape, stageHeight))
+  })
+
+  it('preserves touch targets when a short landscape stage needs to scroll', () => {
+    const { rendered } = size(phoneLandscape, 120)
+    expect(rendered).toBeGreaterThanOrEqual(MIN_TOUCH_BOARD_PX)
+    expect(rendered).toBeGreaterThan(boardHeightBudget(phoneLandscape, 120))
+  })
+
+  it('keeps a usable scrolling board in a narrow zoomed window', () => {
+    const zoomed = { width: 320, height: 225, rem: 16, scrollbar: 0 }
+    expect(isLandscapePhoneViewport(zoomed)).toBe(false)
+    expect(size(zoomed, 60, { containerHeight: 225 }).rendered).toBeGreaterThanOrEqual(MIN_TOUCH_BOARD_PX)
   })
 
   it('reserves only a one-line strip above a landscape phone board', () => {
@@ -179,7 +191,7 @@ describe('board sizing', () => {
     expect(boardStackRem(phoneLandscape)).toBe(LANDSCAPE_BOARD_STACK_REM)
     expect(boardStackRem(phone)).toBe(BOARD_STACK_REM)
     expect(LANDSCAPE_BOARD_STACK_REM).toBeLessThan(BOARD_STACK_REM)
-    const stageHeight = 249
+    const stageHeight = 260
     const { rendered } = size(phoneLandscape, stageHeight, { leftPanelWidth: 0, rightPanelWidth: 0 })
     const chrome = BOARD_CHROME.landscape
     const everything = rendered + 2 * BOARD_FRAME_BORDER

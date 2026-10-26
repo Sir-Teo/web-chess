@@ -1,0 +1,79 @@
+{
+  "scenario": "Native Chromium page zoom before short-workspace and landscape sizing changes",
+  "base": "http://127.0.0.1:4324/web-chess/",
+  "source": "e02f98f layout with pending console keyboard history edits; Vite development server",
+  "measurements": [
+    {
+      "zoom": 1,
+      "width": 1280,
+      "height": 900,
+      "dpr": 1,
+      "rootFont": "16px",
+      "documentWidth": 1280,
+      "board": {
+        "x": 480,
+        "y": 656.84375,
+        "width": 78.75,
+        "height": 78.75,
+        "top": 656.84375,
+        "right": 558.75,
+        "bottom": 735.59375,
+        "left": 480
+      }
+    },
+    {
+      "zoom": 2,
+      "width": 640,
+      "height": 450,
+      "dpr": 2,
+      "rootFont": "16px",
+      "documentWidth": 640,
+      "board": {
+        "x": 145,
+        "y": 309.5703125,
+        "width": 33,
+        "height": 33,
+        "top": 309.5703125,
+        "right": 178,
+        "bottom": 342.5703125,
+        "left": 145
+      }
+    },
+    {
+      "zoom": 3.9999999999999996,
+      "width": 320,
+      "height": 225,
+      "dpr": 4,
+      "rootFont": "16px",
+      "documentWidth": 320,
+      "board": {
+        "x": 16,
+        "y": 116.05859375,
+        "width": 0.75,
+        "height": 0.75,
+        "top": 116.05859375,
+        "right": 16.75,
+        "bottom": 116.80859375,
+        "left": 16
+      }
+    },
+    {
+      "zoom": 1,
+      "width": 1280,
+      "height": 900,
+      "dpr": 1,
+      "rootFont": "16px",
+      "documentWidth": 1280,
+      "board": {
+        "x": 480,
+        "y": 654.59375,
+        "width": 77.625,
+        "height": 77.625,
+        "top": 654.59375,
+        "right": 557.625,
+        "bottom": 732.21875,
+        "left": 480
+      }
+    }
+  ]
+}

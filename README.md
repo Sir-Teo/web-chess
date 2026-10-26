@@ -445,6 +445,14 @@ To rerun specific browser workflows after a fix, pass their names as a list:
 UI_TEST_ONLY=library-editing,library-double-save,reveal-dialogs npm run test:ui:browser
 ```
 
+`UI_TEST_ONLY=short-mobile` checks short responsive windows. To exercise
+Chromium's native 100%/200%/400% page zoom, use `UI_TEST_ONLY=native-zoom`.
+That optional check loads a temporary local extension in a fresh browser profile
+and removes both afterward; it verifies viewport/DPR changes, board input,
+focused corners, and a live import draft. It requires Playwright's full Chromium
+installation and writes its measurements to `/tmp/web-chess-native-browser-zoom.json`
+(override with `UI_ZOOM_OUTPUT`).
+
 `test:ui:browser` builds the app, serves it, and drives Chromium with a fake Stockfish injected in place of the
 real worker — so a review runs end to end, deterministically, in seconds and
 with no WASM. The technique is borrowed from web-xiangqi, which has had it
