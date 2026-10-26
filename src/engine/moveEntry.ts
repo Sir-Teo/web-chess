@@ -42,6 +42,11 @@ export function parseMoveEntry(fen: string, input: string): Move | null {
 
 const PIECE_NAMES: Record<string, string> = { K: 'king', Q: 'queen', R: 'rook', B: 'bishop', N: 'knight' }
 
+function formatMoveChoices(moves: Move[]): string {
+  const sans = moves.map(move => move.san).sort()
+  return sans.length <= 2 ? sans.join(' or ') : `${sans.slice(0, -1).join(', ')} or ${sans[sans.length - 1]}`
+}
+
 /**
  * Why a typed piece move was refused, when there is more to say than
  * "not legal".
@@ -64,9 +69,7 @@ export function moveEntryExplanation(fen: string, input: string): string | null 
     // the whole sentence about notation, which the reader got right.
     if (!candidates.length) return `No ${PIECE_NAMES[match[1]]} can go to ${match[2]} here.`
     if (candidates.length < 2) return null
-    const sans = candidates.map(move => move.san).sort()
-    const choices = sans.length === 2 ? `${sans[0]} or ${sans[1]}` : `${sans.slice(0, -1).join(', ')} or ${sans[sans.length - 1]}`
-    return `More than one ${PIECE_NAMES[match[1]]} can go to ${match[2]}. Say which: ${choices}.`
+    return `More than one ${PIECE_NAMES[match[1]]} can go to ${match[2]}. Say which: ${formatMoveChoices(candidates)}.`
   } catch {
     return null
   }
@@ -79,10 +82,17 @@ export function moveEntryExplanation(fen: string, input: string): string | null 
  */
 function pawnMoveExplanation(fen: string, file: string, to: string, capture: boolean): string | null {
   try {
-    const candidates = new Chess(fen).moves({ verbose: true })
-      .filter(move => move.piece === 'p' && move.to === to && move.from[0] === file
+    const moves = new Chess(fen).moves({ verbose: true })
+    const candidates = moves.filter(move => move.piece === 'p' && move.to === to && move.from[0] === file
         && (capture ? move.from[0] !== to[0] : move.from[0] === to[0]))
-    if (!candidates.length) return capture ? `No pawn on the ${file}-file can take on ${to} here.` : `No pawn can go to ${to} here.`
+    if (!candidates.length) {
+      const message = capture ? `No pawn on the ${file}-file can take on ${to} here.` : `No pawn can go to ${to} here.`
+      if (capture && file === 'b') {
+        const bishops = moves.filter(move => move.piece === 'b' && move.to === to && Boolean(move.captured))
+        if (bishops.length) return `${message} For a bishop, use ${formatMoveChoices(bishops)}.`
+      }
+      return message
+    }
     if (candidates.some(move => move.promotion)) {
       const stem = capture ? `${file}x${to}` : to
       return `Say what the pawn becomes: ${stem}=Q, ${stem}=R, ${stem}=B or ${stem}=N.`

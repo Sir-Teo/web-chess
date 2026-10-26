@@ -607,6 +607,55 @@ async function checkOpeningTableStaysOutOfBoot(browser) {
   }
 }
 
+async function checkBishopEntryGuidance(browser) {
+  const cases = [
+    { fen: '4k3/7p/5B2/8/8/2n5/8/4K3 w - - 0 1', typed: 'bxc3', choices: ['Bxc3'], play: 'Bxc3', from: 'f6', to: 'c3' },
+    { fen: '7k/7p/3B4/8/8/n7/8/7K w - - 0 1', typed: 'bxa3', choices: ['Bxa3'], play: 'Bxa3', from: 'd6', to: 'a3' },
+    { fen: '4k3/7p/5B2/8/1B6/2n5/8/4K3 w - - 0 1', typed: 'bxc3', choices: ['Bbxc3', 'Bfxc3'], play: 'Bfxc3', from: 'f6', to: 'c3', retained: 'b4' },
+  ]
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [375, 2, 'dark'], [320, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      for (const fixture of cases) {
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        const pgn = page.locator('.pgn-dialog')
+        await pgn.getByRole('button', { name: 'FEN', exact: true }).click()
+        await pgn.locator('.fen-textarea').fill(fixture.fen)
+        await pgn.getByRole('button', { name: 'Load & Analyze', exact: true }).click()
+        await pgn.waitFor({ state: 'detached' })
+        const entry = page.locator('.move-entry'), input = entry.locator('input')
+        if (!await entry.evaluate(el => el.open)) await entry.locator('summary').click()
+        await input.fill(fixture.typed); await input.press('Enter')
+        const alert = entry.getByRole('alert'); await alert.filter({ hasText: 'For a bishop, use' }).waitFor()
+        const message = await alert.innerText()
+        assert(fixture.choices.every(choice => message.includes(choice)), `bishop help omits a legal choice: ${message}`)
+        assert(await input.inputValue() === fixture.typed && await input.evaluate(el => document.activeElement === el && el.getAttribute('aria-invalid') === 'true'), 'bishop guidance changed the draft, focus or invalid state')
+        const errorId = await alert.getAttribute('id')
+        assert((await input.getAttribute('aria-describedby')).split(/\s+/).includes(errorId), 'bishop guidance is not associated with the input')
+        assert(await page.locator(`#chessboard-square-${fixture.from} [data-piece="wB"]`).count() === 1 && await page.locator(`#chessboard-square-${fixture.to} [data-piece="bN"]`).count() === 1,
+          'refused pawn notation guessed or played a bishop capture')
+        await alert.scrollIntoViewIfNeeded()
+        assert(await alert.evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'bishop choices clip at enlarged text')
+        await input.fill(fixture.play); await input.press('Enter')
+        await page.locator(`#chessboard-square-${fixture.to} [data-piece="wB"]`).waitFor()
+        assert(await page.locator(`#chessboard-square-${fixture.from} [data-piece]`).count() === 0, 'the corrected move used the wrong bishop')
+        if (fixture.retained) assert(await page.locator(`#chessboard-square-${fixture.retained} [data-piece="wB"]`).count() === 1, 'disambiguated notation moved the other bishop')
+        assert(await input.inputValue() === '' && await input.evaluate(el => document.activeElement === el && el.getAttribute('aria-invalid') === 'false') && await alert.count() === 0,
+          'corrected bishop notation did not clear the error and retain input focus')
+      }
+      assert(errors.length === 0, `bishop guidance errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'bishop guidance overflows the viewport')
+      console.log(`  bishop guidance (${width}px, ${scale}x, ${theme}): refused a/c pawn drafts keep focus/board; associated legal bishop choices wrap; corrected and explicitly disambiguated captures move the selected bishop and clear errors`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkTypedMoveEntry(browser) {
   for (const [width, theme] of [[1280, 'Dark'], [375, 'Dark'], [1280, 'Light'], [375, 'Light']]) {
     const context = await browser.newContext({ viewport: { width, height: 812 } })
@@ -15259,6 +15308,7 @@ async function main() {
       'graph-guide': checkGraphEstimateGuide,
       'board-canvas': checkBoardCanvas,
       'typed-moves': checkTypedMoveEntry,
+      'bishop-guidance': checkBishopEntryGuidance,
       'move-entry-availability': checkMoveEntryAvailability,
       'command-move-entry': checkCommandMoveEntry,
       'autoplay': checkAutoplayWalksTheLine,
@@ -15993,6 +16043,7 @@ async function main() {
     await checkDialogDownloadFailure(browser)
     await checkSlowDialogDismissal(browser)
     await checkTypedMoveEntry(browser)
+    await checkBishopEntryGuidance(browser)
     await checkAutosaveFailure(browser)
     await checkEngineStartupTimeout(browser)
     await checkLabSettingsStayInSync(browser)

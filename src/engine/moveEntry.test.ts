@@ -140,3 +140,31 @@ describe('a pawn move that cannot be played as typed', () => {
     expect(parseMoveEntry(promotion, 'e8=N')?.san).toBe('e8=N')
   })
 })
+
+
+describe('bishop guidance for a refused b-file pawn capture', () => {
+  it.each([
+    ['4k3/8/5B2/8/8/2n5/8/4K3 w - - 0 1', 'bxc3', 'No pawn on the b-file can take on c3 here. For a bishop, use Bxc3.'],
+    ['7k/8/3B4/8/8/n7/8/7K w - - 0 1', 'bxa3', 'No pawn on the b-file can take on a3 here. For a bishop, use Bxa3.'],
+    ['4k3/8/5B2/8/1B6/2n5/8/4K3 w - - 0 1', 'bxc3', 'No pawn on the b-file can take on c3 here. For a bishop, use Bbxc3 or Bfxc3.'],
+  ])('offers legal bishop notation in %s', (fen, input, message) => {
+    expect(parseMoveEntry(fen, input)).toBeNull()
+    expect(moveEntryExplanation(fen, input)).toBe(message)
+  })
+
+  it('does not suggest a capture when the bishop could only move to an empty square', () => {
+    expect(moveEntryExplanation('4k3/8/5B2/8/8/8/8/4K3 w - - 0 1', 'bxc3'))
+      .toBe('No pawn on the b-file can take on c3 here.')
+  })
+
+  it('does not suggest a bishop move that would expose the king', () => {
+    expect(moveEntryExplanation('4r2k/8/8/8/2n5/8/4B3/4K3 w - - 0 1', 'bxc4'))
+      .toBe('No pawn on the b-file can take on c4 here.')
+  })
+
+  it('keeps an actual pawn capture legal without offering another piece', () => {
+    const fen = '4k3/8/5B2/8/8/2n5/1P6/4K3 w - - 0 1'
+    expect(parseMoveEntry(fen, 'bxc3')).toMatchObject({ from: 'b2', piece: 'p' })
+    expect(moveEntryExplanation(fen, 'bxc3')).toBeNull()
+  })
+})
