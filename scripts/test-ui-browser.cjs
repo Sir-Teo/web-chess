@@ -7753,6 +7753,113 @@ async function checkConsoleVisibility(browser) {
   }
 }
 
+async function checkConsoleCopyOwnership(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(() => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+          continuousAnalysis: false, engineProfile: 'lite-single-local',
+        }))
+        window.__consoleCopies = []
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+          writeText: text => new Promise((resolve, reject) => window.__consoleCopies.push({ text, resolve, reject })),
+        } })
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      const output = page.getByLabel('UCI console output', { exact: true })
+      const form = page.locator('.engine-lab-console')
+      const copy = () => form.getByRole('button', { name: /^(Copy|Copied)$/ })
+      const submit = async text => {
+        await command.fill(text)
+        await command.press('Enter')
+      }
+      const run = async text => {
+        await submit(text)
+        await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      }
+      const settle = (index, fail = false) => page.evaluate(async ({ index, fail }) => {
+        const request = window.__consoleCopies[index]
+        if (fail) request.reject(new DOMException('Denied', 'NotAllowedError'))
+        else request.resolve()
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      }, { index, fail })
+      await run('uci')
+      const snapshot = await output.textContent()
+      await copy().click()
+      assert(await page.evaluate(() => window.__consoleCopies[0].text) === snapshot, 'Copy did not capture the rendered output')
+      await form.getByRole('button', { name: 'Clear', exact: true }).click()
+      await settle(0)
+      assert(await copy().textContent() === 'Copy' && await copy().isDisabled(), 'an old copy completion changed cleared output feedback')
+      await run('isready')
+      await copy().click()
+      await submit('go depth 0x10')
+      const validation = page.getByRole('alert').filter({ hasText: 'whole decimal integer' })
+      await validation.waitFor()
+      await settle(1)
+      assert(await validation.count() === 1, 'an old copy success erased newer command validation')
+      await run('uci')
+      await copy().click()
+      await run('isready')
+      await settle(2, true)
+      assert(await page.getByRole('alert').count() === 0, 'an old clipboard denial appeared on a newer command')
+      await copy().click()
+      await copy().click()
+      await settle(4)
+      await form.getByRole('button', { name: 'Copied', exact: true }).waitFor()
+      await settle(3, true)
+      assert(await copy().textContent() === 'Copied' && await page.getByRole('alert').count() === 0,
+        'an earlier clipboard request replaced a newer successful copy')
+      await copy().click()
+      await form.getByRole('button', { name: 'Clear', exact: true }).click()
+      await settle(5, true)
+      assert(await page.getByRole('alert').count() === 0, 'a delayed clipboard denial recreated feedback after Clear')
+      await run('isready')
+      await copy().click()
+      await settle(6, true)
+      await page.getByRole('alert').filter({ hasText: 'Clipboard access failed' }).waitFor()
+      await copy().click()
+      await settle(7)
+      assert(await page.getByRole('alert').count() === 0 && await copy().textContent() === 'Copied', 'retry did not replace clipboard failure with success')
+      await copy().click()
+      await page.locator('.analysis-tab-strip').getByRole('button', { name: 'Analyze', exact: true }).click()
+      await settle(8, true)
+      await page.locator('.analysis-tab-strip').getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      assert(await page.getByRole('alert').count() === 0, 'returning to Engine Lab exposed an obsolete clipboard denial')
+      await copy().click()
+      await openSettings(page)
+      await page.locator('.advanced-settings > summary').filter({ hasText: 'Advanced engine options' }).click()
+      await page.getByRole('button', { name: 'Reset saved workspace', exact: true }).click()
+      await settle(9, true)
+      await closeSettings(page)
+      await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await page.locator('.analysis-tab-strip').getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      assert(await page.getByRole('alert').count() === 0 && await copy().isDisabled(), 'reset workspace inherited old clipboard feedback')
+      await page.evaluate(() => {
+        const worker = window.__consoleEngine
+        const post = worker.postMessage.bind(worker)
+        worker.postMessage = command => { if (command !== 'isready') post(command) }
+      })
+      await submit('isready')
+      await output.filter({ hasText: '> isready' }).waitFor()
+      await copy().click()
+      await page.evaluate(() => window.__consoleEngine.onerror({ message: 'Console runtime fixture failed' }))
+      const runtimeError = form.locator('..').getByRole('alert').filter({ hasText: 'Console runtime fixture failed' })
+      await runtimeError.waitFor()
+      await settle(10)
+      assert(await runtimeError.count() === 1, 'a clipboard success erased a newer runtime failure')
+      console.log(`  console copy (${width}px, ${scale}x): rendered snapshot, Clear/new command ownership, newer validation/runtime errors, overlapping results, retry, tab change and workspace reset`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkConsoleOutputFollowing(browser) {
   for (const [width, scale] of [[1280, 1], [375, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -12412,6 +12519,7 @@ async function main() {
       'console-drafts': checkConsoleDraftOwnership,
       'console-history': checkConsoleHistoryAndErrors,
       'console-following': checkConsoleOutputFollowing,
+      'console-copy': checkConsoleCopyOwnership,
       'console-visibility': checkConsoleVisibility,
       'console-layout': checkConsoleLayout,
       continuous: checkKeepSearchingIsUnbounded,
@@ -13169,6 +13277,7 @@ async function main() {
     await checkConsoleDraftOwnership(browser)
     await checkConsoleHistoryAndErrors(browser)
     await checkConsoleOutputFollowing(browser)
+    await checkConsoleCopyOwnership(browser)
     await checkConsoleVisibility(browser)
     await checkConsoleLayout(browser)
     await checkSingleThreadReviewPool(browser)

@@ -729,8 +729,10 @@ function App() {
   // A completed command owns only its original draft, including when the
   // reader edits away and back or recalls the same text from history.
   const labCommandDraftVersionRef = useRef(0)
+  const labConsoleCopyVersionRef = useRef(0)
   const updateLabCommandDraft = (value: string) => {
     labCommandDraftVersionRef.current += 1
+    labConsoleCopyVersionRef.current += 1
     setEngineLabCommand(value)
     setEngineLabError(null)
   }
@@ -746,6 +748,7 @@ function App() {
       active.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
     }
   }, [engineLabError])
+  useEffect(() => () => { labConsoleCopyVersionRef.current += 1 }, [workspaceMode, analysisTab])
   const [engineLabOutputLines, setEngineLabOutputLines] = useState<string[]>([])
   const [labConsoleSession, setLabConsoleSession] = useState(0)
   const labConsoleBufferRef = useRef<string[]>([])
@@ -2723,6 +2726,7 @@ function App() {
     // deliberately absent. So a reader on Light who cleared their analyze
     // controls had the app go dark on them, with nothing offering to.
     setOpeningPrefetchTick(0)
+    labConsoleCopyVersionRef.current += 1
     setEngineLabError(null)
     labCommandDraftVersionRef.current += 1
     setEngineLabCommand('')
@@ -2924,6 +2928,7 @@ function App() {
 
   const runLabCommand = useCallback(
     async (command: string) => {
+      labConsoleCopyVersionRef.current += 1
       if (!engineEnabled) {
         setEngineLabError('Engine Lab is available only in Analysis mode.')
         return
@@ -3010,6 +3015,7 @@ function App() {
         if (labCommandDraftVersionRef.current === draftVersion) setEngineLabCommand('')
       } catch (error) {
         if (labConsoleBufferRef.current !== outputLines) return
+        labConsoleCopyVersionRef.current += 1
         cancelLabConsolePublication()
         setEngineLabOutputLines(outputLines.length === 1 ? [`> ${trimmed}`, '(no response before error)'] : outputLines.slice())
         setLastLabRun({ command: trimmed, durationMs: Math.round(performance.now() - startTime) })
@@ -3020,6 +3026,7 @@ function App() {
   )
 
   const clearLabConsole = useCallback(() => {
+    labConsoleCopyVersionRef.current += 1
     cancelLabConsolePublication()
     labConsoleBufferRef.current.length = 0
     setEngineLabOutputLines([])
@@ -3028,12 +3035,16 @@ function App() {
   }, [cancelLabConsolePublication])
 
   const copyLabConsole = useCallback(async () => {
+    if (!engineLabOutputLines.length) return
+    const version = ++labConsoleCopyVersionRef.current
+    setEngineLabCopyStatus('idle')
     try {
-      if (!engineLabOutputLines.length) return
       await navigator.clipboard.writeText(engineLabOutputLines.join('\n'))
+      if (version !== labConsoleCopyVersionRef.current) return
       setEngineLabError(null)
       setEngineLabCopyStatus('copied')
     } catch {
+      if (version !== labConsoleCopyVersionRef.current) return
       setEngineLabCopyStatus('failed')
       setEngineLabError('Clipboard access failed. Select the console output and copy it manually.')
     }
