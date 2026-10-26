@@ -1,5 +1,5 @@
 import { Chess, type Move, type Square } from 'chess.js'
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type SyntheticEvent } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type SyntheticEvent } from 'react'
 import type { PieceDropHandlerArgs } from 'react-chessboard'
 import { BoardCanvas } from './components/BoardCanvas'
 import { EngineDetails } from './components/EngineDetails'
@@ -721,14 +721,23 @@ function App() {
   const [blackIncMs, setBlackIncMs] = useState<NumericInputValue>(persistedSettings.blackIncMs)
   const [movesToGo, setMovesToGo] = useState<NumericInputValue>(persistedSettings.movesToGo ?? '')
   const [engineLabCommand, setEngineLabCommand] = useState('')
+  const [engineLabError, setEngineLabError] = useState<string | null>(null)
+  const engineLabErrorId = useId()
+  const labCommandInputRef = useRef<HTMLInputElement>(null)
+  const [labHistoryRecallTick, setLabHistoryRecallTick] = useState(0)
   // A completed command owns only its original draft, including when the
   // reader edits away and back or recalls the same text from history.
   const labCommandDraftVersionRef = useRef(0)
   const updateLabCommandDraft = (value: string) => {
     labCommandDraftVersionRef.current += 1
     setEngineLabCommand(value)
+    setEngineLabError(null)
   }
-  const [engineLabError, setEngineLabError] = useState<string | null>(null)
+  useLayoutEffect(() => {
+    if (!labHistoryRecallTick) return
+    labCommandInputRef.current?.focus()
+    labCommandInputRef.current?.select()
+  }, [labHistoryRecallTick])
   const [engineLabOutputLines, setEngineLabOutputLines] = useState<string[]>([])
   const labConsoleBufferRef = useRef<string[]>([])
   const labConsoleFrameRef = useRef<number | null>(null)
@@ -9337,8 +9346,10 @@ function App() {
                       }}
                     >
                       <input
+                        ref={labCommandInputRef}
                         type="text"
                         aria-label="UCI command"
+                        aria-describedby={engineLabError ? engineLabErrorId : undefined}
                         autoCapitalize="off"
                         autoCorrect="off"
                         autoComplete="off"
@@ -9406,14 +9417,17 @@ function App() {
                         <h4>History</h4>
                         <div className="lab-history-list">
                           {labCommandHistory.map(item => (
-                            <button key={item} type="button" onClick={() => updateLabCommandDraft(item)}>
+                            <button key={item} type="button" onClick={() => {
+                              updateLabCommandDraft(item)
+                              setLabHistoryRecallTick(tick => tick + 1)
+                            }}>
                               {item}
                             </button>
                           ))}
                         </div>
                       </div>
                     )}
-                    {engineLabError && <p className="panel-copy small error-copy">{engineLabError}</p>}
+                    {engineLabError && <p id={engineLabErrorId} className="panel-copy small error-copy" role="alert">{engineLabError}</p>}
                     {/*
                       Not a live region, though it looks like one wants to be.
 

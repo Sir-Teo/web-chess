@@ -7753,6 +7753,74 @@ async function checkConsoleVisibility(browser) {
   }
 }
 
+async function checkConsoleHistoryAndErrors(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+        engineProfile: 'lite-single-local',
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      const position = 'position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 27'
+      await command.fill(position)
+      await command.press('Enter')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      const history = page.locator('.lab-history-list').getByRole('button', { name: position, exact: true })
+      const expectSelectedInput = () => page.waitForFunction(text => {
+        const input = document.querySelector('[aria-label="UCI command"]')
+        if (!input || document.activeElement !== input || input.value !== text || input.selectionStart !== 0 || input.selectionEnd !== text.length) return false
+        const rect = input.getBoundingClientRect()
+        return rect.top >= -1 && rect.bottom <= innerHeight + 1 && rect.left >= -1 && rect.right <= innerWidth + 1
+          && input.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2))
+      }, position)
+      await history.click()
+      await expectSelectedInput()
+      await command.press('End')
+      await history.focus()
+      await page.keyboard.press('Enter')
+      await expectSelectedInput()
+      await page.keyboard.press('Enter')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      assert(await page.evaluate(text => window.__uciCommands.filter(command => command === text).length, position) === 2,
+        'Enter after recalling history did not repeat the complete command')
+      await history.click()
+      await expectSelectedInput()
+      await command.pressSequentially('isready')
+      assert(await command.inputValue() === 'isready', 'typing after recall did not replace the selected command')
+      await command.press('Enter')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      assert((await page.getByLabel('UCI console output', { exact: true }).textContent()).includes('readyok'), 'the edited history command did not run')
+      await command.fill('go DEPTH 1')
+      await command.press('Enter')
+      const alert = page.getByRole('alert').filter({ hasText: 'lowercase UCI keywords' })
+      await alert.waitFor()
+      assert(await command.getAttribute('aria-describedby') === await alert.getAttribute('id'), 'console validation is not associated with its input')
+      await history.click()
+      await expectSelectedInput()
+      assert(await page.getByRole('alert').count() === 0 && await command.getAttribute('aria-describedby') === null,
+        'recalling a new command retained stale validation feedback')
+      await command.fill('isready')
+      await command.press('Enter')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+        writeText: async () => { throw new DOMException('Denied', 'NotAllowedError') },
+      } }))
+      await page.locator('.engine-lab-console').getByRole('button', { name: 'Copy', exact: true }).click()
+      await page.getByRole('alert').filter({ hasText: 'Clipboard access failed.' }).waitFor()
+      await command.fill('d')
+      assert(await page.getByRole('alert').count() === 0 && await command.getAttribute('aria-describedby') === null,
+        'editing a new command retained old console feedback')
+      console.log(`  console history (${width}px, ${scale}x): pointer/keyboard recall focuses and selects complete text, Enter repeats, typing replaces, and errors expose an associated alert until a new edit`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkConsoleDraftOwnership(browser) {
   for (const [width, scale] of [[1280, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -12211,6 +12279,7 @@ async function main() {
       'console-tools': checkConsoleTools,
       'console-parsing': checkConsoleLimitParsing,
       'console-drafts': checkConsoleDraftOwnership,
+      'console-history': checkConsoleHistoryAndErrors,
       'console-visibility': checkConsoleVisibility,
       'console-layout': checkConsoleLayout,
       continuous: checkKeepSearchingIsUnbounded,
@@ -12966,6 +13035,7 @@ async function main() {
     await checkConsoleTools(browser)
     await checkConsoleLimitParsing(browser)
     await checkConsoleDraftOwnership(browser)
+    await checkConsoleHistoryAndErrors(browser)
     await checkConsoleVisibility(browser)
     await checkConsoleLayout(browser)
     await checkSingleThreadReviewPool(browser)
