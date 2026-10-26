@@ -7711,6 +7711,77 @@ async function checkConsoleVisibility(browser) {
   }
 }
 
+async function checkConsoleLimitParsing(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(() => {
+        window.__parserVisibility = 'visible'
+        Object.defineProperty(document, 'visibilityState', { get: () => window.__parserVisibility })
+        Object.defineProperty(document, 'hidden', { get: () => window.__parserVisibility === 'hidden' })
+        window.__setParserVisibility = value => { window.__parserVisibility = value; document.dispatchEvent(new Event('visibilitychange')) }
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+          engineProfile: 'lite-single-local', expertModeEnabled: false,
+        }))
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const ready = () => page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await ready()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      const submit = async text => { await command.fill(text); await command.press('Enter') }
+      for (const [text, reason] of [
+        ['go DEPTH 1', 'lowercase UCI keywords'], ['GO depth 1', 'lowercase UCI keywords'],
+        ['go depth 0x10', 'whole decimal integer'], ['go nodes 0b10', 'whole decimal integer'],
+        ['go depth nope movetime 20', 'whole decimal integer'], ['go depth 2147483648', 'whole decimal integer'],
+        ['go depth 1 depth 0', 'Enable expert mode'], ['go perft 0', 'Enable expert mode'],
+      ]) {
+        await submit(text)
+        await page.locator('.error-copy').filter({ hasText: reason }).waitFor()
+        assert(await page.evaluate(text => !window.__uciCommands.includes(text), text), `misread console limit reached the worker: ${text}`)
+        assert(await command.inputValue() === text, 'a rejected console command lost the editable draft')
+      }
+      await submit('go depth 0 depth +0001')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      await ready()
+      await page.getByRole('checkbox', { name: 'Enable expert engine commands', exact: true }).check()
+      await submit('go depth .5')
+      await page.locator('.error-copy').filter({ hasText: 'whole decimal integer' }).waitFor()
+      assert(await page.evaluate(() => !window.__uciCommands.includes('go depth .5')), 'expert mode sent a malformed numeric limit')
+      await submit('position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      const count = text => page.evaluate(text => window.__uciCommands.filter(command => command === text).length, text)
+      const visibility = value => page.evaluate(value => window.__setParserVisibility(value), value)
+      for (const text of ['go depth 1 depth 0', 'go perft 0']) {
+        await submit(text)
+        await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
+        const stops = await count('stop'), searches = await count(text)
+        await visibility('hidden')
+        await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'paused')
+        assert(await count('stop') === stops + 1, `hidden ${text} was not parked`)
+        await visibility('visible')
+        await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
+        assert(await count(text) === searches + 1, `${text} did not resume with its exact command`)
+        await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
+        await ready()
+      }
+      await submit('go perft 0 depth 1')
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
+      const stops = await count('stop')
+      await visibility('hidden')
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      assert(await count('stop') === stops, 'hidden finite zero-perft search was cut short')
+      await visibility('visible')
+      await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
+      await ready()
+      console.log(`  console limits (${width}px, ${scale}x): native keyword/integer rules, final duplicate limits, zero-perft pause/resume, and finite work preserved`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkConsoleTools(browser) {
   for (const [width, scale, theme] of [[1280, 1, 'dark'], [1280, 2, 'light'], [375, 1, 'light'], [375, 2, 'dark']]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -12001,6 +12072,7 @@ async function main() {
       'console-search': checkConsoleSearchOwnership,
       'console-deadlines': checkConsoleSearchDeadlines,
       'console-tools': checkConsoleTools,
+      'console-parsing': checkConsoleLimitParsing,
       'console-visibility': checkConsoleVisibility,
       'console-layout': checkConsoleLayout,
       continuous: checkKeepSearchingIsUnbounded,
@@ -12754,6 +12826,7 @@ async function main() {
     await checkEngineRelease(browser)
     await checkConsoleSearchDeadlines(browser)
     await checkConsoleTools(browser)
+    await checkConsoleLimitParsing(browser)
     await checkConsoleVisibility(browser)
     await checkConsoleLayout(browser)
     await checkSingleThreadReviewPool(browser)

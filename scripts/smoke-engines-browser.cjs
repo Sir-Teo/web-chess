@@ -9,6 +9,60 @@ const output = process.env.SMOKE_OUTPUT || '/tmp/web-chess-engine-smoke'
 const browsers = { chromium, firefox, webkit }
 const widths = (process.env.SMOKE_WIDTHS || '1280,375').split(',').map(Number)
 
+async function checkNativeConsoleLimits(page) {
+  const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+  const submit = async text => { await command.fill(text); await command.press('Enter') }
+  const ready = () => page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+  for (const [text, reason] of [
+    ['go DEPTH 1', 'lowercase UCI keywords'], ['go depth 0x10', 'whole decimal integer'],
+    ['go nodes 0b10', 'whole decimal integer'], ['go depth nope movetime 20', 'whole decimal integer'],
+    ['go depth 1 depth 0', 'Enable expert mode'],
+  ]) {
+    await submit(text)
+    await page.locator('.error-copy').filter({ hasText: reason }).waitFor()
+    assert.equal(await page.evaluate(text => window.__smokeCommands.includes(text), text), false, `${text} reached real Stockfish`)
+  }
+  const expert = page.getByRole('checkbox', { name: 'Enable expert engine commands', exact: true })
+  await expert.check()
+  for (const text of ['go depth 0 depth +0001', 'go perft 0 depth 1']) {
+    await submit(text)
+    await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+    await ready()
+    const output = await page.getByLabel('UCI console output', { exact: true }).textContent()
+    assert.match(output, /bestmove /)
+    assert.deepEqual([...new Set([...output.matchAll(/\binfo depth (\d+)/g)].map(match => Number(match[1])))], [1])
+  }
+  await page.evaluate(() => {
+    window.__consoleProbeVisibility = 'visible'
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => window.__consoleProbeVisibility })
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => window.__consoleProbeVisibility === 'hidden' })
+  })
+  const visibility = value => page.evaluate(value => {
+    window.__consoleProbeVisibility = value
+    document.dispatchEvent(new Event('visibilitychange'))
+  }, value)
+  try {
+    for (const text of ['go depth 1 depth 0', 'go perft 0']) {
+      await submit(text)
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
+      const searches = await page.evaluate(text => window.__smokeCommands.filter(command => command === text).length, text)
+      await visibility('hidden')
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'paused')
+      await visibility('visible')
+      await page.waitForFunction(({ text, searches }) => window.__smokeCommands.filter(command => command === text).length === searches + 1, { text, searches })
+      await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
+      await ready()
+    }
+  } finally {
+    await page.evaluate(() => {
+      delete document.visibilityState
+      delete document.hidden
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+  }
+  await expert.uncheck()
+}
+
 async function main() {
   assert(widths.length > 0 && widths.every(width => Number.isInteger(width) && width >= 320), 'SMOKE_WIDTHS must contain viewport widths of at least 320px')
   fs.mkdirSync(output, { recursive: true })
@@ -107,6 +161,9 @@ async function main() {
                 && JSON.parse(localStorage.getItem('webchess:analysis-settings:v1')).hashMb === Number(value)
             }, { value, sentBefore })
           }
+
+          stage = 'native console limit parsing'
+          await checkNativeConsoleLimits(page)
 
           stage = 'game review and export'
           await page.getByRole('button', { name: 'Review', exact: true }).click()
@@ -246,7 +303,7 @@ async function main() {
           assert.equal(await depthTenSearches(), rerunBefore, 'reopening lost reusable real-engine readings')
           assert.deepEqual(errors, [])
           results.push({ browser: name, width, status: 'passed', source, positionScore: before,
-            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'shared console options', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus', 'repetition review: eight depth-10 searches, save, reopen, backup and reuse'] })
+            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'shared console options', 'native console limits: rejected syntax, duplicate limits, zero-perft depth-1 and pause/resume', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus', 'repetition review: eight depth-10 searches, save, reopen, backup and reuse'] })
         } catch (error) {
           const diagnostics = await page.evaluate(() => ({
             commands: window.__smokeCommands?.slice(-80),

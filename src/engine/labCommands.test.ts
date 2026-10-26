@@ -2,6 +2,56 @@ import { describe, expect, it } from 'vitest'
 import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage, isHeavyEngineLabCommand, isUnboundedEngineLabSearch } from './labCommands'
 
 describe('Engine Lab command safety', () => {
+  it.each(['go DEPTH 1', 'GO depth 1', 'go MoveTime 20', 'go SEARCHMOVES e2e4 depth 1'])(
+    'explains case-sensitive native keywords in %s', command => {
+      expect(engineLabCommandBlockMessage(command)).toContain('lowercase UCI keywords')
+      expect(isHeavyEngineLabCommand(command)).toBe(true)
+    },
+  )
+
+  it.each([
+    'go depth 0x10', 'go nodes 0b10', 'go depth .5', 'go movetime 1e3',
+    'go depth nope movetime 20', 'go depth', 'go nodes -1',
+    'go depth 2147483648', 'go movetime 9223372036854775808', 'go nodes 18446744073709551616',
+  ])('rejects numeric syntax or overflow the native parser would read differently: %s', command => {
+    expect(engineLabCommandBlockMessage(command)).toContain('whole decimal integer')
+    expect(isHeavyEngineLabCommand(command)).toBe(true)
+  })
+
+  it.each(['go depth +00012', 'go nodes 18446744073709551615', 'go movetime 9223372036854775807', 'go depth 2147483647'])(
+    'retains valid native integer syntax and limits: %s', command => {
+      expect(engineLabCommandBlockMessage(command)).toBeNull()
+      expect(isHeavyEngineLabCommand(command)).toBe(false)
+    },
+  )
+
+  it('uses the final occurrence of each native search limit', () => {
+    for (const command of ['go depth 1 depth 0', 'go nodes 100 nodes 0', 'go wtime 100 wtime 0']) {
+      expect(engineLabCommandBlockMessage(command), command).toBeNull()
+      expect(isHeavyEngineLabCommand(command), command).toBe(true)
+      expect(isUnboundedEngineLabSearch(command), command).toBe(true)
+    }
+    for (const command of ['go depth 0 depth 1', 'go depth 1 depth 0 movetime 20', 'go wtime 100 wtime 0 btime 100']) {
+      expect(engineLabCommandBlockMessage(command), command).toBeNull()
+      expect(isHeavyEngineLabCommand(command), command).toBe(false)
+      expect(isUnboundedEngineLabSearch(command), command).toBe(false)
+    }
+  })
+
+  it('parks zero-perft searches using their actual remaining limits', () => {
+    expect(isHeavyEngineLabCommand('go perft 0')).toBe(true)
+    expect(isUnboundedEngineLabSearch('go perft 0')).toBe(true)
+    expect(isUnboundedEngineLabSearch('go perft 0 depth 1')).toBe(false)
+    expect(isUnboundedEngineLabSearch('go perft 3 perft 0')).toBe(true)
+    expect(isUnboundedEngineLabSearch('go perft 0 perft 3')).toBe(false)
+  })
+
+  it('leaves move tokens after searchmoves to the native move parser', () => {
+    expect(engineLabCommandBlockMessage('go depth 1 searchmoves e2e4 perft nope')).toBeNull()
+    expect(isHeavyEngineLabCommand('go depth 1 searchmoves e2e4 perft nope')).toBe(false)
+    expect(engineLabCommandBlockMessage('go depth 1 searchmoves e7e8Q')).toBeNull()
+  })
+
   it('parks unbounded searches without interrupting finite diagnostics', () => {
     for (const command of ['go', 'go infinite', 'go ponder depth 12', 'go infinite searchmoves e2e4', 'go searchmoves e2e4']) {
       expect(isUnboundedEngineLabSearch(command), command).toBe(true)
