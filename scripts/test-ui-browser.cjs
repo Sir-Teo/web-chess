@@ -9681,6 +9681,52 @@ async function checkNativeBrowserZoom() {
   }
 }
 
+async function checkNormalizedConsoleHistory(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = [], keyErrors = []
+    page.on('pageerror', error => errors.push(error.message))
+    page.on('console', message => { if (message.type() === 'error' && /same key|unique.*key/i.test(message.text())) keyErrors.push(message.text()) })
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(theme => {
+        const key = 'webchess:analysis-settings:v1'
+        if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+          engineProfile: 'lite-single-local', theme, labCommandHistory: [...Array(20).fill(' uci '), 'isready', ' position startpos ', null, 42, ''] }))
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const ready = () => page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await ready()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true }), history = page.locator('.lab-history-list button')
+      assert(JSON.stringify(await history.allTextContents()) === JSON.stringify(['uci', 'isready', 'position startpos']), 'repeated saved entries hid distinct older commands')
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('webchess:analysis-settings:v1')).labCommandHistory.length === 3)
+      const sent = await page.evaluate(() => window.__uciCommands.length)
+      await command.fill('my working draft')
+      for (const text of ['uci', 'isready', 'position startpos', 'position startpos']) {
+        await command.press('ArrowUp')
+        assert(await command.inputValue() === text, 'normalized history recalled commands in the wrong order')
+      }
+      for (const text of ['isready', 'uci', 'my working draft']) {
+        await command.press('ArrowDown')
+        assert(await command.inputValue() === text, 'normalized history lost a distinct command or the working draft')
+      }
+      assert(await page.evaluate(() => window.__uciCommands.length) === sent, 'browsing normalized history sent a command')
+      await command.fill('isready'); await command.press('Enter')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      const expected = ['isready', 'uci', 'position startpos']
+      assert(JSON.stringify(await history.allTextContents()) === JSON.stringify(expected), 'running an older entry did not move it to the front exactly once')
+      await page.reload({ waitUntil: 'domcontentloaded' }); await ready()
+      assert(JSON.stringify(await history.allTextContents()) === JSON.stringify(expected), 'normalized command order did not survive reload')
+      await history.filter({ hasText: /^position startpos$/ }).click()
+      assert(await command.evaluate(el => el === document.activeElement && el.value === 'position startpos' && el.selectionStart === 0 && el.selectionEnd === el.value.length), 'normalized history did not recall the complete command')
+      assert(errors.length === 0 && keyErrors.length === 0, `normalized history errors: ${[...errors, ...keyErrors].join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'normalized history overflows')
+      console.log(`  normalized history (${width}px, ${scale}x, ${theme}): duplicate/whitespace legacy entries yield distinct ordered buttons; older commands remain reachable; Up/Down restores draft without sending; running/reloading/recalling keeps unique order and no duplicate-key errors`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkConsoleClearHistory(browser) {
   for (const [width, height, scale, theme] of [[1280, 812, 1, 'dark'], [375, 812, 1, 'light'], [375, 812, 2, 'dark'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
@@ -15337,6 +15383,7 @@ async function main() {
       'console-copy-feedback': checkConsoleCopyFeedback,
       'console-keyboard-history': checkConsoleKeyboardHistory,
       'console-clear-history': checkConsoleClearHistory,
+      'console-history-normalize': checkNormalizedConsoleHistory,
       'console-visibility': checkConsoleVisibility,
       'console-layout': checkConsoleLayout,
       continuous: checkKeepSearchingIsUnbounded,
@@ -16141,6 +16188,7 @@ async function main() {
     await checkConsoleCopyFeedback(browser)
     await checkConsoleKeyboardHistory(browser)
     await checkConsoleClearHistory(browser)
+    await checkNormalizedConsoleHistory(browser)
     await checkConsoleVisibility(browser)
     await checkConsoleLayout(browser)
     await checkSingleThreadReviewPool(browser)

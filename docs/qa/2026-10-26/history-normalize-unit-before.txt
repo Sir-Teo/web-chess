@@ -1,0 +1,97 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/appSettings.test.ts (34 tests | 2 failed) 25ms
+     × deduplicates history after trimming and retains first-occurrence order 7ms
+     × applies the history limit to distinct commands 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/appSettings.test.ts > the two fields with a shape of their own > deduplicates history after trimming and retains first-occurrence order
+AssertionError: expected [ 'uci', 'isready', 'uci', …(2) ] to deeply equal [ 'uci', 'isready', 'd' ]
+
+- Expected
++ Received
+
+  [
+    "uci",
+    "isready",
++   "uci",
++   "isready",
+    "d",
+  ]
+
+ ❯ src/engine/appSettings.test.ts:251:55
+    249|   it('deduplicates history after trimming and retains first-occurrence…
+    250|     installStorage(stored({ labCommandHistory: ['  uci ', 'isready', '…
+    251|     expect(loadPersistedSettings().labCommandHistory).toEqual(['uci', …
+       |                                                       ^
+    252|   })
+    253|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/engine/appSettings.test.ts > the two fields with a shape of their own > applies the history limit to distinct commands
+AssertionError: expected [ 'uci', 'uci', 'uci', 'uci', …(16) ] to deeply equal [ 'uci', 'go depth 0', …(18) ]
+
+- Expected
++ Received
+
+  [
+    "uci",
+-   "go depth 0",
+-   "go depth 1",
+-   "go depth 2",
+-   "go depth 3",
+-   "go depth 4",
+-   "go depth 5",
+-   "go depth 6",
+-   "go depth 7",
+-   "go depth 8",
+-   "go depth 9",
+-   "go depth 10",
+-   "go depth 11",
+-   "go depth 12",
+-   "go depth 13",
+-   "go depth 14",
+-   "go depth 15",
+-   "go depth 16",
+-   "go depth 17",
+-   "go depth 18",
++   "uci",
++   "uci",
++   "uci",
++   "uci",
++   "uci",
++   "uci",
++   "uci",
++   "uci",
++   "uci",
++   "uci",
++   "uci",
++   "uci",
++   "uci",
++   "uci",
++   "uci",
++   "uci",
++   "uci",
++   "uci",
++   "uci",
+  ]
+
+ ❯ src/engine/appSettings.test.ts:257:55
+    255|     const distinct = Array.from({ length: 25 }, (_, i) => `go depth ${…
+    256|     installStorage(stored({ labCommandHistory: [...Array(20).fill('uci…
+    257|     expect(loadPersistedSettings().labCommandHistory).toEqual(['uci', …
+       |                                                       ^
+    258|   })
+    259|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 32 passed (34)
+   Start at  20:22:59
+   Duration  315ms (transform 127ms, setup 0ms, import 153ms, tests 25ms, environment 0ms)
+

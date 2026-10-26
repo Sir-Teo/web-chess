@@ -246,6 +246,22 @@ describe('the two fields with a shape of their own', () => {
     expect(loadPersistedSettings().labCommandHistory).toEqual(['go depth 5', 'eval'])
   })
 
+  it('deduplicates history after trimming and retains first-occurrence order', () => {
+    installStorage(stored({ labCommandHistory: ['  uci ', 'isready', 'uci', ' isready ', 'd'] }))
+    expect(loadPersistedSettings().labCommandHistory).toEqual(['uci', 'isready', 'd'])
+  })
+
+  it('applies the history limit to distinct commands', () => {
+    const distinct = Array.from({ length: 25 }, (_, i) => `go depth ${i}`)
+    installStorage(stored({ labCommandHistory: [...Array(20).fill('uci'), ...distinct] }))
+    expect(loadPersistedSettings().labCommandHistory).toEqual(['uci', ...distinct.slice(0, 19)])
+  })
+
+  it('preserves keyword case and internal spaces in distinct commands', () => {
+    installStorage(stored({ labCommandHistory: ['go depth 5', 'GO depth 5', 'go  depth 5'] }))
+    expect(loadPersistedSettings().labCommandHistory).toEqual(['go depth 5', 'GO depth 5', 'go  depth 5'])
+  })
+
   it('caps the lab history rather than growing without limit', () => {
     installStorage(stored({ labCommandHistory: Array.from({ length: 60 }, (_, i) => `go depth ${i}`) }))
     expect(loadPersistedSettings().labCommandHistory).toHaveLength(20)
