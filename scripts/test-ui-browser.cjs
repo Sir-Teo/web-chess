@@ -7753,6 +7753,86 @@ async function checkConsoleVisibility(browser) {
   }
 }
 
+async function checkConsoleDraftOwnership(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    let stage = 'boot'
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 1 })
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+          engineProfile: 'auto',
+        }))
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const ready = () => page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await ready()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      const output = page.getByLabel('UCI console output', { exact: true })
+      const submit = async text => { await command.fill(text); await command.press('Enter') }
+      await submit('position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      const search = 'go depth 12'
+      const start = async () => {
+        await submit(search)
+        await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
+        await output.filter({ hasText: 'score cp 900' }).waitFor()
+      }
+      for (const mode of ['untouched', 'different', 'retyped', 'history', 'stop']) {
+        stage = mode
+        await start()
+        let expected = ''
+        if (mode === 'different') { expected = 'isready'; await command.fill(expected) }
+        if (mode === 'retyped') { expected = search; await command.fill('d'); await command.fill(search) }
+        if (mode === 'history') { expected = search; await page.locator('.lab-history-list').getByRole('button', { name: search, exact: true }).click() }
+        if (mode === 'stop') { expected = 'd'; await command.fill(expected) }
+        if (mode === 'stop') await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
+        else await page.evaluate(() => window.__consoleEngine.finishSearch())
+        await ready()
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        assert(await command.inputValue() === expected, `${mode}: a completed search erased the next command draft`)
+        assert((await output.textContent()).includes('bestmove '), 'preserving a draft lost the completed search output')
+        if (mode === 'different') {
+          await command.press('Enter')
+          await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+          assert((await output.textContent()).includes('readyok'), 'the preserved next command could not be submitted')
+        }
+      }
+      stage = 'reset'
+      await start()
+      await page.evaluate(() => { window.__oldConsoleForReset = window.__consoleEngine; window.__holdConsoleStopAck = true })
+      await openSettings(page)
+      await page.locator('.advanced-settings > summary').filter({ hasText: 'Advanced engine options' }).click()
+      await page.getByRole('button', { name: 'Reset saved workspace', exact: true }).click()
+      await closeSettings(page)
+      await page.evaluate(() => {
+        window.__holdConsoleStopAck = false
+        window.__oldConsoleForReset.send('info string stale-reset-output')
+        window.__oldConsoleForReset.finishSearch()
+      })
+      await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+      await ready()
+      await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      assert(await output.textContent() === 'No command output yet.', 'old output returned after Reset saved workspace')
+      assert(await command.inputValue() === '' && await page.locator('.lab-history-list button').count() === 0, 'reset restored an old command draft/history')
+      assert(await page.locator('.command-summary').filter({ hasText: 'Last run:' }).count() === 0, 'old completion restored the reset run summary')
+      console.log(`  console drafts (${width}px, ${scale}x): next edits/retyped/history drafts survive completion and Stop, unchanged submissions clear, and reset discards late output`)
+    } catch (error) {
+      const state = await page.evaluate(() => ({ status: document.querySelector('.bottom .status')?.textContent,
+        input: document.querySelector('[aria-label="UCI command"]')?.value,
+        output: document.querySelector('.engine-lab-output')?.textContent,
+        commands: window.__uciCommands?.slice(-20),
+      })).catch(() => null)
+      throw new Error(`Console draft check failed during ${stage}: ${JSON.stringify(state)}`, { cause: error })
+    } finally { await context.close() }
+  }
+}
+
 async function checkConsoleLimitParsing(browser) {
   for (const [width, scale] of [[1280, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -12115,6 +12195,7 @@ async function main() {
       'console-deadlines': checkConsoleSearchDeadlines,
       'console-tools': checkConsoleTools,
       'console-parsing': checkConsoleLimitParsing,
+      'console-drafts': checkConsoleDraftOwnership,
       'console-visibility': checkConsoleVisibility,
       'console-layout': checkConsoleLayout,
       continuous: checkKeepSearchingIsUnbounded,
@@ -12869,6 +12950,7 @@ async function main() {
     await checkConsoleSearchDeadlines(browser)
     await checkConsoleTools(browser)
     await checkConsoleLimitParsing(browser)
+    await checkConsoleDraftOwnership(browser)
     await checkConsoleVisibility(browser)
     await checkConsoleLayout(browser)
     await checkSingleThreadReviewPool(browser)

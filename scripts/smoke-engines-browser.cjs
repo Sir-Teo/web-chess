@@ -50,8 +50,15 @@ async function checkNativeConsoleLimits(page) {
       await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'paused')
       await visibility('visible')
       await page.waitForFunction(({ text, searches }) => window.__smokeCommands.filter(command => command === text).length === searches + 1, { text, searches })
+      await command.fill('isready')
       await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
       await ready()
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      assert.equal(await command.inputValue(), 'isready', 'completion erased the next console command')
+      assert.match(await page.getByLabel('UCI console output', { exact: true }).textContent(), /bestmove /)
+      await command.press('Enter')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      assert.match(await page.getByLabel('UCI console output', { exact: true }).textContent(), /readyok/)
     }
   } finally {
     await page.evaluate(() => {
@@ -303,7 +310,7 @@ async function main() {
           assert.equal(await depthTenSearches(), rerunBefore, 'reopening lost reusable real-engine readings')
           assert.deepEqual(errors, [])
           results.push({ browser: name, width, status: 'passed', source, positionScore: before,
-            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'shared console options', 'native console limits: rejected syntax, duplicate limits, zero-perft depth-1 and pause/resume', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus', 'repetition review: eight depth-10 searches, save, reopen, backup and reuse'] })
+            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'shared console options', 'native console limits and next command drafts: rejected syntax, duplicate limits, zero-perft depth-1, pause/resume, preserved and submitted drafts', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus', 'repetition review: eight depth-10 searches, save, reopen, backup and reuse'] })
         } catch (error) {
           const diagnostics = await page.evaluate(() => ({
             commands: window.__smokeCommands?.slice(-80),

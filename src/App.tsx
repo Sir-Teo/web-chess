@@ -721,6 +721,13 @@ function App() {
   const [blackIncMs, setBlackIncMs] = useState<NumericInputValue>(persistedSettings.blackIncMs)
   const [movesToGo, setMovesToGo] = useState<NumericInputValue>(persistedSettings.movesToGo ?? '')
   const [engineLabCommand, setEngineLabCommand] = useState('')
+  // A completed command owns only its original draft, including when the
+  // reader edits away and back or recalls the same text from history.
+  const labCommandDraftVersionRef = useRef(0)
+  const updateLabCommandDraft = (value: string) => {
+    labCommandDraftVersionRef.current += 1
+    setEngineLabCommand(value)
+  }
   const [engineLabError, setEngineLabError] = useState<string | null>(null)
   const [engineLabOutputLines, setEngineLabOutputLines] = useState<string[]>([])
   const labConsoleBufferRef = useRef<string[]>([])
@@ -2699,13 +2706,16 @@ function App() {
     // controls had the app go dark on them, with nothing offering to.
     setOpeningPrefetchTick(0)
     setEngineLabError(null)
+    labCommandDraftVersionRef.current += 1
     setEngineLabCommand('')
+    cancelLabConsolePublication()
+    labConsoleBufferRef.current = []
     setEngineLabOutputLines([])
     setEngineLabCopyStatus('idle')
     setLastLabRun(null)
     setPendingPromotion(null)
     clearBatchReview()
-  }, [clearBatchReview])
+  }, [cancelLabConsolePublication, clearBatchReview])
 
   const applyPreset = useCallback((presetId: AnalyzePresetId) => {
     setActivePreset(presetId)
@@ -2941,6 +2951,7 @@ function App() {
 
       setLabCommandHistory(previous => [trimmed, ...previous.filter(item => item !== trimmed)].slice(0, 20))
       const startTime = performance.now()
+      const draftVersion = labCommandDraftVersionRef.current
       const outputLines = [`> ${trimmed}`]
       cancelLabConsolePublication()
       labConsoleBufferRef.current = outputLines
@@ -2967,7 +2978,7 @@ function App() {
         // A command can finish while the document cannot paint frames.
         setEngineLabOutputLines(lines.length ? outputLines.slice() : [`> ${trimmed}`, '(no direct response)'])
         setLastLabRun({ command: trimmed, durationMs: Math.round(performance.now() - startTime) })
-        setEngineLabCommand('')
+        if (labCommandDraftVersionRef.current === draftVersion) setEngineLabCommand('')
       } catch (error) {
         if (labConsoleBufferRef.current !== outputLines) return
         cancelLabConsolePublication()
@@ -9326,7 +9337,7 @@ function App() {
                         spellCheck={false}
                         enterKeyHint="send"
                         value={engineLabCommand}
-                        onChange={e => setEngineLabCommand(e.target.value)}
+                        onChange={e => updateLabCommandDraft(e.target.value)}
                         placeholder="go depth 16"
                       />
                       <button type="submit">Send</button>
@@ -9387,7 +9398,7 @@ function App() {
                         <h4>History</h4>
                         <div className="lab-history-list">
                           {labCommandHistory.map(item => (
-                            <button key={item} type="button" onClick={() => setEngineLabCommand(item)}>
+                            <button key={item} type="button" onClick={() => updateLabCommandDraft(item)}>
                               {item}
                             </button>
                           ))}
