@@ -222,8 +222,9 @@ given, and the app answering the reader who touches it.
   again, including positions already evaluated. **Export review** downloads the
   reviewed branch with its report's scores and engine identity, plus target
   depth, total hash budget, completion status and reuse count. Comments and
-  clocks remain attached. Normal PGN export still exports the study's live
-  evaluations. Choose Save review to keep the report after this session.
+  clocks remain attached. If a download fails, the report remains available
+  and Export review explains how to retry. Normal PGN export still exports
+  the study's live evaluations. Choose Save review to keep the report after this session.
 - **Saved reviews and comparisons**: In Pro, **Save review** keeps the report,
   engine limits, WDL and reviewed branch on this device. Open **Saved reviews**
   to reopen a run, rename it for a study session, delete its stored copy, or

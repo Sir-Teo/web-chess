@@ -1338,6 +1338,91 @@ async function checkReviewUsesSelectedEngine(browser, controls = false) {
   }
 }
 
+async function checkReviewExportRecovery(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height } })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false,
+        engineProfile: 'lite-single-local', reviewMaxWorkers: 1, theme,
+      })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      const review = page.getByRole('button', { name: 'Review Game', exact: true })
+      await review.click()
+      await review.waitFor()
+      const report = await page.getByTestId('review-run-summary').innerText()
+      const source = await page.getByTestId('review-engine-source').innerText()
+      await page.evaluate(async scale => {
+        document.documentElement.style.fontSize = `${16 * scale}px`
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        window.__reviewExportCreated = []; window.__reviewExportRevoked = []
+        const create = URL.createObjectURL, revoke = URL.revokeObjectURL, click = HTMLAnchorElement.prototype.click
+        URL.createObjectURL = function (...args) {
+          if (window.__failReviewExport === 'url') throw new Error('QA review URL unavailable')
+          const url = create.apply(this, args)
+          window.__reviewExportCreated.push(url)
+          return url
+        }
+        URL.revokeObjectURL = function (url) { window.__reviewExportRevoked.push(url); return revoke.call(this, url) }
+        HTMLAnchorElement.prototype.click = function (...args) {
+          if (window.__failReviewExport === 'click' && this.download.endsWith('-review.pgn')) throw new Error('QA review download blocked')
+          return click.apply(this, args)
+        }
+      }, scale)
+      if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.hasAttribute('data-scroll-chrome'))
+      const exportButton = page.getByRole('button', { name: 'Export review', exact: true })
+      const error = page.getByRole('alert').filter({ hasText: 'The browser could not start the review download.' })
+      const cleaned = () => page.waitForFunction(() => window.__reviewExportCreated.length === window.__reviewExportRevoked.length
+        && !document.querySelector('a[download]'))
+      const commandsBefore = await page.evaluate(() => window.__uciCommands.length)
+      for (const mode of ['click', 'url']) {
+        await page.evaluate(mode => { window.__failReviewExport = mode }, mode)
+        await exportButton.focus()
+        await exportButton.press('Enter')
+        await error.waitFor()
+        await cleaned()
+        assert(await exportButton.getAttribute('aria-describedby') === await error.getAttribute('id'), 'review export failure is not associated with its retry button')
+        assert(await exportButton.isEnabled() && await exportButton.evaluate(el => el === document.activeElement), 'review export failure lost the enabled keyboard retry')
+        assert(await page.getByTestId('review-run-summary').innerText() === report && await page.getByTestId('review-engine-source').innerText() === source,
+          'failed review export changed the displayed report or producer')
+        assert(await page.evaluate(() => window.__uciCommands.length) === commandsBefore, 'review export dispatched an engine command')
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'review export guidance overflows enlarged text')
+      }
+      await error.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: `/tmp/web-chess-review-export-error-${width}-${scale}x.png` })
+      await page.evaluate(() => { window.__failReviewExport = null })
+      const downloaded = page.waitForEvent('download')
+      await exportButton.focus()
+      await exportButton.press('Space')
+      const file = await downloaded, pgn = fs.readFileSync(await file.path(), 'utf8')
+      const game = new (require('chess.js').Chess)(); game.loadPgn(pgn)
+      assert(game.history().join(' ') === 'e4', 'retry exported a different reviewed line')
+      assert(/-review\.pgn$/.test(file.suggestedFilename()) && pgn.includes('[WebChessReviewStatus "complete"]') && pgn.includes('[WebChessReviewDepth "16"]'), 'retry lost the review filename or run metadata')
+      assert([...pgn.matchAll(/\[%eval\s+([^\]]+)\]/g)].length === 2, 'retry omitted the reviewed position readings')
+      await cleaned()
+      assert(await error.count() === 0 && await exportButton.getAttribute('aria-describedby') === null, 'successful review retry retained failure feedback')
+      // A later report must not inherit this report's failed download.
+      await page.evaluate(() => { window.__failReviewExport = 'click' })
+      await exportButton.click()
+      await error.waitFor()
+      await cleaned()
+      await page.getByRole('button', { name: 'Fresh review', exact: true }).click()
+      await review.waitFor()
+      assert(await error.count() === 0 && await exportButton.getAttribute('aria-describedby') === null, 'a new report inherited an older export error')
+      assert(await page.getByTestId('review-engine-source').innerText() === source, 'export failure changed the fresh review producer')
+      assert(await page.getByRole('button', { name: 'Save review', exact: true }).isEnabled(), 'failed export prevented saving the report')
+      assert(errors.length === 0, `review export page errors: ${errors.join('; ')}`)
+      console.log(`  review export recovery (${width}×${height}, ${scale}x, ${theme}): URL/click failures explained and associated with enabled retry, resources cleaned, exact PGN/metadata downloaded on retry, no engine work or report changes, newer report clears older feedback`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkReviewListFollowsPosition(browser) {
   for (const [width, scale] of [[1280, 1], [1280, 2], [375, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -15662,6 +15747,7 @@ async function main() {
       'pv-reuse': checkPvPreviewAndCommit,
       'review-source': checkReviewUsesSelectedEngine,
       'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
+      'review-export-recovery': checkReviewExportRecovery,
       'review-list-scroll': checkReviewListFollowsPosition,
       'review-comparison': checkSavedReviews,
       'review-delete-focus': checkSavedReviewDeleteFocus,
@@ -16587,6 +16673,7 @@ async function main() {
     await checkTextCompositionKeys(browser)
     await checkRevealTimersRespectDialogs(browser)
     await checkRevealRetriesYieldToInteraction(browser)
+    await checkReviewExportRecovery(browser)
     await checkReviewListFollowsPosition(browser)
     await checkDialogResizeFocus(browser)
     await checkADatabaseIsAddedOnce(browser)

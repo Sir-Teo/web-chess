@@ -1684,6 +1684,8 @@ function App() {
    * rows should read live until it is.
    */
   const [frozenReview, setFrozenReview] = useState<ReviewSnapshot | null>(null)
+  const [failedReviewExport, setFailedReviewExport] = useState<ReviewSnapshot | null>(null)
+  const reviewExportErrorId = useId()
   const [runningReviewEvaluations, setRunningReviewEvaluations] = useState<Map<string, EvalSnapshot>>(new Map())
   const [batchReviewProgress, setBatchReviewProgress] = useState({ done: 0, total: 0 })
   // A percentage, because the Evaluated tile beside it shows a fraction of a
@@ -3388,6 +3390,8 @@ function App() {
   const reviewBookPrefixLength = Math.min(reviewLineUciMoves.length, REVIEW_BOOK_PREFETCH_LIMIT)
 
   const currentReviewReport = frozenReview?.lineEndId === reviewLineNodes.at(-1)?.id ? frozenReview : null
+  const reviewExportFailed = analysisExperience === 'pro' && !isBatchReviewing && currentReviewReport !== null
+    && failedReviewExport === currentReviewReport
 
   /**
    * The map the report is scored from: the frozen one when it belongs to the
@@ -3415,21 +3419,32 @@ function App() {
   )
   const downloadReview = useCallback(() => {
     if (!currentReviewReport) return
-    const pgn = exportReviewPgn(reviewLineNodes, currentReviewReport, {
-      ...pgnHeaders, Result: reviewsAVariation ? '*' : pgnHeaders.Result ?? '*',
-    }, reviewRows.map(row => row.quality))
-    if (!pgn) return
-    const url = URL.createObjectURL(new Blob([pgn], { type: 'application/x-chess-pgn;charset=utf-8' }))
-    const link = document.createElement('a')
-    link.href = url
-    // Use this reviewed branch's opening and the game's date when known,
-    // otherwise the day the review finished.
-    link.download = pgnDownloadFilename(pgnHeaders, reviewOpening?.name, new Date(currentReviewReport.finishedAt))
-      .replace(/\.pgn$/, '-review.pgn')
-    document.body.append(link)
-    link.click()
-    link.remove()
-    window.setTimeout(() => URL.revokeObjectURL(url), 0)
+    let url: string | undefined
+    let link: HTMLAnchorElement | undefined
+    try {
+      const pgn = exportReviewPgn(reviewLineNodes, currentReviewReport, {
+        ...pgnHeaders, Result: reviewsAVariation ? '*' : pgnHeaders.Result ?? '*',
+      }, reviewRows.map(row => row.quality))
+      if (!pgn) throw new Error('No review PGN was produced.')
+      url = URL.createObjectURL(new Blob([pgn], { type: 'application/x-chess-pgn;charset=utf-8' }))
+      link = document.createElement('a')
+      link.href = url
+      // Use this reviewed branch's opening and the game's date when known,
+      // otherwise the day the review finished.
+      link.download = pgnDownloadFilename(pgnHeaders, reviewOpening?.name, new Date(currentReviewReport.finishedAt))
+        .replace(/\.pgn$/, '-review.pgn')
+      document.body.append(link)
+      link.click()
+      setFailedReviewExport(null)
+    } catch {
+      setFailedReviewExport(currentReviewReport)
+    } finally {
+      link?.remove()
+      if (url) {
+        const downloadUrl = url
+        window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0)
+      }
+    }
   }, [currentReviewReport, reviewOpening?.name, pgnHeaders, reviewLineNodes, reviewRows, reviewsAVariation])
   const visibleReviewRows = useMemo(
     () => filterReviewRowsBySide(reviewRows, reviewSideFilter),
@@ -9121,11 +9136,17 @@ function App() {
                           <IconSearch /> Fresh review
                         </button>
                         <button type="button" onClick={downloadReview}
+                          aria-describedby={reviewExportFailed ? reviewExportErrorId : undefined}
                           disabled={isBatchReviewing || !currentReviewReport}
                           title={currentReviewReport ? 'Download the reviewed line with this report’s scores and engine identity.' : 'Review this line first.'}>
                           <IconDownload /> Export review
                         </button>
                       </div>
+                    )}
+                    {reviewExportFailed && (
+                      <p id={reviewExportErrorId} className="panel-copy small error-copy" role="alert">
+                        The browser could not start the review download. Try Export review again.
+                      </p>
                     )}
                     {analysisExperience === 'pro' && (
                       <SavedReviews line={reviewLineNodes} report={currentReviewReport}
