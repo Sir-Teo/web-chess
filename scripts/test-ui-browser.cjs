@@ -7786,7 +7786,7 @@ async function checkPerftStopReleasesWorker(browser) {
         await submit(text)
         await output.filter({ hasText: 'a2a3: 446326047' }).waitFor()
         await page.evaluate(() => { window.__oldPerftEngine = window.__consoleEngine })
-        await command.fill(typed ? 'stop' : 'isready')
+        await command.fill(typed ? 'StOp' : 'isready')
         if (typed) await command.press('Enter')
         else await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
         await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'unloaded')
@@ -8364,7 +8364,7 @@ async function checkConsoleDraftOwnership(browser) {
         await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
         await output.filter({ hasText: 'score cp 900' }).waitFor()
       }
-      for (const mode of ['untouched', 'different', 'retyped', 'history', 'stop', 'typed-stop', 'typed-stop-next']) {
+      for (const mode of ['untouched', 'different', 'retyped', 'history', 'stop', 'typed-stop', 'typed-stop-upper', 'typed-stop-mixed', 'typed-stop-next']) {
         stage = mode
         await start()
         let expected = ''
@@ -8372,9 +8372,9 @@ async function checkConsoleDraftOwnership(browser) {
         if (mode === 'retyped') { expected = search; await command.fill('d'); await command.fill(search) }
         if (mode === 'history') { expected = search; await page.locator('.lab-history-list').getByRole('button', { name: search, exact: true }).click() }
         if (mode === 'stop') { expected = 'd'; await command.fill(expected) }
-        if (mode === 'typed-stop' || mode === 'typed-stop-next') {
+        if (mode.startsWith('typed-stop')) {
           if (mode === 'typed-stop-next') await page.evaluate(() => { window.__holdConsoleStopAck = true; window.__releaseConsoleStop = null })
-          await command.fill('stop')
+          await command.fill(mode === 'typed-stop-upper' ? 'STOP' : mode === 'typed-stop-mixed' ? 'StOp' : 'stop')
           await command.press('Enter')
           if (mode === 'typed-stop-next') {
             await page.waitForFunction(() => typeof window.__releaseConsoleStop === 'function')
@@ -8487,6 +8487,17 @@ async function checkConsoleLimitParsing(browser) {
         await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
         await ready()
       }
+      await submit('go perft 0')
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
+      await visibility('hidden')
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'paused')
+      const pausedSearches = await count('go perft 0')
+      await submit('  StOp  ')
+      await ready()
+      await visibility('visible')
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      assert(await count('go perft 0') === pausedSearches, 'mixed-case Stop retained a paused console search')
+      assert(await count('StOp') === 0, 'mixed-case Stop reached the case-sensitive native protocol')
       await submit('go perft 0 depth 1')
       await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
       const stops = await count('stop')

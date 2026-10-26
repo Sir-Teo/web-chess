@@ -2943,7 +2943,9 @@ function App() {
         setEngineLabError('Engine Lab is available only in Analysis mode.')
         return
       }
-      const trimmed = command.trim()
+      // Stop is an app action as well as a UCI command. Match the busy guard's
+      // case-insensitive intent before handing it to the lowercase protocol.
+      const trimmed = command.trim().replace(/^stop$/i, 'stop')
       if (!trimmed) return
       setEngineLabError(null)
       if (status === 'unloaded') {

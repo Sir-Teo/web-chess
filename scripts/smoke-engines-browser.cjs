@@ -51,7 +51,7 @@ async function checkNativeConsoleLimits(page) {
       await visibility('visible')
       await page.waitForFunction(({ text, searches }) => window.__smokeCommands.filter(command => command === text).length === searches + 1, { text, searches })
       if (text === 'go perft 0') {
-        await submit('stop')
+        await submit('StOp')
         await command.fill('isready')
       } else {
         await command.fill('isready')

@@ -1,0 +1,11 @@
+Error: Console draft check failed during typed-stop-upper: {"status":"analyzing","input":"STOP","output":"> STOP\n(no response before error)","commands":["uci","isready","position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1","go depth 12"]}
+    at Object.checkConsoleDraftOwnership (/workspace/web-chess/scripts/test-ui-browser.cjs:8428:13)
+    at async main (/tmp/web-chess-stop-case-before.cjs:10:191) {
+  [cause]: page.waitForFunction: Timeout 3000ms exceeded.
+      at ready (/workspace/web-chess/scripts/test-ui-browser.cjs:8353:32)
+      at Object.checkConsoleDraftOwnership (/workspace/web-chess/scripts/test-ui-browser.cjs:8388:15)
+      at async main (/tmp/web-chess-stop-case-before.cjs:10:191) {
+    log: [],
+    name: 'TimeoutError'
+  }
+}
