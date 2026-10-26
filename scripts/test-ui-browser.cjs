@@ -6311,6 +6311,46 @@ async function checkKeepSearchingIsUnbounded(browser) {
   console.log(`  keep searching: off asks for "${bounded}", on asks for "${unbounded}"`)
 }
 
+async function checkReplaySpeedAfterStep(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ autoAnalyze: false })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+      await startGameMode(page, 'Human vs AI')
+      await page.getByRole('button', { name: 'Set AI speed to Step', exact: true }).click()
+      await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+      await page.locator('.move-entry summary').click()
+      for (const [move, square] of [['e4', 'e4'], ['e5', 'e5'], ['Nf3', 'f3'], ['Nc6', 'c6']]) {
+        await page.locator('.move-entry input').fill(move)
+        await page.locator('.move-entry input').press('Enter')
+        await page.locator(`#chessboard-square-${square} [data-piece]`).waitFor()
+      }
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).click()
+      await page.getByRole('button', { name: 'Set autoplay speed to Normal', pressed: true }).waitFor()
+      assert(await page.locator('.wc-speed-pill[aria-pressed="true"]').count() === 1, 'replay has no unique selected speed')
+      await page.getByRole('button', { name: 'Stop autoplay', exact: true }).click()
+      await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+      await page.getByRole('button', { name: 'Set AI speed to Step', pressed: true }).waitFor()
+      await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+      const first = page.getByRole('button', { name: 'Go to first position', exact: true })
+      if (await first.isEnabled()) await first.click()
+      await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).click()
+      await page.getByRole('button', { name: 'Set autoplay speed to Fast', exact: true }).click()
+      await page.getByRole('button', { name: 'Set autoplay speed to Fast', pressed: true }).waitFor()
+      await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).waitFor()
+      assert(await page.locator('#chessboard-square-c6 [data-piece="bN"]').count() === 1
+        && await page.getByRole('button', { name: 'Go to next move', exact: true }).isDisabled(), 'fast replay did not reach the final move')
+      console.log(`  autoplay speed (${width}px, ${scale}x): Normal fallback selected, AI Step retained, Fast walks to the end`)
+    } finally { await context.close() }
+  }
+}
+
 /**
  * Autoplay is the Next button on a timer, offered wherever no engine is on
  * move. Two moves are played pass-and-play, the board goes to Analysis and
@@ -13089,6 +13129,8 @@ async function main() {
       'graph-guide': checkGraphEstimateGuide,
       'board-canvas': checkBoardCanvas,
       'typed-moves': checkTypedMoveEntry,
+      'autoplay': checkAutoplayWalksTheLine,
+      'autoplay-speed': checkReplaySpeedAfterStep,
       'takeback-result': checkTakingBackAMateUnfinishesTheGame,
       'result-ownership': checkAResultBelongsToItsOwnGame,
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
@@ -13854,6 +13896,7 @@ async function main() {
     await checkNavigationKeepsTheClockHonest(browser)
     await checkKeepSearchingIsUnbounded(browser)
     await checkAutoplayWalksTheLine(browser)
+    await checkReplaySpeedAfterStep(browser)
     await checkTypedMoveLands(browser)
     await checkMoveTimesAreGraphed(browser)
     await checkResignationEndsTakeback(browser)

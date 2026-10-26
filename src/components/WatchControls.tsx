@@ -66,6 +66,9 @@ export function WatchControls({
     // The engine's controls and the replay's are never both on offer: one
     // plays moves, the other walks the ones already there.
     const replayOffered = !aiActive && Boolean(onAutoplayToggle) && (canAutoplay || autoplay)
+    // Replays use Normal's delay for the AI's manual Step setting. Show that
+    // effective speed without changing the setting when returning to AI play.
+    const displayedSpeed = !aiActive && aiSpeed === 'step' ? 'normal' : aiSpeed
     return (
         <div className="watch-controls" onFocus={event => {
             const strip = event.currentTarget
@@ -150,9 +153,9 @@ export function WatchControls({
                         <button
                             key={id}
                             type="button"
-                            className={`wc-speed-pill ${aiSpeed === id ? 'wc-speed-active' : ''}`}
+                            className={`wc-speed-pill ${displayedSpeed === id ? 'wc-speed-active' : ''}`}
                             aria-label={`Set ${aiActive ? 'AI' : 'autoplay'} speed to ${label}`}
-                            aria-pressed={aiSpeed === id}
+                            aria-pressed={displayedSpeed === id}
                             onClick={() => onSpeedChange(id)}
                         >
                             {label}

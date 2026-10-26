@@ -1,0 +1,38 @@
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 191 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-xH5xZh9_.js   60.12 kB
+dist/assets/LibraryDialog-BCEY11vH.css        4.23 kB │ gzip:   1.17 kB
+dist/assets/index-CJY1v7ca.css              130.41 kB │ gzip:  24.27 kB
+dist/assets/NewGameDialog-CiuPt6gc.js         4.25 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-DP_yLoHF.js        10.23 kB │ gzip:   3.67 kB
+dist/assets/PgnDialog-DZ_aoRW4.js            28.68 kB │ gzip:   9.67 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-B9ZkW3xc.js               378.04 kB │ gzip: 121.89 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 3.43s
+  autoplay speed (1280px, 1x): Normal fallback selected, AI Step retained, Fast walks to the end
+  autoplay speed (375px, 1x): Normal fallback selected, AI Step retained, Fast walks to the end
+  autoplay speed (375px, 2x): Normal fallback selected, AI Step retained, Fast walks to the end
+  autoplay: walked to the end of the line and stopped
+  contrast (Dark / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 1280px): 141 measured, 0 under the floor (124 on a gradient, measured against its worst stop)
+  typed moves (1280px, Dark): SAN, UCI, invalid input, focus and navigation OK
+  contrast (Dark / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 375px): 138 measured, 0 under the floor (120 on a gradient, measured against its worst stop)
+  typed moves (375px, Dark): SAN, UCI, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 1280px): 141 measured, 0 under the floor (124 on a gradient, measured against its worst stop)
+  typed moves (1280px, Light): SAN, UCI, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 375px): 150 measured, 0 under the floor (132 on a gradient, measured against its worst stop)
+  typed moves (375px, Light): SAN, UCI, invalid input, focus and navigation OK
+Focused browser UI checks passed.

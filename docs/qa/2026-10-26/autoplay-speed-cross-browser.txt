@@ -1,0 +1,6 @@
+  autoplay speed (1280px, 1x): Normal fallback selected, AI Step retained, Fast walks to the end
+  autoplay speed (375px, 1x): Normal fallback selected, AI Step retained, Fast walks to the end
+  autoplay speed (375px, 2x): Normal fallback selected, AI Step retained, Fast walks to the end
+  autoplay speed (1280px, 1x): Normal fallback selected, AI Step retained, Fast walks to the end
+  autoplay speed (375px, 1x): Normal fallback selected, AI Step retained, Fast walks to the end
+  autoplay speed (375px, 2x): Normal fallback selected, AI Step retained, Fast walks to the end
