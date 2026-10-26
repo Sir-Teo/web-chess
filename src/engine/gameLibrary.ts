@@ -513,16 +513,34 @@ export function createLibraryBackup(games: LibraryGame[]): string {
   return parts[0]
 }
 
-export function parseLibraryBackup(json: string, now = 0): LibraryGame[] {
-  if (typeof json !== 'string' || json.length > MAX_LIBRARY_BACKUP_LENGTH) return []
+export type LibraryBackupReadResult =
+  | { ok: true; games: LibraryGame[] }
+  | { ok: false; error: string }
+
+/** Read an import envelope without confusing an unsupported backup with a PGN. */
+export function readLibraryBackup(json: string, now = 0): LibraryBackupReadResult {
+  const wrongFile = { ok: false, error: 'This is not a Web Chess library backup. Review backups and PGNs use their own import controls.' } as const
+  if (typeof json !== 'string') return wrongFile
+  const offset = json.charCodeAt(0) === 0xFEFF ? 1 : 0
+  if (json.length - offset > MAX_LIBRARY_BACKUP_LENGTH) return { ok: false, error: 'That backup is too large. Import one exported backup part at a time.' }
   let parsed: unknown
   try {
-    parsed = JSON.parse(json)
+    parsed = JSON.parse(offset ? json.slice(offset) : json)
   } catch {
-    return []
+    return wrongFile
   }
-  if (!isRecord(parsed) || parsed.format !== LIBRARY_BACKUP_FORMAT) return []
-  return normalizeLibraryGames(parsed.games, now)
+  if (!isRecord(parsed) || parsed.format !== LIBRARY_BACKUP_FORMAT) return wrongFile
+  if (parsed.version !== LIBRARY_BACKUP_VERSION) return { ok: false, error: 'This library backup uses an unsupported version. Nothing was imported.' }
+  if (!Array.isArray(parsed.games)) return { ok: false, error: 'The library backup is incomplete or damaged. Nothing was imported.' }
+  const games = normalizeLibraryGames(parsed.games, now)
+  if (parsed.games.length > 0 && games.length === 0) return { ok: false, error: 'No saved games could be read from this library backup.' }
+  return { ok: true, games }
+}
+
+/** Storage/fuzz callers retain the non-throwing, empty-array fallback. */
+export function parseLibraryBackup(json: string, now = 0): LibraryGame[] {
+  const result = readLibraryBackup(json, now)
+  return result.ok ? result.games : []
 }
 
 /**

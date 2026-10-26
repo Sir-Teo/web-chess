@@ -5108,6 +5108,62 @@ async function checkImportDraftOwnership(browser) {
   }
 }
 
+async function checkLibraryBackupEnvelope(browser) {
+  const envelope = games => ({ format: 'web-chess-library', version: 1, games })
+  const kept = { id: 'envelope-kept', name: 'Protected café study', pgn: '[White "José"]\n\n1. Nf3 d5 *', createdAt: 1, updatedAt: 1, favorite: true }
+  const incoming = { id: 'envelope-incoming', name: 'Recovered Réti', pgn: '[Event "Łódź"]\n\n1. e4 e5 *', createdAt: 2, updatedAt: 2, favorite: false }
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [375, 2, 'dark'], [320, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      const dialog = page.locator('.library-dialog'), input = dialog.locator('input[type="file"]')
+      const importFile = text => input.setInputFiles({ name: 'library.json', mimeType: 'application/json', buffer: Buffer.from(text, 'utf8') })
+      const exportFile = async () => {
+        const downloaded = page.waitForEvent('download')
+        await dialog.getByRole('button', { name: 'Export backup', exact: true }).click()
+        return fs.readFileSync(await (await downloaded).path(), 'utf8')
+      }
+      await importFile('\uFEFF' + JSON.stringify(envelope([kept])))
+      await dialog.getByRole('button', { name: `Load ${kept.name}`, exact: true }).waitFor()
+      const before = await exportFile()
+      const missingVersion = envelope([incoming]); delete missingVersion.version
+      for (const [text, message] of [
+        [JSON.stringify({ ...envelope([incoming]), version: 2 }), 'unsupported version'],
+        [JSON.stringify({ ...envelope([incoming]), version: '1' }), 'unsupported version'],
+        [JSON.stringify(missingVersion), 'unsupported version'],
+        [JSON.stringify(envelope({})), 'incomplete or damaged'],
+        [JSON.stringify(envelope([])), 'contains no saved games'],
+        [JSON.stringify(envelope([null, { pgn: 5 }])), 'No saved games could be read'],
+        [JSON.stringify({ ...envelope([incoming]), format: 'web-chess-review' }), 'not a Web Chess library backup'],
+        ['{not JSON', 'not a Web Chess library backup'],
+      ]) {
+        await importFile(text)
+        await dialog.getByRole('alert').filter({ hasText: message }).waitFor()
+        assert(await dialog.locator('.library-row').count() === 1 && await dialog.getByRole('button', { name: `Load ${kept.name}`, exact: true }).count() === 1, `rejected ${message} changed the library`)
+        assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'backup import changed the current board')
+      }
+      assert(await exportFile() === before, 'rejected backup envelopes changed the original exported records')
+      await importFile(JSON.stringify(envelope([incoming])))
+      await dialog.getByRole('button', { name: `Load ${incoming.name}`, exact: true }).waitFor()
+      assert(await dialog.locator('.library-row').count() === 2 && await dialog.getByRole('alert').count() === 0, 'a supported retry did not clear the failure and retain both games')
+      const after = JSON.parse(await exportFile())
+      assert(after.version === 1 && after.games.length === 2 && after.games.find(game => game.id === kept.id)?.pgn === kept.pgn && after.games.find(game => game.id === incoming.id)?.pgn === incoming.pgn, 'supported retry changed Unicode headers or an existing game')
+      await dialog.getByRole('button', { name: `Load ${incoming.name}`, exact: true }).click()
+      await dialog.waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+      assert(errors.length === 0, `backup envelope errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'backup envelope feedback overflows')
+      console.log(`  backup envelope (${width}px, ${scale}x, ${theme}): actual BOM file import; specific unsupported/missing/string version, damaged, empty, unreadable and wrong-file errors; unchanged original backup/board; supported retry retains both Unicode games and actually loads`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkLibraryBackupLimits(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -14717,6 +14773,7 @@ async function main() {
       'hint-copy': checkAHintSaysWhereToLookOnlyIfItIsDrawn,
       'library-backup': checkTheLibrarySurvivesABackup,
       'library-backup-limits': checkLibraryBackupLimits,
+      'backup-envelope': checkLibraryBackupEnvelope,
       'export-roundtrip': checkAnExportedGameComesBack,
       'autosave-roundtrip': checkAnInterruptedGameComesBack,
       'recovery-export': checkFailedRecoveryExport,
@@ -15504,6 +15561,7 @@ async function main() {
     await checkAFailedLookupSaysSoPlainly(browser)
     await checkTheLibrarySurvivesABackup(browser)
     await checkLibraryBackupLimits(browser)
+    await checkLibraryBackupEnvelope(browser)
     await checkOneGestureSavesOneGame(browser)
     await checkLibraryEditing(browser)
     await checkInternationalLibrarySearch(browser)

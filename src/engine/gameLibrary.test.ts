@@ -19,6 +19,7 @@ import {
   mergeLibraryBackup,
   normalizeLibraryGames,
   parseLibraryBackup,
+  readLibraryBackup,
   parsePgnHeaders,
   pgnVariantName,
   sortLibraryGames,
@@ -278,6 +279,41 @@ describe('searching and sorting', () => {
 })
 
 describe('backup round trip', () => {
+  it.each([
+    ['not json', 'not a Web Chess library backup'],
+    [JSON.stringify({ format: 'web-chess-review', version: 1, games: [] }), 'not a Web Chess library backup'],
+    [JSON.stringify({ format: 'web-chess-library', version: 2, games: [] }), 'unsupported version'],
+    [JSON.stringify({ format: 'web-chess-library', version: 1, games: {} }), 'incomplete or damaged'],
+    [JSON.stringify({ format: 'web-chess-library', version: 1, games: [null, { pgn: 5 }] }), 'No saved games could be read'],
+  ])('explains a rejected backup envelope: %s', (text, message) => {
+    const result = readLibraryBackup(text)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toContain(message)
+  })
+
+  it('recognizes an empty exported backup without calling it the wrong file', () => {
+    expect(readLibraryBackup(createLibraryBackup([]))).toEqual({ ok: true, games: [] })
+  })
+
+  it('accepts a UTF-8 byte-order mark without changing the restored Unicode game', () => {
+    const game = createLibraryGame('Réti — Łódź', PGN, 7)
+    const backup = createLibraryBackup([game])
+    expect(parseLibraryBackup('\uFEFF' + backup)).toEqual(parseLibraryBackup(backup))
+    expect(parseLibraryBackup('\uFEFF' + backup)[0]?.name).toBe(game.name)
+  })
+
+  it('keeps the decoded backup limit when a byte-order mark is present', () => {
+    const backup = createLibraryBackup([createLibraryGame('Study', PGN, 7)]).padEnd(MAX_LIBRARY_BACKUP_LENGTH, ' ')
+    expect(parseLibraryBackup('\uFEFF' + backup)).toHaveLength(1)
+    expect(readLibraryBackup('\uFEFF' + backup + ' ')).toMatchObject({ ok: false, error: expect.stringContaining('too large') })
+  })
+
+  it.each([0, 2, -1, '1', null, undefined])('refuses an unsupported backup version: %s', version => {
+    const backup = JSON.parse(createLibraryBackup([createLibraryGame('Study', PGN, 7)]))
+    backup.version = version
+    expect(parseLibraryBackup(JSON.stringify(backup))).toEqual([])
+  })
+
   it('restores the games it wrote', () => {
     const games = [createLibraryGame('Evergreen', PGN, 7)]
     const restored = parseLibraryBackup(createLibraryBackup(games))

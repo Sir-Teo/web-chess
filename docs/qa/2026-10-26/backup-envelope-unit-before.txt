@@ -1,0 +1,391 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/gameLibrary.test.ts (90 tests | 7 failed) 829ms
+     × accepts a UTF-8 byte-order mark without changing the restored Unicode game 9ms
+     × refuses an unsupported backup version: 0 2ms
+     × refuses an unsupported backup version: 2 1ms
+     × refuses an unsupported backup version: -1 1ms
+     × refuses an unsupported backup version: 1 1ms
+     × refuses an unsupported backup version: null 1ms
+     × refuses an unsupported backup version: undefined 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > backup round trip > accepts a UTF-8 byte-order mark without changing the restored Unicode game
+AssertionError: expected [] to deeply equal [ { id: 'game-7-c', …(8) } ]
+
+- Expected
++ Received
+
+- [
+-   {
+-     "createdAt": 7,
+-     "favorite": false,
+-     "id": "game-7-c",
+-     "metadata": {
+-       "black": "Jean Dufresne",
+-       "blackElo": undefined,
+-       "date": "1852.??.??",
+-       "eco": "C52",
+-       "event": "Casual Game",
+-       "opening": undefined,
+-       "result": "1-0",
+-       "round": undefined,
+-       "site": "Berlin GER",
+-       "white": "Adolf Anderssen",
+-       "whiteElo": 2600,
+-     },
+-     "moveCount": 10,
+-     "name": "Réti — Łódź",
+-     "pgn": "[Event \"Casual Game\"]
+- [Site \"Berlin GER\"]
+- [Date \"1852.??.??\"]
+- [Round \"?\"]
+- [White \"Adolf Anderssen\"]
+- [Black \"Jean Dufresne\"]
+- [Result \"1-0\"]
+- [WhiteElo \"2600\"]
+- [ECO \"C52\"]
+-
+- 1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Ba5 1-0",
+-     "size": 225,
+-     "updatedAt": 7,
+-   },
+- ]
++ []
+
+ ❯ src/engine/gameLibrary.test.ts:284:51
+    282|     const game = createLibraryGame('Réti — Łódź', PGN, 7)
+    283|     const backup = createLibraryBackup([game])
+    284|     expect(parseLibraryBackup('\uFEFF' + backup)).toEqual(parseLibrary…
+       |                                                   ^
+    285|     expect(parseLibraryBackup('\uFEFF' + backup)[0]?.name).toBe(game.n…
+    286|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > backup round trip > refuses an unsupported backup version: 0
+AssertionError: expected [ { id: 'game-7-d', …(8) } ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   {
++     "createdAt": 7,
++     "favorite": false,
++     "id": "game-7-d",
++     "metadata": {
++       "black": "Jean Dufresne",
++       "blackElo": undefined,
++       "date": "1852.??.??",
++       "eco": "C52",
++       "event": "Casual Game",
++       "opening": undefined,
++       "result": "1-0",
++       "round": undefined,
++       "site": "Berlin GER",
++       "white": "Adolf Anderssen",
++       "whiteElo": 2600,
++     },
++     "moveCount": 10,
++     "name": "Study",
++     "pgn": "[Event \"Casual Game\"]
++ [Site \"Berlin GER\"]
++ [Date \"1852.??.??\"]
++ [Round \"?\"]
++ [White \"Adolf Anderssen\"]
++ [Black \"Jean Dufresne\"]
++ [Result \"1-0\"]
++ [WhiteElo \"2600\"]
++ [ECO \"C52\"]
++
++ 1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Ba5 1-0",
++     "size": 225,
++     "updatedAt": 7,
++   },
++ ]
+
+ ❯ src/engine/gameLibrary.test.ts:291:56
+    289|     const backup = JSON.parse(createLibraryBackup([createLibraryGame('…
+    290|     backup.version = version
+    291|     expect(parseLibraryBackup(JSON.stringify(backup))).toEqual([])
+       |                                                        ^
+    292|   })
+    293|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > backup round trip > refuses an unsupported backup version: 2
+AssertionError: expected [ { id: 'game-7-e', …(8) } ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   {
++     "createdAt": 7,
++     "favorite": false,
++     "id": "game-7-e",
++     "metadata": {
++       "black": "Jean Dufresne",
++       "blackElo": undefined,
++       "date": "1852.??.??",
++       "eco": "C52",
++       "event": "Casual Game",
++       "opening": undefined,
++       "result": "1-0",
++       "round": undefined,
++       "site": "Berlin GER",
++       "white": "Adolf Anderssen",
++       "whiteElo": 2600,
++     },
++     "moveCount": 10,
++     "name": "Study",
++     "pgn": "[Event \"Casual Game\"]
++ [Site \"Berlin GER\"]
++ [Date \"1852.??.??\"]
++ [Round \"?\"]
++ [White \"Adolf Anderssen\"]
++ [Black \"Jean Dufresne\"]
++ [Result \"1-0\"]
++ [WhiteElo \"2600\"]
++ [ECO \"C52\"]
++
++ 1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Ba5 1-0",
++     "size": 225,
++     "updatedAt": 7,
++   },
++ ]
+
+ ❯ src/engine/gameLibrary.test.ts:291:56
+    289|     const backup = JSON.parse(createLibraryBackup([createLibraryGame('…
+    290|     backup.version = version
+    291|     expect(parseLibraryBackup(JSON.stringify(backup))).toEqual([])
+       |                                                        ^
+    292|   })
+    293|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > backup round trip > refuses an unsupported backup version: -1
+AssertionError: expected [ { id: 'game-7-f', …(8) } ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   {
++     "createdAt": 7,
++     "favorite": false,
++     "id": "game-7-f",
++     "metadata": {
++       "black": "Jean Dufresne",
++       "blackElo": undefined,
++       "date": "1852.??.??",
++       "eco": "C52",
++       "event": "Casual Game",
++       "opening": undefined,
++       "result": "1-0",
++       "round": undefined,
++       "site": "Berlin GER",
++       "white": "Adolf Anderssen",
++       "whiteElo": 2600,
++     },
++     "moveCount": 10,
++     "name": "Study",
++     "pgn": "[Event \"Casual Game\"]
++ [Site \"Berlin GER\"]
++ [Date \"1852.??.??\"]
++ [Round \"?\"]
++ [White \"Adolf Anderssen\"]
++ [Black \"Jean Dufresne\"]
++ [Result \"1-0\"]
++ [WhiteElo \"2600\"]
++ [ECO \"C52\"]
++
++ 1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Ba5 1-0",
++     "size": 225,
++     "updatedAt": 7,
++   },
++ ]
+
+ ❯ src/engine/gameLibrary.test.ts:291:56
+    289|     const backup = JSON.parse(createLibraryBackup([createLibraryGame('…
+    290|     backup.version = version
+    291|     expect(parseLibraryBackup(JSON.stringify(backup))).toEqual([])
+       |                                                        ^
+    292|   })
+    293|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > backup round trip > refuses an unsupported backup version: 1
+AssertionError: expected [ { id: 'game-7-g', …(8) } ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   {
++     "createdAt": 7,
++     "favorite": false,
++     "id": "game-7-g",
++     "metadata": {
++       "black": "Jean Dufresne",
++       "blackElo": undefined,
++       "date": "1852.??.??",
++       "eco": "C52",
++       "event": "Casual Game",
++       "opening": undefined,
++       "result": "1-0",
++       "round": undefined,
++       "site": "Berlin GER",
++       "white": "Adolf Anderssen",
++       "whiteElo": 2600,
++     },
++     "moveCount": 10,
++     "name": "Study",
++     "pgn": "[Event \"Casual Game\"]
++ [Site \"Berlin GER\"]
++ [Date \"1852.??.??\"]
++ [Round \"?\"]
++ [White \"Adolf Anderssen\"]
++ [Black \"Jean Dufresne\"]
++ [Result \"1-0\"]
++ [WhiteElo \"2600\"]
++ [ECO \"C52\"]
++
++ 1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Ba5 1-0",
++     "size": 225,
++     "updatedAt": 7,
++   },
++ ]
+
+ ❯ src/engine/gameLibrary.test.ts:291:56
+    289|     const backup = JSON.parse(createLibraryBackup([createLibraryGame('…
+    290|     backup.version = version
+    291|     expect(parseLibraryBackup(JSON.stringify(backup))).toEqual([])
+       |                                                        ^
+    292|   })
+    293|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > backup round trip > refuses an unsupported backup version: null
+AssertionError: expected [ { id: 'game-7-h', …(8) } ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   {
++     "createdAt": 7,
++     "favorite": false,
++     "id": "game-7-h",
++     "metadata": {
++       "black": "Jean Dufresne",
++       "blackElo": undefined,
++       "date": "1852.??.??",
++       "eco": "C52",
++       "event": "Casual Game",
++       "opening": undefined,
++       "result": "1-0",
++       "round": undefined,
++       "site": "Berlin GER",
++       "white": "Adolf Anderssen",
++       "whiteElo": 2600,
++     },
++     "moveCount": 10,
++     "name": "Study",
++     "pgn": "[Event \"Casual Game\"]
++ [Site \"Berlin GER\"]
++ [Date \"1852.??.??\"]
++ [Round \"?\"]
++ [White \"Adolf Anderssen\"]
++ [Black \"Jean Dufresne\"]
++ [Result \"1-0\"]
++ [WhiteElo \"2600\"]
++ [ECO \"C52\"]
++
++ 1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Ba5 1-0",
++     "size": 225,
++     "updatedAt": 7,
++   },
++ ]
+
+ ❯ src/engine/gameLibrary.test.ts:291:56
+    289|     const backup = JSON.parse(createLibraryBackup([createLibraryGame('…
+    290|     backup.version = version
+    291|     expect(parseLibraryBackup(JSON.stringify(backup))).toEqual([])
+       |                                                        ^
+    292|   })
+    293|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > backup round trip > refuses an unsupported backup version: undefined
+AssertionError: expected [ { id: 'game-7-i', …(8) } ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   {
++     "createdAt": 7,
++     "favorite": false,
++     "id": "game-7-i",
++     "metadata": {
++       "black": "Jean Dufresne",
++       "blackElo": undefined,
++       "date": "1852.??.??",
++       "eco": "C52",
++       "event": "Casual Game",
++       "opening": undefined,
++       "result": "1-0",
++       "round": undefined,
++       "site": "Berlin GER",
++       "white": "Adolf Anderssen",
++       "whiteElo": 2600,
++     },
++     "moveCount": 10,
++     "name": "Study",
++     "pgn": "[Event \"Casual Game\"]
++ [Site \"Berlin GER\"]
++ [Date \"1852.??.??\"]
++ [Round \"?\"]
++ [White \"Adolf Anderssen\"]
++ [Black \"Jean Dufresne\"]
++ [Result \"1-0\"]
++ [WhiteElo \"2600\"]
++ [ECO \"C52\"]
++
++ 1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Ba5 1-0",
++     "size": 225,
++     "updatedAt": 7,
++   },
++ ]
+
+ ❯ src/engine/gameLibrary.test.ts:291:56
+    289|     const backup = JSON.parse(createLibraryBackup([createLibraryGame('…
+    290|     backup.version = version
+    291|     expect(parseLibraryBackup(JSON.stringify(backup))).toEqual([])
+       |                                                        ^
+    292|   })
+    293|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 83 passed (90)
+   Start at  17:40:28
+   Duration  1.28s (transform 245ms, setup 0ms, import 301ms, tests 829ms, environment 0ms)
+

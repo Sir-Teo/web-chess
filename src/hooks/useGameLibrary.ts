@@ -10,7 +10,7 @@ import {
   getUniqueGameName,
   mergeLibraryBackup,
   normalizeLibraryGames,
-  parseLibraryBackup,
+  readLibraryBackup,
   suggestGameName,
 } from '../engine/gameLibrary'
 import { libraryImportNote, pgnVariantName } from '../engine/gameLibrary'
@@ -184,23 +184,13 @@ export function useGameLibrary() {
   }, [commit])
 
   const importBackup = useCallback((json: string): LibraryWriteResult => {
-    const restored = parseLibraryBackup(json, Date.now())
-    /*
-     * Say where the right control is, the way the review importer does.
-     *
-     * Its answer to a wrong file -- "This is not a Web Chess review backup.
-     * Game-library backups and PGNs use their own import controls." -- names
-     * the file it wanted and points at the two it did not. This said only that
-     * the file was wrong, which is true and leaves a reader holding a file
-     * they were told nothing about, in an app with three import controls that
-     * all take a file.
-     *
-     * The three kinds are easy to confuse and easy to name, so name them.
-     */
+    const backup = readLibraryBackup(json, Date.now())
+    if (!backup.ok) return backup
+    const restored = backup.games
     if (!restored.length) {
       return {
         ok: false,
-        error: 'This is not a Web Chess library backup. Review backups and PGNs use their own import controls.',
+        error: 'This library backup contains no saved games.',
       }
     }
 
