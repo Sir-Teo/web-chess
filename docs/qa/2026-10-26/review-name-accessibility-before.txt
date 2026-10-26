@@ -1,0 +1,5 @@
+Error: review-name failure is not associated with the focused invalid field
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkSavedReviewRenaming (/workspace/web-chess/scripts/test-ui-browser.cjs:1884:323)
+    at async /tmp/web-chess-review-name-accessibility-check.cjs:1:1660

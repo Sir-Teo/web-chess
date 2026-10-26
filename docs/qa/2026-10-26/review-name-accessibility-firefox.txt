@@ -1,0 +1,6 @@
+{"width":1280,"step":"rejected","invalid":"true","description":"That name makes this saved review too large. Choose a shorter name.","focus":true}
+{"width":1280,"step":"edited","invalid":"false","description":null}
+  review naming (1280px): selected draft/cancel, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery
+{"width":375,"step":"rejected","invalid":"true","description":"That name makes this saved review too large. Choose a shorter name.","focus":true}
+{"width":375,"step":"edited","invalid":"false","description":null}
+  review naming (375px): selected draft/cancel, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery

@@ -16,6 +16,7 @@ export function SavedReviewNameEditor({ title, disabled, onRename }: {
   const trigger = useRef<HTMLButtonElement>(null)
   const returnFocus = useRef(false)
   const id = useId()
+  const errorId = `${id}-error`
 
   useLayoutEffect(() => {
     if (!editing) return
@@ -49,6 +50,7 @@ export function SavedReviewNameEditor({ title, disabled, onRename }: {
       <label htmlFor={id}>Saved review name</label>
       <input ref={input} id={id} className="saved-review-name-input" value={draft}
         maxLength={MAX_SAVED_REVIEW_TITLE_LENGTH} readOnly={disabled}
+        aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined}
         onChange={event => { setDraft(event.target.value); setError('') }}
         onKeyDown={event => {
           if (event.key !== 'Escape' || disabled || isCompositionKey(event.nativeEvent)) return
@@ -60,7 +62,7 @@ export function SavedReviewNameEditor({ title, disabled, onRename }: {
         <button type="submit" disabled={disabled || !draft.trim()}>Save name</button>
         <button type="button" disabled={disabled} onClick={cancel}>Cancel</button>
       </div>
-      {error && <p className="error-copy" role="alert">{error}</p>}
+      {error && <p id={errorId} className="error-copy" role="alert">{error}</p>}
     </form>}
   </div>
 }
