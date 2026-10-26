@@ -12,7 +12,7 @@ import './ChessClock.css'
 
 type Props = {
   state: ClockState
-  /** The clocks are stopped but the game is not over — Play mode's pause. */
+  /** The session pause flag; Step can hold the AI while a human clock runs. */
   paused: boolean
   /** Which side sits at the top of the board, so the pair reads in board order. */
   orientation: 'white' | 'black'
@@ -76,7 +76,7 @@ export const ChessClock = memo(function ChessClock({ state, paused, orientation 
     <div className="chess-clock" role="group" aria-label="Clocks">
       {ordered.map(side => {
         const ms = remainingMs(state, side, now)
-        const isRunning = running === side && !paused
+        const isRunning = running === side
         const flagged = state.flagged === side
         const classes = [
           'clock-face',
@@ -89,6 +89,7 @@ export const ChessClock = memo(function ChessClock({ state, paused, orientation 
         return (
           <span
             key={side}
+            role="timer"
             className={classes}
             title={`${SIDE_NAMES[side]}${flagged ? ' — flagged' : isRunning ? ' — thinking' : ''}`}
             aria-label={flagged

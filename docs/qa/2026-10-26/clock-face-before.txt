@@ -1,0 +1,3 @@
+{"phase":"One","time":"3:01","running":false,"label":"White 3 minutes 1 second","title":"White"}
+{"phase":"Two","time":"3:02","running":false,"label":"White 3 minutes 2 seconds","title":"White"}
+  step mode: held at 2:59 and 3:01 through five-second waits, and paid 3:01 and 3:03 for the moves it was let go to make

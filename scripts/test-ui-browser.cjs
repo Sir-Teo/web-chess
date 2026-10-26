@@ -3863,6 +3863,13 @@ async function checkStepModeDoesNotChargeTheHeldEngine(browser) {
     await page.waitForFunction(() => /White to move/.test(document.body.innerText), null, { timeout: 15000 })
     await page.waitForTimeout(400)
     const afterMoveOne = await blackFace()
+    const white = page.getByRole('timer', { name: /^White / })
+    assert(await page.getByRole('timer').count() === 2, 'the clock faces are missing from the accessibility tree')
+    const humanTime = await white.locator('strong').textContent()
+    await page.waitForFunction(previous => document.querySelector('.clock-face.clock-white strong')?.textContent !== previous,
+      humanTime, { timeout: 3000 })
+    assert(await white.evaluate(el => el.classList.contains('running') && el.getAttribute('aria-label').endsWith(', running') && /thinking/.test(el.title)),
+      'the human clock counts after Step without its running highlight or accessible label')
     assert(seconds(afterMoveOne) > seconds(heldOne),
       `the engine searched on a stopped clock and earned no increment: ${heldOne} before its move, ${afterMoveOne} after`)
 
@@ -3870,6 +3877,7 @@ async function checkStepModeDoesNotChargeTheHeldEngine(browser) {
     // the state the hold was written as an exception to.
     await play('d2', 'd4')
     const heldTwo = await blackFace()
+    assert(await page.locator('.clock-face.running').count() === 0, 'a held Step turn marks a stopped clock as running')
     await page.waitForTimeout(5000)
     const afterWaitTwo = await blackFace()
     assert(afterWaitTwo === heldTwo,
@@ -3880,10 +3888,13 @@ async function checkStepModeDoesNotChargeTheHeldEngine(browser) {
       () => /Nc6/.test(document.querySelector('.mtree-scroll')?.textContent || ''), null, { timeout: 15000 })
     await page.waitForTimeout(400)
     const afterMoveTwo = await blackFace()
+    assert(await white.evaluate(el => el.classList.contains('running') && el.getAttribute('aria-label').endsWith(', running')),
+      'the second Step reply lost the running human clock indication')
     assert(seconds(afterMoveTwo) > seconds(heldTwo),
       `the engine's second move earned no increment either: ${heldTwo} before, ${afterMoveTwo} after`)
+    await page.screenshot({ path: '/tmp/web-chess-step-clock-face.png' })
     console.log(`  step mode: held at ${heldOne} and ${heldTwo} through five-second waits, `
-      + `and paid ${afterMoveOne} and ${afterMoveTwo} for the moves it was let go to make`)
+      + `and paid ${afterMoveOne} and ${afterMoveTwo} for released moves; the running human clock stays highlighted and exposed as a named timer`)
   } finally {
     await context.close()
   }

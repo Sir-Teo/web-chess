@@ -1,0 +1,30 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/components/ChessClock.test.tsx (4 tests | 1 failed) 23ms
+     × does not say Paused while a clock is still counting 9ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/ChessClock.test.tsx > ChessClock > does not say Paused while a clock is still counting
+AssertionError: expected '<div class="chess-clock" role="group"…' to contain 'White 3 minutes 0 seconds, running'
+
+Expected: "White 3 minutes 0 seconds, running"
+Received: "<div class="chess-clock" role="group" aria-label="Clocks"><span class="clock-face clock-black" title="Black" aria-label="Black 3 minutes 0 seconds"><i aria-hidden="true">B</i><strong aria-hidden="true">3:00</strong></span><span class="clock-face clock-white" title="White" aria-label="White 3 minutes 0 seconds"><i aria-hidden="true">W</i><strong aria-hidden="true">3:00</strong></span></div>"
+
+ ❯ src/components/ChessClock.test.tsx:26:35
+     24|   it('does not say Paused while a clock is still counting', () => {
+     25|     expect(showsPaused(render(running, true))).toBe(false)
+     26|     expect(render(running, true)).toContain('White 3 minutes 0 seconds…
+       |                                   ^
+     27|     expect(render(running, true)).toContain('clock-face clock-white ru…
+     28|     expect(showsPaused(render(running, false))).toBe(false)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  21:18:45
+   Duration  490ms (transform 162ms, setup 0ms, import 220ms, tests 23ms, environment 0ms)
+
