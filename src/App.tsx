@@ -839,6 +839,8 @@ function App() {
   const [isImportingGame, setIsImportingGame] = useState(false)
   const [boardRevealTick, setBoardRevealTick] = useState(0)
   const [analysisPanelRevealTick, setAnalysisPanelRevealTick] = useState(0)
+  const handledBoardRevealRef = useRef(0)
+  const handledAnalysisRevealRef = useRef(0)
   const [pendingShallowAnalyzeFen, setPendingShallowAnalyzeFen] = useState<string | null>(null)
   const [pendingPonderFen, setPendingPonderFen] = useState<string | null>(null)
   // The null-move position the "What is threatened?" probe is asking about, and
@@ -4955,8 +4957,11 @@ function App() {
     setBoardRevealTick(tick => tick + 1)
   }, [])
 
+  // Each reveal owns its settle timers. A modal cancels those timers, and the
+  // handled tick keeps the old request consumed when that modal closes.
   useEffect(() => {
-    if (boardRevealTick === 0) return
+    if (boardRevealTick === 0 || backgroundUiHidden || handledBoardRevealRef.current === boardRevealTick) return
+    handledBoardRevealRef.current = boardRevealTick
     if (scrollDesktopChrome) {
       const stage = boardStageRef.current
       stage?.focus({ preventScroll: true })
@@ -4968,20 +4973,19 @@ function App() {
     let settleTimer: ReturnType<typeof window.setTimeout> | null = null
     let finalTimer: ReturnType<typeof window.setTimeout> | null = null
     let longSettleTimer: ReturnType<typeof window.setTimeout> | null = null
-    const scrollBoardToTop = () => {
+    const scrollBoardToTop = (focus = false) => {
       const mainContainer = mainContainerRef.current
       const boardStage = boardStageRef.current
       if (!mainContainer || !boardStage) return
-      const activeElement = document.activeElement
-      if (activeElement instanceof HTMLElement) activeElement.blur()
-      boardStage.focus({ preventScroll: true })
+      if (focus) boardStage.focus({ preventScroll: true })
       mainContainer.scrollTo({
         top: boardStage.offsetTop,
         behavior: 'auto',
       })
     }
 
-    scrollBoardToTop()
+    // Focus belongs to the explicit request. Later layout retries only scroll.
+    scrollBoardToTop(true)
     settleTimer = window.setTimeout(scrollBoardToTop, 160)
     finalTimer = window.setTimeout(scrollBoardToTop, 360)
     longSettleTimer = window.setTimeout(scrollBoardToTop, 1200)
@@ -4991,29 +4995,28 @@ function App() {
       if (finalTimer) window.clearTimeout(finalTimer)
       if (longSettleTimer) window.clearTimeout(longSettleTimer)
     }
-  }, [boardRevealTick, isMobileLayout, scrollDesktopChrome])
+  }, [backgroundUiHidden, boardRevealTick, isMobileLayout, scrollDesktopChrome])
 
   useEffect(() => {
-    if (analysisPanelRevealTick === 0) return
+    if (analysisPanelRevealTick === 0 || backgroundUiHidden || handledAnalysisRevealRef.current === analysisPanelRevealTick) return
+    handledAnalysisRevealRef.current = analysisPanelRevealTick
     if (!isMobileLayout) return
     if (workspaceMode !== 'analysis') return
 
     let settleTimer: ReturnType<typeof window.setTimeout> | null = null
     let finalTimer: ReturnType<typeof window.setTimeout> | null = null
-    const scrollAnalysisPanelToTop = () => {
+    const scrollAnalysisPanelToTop = (focus = false) => {
       const mainContainer = mainContainerRef.current
       const analysisPanel = analysisPanelRef.current
       if (!mainContainer || !analysisPanel) return
-      const activeElement = document.activeElement
-      if (activeElement instanceof HTMLElement) activeElement.blur()
-      analysisPanel.focus({ preventScroll: true })
+      if (focus) analysisPanel.focus({ preventScroll: true })
       mainContainer.scrollTo({
         top: analysisPanel.offsetTop,
         behavior: 'auto',
       })
     }
 
-    scrollAnalysisPanelToTop()
+    scrollAnalysisPanelToTop(true)
     settleTimer = window.setTimeout(scrollAnalysisPanelToTop, 120)
     finalTimer = window.setTimeout(scrollAnalysisPanelToTop, 320)
 
@@ -5021,7 +5024,7 @@ function App() {
       if (settleTimer) window.clearTimeout(settleTimer)
       if (finalTimer) window.clearTimeout(finalTimer)
     }
-  }, [analysisPanelRevealTick, isMobileLayout, workspaceMode])
+  }, [analysisPanelRevealTick, backgroundUiHidden, isMobileLayout, workspaceMode])
 
   useEffect(() => {
     if (importSweepProgress.total <= 0) return

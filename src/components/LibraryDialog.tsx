@@ -153,8 +153,7 @@ export function LibraryDialog({
         const target = renameReturnFocusRef.current
         renameReturnFocusRef.current = null
         if (!target) return
-        // Let the browser finish the Enter key's implicit submit before
-        // restoring focus away from the form that just disappeared.
+        // Restore after the renamed row has moved or left the filtered list.
         const frame = requestAnimationFrame(() => {
             if (target.isConnected) target.focus()
             else panelRef.current?.querySelector<HTMLElement>('input[type="search"], [data-library-done]')?.focus()

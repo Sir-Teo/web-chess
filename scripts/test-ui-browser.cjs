@@ -3816,6 +3816,52 @@ async function checkTextCompositionKeys(browser) {
   } finally { await context.close() }
 }
 
+async function checkRevealTimersRespectDialogs(browser) {
+  const context = await browser.newContext({ viewport: { width: 375, height: 812 }, reducedMotion: 'reduce' })
+  const page = await context.newPage()
+  try {
+    await page.clock.install()
+    // Keep the layout retries pending until a dialog is open, even on a slow
+    // runner. They retain real timer IDs, so the app must cancel them normally.
+    await page.addInitScript(fakeEngineScript() + `
+      const nativeTimeout = window.setTimeout;
+      window.setTimeout = (callback, delay, ...args) => nativeTimeout(callback,
+        [120, 160, 320, 360, 1200].includes(delay) ? 30000 : delay, ...args);
+    `)
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    await page.locator('#chessboard-square-e2').waitFor()
+    await startGameMode(page, 'Human vs Human')
+    await page.clock.runFor(50)
+    await page.click('#chessboard-square-e2')
+    await page.click('#chessboard-square-e4')
+    const libraryOpener = page.getByRole('button', { name: 'Open saved games library' })
+    await libraryOpener.click()
+    const name = page.locator('[data-library-name]')
+    await name.fill('Keep this draft')
+    await page.clock.fastForward(31000)
+    assert(await name.evaluate(el => el === document.activeElement), 'a delayed board reveal blurred the library draft')
+    await name.press('Escape')
+    await page.clock.runFor(50)
+    await page.clock.fastForward(31000)
+    assert(await libraryOpener.evaluate(el => el === document.activeElement), 'closing the library replayed an old board reveal')
+
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+    await page.clock.runFor(50)
+    await page.getByRole('button', { name: 'Review', exact: true }).click()
+    const pgnOpener = page.getByRole('button', { name: 'Open PGN and FEN dialog' })
+    await pgnOpener.click()
+    const pgn = page.locator('.pgn-dialog textarea').first()
+    await pgn.fill('1. d4 d5 *')
+    await page.clock.fastForward(31000)
+    assert(await pgn.evaluate(el => el === document.activeElement), 'a delayed analysis reveal blurred the PGN draft')
+    await pgn.press('Escape')
+    await page.clock.runFor(50)
+    await page.clock.fastForward(31000)
+    assert(await pgnOpener.evaluate(el => el === document.activeElement), 'closing PGN replayed an old analysis reveal')
+    console.log('  reveal timers: dialogs retain focused drafts through delayed board/analysis callbacks; closing keeps opener focus')
+  } finally { await context.close() }
+}
+
 /** Setup edits must preserve the special capture described by the FEN. */
 async function checkPositionSetupEnPassant(browser) {
   for (const [width, fen, target, from, captured] of [
@@ -4021,8 +4067,7 @@ async function checkLibraryEditing(browser) {
       await dialog.getByRole('button', { name: 'Load My carefully named game', exact: true }).waitFor()
       await page.waitForFunction(() => !document.querySelector('.library-status')?.textContent.includes('Saving library changes'))
       await page.reload({ waitUntil: 'domcontentloaded' })
-      const restore = page.getByRole('button', { name: 'Restore', exact: true })
-      if (await restore.count()) await restore.click()
+      await page.getByRole('button', { name: 'Restore', exact: true }).click()
       await page.getByRole('button', { name: 'Open saved games library' }).click()
       await page.getByRole('button', { name: 'Rename My renamed game', exact: true }).waitFor()
       const search = dialog.getByRole('searchbox', { name: 'Search saved games' })
@@ -11225,6 +11270,7 @@ async function main() {
       'import-drafts': checkImportDraftOwnership,
       'setup-en-passant': checkPositionSetupEnPassant,
       'text-composition': checkTextCompositionKeys,
+      'reveal-dialogs': checkRevealTimersRespectDialogs,
       'database-once': checkADatabaseIsAddedOnce,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
       'finished-clock': checkAFinishedGameKeepsItsStoppedClock,
@@ -11980,6 +12026,7 @@ async function main() {
     await checkImportDraftOwnership(browser)
     await checkPositionSetupEnPassant(browser)
     await checkTextCompositionKeys(browser)
+    await checkRevealTimersRespectDialogs(browser)
     await checkADatabaseIsAddedOnce(browser)
     await checkAnExportedGameComesBack(browser)
     await checkAnInterruptedGameComesBack(browser)
