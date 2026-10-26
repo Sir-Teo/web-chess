@@ -3943,6 +3943,7 @@ async function checkImportDraftOwnership(browser) {
         window.fetch = (input, init) => {
           if (String(input).includes('/api/games/user/')) {
             return new Promise(resolve => window.__pendingArchives.push({
+              url: String(input),
               signal: init.signal,
               finish: () => resolve(new Response('[Event "Old archive"]\\n\\n1. e4 e5 *')),
             }));
@@ -3962,6 +3963,11 @@ async function checkImportDraftOwnership(browser) {
       const draft = dialog.locator('textarea.input-textarea')
       const username = dialog.getByRole('textbox', { name: 'Your Lichess username' })
       await username.fill('archivist')
+      const gameCount = dialog.getByRole('spinbutton', { name: 'Games', exact: true })
+      await gameCount.fill('')
+      assert(await gameCount.inputValue() === '', 'clearing Games inserted a number before the replacement was typed')
+      await gameCount.pressSequentially('20')
+      assert(await gameCount.inputValue() === '20', 'typing 20 requested a different number of archive games')
       const startFetch = async () => {
         const count = await page.evaluate(() => window.__pendingArchives.length)
         await dialog.getByRole('button', { name: 'Fetch', exact: true }).click()
@@ -3974,6 +3980,8 @@ async function checkImportDraftOwnership(browser) {
         })
       }
       await startFetch()
+      assert(await page.evaluate(() => new URL(window.__pendingArchives.at(-1).url).searchParams.get('max')) === '20',
+        'the archive request did not use the edited Games count')
       await draft.fill('1. d4 d5 2. c4 *')
       await finishFetch()
       assert(await draft.inputValue() === '1. d4 d5 2. c4 *', 'a late archive reply overwrote a newer paste')
@@ -3983,6 +3991,19 @@ async function checkImportDraftOwnership(browser) {
       assert(await page.evaluate(() => window.__pendingArchives.at(-1).signal.aborted), 'editing the username left the old fetch active')
       await finishFetch()
       assert(await draft.inputValue() === '1. d4 d5 2. c4 *', 'an old username response replaced the import draft')
+
+      await startFetch()
+      await gameCount.fill('')
+      assert(await page.evaluate(() => window.__pendingArchives.at(-1).signal.aborted), 'editing Games left the old fetch active')
+      await finishFetch()
+      assert(await draft.inputValue() === '1. d4 d5 2. c4 *', 'an old game-count response replaced the import draft')
+      await gameCount.blur()
+      assert(await gameCount.inputValue() === '10', 'a blank Games field did not restore the default')
+      for (const [draftCount, expected] of [['0', '1'], ['99', '50'], ['2.7', '2']]) {
+        await gameCount.fill(draftCount)
+        await gameCount.blur()
+        assert(await gameCount.inputValue() === expected, `Games ${draftCount} did not normalize to ${expected}`)
+      }
 
       await startFetch()
       await dialog.getByRole('button', { name: 'Cancel fetch', exact: true }).click()

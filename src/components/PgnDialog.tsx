@@ -133,7 +133,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const [shareLinkFallback, setShareLinkFallback] = useState('')
     const [archiveSource, setArchiveSource] = useState<ArchiveSource>('lichess')
     const [archiveUsername, setArchiveUsername] = useState('')
-    const [archiveCount, setArchiveCount] = useState(DEFAULT_ARCHIVE_GAMES)
+    const [archiveCount, setArchiveCount] = useState(String(DEFAULT_ARCHIVE_GAMES))
     const [archiveBusy, setArchiveBusy] = useState(false)
     const [archiveUsernameBlurred, setArchiveUsernameBlurred] = useState(false)
     const [databaseBusy, setDatabaseBusy] = useState(false)
@@ -195,6 +195,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     }
 
     const archiveSourceInfo = ARCHIVE_SOURCES.find(source => source.id === archiveSource) ?? ARCHIVE_SOURCES[0]
+    const archiveGameCount = clampArchiveGameCount(archiveCount.trim() ? Number(archiveCount) : DEFAULT_ARCHIVE_GAMES)
     const archiveUsernameValid = normalizeArchiveUsername(archiveUsername) !== null
     /** Something is typed, it cannot be used, and the reader has moved on from it. */
     const archiveUsernameUnusable = archiveUsernameBlurred
@@ -218,12 +219,13 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         }
 
         cancelPendingImport()
+        setArchiveCount(String(archiveGameCount))
         const controller = new AbortController()
         archiveAbortRef.current = controller
         resetFeedback()
         setArchiveBusy(true)
         try {
-            const games = await fetchArchiveGames(archiveSource, username, archiveCount, { signal: controller.signal })
+            const games = await fetchArchiveGames(archiveSource, username, archiveGameCount, { signal: controller.signal })
             if (controller.signal.aborted) return
             if (games.length === 0) {
                 setError(`${archiveSourceInfo.label} has no public games for “${username}”.`)
@@ -247,7 +249,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                 setArchiveBusy(false)
             }
         }
-    }, [archiveCount, archiveSource, archiveSourceInfo.label, archiveUsername, cancelPendingImport, resetFeedback])
+    }, [archiveGameCount, archiveSource, archiveSourceInfo.label, archiveUsername, cancelPendingImport, resetFeedback])
 
     // A fetch outlives the dialog otherwise, and finishes into a component that
     // is no longer on screen.
@@ -712,8 +714,9 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                             onChange={event => {
                                                 cancelPendingImport()
                                                 resetFeedback()
-                                                setArchiveCount(clampArchiveGameCount(Number(event.target.value)))
+                                                setArchiveCount(event.target.value)
                                             }}
+                                            onBlur={() => setArchiveCount(String(archiveGameCount))}
                                         />
                                     </div>
                                     <button
