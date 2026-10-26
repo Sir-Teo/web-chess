@@ -50,6 +50,12 @@
     min-height: 36px;
 }
 
+.dialog-quick-actions .btn-cancel[aria-pressed="true"] {
+    color: var(--accent-ink);
+    background: var(--accent-subtle);
+    border-color: var(--border-accent);
+}
+
 .dialog-file-input {
     display: none;
 }

@@ -43,7 +43,7 @@ import {
     type ArchiveSource,
 } from '../engine/gameArchives'
 import { fetchArchiveGames } from '../engine/archiveFetch'
-import { IconDownload, IconClipboard, IconUpload } from './icons'
+import { IconDownload, IconClipboard, IconUpload, IconFlip } from './icons'
 import { fenTextForShareLink } from './pgnDialogHelpers'
 import { isCompositionKey } from './shortcutKeys'
 import { PositionCounterInput } from './PositionCounterInput'
@@ -128,6 +128,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const [exportOptions, setExportOptions] = useState(DEFAULT_EXPORT_OPTIONS)
     const [setup, setSetup] = useState<PositionSetup>(() => parsePositionSetupFen(currentFen) ?? createStartingPositionSetup())
     const [selectedSetupPiece, setSelectedSetupPiece] = useState<SetupPiece | null>('P')
+    const [setupFlipped, setSetupFlipped] = useState(false)
     const [shareLinkFallback, setShareLinkFallback] = useState('')
     const [archiveSource, setArchiveSource] = useState<ArchiveSource>('lichess')
     const [archiveUsername, setArchiveUsername] = useState('')
@@ -828,6 +829,10 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                 <button type="button" className="btn-cancel" onClick={() => loadSetupPreset(createEmptyPositionSetup())}>
                                     Clear Board
                                 </button>
+                                <button type="button" className="btn-cancel" aria-label="Flip setup board" aria-pressed={setupFlipped}
+                                    onClick={() => setSetupFlipped(flipped => !flipped)}>
+                                    <IconFlip /> Flip board
+                                </button>
                                 <button type="button" className="btn-cancel" onClick={handleCopyCurrentFen}>
                                     {copyStatus === 'fen-copied' ? 'Copied FEN' : 'Copy Current FEN'}
                                 </button>
@@ -838,7 +843,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                             <div className="fen-setup-card" aria-label="Position setup">
                                 <PositionSetupPalette selectedPiece={selectedSetupPiece} onSelect={setSelectedSetupPiece} />
                                 <div className="fen-setup-grid">
-                                    <PositionSetupBoard pieces={setup.pieces} selectedPiece={selectedSetupPiece}
+                                    <PositionSetupBoard pieces={setup.pieces} selectedPiece={selectedSetupPiece} flipped={setupFlipped}
                                         onPlace={square => applySetupChange(current => updateSetupSquare(current, square, selectedSetupPiece))} />
                                     <div className="fen-setup-controls">
                                         <div className="fen-setup-control-block">

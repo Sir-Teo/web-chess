@@ -4361,6 +4361,69 @@ async function checkPositionSetupKeyboard(browser) {
   }
 }
 
+async function checkPositionSetupOrientation(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 1], [320, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      const dialog = page.locator('.pgn-dialog')
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      const board = dialog.getByRole('group', { name: 'Editable chessboard', exact: true })
+      const text = dialog.locator('.fen-textarea')
+      const initialFen = await text.inputValue()
+      const flip = dialog.getByRole('button', { name: 'Flip setup board', exact: true })
+      await flip.click()
+      assert(await flip.getAttribute('aria-pressed') === 'true', 'the setup flip does not expose its state')
+      assert((await board.locator('button').first().getAttribute('aria-label')).startsWith('h1,'), 'the flipped setup does not start at h1')
+      assert((await board.locator('button').last().getAttribute('aria-label')).startsWith('a8,'), 'the flipped setup does not end at a8')
+      assert(await text.inputValue() === initialFen, 'flipping the setup changed the position')
+      assert(await dialog.locator('.fen-setup-ranks').textContent() === '12345678', 'flipped rank labels are incorrect')
+      assert(await dialog.locator('.fen-setup-files').textContent() === 'hgfedcba', 'flipped file labels are incorrect')
+      const flipHeight = await flip.evaluate(el => el.getBoundingClientRect().height)
+      assert(width <= 620 ? meetsTouchTarget(flipHeight) : flipHeight >= 36 - TOUCH_TARGET_SLACK_PX, 'the setup flip is smaller than the dialog action targets')
+      await dialog.getByRole('button', { name: 'Clear Board', exact: true }).click()
+      assert(await flip.getAttribute('aria-pressed') === 'true', 'a preset forgot the chosen setup viewpoint')
+      await dialog.getByRole('button', { name: 'Select White king', exact: true }).click()
+      await board.getByRole('button', { name: /^h1,/ }).focus()
+      await page.keyboard.press('ArrowLeft')
+      await page.keyboard.press('ArrowUp')
+      assert((await page.locator(':focus').getAttribute('aria-label')).startsWith('h1,'), 'flipped arrows crossed a board edge')
+      for (let file = 0; file < 3; file++) await page.keyboard.press('ArrowRight')
+      assert((await page.locator(':focus').getAttribute('aria-label')).startsWith('e1,'), 'Right does not follow the flipped display')
+      await page.keyboard.press('Enter')
+      await dialog.getByRole('button', { name: 'Select Black king', exact: true }).click()
+      await board.getByRole('button', { name: /^e1,/ }).focus()
+      for (let rank = 0; rank < 7; rank++) await page.keyboard.press('ArrowDown')
+      assert((await page.locator(':focus').getAttribute('aria-label')).startsWith('e8,'), 'Down does not follow the flipped display')
+      await page.keyboard.press('Space')
+      assert(await text.inputValue() === '4k3/8/8/8/8/8/8/4K3 w - - 0 1', 'flipped placement wrote the wrong king squares')
+      await page.keyboard.press('Home')
+      assert((await page.locator(':focus').getAttribute('aria-label')).startsWith('h8,'), 'Home does not reach the displayed rank start')
+      await page.keyboard.press('End')
+      assert((await page.locator(':focus').getAttribute('aria-label')).startsWith('a8,'), 'End does not reach the displayed rank end')
+      await dialog.getByRole('button', { name: 'Select White pawn', exact: true }).click()
+      await board.getByRole('button', { name: /^d2,/ }).click()
+      const placedFen = await text.inputValue()
+      assert(placedFen === '4k3/8/8/8/8/8/3P4/4K3 w - - 0 1', 'a flipped pointer placement wrote the wrong square')
+      await flip.click()
+      assert(await flip.getAttribute('aria-pressed') === 'false' && await text.inputValue() === placedFen, 'returning to White changed the position')
+      assert((await board.locator('button').first().getAttribute('aria-label')).startsWith('a8,'), 'returning to White did not restore the board order')
+      await flip.click()
+      if (width === 375) await dialog.locator('.fen-setup-board-frame').screenshot({ path: '/tmp/web-chess-setup-flipped.png' })
+      await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).click()
+      await dialog.waitFor({ state: 'detached' })
+      for (const [square, piece] of [['e1', 'White king'], ['e8', 'Black king'], ['d2', 'White pawn']]) {
+        await page.waitForFunction(({ square, piece }) => document.querySelector(`#chessboard-square-${square}`)?.getAttribute('aria-label')?.includes(piece), { square, piece })
+      }
+      console.log(`  setup orientation (${width}px, ${scale}x): view-only flip, reversed coordinates/arrows/Home/End, keyboard and pointer placement, and unchanged FEN loading`)
+    } finally { await context.close() }
+  }
+}
+
 /** Setup edits must preserve the special capture described by the FEN. */
 async function checkPositionSetupEnPassant(browser) {
   for (const [width, fen, target, from, captured] of [
@@ -11943,6 +12006,7 @@ async function main() {
       'import-drafts': checkImportDraftOwnership,
       'setup-en-passant': checkPositionSetupEnPassant,
       'setup-keyboard': checkPositionSetupKeyboard,
+      'setup-orientation': checkPositionSetupOrientation,
       'text-composition': checkTextCompositionKeys,
       'reveal-dialogs': checkRevealTimersRespectDialogs,
       'reveal-interaction': checkRevealRetriesYieldToInteraction,
@@ -12720,6 +12784,7 @@ async function main() {
     await checkImportDraftOwnership(browser)
     await checkPositionSetupEnPassant(browser)
     await checkPositionSetupKeyboard(browser)
+    await checkPositionSetupOrientation(browser)
     await checkTextCompositionKeys(browser)
     await checkRevealTimersRespectDialogs(browser)
     await checkRevealRetriesYieldToInteraction(browser)
