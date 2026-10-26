@@ -2,7 +2,7 @@ import { Chess } from 'chess.js'
 import { parse as parsePgn } from 'chess.js/src/pgn.js'
 import type { Node as ParsedPgnNode } from 'chess.js/src/node'
 import type { GameNode, GameTreeImportEntry } from '../hooks/useGameTree'
-import type { EvalSnapshot } from './analysis'
+import { uciToSan, type EvalSnapshot } from './analysis'
 import { hasLegalKingPlacement } from './fen'
 import { looksLikeFen, looksLikeGameUrl } from './pastedText'
 import { decodeEvaluationEngine, encodeEvaluationEngine } from './evaluationSource'
@@ -446,16 +446,11 @@ function moveTextForNode(
 }
 
 function bestMoveSanFromFen(fen: string, bestMove: string): string {
-    if (bestMove.length < 4) return bestMove
-
     try {
-        const replay = new Chess(fen)
-        const move = replay.move({
-            from: bestMove.slice(0, 2),
-            to: bestMove.slice(2, 4),
-            promotion: bestMove[4],
-        })
-        return move?.san ?? bestMove
+        // Autosave exports the same tree as scores improve. Share the bounded
+        // full-FEN/UCI cache used by review labels instead of replaying every
+        // unchanged best move on each write.
+        return uciToSan(fen, bestMove) ?? bestMove
     } catch {
         return bestMove
     }

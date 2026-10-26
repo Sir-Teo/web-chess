@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { GameNode } from '../hooks/useGameTree'
 import { Chess } from 'chess.js'
 import { type EvalSnapshot, buildReviewRows as buildReviewRowsForTest } from './analysis'
@@ -288,6 +288,48 @@ describe('PGN export helpers', () => {
 
     expect(pgn).toContain('{ [%eval -1.00]; Best e4; Inaccuracy }')
     expect(loader.history()).toEqual(['d4'])
+  })
+
+  it('reuses unchanged best-move calculations while exporting newer scores and alternatives', () => {
+    const chess = new Chess(new Chess().fen().replace('0 1', '0 83'))
+    const rootFen = chess.fen()
+    const move = chess.move('d4')
+    const line = [
+      makeNode('r', rootFen, null, null, ['n']),
+      makeNode('n', chess.fen(), move, 'r'),
+    ]
+    const evaluations = new Map<string, EvalSnapshot>([[rootFen, { cp: 23, bestMove: 'e2e4' }]])
+    const header = { Date: '2026.10.26' }
+    const first = exportAnnotatedPgn(line, evaluations, header)
+    const replay = vi.spyOn(Chess.prototype, 'move')
+    try {
+      evaluations.set(rootFen, { cp: 37, bestMove: 'e2e4' })
+      const updated = exportAnnotatedPgn(line, evaluations, header)
+      expect(updated).toBe(first.replace('[%eval 0.23]', '[%eval 0.37]'))
+      expect(replay).not.toHaveBeenCalled()
+      evaluations.set(rootFen, { cp: 37, bestMove: 'g1f3' })
+      expect(exportAnnotatedPgn(line, evaluations, header)).toContain('Best Nf3')
+    } finally { replay.mockRestore() }
+  })
+
+  it.each([
+    ['r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 15', 'Rh2', 'e1g1', 'O-O'],
+    ['r3k2r/8/8/8/8/8/8/R3K2R w - - 0 15', 'Rh2', 'e1g1', 'e1g1'],
+    ['4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 30', 'e6', 'e5d6', 'exd6'],
+    ['4k3/8/8/3pP3/8/8/8/4K3 w - - 0 30', 'e6', 'e5d6', 'e5d6'],
+    ['8/P6k/8/8/8/8/7K/8 w - - 0 42', 'Kh3', 'a7a8q', 'a8=Q'],
+    ['8/P6k/8/8/8/8/7K/8 w - - 0 42', 'Kh3', 'a7a8n', 'a8=N'],
+  ])('preserves best-move notation and legality for %s / %s / %s', (fen, played, bestMove, san) => {
+    const chess = new Chess(fen)
+    const move = chess.move(played)
+    const line = [makeNode('r', fen, null, null, ['n']), makeNode('n', chess.fen(), move, 'r')]
+    const evaluations = new Map<string, EvalSnapshot>([[fen, { cp: 0, bestMove }]])
+    const pgn = exportAnnotatedPgn(line, evaluations)
+    expect(pgn).toContain(`Best ${san}`)
+    const restored = new Chess()
+    restored.loadPgn(pgn)
+    expect(restored.history()).toEqual([move.san])
+    expect(exportAnnotatedPgn(line, evaluations)).toBe(pgn)
   })
 
   it('sanitizes tag values and ignores invalid tag names when exporting', () => {
