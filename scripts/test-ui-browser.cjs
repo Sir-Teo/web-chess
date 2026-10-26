@@ -4061,6 +4061,50 @@ async function checkRevealTimersRespectDialogs(browser) {
   } finally { await context.close() }
 }
 
+/** A delayed layout retry must not move a button between down and up. */
+async function checkRevealRetriesYieldToInteraction(browser) {
+  const context = await browser.newContext({ viewport: { width: 375, height: 812 }, reducedMotion: 'reduce' })
+  const page = await context.newPage()
+  try {
+    await page.clock.install()
+    await page.addInitScript(fakeEngineScript() + `
+      const nativeTimeout = window.setTimeout;
+      window.setTimeout = (callback, delay, ...args) => nativeTimeout(callback,
+        [160, 360, 1200].includes(delay) ? 30000 : delay, ...args);
+      localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'play', analysisExperience: 'pro', autoAnalyze: false,
+        engineProfile: 'lite-single-local', reviewMaxWorkers: 1,
+      }));
+      window.__revealFreshClicks = 0;
+      document.addEventListener('click', event => {
+        if (event.target.closest('button')?.textContent.trim() === 'Fresh review') window.__revealFreshClicks++;
+      }, true);
+    `)
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    await startGameMode(page, 'Human vs Human')
+    await page.locator('#chessboard-square-e2').click()
+    await page.locator('#chessboard-square-e4').click()
+    await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Review', exact: true }).click()
+    await page.clock.runFor(400)
+    await page.evaluate(() => document.fonts.ready)
+    const fresh = page.getByRole('button', { name: 'Fresh review', exact: true })
+    assert(await fresh.isEnabled(), 'the review action is not ready for the interaction check')
+    await fresh.scrollIntoViewIfNeeded()
+    const before = await fresh.boundingBox()
+    await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2)
+    await page.mouse.down()
+    await page.clock.fastForward(31000)
+    const after = await fresh.boundingBox()
+    await page.mouse.up()
+    assert(Math.abs(after.y - before.y) < 1, `a layout retry moved the pressed review action from ${before.y} to ${after.y}`)
+    assert(await page.evaluate(() => window.__revealFreshClicks) === 1, 'the review click was lost between pointer-down and pointer-up')
+    await page.clock.runFor(300)
+    await page.getByTestId('review-run-summary').filter({ hasText: 'Completed review' }).waitFor()
+    console.log('  reveal interaction: held board retries cannot move Fresh review during a click; the requested review completes')
+  } finally { await context.close() }
+}
+
 /** Resize open dialogs rather than testing only their initial viewport. */
 async function checkDialogResizeFocus(browser) {
   for (const scale of [1, 2]) {
@@ -11819,6 +11863,7 @@ async function main() {
       'setup-keyboard': checkPositionSetupKeyboard,
       'text-composition': checkTextCompositionKeys,
       'reveal-dialogs': checkRevealTimersRespectDialogs,
+      'reveal-interaction': checkRevealRetriesYieldToInteraction,
       'dialog-resize': checkDialogResizeFocus,
       'database-once': checkADatabaseIsAddedOnce,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
@@ -12595,6 +12640,7 @@ async function main() {
     await checkPositionSetupKeyboard(browser)
     await checkTextCompositionKeys(browser)
     await checkRevealTimersRespectDialogs(browser)
+    await checkRevealRetriesYieldToInteraction(browser)
     await checkDialogResizeFocus(browser)
     await checkADatabaseIsAddedOnce(browser)
     await checkAnExportedGameComesBack(browser)

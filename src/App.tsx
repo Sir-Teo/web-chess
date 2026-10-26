@@ -192,6 +192,7 @@ import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { DIFFICULTY_LABELS, useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
 import { sameNodeList, useGameTree, type GameNode } from './hooks/useGameTree'
 import { useOpening, useOpeningBook } from './hooks/useOpening'
+import { scheduleRevealRetries } from './hooks/revealRetries'
 import { useCloudEvaluation } from './hooks/useCloudEvaluation'
 import { useOpeningExplorer } from './hooks/useOpeningExplorer'
 import { useTablebase } from './hooks/useTablebase'
@@ -4966,8 +4967,8 @@ function App() {
     setBoardRevealTick(tick => tick + 1)
   }, [])
 
-  // Each reveal owns its settle timers. A modal cancels those timers, and the
-  // handled tick keeps the old request consumed when that modal closes.
+  // Each reveal owns its settle timers. New input, a modal, or the other
+  // reveal supersedes them. Consumed requests never replay after cleanup.
   useEffect(() => {
     if (boardRevealTick === 0 || backgroundUiHidden || handledBoardRevealRef.current === boardRevealTick) return
     handledBoardRevealRef.current = boardRevealTick
@@ -4979,9 +4980,6 @@ function App() {
     }
     if (!isMobileLayout) return
 
-    let settleTimer: ReturnType<typeof window.setTimeout> | null = null
-    let finalTimer: ReturnType<typeof window.setTimeout> | null = null
-    let longSettleTimer: ReturnType<typeof window.setTimeout> | null = null
     const scrollBoardToTop = (focus = false) => {
       const mainContainer = mainContainerRef.current
       const boardStage = boardStageRef.current
@@ -4995,16 +4993,8 @@ function App() {
 
     // Focus belongs to the explicit request. Later layout retries only scroll.
     scrollBoardToTop(true)
-    settleTimer = window.setTimeout(scrollBoardToTop, 160)
-    finalTimer = window.setTimeout(scrollBoardToTop, 360)
-    longSettleTimer = window.setTimeout(scrollBoardToTop, 1200)
-
-    return () => {
-      if (settleTimer) window.clearTimeout(settleTimer)
-      if (finalTimer) window.clearTimeout(finalTimer)
-      if (longSettleTimer) window.clearTimeout(longSettleTimer)
-    }
-  }, [backgroundUiHidden, boardRevealTick, isMobileLayout, scrollDesktopChrome])
+    return scheduleRevealRetries(scrollBoardToTop, [160, 360, 1200])
+  }, [analysisPanelRevealTick, backgroundUiHidden, boardRevealTick, isMobileLayout, scrollDesktopChrome])
 
   useEffect(() => {
     if (analysisPanelRevealTick === 0 || backgroundUiHidden || handledAnalysisRevealRef.current === analysisPanelRevealTick) return
@@ -5012,8 +5002,6 @@ function App() {
     if (!isMobileLayout) return
     if (workspaceMode !== 'analysis') return
 
-    let settleTimer: ReturnType<typeof window.setTimeout> | null = null
-    let finalTimer: ReturnType<typeof window.setTimeout> | null = null
     const scrollAnalysisPanelToTop = (focus = false) => {
       const mainContainer = mainContainerRef.current
       const analysisPanel = analysisPanelRef.current
@@ -5026,19 +5014,8 @@ function App() {
     }
 
     scrollAnalysisPanelToTop(true)
-    settleTimer = window.setTimeout(scrollAnalysisPanelToTop, 120)
-    finalTimer = window.setTimeout(scrollAnalysisPanelToTop, 320)
-
-    return () => {
-      if (settleTimer) window.clearTimeout(settleTimer)
-      if (finalTimer) window.clearTimeout(finalTimer)
-    }
-  }, [analysisPanelRevealTick, backgroundUiHidden, isMobileLayout, workspaceMode])
-
-  useEffect(() => {
-    if (importSweepProgress.total <= 0) return
-    requestBoardReveal()
-  }, [importSweepProgress.total, requestBoardReveal])
+    return scheduleRevealRetries(scrollAnalysisPanelToTop, [120, 320])
+  }, [analysisPanelRevealTick, backgroundUiHidden, boardRevealTick, isMobileLayout, workspaceMode])
 
   const readCachedSamplePgn = useCallback((sampleId: string): string | null => {
     const cached = samplePgnCacheRef.current.get(sampleId)
