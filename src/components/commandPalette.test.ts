@@ -26,6 +26,12 @@ const COMMANDS: Command[] = [
 ]
 
 describe('matching commands', () => {
+    it('normalizes accents and letter variants in labels, hints and ranking', () => {
+        const commands = [make('later', 'Find Réti', { hint: 'Łódź studies' }), make('first', 'Réti')]
+        expect(rankCommands(commands, 'reti').map(command => command.id)).toEqual(['first', 'later'])
+        expect(rankCommands(commands, 'lodz').map(command => command.id)).toEqual(['later'])
+    })
+
     it('matches everything when nothing is typed', () => {
         expect(rankCommands(COMMANDS, '')).toHaveLength(COMMANDS.length)
     })

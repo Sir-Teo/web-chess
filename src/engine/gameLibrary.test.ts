@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchesSearchTerms, toSearchTerms } from './searchTerms'
+import { MAX_SEARCH_QUERY_LENGTH, matchesSearchTerms, toSearchTerms } from './searchTerms'
 import {
   MAX_LIBRARY_GAMES,
   MAX_LIBRARY_NAME_LENGTH,
@@ -337,6 +337,44 @@ describe('case insensitivity', () => {
 
     it('matches everything when no terms were given', () => {
         expect(matchesSearchTerms('anything', [])).toBe(true)
+    })
+})
+
+describe('international library search', () => {
+    it.each([
+        ['José Raúl Capablanca', 'JOSE RAUL'],
+        ['Richard Réti', 'reti'],
+        ['Joa\u0303o cafe\u0301', 'joao cafe'],
+        ['Søren’s Łódź study', 'soren lodz'],
+        ['Malmö Invitational', 'malmo'],
+        ['Ægir, Œuvre and Groß', 'aegir oeuvre gross'],
+        ['Héðinn Þór', 'hedinn thor'],
+        ['İstanbul', 'istanbul'],
+        ['Ｆｕｌｌｗｉｄｔｈ Réti', 'fullwidth reti'],
+    ])('finds %s with %s', (text, query) => {
+        expect(matchesSearchTerms(text, toSearchTerms(query))).toBe(true)
+    })
+
+    it('keeps marks that distinguish words in other writing systems', () => {
+        expect(matchesSearchTerms('काली', toSearchTerms('काली'))).toBe(true)
+        expect(matchesSearchTerms('काली', toSearchTerms('कली'))).toBe(false)
+        expect(matchesSearchTerms('がく', toSearchTerms('かく'))).toBe(false)
+        expect(matchesSearchTerms('がく', toSearchTerms('か\u3099く'))).toBe(true)
+    })
+
+    it('bounds the original query before expanding normalized letters', () => {
+        expect(toSearchTerms('æ'.repeat(MAX_SEARCH_QUERY_LENGTH) + ' outside'))
+            .toEqual(['ae'.repeat(MAX_SEARCH_QUERY_LENGTH)])
+    })
+
+    it('matches across accented metadata without rewriting the saved record', () => {
+        const game = createLibraryGame('Réti study', '[White "José Raúl Capablanca"]\n[Black "Zsófia Polgár"]\n[Event "Łódź"]\n[Site "Malmö"]\n\n1. e4 e5 *', 1)
+        const original = JSON.stringify(game)
+        expect(libraryGameMatchesQuery(game, 'jose polgar lodz malmo')).toBe(true)
+        expect(libraryGameMatchesQuery(game, 'jose tokyo')).toBe(false)
+        expect(JSON.stringify(game)).toBe(original)
+        expect(game.name).toBe('Réti study')
+        expect(game.metadata.white).toBe('José Raúl Capablanca')
     })
 })
 

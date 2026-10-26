@@ -5202,6 +5202,73 @@ async function checkLibraryBackupLimits(browser) {
   }
 }
 
+async function checkInternationalLibrarySearch(browser) {
+  const savedName = 'Søren’s Réti café'
+  const unicodePgn = '[Event "Łódź Invitational"]\n[Site "Malmö"]\n[White "José Raúl Capablanca"]\n[Black "Zsófia Polgár"]\n\n1. Nf3 d5 *'
+  const controlPgn = '[Event "Moscow"]\n[White "Mikhail Tal"]\n[Black "Mikhail Botvinnik"]\n\n1. e4 e5 *'
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [375, 2, 'dark'], [320, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const library = page.locator('.library-dialog')
+      const importAndSave = async (text, name) => {
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        const pgn = page.locator('.pgn-dialog')
+        await pgn.locator('textarea').fill(text)
+        await pgn.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await pgn.waitFor({ state: 'detached' })
+        await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+        await library.locator('[data-library-name]').fill(name)
+        await library.getByRole('button', { name: 'Save', exact: true }).click()
+        await library.getByRole('button', { name: `Load ${name}`, exact: true }).waitFor()
+        await page.keyboard.press('Escape')
+        await library.waitFor({ state: 'detached' })
+      }
+      await importAndSave(unicodePgn, savedName)
+      await importAndSave(controlPgn, 'Unrelated study')
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      const search = library.getByRole('searchbox', { name: 'Search saved games', exact: true })
+      const saved = library.getByRole('button', { name: `Load ${savedName}`, exact: true })
+      const control = library.getByRole('button', { name: 'Load Unrelated study', exact: true })
+      for (const query of ['soren reti cafe', 'jose raul', 'zsofia polgar', 'lodz', 'malmo', 're\u0301ti']) {
+        await search.fill(query)
+        await saved.waitFor({ timeout: 5000 })
+        await control.waitFor({ state: 'detached', timeout: 5000 })
+        assert(await search.inputValue() === query && await search.evaluate(el => el === document.activeElement), 'normalization rewrote the search draft or moved focus')
+        assert(await page.locator('#chessboard-square-e5 [data-piece="bP"]').count() === 1, 'filtering loaded a result instead of leaving the current board alone')
+      }
+      await search.fill('soren tokyo')
+      await saved.waitFor({ state: 'detached' }); await control.waitFor({ state: 'detached' })
+      await search.fill('cafe'); await saved.waitFor()
+      const downloaded = page.waitForEvent('download')
+      await library.getByRole('button', { name: 'Export backup', exact: true }).click()
+      const backup = JSON.parse(fs.readFileSync(await (await downloaded).path(), 'utf8'))
+      const original = backup.games.find(game => game.name === savedName)
+      assert(backup.games.length === 2 && original
+        && ['[White "José Raúl Capablanca"]', '[Black "Zsófia Polgár"]', '[Event "Łódź Invitational"]', '[Site "Malmö"]'].every(header => original.pgn.includes(header)), 'search normalization changed the saved name/headers/PGN or filtered the backup')
+      await saved.click()
+      await library.waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-f3 [data-piece="wN"]').waitFor()
+      assert(await page.locator('#chessboard-square-e5 [data-piece]').count() === 0, 'the matching Unicode game did not load')
+      await page.getByTestId('command-palette-btn').click()
+      const commands = page.getByRole('combobox', { name: 'Search commands', exact: true })
+      await commands.fill('re\u0301view')
+      await page.locator('[data-command-id="tab-review"] button').waitFor()
+      await commands.press('Enter')
+      await page.getByRole('button', { name: 'Review', exact: true }).waitFor()
+      assert(await page.getByRole('button', { name: 'Review', exact: true }).getAttribute('aria-pressed') === 'true', 'accented Commands query did not open the matching tab')
+      assert(errors.length === 0, `international search errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'international search overflows the viewport')
+      console.log(`  international search (${width}px, ${scale}x, ${theme}): ASCII names/player/event/site queries and decomposed accents match; focus/query preserved; negative filter, complete original Unicode backup, actual game load and accented Commands query`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkLibraryEditing(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 900 } })
@@ -14466,6 +14533,7 @@ async function main() {
       'eval-bar': checkTheEvaluationBarSurvivesTheWdlSwitch,
       'library-double-save': checkOneGestureSavesOneGame,
       'library-editing': checkLibraryEditing,
+      'international-search': checkInternationalLibrarySearch,
       'library-capacity': checkAFullLibraryStopsReadingTheFile,
       'import-drafts': checkImportDraftOwnership,
       'setup-en-passant': checkPositionSetupEnPassant,
@@ -15281,6 +15349,7 @@ async function main() {
     await checkLibraryBackupLimits(browser)
     await checkOneGestureSavesOneGame(browser)
     await checkLibraryEditing(browser)
+    await checkInternationalLibrarySearch(browser)
     await checkImportDraftOwnership(browser)
     await checkPositionSetupEnPassant(browser)
     await checkPositionSetupKeyboard(browser)

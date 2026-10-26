@@ -1,0 +1,46 @@
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 191 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-m_0vzQ90.js   60.55 kB
+dist/assets/LibraryDialog-DoerBiP1.css        4.36 kB │ gzip:   1.20 kB
+dist/assets/index-tBMUZq74.css              131.41 kB │ gzip:  24.48 kB
+dist/assets/NewGameDialog-Cmqz0wYw.js         4.25 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-uS1GnAyE.js        10.23 kB │ gzip:   3.67 kB
+dist/assets/PgnDialog-BMHU566k.js            29.75 kB │ gzip:   9.95 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-Cz78ZdAM.js               382.57 kB │ gzip: 123.50 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.68s
+  international search (1280px, 1x, dark): ASCII names/player/event/site queries and decomposed accents match; focus/query preserved; negative filter, complete original Unicode backup, actual game load and accented Commands query
+  international search (375px, 1x, light): ASCII names/player/event/site queries and decomposed accents match; focus/query preserved; negative filter, complete original Unicode backup, actual game load and accented Commands query
+  international search (375px, 2x, dark): ASCII names/player/event/site queries and decomposed accents match; focus/query preserved; negative filter, complete original Unicode backup, actual game load and accented Commands query
+  international search (320px, 2x, light): ASCII names/player/event/site queries and decomposed accents match; focus/query preserved; negative filter, complete original Unicode backup, actual game load and accented Commands query
+  library (1280px): rejected save preserves its name; inline rename selects, cancels, commits and persists
+  library (375px): rejected save preserves its name; inline rename selects, cancels, commits and persists
+  library: three clicks saved one copy, a named copy and a further move both saved again
+  command reopen (1280px): query and selection reset before the first key, across three reopen cycles
+  command keyboard (1280px): Tab activates the focused button; search editing and Enter work
+  command reopen (375px): query and selection reset before the first key, across three reopen cycles
+  command keyboard (375px): Tab activates the focused button; search editing and Enter work
+  command layout (320x568, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (375x812, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (768x1024, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (844x390, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (1280x800, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (320x568, 2x text): dialog, full label and reason fit; selection opens Settings
+  command layout (1280x800, 2x text): dialog, full label and reason fit; selection opens Settings
+  palette reading (320×812, 2x, light): intact title; full unavailable card; hint 8.6:1 including opacity; steady phone search and Close
+  palette reading (375×812, 2x, dark): intact title; full unavailable card; hint 9.31:1 including opacity; steady phone search and Close
+  palette reading (320×568, 1x, light): intact title; full unavailable card; hint 8.6:1 including opacity; steady phone search and Close
+  palette reading (375×812, 1x, dark): intact title; full unavailable card; hint 9.31:1 including opacity; steady phone search and Close
+  palette reading (1280×800, 2x, light): intact title; full unavailable card; hint 9.7:1 including opacity; steady phone search and Close
+  backup: 8 games out and back byte for byte, twice over without doubling
+Focused browser UI checks passed.

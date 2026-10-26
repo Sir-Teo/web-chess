@@ -18,26 +18,27 @@
  */
 export const MAX_SEARCH_QUERY_LENGTH = 200
 
+const LATIN_SEARCH_ALIASES: Record<string, string> = {
+    æ: 'ae', œ: 'oe', ß: 'ss', ø: 'o', ł: 'l', đ: 'd', ð: 'd', þ: 'th', ı: 'i',
+}
+
+/** Normalize matching text while retaining marks used by other writing systems. */
+export function normalizeSearchText(text: string): string {
+    return text.toLowerCase().normalize('NFKD')
+        .replace(/(\p{Script=Latin})\p{Mark}+/gu, '$1')
+        .replace(/[æœßøłđðþı]/g, letter => LATIN_SEARCH_ALIASES[letter] ?? letter)
+}
+
 export function toSearchTerms(query: string | null | undefined): string[] {
-    return String(query ?? '')
-        .slice(0, MAX_SEARCH_QUERY_LENGTH)
+    return normalizeSearchText(String(query ?? '').slice(0, MAX_SEARCH_QUERY_LENGTH))
         .trim()
-        .toLowerCase()
         .split(/\s+/)
         .filter(Boolean)
 }
 
-/**
- * Lowercases the haystack rather than requiring the caller to have done it.
- *
- * This used to assume a pre-lowercased string, which its only caller happened
- * to satisfy — and web-xiangqi's copy of this same module lowercases here. Two
- * functions with one name and different preconditions is how the next caller
- * gets case-sensitive matching with nothing to tell them why. Lowercasing an
- * already-lowercase string costs nothing at these sizes and is idempotent.
- */
+/** Match every query term against a normalized copy of the searchable text. */
 export function matchesSearchTerms(haystack: string, terms: string[]): boolean {
     if (terms.length === 0) return true
-    const text = haystack.toLowerCase()
+    const text = normalizeSearchText(haystack)
     return terms.every(term => text.includes(term))
 }
