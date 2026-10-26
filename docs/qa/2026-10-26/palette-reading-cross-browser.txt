@@ -1,0 +1,10 @@
+  palette reading (320×812, 2x, light): intact title; full unavailable card; hint 9.7:1 including opacity; steady phone search and Close
+  palette reading (375×812, 2x, dark): intact title; full unavailable card; hint 8.3:1 including opacity; steady phone search and Close
+  palette reading (320×568, 1x, light): intact title; full unavailable card; hint 9.7:1 including opacity; steady phone search and Close
+  palette reading (375×812, 1x, dark): intact title; full unavailable card; hint 9.31:1 including opacity; steady phone search and Close
+  palette reading (1280×800, 2x, light): intact title; full unavailable card; hint 9.7:1 including opacity; steady phone search and Close
+  palette reading (320×812, 2x, light): intact title; full unavailable card; hint 8.6:1 including opacity; steady phone search and Close
+  palette reading (375×812, 2x, dark): intact title; full unavailable card; hint 8.3:1 including opacity; steady phone search and Close
+  palette reading (320×568, 1x, light): intact title; full unavailable card; hint 8.6:1 including opacity; steady phone search and Close
+  palette reading (375×812, 1x, dark): intact title; full unavailable card; hint 8.3:1 including opacity; steady phone search and Close
+  palette reading (1280×800, 2x, light): intact title; full unavailable card; hint 8.6:1 including opacity; steady phone search and Close

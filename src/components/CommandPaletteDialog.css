@@ -3,7 +3,8 @@
     /* Against the backdrop it sits in, which is the room there is, rather than
        `100vw`, which is that plus a classic scrollbar. Measured: the backdrop
        is exactly `documentElement.clientWidth` at 320, 360, 390 and 1440. */
-    width: min(32rem, calc(100% - 2rem));
+    width: 100%;
+    container-type: inline-size;
 }
 
 .command-palette .dialog-header {
@@ -43,6 +44,20 @@
     padding: 0.75rem 1rem 1rem;
 }
 
+@container (max-width: 10rem) {
+    .command-palette :is(.dialog-header, .dialog-body) {
+        padding-inline: 0.75rem;
+    }
+
+    .command-palette .dialog-header h2 {
+        grid-column: 1 / -1;
+    }
+
+    .command-palette-close {
+        grid-column: 2;
+    }
+}
+
 .command-palette-list {
     list-style: none;
     margin: 0.5rem 0 0;
@@ -79,6 +94,9 @@
 
 .command-palette-button:disabled {
     cursor: default;
+}
+
+.command-palette-button:disabled :is(.command-palette-label, .command-palette-key) {
     opacity: 0.55;
 }
 
@@ -95,6 +113,11 @@
     overflow-wrap: anywhere;
     font-size: 0.75rem;
     opacity: 0.7;
+}
+
+.command-palette-button:disabled .command-palette-hint {
+    color: var(--text-secondary);
+    opacity: 1;
 }
 
 .command-palette-key {

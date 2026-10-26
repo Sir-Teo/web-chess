@@ -14205,6 +14205,65 @@ async function checkCommandPaletteKeyboard(browser) {
   }
 }
 
+async function checkPaletteReading(browser) {
+  for (const [width, height, scale, theme, wholeDialog] of [[320, 812, 2, 'light', true], [375, 812, 2, 'dark', true], [320, 568, 1, 'light', false], [375, 812, 1, 'dark', false], [1280, 800, 2, 'light', false]]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('hold-search'))
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await startGameMode(page, 'AI vs AI')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.waitForFunction(expected => document.querySelector('.app-shell')?.getAttribute('data-scroll-dialogs') === (expected ? 'true' : null), wholeDialog, { timeout: 5000 })
+      await page.getByTestId('command-palette-btn').click()
+      const input = page.getByRole('combobox', { name: 'Search commands', exact: true })
+      await input.fill('Enter a move')
+      const row = page.locator('[data-command-id="enter-move"]')
+      await row.waitFor()
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      const reading = await row.evaluate(row => {
+        const panel = row.closest('.command-palette'), title = panel.querySelector('h2')
+        const range = document.createRange(); range.selectNodeContents(title)
+        const hint = row.querySelector('.command-palette-hint'), list = row.parentElement
+        // Composite both pixels from the text outwards, including group
+        // opacity. A muted disabled button also fades its hint's own opacity.
+        const parse = value => { const parts = value.match(/[\d.]+/g)?.map(Number); return parts?.length >= 3 ? [parts[0], parts[1], parts[2], parts[3] ?? 1] : [0, 0, 0, 0] }
+        const over = (fg, bg) => { const a = fg[3] + bg[3] * (1 - fg[3]); return a ? [0, 1, 2].map(i => (fg[i] * fg[3] + bg[i] * bg[3] * (1 - fg[3])) / a).concat(a) : [0, 0, 0, 0] }
+        let ink = parse(getComputedStyle(hint).color), ground = [0, 0, 0, 0], node = hint, unsupportedGradient = false
+        while (node) {
+          const style = getComputedStyle(node), bg = parse(style.backgroundColor), opacity = Number(style.opacity)
+          if (style.backgroundImage !== 'none' && (ink[3] < 0.999 || ground[3] < 0.999)) unsupportedGradient = true
+          ink = over(ink, bg); ground = over(ground, bg); ink[3] *= opacity; ground[3] *= opacity
+          node = node.parentElement
+        }
+        ink = over(ink, [255, 255, 255, 1]); ground = over(ground, [255, 255, 255, 1])
+        const luminance = c => c.slice(0, 3).map(v => v / 255).map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0)
+        const a = luminance(ink), b = luminance(ground), box = row.getBoundingClientRect()
+        return { titleLines: range.getClientRects().length, rowHeight: box.height, listHeight: list.clientHeight,
+          contrast: Number(((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)).toFixed(2)), unsupportedGradient,
+          hintFits: hint.scrollWidth <= hint.clientWidth + 1 && hint.scrollHeight <= hint.clientHeight + 1 }
+      })
+      assert(reading.titleLines === 1 && reading.rowHeight <= reading.listHeight + 1 && reading.hintFits,
+        `Commands cannot show its complete title and unavailable reason: ${JSON.stringify({ width, height, scale, theme, ...reading })}`)
+      assert(!reading.unsupportedGradient && reading.contrast >= 4.5, `unavailable reason is too faint: ${JSON.stringify({ width, scale, theme, ...reading })}`)
+      const start = await input.boundingBox()
+      for (const query of ['no_such_command_xyz', '', 'Enter a move']) {
+        await input.fill(query)
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        const box = await input.boundingBox()
+        if (width <= 560) assert(Math.abs(box.y - start.y) <= 1, `filtering moved the phone search field: ${JSON.stringify({ width, scale, query, before: start.y, after: box.y })}`)
+      }
+      assert(await page.locator('[data-command-id="enter-move"] button').isDisabled(), 'reading an unavailable reason enabled the action')
+      await page.getByRole('button', { name: 'Close Commands', exact: true }).click()
+      assert(errors.length === 0, `palette reading errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'readable palette overflows the viewport')
+      console.log(`  palette reading (${width}×${height}, ${scale}x, ${theme}): intact title; full unavailable card; hint ${reading.contrast}:1 including opacity; steady phone search and Close`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkCommandPaletteLayout(browser) {
   for (const [width, height, scale] of [[320, 568, 1], [375, 812, 1], [768, 1024, 1], [844, 390, 1], [1280, 800, 1], [320, 568, 2], [1280, 800, 2]]) {
     const context = await browser.newContext({ viewport: { width, height } })
@@ -14322,6 +14381,7 @@ async function main() {
       continuous: checkKeepSearchingIsUnbounded,
       'palette-keyboard': checkCommandPaletteKeyboard,
       'palette-layout': checkCommandPaletteLayout,
+      'palette-reading': checkPaletteReading,
       'big-text': checkLabelsSurviveBigText,
       targets: checkEveryControlIsFingerSized,
       offline: checkCrossOriginIsolationIsRestored,
@@ -15085,6 +15145,7 @@ async function main() {
 
     await checkCommandPaletteKeyboard(browser)
     await checkCommandPaletteLayout(browser)
+    await checkPaletteReading(browser)
     await checkDialogDownloadFailure(browser)
     await checkSlowDialogDismissal(browser)
     await checkTypedMoveEntry(browser)

@@ -126,7 +126,7 @@ export function CommandPaletteDialog({ open, commands, onClose }: Props) {
                       */}
                     <p className="command-palette-count" aria-live="polite" data-command-count>
                         {ranked.length === 0
-                            ? 'No commands match'
+                            ? 'No matches'
                             : `${ranked.length} command${ranked.length === 1 ? '' : 's'}`}
                     </p>
 
