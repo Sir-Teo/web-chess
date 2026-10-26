@@ -10325,6 +10325,96 @@ async function checkShortDesktopWindow(browser) {
   }
 }
 
+async function checkPortraitDialogReading(browser) {
+  for (const [width, theme] of [[320, 'light'], [375, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.locator('#chessboard-square-e2').click(); await page.locator('#chessboard-square-e4').click()
+      await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+      const geometry = target => target.evaluate(el => {
+        const r = el.getBoundingClientRect()
+        let top = 0, bottom = innerHeight, parent = el.parentElement
+        // The backdrop is fixed; workspace scrollers above it do not clip it.
+        while (parent) {
+          if (/auto|scroll|hidden|clip/.test(getComputedStyle(parent).overflowY)) {
+            const p = parent.getBoundingClientRect(); top = Math.max(top, p.top); bottom = Math.min(bottom, p.bottom)
+          }
+          if (parent.classList.contains('dialog-panel')) break
+          parent = parent.parentElement
+        }
+        return { height: r.height, visible: Math.max(0, Math.min(r.bottom, bottom) - Math.max(r.top, top)),
+          inside: r.left >= 0 && r.right <= innerWidth + 1,
+          hit: [r.top + 4, r.top + r.height / 2, r.bottom - 4].every(y => el.contains(document.elementFromPoint(r.x + r.width / 2, y))) }
+      })
+      const settle = () => page.evaluate(async () => { for (let i = 0; i < 8; i++) await new Promise(resolve => requestAnimationFrame(resolve)) })
+      const checkField = async (field, label) => {
+        const value = await field.inputValue()
+        const select = await field.evaluate(el => el.tagName === 'TEXTAREA' || el.type === 'text' || el.type === 'search')
+        for (const scale of [1, 2, 1]) {
+          await field.focus()
+          if (select) await field.evaluate(el => el.setSelectionRange(2, Math.min(9, el.value.length)))
+          const selection = select ? await field.evaluate(el => [el.selectionStart, el.selectionEnd]) : null
+          await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+          await page.waitForFunction(scale => document.querySelector('.app-shell')?.getAttribute('data-scroll-dialogs') === (scale === 2 ? 'true' : null), scale, { timeout: 5000 })
+          await field.evaluate(el => el.scrollIntoView({ block: 'nearest', behavior: 'instant' }))
+          await settle()
+          const layout = await geometry(field)
+          assert(layout.inside && layout.hit && layout.visible >= layout.height - 1, `${width}px / ${scale}x / ${label} cannot show the whole control: ${JSON.stringify(layout)}`)
+          assert(await field.inputValue() === value && await field.evaluate(el => document.activeElement === el), `${label} lost its draft or focus during text resizing`)
+          if (select) assert(JSON.stringify(await field.evaluate(el => [el.selectionStart, el.selectionEnd])) === JSON.stringify(selection), `${label} lost text selection during resizing`)
+          assert(await page.locator('.app-shell').getAttribute('data-scroll-chrome') === null, 'portrait dialog scrolling unexpectedly moved workspace bars')
+          if (scale === 2) {
+            const panel = field.locator('xpath=ancestor::*[@role="dialog"]')
+            for (const button of await panel.locator('.dialog-actions button:not(:disabled)').all()) {
+              await button.focus(); await settle()
+              const action = await geometry(button)
+              assert(action.inside && action.hit && action.visible >= action.height - 1, `${label} action is covered in the enlarged dialog: ${JSON.stringify(action)}`)
+            }
+          }
+        }
+        console.log(`  portrait dialogs (${width}px, ${theme}, ${label}): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars`)
+      }
+      await page.getByRole('button', { name: 'Start new game', exact: true }).first().click()
+      const newGame = page.locator('.new-game-dialog')
+      await newGame.locator('.mode-card', { hasText: 'Human vs AI' }).click()
+      const difficulty = newGame.getByRole('slider')
+      await difficulty.focus(); await difficulty.press('Home'); await difficulty.press('ArrowRight')
+      await checkField(difficulty, 'New Game difficulty')
+      await page.keyboard.press('Escape')
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      const pgn = page.locator('.pgn-dialog')
+      const imported = pgn.locator('textarea')
+      await imported.fill('[Event "Portrait draft"]\n\n1. e4 e5 *')
+      await checkField(imported, 'PGN import')
+      await pgn.getByRole('button', { name: 'Export', exact: true }).click()
+      await checkField(pgn.getByRole('textbox', { name: 'Annotated Output', exact: true }), 'PGN export')
+      await pgn.getByRole('button', { name: 'FEN', exact: true }).click()
+      const fen = pgn.locator('.fen-textarea')
+      await fen.fill('4k3/8')
+      await checkField(fen, 'FEN draft')
+      await page.keyboard.press('Escape')
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      const name = page.locator('[data-library-name]')
+      await name.fill('Portrait study draft')
+      await checkField(name, 'Library name')
+      await page.keyboard.press('Escape')
+      await page.getByTestId('command-palette-btn').click()
+      const search = page.getByRole('combobox', { name: 'Search commands', exact: true })
+      await search.fill('Copy FEN')
+      await checkField(search, 'Commands search')
+      await page.keyboard.press('Escape')
+      assert(await page.locator('#chessboard-square-e4 [data-piece="wP"]').count() === 1 && await page.locator('#chessboard-square-e2 [data-piece]').count() === 0, 'reading dialogs changed the board')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth || document.documentElement.scrollHeight > innerHeight), 'portrait dialogs overflowed the document')
+      assert(errors.length === 0, `portrait dialog errors: ${errors.join('; ')}`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkShortDesktopDialogs(browser) {
   const visible = async (target, label, focus = true) => {
     if (focus) await target.focus()
@@ -14174,6 +14264,7 @@ async function main() {
       'short-mobile': checkShortMobileWorkspace,
       'native-zoom': checkNativeBrowserZoom,
       'short-dialogs': checkShortDesktopDialogs,
+      'portrait-dialogs': checkPortraitDialogReading,
       'compact-footer': checkCompactFooter,
       'reading-space': checkReadingSpace,
       'opening-layout': checkOpeningLayout,
@@ -15000,6 +15091,7 @@ async function main() {
     await checkShortDesktopWindow(browser)
     await checkShortMobileWorkspace(browser)
     await checkShortDesktopDialogs(browser)
+    await checkPortraitDialogReading(browser)
     await checkCompactFooter(browser)
     await checkReadingSpace(browser)
     await checkOpeningLayout(browser)

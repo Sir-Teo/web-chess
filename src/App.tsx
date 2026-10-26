@@ -566,10 +566,11 @@ function App() {
   // Derive this from the viewport, not toolbar height, to avoid resize feedback.
   const compactDesktopChrome = !isMobileLayout
     && (viewport.width < 56.25 * viewport.rem || viewport.height < 30 * viewport.rem)
-  // Short phone viewports need the same whole-dialog scrolling as desktops:
-  // enlarged headings and footers can otherwise squeeze the form to zero.
-  const scrollDialogs = viewport.height < 20 * viewport.rem
-  const scrollWorkspaceChrome = scrollDialogs
+  const scrollWorkspaceChrome = viewport.height < 20 * viewport.rem
+  // Large text also wraps portrait headings and actions: at 320px / 200%,
+  // they left only 137px for a 180px field in an otherwise tall viewport.
+  const scrollDialogs = scrollWorkspaceChrome
+    || (viewport.width < 14 * viewport.rem && viewport.height < 30 * viewport.rem)
   const previousBarStateRef = useRef({ top: topPanelOpen, bottom: bottomPanelOpen })
   useEffect(() => {
     const previous = previousBarStateRef.current
