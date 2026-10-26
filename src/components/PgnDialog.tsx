@@ -153,8 +153,10 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const archiveUserId = useId()
     const archiveCountId = useId()
     const enPassantId = useId()
+    const feedbackGenerationRef = useRef(0)
 
     const resetFeedback = useCallback(() => {
+        feedbackGenerationRef.current += 1
         setError(null)
         setStatus(null)
         setCopyStatus('idle')
@@ -374,7 +376,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
 
     const setExportOption = (key: keyof PgnExportOptions, value: boolean) => {
         setExportOptions(options => ({ ...options, [key]: value }))
-        setCopyStatus('idle')
+        resetFeedback()
     }
 
     const syncFenTextAndSetup = useCallback((nextFen: string) => {
@@ -477,19 +479,21 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         setError(result.error ?? 'Could not load that FEN.')
     }
 
-    const handleCopy = async () => {
-        // Resets first, like the two link copies do. Without it a failed game
-        // link left `shareLinkFallback` set, and a failed PGN copy after it
-        // showed that stale link under "select the game link" -- an answer to
-        // a question the reader had stopped asking.
+    const copyText = async (text: string, success: Exclude<CopyStatus, 'idle' | 'failed'>, fallback = '') => {
         resetFeedback()
+        // A permission prompt can outlive the draft, tab, or next copy action.
+        const generation = feedbackGenerationRef.current
         try {
-            await navigator.clipboard.writeText(exportText)
-            setCopyStatus('pgn-copied')
+            await navigator.clipboard.writeText(text)
+            if (generation === feedbackGenerationRef.current) setCopyStatus(success)
         } catch {
+            if (generation !== feedbackGenerationRef.current) return
             setCopyStatus('failed')
+            setShareLinkFallback(fallback)
         }
     }
+
+    const handleCopy = () => copyText(exportText, 'pgn-copied')
 
     const handleDownload = () => {
         const blob = new Blob([exportText], { type: 'application/x-chess-pgn;charset=utf-8' })
@@ -508,16 +512,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         syncFenTextAndSetup(currentFen)
     }
 
-    const handleCopyCurrentFen = async () => {
-        resetFeedback()
-        syncFenTextAndSetup(currentFen)
-        try {
-            await navigator.clipboard.writeText(currentFen)
-            setCopyStatus('fen-copied')
-        } catch {
-            setCopyStatus('failed')
-        }
-    }
+    const handleCopyFen = () => copyText(fenText.trim(), 'fen-copied')
 
     /**
      * The whole game in a link, where "Copy Share Link" on the FEN tab shares
@@ -558,13 +553,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const handleCopyGameLink = async () => {
         resetFeedback()
         if (!gameShareUrl || gameShareTooLong) return
-        try {
-            await navigator.clipboard.writeText(gameShareUrl)
-            setCopyStatus('game-link-copied')
-        } catch {
-            setCopyStatus('failed')
-            setShareLinkFallback(gameShareUrl)
-        }
+        await copyText(gameShareUrl, 'game-link-copied', gameShareUrl)
     }
 
     const handleCopyShareLink = async () => {
@@ -577,13 +566,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         }
 
         const shareUrl = buildFenShareUrl(fenToShare, window.location.href)
-        try {
-            await navigator.clipboard.writeText(shareUrl)
-            setCopyStatus('link-copied')
-        } catch {
-            setCopyStatus('failed')
-            setShareLinkFallback(shareUrl)
-        }
+        await copyText(shareUrl, 'link-copied', shareUrl)
     }
 
     useModalFocus(open, panelRef, closeDialog)
@@ -833,8 +816,8 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                     onClick={() => setSetupFlipped(flipped => !flipped)}>
                                     <IconFlip /> Flip board
                                 </button>
-                                <button type="button" className="btn-cancel" onClick={handleCopyCurrentFen}>
-                                    {copyStatus === 'fen-copied' ? 'Copied FEN' : 'Copy Current FEN'}
+                                <button type="button" className="btn-cancel" onClick={handleCopyFen} disabled={!fenText.trim()}>
+                                    {copyStatus === 'fen-copied' ? 'Copied FEN' : 'Copy FEN'}
                                 </button>
                                 <button type="button" className="btn-cancel" onClick={handleCopyShareLink} disabled={!canCopyShareLink}>
                                     <IconClipboard /> {copyStatus === 'link-copied' ? 'Copied Link' : 'Copy Share Link'}
@@ -958,8 +941,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                 value={fenText}
                                 onChange={e => {
                                     syncFenTextAndSetup(e.target.value)
-                                    setError(null)
-                                    setCopyStatus('idle')
+                                    resetFeedback()
                                 }}
                                 aria-invalid={Boolean(error || fenValidationError)}
                             />
@@ -980,7 +962,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         />
                                     </div>
                                 ) : (
-                                    <p className="dialog-error" role="alert">Clipboard access failed. The current FEN is in the text box.</p>
+                                    <p className="dialog-error" role="alert">Clipboard access failed. Select the FEN text and copy it manually.</p>
                                 )
                             )}
                         </div>

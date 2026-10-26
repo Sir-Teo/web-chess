@@ -4361,6 +4361,76 @@ async function checkPositionSetupKeyboard(browser) {
   }
 }
 
+async function checkFenCopyPreservesDraft(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => {
+        window.__fenCopies = []
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+          writeText: async text => {
+            if (window.__holdFenCopy) await new Promise(resolve => { window.__releaseFenCopy = resolve })
+            if (window.__denyFenCopy) throw new DOMException('Clipboard denied', 'NotAllowedError')
+            window.__fenCopies.push(text)
+          },
+        } })
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      const dialog = page.locator('.pgn-dialog')
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const text = dialog.locator('.fen-textarea')
+      const current = await text.inputValue()
+      const edited = '4k3/8/8/8/4N3/8/8/4K3 b - - 7 21'
+      const copy = () => dialog.getByRole('button', { name: 'Copy FEN', exact: true })
+      await text.fill(`  ${edited}  `)
+      await copy().click()
+      await dialog.getByRole('button', { name: 'Copied FEN', exact: true }).waitFor()
+      assert(await page.evaluate(() => window.__fenCopies.at(-1)) === edited, 'Copy FEN copied the live board instead of the edited setup')
+      assert(await text.inputValue() === `  ${edited}  `, 'successful Copy FEN rewrote the draft')
+      assert(await dialog.getByRole('button', { name: /^e4, White knight,/ }).count() === 1, 'Copy FEN replaced the edited diagram')
+      await page.evaluate(() => { window.__denyFenCopy = true })
+      await text.fill(edited.replace('7 21', '8 22'))
+      const deniedDraft = await text.inputValue()
+      await copy().click()
+      await dialog.getByRole('alert').filter({ hasText: 'Select the FEN text and copy it manually.' }).waitFor()
+      assert(await text.inputValue() === deniedDraft, 'denied clipboard access destroyed the FEN draft')
+      await text.fill('   ')
+      assert(await copy().isDisabled(), 'blank FEN can still replace the clipboard')
+      await page.evaluate(() => { window.__denyFenCopy = false; window.__holdFenCopy = true })
+      await text.fill(edited)
+      await copy().click()
+      await page.waitForFunction(() => Boolean(window.__releaseFenCopy))
+      await text.fill(deniedDraft)
+      await page.evaluate(() => { window.__holdFenCopy = false; window.__releaseFenCopy() })
+      await page.waitForFunction(() => window.__fenCopies.length === 2)
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      assert(await copy().count() === 1, 'an older clipboard response marked a newer draft as copied')
+      assert(await text.inputValue() === deniedDraft, 'an older clipboard response changed the newer draft')
+      await text.fill('4k3/8')
+      await copy().click()
+      await page.waitForFunction(() => window.__fenCopies.length === 3)
+      assert(await page.evaluate(() => window.__fenCopies.at(-1)) === '4k3/8', 'an unfinished FEN draft cannot be copied for manual use')
+      await dialog.getByRole('button', { name: 'Use Current Position', exact: true }).click()
+      assert(await text.inputValue() === current, 'Use Current Position no longer restores the live board explicitly')
+      await page.evaluate(() => { window.__holdFenCopy = true })
+      await copy().click()
+      await dialog.getByRole('button', { name: 'Export', exact: true }).click()
+      await page.evaluate(() => { window.__holdFenCopy = false })
+      await dialog.getByRole('button', { name: 'Copy PGN', exact: true }).click()
+      await dialog.getByRole('button', { name: 'Copied', exact: true }).waitFor()
+      await page.evaluate(() => { window.__denyFenCopy = true; window.__releaseFenCopy() })
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      assert(await dialog.getByRole('button', { name: 'Copied', exact: true }).count() === 1 && await dialog.getByRole('alert').count() === 0,
+        'an old FEN copy failure replaced the newer PGN copy feedback')
+      console.log(`  FEN copy (${width}px, ${scale}x): edited/unfinished drafts copy intact, denial preserves work, blank drafts are disabled, and old replies cannot relabel new edits`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkPositionSetupOrientation(browser) {
   for (const [width, scale] of [[1280, 1], [375, 1], [320, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: 'reduce' })
@@ -12007,6 +12077,7 @@ async function main() {
       'setup-en-passant': checkPositionSetupEnPassant,
       'setup-keyboard': checkPositionSetupKeyboard,
       'setup-orientation': checkPositionSetupOrientation,
+      'fen-copy': checkFenCopyPreservesDraft,
       'text-composition': checkTextCompositionKeys,
       'reveal-dialogs': checkRevealTimersRespectDialogs,
       'reveal-interaction': checkRevealRetriesYieldToInteraction,
@@ -12785,6 +12856,7 @@ async function main() {
     await checkPositionSetupEnPassant(browser)
     await checkPositionSetupKeyboard(browser)
     await checkPositionSetupOrientation(browser)
+    await checkFenCopyPreservesDraft(browser)
     await checkTextCompositionKeys(browser)
     await checkRevealTimersRespectDialogs(browser)
     await checkRevealRetriesYieldToInteraction(browser)
