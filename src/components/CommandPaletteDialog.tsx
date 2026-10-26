@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 're
 import { useModalFocus } from '../hooks/useModalFocus'
 import { MAX_SEARCH_QUERY_LENGTH } from '../engine/searchTerms'
 import { type Command, rankCommands, readRecentCommandIds, rememberCommandId } from './commandPalette'
+import { isCompositionKey } from './shortcutKeys'
 import './NewGameDialog.css'
 import './CommandPaletteDialog.css'
 
@@ -63,7 +64,7 @@ export function CommandPaletteDialog({ open, commands, onClose }: Props) {
     }
 
     const onKeyDown = (event: React.KeyboardEvent) => {
-        if (event.nativeEvent.isComposing || ranked.length === 0) return
+        if (isCompositionKey(event.nativeEvent) || ranked.length === 0) return
         if (event.key === 'ArrowDown') {
             event.preventDefault()
             setActiveIndex(index => (index + 1) % ranked.length)

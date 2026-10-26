@@ -3758,6 +3758,64 @@ async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
   }
 }
 
+/** Composing text keeps Enter/Escape until the input method finishes. */
+async function checkTextCompositionKeys(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript() + `
+      window.__archiveRequests = 0;
+      const previousFetch = window.fetch;
+      window.fetch = (input, init) => {
+        if (String(input).includes('/api/games/user/')) {
+          window.__archiveRequests++;
+          return Promise.resolve(new Response('1. e4 e5 *'));
+        }
+        return previousFetch(input, init);
+      };
+    `)
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    await page.getByRole('button', { name: 'Open the Commands palette' }).click()
+    const search = page.getByRole('combobox', { name: 'Search commands' })
+    await search.fill('library')
+    for (const composition of [{ isComposing: true }, { keyCode: 229 }]) {
+      await search.dispatchEvent('keydown', { key: 'Enter', bubbles: true, ...composition })
+      assert(await search.count() === 1, 'composing Enter ran a palette command')
+      await search.dispatchEvent('keydown', { key: 'Escape', bubbles: true, ...composition })
+      assert(await search.count() === 1, 'composing Escape closed Commands')
+    }
+    await search.press('Escape')
+    await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+    const username = page.getByRole('textbox', { name: 'Your Lichess username' })
+    await username.fill('archivist')
+    for (const composition of [{ isComposing: true }, { keyCode: 229 }]) {
+      await username.dispatchEvent('keydown', { key: 'Enter', bubbles: true, ...composition })
+      await username.dispatchEvent('keydown', { key: 'Escape', bubbles: true, ...composition })
+      assert(await username.count() === 1, 'composing Escape closed the import draft')
+    }
+    assert(await page.evaluate(() => window.__archiveRequests === 0), 'composing Enter started an archive request')
+    await username.press('Enter')
+    await page.waitForFunction(() => window.__archiveRequests === 1)
+    await page.locator('.pgn-dialog').getByText('Fetched 1 game for archivist.', { exact: true }).waitFor()
+    await username.press('Escape')
+
+    await page.click('#chessboard-square-e2')
+    await page.click('#chessboard-square-e4')
+    await page.getByRole('button', { name: 'Open saved games library' }).click()
+    const dialog = page.locator('.library-dialog')
+    await dialog.locator('[data-library-name]').fill('Composition game')
+    await dialog.locator('[data-library-name]').press('Enter')
+    await dialog.getByRole('button', { name: 'Rename Composition game', exact: true }).click()
+    const rename = dialog.getByRole('textbox', { name: 'New game name', exact: true })
+    await rename.fill('A draft in progress')
+    await rename.dispatchEvent('keydown', { key: 'Escape', bubbles: true, isComposing: true })
+    assert(await rename.inputValue() === 'A draft in progress', 'composing Escape discarded the rename draft')
+    await rename.press('Escape')
+    assert(await dialog.isVisible() && await rename.count() === 0, 'ordinary Escape no longer cancels rename')
+    console.log('  text composition: Enter/Escape and legacy 229 preserve Commands, archive and rename drafts; ordinary keys still work')
+  } finally { await context.close() }
+}
+
 /** Setup edits must preserve the special capture described by the FEN. */
 async function checkPositionSetupEnPassant(browser) {
   for (const [width, fen, target, from, captured] of [
@@ -3941,8 +3999,7 @@ async function checkLibraryEditing(browser) {
       await rename.fill('Discard this draft')
       await rename.press('Escape')
       assert(await dialog.isVisible() && await rename.count() === 0, 'Escape should cancel renaming and keep the library open')
-      assert(await dialog.getByRole('button', { name: `Rename ${original}`, exact: true }).evaluate(el => el === document.activeElement),
-        'cancelling rename lost keyboard focus')
+      await page.waitForFunction(name => document.activeElement?.getAttribute('aria-label') === `Rename ${name}`, original)
 
       await dialog.getByRole('button', { name: `Rename ${original}`, exact: true }).click()
       await rename.fill('My renamed game')
@@ -3968,6 +4025,18 @@ async function checkLibraryEditing(browser) {
       if (await restore.count()) await restore.click()
       await page.getByRole('button', { name: 'Open saved games library' }).click()
       await page.getByRole('button', { name: 'Rename My renamed game', exact: true }).waitFor()
+      const search = dialog.getByRole('searchbox', { name: 'Search saved games' })
+      await search.fill('My renamed game')
+      await dialog.getByRole('button', { name: 'Rename My renamed game', exact: true }).click()
+      await rename.fill('A different title')
+      await rename.press('Enter')
+      await dialog.getByText('No saved game matches “My renamed game”.', { exact: true }).waitFor()
+      await page.waitForFunction(() => document.querySelector('.library-toolbar input[type="search"]') === document.activeElement)
+      await search.fill('A different title')
+      await dialog.getByRole('button', { name: 'Delete A different title', exact: true }).click()
+      await dialog.getByRole('button', { name: 'Confirm deleting A different title', exact: true }).click()
+      await dialog.getByText('No saved game matches “A different title”.', { exact: true }).waitFor()
+      await page.waitForFunction(() => document.querySelector('.library-toolbar input[type="search"]') === document.activeElement)
       console.log(`  library (${width}px): rejected save preserves its name; inline rename selects, cancels, commits and persists`)
     } finally { await context.close() }
   }
@@ -7200,10 +7269,16 @@ async function checkConsoleSearchDeadlines(browser) {
       await page.getByRole('button', { name: 'Analyze', exact: true }).click()
       assert(await page.locator('.pv-list article').count() === 0, 'long console searches leaked into board readings')
       await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
-      // An ignored diagnostic still frees the queue after its reply deadline.
+      // Unknown commands complete through the isready sentinel. Hold that
+      // acknowledgement explicitly to exercise the missing-reply deadline.
       await submit('unknown-diagnostic')
+      await waitReady()
+      await page.evaluate(() => { window.__holdConsoleReady = true; window.__releaseConsoleReady = null })
+      await submit('unknown-diagnostic')
+      await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
       await page.clock.fastForward(15_100)
       await page.locator('.error-copy').filter({ hasText: 'Timed out waiting for response to "unknown-diagnostic".' }).waitFor()
+      await page.evaluate(() => { window.__holdConsoleReady = false; window.__releaseConsoleReady() })
       await submit('isready')
       await waitReady()
       assert((await output.textContent()).endsWith('readyok'), 'diagnostic timeout left the command queue blocked')
@@ -11138,6 +11213,7 @@ async function main() {
       'library-editing': checkLibraryEditing,
       'import-drafts': checkImportDraftOwnership,
       'setup-en-passant': checkPositionSetupEnPassant,
+      'text-composition': checkTextCompositionKeys,
       'database-once': checkADatabaseIsAddedOnce,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
       'finished-clock': checkAFinishedGameKeepsItsStoppedClock,
@@ -11892,6 +11968,7 @@ async function main() {
     await checkLibraryEditing(browser)
     await checkImportDraftOwnership(browser)
     await checkPositionSetupEnPassant(browser)
+    await checkTextCompositionKeys(browser)
     await checkADatabaseIsAddedOnce(browser)
     await checkAnExportedGameComesBack(browser)
     await checkAnInterruptedGameComesBack(browser)

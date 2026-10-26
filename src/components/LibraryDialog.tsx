@@ -17,6 +17,7 @@ import { IconClipboard, IconDownload, IconUpload, IconPlay, IconPencil } from '.
 import './NewGameDialog.css'
 import './LibraryDialog.css'
 import { MAX_SEARCH_QUERY_LENGTH } from '../engine/searchTerms'
+import { isCompositionKey } from './shortcutKeys'
 
 type Props = {
     open: boolean
@@ -105,6 +106,7 @@ export function LibraryDialog({
     const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
     const renameInputRef = useRef<HTMLInputElement>(null)
     const renameButtonRef = useRef<HTMLButtonElement | null>(null)
+    const renameReturnFocusRef = useRef<HTMLElement | null>(null)
     const disarmDelete = useCallback(() => setConfirmingDelete(null), [])
     useDisarmAfter(confirmingDelete !== null, disarmDelete)
     const [visibleLimit, setVisibleLimit] = useState(PAGE_SIZE)
@@ -141,9 +143,22 @@ export function LibraryDialog({
     useModalFocus(open, panelRef, onClose, { initialFocus: '[data-library-name]' })
 
     useLayoutEffect(() => {
-        if (!open || !renamingId) return
-        renameInputRef.current?.focus()
-        renameInputRef.current?.select()
+        if (!open) return
+        if (renamingId) {
+            renameInputRef.current?.focus()
+            renameInputRef.current?.select()
+            return
+        }
+        const target = renameReturnFocusRef.current
+        renameReturnFocusRef.current = null
+        if (!target) return
+        // Let the browser finish the Enter key's implicit submit before
+        // restoring focus away from the form that just disappeared.
+        const frame = requestAnimationFrame(() => {
+            if (target.isConnected) target.focus()
+            else panelRef.current?.querySelector<HTMLElement>('input[type="search"], [data-library-done]')?.focus()
+        })
+        return () => cancelAnimationFrame(frame)
     }, [open, renamingId])
 
     const visible = useMemo(() => {
@@ -202,9 +217,13 @@ export function LibraryDialog({
         }
     }
 
-    const finishRenaming = () => {
+    const finishRenaming = (returnToSearch = false) => {
+        // Restore after the commit: a renamed row can move in the sort order
+        // or disappear from the current search results.
+        renameReturnFocusRef.current = returnToSearch
+            ? panelRef.current?.querySelector<HTMLInputElement>('input[type="search"]') ?? null
+            : renameButtonRef.current
         setRenaming(null)
-        renameButtonRef.current?.focus()
     }
 
     const download = (text: string, filename: string, type: string) => {
@@ -349,6 +368,7 @@ export function LibraryDialog({
                             {shown.map(game => (
                                 <li key={game.id} className={`library-row${renaming?.id === game.id ? ' library-row-editing' : ''}`}
                                     onKeyDown={event => {
+                                        if (isCompositionKey(event.nativeEvent)) return
                                         if (event.key === 'Escape' && renaming?.id === game.id) {
                                             event.preventDefault()
                                             event.stopPropagation()
@@ -385,6 +405,10 @@ export function LibraryDialog({
                                             type="button"
                                             className="btn-cancel"
                                             onClick={event => {
+                                                if (renaming?.id === game.id) {
+                                                    finishRenaming()
+                                                    return
+                                                }
                                                 renameButtonRef.current = event.currentTarget
                                                 setConfirmingDelete(null)
                                                 setRenaming({ id: game.id, name: game.name })
@@ -400,7 +424,16 @@ export function LibraryDialog({
                                             <button
                                                 type="button"
                                                 className="btn-cancel library-confirm-delete"
-                                                onClick={() => { onDelete(game.id); setConfirmingDelete(null) }}
+                                                onClick={event => {
+                                                    const row = event.currentTarget.closest('.library-row')
+                                                    const neighbor = row?.nextElementSibling ?? row?.previousElementSibling
+                                                    const target = neighbor?.querySelector<HTMLElement>('[title="Delete"]')
+                                                        ?? panelRef.current?.querySelector<HTMLElement>('input[type="search"], [data-library-done]')
+                                                    requestAnimationFrame(() => { if (target?.isConnected) target.focus() })
+                                                    onDelete(game.id)
+                                                    setConfirmingDelete(null)
+                                                    if (renaming?.id === game.id) setRenaming(null)
+                                                }}
                                                 onBlur={() => setConfirmingDelete(null)}
                                                 aria-label={`Confirm deleting ${game.name}`}
                                             >
@@ -425,7 +458,7 @@ export function LibraryDialog({
                                             onRename(game.id, renaming.name.trim())
                                             setError(null)
                                             setStatus('Renamed saved game.')
-                                            finishRenaming()
+                                            finishRenaming(Boolean(query.trim()))
                                         }}>
                                             <label htmlFor={`${renameId}-name`}>New game name</label>
                                             <div className="library-save-row">
@@ -433,7 +466,7 @@ export function LibraryDialog({
                                                     value={renaming.name} maxLength={MAX_LIBRARY_NAME_LENGTH}
                                                     onChange={event => setRenaming({ id: game.id, name: event.target.value })} />
                                                 <button type="submit" className="btn-start" disabled={!renaming.name.trim()}>Save name</button>
-                                                <button type="button" className="btn-cancel" onClick={finishRenaming}>Cancel</button>
+                                                <button type="button" className="btn-cancel" onClick={() => finishRenaming()}>Cancel</button>
                                             </div>
                                         </form>
                                     )}
@@ -531,7 +564,7 @@ export function LibraryDialog({
                     >
                         <IconDownload /> Export PGN
                     </button>
-                    <button type="button" className="btn-start" onClick={onClose}>Done</button>
+                    <button type="button" className="btn-start" data-library-done onClick={onClose}>Done</button>
                 </div>
             </div>
         </div>

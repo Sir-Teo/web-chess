@@ -234,7 +234,7 @@ import { useModalFocus } from './hooks/useModalFocus'
 import { useDisarmAfter } from './hooks/useDisarmAfter'
 import { useMoveSound } from './hooks/useMoveSound'
 import { IconClock, IconBot, IconDraw, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlag, IconFlip, IconDownload, IconClipboard, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp, IconChevronLeft, IconChevronRight } from './components/icons'
-import { isPlainShortcut, isTypingTarget } from './components/shortcutKeys'
+import { isCompositionKey, isPlainShortcut, isTypingTarget } from './components/shortcutKeys'
 import { CommandPaletteDialog } from './components/CommandPaletteDialog'
 import type { Command } from './components/commandPalette'
 import { COMMAND_PALETTE_ARIA_KEYSHORTCUTS, commandPaletteShortcutLabel, isCommandPaletteChord } from './components/commandPalette'
@@ -1399,7 +1399,7 @@ function App() {
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented) return
+      if (e.defaultPrevented || isCompositionKey(e)) return
       // The palette's own chord may close it; ordinary board shortcuts stay
       // suspended even when focus has moved from its search to a command.
       if (shortcutsSuspended && !showCommandPalette) return

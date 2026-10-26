@@ -29,3 +29,9 @@ export function isTypingTarget(target: EventTarget | null): boolean {
     const tag = element.tagName
     return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA'
 }
+
+/** Enter and Escape belong to an IME while choosing text. Some browsers report
+ * the final composing key only through the legacy 229 code. */
+export function isCompositionKey(event: Pick<KeyboardEvent, 'isComposing' | 'keyCode'>): boolean {
+    return event.isComposing || event.keyCode === 229
+}

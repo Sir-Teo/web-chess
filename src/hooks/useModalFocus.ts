@@ -1,4 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react'
+import { isCompositionKey } from '../components/shortcutKeys'
 
 const FOCUSABLE_SELECTOR = [
   'button:not([disabled])',
@@ -167,6 +168,7 @@ export function useModalFocus(
     ;(preferred ?? firstFallbackFocus(getFocusable()))?.focus()
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || isCompositionKey(event)) return
       if (event.key === 'Escape') {
         event.preventDefault()
         onCloseRef.current()

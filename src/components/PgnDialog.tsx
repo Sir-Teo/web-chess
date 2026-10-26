@@ -49,6 +49,7 @@ import {
 import { fetchArchiveGames } from '../engine/archiveFetch'
 import { IconDownload, IconClipboard, IconUpload } from './icons'
 import { fenTextForShareLink } from './pgnDialogHelpers'
+import { isCompositionKey } from './shortcutKeys'
 import {
     MAX_PGN_IMPORT_BYTES,
     PGN_IMPORT_LIMIT_MESSAGE,
@@ -694,7 +695,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         }}
                                         onBlur={() => setArchiveUsernameBlurred(true)}
                                         onKeyDown={event => {
-                                            if (event.key !== 'Enter') return
+                                            if (event.key !== 'Enter' || isCompositionKey(event.nativeEvent)) return
                                             event.preventDefault()
                                             void handleFetchArchive()
                                         }}
