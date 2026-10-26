@@ -132,6 +132,7 @@ export function LibraryDialog({
      */
     const [savedPgn, setSavedPgn] = useState<string | null>(null)
     const savedPgnRef = useRef<string | null>(null)
+    const savedNameRef = useRef<string | null>(null)
     const panelRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const titleId = useId()
@@ -204,14 +205,16 @@ export function LibraryDialog({
 
     const handleSave = () => {
         if (!currentPgn || !loaded) return
-        if (savedPgnRef.current === currentKey && !name.trim()) return
+        const typedName = name.trim()
+        if (savedPgnRef.current === currentKey && (!typedName || savedNameRef.current === typedName)) return
         // An empty field saves under the name the field is showing: the
         // placeholder is the app's suggestion, and it knows the opening,
         // which the save path does not.
-        const result = onSave(name.trim() || suggestedName, currentPgn)
+        const result = onSave(typedName || suggestedName, currentPgn)
         announce(result, storageIsDurable ? 'Saved to the library.' : 'Saved for this session only.')
         if (result.ok) {
             savedPgnRef.current = currentKey
+            savedNameRef.current = typedName
             setSavedPgn(currentKey)
             setName('')
         }
@@ -310,7 +313,12 @@ export function LibraryDialog({
                                 value={name}
                                 maxLength={MAX_LIBRARY_NAME_LENGTH}
                                 placeholder={suggestedName || 'Untitled game'}
-                                onChange={event => setName(event.target.value)}
+                                onChange={event => {
+                                    // Editing explicitly asks for another copy; repeat
+                                    // submissions before that edit belong to one save.
+                                    savedNameRef.current = null
+                                    setName(event.target.value)
+                                }}
                                 disabled={!currentPgn || !loaded}
                             />
                             <button

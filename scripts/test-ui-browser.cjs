@@ -4116,11 +4116,17 @@ async function checkOneGestureSavesOneGame(browser) {
     // A name typed is a different entry, and must work at once.
     await page.locator('[data-library-name]').fill('Second copy')
     await page.waitForTimeout(200)
-    await page.locator('.library-save-row .btn-start').click()
+    assert(await clickSaveThrice(), 'typing a name should enable saving a copy')
     await page.waitForTimeout(1500)
     const afterNamed = await names()
     assert(afterNamed.length === 2 && afterNamed.includes('Second copy'),
-      `naming a copy should save it, and the library holds ${JSON.stringify(afterNamed)}`)
+      `one named gesture should save one copy, and the library holds ${JSON.stringify(afterNamed)}`)
+
+    // Retyping the same name is an intentional new copy, with normal suffixing.
+    await page.locator('[data-library-name]').fill('Second copy')
+    await page.locator('.library-save-row .btn-start').click()
+    await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 3)
+    await page.getByRole('button', { name: 'Load Second copy (2)', exact: true }).waitFor()
 
     // So is playing on.
     await page.keyboard.press('Escape')
