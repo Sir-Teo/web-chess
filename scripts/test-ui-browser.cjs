@@ -9709,6 +9709,78 @@ async function checkConsoleKeyboardHistory(browser) {
   }
 }
 
+async function checkConsoleSelectAll(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [375, 2, 'dark'], [320, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const nativeClipboard = browser.browserType().name() === 'chromium'
+    if (nativeClipboard) await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(theme => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+          continuousAnalysis: false, engineProfile: 'lite-single-local', expertModeEnabled: true, theme }))
+        const clipboard = navigator.clipboard
+        window.__readConsoleClipboard = () => clipboard.readText()
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('API copy denied')) } })
+        document.addEventListener('copy', () => { window.__nativeConsoleCopy = window.getSelection()?.toString() })
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      const output = page.getByRole('region', { name: 'UCI console output', exact: true })
+      const run = async text => { await command.fill(text); await command.press('Enter'); await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '') }
+      const assertNativeCopy = async () => {
+        const text = await output.textContent()
+        assert(await output.evaluate(el => document.activeElement === el && window.getSelection()?.toString() === el.textContent), 'console Select All includes other page text or misses output')
+        await page.keyboard.press('Control+c')
+        assert(await page.evaluate(() => window.__nativeConsoleCopy) === text, 'native Copy did not receive the selected console text')
+        if (nativeClipboard) await page.waitForFunction(async text => await window.__readConsoleClipboard() === text, text, { timeout: 5000 })
+        return text
+      }
+      await run('uci')
+      await page.locator('.engine-lab-console').getByRole('button', { name: 'Copy', exact: true }).click()
+      await page.getByRole('alert').filter({ hasText: 'Clipboard access failed' }).waitFor()
+      await output.focus(); await page.keyboard.press('Control+a'); await assertNativeCopy()
+      await page.evaluate(() => window.getSelection()?.removeAllRanges())
+      await page.keyboard.press('Meta+a'); await assertNativeCopy()
+      const ignored = await output.evaluate(el => [
+        { ctrlKey: true, shiftKey: true }, { ctrlKey: true, altKey: true }, { ctrlKey: true, metaKey: true },
+        { ctrlKey: true, isComposing: true }, { ctrlKey: true, keyCode: 229 }, {},
+      ].map(extra => { const event = new KeyboardEvent('keydown', { key: 'a', bubbles: true, cancelable: true, ...extra }); el.dispatchEvent(event); return event.defaultPrevented }))
+      assert(ignored.every(prevented => !prevented), 'console Select All intercepted a composing, plain or different modifier chord')
+      assert(await output.evaluate(el => (el.getAttribute('aria-keyshortcuts') || '').includes('Control+A') && document.getElementById(el.getAttribute('aria-describedby'))?.textContent.includes('Command+A')), 'console selection shortcut is not exposed in keyboard help')
+      await command.fill('go depth 16'); await command.press('Control+a')
+      assert(await command.evaluate(el => document.activeElement === el && el.selectionStart === 0 && el.selectionEnd === el.value.length), 'console selection stole Select All from the command input')
+      await output.focus(); await page.keyboard.press('Control+k')
+      const search = page.getByRole('combobox', { name: 'Search commands', exact: true })
+      await search.fill('copy fen'); await search.press('Control+a')
+      assert(await search.evaluate(el => document.activeElement === el && el.selectionStart === 0 && el.selectionEnd === el.value.length), 'console selection stole Select All from Commands')
+      await search.press('Escape')
+      await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'UCI console output')
+      await run('position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+      await command.fill('go infinite'); await command.press('Enter')
+      await output.filter({ hasText: 'score cp 900' }).waitFor()
+      await output.focus(); await page.keyboard.press('Control+a')
+      await page.evaluate(() => window.__consoleEngine.send('info string café — ♞ Łódź'))
+      await output.filter({ hasText: 'café — ♞ Łódź' }).waitFor()
+      assert((await assertNativeCopy()).includes('café — ♞ Łódź'), 'live console selection lost a Unicode update')
+      await page.evaluate(() => { for (let i = 0; i < 350; i++) window.__consoleEngine.send(`info string selected ${i}`) })
+      await output.filter({ hasText: 'selected 349' }).waitFor()
+      const tail = await assertNativeCopy()
+      assert(tail.split('\n').length === 300 && !tail.includes('selected 0\n'), 'Select All includes hidden console history beyond the displayed tail')
+      await page.locator('.engine-lab-console').getByRole('button', { name: 'Stop engine search', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'console selection changed the board')
+      assert(errors.length === 0, `console selection errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'console selection overflows the viewport')
+      console.log(`  console Select All (${width}px, ${scale}x, ${theme}): Control/Command+A select only output; denied API still allows native Copy${nativeClipboard ? ' + actual clipboard' : ' event'}; input/Commands/composing/modifier scope; live Unicode and retained 300-line selection; board unchanged`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkConsoleDownload(browser) {
   for (const [width, height, scale, theme] of [[1280, 812, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
@@ -15055,6 +15127,7 @@ async function main() {
       'console-following': checkConsoleOutputFollowing,
       'console-copy': checkConsoleCopyOwnership,
       'console-download': checkConsoleDownload,
+      'console-select-all': checkConsoleSelectAll,
       'console-keyboard-history': checkConsoleKeyboardHistory,
       'console-visibility': checkConsoleVisibility,
       'console-layout': checkConsoleLayout,
@@ -15854,6 +15927,7 @@ async function main() {
     await checkConsoleOutputFollowing(browser)
     await checkConsoleCopyOwnership(browser)
     await checkConsoleDownload(browser)
+    await checkConsoleSelectAll(browser)
     await checkConsoleKeyboardHistory(browser)
     await checkConsoleVisibility(browser)
     await checkConsoleLayout(browser)

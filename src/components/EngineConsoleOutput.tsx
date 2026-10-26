@@ -46,8 +46,18 @@ export function EngineConsoleOutput({ lines, session }: { lines: readonly string
     if (isCommandPaletteChord(event.nativeEvent)) return
     event.stopPropagation()
     const pane = output.current
-    if (!pane || event.target !== pane || event.altKey || event.ctrlKey || event.metaKey
-      || (event.shiftKey && event.key !== ' ') || isCompositionKey(event.nativeEvent)) return
+    if (!pane || event.target !== pane || isCompositionKey(event.nativeEvent)) return
+    if (event.ctrlKey !== event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'a') {
+      const selection = window.getSelection()
+      if (!selection || !content.current) return
+      const range = document.createRange()
+      range.selectNodeContents(content.current)
+      event.preventDefault()
+      selection.removeAllRanges()
+      selection.addRange(range)
+      return
+    }
+    if (event.altKey || event.ctrlKey || event.metaKey || (event.shiftKey && event.key !== ' ')) return
     const line = Number.parseFloat(getComputedStyle(pane).lineHeight) || 16
     const page = Math.max(line, pane.clientHeight - line)
     let top: number
@@ -67,14 +77,14 @@ export function EngineConsoleOutput({ lines, session }: { lines: readonly string
     pane.scrollTo({ top, behavior: 'instant' })
   }}>
     <pre ref={output} id={outputId} className="engine-lab-output" role="region" aria-label="UCI console output"
-      aria-describedby={`${outputId}-help`} tabIndex={0}
+      aria-describedby={`${outputId}-help`} aria-keyshortcuts="Control+A Meta+A" tabIndex={0}
       onScroll={event => {
         const pane = event.currentTarget
         changeFollowing(pane.scrollHeight - pane.scrollTop - pane.clientHeight <= 2)
       }}>
       <span ref={content} className="engine-lab-output-lines">{lines.join('\n') || 'No command output yet.'}</span>
     </pre>
-    <p id={`${outputId}-help`} className="visually-hidden">Use arrows or Page Up and Page Down to scroll. Home goes to the start; End follows the latest output.</p>
+    <p id={`${outputId}-help`} className="visually-hidden">Use arrows or Page Up and Page Down to scroll. Home goes to the start; End follows the latest output. Control+A (Command+A on Mac) selects this output.</p>
     {!following && <div className="engine-lab-output-actions">
       <button ref={latestButton} type="button" aria-controls={outputId} onClick={() => {
         changeFollowing(true)
