@@ -152,7 +152,7 @@ import {
   timeControlTag,
   type ClockState,
 } from './engine/chessClock'
-import { describeGameEndFromPath, gameResultScore } from './engine/gameEnd'
+import { describeGameEnd, describeGameEndFromPath, gameResultScore } from './engine/gameEnd'
 import { describeCaptures, materialAdvantageLabel, materialBalance } from './engine/material'
 import { hasMatingMaterial } from './engine/matingMaterial'
 import {
@@ -4530,6 +4530,7 @@ function App() {
     }
   }, [linePreview])
   const isPreviewingLine = previewChess !== null
+  const previewEnding = useMemo(() => previewChess ? describeGameEnd(previewChess) : null, [previewChess])
 
   const beginPromotion = useCallback(
     (from: Square, to: Square) => {
@@ -4877,8 +4878,12 @@ function App() {
   const rememberModalTrigger = useCallback((event?: SyntheticEvent<HTMLElement>) => {
     // Safari can activate a button without focusing it. Pointer-opened dialogs
     // must return to that button; shortcuts and drops retain the active element.
-    modalTriggerRef.current = event?.currentTarget
+    const trigger = event?.currentTarget
       ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null)
+    // Give the focus hook the explicit opener even in browsers whose pointer
+    // activation leaves focus on the previous control.
+    if (event && trigger && document.activeElement !== trigger) trigger.focus({ preventScroll: true })
+    modalTriggerRef.current = trigger
   }, [])
 
   rememberModalTriggerRef.current = rememberModalTrigger
@@ -4889,7 +4894,9 @@ function App() {
     if (!trigger) return
 
     window.requestAnimationFrame(() => {
-      if (document.contains(trigger)) {
+      // The reader may already have focused a preview or opened another modal
+      // before this frame. Restore only when focus still needs a destination.
+      if (document.activeElement === document.body && document.contains(trigger)) {
         trigger.focus()
       }
     })
@@ -6377,10 +6384,10 @@ function App() {
   // board is the previewed position -- so "White to move" over a position where
   // it is Black's turn would be the one thing on screen that is simply wrong.
   // The Preview pill beside it says the position is not the game's.
-  const turnLabel = previewChess
-    ? `${previewChess.turn() === 'w' ? 'White' : 'Black'} to move${previewChess.isCheck() ? ' · Check' : ''}`
-    : gameResultLabel
-      ?? `${game.turn() === 'w' ? 'White' : 'Black'} to move${game.isCheck() ? ' · Check' : ''}`
+  const displayedResultLabel = previewChess ? previewEnding?.label : gameResultLabel
+  const displayedPosition = previewChess ?? game
+  const turnLabel = displayedResultLabel
+    ?? `${displayedPosition.turn() === 'w' ? 'White' : 'Black'} to move${displayedPosition.isCheck() ? ' · Check' : ''}`
   // An imported game already carries who played it. The app parsed those
   // headers, re-exported them, and never once showed them.
   // Not this app's own "Player 1" and "Player 2", which every saved game
@@ -6401,7 +6408,7 @@ function App() {
   // Only on the final position: a resignation or a flag stays the game's
   // result while the reader steps back through it, and there the FEN's count
   // is the right one.
-  const gameEndedOnBlackMove = Boolean(gameResultLabel) && !linePreview && !canGoForward && labelFenFields[1] === 'w'
+  const gameEndedOnBlackMove = Boolean(displayedResultLabel) && (isPreviewingLine || !canGoForward) && labelFenFields[1] === 'w'
   const moveNumberLabel = `Move ${gameEndedOnBlackMove && labelFullmove > 1 ? labelFullmove - 1 : labelFullmove}`
   // Mate and stalemate leave no move to name. Read from the FEN, not the
   // mutable `game`, so move generation runs per position, not every render.
@@ -7751,9 +7758,7 @@ function App() {
                   game came to be drawn as "·0" and, at 320px, how a button
                   ended up 0px wide. */}
               <div className="board-meta-flow">
-              <span className={`turn-pill ${previewChess
-                ? previewChess.turn() === 'w' ? 'white' : 'black'
-                : gameResultLabel ? 'final' : game.turn() === 'w' ? 'white' : 'black'}`}>
+              <span className={`turn-pill ${displayedResultLabel ? 'final' : displayedPosition.turn() === 'w' ? 'white' : 'black'}`}>
                 {turnLabel}
                 {/* The engine's turn, said where whose turn it is is already
                     said. It was a badge on the board, over the middle of the

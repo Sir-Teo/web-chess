@@ -1,0 +1,65 @@
+  preview ending (1280px, 1x, f7g7): Checkmate · White wins, Move 1; restore preserves live game; click commits 1-0
+preview focus diagnostic {
+  "active": "<button type=\"button\" aria-label=\"Open PGN and FEN dialog\" title=\"PGN and FEN\"><span class=\"btn-icon\"><svg width=\"1em\" height=\"1em\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4",
+  "events": [
+    {
+      "type": "focusin",
+      "time": 471.429999999702,
+      "target": "<button type=\"button\" class=\"pv-move\" title=\"Point at Qg7# to see the position; click to play the line here\" aria-label=\"Play this line up to 1. Qg7#\"><span class=\"pv-move-number\">",
+      "related": "<button type=\"button\" class=\"btn-primary\" aria-label=\"Run analysis\"><svg width=\"1em\" height=\"1em\" viewBox=\"0 0 24 24\" fi"
+    },
+    {
+      "type": "focusout",
+      "time": 549.015000000596,
+      "target": "<button type=\"button\" class=\"pv-move\" title=\"Point at Qg7# to see the position; click to play the line here\" aria-label=\"Play this line up to 1. Qg7#\"><span class=\"pv-move-number\">",
+      "related": "<button type=\"button\" class=\"btn-primary\" aria-label=\"Run analysis\"><svg width=\"1em\" height=\"1em\" viewBox=\"0 0 24 24\" fi"
+    },
+    {
+      "type": "mouseover",
+      "time": 598.7800000011921,
+      "target": "<button type=\"button\" aria-label=\"Open PGN and FEN dialog\" title=\"PGN and FEN\"><span class=\"btn-icon\"><svg width=\"1em\" height=\"1em\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentC",
+      "related": "<button type=\"button\" class=\"btn-primary\" aria-label=\"Run analysis\"><svg width=\"1em\" height=\"1em\" viewBox=\"0 0 24 24\" fi"
+    },
+    {
+      "type": "focusin",
+      "time": 600.1700000017881,
+      "target": "<button type=\"button\" aria-label=\"Open PGN and FEN dialog\" title=\"PGN and FEN\"><span class=\"btn-icon\"><svg width=\"1em\" height=\"1em\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentC",
+      "related": "<button type=\"button\" class=\"btn-primary\" aria-label=\"Run analysis\"><svg width=\"1em\" height=\"1em\" viewBox=\"0 0 24 24\" fi"
+    },
+    {
+      "type": "focusout",
+      "time": 621.9800000041723,
+      "target": "<button type=\"button\" aria-label=\"Open PGN and FEN dialog\" title=\"PGN and FEN\"><span class=\"btn-icon\"><svg width=\"1em\" height=\"1em\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentC",
+      "related": "<button type=\"button\">Cancel</button>"
+    },
+    {
+      "type": "mouseout",
+      "time": 623.9149999991059,
+      "target": "<button type=\"button\" aria-label=\"Open PGN and FEN dialog\" title=\"PGN and FEN\"><span class=\"btn-icon\"><svg width=\"1em\" height=\"1em\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentC",
+      "related": "<div class=\"lazy-dialog-backdrop\"><div class=\"lazy-dialog-panel\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Loading imp"
+    },
+    {
+      "type": "focusin",
+      "time": 1081.1000000014901,
+      "target": "<button type=\"button\" class=\"pv-move\" title=\"Point at Qg7# to see the position; click to play the line here\" aria-label=\"Play this line up to 1. Qg7#\"><span class=\"pv-move-number\">"
+    },
+    {
+      "type": "focusout",
+      "time": 1095.2300000041723,
+      "target": "<button type=\"button\" class=\"pv-move\" title=\"Point at Qg7# to see the position; click to play the line here\" aria-label=\"Play this line up to 1. Qg7#\"><span class=\"pv-move-number\">",
+      "related": "<button type=\"button\" aria-label=\"Open PGN and FEN dialog\" title=\"PGN and FEN\"><span class=\"btn-icon\"><svg width=\"1em\" h"
+    },
+    {
+      "type": "focusin",
+      "time": 1095.6300000026822,
+      "target": "<button type=\"button\" aria-label=\"Open PGN and FEN dialog\" title=\"PGN and FEN\"><span class=\"btn-icon\"><svg width=\"1em\" height=\"1em\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentC",
+      "related": "<button type=\"button\" class=\"pv-move\" title=\"Point at Qg7# to see the position; click to play the line here\" aria-label="
+    }
+  ]
+}
+page.waitForFunction: Timeout 30000ms exceeded.
+    at Object.checkPreviewEndingFeedback (/workspace/web-chess/scripts/test-ui-browser.cjs:5716:20)
+    at async main (/tmp/web-chess-preview-focus-diagnostic.cjs:11:29) {
+  log: [],
+  name: 'TimeoutError'
+}

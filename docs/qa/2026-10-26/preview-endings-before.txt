@@ -1,0 +1,5 @@
+Error: preview reports an ongoing/incorrect move: {"pv":"d8h4","ending":"White to move · Check","move":"Move 3"}
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkPreviewEndingFeedback (/workspace/web-chess/scripts/test-ui-browser.cjs:5704:9)
+    at async main (/tmp/web-chess-preview-ending-check.cjs:10:8)

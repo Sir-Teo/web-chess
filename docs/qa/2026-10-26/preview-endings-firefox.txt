@@ -1,0 +1,10 @@
+  preview ending (1280px, 1x, d8h4): Checkmate · Black wins, Move 2; restore preserves live game; click commits 0-1
+  preview ending (1280px, 1x, f7g7): Checkmate · White wins, Move 1; restore preserves live game; click commits 1-0
+  preview ending (1280px, 1x, f7e6): Stalemate · Draw, Move 1; restore preserves live game; click commits 1/2-1/2
+  preview ending (1280px, 1x, a1b1): Fifty-move rule · Draw, Move 50; restore preserves live game; click commits 1/2-1/2
+  preview ending (1280px, 1x, d4g7): Insufficient material · Draw, Move 1; restore preserves live game; click commits 1/2-1/2
+  preview ending (375px, 2x, d8h4): Checkmate · Black wins, Move 2; restore preserves live game; click commits 0-1
+  preview ending (375px, 2x, f7g7): Checkmate · White wins, Move 1; restore preserves live game; click commits 1-0
+  preview ending (375px, 2x, f7e6): Stalemate · Draw, Move 1; restore preserves live game; click commits 1/2-1/2
+  preview ending (375px, 2x, a1b1): Fifty-move rule · Draw, Move 50; restore preserves live game; click commits 1/2-1/2
+  preview ending (375px, 2x, d4g7): Insufficient material · Draw, Move 1; restore preserves live game; click commits 1/2-1/2

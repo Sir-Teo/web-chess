@@ -194,6 +194,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
      * consecutive searches, which is the one input the Play-mode nudge needs.
      */
     scriptedLine() {
+      if (window.__previewEndingPv) return { cp: 0, move: window.__previewEndingPv.split(' ')[0] };
       if (SCENARIO === 'console-search') {
         return this.fen.includes('rnb1kbnr')
           ? { cp: 900, move: 'd2d4', depths: [38, 40] }
@@ -271,6 +272,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
     }
     emitInfo() {
       const { cp, move, depths } = this.scriptedLine();
+      const pv = window.__previewEndingPv || move + ' e7e5';
       const [shallow, deep] = depths || [16, 22];
       const wdl = SCENARIO === 'review-source' && this.reviewProducer === 'full' ? '0 1000 0' : '400 400 200';
       // Counted here rather than in scriptedLine, which finishSearch also
@@ -279,9 +281,9 @@ const SCENARIO = ${JSON.stringify(scenario)};
         window.__fenSearches[this.fen] = (window.__fenSearches[this.fen] || 0) + 1;
       }
       this.send('info depth ' + shallow + ' seldepth ' + (shallow + 4) + ' multipv 1 score cp ' + cp +
-                ' nodes 120000 nps 900000 hashfull 45 tbhits 0 time 130 wdl ' + wdl + ' pv ' + move + ' e7e5');
+                ' nodes 120000 nps 900000 hashfull 45 tbhits 0 time 130 wdl ' + wdl + ' pv ' + pv);
       this.send('info depth ' + deep + ' seldepth ' + (deep + 4) + ' multipv 1 score cp ' + cp +
-                ' nodes 400000 nps 900000 hashfull 127 tbhits 3 time 420 wdl ' + wdl + ' pv ' + move + ' e7e5');
+                ' nodes 400000 nps 900000 hashfull 127 tbhits 3 time 420 wdl ' + wdl + ' pv ' + pv);
       if (SCENARIO === 'board-canvas') {
         this.send('info depth 22 multipv 2 score cp ' + (window.__boardArrowPhase ? -200 : 30) + ' nodes 400000 time 420 pv g1f3 d7d5');
       }
@@ -5668,6 +5670,117 @@ async function checkOpeningNumbersBelongToTheirPosition(browser) {
     console.log(`  opening explorer: counts cleared on the move and came back as ${JSON.stringify(settled.position)}`)
   } finally {
     await context.close()
+  }
+}
+
+async function checkDialogFocusHandoff(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    const frames = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    const holdFrames = () => page.evaluate(() => {
+      const nativeFrame = window.requestAnimationFrame.bind(window), nativeCancel = window.cancelAnimationFrame.bind(window)
+      const held = new Map(); let nextId = -1
+      window.requestAnimationFrame = callback => { const id = nextId--; held.set(id, callback); return id }
+      window.cancelAnimationFrame = id => { if (!held.delete(id)) nativeCancel(id) }
+      window.__flushFocusFrames = () => {
+        window.requestAnimationFrame = nativeFrame; window.cancelAnimationFrame = nativeCancel
+        const callbacks = [...held.values()]; held.clear()
+        for (const callback of callbacks) callback(performance.now())
+        return callbacks.length
+      }
+    })
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      const preview = page.locator('.coach-line-moves .pv-move').first()
+      const opener = page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true })
+      await preview.waitFor(); await preview.focus()
+      // Safari-like activation: the opener's click itself does not move focus.
+      await opener.evaluate(el => el.click())
+      await page.locator('.dialog-panel').waitFor()
+      await page.keyboard.press('Escape')
+      await page.locator('.dialog-panel').waitFor({ state: 'detached' })
+      await frames()
+      assert(await opener.evaluate(el => el === document.activeElement), 'non-focusing activation did not return to its explicit opener')
+      await opener.click(); await page.locator('.dialog-panel').waitFor()
+      await holdFrames(); await page.keyboard.press('Escape')
+      await page.locator('.dialog-panel').waitFor({ state: 'detached' })
+      await preview.focus()
+      await page.waitForFunction(() => document.querySelector('.board-meta-preview'))
+      assert(await page.evaluate(() => window.__flushFocusFrames()) > 0, 'no delayed focus restoration was exercised')
+      await frames()
+      assert(await preview.evaluate(el => el === document.activeElement)
+        && await page.locator('.board-meta-preview').count() === 1, 'delayed dialog cleanup stole the reader’s newer preview focus')
+      await opener.click(); await page.locator('.dialog-panel').waitFor()
+      await holdFrames(); await page.keyboard.press('Escape')
+      await page.locator('.dialog-panel').waitFor({ state: 'detached' })
+      await page.keyboard.press('n')
+      await page.locator('.new-game-dialog').waitFor()
+      await page.waitForFunction(() => document.querySelector('.new-game-dialog')?.contains(document.activeElement))
+      await page.evaluate(() => window.__flushFocusFrames())
+      await frames()
+      assert(await page.locator('.new-game-dialog').evaluate(el => el.contains(document.activeElement)), 'old dialog restoration moved focus out of the newer modal')
+      await page.keyboard.press('Escape')
+      await page.locator('.dialog-panel').waitFor({ state: 'detached' })
+      console.log(`  dialog focus handoff (${width}px, ${scale}x): explicit opener restored; held callbacks yield to a newer preview and modal`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkPreviewEndingFeedback(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    for (const [fen, pv, ending, moveNumber, result] of [
+      ['rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 2', 'd8h4', 'Checkmate · Black wins', 2, '0-1'],
+      ['7k/5Q2/6K1/8/8/8/8/8 w - - 0 1', 'f7g7', 'Checkmate · White wins', 1, '1-0'],
+      ['7k/5Q2/6K1/8/8/8/8/8 w - - 0 1', 'f7e6', 'Stalemate · Draw', 1, '1/2-1/2'],
+      ['r6k/8/8/8/8/8/8/R6K w - - 99 50', 'a1b1', 'Fifty-move rule · Draw', 50, '1/2-1/2'],
+      ['7k/6n1/8/8/3B4/8/8/7K w - - 0 1', 'd4g7', 'Insufficient material · Draw', 1, '1/2-1/2'],
+    ]) {
+      const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+      const page = await context.newPage()
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(({ pv, theme }) => {
+          window.__previewEndingPv = pv
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, engineProfile: 'lite-single-local', theme }))
+        }, { pv, theme })
+        await page.goto(`${BASE}#fen=${encodeURIComponent(fen)}`, { waitUntil: 'domcontentloaded' })
+        await page.locator('#chessboard-square-a1').waitFor()
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        const originalLabel = await page.locator('.turn-pill').textContent()
+        const analyze = page.getByRole('button', { name: 'Run analysis', exact: true })
+        await analyze.click()
+        const preview = page.locator('.coach-line-moves .pv-move').first()
+        await preview.waitFor()
+        await preview.focus()
+        await page.waitForFunction(() => document.querySelector('.board-meta-preview'))
+        const shown = { ending: await page.locator('.turn-pill').textContent(), move: await page.locator('.board-meta-move').textContent() }
+        assert(shown.ending === ending && shown.move === `Move ${moveNumber}`, `preview reports an ongoing/incorrect move: ${JSON.stringify({ pv, ...shown })}`)
+        assert(await page.locator('.turn-pill.final').count() === 1, 'preview ending has no result styling')
+        // Leaving the preview restores the live position; merely inspecting it
+        // must not write a result or a move into the exported game.
+        await analyze.focus()
+        await page.waitForFunction(() => !document.querySelector('.board-meta-preview'))
+        assert(await page.locator('.turn-pill').textContent() === originalLabel, 'leaving a terminal preview did not restore the live label')
+        const before = await readExportedPgn(page)
+        assert(before.includes('[Result "*"]') && before.includes(`[FEN "${fen}"]`), 'preview changed the live game or result')
+        await page.keyboard.press('Escape')
+        await page.locator('.dialog-panel').waitFor({ state: 'detached' })
+        await preview.focus()
+        await page.waitForFunction(() => document.querySelector('.board-meta-preview'))
+        if (width === 375 && pv === 'd8h4') await page.screenshot({ path: path.join(os.tmpdir(), 'web-chess-preview-mate-200.png') })
+        await preview.click()
+        await page.waitForFunction(() => !document.querySelector('.board-meta-preview'))
+        assert(await page.locator('.turn-pill').textContent() === ending, 'committing the preview did not retain its correct ending')
+        const after = await readExportedPgn(page)
+        assert(after.includes(`[Result "${result}"]`), 'committed terminal line did not export its actual result')
+        console.log(`  preview ending (${width}px, ${scale}x, ${pv}): ${ending}, Move ${moveNumber}; restore preserves live game; click commits ${result}`)
+      } finally { await context.close() }
+    }
   }
 }
 
@@ -13573,6 +13686,8 @@ async function main() {
       'imported-counters': checkImportedCounterMeaning,
       'opening-retry': checkOpeningRequestRetry,
       'play-title': checkPlayTabTitle,
+      'preview-endings': checkPreviewEndingFeedback,
+      'dialog-handoff': checkDialogFocusHandoff,
       'takeback-result': checkTakingBackAMateUnfinishesTheGame,
       'result-ownership': checkAResultBelongsToItsOwnGame,
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
@@ -14380,6 +14495,8 @@ async function main() {
     await checkImportedCounterMeaning(browser)
     await checkOpeningRequestRetry(browser)
     await checkPlayTabTitle(browser)
+    await checkPreviewEndingFeedback(browser)
+    await checkDialogFocusHandoff(browser)
     await checkBoardCanvas(browser)
     await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)

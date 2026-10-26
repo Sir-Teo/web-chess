@@ -1,0 +1,6 @@
+  dialog focus handoff (1280px, 1x): explicit opener restored; held callbacks yield to a newer preview and modal
+  dialog focus handoff (375px, 1x): explicit opener restored; held callbacks yield to a newer preview and modal
+  dialog focus handoff (375px, 2x): explicit opener restored; held callbacks yield to a newer preview and modal
+  dialog focus handoff (1280px, 1x): explicit opener restored; held callbacks yield to a newer preview and modal
+  dialog focus handoff (375px, 1x): explicit opener restored; held callbacks yield to a newer preview and modal
+  dialog focus handoff (375px, 2x): explicit opener restored; held callbacks yield to a newer preview and modal

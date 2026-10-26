@@ -232,7 +232,11 @@ export function useModalFocus(
       // Whatever opened the overlay may itself be gone by the time it closes —
       // a dialog opened from another dialog, a control the close re-rendered
       // away. Focusing a detached node silently drops focus to <body>.
-      if (previouslyFocused && document.contains(previouslyFocused)) {
+      // Passive cleanup may also run after the reader has focused something
+      // else. That newer focus no longer belongs to the closing dialog.
+      const active = document.activeElement
+      if (previouslyFocused && document.contains(previouslyFocused)
+        && (active === document.body || (active !== null && panelEl.contains(active)))) {
         previouslyFocused.focus?.()
       }
     }
