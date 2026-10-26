@@ -142,6 +142,8 @@ given, and the app answering the reader who touches it.
   the end. Scroll back to read earlier output without being pulled down, then
   choose **Jump to latest output** or press End in the focused output to follow
   again. A new command or Clear starts following again.
+  **Download** saves the displayed output as a dated text file, including when
+  clipboard access is blocked.
   In the command field, Up/Down recall history; Down past the newest command
   restores your unsent draft so you can keep typing.
   Stopping a perft diagnostic releases its worker because native perft cannot

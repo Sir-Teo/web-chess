@@ -9091,11 +9091,15 @@ async function checkConsoleLayout(browser) {
         const r = button.getBoundingClientRect()
         return { x: r.x, y: r.y, width: r.width, height: r.height, clipped: button.scrollWidth > button.clientWidth + 1 }
       }))
-      assert(actions.length === 4 && actions.every(r => r.height >= (width <= 900 ? 44 : 32) && !r.clipped),
+      assert(actions.length === 5 && actions.every(r => r.height >= (width <= 900 ? 44 : 32) && !r.clipped),
         `console actions do not fit their desktop/phone size: ${JSON.stringify(actions)}`)
-      const rows = [...new Set(actions.map(r => Math.round(r.y)))]
-      assert([2, 4].includes(rows.length) && rows.every(y => actions.filter(r => Math.round(r.y) === y).length === 4 / rows.length)
-        && actions.every(r => Math.abs(r.width - actions[0].width) < 1), 'console actions do not form balanced rows')
+      const paired = actions.slice(0, 4)
+      const rows = [...new Set(paired.map(r => Math.round(r.y)))]
+      assert([2, 4].includes(rows.length) && rows.every(y => paired.filter(r => Math.round(r.y) === y).length === 4 / rows.length)
+        && paired.every(r => Math.abs(r.width - paired[0].width) < 1), 'console actions do not form balanced rows')
+      const formBox = await page.locator('.engine-lab-console').boundingBox()
+      assert(Math.abs(actions[4].x - formBox.x) < 1 && Math.abs(actions[4].width - formBox.width) < 1,
+        'console download does not occupy its complete action row')
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'console command widens the page')
       await summary.scrollIntoViewIfNeeded()
       await page.screenshot({ path: `/tmp/web-chess-console-layout-${width}-${scale}x.png` })
@@ -9701,6 +9705,98 @@ async function checkConsoleKeyboardHistory(browser) {
       await command.press('ArrowDown')
       assert(await command.inputValue() === 'draft without history', 'empty history changed the draft')
       console.log(`  console keyboard history (${width}px, ${scale}x): bounded Up/Down recall, unsent/edited draft restoration and caret, click/submit reset, IME/modifier scope, discoverable help and empty history`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkConsoleDownload(browser) {
+  for (const [width, height, scale, theme] of [[1280, 812, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(theme => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+          continuousAnalysis: false, engineProfile: 'lite-single-local', expertModeEnabled: true, theme }))
+        window.__consoleCopyMode = 'deny'; window.__consoleCopyPending = []; window.__consoleDownloads = []; window.__consoleRevoked = []
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => window.__consoleCopyMode === 'hold'
+          ? new Promise((resolve, reject) => window.__consoleCopyPending.push({ resolve, reject })) : Promise.reject(new Error('Clipboard denied')) } })
+        const create = URL.createObjectURL.bind(URL), revoke = URL.revokeObjectURL.bind(URL)
+        URL.createObjectURL = blob => {
+          if (!blob.type.startsWith('text/plain')) return create(blob)
+          if (window.__failConsoleDownload) throw new Error('Download fixture blocked')
+          const url = create(blob); window.__consoleDownloads.push({ url, type: blob.type }); return url
+        }
+        URL.revokeObjectURL = url => { window.__consoleRevoked.push(url); return revoke(url) }
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const form = page.locator('.engine-lab-console'), command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      const output = page.getByRole('region', { name: 'UCI console output', exact: true })
+      const download = form.getByRole('button', { name: 'Download console output', exact: true })
+      const copy = () => form.getByRole('button', { name: /^(Copy|Copied)$/ })
+      const run = async text => { await command.fill(text); await command.press('Enter'); await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '') }
+      const takeDownload = async () => {
+        const snapshot = await output.textContent(), draft = await command.inputValue(), sent = await page.evaluate(() => window.__uciCommands.length)
+        const event = page.waitForEvent('download'); await download.click(); const file = await event
+        assert(/^web-chess-console-\d{4}-\d{2}-\d{2}\.txt$/.test(file.suggestedFilename()), 'console download has no dated text filename')
+        const text = fs.readFileSync(await file.path(), 'utf8')
+        assert(text === snapshot, 'console file differs from the displayed output snapshot')
+        assert(await command.inputValue() === draft && await page.evaluate(() => window.__uciCommands.length) === sent, 'Download submitted or changed the unfinished command')
+        await page.waitForFunction(() => window.__consoleDownloads.every(item => window.__consoleRevoked.includes(item.url)))
+        assert(await page.locator('a[download^="web-chess-console-"]').count() === 0, 'console download left an anchor in the document')
+        assert(await page.evaluate(() => window.__consoleDownloads.every(item => item.type === 'text/plain;charset=utf-8')), 'console download has the wrong text encoding/type')
+        return text
+      }
+      assert(await download.isDisabled(), 'empty console offers a misleading download')
+      await run('uci')
+      await command.fill('position startpos moves e2e4')
+      await command.evaluate(el => el.setSelectionRange(3, 9))
+      await copy().click()
+      const clipboardError = page.getByRole('alert').filter({ hasText: 'Clipboard access failed. Download the output' })
+      await clipboardError.waitFor()
+      await takeDownload()
+      assert(await command.evaluate(el => el.selectionStart === 3 && el.selectionEnd === 9), 'console download discarded the command selection')
+      assert(await clipboardError.count() === 1, 'downloading incorrectly claimed clipboard access had recovered')
+      await form.getByRole('button', { name: 'Clear', exact: true }).click()
+      await run('uci')
+      await page.evaluate(() => { window.__consoleCopyMode = 'hold' })
+      await copy().click()
+      await takeDownload()
+      await page.evaluate(async () => { window.__consoleCopyPending[0].reject(new Error('Older copy denied')); await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))) })
+      assert(await page.getByRole('alert').count() === 0 && await copy().textContent() === 'Copy', 'an older clipboard result replaced newer download feedback')
+      await page.evaluate(() => { window.__failConsoleDownload = true })
+      await download.click()
+      await page.getByRole('alert').filter({ hasText: 'console output could not be downloaded' }).waitFor()
+      await page.evaluate(() => { window.__failConsoleDownload = false })
+      await takeDownload()
+      assert(await page.getByRole('alert').count() === 0, 'a successful download retry retained its old failure')
+      await command.fill('go depth 0x10'); await command.press('Enter')
+      const validation = page.getByRole('alert').filter({ hasText: 'whole decimal integer' }); await validation.waitFor()
+      await takeDownload()
+      assert(await validation.count() === 1, 'downloading erased a command diagnostic')
+      await run('position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+      await command.fill('go infinite'); await command.press('Enter')
+      await output.filter({ hasText: 'score cp 900' }).waitFor()
+      await page.evaluate(() => window.__consoleEngine.send('info string café — ♞ Łódź'))
+      await output.filter({ hasText: 'café — ♞ Łódź' }).waitFor()
+      const firstLive = await takeDownload()
+      await page.evaluate(() => { for (let i = 0; i < 350; i++) window.__consoleEngine.send(`info string late ${i} — café`) })
+      await output.filter({ hasText: 'late 349 — café' }).waitFor()
+      const later = await takeDownload()
+      assert(firstLive.includes('café — ♞ Łódź') && !firstLive.includes('late 349') && later.includes('late 349 — café') && !later.includes('late 0 — café') && later.split('\n').length === 300,
+        'live console download lost Unicode, changed an earlier snapshot or ignored the visible line cap')
+      await download.scrollIntoViewIfNeeded()
+      assert(await download.evaluate((el, min) => { const r = el.getBoundingClientRect(); return r.height >= min && el.scrollWidth <= el.clientWidth + 1 && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)) }, width <= 900 ? 44 : 32), 'console download is clipped, covered or too small')
+      await form.getByRole('button', { name: 'Stop engine search', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await form.getByRole('button', { name: 'Clear', exact: true }).click()
+      assert(await download.isDisabled() && await output.textContent() === 'No command output yet.', 'Clear left an obsolete console download enabled')
+      assert(errors.length === 0, `console download errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'console download widens the document')
+      console.log(`  console download (${width}×${height}, ${scale}x, ${theme}): exact finite/live UTF-8 files; clipboard denial and older reply; draft/selection and diagnostics preserved; failure/retry; visible 300-line cap; URL/anchor cleanup; reachable action and Clear`)
     } finally { await context.close() }
   }
 }
@@ -14958,6 +15054,7 @@ async function main() {
       'console-history': checkConsoleHistoryAndErrors,
       'console-following': checkConsoleOutputFollowing,
       'console-copy': checkConsoleCopyOwnership,
+      'console-download': checkConsoleDownload,
       'console-keyboard-history': checkConsoleKeyboardHistory,
       'console-visibility': checkConsoleVisibility,
       'console-layout': checkConsoleLayout,
@@ -15756,6 +15853,7 @@ async function main() {
     await checkConsoleHistoryAndErrors(browser)
     await checkConsoleOutputFollowing(browser)
     await checkConsoleCopyOwnership(browser)
+    await checkConsoleDownload(browser)
     await checkConsoleKeyboardHistory(browser)
     await checkConsoleVisibility(browser)
     await checkConsoleLayout(browser)

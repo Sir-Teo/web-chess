@@ -251,6 +251,7 @@ const PgnDialog = lazy(() =>
 )
 /** Long enough that a fast sequence of moves writes once, not per move. */
 const AUTO_SAVE_DEBOUNCE_MS = 700
+const ENGINE_CONSOLE_DOWNLOAD_ERROR = 'The console output could not be downloaded. Try Copy or select the output manually.'
 
 const LibraryDialog = lazy(() =>
   import('./components/LibraryDialog').then(module => ({ default: module.LibraryDialog })),
@@ -3118,9 +3119,35 @@ function App() {
     } catch {
       if (version !== labConsoleCopyVersionRef.current) return
       setEngineLabCopyStatus('failed')
-      setEngineLabError('Clipboard access failed. Select the console output and copy it manually.')
+      setEngineLabError('Clipboard access failed. Download the output or select it and copy manually.')
     }
   }, [engineLabOutputLines])
+
+  const downloadLabConsole = useCallback(() => {
+    if (!engineLabOutputLines.length) return
+    labConsoleCopyVersionRef.current += 1
+    setEngineLabCopyStatus('idle')
+    let downloadUrl: string | undefined
+    let link: HTMLAnchorElement | undefined
+    try {
+      downloadUrl = URL.createObjectURL(new Blob([engineLabOutputLines.join('\n')], { type: 'text/plain;charset=utf-8' }))
+      link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = `web-chess-console-${formatLocalDate()}.txt`
+      document.body.append(link)
+      link.click()
+      setEngineLabError(previous => previous === ENGINE_CONSOLE_DOWNLOAD_ERROR ? null : previous)
+      announce('Console download started')
+    } catch {
+      setEngineLabError(ENGINE_CONSOLE_DOWNLOAD_ERROR)
+    } finally {
+      link?.remove()
+      if (downloadUrl) {
+        const url = downloadUrl
+        window.setTimeout(() => URL.revokeObjectURL(url), 0)
+      }
+    }
+  }, [announce, engineLabOutputLines])
 
   useEffect(() => {
     setSettingsAreKept(persistSettings({
@@ -9570,6 +9597,10 @@ function App() {
                         {engineLabCopyStatus === 'copied' ? 'Copied' : 'Copy'}
                       </button>
                       <button type="button" onClick={clearLabConsole}>Clear</button>
+                      <button type="button" className="engine-console-download" aria-label="Download console output"
+                        disabled={!engineLabOutputLines.length} onClick={downloadLabConsole}>
+                        Download
+                      </button>
                     </form>
                     {labCommandHistory.length > 0 && <p id={labCommandHelpId} className="panel-copy small">
                       Up/Down recall commands; Down past the newest restores your draft.
@@ -9621,7 +9652,7 @@ function App() {
                         remain announced by the separate status region. */}
                     <EngineConsoleOutput lines={engineLabOutputLines} session={labConsoleSession} />
                     {engineLabOutputLines.length === ENGINE_CONSOLE_LINE_LIMIT && (
-                      <p className="panel-copy small">Showing the latest {ENGINE_CONSOLE_LINE_LIMIT} output lines. Copy uses these visible lines.</p>
+                      <p className="panel-copy small">Showing the latest {ENGINE_CONSOLE_LINE_LIMIT} output lines. Copy and Download use these visible lines.</p>
                     )}
                     {labCommandHistory.length > 0 && (
                       <div className="lab-history">

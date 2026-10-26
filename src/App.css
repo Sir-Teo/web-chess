@@ -2889,6 +2889,10 @@ button.opening-move-row {
   min-width: 0;
 }
 
+.engine-lab-console .engine-console-download {
+  grid-column: 1 / -1;
+}
+
 .diagnostics-actions {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: 0.45rem;
