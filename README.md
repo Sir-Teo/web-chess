@@ -139,6 +139,8 @@ given, and the app answering the reader who touches it.
   the end. Scroll back to read earlier output without being pulled down, then
   choose **Jump to latest output** or press End in the focused output to follow
   again. A new command or Clear starts following again.
+  In the command field, Up/Down recall history; Down past the newest command
+  restores your unsent draft so you can keep typing.
 - **An evaluation bar that never goes blank**: The bar beside the board draws
   the engine's win/draw/loss split when it has one, and White's winning chances
   from the score when it does not — a Lichess cloud evaluation, an `[%eval]`

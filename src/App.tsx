@@ -724,22 +724,30 @@ function App() {
   const [engineLabCommand, setEngineLabCommand] = useState('')
   const [engineLabError, setEngineLabError] = useState<string | null>(null)
   const engineLabErrorId = useId()
+  const labCommandHelpId = useId()
   const labCommandInputRef = useRef<HTMLInputElement>(null)
   const [labHistoryRecallTick, setLabHistoryRecallTick] = useState(0)
   // A completed command owns only its original draft, including when the
   // reader edits away and back or recalls the same text from history.
   const labCommandDraftVersionRef = useRef(0)
   const labConsoleCopyVersionRef = useRef(0)
+  const labHistoryCursorRef = useRef<number | null>(null)
+  const labHistoryDraftRef = useRef('')
+  const labHistorySelectRef = useRef(true)
   const updateLabCommandDraft = (value: string) => {
     labCommandDraftVersionRef.current += 1
     labConsoleCopyVersionRef.current += 1
+    labHistoryCursorRef.current = null
+    labHistorySelectRef.current = true
     setEngineLabCommand(value)
     setEngineLabError(null)
   }
   useLayoutEffect(() => {
     if (!labHistoryRecallTick) return
     labCommandInputRef.current?.focus()
-    labCommandInputRef.current?.select()
+    const input = labCommandInputRef.current
+    if (labHistorySelectRef.current) input?.select()
+    else if (input) input.setSelectionRange(input.value.length, input.value.length)
   }, [labHistoryRecallTick])
   useLayoutEffect(() => {
     // Feedback appears above the form; retain the active control as it moves.
@@ -2729,6 +2737,7 @@ function App() {
     labConsoleCopyVersionRef.current += 1
     setEngineLabError(null)
     labCommandDraftVersionRef.current += 1
+    labHistoryCursorRef.current = null
     setEngineLabCommand('')
     cancelLabConsolePublication()
     labConsoleBufferRef.current = []
@@ -2929,6 +2938,7 @@ function App() {
   const runLabCommand = useCallback(
     async (command: string) => {
       labConsoleCopyVersionRef.current += 1
+      labHistoryCursorRef.current = null
       if (!engineEnabled) {
         setEngineLabError('Engine Lab is available only in Analysis mode.')
         return
@@ -9373,7 +9383,7 @@ function App() {
                         ref={labCommandInputRef}
                         type="text"
                         aria-label="UCI command"
-                        aria-describedby={engineLabError ? engineLabErrorId : undefined}
+                        aria-describedby={[engineLabError && engineLabErrorId, labCommandHistory.length > 0 && labCommandHelpId].filter(Boolean).join(' ') || undefined}
                         autoCapitalize="off"
                         autoCorrect="off"
                         autoComplete="off"
@@ -9381,6 +9391,20 @@ function App() {
                         enterKeyHint="send"
                         value={engineLabCommand}
                         onChange={e => updateLabCommandDraft(e.target.value)}
+                        onKeyDown={e => {
+                          if (!isPlainShortcut(e.nativeEvent) || isCompositionKey(e.nativeEvent)
+                            || !labCommandHistory.length || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return
+                          const cursor = labHistoryCursorRef.current
+                          if (cursor === null && e.key === 'ArrowDown') return
+                          e.preventDefault()
+                          if (cursor === null) labHistoryDraftRef.current = engineLabCommand
+                          const next = e.key === 'ArrowUp' ? Math.min((cursor ?? -1) + 1, labCommandHistory.length - 1)
+                            : cursor !== null && cursor > 0 ? cursor - 1 : null
+                          updateLabCommandDraft(next === null ? labHistoryDraftRef.current : labCommandHistory[next])
+                          labHistoryCursorRef.current = next
+                          labHistorySelectRef.current = next !== null
+                          setLabHistoryRecallTick(tick => tick + 1)
+                        }}
                         placeholder="go depth 16"
                       />
                       <button type="submit">Send</button>
@@ -9394,6 +9418,9 @@ function App() {
                       </button>
                       <button type="button" onClick={clearLabConsole}>Clear</button>
                     </form>
+                    {labCommandHistory.length > 0 && <p id={labCommandHelpId} className="panel-copy small">
+                      Up/Down recall commands; Down past the newest restores your draft.
+                    </p>}
                     {lastLabRun && (
                       <p className="panel-copy small command-summary">
                         Last run: <strong>{lastLabRun.command}</strong> ({lastLabRun.durationMs} ms)

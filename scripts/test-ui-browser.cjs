@@ -7753,6 +7753,90 @@ async function checkConsoleVisibility(browser) {
   }
 }
 
+async function checkConsoleKeyboardHistory(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(() => {
+        if (!localStorage.getItem('webchess:analysis-settings:v1')) localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+          continuousAnalysis: false, engineProfile: 'lite-single-local',
+          labCommandHistory: ['isready', 'uci', 'position startpos'],
+        }))
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      const expectInput = (text, selected = true) => page.waitForFunction(({ text, selected }) => {
+        const input = document.querySelector('[aria-label="UCI command"]')
+        return document.activeElement === input && input.value === text
+          && input.selectionStart === (selected ? 0 : text.length) && input.selectionEnd === text.length
+      }, { text, selected })
+      const count = await page.evaluate(() => window.__uciCommands.length)
+      await command.fill('go movetime 5000')
+      for (const text of ['isready', 'uci', 'position startpos', 'position startpos']) {
+        await command.press('ArrowUp')
+        await expectInput(text)
+      }
+      for (const text of ['uci', 'isready', 'go movetime 5000']) {
+        await command.press('ArrowDown')
+        await expectInput(text, text !== 'go movetime 5000')
+      }
+      await command.pressSequentially('0')
+      assert(await command.inputValue() === 'go movetime 50000', 'restored draft was selected instead of ready for continued typing')
+      assert(await page.evaluate(() => window.__uciCommands.length) === count, 'browsing command history sent a command')
+      await command.press('ArrowUp')
+      await command.pressSequentially('uc')
+      await command.press('ArrowUp')
+      await expectInput('isready')
+      await command.press('ArrowDown')
+      await expectInput('uc', false)
+      const ignored = await command.evaluate(input => {
+        const cases = [{ isComposing: true }, { keyCode: 229 }, { ctrlKey: true }, { altKey: true }, { metaKey: true }, { shiftKey: true }]
+        return cases.map(extra => {
+          const event = new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true, ...extra })
+          input.dispatchEvent(event)
+          return { prevented: event.defaultPrevented, value: input.value }
+        })
+      })
+      assert(ignored.every(result => !result.prevented && result.value === 'uc'), 'history intercepted a composing or modified arrow')
+      await page.locator('.lab-history-list').getByRole('button', { name: 'uci', exact: true }).click()
+      await command.press('ArrowUp')
+      await expectInput('isready')
+      await command.press('ArrowDown')
+      await expectInput('uci', false)
+      await command.press('ArrowUp')
+      await command.press('Enter')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      assert((await page.getByLabel('UCI console output', { exact: true }).textContent()).includes('readyok'), 'recalled command did not execute')
+      await command.press('ArrowUp')
+      await expectInput('isready')
+      await command.press('ArrowDown')
+      await expectInput('', false)
+      const help = await command.evaluate(input => (input.getAttribute('aria-describedby') || '').split(/\s+/)
+        .some(id => document.getElementById(id)?.textContent.includes('Up/Down recall')))
+      assert(help, 'history keyboard help is not associated with the input')
+      await page.evaluate(() => {
+        const settings = JSON.parse(localStorage.getItem('webchess:analysis-settings:v1'))
+        settings.labCommandHistory = []
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify(settings))
+      })
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      assert(await page.locator('.lab-history-list button').count() === 0, 'empty-history fixture restored older commands')
+      await command.fill('draft without history')
+      await command.press('ArrowUp')
+      assert(await command.inputValue() === 'draft without history', 'empty history recalled a command')
+      await command.press('ArrowDown')
+      assert(await command.inputValue() === 'draft without history', 'empty history changed the draft')
+      console.log(`  console keyboard history (${width}px, ${scale}x): bounded Up/Down recall, unsent/edited draft restoration and caret, click/submit reset, IME/modifier scope, discoverable help and empty history`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkConsoleCopyOwnership(browser) {
   for (const [width, scale] of [[1280, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -8037,10 +8121,11 @@ async function checkConsoleHistoryAndErrors(browser) {
       assert(feedback.visible && feedback.nearInput && feedback.outputBeforeHistory && feedback.historyCount === 20,
         `history buried current console feedback: ${JSON.stringify(feedback)}`)
       if (width === 375) await page.screenshot({ path: '/tmp/web-chess-console-feedback-200.png' })
-      assert(await command.getAttribute('aria-describedby') === await alert.getAttribute('id'), 'console validation is not associated with its input')
+      const errorId = await alert.getAttribute('id')
+      assert((await command.getAttribute('aria-describedby') || '').split(/\s+/).includes(errorId), 'console validation is not associated with its input')
       await history.click()
       await expectSelectedInput()
-      assert(await page.getByRole('alert').count() === 0 && await command.getAttribute('aria-describedby') === null,
+      assert(await page.getByRole('alert').count() === 0 && !(await command.getAttribute('aria-describedby') || '').split(/\s+/).includes(errorId),
         'recalling a new command retained stale validation feedback')
       await command.fill('isready')
       await command.press('Enter')
@@ -8052,7 +8137,7 @@ async function checkConsoleHistoryAndErrors(browser) {
       await page.getByRole('alert').filter({ hasText: 'Clipboard access failed.' }).waitFor()
       await command.fill('d')
       await expectInput('d')
-      assert(await page.getByRole('alert').count() === 0 && await command.getAttribute('aria-describedby') === null,
+      assert(await page.getByRole('alert').count() === 0 && !(await command.getAttribute('aria-describedby') || '').split(/\s+/).includes(errorId),
         'editing a new command retained old console feedback')
       console.log(`  console history (${width}px, ${scale}x): full history leaves feedback visible and output first; recall focuses/selects, Enter repeats, typing replaces, and associated alerts clear on new edits`)
     } finally { await context.close() }
@@ -12520,6 +12605,7 @@ async function main() {
       'console-history': checkConsoleHistoryAndErrors,
       'console-following': checkConsoleOutputFollowing,
       'console-copy': checkConsoleCopyOwnership,
+      'console-keyboard-history': checkConsoleKeyboardHistory,
       'console-visibility': checkConsoleVisibility,
       'console-layout': checkConsoleLayout,
       continuous: checkKeepSearchingIsUnbounded,
@@ -13278,6 +13364,7 @@ async function main() {
     await checkConsoleHistoryAndErrors(browser)
     await checkConsoleOutputFollowing(browser)
     await checkConsoleCopyOwnership(browser)
+    await checkConsoleKeyboardHistory(browser)
     await checkConsoleVisibility(browser)
     await checkConsoleLayout(browser)
     await checkSingleThreadReviewPool(browser)
