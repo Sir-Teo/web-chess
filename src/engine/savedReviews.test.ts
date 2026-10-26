@@ -2,7 +2,7 @@ import { Chess } from 'chess.js'
 import { describe, expect, it } from 'vitest'
 import type { GameNode } from '../hooks/useGameTree'
 import { createReviewSession, recordReviewResult, snapshotReviewSession } from './reviewSession'
-import { createSavedReview, readSavedReview, restoreSavedReview, reviewLineKey, savedReviewSummary } from './savedReviews'
+import { createSavedReview, filterSavedReviewSummaries, readSavedReview, restoreSavedReview, reviewLineKey, savedReviewSummary } from './savedReviews'
 import { createReviewBackup, parseReviewBackup, planReviewImport } from './reviewBackup'
 
 function fixture(moves = ['Nf3', 'Nf6', 'g3'], rootFen?: string, depth = 16) {
@@ -146,5 +146,35 @@ describe('portable, isolated saved reviews', () => {
     }
     expect(readSavedReview({ ...saved, evaluations: [saved.evaluations[1], ...saved.evaluations.slice(1)] })).toBeNull()
     expect(readSavedReview({ ...saved, evaluations: [['unrelated-fen', reading], ...saved.evaluations.slice(1)] })).toBeNull()
+  })
+})
+
+
+describe('finding saved review runs', () => {
+  const runs = [
+    { ...fixture(['e4'], undefined, 6).saved, id: 'jose', title: 'José – Réti: Łódź prep' },
+    { ...fixture(['d4'], undefined, 16).saved, id: 'deep', title: 'Queen pawn study', complete: false, evaluated: 1,
+      settings: { ...fixture().saved.settings, engine: { profile: 'full-single-local', name: 'Stockfish 18 Full', version: '18.0.7' } } },
+  ]
+
+  it('matches names across accents, decomposed letters and fullwidth input', () => {
+    for (const query of ['jose reti lodz', 'RE\u0301TI', 'Ｊｏｓｅ']) {
+      expect(filterSavedReviewSummaries(runs, query).map(run => run.id)).toEqual(['jose'])
+    }
+  })
+
+  it('combines name, producer, build, target depth and completeness terms', () => {
+    expect(filterSavedReviewSummaries(runs, 'queen full d16 partial 18.0.7').map(run => run.id)).toEqual(['deep'])
+    expect(filterSavedReviewSummaries(runs, 'prep lite depth 6 complete').map(run => run.id)).toEqual(['jose'])
+    expect(filterSavedReviewSummaries(runs, 'queen lite')).toEqual([])
+    expect(filterSavedReviewSummaries(runs, 'missing')).toEqual([])
+  })
+
+  it('keeps stored order, titles and settings intact when searching or clearing', () => {
+    const before = structuredClone(runs)
+    expect(filterSavedReviewSummaries(runs, '  ').map(run => run.id)).toEqual(['jose', 'deep'])
+    filterSavedReviewSummaries(runs, 'reti d6')
+    expect(filterSavedReviewSummaries(runs, '').map(run => run.id)).toEqual(['jose', 'deep'])
+    expect(runs).toEqual(before)
   })
 })

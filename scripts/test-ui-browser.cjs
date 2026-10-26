@@ -1599,6 +1599,110 @@ async function checkReviewListFollowsPosition(browser) {
   }
 }
 
+/** Search saved runs without filtering backup contents or changing the open report. */
+async function checkSavedReviewSearch(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', engineProfile: 'lite-single-local',
+        autoAnalyze: false, reviewMaxWorkers: 1, searchDepth: 16, theme,
+      })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog textarea').first().fill('[Event "Search fixture"]\n\n1. e4 d5 2. exd5 *')
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+      await page.getByTestId('review-run-summary').filter({ hasText: 'Completed review' }).waitFor()
+      await page.getByRole('button', { name: 'Save review', exact: true }).click()
+      const choice = page.getByLabel('Choose a saved review', { exact: true })
+      await choice.waitFor()
+      const originalId = await choice.inputValue()
+      await page.evaluate(id => new Promise((resolve, reject) => {
+        const request = indexedDB.open('web-chess-reviews', 1)
+        request.onsuccess = () => {
+          const db = request.result, tx = db.transaction('runs', 'readwrite'), store = tx.objectStore('runs'), read = store.get(id)
+          read.onsuccess = () => {
+            const original = read.result
+            original.title = 'José – Réti: Łódź prep'
+            const partial = structuredClone(original)
+            partial.id = 'search-partial'; partial.title = 'Queen pawn study'; partial.finishedAt += 1000
+            partial.settings.depth = 6; partial.settings.engine = { profile: 'full-single-local', version: '18.0.7', name: 'Stockfish 18 Full QA' }
+            partial.evaluations = partial.evaluations.slice(1).map(([fen, value]) => [fen, { ...value, engine: partial.settings.engine }])
+            partial.evaluated = partial.evaluations.length; partial.complete = false; partial.reused = 0
+            const caro = { ...structuredClone(original), id: 'search-caro', title: 'Caro–Kann daily', finishedAt: original.finishedAt + 2000 }
+            window.__searchOriginals = [original, partial, caro]
+            for (const run of window.__searchOriginals) store.put(run)
+          }
+          tx.oncomplete = () => { db.close(); resolve() }
+          tx.onabort = () => reject(tx.error)
+        }
+      }), originalId)
+      const disclosure = page.locator('.saved-reviews summary')
+      await disclosure.click(); await disclosure.click()
+      await page.waitForFunction(() => document.querySelector('#saved-review-choice')?.options.length === 3)
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const search = page.getByRole('searchbox', { name: 'Search saved reviews', exact: true })
+      const count = page.locator('#saved-review-search-count')
+      const originalReport = await page.getByTestId('review-run-summary').innerText()
+      const commands = await page.evaluate(() => window.__uciCommands.length)
+      assert(await search.getAttribute('aria-controls') === await choice.getAttribute('id') && await search.getAttribute('aria-describedby') === await count.getAttribute('id'), 'saved review search has no result/count association')
+      for (const query of ['jose reti lodz', 'RE\u0301TI', 'Ｊｏｓｅ']) {
+        await search.fill(query)
+        assert(await choice.locator('option').count() === 1 && await choice.inputValue() === originalId, 'international saved-review query lost its matching selection')
+      }
+      await search.fill('full d6 partial')
+      assert(await choice.inputValue() === 'search-partial' && (await count.innerText()).includes('1 of 3'), 'combined engine/depth/status search did not select its matching run')
+      assert((await page.locator('.saved-review-description').innerText()).includes('Queen pawn study'), 'actions describe a hidden review instead of the matching choice')
+      await search.fill('no matching run')
+      assert(await choice.isDisabled() && await choice.inputValue() === '' && (await count.innerText()).includes('No saved reviews match'), 'empty search left an actionable hidden review')
+      assert(await page.getByRole('button', { name: 'Delete saved review', exact: true }).count() === 0, 'empty results can delete a hidden saved run')
+      const downloaded = page.waitForEvent('download')
+      await page.getByRole('button', { name: 'Export review backup', exact: true }).click()
+      const file = await downloaded, backup = JSON.parse(fs.readFileSync(await file.path(), 'utf8'))
+      const originals = await page.evaluate(() => window.__searchOriginals)
+      assert(backup.reviews.length === 3 && originals.every(run => JSON.stringify(backup.reviews.find(saved => saved.id === run.id)) === JSON.stringify(run)), 'search filtered or changed the complete review backup')
+      assert(await page.getByTestId('review-run-summary').innerText() === originalReport && await page.evaluate(() => window.__uciCommands.length) === commands, 'search/backup changed the report or dispatched engine work')
+      const clear = page.getByRole('button', { name: 'Clear search', exact: true })
+      await clear.focus(); await clear.press('Enter')
+      assert(await search.inputValue() === '' && await search.evaluate(el => el === document.activeElement), 'Clear search lost its search-field focus')
+      assert(await choice.inputValue() === 'search-partial' && await choice.locator('option').count() === 3, 'clearing search lost the selected matching run')
+      await page.getByRole('button', { name: 'Use saved review', exact: true }).click()
+      await page.getByTestId('review-engine-source').filter({ hasText: 'Stockfish 18 Full QA' }).waitFor()
+      const openedReport = await page.getByTestId('review-run-summary').innerText()
+      await search.fill('jose')
+      await page.getByRole('button', { name: 'Rename saved review', exact: true }).click()
+      const name = page.getByRole('textbox', { name: 'Saved review name', exact: true })
+      await name.fill('Italian daily'); await name.press('Enter')
+      await page.getByRole('button', { name: 'Rename saved review', exact: true }).waitFor({ state: 'visible' })
+      await page.waitForFunction(() => document.querySelector('#saved-review-search')?.value === '' && document.querySelector('#saved-review-choice')?.options.length === 3)
+      assert(await choice.inputValue() === originalId && (await page.locator('.saved-review-description').innerText()).includes('Italian daily'), 'renaming hid the updated run behind an obsolete filter')
+      await search.fill('italian daily')
+      const remove = page.getByRole('button', { name: 'Delete saved review', exact: true })
+      await remove.focus(); await remove.press('Space')
+      await count.filter({ hasText: 'No saved reviews match' }).waitFor()
+      await page.waitForFunction(() => document.activeElement?.id === 'saved-review-search')
+      assert(await page.getByTestId('review-run-summary').innerText() === openedReport, 'deleting the final match replaced the current report')
+      await clear.click()
+      await search.fill('caro')
+      await page.getByRole('button', { name: 'Save review', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('#saved-review-search')?.value === '' && document.querySelector('#saved-review-choice')?.options.length === 3)
+      assert(!['search-caro', 'search-partial', originalId].includes(await choice.inputValue()), 'saving under a filter failed to select the new run')
+      await search.scrollIntoViewIfNeeded()
+      assert(await search.evaluate(el => el.getBoundingClientRect().height >= 44 && el.scrollWidth <= el.clientWidth + 1)
+        && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'saved-review search overflows or shrinks at enlarged text')
+      await page.screenshot({ path: `/tmp/web-chess-review-search-${width}-${scale}.png` })
+      assert(errors.length === 0, `saved review search errors: ${errors.join('; ')}`)
+      console.log(`  review search (${width}×${height}, ${scale}x, ${theme}): international/multi-term filters, explicit empty results, correct actions/opening, complete unchanged backup, keyboard clearing, rename/save visibility and deletion focus preserve the report`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkSavedReviews(browser) {
   for (const [width, height, theme] of [[1280, 900, 'dark'], [375, 812, 'light'], [320, 812, 'light'], [844, 390, 'dark']]) {
     const context = await browser.newContext({ viewport: { width, height } })
@@ -15971,6 +16075,7 @@ async function main() {
       'review-comparison': checkSavedReviews,
       'review-delete-focus': checkSavedReviewDeleteFocus,
       'saved-reviews': async browser => { await checkSavedReviews(browser); await checkSavedReviewStorage(browser); await checkSavedReviewEndings(browser) },
+      'review-search': checkSavedReviewSearch,
       'review-renaming': checkSavedReviewRenaming,
       'review-branch-names': checkReviewBranchNames,
       'saved-endings': checkSavedReviewEndings,
@@ -16768,6 +16873,7 @@ async function main() {
     await checkEvaluationEngineProvenance(browser)
     await checkPvPreviewAndCommit(browser)
     await checkReviewUsesSelectedEngine(browser, true)
+    await checkSavedReviewSearch(browser)
     await checkSavedReviews(browser)
     await checkSavedReviewDeleteFocus(browser)
     await checkSavedReviewRenaming(browser)

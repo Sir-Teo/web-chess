@@ -234,7 +234,10 @@ given, and the app answering the reader who touches it.
   to reopen a run, rename it for a study session, delete its stored copy, or
   compare it with the open report for the same line. Untitled runs use the
   reviewed branch’s opening; real player and event names take priority. The picker starts with
-  the run name, so typing its beginning selects it. Run names are included
+  the run name, so typing its beginning selects it. **Search saved reviews**
+  matches names, engines, depth (for example, D16), and complete/partial status;
+  combine terms and use unaccented spellings. Clear search restores the full
+  list, and review backups always include every saved run. Run names are included
   in review backups. Comparison shows scores from White's point of view,
   best-move and WDL differences, missing readings and links back to positions.
   **Show more positions** continues keyboard focus at the first new position;

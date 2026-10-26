@@ -10,13 +10,14 @@
 }
 .saved-reviews-content { display: grid; gap: 0.65rem; padding: 0 0.75rem 0.75rem; min-width: 0; }
 .saved-reviews label { font-size: 0.8rem; color: var(--text-secondary); }
-#saved-review-choice, .saved-review-name-input {
+#saved-review-choice, #saved-review-search, .saved-review-name-input {
   width: 100%; min-width: 0; min-height: 44px;
   padding: 0.5rem;
   font: inherit; font-size: 0.8rem;
   color: var(--text-primary); background: var(--bg-elevated);
   border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
 }
+#saved-review-search::placeholder { color: var(--text-secondary); opacity: 1; }
 .saved-review-name-editor, .saved-review-name-editor form { display: grid; gap: 0.65rem; min-width: 0; }
 .saved-review-description, .saved-review-notice { overflow-wrap: anywhere; }
 .saved-reviews .review-report-actions { margin-bottom: 0; }

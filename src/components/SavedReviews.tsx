@@ -1,13 +1,14 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { GameNode } from '../hooks/useGameTree'
 import { evaluationEngineLabel } from '../engine/evaluationSource'
-import { createSavedReview, reviewLineKey, type SavedReview, type SavedReviewSummary } from '../engine/savedReviews'
+import { createSavedReview, filterSavedReviewSummaries, reviewLineKey, type SavedReview, type SavedReviewSummary } from '../engine/savedReviews'
 import { deleteSavedReview, listSavedReviews, loadSavedReview, renameSavedReview, saveReview } from '../engine/savedReviewStorage'
 import type { ReviewSnapshot } from '../engine/reviewSession'
 import { ReviewComparison } from './ReviewComparison'
 import { SavedReviewNameEditor } from './SavedReviewNameEditor'
 import { exportReviewBackup, importReviewBackup } from '../engine/reviewBackupClient'
 import { formatLocalDate } from '../engine/localDate'
+import { MAX_SEARCH_QUERY_LENGTH } from '../engine/searchTerms'
 import './SavedReviews.css'
 
 type Props = {
@@ -31,6 +32,7 @@ function failure(error: unknown, action: string): string {
 export function SavedReviews({ line, report, headers, openingName, qualities, busy, onOpen, onNavigate }: Props) {
   const [runs, setRuns] = useState<SavedReviewSummary[]>([])
   const [selectedId, setSelectedId] = useState('')
+  const [query, setQuery] = useState('')
   const [loaded, setLoaded] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [working, setWorking] = useState(false)
@@ -64,6 +66,7 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
   const details = useRef<HTMLDetailsElement>(null)
   const summary = useRef<HTMLElement>(null)
   const choice = useRef<HTMLSelectElement>(null)
+  const search = useRef<HTMLInputElement>(null)
   const compareTrigger = useRef<HTMLButtonElement>(null)
   const actionFocus = useRef<ActionFocus | null>(null)
 
@@ -75,14 +78,16 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
     // Preserve any new destination chosen while the storage write was pending.
     if (document.activeElement !== document.body && document.activeElement !== request.trigger) return
     const target = request.destination === 'remaining'
-      ? (details.current?.open ? choice.current ?? summary.current : summary.current)
+      ? (details.current?.open ? (choice.current?.disabled ? search.current : choice.current) ?? summary.current : summary.current)
       : request.destination === 'comparison'
         ? details.current?.querySelector<HTMLElement>('.review-comparison h4') ?? request.trigger
         : request.trigger
     target?.focus()
   }, [working])
   const backupInput = useRef<HTMLInputElement>(null)
-  const selected = runs.find(run => run.id === selectedId)
+  const visibleRuns = filterSavedReviewSummaries(runs, query)
+  const selected = visibleRuns.find(run => run.id === selectedId) ?? visibleRuns[0]
+  const visibleSelectedId = selected?.id ?? ''
   const sameLine = selected?.lineKey === reviewLineKey(line)
 
   async function refresh(preferredId?: string) {
@@ -91,6 +96,7 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
       const next = await listSavedReviews()
       if (version !== loadingVersion.current) return
       setRuns(next)
+      if (preferredId) setQuery('')
       setLoaded(true)
       setLoadFailed(false)
       setSelectedId(previous => next.some(run => run.id === (preferredId ?? previous)) ? (preferredId ?? previous) : next[0]?.id ?? '')
@@ -100,6 +106,12 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
         setNotice(failure(error, 'read saved reviews'))
       }
     }
+  }
+
+  function changeQuery(value: string) {
+    setQuery(value)
+    const matches = filterSavedReviewSummaries(runs, value)
+    setSelectedId(previous => !matches.length || matches.some(run => run.id === previous) ? previous : matches[0].id)
   }
 
   async function save() {
@@ -226,9 +238,21 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
           </div> : !loaded ? <p className="panel-copy">Loading saved reviews…</p> : runs.length === 0
             ? <p className="panel-copy">No saved reviews yet. Finish a review, then choose Save review.</p>
             : <>
+              <label htmlFor="saved-review-search">Search saved reviews</label>
+              <input ref={search} id="saved-review-search" type="search" value={query} maxLength={MAX_SEARCH_QUERY_LENGTH}
+                placeholder="Name, engine, depth or complete/partial" disabled={working}
+                aria-controls="saved-review-choice" aria-describedby="saved-review-search-count"
+                onChange={event => changeQuery(event.target.value)} />
+              <p id="saved-review-search-count" className="panel-copy small" role="status">
+                {visibleRuns.length ? `${visibleRuns.length} of ${runs.length} saved reviews` : 'No saved reviews match your search.'}
+              </p>
+              {query && <div className="review-report-actions">
+                <button type="button" disabled={working} onClick={() => { changeQuery(''); search.current?.focus() }}>Clear search</button>
+              </div>}
               <label htmlFor="saved-review-choice">Choose a saved review</label>
-              <select ref={choice} id="saved-review-choice" value={selectedId} disabled={working} onChange={event => setSelectedId(event.target.value)}>
-                {runs.map(run => <option key={run.id} value={run.id}>
+              <select ref={choice} id="saved-review-choice" value={visibleSelectedId} disabled={working || !visibleRuns.length} onChange={event => setSelectedId(event.target.value)}>
+                {!visibleRuns.length && <option value="">No matching reviews</option>}
+                {visibleRuns.map(run => <option key={run.id} value={run.id}>
                   {run.title} · {run.settings.engine.name} · D{run.settings.depth} · {new Date(run.finishedAt).toLocaleString()}{run.complete ? '' : ' · Partial'}
                 </option>)}
               </select>
@@ -252,7 +276,7 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
                     Compare with open review
                   </button>
                 </div>
-                {comparison && comparison.report === report && comparison.saved.id === selectedId && sameLine && !busy && (
+                {comparison && comparison.report === report && comparison.saved.id === visibleSelectedId && sameLine && !busy && (
                   <ReviewComparison key={`${comparison.saved.id}:${report.finishedAt}`} line={line} report={report}
                     saved={comparison.saved} onNavigate={onNavigate} onClose={() => { setComparison(null); compareTrigger.current?.focus() }} />
                 )}

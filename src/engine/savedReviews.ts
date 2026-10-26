@@ -1,6 +1,6 @@
 import type { GameNode } from '../hooks/useGameTree'
 import { isReviewEvaluationSufficient, isTerminalPositionFen, type EvalSnapshot } from './analysis'
-import { decodeEvaluationEngine, encodeEvaluationEngine, sameEvaluationEngine } from './evaluationSource'
+import { decodeEvaluationEngine, encodeEvaluationEngine, evaluationEngineLabel, sameEvaluationEngine } from './evaluationSource'
 import { flattenPgnMainLine, parsePgnMoveTree } from './pgn'
 import { exportReviewPgn } from './reviewPgn'
 import type { ReviewSettings, ReviewSnapshot } from './reviewSession'
@@ -8,6 +8,7 @@ import { reviewTargetFens } from './batchReview'
 import { truncateUtf16 } from './textLength'
 import { extractLibraryMetadata, libraryPlayers } from './gameLibrary'
 import { withoutAppPlaceholder } from './pgnPlaceholders'
+import { matchesSearchTerms, toSearchTerms } from './searchTerms'
 
 export const MAX_SAVED_REVIEWS = 50
 export const MAX_SAVED_REVIEW_BYTES = 512 * 1024
@@ -25,6 +26,17 @@ export type SavedReviewSummary = {
   complete: boolean
   reused: number
   evaluated: number
+}
+
+/** Search small run metadata without reading stored PGN or evaluations. */
+export function filterSavedReviewSummaries(runs: SavedReviewSummary[], query: string): SavedReviewSummary[] {
+  const terms = toSearchTerms(query)
+  return runs.filter(run => matchesSearchTerms([
+    run.title,
+    evaluationEngineLabel(run.settings.engine),
+    `Depth ${run.settings.depth} D${run.settings.depth}`,
+    run.complete ? 'Complete' : 'Partial',
+  ].join(' '), terms))
 }
 
 export type SavedReview = SavedReviewSummary & {

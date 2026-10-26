@@ -1,0 +1,4 @@
+  review search (1280×900, 1x, dark): international/multi-term filters, explicit empty results, correct actions/opening, complete unchanged backup, keyboard clearing, rename/save visibility and deletion focus preserve the report
+  review search (375×812, 1x, light): international/multi-term filters, explicit empty results, correct actions/opening, complete unchanged backup, keyboard clearing, rename/save visibility and deletion focus preserve the report
+  review search (320×812, 2x, light): international/multi-term filters, explicit empty results, correct actions/opening, complete unchanged backup, keyboard clearing, rename/save visibility and deletion focus preserve the report
+  review search (844×390, 2x, dark): international/multi-term filters, explicit empty results, correct actions/opening, complete unchanged backup, keyboard clearing, rename/save visibility and deletion focus preserve the report
