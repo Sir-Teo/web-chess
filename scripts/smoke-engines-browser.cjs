@@ -50,8 +50,13 @@ async function checkNativeConsoleLimits(page) {
       await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'paused')
       await visibility('visible')
       await page.waitForFunction(({ text, searches }) => window.__smokeCommands.filter(command => command === text).length === searches + 1, { text, searches })
-      await command.fill('isready')
-      await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
+      if (text === 'go perft 0') {
+        await submit('stop')
+        await command.fill('isready')
+      } else {
+        await command.fill('isready')
+        await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
+      }
       await ready()
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
       assert.equal(await command.inputValue(), 'isready', 'completion erased the next console command')

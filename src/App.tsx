@@ -2916,6 +2916,14 @@ function App() {
         setEngineLabError('Load the engine before sending console commands. Its console position and session options reset when reloaded.')
         return
       }
+      if (status === 'analyzing' && trimmed === 'stop') {
+        // Stop ends the current stream. Replacing its buffer here would hide
+        // the final info/bestmove that still belongs to the running command.
+        stop()
+        setEngineLabCommand('')
+        setLabCommandHistory(previous => [trimmed, ...previous.filter(item => item !== trimmed)].slice(0, 20))
+        return
+      }
       if (status === 'analyzing' && trimmed.toLowerCase() !== 'stop') {
         setEngineLabError('Stop the active analysis before sending Engine Lab commands.')
         return
@@ -2987,7 +2995,7 @@ function App() {
         setEngineLabError(error instanceof Error ? error.message : String(error))
       }
     },
-    [cancelLabConsolePublication, engineEnabled, expertModeEnabled, labOptions, sendCommand, setLabOption, status],
+    [cancelLabConsolePublication, engineEnabled, expertModeEnabled, labOptions, sendCommand, setLabOption, status, stop],
   )
 
   const clearLabConsole = useCallback(() => {

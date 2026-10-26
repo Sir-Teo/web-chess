@@ -7782,7 +7782,7 @@ async function checkConsoleDraftOwnership(browser) {
         await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
         await output.filter({ hasText: 'score cp 900' }).waitFor()
       }
-      for (const mode of ['untouched', 'different', 'retyped', 'history', 'stop']) {
+      for (const mode of ['untouched', 'different', 'retyped', 'history', 'stop', 'typed-stop', 'typed-stop-next']) {
         stage = mode
         await start()
         let expected = ''
@@ -7790,12 +7790,27 @@ async function checkConsoleDraftOwnership(browser) {
         if (mode === 'retyped') { expected = search; await command.fill('d'); await command.fill(search) }
         if (mode === 'history') { expected = search; await page.locator('.lab-history-list').getByRole('button', { name: search, exact: true }).click() }
         if (mode === 'stop') { expected = 'd'; await command.fill(expected) }
-        if (mode === 'stop') await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
+        if (mode === 'typed-stop' || mode === 'typed-stop-next') {
+          if (mode === 'typed-stop-next') await page.evaluate(() => { window.__holdConsoleStopAck = true; window.__releaseConsoleStop = null })
+          await command.fill('stop')
+          await command.press('Enter')
+          if (mode === 'typed-stop-next') {
+            await page.waitForFunction(() => typeof window.__releaseConsoleStop === 'function')
+            expected = 'isready'
+            await command.fill(expected)
+            await page.evaluate(() => window.__releaseConsoleStop())
+          }
+        }
+        else if (mode === 'stop') await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
         else await page.evaluate(() => window.__consoleEngine.finishSearch())
         await ready()
         await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
         assert(await command.inputValue() === expected, `${mode}: a completed search erased the next command draft`)
         assert((await output.textContent()).includes('bestmove '), 'preserving a draft lost the completed search output')
+        if (mode.startsWith('typed-stop')) {
+          assert((await output.textContent()).startsWith(`> ${search}\n`), 'typed Stop replaced the running command output')
+          assert(await page.locator('.lab-history-list').getByRole('button', { name: 'stop', exact: true }).count() === 1, 'typed Stop is missing from command history')
+        }
         if (mode === 'different') {
           await command.press('Enter')
           await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
@@ -7821,7 +7836,7 @@ async function checkConsoleDraftOwnership(browser) {
       assert(await output.textContent() === 'No command output yet.', 'old output returned after Reset saved workspace')
       assert(await command.inputValue() === '' && await page.locator('.lab-history-list button').count() === 0, 'reset restored an old command draft/history')
       assert(await page.locator('.command-summary').filter({ hasText: 'Last run:' }).count() === 0, 'old completion restored the reset run summary')
-      console.log(`  console drafts (${width}px, ${scale}x): next edits/retyped/history drafts survive completion and Stop, unchanged submissions clear, and reset discards late output`)
+      console.log(`  console drafts (${width}px, ${scale}x): new drafts survive completion and Stop, typed Stop retains terminal output/history, unchanged submissions clear, and reset discards late output`)
     } catch (error) {
       const state = await page.evaluate(() => ({ status: document.querySelector('.bottom .status')?.textContent,
         input: document.querySelector('[aria-label="UCI command"]')?.value,
