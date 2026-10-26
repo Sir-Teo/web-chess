@@ -135,6 +135,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     /** What `handleImportDatabase` asks; the state is what the button shows. */
     const databaseBusyRef = useRef(false)
     const archiveAbortRef = useRef<AbortController | null>(null)
+    const importRequestRef = useRef(0)
     const panelRef = useRef<HTMLDivElement>(null)
     const importFileInputRef = useRef<HTMLInputElement>(null)
     const wasOpenRef = useRef(false)
@@ -155,10 +156,20 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         setShareLinkFallback('')
     }, [])
 
+    // A newer paste, file, or archive choice owns the import box. Cancel the
+    // network request and invalidate file reads that cannot themselves abort.
+    const cancelPendingImport = useCallback(() => {
+        importRequestRef.current += 1
+        archiveAbortRef.current?.abort()
+        archiveAbortRef.current = null
+        setArchiveBusy(false)
+    }, [])
+
     const closeDialog = useCallback(() => {
+        cancelPendingImport()
         resetFeedback()
         onClose()
-    }, [onClose, resetFeedback])
+    }, [cancelPendingImport, onClose, resetFeedback])
 
     const handleImport = () => {
         const importError = pgnImportLengthError(importText) ?? pgnImportContentError(importText)
@@ -200,7 +211,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
             return
         }
 
-        archiveAbortRef.current?.abort()
+        cancelPendingImport()
         const controller = new AbortController()
         archiveAbortRef.current = controller
         resetFeedback()
@@ -230,11 +241,14 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                 setArchiveBusy(false)
             }
         }
-    }, [archiveCount, archiveSource, archiveSourceInfo.label, archiveUsername, resetFeedback])
+    }, [archiveCount, archiveSource, archiveSourceInfo.label, archiveUsername, cancelPendingImport, resetFeedback])
 
     // A fetch outlives the dialog otherwise, and finishes into a component that
     // is no longer on screen.
-    useEffect(() => () => archiveAbortRef.current?.abort(), [])
+    useEffect(() => () => {
+        importRequestRef.current += 1
+        archiveAbortRef.current?.abort()
+    }, [])
 
     /**
      * Keep every game in the file.
@@ -283,11 +297,13 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     }
 
     const handlePickImportFile = () => {
+        cancelPendingImport()
         resetFeedback()
         importFileInputRef.current?.click()
     }
 
     const handleClearImport = () => {
+        cancelPendingImport()
         setImportText('')
         setImportFileName(null)
         resetFeedback()
@@ -299,6 +315,8 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
      * same messages and the same offer as one chosen through the button.
      */
     const loadImportFile = useCallback(async (file: File) => {
+        cancelPendingImport()
+        const request = importRequestRef.current
         resetFeedback()
         if (file.size > MAX_PGN_IMPORT_BYTES) {
             setImportFileName(null)
@@ -308,6 +326,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
 
         try {
             const text = await file.text()
+            if (request !== importRequestRef.current) return
             const limitError = pgnImportLengthError(text)
             if (limitError) {
                 setImportFileName(null)
@@ -318,10 +337,11 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
             setImportFileName(file.name)
             setError(pgnImportContentError(text))
         } catch {
+            if (request !== importRequestRef.current) return
             setImportFileName(null)
             setError('Could not read that PGN file.')
         }
-    }, [resetFeedback])
+    }, [cancelPendingImport, resetFeedback])
 
     const handleImportFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
         const input = event.currentTarget
@@ -584,6 +604,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                 type="button"
                                 className={`mode-card ${tab === 'import' ? 'selected' : ''}`}
                                 onClick={() => {
+                                    cancelPendingImport()
                                     resetFeedback()
                                     setTab('import')
                                 }}
@@ -596,6 +617,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                 type="button"
                                 className={`mode-card ${tab === 'fen' ? 'selected' : ''}`}
                                 onClick={() => {
+                                    cancelPendingImport()
                                     resetFeedback()
                                     setTab('fen')
                                 }}
@@ -608,6 +630,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                 type="button"
                                 className={`mode-card ${tab === 'export' ? 'selected' : ''}`}
                                 onClick={() => {
+                                    cancelPendingImport()
                                     resetFeedback()
                                     setTab('export')
                                 }}
@@ -630,7 +653,11 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                             type="button"
                                             className={`archive-source-btn ${archiveSource === source.id ? 'selected' : ''}`}
                                             aria-pressed={archiveSource === source.id}
-                                            onClick={() => setArchiveSource(source.id)}
+                                            onClick={() => {
+                                                cancelPendingImport()
+                                                resetFeedback()
+                                                setArchiveSource(source.id)
+                                            }}
                                         >
                                             {source.label}
                                         </button>
@@ -655,9 +682,10 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         aria-invalid={archiveUsernameUnusable || undefined}
                                         aria-describedby={archiveUsernameUnusable ? `${archiveUserId}-error` : undefined}
                                         onChange={event => {
+                                            cancelPendingImport()
+                                            resetFeedback()
                                             setArchiveUsername(event.target.value)
                                             setArchiveUsernameBlurred(false)
-                                            setError(null)
                                         }}
                                         onBlur={() => setArchiveUsernameBlurred(true)}
                                         onKeyDown={event => {
@@ -674,16 +702,27 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                             min={1}
                                             max={MAX_ARCHIVE_GAMES}
                                             value={archiveCount}
-                                            onChange={event => setArchiveCount(clampArchiveGameCount(Number(event.target.value)))}
+                                            onChange={event => {
+                                                cancelPendingImport()
+                                                resetFeedback()
+                                                setArchiveCount(clampArchiveGameCount(Number(event.target.value)))
+                                            }}
                                         />
                                     </div>
                                     <button
                                         type="button"
-                                        className="btn-start archive-fetch-btn"
-                                        onClick={() => void handleFetchArchive()}
-                                        disabled={archiveBusy || !archiveUsernameValid}
+                                        className={`${archiveBusy ? 'btn-cancel' : 'btn-start'} archive-fetch-btn`}
+                                        onClick={() => {
+                                            if (archiveBusy) {
+                                                cancelPendingImport()
+                                                setStatus('Fetch canceled. Your import text is unchanged.')
+                                            } else {
+                                                void handleFetchArchive()
+                                            }
+                                        }}
+                                        disabled={!archiveBusy && !archiveUsernameValid}
                                     >
-                                        {archiveBusy ? 'Fetching…' : 'Fetch'}
+                                        {archiveBusy ? 'Cancel fetch' : 'Fetch'}
                                     </button>
                                 </div>
                                 {archiveUsernameUnusable ? (
@@ -691,8 +730,8 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         {ARCHIVE_USERNAME_ERROR}
                                     </p>
                                 ) : (
-                                    <p className="archive-hint">
-                                        Public games, no sign-in. They land in the box below, newest first.
+                                    <p className="archive-hint" role="status">
+                                        {archiveBusy ? 'Fetching games…' : 'Public games, no sign-in. They land in the box below, newest first.'}
                                     </p>
                                 )}
                             </div>
@@ -734,6 +773,8 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                     spellCheck={false}
                                     value={importText}
                                     onChange={e => {
+                                        cancelPendingImport()
+                                        resetFeedback()
                                         const nextText = e.target.value
                                         const limitError = pgnImportLengthError(nextText)
                                         if (limitError) {

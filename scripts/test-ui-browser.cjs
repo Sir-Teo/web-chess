@@ -3773,6 +3773,96 @@ async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
  * here: typing a name, and playing on. Either is a different entry and both
  * work immediately.
  */
+async function checkImportDraftOwnership(browser) {
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 900 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript() + `
+        window.__pendingArchives = [];
+        const previousFetch = window.fetch;
+        window.fetch = (input, init) => {
+          if (String(input).includes('/api/games/user/')) {
+            return new Promise(resolve => window.__pendingArchives.push({
+              signal: init.signal,
+              finish: () => resolve(new Response('[Event "Old archive"]\\n\\n1. e4 e5 *')),
+            }));
+          }
+          return previousFetch(input, init);
+        };
+        window.__pendingFiles = [];
+        const previousFileText = File.prototype.text;
+        File.prototype.text = function () {
+          if (this.name === 'slow.pgn') return new Promise(resolve => window.__pendingFiles.push(() => resolve('1. e4 e5 *')));
+          return previousFileText.call(this);
+        };
+      `)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      const dialog = page.locator('.pgn-dialog')
+      const draft = dialog.locator('textarea.input-textarea')
+      const username = dialog.getByRole('textbox', { name: 'Your Lichess username' })
+      await username.fill('archivist')
+      const startFetch = async () => {
+        const count = await page.evaluate(() => window.__pendingArchives.length)
+        await dialog.getByRole('button', { name: 'Fetch', exact: true }).click()
+        await page.waitForFunction(count => window.__pendingArchives.length > count, count)
+      }
+      const finishFetch = async () => {
+        await page.evaluate(async () => {
+          window.__pendingArchives.at(-1).finish()
+          await new Promise(resolve => setTimeout(resolve, 0))
+        })
+      }
+      await startFetch()
+      await draft.fill('1. d4 d5 2. c4 *')
+      await finishFetch()
+      assert(await draft.inputValue() === '1. d4 d5 2. c4 *', 'a late archive reply overwrote a newer paste')
+
+      await startFetch()
+      await username.fill('another-player')
+      assert(await page.evaluate(() => window.__pendingArchives.at(-1).signal.aborted), 'editing the username left the old fetch active')
+      await finishFetch()
+      assert(await draft.inputValue() === '1. d4 d5 2. c4 *', 'an old username response replaced the import draft')
+
+      await startFetch()
+      await dialog.getByRole('button', { name: 'Cancel fetch', exact: true }).click()
+      assert(await page.evaluate(() => window.__pendingArchives.at(-1).signal.aborted), 'Cancel fetch did not abort the request')
+      await finishFetch()
+      await dialog.getByRole('button', { name: 'Fetch', exact: true }).waitFor()
+      assert(await dialog.getByRole('button', { name: 'Fetch', exact: true }).evaluate(el => el === document.activeElement),
+        'canceling a fetch lost keyboard focus')
+      assert(await draft.inputValue() === '1. d4 d5 2. c4 *', 'cancelling the fetch lost the existing draft')
+
+      await startFetch()
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      await finishFetch()
+      await dialog.getByRole('button', { name: 'Import', exact: true }).click()
+      assert(await draft.inputValue() === '1. d4 d5 2. c4 *', 'a response from a previous tab replaced the draft')
+      await startFetch()
+      await finishFetch()
+      await page.waitForFunction(() => document.querySelector('.pgn-dialog textarea').value.includes('Old archive'))
+      assert(await dialog.locator('.library-status').innerText() === 'Fetched 1 game for another-player.',
+        'a fresh fetch did not recover after cancellation')
+
+      const file = dialog.locator('input[type="file"]')
+      const slow = { name: 'slow.pgn', mimeType: 'text/plain', buffer: Buffer.from('1. e4 e5 *') }
+      await file.setInputFiles(slow)
+      await page.waitForFunction(() => window.__pendingFiles.length === 1)
+      await file.setInputFiles({ name: 'newer.pgn', mimeType: 'text/plain', buffer: Buffer.from('1. Nf3 d5 *') })
+      await page.waitForFunction(() => document.querySelector('.pgn-dialog textarea').value === '1. Nf3 d5 *')
+      await page.evaluate(async () => { window.__pendingFiles.shift()(); await new Promise(resolve => setTimeout(resolve, 0)) })
+      assert(await draft.inputValue() === '1. Nf3 d5 *', 'an older file read overwrote the newer file')
+      await file.setInputFiles(slow)
+      await page.waitForFunction(() => window.__pendingFiles.length === 1)
+      await draft.fill('1. c4 e5 *')
+      await page.evaluate(async () => { window.__pendingFiles.shift()(); await new Promise(resolve => setTimeout(resolve, 0)) })
+      assert(await draft.inputValue() === '1. c4 e5 *', 'a late file read overwrote a newer paste')
+      console.log(`  import (${width}px): newer drafts win over old fetches and file reads; fetch cancellation keeps the draft`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkLibraryEditing(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 900 } })
@@ -11003,6 +11093,7 @@ async function main() {
       'eval-bar': checkTheEvaluationBarSurvivesTheWdlSwitch,
       'library-double-save': checkOneGestureSavesOneGame,
       'library-editing': checkLibraryEditing,
+      'import-drafts': checkImportDraftOwnership,
       'database-once': checkADatabaseIsAddedOnce,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
       'finished-clock': checkAFinishedGameKeepsItsStoppedClock,
@@ -11755,6 +11846,7 @@ async function main() {
     await checkTheLibrarySurvivesABackup(browser)
     await checkOneGestureSavesOneGame(browser)
     await checkLibraryEditing(browser)
+    await checkImportDraftOwnership(browser)
     await checkADatabaseIsAddedOnce(browser)
     await checkAnExportedGameComesBack(browser)
     await checkAnInterruptedGameComesBack(browser)
