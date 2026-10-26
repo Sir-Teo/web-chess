@@ -3758,21 +3758,49 @@ async function checkAMoveCanBePlayedFromTheKeyboard(browser) {
   }
 }
 
-/**
- * One gesture saves one game.
- *
- * A double click on a button that looks like it did nothing is the most
- * ordinary mis-click there is, and Save was guarded only against there being
- * nothing to save. **Measured**: three clicks in a single tick put three
- * copies in the library, which it dutifully disambiguated to "... (2)" and
- * "... (3)", because that is what it does with a name collision -- so the
- * duplicates arrived looking deliberate.
- *
- * The second half matters as much as the first. Refusing a repeat must not
- * refuse a reader who genuinely wants another copy, so both doors are opened
- * here: typing a name, and playing on. Either is a different entry and both
- * work immediately.
- */
+/** Setup edits must preserve the special capture described by the FEN. */
+async function checkPositionSetupEnPassant(browser) {
+  for (const [width, fen, target, from, captured] of [
+    [1280, '4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 2', 'd6', 'e5', 'd5'],
+    [375, '4k3/8/8/8/3pP3/8/8/4K3 b - e3 0 2', 'e3', 'd4', 'e4'],
+  ]) {
+    const context = await browser.newContext({ viewport: { width, height: 900 } })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      const dialog = page.locator('.pgn-dialog')
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      const text = dialog.locator('.fen-textarea')
+      await text.fill(fen)
+      await dialog.getByLabel('Fullmove', { exact: true }).fill('12')
+      assert((await text.inputValue()).split(' ')[3] === target, 'editing a counter removed the en passant capture')
+      const selector = dialog.getByRole('combobox', { name: 'En passant target', exact: true })
+      assert(await selector.inputValue() === target, 'the setup control lost the imported target')
+      await selector.selectOption('-')
+      assert((await text.inputValue()).split(' ')[3] === '-', 'None did not clear en passant')
+      await selector.selectOption(target)
+      await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
+      await selector.scrollIntoViewIfNeeded()
+      assert(await selector.evaluate(el => {
+        const rect = el.getBoundingClientRect()
+        const parent = el.closest('.fen-setup-controls').getBoundingClientRect()
+        return rect.height >= 43.75 && rect.left >= parent.left - 1 && rect.right <= parent.right + 1
+      }), 'the en passant control clips or is too small at 200% text')
+      await page.screenshot({ path: `/tmp/web-chess-en-passant-${width}.png` })
+      await page.evaluate(() => { document.documentElement.style.fontSize = '' })
+      await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).click()
+      await dialog.waitFor({ state: 'detached' })
+      await page.click(`#chessboard-square-${from}`)
+      await page.click(`#chessboard-square-${target}`)
+      await page.waitForFunction(square => document.querySelector(`#chessboard-square-${square}`)?.getAttribute('aria-label')?.includes('empty'), captured)
+      assert((await page.locator(`#chessboard-square-${target}`).getAttribute('aria-label')).includes('pawn'), 'the en passant move did not reach the board')
+      console.log(`  position setup (${width}px): ${target} survives a counter edit, can be cleared/restored, and allows a real en passant capture`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkImportDraftOwnership(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 900 } })
@@ -3945,6 +3973,21 @@ async function checkLibraryEditing(browser) {
   }
 }
 
+/**
+ * One gesture saves one game.
+ *
+ * A double click on a button that looks like it did nothing is the most
+ * ordinary mis-click there is, and Save was guarded only against there being
+ * nothing to save. **Measured**: three clicks in a single tick put three
+ * copies in the library, which it dutifully disambiguated to "... (2)" and
+ * "... (3)", because that is what it does with a name collision -- so the
+ * duplicates arrived looking deliberate.
+ *
+ * The second half matters as much as the first. Refusing a repeat must not
+ * refuse a reader who genuinely wants another copy, so both doors are opened
+ * here: typing a name, and playing on. Either is a different entry and both
+ * work immediately.
+ */
 async function checkOneGestureSavesOneGame(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -11094,6 +11137,7 @@ async function main() {
       'library-double-save': checkOneGestureSavesOneGame,
       'library-editing': checkLibraryEditing,
       'import-drafts': checkImportDraftOwnership,
+      'setup-en-passant': checkPositionSetupEnPassant,
       'database-once': checkADatabaseIsAddedOnce,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
       'finished-clock': checkAFinishedGameKeepsItsStoppedClock,
@@ -11847,6 +11891,7 @@ async function main() {
     await checkOneGestureSavesOneGame(browser)
     await checkLibraryEditing(browser)
     await checkImportDraftOwnership(browser)
+    await checkPositionSetupEnPassant(browser)
     await checkADatabaseIsAddedOnce(browser)
     await checkAnExportedGameComesBack(browser)
     await checkAnInterruptedGameComesBack(browser)

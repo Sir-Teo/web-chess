@@ -26,6 +26,7 @@ export type PositionSetup = {
   pieces: Partial<Record<Square, SetupPiece>>
   turn: SetupTurn
   castling: string
+  enPassant: Square | '-'
   halfmove: number
   fullmove: number
 }
@@ -65,6 +66,7 @@ export function createEmptyPositionSetup(): PositionSetup {
     pieces: {},
     turn: 'w',
     castling: '-',
+    enPassant: '-',
     halfmove: 0,
     fullmove: 1,
   }
@@ -134,6 +136,7 @@ export function parsePositionSetupFen(fen: string): PositionSetup | null {
     pieces,
     turn,
     castling: normalizeCastlingRights(parts[2]),
+    enPassant: /^[a-h][36]$/.test(parts[3] ?? '') ? parts[3] as Square : '-',
     halfmove,
     fullmove,
   }
@@ -165,7 +168,7 @@ export function positionSetupToFen(setup: PositionSetup): string {
     ranks.join('/'),
     setup.turn,
     normalizeAvailableCastlingRights(setup),
-    '-',
+    normalizeAvailableEnPassant(setup),
     Math.max(0, Math.floor(setup.halfmove)),
     Math.max(1, Math.floor(setup.fullmove)),
   ].join(' ')
@@ -176,11 +179,35 @@ export function updateSetupSquare(setup: PositionSetup, square: Square, piece: S
   if (piece) pieces[square] = piece
   else delete pieces[square]
   const next = { ...setup, pieces }
-  return { ...next, castling: normalizeAvailableCastlingRights(next) }
+  return { ...next, castling: normalizeAvailableCastlingRights(next), enPassant: normalizeAvailableEnPassant(next) }
 }
 
 export function updateSetupTurn(setup: PositionSetup, turn: SetupTurn): PositionSetup {
-  return { ...setup, turn }
+  const next = { ...setup, turn }
+  return { ...next, enPassant: normalizeAvailableEnPassant(next) }
+}
+
+/** Squares a pawn could have crossed on the previous double push. FEN records
+ * that square even when no opposing pawn can capture there. */
+export function setupEnPassantTargets(setup: PositionSetup): Square[] {
+  const whiteToMove = setup.turn === 'w'
+  const rank = whiteToMove ? '6' : '3'
+  const pawnRank = whiteToMove ? '5' : '4'
+  const originRank = whiteToMove ? '7' : '2'
+  const pawn = whiteToMove ? 'p' : 'P'
+  return FILES.filter(file => setup.pieces[`${file}${pawnRank}`] === pawn
+    && !setup.pieces[`${file}${rank}`] && !setup.pieces[`${file}${originRank}`])
+    .map(file => `${file}${rank}` as Square)
+}
+
+export function updateSetupEnPassant(setup: PositionSetup, enPassant: Square | '-'): PositionSetup {
+  const next = { ...setup, enPassant }
+  return { ...next, enPassant: normalizeAvailableEnPassant(next) }
+}
+
+function normalizeAvailableEnPassant(setup: PositionSetup): Square | '-' {
+  return setup.enPassant !== '-' && setupEnPassantTargets(setup).includes(setup.enPassant)
+    ? setup.enPassant : '-'
 }
 
 export function updateSetupCastlingRight(

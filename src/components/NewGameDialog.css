@@ -307,7 +307,8 @@
     font-weight: 700;
 }
 
-.fen-counter-field input {
+.fen-counter-field input,
+.fen-counter-field select {
     width: 100%;
     min-width: 0;
     min-height: 34px;
@@ -319,6 +320,14 @@
     font: inherit;
     font-size: 0.76rem;
     box-sizing: border-box;
+}
+
+.fen-setup-help {
+    margin: 0;
+    font-size: 0.68rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--text-tertiary);
 }
 
 .dialog-check-option {
@@ -847,7 +856,8 @@
     .dialog-actions .btn-cancel,
     .dialog-actions .btn-start,
     .dialog-export-options .dialog-check-option,
-    .fen-counter-field input {
+    .fen-counter-field input,
+    .fen-counter-field select {
         min-height: 44px;
     }
 }

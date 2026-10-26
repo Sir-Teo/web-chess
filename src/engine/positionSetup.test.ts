@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type Square } from 'chess.js'
+import { Chess, type Square } from 'chess.js'
 import {
   canUseSetupCastlingRight,
   createEmptyPositionSetup,
@@ -10,9 +10,11 @@ import {
   positionSetupToFen,
   setupPieceGlyph,
   setupPieceLabel,
+  setupEnPassantTargets,
   updateSetupCastlingRight,
   updateSetupFullmove,
   updateSetupHalfmove,
+  updateSetupEnPassant,
   updateSetupSquare,
   updateSetupTurn,
 } from './positionSetup'
@@ -31,6 +33,39 @@ describe('position setup helpers', () => {
     expect(setup?.pieces.g1).toBe('k')
     expect(setup?.turn).toBe('b')
     expect(positionSetupToFen(setup!)).toBe('8/8/8/8/8/8/2K5/6k1 b - - 37 82')
+  })
+
+  it.each([
+    ['4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 2', 'exd6'],
+    ['4k3/8/8/8/3pP3/8/8/4K3 b - e3 0 2', 'dxe3'],
+  ])('keeps the legal en passant capture when editing a move counter: %s', (fen, capture) => {
+    const setup = parsePositionSetupFen(fen)!
+    expect(positionSetupToFen(setup)).toBe(fen)
+    const edited = positionSetupToFen(updateSetupFullmove(setup, 12))
+    expect(new Chess(edited).moves()).toContain(capture)
+  })
+
+  it('clears en passant when a required pawn disappears, the target is occupied, or the side changes', () => {
+    const setup = parsePositionSetupFen('4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 2')!
+    expect(updateSetupSquare(setup, 'd5', null).enPassant).toBe('-')
+    expect(updateSetupSquare(setup, 'd6', 'N').enPassant).toBe('-')
+    expect(updateSetupSquare(setup, 'd7', 'p').enPassant).toBe('-')
+    expect(updateSetupTurn(setup, 'b').enPassant).toBe('-')
+    expect(updateSetupSquare(setup, 'a1', 'R').enPassant).toBe('d6')
+  })
+
+  it('offers only plausible targets and lets them be selected or cleared', () => {
+    const setup = parsePositionSetupFen('4k3/8/8/3pP3/8/8/8/4K3 w - - 0 2')!
+    expect(setupEnPassantTargets(setup)).toEqual(['d6'])
+    expect(updateSetupEnPassant(setup, 'e3').enPassant).toBe('-')
+    const selected = updateSetupEnPassant(setup, 'd6')
+    expect(new Chess(positionSetupToFen(selected)).moves()).toContain('exd6')
+    expect(updateSetupEnPassant(selected, '-').enPassant).toBe('-')
+  })
+
+  it('preserves a FEN target even without an opposing pawn that can capture', () => {
+    const fen = '4k3/8/8/8/4P3/8/8/4K3 b - e3 0 1'
+    expect(positionSetupToFen(parsePositionSetupFen(fen)!)).toBe(fen)
   })
 
   it('rejects malformed board placement', () => {

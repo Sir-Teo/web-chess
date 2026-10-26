@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import type { Square } from 'chess.js'
 import { useModalFocus } from '../hooks/useModalFocus'
 import type { GameNode } from '../hooks/useGameTree'
 import type { EvalSnapshot } from '../engine/analysis'
@@ -21,8 +22,10 @@ import {
     SETUP_PIECE_OPTIONS,
     setupPieceGlyph,
     setupPieceLabel,
+    setupEnPassantTargets,
     updateSetupCastlingRight,
     updateSetupFullmove,
+    updateSetupEnPassant,
     updateSetupHalfmove,
     updateSetupSquare,
     updateSetupTurn,
@@ -148,6 +151,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const fullmoveId = useId()
     const archiveUserId = useId()
     const archiveCountId = useId()
+    const enPassantId = useId()
 
     const resetFeedback = useCallback(() => {
         setError(null)
@@ -430,6 +434,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const canLoadFen = Boolean(fenText.trim()) && !fenValidationError
     const canCopyShareLink = fenShareValidation.ok
     const canImportPgn = Boolean(importText.trim()) && !importContentError
+    const enPassantTargets = setupEnPassantTargets(setup)
     /**
      * A file too big for the box it landed in.
      *
@@ -959,6 +964,22 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                                     />
                                                 </label>
                                             </div>
+                                        </div>
+                                        <div className="fen-setup-control-block">
+                                            <label className="fen-counter-field" htmlFor={enPassantId}>
+                                                <span>En passant target</span>
+                                                <select id={enPassantId}
+                                                    value={setup.enPassant !== '-' && enPassantTargets.includes(setup.enPassant) ? setup.enPassant : '-'}
+                                                    aria-describedby={`${enPassantId}-help`}
+                                                    onChange={event => applySetupChange(current =>
+                                                        updateSetupEnPassant(current, event.target.value as Square | '-'))}>
+                                                    <option value="-">None</option>
+                                                    {enPassantTargets.map(square => <option key={square} value={square}>{square}</option>)}
+                                                </select>
+                                            </label>
+                                            <p id={`${enPassantId}-help`} className="fen-setup-help">
+                                                The square crossed by a pawn that just moved two squares.
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
