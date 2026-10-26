@@ -768,7 +768,7 @@ function App() {
     labConsoleFrameRef.current = null
   }, [])
   useEffect(() => cancelLabConsolePublication, [cancelLabConsolePublication])
-  const [engineLabCopyStatus, setEngineLabCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const [engineLabCopiedText, setEngineLabCopiedText] = useState<string | null>(null)
   const [expertModeEnabled, setExpertModeEnabled] = useState(persistedSettings.expertModeEnabled)
   const [labCommandHistory, setLabCommandHistory] = useState<string[]>(persistedSettings.labCommandHistory)
   const [lastLabRun, setLastLabRun] = useState<{ command: string; durationMs: number } | null>(null)
@@ -2787,7 +2787,7 @@ function App() {
     labConsoleBufferRef.current = []
     setEngineLabOutputLines([])
     setLabConsoleSession(0)
-    setEngineLabCopyStatus('idle')
+    setEngineLabCopiedText(null)
     setLastLabRun(null)
     setPendingPromotion(null)
     clearBatchReview()
@@ -3059,7 +3059,7 @@ function App() {
       labConsoleBufferRef.current = outputLines
       setLabConsoleSession(session => session + 1)
       setEngineLabOutputLines(outputLines.slice())
-      setEngineLabCopyStatus('idle')
+      setEngineLabCopiedText(null)
       try {
         const lines = await sendCommand(dispatchedCommand, {
           stream: line => {
@@ -3104,21 +3104,22 @@ function App() {
     labConsoleBufferRef.current.length = 0
     setEngineLabOutputLines([])
     setEngineLabError(null)
-    setEngineLabCopyStatus('idle')
+    setEngineLabCopiedText(null)
   }, [cancelLabConsolePublication])
 
   const copyLabConsole = useCallback(async () => {
     if (!engineLabOutputLines.length) return
     const version = ++labConsoleCopyVersionRef.current
-    setEngineLabCopyStatus('idle')
+    const text = engineLabOutputLines.join('\n')
+    setEngineLabCopiedText(null)
     try {
-      await navigator.clipboard.writeText(engineLabOutputLines.join('\n'))
+      await navigator.clipboard.writeText(text)
       if (version !== labConsoleCopyVersionRef.current) return
       setEngineLabError(null)
-      setEngineLabCopyStatus('copied')
+      setEngineLabCopiedText(text)
     } catch {
       if (version !== labConsoleCopyVersionRef.current) return
-      setEngineLabCopyStatus('failed')
+      setEngineLabCopiedText(null)
       setEngineLabError('Clipboard access failed. Download the output or select it and copy manually.')
     }
   }, [engineLabOutputLines])
@@ -3126,7 +3127,7 @@ function App() {
   const downloadLabConsole = useCallback(() => {
     if (!engineLabOutputLines.length) return
     labConsoleCopyVersionRef.current += 1
-    setEngineLabCopyStatus('idle')
+    setEngineLabCopiedText(null)
     let downloadUrl: string | undefined
     let link: HTMLAnchorElement | undefined
     try {
@@ -9594,7 +9595,7 @@ function App() {
                         onClick={() => void copyLabConsole()}
                         disabled={!engineLabOutputLines.length}
                       >
-                        {engineLabCopyStatus === 'copied' ? 'Copied' : 'Copy'}
+                        {engineLabCopiedText !== null && engineLabCopiedText === engineLabOutputLines.join('\n') ? 'Copied' : 'Copy'}
                       </button>
                       <button type="button" onClick={clearLabConsole}>Clear</button>
                       <button type="button" className="engine-console-download" aria-label="Download console output"

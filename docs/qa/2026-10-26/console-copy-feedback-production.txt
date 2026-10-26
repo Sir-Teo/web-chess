@@ -1,0 +1,38 @@
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 191 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-m_0vzQ90.js   60.55 kB
+dist/assets/LibraryDialog-BG8YTy1f.css        4.36 kB │ gzip:   1.17 kB
+dist/assets/index-WttUeRJk.css              131.52 kB │ gzip:  24.52 kB
+dist/assets/NewGameDialog-Fi7HfBzK.js         4.26 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-DRSRRtio.js        11.14 kB │ gzip:   3.98 kB
+dist/assets/PgnDialog-DjvsNMGN.js            29.75 kB │ gzip:   9.95 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-DVGvusiY.js               384.81 kB │ gzip: 124.29 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 12.77s
+  console copy feedback (1280px, 1x, dark): matching finite/live payloads only; new output and delayed success keep Copy; latest request owns results; identical 300-line tail keeps Copied; denial/retry, terminal output and Clear reset correctly
+  console copy feedback (375px, 1x, light): matching finite/live payloads only; new output and delayed success keep Copy; latest request owns results; identical 300-line tail keeps Copied; denial/retry, terminal output and Clear reset correctly
+  console copy feedback (375px, 2x, dark): matching finite/live payloads only; new output and delayed success keep Copy; latest request owns results; identical 300-line tail keeps Copied; denial/retry, terminal output and Clear reset correctly
+  console copy feedback (320px, 2x, light): matching finite/live payloads only; new output and delayed success keep Copy; latest request owns results; identical 300-line tail keeps Copied; denial/retry, terminal output and Clear reset correctly
+  console copy (1280px, 1x): rendered snapshot, Clear/new command ownership, newer validation/runtime errors, overlapping results, retry, tab change and workspace reset
+  console copy (375px, 2x): rendered snapshot, Clear/new command ownership, newer validation/runtime errors, overlapping results, retry, tab change and workspace reset
+  console download (1280×812, 1x, dark): exact finite/live UTF-8 files; clipboard denial and older reply; draft/selection and diagnostics preserved; failure/retry; visible 300-line cap; URL/anchor cleanup; reachable action and Clear
+  console download (375×812, 1x, light): exact finite/live UTF-8 files; clipboard denial and older reply; draft/selection and diagnostics preserved; failure/retry; visible 300-line cap; URL/anchor cleanup; reachable action and Clear
+  console download (320×812, 2x, light): exact finite/live UTF-8 files; clipboard denial and older reply; draft/selection and diagnostics preserved; failure/retry; visible 300-line cap; URL/anchor cleanup; reachable action and Clear
+  console download (844×390, 2x, dark): exact finite/live UTF-8 files; clipboard denial and older reply; draft/selection and diagnostics preserved; failure/retry; visible 300-line cap; URL/anchor cleanup; reachable action and Clear
+  console Select All (1280px, 1x, dark): Control/Command+A select only output; denied API still allows native Copy + actual clipboard; input/Commands/composing/modifier scope; live Unicode and retained 300-line selection; board unchanged
+  console Select All (375px, 1x, light): Control/Command+A select only output; denied API still allows native Copy + actual clipboard; input/Commands/composing/modifier scope; live Unicode and retained 300-line selection; board unchanged
+  console Select All (375px, 2x, dark): Control/Command+A select only output; denied API still allows native Copy + actual clipboard; input/Commands/composing/modifier scope; live Unicode and retained 300-line selection; board unchanged
+  console Select All (320px, 2x, light): Control/Command+A select only output; denied API still allows native Copy + actual clipboard; input/Commands/composing/modifier scope; live Unicode and retained 300-line selection; board unchanged
+  console drafts (1280px, 1x): new drafts survive completion and Stop, typed Stop retains terminal output/history, unchanged submissions clear, and reset discards late output
+  console drafts (375px, 2x): new drafts survive completion and Stop, typed Stop retains terminal output/history, unchanged submissions clear, and reset discards late output
+Focused browser UI checks passed.

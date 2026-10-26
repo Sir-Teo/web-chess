@@ -9709,6 +9709,80 @@ async function checkConsoleKeyboardHistory(browser) {
   }
 }
 
+async function checkConsoleCopyFeedback(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [375, 2, 'dark'], [320, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(theme => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+          continuousAnalysis: false, engineProfile: 'lite-single-local', expertModeEnabled: true, theme }))
+        window.__consoleCopyMode = 'success'; window.__consoleCopyPending = []; window.__lastConsoleCopy = ''
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: text => {
+          if (window.__consoleCopyMode === 'deny') return Promise.reject(new Error('Copy denied'))
+          if (window.__consoleCopyMode === 'hold') return new Promise((resolve, reject) => window.__consoleCopyPending.push({ text, resolve: () => { window.__lastConsoleCopy = text; resolve() }, reject }))
+          window.__lastConsoleCopy = text; return Promise.resolve()
+        } } })
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const form = page.locator('.engine-lab-console'), command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      const output = page.getByRole('region', { name: 'UCI console output', exact: true }), copy = () => form.getByRole('button', { name: /^(Copy|Copied)$/ })
+      const run = async text => { await command.fill(text); await command.press('Enter'); await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '') }
+      const expectLabel = text => page.waitForFunction(text => [...document.querySelectorAll('.engine-lab-console button')].some(button => button.textContent.trim() === text), text)
+      const emit = async text => { await page.evaluate(text => window.__consoleEngine.send(text), text); await output.filter({ hasText: text }).waitFor() }
+      await run('uci'); await copy().click(); await expectLabel('Copied')
+      assert(await output.evaluate(el => el.textContent === window.__lastConsoleCopy), 'a finite console copy did not confirm the displayed text')
+      await run('position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+      await command.fill('go infinite'); await command.press('Enter')
+      await output.filter({ hasText: 'score cp 900' }).waitFor()
+      await copy().click(); await expectLabel('Copied')
+      await emit('info string changed after copy — café')
+      await expectLabel('Copy')
+      assert(!await output.evaluate(el => el.textContent === window.__lastConsoleCopy), 'live fixture did not change the copied output')
+      await page.evaluate(() => { window.__consoleCopyMode = 'hold' })
+      await copy().click()
+      await emit('info string changed while copy was pending')
+      await page.evaluate(() => window.__consoleCopyPending[0].resolve())
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      assert(await copy().textContent() === 'Copy' && await page.getByRole('alert').count() === 0, 'a late successful copy falsely confirms newer output')
+      await page.evaluate(() => { window.__consoleCopyMode = 'success' })
+      await copy().click(); await expectLabel('Copied')
+      assert(await output.evaluate(el => el.textContent === window.__lastConsoleCopy), 'recopy did not confirm the latest output')
+      await page.evaluate(() => { window.__consoleCopyMode = 'hold' })
+      await copy().click()
+      await emit('info string newest request owns feedback')
+      await page.evaluate(() => { window.__consoleCopyMode = 'success' })
+      await copy().click(); await expectLabel('Copied')
+      await page.evaluate(async () => { window.__consoleCopyPending[1].reject(new Error('Older failure')); await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))) })
+      assert(await copy().textContent() === 'Copied' && await page.getByRole('alert').count() === 0, 'an older failure erased a newer matching copy')
+      await page.evaluate(() => { for (let i = 0; i < 300; i++) window.__consoleEngine.send('info string repeated identical output') })
+      await page.waitForFunction(() => document.querySelector('.engine-lab-output')?.textContent.split('\n').every(line => line === 'info string repeated identical output'))
+      await copy().click(); await expectLabel('Copied')
+      await page.evaluate(() => window.__consoleEngine.send('info string repeated identical output'))
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      assert(await copy().textContent() === 'Copied' && await output.evaluate(el => el.textContent === window.__lastConsoleCopy), 'an identical retained tail discarded its valid copy confirmation')
+      await page.evaluate(() => { window.__consoleCopyMode = 'deny' })
+      await copy().click(); await page.getByRole('alert').filter({ hasText: 'Clipboard access failed' }).waitFor()
+      assert(await copy().textContent() === 'Copy', 'a failed copy retained a success label')
+      await page.evaluate(() => { window.__consoleCopyMode = 'success' })
+      await copy().click(); await expectLabel('Copied')
+      assert(await page.getByRole('alert').count() === 0, 'a successful retry kept its old error')
+      await form.getByRole('button', { name: 'Stop engine search', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await expectLabel('Copy')
+      await form.getByRole('button', { name: 'Clear', exact: true }).click()
+      assert(await copy().isDisabled() && await copy().textContent() === 'Copy', 'Clear retained an obsolete copy payload')
+      assert(errors.length === 0, `console copy feedback errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'console copy feedback overflows')
+      console.log(`  console copy feedback (${width}px, ${scale}x, ${theme}): matching finite/live payloads only; new output and delayed success keep Copy; latest request owns results; identical 300-line tail keeps Copied; denial/retry, terminal output and Clear reset correctly`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkConsoleSelectAll(browser) {
   for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [375, 2, 'dark'], [320, 2, 'light']]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -15128,6 +15202,7 @@ async function main() {
       'console-copy': checkConsoleCopyOwnership,
       'console-download': checkConsoleDownload,
       'console-select-all': checkConsoleSelectAll,
+      'console-copy-feedback': checkConsoleCopyFeedback,
       'console-keyboard-history': checkConsoleKeyboardHistory,
       'console-visibility': checkConsoleVisibility,
       'console-layout': checkConsoleLayout,
@@ -15928,6 +16003,7 @@ async function main() {
     await checkConsoleCopyOwnership(browser)
     await checkConsoleDownload(browser)
     await checkConsoleSelectAll(browser)
+    await checkConsoleCopyFeedback(browser)
     await checkConsoleKeyboardHistory(browser)
     await checkConsoleVisibility(browser)
     await checkConsoleLayout(browser)

@@ -145,6 +145,7 @@ given, and the app answering the reader who touches it.
   **Download** saves the displayed output as a dated text file, including when
   clipboard access is blocked.
   With the output focused, Ctrl/Cmd+A selects only its text for native Copy.
+  Copied appears only while the displayed text matches the copied snapshot.
   In the command field, Up/Down recall history; Down past the newest command
   restores your unsent draft so you can keep typing.
   Stopping a perft diagnostic releases its worker because native perft cannot
