@@ -64,10 +64,10 @@ const PAGE_SIZE = 100
 const BACKUP_TOO_LARGE_MESSAGE = 'That backup is too large. Import one exported backup part at a time.'
 
 const SORT_OPTIONS: { value: LibrarySort; label: string }[] = [
-    { value: 'recent', label: 'Recent' },
-    { value: 'oldest', label: 'Oldest' },
-    { value: 'name', label: 'Name' },
-    { value: 'moves', label: 'Length' },
+    { value: 'recent', label: 'Recent first' },
+    { value: 'oldest', label: 'Oldest first' },
+    { value: 'name', label: 'Name (A–Z)' },
+    { value: 'moves', label: 'Longest first' },
 ]
 
 function describeGame(game: LibraryGame): string {
@@ -387,19 +387,10 @@ export function LibraryDialog({
                                     <IconClose aria-hidden="true" />
                                 </button>}
                             </div>
-                            <div className="library-sort" role="group" aria-label="Sort saved games">
-                                {SORT_OPTIONS.map(option => (
-                                    <button
-                                        key={option.value}
-                                        type="button"
-                                        className={sort === option.value ? 'selected' : ''}
-                                        aria-pressed={sort === option.value}
-                                        onClick={() => changeSort(option.value)}
-                                    >
-                                        {option.label}
-                                    </button>
-                                ))}
-                            </div>
+                            <select className="library-sort" aria-label="Sort saved games"
+                                value={sort} onChange={event => changeSort(event.target.value as LibrarySort)}>
+                                {SORT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                            </select>
                         </div>}
 
                         {!loaded && <p className="library-hint">Loading…</p>}

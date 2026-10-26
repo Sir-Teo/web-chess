@@ -5311,6 +5311,76 @@ async function checkLibraryBackupLimits(browser) {
   }
 }
 
+async function checkLibrarySorting(browser) {
+  const games = [
+    { id: 'sort-alpha', name: 'Alpha study', pgn: '1. e4 *', updatedAt: 10 },
+    { id: 'sort-zulu', name: 'Zulu study', pgn: '1. d4 d5 *', updatedAt: 40 },
+    { id: 'sort-mike', name: 'Mike study', pgn: '1. e4 e5 2. Nf3 Nc6 *', updatedAt: 20 },
+    { id: 'sort-bravo', name: 'Bravo study', pgn: '1. c4 *', updatedAt: 50 },
+    { id: 'sort-star', name: 'Star study', pgn: '1. Nf3 d5 2. g3 *', updatedAt: 30, favorite: true },
+  ].map(game => ({ ...game, createdAt: game.updatedAt }))
+  const orders = {
+    recent: ['Star study', 'Bravo study', 'Zulu study', 'Mike study', 'Alpha study'],
+    oldest: ['Star study', 'Alpha study', 'Mike study', 'Zulu study', 'Bravo study'],
+    name: ['Star study', 'Alpha study', 'Bravo study', 'Mike study', 'Zulu study'],
+    moves: ['Star study', 'Mike study', 'Zulu study', 'Alpha study', 'Bravo study'],
+  }
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [375, 2, 'dark'], [320, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      const dialog = page.locator('.library-dialog')
+      await dialog.locator('input[type="file"]').setInputFiles({ name: 'sort-fixture.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ format: 'web-chess-library', version: 1, games })) })
+      const rows = () => dialog.locator('.library-row strong').allTextContents()
+      await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 5)
+      const sort = dialog.getByRole('combobox', { name: 'Sort saved games', exact: true })
+      assert(await sort.inputValue() === 'recent' && JSON.stringify(await rows()) === JSON.stringify(orders.recent), 'initial sort does not show recent games after favorites')
+      await sort.focus(); await sort.press('Home'); await sort.press('ArrowDown'); await sort.press('Tab')
+      assert(await sort.inputValue() === 'oldest' && JSON.stringify(await rows()) === JSON.stringify(orders.oldest), 'native keyboard sorting did not choose oldest first')
+      for (const [value, expected] of Object.entries(orders)) {
+        await sort.focus(); await sort.selectOption(value)
+        assert(JSON.stringify(await rows()) === JSON.stringify(expected), `${value} sort changed favorite priority or uses the wrong direction`)
+        assert(await sort.evaluate(el => el === document.activeElement), 'sorting moved focus out of the selector')
+      }
+      const search = dialog.getByRole('searchbox', { name: 'Search saved games', exact: true })
+      await search.fill('alpha')
+      assert(await sort.inputValue() === 'moves' && JSON.stringify(await rows()) === JSON.stringify(['Alpha study']), 'filtering reset the selected sort or hid the matching game')
+      await dialog.getByRole('button', { name: 'Clear saved-game search', exact: true }).click()
+      assert(await sort.inputValue() === 'moves' && JSON.stringify(await rows()) === JSON.stringify(orders.moves), 'clearing search lost the selected sort')
+      await dialog.getByRole('button', { name: 'Unstar Star study', exact: true }).click()
+      assert(JSON.stringify(await rows()) === JSON.stringify(['Mike study', 'Star study', 'Zulu study', 'Alpha study', 'Bravo study']), 'un-starring a game did not use the selected length order')
+      await dialog.getByRole('button', { name: 'Star Star study', exact: true }).click()
+      assert(JSON.stringify(await rows()) === JSON.stringify(orders.moves), 'starring a game lost the selected ordering within the remaining games')
+      await sort.scrollIntoViewIfNeeded()
+      const geometry = await sort.evaluate(el => {
+        const box = el.getBoundingClientRect(), natural = el.cloneNode(true)
+        Object.assign(natural.style, { position: 'fixed', visibility: 'hidden', maxWidth: 'none', width: 'max-content' })
+        el.after(natural)
+        const naturalWidth = natural.getBoundingClientRect().width
+        natural.remove()
+        return { toolbar: el.closest('.library-toolbar').getBoundingClientRect().height, height: box.height, width: box.width, naturalWidth,
+          fits: box.width >= naturalWidth - 1,
+          exposed: box.left >= 0 && box.right <= innerWidth + 1 && el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)) }
+      })
+      assert(geometry.height >= 44 && geometry.fits && geometry.exposed, `native sort control clips its full label or target: ${JSON.stringify(geometry)}`)
+      if (width === 320 && scale === 2) assert(geometry.toolbar < 155, 'compact sorting still consumes too much enlarged phone reading space')
+      assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'sorting played or loaded a game')
+      await dialog.getByRole('button', { name: 'Load Mike study', exact: true }).click()
+      await dialog.waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-c6 [data-piece="bN"]').waitFor()
+      assert(errors.length === 0, `library sorting errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'library sorting overflows')
+      console.log(`  library sort (${width}px, ${scale}x, ${theme}): native keyboard and all four orders; starred priority, filter/clear, star toggles and focus retained; full longest label, ${geometry.height}px target, ${geometry.toolbar}px toolbar; actual game load`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkLibraryBrowsing(browser) {
   for (const [width, scale] of [[1280, 1], [375, 1], [375, 2], [320, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -5380,7 +5450,7 @@ async function checkLibraryBrowsing(browser) {
       await page.keyboard.press('Enter')
       assert(await search.inputValue() === '' && await search.evaluate(el => el === document.activeElement), 'keyboard clear lost input focus or kept the query')
       await page.keyboard.press('Tab')
-      assert(await dialog.getByRole('button', { name: 'Recent', exact: true }).evaluate(el => el === document.activeElement), 'cleared search left a hidden control in keyboard order')
+      assert(await dialog.getByRole('combobox', { name: 'Sort saved games', exact: true }).evaluate(el => el === document.activeElement), 'cleared search left a hidden control in keyboard order')
       await search.fill('  ')
       await search.press('Tab')
       await page.keyboard.press('Space')
@@ -14819,6 +14889,7 @@ async function main() {
       'library-editing': checkLibraryEditing,
       'international-search': checkInternationalLibrarySearch,
       'library-browsing': checkLibraryBrowsing,
+      'library-sorting': checkLibrarySorting,
       'library-capacity': checkAFullLibraryStopsReadingTheFile,
       'import-drafts': checkImportDraftOwnership,
       'setup-en-passant': checkPositionSetupEnPassant,
@@ -15641,6 +15712,7 @@ async function main() {
     await checkLibraryEditing(browser)
     await checkInternationalLibrarySearch(browser)
     await checkLibraryBrowsing(browser)
+    await checkLibrarySorting(browser)
     await checkImportDraftOwnership(browser)
     await checkPositionSetupEnPassant(browser)
     await checkPositionSetupKeyboard(browser)

@@ -1,0 +1,2 @@
+{"toolbar":259.5,"sort":181.90625}
+  library browsing (320px, 2x): keyboard and pointer pages focus/reveal first new row; Tab reaches Load; final page keeps focus; described live counts; 44px pointer/Enter/Space search clearing restores first page and input focus, including whitespace; final game actually loads
