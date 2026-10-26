@@ -217,20 +217,19 @@
     gap: 0.35rem;
 }
 
-/* Four actions wrapped into three ragged rows on a small phone, and the
-   footer took the room the saved games needed: at 320x568 the list was left
-   one row. Two by two keeps the footer to two rows. */
+/* Keep two columns on a small phone, and stack when enlarged text needs
+   the full width. A fixed pair of columns clips backup/export actions at 200%. */
 @media (max-width: 420px) {
     .library-dialog .dialog-actions {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
     }
 
     .library-dialog .dialog-actions > button {
         width: 100%;
         justify-content: center;
         padding-inline: 0.5rem;
-        white-space: nowrap;
+        white-space: normal;
     }
 }
 
