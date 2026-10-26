@@ -7,6 +7,7 @@ import { hasLegalKingPlacement } from './fen'
 import { looksLikeFen, looksLikeGameUrl } from './pastedText'
 import { decodeEvaluationEngine, encodeEvaluationEngine } from './evaluationSource'
 import { APP_PLACEHOLDER_HEADERS } from './pgnPlaceholders'
+import { formatLocalDate } from './localDate'
 
 const INITIAL_FEN = new Chess().fen()
 const PGN_TAG_NAME_PATTERN = /^[A-Za-z0-9_]+$/
@@ -236,10 +237,7 @@ function normalizePgnResult(result: string | undefined): string {
 }
 
 export function formatPgnDate(date = new Date()): string {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}.${month}.${day}`
+    return formatLocalDate(date, '.')
 }
 
 function isFiniteNumber(value: unknown): value is number {

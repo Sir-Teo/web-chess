@@ -56,6 +56,7 @@ import { type AnalyzeMode, type UciGoLimits } from './engine/uci'
 import { exportAnnotatedPgn, flattenPgnMainLine, parsePgnMoveTree, pgnImportUserErrorMessage } from './engine/pgn'
 import { APP_PLACEHOLDER_HEADERS } from './engine/pgnPlaceholders'
 import { pgnDownloadFilename } from './engine/pgnFilename'
+import { formatLocalDate } from './engine/localDate'
 import { type LibraryGame, extractLibraryMetadata, suggestGameName } from './engine/gameLibrary'
 import { libraryStorageIsDurable } from './engine/gameLibraryStorage'
 import { narrativeTagToneClass, narrativeTags } from './engine/narrativeTags'
@@ -5241,7 +5242,7 @@ function App() {
     const url = URL.createObjectURL(new Blob([pgn], { type: 'application/x-chess-pgn;charset=utf-8' }))
     const link = document.createElement('a')
     link.href = url
-    link.download = `web-chess-recovery-${new Date().toISOString().slice(0, 10)}.pgn`
+    link.download = `web-chess-recovery-${formatLocalDate()}.pgn`
     document.body.append(link)
     link.click()
     link.remove()

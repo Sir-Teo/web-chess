@@ -1,4 +1,5 @@
 import { withoutAppPlaceholder } from './pgnPlaceholders'
+import { formatLocalDate } from './localDate'
 
 /**
  * The name a downloaded game is saved under.
@@ -19,7 +20,7 @@ export function pgnDownloadFilename(
   const players = white && black ? `${white} vs ${black}` : white || black
   const label = players || withoutAppPlaceholder('Event', known(headers.Event)) || openingName?.trim()
   const slug = slugify(label ?? '') || 'web-chess'
-  return `${slug}-${gameDate(headers.Date) ?? today.toISOString().slice(0, 10)}.pgn`
+  return `${slug}-${gameDate(headers.Date) ?? formatLocalDate(today)}.pgn`
 }
 
 function known(value: string | undefined): string | undefined {

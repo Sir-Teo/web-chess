@@ -19,6 +19,7 @@ import { IconClipboard, IconDownload, IconUpload, IconPlay, IconPencil } from '.
 import './NewGameDialog.css'
 import './LibraryDialog.css'
 import { MAX_SEARCH_QUERY_LENGTH } from '../engine/searchTerms'
+import { formatLocalDate } from '../engine/localDate'
 import { isCompositionKey } from './shortcutKeys'
 
 type Props = {
@@ -241,7 +242,7 @@ export function LibraryDialog({
         URL.revokeObjectURL(url)
     }
 
-    const today = () => new Date().toISOString().slice(0, 10)
+    const today = () => formatLocalDate()
 
     const handleExportPgn = () => {
         const text = onExportPgn()

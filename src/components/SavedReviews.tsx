@@ -6,6 +6,7 @@ import { deleteSavedReview, listSavedReviews, loadSavedReview, saveReview } from
 import type { ReviewSnapshot } from '../engine/reviewSession'
 import { ReviewComparison } from './ReviewComparison'
 import { exportReviewBackup, importReviewBackup } from '../engine/reviewBackupClient'
+import { formatLocalDate } from '../engine/localDate'
 import './SavedReviews.css'
 
 type Props = {
@@ -137,7 +138,7 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
       const link = document.createElement('a')
       try {
         link.href = url
-        link.download = `web-chess-reviews-${new Date().toISOString().slice(0, 10)}.json`
+        link.download = `web-chess-reviews-${formatLocalDate()}.json`
         document.body.append(link)
         link.click()
       } finally {
