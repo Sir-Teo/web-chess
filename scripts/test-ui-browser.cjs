@@ -7762,6 +7762,7 @@ async function checkConsoleHistoryAndErrors(browser) {
       await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
         workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
         engineProfile: 'lite-single-local',
+        labCommandHistory: Array.from({ length: 20 }, (_, index) => `position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 ${index + 1}`),
       })))
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
@@ -7772,13 +7773,15 @@ async function checkConsoleHistoryAndErrors(browser) {
       await command.press('Enter')
       await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
       const history = page.locator('.lab-history-list').getByRole('button', { name: position, exact: true })
-      const expectSelectedInput = () => page.waitForFunction(text => {
+      const expectInput = (text, selected = false) => page.waitForFunction(({ text, selected }) => {
         const input = document.querySelector('[aria-label="UCI command"]')
-        if (!input || document.activeElement !== input || input.value !== text || input.selectionStart !== 0 || input.selectionEnd !== text.length) return false
+        if (!input || document.activeElement !== input || input.value !== text) return false
+        if (selected && (input.selectionStart !== 0 || input.selectionEnd !== text.length)) return false
         const rect = input.getBoundingClientRect()
         return rect.top >= -1 && rect.bottom <= innerHeight + 1 && rect.left >= -1 && rect.right <= innerWidth + 1
           && input.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2))
-      }, position)
+      }, { text, selected })
+      const expectSelectedInput = () => expectInput(position, true)
       await history.click()
       await expectSelectedInput()
       await command.press('End')
@@ -7800,6 +7803,21 @@ async function checkConsoleHistoryAndErrors(browser) {
       await command.press('Enter')
       const alert = page.getByRole('alert').filter({ hasText: 'lowercase UCI keywords' })
       await alert.waitFor()
+      await expectInput('go DEPTH 1')
+      const feedback = await alert.evaluate(el => {
+        const rect = el.getBoundingClientRect()
+        const input = document.querySelector('[aria-label="UCI command"]').getBoundingClientRect()
+        const output = document.querySelector('.engine-lab-output').getBoundingClientRect()
+        const history = document.querySelector('.lab-history').getBoundingClientRect()
+        const visible = [rect.top + 3, rect.bottom - 3].every(y =>
+          y >= 0 && y <= innerHeight && el.contains(document.elementFromPoint(rect.x + rect.width / 2, y)))
+        return { visible, nearInput: rect.bottom <= input.top + 1 && input.top - rect.bottom <= 64,
+          outputBeforeHistory: output.bottom <= history.top + 1,
+          historyCount: document.querySelectorAll('.lab-history-list button').length }
+      })
+      assert(feedback.visible && feedback.nearInput && feedback.outputBeforeHistory && feedback.historyCount === 20,
+        `history buried current console feedback: ${JSON.stringify(feedback)}`)
+      if (width === 375) await page.screenshot({ path: '/tmp/web-chess-console-feedback-200.png' })
       assert(await command.getAttribute('aria-describedby') === await alert.getAttribute('id'), 'console validation is not associated with its input')
       await history.click()
       await expectSelectedInput()
@@ -7814,9 +7832,10 @@ async function checkConsoleHistoryAndErrors(browser) {
       await page.locator('.engine-lab-console').getByRole('button', { name: 'Copy', exact: true }).click()
       await page.getByRole('alert').filter({ hasText: 'Clipboard access failed.' }).waitFor()
       await command.fill('d')
+      await expectInput('d')
       assert(await page.getByRole('alert').count() === 0 && await command.getAttribute('aria-describedby') === null,
         'editing a new command retained old console feedback')
-      console.log(`  console history (${width}px, ${scale}x): pointer/keyboard recall focuses and selects complete text, Enter repeats, typing replaces, and errors expose an associated alert until a new edit`)
+      console.log(`  console history (${width}px, ${scale}x): full history leaves feedback visible and output first; recall focuses/selects, Enter repeats, typing replaces, and associated alerts clear on new edits`)
     } finally { await context.close() }
   }
 }

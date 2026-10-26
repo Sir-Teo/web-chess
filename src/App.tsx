@@ -738,6 +738,13 @@ function App() {
     labCommandInputRef.current?.focus()
     labCommandInputRef.current?.select()
   }, [labHistoryRecallTick])
+  useLayoutEffect(() => {
+    // Feedback appears above the form; retain the active control as it moves.
+    const active = document.activeElement
+    if (active instanceof HTMLElement && labCommandInputRef.current?.form?.contains(active)) {
+      active.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+    }
+  }, [engineLabError])
   const [engineLabOutputLines, setEngineLabOutputLines] = useState<string[]>([])
   const labConsoleBufferRef = useRef<string[]>([])
   const labConsoleFrameRef = useRef<number | null>(null)
@@ -9338,6 +9345,7 @@ function App() {
 
                   <div className="engine-lab-card">
                     <h3><span className="section-icon"><IconPlay /></span> UCI Console</h3>
+                    {engineLabError && <p id={engineLabErrorId} className="panel-copy small error-copy" role="alert">{engineLabError}</p>}
                     <form
                       className="engine-lab-console"
                       onSubmit={(e) => {
@@ -9412,22 +9420,6 @@ function App() {
                         perft 3
                       </button>
                     </div>
-                    {labCommandHistory.length > 0 && (
-                      <div className="lab-history">
-                        <h4>History</h4>
-                        <div className="lab-history-list">
-                          {labCommandHistory.map(item => (
-                            <button key={item} type="button" onClick={() => {
-                              updateLabCommandDraft(item)
-                              setLabHistoryRecallTick(tick => tick + 1)
-                            }}>
-                              {item}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {engineLabError && <p id={engineLabErrorId} className="panel-copy small error-copy" role="alert">{engineLabError}</p>}
                     {/*
                       Not a live region, though it looks like one wants to be.
 
@@ -9459,6 +9451,21 @@ function App() {
                     </pre>
                     {engineLabOutputLines.length === ENGINE_CONSOLE_LINE_LIMIT && (
                       <p className="panel-copy small">Showing the latest {ENGINE_CONSOLE_LINE_LIMIT} output lines. Copy uses these visible lines.</p>
+                    )}
+                    {labCommandHistory.length > 0 && (
+                      <div className="lab-history">
+                        <h4>History</h4>
+                        <div className="lab-history-list">
+                          {labCommandHistory.map(item => (
+                            <button key={item} type="button" onClick={() => {
+                              updateLabCommandDraft(item)
+                              setLabHistoryRecallTick(tick => tick + 1)
+                            }}>
+                              {item}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
 
