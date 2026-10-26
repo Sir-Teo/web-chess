@@ -496,7 +496,8 @@ It measures main-thread UI work with a simulated engine, not Stockfish speed
 or field INP. Hold `dist/` fixed while profiling or running browser tests.
 
 Analysis also supports keyboard move entry: open **Enter a move by name** and
-type SAN (`Nf3`) or UCI (`g1f3`). Independent single-thread engines can now pool
+type SAN (`Nf3`) or UCI (`g1f3`). Clear lowercase piece moves such as `nf3`
+and `bc4` work too; `b4` and `bxc3` remain pawn moves. Independent single-thread engines can now pool
 long desktop reviews; the latest audit records the measured speedup and limits.
 
 `npm run audit` uses `--audit-level=moderate`, matching the sibling apps. A bare

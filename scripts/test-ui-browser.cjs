@@ -640,6 +640,16 @@ async function checkTypedMoveEntry(browser) {
       await input.fill('Nf3')
       await input.press('Enter')
       await page.waitForFunction(() => document.querySelector('#chessboard-square-f3')?.getAttribute('aria-label')?.includes('White knight'))
+      await input.fill('Nc6')
+      await input.press('Enter')
+      await page.locator('#chessboard-square-c6 [data-piece="bN"]').waitFor()
+      await input.fill('bc4')
+      await input.press('Enter')
+      await page.locator('#chessboard-square-c4 [data-piece="wB"]').waitFor()
+      assert(await input.evaluate(el => document.activeElement === el), 'lowercase bishop entry lost input focus')
+      await input.fill('b5')
+      await input.press('Enter')
+      await page.locator('#chessboard-square-b5 [data-piece="bP"]').waitFor()
       // Navigating to a position clears the draft without submitting it there.
       await input.fill('Nc6')
       await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
@@ -647,7 +657,7 @@ async function checkTypedMoveEntry(browser) {
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'expanded move input overflows')
       assert(await input.evaluate(el => el.getBoundingClientRect().height >= 44), 'move input is shorter than its touch target')
       await assertContrast(page, `${theme} / expanded move entry / ${width}px`, 15)
-      console.log(`  typed moves (${width}px, ${theme}): SAN, UCI, invalid input, focus and navigation OK`)
+      console.log(`  typed moves (${width}px, ${theme}): SAN, UCI, lowercase bishop/pawn distinction, invalid input, focus and navigation OK`)
     } finally { await context.close() }
   }
 }

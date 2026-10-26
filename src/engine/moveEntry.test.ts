@@ -16,6 +16,9 @@ describe('typed move entry', () => {
     ['e8=q+', 'e8=Q+'],
     ['kf1', 'Kf1'],
     ['exd8q', 'exd8=Q'],
+    ['bf4', 'Bf4'],
+    ['bb5+', 'Bb5+'],
+    ['ba6', 'Ba6'],
   ])('straightens %s into %s', (input, expected) => {
     expect(normalizeMoveEntry(input)).toBe(expected)
   })
@@ -23,6 +26,22 @@ describe('typed move entry', () => {
   it('leaves a lowercase b alone, because bxc3 is a pawn move', () => {
     expect(normalizeMoveEntry('bxc3')).toBe('bxc3')
     expect(normalizeMoveEntry('Bxc3')).toBe('Bxc3')
+  })
+
+  it.each([
+    ['4k3/8/8/8/8/8/7P/2B1K3 w - - 0 1', 'bf4', 'c1', 'f4'],
+    ['2b1k3/7p/8/8/8/8/8/4K3 b - - 0 1', 'bf5', 'c8', 'f5'],
+  ])('plays an unambiguous lowercase bishop move in %s', (fen, input, from, to) => {
+    expect(parseMoveEntry(fen, input)).toMatchObject({ from, to, piece: 'b' })
+  })
+
+  it('preserves pawn notation when a b-file capture and bishop capture are both legal', () => {
+    const fen = '4k3/8/5B2/8/8/2n5/1P6/4K3 w - - 0 1'
+    expect(parseMoveEntry(fen, 'bxc3')).toMatchObject({ from: 'b2', to: 'c3', piece: 'p' })
+    expect(parseMoveEntry(fen, 'Bxc3')).toMatchObject({ from: 'f6', to: 'c3', piece: 'b' })
+    expect(normalizeMoveEntry('b4')).toBe('b4')
+    expect(normalizeMoveEntry('b2b4')).toBe('b2b4')
+    expect(normalizeMoveEntry('b8n')).toBe('b8=N')
   })
 
   it('plays the loose forms', () => {
