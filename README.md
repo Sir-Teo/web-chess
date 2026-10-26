@@ -2,8 +2,10 @@
 
 A browser chess app for playing, importing, and reviewing games with Stockfish-powered analysis.
 
-The [September 12 audit](docs/audit-2026-09-12.md) records current
-fixes, fresh Stockfish measurements, browser QA and the prioritized roadmap.
+The [October 25 audit](docs/audit-2026-10-25.md) records the latest library,
+import, position-setup, keyboard and dependency fixes with validation evidence.
+The [September 12 audit](docs/audit-2026-09-12.md) includes real Stockfish
+measurements, browser QA and the prioritized roadmap.
 
 The earlier September 2026 audit records fixes, real-engine performance
 measurements, browser QA, and prioritized beginner/pro study roadmap. It ran to
@@ -426,6 +428,12 @@ Two more that `verify` leaves out because they drive a real browser:
 ```bash
 npm run test:ui:install   # once per machine
 npm run test:ui:browser
+```
+
+To rerun specific browser workflows after a fix, pass their names as a list:
+
+```bash
+UI_TEST_ONLY=library-editing,library-double-save,reveal-dialogs npm run test:ui:browser
 ```
 
 `test:ui:browser` builds the app, serves it, and drives Chromium with a fake Stockfish injected in place of the

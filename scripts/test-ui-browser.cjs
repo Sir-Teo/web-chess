@@ -11279,11 +11279,25 @@ async function main() {
       'nudge': checkBlunderIsPointedOut,
       'import-sweep': checkAnImportSweepRunsToTheEnd,
       'hint-copy': checkAHintSaysWhereToLookOnlyIfItIsDrawn,
+      'library-backup': checkTheLibrarySurvivesABackup,
+      'export-roundtrip': checkAnExportedGameComesBack,
+      'autosave-roundtrip': checkAnInterruptedGameComesBack,
+      'saved-game-roundtrip': checkASavedGameComesBack,
+      'share-roundtrip': checkASharedLinkCarriesTheGame,
+      'settings-reload': checkSettingsSurviveAReload,
+      'settings-storage': checkSettingsSayWhenTheyCannotBeKept,
+      'high-contrast': checkHighContrastKeepsTheBoard,
+      'dialog-actions': checkDialogActionsStayOnScreen,
+      'hidden-analysis': checkHiddenAnalysisPausesAndResumes,
+      'opening-boot': checkOpeningTableStaysOutOfBoot,
     }
     if (process.env.UI_TEST_ONLY) {
-      const check = focusedChecks[process.env.UI_TEST_ONLY]
-      if (!check) throw new Error(`Unknown UI_TEST_ONLY: ${process.env.UI_TEST_ONLY}`)
-      await check(browser)
+      const selected = [...new Set(process.env.UI_TEST_ONLY.split(',').map(name => name.trim()).filter(Boolean))]
+      if (!selected.length) throw new Error('UI_TEST_ONLY needs at least one check name')
+      for (const name of selected) {
+        if (!focusedChecks[name]) throw new Error(`Unknown UI_TEST_ONLY: ${name}`)
+      }
+      for (const name of selected) await focusedChecks[name](browser)
       console.log('Focused browser UI checks passed.')
       return
     }
