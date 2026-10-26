@@ -5671,6 +5671,61 @@ async function checkOpeningNumbersBelongToTheirPosition(browser) {
   }
 }
 
+async function checkPlayTabTitle(browser) {
+  for (const width of [1280, 375]) {
+    for (const scenario of ['hold-search', 'slow-boot', 'silent-all']) {
+      const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+      const page = await context.newPage()
+      const waitTitle = prefix => page.waitForFunction(prefix => document.title.startsWith(prefix), prefix)
+      try {
+        await page.addInitScript(fakeEngineScript(scenario))
+        await page.addInitScript(() => {
+          window.__holdPlayReady = true
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', engineProfile: 'lite-single-local' }))
+        })
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.getByRole('button', { name: 'Start new game', exact: true }).first().click()
+        await page.locator('.mode-card', { hasText: 'Human vs AI' }).click()
+        if (scenario !== 'hold-search') await page.locator('.new-game-dialog').getByRole('button', { name: 'Black', exact: true }).click()
+        await page.locator('.btn-start').click()
+        await page.locator('.new-game-dialog').waitFor({ state: 'detached' })
+        if (scenario === 'hold-search') {
+          await waitTitle('Your move')
+          await page.locator('#chessboard-square-e2').click()
+          await page.locator('#chessboard-square-e4').click()
+          await page.waitForFunction(() => window.__uciCommands.some(line => line.startsWith('go ')))
+          await waitTitle('Engine thinking')
+          await page.getByRole('button', { name: 'Pause AI', exact: true }).click()
+          await page.getByRole('button', { name: 'Resume AI play', exact: true }).waitFor()
+          await waitTitle('AI paused')
+          await page.getByRole('button', { name: 'Set AI speed to Step', exact: true }).click()
+          await waitTitle('AI waiting for Step')
+          await page.getByRole('button', { name: 'Advance one AI move', exact: true }).click()
+          await waitTitle('Engine thinking')
+          await page.getByRole('button', { name: 'Set AI speed to Normal', exact: true }).click()
+          await page.getByRole('button', { name: 'Pause AI', exact: true }).click()
+          await waitTitle('AI paused')
+          await page.getByRole('button', { name: 'Resume AI play', exact: true }).click()
+          await waitTitle('Engine thinking')
+          console.log(`  play title (${width}px): Your move, thinking, paused, waiting for Step, stepped search and resumed search`)
+        } else if (scenario === 'slow-boot') {
+          await page.waitForFunction(() => typeof window.__releasePlayReady === 'function')
+          await waitTitle('Engine loading')
+          await page.getByRole('button', { name: 'Set AI speed to Step', exact: true }).click()
+          await waitTitle('Engine loading')
+          await page.evaluate(() => window.__releasePlayReady())
+          await waitTitle('AI waiting for Step')
+          console.log(`  play title (${width}px): held boot says loading; ready Step mode waits for the reader`)
+        } else {
+          await page.locator('#analysis-panel [role="alert"]').waitFor()
+          await waitTitle('Engine unavailable')
+          console.log(`  play title (${width}px): all boot attempts failed, failure appears in the tab`)
+        }
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkOpeningRequestRetry(browser) {
   for (const [width, scale] of [[1280, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -13517,6 +13572,7 @@ async function main() {
       'held-shortcuts': checkHeldToggleShortcuts,
       'imported-counters': checkImportedCounterMeaning,
       'opening-retry': checkOpeningRequestRetry,
+      'play-title': checkPlayTabTitle,
       'takeback-result': checkTakingBackAMateUnfinishesTheGame,
       'result-ownership': checkAResultBelongsToItsOwnGame,
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
@@ -14323,6 +14379,7 @@ async function main() {
     await checkHeldToggleShortcuts(browser)
     await checkImportedCounterMeaning(browser)
     await checkOpeningRequestRetry(browser)
+    await checkPlayTabTitle(browser)
     await checkBoardCanvas(browser)
     await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)

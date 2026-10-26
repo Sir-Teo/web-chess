@@ -6421,12 +6421,17 @@ function App() {
     if (gameResultLabel) {
       parts.push(gameResultLabel.split(' · ').pop() ?? gameResultLabel)
     } else if (workspaceMode === 'play' && gameMode === 'human-vs-ai') {
-      parts.push(game.turn() === playerColorToTurn(playerColor) ? 'Your move' : 'Engine thinking')
+      if (game.turn() === playerColorToTurn(playerColor)) parts.push('Your move')
+      else if (aiPlayerStatus === 'error') parts.push('Engine unavailable')
+      else if (aiPlayerStatus === 'loading') parts.push('Engine loading')
+      else if (aiSpeed === 'step' && !isAiThinking) parts.push('AI waiting for Step')
+      else if (paused) parts.push('AI paused')
+      else parts.push('Engine thinking')
     }
     if (importedPlayers) parts.push(importedPlayers)
     parts.push('Web Chess')
     document.title = parts.join(' · ')
-  }, [fen, game, gameMode, gameResultLabel, importedPlayers, playerColor, workspaceMode])
+  }, [aiPlayerStatus, aiSpeed, fen, game, gameMode, gameResultLabel, importedPlayers, isAiThinking, paused, playerColor, workspaceMode])
   // Counted from the game's own root rather than the standard array, so a
   // position pasted in as a FEN does not open fourteen captures down.
   const material = useMemo(

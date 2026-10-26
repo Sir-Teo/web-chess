@@ -1,0 +1,12 @@
+  play title (1280px): Your move, thinking, paused, waiting for Step, stepped search and resumed search
+  play title (1280px): held boot says loading; ready Step mode waits for the reader
+  play title (1280px): all boot attempts failed, failure appears in the tab
+  play title (375px): Your move, thinking, paused, waiting for Step, stepped search and resumed search
+  play title (375px): held boot says loading; ready Step mode waits for the reader
+  play title (375px): all boot attempts failed, failure appears in the tab
+  play title (1280px): Your move, thinking, paused, waiting for Step, stepped search and resumed search
+  play title (1280px): held boot says loading; ready Step mode waits for the reader
+  play title (1280px): all boot attempts failed, failure appears in the tab
+  play title (375px): Your move, thinking, paused, waiting for Step, stepped search and resumed search
+  play title (375px): held boot says loading; ready Step mode waits for the reader
+  play title (375px): all boot attempts failed, failure appears in the tab

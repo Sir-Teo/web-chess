@@ -1,0 +1,5 @@
+{
+  "before": "Engine thinking · Web Chess",
+  "pausedTitle": "Engine thinking · Web Chess",
+  "status": "Human vs AI · Intermediate AI ready"
+}
