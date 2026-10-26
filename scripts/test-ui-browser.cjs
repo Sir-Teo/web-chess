@@ -9874,6 +9874,15 @@ async function checkAnInterruptedGameComesBack(browser) {
     await page.reload({ waitUntil: 'domcontentloaded' })
     const restore = page.getByRole('button', { name: /^restore$/i }).first()
     await restore.waitFor({ timeout: 20000 })
+    // Closing a normal dialog is harmless. Here it deletes the only saved
+    // game, so accidental Escape/backdrop gestures need to leave the choice
+    // and the snapshot intact until Restore or Start fresh is pressed.
+    await page.keyboard.press('Escape')
+    assert(await restore.isVisible(), 'Escape dismissed the recovery choice')
+    assert(await savedMoves() === 3, 'Escape deleted the recoverable game')
+    await page.locator('.dialog-backdrop').click({ position: { x: 5, y: 5 } })
+    assert(await restore.isVisible(), 'a backdrop tap dismissed the recovery choice')
+    assert(await savedMoves() === 3, 'a backdrop tap deleted the recoverable game')
     await restore.click()
     await page.waitForTimeout(1500)
     const after = await squares()
@@ -9897,7 +9906,27 @@ async function checkAnInterruptedGameComesBack(browser) {
       [...document.querySelectorAll('button')].some(b => /^restore$/i.test((b.textContent || '').trim())))
     assert(!offeredAgain, 'a game that was discarded was offered back on the next visit')
 
-    console.log('  recovery: three moves survive a reload, and a discarded game stays discarded')
+    // A failed restore is still recoverable as PGN. It must keep the same
+    // protection until the reader explicitly discards that snapshot too.
+    const brokenPgn = '1. e4 Qh9 *'
+    await page.evaluate(({ key, pgn }) => localStorage.setItem(key, JSON.stringify({
+      version: 1, savedAt: Date.now(), pgn, moveCount: 2,
+    })), { key: AUTOSAVE_KEY, pgn: brokenPgn })
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.getByRole('button', { name: /^restore$/i }).click()
+    const discard = page.getByRole('button', { name: 'Discard it', exact: true })
+    await discard.waitFor()
+    await page.keyboard.press('Escape')
+    await page.locator('.dialog-backdrop').click({ position: { x: 5, y: 5 } })
+    assert(await discard.isVisible(), 'an incidental dismissal closed failed recovery')
+    assert(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).pgn, AUTOSAVE_KEY) === brokenPgn,
+      'an incidental dismissal changed the unreadable recovery PGN')
+    assert(await page.getByRole('button', { name: 'Copy PGN', exact: true }).isVisible(),
+      'the unreadable recovery no longer offers its PGN')
+    await discard.click()
+    assert(await savedMoves() === null, 'explicit Discard it left the failed recovery in storage')
+
+    console.log('  recovery: reload restores moves; incidental dismissals preserve valid/failed snapshots; explicit discard clears them')
   } finally { await context.close() }
 }
 

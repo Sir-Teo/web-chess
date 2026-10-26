@@ -51,6 +51,8 @@ function firstFallbackFocus(focusable: HTMLElement[]): HTMLElement | undefined {
 type Options = {
   /** Selector for the element to focus first; falls back to the first focusable. */
   initialFocus?: string
+  /** False when dismissing would discard data and requires an explicit choice. */
+  closeOnEscape?: boolean
   /**
    * Keep Tab inside the panel. True for a modal; false for a popover, which the
    * user should be able to tab out of.
@@ -69,7 +71,7 @@ export function useModalFocus(
   onClose: () => void,
   options: Options = {},
 ) {
-  const { initialFocus, trapFocus = true } = options
+  const { initialFocus, trapFocus = true, closeOnEscape = true } = options
 
   // Held in a ref so it stays out of the effect's dependencies. Callers rebuild
   // `onClose` on most renders, and an overlay's owner re-renders constantly —
@@ -171,7 +173,7 @@ export function useModalFocus(
       if (event.defaultPrevented || isCompositionKey(event)) return
       if (event.key === 'Escape') {
         event.preventDefault()
-        onCloseRef.current()
+        if (closeOnEscape) onCloseRef.current()
         return
       }
 
@@ -210,5 +212,5 @@ export function useModalFocus(
         previouslyFocused.focus?.()
       }
     }
-  }, [initialFocus, open, panelRef, trapFocus])
+  }, [closeOnEscape, initialFocus, open, panelRef, trapFocus])
 }

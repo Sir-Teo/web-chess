@@ -46,10 +46,12 @@ export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss
     const moveCount = Math.ceil(Math.max(0, plyCount) / 2)
     const outcome = describeSavedOutcome(result)
     const panelRef = useRef<HTMLDivElement>(null)
-    useModalFocus(true, panelRef, onDismiss, { initialFocus: '[data-restore]' })
+    // Dismissing clears the only recovery slot. An incidental Escape or tap
+    // outside the panel must not make the same choice as Start fresh/Discard.
+    useModalFocus(true, panelRef, onDismiss, { initialFocus: '[data-restore]', closeOnEscape: false })
 
     return (
-        <div className="dialog-backdrop" onClick={onDismiss}>
+        <div className="dialog-backdrop">
             <div
                 ref={panelRef}
                 className="dialog-panel"
