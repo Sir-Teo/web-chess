@@ -10231,6 +10231,75 @@ async function checkBackClosesTheSheet(browser) {
   } finally { await context.close() }
 }
 
+async function checkPromotionShortcutScope(browser) {
+  for (const [width, height, scale, theme] of [
+    [1280, 812, 1, 'dark'], [375, 812, 2, 'dark'], [320, 568, 2, 'light'],
+    [320, 225, 1, 'light'], [667, 375, 2, 'dark'],
+  ]) {
+    for (const [fen, from, to, piece, key] of [
+      ['8/1P6/8/k7/8/8/8/7K w - - 0 1', 'b7', 'b8', 'wR', 'r'],
+      ['7k/8/8/8/K7/8/1p6/8 b - - 0 1', 'b2', 'b1', 'bR', 'Shift+r'],
+    ]) {
+      const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+      const page = await context.newPage()
+      try {
+        await page.addInitScript(fakeEngineScript('normal'))
+        await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, engineProfile: 'lite-single-local',
+          theme,
+        })), theme)
+        await page.goto(`${BASE}#fen=${encodeURIComponent(fen)}`, { waitUntil: 'domcontentloaded' })
+        await page.locator(`#chessboard-square-${from} [data-piece]`).waitFor()
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        await page.locator(`#chessboard-square-${from}`).click()
+        await page.locator(`#chessboard-square-${to}`).click()
+        await page.locator('.promotion-chooser').waitFor()
+        await page.waitForFunction(() => document.querySelector('.promotion-chooser')?.contains(document.activeElement))
+        const layout = await page.locator('.promotion-chooser').evaluate(el => {
+          const labels = [...el.querySelectorAll('.promotion-label')]
+          const r = el.getBoundingClientRect()
+          return { names: labels.map(label => label.textContent),
+            clipped: labels.filter(label => label.scrollWidth > label.clientWidth + 1 || label.scrollHeight > label.clientHeight + 1).map(label => label.textContent),
+            inside: r.left >= 0 && r.right <= innerWidth + 1 && r.top >= 0 && r.bottom <= innerHeight + 1,
+            cancelFont: parseFloat(getComputedStyle(el.querySelector('.promotion-cancel')).fontSize), rootFont: parseFloat(getComputedStyle(document.documentElement).fontSize) }
+        })
+        assert(layout.names.join(',') === 'Queen,Rook,Bishop,Knight' && layout.clipped.length === 0 && layout.inside,
+          `promotion names or frame are clipped: ${JSON.stringify(layout)}`)
+        assert(layout.cancelFont >= layout.rootFont * 0.75, 'Cancel did not resize with the reader’s text')
+        for (const button of await page.locator('.promotion-chooser button').all()) {
+          await button.focus()
+          await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+          assert(await button.evaluate(el => {
+            const r = el.getBoundingClientRect()
+            return r.width >= 44 && r.height >= 44 && r.top >= -1 && r.bottom <= innerHeight + 1
+              && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+          }), 'a promotion choice cannot be read and reached with the keyboard')
+        }
+        if (height > 500 && piece === 'wR') await assertContrast(page, `promotion / ${width}px / ${scale}x / ${theme}`, 4)
+        const intercepted = await page.evaluate(() => {
+          const target = document.activeElement
+          return [
+            { key: 'q', ctrlKey: true }, { key: 'r', ctrlKey: true }, { key: 'b', ctrlKey: true }, { key: 'n', ctrlKey: true },
+            { key: 'q', metaKey: true }, { key: 'R', metaKey: true, shiftKey: true }, { key: 'n', altKey: true },
+            { key: 'q', isComposing: true }, { key: 'q', keyCode: 229 },
+          ].map(init => {
+            const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })
+            target.dispatchEvent(event)
+            return { ...init, prevented: event.defaultPrevented }
+          })
+        })
+        assert(intercepted.every(event => !event.prevented), `promotion intercepted browser/composition keys: ${JSON.stringify(intercepted)}`)
+        assert(await page.locator('.promotion-chooser').count() === 1, 'a modified/composing key completed promotion')
+        await page.keyboard.press(key)
+        await page.locator('.promotion-chooser').waitFor({ state: 'detached' })
+        await page.locator(`#chessboard-square-${to} [data-piece="${piece}"]`).waitFor()
+        assert(await page.locator(`#chessboard-square-${from} [data-piece]`).count() === 0, 'promotion retained the pawn on its original square')
+        console.log(`  promotion (${width}×${height}, ${scale}x, ${theme}, ${piece}): full names and focused targets, browser/composition scope, ${key} underpromotion`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 /**
  * The promotion chooser can be hit, and can be seen.
  *
@@ -13060,6 +13129,8 @@ async function main() {
       'dialog-resize': checkDialogResizeFocus,
       'database-once': checkADatabaseIsAddedOnce,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
+      'promotion-keys': checkPromotionShortcutScope,
+      'promotion-targets': checkThePromotionChooserCanBeHit,
       'finished-clock': checkAFinishedGameKeepsItsStoppedClock,
       'navigation-clock': checkNavigationKeepsTheClockHonest,
       'review-offer': checkTheReviewOfferFollowsTheGame,
@@ -13825,6 +13896,7 @@ async function main() {
     await checkADroppedPgnIsTaken(browser)
     await checkBackClosesTheSheet(browser)
     await checkThePromotionChooserCanBeHit(browser)
+    await checkPromotionShortcutScope(browser)
     await checkANoticeIsSeenAndFits(browser)
     await checkNothingIsDrawnBehindSomethingElse(browser)
     await checkFocusCanBeSeen(browser)

@@ -4845,7 +4845,7 @@ function App() {
     if (!pendingPromotion) return
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || isCompositionKey(event)) return
       const piece = PROMOTION_KEYS[event.key.toLowerCase()]
       if (!piece) return
       event.preventDefault()
@@ -7975,10 +7975,10 @@ function App() {
                     role="dialog"
                     aria-modal="true"
                     aria-label="Choose promotion piece"
-                    ref={promotionDialogRef}
                     onClick={cancelPromotion}
                   >
-                    <div className="promotion-chooser" onClick={event => event.stopPropagation()}>
+                    <div ref={promotionDialogRef} className="promotion-chooser" onClick={event => event.stopPropagation()}>
+                      <h2 className="promotion-title">Promote pawn</h2>
                       {PROMOTION_OPTIONS.map(option => (
                         <button
                           key={option.piece}

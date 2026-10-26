@@ -1289,28 +1289,52 @@ button.board-meta-opening {
   align-items: center;
 }
 
+.board-stage.promoting {
+  z-index: 2500;
+}
+
 .promotion-overlay {
-  position: absolute;
+  --promotion-gutter: clamp(8px, 2vmin, 1rem);
+  position: fixed;
   inset: 0;
-  z-index: 6;
+  z-index: 3000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
-  border-radius: 14px;
-  background: var(--bg-inset);
+  padding: var(--promotion-gutter);
+  background: var(--backdrop);
+  container: promotion / inline-size;
 }
 
 .promotion-chooser {
-  width: min(420px, 100%);
+  width: min(26.25rem, 100%);
+  max-height: calc(100vh - 2 * var(--promotion-gutter));
+  max-height: calc(100dvh - 2 * var(--promotion-gutter));
+  overflow: auto;
+  scroll-padding: 8px;
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   padding: 10px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  background: var(--bg-panel);
+  background: var(--bg-elevated);
   box-shadow: var(--shadow-lg);
+}
+
+.promotion-title {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  text-align: center;
+}
+
+@container promotion (max-width: 20rem) {
+  .promotion-chooser {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .promotion-choice {
@@ -1331,9 +1355,8 @@ button.board-meta-opening {
 
 .promotion-label {
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
   font-size: 0.72rem;
 }
 
@@ -1358,7 +1381,8 @@ button.board-meta-opening {
 }
 
 .promotion-glyph {
-  font-size: 2.35rem;
+  font-size: min(2.35rem, 12vh);
+  font-size: min(2.35rem, 12dvh);
   line-height: 1;
 }
 
@@ -1376,6 +1400,8 @@ button.board-meta-opening {
   border: 1px solid var(--border-subtle);
   background: transparent;
   color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.8rem;
 }
 
 .thinking-dots span {
@@ -5244,45 +5270,6 @@ button.critical-moment-row {
 @media (min-width: 600px) and (max-width: 900px) and (max-height: 520px) and (orientation: landscape) {
   :root {
     --stage-pad-y: 0.5rem;
-  }
-
-  /* The chooser is sized by the window here, not by the board.
-     Sideways on a phone the board is 203px wide, so four columns inside it are
-     31px each -- measured at 844x390, and 27px at 667x375, for the press that
-     decides what a pawn becomes. Fixed to the window it is the same 420px it
-     is everywhere else, and each choice is 94px. */
-  .promotion-overlay {
-    position: fixed;
-    /* Widening it to the window is what makes this necessary. At 169px it sat
-       inside the board and cleared the panels by geometry alone; at 420px it
-       runs under them. Measured with the z-index left at 6: still clickable,
-       because hit-testing put it on top, and painted behind the analysis
-       column, so what a reader saw was a sliver with a "Q" in it. 3000 is
-       where this app's other dialogs sit, which is what this is. */
-    z-index: 3000;
-    border-radius: 0;
-    /* Over the whole window now, the board's faint inset let the panels'
-       text read through around the choices. The dialogs' scrim colour, but
-       not their blur: the board stays legible behind the choice, and the
-       pawn being promoted is what the choice is about. */
-    background: var(--backdrop);
-  }
-
-  /* Sideways it sits over the panels, not the board, and the panel's
-     translucent surface let their text read through the choices. */
-  .promotion-chooser {
-    background: var(--bg-elevated);
-  }
-
-  /* And the stage has to come up with it. `.board-stage` is `position:
-     relative; z-index: 1` and `.panel` is `z-index: 4`, so everything inside
-     the stage paints under the panels whatever its own z-index -- measured
-     with the overlay at 3000, still drawn behind the analysis column. Only
-     while the chooser is up, so nothing else about the stacking of the board
-     against the panels changes. 2500 covers the top bar at 2000 the way a
-     modal should, and stays under the dialogs at 3000. */
-  .board-stage.promoting {
-    z-index: 2500;
   }
 
   .main-container {
