@@ -82,6 +82,9 @@ function playRandomGame(seed: number, maxPlies: number): PlayedGame {
  */
 const endgames = Array.from({ length: 80 }, (_, index) => playRandomGame(index + 1, 500))
 const walks = Array.from({ length: 40 }, (_, index) => playRandomGame(1000 + index, 200))
+// Full replays cover up to 8,000 positions and took 5–6s on a shared worker.
+// Keep every seed and assertion, with enough time for the complete replay.
+const REPLAY_TIMEOUT_MS = 15_000
 
 describe('the games these rules are checked against', () => {
   it('reach every ending there is', () => {
@@ -122,7 +125,7 @@ describe('describeGameEnd', () => {
         ).toBe(replay.isGameOver())
       }
     }
-  })
+  }, REPLAY_TIMEOUT_MS)
 
   it('never returns a label without a result, or a result outside the three tags', () => {
     for (const played of endgames) {
@@ -212,7 +215,7 @@ describe('the PGN parser, against games chess.js wrote', () => {
         `seed ${played.seed}`,
       ).toEqual(played.sans)
     }
-  })
+  }, REPLAY_TIMEOUT_MS)
 
   it('lands on the same final position it started from', () => {
     for (const played of walks) {
@@ -223,5 +226,5 @@ describe('the PGN parser, against games chess.js wrote', () => {
       const line = flattenPgnMainLine(parsePgnMoveTree(writer.pgn()).moves)
       expect(line[line.length - 1].fen, `seed ${played.seed}`).toBe(played.finalFen)
     }
-  })
+  }, REPLAY_TIMEOUT_MS)
 })
