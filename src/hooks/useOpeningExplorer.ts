@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   fetchOpeningExplorer,
   getCachedOpeningExplorer,
@@ -27,6 +27,7 @@ export type OpeningExplorerState = {
   error: string | null
   stale: boolean
   authRequired: boolean
+  retry: () => void
 }
 
 const LOCAL_OPENING_DATA_LIMIT = 80
@@ -55,6 +56,7 @@ export function useOpeningExplorer(args: UseOpeningExplorerArgs): OpeningExplore
 
   const [dataByKey, setDataByKey] = useState<Record<string, OpeningExplorerResponse>>({})
   const [errorByKey, setErrorByKey] = useState<Record<string, string>>({})
+  const [retryAttempt, setRetryAttempt] = useState(0)
   const hasLocalData = Boolean(dataByKey[requestKey])
 
   const cachedData = enabled
@@ -68,6 +70,11 @@ export function useOpeningExplorer(args: UseOpeningExplorerArgs): OpeningExplore
     : null
   const data = enabled ? dataByKey[requestKey] ?? cachedData ?? null : null
   const error = enabled ? errorByKey[requestKey] ?? null : null
+  const retry = useCallback(() => {
+    if (!enabled || !hasAuth || data || !error) return
+    setErrorByKey(previous => withoutRecordEntry(previous, requestKey))
+    setRetryAttempt(attempt => attempt + 1)
+  }, [data, enabled, error, hasAuth, requestKey, setErrorByKey, setRetryAttempt])
 
   useEffect(() => {
     if (!enabled) return
@@ -133,6 +140,7 @@ export function useOpeningExplorer(args: UseOpeningExplorerArgs): OpeningExplore
     normalizedSpeeds,
     ratingsKey,
     requestKey,
+    retryAttempt,
     speedsKey,
   ])
 
@@ -152,5 +160,6 @@ export function useOpeningExplorer(args: UseOpeningExplorerArgs): OpeningExplore
     error,
     stale,
     authRequired,
+    retry,
   }
 }

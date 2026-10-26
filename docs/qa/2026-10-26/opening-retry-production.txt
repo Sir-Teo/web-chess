@@ -1,0 +1,33 @@
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 191 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-m_0vzQ90.js   60.55 kB
+dist/assets/LibraryDialog-BCEY11vH.css        4.23 kB │ gzip:   1.17 kB
+dist/assets/index-BhIl2L8Y.css              130.77 kB │ gzip:  24.39 kB
+dist/assets/NewGameDialog-DYpjhN6z.js         4.25 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-B4dI2QO6.js        10.23 kB │ gzip:   3.67 kB
+dist/assets/PgnDialog-D-1DeGpj.js            28.82 kB │ gzip:   9.70 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-BAvvhL9A.js               379.81 kB │ gzip: 122.46 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.50s
+  opening retry (1280px, 1x): token gate, repeated failures, one pending request, stale source ignored, retained filters/board/focus, recovery
+  opening retry (375px, 2x): token gate, repeated failures, one pending request, stale source ignored, retained filters/board/focus, recovery
+  opening explorer: counts cleared on the move and came back as "Position ply 1"
+  opening layout (1280px): source controls stay inside the card; token/rating labels do not overlap their editable controls at 100% and 200% text
+  opening layout (375px): source controls stay inside the card; token/rating labels do not overlap their editable controls at 100% and 200% text
+  opening layout (320px): source controls stay inside the card; token/rating labels do not overlap their editable controls at 100% and 200% text
+  failed lookups: ten failures across five services, each a finished sentence and none still loading
+  tablebase retry (1280px, 1x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  cloud retry (1280px, 1x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  tablebase retry (375px, 2x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  cloud retry (375px, 2x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+Focused browser UI checks passed.

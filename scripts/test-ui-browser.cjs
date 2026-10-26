@@ -5671,6 +5671,75 @@ async function checkOpeningNumbersBelongToTheirPosition(browser) {
   }
 }
 
+async function checkOpeningRequestRetry(browser) {
+  for (const [width, scale] of [[1280, 1], [375, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false }))
+        window.__openingRetryRequests = []
+        window.__openingRetryReplies = new Map()
+        const before = window.fetch
+        window.fetch = (input, init) => {
+          const url = new URL(typeof input === 'string' ? input : input.url || String(input), location.href)
+          if (url.hostname !== 'explorer.lichess.org') return before(input, init)
+          const n = window.__openingRetryRequests.push(url.href)
+          if (n === 1) return Promise.resolve(new Response('Temporary failure', { status: 503 }))
+          return new Promise(resolve => window.__openingRetryReplies.set(n, status => resolve(new Response(JSON.stringify({
+            white: 100 + n, draws: 10, black: 20, opening: { eco: 'A00', name: `Retry fixture ${n}` },
+            moves: [{ uci: 'e2e4', san: 'e4', white: 100 + n, draws: 10, black: 20, averageRating: 2400 }],
+            topGames: [], recentGames: [],
+          }), { status, headers: { 'Content-Type': 'application/json' } }))))
+        }
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const card = page.locator('.opening-intel-card')
+      const retry = page.getByRole('button', { name: 'Retry opening database', exact: true })
+      const token = page.getByLabel('Lichess API token', { exact: true })
+      assert(await retry.count() === 0 && await page.evaluate(() => window.__openingRetryRequests.length) === 0, 'unauthenticated explorer offered retry or fetched')
+      await token.fill('fixture-only')
+      await retry.waitFor()
+      assert(await retry.evaluate(el => el.getBoundingClientRect().height >= 43.75), 'opening retry has a small touch target')
+      await retry.evaluate(el => { el.click(); el.click() })
+      await page.waitForFunction(() => window.__openingRetryReplies.has(2))
+      assert(await retry.count() === 0 && await card.locator('.error-copy').count() === 0, 'opening retry kept the old error/action')
+      assert(await card.getByRole('status').evaluate(el => el === document.activeElement), 'opening retry lost keyboard focus')
+      assert(await page.evaluate(() => window.__openingRetryRequests.length) === 2, 'duplicate opening retry requests')
+      await page.evaluate(() => window.__openingRetryReplies.get(2)(503))
+      await retry.waitFor()
+      assert(await card.getByRole('status').evaluate(el => el === document.activeElement), 'repeated opening failure lost focus')
+      await retry.click()
+      await page.waitForFunction(() => window.__openingRetryReplies.has(3))
+      await card.getByRole('button', { name: 'Lichess', exact: true }).click()
+      await page.evaluate(() => window.__openingRetryReplies.get(3)(200))
+      await page.waitForFunction(() => window.__openingRetryReplies.has(4))
+      assert(!(await card.textContent()).includes('Retry fixture 3'), 'obsolete Masters reply replaced the selected source')
+      await page.evaluate(() => window.__openingRetryReplies.get(4)(503))
+      await retry.waitFor()
+      const rating = await page.getByRole('combobox', { name: 'Opening rating bucket' }).inputValue()
+      await retry.click()
+      await page.waitForFunction(() => window.__openingRetryReplies.has(5))
+      await page.evaluate(() => window.__openingRetryReplies.get(5)(200))
+      await card.getByRole('status').filter({ hasText: 'Retry fixture 5' }).waitFor()
+      assert(await retry.count() === 0 && await card.locator('.error-copy').count() === 0, 'opening success kept its failure UI')
+      assert(await token.inputValue() === 'fixture-only', 'opening retry changed the token')
+      assert(await card.getByRole('button', { name: 'Lichess', exact: true, pressed: true }).count() === 1
+        && await page.getByRole('combobox', { name: 'Opening rating bucket' }).inputValue() === rating, 'opening retry changed filters')
+      assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'opening retry moved a piece')
+      assert(await card.getByRole('status').evaluate(el => {
+        const r = el.getBoundingClientRect()
+        return el === document.activeElement && r.top >= 0 && r.bottom <= innerHeight && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+      }), 'opening success left its focused status covered or off screen')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'opening retry overflows enlarged text')
+      if (width === 375) await page.screenshot({ path: path.join(os.tmpdir(), 'web-chess-opening-retry-200.png') })
+      console.log(`  opening retry (${width}px, ${scale}x): token gate, repeated failures, one pending request, stale source ignored, retained filters/board/focus, recovery`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkImportedCounterMeaning(browser) {
   const position = '7k/8/8/8/8/8/7P/K7 w - -'
   for (const [width, scale] of [[1280, 1], [375, 2]]) {
@@ -6326,7 +6395,7 @@ async function checkAFailedLookupSaysSoPlainly(browser) {
       const card = await page.evaluate(() => {
         const el = document.querySelector('.opening-intel-card')
         const text = (el?.textContent || '').replace(/\s+/g, ' ')
-        return { message: (text.match(/Opening DB: [^·]+/) || [''])[0].replace('Opening DB: ', '').trim(),
+        return { message: (el?.querySelector('.error-copy')?.textContent || '').replace(/^Opening DB: /, '').trim(),
                  stuck: /loading/i.test(text) }
       })
       readsAsASentence(card.message, `opening explorer, ${name}`)
@@ -13447,6 +13516,7 @@ async function main() {
       'fen-counters': checkFenCounterMeaning,
       'held-shortcuts': checkHeldToggleShortcuts,
       'imported-counters': checkImportedCounterMeaning,
+      'opening-retry': checkOpeningRequestRetry,
       'takeback-result': checkTakingBackAMateUnfinishesTheGame,
       'result-ownership': checkAResultBelongsToItsOwnGame,
       'mode-switch-clock': checkAModeSwitchDoesNotFreezeTheClock,
@@ -14252,6 +14322,7 @@ async function main() {
     await checkFenCounterMeaning(browser)
     await checkHeldToggleShortcuts(browser)
     await checkImportedCounterMeaning(browser)
+    await checkOpeningRequestRetry(browser)
     await checkBoardCanvas(browser)
     await checkGraphEstimateGuide(browser)
     await checkTheReviewCardNamesItsSet(browser)

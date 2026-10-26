@@ -238,7 +238,8 @@ input[type="checkbox"] {
   [role="slider"],
   [role="separator"],
   .tablebase-card > [role="status"],
-  .cloud-eval-card > [role="status"]):focus-visible {
+  .cloud-eval-card > [role="status"],
+  .opening-intel-card > [role="status"]):focus-visible {
   outline: 2px solid var(--info);
   outline-offset: 2px;
 }

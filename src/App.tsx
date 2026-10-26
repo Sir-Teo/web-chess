@@ -1281,6 +1281,7 @@ function App() {
   const openingRequestSpeeds = openingSource === 'lichess' ? openingSpeeds : undefined
   const openingRequestRatings = openingSource === 'lichess' ? openingRatings : undefined
   const hasOpeningExplorerToken = hasOpeningExplorerAuthToken(openingAuthToken)
+  const openingExplorerStatusRef = useRef<HTMLParagraphElement>(null)
   const openingExplorer = useOpeningExplorer({
     source: openingSource,
     fen: currentRootFen,
@@ -1709,13 +1710,13 @@ function App() {
   useLayoutEffect(() => {
     // Retry hands focus to a persistent status. Its text changes height as the
     // request settles; keep it exposed only while the reader is still on it.
-    for (const ref of [tablebaseStatusRef, cloudEvalStatusRef]) {
+    for (const ref of [tablebaseStatusRef, cloudEvalStatusRef, openingExplorerStatusRef]) {
       const target = ref.current
       if (target && document.activeElement === target) {
         target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
       }
     }
-  }, [cloudEvalStatus, currentCloudEval, tablebase.result, tablebase.status])
+  }, [cloudEvalStatus, currentCloudEval, openingExplorer.data, openingExplorer.error, openingExplorer.loading, tablebase.result, tablebase.status])
 
   const finishBatchReview = useCallback(() => {
     flushReviewResults()
@@ -8792,24 +8793,26 @@ function App() {
                         </label>
                       </>
                     )}
-                    {openingExplorer.loading && !openingExplorer.data && (
-                      <p className="panel-copy small">Loading opening database...</p>
-                    )}
-                    {openingExplorer.authRequired && !openingExplorer.data && (
-                      <p className="panel-copy small warning-copy">
-                        Opening Explorer requires a Lichess token. Create a personal token with no scopes; local ECO names stay available offline.
-                      </p>
-                    )}
-                    {openingExplorer.error && (
-                      <p className="panel-copy small error-copy">Opening DB: {openingExplorer.error}</p>
+                    <p ref={openingExplorerStatusRef} tabIndex={-1} role="status"
+                      className={`panel-copy small ${!openingExplorer.data && openingExplorer.error ? 'error-copy' : openingExplorer.authRequired ? 'warning-copy' : ''}`}>
+                      {openingExplorer.data
+                        ? openingExplorer.data.opening
+                          ? `${openingExplorer.data.opening.eco} · ${openingExplorer.data.opening.name}`
+                          : 'No named opening at this position.'
+                        : openingExplorer.loading
+                          ? 'Loading opening database...'
+                          : openingExplorer.authRequired
+                            ? 'Opening Explorer requires a Lichess token. Create a personal token with no scopes; local ECO names stay available offline.'
+                            : openingExplorer.error ? `Opening DB: ${openingExplorer.error}` : ''}
+                    </p>
+                    {openingExplorer.error && !openingExplorer.data && (
+                      <button type="button" className="remote-retry" onClick={() => {
+                        openingExplorerStatusRef.current?.focus()
+                        openingExplorer.retry()
+                      }}>Retry opening database</button>
                     )}
                     {openingExplorer.data && (
                       <>
-                        <p className="panel-copy small">
-                          {openingExplorer.data.opening
-                            ? `${openingExplorer.data.opening.eco} · ${openingExplorer.data.opening.name}`
-                            : 'No named opening at this position.'}
-                        </p>
                         <p className="panel-copy small command-summary">
                           Games {openingTotalGames.toLocaleString()} · White {percentage(openingTotals?.white ?? 0, openingTotalGames).toFixed(1)}% ·
                           Draw {percentage(openingTotals?.draws ?? 0, openingTotalGames).toFixed(1)}% ·
