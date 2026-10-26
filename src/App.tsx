@@ -736,14 +736,14 @@ function App() {
   const labHistoryCursorRef = useRef<number | null>(null)
   const labHistoryDraftRef = useRef('')
   const labHistorySelectRef = useRef(true)
-  const updateLabCommandDraft = (value: string) => {
+  const updateLabCommandDraft = useCallback((value: string) => {
     labCommandDraftVersionRef.current += 1
     labConsoleCopyVersionRef.current += 1
     labHistoryCursorRef.current = null
     labHistorySelectRef.current = true
     setEngineLabCommand(value)
     setEngineLabError(null)
-  }
+  }, [])
   useLayoutEffect(() => {
     if (!labHistoryRecallTick) return
     labCommandInputRef.current?.focus()
@@ -3097,6 +3097,25 @@ function App() {
     },
     [cancelLabConsolePublication, engineEnabled, expertModeEnabled, labOptions, queueLength, sendCommand, setLabOption, status, stop],
   )
+
+  const clearLabHistory = useCallback(() => {
+    const recalling = labHistoryCursorRef.current !== null
+    const draft = recalling ? labHistoryDraftRef.current : engineLabCommand
+    if (recalling) updateLabCommandDraft(draft)
+    labHistoryCursorRef.current = null
+    labHistoryDraftRef.current = draft
+    labHistorySelectRef.current = false
+    setLabCommandHistory([])
+    const input = labCommandInputRef.current
+    if (recalling) {
+      setLabHistoryRecallTick(tick => tick + 1)
+    } else if (input) {
+      const { selectionStart, selectionEnd, selectionDirection } = input
+      input.focus()
+      if (selectionStart !== null && selectionEnd !== null) input.setSelectionRange(selectionStart, selectionEnd, selectionDirection ?? undefined)
+    }
+    announce(recalling ? 'Command history cleared. Draft restored.' : 'Command history cleared')
+  }, [announce, engineLabCommand, updateLabCommandDraft])
 
   const clearLabConsole = useCallback(() => {
     labConsoleCopyVersionRef.current += 1
@@ -9657,7 +9676,10 @@ function App() {
                     )}
                     {labCommandHistory.length > 0 && (
                       <div className="lab-history">
-                        <h4>History</h4>
+                        <div className="lab-history-heading">
+                          <h4>History</h4>
+                          <button type="button" aria-label="Clear command history" onClick={clearLabHistory}>Clear</button>
+                        </div>
                         <div className="lab-history-list">
                           {labCommandHistory.map(item => (
                             <button key={item} type="button" onClick={() => {

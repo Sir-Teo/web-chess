@@ -148,6 +148,8 @@ given, and the app answering the reader who touches it.
   Copied appears only while the displayed text matches the copied snapshot.
   In the command field, Up/Down recall history; Down past the newest command
   restores your unsent draft so you can keep typing.
+  History’s **Clear** removes stored commands and preserves the output. It keeps
+  your working draft, restoring it when you’re browsing recalled commands.
   Stopping a perft diagnostic releases its worker because native perft cannot
   process Stop while counting. **Load engine** starts a fresh console session;
   the board, displayed analysis, and saved controls remain available.

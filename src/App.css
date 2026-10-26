@@ -2932,6 +2932,26 @@ button.opening-move-row {
   color: var(--text-tertiary);
 }
 
+.lab-history-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+
+.lab-history-heading h4 {
+  margin: 0;
+}
+
+.lab-history-heading button {
+  min-width: 44px;
+  min-height: 32px;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.68rem;
+}
+
 .lab-history-list {
   display: flex;
   gap: 0.28rem;

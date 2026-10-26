@@ -9681,6 +9681,82 @@ async function checkNativeBrowserZoom() {
   }
 }
 
+async function checkConsoleClearHistory(browser) {
+  for (const [width, height, scale, theme] of [[1280, 812, 1, 'dark'], [375, 812, 1, 'light'], [375, 812, 2, 'dark'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(theme => {
+        const key = 'webchess:analysis-settings:v1'
+        if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+          continuousAnalysis: false, engineProfile: 'lite-single-local', expertModeEnabled: true, theme, labCommandHistory: ['isready', 'uci', 'position startpos'] }))
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.resolve() } })
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const ready = () => page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await ready()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      const output = page.getByRole('region', { name: 'UCI console output', exact: true })
+      const clear = page.getByRole('button', { name: 'Clear command history', exact: true })
+      const run = async text => { await command.fill(text); await command.press('Enter'); await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '') }
+      const cleared = async (text, start, end) => {
+        await page.waitForFunction(({ text, start, end }) => {
+          const input = document.querySelector('[aria-label="UCI command"]')
+          return document.activeElement === input && input.value === text && input.selectionStart === start && input.selectionEnd === end
+            && JSON.parse(localStorage.getItem('webchess:analysis-settings:v1')).labCommandHistory.length === 0
+        }, { text, start, end })
+        assert(await clear.count() === 0 && await page.locator('.lab-history-list button').count() === 0, 'clearing history left old entries or a dead control')
+        assert(await command.evaluate(el => {
+          const r = el.getBoundingClientRect(), hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
+          return el.contains(hit) && (el.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean).every(id => document.getElementById(id))
+        }), 'cleared history leaves a covered focused input or broken help reference')
+      }
+      await run('uci')
+      const snapshot = await output.textContent(), summary = await page.locator('.command-summary').filter({ hasText: 'Last run:' }).innerText()
+      await command.fill('position startpos moves e2e4'); await command.evaluate(el => el.setSelectionRange(3, 9))
+      const count = await page.evaluate(() => window.__uciCommands.length)
+      await clear.scrollIntoViewIfNeeded()
+      assert(await clear.evaluate((el, minHeight) => { const r = el.getBoundingClientRect(); return r.height >= minHeight && el.scrollWidth <= el.clientWidth + 1 }, width <= 900 ? 44 : 32), 'clear history is too small or clips its label')
+      await clear.click(); await cleared('position startpos moves e2e4', 3, 9)
+      assert(await output.textContent() === snapshot && await page.locator('.command-summary').filter({ hasText: 'Last run:' }).innerText() === summary, 'Clear history erased the current output or last run')
+      assert(await page.evaluate(() => window.__uciCommands.length) === count, 'Clear history sent an engine command')
+      await command.press('ArrowUp'); await command.press('ArrowDown')
+      assert(await command.inputValue() === 'position startpos moves e2e4', 'an empty history recalled a removed command')
+      await page.reload({ waitUntil: 'domcontentloaded' }); await ready()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      assert(await clear.count() === 0 && await page.locator('.lab-history-list button').count() === 0, 'cleared history returned after reload')
+      assert(await page.getByRole('button', { name: 'Engine Lab', exact: true }).getAttribute('aria-pressed') === 'true', 'clearing history reset the selected workspace tab')
+      await run('isready')
+      await command.fill('my unsent draft'); await command.press('ArrowUp')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === 'isready')
+      await clear.focus(); await clear.press('Enter'); await cleared('my unsent draft', 15, 15)
+      await command.press('ArrowDown')
+      assert(await command.inputValue() === 'my unsent draft', 'clearing recalled history lost the working draft')
+      await run('position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+      await command.fill('go depth 20'); await command.press('Enter')
+      await output.filter({ hasText: 'score cp 900' }).waitFor()
+      const activeOutput = await output.textContent(), activeCount = await page.evaluate(() => window.__uciCommands.length)
+      const range = await command.evaluate(el => ({ start: el.selectionStart, end: el.selectionEnd }))
+      await clear.focus(); await clear.press('Space'); await cleared('go depth 20', range.start, range.end)
+      assert(await output.textContent() === activeOutput && await page.evaluate(() => window.__uciCommands.length) === activeCount && await page.evaluate(() => window.__consoleEngine.searching),
+        'clearing history stopped, reset or replaced a running command')
+      await page.evaluate(() => window.__consoleEngine.finishSearch())
+      await ready(); await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      assert(await clear.count() === 0, 'command completion restored cleared history')
+      await run('uci')
+      const history = await page.locator('.lab-history-list button').allTextContents()
+      assert(JSON.stringify(history) === JSON.stringify(['uci']), 'a new command brought back older cleared entries')
+      assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'clearing command history changed the board')
+      assert(errors.length === 0, `clear history errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'clear history overflows')
+      console.log(`  clear command history (${width}×${height}, ${scale}x, ${theme}): pointer/Enter/Space clear only persisted history; draft/selection, visible focus, output and workspace retained; recall resets; active command completes normally; new commands start a fresh history`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkConsoleKeyboardHistory(browser) {
   for (const [width, scale] of [[1280, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -15260,6 +15336,7 @@ async function main() {
       'console-select-all': checkConsoleSelectAll,
       'console-copy-feedback': checkConsoleCopyFeedback,
       'console-keyboard-history': checkConsoleKeyboardHistory,
+      'console-clear-history': checkConsoleClearHistory,
       'console-visibility': checkConsoleVisibility,
       'console-layout': checkConsoleLayout,
       continuous: checkKeepSearchingIsUnbounded,
@@ -16063,6 +16140,7 @@ async function main() {
     await checkConsoleSelectAll(browser)
     await checkConsoleCopyFeedback(browser)
     await checkConsoleKeyboardHistory(browser)
+    await checkConsoleClearHistory(browser)
     await checkConsoleVisibility(browser)
     await checkConsoleLayout(browser)
     await checkSingleThreadReviewPool(browser)
