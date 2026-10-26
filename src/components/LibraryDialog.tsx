@@ -5,6 +5,8 @@ import {
     type LibraryGame,
     type LibrarySort,
     MAX_LIBRARY_NAME_LENGTH,
+    MAX_LIBRARY_BACKUP_BYTES,
+    MAX_LIBRARY_BACKUP_LENGTH,
     formatLibrarySize,
     getLibraryStats,
     libraryGameMatchesQuery,
@@ -58,6 +60,7 @@ type Props = {
  * size web-xiangqi's library panel already uses.
  */
 const PAGE_SIZE = 100
+const BACKUP_TOO_LARGE_MESSAGE = 'That backup is too large. Import one exported backup part at a time.'
 
 const SORT_OPTIONS: { value: LibrarySort; label: string }[] = [
     { value: 'recent', label: 'Recent' },
@@ -273,8 +276,19 @@ export function LibraryDialog({
 
     const handleImportFile = async (file: File | undefined) => {
         if (!file) return
+        if (file.size > MAX_LIBRARY_BACKUP_BYTES) {
+            setStatus(null)
+            setError(BACKUP_TOO_LARGE_MESSAGE)
+            return
+        }
         try {
-            announce(onImportBackup(await file.text()), 'Backup imported.')
+            const text = await file.text()
+            if (text.length > MAX_LIBRARY_BACKUP_LENGTH) {
+                setStatus(null)
+                setError(BACKUP_TOO_LARGE_MESSAGE)
+                return
+            }
+            announce(onImportBackup(text), 'Backup imported.')
         } catch {
             setStatus(null)
             setError('That file could not be read.')

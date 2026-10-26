@@ -3995,6 +3995,100 @@ async function checkImportDraftOwnership(browser) {
   }
 }
 
+async function checkLibraryBackupLimits(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
+  const backupPath = `/tmp/web-chess-unicode-backup-${process.pid}-${BROWSER_NAME}.json`
+  const restoredPath = `/tmp/web-chess-unicode-restored-${process.pid}-${BROWSER_NAME}.json`
+  try {
+    await page.addInitScript(fakeEngineScript() + `
+      window.__backupReads = [];
+      const nativeSize = Object.getOwnPropertyDescriptor(Blob.prototype, 'size').get;
+      Object.defineProperty(File.prototype, 'size', { configurable: true, get() {
+        return this.name === 'oversized.json' ? 24000001 : nativeSize.call(this);
+      }});
+      const nativeText = File.prototype.text;
+      File.prototype.text = function () {
+        window.__backupReads.push(this.name);
+        if (this.name === 'oversized-text.json') return Promise.resolve('x'.repeat(8000001));
+        return nativeText.call(this);
+      };
+    `)
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    await page.getByRole('button', { name: 'Open saved games library' }).click()
+    const dialog = page.locator('.library-dialog')
+    await dialog.getByText('Nothing saved yet.', { exact: true }).waitFor()
+    const input = dialog.locator('input[type="file"]')
+    await input.setInputFiles({ name: 'oversized.json', mimeType: 'application/json', buffer: Buffer.from('{}') })
+    await page.waitForFunction(() => window.__backupReads.length > 0 || document.querySelector('.library-dialog .dialog-error')?.textContent.includes('too large'))
+    assert(await page.evaluate(() => !window.__backupReads.includes('oversized.json')), 'an oversized backup was read into memory before its size was checked')
+    await dialog.getByRole('alert').filter({ hasText: 'That backup is too large.' }).waitFor()
+
+    const small = JSON.stringify({ format: 'web-chess-library', version: 1, games: [
+      { id: 'small', name: 'Small backup', pgn: '1. e4 e5 *', createdAt: 1, updatedAt: 1 },
+    ] })
+    await input.setInputFiles({ name: 'small.json', mimeType: 'application/json', buffer: Buffer.from(small) })
+    await dialog.getByRole('button', { name: 'Load Small backup', exact: true }).waitFor()
+    await dialog.getByRole('status').filter({ hasText: 'Backup imported.' }).waitFor()
+    await input.setInputFiles({ name: 'oversized-text.json', mimeType: 'application/json', buffer: Buffer.from('{}') })
+    await page.waitForFunction(() => window.__backupReads.includes('oversized-text.json'))
+    await dialog.getByRole('alert').filter({ hasText: 'That backup is too large.' }).waitFor()
+    assert(await dialog.locator('.library-row').count() === 1, 'a rejected backup changed the existing library')
+
+    // An app-generated part can exceed 8 MB in UTF-8 while remaining below
+    // the existing 8-million-character ceiling. Preserve that round trip.
+    await page.evaluate(() => new Promise((resolve, reject) => {
+      const request = indexedDB.open('web-chess-library', 1)
+      request.onerror = () => reject(request.error)
+      request.onsuccess = () => {
+        const db = request.result
+        const tx = db.transaction('games', 'readwrite')
+        const store = tx.objectStore('games')
+        store.clear()
+        for (let i = 0; i < 6; i++) {
+          const pgn = `[Event "Unicode ${i}"]\n\n1. e4 {${'棋'.repeat(480000)}} e5 *`
+          store.put({ id: `unicode-${i}`, name: `Unicode ${i}`, pgn, createdAt: i + 1, updatedAt: i + 1, favorite: false })
+        }
+        tx.oncomplete = () => { db.close(); resolve() }
+        tx.onerror = () => { db.close(); reject(tx.error) }
+      }
+    }))
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.getByRole('button', { name: 'Open saved games library' }).click()
+    await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 6)
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      dialog.getByRole('button', { name: 'Export backup', exact: true }).click(),
+    ])
+    await download.saveAs(backupPath)
+    assert(fs.statSync(backupPath).size > 8_000_000, 'the Unicode fixture does not exercise a backup above 8 MB')
+  } finally { await context.close() }
+
+  const fresh = await browser.newContext({ viewport: { width: 375, height: 812 } })
+  try {
+    const page = await fresh.newPage()
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    await page.getByRole('button', { name: 'Open saved games library' }).click()
+    const dialog = page.locator('.library-dialog')
+    await dialog.getByText('Nothing saved yet.', { exact: true }).waitFor()
+    await dialog.locator('input[type="file"]').setInputFiles(backupPath)
+    await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 6)
+    await dialog.getByRole('status').filter({ hasText: 'Backup imported.' }).waitFor()
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      dialog.getByRole('button', { name: 'Export backup', exact: true }).click(),
+    ])
+    await download.saveAs(restoredPath)
+    assert(fs.readFileSync(backupPath).equals(fs.readFileSync(restoredPath)), 'the Unicode backup changed on export/import/export')
+    console.log('  library backup limits: oversized files rejected before reading; oversized text preserves the library; an app-exported UTF-8 backup above 8 MB round-trips exactly')
+  } finally {
+    await fresh.close()
+    fs.rmSync(backupPath, { force: true })
+    fs.rmSync(restoredPath, { force: true })
+  }
+}
+
 async function checkLibraryEditing(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 900 } })
@@ -11280,6 +11374,7 @@ async function main() {
       'import-sweep': checkAnImportSweepRunsToTheEnd,
       'hint-copy': checkAHintSaysWhereToLookOnlyIfItIsDrawn,
       'library-backup': checkTheLibrarySurvivesABackup,
+      'library-backup-limits': checkLibraryBackupLimits,
       'export-roundtrip': checkAnExportedGameComesBack,
       'autosave-roundtrip': checkAnInterruptedGameComesBack,
       'saved-game-roundtrip': checkASavedGameComesBack,
@@ -12035,6 +12130,7 @@ async function main() {
     await checkTheHistoricalLibraryLoadsAGame(browser)
     await checkAFailedLookupSaysSoPlainly(browser)
     await checkTheLibrarySurvivesABackup(browser)
+    await checkLibraryBackupLimits(browser)
     await checkOneGestureSavesOneGame(browser)
     await checkLibraryEditing(browser)
     await checkImportDraftOwnership(browser)

@@ -10,6 +10,9 @@ export const MAX_LIBRARY_GAMES = 500
 export const MAX_LIBRARY_PGN_LENGTH = 512_000
 export const MAX_LIBRARY_NAME_LENGTH = 120
 export const MAX_LIBRARY_BACKUP_LENGTH = 8_000_000
+// A UTF-8 file needs at most three bytes per UTF-16 code unit. Keep every
+// valid exported part readable, including comments written in non-ASCII text.
+export const MAX_LIBRARY_BACKUP_BYTES = MAX_LIBRARY_BACKUP_LENGTH * 3
 
 export const LIBRARY_BACKUP_FORMAT = 'web-chess-library'
 export const LIBRARY_BACKUP_VERSION = 1
