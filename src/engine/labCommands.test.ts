@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage, engineLabSpinOptionValue, isEngineLabPerftDiagnostic, isHeavyEngineLabCommand, isUnboundedEngineLabSearch } from './labCommands'
+import { engineLabCommandBlockMessage, engineLabCommandSafetyMessage, engineLabSpinOptionValue, isEngineLabPerftDiagnostic, isHeavyEngineLabCommand, isUnboundedEngineLabSearch, normalizeEngineLabCommand } from './labCommands'
 
 describe('Engine Lab command safety', () => {
   it('validates raw spin values before native stoi and option recording', () => {
@@ -143,5 +143,49 @@ describe('Engine Lab command safety', () => {
     expect(engineLabCommandBlockMessage('perft 3')).toContain('Use go perft 3')
     expect(engineLabCommandBlockMessage('go perft 3')).toBeNull()
     expect(engineLabCommandBlockMessage('go movetime 5000')).toBeNull()
+  })
+})
+
+describe('native search command whitespace', () => {
+  it.each([
+    ['go depth\u00a01', 'go depth 1'],
+    ['go\u202fdepth\u20091', 'go depth 1'],
+    [' \tgo   movetime \t 50  ', 'go movetime 50'],
+    ['go nodes\u2003100 searchmoves e2e4\u00a0d2d4', 'go nodes 100 searchmoves e2e4 d2d4'],
+    ['go depth +0002', 'go depth +0002'],
+  ])('dispatches validated search tokens for %s', (input, expected) => {
+    const normalized = normalizeEngineLabCommand(input)
+    expect(normalized).toBe(expected)
+    expect(engineLabCommandBlockMessage(normalized)).toBeNull()
+    expect(isHeavyEngineLabCommand(normalized)).toBe(false)
+  })
+
+  it.each([
+    'setoption name EvalFile value café\u00a0network.nnue',
+    'setoption name Example value two  spaces',
+  ])('preserves text option values: %s', input => {
+    expect(normalizeEngineLabCommand(`  ${input}  `)).toBe(input)
+  })
+
+  it('retains native keyword case validation', () => {
+    const command = normalizeEngineLabCommand('GO\u00a0depth\u00a01')
+    expect(command).toBe('GO depth 1')
+    expect(engineLabCommandBlockMessage(command)).toContain('lowercase UCI keywords')
+  })
+
+  it('keeps zero limits and limits after searchmoves gated as unbounded', () => {
+    for (const input of ['go depth\u00a00', 'go searchmoves\u00a0e2e4 depth\u00a01']) {
+      const normalized = normalizeEngineLabCommand(input)
+      expect(isHeavyEngineLabCommand(normalized)).toBe(true)
+      expect(engineLabCommandSafetyMessage(normalized)).not.toBeNull()
+    }
+  })
+
+  it('retains zero-perft ordinary search semantics', () => {
+    const command = normalizeEngineLabCommand('go perft\u00a00 depth\u00a01')
+    expect(command).toBe('go perft 0 depth 1')
+    expect(isEngineLabPerftDiagnostic(command)).toBe(false)
+    expect(isUnboundedEngineLabSearch(command)).toBe(false)
+    expect(isHeavyEngineLabCommand(command)).toBe(true)
   })
 })

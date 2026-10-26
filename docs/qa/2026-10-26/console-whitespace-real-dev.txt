@@ -1,0 +1,56 @@
+{
+  "browser": "chromium",
+  "engine": "id name Stockfish 18 Lite WASM",
+  "base": "http://127.0.0.1:4324/web-chess/",
+  "searches": [
+    {
+      "raw": "go depth 1",
+      "dispatched": "go depth 1",
+      "maxDepth": 1
+    },
+    {
+      "raw": "go depth 1",
+      "dispatched": "go depth 1",
+      "maxDepth": 1
+    },
+    {
+      "raw": "go\tdepth\t1",
+      "dispatched": "go depth 1",
+      "maxDepth": 1
+    },
+    {
+      "raw": "go depth 1 searchmoves e2e4",
+      "dispatched": "go depth 1 searchmoves e2e4",
+      "maxDepth": 1
+    }
+  ],
+  "watchdogStops": []
+}
+{
+  "browser": "firefox",
+  "engine": "id name Stockfish 18 Lite WASM",
+  "base": "http://127.0.0.1:4324/web-chess/",
+  "searches": [
+    {
+      "raw": "go depth 1",
+      "dispatched": "go depth 1",
+      "maxDepth": 1
+    },
+    {
+      "raw": "go depth 1",
+      "dispatched": "go depth 1",
+      "maxDepth": 1
+    },
+    {
+      "raw": "go\tdepth\t1",
+      "dispatched": "go depth 1",
+      "maxDepth": 1
+    },
+    {
+      "raw": "go depth 1 searchmoves e2e4",
+      "dispatched": "go depth 1 searchmoves e2e4",
+      "maxDepth": 1
+    }
+  ],
+  "watchdogStops": []
+}

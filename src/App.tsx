@@ -187,7 +187,7 @@ import {
   judgeDrillMove,
   opponentMovesFrom,
 } from './engine/lineDrill'
-import { ENGINE_CONSOLE_LINE_LIMIT, engineLabCommandBlockMessage, engineLabCommandSafetyMessage, engineLabSpinOptionValue } from './engine/labCommands'
+import { ENGINE_CONSOLE_LINE_LIMIT, engineLabCommandBlockMessage, engineLabCommandSafetyMessage, engineLabSpinOptionValue, normalizeEngineLabCommand } from './engine/labCommands'
 import { aiSearchHistory, defaultOrientationForGameMode, describePlayEngine, hintDisabledReason, sideToMoveColor, takebackDisabledReason, takebackPlyCount, judgeMoveBetweenSearches, type AiSearchReading, type MoveJudgement } from './engine/playMode'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { DIFFICULTY_LABELS, useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
@@ -3025,7 +3025,7 @@ function App() {
         return
       }
 
-      let dispatchedCommand = trimmed
+      let dispatchedCommand = normalizeEngineLabCommand(trimmed)
       let settingNotice: string | undefined
       const managedOption = trimmed.match(/^setoption\s+name\s+(Hash|MultiPV|UCI_ShowWDL)\s+value\s+(.+)$/i)
       if (managedOption) {

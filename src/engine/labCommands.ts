@@ -94,6 +94,13 @@ function commandParts(command: string): string[] {
   return command.trim().split(/\s+/g).filter(Boolean)
 }
 
+/** Match validated search tokens to Stockfish's ASCII whitespace parser. */
+export function normalizeEngineLabCommand(command: string): string {
+  const text = command.trim()
+  // String option values can contain meaningful spaces and Unicode text.
+  return /^go(?:\s|$)/i.test(text) ? commandParts(text).join(' ') : text
+}
+
 function hasTrailingSearchMovesLimit(parts: string[]): boolean {
   const searchMovesIndex = parts.indexOf('searchmoves')
   if (searchMovesIndex < 0) return false

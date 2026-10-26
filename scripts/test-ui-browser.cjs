@@ -360,7 +360,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
           this.send('a2a3: 446326047');
           return;
         }
-        if (SCENARIO === 'console-search' && ['go perft 3', 'go depth 12 perft 3', 'go perft 3 depth 12', 'go\tmovetime\t5000\tperft\t3'].includes(text)) {
+        if (SCENARIO === 'console-search' && ['go perft 3', 'go depth 12 perft 3', 'go perft 3 depth 12', 'go movetime 5000 perft 3'].includes(text)) {
           this.send('e2e4: 600');
           setTimeout(() => this.send('Nodes searched: 8902'), 15);
           return;
@@ -10527,6 +10527,56 @@ async function checkConsoleDraftOwnership(browser) {
   }
 }
 
+async function checkConsoleWhitespace(browser) {
+  const searches = [
+    ['go depth\u00a01', 'go depth 1'], ['go\u202fdepth\u20091', 'go depth 1'],
+    ['go\tdepth\t1', 'go depth 1'], ['go nodes\u2003100 searchmoves e2e4\u00a0d2d4', 'go nodes 100 searchmoves e2e4 d2d4'],
+    ['go movetime\u00a05', 'go movetime 5'],
+  ]
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+        continuousAnalysis: false, engineProfile: 'lite-single-local', expertModeEnabled: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true }), output = page.getByRole('region', { name: 'UCI console output', exact: true })
+      for (const [raw, expected] of searches) {
+        const count = await page.evaluate(() => window.__uciCommands.length)
+        await command.fill(raw); await command.press('Enter')
+        await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+        const go = await page.evaluate(count => window.__uciCommands.slice(count).filter(item => /^go\b/.test(item)), count)
+        assert(JSON.stringify(go) === JSON.stringify([expected]), `validated whitespace did not reach the worker as native tokens: ${JSON.stringify(go)}`)
+        assert((await output.textContent()).startsWith(`> ${raw}\n`) && (await output.textContent()).includes('bestmove'), 'search echo lost the entered text or search did not finish')
+        assert(await page.getByRole('alert').count() === 0, 'a bounded search incorrectly requires expert mode')
+      }
+      for (const [raw, reason] of [['go depth\u00a00', 'Enable expert mode'], ['go searchmoves\u00a0e2e4 depth\u00a01', 'searchmoves as the final'], ['GO\u00a0depth\u00a01', 'lowercase UCI keywords']]) {
+        const count = await page.evaluate(() => window.__uciCommands.length)
+        await command.fill(raw); await command.press('Enter')
+        await page.getByRole('alert').filter({ hasText: reason }).waitFor()
+        assert(await command.inputValue() === raw && await page.evaluate(() => window.__uciCommands.length) === count, 'an invalid or gated pasted search was changed or dispatched')
+      }
+      const recalled = searches[searches.length - 1]
+      const history = page.locator('.lab-history-list button'), index = (await history.allTextContents()).indexOf(recalled[0])
+      assert(index >= 0, 'history omitted the original pasted command')
+      await history.nth(index).click()
+      assert(await command.inputValue() === recalled[0], 'recall rewrote the saved command')
+      const count = await page.evaluate(() => window.__uciCommands.length)
+      await command.press('Enter')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      assert(await page.evaluate(({ count, expected }) => window.__uciCommands.slice(count).includes(expected), { count, expected: recalled[1] }), 'recalled search bypassed native whitespace normalization')
+      assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'pasted console searches changed the board')
+      assert(errors.length === 0, `console whitespace errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'pasted command feedback overflows')
+      console.log(`  console whitespace (${width}px, ${scale}x, ${theme}): Unicode spaces/tabs dispatch native ASCII search tokens; raw echo/history and recall retained; bounded searches finish without expert mode; zero/trailing-limit/uppercase guards remain enforced; board unchanged`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkConsoleLimitParsing(browser) {
   for (const [width, scale] of [[1280, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -10646,7 +10696,7 @@ async function checkConsoleTools(browser) {
         await command.fill(text)
         await command.press('Enter')
         await page.locator('.error-copy').filter({ hasText: 'Enable expert mode' }).waitFor()
-        assert(await page.evaluate(text => !window.__uciCommands.includes(text), text), `${text} bypassed expert mode`)
+        assert(await page.evaluate(text => !window.__uciCommands.includes(text), text.trim().split(/\s+/).join(' ')), `${text} bypassed expert mode`)
       }
       await search.click()
       await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === ''
@@ -10664,7 +10714,7 @@ async function checkConsoleTools(browser) {
         await page.getByLabel('UCI console output', { exact: true }).filter({ hasText: 'Nodes searched: 8902' }).waitFor()
         await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready'
           && document.querySelector('[aria-label="UCI command"]')?.value === '')
-        assert(await page.evaluate(text => window.__uciCommands.includes(text), text), `${text} did not reach Stockfish`)
+        assert(await page.evaluate(text => window.__uciCommands.includes(text), text.trim().split(/\s+/).join(' ')), `${text} did not reach Stockfish`)
       }
       // Native focus scrolling must reveal each complete control, including at
       // 200% text when the panel becomes a vertically scrolling reading area.
@@ -11061,7 +11111,7 @@ async function checkConsoleSearchOwnership(browser) {
         && document.querySelector('.bottom .status')?.textContent === 'ready')
       const handoff = await page.evaluate(() => {
         const commands = window.__uciCommands
-        const firstGo = commands.indexOf('go\tmovetime\t4000')
+        const firstGo = commands.indexOf('go movetime 4000')
         const nextPosition = commands.findIndex((command, index) => index > firstGo && command.startsWith('position'))
         return { between: commands.slice(firstGo + 1, nextPosition), overlapping: window.__positionDuringSearch,
           leaked: window.__consoleScoreLeaked, lines: document.querySelector('.pv-list')?.textContent }
@@ -15371,6 +15421,7 @@ async function main() {
       'console-deadlines': checkConsoleSearchDeadlines,
       'console-tools': checkConsoleTools,
       'console-parsing': checkConsoleLimitParsing,
+      'console-whitespace': checkConsoleWhitespace,
       'perft-stop': checkPerftStopReleasesWorker,
       'spin-options': checkRawSpinOptionValues,
       'thread-configuration': checkThreadConfigurationOwnership,
@@ -16176,6 +16227,7 @@ async function main() {
     await checkConsoleSearchDeadlines(browser)
     await checkConsoleTools(browser)
     await checkConsoleLimitParsing(browser)
+    await checkConsoleWhitespace(browser)
     await checkPerftStopReleasesWorker(browser)
     await checkRawSpinOptionValues(browser)
     await checkThreadConfigurationOwnership(browser)
