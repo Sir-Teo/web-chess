@@ -209,3 +209,29 @@ describe('browser pondering limitations', () => {
     expect(engineLabCommandBlockMessage('go PONDER depth 1')).toContain('lowercase UCI keywords')
   })
 })
+
+describe('mate goals without a stopping limit', () => {
+  it('gates mate-only searches and pauses them while hidden', () => {
+    for (const command of ['go mate 1', 'go mate 0 mate 2', 'go mate 3 depth 1 depth 0', 'go perft 0 mate 1']) {
+      expect(engineLabCommandBlockMessage(command)).toBeNull()
+      expect(isHeavyEngineLabCommand(command), command).toBe(true)
+      expect(isUnboundedEngineLabSearch(command), command).toBe(true)
+    }
+    expect(engineLabCommandSafetyMessage('go mate 1')).toContain('mate-only search')
+    expect(engineLabCommandSafetyMessage('go mate 1')).toContain('go mate 1 depth 12')
+  })
+
+  it('keeps independent native limits available with a mate goal', () => {
+    for (const command of ['go mate 1 depth 2', 'go depth 2 mate 1', 'go mate 1 movetime 20', 'go mate 1 nodes 100', 'go mate 1 wtime 100 btime 100']) {
+      expect(isHeavyEngineLabCommand(command), command).toBe(false)
+      expect(isUnboundedEngineLabSearch(command), command).toBe(false)
+    }
+    expect(isUnboundedEngineLabSearch('go perft 3 mate 1')).toBe(false)
+  })
+
+  it('retains numeric validation and searchmoves consumption/order feedback', () => {
+    expect(engineLabCommandBlockMessage('go mate nope')).toContain('whole decimal integer')
+    expect(engineLabCommandSafetyMessage('go searchmoves e2e4 mate 1')).toContain('Put limits before searchmoves')
+    expect(isHeavyEngineLabCommand('go depth 2 searchmoves e2e4 mate 1')).toBe(false)
+  })
+})

@@ -157,6 +157,9 @@ given, and the app answering the reader who touches it.
   the board, displayed analysis, and saved controls remain available.
   The browser console does not support ponder searches or ponderhit; use a
   bounded search such as `go depth 12`, or `go infinite` followed by Stop.
+  A mate goal alone also needs expert mode: `go mate 1` can keep searching
+  when no mate is found. Add a stopping limit, such as `go mate 1 depth 12`,
+  to run it as a bounded search.
 - **Engine settings apply in order**: Numeric console options use the engine's
   advertised limits. Configuration finishes before another setting is sent,
   and keyboard focus returns after a temporarily disabled control is ready.

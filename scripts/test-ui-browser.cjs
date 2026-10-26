@@ -11220,7 +11220,7 @@ async function checkConsoleLimitParsing(browser) {
         ['go DEPTH 1', 'lowercase UCI keywords'], ['GO depth 1', 'lowercase UCI keywords'],
         ['go depth 0x10', 'whole decimal integer'], ['go nodes 0b10', 'whole decimal integer'],
         ['go depth nope movetime 20', 'whole decimal integer'], ['go depth 2147483648', 'whole decimal integer'],
-        ['go depth 1 depth 0', 'Enable expert mode'], ['go perft 0', 'Enable expert mode'],
+        ['go depth 1 depth 0', 'Enable expert mode'], ['go perft 0', 'Enable expert mode'], ['go mate 1', 'Enable expert mode for a mate-only search'],
       ]) {
         await submit(text)
         await page.locator('.error-copy').filter({ hasText: reason }).waitFor()
@@ -11238,7 +11238,7 @@ async function checkConsoleLimitParsing(browser) {
       await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
       const count = text => page.evaluate(text => window.__uciCommands.filter(command => command === text).length, text)
       const visibility = value => page.evaluate(value => window.__setParserVisibility(value), value)
-      for (const text of ['go depth 1 depth 0', 'go perft 0']) {
+      for (const text of ['go depth 1 depth 0', 'go perft 0', 'go mate 1']) {
         await submit(text)
         await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
         const stops = await count('stop'), searches = await count(text)
@@ -11271,7 +11271,7 @@ async function checkConsoleLimitParsing(browser) {
       await visibility('visible')
       await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
       await ready()
-      console.log(`  console limits (${width}px, ${scale}x): native keyword/integer rules, final duplicate limits, zero-perft pause/resume, and finite work preserved`)
+      console.log(`  console limits (${width}px, ${scale}x): native keyword/integer rules, final duplicate limits, zero-perft/mate-only pause/resume, and finite work preserved`)
     } finally { await context.close() }
   }
 }

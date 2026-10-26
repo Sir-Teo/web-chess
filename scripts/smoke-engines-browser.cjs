@@ -17,11 +17,18 @@ async function checkNativeConsoleLimits(page) {
     ['go DEPTH 1', 'lowercase UCI keywords'], ['go depth 0x10', 'whole decimal integer'],
     ['go nodes 0b10', 'whole decimal integer'], ['go depth nope movetime 20', 'whole decimal integer'],
     ['go depth 1 depth 0', 'Enable expert mode'],
+    ['go mate 1', 'Enable expert mode for a mate-only search'],
     ['go ponder depth 1', 'Ponder searches are not supported'], ['ponderhit', 'Ponder searches are not supported'],
   ]) {
     await submit(text)
     await page.locator('.error-copy').filter({ hasText: reason }).waitFor()
     assert.equal(await page.evaluate(text => window.__smokeCommands.includes(text), text), false, `${text} reached real Stockfish`)
+  }
+  for (const text of ['go mate 1 depth 2', 'go mate 1 movetime 20']) {
+    await submit(text)
+    await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+    await ready()
+    assert.match(await page.getByLabel('UCI console output', { exact: true }).textContent(), /bestmove /)
   }
   const expert = page.getByRole('checkbox', { name: 'Enable expert engine commands', exact: true })
   await expert.check()
@@ -56,7 +63,7 @@ async function checkNativeConsoleLimits(page) {
     document.dispatchEvent(new Event('visibilitychange'))
   }, value)
   try {
-    for (const text of ['go depth 1 depth 0', 'go perft 0']) {
+    for (const text of ['go depth 1 depth 0', 'go perft 0', 'go mate 1']) {
       await submit(text)
       await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
       const searches = await page.evaluate(text => window.__smokeCommands.filter(command => command === text).length, text)

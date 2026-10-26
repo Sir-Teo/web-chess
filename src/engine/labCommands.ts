@@ -1,8 +1,7 @@
-const DIRECT_GO_LIMITS = new Set([
+const FINITE_GO_LIMITS = new Set([
   'depth',
   'movetime',
   'nodes',
-  'mate',
   'wtime',
   'btime',
 ])
@@ -15,14 +14,15 @@ const INCREMENT_LIMITS = new Set([
 ])
 
 const SEARCHMOVES_TRAILING_LIMITS = new Set([
-  ...DIRECT_GO_LIMITS,
+  ...FINITE_GO_LIMITS,
   ...INCREMENT_LIMITS,
   'movestogo',
+  'mate',
   'infinite',
   'ponder',
 ])
 
-const NUMERIC_GO_PARAMETERS = new Set([...DIRECT_GO_LIMITS, ...INCREMENT_LIMITS, 'movestogo', 'perft'])
+const NUMERIC_GO_PARAMETERS = new Set([...FINITE_GO_LIMITS, ...INCREMENT_LIMITS, 'movestogo', 'perft', 'mate'])
 const INT_GO_PARAMETERS = new Set(['depth', 'mate', 'movestogo', 'perft'])
 const GO_KEYWORDS = new Set([...NUMERIC_GO_PARAMETERS, 'searchmoves', 'infinite', 'ponder'])
 
@@ -79,8 +79,10 @@ function parseGoParameters(parts: string[]): GoParameters {
 }
 
 function hasUnboundedSearch(parsed: GoParameters): boolean {
+  // Mate is a goal, not a bound: without a matching mate score Stockfish
+  // continues beyond that many plies. A separate limit must end the search.
   return Boolean(parsed.issue) || parsed.indefinite
-    || ![...DIRECT_GO_LIMITS].some(keyword => (parsed.limits.get(keyword) ?? 0n) > 0n)
+    || ![...FINITE_GO_LIMITS].some(keyword => (parsed.limits.get(keyword) ?? 0n) > 0n)
 }
 
 // Carries the reason, because this is where a reader meets the limit. The
@@ -129,6 +131,10 @@ export function engineLabCommandSafetyMessage(command: string): string | null {
   const parts = commandParts(command)
   if (parts[0] === 'go' && hasTrailingSearchMovesLimit(parts)) {
     return SEARCHMOVES_ORDER_MESSAGE
+  }
+  const parsed = parseGoParameters(parts)
+  if (!parsed.issue && !parsed.indefinite && !parsed.perft && (parsed.limits.get('mate') ?? 0n) > 0n) {
+    return 'Enable expert mode for a mate-only search, or add a limit such as go mate 1 depth 12. A mate goal alone can keep searching when no mate is found.'
   }
   return HEAVY_COMMAND_MESSAGE
 }
