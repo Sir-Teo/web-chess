@@ -12855,6 +12855,83 @@ async function checkSettingsSayWhenTheyCannotBeKept(browser) {
  * because a toggle reading "Draw" over a board that still eats presses would
  * pass a check on the flag alone.
  */
+async function checkDrawingCancellation(browser) {
+  for (const [width, height, scale] of [[375, 812, 1], [375, 812, 2], [844, 390, 1]]) {
+    const context = await browser.newContext({ viewport: { width, height }, hasTouch: true, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    const nativePointer = browser.browserType().name() === 'chromium'
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false }))
+        const media = window.matchMedia.bind(window)
+        window.matchMedia = query => {
+          const result = media(query)
+          if (query === '(pointer: coarse)') window.__drawingPointerQuery = result
+          return result
+        }
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.locator('#chessboard-square-e2 [data-piece="wP"]').waitFor()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const toggle = page.locator('.board-draw-toggle')
+      const arrow = (from, to) => page.locator(`.board-surface marker[id$="-${from}-${to}"]`)
+      const beginStroke = async (from, to) => {
+        await page.locator(`#chessboard-square-${from}`).scrollIntoViewIfNeeded()
+        const center = async square => { const r = await page.locator(`#chessboard-square-${square}`).boundingBox(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } }
+        const a = await center(from), b = await center(to)
+        await page.mouse.move(a.x, a.y); await page.mouse.down()
+        await page.mouse.move(b.x, b.y, { steps: 6 })
+        await page.waitForFunction(({ from, to }) => !!document.querySelector(`.board-surface marker[id$="-${from}-${to}"]`), { from, to }, { timeout: 5000 })
+      }
+      await toggle.click()
+      await beginStroke('g1', 'f3'); await page.mouse.up()
+      assert(await page.locator('.board-draw-clear').count() === 1, 'completed drawing is missing')
+      const ignored = await toggle.evaluate(el => [
+        { ctrlKey: true }, { metaKey: true }, { altKey: true }, { shiftKey: true }, { isComposing: true }, { keyCode: 229 },
+      ].map(init => { const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, ...init }); el.dispatchEvent(event); return event.defaultPrevented }))
+      assert(ignored.every(value => !value) && await toggle.getAttribute('aria-pressed') === 'true', 'modified/composing Escape changed drawing mode')
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog').waitFor()
+      await page.keyboard.press('Escape'); await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      assert(await toggle.getAttribute('aria-pressed') === 'true', 'dialog Escape also canceled drawing mode')
+      await beginStroke('b1', 'c3')
+      await page.keyboard.press('Escape')
+      await page.locator('.board-draw-layer').waitFor({ state: 'detached', timeout: 5000 })
+      await page.mouse.up()
+      assert(await toggle.getAttribute('aria-pressed') === 'false' && await arrow('b1', 'c3').count() === 0, 'Escape left a pending stroke behind')
+      assert(await arrow('g1', 'f3').count() === 1, 'Escape erased a completed drawing')
+      await page.locator('#chessboard-square-e2').click(); await page.locator('#chessboard-square-e4').click()
+      await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+      await toggle.click()
+      await beginStroke('g8', 'f6'); await page.mouse.up()
+      await beginStroke('b8', 'c6')
+      if (nativePointer) {
+        const session = await context.newCDPSession(page)
+        await session.send('Emulation.setTouchEmulationEnabled', { enabled: false })
+        await page.waitForFunction(() => !matchMedia('(pointer: coarse)').matches)
+        assert(await toggle.evaluate(el => getComputedStyle(el.parentElement).display === 'none'), 'pointer-capability check did not hide the drawing controls')
+      } else {
+        // Firefox exposes no CDP touch-emulation switch: exercise its actual
+        // MediaQueryList listener with a controlled capability-change event.
+        await page.evaluate(() => {
+          Object.defineProperty(window.__drawingPointerQuery, 'matches', { configurable: true, value: false })
+          window.__drawingPointerQuery.dispatchEvent(new Event('change'))
+        })
+      }
+      await page.locator('.board-draw-layer').waitFor({ state: 'detached', timeout: 5000 })
+      await page.mouse.up()
+      assert(await toggle.getAttribute('aria-pressed') === 'false' && await arrow('b8', 'c6').count() === 0, 'pointer change left drawing mode or a pending stroke active')
+      assert(await arrow('g8', 'f6').count() === 1, 'pointer change erased a completed drawing')
+      await page.locator('#chessboard-square-e7').click(); await page.locator('#chessboard-square-e5').click()
+      await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+      assert(errors.length === 0, `drawing cancellation errors: ${errors.join('; ')}`)
+      console.log(`  drawing cancellation (${width}×${height}, ${scale}x): Escape cancels a stroke and leaves completed marks; dialog/modifier/composition scope; ${nativePointer ? 'native pointer-capability change hides controls and releases the board' : 'controlled MediaQueryList change releases the board'}; e2-e4 and e7-e5 play`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkDrawModeEndsWithItsPurpose(browser) {
   const context = await browser.newContext({
     viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true,
@@ -13988,6 +14065,8 @@ async function main() {
       'setup-keyboard': checkPositionSetupKeyboard,
       'setup-orientation': checkPositionSetupOrientation,
       'fen-copy': checkFenCopyPreservesDraft,
+      'drawing-cancel': checkDrawingCancellation,
+      'draw-mode': checkDrawModeEndsWithItsPurpose,
       'manual-copy': checkManualClipboardFallback,
       'text-composition': checkTextCompositionKeys,
       'reveal-dialogs': checkRevealTimersRespectDialogs,
@@ -14739,6 +14818,7 @@ async function main() {
     await checkAChordBelongsToTheBrowser(browser)
     await checkTheEvaluationBarSurvivesTheWdlSwitch(browser)
     await checkDrawModeEndsWithItsPurpose(browser)
+    await checkDrawingCancellation(browser)
     await checkEverySquareAnswersAFinger(browser)
     await checkATapSurvivesTheFingerThatMakesIt(browser)
     await checkTheBoardIsNotADeadZone(browser)

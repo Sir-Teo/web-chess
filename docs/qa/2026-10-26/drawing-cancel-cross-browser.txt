@@ -1,0 +1,6 @@
+  drawing cancellation (375×812, 1x): Escape cancels a stroke and leaves completed marks; dialog/modifier/composition scope; native pointer-capability change hides controls and releases the board; e2-e4 and e7-e5 play
+  drawing cancellation (375×812, 2x): Escape cancels a stroke and leaves completed marks; dialog/modifier/composition scope; native pointer-capability change hides controls and releases the board; e2-e4 and e7-e5 play
+  drawing cancellation (844×390, 1x): Escape cancels a stroke and leaves completed marks; dialog/modifier/composition scope; native pointer-capability change hides controls and releases the board; e2-e4 and e7-e5 play
+  drawing cancellation (375×812, 1x): Escape cancels a stroke and leaves completed marks; dialog/modifier/composition scope; controlled MediaQueryList change releases the board; e2-e4 and e7-e5 play
+  drawing cancellation (375×812, 2x): Escape cancels a stroke and leaves completed marks; dialog/modifier/composition scope; controlled MediaQueryList change releases the board; e2-e4 and e7-e5 play
+  drawing cancellation (844×390, 1x): Escape cancels a stroke and leaves completed marks; dialog/modifier/composition scope; controlled MediaQueryList change releases the board; e2-e4 and e7-e5 play

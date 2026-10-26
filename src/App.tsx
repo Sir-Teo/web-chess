@@ -418,7 +418,7 @@ const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['↑', '↓'], action: 'Previous / next variation at this move' },
   { keys: ['Home', 'End'], action: 'First / last position' },
   { keys: ['F'], action: 'Flip the board' },
-  { keys: ['Esc'], action: 'Put a picked-up piece back' },
+  { keys: ['Esc'], action: 'Put a piece back or leave marking mode' },
   { keys: ['T'], action: 'Show what the opponent threatens (Analysis mode)' },
   { keys: ['Z'], action: 'Take back your last move (Play mode)' },
   { keys: ['H'], action: 'Ask the engine for a hint (Play mode)' },
@@ -1070,6 +1070,20 @@ function App() {
   const [touchDrawing, setTouchDrawing] = useState(false)
   const [drawnArrows, setDrawnArrows] = useState<DrawnArrow[]>([])
   const [drawInProgress, setDrawInProgress] = useState<{ from: string; to: string | null } | null>(null)
+  const endTouchDrawing = useCallback(() => {
+    setTouchDrawing(false)
+    setDrawInProgress(null)
+  }, [])
+  useEffect(() => {
+    const query = window.matchMedia?.('(pointer: coarse)')
+    if (!query) return
+    const onChange = () => {
+      // The controls disappear with this media query; release their overlay too.
+      if (!query.matches) endTouchDrawing()
+    }
+    query.addEventListener('change', onChange)
+    return () => query.removeEventListener('change', onChange)
+  }, [endTouchDrawing])
   /** A move queued while the engine is thinking. One at a time, like everywhere else. */
   const [premove, setPremove] = useState<Premove | null>(null)
   /** The move a hint suggested, and whether one is being searched for. */
@@ -1495,6 +1509,10 @@ function App() {
       if (e.key === 'Escape') {
         setSelectedSquare(null)
         setLegalTargets([])
+        if (touchDrawing) {
+          e.preventDefault()
+          endTouchDrawing()
+        }
         return
       }
       if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev() }
@@ -1551,8 +1569,8 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [closeCommandPalette, goFirst, goLast, goPrev, goNext, goSiblingVariation, openCommandPalette, pause, resume,
-    shortcutsSuspended, showCommandPalette, workspaceMode])
+  }, [closeCommandPalette, endTouchDrawing, goFirst, goLast, goPrev, goNext, goSiblingVariation, openCommandPalette, pause, resume,
+    shortcutsSuspended, showCommandPalette, touchDrawing, workspaceMode])
 
   const closeSettings = useCallback(() => {
     setSettingsOpen(false)
@@ -3738,8 +3756,8 @@ function App() {
    */
   const drillRunning = drill !== null
   useEffect(() => {
-    if (workspaceMode === 'play' || drillRunning) setTouchDrawing(false)
-  }, [workspaceMode, drillRunning])
+    if (workspaceMode === 'play' || drillRunning) endTouchDrawing()
+  }, [workspaceMode, drillRunning, endTouchDrawing])
 
   /**
    * A drill taking the board is the end of a replay, the same way the engine
@@ -6850,9 +6868,13 @@ function App() {
         type="button"
         className={`board-draw-toggle${touchDrawing ? ' active' : ''}`}
         aria-pressed={touchDrawing}
-        onClick={() => setTouchDrawing(value => !value)}
+        aria-keyshortcuts={touchDrawing ? 'Escape' : undefined}
+        onClick={() => {
+          setTouchDrawing(value => !value)
+          setDrawInProgress(null)
+        }}
         title={touchDrawing
-          ? 'Drawing: drag for an arrow, tap to mark. Turn off to move pieces again.'
+          ? 'Drawing: drag for an arrow, tap to mark. Turn off or press Escape to move pieces again.'
           : 'Draw arrows and mark squares with your finger'}
       >
         <IconDraw aria-hidden="true" />

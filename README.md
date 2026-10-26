@@ -307,10 +307,10 @@ given, and the app answering the reader who touches it.
   They are blue, magenta and white rather than Lichess's green, because green
   already means "the engine likes this" on this board — amber is the move that
   was played, violet the threat, and red-to-green the candidate scale. Marks
-  clear on your next move or left click, the way the drawn arrows do. Mouse
-  only: both gestures live on the right button and there is no touch equivalent
-  yet, which Settings says on a touch device rather than describing a gesture
-  the screen cannot perform.
+  clear on your next move or left click, the way the drawn arrows do. On a
+  touch screen, choose **Arrows**, then drag for an arrow or tap to mark. Turn
+  **Marking** off or press Escape to move pieces again; completed drawings
+  remain when you leave marking mode. **Clear** removes your drawings.
 - **Opening and endgame intelligence**: Offline ECO names work immediately; optional session-only Lichess tokens unlock Masters/Lichess opening stats, while eligible endgames use Lichess tablebase data. Move rows keep complete verdicts and distances readable with enlarged text. Failed opening-database, tablebase and cloud-evaluation requests offer Retry, preserving the current position, filters and keyboard focus.
 
 ### Throughout
@@ -323,7 +323,7 @@ given, and the app answering the reader who touches it.
   Escape while their code downloads. The board is available again immediately;
   reopening can continue the same download.
 - **Keyboard**: arrows walk the game, Home and End jump to its ends, F flips,
-  N starts a new game, Escape puts a picked-up piece back, and `?` opens the
+  N starts a new game, Escape puts a piece back or leaves marking mode, and `?` opens the
   full list at the top of Settings.
 
 - **Export the library as PGN**: Alongside the JSON backup, which only this app
