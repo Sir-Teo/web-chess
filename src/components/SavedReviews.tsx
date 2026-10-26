@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { GameNode } from '../hooks/useGameTree'
 import { evaluationEngineLabel } from '../engine/evaluationSource'
 import { createSavedReview, reviewLineKey, type SavedReview, type SavedReviewSummary } from '../engine/savedReviews'
@@ -60,6 +60,22 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
   const [comparison, setComparison] = useState<{ report: ReviewSnapshot; saved: SavedReview } | null>(null)
   const loadingVersion = useRef(0)
   const details = useRef<HTMLDetailsElement>(null)
+  const summary = useRef<HTMLElement>(null)
+  const choice = useRef<HTMLSelectElement>(null)
+  const deleteFocus = useRef<{ trigger: HTMLButtonElement; deleted: boolean } | null>(null)
+
+  useLayoutEffect(() => {
+    if (working || !deleteFocus.current) return
+    const request = deleteFocus.current
+    deleteFocus.current = null
+    // Disabling or removing the button can leave focus on the document.
+    // Preserve any new destination chosen while the storage write was pending.
+    if (document.activeElement !== document.body && document.activeElement !== request.trigger) return
+    const target = request.deleted
+      ? (details.current?.open ? choice.current ?? summary.current : summary.current)
+      : request.trigger
+    target?.focus()
+  }, [working])
   const backupInput = useRef<HTMLInputElement>(null)
   const selected = runs.find(run => run.id === selectedId)
   const sameLine = selected?.lineKey === reviewLineKey(line)
@@ -107,11 +123,15 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
     finally { endWork() }
   }
 
-  async function remove() {
+  async function remove(trigger: HTMLButtonElement) {
     if (!selected || workingRef.current) return
     if (!beginWork()) return
+    trigger.focus({ preventScroll: true })
+    const focusRequest = { trigger, deleted: false }
+    deleteFocus.current = focusRequest
     try {
       await deleteSavedReview(selected.id)
+      focusRequest.deleted = true
       setLastSavedReport(null)
       setNotice('Saved copy deleted. The review currently on screen is still available.')
       await refresh()
@@ -190,7 +210,7 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
       </div>
       {notice && <p className="panel-copy small saved-review-notice" role="status">{notice}</p>}
       <details ref={details} onToggle={event => { if (event.currentTarget.open) void refresh() }}>
-        <summary>Saved reviews{loaded ? ` (${runs.length})` : ''}</summary>
+        <summary ref={summary}>Saved reviews{loaded ? ` (${runs.length})` : ''}</summary>
         <div className="saved-reviews-content">
           {loadFailed ? <div className="review-report-actions">
             <button type="button" onClick={() => { setNotice(''); void refresh() }}>Retry saved reviews</button>
@@ -198,7 +218,7 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
             ? <p className="panel-copy">No saved reviews yet. Finish a review, then choose Save review.</p>
             : <>
               <label htmlFor="saved-review-choice">Choose a saved review</label>
-              <select id="saved-review-choice" value={selectedId} disabled={working} onChange={event => setSelectedId(event.target.value)}>
+              <select ref={choice} id="saved-review-choice" value={selectedId} disabled={working} onChange={event => setSelectedId(event.target.value)}>
                 {runs.map(run => <option key={run.id} value={run.id}>
                   {run.title} · {run.settings.engine.name} · D{run.settings.depth} · {new Date(run.finishedAt).toLocaleString()}{run.complete ? '' : ' · Partial'}
                 </option>)}
@@ -217,7 +237,7 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
                   <button type="button" disabled={busy || working} onClick={() => { void open() }}>
                     {sameLine ? 'Use saved review' : 'Open reviewed line'}
                   </button>
-                  <button type="button" disabled={working} onClick={() => { void remove() }}>Delete saved review</button>
+                  <button type="button" disabled={working} onClick={event => { void remove(event.currentTarget) }}>Delete saved review</button>
                   <button type="button" disabled={busy || working || !report || !sameLine} onClick={() => { void compare() }}
                     title={sameLine && report ? 'Compare position readings with the report currently open.' : 'Open or review this same line first.'}>
                     Compare with open review

@@ -1,0 +1,35 @@
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 191 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-m_0vzQ90.js   60.55 kB
+dist/assets/LibraryDialog-BG8YTy1f.css        4.36 kB │ gzip:   1.17 kB
+dist/assets/index-DfCtZuBM.css              131.78 kB │ gzip:  24.56 kB
+dist/assets/NewGameDialog-4RLSb8xc.js         4.26 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-CBbGp8hK.js        11.14 kB │ gzip:   3.98 kB
+dist/assets/PgnDialog-z3_swkwL.js            29.75 kB │ gzip:   9.95 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-D3SMPnYu.js               386.06 kB │ gzip: 124.71 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 3.68s
+  review deletion focus (1280×900, 1x, dark): retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained
+  review deletion focus (375×812, 1x, light): retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained
+  review deletion focus (320×812, 2x, light): retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained
+  review deletion focus (844×390, 2x, dark): retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained
+  saved reviews (1280px, dark): two producers survive reload; comparison keeps own scores/WDL and navigates; open another line, export, delete and 200% text fit
+  saved reviews (375px, light): two producers survive reload; comparison keeps own scores/WDL and navigates; open another line, export, delete and 200% text fit
+  saved review storage: quota failure is explicit and retryable; corrupt readings preserve the board; two tabs fill one free slot without eviction
+  saved ending (checkmate, 375px): completed report saves, reopens and exports with 1 engine readings
+  saved ending (insufficient material, 375px): completed report saves, reopens and exports with 0 engine readings
+  review naming (1280px): selected draft/cancel, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery
+  review naming (375px): selected draft/cancel, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery
+  review backup export (1280px): a native worker exports complete/partial runs with exact WDL, settings and timestamps; 200% text and download failure preserve the open report
+  review backup export (375px): a native worker exports complete/partial runs with exact WDL, settings and timestamps; 200% text and download failure preserve the open report
+Focused browser UI checks passed.

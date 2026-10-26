@@ -1564,6 +1564,137 @@ async function checkSavedReviews(browser) {
   }
 }
 
+async function checkSavedReviewDeleteFocus(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height } })
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'review',
+          autoAnalyze: false, engineProfile: 'lite-single-local', reviewMaxWorkers: 1, theme,
+        }))
+        const remove = IDBObjectStore.prototype.delete
+        IDBObjectStore.prototype.delete = function (...args) {
+          if (window.__failReviewDelete) { window.__failReviewDelete = false; throw new Error('QA review deletion failed. Try again.') }
+          return remove.apply(this, args)
+        }
+        const open = IDBFactory.prototype.open
+        IDBFactory.prototype.open = function (name, ...args) {
+          const request = open.call(this, name, ...args)
+          if (name === 'web-chess-reviews' && window.__holdNextReviewOpen) {
+            window.__holdNextReviewOpen = false
+            Object.defineProperty(request, 'onsuccess', { set(handler) {
+              request.addEventListener('success', event => { window.__releaseReviewOpen = () => handler.call(request, event) })
+            } })
+          }
+          return request
+        }
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      const review = page.getByRole('button', { name: 'Review Game', exact: true })
+      await review.click()
+      await review.waitFor()
+      const report = await page.getByTestId('review-run-summary').innerText()
+      await page.getByRole('button', { name: 'Save review', exact: true }).click()
+      await page.getByText('Review saved on this device.', { exact: false }).waitFor()
+      const stored = async () => page.evaluate(() => new Promise((resolve, reject) => {
+        const request = indexedDB.open('web-chess-reviews', 1)
+        request.onsuccess = () => {
+          const db = request.result, tx = db.transaction('runs', 'readonly'), read = tx.objectStore('runs').getAll()
+          read.onsuccess = () => { db.close(); resolve(read.result) }
+          read.onerror = () => { db.close(); reject(read.error) }
+        }
+        request.onerror = () => reject(request.error)
+      }))
+      const [original] = await stored()
+      await page.evaluate(() => new Promise((resolve, reject) => {
+        const request = indexedDB.open('web-chess-reviews', 1)
+        request.onsuccess = () => {
+          const db = request.result, tx = db.transaction('runs', 'readwrite'), store = tx.objectStore('runs'), read = store.getAll()
+          read.onsuccess = () => store.add({ ...read.result[0], id: 'delete-focus-second', title: 'Second saved review ♞', finishedAt: read.result[0].finishedAt + 1 })
+          tx.oncomplete = () => { db.close(); resolve() }
+          tx.onabort = () => { db.close(); reject(tx.error) }
+        }
+        request.onerror = () => reject(request.error)
+      }))
+      const panel = page.locator('.saved-reviews'), summary = panel.locator('summary')
+      await summary.click()
+      await summary.click()
+      const choice = page.getByLabel('Choose a saved review', { exact: true })
+      await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 2)
+      await choice.selectOption(original.id)
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${16 * scale}px` }, scale)
+      const remove = panel.getByRole('button', { name: 'Delete saved review', exact: true })
+      const focused = control => control.evaluate(el => document.activeElement === el)
+      const visibleFocus = control => control.evaluate(el => {
+        const r = el.getBoundingClientRect()
+        return r.left >= 0 && r.right <= innerWidth + 1 && r.top >= 0 && r.bottom <= innerHeight + 1
+          && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+      })
+      await page.evaluate(() => { window.__failReviewDelete = true })
+      await remove.focus()
+      await remove.press('Enter')
+      await panel.getByRole('status').filter({ hasText: 'QA review deletion failed.' }).waitFor()
+      assert(await focused(remove) && await remove.isEnabled(), 'failed deletion did not return to an enabled retry button')
+      assert(await visibleFocus(remove), 'retry focus is obscured')
+      assert((await stored()).length === 2, 'failed deletion changed stored reviews')
+      await remove.press('Enter')
+      await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 1)
+      await page.waitForFunction(() => document.activeElement?.id === 'saved-review-choice')
+      assert(await visibleFocus(choice), 'the remaining review selector is obscured')
+      assert(await choice.inputValue() === 'delete-focus-second', 'deletion selected a missing review')
+      assert((await stored()).length === 1, 'successful deletion did not commit exactly one removal')
+      assert(await page.getByTestId('review-run-summary').innerText() === report, 'deletion replaced the open report')
+      // Add the first record back to exercise a pending write without losing
+      // the user's newly focused destination when storage completes.
+      await page.evaluate(saved => new Promise((resolve, reject) => {
+        const request = indexedDB.open('web-chess-reviews', 1)
+        request.onsuccess = () => {
+          const db = request.result, tx = db.transaction('runs', 'readwrite')
+          tx.objectStore('runs').add(saved)
+          tx.oncomplete = () => { db.close(); resolve() }
+          tx.onabort = () => { db.close(); reject(tx.error) }
+        }
+        request.onerror = () => reject(request.error)
+      }), original)
+      await summary.click()
+      await summary.click()
+      await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 2)
+      await choice.selectOption(original.id)
+      await page.evaluate(() => { window.__holdNextReviewOpen = true; window.__releaseReviewOpen = null })
+      await remove.click()
+      await page.waitForFunction(() => typeof window.__releaseReviewOpen === 'function')
+      await review.focus()
+      await page.evaluate(() => window.__releaseReviewOpen())
+      await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 1
+        && !document.querySelector('#saved-review-choice')?.disabled)
+      assert(await focused(review), 'delayed deletion stole the user’s new focus')
+      await remove.focus()
+      await remove.press('Space')
+      await panel.getByText('No saved reviews yet.', { exact: false }).waitFor()
+      await page.waitForFunction(() => document.activeElement?.matches('.saved-reviews summary'))
+      assert(await visibleFocus(summary), 'the empty-list disclosure is obscured')
+      assert(await summary.evaluate(el => el.parentElement.open), 'deletion unexpectedly closed Saved reviews')
+      assert((await stored()).length === 0, 'the last deletion did not commit')
+      assert(await page.getByRole('button', { name: 'Export review', exact: true }).isEnabled(), 'last deletion removed the displayed report')
+      assert(await page.getByTestId('review-run-summary').innerText() === report, 'last deletion changed the open report')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'deletion focus overflows the page')
+      await page.screenshot({ path: `/tmp/web-chess-review-delete-focus-${width}-${scale}x.png` })
+      await page.keyboard.press('Tab')
+      assert(await focused(panel.getByRole('button', { name: 'Import review backup', exact: true })), 'empty-list Tab order lost the next usable action')
+      assert(errors.length === 0, `saved review deletion errors: ${errors.join('; ')}`)
+      console.log(`  review deletion focus (${width}×${height}, ${scale}x, ${theme}): retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkSavedReviewRenaming(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 900 } })
@@ -15453,6 +15584,7 @@ async function main() {
       'review-source': checkReviewUsesSelectedEngine,
       'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
       'review-list-scroll': checkReviewListFollowsPosition,
+      'review-delete-focus': checkSavedReviewDeleteFocus,
       'saved-reviews': async browser => { await checkSavedReviews(browser); await checkSavedReviewStorage(browser); await checkSavedReviewEndings(browser) },
       'review-renaming': checkSavedReviewRenaming,
       'review-branch-names': checkReviewBranchNames,
@@ -16251,6 +16383,7 @@ async function main() {
     await checkPvPreviewAndCommit(browser)
     await checkReviewUsesSelectedEngine(browser, true)
     await checkSavedReviews(browser)
+    await checkSavedReviewDeleteFocus(browser)
     await checkSavedReviewRenaming(browser)
     await checkReviewBranchNames(browser)
     await checkSavedReviewStorage(browser)
