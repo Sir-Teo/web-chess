@@ -410,6 +410,10 @@
     color: var(--text-tertiary);
 }
 
+.fen-setup-raw-help {
+    overflow-wrap: anywhere;
+}
+
 .dialog-check-option {
     display: inline-flex;
     align-items: center;

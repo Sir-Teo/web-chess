@@ -1,0 +1,3 @@
+{"before":"4k3/8/8/3pP3/8/8/8/4K3 w - a9 17 24","after":"4k3/8/8/3pP3/8/8/8/4K3 w - - 17 24"}
+Error: Selecting the already shown side silently repairs unrelated malformed EP
+    at /tmp/web-chess-same-side-probe.cjs:15:44

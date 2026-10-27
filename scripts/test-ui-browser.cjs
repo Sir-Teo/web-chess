@@ -16921,6 +16921,46 @@ async function checkSetupMetadataControls(browser) {
       const whiteK = dialog.getByRole('checkbox', { name: 'White kingside', exact: true })
       const whiteQ = dialog.getByRole('checkbox', { name: 'White queenside', exact: true })
       const load = dialog.getByRole('button', { name: 'Load & Analyze', exact: true })
+      for (const token of ['a9', 'd6junk']) {
+        const raw = mixed.replace(' d6 ', ` ${token} `)
+        await input.fill(raw); await white.click()
+        assert(await input.inputValue() === raw && await load.isDisabled(), 'reselecting the current side repaired unrelated malformed EP')
+        await side.getByRole('button', { name: 'Black', exact: true }).click()
+        assert(await input.inputValue() === raw.replace(' w ', ' b ').replace(` ${token} `, ' - '), 'an actual side change failed to clear only incompatible EP')
+      }
+      const placement = mixed.split(' ')[0]
+      await input.fill(`${placement} w KQkq`); await white.click()
+      assert(await input.inputValue() === `${placement} w KQkq`, 'same-side selection filled an unrequested missing EP field')
+      for (const token of ['z', 'WHITE', 'w'.repeat(120)]) {
+        const raw = mixed.replace(' w ', ` ${token} `).replace(' d6 ', ' a9 ').replace('17 23', '17junk 23')
+        await input.fill(raw)
+        assert(await side.getAttribute('aria-invalid') === 'true' && await white.getAttribute('aria-pressed') === 'false'
+          && await side.getByRole('button', { name: 'Black', exact: true }).getAttribute('aria-pressed') === 'false', 'invalid raw side appears as a valid White selection')
+        const help = await side.evaluate(el => document.getElementById(el.getAttribute('aria-describedby'))?.textContent)
+        assert(help.includes('Choose White or Black') && help.length < 100, 'invalid raw side has no bounded associated guidance')
+        await white.focus(); await page.keyboard.press('Tab')
+        assert(await input.inputValue() === raw, 'reading invalid side repaired the draft')
+        if (token.length > 32) {
+          await side.scrollIntoViewIfNeeded()
+          assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'long side guidance overflows')
+          const contrast = await page.evaluate(contrastProbe, '.fen-setup-raw-help')
+          assert(contrast.checked === 1 && contrast.failures.length === 0, `raw side guidance contrast: ${JSON.stringify(contrast)}`)
+          await page.screenshot({ path: `/tmp/web-chess-raw-side-${width}.png` })
+        }
+        await white.click()
+        assert(await input.inputValue() === raw.replace(` ${token} `, ' w ') && await side.getAttribute('aria-invalid') === null
+          && await load.isDisabled(), 'repairing raw side also changed EP/castling/counters')
+      }
+      await input.fill(placement)
+      assert(await side.getAttribute('aria-invalid') === 'true', 'missing side has no repair guidance')
+      await white.click()
+      assert(await input.inputValue() === `${placement} w` && await load.isDisabled(), 'choosing missing side supplied other unrequested fields')
+      for (const suffix of ['', ' w', ' w KQkq']) {
+        await input.fill(placement + suffix)
+        await side.getByRole('button', { name: 'Black', exact: true }).click()
+        assert(await input.inputValue() === placement + (suffix ? suffix.replace(' w', ' b') : ' b')
+          && await load.isDisabled(), 'choosing Black filled unrequested missing castling or EP fields')
+      }
       await input.fill(mixed)
       await half.fill('18')
       assert(await input.inputValue() === mixed.replace('17 23', '18 23'), 'Halfmove silently repaired unrelated castling or EP fields')
@@ -16960,6 +17000,8 @@ async function checkSetupMetadataControls(browser) {
       await dialog.waitFor({ state: 'detached' })
       await page.locator('#chessboard-square-e1').click(); await page.locator('#chessboard-square-g1').click()
       await page.locator('#chessboard-square-f1 [data-piece="wR"]').waitFor()
+      await page.locator('#chessboard-square-g1 [data-piece="wK"]').waitFor()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e1')?.getAttribute('aria-label')?.includes('empty') && document.querySelectorAll('.mtree-chip').length === 1)
       await page.locator('#chessboard-square-e8').click(); await page.locator('#chessboard-square-c8').click()
       await page.locator('#chessboard-square-d8 [data-piece="bR"]').waitFor()
       await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
@@ -16968,7 +17010,7 @@ async function checkSetupMetadataControls(browser) {
         && await page.locator('.board-surface [data-piece]').count() === 5 && await page.locator('.mtree-chip').count() === 2, 'the explicit metadata repairs lost exact counters or retained castling ability')
       assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `metadata editing errors: ${errors.join('; ')}`)
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'metadata editing overflows')
-      console.log(`  setup metadata (${width}px, ${scale}x, ${theme}): counters/castling toggles/same-side selection preserve independent raw errors; actual side changes clear EP only; counter edit completes missing fields; explicit repairs retain exact pieces, castles and final FEN/counters`)
+      console.log(`  setup metadata (${width}px, ${scale}x, ${theme}): malformed/missing side has bounded guidance and no false selection; side repair/same-side selection preserve malformed or missing EP and other fields; counters/castling toggles preserve independent raw errors; actual side changes clear EP only; counter edit completes missing fields; explicit repairs retain exact pieces, castles and final FEN/counters`)
     } finally { await context.close() }
   }
 }

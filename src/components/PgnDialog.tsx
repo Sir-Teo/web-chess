@@ -161,6 +161,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const archiveUserId = useId()
     const archiveCountId = useId()
     const enPassantId = useId()
+    const sideHelpId = useId()
     const castlingHelpId = useId()
     const downloadErrorId = useId()
     const feedbackGenerationRef = useRef(0)
@@ -466,6 +467,10 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const canLoadFen = Boolean(fenText.trim()) && !fenValidationError
     const canCopyShareLink = fenShareValidation.ok
     const canImportPgn = Boolean(importText.trim()) && !importContentError
+    const rawTurn = fenText.trim() ? rawSetupFields[1] : setup.turn
+    const invalidSetupTurn = rawTurn !== 'w' && rawTurn !== 'b'
+    const turnPreview = rawTurn === undefined ? ''
+        : truncateUtf16(rawTurn, 32) + (rawTurn.length > 32 ? '…' : '')
     const enPassantTargets = setupEnPassantTargets(setup)
     const rawEnPassant = fenText.trim() ? rawSetupFields[3] : setup.enPassant
     const unavailableEnPassant = rawEnPassant !== '-' && !enPassantTargets.includes(rawEnPassant as Square)
@@ -912,7 +917,9 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                     <div className="fen-setup-controls">
                                         <div className="fen-setup-control-block">
                                             <span className="dialog-label">Side</span>
-                                            <div className="fen-side-toggle" role="group" aria-label="Side to move">
+                                            <div className="fen-side-toggle" role="group" aria-label="Side to move"
+                                                aria-invalid={invalidSetupTurn || undefined}
+                                                aria-describedby={invalidSetupTurn ? sideHelpId : undefined}>
                                                 {([
                                                     { value: 'w', label: 'White' },
                                                     { value: 'b', label: 'Black' },
@@ -920,17 +927,23 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                                     <button
                                                         key={option.value}
                                                         type="button"
-                                                        className={`mode-card fen-side-btn ${setup.turn === option.value ? 'selected' : ''}`}
-                                                        aria-pressed={setup.turn === option.value}
+                                                        className={`mode-card fen-side-btn ${rawTurn === option.value ? 'selected' : ''}`}
+                                                        aria-pressed={rawTurn === option.value}
                                                         onClick={() => {
                                                             const next = updateSetupTurn(setup, option.value)
-                                                            updateRawSetupFields([[1, next.turn], [3, next.enPassant]])
+                                                            // A missing EP field has no declaration to adjust.
+                                                            updateRawSetupFields(next.turn === setup.turn || (Boolean(fenText.trim()) && rawSetupFields[3] === undefined)
+                                                                ? [[1, next.turn]]
+                                                                : [[1, next.turn], [3, next.enPassant]])
                                                         }}
                                                     >
                                                         <strong>{option.label}</strong>
                                                     </button>
                                                 ))}
                                             </div>
+                                            {invalidSetupTurn && <p id={sideHelpId} className="fen-setup-help fen-setup-raw-help">
+                                                {rawTurn === undefined ? 'Missing in FEN.' : `FEN: “${turnPreview}”.`} Choose White or Black.
+                                            </p>}
                                         </div>
                                         <div className="fen-setup-control-block">
                                             <span className="dialog-label">Castling</span>

@@ -1,0 +1,3 @@
+{"before":"4k3/8/8/3pP3/8/8/8/4K3","after":"4k3/8/8/3pP3/8/8/8/4K3 b - -"}
+Error: Choosing a missing Black side supplies unrequested castling and EP fields
+    at /tmp/web-chess-missing-black-probe.cjs:15:49

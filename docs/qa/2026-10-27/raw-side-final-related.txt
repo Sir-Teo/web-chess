@@ -1,0 +1,5 @@
+  empty FEN controls (1280px, 1x, dark): reading preserves the empty box; seven metadata actions rebuild the shown diagram and declarations; safe counters/whitespace defaults; explicit Load and both real castles retain exact pieces/FEN
+  empty FEN controls (375px, 2x, light): reading preserves the empty box; seven metadata actions rebuild the shown diagram and declarations; safe counters/whitespace defaults; explicit Load and both real castles retain exact pieces/FEN
+  empty FEN controls (320px, 2x, dark): reading preserves the empty box; seven metadata actions rebuild the shown diagram and declarations; safe counters/whitespace defaults; explicit Load and both real castles retain exact pieces/FEN
+  position setup (1280px): d6 survives a counter edit, can be cleared/restored, and allows a real en passant capture
+  position setup (375px): e3 survives a counter edit, can be cleared/restored, and allows a real en passant capture
