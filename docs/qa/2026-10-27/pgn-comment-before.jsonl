@@ -1,0 +1,6 @@
+{"name":"reorderPgnAnnotations","size":10000,"ms":68.44616500000001,"unchanged":true}
+{"name":"reorderPgnAnnotations","size":20000,"ms":390.896749,"unchanged":true}
+{"name":"reorderPgnAnnotations","size":40000,"ms":1000.471893,"unchanged":true}
+{"name":"sameGameKey","size":10000,"ms":86.65795800000001,"unchanged":true}
+{"name":"sameGameKey","size":20000,"ms":391.5418729999999,"unchanged":true}
+{"name":"sameGameKey","size":40000,"ms":1462.521542,"unchanged":true}

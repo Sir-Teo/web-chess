@@ -1,0 +1,42 @@
+
+> web-chess@1.0.0 verify
+> npm run typecheck && npm run lint && npm test && npm run build
+
+
+> web-chess@1.0.0 typecheck
+> tsc -b
+
+
+> web-chess@1.0.0 lint
+> eslint .
+
+
+> web-chess@1.0.0 test
+> vitest run
+
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/__fuzz.test.ts (54 tests | 1 failed) 1553ms
+   × survives: many braces 1176ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__fuzz.test.ts > survives: many braces
+AssertionError: many braces took 1170ms: expected 1170.164241 to be less than 1000
+ ❯ src/__fuzz.test.ts:38:51
+     36|     const ms = performance.now() - t0
+     37|     // Fails loudly with the timing if anything is pathological.
+     38|     expect(ms, `${name} took ${ms.toFixed(0)}ms`).toBeLessThan(1000)
+       |                                                   ^
+     39|   })
+     40| }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 122 passed (123)
+      Tests  1 failed | 1928 passed | 1 skipped (1930)
+   Start at  01:16:48
+   Duration  33.65s (transform 3.39s, setup 0ms, import 28.69s, tests 51.10s, environment 13ms)
+

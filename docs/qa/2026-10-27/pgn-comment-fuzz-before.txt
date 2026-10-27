@@ -1,0 +1,26 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/__fuzz.test.ts (54 tests | 1 failed | 53 skipped) 17907ms
+   × survives: many braces 17906ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__fuzz.test.ts > survives: many braces
+AssertionError: many braces took 17900ms: expected 17900.328243000004 to be less than 1000
+ ❯ src/__fuzz.test.ts:39:51
+     37|     const ms = performance.now() - t0
+     38|     // Fails loudly with the timing if anything is pathological.
+     39|     expect(ms, `${name} took ${ms.toFixed(0)}ms`).toBeLessThan(1000)
+       |                                                   ^
+     40|   })
+     41| }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 53 skipped (54)
+   Start at  01:20:43
+   Duration  18.36s (transform 256ms, setup 0ms, import 321ms, tests 17.91s, environment 0ms)
+

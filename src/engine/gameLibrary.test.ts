@@ -25,6 +25,7 @@ import {
   sortLibraryGames,
   libraryPlayers,
   suggestGameName,
+  sameGameKey,
 } from './gameLibrary'
 import { pgnImportContentError, splitPgnGames } from './pgn'
 
@@ -39,6 +40,20 @@ const PGN = `[Event "Casual Game"]
 [ECO "C52"]
 
 1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Ba5 1-0`
+
+describe('saved-game identity', () => {
+  it('ignores comments, glyphs and repeated move numbers while keeping moves and headers', () => {
+    expect(sameGameKey('[Event "Game"]\n\n1. e4 { [%eval 0.3] } $1 e5 2. Nf3 *'))
+      .toBe(sameGameKey('[Event "Game"]\n\n1. e4 e5 2. Nf3 *'))
+    expect(sameGameKey('1. e4 {note} 1... e5 *')).toBe('e4 e5 *')
+    expect(sameGameKey('1. e4 {outer {inner} e5 *')).toBe('e4 e5 *')
+  })
+
+  it('retains text after an unterminated comment so malformed games stay distinct', () => {
+    expect(sameGameKey('1. e4 {unfinished {note')).toBe('e4 {unfinished {note')
+    expect(sameGameKey('1. e4 {unfinished {note')).not.toBe(sameGameKey('1. e4 *'))
+  })
+})
 
 describe('pgn header reading', () => {
   it('pulls the seven tag roster and the extras we show', () => {

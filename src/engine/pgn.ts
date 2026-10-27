@@ -752,10 +752,29 @@ function buildImportEntries(
  */
 export function reorderPgnAnnotations(pgnText: string): string {
     // NAGs first, so a `{a} $1 {b}` becomes `$1 {a} {b}` and then `$1 {a b}`.
-    const nagsBeforeComments = pgnText.replace(
-        /(\{[^}]*\})(\s*)((?:\$\d+)(?:\s+\$\d+)*)/g,
-        (_match, comment: string, gap: string, nags: string) => `${nags}${gap || ' '}${comment}`,
-    )
+    // Find each complete comment once. A global `{...}` pattern retries every
+    // opening brace when the closing brace is missing, freezing malformed imports.
+    const followingNags = /(\s*)((?:\$\d+)(?:\s+\$\d+)*)/y
+    let nagsBeforeComments = ''
+    let copiedThrough = 0
+    let cursor = 0
+    for (;;) {
+        const open = pgnText.indexOf('{', cursor)
+        if (open < 0) break
+        const close = pgnText.indexOf('}', open + 1)
+        if (close < 0) break
+        followingNags.lastIndex = close + 1
+        const match = followingNags.exec(pgnText)
+        if (match) {
+            nagsBeforeComments += pgnText.slice(copiedThrough, open)
+                + match[2] + (match[1] || ' ') + pgnText.slice(open, close + 1)
+            copiedThrough = followingNags.lastIndex
+            cursor = copiedThrough
+        } else {
+            cursor = close + 1
+        }
+    }
+    nagsBeforeComments += pgnText.slice(copiedThrough)
     return nagsBeforeComments.replace(/\}(\s*)\{/g, ' ')
 }
 

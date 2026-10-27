@@ -1189,6 +1189,18 @@ describe('annotation shapes chess.js will not take', () => {
     it('does not rewrite braces that are part of a comment body', () => {
         expect(reorderPgnAnnotations('1. e4 { a $1 b } *')).toBe('1. e4 { a $1 b } *')
     })
+
+    it('keeps NAG groups and their original gap when moving them before comments', () => {
+        expect(reorderPgnAnnotations('1. e4 {note}$1 $2 e5 {reply}\t$15 *'))
+            .toBe('1. e4 $1 $2 {note} e5 $15\t{reply} *')
+        expect(reorderPgnAnnotations('1. e4 {note}\u00a0$1 *'))
+            .toBe('1. e4 $1\u00a0{note} *')
+    })
+
+    it('leaves an unterminated comment and its annotations untouched', () => {
+        expect(reorderPgnAnnotations('1. e4 {unfinished {note $1 $2 *'))
+            .toBe('1. e4 {unfinished {note $1 $2 *')
+    })
 })
 
 describe('a PGN file as it arrives from a disk', () => {

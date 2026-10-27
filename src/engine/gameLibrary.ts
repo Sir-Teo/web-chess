@@ -556,5 +556,5 @@ export function parseLibraryBackup(json: string, now = 0): LibraryGame[] {
  */
 export function sameGameKey(pgn: string): string {
   // Move numbers too: a comment makes the exporter restate Black's ("13...").
-  return pgn.replace(/\{[^}]*\}/g, ' ').replace(/\$\d+|\b\d+\.(\.\.)?/g, ' ').replace(/\s+/g, ' ').trim()
+  return stripBlockComments(pgn).replace(/\$\d+|\b\d+\.(\.\.)?/g, ' ').replace(/\s+/g, ' ').trim()
 }
