@@ -2667,7 +2667,7 @@ function App() {
   useEffect(() => {
     if (status !== 'error' || !threatRequest) return
     setThreatRequest(null)
-    setThreatError('The engine could not finish reading the threat. Retry the engine, then ask again.')
+    setThreatError('The engine could not finish reading the threat. Ask again when the engine is ready.')
   }, [status, threatRequest])
 
   const activeThreat = threatResult && threatResult.boardFen === fen ? threatResult : null

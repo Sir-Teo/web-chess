@@ -11912,7 +11912,7 @@ async function checkThreatInterruptionRecovery(browser) {
         } else {
           await page.evaluate(() => window.__consoleEngine.onerror({ message: 'QA interrupted threat worker' }))
           await waitStatus('error')
-          await page.locator('.coach-threat-answer.error-copy').filter({ hasText: 'Retry the engine, then ask again.' }).waitFor()
+          await page.locator('.coach-threat-answer.error-copy').filter({ hasText: 'Ask again when the engine is ready.' }).waitFor()
         }
         await page.waitForFunction(() => document.querySelector('.coach-threat-btn')?.disabled === false)
         assert(await page.locator('.coach-threat-answer:not(.error-copy)').count() === 0, 'an interrupted search produced a threat answer')
