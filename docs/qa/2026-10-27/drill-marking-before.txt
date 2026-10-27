@@ -1,0 +1,7 @@
+  drill restart (1280×900, 1x, dark, White): three-move captured line survives browsing a shorter branch; misses reset, active autoplay stops, original answer advances and study is unchanged; explicitly starting another side follows the new branch while already drilling
+  drill restart (1280×900, 1x, dark, Black): three-move captured line survives browsing a shorter branch; misses reset, active autoplay stops, original answer advances and study is unchanged; explicitly starting another side follows the new branch while already drilling
+Error: Restart left touch marking active: true
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at markingOff (/workspace/web-chess/scripts/test-ui-browser.cjs:16248:19)
+    at async Object.checkDrillRestartKeepsItsLine (/workspace/web-chess/scripts/test-ui-browser.cjs:16269:9)
+    at async /tmp/web-chess-drill-restart-check.cjs:10:9

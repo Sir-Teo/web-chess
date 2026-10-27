@@ -16219,7 +16219,8 @@ async function checkDrillRestartKeepsItsLine(browser) {
   const pgn = '1. e4 (1. d4 d5 2. c4) e5 2. Nf3 Nc6 3. Bb5 a6 *'
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
     for (const side of ['White', 'Black']) {
-      const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+      const touch = width <= 900
+      const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', hasTouch: touch })
       const page = await context.newPage(), errors = []
       page.on('pageerror', error => errors.push(error.message))
       try {
@@ -16240,7 +16241,15 @@ async function checkDrillRestartKeepsItsLine(browser) {
           await page.locator(`#chessboard-square-${to}`).click()
         }
         const card = page.getByRole('region', { name: 'Line drill', exact: true })
+        const toggle = page.locator('.board-draw-toggle')
+        const markingOff = async phase => {
+          if (!touch) return
+          try { await page.waitForFunction(() => document.querySelector('.board-draw-toggle')?.getAttribute('aria-pressed') === 'false', null, { timeout: 2000 }) }
+          catch { fail(`${phase} left touch marking active: ${await toggle.getAttribute('aria-pressed')}`) }
+        }
+        if (touch) await toggle.click()
         await page.getByRole('button', { name: `Drill this line as ${side}`, exact: true }).click()
+        await markingOff('Starting a drill')
         await card.getByRole('status').filter({ hasText: `Playing ${side} · move 1 of 3` }).waitFor()
         if (side === 'White') await play('e2', 'e4')
         else await play('e7', 'e5')
@@ -16253,9 +16262,11 @@ async function checkDrillRestartKeepsItsLine(browser) {
         await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).click()
         await page.getByRole('button', { name: 'Set autoplay speed to Slow', exact: true }).click()
         await page.getByRole('button', { name: 'Stop autoplay', exact: true }).waitFor()
+        if (touch) { await toggle.click(); assert(await toggle.getAttribute('aria-pressed') === 'true', 'marking could not be enabled deliberately inside a drill') }
         const restart = card.getByRole('button', { name: 'Restart', exact: true })
         await restart.focus()
         await restart.press('Enter')
+        await markingOff('Restart')
         assert(await page.getByRole('button', { name: 'Stop autoplay', exact: true }).count() === 0, 'Restart left autoplay running while the drill asks for its first answer')
         try { await card.getByRole('status').filter({ hasText: `Playing ${side} · move 1 of 3` }).waitFor({ timeout: 3000 }) }
         catch { fail(`Restart abandoned the captured line: ${await card.getByRole('status').innerText()}`) }
@@ -16270,13 +16281,19 @@ async function checkDrillRestartKeepsItsLine(browser) {
         }
         await card.getByRole('status').filter({ hasText: `Playing ${side} · move 2 of 3` }).waitFor()
         assert(JSON.stringify(await page.locator('.mtree-chip').evaluateAll(chips => chips.map(chip => chip.dataset.nodeId))) === JSON.stringify(originalIds), 'Restart changed the study or recorded a rejected move')
-        await card.getByRole('button', { name: 'Stop drilling', exact: true }).click()
         await branch.click()
-        await page.getByRole('button', { name: `Drill this line as ${side}`, exact: true }).click()
-        await card.getByRole('status').filter({ hasText: `Playing ${side} · move 1 of ${side === 'White' ? 2 : 1}` }).waitFor()
+        if (touch) await toggle.click()
+        const otherSide = side === 'White' ? 'Black' : 'White'
+        await page.getByRole('button', { name: `Drill this line as ${otherSide}`, exact: true }).click()
+        await markingOff('Starting another side while a drill is active')
+        await card.getByRole('status').filter({ hasText: `Playing ${otherSide} · move 1 of ${otherSide === 'White' ? 2 : 1}` }).waitFor()
+        if (otherSide === 'White') await play('d2', 'd4')
+        else await play('d7', 'd5')
+        await card.getByRole('status').filter({ hasText: otherSide === 'White' ? 'move 2 of 2' : 'Line complete' }).waitFor()
+        assert(JSON.stringify(await page.locator('.mtree-chip').evaluateAll(chips => chips.map(chip => chip.dataset.nodeId))) === JSON.stringify(originalIds), 'new-side drawing handoff changed the study')
         assert(errors.length === 0, `drill restart errors: ${errors.join('; ')}`)
         assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'drill restart overflows')
-        console.log(`  drill restart (${width}×${height}, ${scale}x, ${theme}, ${side}): three-move captured line survives browsing a shorter branch; misses reset, active autoplay stops, original answer advances and study is unchanged; explicitly starting a new branch still follows it`)
+        console.log(`  drill restart (${width}×${height}, ${scale}x, ${theme}, ${side}): three-move captured line survives browsing a shorter branch; misses reset, active autoplay stops, original answer advances and study is unchanged; explicitly starting another side follows the new branch while already drilling${touch ? '; first start, Restart and side change leave marking and accept board moves' : ''}`)
       } finally { await context.close() }
     }
   }

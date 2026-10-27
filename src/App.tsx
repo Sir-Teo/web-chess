@@ -3875,31 +3875,12 @@ function App() {
     setDrawInProgress(null)
   }, [fen])
 
-  /**
-   * And the drawing *mode* ends where the board's purpose changes.
-   *
-   * Draw eats presses by design: while it is on, a tap is an arrow and not a
-   * move, which is right while the reader is annotating and a trap the moment
-   * the app hands the board back to be moved in. Measured at 375x812 with Draw
-   * on: switching to Play left it on and e2-e4 did nothing; a new game left it
-   * on; and a drill started with it on sat asking for a move that no tap could
-   * make, its own pill reading "Drill · 1/2" for as long as the reader kept
-   * trying. The blue ring round the board is the only thing that said why.
-   *
-   * The state above already says a mode that stops the board moving must not
-   * outlive the session that threw it -- "a board that would not move pieces on
-   * the next visit because of a switch thrown last week is a bug report". This
-   * is the same bug report over a shorter span.
-   *
-   * Off the transition, not the toggle: `drillRunning` is a boolean rather than
-   * the drill object, so this fires when a drill begins and not on every move
-   * inside one. Turning Draw on *within* Play or a drill is left alone -- that
-   * is a deliberate press against a board wearing the ring.
-   */
-  const drillRunning = drill !== null
+  // Entering Play gives the board back to pieces. Starting/restarting a
+  // drill handles that handoff directly, including an already active drill.
+  // Deliberately enabling drawing within either mode remains available.
   useEffect(() => {
-    if (workspaceMode === 'play' || drillRunning) endTouchDrawing()
-  }, [workspaceMode, drillRunning, endTouchDrawing])
+    if (workspaceMode === 'play') endTouchDrawing()
+  }, [workspaceMode, endTouchDrawing])
 
   /**
    * Notice a flag.
@@ -4418,6 +4399,7 @@ function App() {
     // Every start takes the board back, including Restart while a drill is
     // already active. A boolean drill-running effect cannot catch that case.
     setAutoplay(false)
+    endTouchDrawing()
     cancelStaleBackgroundAnalysis()
     stop()
     setReviewPractice(null)
@@ -4452,7 +4434,7 @@ function App() {
     // here`, the practice button, and the review list. The setter rather than
     // `requestBoardReveal`, which is declared further down.
     setBoardRevealTick(tick => tick + 1)
-  }, [cancelStaleBackgroundAnalysis, clearBoardSelection, drillableLine, game, gameTree, playDrillMoves, stop])
+  }, [cancelStaleBackgroundAnalysis, clearBoardSelection, drillableLine, endTouchDrawing, game, gameTree, playDrillMoves, stop])
 
   const returnToDrill = useCallback(() => {
     const question = drill?.expectedNodeId ? gameTree.getNode(drill.expectedNodeId) : undefined
