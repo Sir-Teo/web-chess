@@ -1062,7 +1062,7 @@ function App() {
 
   // ── Click-to-move (tap support) ───────────────────────
   const restoreBoardFocusRef = useRef<Square | null>(null)
-  const drillQuestionFocusRef = useRef(false)
+  const exerciseQuestionFocusRef = useRef<{ kind: 'drill' | 'practice'; fen: string } | null>(null)
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
   const [legalTargets, setLegalTargets] = useState<Square[]>([])
   const [pendingPromotion, setPendingPromotion] = useState<PendingPromotion | null>(null)
@@ -4455,7 +4455,7 @@ function App() {
     navigateAndPause(gameTree.navigateTo(question.id))
     setBoardRevealTick(tick => tick + 1)
     setAnalysisTab(previous => previous === 'engine-lab' ? 'analyze' : previous)
-    drillQuestionFocusRef.current = true
+    exerciseQuestionFocusRef.current = { kind: 'drill', fen: drill.expectedFen }
   }, [cancelStaleBackgroundAnalysis, drill, endTouchDrawing, gameTree, navigateAndPause, stop])
 
   const endDrill = useCallback(() => {
@@ -4494,6 +4494,10 @@ function App() {
     : !isDrillTurn(drill.line, drill.ply) ? 'The drill is complete'
       : drill.expectedFen !== fen ? 'Return to the drill question first'
         : drill.revealed ? 'The move is already shown' : null
+  const practiceRevealReason = !reviewPractice ? 'Start a review practice question first'
+    : reviewPractice.status === 'correct' ? 'This practice question is already solved'
+      : reviewPractice.beforeFen !== fen ? 'The practice position has changed'
+        : !reviewPracticeAwaitingAnswer ? 'The practice move is already shown' : null
 
   const applyHumanMove = useCallback(
     (from: Square, to: Square, promotion?: PromotionPiece) => {
@@ -5293,27 +5297,39 @@ function App() {
   }, [])
 
   const revealDrillMove = useCallback(() => {
-    if (drillRevealReason) return
+    if (drillRevealReason || !drill) return
     setDrill(previous => previous && previous === drill ? { ...previous, revealed: true } : previous)
     setAutoplay(false)
     endTouchDrawing()
     clearBoardSelection()
-    drillQuestionFocusRef.current = true
+    exerciseQuestionFocusRef.current = { kind: 'drill', fen: drill.expectedFen }
     requestBoardReveal()
   }, [clearBoardSelection, drill, drillRevealReason, endTouchDrawing, requestBoardReveal])
 
+  const revealPracticeMove = useCallback(() => {
+    if (practiceRevealReason || !reviewPractice) return
+    setReviewPractice(previous => previous === reviewPractice ? { ...previous, hintRequested: true } : previous)
+    setAutoplay(false)
+    endTouchDrawing()
+    clearBoardSelection()
+    exerciseQuestionFocusRef.current = { kind: 'practice', fen: reviewPractice.beforeFen }
+    requestBoardReveal()
+  }, [clearBoardSelection, endTouchDrawing, practiceRevealReason, requestBoardReveal, reviewPractice])
+
   useEffect(() => {
-    if (!drillQuestionFocusRef.current) return
-    if (!drill || drill.expectedFen !== fen) {
-      drillQuestionFocusRef.current = false
+    const request = exerciseQuestionFocusRef.current
+    if (!request) return
+    const currentQuestion = request.kind === 'drill' ? drill?.expectedFen : reviewPractice?.beforeFen
+    if (request.fen !== fen || currentQuestion !== fen) {
+      exerciseQuestionFocusRef.current = null
       return
     }
     if (backgroundUiHidden) return
     // A command runs while its closing palette still makes the board inert.
     // Wait for that commit before handing focus to the requested question.
-    drillQuestionFocusRef.current = false
+    exerciseQuestionFocusRef.current = null
     boardStageRef.current?.focus({ preventScroll: true })
-  }, [backgroundUiHidden, drill, fen])
+  }, [backgroundUiHidden, drill, fen, reviewPractice])
 
   // Each reveal owns its settle timers. New input, a modal, or the other
   // reveal supersedes them. Consumed requests never replay after cleanup.
@@ -6395,6 +6411,14 @@ function App() {
       run: revealDrillMove,
     },
     {
+      id: 'practice-reveal',
+      label: 'Show the practice move',
+      hint: practiceRevealReason ?? 'Reveal the reviewed best move without counting a wrong attempt',
+      keywords: ['review', 'hint', 'answer', 'help', 'stuck', 'reveal'],
+      disabled: Boolean(practiceRevealReason),
+      run: revealPracticeMove,
+    },
+    {
       id: 'drill-stop',
       label: 'Stop drilling',
       hint: drill ? 'Leave the line where it is' : 'No drill is running',
@@ -6443,7 +6467,7 @@ function App() {
   ], [analysisExperience, atVariationFork, autoFlipBoard, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyGameLink, copyPgn, copyPositionLink, drill, reviewFinishedGame, reviewFromPlay, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
     goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, moveEntryCommandReason, requestMoveEntry,
       goSiblingVariation, hintReason, isProbingThreat, isPositionStudy, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
-      previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay, drillRevealReason, revealDrillMove, drillReturnReason, returnToDrill,
+      previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay, drillRevealReason, revealDrillMove, drillReturnReason, returnToDrill, practiceRevealReason, revealPracticeMove,
       openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger,
       reviewFaultCount, reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason, workspaceMode])
 
@@ -8139,16 +8163,7 @@ function App() {
                           : `Practice · improve on ${reviewPractice.moveLabel}`}
                   </span>
                   {reviewPracticeAwaitingAnswer && (
-                    <button type="button" onClick={() => {
-                      if (reviewPractice.beforeFen !== fen) return
-                      setReviewPractice(previous => previous && previous.beforeFen === fen && previous.status !== 'correct'
-                        ? { ...previous, hintRequested: true } : previous)
-                      setAutoplay(false)
-                      endTouchDrawing()
-                      clearBoardSelection()
-                      requestBoardReveal()
-                      boardStageRef.current?.focus({ preventScroll: true })
-                    }}>
+                    <button type="button" onClick={revealPracticeMove}>
                       Show move
                     </button>
                   )}

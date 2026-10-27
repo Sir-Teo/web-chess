@@ -296,6 +296,8 @@ given, and the app answering the reader who touches it.
   snap back without adding junk variations, and the answer appears after two
   misses. **Show move** asks for help immediately without counting a miss;
   the hint stays visible through retries and resets for a fresh question.
+  **Show the practice move** in Commands offers the same help and returns
+  keyboard focus to the board.
   Promotions are graded exactly, including the chosen piece. Done
   returns to the game, so the next critical moment is where you left it — the
   solved line stays in the tree as a variation. Starting practice stops the

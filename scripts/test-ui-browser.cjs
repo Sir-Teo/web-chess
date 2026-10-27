@@ -16543,6 +16543,18 @@ async function checkPracticeOwnsTheBoard(browser) {
       if (await deepen.count()) { await deepen.click(); await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor() }
       const practice = page.getByRole('button', { name: 'Practice the position before 1. f3', exact: true })
       await practice.waitFor()
+      const practiceCommand = async () => {
+        await page.getByTestId('command-palette-btn').click()
+        await page.getByRole('combobox', { name: 'Search commands', exact: true }).fill('show practice move')
+        return page.locator('[data-command-id="practice-reveal"] button')
+      }
+      const disabledPracticeCommand = async reason => {
+        const command = await practiceCommand()
+        assert(await command.isDisabled() && (await command.innerText()).includes(reason), `practice hint command has no accurate disabled reason: ${await command.innerText()}`)
+        await page.getByRole('button', { name: 'Close Commands', exact: true }).click()
+        await page.locator('[data-command-palette="true"]').waitFor({ state: 'detached' })
+      }
+      await disabledPracticeCommand('Start a review practice question first')
       await page.getByRole('button', { name: 'Drill this line as White', exact: true }).click()
       await page.locator('.drill-card').getByRole('status').filter({ hasText: 'Playing White · move 1 of 2' }).waitFor()
       await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).click()
@@ -16612,6 +16624,28 @@ async function checkPracticeOwnsTheBoard(browser) {
       await practice.click()
       await show.waitFor()
       assert(await page.locator('.review-move-list .move-best').evaluateAll(cells => cells.every(cell => !cell.textContent.trim())), 'a previous requested hint followed practice into a new question')
+      await play('d2', 'd4')
+      await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).click()
+      await page.getByRole('button', { name: 'Set autoplay speed to Slow', exact: true }).click()
+      if (touch) await marking.click()
+      const command = await practiceCommand()
+      assert(await command.isEnabled(), 'the practice hint command is disabled during an unanswered question')
+      await command.click()
+      await page.locator('[data-command-palette="true"]').waitFor({ state: 'detached' })
+      await page.waitForFunction(() => document.activeElement?.classList.contains('board-stage'))
+      const commandFeedback = await prompt.getByRole('status').getAttribute('aria-label')
+      assert(commandFeedback.includes('The best move is e4.') && commandFeedback.includes('Attempt 1.'), 'the command hid its answer or changed the real attempt count')
+      assert(await show.count() === 0 && await page.getByRole('button', { name: 'Stop autoplay', exact: true }).count() === 0, 'the command left its hint hidden or replay running')
+      if (touch) assert(await marking.getAttribute('aria-pressed') === 'false', 'the practice hint command left marking active')
+      await disabledPracticeCommand('The practice move is already shown')
+      await play('e2', 'e4')
+      await prompt.getByRole('button', { name: 'Done', exact: true }).waitFor()
+      await disabledPracticeCommand('This practice question is already solved')
+      await prompt.getByRole('button', { name: 'Done', exact: true }).click()
+      await prompt.waitFor({ state: 'detached' })
+      await practice.click()
+      await show.waitFor()
+      assert(await page.locator('.review-move-list .move-best').evaluateAll(cells => cells.every(cell => !cell.textContent.trim())), 'the command’s hint followed practice into another question')
       if (touch) await marking.click()
       await page.getByRole('button', { name: 'Drill this line as White', exact: true }).click()
       await prompt.waitFor({ state: 'detached' })
@@ -16625,7 +16659,7 @@ async function checkPracticeOwnsTheBoard(browser) {
         && await page.locator('.mtree-chip').count() === 5, 'practice changed the original main line or duplicated its solution')
       assert(errors.length === 0, `practice ownership errors: ${errors.join('; ')}`)
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'practice handoff overflows')
-      console.log(`  practice ownership (${width}×${height}, ${scale}x, ${theme}): active f3 drill, Slow replay${touch ? ' and marking' : ''} yield to e4 practice; board focus, legal wrong-answer reset and correct solution work; Done restores the question; a new drill accepts f3; original line and one solution variation remain`)
+      console.log(`  practice ownership (${width}×${height}, ${scale}x, ${theme}): drill, replay${touch ? ' and marking' : ''} yield to e4 practice; card/Commands hint preserve attempts, stop replay and focus the board; disabled reasons cover inactive/revealed/solved questions; fresh questions hide hints; Done/drill handoffs and original line/one solution variation remain correct`)
     } finally { await context.close() }
   }
 }
