@@ -750,7 +750,7 @@ function buildImportEntries(
  * A `}` can only ever end a comment — PGN comments do not nest — so matching on
  * the braces cannot reach inside one.
  */
-export function reorderPgnAnnotations(pgnText: string): string {
+function reorderPgnMovetextAnnotations(pgnText: string): string {
     // NAGs first, so a `{a} $1 {b}` becomes `$1 {a} {b}` and then `$1 {a b}`.
     // Find each complete comment once. A global `{...}` pattern retries every
     // opening brace when the closing brace is missing, freezing malformed imports.
@@ -776,6 +776,36 @@ export function reorderPgnAnnotations(pgnText: string): string {
     }
     nagsBeforeComments += pgnText.slice(copiedThrough)
     return nagsBeforeComments.replace(/\}(\s*)\{/g, ' ')
+}
+
+export function reorderPgnAnnotations(pgnText: string): string {
+    // Tag values are quoted data, including any braces or NAG-looking text.
+    // Read the complete leading tag section, allowing inline tag pairs and
+    // escaped quotes/brackets, before touching annotations in the movetext.
+    const whitespace = /\s*/y
+    let cursor = 0
+    let headerEnd = 0
+    while (cursor < pgnText.length) {
+        whitespace.lastIndex = cursor
+        whitespace.exec(pgnText)
+        cursor = whitespace.lastIndex
+        if (pgnText[cursor] !== '[') break
+        cursor++
+        let quoted = false
+        let closed = false
+        while (cursor < pgnText.length) {
+            const character = pgnText[cursor++]
+            if (quoted && character === '\\') cursor++
+            else if (character === '"') quoted = !quoted
+            else if (character === ']' && !quoted) {
+                closed = true
+                break
+            }
+        }
+        if (!closed) break
+        headerEnd = cursor
+    }
+    return pgnText.slice(0, headerEnd) + reorderPgnMovetextAnnotations(pgnText.slice(headerEnd))
 }
 
 export function parsePgnMoveTree(pgnText: string): {

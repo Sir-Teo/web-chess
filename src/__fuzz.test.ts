@@ -18,6 +18,7 @@ const NASTY: Array<[string, string]> = [
   ['long token', '1. ' + 'e'.repeat(200000)],
   ['huge movetext', Array.from({ length: 40000 }, () => 'e4').join(' ')],
   ['bad headers', '[[[["""]]]]\n\n1. e4 *'],
+  ['unclosed header', '[Event "' + '{'.repeat(100000)],
   ['lone bracket', '['],
   ['nested braces', '{'.repeat(500) + 'x' + '}'.repeat(500)],
   ['alternating', '(){}'.repeat(20000)],

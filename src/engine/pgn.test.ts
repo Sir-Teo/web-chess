@@ -1201,6 +1201,29 @@ describe('annotation shapes chess.js will not take', () => {
         expect(reorderPgnAnnotations('1. e4 {unfinished {note $1 $2 *'))
             .toBe('1. e4 {unfinished {note $1 $2 *')
     })
+
+    it('preserves annotation-looking text inside PGN headers', () => {
+        const text = '[Event "Club {first} $1 Final"]\n[Site "Room } { North"]\n\n1. e4 *'
+        expect(reorderPgnAnnotations(text)).toBe(text)
+        expect(parsePgnMoveTree(text).headers).toMatchObject({
+            Event: 'Club {first} $1 Final', Site: 'Room } { North',
+        })
+    })
+
+    it('protects inline headers while still reordering actual move annotations', () => {
+        const header = '[Event "Club {first} $1 Final"] [Site "Room } { North"]'
+        const text = `${header}\n\n1. e4 {note} $1 e5 *`
+        expect(reorderPgnAnnotations(text)).toBe(`${header}\n\n1. e4 $1 {note} e5 *`)
+        expect(parsePgnMoveTree(text).headers).toMatchObject({
+            Event: 'Club {first} $1 Final', Site: 'Room } { North',
+        })
+    })
+
+    it('keeps brackets and escaped quotes within a header value', () => {
+        const header = '[Event "Club \\"[Final]\\" {first} $1"]'
+        expect(reorderPgnAnnotations(`${header}\n\n1. e4 {note} $1 e5 *`))
+            .toBe(`${header}\n\n1. e4 $1 {note} e5 *`)
+    })
 })
 
 describe('a PGN file as it arrives from a disk', () => {
