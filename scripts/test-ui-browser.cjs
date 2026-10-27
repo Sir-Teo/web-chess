@@ -21652,14 +21652,15 @@ async function main() {
 
       await page.locator('[data-command-input]').fill('libr')
       const filtered = await page.locator('[data-command-id]').allTextContents()
-      assert(filtered.length === 1 && /Library/.test(filtered[0]),
-        `${viewport.name}: typing "libr" left ${filtered.length} commands: ${filtered.join(', ')}`)
+      const filteredIds = await page.locator('[data-command-id]').evaluateAll(rows => rows.map(row => row.dataset.commandId))
+      assert(JSON.stringify(filteredIds) === JSON.stringify(['library', 'save-library']) && filtered.every(label => /Library/.test(label)),
+        `${viewport.name}: typing "libr" returned the wrong actions/order: ${filteredIds.join(', ')} (${filtered.join(', ')})`)
 
       // The count is the only feedback a screen-reader user gets when the list
       // narrows or empties; katrain's palette announces it and these did not.
       const countText = await page.locator('[data-command-count]').textContent()
-      assert(/^1 command$/.test((countText ?? '').trim()),
-        `${viewport.name}: the result count read "${countText}" for one match`)
+      assert(/^2 commands$/.test((countText ?? '').trim()),
+        `${viewport.name}: the result count read "${countText}" for two matches`)
 
       await page.keyboard.press('Enter')
       await page.locator('.library-dialog').waitFor({ timeout: 5000 })

@@ -1,0 +1,5 @@
+Library search in the full browser smoke — 27 October 2026
+
+The full production run at afefbb6 stopped in its first desktop smoke: the old assertion expected typing libr to return exactly one command. Save game to Library was added in 4104005, so returning Library followed by Save game to Library is correct. Update the harness to require those exact command IDs/order, both Library labels and the accessible two-command count. Enter still has to open Library and dismiss Commands; Escape has to close Library.
+
+The restarted full run passes all three initial smoke contexts (1280×800 desktop, 375×812 phone, 844×390 landscape), including those search/count/activation checks, board geometry, naming, shortcut, layout and the surrounding contrast checks. The after artifact ends at the third smoke completion. The broader run continues separately; this artifact is not a claim that it has completed. Script lint passes. No application behavior changes and no new push/merge.
