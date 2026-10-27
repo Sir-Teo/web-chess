@@ -16199,7 +16199,7 @@ async function checkReturnToDrill(browser) {
   const pgn = '1. e4 (1. d4 d5 2. c4) e5 2. Nf3 Nc6 3. Bb5 a6 *'
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
     for (const side of ['White', 'Black']) {
-      const touch = width === 375 && side === 'White' && browser.browserType().name() !== 'firefox'
+      const touch = width <= 900
       const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', ...(touch ? { hasTouch: true } : {}) })
       const page = await context.newPage(), errors = []
       page.on('pageerror', error => errors.push(error.message))
@@ -16215,6 +16215,16 @@ async function checkReturnToDrill(browser) {
         await page.locator('.pgn-dialog textarea').fill(pgn)
         await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
         await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+        const reasons = width === 1280 && side === 'White'
+        const inspectReason = async reason => {
+          await page.getByTestId('command-palette-btn').click()
+          await page.getByRole('combobox', { name: 'Search commands', exact: true }).fill('Return to the drill question')
+          const row = page.locator('[data-command-id="drill-return"]')
+          assert(await row.locator('button').isDisabled() && (await row.innerText()).includes(reason), `the unavailable return command omits its reason: ${reason}`)
+          await page.keyboard.press('Escape')
+          await page.locator('[data-command-palette="true"]').waitFor({ state: 'detached' })
+        }
+        if (reasons) await inspectReason('No drill is running')
         const ids = () => page.locator('.mtree-chip').evaluateAll(chips => chips.map(chip => chip.dataset.nodeId))
         const originalIds = await ids()
         const play = async (from, to) => {
@@ -16225,6 +16235,7 @@ async function checkReturnToDrill(browser) {
         const branch = page.getByRole('button', { name: /^Go to variation move 1\. d4/ })
         const returnButton = card.getByRole('button', { name: 'Return to drill', exact: true })
         await page.getByRole('button', { name: `Drill this line as ${side}`, exact: true }).click()
+        if (reasons) await inspectReason('Already at the drill question')
         if (width === 1280 || width === 320) {
           const openingIds = await page.locator('.mtree-chip-active').evaluateAll(chips => chips.map(chip => chip.dataset.nodeId))
           await branch.click()
@@ -16269,13 +16280,20 @@ async function checkReturnToDrill(browser) {
         const answer = side === 'White' ? 'Nf3' : 'Nc6'
         await card.getByText(`Not the line. It plays ${answer}.`, { exact: true }).waitFor()
         await branch.click()
-        await returnButton.click()
+        await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+        assert(await card.count() === 0, 'the fixture did not leave the drill card behind')
+        await page.getByTestId('command-palette-btn').click()
+        await page.getByRole('combobox', { name: 'Search commands', exact: true }).fill('Return to the drill question')
+        await page.locator('[data-command-id="drill-return"] button').click({ timeout: 5000 })
+        await page.locator('[data-command-palette="true"]').waitFor({ state: 'detached' })
+        assert(await page.getByRole('button', { name: 'Analyze', exact: true }).getAttribute('aria-pressed') === 'true', 'the return command left the drill card in another tab')
         await card.getByText(`Not the line. It plays ${answer}.`, { exact: true }).waitFor()
         await page.waitForFunction(() => document.activeElement?.classList.contains('board-stage'))
         await play(...(side === 'White' ? ['g1', 'f3'] : ['b8', 'c6']))
         await card.getByRole('status').filter({ hasText: `Playing ${side} · move 3 of 3` }).waitFor()
         await play(...(side === 'White' ? ['f1', 'b5'] : ['a7', 'a6']))
         await card.getByRole('status').filter({ hasText: 'Line complete' }).waitFor()
+        if (reasons) await inspectReason('The drill is complete')
         assert(await returnButton.count() === 0, 'a completed drill still offers Return')
         assert(JSON.stringify(await ids()) === JSON.stringify(originalIds), 'Return or a rejected answer changed the study')
         await card.getByRole('button', { name: 'Done', exact: true }).click()
@@ -16289,6 +16307,7 @@ async function checkReturnToDrill(browser) {
           await page.getByRole('button', { name: /^Confirm discarding the line through d4/ }).click()
           await card.getByText('That question is no longer in this study. Restart to practise the line again.', { exact: true }).waitFor()
           assert(await returnButton.isDisabled(), 'a removed question can return to an unrelated node')
+          if (reasons) await inspectReason('That question is no longer in this study; restart the drill')
           await card.getByRole('button', { name: 'Restart', exact: true }).click()
           await play('d2', 'd4')
           await card.getByRole('status').filter({ hasText: 'move 2 of 2' }).waitFor()

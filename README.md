@@ -285,7 +285,7 @@ given, and the app answering the reader who touches it.
   and a different thing as Black. Deliberately not a new subsystem: a repertoire
   line here is a line in the game tree, which means it is also a game in the
   library, which means it already imports, exports, saves and shares — load a
-  saved game and its line is drillable as it stands. Starting, stopping and
+  saved game and its line is drillable as it stands. Starting, stopping, returning and
   showing the drill move are in Commands too, each saying why it is unavailable rather than
   greying out in silence. Restart stops any replay and keeps the line you
   began drilling, even after browsing another branch; choose Drill this line

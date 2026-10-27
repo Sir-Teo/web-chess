@@ -1057,7 +1057,7 @@ function App() {
 
   // ── Click-to-move (tap support) ───────────────────────
   const restoreBoardFocusRef = useRef<Square | null>(null)
-  const revealDrillFocusRef = useRef(false)
+  const drillQuestionFocusRef = useRef(false)
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
   const [legalTargets, setLegalTargets] = useState<Square[]>([])
   const [pendingPromotion, setPendingPromotion] = useState<PendingPromotion | null>(null)
@@ -4449,9 +4449,8 @@ function App() {
     setOrientation(drill.line.side)
     navigateAndPause(gameTree.navigateTo(question.id))
     setBoardRevealTick(tick => tick + 1)
-    // The Return button disappears. Give keyboard users the board immediately,
-    // including on desktop where the mobile reveal does not move focus.
-    boardStageRef.current?.focus({ preventScroll: true })
+    setAnalysisTab(previous => previous === 'engine-lab' ? 'analyze' : previous)
+    drillQuestionFocusRef.current = true
   }, [cancelStaleBackgroundAnalysis, drill, endTouchDrawing, gameTree, navigateAndPause, stop])
 
   const endDrill = useCallback(() => {
@@ -4480,6 +4479,12 @@ function App() {
   const drillBlackReason = drillableLine
     ? drillUnavailableReason(drillLineForSide('black')!)
     : 'There is no line on the board to drill.'
+  const drillQuestion = drill?.expectedNodeId ? gameTree.getNode(drill.expectedNodeId) : undefined
+  const canReturnToDrill = Boolean(drill && drillQuestion?.fen === drill.expectedFen && gameTree.root.fen === drill.rootFen)
+  const drillReturnReason = !drill ? 'No drill is running'
+    : !isDrillTurn(drill.line, drill.ply) ? 'The drill is complete'
+      : !canReturnToDrill ? 'That question is no longer in this study; restart the drill'
+        : drill.expectedFen === fen ? 'Already at the drill question' : null
   const drillRevealReason = !drill ? 'No drill is running'
     : !isDrillTurn(drill.line, drill.ply) ? 'The drill is complete'
       : drill.expectedFen !== fen ? 'Return to the drill question first'
@@ -5287,20 +5292,20 @@ function App() {
     setAutoplay(false)
     endTouchDrawing()
     clearBoardSelection()
-    revealDrillFocusRef.current = true
+    drillQuestionFocusRef.current = true
     requestBoardReveal()
   }, [clearBoardSelection, drill, drillRevealReason, endTouchDrawing, requestBoardReveal])
 
   useEffect(() => {
-    if (!revealDrillFocusRef.current) return
-    if (!drill?.revealed || drill.expectedFen !== fen) {
-      revealDrillFocusRef.current = false
+    if (!drillQuestionFocusRef.current) return
+    if (!drill || drill.expectedFen !== fen) {
+      drillQuestionFocusRef.current = false
       return
     }
     if (backgroundUiHidden) return
     // A command runs while its closing palette still makes the board inert.
-    // Wait for that commit before handing focus to the revealed question.
-    revealDrillFocusRef.current = false
+    // Wait for that commit before handing focus to the requested question.
+    drillQuestionFocusRef.current = false
     boardStageRef.current?.focus({ preventScroll: true })
   }, [backgroundUiHidden, drill, fen])
 
@@ -6337,6 +6342,14 @@ function App() {
       run: () => startDrill('black'),
     },
     {
+      id: 'drill-return',
+      label: 'Return to the drill question',
+      hint: drillReturnReason ?? 'Resume the exact question with your progress and hints intact',
+      keywords: ['repertoire', 'resume', 'continue', 'back', 'paused', 'practice'],
+      disabled: Boolean(drillReturnReason),
+      run: returnToDrill,
+    },
+    {
       id: 'drill-reveal',
       label: 'Show the drill move',
       hint: drillRevealReason ?? 'Reveal the prepared move without counting a wrong attempt',
@@ -6393,7 +6406,7 @@ function App() {
   ], [analysisExperience, atVariationFork, autoFlipBoard, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyGameLink, copyPgn, drill, reviewFinishedGame, reviewFromPlay, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
     goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, moveEntryCommandReason, requestMoveEntry,
       goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
-      previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay, drillRevealReason, revealDrillMove,
+      previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay, drillRevealReason, revealDrillMove, drillReturnReason, returnToDrill,
       openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger,
       reviewFaultCount, reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason, workspaceMode])
 
@@ -6795,8 +6808,7 @@ function App() {
     const awayFromLine = !finished && drill.expectedFen !== fen
     const expected = expectedDrillMove(drill.line, drill.ply)
     const answerSan = drill.revealed && expected ? uciToSan(drill.expectedFen, expected) ?? expected : null
-    const question = drill.expectedNodeId ? gameTree.getNode(drill.expectedNodeId) : undefined
-    const canReturn = question?.fen === drill.expectedFen && gameTree.root.fen === drill.rootFen
+    const canReturn = canReturnToDrill
     const progress = finished
       ? `Line complete — ${total} ${total === 1 ? 'move' : 'moves'} practised.`
       : awayFromLine
