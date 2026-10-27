@@ -1,0 +1,3 @@
+{"loading":"Web Chess","ready":"Web Chess","thinking":"Web Chess","waiting":"Web Chess","paused":"Web Chess","moves":["e4"],"appError":0}
+Error: Watch-game tab title gives no feedback across loading, thinking, Step waiting and paused states
+    at /tmp/web-chess-watch-title-before.cjs:2:1930

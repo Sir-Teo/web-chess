@@ -10367,6 +10367,86 @@ async function checkPlayTabTitle(browser) {
   }
 }
 
+async function checkWatchTabTitle(browser) {
+  for (const [width, height, scale] of [[1280, 900, 1], [320, 480, 2]]) {
+    for (const scenario of ['slow-boot', 'silent-all']) {
+      const context = await browser.newContext({ viewport: { width, height }, hasTouch: width < 900, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      const waitTitle = prefix => page.waitForFunction(prefix => document.title === `${prefix} · Web Chess`, prefix)
+      const step = () => page.getByRole('button', { name: 'Advance one AI move', exact: true })
+      try {
+        await page.addInitScript(fakeEngineScript(scenario).replace('this.ordinal = window.__engineCount;', 'this.ordinal = window.__engineCount; window.__watchTitleEngine = this;'))
+        await page.addInitScript(() => {
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, engineProfile: 'lite-single-local', timeControlId: '3+2' }))
+          window.__holdPlayReady = true
+          window.__holdStepBootReply = true
+          window.__previewEndingPv = 'e2e4'
+        })
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${100 * scale}%` }, scale)
+        await startGameMode(page, 'AI vs AI')
+        await page.getByRole('button', { name: 'Set AI speed to Step', exact: true }).click()
+        if (scenario === 'silent-all') {
+          await page.getByRole('button', { name: 'Retry opponent', exact: true }).waitFor()
+          await waitTitle('Engine unavailable')
+          assert(await page.locator('.mtree-chip').count() === 0, 'failed watch boot played a move')
+        } else {
+          await page.waitForFunction(() => typeof window.__releasePlayReady === 'function')
+          await waitTitle('Engine loading')
+          await page.evaluate(() => window.__releasePlayReady())
+          await waitTitle('AI waiting for Step')
+          await step().press('Enter')
+          await waitTitle('Engine thinking')
+          await page.evaluate(() => window.__watchTitleEngine.finishSearch())
+          await page.waitForFunction(() => document.querySelectorAll('.mtree-chip').length === 1)
+          await waitTitle('AI waiting for Step')
+          await page.getByRole('button', { name: 'Set AI speed to Fast', exact: true }).click()
+          await page.getByRole('button', { name: 'Resume AI play', exact: true }).waitFor()
+          await waitTitle('AI paused')
+          await page.evaluate(() => { window.__previewEndingPv = 'e7e5' })
+          await page.getByRole('button', { name: 'Resume AI play', exact: true }).press('Enter')
+          await waitTitle('Engine thinking')
+          await page.getByRole('button', { name: 'Pause AI', exact: true }).press('Enter')
+          await waitTitle('AI paused')
+          await page.getByRole('button', { name: 'Set AI speed to Step', exact: true }).click()
+          await waitTitle('AI waiting for Step')
+          for (let failure = 0; failure < 2; failure++) {
+            await step().press('Enter')
+            await waitTitle('Engine thinking')
+            await page.evaluate(() => {
+              window.__holdPlayReady = true
+              window.__releasePlayReady = null
+              window.__watchTitleEngine.onerror({ message: 'QA watch runtime failure' })
+            })
+            if (!failure) {
+              await waitTitle('Engine loading')
+              await page.waitForFunction(() => typeof window.__releasePlayReady === 'function')
+              await page.evaluate(() => window.__releasePlayReady())
+              await waitTitle('AI waiting for Step')
+            }
+          }
+          await waitTitle('Engine unavailable')
+          assert((await page.locator('#play-opponent-report').textContent()).includes('is unavailable'), 'runtime failure is described as a boot failure')
+          await page.getByRole('button', { name: 'Retry opponent', exact: true }).press('Enter')
+          await waitTitle('Engine loading')
+          await page.waitForFunction(() => typeof window.__releasePlayReady === 'function')
+          await page.evaluate(() => window.__releasePlayReady())
+          await waitTitle('AI waiting for Step')
+          assert(await page.locator('.mtree-chip').count() === 1, 'title transitions or retry changed the watched game')
+          await page.getByRole('button', { name: 'Start new game', exact: true }).first().click()
+          await page.locator('.mode-card', { hasText: 'Human vs Human' }).click()
+          await page.locator('.btn-start').click()
+          await page.locator('.new-game-dialog').waitFor({ state: 'detached' })
+          assert(await page.title() === 'Web Chess', 'pass-and-play retained the previous watch status')
+        }
+        assert(errors.length === 0 && await page.locator('.app-error-shell').count() === 0, `watch title errors: ${errors.join('; ')}`)
+        console.log(`  watch title (${width}×${height}, ${scale}x, ${scenario}): ${scenario === 'slow-boot' ? 'loading, Step, thinking, pause, resume, runtime fallback/failure/retry; retained move and cleared status on pass-and-play' : 'failed startup reports unavailable without inventing a move'}`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkOpeningRequestRetry(browser) {
   for (const [width, scale] of [[1280, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -21226,6 +21306,7 @@ async function main() {
       'imported-counters': checkImportedCounterMeaning,
       'opening-retry': checkOpeningRequestRetry,
       'play-title': checkPlayTabTitle,
+      'watch-title': checkWatchTabTitle,
       'preview-endings': checkPreviewEndingFeedback,
       'dialog-handoff': checkDialogFocusHandoff,
       'palette-dialog-return': checkPaletteDialogReturn,
@@ -22144,6 +22225,7 @@ async function main() {
     await checkImportedCounterMeaning(browser)
     await checkOpeningRequestRetry(browser)
     await checkPlayTabTitle(browser)
+    await checkWatchTabTitle(browser)
     await checkPreviewEndingFeedback(browser)
     await checkDialogFocusHandoff(browser)
     await checkPaletteDialogReturn(browser)

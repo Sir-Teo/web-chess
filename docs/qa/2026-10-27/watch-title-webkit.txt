@@ -1,0 +1,11 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  watch title (1280×900, 1x, slow-boot): loading, Step, thinking, pause, resume, runtime fallback/failure/retry; retained move and cleared status on pass-and-play
+  watch title (1280×900, 1x, silent-all): failed startup reports unavailable without inventing a move
+  watch title (320×480, 2x, slow-boot): loading, Step, thinking, pause, resume, runtime fallback/failure/retry; retained move and cleared status on pass-and-play
+  watch title (320×480, 2x, silent-all): failed startup reports unavailable without inventing a move
+  play title (1280px): Your move, thinking, paused, waiting for Step, stepped search and resumed search
+  play title (1280px): held boot says loading; ready Step mode waits for the reader
+  play title (1280px): all boot attempts failed, failure appears in the tab
+  play title (375px): Your move, thinking, paused, waiting for Step, stepped search and resumed search
+  play title (375px): held boot says loading; ready Step mode waits for the reader
+  play title (375px): all boot attempts failed, failure appears in the tab

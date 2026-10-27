@@ -6973,8 +6973,8 @@ function App() {
     const parts: string[] = []
     if (gameResultLabel) {
       parts.push(gameResultLabel.split(' · ').pop() ?? gameResultLabel)
-    } else if (workspaceMode === 'play' && gameMode === 'human-vs-ai') {
-      if (game.turn() === playerColorToTurn(playerColor)) parts.push('Your move')
+    } else if (workspaceMode === 'play' && gameMode !== 'human-vs-human') {
+      if (gameMode === 'human-vs-ai' && game.turn() === playerColorToTurn(playerColor)) parts.push('Your move')
       else if (aiPlayerStatus === 'error') parts.push('Engine unavailable')
       else if (aiPlayerStatus === 'loading') parts.push('Engine loading')
       else if (aiSpeed === 'step' && !isAiThinking) parts.push('AI waiting for Step')

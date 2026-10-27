@@ -270,7 +270,7 @@ export function describePlayEngine({
   if (status === 'error') {
     return {
       failed: true,
-      message: `${profileName} could not start, so there is nobody to play against. `
+      message: `${profileName} is unavailable, so there is nobody to play against. `
         + 'Retry the opponent below to keep playing this game. Human vs Human and Analysis are still available.',
     }
   }
