@@ -271,6 +271,7 @@ type ReviewPracticeState = {
   expectedSan: string
   moveLabel: string
   attempts: number
+  hintRequested: boolean
   status: 'ready' | 'retry' | 'correct'
   solvedFen?: string
 }
@@ -910,6 +911,8 @@ function App() {
   const [pendingGameReview, setPendingGameReview] = useState(false)
   const pendingReviewOptionsRef = useRef<{ fresh?: boolean; depth?: number } | undefined>(undefined)
   const [reviewPractice, setReviewPractice] = useState<ReviewPracticeState | null>(null)
+  const reviewPracticeAwaitingAnswer = Boolean(reviewPractice && reviewPractice.status !== 'correct'
+    && !reviewPractice.hintRequested && reviewPractice.attempts < 2)
 
   // ── What a running review hands back ─────────────────
   const reviewSessionRef = useRef<ReviewSession | null>(null)
@@ -4035,8 +4038,8 @@ function App() {
 
     // A retry that draws the engine answer on the board is only theatre. Keep
     // the move that reached the position for orientation, but hide every hint
-    // and candidate until two misses reveal the answer or the move is solved.
-    if (reviewPractice && reviewPractice.status !== 'correct' && reviewPractice.attempts < 2) {
+    // and candidate until help is requested, two misses reveal it, or it is solved.
+    if (reviewPracticeAwaitingAnswer) {
       return list
     }
     if (drillAwaitingAnswer) return list
@@ -4099,7 +4102,7 @@ function App() {
     }
 
     return list
-  }, [activeThreat, currentBoardMove, drillAwaitingAnswer, engineEnabled, fen, hintMove, linePreview, lines, reviewPractice, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
+  }, [activeThreat, currentBoardMove, drillAwaitingAnswer, engineEnabled, fen, hintMove, linePreview, lines, reviewPracticeAwaitingAnswer, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
 
   /**
    * What the board is handed: everything the engine has to say, and then the
@@ -6456,6 +6459,7 @@ function App() {
       expectedSan,
       moveLabel,
       attempts: 0,
+      hintRequested: false,
       status: 'ready',
     })
     navigateAndPonder(chess)
@@ -7157,7 +7161,7 @@ function App() {
 
       {currentLastBestMove
         && !isGameOver
-        && (!reviewPractice || reviewPractice.status === 'correct' || reviewPractice.attempts >= 2)
+        && !reviewPracticeAwaitingAnswer
         && !drillAwaitingAnswer
         && (
           <p className="best-move" title={currentLastBestMove}>{isCandidateSearch ? 'Candidate' : 'Best'}: {bestMoveLabel(fen, currentLastBestMove)}</p>
@@ -8084,20 +8088,36 @@ function App() {
                     aria-live="polite"
                     aria-label={reviewPractice.status === 'correct'
                       ? `Correct. The best move was ${reviewPractice.expectedSan}.`
-                      : reviewPractice.attempts >= 2
-                        ? `Try again. The best move is ${reviewPractice.expectedSan}. Attempt ${reviewPractice.attempts}.`
+                      : !reviewPracticeAwaitingAnswer
+                        ? reviewPractice.status === 'retry'
+                          ? `Try again. The best move is ${reviewPractice.expectedSan}. Attempt ${reviewPractice.attempts}.`
+                          : `The best move is ${reviewPractice.expectedSan}. Play it on the board.`
                         : reviewPractice.status === 'retry'
                           ? `Not quite. The position was reset; try another move. Attempt ${reviewPractice.attempts}.`
                           : `Practice the position before ${reviewPractice.moveLabel}. Find a better move.`}
                   >
                     {reviewPractice.status === 'correct'
                       ? `Correct · ${reviewPractice.expectedSan}`
-                      : reviewPractice.attempts >= 2
+                      : !reviewPracticeAwaitingAnswer
                         ? `Answer · ${reviewPractice.expectedSan}`
                         : reviewPractice.status === 'retry'
                           ? 'Not quite · try again'
                           : `Practice · improve on ${reviewPractice.moveLabel}`}
                   </span>
+                  {reviewPracticeAwaitingAnswer && (
+                    <button type="button" onClick={() => {
+                      if (reviewPractice.beforeFen !== fen) return
+                      setReviewPractice(previous => previous && previous.beforeFen === fen && previous.status !== 'correct'
+                        ? { ...previous, hintRequested: true } : previous)
+                      setAutoplay(false)
+                      endTouchDrawing()
+                      clearBoardSelection()
+                      requestBoardReveal()
+                      boardStageRef.current?.focus({ preventScroll: true })
+                    }}>
+                      Show move
+                    </button>
+                  )}
                   <button type="button" onClick={exitReviewPractice}>
                     {reviewPractice.status === 'correct' ? 'Done' : 'Exit'}
                   </button>
@@ -9516,11 +9536,7 @@ function App() {
                         nodes={reviewLineNodes}
                         currentNodeId={gameTree.current.id}
                         showEngineDetail={analysisExperience === 'pro'}
-                        hideBestMoves={Boolean(
-                          reviewPractice
-                          && reviewPractice.status !== 'correct'
-                          && reviewPractice.attempts < 2
-                        )}
+                        hideBestMoves={reviewPracticeAwaitingAnswer}
                         onSelectNode={navigateReviewNode}
                       />
                     ) : (
@@ -9543,7 +9559,7 @@ function App() {
                             row.bestMove && row.bestMove !== row.uci ? `Best ${row.bestMoveSan ?? row.bestMove}` : null
                           const bestMoveLabel = row.bestMoveSan ?? row.bestMove
                           const practiceHidesAnswer = analysisExperience === 'beginner'
-                            && (!reviewPractice || (reviewPractice.status !== 'correct' && reviewPractice.attempts < 2))
+                            && (!reviewPractice || reviewPracticeAwaitingAnswer)
                           return (
                             <div
                               key={`${row.ply}-${row.uci}`}

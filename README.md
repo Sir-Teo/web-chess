@@ -294,7 +294,9 @@ given, and the app answering the reader who touches it.
 - **Practice critical moments**: In Coach mode, a critical mistake becomes a
   playable retry. Engine answers and candidate arrows are hidden, wrong moves
   snap back without adding junk variations, and the answer appears after two
-  misses. Promotions are graded exactly, including the chosen piece. Done
+  misses. **Show move** asks for help immediately without counting a miss;
+  the hint stays visible through retries and resets for a fresh question.
+  Promotions are graded exactly, including the chosen piece. Done
   returns to the game, so the next critical moment is where you left it — the
   solved line stays in the tree as a variation. Starting practice stops the
   line drill, autoplay and marking mode.

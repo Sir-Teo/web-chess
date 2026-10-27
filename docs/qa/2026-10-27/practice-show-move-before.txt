@@ -1,0 +1,11 @@
+locator.click: Timeout 5000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-review-practice]').getByRole('button', { name: 'Show move', exact: true })[22m
+
+    at Object.checkPracticeOwnsTheBoard (/workspace/web-chess/scripts/test-ui-browser.cjs:16309:18)
+    at async /tmp/web-chess-practice-ownership-check.cjs:10:9 {
+  log: [
+    "  - waiting for locator('[data-review-practice]').getByRole('button', { name: 'Show move', exact: true })"
+  ],
+  name: 'TimeoutError'
+}
