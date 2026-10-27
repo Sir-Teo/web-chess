@@ -1,0 +1,6 @@
+Error: Hidden drill fields still reveal moves through hover titles: ["e2e4","e7e5"]
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at hidden (/workspace/web-chess/scripts/test-ui-browser.cjs:16049:9)
+    at async Object.checkDrillHiddenHints (/workspace/web-chess/scripts/test-ui-browser.cjs:16057:7)
+    at async /tmp/web-chess-drill-hidden-hints-check.cjs:10:9

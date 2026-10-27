@@ -16015,6 +16015,83 @@ async function checkDrawModeEndsWithItsPurpose(browser) {
   } finally { await context.close() }
 }
 
+async function checkDrillHiddenHints(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, engineProfile: 'lite-single-local', theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(async scale => {
+        document.documentElement.style.fontSize = `${scale * 100}%`
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog textarea').fill('1. e4 e5 2. Nf3 Nc6 *')
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      const values = page.locator('.coach-grid > div strong')
+      const best = values.nth(1), reply = values.nth(2)
+      await page.waitForFunction(() => {
+        const values = document.querySelectorAll('.coach-grid > div strong')
+        return values[1]?.getAttribute('title') === 'e2e4' && values[2]?.getAttribute('title') === 'e7e5'
+      })
+      const titles = async () => [await best.getAttribute('title'), await reply.getAttribute('title')]
+      const hidden = async () => {
+        await page.waitForFunction(() => {
+          const values = document.querySelectorAll('.coach-grid > div strong')
+          return values[1]?.textContent === 'Hidden' && values[2]?.textContent === 'Hidden'
+        })
+        assert((await titles()).every(title => title === null), `Hidden drill fields still reveal moves through hover titles: ${JSON.stringify(await titles())}`)
+      }
+      const play = async (from, to) => {
+        await page.locator(`#chessboard-square-${from}`).click()
+        await page.locator(`#chessboard-square-${to}`).click()
+      }
+      const card = page.getByRole('region', { name: 'Line drill', exact: true })
+      await page.getByRole('button', { name: 'Drill this line as White', exact: true }).click()
+      await hidden()
+      await best.hover()
+      await reply.hover()
+      const squareLabels = await page.locator('[id^="chessboard-square-"]').evaluateAll(squares => squares.map(el => ({
+        square: el.id, label: el.getAttribute('aria-label') || el.querySelector('[aria-label]')?.getAttribute('aria-label'),
+        titles: [el.getAttribute('title'), ...[...el.querySelectorAll('[title]')].map(child => child.getAttribute('title'))],
+      })))
+      assert(squareLabels.length === 64 && squareLabels.every(square => square.label)
+        && squareLabels.some(square => square.square.endsWith('e2') && /White pawn/.test(square.label)), 'hiding drill hints removed useful board descriptions')
+      assert(squareLabels.every(square => !/e2e4|e7e5/.test([square.label, ...square.titles].join(' '))), 'a square label or hover title exposes an engine answer')
+      await page.locator('.analysis-experience-toggle').getByRole('button', { name: 'Pro', exact: true }).click()
+      await hidden()
+      await page.locator('.analysis-experience-toggle').getByRole('button', { name: 'Coach', exact: true }).click()
+      await play('d2', 'd4')
+      await hidden()
+      await play('b1', 'c3')
+      await card.getByText('Not the line. It plays e4.', { exact: true }).waitFor()
+      await page.waitForFunction(() => {
+        const values = document.querySelectorAll('.coach-grid > div strong')
+        return values[1]?.getAttribute('title') === 'e2e4' && values[2]?.getAttribute('title') === 'e7e5'
+      })
+      await play('e2', 'e4')
+      await card.getByRole('status').filter({ hasText: 'move 2 of 2' }).waitFor()
+      await hidden()
+      await card.getByRole('button', { name: 'Restart', exact: true }).click()
+      await hidden()
+      await card.getByRole('button', { name: 'Stop drilling', exact: true }).click()
+      await page.waitForFunction(() => {
+        const values = document.querySelectorAll('.coach-grid > div strong')
+        return values[1]?.getAttribute('title') === 'e2e4' && values[2]?.getAttribute('title') === 'e7e5'
+      })
+      assert(errors.length === 0, `drill hidden hint errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'hidden drill hints overflow')
+      console.log(`  drill hidden hints (${width}×${height}, ${scale}x, ${theme}): known best/reply titles disappear in Coach/Pro and through one miss, advance and restart; two misses/exit restore titles; native hover and all 64 useful square labels retain no answer coordinates`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkDrillRestartKeepsItsLine(browser) {
   const pgn = '1. e4 (1. d4 d5 2. c4) e5 2. Nf3 Nc6 3. Bb5 a6 *'
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
@@ -17323,6 +17400,7 @@ async function main() {
       'confirmation-keys': checkConfirmationKeys,
       'move-list-fit': checkMoveListFitting,
       'drill-restart': checkDrillRestartKeepsItsLine,
+      'drill-hints': checkDrillHiddenHints,
       'viewport-gesture': checkViewportResizePreservesGesture,
       'library-sorting': checkLibrarySorting,
       'library-lock-fallback': checkLibraryLockFallback,
@@ -18106,6 +18184,7 @@ async function main() {
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkTheReviewOfferFollowsTheGame(browser)
+    await checkDrillHiddenHints(browser)
     await checkDrillRestartKeepsItsLine(browser)
     await checkDrillLeavesTheLineAlone(browser)
     await checkADrillStaysInAnalysis(browser)

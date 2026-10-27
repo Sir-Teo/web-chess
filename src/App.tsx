@@ -8708,11 +8708,11 @@ function App() {
                       </div>
                       <div>
                         <span>{isCandidateSearch && !coachBestMoveIsTablebase ? 'Best candidate' : 'Best move'}</span>
-                        <strong title={coachBestMove ?? undefined}>{coachBestMoveText}</strong>
+                        <strong title={drillAwaitingAnswer ? undefined : coachBestMove ?? undefined}>{coachBestMoveText}</strong>
                       </div>
                       <div>
                         <span>Reply</span>
-                        <strong title={coachReplyMove ?? undefined}>{coachReplyMoveText}</strong>
+                        <strong title={drillAwaitingAnswer ? undefined : coachReplyMove ?? undefined}>{coachReplyMoveText}</strong>
                       </div>
                       <div title={coachDepthReading.title}>
                         <span>Position depth</span>
