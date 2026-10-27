@@ -11,6 +11,8 @@ type Props = {
     onLast: () => void
     // play/pause (AI modes)
     aiActive: boolean
+    /** A timed pass-and-play clock; undefined where no clock control applies. */
+    clockRunning?: boolean
     paused: boolean
     isGameOver: boolean
     stepMode: boolean
@@ -50,6 +52,7 @@ export function WatchControls({
     onNext,
     onLast,
     aiActive,
+    clockRunning,
     paused,
     isGameOver,
     stepMode,
@@ -120,6 +123,22 @@ export function WatchControls({
                             <IconPause /> Pause
                         </button>
                     )}
+                </div>
+            )}
+
+            {!aiActive && clockRunning !== undefined && !isGameOver && (
+                <div className="wc-play" role="group" aria-label="Game clock">
+                    <button
+                        type="button"
+                        className={`wc-btn ${clockRunning ? 'wc-btn-pause' : 'wc-btn-resume'}`}
+                        onClick={clockRunning ? onPause : onResume}
+                        title={`${clockRunning ? 'Pause' : 'Resume'} clock (Space)`}
+                        aria-label={`${clockRunning ? 'Pause' : 'Resume'} clock`}
+                        aria-keyshortcuts="Space"
+                    >
+                        {clockRunning ? <IconPause /> : <IconPlay />}
+                        <span>{clockRunning ? 'Pause clock' : 'Resume clock'}</span>
+                    </button>
                 </div>
             )}
 

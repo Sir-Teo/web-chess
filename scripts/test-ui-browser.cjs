@@ -3585,6 +3585,90 @@ async function checkAFinishedGameKeepsItsStoppedClock(browser) {
  * held too; it used to drain whoever was on move, sometimes the engine,
  * behind a pause the badge could not even show.
  */
+async function checkPassAndPlayClockControls(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const touch = width < 900
+    const context = await browser.newContext({ viewport: { width, height }, hasTouch: touch, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.clock.install({ time: new Date('2026-10-27T12:00:00Z') })
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, timeControlId: '3+2', theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true'
+        && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
+      await page.getByRole('button', { name: 'Pass and play', exact: true }).click()
+      const group = page.getByRole('group', { name: 'Game clock', exact: true })
+      const pause = () => group.getByRole('button', { name: 'Pause clock', exact: true })
+      const resume = () => group.getByRole('button', { name: 'Resume clock', exact: true })
+      const activate = async button => { if (touch) await button.tap(); else await button.click() }
+      const clocks = () => page.locator('.clock-face').evaluateAll(els => Object.fromEntries(els.map(el => [el.classList.contains('clock-white') ? 'white' : 'black', el.querySelector('strong').textContent])))
+      const checkAction = async button => {
+        await button.focus()
+        const bounds = await button.evaluate(el => {
+          const b = el.getBoundingClientRect(), strip = el.closest('.watch-controls').getBoundingClientRect()
+          const range = document.createRange(); range.selectNodeContents(el.querySelector('span'))
+          const text = range.getBoundingClientRect()
+          return { width: b.width, height: b.height, revealed: b.left >= strip.left - 1 && b.right <= strip.right + 1,
+            textFits: text.left >= b.left && text.right <= b.right + 1 && text.top >= b.top && text.bottom <= b.bottom + 1 }
+        })
+        assert(bounds.textFits && bounds.revealed && (!touch || bounds.width >= 44 && bounds.height >= 44), `clock action does not fit/reveal: ${JSON.stringify(bounds)}`)
+        assert(await button.getAttribute('aria-keyshortcuts') === 'Space', 'clock action omits its keyboard shortcut')
+        const contrast = await page.evaluate(contrastProbe, '.watch-controls [aria-label="Game clock"] button span')
+        assert(contrast.checked === 1 && contrast.failures.length === 0, `clock action contrast: ${JSON.stringify(contrast)}`)
+      }
+      await pause().waitFor()
+      await checkAction(pause())
+      await page.locator('.move-entry summary').click()
+      const input = page.locator('.move-entry input')
+      for (const move of ['e4', 'e5']) { await input.fill(move); await input.press('Enter') }
+      await page.getByRole('button', { name: /^Go to move 1\.\.\. e5/ }).waitFor()
+      assert(await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).count() === 1, 'clock controls removed the separately named replay action')
+      assert(await page.getByRole('group', { name: 'AI speed', exact: true }).count() === 0 && await page.getByRole('button', { name: 'Pause AI', exact: true }).count() === 0, 'pass-and-play clock exposes AI controls')
+      await activate(pause()); await resume().waitFor()
+      await checkAction(resume())
+      const held = await clocks(); await page.clock.fastForward(3500)
+      assert(await page.locator('.clock-face.running').count() === 0 && JSON.stringify(await clocks()) === JSON.stringify(held), 'visible Pause clock did not hold both banks')
+      // Space belongs to the focused native button, so it must activate once.
+      await resume().press('Space'); await pause().waitFor()
+      assert(await pause().evaluate(el => el === document.activeElement), 'resuming replaced or lost the focused clock button')
+      await page.locator('.clock-white.running').waitFor()
+      const before = await clocks(); await page.clock.fastForward(1600)
+      const after = await clocks()
+      assert(after.white !== before.white && after.black === before.black, 'visible Resume clock did not start only White')
+      await pause().press('Enter'); await resume().waitFor()
+      // Making a move intentionally starts the next turn even while the AI
+      // pause flag is still set. The clock action must read the actual clock.
+      await input.fill('Nf3'); await input.press('Enter')
+      await page.locator('.clock-black.running').waitFor(); await pause().waitFor()
+      await activate(pause()); await resume().waitFor()
+      await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+      assert(await group.count() === 0, 'Analysis exposes a control that can restart the hidden play clock')
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+      await resume().waitFor()
+      assert(await page.locator('.mtree-chip').count() === 3 && await page.locator('.clock-face.running').count() === 0, 'workspace round trip changed the game or resumed the clock')
+      await activate(resume()); await page.locator('.clock-white.running').waitFor()
+      await page.clock.fastForward(200000)
+      await page.locator('.clock-white.flagged').waitFor()
+      assert(await group.count() === 0, 'a finished game offers Resume clock')
+      const finished = await clocks(); await page.clock.fastForward(3000)
+      assert(JSON.stringify(await clocks()) === JSON.stringify(finished), 'clock controls restarted a flagged game')
+      await page.getByRole('button', { name: 'Start new game', exact: true }).first().click()
+      await page.locator('.new-game-dialog').waitFor()
+      await page.locator('.mode-card', { hasText: 'Human vs Human' }).click()
+      await page.locator('.time-control-card', { hasText: 'No clock' }).click()
+      await page.locator('.btn-start').click(); await page.locator('.new-game-dialog').waitFor({ state: 'detached' })
+      assert(await group.count() === 0 && await page.locator('.chess-clock').count() === 0, 'untimed pass-and-play offers clock controls')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'clock controls overflow the viewport')
+      assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `clock control errors: ${errors.join('; ')}`)
+      console.log(`  clock controls (${width}×${height}, ${scale}x, ${theme}, ${touch ? 'coarse pointer' : 'mouse'}): visible Pause/Resume, exact held banks, focused Space/Enter activation, turn-correct ticking, move restarts, Analysis hiding, flagged/untimed exclusion, replay coexistence and fitting/contrast pass`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkPausedClockNavigation(browser) {
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
@@ -20194,6 +20278,7 @@ async function main() {
       'library-empty-focus': checkLibraryEmptyFocus,
       'confirmation-keys': checkConfirmationKeys,
       'paused-clock-navigation': checkPausedClockNavigation,
+      'clock-controls': checkPassAndPlayClockControls,
       'move-list-pointer': checkMoveListPointerActivation,
       'move-list-fit': checkMoveListFitting,
       'drill-restart': checkDrillRestartKeepsItsLine,
@@ -20986,6 +21071,7 @@ async function main() {
     await checkAMoveCanBePlayedFromTheKeyboard(browser)
     await checkAFinishedGameKeepsItsStoppedClock(browser)
     await checkPausedClockNavigation(browser)
+    await checkPassAndPlayClockControls(browser)
     await checkNavigationKeepsTheClockHonest(browser)
     await checkKeepSearchingIsUnbounded(browser)
     await checkAutoplayWalksTheLine(browser)

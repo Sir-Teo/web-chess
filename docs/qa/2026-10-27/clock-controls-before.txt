@@ -1,0 +1,3 @@
+{"runningClocks":1,"pauseClockButtons":0,"watchControls":""}
+Error: Timed pass-and-play has no visible Pause clock control
+    at /tmp/web-chess-clock-controls-before.cjs:9:20

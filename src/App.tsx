@@ -428,7 +428,7 @@ const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['T'], action: 'Show what the opponent threatens (Analysis mode)' },
   { keys: ['Z'], action: 'Take back your last move (Play mode)' },
   { keys: ['H'], action: 'Ask the engine for a hint (Play mode)' },
-  { keys: ['Space'], action: 'Pause or resume the AI (Play mode) · autoplay the moves (otherwise)' },
+  { keys: ['Space'], action: 'Pause or resume the game and clock (Play) · autoplay the moves (Analysis)' },
   { keys: [commandPaletteShortcutLabel()], action: 'Open the command palette' },
   { keys: ['?'], action: 'Show these shortcuts' },
 ]
@@ -1268,9 +1268,8 @@ function App() {
    * `moveEndedGame` stops the clock on the move that ends a game, for the
    * reason its own comment gives: a mated side's clock counting on will flag
    * and replace "Checkmate" with "flagged on time", and a stalemate would
-   * become a loss. Resume put it straight back. Pass and play has no Pause
-   * button -- Space is its pause -- so two presses over a finished game were
-   * all it took. The pause flag still clears, because that is what lets the
+   * become a loss. Resume put it straight back; two Space presses over a
+   * finished game were all it took. The pause flag still clears, which lets the
    * board and the AI loop out of it; only the clock stays where the ending
    * left it.
    *
@@ -10069,6 +10068,8 @@ function App() {
               onNext={goNext}
               onLast={goLast}
               aiActive={playEngineActive}
+              clockRunning={workspaceMode === 'play' && gameMode === 'human-vs-human' && clock
+                ? clock.running !== null : undefined}
               paused={paused}
               isGameOver={isGameOver || Boolean(endedOffBoard)}
               stepMode={aiSpeed === 'step'}
