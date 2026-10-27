@@ -1,0 +1,4 @@
+  startup (analysis, silent-first): fallback answered
+  startup (analysis, silent-all): failure is visible
+  startup (play, silent-first): fallback answered
+  startup (play, silent-all): failure is visible

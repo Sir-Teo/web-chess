@@ -7289,3 +7289,10 @@ button.hint-btn {
   white-space: nowrap;
   border: 0;
 }
+
+.inline-actions .opponent-retry {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

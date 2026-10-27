@@ -1,0 +1,12 @@
+  opponent retry 1280×900 text 100% step: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 1280×900 text 100% chosen-focus: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 1280×900 text 100% retry-again: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 1280×900 text 100% new-game: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 1280×900 text 100% normal: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 1280×900 text 100% paused: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 320×480 text 200% step: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 320×480 text 200% chosen-focus: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 320×480 text 200% retry-again: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 320×480 text 200% new-game: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 320×480 text 200% normal: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 320×480 text 200% paused: failed builds, held banks, one worker/search, position and focus retained

@@ -34,6 +34,7 @@ given, and the app answering the reader who touches it.
   and the Elo it asks the engine for, because the gentlest is about 1320 — a
   club player — and a learner deserves to know that before losing to it.
 - **Play and watch modes**: Play human vs human, human vs Stockfish, or AI vs AI with adjustable difficulty, pause/resume controls, speed control, and single-step playback. At *Maximum* the opponent searches on every thread the device can spare — the levels below it are capped by Elo, where extra threads buy nothing — and the panel says so. The two weakest levels vary their play by choosing among the engine's own top lines within a small window of the best, not by playing a random legal move: a Beginner that hangs its queen every third move is not one a learner can learn from. With a clock, a takeback, premoves and a resign button below, a game against the engine is a game rather than a position trainer.
+- **Recover an unavailable opponent**: If both engine builds fail, **Retry opponent** restarts the simpler build in place, keeping the position, moves, clock banks and Step/Pause settings. Starting another AI game also retries a failed opponent.
 - **Either colour, or whichever**: The New Game dialog offered White or Black,
   so the default was White every game — and a player who only ever has the first
   move never practises the half of chess that starts a tempo down. Random is the

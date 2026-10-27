@@ -19,6 +19,7 @@ type Props = {
     stepMode: boolean
     canStep: boolean
     stepThinking?: boolean
+    stepUnavailable?: boolean
     onPause: () => void
     onResume: () => void
     onStep: () => void      // advance one AI move in step mode
@@ -76,6 +77,7 @@ export function WatchControls({
     stepMode,
     canStep,
     stepThinking = false,
+    stepUnavailable = false,
     onPause,
     onResume,
     onStep,
@@ -98,7 +100,7 @@ export function WatchControls({
         // Thinking and clock labels can grow while the same button keeps focus.
         // Reveal it after that commit, without changing the reader's focus.
         if (strip && active instanceof HTMLElement && strip.contains(active)) revealControl(strip, active)
-    }, [aiActive, autoplay, canStep, clockRunning, paused, stepMode, stepThinking])
+    }, [aiActive, autoplay, canStep, clockRunning, paused, stepMode, stepThinking, stepUnavailable])
     return (
         <div className="watch-controls" ref={stripRef} onFocus={event => revealControl(event.currentTarget, event.target)}>
             {/* ── Navigation ── */}
@@ -136,12 +138,12 @@ export function WatchControls({
                         <button
                             type="button"
                             className="wc-btn wc-btn-step"
-                            onClick={stepThinking ? undefined : onStep}
-                            disabled={!canStep}
+                            onClick={stepThinking || stepUnavailable ? undefined : onStep}
+                            disabled={!canStep || stepUnavailable}
                             aria-disabled={stepThinking || undefined}
                             aria-busy={stepThinking || undefined}
-                            title={stepThinking ? 'The engine is choosing its move' : canStep ? 'Advance one AI move' : 'Waiting for AI turn'}
-                            aria-label={stepThinking ? 'Engine is thinking' : canStep ? 'Advance one AI move' : 'Waiting for AI turn'}
+                            title={stepUnavailable ? 'Retry the opponent in the Opponent panel' : stepThinking ? 'The engine is choosing its move' : canStep ? 'Advance one AI move' : 'Waiting for AI turn'}
+                            aria-label={stepUnavailable ? 'Engine unavailable' : stepThinking ? 'Engine is thinking' : canStep ? 'Advance one AI move' : 'Waiting for AI turn'}
                         >
                             <IconStepForward /> {stepThinking ? 'Thinking…' : 'Step'}
                         </button>

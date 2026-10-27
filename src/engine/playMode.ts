@@ -271,7 +271,7 @@ export function describePlayEngine({
     return {
       failed: true,
       message: `${profileName} could not start, so there is nobody to play against. `
-        + 'Reload the page to try again — Human vs Human and everything on the Analysis side are unaffected.',
+        + 'Retry the opponent below to keep playing this game. Human vs Human and Analysis are still available.',
     }
   }
 

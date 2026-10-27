@@ -4905,6 +4905,97 @@ async function checkStepModeDoesNotChargeTheHeldEngine(browser) {
  * for a CDN build before it gives up. In a 1+0 game any of those is a slice
  * of the clock spent before the engine has played a move.
  */
+async function checkOpponentRetry(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [320, 480, 2, 'light']]) {
+    for (const scenario of ['step', 'chosen-focus', 'retry-again', 'new-game', 'normal', 'paused']) {
+      const context = await browser.newContext({ viewport: { width, height }, hasTouch: width < 900, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.clock.install({ time: new Date('2026-10-27T12:00:00Z') })
+        await page.addInitScript(fakeEngineScript('blunder-nudge').replace("if (text === 'isready') {", "if (text === 'isready') { if (this.ordinal >= 3 && window.__holdOpponentRetryReady) { window.__retryReadyEngine = this; return; }"))
+        await page.addInitScript(theme => {
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, timeControlId: '3+2', lastSideChoice: 'white', theme }))
+          window.__holdPremoveReply = true
+          window.__holdOpponentRetryReady = true
+        }, theme)
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true'
+          && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
+        await startGameMode(page, 'Human vs AI')
+        const normal = scenario === 'normal' || scenario === 'paused'
+        await page.getByRole('button', { name: `Set AI speed to ${normal ? 'Fast' : 'Step'}`, exact: true }).click()
+        const enter = async move => {
+          if (!await page.locator('.move-entry').evaluate(el => el.open)) await page.locator('.move-entry summary').click()
+          const input = page.locator('.move-entry input'); await input.fill(move); await input.press('Enter')
+        }
+        const step = () => page.getByRole('button', { name: 'Advance one AI move', exact: true })
+        const searches = () => page.evaluate(() => window.__uciCommands.filter(command => command.startsWith('go ')).length)
+        const banks = () => page.locator('.clock-face strong').allTextContents()
+        await enter('e4')
+        for (let failure = 0; failure < 2; failure++) {
+          if (!normal) await step().press('Enter')
+          await page.waitForFunction(expected => window.__uciCommands.filter(command => command.startsWith('go ')).length === expected && window.__premoveReplyEngine?.searching, failure + 1)
+          await page.evaluate(() => window.__premoveReplyEngine.onerror({ message: 'QA opponent build failure' }))
+          if (!failure) await page.waitForFunction(() => window.__engineCount === 2 && document.title.includes('AI waiting for Step') || window.__engineCount === 2 && window.__uciCommands.filter(command => command.startsWith('go ')).length === 2)
+        }
+        const retry = () => page.getByRole('button', { name: 'Retry opponent', exact: true })
+        await retry().waitFor()
+        await page.waitForFunction(() => document.querySelectorAll('.clock-face.running').length === 0)
+        assert(await page.locator('.mtree-chip').count() === 1, 'failure changed the current game')
+        if (!normal) assert(await page.getByRole('button', { name: 'Engine unavailable', exact: true }).isDisabled(), 'failed engine still offers Step')
+        const before = await banks(), beforeGo = await searches()
+        if (scenario === 'paused') await page.getByRole('button', { name: 'Pause AI', exact: true }).click()
+        if (scenario === 'new-game') {
+          await startGameMode(page, 'Human vs AI')
+          await enter('d4')
+        } else await retry().press('Enter')
+        await page.waitForFunction(() => window.__engineCount === 3 && window.__retryReadyEngine?.ordinal === 3)
+        const busy = page.getByRole('button', { name: 'Retrying opponent…', exact: true })
+        assert(await busy.getAttribute('aria-busy') === 'true' && await busy.getAttribute('aria-disabled') === 'true', 'retry progress is missing')
+        await busy.press('Enter'); await busy.press('Space')
+        if (scenario === 'retry-again') {
+          await page.evaluate(() => window.__retryReadyEngine.onerror({ message: 'QA failed retry' }))
+          await retry().waitFor(); await retry().press('Enter')
+          await page.waitForFunction(() => window.__engineCount === 4 && window.__retryReadyEngine?.ordinal === 4)
+        }
+        let chosen
+        if (scenario === 'chosen-focus') {
+          chosen = page.getByRole('checkbox', { name: 'Show board arrow overlays', exact: true })
+          await chosen.focus()
+        } else await busy.focus()
+        const held = await banks()
+        await page.clock.fastForward(5000)
+        assert(JSON.stringify(await banks()) === JSON.stringify(held) && await searches() === beforeGo, 'retry charged loading time or searched too early')
+        if (scenario !== 'new-game') assert(JSON.stringify(held) === JSON.stringify(before), 'retry reset the clock banks')
+        assert(await page.locator('.mtree-chip').count() === 1, 'retry replaced the move tree')
+        const target = await busy.boundingBox()
+        assert(target.width >= 44 && target.height >= 44, `retry target is too small: ${JSON.stringify(target)}`)
+        await page.evaluate(() => { window.__holdOpponentRetryReady = false; window.__retryReadyEngine.send('readyok') })
+        await busy.waitFor({ state: 'detached' })
+        if (scenario === 'chosen-focus') assert(await chosen.evaluate(el => el === document.activeElement), 'retry stole chosen focus')
+        else assert(await page.locator('.board-stage').evaluate(el => el === document.activeElement), 'completed retry lost keyboard focus')
+        if (!normal || scenario === 'paused') {
+          await page.clock.fastForward(1500)
+          assert(await searches() === beforeGo && JSON.stringify(await banks()) === JSON.stringify(held), 'retry bypassed Step or Pause')
+          if (normal) await page.getByRole('button', { name: 'Resume AI play', exact: true }).press('Enter')
+          else await step().press('Enter')
+        }
+        await page.waitForFunction(expected => window.__uciCommands.filter(command => command.startsWith('go ')).length === expected && window.__premoveReplyEngine?.searching, beforeGo + 1)
+        await page.waitForFunction(() => document.querySelector('.clock-black.running'))
+        await page.clock.fastForward(500)
+        await page.evaluate(() => { window.__holdPremoveReply = false; window.__premoveReplyEngine.finishSearch() })
+        await page.waitForFunction(() => document.querySelectorAll('.mtree-chip').length === 2)
+        assert(await page.locator('#chessboard-square-e5 [data-piece="bP"]').count() === 1, 'retried opponent did not finish its legal reply')
+        assert(await searches() === beforeGo + 1 && await page.evaluate(() => window.__engineCount) === (scenario === 'retry-again' ? 4 : 3), 'retry duplicated workers or moves')
+        assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `retry errors: ${errors.join('; ')}`)
+        console.log(`  opponent retry ${width}×${height} text ${scale * 100}% ${scenario}: failed builds, held banks, one worker/search, position and focus retained`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkQueuedStepWaitsForReady(browser) {
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [320, 480, 2, 'light']]) {
     for (const scenario of ['white', 'black', 'engines', 'reset', 'reset-root', 'position']) {
@@ -20851,6 +20942,7 @@ async function main() {
       'human-step-clock': checkHumanStepClockControls,
       'step-progress': checkHumanStepClockControls,
       'step-boot-queue': checkQueuedStepWaitsForReady,
+      'opponent-retry': checkOpponentRetry,
       'move-list-pointer': checkMoveListPointerActivation,
       'move-list-fit': checkMoveListFitting,
       'drill-restart': checkDrillRestartKeepsItsLine,
@@ -21649,6 +21741,7 @@ async function main() {
     await checkPgnFileReading(browser)
     await checkPgnImportStatusIsolation(browser)
     await checkHumanStepClockControls(browser)
+    await checkOpponentRetry(browser)
     await checkQueuedStepWaitsForReady(browser)
     await checkNavigationKeepsTheClockHonest(browser)
     await checkKeepSearchingIsUnbounded(browser)

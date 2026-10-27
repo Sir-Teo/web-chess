@@ -2024,8 +2024,17 @@ function App() {
   const aiPlayerStatus = aiPlayer.status
   const cancelAiRequest = aiPlayer.cancelRequest
   const requestAiMove = aiPlayer.requestMove
+  const retryAiPlayer = aiPlayer.retry
   const setAiPlayerDifficulty = aiPlayer.setDifficulty
   const readAiSearch = aiPlayer.readLastSearch
+  const opponentRetryButtonRef = useRef<HTMLButtonElement | null>(null)
+  const attachOpponentRetry = useCallback((button: HTMLButtonElement | null) => {
+    const previous = opponentRetryButtonRef.current
+    if (!button && previous && document.activeElement === previous) {
+      boardStageRef.current?.focus({ preventScroll: true })
+    }
+    opponentRetryButtonRef.current = button
+  }, [])
   const aiPlayerStatusRef = useRef(aiPlayerStatus)
   const [aiReadyTick, setAiReadyTick] = useState(0)
 
@@ -5965,6 +5974,7 @@ function App() {
       setSideChoice(chosenSide)
       setAiDifficulty(difficulty)
       setAiPlayerDifficulty(difficulty)
+      if (mode !== 'human-vs-human') retryAiPlayer()
 
       newGame()
       game.reset()
@@ -6010,7 +6020,7 @@ function App() {
       setOrientation(defaultOrientationForGameMode(mode, color))
       requestBoardReveal()
     },
-    [cancelPendingAiMove, cancelSampleLoad, clearBatchReview, clearBoardSelection, clearImportSweep, game, gameTree, newGame, requestBoardReveal, setAiPlayerDifficulty, setPgnHeaders],
+    [cancelPendingAiMove, cancelSampleLoad, clearBatchReview, clearBoardSelection, clearImportSweep, game, gameTree, newGame, requestBoardReveal, retryAiPlayer, setAiPlayerDifficulty, setPgnHeaders],
   )
 
   /**
@@ -6236,7 +6246,7 @@ function App() {
   })
   const moveEntryDisabledReason = pendingPromotion ? 'Choose a promotion piece on the board.'
     : isAiThinking ? 'Waiting for the engine’s move.'
-      : aiPlayerStatus === 'error' ? 'The opponent is unavailable. Start a new game or switch to Analysis.'
+      : aiPlayerStatus === 'error' ? 'The opponent is unavailable. Retry the opponent below, start a new game or switch to Analysis.'
         : aiPlayerStatus === 'loading' ? 'The opponent is loading. Move entry opens on your turn.'
           : aiSpeed === 'step' ? 'Press Step for the engine’s move.'
             : 'Waiting for the engine’s move.'
@@ -6660,7 +6670,7 @@ function App() {
 
   // ── Step: advance one AI move ─────────────────────────
   const handleStep = useCallback(() => {
-    if (readBoardEnding() || aiMoveScheduledRef.current) return
+    if (readBoardEnding() || aiMoveScheduledRef.current || aiPlayerStatusRef.current === 'error') return
     const currentTurn = game.turn()
     const isAiTurn =
       gameMode === 'ai-vs-ai' ||
@@ -8819,11 +8829,23 @@ function App() {
                     <h3><span className="section-icon"><IconSwords /></span> {!playEngineActive ? 'Game' : gameMode === 'ai-vs-ai' ? 'Engines' : 'Opponent'}</h3>
                     {playEngineActive && (
                       <p
+                        id="play-opponent-report"
                         className={`panel-copy small${playEngineReport.failed ? ' error-copy' : ''}`}
-                        role={playEngineReport.failed ? 'alert' : undefined}
+                        role={playEngineReport.failed ? 'alert' : aiPlayer.retrying ? 'status' : undefined}
                       >
                         {playEngineReport.message}
                       </p>
+                    )}
+                    {playEngineActive && (aiPlayer.status === 'error' || aiPlayer.retrying) && (
+                      <div className="inline-actions">
+                        <button type="button" className="hint-btn opponent-retry" ref={attachOpponentRetry}
+                          onClick={aiPlayer.retrying ? undefined : retryAiPlayer}
+                          aria-disabled={aiPlayer.retrying || undefined}
+                          aria-busy={aiPlayer.retrying || undefined}
+                          aria-describedby="play-opponent-report">
+                          {aiPlayer.retrying ? 'Retrying opponent…' : 'Retry opponent'}
+                        </button>
+                      </div>
                     )}
                     <label className="switch-control">
                       <input
@@ -10124,6 +10146,7 @@ function App() {
               stepMode={aiSpeed === 'step'}
               canStep={canStepAiMove}
               stepThinking={isAiThinking}
+              stepUnavailable={aiPlayerStatus === 'error'}
               onPause={pause}
               onResume={resume}
               onStep={handleStep}
