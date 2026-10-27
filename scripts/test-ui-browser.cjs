@@ -7241,10 +7241,53 @@ async function checkOneGestureSavesOneGame(browser) {
  * twelve games in the library, the whole file imported once per press, and a
  * real database file is hundreds.
  */
+async function checkPostVariationNotes(browser) {
+  const pgn = '[Event "Quoted ) {header} $1"]\n\n1. e4 e5 {before} (1... c5 2. Nf3 (2. Nc3) {inner note} d6) (1... e6) ; after literal {brace} $1\n$2 2. Nf3 Nc6 *'
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', acceptDownloads: true })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const importText = async text => {
+        await page.locator('.pgn-dialog textarea').fill(text)
+        await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await page.locator('.pgn-dialog').waitFor({ state: 'detached', timeout: 5000 })
+      }
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await importText(pgn)
+      const notes = async () => {
+        assert(await page.locator('.mtree-chip').count() === 9, 'the annotation repair lost a move or variation')
+        await page.getByRole('button', { name: /^Go to move 1\.\.\. e5/ }).click()
+        await page.waitForFunction(() => document.querySelector('.mtree-comment-input')?.value === 'before after literal [brace] $1')
+        await page.getByRole('button', { name: /^Go to variation move 2\. Nf3/ }).click()
+        await page.waitForFunction(() => document.querySelector('.mtree-comment-input')?.value === 'inner note')
+        await page.getByRole('button', { name: /^Go to variation move 2\. Nc3/ }).click()
+        await page.waitForFunction(() => document.querySelector('.mtree-comment-input')?.value === '')
+      }
+      await notes()
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog').getByRole('button', { name: 'Export', exact: true }).click()
+      const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PGN', exact: true }).click()])
+      const exported = fs.readFileSync(await download.path(), 'utf8')
+      assert(exported.includes('[Event "Quoted ) {header} $1"]'), 'annotation-looking quoted headers were rewritten')
+      await page.locator('.pgn-dialog').getByRole('button', { name: 'Import', exact: true }).click()
+      await importText(exported)
+      await notes()
+      assert(errors.length === 0, `post-variation note errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'post-variation notes overflow')
+      console.log(`  post-variation notes (${width}×${height}, ${scale}x): import accepts notes/NAGs after sibling and nested variations; nine moves retained; main/inner/alternative note ownership and quoted header survive export/reimport`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkLibraryPgnEndings(browser) {
   const fen = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1'
   const parts = [
-    '1. e4 {Keep the quoted result 0-1.} e5 (1... c5)',
+    '1. e4 {Keep the quoted result 0-1.} e5 (1... c5) ; last note says 1-0',
     '1. d4 d5 ; last note says 1-0',
     '1. c4 e5 1/2-1/2',
     '[White "Ada"]\n[Result "0-1"]\n\n1. c4 e5',
@@ -17931,6 +17974,7 @@ async function main() {
       'database-once': checkADatabaseIsAddedOnce,
       'database-boundaries': checkDatabaseGameBoundaries,
       'library-pgn-endings': checkLibraryPgnEndings,
+      'pgn-after-variation': checkPostVariationNotes,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
       'promotion-keys': checkPromotionShortcutScope,
       'promotion-targets': checkThePromotionChooserCanBeHit,
@@ -18783,6 +18827,7 @@ async function main() {
     await checkReviewExportRecovery(browser)
     await checkReviewListFollowsPosition(browser)
     await checkDialogResizeFocus(browser)
+    await checkPostVariationNotes(browser)
     await checkLibraryPgnEndings(browser)
     await checkDatabaseGameBoundaries(browser)
     await checkADatabaseIsAddedOnce(browser)

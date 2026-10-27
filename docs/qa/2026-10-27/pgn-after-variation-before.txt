@@ -1,0 +1,64 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/pgn.test.ts (131 tests | 3 failed) 154ms
+     × keeps a line comment after a variation on the main-line move 10ms
+     × keeps post-variation comments and NAGs before the main line continues 1ms
+     × attaches notes after nested variations at their own level 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > keeps a line comment after a variation on the main-line move
+SyntaxError: Expected end of input, game termination marker, move number, standard algebraic notation, or whitespace but ";" found.
+ ❯ new peg$SyntaxError node_modules/chess.js/src/pgn.js:72:20
+     70|
+     71| function peg$SyntaxError(message, expected, found, location) {
+     72|   var self = Error.call(this, message);
+       |                    ^
+     73|   // istanbul ignore next Check is a necessary evil to support older e…
+     74|   if (Object.setPrototypeOf) {
+ ❯ peg$buildStructuredError node_modules/chess.js/src/pgn.js:473:12
+ ❯ peg$parse node_modules/chess.js/src/pgn.js:1295:11
+ ❯ parsePgnMoveTree src/engine/pgn.ts:818:20
+ ❯ src/engine/pgn.test.ts:1296:24
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > keeps post-variation comments and NAGs before the main line continues
+SyntaxError: Expected end of input, game termination marker, move number, standard algebraic notation, or whitespace but "$" found.
+ ❯ new peg$SyntaxError node_modules/chess.js/src/pgn.js:72:20
+     70|
+     71| function peg$SyntaxError(message, expected, found, location) {
+     72|   var self = Error.call(this, message);
+       |                    ^
+     73|   // istanbul ignore next Check is a necessary evil to support older e…
+     74|   if (Object.setPrototypeOf) {
+ ❯ peg$buildStructuredError node_modules/chess.js/src/pgn.js:473:12
+ ❯ peg$parse node_modules/chess.js/src/pgn.js:1295:11
+ ❯ parsePgnMoveTree src/engine/pgn.ts:818:20
+ ❯ src/engine/pgn.test.ts:1303:24
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > attaches notes after nested variations at their own level
+SyntaxError: Expected brace comment, end of input, game termination marker, move number, rest of line comment, standard algebraic notation, variation, or whitespace but "(" found.
+ ❯ new peg$SyntaxError node_modules/chess.js/src/pgn.js:72:20
+     70|
+     71| function peg$SyntaxError(message, expected, found, location) {
+     72|   var self = Error.call(this, message);
+       |                    ^
+     73|   // istanbul ignore next Check is a necessary evil to support older e…
+     74|   if (Object.setPrototypeOf) {
+ ❯ peg$buildStructuredError node_modules/chess.js/src/pgn.js:473:12
+ ❯ peg$parse node_modules/chess.js/src/pgn.js:1295:11
+ ❯ parsePgnMoveTree src/engine/pgn.ts:818:20
+ ❯ src/engine/pgn.test.ts:1311:24
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 128 passed (131)
+   Start at  09:52:39
+   Duration  550ms (transform 211ms, setup 0ms, import 262ms, tests 154ms, environment 0ms)
+

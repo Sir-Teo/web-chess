@@ -1292,6 +1292,43 @@ describe('annotation shapes chess.js will not take', () => {
         expect(parsed.evaluations.get(parsed.moves[0].fen)).toMatchObject({ cp: -31 })
     })
 
+    it('keeps a line comment after a variation on the main-line move', () => {
+        const parsed = parsePgnMoveTree('1. e4 e5 (1... c5) ; the main move note\n*')
+        expect(parsed.moves[0].children?.map(entry => entry.move.san)).toEqual(['e5', 'c5'])
+        expect(parsed.moves[0].children?.[0].comment).toBe('the main move note')
+        expect(parsed.moves[0].children?.[1].comment).toBeUndefined()
+    })
+
+    it('keeps post-variation comments and NAGs before the main line continues', () => {
+        const parsed = parsePgnMoveTree('1. e4 e5 {before} (1... c5) (1... e6) {after} $2 2. Nf3 *')
+        const replies = parsed.moves[0].children!
+        expect(replies.map(entry => entry.move.san)).toEqual(['e5', 'c5', 'e6'])
+        expect(replies[0]).toMatchObject({ comment: 'before after', nags: ['2'] })
+        expect(replies[0].children?.[0].move.san).toBe('Nf3')
+    })
+
+    it('attaches notes after nested variations at their own level', () => {
+        const parsed = parsePgnMoveTree('1. e4 e5 (1... c5 2. Nf3 (2. Nc3) {inner note} d6) {outer note} 2. Nf3 *')
+        const replies = parsed.moves[0].children!
+        expect(replies[0].comment).toBe('outer note')
+        expect(replies[1].children?.map(entry => entry.move.san)).toEqual(['Nf3', 'Nc3'])
+        expect(replies[1].children?.[0].comment).toBe('inner note')
+        expect(replies[1].children?.[0].children?.[0].move.san).toBe('d6')
+    })
+
+    it.each(['\n', '\r', '\r\n'])('retains literal braces and NAG-looking text in a post-variation line note with %j', ending => {
+        const parsed = parsePgnMoveTree(`1. e4 e5 {before} (1... c5) ; literal {brace} $1 stays literal${ending}$2 2. Nf3 *`)
+        expect(parsed.moves[0].children?.[0]).toMatchObject({
+            comment: 'before literal [brace] $1 stays literal', nags: ['2'],
+        })
+    })
+
+    it('reads a final line note after a variation without inventing a result', () => {
+        const parsed = parsePgnMoveTree('1. e4 e5 (1... c5) ; unfinished study')
+        expect(parsed.result).toBeUndefined()
+        expect(parsed.moves[0].children?.[0].comment).toBe('unfinished study')
+    })
+
     it('retains alternating judgements, notes, clocks and evaluations in order', () => {
         const parsed = parsePgnMoveTree('1. e4 $1 {first} $14 {[%clk 0:05:00]} $10 {second [%eval 0.31]} e5 *')
         expect(parsed.moves[0]).toMatchObject({ comment: 'first second', nags: ['1', '14', '10'], clockMs: 300000 })

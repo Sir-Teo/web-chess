@@ -10,6 +10,7 @@ import { APP_PLACEHOLDER_HEADERS } from './pgnPlaceholders'
 import { formatLocalDate } from './localDate'
 import { pgnTagEnd, readPgnHeaderSection } from './pgnHeaders'
 import { isPgnResult, pgnTokensOutsideComments } from './pgnText'
+import { reorderPostVariationAnnotations } from './pgnVariations'
 
 const INITIAL_FEN = new Chess().fen()
 const PGN_TAG_NAME_PATTERN = /^[A-Za-z0-9_]+$/
@@ -796,7 +797,7 @@ export function reorderPgnAnnotations(pgnText: string): string {
         if (end === null) break
         headerEnd = cursor = end
     }
-    return pgnText.slice(0, headerEnd) + reorderPgnMovetextAnnotations(pgnText.slice(headerEnd))
+    return pgnText.slice(0, headerEnd) + reorderPgnMovetextAnnotations(reorderPostVariationAnnotations(pgnText.slice(headerEnd)))
 }
 
 export function parsePgnMoveTree(pgnText: string): {
