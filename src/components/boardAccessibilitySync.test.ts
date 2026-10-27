@@ -127,5 +127,26 @@ describe('syncRenderedBoardAccessibility', () => {
     expect(square.getAttribute('role')).toBe('button')
     expect(square.getAttribute('tabindex')).toBe('-1')
   })
+  it('exposes a premove destination and removes its keyboard role after queueing', () => {
+    const squares = mountBoard(['g1', 'f3'])
+    const target = squares.get('chessboard-square-f3')!
+    const chess = new Chess()
+    chess.move('e4')
+    syncRenderedBoardAccessibility(chess, 'g1', [], false, { keyboardHelpId: 'move-help', premove: true })
+    expect(target.getAttribute('role')).toBe('button')
+    expect(target.getAttribute('tabindex')).toBe('0')
+    expect(target.getAttribute('aria-label')).toBe('f3, empty square, premove target')
+    expect(target.getAttribute('aria-describedby')).toBe('move-help')
+
+    syncRenderedBoardAccessibility(chess, null, [], false, {
+      keyboardHelpId: 'move-help', premove: true, queuedPremove: { from: 'g1', to: 'f3' },
+    })
+    expect(target.getAttribute('role')).toBe('img')
+    expect(target.getAttribute('tabindex')).toBeNull()
+    expect(target.getAttribute('aria-describedby')).toBeNull()
+    expect(target.getAttribute('aria-label')).toBe('f3, empty square, premove queued from g1')
+    syncRenderedBoardAccessibility(chess, null, [], false, { keyboardHelpId: 'move-help' })
+    expect(target.getAttribute('aria-label')).toBe('f3, empty square')
+  })
 
 })

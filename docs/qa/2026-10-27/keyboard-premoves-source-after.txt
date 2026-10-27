@@ -1,0 +1,1 @@
+{"label":"a1, White rook, premove queued to a8","active":true,"top":92.234375,"bottom":116.234375,"height":225,"hit":true}

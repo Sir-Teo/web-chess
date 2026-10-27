@@ -9111,6 +9111,182 @@ async function checkADatabaseIsAddedOnce(browser) {
  * survived one would play a move the reader queued for a game they have since
  * abandoned, one turn later, with nothing on screen to say why.
  */
+async function checkKeyboardPremoves(browser, cases = [['White', 'queued'], ['Black', 'queued'], ['White', 'cancel'], ['Black', 'cancel'], ['White', 'invalid'], ['White', 'arrival'], ['White', 'new-focus'], ['White', 'modal'], ['White', 'captured'], ['White', 'late-captured']], layouts = [[1280, 900, 1, 'dark'], [320, 480, 2, 'light']]) {
+  for (const [width, height, scale, theme] of layouts) {
+    for (const [side, scenario] of cases) {
+      const context = await browser.newContext({ viewport: { width, height }, hasTouch: width < 900, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript('blunder-nudge'))
+        await page.addInitScript(({ theme, side, scenario }) => {
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, lastSideChoice: side.toLowerCase(), timeControlId: '3+2', theme }))
+          window.__holdPremoveReply = true
+          window.__previewEndingPv = ['captured', 'late-captured'].includes(scenario) ? 'd4e3' : side === 'White' ? 'e7e5' : 'e2e4'
+        }, { theme, side, scenario })
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true'
+          && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
+        await page.getByRole('button', { name: 'Start new game', exact: true }).first().click()
+        const newGame = page.locator('.new-game-dialog')
+        await newGame.locator('.mode-card', { hasText: 'Human vs AI' }).click()
+        await newGame.getByRole('button', { name: side, exact: true }).click()
+        await newGame.locator('.time-control-card', { hasText: '3 + 2' }).click()
+        await newGame.locator('.btn-start').click(); await newGame.waitFor({ state: 'detached' })
+        if (['captured', 'late-captured'].includes(scenario)) {
+          await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+          const pgn = page.locator('.pgn-dialog')
+          await pgn.getByRole('button', { name: 'FEN', exact: true }).click()
+          await pgn.locator('.fen-textarea').fill('4k3/8/8/8/3p4/8/4P3/4K3 w - - 0 1')
+          await pgn.getByRole('button', { name: 'Load & Analyze', exact: true }).click()
+          await pgn.waitFor({ state: 'detached' })
+          await page.getByTestId('command-palette-btn').click()
+          await page.getByRole('combobox', { name: 'Search commands', exact: true }).fill('Play from this position')
+          await page.locator('[data-command-id="play-from-here"] button').click()
+        }
+        await page.getByRole('button', { name: 'Set AI speed to Fast', exact: true }).click()
+        if (side === 'White') {
+          if (!await page.locator('.move-entry').evaluate(el => el.open)) await page.locator('.move-entry summary').click()
+          const input = page.locator('.move-entry input'); await input.fill('e4'); await input.press('Enter')
+        }
+        await page.waitForFunction(side => window.__premoveReplyEngine?.searching && (side === 'Black' || window.__premoveReplyEngine.fen.includes('moves e2e4')), side)
+        const initialMoves = side === 'White' ? 1 : 0
+        const from = scenario === 'far-cancel' ? 'a1' : ['arrival', 'captured', 'late-captured'].includes(scenario) ? 'e4' : side === 'White' ? 'g1' : 'g8'
+        const to = scenario === 'far-cancel' ? 'a8' : ['captured', 'late-captured'].includes(scenario) ? 'e5' : scenario === 'invalid' ? 'h1' : scenario === 'arrival' ? 'd5' : side === 'White' ? 'f3' : 'f6'
+        const board = page.locator('.board-area'), status = page.locator('[data-premove-status]')
+        const source = () => board.getByRole('button', { name: new RegExp(`^${from},`) })
+        const focusedSquare = () => page.evaluate(() => document.activeElement?.closest('[id^="chessboard-square-"]')?.id.replace('chessboard-square-', ''))
+        const goCount = () => page.evaluate(() => window.__uciCommands.filter(command => command.startsWith('go ')).length)
+        const initialSearches = await goCount()
+        const emptySquares = ['captured', 'late-captured'].includes(scenario) ? 60 : 32
+        const select = async () => {
+          await source().focus(); await source().press('Enter')
+          await page.waitForFunction(count => document.querySelectorAll('.board-area [data-webchess-a11y-target="true"]').length === count, emptySquares)
+          assert(await board.getByRole('button', { name: /^[a-h][1-8],/ }).count() === 64, 'premoving does not expose every coordinate as a control')
+          assert(await status.textContent() === '' || scenario === 'cancel', 'selection unexpectedly queued a move')
+        }
+        const navigate = async () => {
+          if (scenario === 'far-cancel') for (let rank = 0; rank < 7; rank++) await page.keyboard.press('ArrowUp')
+          else if (scenario === 'invalid') await page.keyboard.press('End')
+          else if (['captured', 'late-captured'].includes(scenario)) await page.keyboard.press('ArrowUp')
+          else if (scenario === 'arrival') { await page.keyboard.press('ArrowLeft'); await page.keyboard.press('ArrowUp') }
+          else for (const key of ['ArrowUp', 'ArrowUp', side === 'White' ? 'ArrowLeft' : 'ArrowRight']) await page.keyboard.press(key)
+          await page.waitForFunction(to => document.activeElement?.closest('[id^="chessboard-square-"]')?.id === `chessboard-square-${to}`, to)
+        }
+        await select()
+        const claimedScopedKeys = await source().evaluate(el => [
+          { key: 'ArrowLeft', ctrlKey: true }, { key: 'Home', altKey: true },
+          { key: 'End', shiftKey: true }, { key: 'ArrowRight', isComposing: true },
+        ].some(init => {
+          const event = new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true })
+          el.dispatchEvent(event)
+          return event.defaultPrevented
+        }))
+        assert(!claimedScopedKeys && await focusedSquare() === from, 'board navigation claimed a browser/composition chord')
+        for (const [key, expected] of [['Home', `${side === 'White' ? 'a' : 'h'}${from[1]}`], ['ArrowLeft', `${side === 'White' ? 'a' : 'h'}${from[1]}`], ['End', `${side === 'White' ? 'h' : 'a'}${from[1]}`], ['ArrowRight', `${side === 'White' ? 'h' : 'a'}${from[1]}`]]) {
+          await page.keyboard.press(key)
+          assert(await focusedSquare() === expected, `${side} ${key} did not follow the visible board/edge`)
+        }
+        await source().focus(); await navigate()
+        assert(await goCount() === initialSearches && await page.locator('.mtree-chip').count() === initialMoves, 'board arrows navigated game history or restarted the opponent')
+        assert((await board.getByRole('button', { name: new RegExp(`^${to},`) }).getAttribute('aria-label')).includes('premove target'), 'a future destination claims to be a legal move')
+        if (scenario === 'arrival' || scenario === 'late-captured') {
+          await page.evaluate(scenario => { window.__previewEndingPv = scenario === 'arrival' ? 'd7d5' : 'd4e3'; window.__premoveReplyEngine.finishSearch() }, scenario)
+          await page.waitForFunction(count => document.querySelectorAll('.mtree-chip').length === count + 1, initialMoves)
+          if (scenario === 'arrival') {
+            const capture = board.getByRole('button', { name: /^d5, Black pawn, legal capture target/ })
+            await capture.waitFor()
+            assert(await capture.evaluate(el => el === document.activeElement), 'an arriving piece stranded the focused destination on an unnamed wrapper')
+            await page.keyboard.press('Space')
+          } else {
+            const empty = board.getByRole('img', { name: 'e5, empty square', exact: true })
+            await empty.waitFor()
+            assert(await empty.evaluate(el => el === document.activeElement), 'a captured source stranded the former premove destination on the page body')
+            await page.keyboard.press('Escape')
+            assert(await page.locator('.board-stage').evaluate(el => el === document.activeElement), 'cancelling a captured selection did not retain board focus')
+            const king = board.getByRole('button', { name: /^e1, White king/ })
+            await king.focus(); await king.press('Enter'); await page.keyboard.press('ArrowUp'); await page.keyboard.press('Space')
+          }
+        } else {
+          await page.keyboard.press('Space')
+          await page.waitForFunction(({ from, to }) => document.querySelector('[data-premove-status]')?.textContent.includes(`from ${from} to ${to}`), { from, to })
+          assert(await focusedSquare() === from && (await source().getAttribute('aria-label')).includes(`premove queued to ${to}`), 'queueing lost source focus or its queued destination')
+          assert(await goCount() === initialSearches && await page.locator('.mtree-chip').count() === initialMoves, 'queueing played early or disturbed the search')
+          assert(await page.locator(`.clock-${side === 'White' ? 'black' : 'white'}.running`).count() === 1, 'board move keys paused the thinking opponent')
+          if (scenario === 'far-cancel') assert(await source().evaluate(el => {
+            const r = el.getBoundingClientRect()
+            return r.top >= -1 && r.bottom <= innerHeight + 1 && el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2))
+          }), 'returning to the premove source hid its keyboard focus in a short window')
+          if (scenario === 'cancel' || scenario === 'far-cancel') {
+            await page.keyboard.press('Escape')
+            await page.waitForFunction(() => !document.querySelector('[data-premove-status]')?.textContent.trim())
+            assert(await focusedSquare() === from && await goCount() === initialSearches, 'Escape lost source focus or restarted/cancelled the search')
+          } else if (scenario === 'new-focus') {
+            await board.getByRole('button', { name: /^b1, White knight/ }).focus()
+            await page.keyboard.press('Escape')
+            assert(await focusedSquare() === 'b1' && (await status.textContent()).trim() === '', 'Escape stole a newer board choice while cancelling the queue')
+            await select(); await navigate(); await page.keyboard.press('Space')
+            await page.waitForFunction(() => document.querySelector('[data-premove-status]')?.textContent.includes('from g1 to f3'))
+            await board.getByRole('button', { name: /^b1, White knight/ }).focus()
+          } else if (scenario === 'modal') {
+            await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+            await page.locator('.pgn-dialog').waitFor(); await page.keyboard.press('Escape')
+            await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+            assert((await status.textContent()).includes(`from ${from} to ${to}`), 'dialog Escape discarded the queued premove')
+            await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+            await page.locator('.pgn-dialog textarea').fill('1. c4 c5 *')
+          }
+          await page.evaluate(() => window.__premoveReplyEngine.finishSearch())
+          if (scenario === 'far-cancel') {
+            await page.waitForFunction(count => document.querySelectorAll('.mtree-chip').length === count + 1, initialMoves)
+            assert(await page.locator('#chessboard-square-a1 [data-piece="wR"]').count() === 1, 'cancelled distant rook premove played')
+          } else if (scenario === 'captured') {
+            await page.waitForFunction(count => document.querySelectorAll('.mtree-chip').length === count + 1, initialMoves)
+            await page.locator('#chessboard-square-e3 [data-piece="bP"]').waitFor()
+            assert(await page.locator('#chessboard-square-e4 [data-piece="wP"]').count() === 0, 'the queued pawn survived the actual en passant reply')
+            await page.waitForFunction(() => document.activeElement === document.querySelector('.board-stage'))
+            const king = board.getByRole('button', { name: /^e1, White king/ })
+            await king.focus(); await king.press('Enter'); await page.keyboard.press('ArrowUp'); await page.keyboard.press('Space')
+          } else if (scenario === 'cancel' || scenario === 'invalid') {
+            await page.waitForFunction(count => document.querySelectorAll('.mtree-chip').length === count + 1, initialMoves)
+            assert(await page.locator(`#chessboard-square-${from} [data-piece="${side === 'White' ? 'w' : 'b'}N"]`).count() === 1, 'cancelled/invalid premove played after the reply')
+            await source().press('Enter')
+            if (scenario === 'invalid') {
+              await page.keyboard.press('ArrowUp'); await page.keyboard.press('ArrowUp')
+              await page.keyboard.press('Space'); await page.keyboard.press('Enter')
+              assert(await page.locator('.clock-white.running').count() === 1 && await page.locator('.mtree-chip').count() === initialMoves + 1
+                && (await source().getAttribute('aria-label')).includes('selected'), 'an empty non-target paused the clock or cancelled the selected piece')
+              await page.keyboard.press('ArrowLeft')
+            } else for (const key of ['ArrowUp', 'ArrowUp', side === 'White' ? 'ArrowLeft' : 'ArrowRight']) await page.keyboard.press(key)
+            await page.keyboard.press('Space')
+          }
+        }
+        const finalMoveCount = initialMoves + (scenario === 'far-cancel' ? 1 : 2)
+        await page.waitForFunction(count => document.querySelectorAll('.mtree-chip').length === count, finalMoveCount)
+        const expectedTo = scenario === 'far-cancel' ? 'a1' : ['captured', 'late-captured'].includes(scenario) ? 'e2' : scenario === 'invalid' ? 'f3' : to
+        const expectedPiece = scenario === 'far-cancel' ? 'wR' : ['captured', 'late-captured'].includes(scenario) ? 'wK' : scenario === 'arrival' ? 'wP' : side === 'White' ? 'wN' : 'bN'
+        await page.locator(`#chessboard-square-${expectedTo} [data-piece="${expectedPiece}"]`).waitFor()
+        if (scenario === 'modal') {
+          const draft = page.locator('.pgn-dialog textarea')
+          assert(await draft.inputValue() === '1. c4 c5 *' && await draft.evaluate(el => el === document.activeElement), 'automatic premove stole a newer dialog draft/focus')
+          await page.keyboard.press('Escape'); await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+        } else if (scenario === 'new-focus') {
+          assert(await focusedSquare() === 'b1', 'automatic premove stole a newer board choice')
+        } else await page.waitForFunction(square => document.activeElement?.closest('[id^="chessboard-square-"]')?.id === `chessboard-square-${square}`, expectedTo)
+        assert((await status.textContent()).trim() === '', 'completed/cancelled queue retained stale feedback')
+        await page.getByRole('button', { name: 'Pause AI', exact: true }).click()
+        assert(await page.locator('.mtree-chip').count() === finalMoveCount && errors.length === 0 && await page.locator('.app-error-shell').count() === 0, `keyboard premove errors: ${errors.join('; ')}`)
+        console.log(`  keyboard premove ${width}×${height} text ${scale * 100}% ${side} ${scenario}: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained`)
+      } finally { await context.close() }
+    }
+  }
+}
+
+async function checkPremoveSourceVisibility(browser) {
+  await checkKeyboardPremoves(browser, [['White', 'far-cancel']], [[320, 225, 2, 'light']])
+}
+
 async function checkAPremoveWaitsForItsTurn(browser) {
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
@@ -9135,7 +9311,11 @@ async function checkAPremoveWaitsForItsTurn(browser) {
       const queue = async (from, to) => {
         await page.locator(`#chessboard-square-${from}`).click()
         await page.locator(`#chessboard-square-${to}`).click()
-        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        await page.waitForFunction(({ from, to }) => {
+          const marked = [...document.querySelectorAll('[id^="chessboard-square-"]')]
+            .filter(el => [...el.children].some(child => / 4px(?: |$)/.test(getComputedStyle(child).boxShadow))).map(el => el.id.slice(-2)).sort()
+          return JSON.stringify(marked) === JSON.stringify([from, to].sort())
+        }, { from, to })
         assert(JSON.stringify(await pending()) === JSON.stringify([from, to].sort()), `premove was not actually queued: ${JSON.stringify(await pending())}`)
       }
       const reply = async () => {
@@ -9292,8 +9472,20 @@ async function checkBoardDragFocus(browser) {
       assert(await next.evaluate(el => el === document.activeElement), 'drag arrival reclaimed the next selected piece')
       await target.focus(); await target.press('Space')
       await waitForBoardPiece(page, 'd5', 'Black pawn')
-      assert(await page.locator('.mtree-chip').count() === 2 && errors.length === 0 && await page.locator('.app-error-shell').count() === 0, 'drag/keyboard follow-up changed the game or errored')
-      console.log(`  board drag focus (${width}px, ${theme}): native drag restores the arriving pawn; selecting the next piece keeps focus and keyboard reply succeeds`)
+      const knight = page.locator('.board-area').getByRole('button', { name: /^g1, White knight/ })
+      await knight.focus(); await knight.press('Enter')
+      const knightFrom = await page.locator('#chessboard-square-g1').boundingBox(), knightTo = await page.locator('#chessboard-square-f3').boundingBox()
+      await page.mouse.move(knightFrom.x + knightFrom.width / 2, knightFrom.y + knightFrom.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(knightTo.x + knightTo.width / 2, knightTo.y + knightTo.height / 2, { steps: 10 })
+      await page.keyboard.press('Escape'); await page.mouse.up()
+      await page.waitForFunction(() => !document.querySelector('#chessboard-square-f3 [data-piece="wN"]') && document.querySelector('#chessboard-square-g1 [data-piece="wN"]'))
+      assert(await page.locator('.mtree-chip').count() === 2, 'Escape dropped the dragged knight instead of cancelling it')
+      await knight.focus(); await knight.press('Enter')
+      for (const key of ['ArrowUp', 'ArrowUp', 'ArrowLeft', 'Space']) await page.keyboard.press(key)
+      await page.locator('#chessboard-square-f3 [data-piece="wN"]').waitFor()
+      assert(await page.locator('.mtree-chip').count() === 3 && errors.length === 0 && await page.locator('.app-error-shell').count() === 0, 'drag/keyboard follow-up changed the game or errored')
+      console.log(`  board drag focus (${width}px, ${theme}): native drag restores the arriving pawn; selecting the next piece keeps focus, keyboard reply succeeds, pointer-drag Escape cancels and arrows play the next move`)
     } finally { await context.close() }
   }
 }
@@ -21088,6 +21280,8 @@ async function main() {
       'opponent-retry': checkOpponentRetry,
       'analysis-retry-command': checkAnalysisRetryCommand,
       'board-drag-focus': checkBoardDragFocus,
+      'keyboard-premoves': checkKeyboardPremoves,
+      'premove-source-focus': checkPremoveSourceVisibility,
       'move-list-pointer': checkMoveListPointerActivation,
       'move-list-fit': checkMoveListFitting,
       'drill-restart': checkDrillRestartKeepsItsLine,
@@ -21902,6 +22096,8 @@ async function main() {
     await checkResignationEndsTakeback(browser)
     await checkQuickStartRemembersTheLastGame(browser)
     await checkAPremoveWaitsForItsTurn(browser)
+    await checkKeyboardPremoves(browser)
+    await checkPremoveSourceVisibility(browser)
     await checkTheThreatProbeAsksTheOtherSide(browser)
     await checkBoardSquareSemantics(browser)
     await checkBoardDragFocus(browser)

@@ -122,7 +122,7 @@ import {
   tablebaseMoveSummary,
   tablebaseSummary,
 } from './engine/tablebaseLabels'
-import { isBoardSquare } from './engine/boardAccessibility'
+import { boardKeyboardDestination, isBoardSquare } from './engine/boardAccessibility'
 import { BOARD_A11Y_SYNC_MAX_RETRIES, syncRenderedBoardAccessibility } from './components/boardAccessibilitySync'
 import { isBoardInputLocked, isPromotionMove } from './engine/boardInput'
 import { boardSizing, isLandscapePhoneViewport, isMobileViewport } from './engine/boardSizing'
@@ -1068,7 +1068,6 @@ function App() {
   const restoreBoardFocusRef = useRef<{ square: Square; origin: Element | null; fen: string } | null>(null)
   const exerciseQuestionFocusRef = useRef<{ kind: 'drill' | 'practice'; fen: string } | null>(null)
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
-  const [legalTargets, setLegalTargets] = useState<Square[]>([])
   const [pendingPromotion, setPendingPromotion] = useState<PendingPromotion | null>(null)
   // Squares the reader right-clicked. Arrows they drag are the library's own
   // state; only the squares are ours, because it has no notion of them.
@@ -1177,7 +1176,6 @@ function App() {
     aiMoveScheduledRef.current = false
     setPendingPromotion(null)
     setSelectedSquare(null)
-    setLegalTargets([])
     // A premove was queued against the position you were looking at. Take the
     // board anywhere else -- navigate, take a move back -- and it is a move for
     // a game that no longer exists: without this, a takeback played the queued
@@ -1535,7 +1533,6 @@ function App() {
       // a selected piece or a queued premove underneath it.
       if (e.key === 'Escape') {
         setSelectedSquare(null)
-        setLegalTargets([])
         setPremove(null)
         if (touchDrawing) {
           e.preventDefault()
@@ -3954,6 +3951,13 @@ function App() {
     paused,
   })
 
+  // Derive this from the rendered position: an engine reply can turn a
+  // selected premove piece into an ordinary move without another selection.
+  const legalTargets = useMemo(() => {
+    if (!selectedSquare || premoveAllowed || (workspaceMode === 'play' && (isGameOver || endedOffBoard))) return []
+    return uniqueSquares(new Chess(fen).moves({ square: selectedSquare, verbose: true }).map(move => move.to as Square))
+  }, [endedOffBoard, fen, isGameOver, premoveAllowed, selectedSquare, workspaceMode])
+
   /**
    * Stepping out to Analysis stops the clock, and says so.
    *
@@ -4385,7 +4389,6 @@ function App() {
   // ── Human move ────────────────────────────────────────
   const clearBoardSelection = useCallback(() => {
     setSelectedSquare(null)
-    setLegalTargets([])
   }, [])
 
   /**
@@ -4657,8 +4660,22 @@ function App() {
 
     setPremove(null)
     const probe = new Chess(game.fen())
-    if (!applyPremove(probe, premove)) return
+    const active = document.activeElement as HTMLElement | null
+    const activeSquare = active?.closest('[id^="chessboard-square-"]')?.id.replace('chessboard-square-', '')
+    if (!applyPremove(probe, premove)) {
+      if (active === document.body || activeSquare === premove.from || activeSquare === premove.to) {
+        restoreBoardFocusRef.current = null
+        const source = game.get(premove.from)?.color === playerColorToTurn(playerColor)
+          ? document.getElementById(`chessboard-square-${premove.from}`)?.querySelector<HTMLElement>('button, [role="button"]')
+          : null
+        if (source) source.focus()
+        else boardStageRef.current?.focus({ preventScroll: true })
+      }
+      return
+    }
     applyHumanMove(premove.from, premove.to, premove.promotion)
+    // An automatic move must respect a newer piece the reader has focused.
+    if (activeSquare && activeSquare !== premove.from && activeSquare !== premove.to) restoreBoardFocusRef.current = null
   }, [applyHumanMove, endedOffBoard, fen, game, gameMode, playerColor, premove, readBoardEnding, workspaceMode])
 
 
@@ -4778,7 +4795,6 @@ function App() {
   const handleBoardDrop = useCallback(({ sourceSquare, targetSquare, piece }: PieceDropHandlerArgs) => {
     if (!targetSquare) return false
     setSelectedSquare(null)
-    setLegalTargets([])
     return onPieceDrop(sourceSquare as Square, targetSquare as Square, piece.pieceType)
   }, [onPieceDrop])
 
@@ -4889,7 +4905,6 @@ function App() {
       }
       if (isPremoveablePiece(game.fen(), square, playerColorToTurn(playerColor))) {
         setSelectedSquare(square)
-        setLegalTargets([])
       } else {
         // Anywhere else cancels, the way it does on every other board.
         setPremove(null)
@@ -4917,9 +4932,7 @@ function App() {
       // If clicking another own piece, re-select it
       const clickedPiece = game.get(square)
       if (clickedPiece && clickedPiece.color === game.turn()) {
-        const moves = game.moves({ square, verbose: true })
         setSelectedSquare(square)
-        setLegalTargets(uniqueSquares(moves.map(m => m.to as Square)))
         return
       }
       // Attempt the move
@@ -4935,9 +4948,7 @@ function App() {
     // First tap: select if it's a piece of the current player
     const piece = game.get(square)
     if (!piece || piece.color !== game.turn()) return
-    const moves = game.moves({ square, verbose: true })
     setSelectedSquare(square)
-    setLegalTargets(uniqueSquares(moves.map(m => m.to as Square)))
   }, [
     applyHumanMove,
     beginPromotion,
@@ -4990,13 +5001,28 @@ function App() {
       // labelling e4 "empty" under a pawn the reader can see is worse than no
       // label. A preview has no selection and no legal targets, because
       // nothing can be moved in a position that is not the game.
+      const focusedBefore = document.activeElement as HTMLElement | null
       const applied = syncRenderedBoardAccessibility(
         previewChess ?? game,
         previewChess ? null : selectedSquare,
         previewChess ? [] : legalTargets,
         blindfold,
-        'board-keyboard-help',
+        { keyboardHelpId: 'board-keyboard-help', premove: !previewChess && premoveAllowed, queuedPremove: previewChess ? null : premove },
       )
+      // Preserve a focused coordinate when an arriving piece replaces its
+      // temporary square control with the library's named piece control.
+      const active = document.activeElement as HTMLElement | null
+      if (focusedBefore?.matches('[id^="chessboard-square-"]') && (active === document.body || active === focusedBefore)) {
+        const control = focusedBefore.querySelector<HTMLElement>('button, [role="button"]')
+          ?? (focusedBefore.matches('[role="img"]') ? focusedBefore : null)
+        if (control) {
+          const neededTabIndex = control.tabIndex < 0 && !control.hasAttribute('tabindex')
+          if (neededTabIndex) control.setAttribute('tabindex', '-1')
+          // Some browsers defer blur after tabindex removal. Keep the active
+          // coordinate focusable before that deferred fixup can send it away.
+          if (control !== active || neededTabIndex) control.focus({ preventScroll: true })
+        }
+      }
       restoreBoardFocus(settled)
       return applied
     }
@@ -5040,30 +5066,67 @@ function App() {
       if (structureFrame !== null) window.cancelAnimationFrame(structureFrame)
       window.clearTimeout(settleTimer)
     }
-  }, [blindfold, fen, game, legalTargets, previewChess, selectedSquare])
+  }, [blindfold, fen, game, legalTargets, premove, premoveAllowed, previewChess, selectedSquare])
 
   const handleBoardKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
-      if (event.key !== 'Enter' && event.key !== ' ') return
-
+      if (!isPlainShortcut(event.nativeEvent) || isCompositionKey(event.nativeEvent)) return
       const target = event.target as HTMLElement | null
       const squareEl = target?.closest<HTMLElement>('[id^="chessboard-square-"]')
       if (!squareEl) return
-
       const square = squareEl.id.replace('chessboard-square-', '')
       if (!isBoardSquare(square)) return
 
+      const focusPiece = (from: Square) => {
+        const source = game.get(from) ? document.getElementById(`chessboard-square-${from}`) : null
+        const control = source?.querySelector<HTMLElement>('button, [role="button"]')
+          ?? (source?.matches('button, [role="button"]') ? source : null)
+        if (control) control.focus()
+        else boardStageRef.current?.focus({ preventScroll: true })
+      }
+      if (event.key === 'Escape' && (selectedSquare || premove)) {
+        // The pointer drag sensor also needs Escape; the global app handler
+        // already yields to defaultPrevented events.
+        event.preventDefault()
+        const from = selectedSquare ?? premove!.from
+        const returnToSource = Boolean(selectedSquare) || square === premove?.from || square === premove?.to
+        restoreBoardFocusRef.current = null
+        clearBoardSelection()
+        setPremove(null)
+        if (returnToSource) focusPiece(from)
+        return
+      }
+      const canChoose = selectedSquare && (workspaceMode !== 'play' || (!isGameOver && !endedOffBoard))
+      const next = canChoose ? boardKeyboardDestination(square, event.key, orientation) : null
+      if (next) {
+        event.preventDefault()
+        event.stopPropagation()
+        const destination = document.getElementById(`chessboard-square-${next}`)
+        const control = destination?.querySelector<HTMLElement>('button, [role="button"]') ?? destination
+        if (control) {
+          if (!control.hasAttribute('tabindex')) control.setAttribute('tabindex', '-1')
+          control.focus()
+        }
+        return
+      }
+      if (event.key !== 'Enter' && event.key !== ' ') return
       const isEmptyTarget = squareEl.getAttribute('data-webchess-a11y-target') === 'true'
       const isInteractiveSquare = Boolean(target?.closest('button, [role="button"]')) || isEmptyTarget
-      if (event.key === ' ' && !isInteractiveSquare) return
+      if (!isInteractiveSquare) {
+        // A selected piece may be inspected through passive empty squares.
+        // Their activation keys must not fall through to the game clock.
+        if (selectedSquare) { event.preventDefault(); event.stopPropagation() }
+        return
+      }
 
-      // These keys select/move through our square controls. Letting the
-      // drag sensor activate too gives it a competing source-focus restore.
+      // Our square controls own these keys, ahead of the drag keyboard sensor.
       event.preventDefault()
       event.stopPropagation()
+      const queuedFrom = premoveAllowed ? selectedSquare : null
       onSquareClick(square)
+      if (queuedFrom) focusPiece(queuedFrom)
     },
-    [onSquareClick],
+    [clearBoardSelection, endedOffBoard, game, isGameOver, onSquareClick, orientation, premove, premoveAllowed, selectedSquare, workspaceMode],
   )
 
   const promotionColor = pendingPromotion
@@ -5805,7 +5868,6 @@ function App() {
       setSampleLoadError(null)
       setPendingPromotion(null)
       setSelectedSquare(null)
-      setLegalTargets([])
       setIsImportingGame(false)
       pausedRef.current = true
       setPaused(true)
@@ -8467,9 +8529,16 @@ function App() {
               })()}
               <div className="board-area" onKeyDownCapture={handleBoardKeyDown}>
                 <p id="board-keyboard-help" className="visually-hidden">
-                  Press Enter or Space to select a piece. Tab to a legal move and press Enter or Space to play it.
-                  Press the selected piece again to cancel.
+                  {premoveAllowed
+                    ? 'Select your piece with Enter or Space. Use arrow keys or Tab to a premove destination, then Enter or Space to queue it. It plays only if legal after the reply.'
+                    : 'Press Enter or Space to select a piece. Use arrow keys or Tab to a legal move, then Enter or Space to play it.'}
+                  {' '}Home and End move along a rank. Escape cancels the selection or queued premove.
                 </p>
+                {workspaceMode === 'play' && gameMode === 'human-vs-ai' && (
+                  <span className="visually-hidden" role="status" aria-live="polite" aria-atomic="true" data-premove-status>
+                    {premove ? `Premove queued from ${premove.from} to ${premove.to}. It plays only if legal after the reply. Escape cancels.` : ''}
+                  </span>
+                )}
                 <div
                   className={`board-surface${isPreviewingLine ? ' previewing' : ''}${touchDrawing ? ' drawing' : ''}`}
                   aria-hidden={promotionDialogOpen ? true : undefined}

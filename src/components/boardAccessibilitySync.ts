@@ -31,7 +31,11 @@ export function syncRenderedBoardAccessibility(
   selectedSquare: Square | null,
   legalTargets: Square[],
   blindfold = false,
-  keyboardHelpId?: string,
+  { keyboardHelpId, premove = false, queuedPremove = null }: {
+    keyboardHelpId?: string
+    premove?: boolean
+    queuedPremove?: { from: Square; to: Square } | null
+  } = {},
 ): boolean {
   const legalTargetSet = new Set(legalTargets)
   let foundBoard = false
@@ -41,7 +45,7 @@ export function syncRenderedBoardAccessibility(
     if (!squareEl) continue
     foundBoard = true
 
-    const label = describeBoardSquare(chess, square, { selectedSquare, legalTargets })
+    const label = describeBoardSquare(chess, square, { selectedSquare, legalTargets, premove, queuedPremove })
     /*
      * The name and the tooltip are the same string everywhere except under a
      * blindfold, where they must not be.
@@ -57,7 +61,7 @@ export function syncRenderedBoardAccessibility(
      * would take the board away from someone who did not choose it.
      */
     const shown = blindfold
-      ? describeBoardSquare(chess, square, { selectedSquare, legalTargets, hidePiece: true })
+      ? describeBoardSquare(chess, square, { selectedSquare, legalTargets, premove, queuedPremove, hidePiece: true })
       : label
     squareEl.setAttribute('title', shown)
     const controls = [...squareEl.querySelectorAll<HTMLElement>('button, [role="button"]')]
@@ -73,7 +77,7 @@ export function syncRenderedBoardAccessibility(
     const ownRole = squareEl.getAttribute('role')
     const suppliedControl = squareEl.tagName === 'BUTTON' || (ownRole === 'button' && !ownsTarget)
     const shouldExposeEmptyTarget = controls.length === 0 && !suppliedControl
-      && Boolean(selectedSquare) && legalTargetSet.has(square)
+      && Boolean(selectedSquare) && (legalTargetSet.has(square) || (premove && selectedSquare !== square))
 
     // An image is a passive square description, never a wrapper around a
     // piece button: the image role would hide that interactive descendant.

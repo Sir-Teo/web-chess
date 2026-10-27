@@ -1,0 +1,5 @@
+{"role":"img","tabindex":null,"name":"f3, empty square","buttons":0,"selected":"g1, White knight, selected","moves":["e4"]}
+Error: An empty premove destination remains a passive image and cannot be reached as a keyboard move target
+    at /tmp/web-chess-keyboard-premove-before.cjs:2:1460
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:502:9)

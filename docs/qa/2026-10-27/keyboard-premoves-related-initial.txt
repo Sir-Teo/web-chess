@@ -1,0 +1,8 @@
+Error: premove was not actually queued: []
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at queue (/workspace/web-chess/scripts/test-ui-browser.cjs:9315:9)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:502:9)
+    at async checkAPremoveWaitsForItsTurn (/workspace/web-chess/scripts/test-ui-browser.cjs:9351:7)
+    at async /tmp/web-chess-keyboard-premoves-related.cjs:10:60

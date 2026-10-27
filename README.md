@@ -60,7 +60,10 @@ given, and the app answering the reader who touches it.
   it is ready, for that position. Starting another game clears the request.
 - **Premoves**: While the engine is thinking, drag or tap your reply and it is
   held, both squares ringed, then played the instant the position arrives.
-  **Escape** cancels a queued premove before the reply. A
+  With the keyboard, select your piece with Enter/Space, use arrows or Tab to
+  a destination, then Enter/Space to queue it. The source names its queued
+  destination and a status confirms it; targets are premoves, checked for
+  legality only after the reply. **Escape** on the board cancels the queue. A
   premove the engine's reply made illegal is dropped without comment, a pawn
   reaching the last rank promotes to a queen without asking, and clicking
   anywhere else cancels — the same rules every other board uses, because they
@@ -135,7 +138,11 @@ given, and the app answering the reader who touches it.
   Find it in **Commands** (`Ctrl/Cmd+K`) to open the panel and focus the field;
   reopening an existing field keeps its draft and selection. It is omitted
   while watching two engines.
-- **Move with the keyboard**: Focus a piece and press Enter or Space, Tab to a legal destination, then press Enter or Space to play. Focus follows the moved piece and respects your next selection.
+- **Move with the keyboard**: Focus a piece and press Enter or Space, use arrow
+  keys or Tab to a legal destination, then Enter or Space to play. Arrows follow
+  the current board orientation; Home/End move along the rank, and Escape
+  cancels the selection. Focus follows the moved piece and respects your next
+  selection.
 - **Keep searching**: The automatic analysis stops at the depth slider, which
   on a desktop is over in a second. Pro mode has a switch under the Coach/Pro
   toggle that asks for `go infinite` instead, so the depth climbs for as long
