@@ -1,0 +1,3 @@
+{"commands":["go movetime 500"],"moves":["d4","e5"],"appError":0}
+Error: A queued Step from the previous game ran after starting a new game
+    at /tmp/web-chess-step-boot-queue-reset-probe.cjs:10:784

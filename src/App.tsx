@@ -1124,7 +1124,8 @@ function App() {
   // ── AI speed (throttle delay between AI moves) ───────
   const [aiSpeed, setAiSpeed] = useState<AiSpeed>('normal')
   const aiSpeedRef = useRef<AiSpeed>('normal')
-  const stepPendingRef = useRef(false) // for Step mode: advance one move on demand
+  // A queued Step belongs to this exact node, including while the engine boots.
+  const stepPendingNodeRef = useRef<string | null>(null)
   const [stepRequestTick, setStepRequestTick] = useState(0)
 
   const handleSpeedChange = useCallback((s: AiSpeed) => {
@@ -1288,15 +1289,21 @@ function App() {
     aiMoveScheduledRef.current = false
     const over = Boolean(readBoardEnding()) || Boolean(endedOffBoardRef.current)
     const now = Date.now(), turn = game.turn()
-    setClock(previous => (
-      previous && !previous.flagged && !over ? startSide(previous, turn, now) : previous
-    ))
+    const aiTurn = gameMode === 'ai-vs-ai'
+      || (gameMode === 'human-vs-ai' && turn !== playerColorToTurn(playerColor))
+    const waitForEngine = aiTurn && (aiPlayerStatusRef.current !== 'ready'
+      || (aiSpeedRef.current === 'step' && (stepPendingNodeRef.current === null
+        || stepPendingNodeRef.current !== gameTreeRef.current.currentPath().at(-1)?.id)))
+    setClock(previous => {
+      if (!previous || previous.flagged || over) return previous
+      return waitForEngine ? pauseClock(previous, now) : startSide(previous, turn, now)
+    })
     // `setPaused(false)` is what re-enters the AI loop: `paused` is one of that
     // effect's dependencies. This used to also call `setFen(f => f)`, commented
     // "nudge AI effect", which cannot do that -- React bails out of a state
     // update to an Object.is-equal value, so no dependency changed and no
     // effect re-ran. It was doing nothing, next to the line that does the job.
-  }, [game, readBoardEnding])
+  }, [game, gameMode, playerColor, readBoardEnding])
 
   const currentPathMoves = useMemo(
     () => currentPathNodes.slice(1).map(node => node.uci).filter(Boolean),
@@ -2039,6 +2046,7 @@ function App() {
   }, [])
 
   const cancelPendingAiMove = useCallback(() => {
+    stepPendingNodeRef.current = null
     cancelAiRequest()
     aiMoveScheduledRef.current = false
     setIsAiThinking(false)
@@ -4196,9 +4204,16 @@ function App() {
     // Read once, from the position the move created: a move that mates or
     // stalemates hands over to nobody, and the clock has to be told.
     const ended = Boolean(readBoardEnding())
+    const nextAiTurn = workspaceMode === 'play' && (gameMode === 'ai-vs-ai'
+      || (gameMode === 'human-vs-ai' && move.color === playerColorToTurn(playerColor)))
+    const holdNextClock = nextAiTurn && (aiSpeedRef.current === 'step'
+      || (!byEngine && aiPlayerStatusRef.current !== 'ready'))
     setClock(previous => {
       if (!previous) return previous
-      return ended ? moveEndedGame(previous, move.color, now) : moveMade(previous, move.color, now)
+      const next = ended ? moveEndedGame(previous, move.color, now) : moveMade(previous, move.color, now)
+      // Bank the move and increment, then hold an opponent who cannot move at
+      // that same instant. Waiting for a later effect would charge boot time.
+      return holdNextClock ? pauseClock(next, now) : next
     })
   }, [gameMode, playMoveSound, playerColor, readBoardEnding, workspaceMode])
   // Reached from the AI loop, which is an effect that must not re-install
@@ -4237,8 +4252,9 @@ function App() {
     if (!isAiTurn) return
 
     // In Step mode wait for user to request a move
-    if (aiSpeedRef.current === 'step' && !stepPendingRef.current) return
-    stepPendingRef.current = false
+    if (aiSpeedRef.current === 'step' && (stepPendingNodeRef.current === null
+      || stepPendingNodeRef.current !== gameTreeRef.current.currentPath().at(-1)?.id)) return
+    stepPendingNodeRef.current = null
 
     aiMoveScheduledRef.current = true
     setIsAiThinking(true)
@@ -5981,10 +5997,11 @@ function App() {
 
       setTimeControlId(chosenTimeControlId)
       const control = timeControlPresetById(chosenTimeControlId)?.control ?? null
-      // White's clock runs from the start of the game, the way a clock does.
-      // The alternative -- starting it on the first move -- gives White an
-      // untimed think that Black never gets. Space pauses if you are not ready.
-      setClock(control ? startSide(createClock(control), 'w', Date.now()) : null)
+      // A human's first think starts now. An engine's clock starts in the AI
+      // loop once it can search, including when it is waiting for a first Step.
+      const humanStarts = mode === 'human-vs-human' || (mode === 'human-vs-ai' && color === 'white')
+      const initialClock = control ? createClock(control) : null
+      setClock(initialClock && humanStarts ? startSide(initialClock, 'w', Date.now()) : initialClock)
       setResignedBy(null)
       // The header the per-move `[%clk]` readings count down from. Without it
       // an exported timed game says how much time was left and never what of.
@@ -6650,15 +6667,20 @@ function App() {
       (gameMode === 'human-vs-ai' && currentTurn !== playerColor[0])
     if (!isAiTurn) return
 
-    stepPendingRef.current = true
+    stepPendingNodeRef.current = gameTreeRef.current.currentPath().at(-1)?.id ?? null
     pausedRef.current = false
     setPaused(false)
     aiMoveScheduledRef.current = false
     // The clock was held while the engine waited to be let go; give the time
     // back before it searches, so the search is on its own clock and the move
-    // it makes still earns its increment.
+    // it makes still earns its increment. A queued Step during boot cannot
+    // search yet; the AI loop starts its clock when readiness actually arrives.
     const now = Date.now()
-    setClock(previous => (previous && !previous.flagged ? startSide(previous, currentTurn, now) : previous))
+    const ready = aiPlayerStatusRef.current === 'ready'
+    setClock(previous => {
+      if (!previous || previous.flagged) return previous
+      return ready ? startSide(previous, currentTurn, now) : pauseClock(previous, now)
+    })
     setStepRequestTick(tick => tick + 1)
   }, [game, gameMode, playerColor, readBoardEnding])
 
@@ -7183,18 +7205,22 @@ function App() {
      * **Measured**: 2:59 before the step and 2:59 after a move worth two
      * seconds.
      *
-     * Two flags, because one commit is not enough. `stepPendingRef` covers
+     * Two markers, because one commit is not enough. `stepPendingNodeRef` covers
      * the render `handleStep` causes, before the loop has looked. The loop
      * then clears it and sets `aiMoveScheduledRef` -- and it is declared
      * above this effect, so within that same commit it runs first and this
      * one would see a cleared flag and a search that has not raised
      * `isAiThinking` yet. Measured exactly there: the guard on
-     * `stepPendingRef` alone changed nothing at all.
+     * `stepPendingNodeRef` alone changed nothing at all.
      */
-    if (stepPendingRef.current || aiMoveScheduledRef.current) return
+    // A pending Step protects an engine's own search time, never its loading
+    // time. Boot/fallback can still hold the request before any search starts.
+    const stepForCurrentNode = stepPendingNodeRef.current !== null
+      && stepPendingNodeRef.current === gameTreeRef.current.currentPath().at(-1)?.id
+    if (!engineCannotSearchYet && (stepForCurrentNode || aiMoveScheduledRef.current)) return
     const now = Date.now()
     setClock(previous => (previous && previous.running !== null ? pauseClock(previous, now) : previous))
-  }, [awaitingAiStep, clock])
+  }, [awaitingAiStep, clock, engineCannotSearchYet])
   /**
    * Sideways on a phone, height is the scarce axis, and this pair made the
    * strip above the board two lines tall: the 44px Arrows target beside one

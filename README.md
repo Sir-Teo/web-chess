@@ -55,6 +55,8 @@ given, and the app answering the reader who touches it.
   **Pause clock** and **Resume clock** in the bottom controls, including on
   touch screens. In Step mode the same slot advances the engine on its turn
   and shows **Thinking…** while it chooses the move.
+  A Step queued during loading keeps the engine’s clock stopped and runs once
+  it is ready, for that position. Starting another game clears the request.
 - **Premoves**: While the engine is thinking, drag or tap your reply and it is
   held, both squares ringed, then played the instant the position arrives.
   **Escape** cancels a queued premove before the reply. A

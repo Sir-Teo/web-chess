@@ -1,0 +1,3 @@
+{"before":["2:59","3:01"],"after":["2:54","3:01"],"running":["B2:54"],"commands":[],"readyHeld":true,"appError":0}
+Error: Queued Step charges the engine while its ready handshake is still held
+    at /tmp/web-chess-step-boot-queue-before.cjs:10:666

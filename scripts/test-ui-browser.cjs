@@ -390,6 +390,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
         this.goCommand = text;
         this.searching = true;
         if (SCENARIO === 'blunder-nudge' && window.__holdPremoveReply) window.__premoveReplyEngine = this;
+        if (SCENARIO === 'slow-boot' && window.__holdStepBootReply) window.__stepBootReplyEngine = this;
         this.searches += 1;
         if (window.__withholdEngineInfo) return;
         if (SCENARIO === 'review-source' && this.ordinal === window.__failReviewWorker && this.searches === 2) {
@@ -402,6 +403,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
         // finish with a bestmove, which is what the app waits for.
         if (SCENARIO !== 'hold-search' && !(SCENARIO === 'hold-infinite' && text === 'go infinite')
           && !(SCENARIO === 'blunder-nudge' && window.__holdPremoveReply)
+          && !(SCENARIO === 'slow-boot' && window.__holdStepBootReply)
           && !(SCENARIO === 'console-search' && this.fen.includes('rnb1kbnr'))) {
           this.finishTimer = setTimeout(() => this.finishSearch(), 15);
         }
@@ -4903,6 +4905,101 @@ async function checkStepModeDoesNotChargeTheHeldEngine(browser) {
  * for a CDN build before it gives up. In a 1+0 game any of those is a slice
  * of the clock spent before the engine has played a move.
  */
+async function checkQueuedStepWaitsForReady(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [320, 480, 2, 'light']]) {
+    for (const scenario of ['white', 'black', 'engines', 'reset', 'reset-root', 'position']) {
+      const context = await browser.newContext({ viewport: { width, height }, hasTouch: width < 900, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.clock.install({ time: new Date('2026-10-27T12:00:00Z') })
+        await page.addInitScript(fakeEngineScript('slow-boot'))
+        await page.addInitScript(({ theme, scenario }) => {
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, timeControlId: '3+2', lastSideChoice: 'white', theme }))
+          window.__holdPlayReady = true
+          window.__holdStepBootReply = true
+          window.__previewEndingPv = ['black', 'engines', 'reset-root'].includes(scenario) ? 'e2e4' : 'e7e5'
+        }, { theme, scenario })
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true'
+          && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
+        const start = async (mode = 'Human vs AI', colour = 'White') => {
+          await page.getByRole('button', { name: 'Start new game', exact: true }).first().click()
+          const dialog = page.locator('.new-game-dialog'); await dialog.waitFor()
+          await dialog.locator('.mode-card', { hasText: mode }).click()
+          if (mode === 'Human vs AI') await dialog.getByRole('button', { name: colour, exact: true }).click()
+          await dialog.locator('.time-control-card', { hasText: '3 + 2' }).click()
+          await dialog.locator('.btn-start').click(); await dialog.waitFor({ state: 'detached' })
+        }
+        const enter = async move => {
+          if (!await page.locator('.move-entry').evaluate(el => el.open)) await page.locator('.move-entry summary').click()
+          const input = page.locator('.move-entry input'); await input.fill(move); await input.press('Enter')
+        }
+        const step = () => page.getByRole('button', { name: 'Advance one AI move', exact: true })
+        const clocks = () => page.locator('.clock-face').evaluateAll(els => Object.fromEntries(els.map(el => [el.classList.contains('clock-white') ? 'White' : 'Black', el.querySelector('strong').textContent])))
+        const searches = () => page.evaluate(() => window.__uciCommands.filter(command => command.startsWith('go ')).length)
+        const seconds = text => String(text).split(':').map(Number).reduce((total, part) => total * 60 + part, 0)
+        await start()
+        await page.getByRole('button', { name: 'Set AI speed to Step', exact: true }).click()
+        if (['black', 'reset-root'].includes(scenario)) await start('Human vs AI', 'Black')
+        else if (scenario === 'engines') await start('AI vs AI')
+        else await enter('e4')
+        await step().waitFor()
+        await page.waitForFunction(() => typeof window.__releasePlayReady === 'function' && document.querySelectorAll('.clock-face.running').length === 0)
+        const engine = ['black', 'engines', 'reset-root'].includes(scenario) ? 'White' : 'Black'
+        const before = await clocks()
+        assert(before[engine] === '3:00', `startup/handover spent the engine's initial clock before it was ready: ${JSON.stringify(before)}`)
+        await step().press('Enter'); await step().press('Enter'); await step().press('Space')
+        await page.clock.fastForward(5000)
+        assert(JSON.stringify(await clocks()) === JSON.stringify(before) && await searches() === 0
+          && await page.locator('.clock-face.running').count() === 0, 'a queued/repeated Step charged boot time or searched before readiness')
+        if (scenario === 'reset' || scenario === 'reset-root') {
+          await start('Human vs AI', scenario === 'reset-root' ? 'Black' : 'White')
+          if (scenario === 'reset') await enter('d4')
+        } else if (scenario === 'position') {
+          await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+          await enter('d4')
+        }
+        await page.evaluate(() => window.__releasePlayReady())
+        if (['reset', 'reset-root', 'position'].includes(scenario)) {
+          await page.waitForFunction(() => document.title.includes('AI waiting for Step'))
+          if (scenario === 'position') {
+            await page.evaluate(() => document.activeElement?.blur())
+            await page.keyboard.press('Space')
+          }
+          await page.waitForFunction(() => document.querySelectorAll('.clock-face.running').length === 0)
+          const unchanged = await clocks(); await page.clock.fastForward(2100)
+          assert(await searches() === 0 && JSON.stringify(await clocks()) === JSON.stringify(unchanged)
+            && await page.locator('.mtree-chip').count() === (scenario === 'position' ? 2 : scenario === 'reset-root' ? 0 : 1), 'an old queued Step escaped into another game/node or spent its clock')
+          await step().press('Enter')
+        }
+        await page.waitForFunction(() => window.__uciCommands.filter(command => command.startsWith('go ')).length === 1 && window.__stepBootReplyEngine?.searching)
+        await page.getByRole('button', { name: 'Engine is thinking', exact: true }).waitFor()
+        await page.locator(`.clock-${engine.toLowerCase()}.running`).waitFor()
+        const onMove = await clocks()
+        assert(await page.locator('.clock-face.running').count() === 1, 'readiness started both clocks')
+        await page.evaluate(() => { window.__holdStepBootReply = false; window.__stepBootReplyEngine.finishSearch() })
+        const expectedNodes = scenario === 'position' ? 3 : ['white', 'reset'].includes(scenario) ? 2 : 1
+        await page.waitForFunction(expected => window.__uciBestmoves === 1 && document.querySelectorAll('.mtree-chip').length === expected, expectedNodes)
+        await page.waitForFunction(engine => !document.querySelector(`.clock-${engine.toLowerCase()}`)?.classList.contains('running'), engine)
+        const after = await clocks()
+        assert(seconds(after[engine]) > seconds(onMove[engine]), `the released engine searched without its increment: ${JSON.stringify({ onMove, after })}`)
+        if (scenario === 'engines') await page.waitForFunction(() => document.querySelectorAll('.clock-face.running').length === 0)
+        else await page.locator(`.clock-${engine === 'White' ? 'black' : 'white'}.running`).waitFor()
+        const commands = await page.evaluate(() => window.__uciCommands.filter(command => command.startsWith('position fen')))
+        if (['reset', 'position'].includes(scenario)) assert(commands.at(-1).endsWith('moves d2d4'), 'the new Step searched the old e4 branch')
+        if (scenario === 'reset-root') assert(!commands.at(-1).includes(' moves '), 'a new starting-array game searched an old path')
+        const pgn = await readExportedPgn(page)
+        const readings = [...pgn.matchAll(/\[%clk\s+([0-9:]+)\s*\]/g)].map(match => match[1])
+        assert(readings.length >= 1 && seconds(readings.at(-1)) === seconds(after[engine]) && /\[TimeControl "180\+2"\]/.test(pgn), 'the released Step recorded a different clock/time control from its stopped face')
+        assert(await searches() === 1 && await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `queued Step errors/extra moves: ${errors.join('; ')}`)
+        console.log(`  queued Step boot (${width}×${height}, ${scale}x, ${theme}, ${scenario}): full initial engine bank and both clocks held through repeated queued presses/5s loading; only the owning node runs once after ready; reset/position requests require a fresh Step; actual search clock/increment/PGN and ${expectedNodes} nodes pass`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkAnEngineIsNotChargedForItsOwnBoot(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -20753,6 +20850,7 @@ async function main() {
       'pgn-import-status': checkPgnImportStatusIsolation,
       'human-step-clock': checkHumanStepClockControls,
       'step-progress': checkHumanStepClockControls,
+      'step-boot-queue': checkQueuedStepWaitsForReady,
       'move-list-pointer': checkMoveListPointerActivation,
       'move-list-fit': checkMoveListFitting,
       'drill-restart': checkDrillRestartKeepsItsLine,
@@ -21551,6 +21649,7 @@ async function main() {
     await checkPgnFileReading(browser)
     await checkPgnImportStatusIsolation(browser)
     await checkHumanStepClockControls(browser)
+    await checkQueuedStepWaitsForReady(browser)
     await checkNavigationKeepsTheClockHonest(browser)
     await checkKeepSearchingIsUnbounded(browser)
     await checkAutoplayWalksTheLine(browser)
