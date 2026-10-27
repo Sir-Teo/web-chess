@@ -11,10 +11,8 @@ import { formatLocalDate } from './localDate'
 
 const INITIAL_FEN = new Chess().fen()
 const PGN_TAG_NAME_PATTERN = /^[A-Za-z0-9_]+$/
-const PGN_EVENT_TAG_LINE_PATTERN = /^\s*\[Event\s+"(?:[^"\\]|\\.)*"\]\s*$/gim
-const PGN_RESULT_TAG_LINE_PATTERN = /^\s*\[Result\s+"(?:[^"\\]|\\.)*"\]\s*$/gim
-const PGN_HEADER_LINE_PATTERN = /^\s*\[[A-Za-z0-9_]+\s+"(?:[^"\\]|\\.)*"\]\s*$/gm
-const PGN_SEMICOLON_COMMENT_PATTERN = /;[^\r\n]*/g
+const PGN_EVENT_TAG_PATTERN = /^\[Event\s+"(?:[^"\\]|\\.)*"\]$/i
+const PGN_RESULT_TAG_PATTERN = /^\[Result\s+"(?:[^"\\]|\\.)*"\]$/i
 const PGN_MOVETEXT_RESULT_PATTERN = /(?:^|\s)(?:1-0|0-1|1\/2-1\/2|\*)(?=\s|$)/g
 const VALID_PGN_RESULTS = new Set(['1-0', '0-1', '1/2-1/2', '*'])
 /**
@@ -109,40 +107,56 @@ function sanitizePgnHeaderValue(value: string): string {
         .replace(/"/g, "'")
 }
 
-/**
- * Replaces each `{...}` comment with a space, like the regex it replaces, but
- * in one pass. `/\{[^]*?\}/g` backtracks from every `{` that has no closing
- * brace, which is quadratic — a 5MB paste of a non-PGN file full of braces
- * (a minified script, a JSON dump) froze the tab rather than being rejected.
- *
- * Semantics are unchanged: a comment ends at the first `}`, and an unterminated
- * `{` is left in place exactly as the regex left it.
- */
-function stripPgnBlockComments(text: string): string {
-    if (!text.includes('{')) return text
-
-    let out = ''
-    let index = 0
-    for (;;) {
-        const open = text.indexOf('{', index)
-        if (open < 0) return out + text.slice(index)
-        const close = text.indexOf('}', open + 1)
-        if (close < 0) return out + text.slice(index)
-        out += `${text.slice(index, open)} `
-        index = close + 1
+/** End of one tag pair, with quoted brackets and escaped quotes kept literal. */
+function pgnTagEnd(text: string, open: number): number | null {
+    let cursor = open + 1
+    let quoted = false
+    while (cursor < text.length) {
+        const character = text[cursor++]
+        if (quoted && character === '\\') cursor++
+        else if (character === '"') quoted = !quoted
+        else if (character === ']' && !quoted) return cursor
     }
+    return null
 }
 
 export function hasMultiplePgnGames(pgnText: string): boolean {
-    const eventTags = pgnText.match(PGN_EVENT_TAG_LINE_PATTERN)
-    if ((eventTags?.length ?? 0) > 1) return true
-
-    const resultTags = pgnText.match(PGN_RESULT_TAG_LINE_PATTERN)
-    if ((resultTags?.length ?? 0) > 1) return true
-
-    const movetextOnly = stripPgnBlockComments(pgnText.replace(PGN_HEADER_LINE_PATTERN, '\n'))
-        .replace(PGN_SEMICOLON_COMMENT_PATTERN, ' ')
-    const terminationMarkers = movetextOnly.match(PGN_MOVETEXT_RESULT_PATTERN)
+    // Count only actual tags and movetext. A quoted tag in a note is prose;
+    // a brace in a semicolon comment cannot swallow the following moves.
+    const starts = /[;[{]/g
+    const lineEnding = /[\r\n]/g
+    let eventTags = 0
+    let resultTags = 0
+    let movetext = ''
+    let copiedThrough = 0
+    let cursor = 0
+    for (;;) {
+        starts.lastIndex = cursor
+        const start = starts.exec(pgnText)
+        if (!start) break
+        const open = start.index
+        let end: number
+        if (start[0] === '[') {
+            const tagEnd = pgnTagEnd(pgnText, open)
+            if (tagEnd === null) break
+            const tag = pgnText.slice(open, tagEnd)
+            if (PGN_EVENT_TAG_PATTERN.test(tag)) eventTags++
+            if (PGN_RESULT_TAG_PATTERN.test(tag)) resultTags++
+            if (eventTags > 1 || resultTags > 1) return true
+            end = tagEnd
+        } else if (start[0] === ';') {
+            lineEnding.lastIndex = open + 1
+            end = lineEnding.exec(pgnText)?.index ?? pgnText.length
+        } else {
+            const close = pgnText.indexOf('}', open + 1)
+            end = close < 0 ? pgnText.length : close + 1
+        }
+        movetext += pgnText.slice(copiedThrough, open) + ' '
+        copiedThrough = end
+        cursor = end
+    }
+    movetext += pgnText.slice(copiedThrough)
+    const terminationMarkers = movetext.match(PGN_MOVETEXT_RESULT_PATTERN)
     return (terminationMarkers?.length ?? 0) > 1
 }
 
@@ -814,20 +828,9 @@ export function reorderPgnAnnotations(pgnText: string): string {
         whitespace.exec(pgnText)
         cursor = whitespace.lastIndex
         if (pgnText[cursor] !== '[') break
-        cursor++
-        let quoted = false
-        let closed = false
-        while (cursor < pgnText.length) {
-            const character = pgnText[cursor++]
-            if (quoted && character === '\\') cursor++
-            else if (character === '"') quoted = !quoted
-            else if (character === ']' && !quoted) {
-                closed = true
-                break
-            }
-        }
-        if (!closed) break
-        headerEnd = cursor
+        const end = pgnTagEnd(pgnText, cursor)
+        if (end === null) break
+        headerEnd = cursor = end
     }
     return pgnText.slice(0, headerEnd) + reorderPgnMovetextAnnotations(pgnText.slice(headerEnd))
 }

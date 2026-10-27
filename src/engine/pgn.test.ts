@@ -889,6 +889,35 @@ describe('PGN import preflight', () => {
     expect(pgnImportContentError(singleGamePgn)).toBeNull()
   })
 
+  it('does not count an Event tag quoted inside a block comment', () => {
+    const text = '[Event "Real study"]\n[Result "*"]\n\n1. e4 {Reference:\n[Event "Other tournament"]\n} e5 *'
+    expect(hasMultiplePgnGames(text)).toBe(false)
+    expect(pgnImportContentError(text)).toBeNull()
+    expect(parsePgnMoveTree(text).moves[0].comment).toContain('[Event "Other tournament"]')
+  })
+
+  it('does not count a Result tag quoted inside a block comment', () => {
+    const text = '[Result "*"]\n\n1. e4 {Reference:\n[Result "1-0"]\n} e5 *'
+    expect(hasMultiplePgnGames(text)).toBe(false)
+    expect(pgnImportContentError(text)).toBeNull()
+    expect(parsePgnMoveTree(text).moves[0].comment).toContain('[Result "1-0"]')
+  })
+
+  it('keeps a brace in a line comment from hiding a real game result', () => {
+    for (const ending of ['\n', '\r', '\r\n']) {
+      const text = `1. e4 ; { literal brace${ending}e5 1-0${ending}${ending}1. d4 {actual note} d5 0-1`
+      expect(hasMultiplePgnGames(text)).toBe(true)
+      expect(pgnImportContentError(text)).toBe(PGN_MULTIPLE_GAMES_ERROR)
+    }
+  })
+
+  it('ignores result-looking words inside inline quoted headers', () => {
+    const text = '[Event "Score 1-0 then 0-1 final"] [Site "Club {phase}; Final"]\n\n1. e4 e5 *'
+    expect(hasMultiplePgnGames(text)).toBe(false)
+    expect(pgnImportContentError(text)).toBeNull()
+    expect(parsePgnMoveTree(text).headers).toMatchObject({ Event: 'Score 1-0 then 0-1 final', Site: 'Club {phase}; Final' })
+  })
+
   it('accepts a normal single-game PGN for import', () => {
     expect(hasMultiplePgnGames('[Event "Game one"]\n\n1. e4 e5 *')).toBe(false)
     expect(pgnImportContentError('[Event "Game one"]\n\n1. e4 e5 *')).toBeNull()

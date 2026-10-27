@@ -1,0 +1,93 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/pgn.test.ts (108 tests | 4 failed | 104 skipped) 16ms
+     × does not count an Event tag quoted inside a block comment 11ms
+     × does not count a Result tag quoted inside a block comment 1ms
+     × keeps a brace in a line comment from hiding a real game result 1ms
+     × ignores result-looking words inside inline quoted headers 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/pgn.test.ts > PGN import preflight > does not count an Event tag quoted inside a block comment
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/engine/pgn.test.ts:894:39
+    892|   it('does not count an Event tag quoted inside a block comment', () =…
+    893|     const text = '[Event "Real study"]\n[Result "*"]\n\n1. e4 {Referen…
+    894|     expect(hasMultiplePgnGames(text)).toBe(false)
+       |                                       ^
+    895|     expect(pgnImportContentError(text)).toBeNull()
+    896|     expect(parsePgnMoveTree(text).moves[0].comment).toContain('[Event …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/engine/pgn.test.ts > PGN import preflight > does not count a Result tag quoted inside a block comment
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/engine/pgn.test.ts:901:39
+    899|   it('does not count a Result tag quoted inside a block comment', () =…
+    900|     const text = '[Result "*"]\n\n1. e4 {Reference:\n[Result "1-0"]\n}…
+    901|     expect(hasMultiplePgnGames(text)).toBe(false)
+       |                                       ^
+    902|     expect(pgnImportContentError(text)).toBeNull()
+    903|     expect(parsePgnMoveTree(text).moves[0].comment).toContain('[Result…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/engine/pgn.test.ts > PGN import preflight > keeps a brace in a line comment from hiding a real game result
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/engine/pgn.test.ts:909:41
+    907|     for (const ending of ['\n', '\r', '\r\n']) {
+    908|       const text = `1. e4 ; { literal brace${ending}e5 1-0${ending}${e…
+    909|       expect(hasMultiplePgnGames(text)).toBe(true)
+       |                                         ^
+    910|       expect(pgnImportContentError(text)).toBe(PGN_MULTIPLE_GAMES_ERRO…
+    911|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/engine/pgn.test.ts > PGN import preflight > ignores result-looking words inside inline quoted headers
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/engine/pgn.test.ts:916:39
+    914|   it('ignores result-looking words inside inline quoted headers', () =…
+    915|     const text = '[Event "Score 1-0 then 0-1 final"] [Site "Club {phas…
+    916|     expect(hasMultiplePgnGames(text)).toBe(false)
+       |                                       ^
+    917|     expect(pgnImportContentError(text)).toBeNull()
+    918|     expect(parsePgnMoveTree(text).headers).toMatchObject({ Event: 'Sco…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 104 skipped (108)
+   Start at  01:45:50
+   Duration  475ms (transform 238ms, setup 0ms, import 298ms, tests 16ms, environment 0ms)
+
