@@ -1,0 +1,15 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  board semantics (1280×812, 1x, dark): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture with selected-piece focus, arrival/departure cleanup, root navigation, flip and blindfold preserved
+  board semantics (375×812, 1x, light): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture with selected-piece focus, arrival/departure cleanup, root navigation, flip and blindfold preserved
+  board semantics (320×480, 2x, light): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture with selected-piece focus, arrival/departure cleanup, root navigation, flip and blindfold preserved
+locator.waitFor: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('.board-area').getByRole('img', { name: 'e4, empty square', exact: true }) to be visible[22m
+
+    at checkBoardSquareSemantics (/workspace/web-chess/scripts/test-ui-browser.cjs:9356:79)
+    at async /tmp/web-chess-board-focus-matrix.cjs:10:60 {
+  log: [
+    "  - waiting for locator('.board-area').getByRole('img', { name: 'e4, empty square', exact: true }) to be visible"
+  ],
+  name: 'TimeoutError'
+}

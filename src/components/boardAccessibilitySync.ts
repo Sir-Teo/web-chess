@@ -31,6 +31,7 @@ export function syncRenderedBoardAccessibility(
   selectedSquare: Square | null,
   legalTargets: Square[],
   blindfold = false,
+  keyboardHelpId?: string,
 ): boolean {
   const legalTargetSet = new Set(legalTargets)
   let foundBoard = false
@@ -64,6 +65,7 @@ export function syncRenderedBoardAccessibility(
     for (const interactiveEl of controls) {
       interactiveEl.setAttribute('aria-label', label)
       interactiveEl.setAttribute('title', shown)
+      if (keyboardHelpId) interactiveEl.setAttribute('aria-describedby', keyboardHelpId)
     }
 
     const ownsTarget = squareEl.getAttribute('data-webchess-a11y-target') === 'true'
@@ -93,6 +95,11 @@ export function syncRenderedBoardAccessibility(
         squareEl.setAttribute('role', 'img')
         squareEl.setAttribute('data-webchess-a11y-description', 'true')
       }
+    }
+
+    if (keyboardHelpId) {
+      if (suppliedControl || shouldExposeEmptyTarget) squareEl.setAttribute('aria-describedby', keyboardHelpId)
+      else if (squareEl.getAttribute('aria-describedby') === keyboardHelpId) squareEl.removeAttribute('aria-describedby')
     }
 
     const role = squareEl.getAttribute('role')

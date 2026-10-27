@@ -1065,7 +1065,7 @@ function App() {
   playerColorRef.current = playerColor
 
   // ── Click-to-move (tap support) ───────────────────────
-  const restoreBoardFocusRef = useRef<Square | null>(null)
+  const restoreBoardFocusRef = useRef<{ square: Square; origin: Element | null; fen: string } | null>(null)
   const exerciseQuestionFocusRef = useRef<{ kind: 'drill' | 'practice'; fen: string } | null>(null)
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
   const [legalTargets, setLegalTargets] = useState<Square[]>([])
@@ -4588,7 +4588,7 @@ function App() {
       // moment the move lands and focus drops to <body>. Play a move from the
       // keyboard and you were back at the top of the document, 32 piece stops
       // away from the board.
-      restoreBoardFocusRef.current = to
+      restoreBoardFocusRef.current = { square: to, origin: document.activeElement, fen: game.fen() }
       // A new move answers the nudge about the last one, whichever way.
       setBlunderNudge(null)
       // And takes the board back from a replay.
@@ -4956,22 +4956,25 @@ function App() {
   ])
 
   useEffect(() => {
-    // Only ever reclaims focus the move itself disturbed — focus still on the
-    // board, or already dropped to <body> because the square it was on stopped
-    // being focusable. Anywhere else and the reader moved on deliberately.
+    // Reclaim only focus the move disturbed. Another board square is also a
+    // deliberate choice, even while the arriving piece is still rendering.
+    // Navigation or previewing a different position ends this handoff too.
     const restoreBoardFocus = (settled: boolean) => {
-      const square = restoreBoardFocusRef.current
-      if (!square) return
+      const pending = restoreBoardFocusRef.current
+      if (!pending) return
+      const { square, origin, fen: movedFen } = pending
       const active = document.activeElement as HTMLElement | null
+      const squareEl = document.getElementById(`chessboard-square-${square}`)
       const stillOnBoard = Boolean(active?.closest?.('.board-surface'))
-      if (active !== document.body && !stillOnBoard) {
+      const ownsFocus = active === document.body || (stillOnBoard
+        && (active === origin || Boolean(active && squareEl?.contains(active))))
+      if (!ownsFocus || (previewChess ?? game).fen() !== movedFen) {
         restoreBoardFocusRef.current = null
         return
       }
       // Use the named piece control once it exists. During animation the
       // passive square is a named fallback; the structural observer retries
       // when the board replaces it with the arriving piece.
-      const squareEl = document.getElementById(`chessboard-square-${square}`)
       if (!squareEl) return
       const pieceControl = squareEl.querySelector<HTMLElement>('button, [role="button"]')
       const focusTarget = pieceControl ?? squareEl
@@ -4992,6 +4995,7 @@ function App() {
         previewChess ? null : selectedSquare,
         previewChess ? [] : legalTargets,
         blindfold,
+        'board-keyboard-help',
       )
       restoreBoardFocus(settled)
       return applied
@@ -5053,7 +5057,10 @@ function App() {
       const isInteractiveSquare = Boolean(target?.closest('button, [role="button"]')) || isEmptyTarget
       if (event.key === ' ' && !isInteractiveSquare) return
 
+      // These keys select/move through our square controls. Letting the
+      // drag sensor activate too gives it a competing source-focus restore.
       event.preventDefault()
+      event.stopPropagation()
       onSquareClick(square)
     },
     [onSquareClick],
@@ -8458,7 +8465,11 @@ function App() {
                   </div>
                 )
               })()}
-              <div className="board-area" onKeyDown={handleBoardKeyDown}>
+              <div className="board-area" onKeyDownCapture={handleBoardKeyDown}>
+                <p id="board-keyboard-help" className="visually-hidden">
+                  Press Enter or Space to select a piece. Tab to a legal move and press Enter or Space to play it.
+                  Press the selected piece again to cancel.
+                </p>
                 <div
                   className={`board-surface${isPreviewingLine ? ' previewing' : ''}${touchDrawing ? ' drawing' : ''}`}
                   aria-hidden={promotionDialogOpen ? true : undefined}

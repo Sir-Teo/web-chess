@@ -9266,9 +9266,41 @@ async function checkTheThreatProbeAsksTheOtherSide(browser) {
 }
 
 /** Keep every square named as piece controls arrive, leave and become targets. */
-async function checkBoardSquareSemantics(browser) {
+async function checkBoardDragFocus(browser) {
   for (const [width, theme] of [[1280, 'dark'], [375, 'light']]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', gameMode: 'human-vs-human', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await waitForBoardPiece(page, 'e2', 'White pawn')
+      const pawn = page.locator('.board-area').getByRole('button', { name: /^e2, White pawn/ })
+      await pawn.focus()
+      const from = await page.locator('#chessboard-square-e2').boundingBox(), to = await page.locator('#chessboard-square-e4').boundingBox()
+      await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 })
+      await page.mouse.up()
+      await waitForBoardPiece(page, 'e4', 'White pawn')
+      await page.waitForFunction(() => document.activeElement?.closest('[id^="chessboard-square-"]')?.id === 'chessboard-square-e4')
+      const next = page.locator('.board-area').getByRole('button', { name: /^d7, Black pawn/ })
+      await next.focus(); await next.press('Enter')
+      const target = page.locator('.board-area').getByRole('button', { name: /^d5, empty square, legal move target/ })
+      await target.waitFor()
+      assert(await next.evaluate(el => el === document.activeElement), 'drag arrival reclaimed the next selected piece')
+      await target.focus(); await target.press('Space')
+      await waitForBoardPiece(page, 'd5', 'Black pawn')
+      assert(await page.locator('.mtree-chip').count() === 2 && errors.length === 0 && await page.locator('.app-error-shell').count() === 0, 'drag/keyboard follow-up changed the game or errored')
+      console.log(`  board drag focus (${width}px, ${theme}): native drag restores the arriving pawn; selecting the next piece keeps focus and keyboard reply succeeds`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkBoardSquareSemantics(browser) {
+  for (const [width, height, scale, theme] of [[1280, 812, 1, 'dark'], [375, 812, 1, 'light'], [320, 480, 2, 'light'], [844, 390, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
     const page = await context.newPage(), errors = []
     page.on('pageerror', error => errors.push(error.message))
     try {
@@ -9279,6 +9311,9 @@ async function checkBoardSquareSemantics(browser) {
       })), theme)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await waitForBoardPiece(page, 'e2', 'White pawn')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true'
+        && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
       const board = page.locator('.board-area')
       const names = /^[a-h][1-8],/
       const buttons = board.getByRole('button', { name: names })
@@ -9297,6 +9332,8 @@ async function checkBoardSquareSemantics(browser) {
             && squares.every(square => !square.matches('[role="img"]') || !square.querySelector('button, [role="button"]'))
         }, { pieceCount, targetCount })
         assert(await described.count() === 64, 'not every board square has exactly one named accessible object')
+        assert(await buttons.evaluateAll(els => els.every(el => el.getAttribute('aria-describedby') === 'board-keyboard-help' && /Tab to a legal move/.test(document.getElementById('board-keyboard-help')?.textContent ?? ''))), 'piece/target controls describe the drag sensor instead of actual move keys')
+        assert(await images.evaluateAll(els => els.every(el => el.getAttribute('aria-describedby') !== 'board-keyboard-help')), 'passive squares retained keyboard-control instructions')
         assert(await buttons.count() === pieceCount + targetCount && await images.count() === 64 - pieceCount - targetCount,
           'passive squares or legal targets have the wrong accessible role')
         const descriptions = await described.evaluateAll(els => els.map(el => ({
@@ -9326,6 +9363,7 @@ async function checkBoardSquareSemantics(browser) {
         await source.press('Enter')
         const target = board.getByRole('button', { name: new RegExp(`^${to}, .*legal (?:move|capture) target`) })
         await target.waitFor()
+        assert(await source.evaluate(el => document.activeElement === el), `selecting ${from} lost focus before choosing ${to}`)
         await target.focus()
         await target.press('Space')
         await waitForBoardPiece(page, to, description)
@@ -9342,6 +9380,7 @@ async function checkBoardSquareSemantics(browser) {
       await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
       await waitForBoardPiece(page, 'e2', 'White pawn')
       await verify(32)
+      assert(await page.evaluate(() => document.activeElement?.closest('[id^="chessboard-square-"]')?.id !== 'chessboard-square-d5'), 'root navigation inherited the previous move’s focus handoff')
       await page.getByRole('button', { name: 'Flip board', exact: true }).click()
       await verify(32)
       await openSettings(page)
@@ -9352,7 +9391,7 @@ async function checkBoardSquareSemantics(browser) {
         'blindfold removed the accessible piece description')
       assert(await page.locator('#chessboard-square-e2').getAttribute('title') === 'e2', 'blindfold exposed the piece in a visual tooltip')
       assert(errors.length === 0, `board semantic errors: ${errors.join('; ')}`)
-      console.log(`  board semantics (${width}px, ${theme}): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture, arrival/departure cleanup, root navigation, flip and blindfold preserved`)
+      console.log(`  board semantics (${width}×${height}, ${scale}x, ${theme}): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture with selected-piece focus, arrival/departure cleanup, root navigation, flip and blindfold preserved`)
     } finally { await context.close() }
   }
 }
@@ -21048,6 +21087,7 @@ async function main() {
       'step-boot-queue': checkQueuedStepWaitsForReady,
       'opponent-retry': checkOpponentRetry,
       'analysis-retry-command': checkAnalysisRetryCommand,
+      'board-drag-focus': checkBoardDragFocus,
       'move-list-pointer': checkMoveListPointerActivation,
       'move-list-fit': checkMoveListFitting,
       'drill-restart': checkDrillRestartKeepsItsLine,
@@ -21864,6 +21904,7 @@ async function main() {
     await checkAPremoveWaitsForItsTurn(browser)
     await checkTheThreatProbeAsksTheOtherSide(browser)
     await checkBoardSquareSemantics(browser)
+    await checkBoardDragFocus(browser)
     await checkABlindfoldHidesThePieces(browser)
     await checkAHintBelongsToItsPosition(browser)
     await checkHintShortcutDoesNotRepeat(browser)

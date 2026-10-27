@@ -135,6 +135,7 @@ given, and the app answering the reader who touches it.
   Find it in **Commands** (`Ctrl/Cmd+K`) to open the panel and focus the field;
   reopening an existing field keeps its draft and selection. It is omitted
   while watching two engines.
+- **Move with the keyboard**: Focus a piece and press Enter or Space, Tab to a legal destination, then press Enter or Space to play. Focus follows the moved piece and respects your next selection.
 - **Keep searching**: The automatic analysis stops at the depth slider, which
   on a desktop is over in a second. Pro mode has a switch under the Coach/Pro
   toggle that asks for `go infinite` instead, so the depth climbs for as long
