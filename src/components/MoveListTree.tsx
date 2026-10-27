@@ -274,6 +274,7 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
                     <button
                         type="button"
                         className={`mtree-delete-btn ${deleteArmed ? 'armed' : ''}`}
+                        onKeyDown={event => { if (event.key === 'Enter' && event.repeat) event.preventDefault() }}
                         onClick={() => {
                             if (!deleteArmed) {
                                 setDeleteArmed(true)

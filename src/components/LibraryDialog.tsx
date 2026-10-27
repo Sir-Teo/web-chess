@@ -539,6 +539,7 @@ export function LibraryDialog({
                                             <button
                                                 type="button"
                                                 className="btn-cancel library-confirm-delete"
+                                                onKeyDown={event => { if (event.key === 'Enter' && event.repeat) event.preventDefault() }}
                                                 onClick={event => {
                                                     const row = event.currentTarget.closest('.library-row')
                                                     const neighbor = row?.nextElementSibling ?? row?.previousElementSibling
@@ -563,6 +564,7 @@ export function LibraryDialog({
                                             <button
                                                 type="button"
                                                 className="btn-cancel"
+                                                onKeyDown={event => { if (event.key === 'Enter' && event.repeat) event.preventDefault() }}
                                                 onClick={() => setConfirmingDelete(game.id)}
                                                 aria-label={`Delete ${game.name}`}
                                                 title="Delete"

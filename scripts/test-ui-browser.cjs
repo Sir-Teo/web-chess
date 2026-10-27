@@ -6511,6 +6511,89 @@ async function checkViewportResizePreservesGesture(browser) {
   }
 }
 
+async function checkConfirmationKeys(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(async scale => {
+        document.documentElement.style.fontSize = `${scale * 100}%`
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      }, scale)
+      if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.hasAttribute('data-scroll-chrome'))
+      const holdEnter = async (trigger, confirm) => {
+        await trigger.focus()
+        await page.keyboard.down('Enter')
+        await confirm.waitFor({ timeout: 3000 })
+        await page.keyboard.down('Enter')
+        await page.keyboard.down('Enter')
+        await page.keyboard.up('Enter')
+        if (!await confirm.isVisible() || !await confirm.evaluate(el => el === document.activeElement)) {
+          fail(`held Enter confirmed a destructive action or lost its armed control: ${JSON.stringify({
+            savedRows: await page.locator('.library-row').count(),
+            variationMoves: await page.getByRole('button', { name: /^Go to variation move/ }).count(),
+            turn: await page.locator('.turn-pill').innerText(),
+            emptyLibrary: await page.getByText('Nothing saved yet.', { exact: true }).count(),
+          })}`)
+        }
+      }
+      for (const action of ['library', 'variation', 'resign']) {
+        if (action === 'library') {
+          await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+          const dialog = page.locator('.library-dialog')
+          await dialog.locator('input[type="file"]').setInputFiles({ name: 'held-enter.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({
+            format: 'web-chess-library', version: 1,
+            games: [{ id: 'held-enter', name: 'Keep this game', pgn: '1. e4 e5 *', createdAt: 1, updatedAt: 1 }],
+          })) })
+          const confirm = dialog.getByRole('button', { name: 'Confirm deleting Keep this game', exact: true })
+          await holdEnter(dialog.getByRole('button', { name: 'Delete Keep this game', exact: true }), confirm)
+          assert(await dialog.locator('.library-row').count() === 1, 'held Enter removed the saved game')
+          const [download] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Export backup', exact: true }).click()])
+          assert(JSON.parse(fs.readFileSync(await download.path(), 'utf8')).games.some(game => game.id === 'held-enter'), 'held Enter changed the stored library')
+          // Export moves focus and cancels the first confirmation.
+          await dialog.getByRole('button', { name: 'Delete Keep this game', exact: true }).press('Enter')
+          await confirm.press(width === 375 || width === 844 ? 'Space' : 'Enter')
+          await dialog.getByText('Nothing saved yet.', { exact: true }).waitFor()
+          await page.keyboard.press('Escape')
+          await dialog.waitFor({ state: 'detached' })
+        } else if (action === 'variation') {
+          await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+          await page.locator('.pgn-dialog textarea').fill('1. e4 e5 (1... c5 2. Nf3) 2. Nf3 *')
+          await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+          const branch = page.getByRole('button', { name: /^Go to variation move 1\.\.\. c5/ })
+          await branch.focus()
+          await branch.press('Enter')
+          const confirm = page.getByRole('button', { name: /^Confirm discarding the line through c5/ })
+          await holdEnter(page.getByRole('button', { name: 'Discard the line through c5', exact: true }), confirm)
+          assert(await branch.count() === 1 && await page.locator('#chessboard-square-c5 [data-piece="bP"]').count() === 1, 'held Enter discarded or navigated away from the branch')
+          await confirm.press(width === 375 || width === 844 ? 'Space' : 'Enter')
+          await branch.waitFor({ state: 'detached' })
+          await page.locator('#chessboard-square-c7 [data-piece="bP"]').waitFor()
+          assert(await page.getByRole('button', { name: /^Go to move 1\.\.\. e5/ }).count() === 1, 'confirming branch deletion changed the main line')
+        } else {
+          await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+          await startGameMode(page, 'Human vs Human')
+          await page.locator('#chessboard-square-e2').click()
+          await page.locator('#chessboard-square-e4').click()
+          const confirm = page.getByRole('button', { name: 'Confirm resignation', exact: true })
+          await holdEnter(page.getByRole('button', { name: 'Resign the game', exact: true }), confirm)
+          assert(!/resigned/.test(await page.locator('.turn-pill').innerText()) && await page.getByRole('button', { name: /^Take back/ }).isEnabled(), 'held Enter ended the game')
+          await confirm.press(width === 375 || width === 844 ? 'Space' : 'Enter')
+          await page.getByTestId('play-again').waitFor()
+          assert(/resigned/.test(await page.locator('.turn-pill').innerText()), 'a separate Enter no longer confirms resignation')
+        }
+      }
+      assert(errors.length === 0, `confirmation key errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'confirmation workflow overflows')
+      console.log(`  confirmation keys (${width}×${height}, ${scale}x, ${theme}): native repeated Enter preserves the library, variation and live game; a separate press confirms each action`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkLibraryEmptyFocus(browser) {
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
@@ -17117,6 +17200,7 @@ async function main() {
       'library-starred': checkLibraryStarredFilter,
       'library-keyboard': checkLibraryKeyboardNavigation,
       'library-empty-focus': checkLibraryEmptyFocus,
+      'confirmation-keys': checkConfirmationKeys,
       'viewport-gesture': checkViewportResizePreservesGesture,
       'library-sorting': checkLibrarySorting,
       'library-lock-fallback': checkLibraryLockFallback,
@@ -17885,6 +17969,7 @@ async function main() {
     await checkReplaySpeedAfterStep(browser)
     await checkTypedMoveLands(browser)
     await checkMoveTimesAreGraphed(browser)
+    await checkConfirmationKeys(browser)
     await checkResignationEndsTakeback(browser)
     await checkQuickStartRemembersTheLastGame(browser)
     await checkAPremoveWaitsForItsTurn(browser)

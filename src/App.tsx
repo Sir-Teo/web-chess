@@ -8640,6 +8640,7 @@ function App() {
                       <button
                         type="button"
                         className={`takeback-btn resign-btn${resignArmed ? ' armed' : ''}`}
+                        onKeyDown={event => { if (event.key === 'Enter' && event.repeat) event.preventDefault() }}
                         onClick={() => {
                           if (!resignArmed) { setResignArmedFen(fen); return }
                           setResignArmedFen(null)
