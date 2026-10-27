@@ -90,10 +90,19 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
     target?.focus()
   }, [working])
   const backupInput = useRef<HTMLInputElement>(null)
+  const openOwner = useRef<object | null>(null)
+  const currentLineKey = reviewLineKey(line)
+  const currentRootId = line[0]?.id
+  useLayoutEffect(() => {
+    // A slow storage read must not replace a newer line or review, even if the reader
+    // later returns to the same moves or starts an identical new game.
+    openOwner.current = {}
+    return () => { openOwner.current = null }
+  }, [busy, currentLineKey, currentRootId, report])
   const visibleRuns = filterSavedReviewSummaries(runs, query)
   const selected = visibleRuns.find(run => run.id === selectedId) ?? visibleRuns[0]
   const visibleSelectedId = selected?.id ?? ''
-  const sameLine = selected?.lineKey === reviewLineKey(line)
+  const sameLine = selected?.lineKey === currentLineKey
 
   async function refresh(preferredId?: string) {
     disarmDelete()
@@ -136,15 +145,30 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
     finally { endWork() }
   }
 
-  async function open() {
+  async function open(trigger: HTMLButtonElement) {
     if (!selected || busy || workingRef.current) return
     if (!beginWork()) return
+    trigger.focus({ preventScroll: true })
+    actionFocus.current = { trigger, destination: 'trigger' }
+    setNotice('Opening saved review…')
+    const owner = openOwner.current
+    const canceledMessage = 'The board or review changed while the saved review was opening. Try opening it again.'
     try {
       const saved = await loadSavedReview(selected.id)
+      if (openOwner.current !== owner) {
+        actionFocus.current = null
+        if (openOwner.current) setNotice(canceledMessage)
+        return
+      }
       onOpen(saved)
       setNotice('Saved review opened. Its own scores and settings are shown below.')
-    } catch (error) { setNotice(failure(error, 'open this review')) }
-    finally { endWork() }
+    } catch (error) {
+      if (openOwner.current === owner) setNotice(failure(error, 'open this review'))
+      else if (openOwner.current) {
+        actionFocus.current = null
+        setNotice(canceledMessage)
+      }
+    } finally { endWork() }
   }
 
   async function remove(trigger: HTMLButtonElement) {
@@ -274,7 +298,7 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
                 {!sameLine && <p className="panel-copy small">Opening replaces the board with this saved line. Other variations are not included.</p>}
                 <SavedReviewNameEditor key={selected.id} title={selected.title} disabled={busy || working} onRename={rename} />
                 <div className="review-report-actions">
-                  <button type="button" disabled={busy || working} onClick={() => { void open() }}>
+                  <button type="button" disabled={busy || working} onClick={event => { void open(event.currentTarget) }}>
                     {sameLine ? 'Use saved review' : 'Open reviewed line'}
                   </button>
                   <button type="button" disabled={working}

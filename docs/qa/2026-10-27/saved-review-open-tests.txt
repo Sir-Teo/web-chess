@@ -1,0 +1,12 @@
+
+> web-chess@1.0.0 test
+> vitest run
+
+
+ RUN  v4.1.12 /workspace/web-chess
+
+
+ Test Files  124 passed (124)
+      Tests  2146 passed | 1 skipped (2147)
+   Start at  23:17:59
+   Duration  65.47s (transform 6.52s, setup 0ms, import 57.37s, tests 97.67s, environment 22ms)

@@ -1,0 +1,3 @@
+Based on b7b09fd plus saved-review open ownership/progress/focus changes. Final isolated production preview port 4342.
+923c329efacdfe122f427e843c3c301619691fce53e1af35a7640124b0c45761  /tmp/web-chess-saved-review-open-final-dist/assets/index-TCM721HG.js
+The long full browser suite retains the earlier e68c2f3 dist/assets/index-gdMybw4V.js on its own preview server.

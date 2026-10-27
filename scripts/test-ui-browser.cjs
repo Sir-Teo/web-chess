@@ -2773,6 +2773,121 @@ async function checkReviewNameFocusOwnership(browser) {
   }
 }
 
+async function checkSavedReviewOpenOwnership(browser) {
+  for (const [width, height, scale] of [[1280, 900, 1], [320, 480, 2]]) {
+    for (const scenario of ['new-game', 'changed-line', 'left-review', 'same-line', 'new-review']) {
+      const context = await browser.newContext({ viewport: { width, height }, hasTouch: width < 900, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript('requested-depth'))
+        await page.addInitScript(() => {
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', searchDepth: 6, autoAnalyze: false, engineProfile: 'lite-single-local', reviewMaxWorkers: 1 }))
+          const open = IDBFactory.prototype.open
+          IDBFactory.prototype.open = function (name, ...args) {
+            const request = open.call(this, name, ...args)
+            if (name === 'web-chess-reviews' && window.__holdSavedReviewOpen) {
+              window.__holdSavedReviewOpen = false
+              Object.defineProperty(request, 'onsuccess', { set(handler) {
+                request.addEventListener('success', event => { window.__releaseSavedReviewOpen = () => {
+                  const db = request.result, close = db.close.bind(db)
+                  db.close = () => { close(); window.__savedReviewReadSettled = true }
+                  handler.call(request, event)
+                } })
+              } })
+            }
+            return request
+          }
+        })
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.locator('#chessboard-square-e2').click()
+        await page.locator('#chessboard-square-e4').click()
+        await page.getByRole('button', { name: 'Review', exact: true }).click()
+        await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+        await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+        await page.getByRole('button', { name: 'Save review', exact: true }).click()
+        await page.getByText('Review saved on this device.', { exact: false }).waitFor()
+        const readStored = () => page.evaluate(() => new Promise((resolve, reject) => {
+          const request = indexedDB.open('web-chess-reviews', 1)
+          request.onsuccess = () => {
+            const db = request.result, tx = db.transaction('runs', 'readonly'), read = tx.objectStore('runs').getAll()
+            read.onsuccess = () => resolve(read.result)
+            tx.oncomplete = () => db.close()
+            tx.onabort = () => reject(tx.error)
+          }
+        }))
+        const stored = await readStored(), report = await page.getByTestId('review-run-summary').innerText()
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        const panel = page.locator('.saved-reviews'), useSaved = panel.getByRole('button', { name: 'Use saved review', exact: true })
+        await page.evaluate(() => { window.__holdSavedReviewOpen = true; window.__releaseSavedReviewOpen = null; window.__savedReviewReadSettled = false })
+        await useSaved.press('Enter')
+        await page.waitForFunction(() => typeof window.__releaseSavedReviewOpen === 'function')
+        await panel.getByText('Opening saved review…', { exact: true }).waitFor()
+        assert(await useSaved.isDisabled(), 'opening a saved review allows duplicate activation')
+        if (scenario === 'new-game') {
+          await page.getByRole('button', { name: 'Start new game', exact: true }).first().click()
+          const dialog = page.locator('.new-game-dialog')
+          await dialog.locator('.mode-card', { hasText: 'Human vs Human' }).click()
+          await dialog.locator('.time-control-card', { hasText: '3 + 2' }).click()
+          await dialog.locator('.btn-start').click()
+          await dialog.waitFor({ state: 'detached' })
+          await page.locator('#chessboard-square-d2').click()
+          await page.locator('#chessboard-square-d4').click()
+          await page.locator('#chessboard-square-d4 [data-piece="wP"]').waitFor()
+        } else if (scenario === 'changed-line') {
+          await page.locator('#chessboard-square-e7').click()
+          await page.locator('#chessboard-square-e5').click()
+          await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+        } else if (scenario === 'new-review') {
+          await page.getByRole('button', { name: 'Deepen review', exact: true }).click()
+          await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+          await page.getByTestId('review-run-summary').filter({ hasText: 'Target depth 10' }).waitFor()
+        } else if (scenario === 'left-review') {
+          await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+        } else {
+          await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+          await page.locator('#chessboard-square-e2 [data-piece="wP"]').waitFor()
+        }
+        const moves = await page.locator('.mtree-chip').allTextContents()
+        await page.evaluate(() => { window.__focusBeforeSavedReviewReply = document.activeElement })
+        await page.evaluate(() => window.__releaseSavedReviewOpen())
+        // Re-read native storage after the released read's transaction has
+        // completed, then allow its React handoff to finish.
+        assert(JSON.stringify(await readStored()) === JSON.stringify(stored), 'opening a saved review changed stored run data')
+        await page.waitForFunction(() => window.__savedReviewReadSettled)
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        if (scenario === 'changed-line') {
+          await panel.getByText('The board or review changed while the saved review was opening. Try opening it again.', { exact: true }).waitFor()
+          const openLine = panel.getByRole('button', { name: 'Open reviewed line', exact: true })
+          await openLine.waitFor()
+          assert(await openLine.isEnabled(), 'a canceled open did not unlock the action')
+          // A fresh explicit request is still allowed to replace this line.
+          assert(JSON.stringify(await page.locator('.mtree-chip').allTextContents()) === JSON.stringify(moves), 'the stale saved review removed the new move')
+          await openLine.press('Enter')
+          await panel.getByText('Saved review opened. Its own scores and settings are shown below.', { exact: true }).waitFor()
+          assert(JSON.stringify(await page.locator('.mtree-chip').allTextContents()) === JSON.stringify(['e4']), 'explicitly reopening did not load the selected saved line')
+        } else if (scenario === 'new-review') {
+          await panel.getByText('The board or review changed while the saved review was opening. Try opening it again.', { exact: true }).waitFor()
+          assert((await page.getByTestId('review-run-summary').innerText()).includes('Target depth 10'), 'late saved review replaced the newly deepened report')
+          assert(await page.evaluate(() => document.activeElement === window.__focusBeforeSavedReviewReply), 'a canceled saved-review open took focus after the new review finished')
+        } else if (scenario === 'same-line') {
+          await panel.getByText('Saved review opened. Its own scores and settings are shown below.', { exact: true }).waitFor()
+          assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1
+            && await page.getByTestId('review-run-summary').innerText() === report, 'valid same-line open changed the chosen position or report')
+          await useSaved.press('Enter')
+          await page.waitForFunction(() => document.activeElement?.textContent.trim() === 'Use saved review' && !document.activeElement.disabled)
+        } else {
+          assert(await page.getByRole('button', { name: scenario === 'new-game' ? 'Play' : 'Analyze', exact: true }).first().getAttribute('aria-pressed') === 'true', 'late saved review switched the workspace/tab back')
+          assert(JSON.stringify(await page.locator('.mtree-chip').allTextContents()) === JSON.stringify(moves), 'late saved review replaced the newer board')
+          if (scenario === 'new-game') assert(await page.locator('.clock-face').count() === 2 && await page.locator('.clock-face.running').count() === 1, 'late saved review discarded the new running clock')
+        }
+        assert(errors.length === 0 && await page.locator('.app-error-shell').count() === 0, `saved review open errors: ${errors.join('; ')}`)
+        console.log(`  saved review open (${width}×${height}, ${scale}x, ${scenario}): pending native read cannot replace a newer game/line/tab; progress, exact stored data, valid same-line navigation and explicit retry work`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkReviewBranchNames(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 900 } })
@@ -21386,6 +21501,7 @@ async function main() {
       'review-renaming': checkSavedReviewRenaming,
       'review-branch-names': checkReviewBranchNames,
       'review-name-focus': checkReviewNameFocusOwnership,
+      'saved-review-open': checkSavedReviewOpenOwnership,
       'saved-endings': checkSavedReviewEndings,
       'repetition': checkRepetitionEndings,
       'repetition-review': checkRepetitionReviewCompatibility,
@@ -22247,6 +22363,7 @@ async function main() {
     await checkSavedReviewRenaming(browser)
     await checkReviewBranchNames(browser)
     await checkReviewNameFocusOwnership(browser)
+    await checkSavedReviewOpenOwnership(browser)
     await checkSavedReviewStorage(browser)
     await checkSavedReviewEndings(browser)
     await checkRepetitionEndings(browser)

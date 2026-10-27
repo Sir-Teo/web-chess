@@ -1,0 +1,8 @@
+  saved review open (1280×900, 1x, new-game): pending native read cannot replace a newer game/line/tab; progress, exact stored data, valid same-line navigation and explicit retry work
+  saved review open (1280×900, 1x, changed-line): pending native read cannot replace a newer game/line/tab; progress, exact stored data, valid same-line navigation and explicit retry work
+  saved review open (1280×900, 1x, left-review): pending native read cannot replace a newer game/line/tab; progress, exact stored data, valid same-line navigation and explicit retry work
+  saved review open (1280×900, 1x, same-line): pending native read cannot replace a newer game/line/tab; progress, exact stored data, valid same-line navigation and explicit retry work
+  saved review open (320×480, 2x, new-game): pending native read cannot replace a newer game/line/tab; progress, exact stored data, valid same-line navigation and explicit retry work
+  saved review open (320×480, 2x, changed-line): pending native read cannot replace a newer game/line/tab; progress, exact stored data, valid same-line navigation and explicit retry work
+  saved review open (320×480, 2x, left-review): pending native read cannot replace a newer game/line/tab; progress, exact stored data, valid same-line navigation and explicit retry work
+  saved review open (320×480, 2x, same-line): pending native read cannot replace a newer game/line/tab; progress, exact stored data, valid same-line navigation and explicit retry work
