@@ -83,6 +83,7 @@ import { PhaseAccuracy } from './components/PhaseAccuracy'
 import {
   type AutoSavedGame,
   type AutoSavedPlay,
+  type AutoSaveRevision,
   type AutoSaveWriteResult,
   autoSaveDelayMs,
   clearAutoSavedGame,
@@ -5535,24 +5536,29 @@ function App() {
   // written. autoSaveDelayMs keeps the debounce for the quiet case and adds a
   // deadline for the noisy one.
   const autoSaveLastWriteAtRef = useRef<number | null>(null)
+  const autoSaveOwnedRevisionRef = useRef<AutoSaveRevision | null>(null)
 
   useLayoutEffect(() => {
     // Read recovery before installing a writer: an early pagehide must not
     // replace an unopened snapshot with the initial empty board.
     if (!autoSaveReady || autoSaveRecovery) return
     const saveNow = () => {
-      autoSaveLastWriteAtRef.current = Date.now()
+      const savedAt = Date.now()
+      autoSaveLastWriteAtRef.current = savedAt
       const plies = mainLineNodes.length - 1
       if (plies <= 0 && !isPositionStudy) {
-        clearAutoSavedGame()
+        // Another tab may have saved since this board became empty.
+        clearAutoSavedGame(undefined, autoSaveOwnedRevisionRef.current)
+        autoSaveOwnedRevisionRef.current = null
         setAutoSaveResult('empty')
         return
       }
-      setAutoSaveResult(writeAutoSavedGame(
-        exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot),
+      const pgn = exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
+      const result = writeAutoSavedGame(
+        pgn,
         plies,
         undefined,
-        undefined,
+        savedAt,
         // Banked times, read at the moment of writing, so a clock that is
         // running is stored as what it would show if it stopped now.
         clockRef.current
@@ -5567,7 +5573,9 @@ function App() {
         // side to take, and restoring one into Play mode would invent one.
         playSessionRef.current,
         isPositionStudy,
-      ))
+      )
+      if (result === 'saved') autoSaveOwnedRevisionRef.current = { savedAt, pgn }
+      setAutoSaveResult(result)
     }
     const delay = autoSaveDelayMs(Date.now(), autoSaveLastWriteAtRef.current, AUTO_SAVE_DEBOUNCE_MS)
     const timeout = window.setTimeout(saveNow, delay)
@@ -5601,6 +5609,7 @@ function App() {
   const dismissAutoSaveRecovery = useCallback(() => {
     autoSaveCopyGeneration.current++
     clearAutoSavedGame()
+    autoSaveOwnedRevisionRef.current = null
     setAutoSaveCopyState('idle')
     setAutoSaveRestoreError(null)
     setAutoSaveRecovery(null)
@@ -5620,6 +5629,7 @@ function App() {
       setAutoSaveRestoreError(result.error ?? 'The saved moves could not be read.')
       return
     }
+    autoSaveOwnedRevisionRef.current = { savedAt: autoSaveRecovery.savedAt, pgn: autoSaveRecovery.pgn }
     setAutoSaveRestoreError(null)
     setAutoSaveRecovery(null)
     // Everything below runs after the import, which resets the board and the

@@ -7241,6 +7241,67 @@ async function checkOneGestureSavesOneGame(browser) {
  * twelve games in the library, the whole file imported once per press, and a
  * real database file is hundreds.
  */
+async function checkEmptyTabPreservesRecovery(browser) {
+  const key = 'webchess:auto-saved-game:v1'
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const idle = await context.newPage(), work = await context.newPage(), errors = []
+    for (const page of [idle, work]) page.on('pageerror', error => errors.push(error.message))
+    try {
+      await context.addInitScript(fakeEngineScript())
+      await context.addInitScript(theme => {
+        if (location.protocol === 'about:') return
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme }))
+      }, theme)
+      const enlarge = page => page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const read = () => idle.evaluate(key => JSON.parse(localStorage.getItem(key) || 'null'), key)
+      const saved = text => work.waitForFunction(({ key, text }) => JSON.parse(localStorage.getItem(key) || 'null')?.pgn.includes(text), { key, text })
+      const importGame = async pgn => {
+        await work.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await work.locator('.pgn-dialog textarea').fill(pgn)
+        await work.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await work.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      }
+      await idle.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await enlarge(idle)
+      await idle.waitForTimeout(900)
+      await work.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await enlarge(work)
+      await importGame('1. e4 {First owned game} *')
+      await saved('First owned game')
+      await startGameMode(work, 'Human vs Human')
+      await work.waitForFunction(key => localStorage.getItem(key) === null, key)
+      assert(await read() === null, 'starting a fresh game left this tab’s own recovery behind')
+      await importGame('1. d4 {Other tab game} *')
+      await saved('Other tab game')
+      const before = await read()
+      await idle.reload({ waitUntil: 'domcontentloaded' })
+      await enlarge(idle)
+      await idle.getByRole('button', { name: /^restore$/i }).waitFor()
+      assert((await read())?.pgn === before.pgn, 'an older empty tab erased the other tab’s recovery on reload')
+      await idle.getByRole('button', { name: /^restore$/i }).click()
+      const note = idle.getByRole('textbox', { name: 'Move note', exact: true })
+      await note.waitFor()
+      await note.fill('Latest note from the other tab ♞')
+      await saved('Latest note from the other tab ♞')
+      const latest = await read()
+      await startGameMode(work, 'Human vs Human')
+      await work.waitForTimeout(900)
+      assert((await read())?.pgn === latest.pgn, 'resetting a stale owner cleared a newer save from another tab')
+      await work.goto('about:blank')
+      assert((await read())?.pgn === latest.pgn, 'leaving the empty tab erased another tab’s saved game')
+      await idle.reload({ waitUntil: 'domcontentloaded' })
+      await idle.getByRole('button', { name: /^restore$/i }).click()
+      await note.waitFor()
+      assert(await note.inputValue() === 'Latest note from the other tab ♞', 'the surviving tab could not restore its latest note')
+      await startGameMode(idle, 'Human vs Human')
+      await idle.waitForFunction(key => localStorage.getItem(key) === null, key)
+      assert(errors.length === 0, `autosave tab errors: ${errors.join('; ')}`)
+      console.log(`  autosave tabs (${width}px, ${scale}x, ${theme}): own/restored reset clears its save; idle reload, stale-owner reset and empty-page exit preserve the other tab’s latest Unicode note and actual recovery`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkAutosavePageLifecycle(browser) {
   const key = 'webchess:auto-saved-game:v1'
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
@@ -18275,6 +18336,7 @@ async function main() {
       'pgn-after-variation': checkPostVariationNotes,
       'position-notes': checkPositionStudyNotes,
       'autosave-lifecycle': checkAutosavePageLifecycle,
+      'autosave-tabs': checkEmptyTabPreservesRecovery,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
       'promotion-keys': checkPromotionShortcutScope,
       'promotion-targets': checkThePromotionChooserCanBeHit,
@@ -19129,6 +19191,7 @@ async function main() {
     await checkDialogResizeFocus(browser)
     await checkPositionStudyNotes(browser)
     await checkAutosavePageLifecycle(browser)
+    await checkEmptyTabPreservesRecovery(browser)
     await checkPostVariationNotes(browser)
     await checkLibraryPgnEndings(browser)
     await checkDatabaseGameBoundaries(browser)

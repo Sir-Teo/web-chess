@@ -26,6 +26,34 @@ function stubStorage(overrides: Partial<Storage> = {}) {
 }
 
 describe('writing and reading back', () => {
+  it('keeps another tab’s recovery when this empty tab never saved a game', () => {
+    const { storage } = stubStorage()
+    writeAutoSavedGame(PGN, 3, storage, 1234)
+    clearAutoSavedGame(storage, null)
+    expect(readAutoSavedGame(storage)?.pgn).toBe(PGN)
+  })
+
+  it('clears the same snapshot after its owning tab starts an empty game', () => {
+    const { storage } = stubStorage()
+    writeAutoSavedGame(PGN, 3, storage, 1234)
+    clearAutoSavedGame(storage, { savedAt: 1234, pgn: PGN })
+    expect(readAutoSavedGame(storage)).toBeNull()
+  })
+
+  it('keeps a newer save of the same game from another tab', () => {
+    const { storage } = stubStorage()
+    writeAutoSavedGame(PGN, 3, storage, 2345)
+    clearAutoSavedGame(storage, { savedAt: 1234, pgn: PGN })
+    expect(readAutoSavedGame(storage)?.savedAt).toBe(2345)
+  })
+
+  it('keeps another game even if its save timestamp matches', () => {
+    const { storage } = stubStorage()
+    writeAutoSavedGame('1. d4 *', 1, storage, 1234)
+    clearAutoSavedGame(storage, { savedAt: 1234, pgn: PGN })
+    expect(readAutoSavedGame(storage)?.pgn).toBe('1. d4 *')
+  })
+
   it('round-trips a standalone position with no invented moves', () => {
     const { storage } = stubStorage()
     const pgn = '[SetUp "1"]\n[FEN "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1"]\n\n{position note} *'

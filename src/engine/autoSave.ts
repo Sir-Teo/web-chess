@@ -224,6 +224,18 @@ export function writeAutoSavedGame(
   }
 }
 
-export function clearAutoSavedGame(storage: AutoSaveStorage | null = getLocalStorage()): void {
+/** The last successful write owned by a page, without retaining a second tree. */
+export type AutoSaveRevision = Pick<AutoSavedGame, 'savedAt' | 'pgn'>
+
+/** Explicit discard omits the revision; an empty page can only clear its own save. */
+export function clearAutoSavedGame(
+  storage: AutoSaveStorage | null = getLocalStorage(),
+  revision?: AutoSaveRevision | null,
+): void {
+  if (revision === null) return
+  if (revision) {
+    const current = readAutoSavedGame(storage)
+    if (current?.savedAt !== revision.savedAt || current.pgn !== revision.pgn) return
+  }
   removeStorage(AUTO_SAVED_GAME_KEY, storage)
 }

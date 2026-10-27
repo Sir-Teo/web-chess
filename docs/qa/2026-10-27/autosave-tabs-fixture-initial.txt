@@ -1,0 +1,8 @@
+page.evaluate: SecurityError: Failed to read the 'localStorage' property from 'Window': Access is denied for this document.
+    at UtilityScript.evaluate (<anonymous>:313:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+    at read (/workspace/web-chess/scripts/test-ui-browser.cjs:7254:31)
+    at Object.checkAutosaveTabIsolation (/workspace/web-chess/scripts/test-ui-browser.cjs:7289:21)
+    at async /tmp/web-chess-autosave-tabs-check.cjs:10:9 {
+  log: []
+}
