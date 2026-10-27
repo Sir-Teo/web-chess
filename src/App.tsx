@@ -6102,6 +6102,7 @@ function App() {
     setGameMode('human-vs-ai')
     setPlayerColor(humanColor)
     setAiPlayerDifficulty(aiDifficulty)
+    retryAiPlayer()
 
     newGame()
     game.load(startFen)
@@ -6150,6 +6151,7 @@ function App() {
     newGame,
     readBoardEnding,
     requestBoardReveal,
+    retryAiPlayer,
     setAiPlayerDifficulty,
     setPgnHeaders,
   ])

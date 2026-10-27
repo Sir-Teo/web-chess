@@ -1,0 +1,4 @@
+  review offer: spent on the reviewed line, offered again for the game played from that position (Ba4)
+  repetition (1280px): import, navigation, charts and Play keep the draw; same-FEN histories and sibling lines stay separate; complete Coach readings at 200% text
+  repetition (375px): import, navigation, charts and Play keep the draw; same-FEN histories and sibling lines stay separate; complete Coach readings at 200% text
+  mode switch: the clock started again, 2:59 -> 2:58

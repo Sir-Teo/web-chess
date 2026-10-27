@@ -4905,9 +4905,9 @@ async function checkStepModeDoesNotChargeTheHeldEngine(browser) {
  * for a CDN build before it gives up. In a 1+0 game any of those is a slice
  * of the clock spent before the engine has played a move.
  */
-async function checkOpponentRetry(browser) {
+async function checkOpponentRetry(browser, scenarios = ['step', 'chosen-focus', 'retry-again', 'new-game', 'normal', 'paused', 'position-game', 'position-root']) {
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [320, 480, 2, 'light']]) {
-    for (const scenario of ['step', 'chosen-focus', 'retry-again', 'new-game', 'normal', 'paused']) {
+    for (const scenario of scenarios) {
       const context = await browser.newContext({ viewport: { width, height }, hasTouch: width < 900, reducedMotion: 'reduce' })
       const page = await context.newPage(), errors = []
       page.on('pageerror', error => errors.push(error.message))
@@ -4950,6 +4950,15 @@ async function checkOpponentRetry(browser) {
         if (scenario === 'new-game') {
           await startGameMode(page, 'Human vs AI')
           await enter('d4')
+        } else if (scenario.startsWith('position-')) {
+          if (scenario === 'position-root') await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+          await page.getByTestId('command-palette-btn').click()
+          await page.getByRole('combobox', { name: 'Search commands', exact: true }).fill('Play from this position')
+          await page.locator('[data-command-id="play-from-here"] button').click()
+          assert(await page.locator('.mtree-chip').count() === 0, 'Play from here kept the old moves instead of the selected root')
+          assert(await page.locator('#chessboard-square-e4 [data-piece="wP"]').count() === (scenario === 'position-game' ? 1 : 0), 'Play from here changed its selected position')
+          await page.evaluate(scenario => { window.__previewEndingPv = scenario === 'position-game' ? 'g1f3' : 'e7e5' }, scenario)
+          await enter(scenario === 'position-game' ? 'e5' : 'd4')
         } else await retry().press('Enter')
         await page.waitForFunction(() => window.__engineCount === 3 && window.__retryReadyEngine?.ordinal === 3)
         const busy = page.getByRole('button', { name: 'Retrying opponent…', exact: true })
@@ -4968,7 +4977,7 @@ async function checkOpponentRetry(browser) {
         const held = await banks()
         await page.clock.fastForward(5000)
         assert(JSON.stringify(await banks()) === JSON.stringify(held) && await searches() === beforeGo, 'retry charged loading time or searched too early')
-        if (scenario !== 'new-game') assert(JSON.stringify(held) === JSON.stringify(before), 'retry reset the clock banks')
+        if (scenario !== 'new-game' && !scenario.startsWith('position-')) assert(JSON.stringify(held) === JSON.stringify(before), 'retry reset the clock banks')
         assert(await page.locator('.mtree-chip').count() === 1, 'retry replaced the move tree')
         const target = await busy.boundingBox()
         assert(target.width >= 44 && target.height >= 44, `retry target is too small: ${JSON.stringify(target)}`)
@@ -4983,11 +4992,11 @@ async function checkOpponentRetry(browser) {
           else await step().press('Enter')
         }
         await page.waitForFunction(expected => window.__uciCommands.filter(command => command.startsWith('go ')).length === expected && window.__premoveReplyEngine?.searching, beforeGo + 1)
-        await page.waitForFunction(() => document.querySelector('.clock-black.running'))
+        await page.waitForFunction(scenario => document.querySelector(scenario === 'position-game' ? '.clock-white.running' : '.clock-black.running'), scenario)
         await page.clock.fastForward(500)
         await page.evaluate(() => { window.__holdPremoveReply = false; window.__premoveReplyEngine.finishSearch() })
         await page.waitForFunction(() => document.querySelectorAll('.mtree-chip').length === 2)
-        assert(await page.locator('#chessboard-square-e5 [data-piece="bP"]').count() === 1, 'retried opponent did not finish its legal reply')
+        await page.locator(scenario === 'position-game' ? '#chessboard-square-f3 [data-piece="wN"]' : '#chessboard-square-e5 [data-piece="bP"]').waitFor()
         assert(await searches() === beforeGo + 1 && await page.evaluate(() => window.__engineCount) === (scenario === 'retry-again' ? 4 : 3), 'retry duplicated workers or moves')
         assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `retry errors: ${errors.join('; ')}`)
         console.log(`  opponent retry ${width}×${height} text ${scale * 100}% ${scenario}: failed builds, held banks, one worker/search, position and focus retained`)

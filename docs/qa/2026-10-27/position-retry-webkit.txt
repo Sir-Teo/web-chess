@@ -1,0 +1,5 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  opponent retry 1280×900 text 100% position-game: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 1280×900 text 100% position-root: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 320×480 text 200% position-game: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 320×480 text 200% position-root: failed builds, held banks, one worker/search, position and focus retained

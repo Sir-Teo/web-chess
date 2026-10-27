@@ -1,0 +1,9 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  opponent retry 1280×900 text 100% position-game: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 1280×900 text 100% position-root: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 320×480 text 200% position-game: failed builds, held banks, one worker/search, position and focus retained
+Error: retried opponent did not finish its legal reply
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkOpponentRetry (/workspace/web-chess/scripts/test-ui-browser.cjs:4999:9)
+    at async /tmp/web-chess-position-retry-check.cjs:4:136
