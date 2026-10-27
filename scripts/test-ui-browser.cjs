@@ -4905,7 +4905,7 @@ async function checkStepModeDoesNotChargeTheHeldEngine(browser) {
  * for a CDN build before it gives up. In a 1+0 game any of those is a slice
  * of the clock spent before the engine has played a move.
  */
-async function checkOpponentRetry(browser, scenarios = ['step', 'chosen-focus', 'retry-again', 'new-game', 'normal', 'paused', 'position-game', 'position-root']) {
+async function checkOpponentRetry(browser, scenarios = ['step', 'chosen-focus', 'retry-again', 'new-game', 'normal', 'paused', 'position-game', 'position-root', 'command', 'command-focus']) {
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [320, 480, 2, 'light']]) {
     for (const scenario of scenarios) {
       const context = await browser.newContext({ viewport: { width, height }, hasTouch: width < 900, reducedMotion: 'reduce' })
@@ -4923,7 +4923,28 @@ async function checkOpponentRetry(browser, scenarios = ['step', 'chosen-focus', 
         await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
         if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true'
           && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
+        const viaCommand = scenario.startsWith('command')
+        const paletteInput = page.getByRole('combobox', { name: 'Search commands', exact: true })
+        const retryCommand = page.locator('[data-command-id="retry-opponent"] button')
+        const queryRetry = async () => {
+          if (scenario === 'command') await page.keyboard.press('Control+k')
+          else await page.getByTestId('command-palette-btn').click()
+          await paletteInput.fill('Retry opponent')
+          await retryCommand.waitFor()
+        }
+        const expectDisabledRetry = async reason => {
+          await queryRetry()
+          assert(await retryCommand.isDisabled() && (await retryCommand.innerText()).includes(reason), `unavailable retry command lacks reason: ${reason}`)
+          await paletteInput.press('Enter')
+          assert(await paletteInput.count() === 1, 'an unavailable retry command closed Commands')
+          await page.keyboard.press('Escape')
+        }
+        if (viaCommand) await expectDisabledRetry('Start an AI game')
         await startGameMode(page, 'Human vs AI')
+        if (viaCommand) {
+          await page.waitForFunction(() => document.querySelector('#play-opponent-report')?.textContent.includes('ready to play'))
+          await expectDisabledRetry('already available')
+        }
         const normal = scenario === 'normal' || scenario === 'paused'
         await page.getByRole('button', { name: `Set AI speed to ${normal ? 'Fast' : 'Step'}`, exact: true }).click()
         const enter = async move => {
@@ -4959,18 +4980,25 @@ async function checkOpponentRetry(browser, scenarios = ['step', 'chosen-focus', 
           assert(await page.locator('#chessboard-square-e4 [data-piece="wP"]').count() === (scenario === 'position-game' ? 1 : 0), 'Play from here changed its selected position')
           await page.evaluate(scenario => { window.__previewEndingPv = scenario === 'position-game' ? 'g1f3' : 'e7e5' }, scenario)
           await enter(scenario === 'position-game' ? 'e5' : 'd4')
+        } else if (viaCommand) {
+          await queryRetry()
+          assert(await retryCommand.isEnabled(), 'failed opponent cannot be retried from Commands')
+          if (scenario === 'command-focus') await retryCommand.click()
+          else await paletteInput.press('Enter')
+          await paletteInput.waitFor({ state: 'detached' })
         } else await retry().press('Enter')
         await page.waitForFunction(() => window.__engineCount === 3 && window.__retryReadyEngine?.ordinal === 3)
         const busy = page.getByRole('button', { name: 'Retrying opponent…', exact: true })
         assert(await busy.getAttribute('aria-busy') === 'true' && await busy.getAttribute('aria-disabled') === 'true', 'retry progress is missing')
         await busy.press('Enter'); await busy.press('Space')
+        if (viaCommand) await expectDisabledRetry('restarting')
         if (scenario === 'retry-again') {
           await page.evaluate(() => window.__retryReadyEngine.onerror({ message: 'QA failed retry' }))
           await retry().waitFor(); await retry().press('Enter')
           await page.waitForFunction(() => window.__engineCount === 4 && window.__retryReadyEngine?.ordinal === 4)
         }
         let chosen
-        if (scenario === 'chosen-focus') {
+        if (scenario === 'chosen-focus' || scenario === 'command-focus') {
           chosen = page.getByRole('checkbox', { name: 'Show board arrow overlays', exact: true })
           await chosen.focus()
         } else await busy.focus()
@@ -4983,8 +5011,9 @@ async function checkOpponentRetry(browser, scenarios = ['step', 'chosen-focus', 
         assert(target.width >= 44 && target.height >= 44, `retry target is too small: ${JSON.stringify(target)}`)
         await page.evaluate(() => { window.__holdOpponentRetryReady = false; window.__retryReadyEngine.send('readyok') })
         await busy.waitFor({ state: 'detached' })
-        if (scenario === 'chosen-focus') assert(await chosen.evaluate(el => el === document.activeElement), 'retry stole chosen focus')
+        if (scenario === 'chosen-focus' || scenario === 'command-focus') assert(await chosen.evaluate(el => el === document.activeElement), 'retry stole chosen focus')
         else assert(await page.locator('.board-stage').evaluate(el => el === document.activeElement), 'completed retry lost keyboard focus')
+        if (viaCommand) await expectDisabledRetry('already available')
         if (!normal || scenario === 'paused') {
           await page.clock.fastForward(1500)
           assert(await searches() === beforeGo && JSON.stringify(await banks()) === JSON.stringify(held), 'retry bypassed Step or Pause')

@@ -6284,6 +6284,11 @@ function App() {
     return scheduleRevealRetries(reveal, [120, 320])
   }, [analysisPanelRevealTick, backgroundUiHidden, boardRevealTick, moveEntryFocusTick])
 
+  const opponentRetryReason = !aiEnabled ? 'Start an AI game to use an opponent.'
+    : aiPlayerStatus === 'error' ? null
+      : aiPlayer.retrying ? 'The opponent is restarting.'
+        : aiPlayerStatus === 'loading' ? 'The opponent is starting.'
+          : 'The opponent is already available.'
   const paletteCommands = useMemo<Command[]>(() => [
     { id: 'new-game', label: 'New game', shortcut: 'N', keywords: ['restart', 'reset'], run: openNewGameDialog },
     { id: 'enter-move', label: 'Enter a move by name',
@@ -6374,6 +6379,14 @@ function App() {
       keywords: ['undo', 'takeback', 'revert', 'oops'],
       disabled: Boolean(takebackReason),
       run: takebackMove,
+    },
+    {
+      id: 'retry-opponent',
+      label: 'Retry opponent',
+      hint: opponentRetryReason ?? 'Keep this game and restart the unavailable opponent',
+      keywords: ['engine', 'recover', 'failed', 'unavailable', 'restart'],
+      disabled: Boolean(opponentRetryReason),
+      run: retryAiPlayer,
     },
     {
       id: 'hint',
@@ -6563,7 +6576,7 @@ function App() {
     goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, moveEntryCommandReason, requestMoveEntry,
       goSiblingVariation, hintReason, isProbingThreat, isPositionStudy, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
       previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay, drillRevealReason, revealDrillMove, drillReturnReason, returnToDrill, practiceRevealReason, revealPracticeMove,
-      openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger,
+      openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger, opponentRetryReason, retryAiPlayer,
       reviewFaultCount, reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason, workspaceMode])
 
   /*
