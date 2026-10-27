@@ -1,0 +1,1 @@
+  draw mode: ends at the move into Play, can still be turned on there, and draws a finger stroke

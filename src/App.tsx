@@ -7221,7 +7221,10 @@ function App() {
         <button
           type="button"
           className="board-draw-clear"
-          onClick={clearDrawings}
+          onClick={event => {
+            clearDrawings()
+            event.currentTarget.parentElement?.querySelector<HTMLButtonElement>('.board-draw-toggle')?.focus({ preventScroll: true })
+          }}
           title="Clear your arrows and marks"
         >
           Clear

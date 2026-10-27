@@ -17312,6 +17312,15 @@ async function checkDrawingCancellation(browser) {
       await toggle.click()
       await beginStroke('g1', 'f3'); await page.mouse.up()
       assert(await page.locator('.board-draw-clear').count() === 1, 'completed drawing is missing')
+      const clear = page.locator('.board-draw-clear')
+      for (const activation of ['Enter', 'Space', 'pointer']) {
+        if (activation === 'pointer') await clear.click()
+        else { await clear.focus(); await page.keyboard.press(activation) }
+        await clear.waitFor({ state: 'detached' })
+        assert(await toggle.evaluate(element => element === document.activeElement), `${activation} Clear removes its button and leaves focus off the drawing controls`)
+        assert(await toggle.getAttribute('aria-pressed') === 'true' && await arrow('g1', 'f3').count() === 0, `${activation} Clear changed marking mode or retained the completed arrow`)
+        await beginStroke('g1', 'f3'); await page.mouse.up()
+      }
       const ignored = await toggle.evaluate(el => [
         { ctrlKey: true }, { metaKey: true }, { altKey: true }, { shiftKey: true }, { isComposing: true }, { keyCode: 229 },
       ].map(init => { const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, ...init }); el.dispatchEvent(event); return event.defaultPrevented }))
@@ -17351,7 +17360,7 @@ async function checkDrawingCancellation(browser) {
       await page.locator('#chessboard-square-e7').click(); await page.locator('#chessboard-square-e5').click()
       await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
       assert(errors.length === 0, `drawing cancellation errors: ${errors.join('; ')}`)
-      console.log(`  drawing cancellation (${width}×${height}, ${scale}x): Escape cancels a stroke and leaves completed marks; dialog/modifier/composition scope; ${nativePointer ? 'native pointer-capability change hides controls and releases the board' : 'controlled MediaQueryList change releases the board'}; e2-e4 and e7-e5 play`)
+      console.log(`  drawing cancellation (${width}×${height}, ${scale}x): Enter/Space/pointer Clear return focus to the persistent marking toggle; mode stays active and can draw again; Escape cancels a stroke and leaves completed marks; dialog/modifier/composition scope; ${nativePointer ? 'native pointer-capability change hides controls and releases the board' : 'controlled MediaQueryList change releases the board'}; e2-e4 and e7-e5 play`)
     } finally { await context.close() }
   }
 }

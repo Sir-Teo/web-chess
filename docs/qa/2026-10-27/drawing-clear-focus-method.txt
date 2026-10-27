@@ -1,0 +1,9 @@
+Keep focus in the drawing controls after Clear — 27 October 2026
+
+Baseline dd6735f: make a completed arrow in touch marking mode, focus Clear and press Enter. The contextual button unmounts and leaves focus off the drawing controls. The existing drawing-cancellation workflow now reproduces that failure before repair.
+
+After clearing, explicitly focus the persistent Arrows/Marking toggle in the same control group with preventScroll. Preserve the active drawing mode and the existing shared clear operation. This works for pointer activation even when a browser does not focus the clicked button first.
+
+Extend the existing native drawing-cancel workflow, keeping its actual stroke/move and cancellation checks. Each layout clears with Enter, Space and pointer click, verifies that the button disappears, its completed arrow is removed, focus lands on the still-active Marking toggle and a new stroke can be made. Then verify modified/composing Escape is ignored, dialog Escape does not cancel marking, plain Escape cancels only the pending stroke, completed drawings survive a pointer-capability change and e2-e4/e7-e5 remain playable.
+
+Production Chromium, Firefox and Linux WebKit each run phone 375px normal text, 375px/200% and landscape 844x390 (nine workflows, 27 Clear activations). Chromium uses native touch-capability emulation changes; Firefox/WebKit exercise the actual MediaQueryList listener with a controlled change event. The related Chromium drawing-purpose workflow also uses native CDP touch events for a finger-style stroke. Full verification retains 2,091 passing tests and the existing skip; final script lint follows the last native activation refinement. Root text enlargement is not native browser zoom, simulated touch is not a physical device and Linux WebKit is not physical iOS.
