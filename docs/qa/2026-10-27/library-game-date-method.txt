@@ -1,0 +1,5 @@
+Game-date sorting uses recorded year/month/day components, newest first, with unknown parts last within their known period and unreadable/unknown-year dates last. It does not parse time zones, normalize stored metadata, or claim complete calendar validation. Known days cannot invent an unknown month. Sorting is stable, parses keys once, and does not mutate the input. Starred games retain the existing pinned group.
+
+Four meaningful model regressions fail before the implementation and pass after it. The production browser sorting workflow checks all five orders, independent saved/game dates, partial and missing dates, favorite pinning, search/reset, native selection focus, original PGN backup bytes, actual game loading, 44px targets and toolbar fitting at 1280/375/320px including 200% text. Twelve cases pass in Chromium, Firefox and desktop Linux WebKit. Desktop WebKit is not physical iOS Safari. Existing Chromium keyboard-navigation and starred-filter workflows pass nine more cases.
+
+Full npm run verify: TypeScript, lint, 123 test files, 1,969 passes, one pre-existing intentional skip, and production build.

@@ -1,0 +1,126 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/gameLibrary.test.ts (117 tests | 4 failed) 349ms
+     × sorts game dates independently of when games were saved 7ms
+     × groups partial dates by the year and month that are known 2ms
+     × keeps unknown and unreadable dates last without changing their relative order 2ms
+     × accepts ISO and shortened dates without inventing unknown month or day precision 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > searching and sorting > sorts game dates independently of when games were saved
+AssertionError: expected [ 'Older game', 'Newer game' ] to deeply equal [ 'Newer game', 'Older game' ]
+
+- Expected
++ Received
+
+  [
+-   "Newer game",
+    "Older game",
++   "Newer game",
+  ]
+
+ ❯ src/engine/gameLibrary.test.ts:329:79
+    327|     const newest = createLibraryGame('Newer game', '[Date "2026.10.27"…
+    328|     const oldest = createLibraryGame('Older game', '[Date "2025.12.31"…
+    329|     expect(sortLibraryGames([oldest, newest], 'date').map(game => game…
+       |                                                                               ^
+    330|   })
+    331|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > searching and sorting > groups partial dates by the year and month that are known
+AssertionError: expected [ 'Year only', 'Previous year', …(3) ] to deeply equal [ 'Later month', 'Known day', …(3) ]
+
+- Expected
++ Received
+
+  [
+-   "Later month",
+-   "Known day",
+-   "Month only",
+    "Year only",
+    "Previous year",
++   "Month only",
++   "Known day",
++   "Later month",
+  ]
+
+ ❯ src/engine/gameLibrary.test.ts:337:8
+    335|       dated('Month only', '2026.10.??'), dated('Known day', '2026.10.2…
+    336|     expect(sortLibraryGames(records, 'date').map(game => game.name))
+    337|       .toEqual(['Later month', 'Known day', 'Month only', 'Year only',…
+       |        ^
+    338|   })
+    339|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > searching and sorting > keeps unknown and unreadable dates last without changing their relative order
+AssertionError: expected [ 'Missing date', '2026.10.27', …(7) ] to deeply equal [ '2026.10.27', '????.12.31', …(7) ]
+
+- Expected
++ Received
+
+  [
++   "Missing date",
+    "2026.10.27",
+-   "????.12.31",
+-   "not a date",
+-   "2026.13.01",
+-   "2026.00.01",
+-   "2026.10.32",
+-   "2026.10.00",
+    "0000.01.01",
+-   "Missing date",
++   "2026.10.00",
++   "2026.10.32",
++   "2026.00.01",
++   "2026.13.01",
++   "not a date",
++   "????.12.31",
+  ]
+
+ ❯ src/engine/gameLibrary.test.ts:345:8
+    343|     const missing = createLibraryGame('Missing date', '1. e4 *', 100, …
+    344|     expect(sortLibraryGames([...records, missing], 'date').map(game =>…
+    345|       .toEqual(['2026.10.27', ...dates.slice(0, -1), 'Missing date'])
+       |        ^
+    346|   })
+    347|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > searching and sorting > accepts ISO and shortened dates without inventing unknown month or day precision
+AssertionError: expected [ '2026-10-28', '2026.10.27', …(3) ] to deeply equal [ '2026-10-28', '2026.10.27', …(3) ]
+
+- Expected
++ Received
+
+  [
+    "2026-10-28",
+    "2026.10.27",
+    "2026-10",
+-   "2026",
+    "2026.??.15",
++   "2026",
+  ]
+
+ ❯ src/engine/gameLibrary.test.ts:352:8
+    350|     const records = dates.map((date, index) => createLibraryGame(date,…
+    351|     expect(sortLibraryGames(records, 'date').map(game => game.name))
+    352|       .toEqual(['2026-10-28', '2026.10.27', '2026-10', '2026', '2026.?…
+       |        ^
+    353|   })
+    354|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 113 passed (117)
+   Start at  05:23:19
+   Duration  731ms (transform 206ms, setup 0ms, import 256ms, tests 349ms, environment 0ms)
+

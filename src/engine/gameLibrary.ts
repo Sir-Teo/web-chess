@@ -46,7 +46,7 @@ export type LibraryGame = {
   metadata: LibraryGameMetadata
 }
 
-export type LibrarySort = 'recent' | 'oldest' | 'name' | 'moves'
+export type LibrarySort = 'recent' | 'oldest' | 'name' | 'moves' | 'date'
 
 const SAN_TOKEN = /^(?:O-O-O|O-O|0-0-0|0-0|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=?[QRBN])?)[+#]?[!?]*$/
 const RESULT_TOKEN = /^(?:1-0|0-1|1\/2-1\/2|\*)$/
@@ -426,6 +426,19 @@ export function libraryGameMatchesQuery(game: LibraryGame, query: string): boole
   return matchesSearchTerms(getLibraryGameSearchText(game), terms)
 }
 
+/** Sort by recorded date parts, leaving unknown parts last in their period. */
+function gameDateOrder(date: string | undefined): number {
+  const match = /^(\d{4})(?:([.-])(\d{2}|\?\?)(?:\2(\d{2}|\?\?))?)?$/.exec(date?.trim() ?? '')
+  if (!match) return -1
+  const year = Number(match[1])
+  const month = !match[3] || match[3] === '??' ? 0 : Number(match[3])
+  const day = !match[4] || match[4] === '??' ? 0 : Number(match[4])
+  if (!year || month > 12 || day > 31
+    || match[3] === '00' || match[4] === '00') return -1
+  // A known day cannot add precision when its month is unknown.
+  return year * 10_000 + month * 100 + (month ? day : 0)
+}
+
 export function sortLibraryGames(games: LibraryGame[], sort: LibrarySort): LibraryGame[] {
   const sorted = [...games]
   switch (sort) {
@@ -435,6 +448,9 @@ export function sortLibraryGames(games: LibraryGame[], sort: LibrarySort): Libra
       return sorted.sort((a, b) => a.name.localeCompare(b.name))
     case 'moves':
       return sorted.sort((a, b) => b.moveCount - a.moveCount)
+    case 'date':
+      return sorted.map(game => ({ game, date: gameDateOrder(game.metadata.date) }))
+        .sort((a, b) => b.date - a.date).map(entry => entry.game)
     case 'recent':
     default:
       return sorted.sort((a, b) => b.updatedAt - a.updatedAt)

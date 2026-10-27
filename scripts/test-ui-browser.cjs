@@ -6304,17 +6304,18 @@ async function checkLibraryLockFallback(browser) {
 
 async function checkLibrarySorting(browser) {
   const games = [
-    { id: 'sort-alpha', name: 'Alpha study', pgn: '1. e4 *', updatedAt: 10 },
-    { id: 'sort-zulu', name: 'Zulu study', pgn: '1. d4 d5 *', updatedAt: 40 },
-    { id: 'sort-mike', name: 'Mike study', pgn: '1. e4 e5 2. Nf3 Nc6 *', updatedAt: 20 },
+    { id: 'sort-alpha', name: 'Alpha study', pgn: '[Date "2026.10.27"]\n\n1. e4 *', updatedAt: 10 },
+    { id: 'sort-zulu', name: 'Zulu study', pgn: '[Date "2025.12.31"]\n\n1. d4 d5 *', updatedAt: 40 },
+    { id: 'sort-mike', name: 'Mike study', pgn: '[Date "2026.??.??"]\n\n1. e4 e5 2. Nf3 Nc6 *', updatedAt: 20 },
     { id: 'sort-bravo', name: 'Bravo study', pgn: '1. c4 *', updatedAt: 50 },
-    { id: 'sort-star', name: 'Star study', pgn: '1. Nf3 d5 2. g3 *', updatedAt: 30, favorite: true },
+    { id: 'sort-star', name: 'Star study', pgn: '[Date "2024.01.01"]\n\n1. Nf3 d5 2. g3 *', updatedAt: 30, favorite: true },
   ].map(game => ({ ...game, createdAt: game.updatedAt }))
   const orders = {
     recent: ['Star study', 'Bravo study', 'Zulu study', 'Mike study', 'Alpha study'],
     oldest: ['Star study', 'Alpha study', 'Mike study', 'Zulu study', 'Bravo study'],
     name: ['Star study', 'Alpha study', 'Bravo study', 'Mike study', 'Zulu study'],
     moves: ['Star study', 'Mike study', 'Zulu study', 'Alpha study', 'Bravo study'],
+    date: ['Star study', 'Alpha study', 'Mike study', 'Zulu study', 'Bravo study'],
   }
   for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [375, 2, 'dark'], [320, 2, 'light']]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -6338,7 +6339,15 @@ async function checkLibrarySorting(browser) {
         await sort.focus(); await sort.selectOption(value)
         assert(JSON.stringify(await rows()) === JSON.stringify(expected), `${value} sort changed favorite priority or uses the wrong direction`)
         assert(await sort.evaluate(el => el === document.activeElement), 'sorting moved focus out of the selector')
+        if (value === 'date') {
+          const [download] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Export backup', exact: true }).click()])
+          const backup = JSON.parse(fs.readFileSync(await download.path(), 'utf8'))
+          assert(backup.games.length === games.length && games.every(game => backup.games.some(saved => saved.id === game.id && saved.pgn === game.pgn)),
+            'sorting by game date changed the original games or their partial date text in the backup')
+          await sort.focus()
+        }
       }
+      await sort.selectOption('moves')
       const search = dialog.getByRole('searchbox', { name: 'Search saved games', exact: true })
       await search.fill('alpha')
       assert(await sort.inputValue() === 'moves' && JSON.stringify(await rows()) === JSON.stringify(['Alpha study']), 'filtering reset the selected sort or hid the matching game')
@@ -6367,7 +6376,7 @@ async function checkLibrarySorting(browser) {
       await page.locator('#chessboard-square-c6 [data-piece="bN"]').waitFor()
       assert(errors.length === 0, `library sorting errors: ${errors.join('; ')}`)
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'library sorting overflows')
-      console.log(`  library sort (${width}px, ${scale}x, ${theme}): native keyboard and all four orders; starred priority, filter/clear, star toggles and focus retained; full longest label, ${geometry.height}px target, ${geometry.toolbar}px toolbar; actual game load`)
+      console.log(`  library sort (${width}px, ${scale}x, ${theme}): native keyboard and all five orders; recorded/partial/missing game dates, starred priority, filter/clear, star toggles and focus retained; full longest label, ${geometry.height}px target, ${geometry.toolbar}px toolbar; actual game load`)
     } finally { await context.close() }
   }
 }

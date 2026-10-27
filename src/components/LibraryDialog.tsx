@@ -69,6 +69,7 @@ const SORT_OPTIONS: { value: LibrarySort; label: string }[] = [
     { value: 'oldest', label: 'Oldest first' },
     { value: 'name', label: 'Name (A–Z)' },
     { value: 'moves', label: 'Longest first' },
+    { value: 'date', label: 'Game date' },
 ]
 
 function describeGame(game: LibraryGame): string {
@@ -454,6 +455,7 @@ export function LibraryDialog({
                                 </button>
                             </div>
                             <select className="library-sort" aria-label="Sort saved games"
+                                title={sort === 'date' ? 'Newest game dates first, with starred games pinned. Unknown date parts sort last.' : undefined}
                                 value={sort} onChange={event => changeSort(event.target.value as LibrarySort)}>
                                 {SORT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                             </select>

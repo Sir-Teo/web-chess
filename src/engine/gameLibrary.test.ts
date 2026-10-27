@@ -319,7 +319,37 @@ describe('searching and sorting', () => {
   it('does not reorder the array it was given', () => {
     const original = games.map(g => g.name)
     sortLibraryGames(games, 'name')
+    sortLibraryGames(games, 'date')
     expect(games.map(g => g.name)).toEqual(original)
+  })
+
+  it('sorts game dates independently of when games were saved', () => {
+    const newest = createLibraryGame('Newer game', '[Date "2026.10.27"]\n\n1. e4 *', 1, 'newer')
+    const oldest = createLibraryGame('Older game', '[Date "2025.12.31"]\n\n1. e4 *', 100, 'older')
+    expect(sortLibraryGames([oldest, newest], 'date').map(game => game.name)).toEqual(['Newer game', 'Older game'])
+  })
+
+  it('groups partial dates by the year and month that are known', () => {
+    const dated = (name: string, date: string) => createLibraryGame(name, `[Date "${date}"]\n\n1. e4 *`, 1, name)
+    const records = [dated('Year only', '2026.??.??'), dated('Previous year', '2025.12.31'),
+      dated('Month only', '2026.10.??'), dated('Known day', '2026.10.27'), dated('Later month', '2026.11.??')]
+    expect(sortLibraryGames(records, 'date').map(game => game.name))
+      .toEqual(['Later month', 'Known day', 'Month only', 'Year only', 'Previous year'])
+  })
+
+  it('keeps unknown and unreadable dates last without changing their relative order', () => {
+    const dates = ['????.12.31', 'not a date', '2026.13.01', '2026.00.01', '2026.10.32', '2026.10.00', '0000.01.01', '2026.10.27']
+    const records = dates.map((date, index) => createLibraryGame(date, `[Date "${date}"]\n\n1. e4 *`, index + 1, date))
+    const missing = createLibraryGame('Missing date', '1. e4 *', 100, 'missing')
+    expect(sortLibraryGames([...records, missing], 'date').map(game => game.name))
+      .toEqual(['2026.10.27', ...dates.slice(0, -1), 'Missing date'])
+  })
+
+  it('accepts ISO and shortened dates without inventing unknown month or day precision', () => {
+    const dates = ['2026', '2026.??.15', '2026-10', '2026.10.27', '2026-10-28']
+    const records = dates.map((date, index) => createLibraryGame(date, `[Date "${date}"]\n\n1. e4 *`, index + 1, date))
+    expect(sortLibraryGames(records, 'date').map(game => game.name))
+      .toEqual(['2026-10-28', '2026.10.27', '2026-10', '2026', '2026.??.15'])
   })
 
   it('totals the shelf', () => {

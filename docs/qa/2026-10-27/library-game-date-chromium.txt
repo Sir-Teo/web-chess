@@ -1,0 +1,4 @@
+  library sort (1280px, 1x, dark): native keyboard and all five orders; recorded/partial/missing game dates, starred priority, filter/clear, star toggles and focus retained; full longest label, 44px target, 44px toolbar; actual game load
+  library sort (375px, 1x, light): native keyboard and all five orders; recorded/partial/missing game dates, starred priority, filter/clear, star toggles and focus retained; full longest label, 44px target, 44px toolbar; actual game load
+  library sort (375px, 2x, dark): native keyboard and all five orders; recorded/partial/missing game dates, starred priority, filter/clear, star toggles and focus retained; full longest label, 61.59375px target, 148.1875px toolbar; actual game load
+  library sort (320px, 2x, light): native keyboard and all five orders; recorded/partial/missing game dates, starred priority, filter/clear, star toggles and focus retained; full longest label, 61.59375px target, 148.1875px toolbar; actual game load
