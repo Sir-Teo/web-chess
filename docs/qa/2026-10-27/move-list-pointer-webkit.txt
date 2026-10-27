@@ -1,0 +1,5 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  move pointer (1280×900, 1x, dark): fresh variation survives 0/30/80/150ms presses with identical down/up/click targets; correct note; Enter/Space/arrows still navigate; right click and canceled press do not navigate; exact notes/all branches export
+  move pointer (375×812, 1x, light): fresh variation survives 0/30/80/150ms presses with identical down/up/click targets; correct note; Enter/Space/arrows still navigate; right click and canceled press do not navigate; exact notes/all branches export
+  move pointer (320×812, 2x, dark): fresh variation survives 0/30/80/150ms presses with identical down/up/click targets; correct note; Enter/Space/arrows still navigate; right click and canceled press do not navigate; exact notes/all branches export
+  move pointer (844×390, 2x, light): fresh variation survives 0/30/80/150ms presses with identical down/up/click targets; correct note; Enter/Space/arrows still navigate; right click and canceled press do not navigate; exact notes/all branches export

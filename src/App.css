@@ -3094,6 +3094,13 @@ button.opening-move-row {
 .mtree-row,
 .mtree-variation {
   contain: layout paint style;
+}
+
+/* Estimated heights can change as a move receives focus, moving it away
+   before pointer release. Keep the move transcript's geometry measurable. */
+.pv-list article,
+.cloud-line-row,
+.moves-list li {
   content-visibility: auto;
 }
 
@@ -3102,9 +3109,7 @@ button.opening-move-row {
   contain-intrinsic-size: auto 92px;
 }
 
-.moves-list li,
-.mtree-row,
-.mtree-variation {
+.moves-list li {
   contain-intrinsic-size: auto 36px;
 }
 

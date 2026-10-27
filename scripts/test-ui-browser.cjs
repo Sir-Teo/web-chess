@@ -6638,6 +6638,71 @@ async function checkViewportResizePreservesGesture(browser) {
   }
 }
 
+async function checkMoveListPointerActivation(browser) {
+  const pgn = '[Event "Pointer notes"]\n\n1. e4 {main pawn} (1. d4 {side pawn} d5 {side reply} 2. c4 {side continuation}) e5 {main reply} 2. Nf3 {main knight} *'
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, theme }))
+        window.__movePointerTrace = []
+        let pressed = null
+        for (const type of ['pointerdown', 'pointerup', 'click']) document.addEventListener(type, event => {
+          const chip = event.target.closest?.('.mtree-chip')
+          if (type === 'pointerdown') pressed = chip?.dataset.nodeId ?? null
+          if (pressed) {
+            const r = chip?.getBoundingClientRect()
+            window.__movePointerTrace.push({ type, pressed, target: chip?.dataset.nodeId, y: r?.y, label: chip?.getAttribute('aria-label') })
+          }
+          if (type === 'click') pressed = null
+        }, true)
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const active = prefix => page.waitForFunction(prefix => document.querySelector('.mtree-chip[aria-current="step"]')?.getAttribute('aria-label')?.startsWith(prefix), prefix)
+      const sideReply = () => page.getByRole('button', { name: /^Go to variation move 1\.\.\. d5/ })
+      for (const delay of [0, 30, 80, 150]) {
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await page.locator('.pgn-dialog textarea').fill(pgn)
+        await page.locator('.pgn-dialog').getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+        // Click the fresh transcript before geometry reads can materialize its rows.
+        await sideReply().click({ delay })
+        const trace = await page.evaluate(() => window.__movePointerTrace.slice(-3))
+        assert(trace.length === 3 && trace.every(event => event.target === trace[0].pressed), `a move shifted away during pointer activation: ${JSON.stringify(trace)}`)
+        await active('Go to variation move 1... d5')
+        assert(await page.getByRole('textbox', { name: 'Move note', exact: true }).inputValue() === 'side reply', 'pointer activation selected another move note')
+      }
+      const main = page.getByRole('button', { name: /^Go to move 2\. Nf3/ })
+      await main.focus(); await main.press('Enter')
+      await active('Go to move 2. Nf3')
+      assert(await page.getByRole('textbox', { name: 'Move note', exact: true }).inputValue() === 'main knight', 'keyboard Enter changed the wrong move')
+      const sidePawn = page.getByRole('button', { name: /^Go to variation move 1\. d4/ })
+      await sidePawn.focus(); await sidePawn.press('Space')
+      await active('Go to variation move 1. d4')
+      await page.keyboard.press('ArrowRight'); await active('Go to variation move 1... d5')
+      await main.click({ button: 'right' }); await page.keyboard.press('Escape')
+      await active('Go to variation move 1... d5')
+      await main.hover(); await page.mouse.down(); await page.mouse.move(1, 1); await page.mouse.up()
+      await active('Go to variation move 1... d5')
+      await page.getByRole('textbox', { name: 'Move note', exact: true }).fill('Pointer-selected reply ♞')
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      const dialog = page.locator('.pgn-dialog')
+      await dialog.getByRole('button', { name: 'Export', exact: true }).click()
+      await dialog.getByRole('checkbox', { name: 'Engine evals', exact: true }).uncheck()
+      const exported = await dialog.getByRole('textbox', { name: 'Annotated Output', exact: true }).inputValue()
+      assert(['main pawn', 'side pawn', 'Pointer-selected reply ♞', 'side continuation', 'main reply', 'main knight'].every(text => exported.includes(text))
+        && await page.locator('.mtree-chip').count() === 6, 'pointer/keyboard navigation changed another note or branch')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'pointer transcript overflows')
+      assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `pointer transcript errors: ${errors.join('; ')}`)
+      console.log(`  move pointer (${width}×${height}, ${scale}x, ${theme}): fresh variation survives 0/30/80/150ms presses with identical down/up/click targets; correct note; Enter/Space/arrows still navigate; right click and canceled press do not navigate; exact notes/all branches export`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkMoveListFitting(browser) {
   const samples = [
     ['nested study', '1. e4 e5 (1... c5 2. Nf3 (2. Nc3) d6) 2. Nf3 *'],
@@ -20065,6 +20130,7 @@ async function main() {
       'library-keyboard': checkLibraryKeyboardNavigation,
       'library-empty-focus': checkLibraryEmptyFocus,
       'confirmation-keys': checkConfirmationKeys,
+      'move-list-pointer': checkMoveListPointerActivation,
       'move-list-fit': checkMoveListFitting,
       'drill-restart': checkDrillRestartKeepsItsLine,
       'drill-reveal': checkDrillRevealAction,
@@ -20861,6 +20927,7 @@ async function main() {
     await checkReplaySpeedAfterStep(browser)
     await checkTypedMoveLands(browser)
     await checkMoveTimesAreGraphed(browser)
+    await checkMoveListPointerActivation(browser)
     await checkMoveListFitting(browser)
     await checkConfirmationKeys(browser)
     await checkResignationEndsTakeback(browser)
