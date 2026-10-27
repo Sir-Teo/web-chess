@@ -1,0 +1,5 @@
+Error: the declared missing-rook right is hidden or can be enabled
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkUnavailableCastlingRepair (/workspace/web-chess/scripts/test-ui-browser.cjs:16308:7)
+    at async /tmp/web-chess-castling-repair-check.cjs:10:9

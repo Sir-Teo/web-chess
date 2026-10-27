@@ -15,7 +15,7 @@ import {
     createEmptyPositionSetup,
     createStartingPositionSetup,
     canUseSetupCastlingRight,
-    hasSetupCastlingRight,
+    normalizeAvailableCastlingRights,
     parsePositionSetupFen,
     positionSetupToFen,
     setupEnPassantTargets,
@@ -157,6 +157,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const archiveUserId = useId()
     const archiveCountId = useId()
     const enPassantId = useId()
+    const castlingHelpId = useId()
     const feedbackGenerationRef = useRef(0)
 
     const resetFeedback = useCallback(() => {
@@ -455,6 +456,17 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const canImportPgn = Boolean(importText.trim()) && !importContentError
     const enPassantTargets = setupEnPassantTargets(setup)
     const unavailableEnPassant = setup.enPassant !== '-' && !enPassantTargets.includes(setup.enPassant)
+    const availableCastlingRights = normalizeAvailableCastlingRights(setup)
+    const unavailableCastlingRights = setup.castling !== availableCastlingRights
+    const clearUnavailableCastlingRights = () => {
+        // Repair only this raw field; the draft may have other errors the
+        // reader still wants to inspect, including en passant or counters.
+        const fields = fenText.trim().split(/\s+/)
+        fields[2] = availableCastlingRights
+        syncFenTextAndSetup(fields.join(' '))
+        resetFeedback()
+        fenTextRef.current?.focus()
+    }
     /**
      * A file too big for the box it landed in.
      *
@@ -877,9 +889,11 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         </div>
                                         <div className="fen-setup-control-block">
                                             <span className="dialog-label">Castling</span>
-                                            <div className="fen-castling-grid" role="group" aria-label="Castling rights">
+                                            <div className="fen-castling-grid" role="group" aria-label="Castling rights"
+                                                aria-describedby={unavailableCastlingRights ? castlingHelpId : undefined}>
                                                 {SETUP_CASTLING_OPTIONS.map(option => {
                                                     const canCastle = canUseSetupCastlingRight(setup, option.right)
+                                                    const declared = setup.castling.includes(option.right)
                                                     return (
                                                         <label
                                                             key={option.right}
@@ -889,8 +903,10 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                                             <input
                                                                 type="checkbox"
                                                                 aria-label={option.label}
-                                                                checked={hasSetupCastlingRight(setup, option.right)}
+                                                                checked={declared}
                                                                 disabled={!canCastle}
+                                                                aria-invalid={declared && !canCastle || undefined}
+                                                                aria-describedby={declared && !canCastle ? castlingHelpId : undefined}
                                                                 onChange={event => {
                                                                     applySetupChange(current =>
                                                                         updateSetupCastlingRight(current, option.right, event.target.checked),
@@ -903,6 +919,14 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                                     )
                                                 })}
                                             </div>
+                                            {unavailableCastlingRights && <>
+                                                <p id={castlingHelpId} className="fen-setup-help">
+                                                    Some declared castling rights are unavailable. Clear them, or correct the home king and rook.
+                                                </p>
+                                                <button type="button" className="btn-cancel" onClick={clearUnavailableCastlingRights}>
+                                                    Clear unavailable castling rights
+                                                </button>
+                                            </>}
                                         </div>
                                         <div className="fen-setup-control-block">
                                             <span className="dialog-label">Counters</span>

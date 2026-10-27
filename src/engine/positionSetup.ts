@@ -232,7 +232,7 @@ function normalizeCounter(value: number, fallback: number, min: number): number 
   return Math.max(min, Math.floor(value))
 }
 
-function normalizeAvailableCastlingRights(setup: PositionSetup): string {
+export function normalizeAvailableCastlingRights(setup: PositionSetup): string {
   const normalized = normalizeCastlingRights(setup.castling)
   if (normalized === '-') return '-'
 

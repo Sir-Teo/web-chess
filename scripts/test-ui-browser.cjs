@@ -16241,7 +16241,7 @@ async function checkCastlingRightInputs(browser) {
           assert(await input.inputValue() === missingRook && await input.getAttribute('aria-invalid') === 'true', 'invalid castling FEN lost its draft or associated validation')
           assert(await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).isDisabled()
             && await dialog.getByRole('button', { name: 'Copy Share Link', exact: true }).isDisabled(), 'an impossible castling position can still load or share')
-          assert(await right.isDisabled() && !await right.isChecked(), 'setup control disagrees with the missing home rook')
+          assert(await right.isDisabled() && await right.isChecked() && await right.getAttribute('aria-invalid') === 'true', 'setup control hides the declared unavailable castling right')
           await dialog.getByRole('toolbar', { name: 'Piece palette', exact: true }).getByRole('button', { name: 'Select White rook', exact: true }).click()
           await dialog.getByRole('group', { name: 'Editable chessboard', exact: true }).getByRole('button', { name: /^h1,/ }).click()
           assert(await right.isEnabled(), 'placing the home rook did not enable its castling right')
@@ -16283,6 +16283,75 @@ async function checkCastlingRightInputs(browser) {
         console.log(`  castling inputs (${width}px, ${scale}x, ${theme}, ${scenario}): missing-rook/away-king rights rejected with prior work retained; ${white ? 'White kingside' : 'Black queenside'} castle moves both correct pieces after repair${scenario === 'fen' ? '; setup and raw validation agree' : ''}`)
       } finally { await context.close() }
     }
+  }
+}
+
+async function checkUnavailableCastlingRepair(browser) {
+  const missingRook = '4k3/8/8/8/8/8/8/4K3 w K - 17 23'
+  const mixed = 'r3k2r/8/8/8/8/8/8/4K2R w KQkq d6 17 23'
+  for (const [width, height, scale, theme] of [[1280, 812, 1, 'dark'], [375, 812, 2, 'light'], [320, 568, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      const dialog = page.locator('.pgn-dialog')
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      const input = dialog.locator('.fen-textarea')
+      const clear = dialog.getByRole('button', { name: 'Clear unavailable castling rights', exact: true })
+      const whiteK = dialog.getByRole('checkbox', { name: 'White kingside', exact: true })
+      await input.fill(missingRook)
+      assert(await whiteK.isChecked() && await whiteK.isDisabled() && await whiteK.getAttribute('aria-invalid') === 'true', 'the declared missing-rook right is hidden or can be enabled')
+      const described = await whiteK.getAttribute('aria-describedby')
+      assert(described && await dialog.locator(`[id="${described}"]`).textContent().then(text => text.includes('unavailable')), 'the unavailable castling right has no associated repair help')
+      await clear.focus()
+      await page.keyboard.press('Enter')
+      assert(await input.inputValue() === missingRook.replace(' K ', ' - '), 'clearing an unavailable right changed pieces or counters')
+      assert(await input.evaluate(element => element === document.activeElement), 'removing the repair button left focus on the page body')
+      assert(!await whiteK.isChecked() && await whiteK.isDisabled() && await whiteK.getAttribute('aria-invalid') === null, 'the cleared missing-rook right is still declared or can be enabled')
+      assert(await clear.count() === 0 && await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).isEnabled(), 'clearing the sole invalid right did not repair the position')
+      assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'repairing the draft loaded it without being asked')
+
+      await input.fill(mixed)
+      const whiteQ = dialog.getByRole('checkbox', { name: 'White queenside', exact: true })
+      assert(await whiteQ.isChecked() && await whiteQ.isDisabled(), 'the unavailable Q flag is not represented')
+      for (const name of ['White kingside', 'Black kingside', 'Black queenside']) {
+        const right = dialog.getByRole('checkbox', { name, exact: true })
+        assert(await right.isChecked() && await right.isEnabled(), `valid ${name} was lost beside an invalid right`)
+      }
+      await clear.click()
+      assert(await input.inputValue() === mixed.replace(' KQkq ', ' Kkq '), 'castling repair changed valid rights, raw EP metadata, pieces or counters')
+      assert(!await whiteQ.isChecked() && await whiteQ.isDisabled() && await input.evaluate(element => element === document.activeElement), 'mixed-right repair lost its state or focus')
+      const target = dialog.getByRole('combobox', { name: 'En passant target', exact: true })
+      assert(await target.inputValue() === 'd6' && await target.getAttribute('aria-invalid') === 'true'
+        && await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).isDisabled(), 'castling repair silently cleared the unrelated invalid EP target')
+      await target.selectOption('-')
+      assert(await input.inputValue() === mixed.replace(' KQkq d6 ', ' Kkq - '), 'separate EP repair changed the corrected rights')
+      await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).click()
+      await dialog.waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-h1 [data-piece="wR"]').waitFor()
+      await page.locator('#chessboard-square-e1').click()
+      await page.locator('#chessboard-square-g1').click()
+      await page.locator('#chessboard-square-f1 [data-piece="wR"]').waitFor()
+      await page.locator('#chessboard-square-e8').click()
+      await page.locator('#chessboard-square-c8').click()
+      await page.locator('#chessboard-square-d8 [data-piece="bR"]').waitFor()
+      assert(await page.locator('#chessboard-square-g1 [data-piece="wK"]').count() === 1
+        && await page.locator('#chessboard-square-c8 [data-piece="bK"]').count() === 1
+        && await page.locator('.board-surface [data-piece]').count() === 5
+        && await page.locator('.mtree-chip').count() === 2, 'the retained White/Black rights did not castle the real home pieces')
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      assert(await input.inputValue() === '2kr3r/8/8/8/8/8/8/5RK1 w - - 19 24', 'repaired rights lost the exact final position or counters')
+      assert(await clear.count() === 0, 'a valid position still offers unavailable-right repair')
+      assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `castling repair errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'castling repair overflows the viewport')
+      console.log(`  castling repair (${width}px, ${scale}x, ${theme}): declared invalid rights stay checked/unavailable with repair help; keyboard clear preserves draft, valid rights, EP and counters; focus stays in the editor; both retained rights castle real pieces`)
+    } finally { await context.close() }
   }
 }
 
@@ -18864,6 +18933,7 @@ async function main() {
       'empty-game-share': checkEmptyGameShares,
       'illegal-roots': checkIllegalStartingPositions,
       'castling-rights': checkCastlingRightInputs,
+      'castling-repair': checkUnavailableCastlingRepair,
       'en-passant-rights': checkEnPassantRightInputs,
       'recovery-export': checkFailedRecoveryExport,
       'saved-game-roundtrip': checkASavedGameComesBack,
@@ -19718,6 +19788,7 @@ async function main() {
     await checkEmptyGameShares(browser)
     await checkIllegalStartingPositions(browser)
     await checkCastlingRightInputs(browser)
+    await checkUnavailableCastlingRepair(browser)
     await checkEnPassantRightInputs(browser)
     await checkSettingsSurviveAReload(browser)
     await checkSettingsSayWhenTheyCannotBeKept(browser)
