@@ -1,5 +1,6 @@
 import { Chess, type Move, type Square } from 'chess.js'
 import { Suspense, lazy, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type SyntheticEvent } from 'react'
+import { flushSync } from 'react-dom'
 import type { PieceDropHandlerArgs } from 'react-chessboard'
 import { BoardCanvas } from './components/BoardCanvas'
 import { EngineDetails } from './components/EngineDetails'
@@ -2274,16 +2275,50 @@ function App() {
   // ── Viewport ─────────────────────────────────────────
   useEffect(() => {
     let resizeFrame: number | null = null
+    let resizePending = false
+    const activePointers = new Set<number>()
     const onResize = () => {
+      if (activePointers.size) {
+        resizePending = true
+        return
+      }
       if (resizeFrame !== null) return
       resizeFrame = window.requestAnimationFrame(() => {
         resizeFrame = null
+        // A rem observation can arrive between pointer-down and pointer-up.
+        // Keep the pressed control in place until that gesture completes.
+        if (activePointers.size) {
+          resizePending = true
+          return
+        }
+        resizePending = false
         const next = readViewport()
-        setViewport(previous => previous.width === next.width && previous.height === next.height
-          && previous.rem === next.rem && previous.scrollbar === next.scrollbar ? previous : next)
+        // Finish in this frame: a deferred React commit could otherwise land
+        // inside the next press, after the pointer guard was checked.
+        flushSync(() => {
+          setViewport(previous => previous.width === next.width && previous.height === next.height
+            && previous.rem === next.rem && previous.scrollbar === next.scrollbar ? previous : next)
+        })
       })
     }
+    const onPointerDown = (event: PointerEvent) => { activePointers.add(event.pointerId) }
+    const onPointerEnd = (event: PointerEvent) => {
+      activePointers.delete(event.pointerId)
+      if (!activePointers.size && resizePending) onResize()
+    }
+    const onPointerOut = (event: PointerEvent) => {
+      if (event.relatedTarget === null) onPointerEnd(event)
+    }
+    const onBlur = () => {
+      activePointers.clear()
+      if (resizePending) onResize()
+    }
     window.addEventListener('resize', onResize)
+    window.addEventListener('pointerdown', onPointerDown, { capture: true, passive: true })
+    window.addEventListener('pointerup', onPointerEnd, true)
+    window.addEventListener('pointercancel', onPointerEnd, true)
+    window.addEventListener('pointerout', onPointerOut, true)
+    window.addEventListener('blur', onBlur)
     // Text-only enlargement can change rem units without a window resize.
     // Observe a unit-sized box, independent of the board we are sizing.
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(onResize)
@@ -2292,6 +2327,11 @@ function App() {
       observer?.disconnect()
       if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame)
       window.removeEventListener('resize', onResize)
+      window.removeEventListener('pointerdown', onPointerDown, true)
+      window.removeEventListener('pointerup', onPointerEnd, true)
+      window.removeEventListener('pointercancel', onPointerEnd, true)
+      window.removeEventListener('pointerout', onPointerOut, true)
+      window.removeEventListener('blur', onBlur)
     }
   }, [])
 

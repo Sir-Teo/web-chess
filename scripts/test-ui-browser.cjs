@@ -6372,6 +6372,72 @@ async function checkLibrarySorting(browser) {
   }
 }
 
+async function checkViewportResizePreservesGesture(browser) {
+  for (const width of [1280, 901]) {
+    for (const finish of ['click', 'outside', 'cancel', 'blur']) {
+      const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(() => {
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false }))
+          window.addEventListener('pointerdown', event => { window.__qaPointerId = event.pointerId }, true)
+          const NativeObserver = window.ResizeObserver
+          window.ResizeObserver = class extends NativeObserver {
+            constructor(callback) {
+              super((entries, observer) => {
+                if (window.__holdRemProbe && entries.some(entry => entry.target.classList.contains('rem-probe'))) {
+                  window.__releaseRemProbe = () => { window.__holdRemProbe = false; callback.call(observer, entries, observer) }
+                } else callback.call(observer, entries, observer)
+              })
+            }
+          }
+        })
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+        await page.evaluate(() => {
+          window.__holdRemProbe = true
+          document.documentElement.style.fontSize = '200%'
+        })
+        await page.waitForFunction(() => typeof window.__releaseRemProbe === 'function')
+        const opener = page.getByRole('button', { name: 'Open saved games library', exact: true })
+        await opener.scrollIntoViewIfNeeded()
+        const box = await opener.boundingBox()
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+        await page.mouse.down()
+        await page.evaluate(() => {
+          window.__releaseRemProbe()
+          return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        })
+        assert(await page.locator('.app-shell').getAttribute('data-compact-chrome') !== 'true', 'responsive compaction moved the toolbar during a held pointer gesture')
+        assert(await opener.evaluate((element, point) => element.contains(document.elementFromPoint(point.x, point.y)),
+          { x: box.x + box.width / 2, y: box.y + box.height / 2 }), 'the original pressed control moved away from the pointer')
+        if (finish !== 'click') {
+          if (finish === 'cancel' || finish === 'blur') {
+            await page.evaluate(kind => window.dispatchEvent(kind === 'cancel'
+              ? new PointerEvent('pointercancel', { pointerId: window.__qaPointerId }) : new Event('blur')), finish)
+            await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-compact-chrome') === 'true')
+          }
+          await page.mouse.move(10, 880)
+          await page.mouse.up()
+          await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-compact-chrome') === 'true')
+          assert(await page.locator('.library-dialog').count() === 0, 'releasing outside the control activated the cancelled action')
+          await opener.click()
+        } else await page.mouse.up()
+        await page.locator('.library-dialog').waitFor()
+        await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-compact-chrome') === 'true')
+        await page.keyboard.press('Escape')
+        await page.locator('.library-dialog').waitFor({ state: 'detached' })
+        await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Open saved games library')
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'settled responsive layout overflows')
+        assert(errors.length === 0, `responsive gesture errors: ${errors.join('; ')}`)
+        console.log(`  responsive gesture (${width}px, ${finish}): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkLibraryEmptyFocus(browser) {
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
@@ -16878,6 +16944,7 @@ async function main() {
       'library-browsing': checkLibraryBrowsing,
       'library-starred': checkLibraryStarredFilter,
       'library-empty-focus': checkLibraryEmptyFocus,
+      'viewport-gesture': checkViewportResizePreservesGesture,
       'library-sorting': checkLibrarySorting,
       'library-lock-fallback': checkLibraryLockFallback,
       'library-capacity': checkAFullLibraryStopsReadingTheFile,
@@ -17722,6 +17789,7 @@ async function main() {
     await checkLibraryBrowsing(browser)
     await checkLibraryStarredFilter(browser)
     await checkLibraryEmptyFocus(browser)
+    await checkViewportResizePreservesGesture(browser)
     await checkLibrarySorting(browser)
     await checkLibraryLockFallback(browser)
     await checkImportDraftOwnership(browser)

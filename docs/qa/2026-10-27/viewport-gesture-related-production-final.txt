@@ -1,0 +1,10 @@
+  reading space (1280px): 100% → 200% → 100% text without window resize preserves all ranks, visible keyboard focus and opening navigation; enlarged desktop header scrolls away
+  reading space (375px): 100% → 200% → 100% text without window resize preserves all ranks, visible keyboard focus and opening navigation; enlarged desktop header scrolls away
+  short mobile workspace (320×225): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short mobile workspace (375×250): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short mobile workspace (599×300): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short mobile workspace (600×375): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short mobile workspace (640×450): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  dialog resizing (1x text): PGN, Commands and library drafts retain focus and stay visible through short-phone and landscape viewports
+  dialog resizing (2x text): PGN, Commands and library drafts retain focus and stay visible through short-phone and landscape viewports
+  native browser zoom: {"browser":"151.0.7922.34","base":"http://127.0.0.1:4336/web-chess/","measurements":[{"zoom":1,"width":1280,"height":900,"dpr":1,"rootFont":"16px","board":630,"workspace":775},{"zoom":2,"width":640,"height":450,"dpr":2,"rootFont":"16px","board":264,"workspace":324},{"zoom":3.9999999999999996,"width":320,"height":225,"dpr":4,"rootFont":"16px","board":192,"workspace":225}],"checks":["native zoom API and DPR","four focused corners","usable board","e2-e4 at 400%","live dialog draft/focus/editing at 200% to 400%","opener focus","restored fixed layout"],"errors":[]}
