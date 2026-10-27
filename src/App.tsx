@@ -1030,6 +1030,7 @@ function App() {
   const [autoSaveCopyState, setAutoSaveCopyState] = useState<'idle' | 'copying' | 'copied' | 'failed'>('idle')
   const autoSaveCopyGeneration = useRef(0)
   const [autoSaveResult, setAutoSaveResult] = useState<AutoSaveWriteResult | null>(null)
+  const [autoSaveReady, setAutoSaveReady] = useState(false)
   const [autoSaveRetry, setAutoSaveRetry] = useState(0)
   const [gameMode, setGameMode] = useState<GameMode>('human-vs-human')
   const [newGameMode, setNewGameMode] = useState<GameMode>('human-vs-human')
@@ -5511,6 +5512,7 @@ function App() {
     if (autoSaveCheckedRef.current) return
     autoSaveCheckedRef.current = true
     const snapshot = readAutoSavedGame()
+    setAutoSaveReady(true)
     if (!snapshot) return
     if (mainLineNodes.length > 1 || currentRootFen !== DEFAULT_POSITION) {
       // A share link already put a game on the board, so the snapshot is stale.
@@ -5534,10 +5536,11 @@ function App() {
   // deadline for the noisy one.
   const autoSaveLastWriteAtRef = useRef<number | null>(null)
 
-  useEffect(() => {
-    if (autoSaveRecovery) return
-    const delay = autoSaveDelayMs(Date.now(), autoSaveLastWriteAtRef.current, AUTO_SAVE_DEBOUNCE_MS)
-    const timeout = window.setTimeout(() => {
+  useLayoutEffect(() => {
+    // Read recovery before installing a writer: an early pagehide must not
+    // replace an unopened snapshot with the initial empty board.
+    if (!autoSaveReady || autoSaveRecovery) return
+    const saveNow = () => {
       autoSaveLastWriteAtRef.current = Date.now()
       const plies = mainLineNodes.length - 1
       if (plies <= 0 && !isPositionStudy) {
@@ -5565,9 +5568,23 @@ function App() {
         playSessionRef.current,
         isPositionStudy,
       ))
-    }, delay)
-    return () => window.clearTimeout(timeout)
-  }, [autoSaveRecovery, autoSaveRetry, mainLineNodes, isPositionStudy, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
+    }
+    const delay = autoSaveDelayMs(Date.now(), autoSaveLastWriteAtRef.current, AUTO_SAVE_DEBOUNCE_MS)
+    const timeout = window.setTimeout(saveNow, delay)
+    const flush = () => {
+      window.clearTimeout(timeout)
+      // Even after the timer fired, a running clock has spent more time.
+      saveNow()
+    }
+    const flushWhenHidden = () => { if (document.visibilityState === 'hidden') flush() }
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', flushWhenHidden)
+    return () => {
+      window.clearTimeout(timeout)
+      window.removeEventListener('pagehide', flush)
+      document.removeEventListener('visibilitychange', flushWhenHidden)
+    }
+  }, [autoSaveReady, autoSaveRecovery, autoSaveRetry, mainLineNodes, isPositionStudy, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
 
   const downloadRecoveryPgn = useCallback(() => {
     const pgn = autoSaveRecovery?.pgn ?? exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)

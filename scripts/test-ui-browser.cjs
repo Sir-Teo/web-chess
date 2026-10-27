@@ -7241,6 +7241,107 @@ async function checkOneGestureSavesOneGame(browser) {
  * twelve games in the library, the whole file imported once per press, and a
  * real database file is hundreds.
  */
+async function checkAutosavePageLifecycle(browser) {
+  const key = 'webchess:auto-saved-game:v1'
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog textarea').fill('[SetUp "1"]\n[FEN "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1"]\n\n{Baseline position note} *')
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      const note = page.getByRole('textbox', { name: 'Position note', exact: true })
+      await note.waitFor()
+      await page.waitForFunction(key => JSON.parse(localStorage.getItem(key) || 'null')?.pgn.includes('Baseline position note'), key)
+      const latest = 'Latest position note ♞'
+      await note.fill(latest)
+      // Do not wait for the debounce: a real reload must flush this edit.
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      const recovery = page.getByRole('dialog', { name: 'Position study', exact: true })
+      await recovery.waitFor()
+      const snapshot = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), key)
+      assert(snapshot.positionStudy === true && snapshot.moveCount === 0 && snapshot.pgn.includes(latest), 'quick reload lost the latest position note')
+      // An unopened recovery must survive another pagehide, even though the
+      // underlying board is still the initial, empty game.
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await recovery.waitFor()
+      assert(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).pgn, key) === snapshot.pgn, 'reloading unopened recovery overwrote the saved study')
+      await recovery.locator('[data-restore]').click()
+      await note.waitFor()
+      assert(await note.inputValue() === latest, 'restoring after two reloads lost the latest position note')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      const moveNote = page.getByRole('textbox', { name: 'Move note', exact: true })
+      await moveNote.waitFor()
+      await moveNote.fill('Baseline move note')
+      await page.waitForFunction(key => JSON.parse(localStorage.getItem(key) || 'null')?.pgn.includes('Baseline move note'), key)
+      await moveNote.fill('Latest move note')
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: /^restore$/i }).click()
+      await moveNote.waitFor()
+      assert(await moveNote.inputValue() === 'Latest move note', 'quick reload lost the latest move note')
+      const moved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), key)
+      assert(moved.moveCount === 1 && !moved.positionStudy && moved.pgn.includes(latest), 'pagehide lost the root note or retained zero-move recovery metadata')
+      await moveNote.fill('Backgrounded move note')
+      // Simulate visibility independently of pagehide, as headless focus does
+      // not reliably background tabs on every browser engine.
+      await page.evaluate(() => {
+        Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
+        document.dispatchEvent(new Event('visibilitychange'))
+        delete document.visibilityState
+      })
+      assert(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).pgn.includes('Backgrounded move note'), key), 'hidden-page event did not synchronously save the latest note')
+      await page.locator('#chessboard-square-e8').click()
+      await page.locator('#chessboard-square-e7').click()
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: /^restore$/i }).click()
+      await page.locator('#chessboard-square-e7 [data-piece="bK"]').waitFor()
+      assert(await page.locator('#chessboard-square-e8 [data-piece]').count() === 0, 'quick reload restored the previous board position')
+      assert(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).moveCount, key) === 2, 'quick reload lost the newest move')
+      assert(errors.length === 0, `autosave lifecycle errors: ${errors.join('; ')}`)
+      console.log(`  autosave lifecycle (${width}×${height}, ${scale}x): real immediate reload preserves position/move edits and the newest board move; repeated unopened recovery stays intact; simulated hidden-page event synchronously saves the latest note`)
+    } finally { await context.close() }
+  }
+
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(fakeEngineScript())
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    await page.getByRole('button', { name: 'Start new game' }).click()
+    await page.locator('.mode-card', { hasText: 'Human vs Human' }).click()
+    await page.locator('.time-control-card', { hasText: '3 + 2' }).click()
+    await page.locator('.btn-start').click()
+    for (const [from, to] of [['e2', 'e4'], ['e7', 'e5']]) {
+      await page.locator(`#chessboard-square-${from}`).click()
+      await page.locator(`#chessboard-square-${to}`).click()
+      await page.locator(`#chessboard-square-${to} [data-piece]`).waitFor()
+    }
+    await page.waitForFunction(key => {
+      const snapshot = JSON.parse(localStorage.getItem(key) || 'null')
+      return snapshot?.moveCount === 2 && snapshot.clock?.whiteMs > 0
+    }, key)
+    const before = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), key)
+    await page.waitForTimeout(1600)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.getByRole('button', { name: /^restore$/i }).waitFor()
+    const after = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), key)
+    const spent = before.clock.whiteMs - after.clock.whiteMs
+    assert(after.savedAt > before.savedAt && spent >= 1200, `reload gave back thinking time: only ${spent}ms reached recovery`)
+    assert(after.clock.whiteMs > 0 && after.clock.blackMs > 0, 'lifecycle save corrupted the clock banks')
+    await page.getByRole('button', { name: /^restore$/i }).click()
+    await page.locator('.chess-clock').waitFor()
+    assert(await page.locator('.clock-face.running').count() === 0, 'restored clock ran before the player resumed')
+    console.log(`  autosave clock lifecycle: ${spent}ms of idle thinking reaches real reload recovery; both clock banks restore paused`)
+  } finally { await context.close() }
+}
+
 async function checkPositionStudyNotes(browser) {
   const fen = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1'
   const pgn = `[Event "Position notes QA"]\n[SetUp "1"]\n[FEN "${fen}"]\n\n{position introduction} * {closing study note}`
@@ -15767,7 +15868,9 @@ async function checkAnInterruptedGameComesBack(browser) {
     // A failed restore is still recoverable as PGN. It must keep the same
     // protection until the reader explicitly discards that snapshot too.
     const brokenPgn = '1. e4 Qh9 *'
-    await page.evaluate(({ key, pgn }) => localStorage.setItem(key, JSON.stringify({
+    // Seed the prior-session fixture on the next document, after this live
+    // board's final pagehide save, rather than modifying an active writer.
+    await page.addInitScript(({ key, pgn }) => localStorage.setItem(key, JSON.stringify({
       version: 1, savedAt: Date.now(), pgn, moveCount: 2,
     })), { key: AUTOSAVE_KEY, pgn: brokenPgn })
     await page.reload({ waitUntil: 'domcontentloaded' })
@@ -18110,6 +18213,7 @@ async function main() {
       'library-pgn-endings': checkLibraryPgnEndings,
       'pgn-after-variation': checkPostVariationNotes,
       'position-notes': checkPositionStudyNotes,
+      'autosave-lifecycle': checkAutosavePageLifecycle,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
       'promotion-keys': checkPromotionShortcutScope,
       'promotion-targets': checkThePromotionChooserCanBeHit,
@@ -18963,6 +19067,7 @@ async function main() {
     await checkReviewListFollowsPosition(browser)
     await checkDialogResizeFocus(browser)
     await checkPositionStudyNotes(browser)
+    await checkAutosavePageLifecycle(browser)
     await checkPostVariationNotes(browser)
     await checkLibraryPgnEndings(browser)
     await checkDatabaseGameBoundaries(browser)

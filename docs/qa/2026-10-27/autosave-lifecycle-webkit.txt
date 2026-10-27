@@ -1,0 +1,6 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  autosave lifecycle (1280×900, 1x): real immediate reload preserves position/move edits and the newest board move; repeated unopened recovery stays intact; simulated hidden-page event synchronously saves the latest note
+  autosave lifecycle (375×812, 1x): real immediate reload preserves position/move edits and the newest board move; repeated unopened recovery stays intact; simulated hidden-page event synchronously saves the latest note
+  autosave lifecycle (320×812, 2x): real immediate reload preserves position/move edits and the newest board move; repeated unopened recovery stays intact; simulated hidden-page event synchronously saves the latest note
+  autosave lifecycle (844×390, 2x): real immediate reload preserves position/move edits and the newest board move; repeated unopened recovery stays intact; simulated hidden-page event synchronously saves the latest note
+  autosave clock lifecycle: 1682ms of idle thinking reaches real reload recovery; both clock banks restore paused

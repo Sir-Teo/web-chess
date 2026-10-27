@@ -1,0 +1,25 @@
+
+> web-chess@1.0.0 build
+> tsc -b && vite build --outDir /tmp/web-chess-autosave-lifecycle-dist
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 194 modules transformed.
+
+(!) outDir /tmp/web-chess-autosave-lifecycle-dist is not inside project root and will not be emptied.
+Use --emptyOutDir to override.
+
+rendering chunks...
+computing gzip size...
+../../tmp/web-chess-autosave-lifecycle-dist/index.html                               4.10 kB │ gzip:   1.85 kB
+../../tmp/web-chess-autosave-lifecycle-dist/assets/reviewBackupWorker-DeAqgitL.js   65.00 kB
+../../tmp/web-chess-autosave-lifecycle-dist/assets/LibraryDialog-CfcSTBr6.css        5.15 kB │ gzip:   1.33 kB
+../../tmp/web-chess-autosave-lifecycle-dist/assets/index-BGvy08QC.css              133.95 kB │ gzip:  24.95 kB
+../../tmp/web-chess-autosave-lifecycle-dist/assets/NewGameDialog-m_qgji79.js         4.36 kB │ gzip:   1.57 kB
+../../tmp/web-chess-autosave-lifecycle-dist/assets/LibraryDialog-CVaFsbWm.js        13.92 kB │ gzip:   4.82 kB
+../../tmp/web-chess-autosave-lifecycle-dist/assets/PgnDialog-okXx7cPA.js            29.78 kB │ gzip:   9.95 kB
+../../tmp/web-chess-autosave-lifecycle-dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+../../tmp/web-chess-autosave-lifecycle-dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+../../tmp/web-chess-autosave-lifecycle-dist/assets/index-CtDwYrg1.js               402.27 kB │ gzip: 130.00 kB
+../../tmp/web-chess-autosave-lifecycle-dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 3.85s
