@@ -1,0 +1,5 @@
+Error: game 1 lost its movetext result 1-0
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkDatabaseGameBoundaries (/workspace/web-chess/scripts/test-ui-browser.cjs:7401:9)
+    at async /tmp/web-chess-pgn-boundaries-check.cjs:10:9

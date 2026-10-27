@@ -56,6 +56,27 @@ describe('saved-game identity', () => {
 })
 
 describe('pgn header reading', () => {
+  it.each(['1-0', '0-1', '1/2-1/2'])('reads %s from headerless movetext', result => {
+    expect(extractLibraryMetadata(`1. e4 e5 ${result}`).result).toBe(result)
+  })
+
+  it('keeps an unfinished headerless game without a winner', () => {
+    expect(extractLibraryMetadata('1. e4 e5 *').result).toBeUndefined()
+  })
+
+  it('ignores result-looking notes, headers and side variations', () => {
+    const pgn = '[Site "Final 1-0"]\n\n1. e4 {0-1} e5 (1... c5 {1/2-1/2}) *'
+    expect(extractLibraryMetadata(pgn).result).toBeUndefined()
+  })
+
+  it('reads a completed result before a trailing line note', () => {
+    expect(extractLibraryMetadata('1. e4 e5 1-0 ; the note quotes 0-1').result).toBe('1-0')
+  })
+
+  it.each([['1-0', '1-0'], ['*', undefined]])('preserves an explicit Result tag %s', (declared, expected) => {
+    expect(extractLibraryMetadata(`[Result "${declared}"]\n\n1. e4 e5 0-1`).result).toBe(expected)
+  })
+
   it('pulls the seven tag roster and the extras we show', () => {
     expect(extractLibraryMetadata(PGN)).toMatchObject({
       event: 'Casual Game',

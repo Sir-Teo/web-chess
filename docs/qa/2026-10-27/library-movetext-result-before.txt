@@ -1,0 +1,93 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/gameLibrary.test.ts (130 tests | 4 failed) 437ms
+     × reads 1-0 from headerless movetext 6ms
+     × reads 0-1 from headerless movetext 1ms
+     × reads 1/2-1/2 from headerless movetext 1ms
+     × reads a completed result before a trailing line note 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > pgn header reading > reads 1-0 from headerless movetext
+AssertionError: expected undefined to be '1-0' // Object.is equality
+
+- Expected:
+"1-0"
+
++ Received:
+undefined
+
+ ❯ src/engine/gameLibrary.test.ts:60:65
+     58| describe('pgn header reading', () => {
+     59|   it.each(['1-0', '0-1', '1/2-1/2'])('reads %s from headerless movetex…
+     60|     expect(extractLibraryMetadata(`1. e4 e5 ${result}`).result).toBe(r…
+       |                                                                 ^
+     61|   })
+     62|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > pgn header reading > reads 0-1 from headerless movetext
+AssertionError: expected undefined to be '0-1' // Object.is equality
+
+- Expected:
+"0-1"
+
++ Received:
+undefined
+
+ ❯ src/engine/gameLibrary.test.ts:60:65
+     58| describe('pgn header reading', () => {
+     59|   it.each(['1-0', '0-1', '1/2-1/2'])('reads %s from headerless movetex…
+     60|     expect(extractLibraryMetadata(`1. e4 e5 ${result}`).result).toBe(r…
+       |                                                                 ^
+     61|   })
+     62|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > pgn header reading > reads 1/2-1/2 from headerless movetext
+AssertionError: expected undefined to be '1/2-1/2' // Object.is equality
+
+- Expected:
+"1/2-1/2"
+
++ Received:
+undefined
+
+ ❯ src/engine/gameLibrary.test.ts:60:65
+     58| describe('pgn header reading', () => {
+     59|   it.each(['1-0', '0-1', '1/2-1/2'])('reads %s from headerless movetex…
+     60|     expect(extractLibraryMetadata(`1. e4 e5 ${result}`).result).toBe(r…
+       |                                                                 ^
+     61|   })
+     62|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > pgn header reading > reads a completed result before a trailing line note
+AssertionError: expected undefined to be '1-0' // Object.is equality
+
+- Expected:
+"1-0"
+
++ Received:
+undefined
+
+ ❯ src/engine/gameLibrary.test.ts:73:81
+     71|
+     72|   it('reads a completed result before a trailing line note', () => {
+     73|     expect(extractLibraryMetadata('1. e4 e5 1-0 ; the note quotes 0-1'…
+       |                                                                                 ^
+     74|   })
+     75|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 126 passed (130)
+   Start at  10:01:45
+   Duration  843ms (transform 223ms, setup 0ms, import 275ms, tests 437ms, environment 0ms)
+

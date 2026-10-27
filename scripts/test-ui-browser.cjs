@@ -7397,9 +7397,23 @@ async function checkDatabaseGameBoundaries(browser) {
       assert(saved.length === 4 && new Set(saved.map(game => game.id)).size === 4, 'the database did not preserve four individual games')
       for (const part of parts) assert(saved.some(game => game.pgn === part), 'a split game lost its original headers, notes, variation or moves')
       assert(saved.find(game => game.pgn === parts[2]).metadata.white === 'Ada', 'Event-less headers did not become library metadata')
+      for (const [index, result] of [[0, '1-0'], [1, '1/2-1/2'], [2, '0-1'], [3, undefined]]) {
+        assert(saved.find(game => game.pgn === parts[index]).metadata.result === result, `game ${index + 1} lost its movetext result ${result}`)
+      }
       await page.locator('.pgn-dialog').getByRole('button', { name: 'Cancel', exact: true }).click()
       assert(await page.locator('#chessboard-square-a3 [data-piece="wP"]').count() === 1
         && await page.locator('#chessboard-square-a6 [data-piece="bP"]').count() === 1, 'bulk import replaced the current board')
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      const library = page.locator('.library-dialog')
+      for (const [index, result] of [[0, '1-0'], [1, '1/2-1/2'], [2, '0-1']]) {
+        const record = saved.find(game => game.pgn === parts[index])
+        assert((await library.locator(`[data-library-game-id="${record.id}"] .library-row-text`).innerText()).includes(result), 'the library row omits its known result')
+      }
+      await page.getByRole('searchbox', { name: 'Search saved games', exact: true }).fill('1/2-1/2')
+      await page.waitForFunction(() => document.querySelectorAll('.library-dialog .library-row').length === 1)
+      assert(await library.locator('.library-row').getAttribute('data-library-game-id') === saved.find(game => game.pgn === parts[1]).id, 'searching the result does not find the headerless draw')
+      await page.getByRole('searchbox', { name: 'Search saved games', exact: true }).fill('')
+      await library.getByRole('button', { name: 'Done', exact: true }).click()
       const load = async part => {
         await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
         const record = saved.find(game => game.pgn === part)

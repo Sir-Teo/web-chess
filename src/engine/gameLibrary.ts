@@ -98,7 +98,7 @@ export function extractLibraryMetadata(pgn: string): LibraryGameMetadata {
     round: trimmedOrUndefined(headers.Round),
     white: trimmedOrUndefined(headers.White),
     black: trimmedOrUndefined(headers.Black),
-    result: resultOrUndefined(headers.Result),
+    result: resultOrUndefined(headers.Result ?? readPgnMainlineResult(pgn) ?? undefined),
     eco: trimmedOrUndefined(headers.ECO),
     opening: trimmedOrUndefined(headers.Opening),
     whiteElo: positiveIntOrUndefined(headers.WhiteElo),
