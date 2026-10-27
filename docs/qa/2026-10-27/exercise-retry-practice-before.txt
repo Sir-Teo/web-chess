@@ -1,0 +1,5 @@
+Error: another wrong practice answer produced no new accessible feedback after reveal
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkPracticeOwnsTheBoard (/workspace/web-chess/scripts/test-ui-browser.cjs:16162:7)
+    at async /tmp/web-chess-practice-ownership-check.cjs:10:9

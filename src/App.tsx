@@ -6773,7 +6773,10 @@ function App() {
       : !finished && drill.misses > 0
         ? answerSan ? `Not the line. It plays ${answerSan}.` : 'Not the line. Try again.'
         : null
-    const spoken = `Drill. ${[progress, ...(detail ? [detail] : [])]
+    // Every rejected answer needs a fresh live update, including attempts
+    // after the hint has already been revealed and its wording stays the same.
+    const attempt = !finished && !awayFromLine && drill.misses > 0 ? `Attempt ${drill.misses}.` : null
+    const spoken = `Drill. ${[progress, ...(detail ? [detail] : []), ...(attempt ? [attempt] : [])]
       .map(text => text.endsWith('.') ? text : `${text}.`).join(' ')}`
     return { done, total, finished, awayFromLine, answerSan, canReturn, progress, detail, spoken }
   })()
@@ -8030,9 +8033,9 @@ function App() {
                     aria-label={reviewPractice.status === 'correct'
                       ? `Correct. The best move was ${reviewPractice.expectedSan}.`
                       : reviewPractice.attempts >= 2
-                        ? `Try again. The best move is ${reviewPractice.expectedSan}.`
+                        ? `Try again. The best move is ${reviewPractice.expectedSan}. Attempt ${reviewPractice.attempts}.`
                         : reviewPractice.status === 'retry'
-                          ? 'Not quite. The position was reset; try another move.'
+                          ? `Not quite. The position was reset; try another move. Attempt ${reviewPractice.attempts}.`
                           : `Practice the position before ${reviewPractice.moveLabel}. Find a better move.`}
                   >
                     {reviewPractice.status === 'correct'

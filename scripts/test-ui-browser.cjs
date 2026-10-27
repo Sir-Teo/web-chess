@@ -16147,6 +16147,11 @@ async function checkPracticeOwnsTheBoard(browser) {
       assert(await page.getByRole('button', { name: 'Stop autoplay', exact: true }).count() === 0, 'practice left a replay moving its question')
       if (touch) assert(await marking.getAttribute('aria-pressed') === 'false', 'practice left marking intercepting its answer')
       await page.waitForFunction(() => document.activeElement?.classList.contains('board-stage'))
+      await prompt.getByRole('status').evaluate(el => {
+        window.__practiceRetryNode = el
+        window.__practiceRetryChanges = []
+        new MutationObserver(() => window.__practiceRetryChanges.push(el.getAttribute('aria-label'))).observe(el, { attributes: true, attributeFilter: ['aria-label'] })
+      })
       const play = async (from, to) => {
         await page.locator(`#chessboard-square-${from}`).click()
         await page.locator(`#chessboard-square-${to}`).click()
@@ -16154,6 +16159,13 @@ async function checkPracticeOwnsTheBoard(browser) {
       await play('d2', 'd4')
       await page.waitForFunction(() => document.querySelector('[data-review-practice] [role="status"]')?.getAttribute('aria-label')?.startsWith('Not quite.'))
       await page.locator('#chessboard-square-d2 [data-piece="wP"]').waitFor()
+      await play('d2', 'd4')
+      const revealed = await prompt.getByRole('status').getAttribute('aria-label')
+      assert(revealed.includes('The best move is e4.'), 'two practice misses did not reveal the answer')
+      await play('d2', 'd4')
+      const retry = await prompt.getByRole('status').getAttribute('aria-label')
+      assert(retry !== revealed && retry.includes('Attempt 3.'), 'another wrong practice answer produced no new accessible feedback after reveal')
+      assert(await prompt.getByRole('status').evaluate(el => el === window.__practiceRetryNode && window.__practiceRetryChanges.some(text => text.includes('Attempt 3.'))), 'the third practice miss did not mutate its persistent live status')
       await play('e2', 'e4')
       await prompt.getByRole('button', { name: 'Done', exact: true }).waitFor({ timeout: 3000 })
       assert(/^Correct\. The best move was e4\./.test(await prompt.getByRole('status').getAttribute('aria-label')), 'the legal practice answer was not accepted')
@@ -16362,6 +16374,10 @@ async function checkDrillHiddenHints(browser) {
       await play('b1', 'c3')
       await card.getByText('Not the line. It plays e4.', { exact: true }).waitFor()
       assert((await announcement()).includes('Not the line. It plays e4.') && (await feedback.innerText()).includes('Answer e4'), 'revealed answer is absent from the board verdict or live drill status')
+      const revealed = await announcement()
+      await play('d2', 'd4')
+      const retry = await announcement()
+      assert(retry !== revealed && retry.includes('Attempt 3.'), 'another wrong drill answer produced no new accessible feedback after reveal')
       await page.waitForFunction(() => {
         const values = document.querySelectorAll('.coach-grid > div strong')
         return values[1]?.getAttribute('title') === 'e2e4' && values[2]?.getAttribute('title') === 'e7e5'
@@ -16373,7 +16389,7 @@ async function checkDrillHiddenHints(browser) {
       await cardFeedback.filter({ hasText: 'Line complete' }).waitFor()
       const completed = `${await cardFeedback.innerText()} ${await announcement()}`
       assert(/2 moves/.test(completed) && !/from memory/i.test(completed), `completion claims recall despite a revealed answer: ${completed}`)
-      assert(await feedback.evaluate(el => el === window.__drillFeedbackNode && ['Not the line. Try again.', 'Not the line. It plays e4.', 'Line complete'].every(message => window.__drillFeedbackChanges.some(text => text.includes(message)))), 'actual live-region mutations lost a miss, reveal or completion')
+      assert(await feedback.evaluate(el => el === window.__drillFeedbackNode && ['Not the line. Try again.', 'Not the line. It plays e4.', 'Attempt 3.', 'Line complete'].every(message => window.__drillFeedbackChanges.some(text => text.includes(message)))), 'actual live-region mutations lost a miss, reveal, repeated retry or completion')
       await card.getByRole('button', { name: 'Restart', exact: true }).click()
       await hidden()
       await card.getByRole('button', { name: 'Stop drilling', exact: true }).click()

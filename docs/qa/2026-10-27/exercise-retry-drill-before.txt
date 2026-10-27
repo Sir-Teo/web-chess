@@ -1,0 +1,5 @@
+Error: another wrong drill answer produced no new accessible feedback after reveal
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkDrillHiddenHints (/workspace/web-chess/scripts/test-ui-browser.cjs:16374:7)
+    at async /tmp/web-chess-drill-retry-check.cjs:10:9
