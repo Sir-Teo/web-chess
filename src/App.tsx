@@ -3045,14 +3045,21 @@ function App() {
 
       const optionCommand = parseSetOptionCommand(dispatchedCommand)
       const optionName = optionCommand?.name.replace(/\s+/g, ' ').toLowerCase()
-      const spinOption = labOptions.find(option => option.type === 'spin' && option.name.toLowerCase() === optionName)
-      if (spinOption) {
-        const value = engineLabSpinOptionValue(optionCommand?.value, spinOption)
-        if (value === null) {
-          setEngineLabError(`Use a whole decimal integer from ${spinOption.min ?? -2147483648} to ${spinOption.max ?? 2147483647} for ${spinOption.name}.`)
+      const matchedOption = labOptions.find(option => option.name.toLowerCase() === optionName)
+      if (matchedOption?.type === 'check') {
+        const value = optionCommand?.value?.toLowerCase()
+        if (value !== 'true' && value !== 'false') {
+          setEngineLabError(`Use true or false for ${matchedOption.name}.`)
           return
         }
-        dispatchedCommand = `setoption name ${spinOption.name} value ${value}`
+        dispatchedCommand = `setoption name ${matchedOption.name} value ${value}`
+      } else if (matchedOption?.type === 'spin') {
+        const value = engineLabSpinOptionValue(optionCommand?.value, matchedOption)
+        if (value === null) {
+          setEngineLabError(`Use a whole decimal integer from ${matchedOption.min ?? -2147483648} to ${matchedOption.max ?? 2147483647} for ${matchedOption.name}.`)
+          return
+        }
+        dispatchedCommand = `setoption name ${matchedOption.name} value ${value}`
       }
       setLabCommandHistory(previous => [trimmed, ...previous.filter(item => item !== trimmed)].slice(0, 20))
       const startTime = performance.now()

@@ -174,6 +174,46 @@ async function checkNativeSpinOptions(page) {
   assert.match(await page.getByLabel('UCI console output', { exact: true }).textContent(), /readyok/)
 }
 
+async function checkNativeOptionWhitespace(page) {
+  const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+  const option = page.getByRole('checkbox', { name: 'UCI_Chess960', exact: true })
+  const output = page.getByLabel('UCI console output', { exact: true })
+  const submit = async text => {
+    await command.fill(text); await command.press('Enter')
+    await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === ''
+      && document.querySelector('.bottom .status')?.textContent === 'ready')
+  }
+  // Native d exposes the applied option through its FEN castling notation.
+  // Checking the checkbox alone would pass even when the worker ignored it.
+  for (const [raw, value, castling] of [
+    ['setoption\u00a0name\u00a0UCI_Chess960\u00a0value\u00a0true', true, 'HAha'],
+    ['SETOPTION\tNAME\tUCI_Chess960\tVALUE\tFaLsE', false, 'KQkq'],
+  ]) {
+    const before = await page.evaluate(() => window.__smokeCommands.length)
+    await submit(raw)
+    assert.equal(await option.isChecked(), value)
+    assert.equal((await output.textContent()).startsWith(`> ${raw}\n`), true)
+    assert.equal((await page.locator('.lab-history-list button').allTextContents()).includes(raw), true)
+    assert.equal(await page.evaluate(({ before, value }) => window.__smokeCommands.slice(before).includes(`setoption name UCI_Chess960 value ${value}`), { before, value }), true)
+    await submit('position startpos')
+    await submit('d')
+    const fen = /Fen:\s*([^\n]+)/.exec(await output.textContent())?.[1]
+    assert.equal(fen?.split(' ')[2], castling, 'the option control disagrees with native Stockfish')
+    if (value) {
+      for (const invalid of ['setoption name UCI_Chess960 value yes', 'setoption name UCI_Chess960 value', 'setoption name UCI_Chess960']) {
+        const sent = await page.evaluate(() => window.__smokeCommands.length)
+        const previousOutput = await output.textContent()
+        await command.fill(invalid); await command.press('Enter')
+        await page.locator('.error-copy').filter({ hasText: 'Use true or false for UCI_Chess960.' }).waitFor()
+        assert.equal(await option.isChecked(), true)
+        assert.equal(await command.inputValue(), invalid)
+        assert.equal(await output.textContent(), previousOutput)
+        assert.equal(await page.evaluate(() => window.__smokeCommands.length), sent)
+      }
+    }
+  }
+}
+
 async function main() {
   assert(widths.length > 0 && widths.every(width => Number.isInteger(width) && width >= 320), 'SMOKE_WIDTHS must contain viewport widths of at least 320px')
   fs.mkdirSync(output, { recursive: true })
@@ -280,6 +320,8 @@ async function main() {
           await checkNativePerftCancellation(page)
           stage = 'native spin option validation'
           await checkNativeSpinOptions(page)
+          stage = 'native option protocol whitespace'
+          await checkNativeOptionWhitespace(page)
 
           stage = 'game review and export'
           await page.getByRole('button', { name: 'Review', exact: true }).click()
@@ -419,7 +461,7 @@ async function main() {
           assert.equal(await depthTenSearches(), rerunBefore, 'reopening lost reusable real-engine readings')
           assert.deepEqual(errors, [])
           results.push({ browser: name, width, status: 'passed', source, positionScore: before,
-            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'shared console options', 'native console limits and next command drafts: rejected syntax, duplicate limits, zero-perft depth-1, negative perft int32 depths and readiness recovery, pause/resume, preserved and submitted drafts', 'perft 8 cancellation releases worker, preserves draft and reloads a reset console position', 'native spin validation and canonical option updates with readiness acknowledgements', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus', 'repetition review: eight depth-10 searches, save, reopen, backup and reuse'] })
+            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'shared console options', 'native console limits and next command drafts: rejected syntax, duplicate limits, zero-perft depth-1, negative perft int32 depths and readiness recovery, pause/resume, preserved and submitted drafts', 'perft 8 cancellation releases worker, preserves draft and reloads a reset console position', 'native spin validation and canonical option updates with readiness acknowledgements', 'Unicode option prefixes, original echo/history and native castling state', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus', 'repetition review: eight depth-10 searches, save, reopen, backup and reuse'] })
         } catch (error) {
           const diagnostics = await page.evaluate(() => ({
             commands: window.__smokeCommands?.slice(-80),

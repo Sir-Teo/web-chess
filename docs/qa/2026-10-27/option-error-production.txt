@@ -1,0 +1,8 @@
+  console history (1280px, 1x): full history leaves feedback visible and output first; recall focuses/selects, Enter repeats, typing replaces, and associated alerts clear on new edits
+  console history (375px, 2x): full history leaves feedback visible and output first; recall focuses/selects, Enter repeats, typing replaces, and associated alerts clear on new edits
+  console layout (1280px, 1x): full FEN summary and history, complete recalled command, 2 balanced action rows and 32px minimum targets
+  console layout (1280px, 2x): full FEN summary and history, complete recalled command, 4 balanced action rows and 32px minimum targets
+  console layout (375px, 1x): full FEN summary and history, complete recalled command, 2 balanced action rows and 44px minimum targets
+  console layout (375px, 2x): full FEN summary and history, complete recalled command, 4 balanced action rows and 44px minimum targets
+  console layout (320px, 1x): full FEN summary and history, complete recalled command, 2 balanced action rows and 44px minimum targets
+  console layout (320px, 2x): full FEN summary and history, complete recalled command, 4 balanced action rows and 44px minimum targets

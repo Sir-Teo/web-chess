@@ -243,3 +243,16 @@ describe('native command string boundaries', () => {
     }
   })
 })
+
+describe('native option protocol whitespace', () => {
+  it.each([
+    ['setoption\u00a0name\u00a0UCI_Chess960\u00a0value\u00a0true', 'setoption name UCI_Chess960 value true'],
+    [' SETOPTION\tNAME\tUCI_LimitStrength\tVALUE\ttrue ', 'setoption name UCI_LimitStrength value true'],
+    ['setoption name Clear\u2003Hash', 'setoption name Clear Hash'],
+    ['setoption\u00a0name EvalFile\u00a0value', 'setoption name EvalFile value'],
+    ['setoption\u00a0name EvalFile\u00a0value café\u00a0network  file.nnue', 'setoption name EvalFile value café\u00a0network  file.nnue'],
+    ['setoption\u00a0name Example\u00a0value \u00a0leading  value\ttext', 'setoption name Example value \u00a0leading  value\ttext'],
+  ])('normalizes structural tokens while retaining the value for %s', (input, expected) => {
+    expect(normalizeEngineLabCommand(input)).toBe(expected)
+  })
+})

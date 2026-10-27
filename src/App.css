@@ -3021,6 +3021,7 @@ button.opening-move-row {
 .error-copy,
 .panel-copy.error-copy {
   color: var(--danger);
+  overflow-wrap: anywhere;
 }
 
 /* ═══════════════════════════════════════════════════

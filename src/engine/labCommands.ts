@@ -99,11 +99,29 @@ function commandParts(command: string): string[] {
   return command.trim().split(/\s+/g).filter(Boolean)
 }
 
-/** Match validated search tokens to Stockfish's ASCII whitespace parser. */
+/** Match protocol tokens to Stockfish's ASCII whitespace parser. */
 export function normalizeEngineLabCommand(command: string): string {
   const text = command.trim()
-  // String option values can contain meaningful spaces and Unicode text.
-  return /^go(?:\s|$)/i.test(text) ? commandParts(text).join(' ') : text
+  if (/^go(?:\s|$)/i.test(text)) return commandParts(text).join(' ')
+
+  // Normalize option keywords and names, not the value payload. Consume only
+  // its first separator so a Unicode space at the start of a value survives
+  // when it follows the ordinary protocol delimiter.
+  const optionPrefix = /^setoption\s+name\s+/i.exec(text)
+  if (!optionPrefix) return text
+  const body = text.slice(optionPrefix[0].length)
+  const name: string[] = []
+  for (const token of body.matchAll(/\S+/g)) {
+    if (token[0].toLowerCase() !== 'value') {
+      name.push(token[0])
+      continue
+    }
+    if (!name.length) return text
+    const valueAt = token.index + token[0].length
+    const value = valueAt < body.length ? ` ${body.slice(valueAt + 1)}` : ''
+    return `setoption name ${name.join(' ')} value${value}`
+  }
+  return name.length ? `setoption name ${name.join(' ')}` : text
 }
 
 function hasTrailingSearchMovesLimit(parts: string[]): boolean {

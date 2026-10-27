@@ -1,0 +1,7 @@
+  console whitespace (1280px, 1x, dark): Unicode spaces/tabs dispatch native ASCII search tokens; raw echo/history and recall retained; bounded searches finish without expert mode; zero/trailing-limit/uppercase guards remain enforced; board unchanged
+  console whitespace (375px, 2x, light): Unicode spaces/tabs dispatch native ASCII search tokens; raw echo/history and recall retained; bounded searches finish without expert mode; zero/trailing-limit/uppercase guards remain enforced; board unchanged
+  raw spin options (1280px, 1x): native syntax/ranges, retained settings/output/drafts, missing values, canonical keywords/names, multiword zero value and managed Hash behavior
+  raw spin options (375px, 2x): native syntax/ranges, retained settings/output/drafts, missing values, canonical keywords/names, multiword zero value and managed Hash behavior
+  thread configuration: startup readiness, console/direct-control acknowledgements, managed-command guards, newer drafts and subsequent search
+  normalized history (1280px, 1x, dark): duplicate/whitespace legacy entries yield distinct ordered buttons; older commands remain reachable; Up/Down restores draft without sending; running/reloading/recalling keeps unique order and no duplicate-key errors
+  normalized history (375px, 2x, light): duplicate/whitespace legacy entries yield distinct ordered buttons; older commands remain reachable; Up/Down restores draft without sending; running/reloading/recalling keeps unique order and no duplicate-key errors
