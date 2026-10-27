@@ -476,8 +476,13 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const unavailableEnPassant = rawEnPassant !== '-' && !enPassantTargets.includes(rawEnPassant as Square)
     const enPassantPreview = rawEnPassant === undefined ? 'Missing in FEN'
         : 'Invalid: ' + truncateUtf16(rawEnPassant, 32) + (rawEnPassant.length > 32 ? '…' : '')
+    const rawCastling = fenText.trim() ? rawSetupFields[2] : setup.castling
+    const invalidSetupCastling = rawCastling === undefined || !/^[KQkq-]+$/.test(rawCastling)
+    const castlingPreview = rawCastling === undefined ? ''
+        : truncateUtf16(rawCastling, 32) + (rawCastling.length > 32 ? '…' : '')
     const availableCastlingRights = normalizeAvailableCastlingRights(setup)
     const unavailableCastlingRights = setup.castling !== availableCastlingRights
+    const showCastlingRepair = invalidSetupCastling || unavailableCastlingRights
     const previewSetupFields = () => {
         const fields = positionSetupToFen(setup).split(' ')
         // Match the declarations and safe counter values shown by the editor.
@@ -948,7 +953,8 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                         <div className="fen-setup-control-block">
                                             <span className="dialog-label">Castling</span>
                                             <div className="fen-castling-grid" role="group" aria-label="Castling rights"
-                                                aria-describedby={unavailableCastlingRights ? castlingHelpId : undefined}>
+                                                aria-invalid={showCastlingRepair || undefined}
+                                                aria-describedby={showCastlingRepair ? castlingHelpId : undefined}>
                                                 {SETUP_CASTLING_OPTIONS.map(option => {
                                                     const canCastle = canUseSetupCastlingRight(setup, option.right)
                                                     const declared = setup.castling.includes(option.right)
@@ -975,12 +981,14 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                                     )
                                                 })}
                                             </div>
-                                            {unavailableCastlingRights && <>
-                                                <p id={castlingHelpId} className="fen-setup-help">
-                                                    Some declared castling rights are unavailable. Clear them, or correct the home king and rook.
+                                            {showCastlingRepair && <>
+                                                <p id={castlingHelpId} className={`fen-setup-help${invalidSetupCastling ? ' fen-setup-raw-help' : ''}`}>
+                                                    {invalidSetupCastling
+                                                        ? <>{rawCastling === undefined ? 'Missing in FEN.' : `FEN: “${castlingPreview}”.`} Use the checked rights that have their home king and rook, or edit the FEN.</>
+                                                        : 'Some declared castling rights are unavailable. Clear them, or correct the home king and rook.'}
                                                 </p>
                                                 <button type="button" className="btn-cancel" onClick={clearUnavailableCastlingRights}>
-                                                    Clear unavailable castling rights
+                                                    {invalidSetupCastling ? 'Fix castling' : 'Clear unavailable castling rights'}
                                                 </button>
                                             </>}
                                         </div>

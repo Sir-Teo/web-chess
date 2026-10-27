@@ -16694,6 +16694,81 @@ async function checkPgnDownloadRecovery(browser) {
   }
 }
 
+async function checkRawCastlingControls(browser) {
+  const placement = 'r3k2r/8/8/8/8/8/8/R3K2R'
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light'], [320, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      const dialog = page.locator('.pgn-dialog')
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      const input = dialog.locator('.fen-textarea')
+      const rights = dialog.getByRole('group', { name: 'Castling rights', exact: true })
+      const repair = dialog.getByRole('button', { name: 'Fix castling', exact: true })
+      const load = dialog.getByRole('button', { name: 'Load & Analyze', exact: true })
+      for (const [token, expected] of [['Kx', 'K'], ['xQ', 'Q'], ['x'.repeat(120), '-'], ['♚'.repeat(80), '-']]) {
+        const raw = `${placement} w ${token} a9 17junk 24`
+        await input.fill(raw)
+        assert(await rights.getAttribute('aria-invalid') === 'true' && await repair.count() === 1, 'malformed castling appears as valid checkboxes with no repair action')
+        const help = await rights.evaluate(el => document.getElementById(el.getAttribute('aria-describedby'))?.textContent)
+        assert(help.includes('home king and rook') && help.length < 150 && (token.length <= 32 || help.includes('…')), 'castling has no bounded associated guidance')
+        await repair.focus(); await page.keyboard.press('Tab')
+        assert(await input.inputValue() === raw && await load.isDisabled(), 'reading malformed castling repaired raw fields')
+        if (token.length > 32) {
+          await repair.scrollIntoViewIfNeeded()
+          const contrast = await page.evaluate(contrastProbe, '.fen-setup-raw-help')
+          assert(contrast.checked === 1 && contrast.failures.length === 0, `raw castling contrast: ${JSON.stringify(contrast)}`)
+          assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'long castling guidance overflows')
+          await page.screenshot({ path: `/tmp/web-chess-raw-castling-${width}.png` })
+        }
+        await repair.focus(); await page.keyboard.press('Enter')
+        assert(await input.inputValue() === `${placement} w ${expected} a9 17junk 24` && await rights.getAttribute('aria-invalid') === null
+          && await input.evaluate(el => el === document.activeElement) && await load.isDisabled(), 'castling repair changed other fields, lost focus or retained its error')
+      }
+      const missingRook = placement.replace('R3K2R', '4K2R')
+      await input.fill(`${missingRook} w Qx a9 17junk 24`)
+      assert(await dialog.getByRole('checkbox', { name: 'White queenside', exact: true }).isChecked()
+        && await dialog.getByRole('checkbox', { name: 'White queenside', exact: true }).isDisabled(), 'raw recognized unavailable right was hidden')
+      await repair.click()
+      assert(await input.inputValue() === `${missingRook} w - a9 17junk 24`, 'malformed-field repair retained unavailable rights or changed another error')
+      await input.fill(`${placement} w`)
+      assert(await rights.getAttribute('aria-invalid') === 'true', 'missing castling has no guidance')
+      await repair.click()
+      assert(await input.inputValue() === `${placement} w -` && await load.isDisabled(), 'missing castling repair invented rights or supplied later fields')
+      for (const token of ['qkQK', 'KK', '-K', '--']) {
+        const raw = `${placement} w ${token} - 19 24`
+        await input.fill(raw)
+        assert(await rights.getAttribute('aria-invalid') === null && await repair.count() === 0 && await load.isEnabled(), 'an accepted castling representation acquired a new restriction')
+        await rights.getByRole('checkbox', { name: 'White kingside', exact: true }).focus(); await page.keyboard.press('Tab')
+        assert(await input.inputValue() === raw, 'reading a valid castling representation rewrote it')
+      }
+      await input.fill(`${placement} w Kqx - 19 24`)
+      await repair.click()
+      assert(await input.inputValue() === `${placement} w Kq - 19 24` && await load.isEnabled()
+        && await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'explicit castling repair lost valid rights or loaded the draft')
+      await load.click(); await dialog.waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-e1').click(); await page.locator('#chessboard-square-g1').click()
+      await page.locator('#chessboard-square-f1 [data-piece="wR"]').waitFor()
+      await page.locator('#chessboard-square-g1 [data-piece="wK"]').waitFor()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e1')?.getAttribute('aria-label')?.includes('empty') && document.querySelectorAll('.mtree-chip').length === 1)
+      await page.locator('#chessboard-square-e8').click(); await page.locator('#chessboard-square-c8').click()
+      await page.locator('#chessboard-square-d8 [data-piece="bR"]').waitFor()
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      assert(await input.inputValue() === '2kr3r/8/8/8/8/8/8/R4RK1 w - - 21 25'
+        && await page.locator('.board-surface [data-piece]').count() === 6 && await page.locator('.mtree-chip').count() === 2, 'repaired castling lost exact final pieces, rights or counters')
+      assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `raw castling errors: ${errors.join('; ')}`)
+      console.log(`  raw castling (${width}px, ${scale}x, ${theme}): malformed/missing/long/Unicode declarations have bounded associated guidance and measured contrast; reading preserves raw text; keyboard repair retains only declared available rights and unrelated EP/counters, restores focus; accepted syntax remains accepted; explicit Load and both actual castles retain exact FEN/pieces`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkRawEnPassantControls(browser) {
   const placement = '4k3/8/8/3pP3/8/8/8/4K3'
   for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light'], [320, 2, 'dark']]) {
@@ -19691,6 +19766,7 @@ async function main() {
       'castling-repair': checkUnavailableCastlingRepair,
       'setup-metadata': checkSetupMetadataControls,
       'counter-feedback': checkCounterRawFeedback,
+      'raw-castling': checkRawCastlingControls,
       'raw-en-passant': checkRawEnPassantControls,
       'empty-fen-controls': checkEmptyFenControls,
       'pgn-download': checkPgnDownloadRecovery,
@@ -20554,6 +20630,7 @@ async function main() {
     await checkUnavailableCastlingRepair(browser)
     await checkSetupMetadataControls(browser)
     await checkCounterRawFeedback(browser)
+    await checkRawCastlingControls(browser)
     await checkRawEnPassantControls(browser)
     await checkEmptyFenControls(browser)
     await checkPgnDownloadRecovery(browser)
