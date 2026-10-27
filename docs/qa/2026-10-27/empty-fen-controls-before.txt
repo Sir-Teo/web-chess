@@ -1,0 +1,5 @@
+Error: accept default counter did not rebuild a blank draft from the shown diagram/declarations/counters
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkEmptyFenControls (/workspace/web-chess/scripts/test-ui-browser.cjs:16735:9)
+    at async /tmp/web-chess-empty-fen-controls-check.cjs:10:9

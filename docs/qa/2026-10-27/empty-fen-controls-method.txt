@@ -1,0 +1,11 @@
+Reconstruct blank FEN drafts from the visible preview — 27 October 2026
+
+Baseline ee87a6a: clear a pasted FEN while retaining its displayed diagram, then accept the displayed Halfmove by Enter. The raw field writer starts with an empty placement token and produces malformed text. The native regression fails before the correction.
+
+Use the preview fields when the text is blank or whitespace-only. Match the declarations shown by castling/EP controls rather than silently normalizing unavailable metadata, and use the safe counter values displayed by the numeric controls. Nonempty drafts continue retaining existing tokens and filling only the required missing preceding fields. Reading alone leaves an empty draft empty and Load disabled.
+
+Native alias empty-fen-controls checks Chromium, Firefox and Linux WebKit at 1280px normal dark, 375px/200% light and 320px/200% dark. Seven metadata actions independently reconstruct the exact diagram, declarations and counters. Unsafe preview counters use displayed 0/1; whitespace-only drafts reconstruct correctly. Explicit Load permits actual White kingside and Black queenside castles, retaining five pieces, two moves and exact final FEN/counters. Current game is unchanged before Load. No page errors/error boundary/document overflow.
+
+Initial WebKit phone execution timed out waiting for the second castle; a diagnostic rerun passed all three layouts. Strengthen the native test to wait for the first castle's king destination, empty source and recorded move before beginning the second. The final WebKit run passes all layouts. The initial timeout was not reproduced as an application failure.
+
+Fourteen related Chromium setup-metadata/counter-feedback/castling-repair/en-passant/keyboard workflows pass. Full verification: 124 test files, 2,093 passing tests, one existing skip, typecheck/lint/build; final script lint passes. The change remains local on work-next after PR #5's deployed main release. Root text enlargement is not native browser zoom; Linux WebKit is not physical iOS.

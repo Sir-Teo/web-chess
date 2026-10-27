@@ -16694,6 +16694,74 @@ async function checkPgnDownloadRecovery(browser) {
   }
 }
 
+async function checkEmptyFenControls(browser) {
+  const mixed = 'r3k2r/8/8/8/8/8/8/4K2R w KQkq d6 19 24'
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light'], [320, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      const dialog = page.locator('.pgn-dialog')
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      const input = dialog.locator('.fen-textarea')
+      const half = dialog.getByRole('spinbutton', { name: 'Halfmove', exact: true })
+      const full = dialog.getByRole('spinbutton', { name: 'Fullmove', exact: true })
+      const side = dialog.getByRole('group', { name: 'Side to move', exact: true })
+      const target = dialog.getByRole('combobox', { name: 'En passant target', exact: true })
+      const load = dialog.getByRole('button', { name: 'Load & Analyze', exact: true })
+      const blank = async (fen = mixed, text = '') => {
+        await input.fill(fen)
+        await input.fill(text)
+        await half.focus(); await page.keyboard.press('Tab')
+        assert(await input.inputValue() === text && await load.isDisabled(), 'reading a blank draft changed it or allowed it to load')
+      }
+      const actions = [
+        ['accept default counter', async () => { await half.focus(); await page.keyboard.press('Enter') }, mixed],
+        ['edit counter', () => half.fill('20'), mixed.replace('19 24', '20 24')],
+        ['clear EP', () => target.selectOption('-'), mixed.replace(' d6 ', ' - ')],
+        ['toggle castling', () => dialog.getByRole('checkbox', { name: 'White kingside', exact: true }).uncheck(), mixed.replace(' KQkq ', ' Qkq ')],
+        ['change side', () => side.getByRole('button', { name: 'Black', exact: true }).click(), mixed.replace(' w ', ' b ').replace(' d6 ', ' - ')],
+        ['reselect side', () => side.getByRole('button', { name: 'White', exact: true }).click(), mixed],
+        ['clear unavailable rights', () => dialog.getByRole('button', { name: 'Clear unavailable castling rights', exact: true }).click(), mixed.replace(' KQkq ', ' Kkq ')],
+      ]
+      for (const [label, action, expected] of actions) {
+        await blank()
+        await action()
+        assert(await input.inputValue() === expected, `${label} did not rebuild a blank draft from the shown diagram/declarations/counters`)
+        assert(await load.isDisabled() && await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, `${label} hid another error or loaded the draft`)
+      }
+      await blank(mixed.replace('19 24', '9007199254740993 9007199254740993'))
+      assert(await half.inputValue() === '0' && await full.inputValue() === '1', 'unsafe preview counters have no safe displayed defaults')
+      await target.selectOption('-')
+      assert(await input.inputValue() === mixed.replace(' d6 ', ' - ').replace('19 24', '0 1'), 'blank reconstruction used hidden unsafe numbers instead of the displayed safe defaults')
+      const ready = mixed.replace(' KQkq d6 ', ' Kkq - ')
+      await blank(ready, ' \n\t ')
+      await full.fill('25')
+      assert(await input.inputValue() === ready.replace('19 24', '19 25') && await load.isEnabled(), 'whitespace-only reconstruction lost the preview or its counters')
+      await load.click()
+      await dialog.waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-e1').click(); await page.locator('#chessboard-square-g1').click()
+      await page.locator('#chessboard-square-f1 [data-piece="wR"]').waitFor()
+      await page.locator('#chessboard-square-g1 [data-piece="wK"]').waitFor()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e1')?.getAttribute('aria-label')?.includes('empty') && document.querySelectorAll('.mtree-chip').length === 1)
+      await page.locator('#chessboard-square-e8').click(); await page.locator('#chessboard-square-c8').click()
+      await page.locator('#chessboard-square-d8 [data-piece="bR"]').waitFor()
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      assert(await input.inputValue() === '2kr3r/8/8/8/8/8/8/5RK1 w - - 21 26'
+        && await page.locator('.board-surface [data-piece]').count() === 5 && await page.locator('.mtree-chip').count() === 2, 'reconstructed metadata lost the preview position, actual castles or exact counters')
+      assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `blank FEN metadata errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'blank FEN metadata overflows')
+      console.log(`  empty FEN controls (${width}px, ${scale}x, ${theme}): reading preserves the empty box; seven metadata actions rebuild the shown diagram and declarations; safe counters/whitespace defaults; explicit Load and both real castles retain exact pieces/FEN`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkCounterRawFeedback(browser) {
   const root = '4k3/8/8/8/8/8/8/4K3 w - -'
   for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light'], [320, 2, 'dark']]) {
@@ -19517,6 +19585,7 @@ async function main() {
       'castling-repair': checkUnavailableCastlingRepair,
       'setup-metadata': checkSetupMetadataControls,
       'counter-feedback': checkCounterRawFeedback,
+      'empty-fen-controls': checkEmptyFenControls,
       'pgn-download': checkPgnDownloadRecovery,
       'pgn-export': checkPgnDownloadRecovery,
       'recovery-download': checkRecoveryDownloadFallback,
@@ -20378,6 +20447,7 @@ async function main() {
     await checkUnavailableCastlingRepair(browser)
     await checkSetupMetadataControls(browser)
     await checkCounterRawFeedback(browser)
+    await checkEmptyFenControls(browser)
     await checkPgnDownloadRecovery(browser)
     await checkRecoveryDownloadFallback(browser)
     await checkLibraryDownloadRecovery(browser)

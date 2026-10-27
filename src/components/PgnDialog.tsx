@@ -3,7 +3,7 @@ import type { Square } from 'chess.js'
 import { useModalFocus } from '../hooks/useModalFocus'
 import type { GameNode } from '../hooks/useGameTree'
 import type { EvalSnapshot } from '../engine/analysis'
-import { validateFenForAnalysis } from '../engine/fen'
+import { parseFenCounterValue, validateFenForAnalysis } from '../engine/fen'
 import {
     PGN_MULTIPLE_GAMES_ERROR,
     exportAnnotatedPgn,
@@ -469,13 +469,23 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const unavailableEnPassant = setup.enPassant !== '-' && !enPassantTargets.includes(setup.enPassant)
     const availableCastlingRights = normalizeAvailableCastlingRights(setup)
     const unavailableCastlingRights = setup.castling !== availableCastlingRights
+    const previewSetupFields = () => {
+        const fields = positionSetupToFen(setup).split(' ')
+        // Match the declarations and safe counter values shown by the editor.
+        fields[2] = setup.castling
+        fields[3] = setup.enPassant
+        fields[4] = String(parseFenCounterValue(String(setup.halfmove)) ?? 0)
+        fields[5] = String(Math.max(1, parseFenCounterValue(String(setup.fullmove)) ?? 1))
+        return fields
+    }
     const updateRawSetupFields = (updates: ReadonlyArray<readonly [1 | 2 | 3 | 4 | 5, string]>, complete = false) => {
         // Retain existing raw fields. Explicit counter edits can fill missing
         // trailing defaults; other metadata repairs leave them for the reader.
-        const fields = fenText.trim().split(/\s+/)
+        const trimmed = fenText.trim()
+        const fields = trimmed ? trimmed.split(/\s+/) : previewSetupFields()
         const index = complete ? 5 : Math.max(...updates.map(([index]) => index))
         if (fields.length <= index) {
-            fields.push(...positionSetupToFen(setup).split(' ').slice(fields.length, index + 1))
+            fields.push(...previewSetupFields().slice(fields.length, index + 1))
         }
         for (const [index, value] of updates) fields[index] = value
         syncFenTextAndSetup(fields.join(' '))
