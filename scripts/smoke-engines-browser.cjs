@@ -365,6 +365,7 @@ async function main() {
           assert.equal(backup.reviews[0].settings.depth, 6)
           assert.ok(backup.reviews[0].finishedAt >= backup.reviews[0].startedAt)
           await page.getByRole('button', { name: 'Delete saved review', exact: true }).click()
+          await page.getByRole('button', { name: /^Confirm delete: / }).click()
           await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 0)
           await page.getByLabel('Review backup file', { exact: true }).setInputFiles({ name: 'review-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) })
           await page.getByText('Imported 1 review; 0 identical reviews skipped.', { exact: true }).waitFor()

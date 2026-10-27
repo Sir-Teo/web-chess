@@ -246,7 +246,7 @@ given, and the app answering the reader who touches it.
   the study's live evaluations. Choose Save review to keep the report after this session.
 - **Saved reviews and comparisons**: In Pro, **Save review** keeps the report,
   engine limits, WDL and reviewed branch on this device. Open **Saved reviews**
-  to reopen a run, rename it for a study session, delete its stored copy, or
+  to reopen a run, rename it for a study session, delete its stored copy with a second press, or
   compare it with the open report for the same line. Untitled runs use the
   reviewed branch’s opening; real player and event names take priority. The picker starts with
   the run name, so typing its beginning selects it. **Search saved reviews**

@@ -1996,6 +1996,7 @@ async function checkSavedReviewSearch(browser) {
       await search.fill('italian daily')
       const remove = page.getByRole('button', { name: 'Delete saved review', exact: true })
       await remove.focus(); await remove.press('Space')
+      await page.getByRole('button', { name: /^Confirm delete: / }).press('Space')
       await count.filter({ hasText: 'No saved reviews match' }).waitFor()
       await page.waitForFunction(() => document.activeElement?.id === 'saved-review-search')
       assert(await page.getByTestId('review-run-summary').innerText() === openedReport, 'deleting the final match replaced the current report')
@@ -2222,6 +2223,7 @@ async function checkSavedReviews(browser) {
       assert(!layout.overflow && layout.controls.every(control => control.height >= 44 && !control.clips), `saved reviews fail at 200% text: ${JSON.stringify(layout)}`)
       await page.screenshot({ path: `/tmp/web-chess-saved-reviews-${width}.png` })
       await page.getByRole('button', { name: 'Delete saved review', exact: true }).click()
+      await page.getByRole('button', { name: /^Confirm delete: / }).click()
       await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 1)
       assert(await page.getByRole('button', { name: 'Export review', exact: true }).isEnabled(), 'deleting a stored copy removed the displayed report')
       await page.reload({ waitUntil: 'domcontentloaded' })
@@ -2311,19 +2313,72 @@ async function checkSavedReviewDeleteFocus(browser) {
       if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.hasAttribute('data-scroll-chrome'))
       const remove = panel.getByRole('button', { name: 'Delete saved review', exact: true })
       const focused = control => control.evaluate(el => document.activeElement === el)
-      const visibleFocus = control => control.evaluate(el => {
-        const r = el.getBoundingClientRect()
-        return r.left >= 0 && r.right <= innerWidth + 1 && r.top >= 0 && r.bottom <= innerHeight + 1
-          && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
-      })
+      const visibleFocus = async control => {
+        const handle = await control.elementHandle()
+        try {
+          // Native focus scrolling may land on the following frame. Await the
+          // actual visible destination, keeping the same geometry/hit checks.
+          await page.waitForFunction(el => {
+            const r = el.getBoundingClientRect()
+            return document.activeElement === el && r.left >= 0 && r.right <= innerWidth + 1
+              && r.top >= 0 && r.bottom <= innerHeight + 1
+              && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+          }, handle, { timeout: 3000 })
+          return true
+        } catch { return false }
+        finally { await handle.dispose() }
+      }
+      const confirm = panel.getByRole('button', { name: /^Confirm delete: / })
+      // Holding Enter must only arm deletion, never supply its second press.
+      await remove.focus()
+      await page.keyboard.down('Enter')
+      await confirm.waitFor()
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
+      assert((await stored()).length === 2 && await focused(confirm), 'holding Enter deleted a review or lost confirmation focus')
+      assert(await visibleFocus(confirm), 'delete confirmation is obscured')
+      assert(await confirm.evaluate(el => el.getBoundingClientRect().height >= 44 && el.scrollWidth <= el.clientWidth + 1), 'delete confirmation clips or loses its touch target')
+      if (width === 320) await page.screenshot({ path: `/tmp/web-chess-review-delete-confirm-${browser.browserType().name()}.png` })
+      const ignored = await confirm.evaluate(el => [
+        { isComposing: true }, { keyCode: 229 }, { ctrlKey: true }, { metaKey: true }, { altKey: true }, { shiftKey: true },
+      ].map(init => { const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, ...init }); el.dispatchEvent(event); return event.defaultPrevented }))
+      assert(ignored.every(value => !value) && await confirm.isVisible(), 'modified/composing Escape canceled confirmation')
+      await confirm.press('Escape')
+      assert(await focused(remove) && (await stored()).length === 2, 'Escape deleted a review or lost the delete control')
+      await remove.click()
+      await choice.focus()
+      await remove.waitFor()
+      await remove.click()
+      // Native selectOption changes selection without focusing it first.
+      await choice.selectOption('delete-focus-second')
+      await remove.waitFor()
+      await remove.click()
+      await choice.selectOption(original.id)
+      await remove.waitFor()
+      assert((await stored()).length === 2, 'changing the selected review reused another review’s confirmation')
+      await page.clock.install()
+      await remove.click()
+      await confirm.waitFor()
+      await page.clock.fastForward(4100)
+      await remove.waitFor()
+      assert((await stored()).length === 2, 'confirmation expiry deleted a review')
+      await remove.click()
+      await summary.click()
+      await summary.click()
+      await remove.waitFor()
+      await choice.selectOption(original.id)
       await page.evaluate(() => { window.__failReviewDelete = true })
       await remove.focus()
       await remove.press('Enter')
+      await confirm.waitFor({ timeout: 3000 })
+      assert((await stored()).length === 2, 'the first delete activation removed a saved review')
+      await confirm.press('Enter')
       await panel.getByRole('status').filter({ hasText: 'QA review deletion failed.' }).waitFor()
       assert(await focused(remove) && await remove.isEnabled(), 'failed deletion did not return to an enabled retry button')
       assert(await visibleFocus(remove), 'retry focus is obscured')
       assert((await stored()).length === 2, 'failed deletion changed stored reviews')
       await remove.press('Enter')
+      await confirm.press('Enter')
       await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 1)
       await page.waitForFunction(() => document.activeElement?.id === 'saved-review-choice')
       assert(await visibleFocus(choice), 'the remaining review selector is obscured')
@@ -2348,6 +2403,7 @@ async function checkSavedReviewDeleteFocus(browser) {
       await choice.selectOption(original.id)
       await page.evaluate(() => { window.__holdNextReviewOpen = true; window.__releaseReviewOpen = null })
       await remove.click()
+      await confirm.click()
       await page.waitForFunction(() => typeof window.__releaseReviewOpen === 'function')
       await review.focus()
       await page.evaluate(() => window.__releaseReviewOpen())
@@ -2356,6 +2412,7 @@ async function checkSavedReviewDeleteFocus(browser) {
       assert(await focused(review), 'delayed deletion stole the user’s new focus')
       await remove.focus()
       await remove.press('Space')
+      await confirm.press('Space')
       await panel.getByText('No saved reviews yet.', { exact: false }).waitFor()
       await page.waitForFunction(() => document.activeElement?.matches('.saved-reviews summary'))
       assert(await visibleFocus(summary), 'the empty-list disclosure is obscured')
@@ -2368,7 +2425,7 @@ async function checkSavedReviewDeleteFocus(browser) {
       await page.keyboard.press('Tab')
       assert(await focused(panel.getByRole('button', { name: 'Import review backup', exact: true })), 'empty-list Tab order lost the next usable action')
       assert(errors.length === 0, `saved review deletion errors: ${errors.join('; ')}`)
-      console.log(`  review deletion focus (${width}×${height}, ${scale}x, ${theme}): retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained`)
+      console.log(`  review deletion focus (${width}×${height}, ${scale}x, ${theme}): first press/held Enter preserve storage; Escape/blur/selection/expiry/disclosure disarm; second press confirms; retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained`)
     } finally { await context.close() }
   }
 }

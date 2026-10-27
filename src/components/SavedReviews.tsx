@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useDisarmAfter } from '../hooks/useDisarmAfter'
 import type { GameNode } from '../hooks/useGameTree'
 import { evaluationEngineLabel } from '../engine/evaluationSource'
 import { createSavedReview, filterSavedReviewSummaries, reviewLineKey, type SavedReview, type SavedReviewSummary } from '../engine/savedReviews'
@@ -9,6 +10,7 @@ import { SavedReviewNameEditor } from './SavedReviewNameEditor'
 import { exportReviewBackup, importReviewBackup } from '../engine/reviewBackupClient'
 import { formatLocalDate } from '../engine/localDate'
 import { MAX_SEARCH_QUERY_LENGTH } from '../engine/searchTerms'
+import { isCompositionKey, isPlainShortcut } from './shortcutKeys'
 import './SavedReviews.css'
 
 type Props = {
@@ -33,6 +35,9 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
   const [runs, setRuns] = useState<SavedReviewSummary[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [query, setQuery] = useState('')
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null)
+  const disarmDelete = useCallback(() => setConfirmingDelete(null), [])
+  useDisarmAfter(confirmingDelete !== null, disarmDelete)
   const [loaded, setLoaded] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [working, setWorking] = useState(false)
@@ -91,6 +96,7 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
   const sameLine = selected?.lineKey === reviewLineKey(line)
 
   async function refresh(preferredId?: string) {
+    disarmDelete()
     const version = ++loadingVersion.current
     try {
       const next = await listSavedReviews()
@@ -109,6 +115,7 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
   }
 
   function changeQuery(value: string) {
+    disarmDelete()
     setQuery(value)
     const matches = filterSavedReviewSummaries(runs, value)
     setSelectedId(previous => !matches.length || matches.some(run => run.id === previous) ? previous : matches[0].id)
@@ -230,7 +237,7 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
         </button>
       </div>
       {notice && <p className="panel-copy small saved-review-notice" role="status">{notice}</p>}
-      <details ref={details} onToggle={event => { if (event.currentTarget.open) void refresh() }}>
+      <details ref={details} onToggle={event => { disarmDelete(); if (event.currentTarget.open) void refresh() }}>
         <summary ref={summary}>Saved reviews{loaded ? ` (${runs.length})` : ''}</summary>
         <div className="saved-reviews-content">
           {loadFailed ? <div className="review-report-actions">
@@ -250,7 +257,7 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
                 <button type="button" disabled={working} onClick={() => { changeQuery(''); search.current?.focus() }}>Clear search</button>
               </div>}
               <label htmlFor="saved-review-choice">Choose a saved review</label>
-              <select ref={choice} id="saved-review-choice" value={visibleSelectedId} disabled={working || !visibleRuns.length} onChange={event => setSelectedId(event.target.value)}>
+              <select ref={choice} id="saved-review-choice" value={visibleSelectedId} disabled={working || !visibleRuns.length} onChange={event => { disarmDelete(); setSelectedId(event.target.value) }}>
                 {!visibleRuns.length && <option value="">No matching reviews</option>}
                 {visibleRuns.map(run => <option key={run.id} value={run.id}>
                   {run.title} · {run.settings.engine.name} · D{run.settings.depth} · {new Date(run.finishedAt).toLocaleString()}{run.complete ? '' : ' · Partial'}
@@ -270,7 +277,23 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
                   <button type="button" disabled={busy || working} onClick={() => { void open() }}>
                     {sameLine ? 'Use saved review' : 'Open reviewed line'}
                   </button>
-                  <button type="button" disabled={working} onClick={event => { void remove(event.currentTarget) }}>Delete saved review</button>
+                  <button type="button" disabled={working}
+                    aria-label={confirmingDelete === selected.id ? `Confirm delete: ${selected.title}` : undefined}
+                    title={confirmingDelete === selected.id ? 'Press again within 4 seconds to delete this saved copy. Escape cancels.' : undefined}
+                    onBlur={disarmDelete}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter' && event.repeat) { event.preventDefault(); return }
+                      if (confirmingDelete !== selected.id || event.key !== 'Escape'
+                        || isCompositionKey(event.nativeEvent) || !isPlainShortcut(event.nativeEvent)) return
+                      event.preventDefault()
+                      event.stopPropagation()
+                      disarmDelete()
+                    }}
+                    onClick={event => {
+                      if (confirmingDelete !== selected.id) { setConfirmingDelete(selected.id); return }
+                      disarmDelete()
+                      void remove(event.currentTarget)
+                    }}>{confirmingDelete === selected.id ? 'Confirm delete' : 'Delete saved review'}</button>
                   <button ref={compareTrigger} type="button" disabled={busy || working || !report || !sameLine} onClick={event => { void compare(event.currentTarget) }}
                     title={sameLine && report ? 'Compare position readings with the report currently open.' : 'Open or review this same line first.'}>
                     Compare with open review
