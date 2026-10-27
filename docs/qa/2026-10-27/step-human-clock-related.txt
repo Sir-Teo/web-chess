@@ -1,0 +1,14 @@
+  clock controls (1280×900, 1x, dark, mouse): visible Pause/Resume, exact held banks, focused Space/Enter activation, turn-correct ticking, move restarts, Analysis hiding, flagged/untimed exclusion, replay coexistence and fitting/contrast pass
+  clock controls (375×812, 1x, light, coarse pointer): visible Pause/Resume, exact held banks, focused Space/Enter activation, turn-correct ticking, move restarts, Analysis hiding, flagged/untimed exclusion, replay coexistence and fitting/contrast pass
+  clock controls (320×812, 2x, dark, coarse pointer): visible Pause/Resume, exact held banks, focused Space/Enter activation, turn-correct ticking, move restarts, Analysis hiding, flagged/untimed exclusion, replay coexistence and fitting/contrast pass
+  clock controls (844×390, 2x, light, coarse pointer): visible Pause/Resume, exact held banks, focused Space/Enter activation, turn-correct ticking, move restarts, Analysis hiding, flagged/untimed exclusion, replay coexistence and fitting/contrast pass
+  step mode: held at 2:59 and 3:01 through five-second waits, and paid 3:01 and 3:03 for released moves; the human timer stays accessible and the first Space pauses it; the next Space resumes it
+  clock transition time (1280×900, 1x, dark): three delayed pause/resume cycles preserve exact stopped banks and original start times; >bank waits cannot retroactively flag; takeback charges only the new turn; resignation retains banks, complete game and result (8 held callbacks)
+  clock transition time (375×812, 2x, light): three delayed pause/resume cycles preserve exact stopped banks and original start times; >bank waits cannot retroactively flag; takeback charges only the new turn; resignation retains banks, complete game and result (8 held callbacks)
+  navigation: pass and play hands the clock back with the turn
+  navigation: exploring against the engine holds both clocks at 2:58|3:01
+  compact footer (901px, beginner): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+  compact footer (901px, pro): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+  compact footer (1280px, beginner): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+  compact footer (1280px, pro): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+  compact footer: a browser without the Popover API retains its inline engine readings

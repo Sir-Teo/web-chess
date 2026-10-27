@@ -7120,6 +7120,12 @@ function App() {
   const canStepAiMove = playEngineActive && !isGameOver && !endedOffBoard && (
     gameMode === 'ai-vs-ai' || (gameMode === 'human-vs-ai' && game.turn() !== playerColor[0])
   )
+  // Step holds the engine, but the human turn still spends time. Use the
+  // waiting Step slot to let touch users pause/resume that clock too.
+  const showHumanClockControl = workspaceMode === 'play' && Boolean(clock) && (
+    gameMode === 'human-vs-human'
+    || (gameMode === 'human-vs-ai' && aiSpeed === 'step' && game.turn() === playerColor[0])
+  )
   /**
    * The engine is on move and something is holding it there.
    *
@@ -10085,7 +10091,7 @@ function App() {
               onNext={goNext}
               onLast={goLast}
               aiActive={playEngineActive}
-              clockRunning={workspaceMode === 'play' && gameMode === 'human-vs-human' && clock
+              clockRunning={showHumanClockControl && clock
                 ? clock.running !== null : undefined}
               paused={paused}
               isGameOver={isGameOver || Boolean(endedOffBoard)}

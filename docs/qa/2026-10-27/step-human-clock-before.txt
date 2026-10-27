@@ -1,0 +1,3 @@
+{"running":"White 2 minutes 59 seconds, running","pauseClock":0,"pauseAI":0,"waitingForAI":true,"controls":"Step\nSPEED\nSlow\nNormal\nFast\nStep"}
+Error: A human clock running in AI Step mode has no touch pause action
+    at /tmp/web-chess-step-human-clock-before.cjs:7:678

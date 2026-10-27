@@ -4638,6 +4638,114 @@ async function checkAReplayedMoveRecordsItsOwnClock(browser) {
  * e2e4 to every search, which is not a legal reply for Black, so the engine
  * would be held by the fixture rather than by Step.
  */
+async function checkHumanStepClockControls(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    for (const side of ['White', 'Black']) {
+      const touch = width < 900
+      const context = await browser.newContext({ viewport: { width, height }, hasTouch: touch, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.clock.install({ time: new Date('2026-10-27T12:00:00Z') })
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, timeControlId: '3+2', lastSideChoice: 'white', theme })), theme)
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true'
+          && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
+        const newGame = async (colour, mode = 'Human vs AI', timed = true) => {
+          await page.getByRole('button', { name: 'Start new game', exact: true }).first().click()
+          const dialog = page.locator('.new-game-dialog'); await dialog.waitFor()
+          await dialog.locator('.mode-card', { hasText: mode }).click()
+          if (mode === 'Human vs AI') await dialog.getByRole('button', { name: colour, exact: true }).click()
+          await dialog.locator('.time-control-card', { hasText: timed ? '3 + 2' : 'No clock' }).click()
+          await dialog.locator('.btn-start').click(); await dialog.waitFor({ state: 'detached' })
+        }
+        await newGame('White')
+        await page.getByRole('button', { name: 'Set AI speed to Step', exact: true }).click()
+        const step = () => page.getByRole('button', { name: 'Advance one AI move', exact: true })
+        const group = page.getByRole('group', { name: 'Game clock', exact: true })
+        const pause = () => group.getByRole('button', { name: 'Pause clock', exact: true })
+        const resume = () => group.getByRole('button', { name: 'Resume clock', exact: true })
+        const clocks = () => page.locator('.clock-face').evaluateAll(els => Object.fromEntries(els.map(el => [el.classList.contains('clock-white') ? 'White' : 'Black', el.querySelector('strong').textContent])))
+        const replies = () => page.evaluate(() => window.__uciBestmoves)
+        const activate = async button => { if (touch) await button.tap(); else await button.click() }
+        if (side === 'Black') {
+          // Set Step before starting as Black, so the opening AI turn is held.
+          await newGame('Black')
+          await step().waitFor()
+          assert(await group.count() === 0, 'a held engine turn offers clock resume instead of Step')
+          await page.evaluate(() => { window.__previewEndingPv = 'e2e4' })
+          await step().press('Enter')
+        }
+        await page.locator(`.clock-${side.toLowerCase()}.running`).waitFor(); await pause().waitFor()
+        await pause().focus()
+        const fits = await pause().evaluate(el => {
+          const box = el.getBoundingClientRect(), strip = el.closest('.watch-controls').getBoundingClientRect()
+          const range = document.createRange(); range.selectNodeContents(el.querySelector('span'))
+          const text = range.getBoundingClientRect()
+          return { width: box.width, height: box.height, fits: text.left >= box.left - 1 && text.right <= box.right + 1,
+            revealed: box.left >= strip.left - 1 && box.right <= strip.right + 1 }
+        })
+        const contrast = await page.evaluate(contrastProbe, '.watch-controls [aria-label="Game clock"] button span')
+        assert(fits.fits && fits.revealed && (!touch || fits.width >= 44 && fits.height >= 44)
+          && contrast.checked === 1 && contrast.failures.length === 0, `human Step clock does not fit/reveal/contrast: ${JSON.stringify({ fits, contrast })}`)
+        const beforeReplies = await replies()
+        await activate(pause()); await resume().waitFor()
+        if (width === 375 && scale === 1) {
+          const sameRow = await resume().evaluate(el => {
+            const clock = el.getBoundingClientRect(), nav = document.querySelector('.wc-nav').getBoundingClientRect()
+            return Math.abs(clock.y + clock.height / 2 - nav.y - nav.height / 2) < 1
+          })
+          assert(sameRow, 'the human Step clock added a footer row on a normal-size phone')
+        }
+        const stopped = await clocks(); await page.clock.fastForward(3500)
+        assert(JSON.stringify(await clocks()) === JSON.stringify(stopped) && await page.locator('.clock-face.running').count() === 0, 'touch Pause clock did not hold the human Step turn')
+        await resume().press('Space'); await pause().waitFor()
+        assert(await pause().evaluate(el => el === document.activeElement), 'native Space lost the human clock control focus')
+        const resumed = await clocks(); await page.clock.fastForward(1600)
+        const ticking = await clocks(), opponent = side === 'White' ? 'Black' : 'White'
+        assert(ticking[side] !== resumed[side] && ticking[opponent] === resumed[opponent] && await replies() === beforeReplies,
+          'resuming a human Step turn ran the opponent or failed to charge the human')
+        await pause().press('Enter'); await resume().waitFor()
+        await page.getByRole('button', { name: 'Set AI speed to Normal', exact: true }).click()
+        assert(await group.count() === 0 && await page.getByRole('button', { name: 'Resume AI play', exact: true }).count() === 1, 'normal AI controls did not return on speed change')
+        await page.getByRole('button', { name: 'Resume AI play', exact: true }).click()
+        await page.getByRole('button', { name: 'Set AI speed to Step', exact: true }).click(); await pause().waitFor()
+        await page.locator('.move-entry summary').click()
+        const input = page.locator('.move-entry input')
+        await page.evaluate(side => { window.__previewEndingPv = side === 'White' ? 'e7e5' : 'g1f3' }, side)
+        await input.fill(side === 'White' ? 'e4' : 'e5'); await input.press('Enter')
+        await step().waitFor()
+        await page.waitForFunction(() => document.querySelectorAll('.clock-face.running').length === 0)
+        assert(await group.count() === 0, 'engine waiting for Step can restart its clock without a move')
+        const held = await clocks(), heldReplies = await replies(); await page.clock.fastForward(5000)
+        assert(JSON.stringify(await clocks()) === JSON.stringify(held) && await replies() === heldReplies, 'the engine moved or spent time while waiting for Step')
+        await step().evaluate(el => { window.__humanStepControl = el })
+        await step().press('Enter'); await pause().waitFor()
+        await page.locator(`.clock-${side.toLowerCase()}.running`).waitFor()
+        assert(await pause().evaluate(el => el === window.__humanStepControl) && await replies() === heldReplies + 1, 'Step replaced its native button or played more than one reply')
+        await pause().press('Enter'); await resume().waitFor()
+        const afterStepPause = await clocks(); await page.clock.fastForward(3500)
+        assert(JSON.stringify(await clocks()) === JSON.stringify(afterStepPause), 'the AI Step pause flag prevented the clock button from actually pausing')
+        await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+        assert(await group.count() === 0, 'Analysis exposes a hidden Step-game clock control')
+        await page.getByRole('button', { name: 'Play', exact: true }).first().click(); await resume().waitFor()
+        await resume().press('Enter'); await pause().waitFor()
+        assert(await page.locator('.mtree-chip').count() === (side === 'White' ? 2 : 3), 'clock actions changed the actual move history')
+        await newGame(side, 'Human vs AI', false)
+        assert(await group.count() === 0 && await page.locator('.chess-clock').count() === 0, 'untimed AI Step offers a clock control')
+        await newGame(side, 'AI vs AI')
+        await step().waitFor()
+        assert(await group.count() === 0, 'AI vs AI Step offers a human clock control')
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'human Step clock controls overflow')
+        assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `human Step clock errors: ${errors.join('; ')}`)
+        console.log(`  human Step clock (${width}×${height}, ${scale}x, ${theme}, ${side}): touch/keyboard Pause and Resume hold only the human clock, no extra AI reply; Step returns on engine turn and keeps native button identity; normal/Analysis/untimed/AI-vs-AI transitions, fitting/contrast and history pass`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkStepModeDoesNotChargeTheHeldEngine(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -20602,6 +20710,7 @@ async function main() {
       'recovery-ownership': checkRecoveryOwnershipIncludesSessionState,
       'pgn-file-reading': checkPgnFileReading,
       'pgn-import-status': checkPgnImportStatusIsolation,
+      'human-step-clock': checkHumanStepClockControls,
       'move-list-pointer': checkMoveListPointerActivation,
       'move-list-fit': checkMoveListFitting,
       'drill-restart': checkDrillRestartKeepsItsLine,
@@ -21399,6 +21508,7 @@ async function main() {
     await checkRecoveryOwnershipIncludesSessionState(browser)
     await checkPgnFileReading(browser)
     await checkPgnImportStatusIsolation(browser)
+    await checkHumanStepClockControls(browser)
     await checkNavigationKeepsTheClockHonest(browser)
     await checkKeepSearchingIsUnbounded(browser)
     await checkAutoplayWalksTheLine(browser)

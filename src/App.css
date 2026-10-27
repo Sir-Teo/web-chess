@@ -5154,6 +5154,15 @@ button.pv-move:focus-visible {
     font-size: 1.15rem;
   }
 
+  /* Keep the full clock label beside navigation in the human Step slot.
+     Its decorative icon can yield room without shrinking the touch target. */
+  .watch-controls button.wc-btn-human-clock {
+    font-size: 1rem;
+  }
+
+  .wc-btn-human-clock svg {
+    display: none;
+  }
 
   .watch-controls {
     flex-wrap: wrap;

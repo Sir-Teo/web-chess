@@ -11,7 +11,7 @@ type Props = {
     onLast: () => void
     // play/pause (AI modes)
     aiActive: boolean
-    /** A timed pass-and-play clock; undefined where no clock control applies. */
+    /** A pass-and-play clock or human Step turn; undefined when unavailable. */
     clockRunning?: boolean
     paused: boolean
     isGameOver: boolean
@@ -69,6 +69,7 @@ export function WatchControls({
     // The engine's controls and the replay's are never both on offer: one
     // plays moves, the other walks the ones already there.
     const replayOffered = !aiActive && Boolean(onAutoplayToggle) && (canAutoplay || autoplay)
+    const clockOffered = clockRunning !== undefined && (!aiActive || stepMode)
     // Replays use Normal's delay for the AI's manual Step setting. Show that
     // effective speed without changing the setting when returning to AI play.
     const displayedSpeed = !aiActive && aiSpeed === 'step' ? 'normal' : aiSpeed
@@ -100,10 +101,22 @@ export function WatchControls({
                 </button>
             </div>
 
-            {/* ── Play / Pause / Step (AI only) ── */}
-            {aiActive && !isGameOver && (
-                <div className="wc-play">
-                    {stepMode ? (
+            {/* ── Play / Pause / Step, or the human clock in Step mode ── */}
+            {(aiActive || clockOffered) && !isGameOver && (
+                <div className="wc-play" role={clockOffered ? 'group' : undefined} aria-label={clockOffered ? 'Game clock' : undefined}>
+                    {clockOffered ? (
+                        <button
+                            type="button"
+                            className={`wc-btn ${clockRunning ? 'wc-btn-pause' : 'wc-btn-resume'}${aiActive ? ' wc-btn-human-clock' : ''}`}
+                            onClick={clockRunning ? onPause : onResume}
+                            title={`${clockRunning ? 'Pause' : 'Resume'} clock (Space)`}
+                            aria-label={`${clockRunning ? 'Pause' : 'Resume'} clock`}
+                            aria-keyshortcuts="Space"
+                        >
+                            {clockRunning ? <IconPause /> : <IconPlay />}
+                            <span>{clockRunning ? 'Pause clock' : 'Resume clock'}</span>
+                        </button>
+                    ) : stepMode ? (
                         <button
                             type="button"
                             className="wc-btn wc-btn-step"
@@ -123,22 +136,6 @@ export function WatchControls({
                             <IconPause /> Pause
                         </button>
                     )}
-                </div>
-            )}
-
-            {!aiActive && clockRunning !== undefined && !isGameOver && (
-                <div className="wc-play" role="group" aria-label="Game clock">
-                    <button
-                        type="button"
-                        className={`wc-btn ${clockRunning ? 'wc-btn-pause' : 'wc-btn-resume'}`}
-                        onClick={clockRunning ? onPause : onResume}
-                        title={`${clockRunning ? 'Pause' : 'Resume'} clock (Space)`}
-                        aria-label={`${clockRunning ? 'Pause' : 'Resume'} clock`}
-                        aria-keyshortcuts="Space"
-                    >
-                        {clockRunning ? <IconPause /> : <IconPlay />}
-                        <span>{clockRunning ? 'Pause clock' : 'Resume clock'}</span>
-                    </button>
                 </div>
             )}
 

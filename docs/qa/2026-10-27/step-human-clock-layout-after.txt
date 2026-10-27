@@ -1,0 +1,1 @@
+{"navCenter":655.71875,"clockCenter":655.71875,"bottomHeight":193.1875,"watchHeight":141.765625,"label":"16px"}

@@ -51,8 +51,9 @@ given, and the app answering the reader who touches it.
   `Space` pauses the clock as well as the AI. Browsing moves keeps it paused;
   pressing `Space` again resumes for the side to move. Stepping out to Analysis
   stops it while you consult the engine.
-  Timed pass-and-play games also offer **Pause clock** and **Resume clock**
-  in the bottom controls, including on touch screens.
+  Timed pass-and-play games, and your turn in AI Step mode, also offer
+  **Pause clock** and **Resume clock** in the bottom controls, including on
+  touch screens. In Step mode the same slot advances the engine on its turn.
 - **Premoves**: While the engine is thinking, drag or tap your reply and it is
   held, both squares ringed, then played the instant the position arrives.
   **Escape** cancels a queued premove before the reply. A
