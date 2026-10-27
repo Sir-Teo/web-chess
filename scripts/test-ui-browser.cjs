@@ -16286,6 +16286,111 @@ async function checkCastlingRightInputs(browser) {
   }
 }
 
+async function checkPgnDownloadRecovery(browser) {
+  const rootFen = '4k3/8/8/8/8/8/8/4K2R w K - 7 23'
+  const headers = `[Event "Download recovery"]\n[White "Réti, Richard"]\n[Black "Tester"]\n[Date "2026.10.27"]\n[SetUp "1"]\n[FEN "${rootFen}"]\n[Result "*"]`
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    for (const study of ['game', 'position']) {
+      const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce', acceptDownloads: true })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        const dialog = page.locator('.pgn-dialog')
+        await dialog.locator('textarea').fill(`${headers}\n\n{Root café ♞ — keep exactly}${study === 'game' ? '\n23. O-O {Main note} (23. Kd1 {Variation note}) Kd8 *' : '\n*'}`)
+        await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await dialog.waitFor({ state: 'detached' })
+        const king = study === 'game' ? 'g1' : 'e1'
+        await page.locator(`#chessboard-square-${king} [data-piece="wK"]`).waitFor()
+        const nodeCount = await page.locator('.mtree-chip').count()
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await dialog.getByRole('button', { name: 'Export', exact: true }).click()
+        const output = dialog.getByRole('textbox', { name: 'Annotated Output', exact: true })
+        const expected = await output.inputValue()
+        assert(expected.includes(`FEN "${rootFen}"`) && expected.includes('Root café ♞ — keep exactly'), 'export fixture lost its custom root or Unicode note')
+        assert(study !== 'game' || expected.includes('Variation note'), 'export fixture lost its variation')
+        const button = dialog.getByRole('button', { name: 'Download PGN', exact: true })
+        const notice = dialog.getByRole('alert').filter({ hasText: 'The browser could not start the PGN download.' })
+        await page.evaluate(() => {
+          window.__pgnCreated = []; window.__pgnRevoked = []
+          const create = URL.createObjectURL, revoke = URL.revokeObjectURL, click = HTMLAnchorElement.prototype.click
+          window.__setPgnDownloadMode = mode => {
+            window.__pgnDownloadMode = mode
+            URL.createObjectURL = mode === 'missing' ? undefined : function (...args) {
+              if (window.__pgnDownloadMode === 'url') throw new DOMException('QA unavailable download', 'NotAllowedError')
+              const url = create.apply(this, args); window.__pgnCreated.push(url); return url
+            }
+          }
+          URL.revokeObjectURL = function (url) { window.__pgnRevoked.push(url); return revoke.call(this, url) }
+          HTMLAnchorElement.prototype.click = function (...args) {
+            if (window.__pgnDownloadMode === 'click' && this.download.endsWith('.pgn')) throw new DOMException('QA blocked download', 'NotAllowedError')
+            return click.apply(this, args)
+          }
+        })
+        for (const mode of ['url', 'missing', 'click']) {
+          await page.evaluate(mode => window.__setPgnDownloadMode(mode), mode)
+          await button.focus()
+          await page.keyboard.press('Enter')
+          await notice.waitFor({ timeout: 3000 })
+          assert(await button.getAttribute('aria-describedby') === await notice.getAttribute('id'), 'download failure is not associated with the retry action')
+          assert(await button.isEnabled() && await button.evaluate(element => element === document.activeElement), 'failed PGN download lost its focused keyboard retry')
+          await page.waitForFunction(() => window.__pgnCreated.length === window.__pgnRevoked.length && !document.querySelector('a[download]'))
+          assert(await output.inputValue() === expected && await page.locator('.mtree-chip').count() === nodeCount
+            && await page.locator(`#chessboard-square-${king} [data-piece="wK"]`).count() === 1, 'failed PGN download changed the study or text')
+          const select = dialog.getByRole('button', { name: 'Select PGN text', exact: true })
+          await select.focus()
+          await page.keyboard.press('Enter')
+          assert(await output.evaluate(element => element === document.activeElement && element.selectionStart === 0 && element.selectionEnd === element.value.length), 'manual download fallback did not select the exact PGN')
+          assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'PGN download recovery overflows')
+        }
+        for (const outcome of ['resolve', 'reject']) {
+          await page.evaluate(() => {
+            window.__pendingPgnCopy = null
+            Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+              writeText: () => new Promise((resolve, reject) => { window.__pendingPgnCopy = { resolve, reject } }),
+            } })
+          })
+          await dialog.getByRole('button', { name: 'Copy PGN', exact: true }).click()
+          await page.waitForFunction(() => window.__pendingPgnCopy)
+          await page.evaluate(() => window.__setPgnDownloadMode('url'))
+          await button.focus()
+          await page.keyboard.press('Enter')
+          await notice.waitFor()
+          await page.evaluate(outcome => {
+            if (outcome === 'resolve') window.__pendingPgnCopy.resolve()
+            else window.__pendingPgnCopy.reject(new DOMException('QA older copy denied', 'NotAllowedError'))
+            return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+          }, outcome)
+          assert(await notice.count() === 1 && await dialog.getByRole('button', { name: 'Select PGN text', exact: true }).count() === 1
+            && await dialog.getByRole('button', { name: 'Copy PGN', exact: true }).count() === 1, 'an older clipboard response replaced or duplicated download recovery feedback')
+        }
+        await notice.scrollIntoViewIfNeeded()
+        await page.screenshot({ path: `/tmp/web-chess-pgn-download-error-${width}-${study}.png` })
+        await page.evaluate(() => window.__setPgnDownloadMode('success'))
+        const [download] = await Promise.all([page.waitForEvent('download'), button.click()])
+        assert(!await download.failure() && download.suggestedFilename() === 'reti-vs-tester-2026-10-27.pgn', 'PGN retry failed or used the wrong game filename')
+        const fileText = fs.readFileSync(await download.path(), 'utf8')
+        assert(fileText === expected, 'PGN retry changed the exact UTF-8 export')
+        await notice.waitFor({ state: 'detached' })
+        assert(await dialog.getByRole('button', { name: 'Select PGN text', exact: true }).count() === 0 && await button.getAttribute('aria-describedby') === null, 'successful retry retained the obsolete download failure')
+        await page.waitForFunction(() => window.__pgnCreated.length === window.__pgnRevoked.length && !document.querySelector('a[download]'))
+        await dialog.getByRole('button', { name: 'Import', exact: true }).click()
+        await dialog.locator('textarea').fill(fileText)
+        await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await dialog.waitFor({ state: 'detached' })
+        await page.locator(`#chessboard-square-${king} [data-piece="wK"]`).waitFor()
+        assert(await page.locator('.mtree-chip').count() === nodeCount, 'downloaded PGN reimport changed move/variation count')
+        assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `PGN export errors: ${errors.join('; ')}`)
+        console.log(`  PGN download recovery (${width}px, ${scale}x, ${theme}, ${study}): URL failure/missing API/blocked click retain study, exact text and focused retry; manual selection works; older clipboard success/failure cannot replace guidance; URL/anchor cleanup; retry downloads named UTF-8 PGN with root/notes/variations and reimports it`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkUnavailableCastlingRepair(browser) {
   const missingRook = '4k3/8/8/8/8/8/8/4K3 w K - 17 23'
   const mixed = 'r3k2r/8/8/8/8/8/8/4K2R w KQkq d6 17 23'
@@ -18934,6 +19039,7 @@ async function main() {
       'illegal-roots': checkIllegalStartingPositions,
       'castling-rights': checkCastlingRightInputs,
       'castling-repair': checkUnavailableCastlingRepair,
+      'pgn-download': checkPgnDownloadRecovery,
       'en-passant-rights': checkEnPassantRightInputs,
       'recovery-export': checkFailedRecoveryExport,
       'saved-game-roundtrip': checkASavedGameComesBack,
@@ -19789,6 +19895,7 @@ async function main() {
     await checkIllegalStartingPositions(browser)
     await checkCastlingRightInputs(browser)
     await checkUnavailableCastlingRepair(browser)
+    await checkPgnDownloadRecovery(browser)
     await checkEnPassantRightInputs(browser)
     await checkSettingsSurviveAReload(browser)
     await checkSettingsSayWhenTheyCannotBeKept(browser)

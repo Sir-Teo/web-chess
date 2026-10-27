@@ -125,6 +125,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const [error, setError] = useState<string | null>(null)
     const [status, setStatus] = useState<string | null>(null)
     const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
+    const [downloadFailed, setDownloadFailed] = useState(false)
     const [copiedText, setCopiedText] = useState<string | null>(null)
     const [exportTextSnapshot, setExportTextSnapshot] = useState<string | null>(null)
     const [exportOptions, setExportOptions] = useState(DEFAULT_EXPORT_OPTIONS)
@@ -158,6 +159,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const archiveCountId = useId()
     const enPassantId = useId()
     const castlingHelpId = useId()
+    const downloadErrorId = useId()
     const feedbackGenerationRef = useRef(0)
 
     const resetFeedback = useCallback(() => {
@@ -165,6 +167,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         setError(null)
         setStatus(null)
         setCopyStatus('idle')
+        setDownloadFailed(false)
         setCopiedText(null)
         setExportTextSnapshot(null)
         setShareLinkFallback('')
@@ -530,16 +533,26 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     }
 
     const handleDownload = () => {
-        setExportTextSnapshot(null)
-        const blob = new Blob([exportText], { type: 'application/x-chess-pgn;charset=utf-8' })
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = pgnDownloadFilename(pgnHeaders, openingName)
-        document.body.append(link)
-        link.click()
-        link.remove()
-        window.setTimeout(() => URL.revokeObjectURL(url), 0)
+        resetFeedback()
+        let url: string | undefined
+        let link: HTMLAnchorElement | undefined
+        try {
+            const blob = new Blob([exportText], { type: 'application/x-chess-pgn;charset=utf-8' })
+            url = URL.createObjectURL(blob)
+            link = document.createElement('a')
+            link.href = url
+            link.download = pgnDownloadFilename(pgnHeaders, openingName)
+            document.body.append(link)
+            link.click()
+        } catch {
+            setDownloadFailed(true)
+        } finally {
+            link?.remove()
+            if (url) {
+                const downloadUrl = url
+                window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0)
+            }
+        }
     }
 
     const handleUseCurrentFen = () => {
@@ -1080,6 +1093,14 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                             <p id={`${exportTextId}-help`} className="dialog-export-help">
                                 Text stays still while focused; updates resume when you leave this field.
                             </p>
+                            {downloadFailed && (
+                                <div id={downloadErrorId} className="dialog-share-fallback" role="alert">
+                                    <p className="dialog-error">The browser could not start the PGN download. Try again, or select the text and copy it manually.</p>
+                                    <button type="button" className="btn-cancel" onClick={() => selectForManualCopy(exportTextRef.current)}>
+                                        Select PGN text
+                                    </button>
+                                </div>
+                            )}
                             {/* Two buttons on this tab can fail, and they fail
                                 differently. The PGN is already in the box above, so
                                 "select the text" is a real instruction for it. The
@@ -1155,7 +1176,8 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                 {tab === 'export' && (
                     <div className="dialog-actions">
                         <button type="button" className="btn-cancel" onClick={closeDialog}>Close</button>
-                        <button type="button" className="btn-cancel" onClick={handleDownload}>
+                        <button type="button" className="btn-cancel" onClick={handleDownload}
+                            aria-describedby={downloadFailed ? downloadErrorId : undefined}>
                             Download PGN
                         </button>
                         <button
