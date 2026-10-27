@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, useId } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, useId, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useDisarmAfter } from '../hooks/useDisarmAfter'
 import { useModalFocus } from '../hooks/useModalFocus'
 import {
@@ -20,7 +20,7 @@ import './NewGameDialog.css'
 import './LibraryDialog.css'
 import { MAX_SEARCH_QUERY_LENGTH } from '../engine/searchTerms'
 import { formatLocalDate } from '../engine/localDate'
-import { isCompositionKey } from './shortcutKeys'
+import { isCompositionKey, isPlainShortcut, isTypingTarget } from './shortcutKeys'
 
 type Props = {
     open: boolean
@@ -61,6 +61,7 @@ type Props = {
  * size web-xiangqi's library panel already uses.
  */
 const PAGE_SIZE = 100
+const ROW_BUTTONS = '.library-favorite, .library-row-actions > button'
 const BACKUP_TOO_LARGE_MESSAGE = 'That backup is too large. Import one exported backup part at a time.'
 
 const SORT_OPTIONS: { value: LibrarySort; label: string }[] = [
@@ -112,6 +113,9 @@ export function LibraryDialog({
     const renameInputRef = useRef<HTMLInputElement>(null)
     const searchInputRef = useRef<HTMLInputElement>(null)
     const starredFilterRef = useRef<HTMLButtonElement>(null)
+    const listRef = useRef<HTMLUListElement>(null)
+    const showMoreRef = useRef<HTMLButtonElement>(null)
+    const moreReturnActionRef = useRef(1)
     const renameButtonRef = useRef<HTMLButtonElement | null>(null)
     const renameReturnFocusRef = useRef<HTMLElement | null>(null)
     const disarmDelete = useCallback(() => setConfirmingDelete(null), [])
@@ -208,6 +212,36 @@ export function LibraryDialog({
         setRenaming(null)
         setSort(next)
         setVisibleLimit(PAGE_SIZE)
+    }
+
+    const focusRowAction = (row: Element | undefined, actionIndex: number) => {
+        const target = row?.querySelectorAll<HTMLButtonElement>(ROW_BUTTONS)[actionIndex]
+        target?.focus()
+        target?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+    }
+
+    const navigateRows = (event: ReactKeyboardEvent<HTMLUListElement>) => {
+        if (event.defaultPrevented || isCompositionKey(event.nativeEvent) || !isPlainShortcut(event.nativeEvent)
+            || isTypingTarget(event.target) || !['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return
+        const button = (event.target as Element).closest('button')
+        const row = button?.closest('[data-library-game-id]')
+        if (!row || !button) return
+        const actionIndex = [...row.querySelectorAll<HTMLButtonElement>(ROW_BUTTONS)].indexOf(button)
+        if (actionIndex < 0) return // Inline editing buttons keep their own keys.
+        const rows = [...event.currentTarget.querySelectorAll('[data-library-game-id]')]
+        const index = rows.indexOf(row)
+        if (index < 0) return
+        event.preventDefault()
+        if (event.key === 'ArrowUp' && index === 0) {
+            searchInputRef.current?.focus()
+        } else if (event.key === 'ArrowDown' && index === rows.length - 1) {
+            moreReturnActionRef.current = actionIndex
+            showMoreRef.current?.focus()
+        } else {
+            const next = event.key === 'Home' ? 0 : event.key === 'End' ? rows.length - 1
+                : index + (event.key === 'ArrowDown' ? 1 : -1)
+            focusRowAction(rows[next], actionIndex)
+        }
     }
 
     const announce = (result: LibraryWriteResult, success: string) => {
@@ -378,14 +412,22 @@ export function LibraryDialog({
                                     id={searchId}
                                     type="search"
                                     aria-label="Search saved games"
+                                    aria-keyshortcuts="ArrowDown"
                                     aria-controls={`${searchId}-list`}
-                                    aria-describedby={`${searchId}-results`}
+                                    aria-describedby={`${searchId}-results ${searchId}-keys`}
+                                    title="Search saved games. Press Down Arrow to browse the results."
                                     value={query}
                                     // Matching truncates past this anyway; stopping it at the
                                     // input keeps a pasted game out of React state as well.
                                     maxLength={MAX_SEARCH_QUERY_LENGTH}
                                     placeholder="Search players, event, opening…"
                                     onChange={event => changeQuery(event.target.value)}
+                                    onKeyDown={event => {
+                                        if (event.key !== 'ArrowDown' || isCompositionKey(event.nativeEvent) || !isPlainShortcut(event.nativeEvent)) return
+                                        if (!listRef.current?.firstElementChild) return
+                                        event.preventDefault()
+                                        focusRowAction(listRef.current.firstElementChild, 1)
+                                    }}
                                 />
                                 {query.length > 0 && <button type="button" className="btn-cancel library-clear-search"
                                     aria-label="Clear saved-game search" title="Clear search"
@@ -421,7 +463,12 @@ export function LibraryDialog({
                         {loaded && !games.length && (
                             <p className="library-hint">Nothing saved yet.</p>
                         )}
-                        <ul className="library-list" id={`${searchId}-list`}>
+                        {games.length > 0 && <span id={`${searchId}-keys`} className="visually-hidden">
+                            Press Down Arrow to browse results. Within a row, Up and Down move between games;
+                            Home and End jump to the first and last shown games. Up from the first row returns to search.
+                        </span>}
+                        <ul ref={listRef} className="library-list" id={`${searchId}-list`}
+                            aria-keyshortcuts="ArrowUp ArrowDown Home End" onKeyDown={navigateRows}>
                             {shown.map(game => (
                                 <li key={game.id} className={`library-row${renaming?.id === game.id ? ' library-row-editing' : ''}`}
                                     data-library-game-id={game.id}
@@ -547,9 +594,15 @@ export function LibraryDialog({
 
                         {hiddenCount > 0 && (
                             <button
+                                ref={showMoreRef}
                                 type="button"
                                 className="btn-cancel library-show-more"
                                 aria-controls={`${searchId}-list`}
+                                onKeyDown={event => {
+                                    if (event.key !== 'ArrowUp' || isCompositionKey(event.nativeEvent) || !isPlainShortcut(event.nativeEvent)) return
+                                    event.preventDefault()
+                                    focusRowAction(listRef.current?.lastElementChild ?? undefined, moreReturnActionRef.current)
+                                }}
                                 onClick={() => {
                                     moreFocusRef.current = visible[shown.length]?.id ?? null
                                     setVisibleLimit(limit => limit + PAGE_SIZE)

@@ -1,0 +1,11 @@
+Library keyboard browsing verification, 27 October 2026
+
+Down from search focuses the first result's Load action. Within row actions, Up/Down keeps the same action across shown games and Home/End reaches the first/last shown row. Up from the first row returns to search; Down from the last row reaches Show more when available. Up from Show more returns to the action used to reach it. Expanding a page retains the existing first-new-row focus behavior. Normal Tab order and native Enter/Space actions remain available.
+
+Compose/modified key events and typing fields retain their own keys. Inline rename buttons also keep their own keys. Advertise the available list/search shortcuts and provide a search description, tooltip and README instructions. The search's live-count relationship still resolves when it also references the keyboard hint. No listbox selection role is imposed on rows containing several actions and editable controls.
+
+The new library-keyboard production workflow runs at 1280x900 normal dark, 901x812/200% light, 375x812 normal dark, 320x812/200% light and 844x390/200% dark, in Chromium, Firefox and WebKit. All fifteen cases pass. It navigates Load, Star and Delete columns, checks visible/hit-testable focus, first/last boundaries, search return, filtered results, native rename editing and controlled composing/modified input. It restores 103 more entries beside the first three, traverses the 100-row boundary through Show more and back, expands to 106, and loads the intended d4/d5 game using only the search/result keyboard path. Before activation, the board remains unchanged and no engine go command is sent. Controlled composing events do not emulate a physical OS candidate chooser.
+
+Existing Chromium/Firefox library browsing, all sort orders and inline editing/capacity workflows pass. Full npm run verify passes typecheck, lint, 123 files, 1,965 tests, one existing skip and production build. The behavior is covered by browser workflows rather than a model test duplicating DOM navigation logic.
+
+Additional WebKit checks pass after the feature: dialog keyboard containment and opener/backdrop restoration, a control-name/heading/duplicate-ID/inert sweep, and enlarged desktop/phone label overflow checks. These are targeted automated checks, not a claim of complete accessibility conformance.

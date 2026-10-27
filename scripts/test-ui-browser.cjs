@@ -6492,6 +6492,89 @@ async function checkLibraryEmptyFocus(browser) {
   }
 }
 
+async function checkLibraryKeyboardNavigation(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [901, 812, 2, 'light'], [375, 812, 1, 'dark'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      const dialog = page.locator('.library-dialog')
+      const search = dialog.getByRole('searchbox', { name: 'Search saved games', exact: true })
+      const importBackup = async games => {
+        await dialog.locator('input[type="file"]').setInputFiles({ name: 'keyboard.json', mimeType: 'application/json',
+          buffer: Buffer.from(JSON.stringify({ format: 'web-chess-library', version: 1, games })) })
+      }
+      const record = (id, name, pgn = '1. e4 e5 *') => ({ id, name, pgn, favorite: false, createdAt: 1, updatedAt: 1 })
+      await importBackup([record('a', 'Study A'), record('b', 'Study B', '1. d4 d5 *'), record('c', 'Study C')])
+      await dialog.getByRole('button', { name: 'Load Study A', exact: true }).waitFor()
+      await dialog.getByRole('combobox', { name: 'Sort saved games', exact: true }).selectOption('name')
+      const expectFocus = async name => page.waitForFunction(name => {
+        const element = document.activeElement
+        if (!(element instanceof HTMLElement) || (element.getAttribute('aria-label') !== name && element.textContent.trim() !== name)) return false
+        const rect = element.getBoundingClientRect()
+        return rect.top >= 0 && rect.bottom <= innerHeight + 1
+          && element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2))
+      }, name)
+      await search.focus()
+      await search.press('ArrowDown'); await expectFocus('Load Study A')
+      await page.keyboard.press('ArrowDown'); await expectFocus('Load Study B')
+      await page.keyboard.press('End'); await expectFocus('Load Study C')
+      await page.keyboard.press('ArrowDown'); await expectFocus('Load Study C')
+      await page.keyboard.press('Home'); await expectFocus('Load Study A')
+      await page.keyboard.press('ArrowUp'); await expectFocus('Search saved games')
+      const untouched = await search.evaluate(element => ['composing', 'modified'].map(kind => {
+        const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true,
+          isComposing: kind === 'composing', ctrlKey: kind === 'modified' })
+        element.dispatchEvent(event)
+        return !event.defaultPrevented && document.activeElement === element
+      }))
+      assert(untouched.every(Boolean), 'library navigation captured composing or modified input')
+      await dialog.getByRole('button', { name: 'Star Study A', exact: true }).focus()
+      await page.keyboard.press('ArrowDown'); await expectFocus('Star Study B')
+      await page.keyboard.press('End'); await expectFocus('Star Study C')
+      await dialog.getByRole('button', { name: 'Delete Study A', exact: true }).focus()
+      await page.keyboard.press('ArrowDown'); await expectFocus('Delete Study B')
+      assert(await dialog.locator('.library-confirm-delete').count() === 0, 'moving through delete actions armed a deletion')
+      await dialog.getByRole('button', { name: 'Rename Study A', exact: true }).click()
+      const rename = dialog.getByRole('textbox', { name: 'New game name', exact: true })
+      await rename.fill('Unsubmitted draft')
+      await rename.press('Home'); await rename.press('ArrowDown')
+      assert(await rename.evaluate(element => document.activeElement === element) && await rename.inputValue() === 'Unsubmitted draft', 'row navigation intercepted inline text editing')
+      await rename.press('Escape'); await expectFocus('Rename Study A')
+      await search.fill('Study B')
+      await search.press('ArrowDown'); await expectFocus('Load Study B')
+      await page.keyboard.press('ArrowUp'); await expectFocus('Search saved games')
+      await dialog.getByRole('button', { name: 'Clear saved-game search', exact: true }).click()
+      await importBackup(Array.from({ length: 103 }, (_, index) => record(`added-${index}`, `Added ${String(index).padStart(3, '0')}`)))
+      await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 100)
+      await search.focus(); await search.press('ArrowDown'); await expectFocus('Load Added 000')
+      await page.keyboard.press('End'); await expectFocus('Load Added 099')
+      await page.keyboard.press('ArrowDown'); await expectFocus('Show 6 more')
+      await page.keyboard.press('ArrowUp'); await expectFocus('Load Added 099')
+      await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter')
+      await expectFocus('Star Added 100')
+      await page.keyboard.press('ArrowDown'); await expectFocus('Star Added 101')
+      await page.keyboard.press('Home'); await expectFocus('Star Added 000')
+      await page.keyboard.press('End'); await expectFocus('Star Study C')
+      await page.keyboard.press('ArrowDown'); await expectFocus('Star Study C')
+      assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1
+        && await page.locator('#chessboard-square-d4 [data-piece]').count() === 0, 'library browsing moved the board')
+      assert(await page.evaluate(() => window.__uciCommands.every(command => !command.startsWith('go '))), 'library arrows started an engine search')
+      await search.fill('Study B')
+      await search.press('ArrowDown'); await page.keyboard.press('Enter')
+      await dialog.waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-d5 [data-piece="bP"]').waitFor()
+      assert(errors.length === 0, `library keyboard errors: ${errors.join('; ')}`)
+      console.log(`  library keyboard (${width}×${height}, ${scale}x, ${theme}): search/rows/Home/End preserve action and visible focus; composition/modifiers/editing stay native; filtered and paged navigation loads the intended game without stray work`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkLibraryStarredFilter(browser) {
   for (const [width, scale, theme] of [[1280, 1, 'dark'], [901, 2, 'light'], [375, 1, 'dark'], [320, 2, 'light']]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -6616,7 +6699,7 @@ async function checkLibraryBrowsing(browser) {
       const search = dialog.getByRole('searchbox', { name: 'Search saved games', exact: true })
       const results = dialog.locator('[aria-live="polite"][aria-atomic="true"]')
       await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 100)
-      assert(await search.getAttribute('aria-describedby') === await results.getAttribute('id'), 'search does not expose its live results description')
+      assert((await search.getAttribute('aria-describedby')).split(/\s+/).includes(await results.getAttribute('id')), 'search does not expose its live results description')
       assert(await search.getAttribute('aria-controls') === await dialog.locator('.library-list').getAttribute('id'), 'search does not identify its results list')
       assert((await results.innerText()).includes('201 games') && (await results.innerText()).includes('100 shown'), 'initial page reports the wrong available/shown counts')
       const showPage = async (label, expectedName, expectedCount, keyboard) => {
@@ -16966,6 +17049,7 @@ async function main() {
       'international-search': checkInternationalLibrarySearch,
       'library-browsing': checkLibraryBrowsing,
       'library-starred': checkLibraryStarredFilter,
+      'library-keyboard': checkLibraryKeyboardNavigation,
       'library-empty-focus': checkLibraryEmptyFocus,
       'viewport-gesture': checkViewportResizePreservesGesture,
       'library-sorting': checkLibrarySorting,
@@ -17811,6 +17895,7 @@ async function main() {
     await checkInternationalLibrarySearch(browser)
     await checkLibraryBrowsing(browser)
     await checkLibraryStarredFilter(browser)
+    await checkLibraryKeyboardNavigation(browser)
     await checkLibraryEmptyFocus(browser)
     await checkViewportResizePreservesGesture(browser)
     await checkLibrarySorting(browser)
