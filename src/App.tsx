@@ -6394,6 +6394,11 @@ function App() {
     expectedSan: string,
     moveLabel: string,
   ) => {
+    // The new exercise owns the board; a prepared line must not judge its
+    // answers, and replay/drawing must not take its input away.
+    setDrill(null)
+    setAutoplay(false)
+    endTouchDrawing()
     const chess = gameTreeRef.current.navigateTo(beforeNode.id)
     setReviewPractice({
       beforeFen: beforeNode.fen,
@@ -6406,7 +6411,8 @@ function App() {
     })
     navigateAndPonder(chess)
     requestBoardReveal()
-  }, [navigateAndPonder, requestBoardReveal])
+    boardStageRef.current?.focus({ preventScroll: true })
+  }, [endTouchDrawing, navigateAndPonder, requestBoardReveal])
 
   /**
    * Leave the exercise.

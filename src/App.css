@@ -3692,6 +3692,11 @@ button.critical-moment-row {
 }
 
 .review-move-list li {
+  /* These rows determine the height above the Practice controls. Deferring
+     their layout moved those controls between pointerdown and pointerup in
+     WebKit when the review scrolled into view. Keep their geometry measured. */
+  content-visibility: visible;
+  contain-intrinsic-size: none;
   padding: 0;
   overflow: hidden;
 }

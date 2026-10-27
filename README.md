@@ -294,7 +294,8 @@ given, and the app answering the reader who touches it.
   snap back without adding junk variations, and the answer appears after two
   misses. Promotions are graded exactly, including the chosen piece. Done
   returns to the game, so the next critical moment is where you left it — the
-  solved line stays in the tree as a variation.
+  solved line stays in the tree as a variation. Starting practice stops the
+  line drill, autoplay and marking mode.
 - **Time trouble, in the review**: A move's clock reading rides with it — read
   from `[%clk]` on import, recorded from the running clock in a timed game, and
   written back out. So a review of a real blitz game shows *0:07* beside the

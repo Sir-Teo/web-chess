@@ -207,6 +207,15 @@ const SCENARIO = ${JSON.stringify(scenario)};
      */
     scriptedLine() {
       if (window.__previewEndingPv) return { cp: 0, move: window.__previewEndingPv.split(' ')[0] };
+      if (SCENARIO === 'practice-ownership') {
+        // A legal answer different from the prepared move, with a deliberate
+        // score drop so the real review pipeline offers the practice action.
+        const path = /\\bmoves\\s+(.+)$/.exec(this.fen)?.[1]?.trim();
+        const fen = this.fen.replace(/^position fen /, '').split(' moves')[0];
+        const readings = window.__practiceReadings;
+        const reading = path ? readings?.byMoves[path] : readings?.byFen[fen];
+        if (reading) return reading;
+      }
       if (SCENARIO === 'console-search') {
         return this.fen.includes('rnb1kbnr')
           ? { cp: 900, move: 'd2d4', depths: [38, 40] }
@@ -16015,6 +16024,96 @@ async function checkDrawModeEndsWithItsPurpose(browser) {
   } finally { await context.close() }
 }
 
+async function checkPracticeOwnsTheBoard(browser) {
+  const { Chess } = require('chess.js')
+  const game = new Chess(), readings = { byFen: {}, byMoves: {} }, moves = []
+  const sans = ['f3', 'e5', 'g4', 'Qh4#'], best = ['e2e4', 'e7e5', 'g2g3', 'd8h4', '0000'], scores = [0, 900, -900, 2000, 0]
+  for (let index = 0; index <= sans.length; index += 1) {
+    const reading = { cp: scores[index], move: best[index], depths: [16, 22] }
+    readings.byFen[game.fen()] = reading; readings.byMoves[moves.join(' ')] = reading
+    if (index < sans.length) {
+      const move = game.move(sans[index])
+      moves.push(move.from + move.to + (move.promotion || ''))
+    }
+  }
+  const solution = new Chess(); solution.move('e4')
+  readings.byFen[solution.fen()] = readings.byMoves.e2e4 = { cp: 0, move: 'e7e5', depths: [16, 22] }
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const touch = width <= 900
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', hasTouch: touch })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('practice-ownership'))
+      await page.addInitScript(({ theme, readings }) => {
+        window.__practiceReadings = readings
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'beginner', autoAnalyze: false, engineProfile: 'lite-single-local', reviewMaxWorkers: 1, theme }))
+      }, { theme, readings })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(async scale => {
+        document.documentElement.style.fontSize = `${scale * 100}%`
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog textarea').fill('1. f3 e5 2. g4 Qh4# 0-1')
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+      await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+      const deepen = page.getByRole('button', { name: 'Deepen review', exact: true })
+      if (await deepen.count()) { await deepen.click(); await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor() }
+      const practice = page.getByRole('button', { name: 'Practice the position before 1. f3', exact: true })
+      await practice.waitFor()
+      await page.getByRole('button', { name: 'Drill this line as White', exact: true }).click()
+      await page.locator('.drill-card').getByRole('status').filter({ hasText: 'Playing White · move 1 of 2' }).waitFor()
+      await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).click()
+      await page.getByRole('button', { name: 'Set autoplay speed to Slow', exact: true }).click()
+      await page.getByRole('button', { name: 'Stop autoplay', exact: true }).waitFor()
+      const marking = page.locator('.board-draw-toggle')
+      if (touch) { await marking.click(); assert(await marking.getAttribute('aria-pressed') === 'true', 'the fixture did not enable marking') }
+      await practice.click()
+      const prompt = page.locator('[data-review-practice]')
+      await prompt.waitFor()
+      assert(await page.locator('.drill-card, .board-meta-drill').count() === 0, 'the old line drill still judges the review practice board')
+      assert(await page.getByRole('button', { name: 'Stop autoplay', exact: true }).count() === 0, 'practice left a replay moving its question')
+      if (touch) assert(await marking.getAttribute('aria-pressed') === 'false', 'practice left marking intercepting its answer')
+      await page.waitForFunction(() => document.activeElement?.classList.contains('board-stage'))
+      const play = async (from, to) => {
+        await page.locator(`#chessboard-square-${from}`).click()
+        await page.locator(`#chessboard-square-${to}`).click()
+      }
+      await play('d2', 'd4')
+      await page.waitForFunction(() => document.querySelector('[data-review-practice] [role="status"]')?.getAttribute('aria-label')?.startsWith('Not quite.'))
+      await page.locator('#chessboard-square-d2 [data-piece="wP"]').waitFor()
+      await play('e2', 'e4')
+      await prompt.getByRole('button', { name: 'Done', exact: true }).waitFor({ timeout: 3000 })
+      assert(/^Correct\. The best move was e4\./.test(await prompt.getByRole('status').getAttribute('aria-label')), 'the legal practice answer was not accepted')
+      await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+      await page.locator('#chessboard-square-e2 [data-piece="wP"]').waitFor({ state: 'detached' })
+      await prompt.getByRole('button', { name: 'Done', exact: true }).click()
+      await prompt.waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-e2 [data-piece="wP"]').waitFor()
+      await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor({ state: 'detached' })
+      await practice.click()
+      await prompt.waitFor()
+      if (touch) await marking.click()
+      await page.getByRole('button', { name: 'Drill this line as White', exact: true }).click()
+      await prompt.waitFor({ state: 'detached' })
+      if (touch) assert(await marking.getAttribute('aria-pressed') === 'false', 'the reverse handoff left marking active')
+      await play('f2', 'f3')
+      await page.locator('.drill-card').getByRole('status').filter({ hasText: 'Playing White · move 2 of 2' }).waitFor()
+      await page.getByRole('button', { name: 'Stop drilling', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+      assert(await page.getByRole('button', { name: /^Go to move 1\. f3/ }).count() === 1
+        && await page.getByRole('button', { name: /^Go to variation move 1\. e4/ }).count() === 1
+        && await page.locator('.mtree-chip').count() === 5, 'practice changed the original main line or duplicated its solution')
+      assert(errors.length === 0, `practice ownership errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'practice handoff overflows')
+      console.log(`  practice ownership (${width}×${height}, ${scale}x, ${theme}): active f3 drill, Slow replay${touch ? ' and marking' : ''} yield to e4 practice; board focus, legal wrong-answer reset and correct solution work; Done restores the question; a new drill accepts f3; original line and one solution variation remain`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkReturnToDrill(browser) {
   const pgn = '1. e4 (1. d4 d5 2. c4) e5 2. Nf3 Nc6 3. Bb5 a6 *'
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
@@ -17547,6 +17646,7 @@ async function main() {
       'drill-restart': checkDrillRestartKeepsItsLine,
       'drill-hints': checkDrillHiddenHints,
       'drill-return': checkReturnToDrill,
+      'practice-ownership': checkPracticeOwnsTheBoard,
       'viewport-gesture': checkViewportResizePreservesGesture,
       'library-sorting': checkLibrarySorting,
       'library-lock-fallback': checkLibraryLockFallback,
@@ -18330,6 +18430,7 @@ async function main() {
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkTheReviewOfferFollowsTheGame(browser)
+    await checkPracticeOwnsTheBoard(browser)
     await checkReturnToDrill(browser)
     await checkDrillHiddenHints(browser)
     await checkDrillRestartKeepsItsLine(browser)

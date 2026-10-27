@@ -1,0 +1,3 @@
+REVIEW STATE Completed review
+PRACTICE OPTIONS [ 'Practice the position before 1. f3' ]
+EXERCISE OWNERSHIP {"drillCards":1,"drill":["Playing White · move 1 of 2Not the line. Try again."],"prompt":"Practice · improve on 1. f3\nExit","e4Pawn":0}

@@ -1,0 +1,5 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  review list (1280px, 1x): selected moves follow buttons/keys, root resets, outer scroll/focus stays put, and new readings preserve manual scrolling
+  review list (1280px, 2x): selected moves follow buttons/keys, root resets, outer scroll/focus stays put, and new readings preserve manual scrolling
+  review list (375px, 1x): selected moves follow buttons/keys, root resets, outer scroll/focus stays put, and new readings preserve manual scrolling
+  review list (375px, 2x): selected moves follow buttons/keys, root resets, outer scroll/focus stays put, and new readings preserve manual scrolling
