@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { Chess, type Move } from 'chess.js'
 import type { ReviewLabel } from '../engine/analysis'
 import {
+    nodeAtGameTreeCursor,
     promoteToMainLine as promoteNodesToMainLine,
     removeSubtree,
     variationRootId,
@@ -272,7 +273,7 @@ export function useGameTree(startFen?: string) {
         return currentId
     }, [publishTree])
 
-    const loadTree = useCallback((entries: GameTreeImportEntry[], startFen?: string, rootCommands?: string[], rootComment?: string): string => {
+    const loadTree = useCallback((entries: GameTreeImportEntry[], startFen?: string, rootCommands?: string[], rootComment?: string, cursor?: readonly number[]): string => {
         const nextTree = makeTree(startFen)
         const root = nextTree.nodes.get(nextTree.rootId)!
         root.pgnCommands = rootCommands
@@ -308,7 +309,8 @@ export function useGameTree(startFen?: string) {
             return firstLineLeaf
         }
 
-        const current = appendEntries(root, entries) ?? root
+        const mainLineEnd = appendEntries(root, entries) ?? root
+        const current = (cursor ? nodeAtGameTreeCursor(nextTree.nodes, root.id, cursor) : null) ?? mainLineEnd
         publishTree({ ...nextTree, currentId: current.id })
         return current.id
     }, [publishTree])

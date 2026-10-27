@@ -11,6 +11,39 @@ import type { GameNode } from '../hooks/useGameTree'
  * is the whole of "make this the main line".
  */
 
+/** A position's route survives PGN reloads even though node IDs change. */
+export function gameTreeCursor(path: readonly GameNode[]): number[] | null {
+  if (!path.length || path[0]!.parent !== null) return null
+  const cursor: number[] = []
+  const seen = new Set([path[0]!.id])
+  for (let i = 1; i < path.length; i += 1) {
+    const parent = path[i - 1]!
+    const node = path[i]!
+    const index = parent.children.indexOf(node.id)
+    if (node.parent !== parent.id || index < 0 || seen.has(node.id)) return null
+    seen.add(node.id)
+    cursor.push(index)
+  }
+  return cursor
+}
+
+/** Invalid or outdated routes leave the caller free to use its normal landing. */
+export function nodeAtGameTreeCursor(nodes: ReadonlyMap<string, GameNode>, rootId: string, cursor: readonly number[]): GameNode | null {
+  const root = nodes.get(rootId)
+  if (!root || root.parent !== null) return null
+  let node: GameNode = root
+  const seen = new Set([rootId])
+  for (const index of cursor) {
+    if (!Number.isSafeInteger(index) || index < 0) return null
+    const id: string | undefined = node.children[index]
+    const next: GameNode | undefined = id === undefined ? undefined : nodes.get(id)
+    if (!next || next.parent !== node.id || seen.has(next.id)) return null
+    seen.add(next.id)
+    node = next
+  }
+  return node
+}
+
 /** Whether a node sits on the first-child chain from the root. */
 export function isOnMainLine(nodes: Map<string, GameNode>, id: string): boolean {
   let cursor = nodes.get(id)

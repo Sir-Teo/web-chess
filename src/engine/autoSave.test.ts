@@ -9,9 +9,30 @@ import {
   writeAutoSavedGame,
   normalizeAutoSavedClock,
   normalizeAutoSavedPlay,
+  normalizeAutoSavedCursor,
 } from './autoSave'
 
 const PGN = '[Event "Casual"]\n\n1. e4 e5 2. Nf3 *'
+
+describe('selected position recovery', () => {
+  it.each([[], [0, 0], [0, 1, 0]].map(cursor => ({ cursor })))('round-trips cursor $cursor without truncating the game', ({ cursor }) => {
+    const { storage } = stubStorage()
+    expect(writeAutoSavedGame(PGN, 3, storage, 1234, undefined, undefined, false, cursor)).toBe('saved')
+    expect(readAutoSavedGame(storage)).toEqual({ version: 1, savedAt: 1234, pgn: PGN, moveCount: 3, cursor })
+  })
+
+  it.each([null, '0,1', {}, [-1], [1.5], [Number.NaN], [Number.POSITIVE_INFINITY], [0, '1'], [null]].map(cursor => ({ cursor })))('ignores malformed cursor metadata $cursor while retaining the saved game', ({ cursor }) => {
+    const { storage } = stubStorage()
+    storage.setItem(AUTO_SAVED_GAME_KEY, JSON.stringify({ version: 1, savedAt: 1234, pgn: PGN, moveCount: 3, cursor }))
+    expect(readAutoSavedGame(storage)).toEqual({ version: 1, savedAt: 1234, pgn: PGN, moveCount: 3 })
+  })
+
+  it('bounds cursor data and rejects holes instead of accepting absent indices', () => {
+    expect(normalizeAutoSavedCursor(Array(2))).toBeUndefined()
+    expect(normalizeAutoSavedCursor(Array(10_001).fill(0))).toBeUndefined()
+    expect(normalizeAutoSavedCursor([])).toEqual([])
+  })
+})
 
 /** Just the three methods autoSave reaches for. */
 function stubStorage(overrides: Partial<Storage> = {}) {

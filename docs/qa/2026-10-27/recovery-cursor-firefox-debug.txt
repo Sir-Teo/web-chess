@@ -1,0 +1,71 @@
+RELOAD STATE {
+  current: 'Go to move 1... e5, current position',
+  note: undefined,
+  old: [ 0, 0, 0 ]
+} [ 0, 0 ]
+RELOAD STATE { current: undefined, note: undefined, old: [ 0, 0 ] } []
+RELOAD STATE {
+  current: 'Go to variation move 1... d5, current position, review book, has comment',
+  note: 'Edited side reply ♞',
+  old: []
+} [ 1, 0 ]
+RELOAD STATE {
+  current: 'Go to variation move 1... d5, current position, review book, has comment',
+  note: 'Edited side reply ♞',
+  old: [ 1, 0 ]
+} undefined
+RELOAD STATE {
+  current: 'Go to move 2. Nf3, current position, review book',
+  note: '',
+  old: undefined
+} undefined
+RELOAD STATE {
+  current: 'Go to move 2. Nf3, current position, review book',
+  note: '',
+  old: [ -1 ]
+} undefined
+  autosave cursor (1280×900, 1x, dark): immediate reload keeps takeback/root/variation positions, paused clock/session and exact complete game/notes; selected note follows its branch; legacy, malformed and outdated routes retain normal recovery
+RELOAD STATE {
+  current: 'Go to move 1... e5, current position',
+  note: undefined,
+  old: undefined
+} [ 0, 0 ]
+RELOAD STATE { current: undefined, note: undefined, old: [ 0, 0 ] } []
+RELOAD STATE {
+  current: 'Go to variation move 1... d5, current position, review book, has comment',
+  note: 'Edited side reply ♞',
+  old: []
+} [ 1, 0 ]
+RELOAD STATE {
+  current: 'Go to variation move 1... d5, current position, review book, has comment',
+  note: 'Edited side reply ♞',
+  old: [ 1, 0 ]
+} undefined
+RELOAD STATE {
+  current: 'Go to move 2. Nf3, current position, review book',
+  note: '',
+  old: undefined
+} undefined
+RELOAD STATE {
+  current: 'Go to move 2. Nf3, current position, review book',
+  note: '',
+  old: [ -1 ]
+} undefined
+  autosave cursor (375×812, 1x, light): immediate reload keeps takeback/root/variation positions, paused clock/session and exact complete game/notes; selected note follows its branch; legacy, malformed and outdated routes retain normal recovery
+RELOAD STATE {
+  current: 'Go to move 1... e5, current position',
+  note: undefined,
+  old: undefined
+} [ 0, 0 ]
+RELOAD STATE { current: undefined, note: undefined, old: [ 0, 0 ] } []
+RELOAD STATE {
+  current: 'Go to move 2. Nf3, current position, review book, has comment',
+  note: 'Edited side reply ♞',
+  old: []
+} [ 1, 0 ]
+Error: lifecycle flush lost selected route: expected [1,0], saved {"version":1,"savedAt":1793122500069,"pgn":"[Event \"Cursor notes ♞\"]\n[Site \"Web Chess\"]\n[Date \"2026.10.27\"]\n[Round \"1\"]\n[White \"Player 1\"]\n[Black \"Player 2\"]\n[Result \"*\"]\n\n{ [%eval -2.23]; [%wcbest e2e4];\n[%wcengine %5B%22lite-single-local%22%2C%2218.0.7%22%2C%22Fake%20Stockfish%22%5D]\n} 1. e4 { [%eval 0.71]; [%wcbest e2e4];\n[%wcengine %5B%22lite-single-local%22%2C%2218.0.7%22%2C%22Fake%20Stockfish%22%5D];\nmain pawn; Book } (1. d4 { side pawn; Best e4 } 1... d5 { side reply }\n2. c4 { side continuation }) 1... e5 { [%eval -1.22]; [%wcbest e2e4];\n[%wcengine %5B%22lite-single-local%22%2C%2218.0.7%22%2C%22Fake%20Stockfish%22%5D];\nmain reply; Best e2e4; Book } 2. Nf3 { [%eval 0.39]; [%wcbest e2e4];\n[%wcengine %5B%22lite-single-local%22%2C%2218.0.7%22%2C%22Fake%20Stockfish%22%5D];\nEdited side reply ♞; Best e2e4; Book } *\n","moveCount":3,"cursor":[0,0,0]}
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at reloadRestore (/workspace/web-chess/scripts/test-ui-browser.cjs:7690:35)
+    at async Object.checkAutoSaveCursor (/workspace/web-chess/scripts/test-ui-browser.cjs:7730:24)
+    at async /tmp/web-chess-recovery-cursor-debug.cjs:11:9

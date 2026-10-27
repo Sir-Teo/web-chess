@@ -136,7 +136,7 @@ import {
 } from './engine/premove'
 import { moveSoundFor } from './engine/moveSound'
 import { spokenMove } from './engine/spokenMove'
-import { hasSiblingVariations, siblingVariation } from './engine/moveTree'
+import { gameTreeCursor, hasSiblingVariations, siblingVariation } from './engine/moveTree'
 import { chessComPositionUrl, lichessAnalysisUrl } from './engine/externalLinks'
 import { BOARD_THEMES, boardThemeById } from './engine/boardThemes'
 import {
@@ -367,6 +367,7 @@ type AnalysisTarget = {
 type PgnImportOptions = {
   analyzeAfterLoad?: boolean
   fromSample?: boolean
+  cursor?: readonly number[]
 }
 
 type FenLoadOptions = {
@@ -5440,9 +5441,9 @@ function App() {
       setPgnHeaders(importedGame.headers)
 
       const mainLineEntries = flattenPgnMainLine(importedGame.moves)
-      gameTree.loadTree(importedGame.moves, rootFen, importedGame.rootCommands, importedGame.rootComment)
+      const selectedId = gameTree.loadTree(importedGame.moves, rootFen, importedGame.rootCommands, importedGame.rootComment, options?.cursor)
 
-      const finalFen = mainLineEntries.at(-1)?.fen ?? rootFen
+      const finalFen = gameTree.getNode(selectedId)?.fen ?? rootFen
       game.load(finalFen)
       setFen(finalFen)
       setEvaluationsByFen(importedGame.evaluations)
@@ -5598,6 +5599,7 @@ function App() {
         // side to take, and restoring one into Play mode would invent one.
         playSessionRef.current,
         isPositionStudy,
+        gameTreeCursor(gameTreeRef.current.currentPath()) ?? undefined,
       )
       if (result === 'saved') {
         autoSaveOwnedRevisionRef.current = { savedAt, pgn }
@@ -5620,7 +5622,7 @@ function App() {
       window.removeEventListener('pagehide', flush)
       document.removeEventListener('visibilitychange', flushWhenHidden)
     }
-  }, [autoSaveReady, autoSaveRecovery, autoSaveRetry, mainLineNodes, isPositionStudy, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
+  }, [autoSaveReady, autoSaveRecovery, autoSaveRetry, mainLineNodes, isPositionStudy, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot, gameTree.current.id])
 
   const downloadRecoveryPgn = useCallback(() => {
     let url: string | undefined
@@ -5664,7 +5666,7 @@ function App() {
    */
   const restoreAutoSavedGame = useCallback(() => {
     if (!autoSaveRecovery) return
-    const result = handleAnalysisPgnImport(autoSaveRecovery.pgn)
+    const result = handlePgnImport(autoSaveRecovery.pgn, { analyzeAfterLoad: true, cursor: autoSaveRecovery.cursor })
     if (!result.ok) {
       setAutoSaveRestoreError(result.error ?? 'The saved moves could not be read.')
       return
@@ -5703,7 +5705,7 @@ function App() {
         flagged: saved.flagged,
       })
     }
-  }, [autoSaveRecovery, handleAnalysisPgnImport, setAiPlayerDifficulty])
+  }, [autoSaveRecovery, handlePgnImport, setAiPlayerDifficulty])
 
   const copyAutoSavedPgn = useCallback(async () => {
     const pgn = autoSaveRecovery?.pgn

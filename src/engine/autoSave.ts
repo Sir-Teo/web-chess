@@ -60,6 +60,8 @@ export type AutoSavedGame = {
   moveCount: number
   /** Explicitly saved starting-position study, without fabricated plies. */
   positionStudy?: boolean
+  /** Child indices from the root to the selected position; absent in older saves. */
+  cursor?: number[]
   /** Absent for an untimed game, which is most of them. */
   clock?: AutoSavedClock
   /** Absent when the board was being analysed rather than played. */
@@ -155,6 +157,14 @@ export function normalizeAutoSavedPlay(value: unknown): AutoSavedPlay | undefine
   return { gameMode: raw.gameMode as AutoSavedPlay['gameMode'], playerColor, difficulty, resignedBy }
 }
 
+export function normalizeAutoSavedCursor(value: unknown): number[] | undefined {
+  if (!Array.isArray(value) || value.length > 10_000) return undefined
+  for (const index of value) {
+    if (!Number.isSafeInteger(index) || index < 0) return undefined
+  }
+  return [...value]
+}
+
 export function readAutoSavedGame(
   storage: AutoSaveStorage | null = getLocalStorage(),
 ): AutoSavedGame | null {
@@ -171,6 +181,7 @@ export function readAutoSavedGame(
       : 0
     const clock = normalizeAutoSavedClock(parsed.clock)
     const play = normalizeAutoSavedPlay(parsed.play)
+    const cursor = normalizeAutoSavedCursor(parsed.cursor)
     return {
       version: 1,
       savedAt: parsed.savedAt,
@@ -179,6 +190,7 @@ export function readAutoSavedGame(
       ...(parsed.positionStudy === true && moveCount === 0 ? { positionStudy: true } : {}),
       ...(clock ? { clock } : {}),
       ...(play ? { play } : {}),
+      ...(cursor ? { cursor } : {}),
     }
   } catch {
     return null
@@ -193,6 +205,7 @@ export function writeAutoSavedGame(
   clock?: AutoSavedClock,
   play?: AutoSavedPlay,
   positionStudy = false,
+  cursor?: readonly number[],
 ): AutoSaveWriteResult {
   if (!storage) return 'failed'
   const savePosition = positionStudy && moveCount === 0
@@ -203,6 +216,7 @@ export function writeAutoSavedGame(
   }
 
   try {
+    const savedCursor = normalizeAutoSavedCursor(cursor)
     const snapshot: AutoSavedGame = {
       version: 1,
       savedAt,
@@ -211,6 +225,7 @@ export function writeAutoSavedGame(
       ...(savePosition ? { positionStudy: true } : {}),
       ...(clock ? { clock } : {}),
       ...(play ? { play } : {}),
+      ...(savedCursor ? { cursor: savedCursor } : {}),
     }
     const serialized = JSON.stringify(snapshot)
     if (serializedByteLength(serialized) > AUTO_SAVE_MAX_BYTES) {

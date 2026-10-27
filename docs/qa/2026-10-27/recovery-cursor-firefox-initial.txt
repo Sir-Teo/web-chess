@@ -1,0 +1,8 @@
+  autosave cursor (1280×900, 1x, dark): immediate reload keeps takeback/root/variation positions, paused clock/session and exact complete game/notes; selected note follows its branch; legacy, malformed and outdated routes retain normal recovery
+  autosave cursor (375×812, 1x, light): immediate reload keeps takeback/root/variation positions, paused clock/session and exact complete game/notes; selected note follows its branch; legacy, malformed and outdated routes retain normal recovery
+Error: lifecycle flush lost the selected tree route
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at reloadRestore (/workspace/web-chess/scripts/test-ui-browser.cjs:7689:35)
+    at async Object.checkAutoSaveCursor (/workspace/web-chess/scripts/test-ui-browser.cjs:7729:24)
+    at async /tmp/web-chess-recovery-cursor-check.cjs:10:9

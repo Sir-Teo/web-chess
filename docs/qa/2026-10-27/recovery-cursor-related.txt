@@ -1,0 +1,24 @@
+  recovery: reload restores moves; incidental dismissals preserve valid/failed snapshots; explicit discard clears them
+  autosave lifecycle (1280×900, 1x): real immediate reload preserves position/move edits and the newest board move; repeated unopened recovery stays intact; simulated hidden-page event synchronously saves the latest note
+  autosave lifecycle (375×812, 1x): real immediate reload preserves position/move edits and the newest board move; repeated unopened recovery stays intact; simulated hidden-page event synchronously saves the latest note
+  autosave lifecycle (320×812, 2x): real immediate reload preserves position/move edits and the newest board move; repeated unopened recovery stays intact; simulated hidden-page event synchronously saves the latest note
+  autosave lifecycle (844×390, 2x): real immediate reload preserves position/move edits and the newest board move; repeated unopened recovery stays intact; simulated hidden-page event synchronously saves the latest note
+  autosave clock lifecycle: 1645ms of idle thinking reaches real reload recovery; both clock banks restore paused
+  shared recovery (1280px, 1x, dark, cold-game): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (1280px, 1x, dark, cold-start): explicit starting-position link opens directly in Analysis and clears older recovery
+  shared recovery (1280px, 1x, dark, hash-game): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (1280px, 1x, dark, hash-position): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (1280px, 1x, dark, invalid): invalid link preserves the old recovery and its actual restored game
+  shared recovery (1280px, 1x, dark, restricted-position): valid link owns the board; immediate refresh restores later Unicode edits with session storage denied
+  shared recovery (375px, 2x, light, cold-game): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (375px, 2x, light, cold-start): explicit starting-position link opens directly in Analysis and clears older recovery
+  shared recovery (375px, 2x, light, hash-game): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (375px, 2x, light, hash-position): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (375px, 2x, light, invalid): invalid link preserves the old recovery and its actual restored game
+  shared recovery (375px, 2x, light, restricted-position): valid link owns the board; immediate refresh restores later Unicode edits with session storage denied
+  autosave tabs (1280px, 1x, dark): own/restored reset clears its save; idle reload, stale-owner reset and empty-page exit preserve the other tab’s latest Unicode note and actual recovery
+  autosave tabs (375px, 2x, light): own/restored reset clears its save; idle reload, stale-owner reset and empty-page exit preserve the other tab’s latest Unicode note and actual recovery
+  position notes (1280×900, 1x): zero-move study retains/edits notes, copies through Commands with exact FEN/no invented moves; Save game command checks empty-board eligibility, opens the focused Library form for the study and returns opener focus; saved notes recover after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+  position notes (375×812, 1x): zero-move study retains/edits notes, copies through Commands with exact FEN/no invented moves; Save game command checks empty-board eligibility, opens the focused Library form for the study and returns opener focus; saved notes recover after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+  position notes (320×812, 2x): zero-move study retains/edits notes, copies through Commands with exact FEN/no invented moves; Save game command checks empty-board eligibility, opens the focused Library form for the study and returns opener focus; saved notes recover after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+  position notes (844×390, 2x): zero-move study retains/edits notes, copies through Commands with exact FEN/no invented moves; Save game command checks empty-board eligibility, opens the focused Library form for the study and returns opener focus; saved notes recover after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata

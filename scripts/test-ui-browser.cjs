@@ -7638,6 +7638,119 @@ async function checkAutosavePageLifecycle(browser) {
   } finally { await context.close() }
 }
 
+async function checkAutoSaveCursor(browser) {
+  const key = 'webchess:auto-saved-game:v1'
+  const chess = new (require('chess.js').Chess)()
+  chess.move('e4'); chess.move('e5')
+  const takenBackFen = chess.fen(), rootFen = new (require('chess.js').Chess)().fen()
+  chess.move('Nf3'); const legacyEnd = chess.fen()
+  const side = new (require('chess.js').Chess)(); side.move('d4'); side.move('d5')
+  const variationFen = side.fen()
+  const study = '[Event "Cursor notes ♞"]\n\n1. e4 {main pawn} (1. d4 {side pawn} d5 {side reply} 2. c4 {side continuation}) e5 {main reply} 2. Nf3 {main knight} *'
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => {
+        if (location.protocol === 'about:') return
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, engineProfile: 'lite-single-local', timeControlId: '3+2', lastSideChoice: 'white', theme }))
+        window.__cursorCopies = []
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: text => { window.__cursorCopies.push(String(text)); return Promise.resolve() } } })
+      }, theme)
+      const enlarge = async () => {
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true'
+          && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
+      }
+      const fen = async () => {
+        await page.getByTestId('command-palette-btn').click()
+        await page.getByRole('combobox', { name: 'Search commands', exact: true }).fill('copy fen')
+        await page.locator('[data-command-id="copy-fen"] button').click()
+        await page.locator('[data-command-palette="true"]').waitFor({ state: 'detached' })
+        return page.evaluate(() => window.__cursorCopies.at(-1))
+      }
+      const plainPgn = async () => {
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        const dialog = page.locator('.pgn-dialog')
+        await dialog.getByRole('button', { name: 'Export', exact: true }).click()
+        await dialog.getByRole('checkbox', { name: 'Engine evals', exact: true }).uncheck()
+        const text = await dialog.getByRole('textbox', { name: 'Annotated Output', exact: true }).inputValue()
+        await dialog.getByRole('button', { name: 'Close', exact: true }).click()
+        await dialog.waitFor({ state: 'detached' })
+        return text
+      }
+      const reloadRestore = async (expectedFen, cursor, note) => {
+        await page.reload({ waitUntil: 'domcontentloaded' }); await enlarge()
+        const recovery = page.locator('.auto-save-recovery')
+        await recovery.getByRole('button', { name: 'Restore', exact: true }).waitFor()
+        const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), key)
+        if (cursor !== undefined) assert(JSON.stringify(saved.cursor) === JSON.stringify(cursor), `lifecycle flush lost selected route ${JSON.stringify(cursor)}: saved ${JSON.stringify(saved.cursor)}`)
+        if (note) assert(saved.pgn.includes(note), 'lifecycle flush lost the newest selected variation note')
+        await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+        await recovery.waitFor({ state: 'detached' })
+        assert(await fen() === expectedFen, 'Restore changed the selected position instead of retaining its cursor')
+        if (saved.clock) {
+          assert(await page.locator('.clock-face.running').count() === 0, 'restored cursor restarted a clock')
+          await page.waitForFunction(({ key, clock }) => {
+            const saved = JSON.parse(localStorage.getItem(key))
+            return saved?.clock?.whiteMs === clock.whiteMs && saved.clock.blackMs === clock.blackMs
+          }, { key, clock: saved.clock })
+        }
+        return saved
+      }
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' }); await enlarge()
+      await page.getByRole('button', { name: 'Pass and play', exact: true }).click()
+      await page.locator('.move-entry summary').click()
+      const input = page.locator('.move-entry input')
+      for (const [move, square, piece] of [['e4', 'e4', 'wP'], ['e5', 'e5', 'bP'], ['Nf3', 'f3', 'wN']]) {
+        await input.fill(move); await input.press('Enter')
+        await page.locator(`#chessboard-square-${square} [data-piece="${piece}"]`).waitFor()
+      }
+      const originalPgn = await plainPgn()
+      await page.getByRole('button', { name: 'Take back your move', exact: true }).click()
+      await page.locator('#chessboard-square-g1 [data-piece="wN"]').waitFor()
+      await page.evaluate(() => document.activeElement?.blur()); await page.keyboard.press('Space')
+      await page.locator('.clock-paused').waitFor({ state: 'attached' })
+      const takenBack = await reloadRestore(takenBackFen, [0, 0])
+      assert(takenBack.play?.gameMode === 'human-vs-human' && takenBack.clock?.control?.incrementMs === 2000
+        && await plainPgn() === originalPgn && await page.locator('.mtree-chip').count() === 3, 'takeback recovery lost its clock/session or undone continuation')
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      await reloadRestore(rootFen, [])
+      assert(await plainPgn() === originalPgn && await page.locator('.mtree-chip').count() === 3, 'root recovery discarded the game ahead of the cursor')
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog textarea').fill(study)
+      await page.locator('.pgn-dialog').getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      const variation = page.getByRole('button', { name: /^Go to variation move 1\.\.\. d5/ })
+      await variation.focus(); await variation.press('Enter')
+      assert(await variation.getAttribute('aria-current') === 'step', 'the intended variation was not selected before editing its note')
+      const note = page.getByRole('textbox', { name: 'Move note', exact: true })
+      await note.fill('Edited side reply ♞')
+      const selected = await reloadRestore(variationFen, [1, 0], 'Edited side reply ♞')
+      assert(!selected.play && await note.inputValue() === 'Edited side reply ♞'
+        && (await page.locator('.mtree-chip[aria-current="step"]').getAttribute('aria-label')).includes('variation move 1... d5'), 'variation recovery restored the wrong note, branch or workspace')
+      const recoveredPgn = await plainPgn()
+      assert(['main pawn', 'side pawn', 'Edited side reply ♞', 'side continuation', 'main reply', 'main knight'].every(text => recoveredPgn.includes(text))
+        && await page.locator('.mtree-chip').count() === 6, 'cursor recovery truncated another branch or note')
+      for (const [scenario, cursor] of [['legacy', undefined], ['malformed', [-1]], ['outdated', [99]]]) {
+        await page.addInitScript(({ key, scenario, cursor }) => {
+          const marker = `qa-cursor-${scenario}`
+          if (sessionStorage.getItem(marker)) return
+          sessionStorage.setItem(marker, '1')
+          localStorage.setItem(key, JSON.stringify({ version: 1, savedAt: Date.now() - 60000, pgn: '[Event "Older save"]\n\n1. e4 e5 2. Nf3 *', moveCount: 3, ...(cursor ? { cursor } : {}) }))
+        }, { key, scenario, cursor })
+        await reloadRestore(legacyEnd)
+        assert(await page.locator('.mtree-chip').count() === 3, 'older or invalid cursor metadata prevented recovery of its game')
+      }
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'cursor recovery overflows')
+      assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `cursor recovery errors: ${errors.join('; ')}`)
+      console.log(`  autosave cursor (${width}×${height}, ${scale}x, ${theme}): immediate reload keeps takeback/root/variation positions, paused clock/session and exact complete game/notes; selected note follows its branch; legacy, malformed and outdated routes retain normal recovery`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkPositionStudyNotes(browser) {
   const fen = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1'
   const pgn = `[Event "Position notes QA"]\n[SetUp "1"]\n[FEN "${fen}"]\n\n{position introduction} * {closing study note}`
@@ -19980,6 +20093,7 @@ async function main() {
       'database-boundaries': checkDatabaseGameBoundaries,
       'library-pgn-endings': checkLibraryPgnEndings,
       'pgn-after-variation': checkPostVariationNotes,
+      'autosave-cursor': checkAutoSaveCursor,
       'position-notes': checkPositionStudyNotes,
       'autosave-lifecycle': checkAutosavePageLifecycle,
       'autosave-tabs': checkEmptyTabPreservesRecovery,
@@ -20852,6 +20966,7 @@ async function main() {
     await checkReviewExportRecovery(browser)
     await checkReviewListFollowsPosition(browser)
     await checkDialogResizeFocus(browser)
+    await checkAutoSaveCursor(browser)
     await checkPositionStudyNotes(browser)
     await checkAutosavePageLifecycle(browser)
     await checkEmptyTabPreservesRecovery(browser)
