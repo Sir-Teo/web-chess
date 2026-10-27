@@ -107,6 +107,19 @@ describe('position setup helpers', () => {
     expect(positionSetupToFen(withCounters)).toBe('8/8/8/8/8/8/8/R3K2R w Q - 12 41')
   })
 
+  it('keeps an unresolved en passant declaration when reselecting the same side', () => {
+    const setup = parsePositionSetupFen('r3k2r/8/8/8/8/8/8/4K2R w KQkq d6 17 23')!
+    expect(updateSetupTurn(setup, 'w')).toEqual(setup)
+  })
+
+  it('changes only the selected castling declaration before final serialization', () => {
+    const setup = parsePositionSetupFen('r3k2r/8/8/8/8/8/8/4K2R w KQkq d6 17 23')!
+    const edited = updateSetupCastlingRight(setup, 'K', false)
+    expect(edited.castling).toBe('Qkq')
+    expect(edited.enPassant).toBe('d6')
+    expect(positionSetupToFen(edited).split(' ')[2]).toBe('kq')
+  })
+
   it('only emits castling rights when the home king and rook are present', () => {
     const empty = createEmptyPositionSetup()
     const unavailable = updateSetupCastlingRight(empty, 'K', true)

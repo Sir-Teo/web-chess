@@ -16694,6 +16694,80 @@ async function checkPgnDownloadRecovery(browser) {
   }
 }
 
+async function checkSetupMetadataControls(browser) {
+  const mixed = 'r3k2r/8/8/8/8/8/8/4K2R w KQkq d6 17 23'
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light'], [320, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      const dialog = page.locator('.pgn-dialog')
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      const input = dialog.locator('.fen-textarea')
+      const half = dialog.getByRole('spinbutton', { name: 'Halfmove', exact: true })
+      const full = dialog.getByRole('spinbutton', { name: 'Fullmove', exact: true })
+      const side = dialog.getByRole('group', { name: 'Side to move', exact: true })
+      const white = side.getByRole('button', { name: 'White', exact: true })
+      const whiteK = dialog.getByRole('checkbox', { name: 'White kingside', exact: true })
+      const whiteQ = dialog.getByRole('checkbox', { name: 'White queenside', exact: true })
+      const load = dialog.getByRole('button', { name: 'Load & Analyze', exact: true })
+      await input.fill(mixed)
+      await half.fill('18')
+      assert(await input.inputValue() === mixed.replace('17 23', '18 23'), 'Halfmove silently repaired unrelated castling or EP fields')
+      assert(await half.evaluate(element => element === document.activeElement), 'Halfmove lost focus while committing')
+      await full.fill('24')
+      const counted = mixed.replace('17 23', '18 24')
+      assert(await input.inputValue() === counted && await full.evaluate(element => element === document.activeElement), 'Fullmove changed unrelated fields or lost focus')
+      await whiteK.uncheck()
+      assert(await input.inputValue() === counted.replace(' KQkq ', ' Qkq ')
+        && await whiteQ.isChecked() && await whiteQ.isDisabled(), 'a valid castling toggle removed another unresolved declaration')
+      await whiteK.check()
+      await white.click()
+      assert(await input.inputValue() === counted && await load.isDisabled(), 'reselecting the active side normalized an unresolved declaration')
+      const badCounters = mixed.replace('17 23', '18junk 24junk')
+      await input.fill(badCounters)
+      await white.click()
+      assert(await input.inputValue() === badCounters, 'reselecting the active side replaced invalid raw counters')
+      await half.fill('19')
+      assert(await input.inputValue() === badCounters.replace('18junk', '19') && await load.isDisabled(), 'Halfmove also repaired the other invalid counter')
+      await full.fill('24')
+      const correctedCounters = mixed.replace('17 23', '19 24')
+      assert(await input.inputValue() === correctedCounters && await whiteQ.isChecked() && await load.isDisabled(), 'counter repair hid remaining rights/EP errors')
+      await side.getByRole('button', { name: 'Black', exact: true }).click()
+      assert(await input.inputValue() === correctedCounters.replace(' w ', ' b ').replace(' d6 ', ' - '), 'changing side failed to clear only its incompatible EP target')
+      await white.click()
+      assert(await input.inputValue() === correctedCounters.replace(' d6 ', ' - '), 'returning to White changed castling rights or counters')
+      await dialog.getByRole('button', { name: 'Clear unavailable castling rights', exact: true }).click()
+      const ready = correctedCounters.replace(' KQkq d6 ', ' Kkq - ')
+      assert(await input.inputValue() === ready && await load.isEnabled(), 'explicit final repair did not enable the corrected draft')
+      const abbreviated = '4k3/8/8/8/8/8/8/4K3 w'
+      await input.fill(abbreviated)
+      await half.fill('1')
+      assert(await input.inputValue() === abbreviated + ' - - 1 1' && await load.isEnabled(), 'an explicit counter edit did not complete only missing fields with defaults')
+      assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'metadata editing loaded the draft without being asked')
+      await input.fill(ready)
+      await load.click()
+      await dialog.waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-e1').click(); await page.locator('#chessboard-square-g1').click()
+      await page.locator('#chessboard-square-f1 [data-piece="wR"]').waitFor()
+      await page.locator('#chessboard-square-e8').click(); await page.locator('#chessboard-square-c8').click()
+      await page.locator('#chessboard-square-d8 [data-piece="bR"]').waitFor()
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      assert(await input.inputValue() === '2kr3r/8/8/8/8/8/8/5RK1 w - - 21 25'
+        && await page.locator('.board-surface [data-piece]').count() === 5 && await page.locator('.mtree-chip').count() === 2, 'the explicit metadata repairs lost exact counters or retained castling ability')
+      assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `metadata editing errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'metadata editing overflows')
+      console.log(`  setup metadata (${width}px, ${scale}x, ${theme}): counters/castling toggles/same-side selection preserve independent raw errors; actual side changes clear EP only; counter edit completes missing fields; explicit repairs retain exact pieces, castles and final FEN/counters`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkUnavailableCastlingRepair(browser) {
   const missingRook = '4k3/8/8/8/8/8/8/4K3 w K - 17 23'
   const mixed = 'r3k2r/8/8/8/8/8/8/4K2R w KQkq d6 17 23'
@@ -19368,6 +19442,7 @@ async function main() {
       'illegal-roots': checkIllegalStartingPositions,
       'castling-rights': checkCastlingRightInputs,
       'castling-repair': checkUnavailableCastlingRepair,
+      'setup-metadata': checkSetupMetadataControls,
       'pgn-download': checkPgnDownloadRecovery,
       'pgn-export': checkPgnDownloadRecovery,
       'recovery-download': checkRecoveryDownloadFallback,
@@ -20227,6 +20302,7 @@ async function main() {
     await checkIllegalStartingPositions(browser)
     await checkCastlingRightInputs(browser)
     await checkUnavailableCastlingRepair(browser)
+    await checkSetupMetadataControls(browser)
     await checkPgnDownloadRecovery(browser)
     await checkRecoveryDownloadFallback(browser)
     await checkLibraryDownloadRecovery(browser)

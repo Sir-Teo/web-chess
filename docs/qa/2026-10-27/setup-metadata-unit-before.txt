@@ -1,0 +1,58 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/positionSetup.test.ts (15 tests | 2 failed) 21ms
+     × keeps an unresolved en passant declaration when reselecting the same side 7ms
+     × changes only the selected castling declaration before final serialization 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/positionSetup.test.ts > position setup helpers > keeps an unresolved en passant declaration when reselecting the same side
+AssertionError: expected { …(6) } to deeply equal { …(6) }
+
+- Expected
++ Received
+
+@@ -1,8 +1,8 @@
+  {
+    "castling": "KQkq",
+-   "enPassant": "d6",
++   "enPassant": "-",
+    "fullmove": 23,
+    "halfmove": 17,
+    "pieces": {
+      "a8": "r",
+      "e1": "K",
+
+ ❯ src/engine/positionSetup.test.ts:112:41
+    110|   it('keeps an unresolved en passant declaration when reselecting the …
+    111|     const setup = parsePositionSetupFen('r3k2r/8/8/8/8/8/8/4K2R w KQkq…
+    112|     expect(updateSetupTurn(setup, 'w')).toEqual(setup)
+       |                                         ^
+    113|   })
+    114|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/engine/positionSetup.test.ts > position setup helpers > changes only the selected castling declaration before final serialization
+AssertionError: expected 'kq' to be 'Qkq' // Object.is equality
+
+Expected: "Qkq"
+Received: "kq"
+
+ ❯ src/engine/positionSetup.test.ts:118:29
+    116|     const setup = parsePositionSetupFen('r3k2r/8/8/8/8/8/8/4K2R w KQkq…
+    117|     const edited = updateSetupCastlingRight(setup, 'K', false)
+    118|     expect(edited.castling).toBe('Qkq')
+       |                             ^
+    119|     expect(edited.enPassant).toBe('d6')
+    120|     expect(positionSetupToFen(edited).split(' ')[2]).toBe('kq')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 13 passed (15)
+   Start at  15:07:55
+   Duration  341ms (transform 137ms, setup 0ms, import 163ms, tests 21ms, environment 0ms)
+

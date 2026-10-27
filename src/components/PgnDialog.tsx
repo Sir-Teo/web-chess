@@ -468,18 +468,20 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const unavailableEnPassant = setup.enPassant !== '-' && !enPassantTargets.includes(setup.enPassant)
     const availableCastlingRights = normalizeAvailableCastlingRights(setup)
     const unavailableCastlingRights = setup.castling !== availableCastlingRights
-    const updateRawSetupField = (index: 2 | 3, value: string) => {
-        // Repair one metadata field without normalizing independent errors.
+    const updateRawSetupFields = (updates: ReadonlyArray<readonly [1 | 2 | 3 | 4 | 5, string]>, complete = false) => {
+        // Retain existing raw fields. Explicit counter edits can fill missing
+        // trailing defaults; other metadata repairs leave them for the reader.
         const fields = fenText.trim().split(/\s+/)
+        const index = complete ? 5 : Math.max(...updates.map(([index]) => index))
         if (fields.length <= index) {
             fields.push(...positionSetupToFen(setup).split(' ').slice(fields.length, index + 1))
         }
-        fields[index] = value
+        for (const [index, value] of updates) fields[index] = value
         syncFenTextAndSetup(fields.join(' '))
         resetFeedback()
     }
     const clearUnavailableCastlingRights = () => {
-        updateRawSetupField(2, availableCastlingRights)
+        updateRawSetupFields([[2, availableCastlingRights]])
         fenTextRef.current?.focus()
     }
     /**
@@ -905,7 +907,10 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                                         type="button"
                                                         className={`mode-card fen-side-btn ${setup.turn === option.value ? 'selected' : ''}`}
                                                         aria-pressed={setup.turn === option.value}
-                                                        onClick={() => applySetupChange(current => updateSetupTurn(current, option.value))}
+                                                        onClick={() => {
+                                                            const next = updateSetupTurn(setup, option.value)
+                                                            updateRawSetupFields([[1, next.turn], [3, next.enPassant]])
+                                                        }}
                                                     >
                                                         <strong>{option.label}</strong>
                                                     </button>
@@ -933,9 +938,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                                                 aria-invalid={declared && !canCastle || undefined}
                                                                 aria-describedby={declared && !canCastle ? castlingHelpId : undefined}
                                                                 onChange={event => {
-                                                                    applySetupChange(current =>
-                                                                        updateSetupCastlingRight(current, option.right, event.target.checked),
-                                                                    )
+                                                                    updateRawSetupFields([[2, updateSetupCastlingRight(setup, option.right, event.target.checked).castling]])
                                                                 }}
                                                             />
                                                             <span>{option.short}</span>
@@ -963,11 +966,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                                         min={0}
                                                         value={setup.halfmove}
                                                         position={setup}
-                                                        onValueChange={value => {
-                                                            applySetupChange(current =>
-                                                                updateSetupHalfmove(current, value),
-                                                            )
-                                                        }}
+                                                        onValueChange={value => updateRawSetupFields([[4, String(updateSetupHalfmove(setup, value).halfmove)]], true)}
                                                     />
                                                 </label>
                                                 <label className="fen-counter-field" htmlFor={fullmoveId}>
@@ -977,11 +976,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                                         min={1}
                                                         value={setup.fullmove}
                                                         position={setup}
-                                                        onValueChange={value => {
-                                                            applySetupChange(current =>
-                                                                updateSetupFullmove(current, value),
-                                                            )
-                                                        }}
+                                                        onValueChange={value => updateRawSetupFields([[5, String(updateSetupFullmove(setup, value).fullmove)]], true)}
                                                     />
                                                 </label>
                                             </div>
@@ -993,8 +988,8 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                                     value={setup.enPassant}
                                                     aria-invalid={unavailableEnPassant || undefined}
                                                     aria-describedby={`${enPassantId}-help`}
-                                                    onChange={event => updateRawSetupField(3,
-                                                        updateSetupEnPassant(setup, event.target.value as Square | '-').enPassant)}>
+                                                    onChange={event => updateRawSetupFields([[3,
+                                                        updateSetupEnPassant(setup, event.target.value as Square | '-').enPassant]])}>
                                                     <option value="-">None</option>
                                                     {unavailableEnPassant && <option value={setup.enPassant}>{setup.enPassant} (invalid)</option>}
                                                     {enPassantTargets.map(square => <option key={square} value={square}>{square}</option>)}
