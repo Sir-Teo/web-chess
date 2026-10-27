@@ -1,0 +1,6 @@
+page.waitForFunction: Timeout 2000ms exceeded.
+    at Object.checkDrillRevealAction (/workspace/web-chess/scripts/test-ui-browser.cjs:16463:20)
+    at async /tmp/web-chess-drill-reveal-check.cjs:10:9 {
+  log: [],
+  name: 'TimeoutError'
+}

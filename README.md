@@ -275,7 +275,9 @@ given, and the app answering the reader who touches it.
   next move rather than your opponent's reply; a wrong move snaps back and is
   never recorded, so a drill cannot fill the tree with the moves you were trying
   not to play; and the board's status shows the answer after two misses, as in review
-  practice. Until then nothing on screen gives it away: the candidate arrows,
+  practice. **Show move** reveals it immediately when you want help, without
+  counting a wrong attempt. The hint stays visible through retries and resets
+  for the next question or Restart. Until revealed, hints stay hidden: the candidate arrows,
   the Coach's best move, its traits and line, the Pro lines, the cloud eval's
   lines, the tablebase's moves and the opening explorer's book moves are held
   back while the drill waits for your move, because each of them very often
@@ -283,8 +285,8 @@ given, and the app answering the reader who touches it.
   and a different thing as Black. Deliberately not a new subsystem: a repertoire
   line here is a line in the game tree, which means it is also a game in the
   library, which means it already imports, exports, saves and shares — load a
-  saved game and its line is drillable as it stands. All three commands are in
-  the command palette too, each saying why it is unavailable rather than
+  saved game and its line is drillable as it stands. Starting, stopping and
+  showing the drill move are in Commands too, each saying why it is unavailable rather than
   greying out in silence. Restart stops any replay and keeps the line you
   began drilling, even after browsing another branch; choose Drill this line
   to practise a new one. Return to drill brings back the question you left,

@@ -16404,6 +16404,97 @@ async function checkDrillHiddenHints(browser) {
   }
 }
 
+async function checkDrillRevealAction(browser) {
+  const pgn = '1. e4 e5 2. Nf3 Nc6 *'
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    for (const side of ['White', 'Black']) {
+      const touch = width <= 900
+      const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', hasTouch: touch })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await page.locator('.pgn-dialog textarea').fill(pgn)
+        await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        const inspectReason = async reason => {
+          await page.getByTestId('command-palette-btn').click()
+          await page.getByRole('combobox', { name: 'Search commands', exact: true }).fill('Show the drill move')
+          const row = page.locator('[data-command-id="drill-reveal"]')
+          assert(await row.locator('button').isDisabled() && (await row.innerText()).includes(reason), `the unavailable hint command omits its reason: ${reason}`)
+          await page.keyboard.press('Escape')
+          await page.locator('[data-command-palette="true"]').waitFor({ state: 'detached' })
+        }
+        const reasons = width === 1280 && side === 'White'
+        if (reasons) await inspectReason('No drill is running')
+        const ids = () => page.locator('.mtree-chip').evaluateAll(chips => chips.map(chip => chip.dataset.nodeId))
+        const before = await ids()
+        await page.getByRole('button', { name: `Drill this line as ${side}`, exact: true }).click()
+        const card = page.getByRole('region', { name: 'Line drill', exact: true })
+        const status = page.locator('.board-meta-drill')
+        const show = card.getByRole('button', { name: 'Show move', exact: true })
+        await card.getByRole('status').filter({ hasText: `Playing ${side} · move 1 of 2` }).waitFor()
+        const answer = side === 'White' ? 'e4' : 'e5'
+        assert(!(await status.getAttribute('aria-label')).includes('plays '), 'the drill revealed its move before a request')
+        await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).click()
+        await page.getByRole('button', { name: 'Set autoplay speed to Slow', exact: true }).click()
+        await page.getByRole('button', { name: 'Stop autoplay', exact: true }).waitFor()
+        if (touch) await page.locator('.board-draw-toggle').click()
+        await show.click()
+        await card.getByText(`The line plays ${answer}.`, { exact: true }).waitFor()
+        assert((await status.getAttribute('aria-label')).includes(`The line plays ${answer}.`)
+          && !(await status.getAttribute('aria-label')).includes('Attempt'), 'asking for a hint was reported as a wrong attempt')
+        assert((await status.innerText()).includes(`Answer ${answer}`) && !await status.evaluate(el => el.classList.contains('retry')), 'the board did not show a neutral requested answer')
+        await page.waitForFunction(() => document.activeElement?.classList.contains('board-stage'))
+        assert(await page.getByRole('button', { name: 'Stop autoplay', exact: true }).count() === 0, 'showing the answer left replay moving its question')
+        if (touch) assert(await page.locator('.board-draw-toggle').getAttribute('aria-pressed') === 'false', 'showing the answer left marking intercepting it')
+        assert(await show.count() === 0, 'the revealed question still offers to reveal itself')
+        if (reasons) await inspectReason('The move is already shown')
+        const play = async (from, to) => {
+          await page.locator(`#chessboard-square-${from}`).click()
+          await page.locator(`#chessboard-square-${to}`).click()
+        }
+        await play(side === 'White' ? 'd2' : 'd7', side === 'White' ? 'd4' : 'd5')
+        await card.getByText(`Not the line. It plays ${answer}.`, { exact: true }).waitFor()
+        assert((await status.getAttribute('aria-label')).includes('Attempt 1.') && (await status.innerText()).includes(`Answer ${answer}`), 'one miss hid the requested answer or counted a fabricated earlier miss')
+        await play(side === 'White' ? 'e2' : 'e7', side === 'White' ? 'e4' : 'e5')
+        await card.getByRole('status').filter({ hasText: 'move 2 of 2' }).waitFor()
+        await show.waitFor()
+        assert(!(await status.innerText()).includes('Answer'), 'the previous answer followed the drill into another question')
+        if (reasons) {
+          await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+          assert(await show.count() === 0, 'a browsed position offers to reveal another question’s move')
+          await inspectReason('Return to the drill question first')
+          await card.getByRole('button', { name: 'Return to drill', exact: true }).click()
+        }
+        await page.getByTestId('command-palette-btn').click()
+        await page.getByRole('combobox', { name: 'Search commands', exact: true }).fill('Show the drill move')
+        await page.locator('[data-command-id="drill-reveal"] button').click()
+        await page.locator('[data-command-palette="true"]').waitFor({ state: 'detached' })
+        const next = side === 'White' ? 'Nf3' : 'Nc6'
+        await card.getByText(`The line plays ${next}.`, { exact: true }).waitFor()
+        assert((await status.innerText()).includes(`Answer ${next}`), 'the second reveal did not use the captured line')
+        await page.waitForFunction(() => document.activeElement?.classList.contains('board-stage'), null, { timeout: 2000 })
+        await card.getByRole('button', { name: 'Restart', exact: true }).click()
+        await show.waitFor()
+        assert(!(await status.getAttribute('aria-label')).includes('plays ') && !(await status.getAttribute('aria-label')).includes('Attempt'), 'Restart retained a requested hint or its attempts')
+        await play(side === 'White' ? 'e2' : 'e7', side === 'White' ? 'e4' : 'e5')
+        await card.getByRole('status').filter({ hasText: 'move 2 of 2' }).waitFor()
+        await play(side === 'White' ? 'g1' : 'b8', side === 'White' ? 'f3' : 'c6')
+        await card.getByRole('status').filter({ hasText: 'Line complete' }).waitFor()
+        if (reasons) await inspectReason('The drill is complete')
+        assert(await show.count() === 0 && JSON.stringify(await ids()) === JSON.stringify(before), 'hint use altered the study or left a completed drill asking for input')
+        assert(errors.length === 0, `drill reveal errors: ${errors.join('; ')}`)
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'the reveal action overflows')
+        console.log(`  show drill move (${width}×${height}, ${scale}x, ${side}): explicit answer at board and card without a fabricated miss; board focus/input, hint retention on a wrong attempt, next-question/reset hiding and unchanged completed study`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkDrillRestartKeepsItsLine(browser) {
   const pgn = '1. e4 (1. d4 d5 2. c4) e5 2. Nf3 Nc6 3. Bb5 a6 *'
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
@@ -17729,6 +17820,7 @@ async function main() {
       'confirmation-keys': checkConfirmationKeys,
       'move-list-fit': checkMoveListFitting,
       'drill-restart': checkDrillRestartKeepsItsLine,
+      'drill-reveal': checkDrillRevealAction,
       'drill-hints': checkDrillHiddenHints,
       'drill-return': checkReturnToDrill,
       'practice-ownership': checkPracticeOwnsTheBoard,
@@ -18519,6 +18611,7 @@ async function main() {
     await checkPracticeOwnsTheBoard(browser)
     await checkReturnToDrill(browser)
     await checkDrillHiddenHints(browser)
+    await checkDrillRevealAction(browser)
     await checkDrillRestartKeepsItsLine(browser)
     await checkDrillLeavesTheLineAlone(browser)
     await checkADrillStaysInAnalysis(browser)

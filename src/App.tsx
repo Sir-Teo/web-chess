@@ -1057,6 +1057,7 @@ function App() {
 
   // ── Click-to-move (tap support) ───────────────────────
   const restoreBoardFocusRef = useRef<Square | null>(null)
+  const revealDrillFocusRef = useRef(false)
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
   const [legalTargets, setLegalTargets] = useState<Square[]>([])
   const [pendingPromotion, setPendingPromotion] = useState<PendingPromotion | null>(null)
@@ -4479,6 +4480,10 @@ function App() {
   const drillBlackReason = drillableLine
     ? drillUnavailableReason(drillLineForSide('black')!)
     : 'There is no line on the board to drill.'
+  const drillRevealReason = !drill ? 'No drill is running'
+    : !isDrillTurn(drill.line, drill.ply) ? 'The drill is complete'
+      : drill.expectedFen !== fen ? 'Return to the drill question first'
+        : drill.revealed ? 'The move is already shown' : null
 
   const applyHumanMove = useCallback(
     (from: Square, to: Square, promotion?: PromotionPiece) => {
@@ -4504,7 +4509,7 @@ function App() {
         const judged = judgeDrillMove(activeDrill.line, activeDrill.ply, activeDrill.misses, move)
         if (!judged.correct) {
           game.undo()
-          setDrill(previous => (previous ? { ...previous, misses: judged.misses, revealed: judged.revealed } : previous))
+          setDrill(previous => (previous ? { ...previous, misses: judged.misses, revealed: previous.revealed || judged.revealed } : previous))
           clearBoardSelection()
           setPendingPromotion(null)
           return false
@@ -5275,6 +5280,29 @@ function App() {
   const requestBoardReveal = useCallback(() => {
     setBoardRevealTick(tick => tick + 1)
   }, [])
+
+  const revealDrillMove = useCallback(() => {
+    if (drillRevealReason) return
+    setDrill(previous => previous && previous === drill ? { ...previous, revealed: true } : previous)
+    setAutoplay(false)
+    endTouchDrawing()
+    clearBoardSelection()
+    revealDrillFocusRef.current = true
+    requestBoardReveal()
+  }, [clearBoardSelection, drill, drillRevealReason, endTouchDrawing, requestBoardReveal])
+
+  useEffect(() => {
+    if (!revealDrillFocusRef.current) return
+    if (!drill?.revealed || drill.expectedFen !== fen) {
+      revealDrillFocusRef.current = false
+      return
+    }
+    if (backgroundUiHidden) return
+    // A command runs while its closing palette still makes the board inert.
+    // Wait for that commit before handing focus to the revealed question.
+    revealDrillFocusRef.current = false
+    boardStageRef.current?.focus({ preventScroll: true })
+  }, [backgroundUiHidden, drill, fen])
 
   // Each reveal owns its settle timers. New input, a modal, or the other
   // reveal supersedes them. Consumed requests never replay after cleanup.
@@ -6309,6 +6337,14 @@ function App() {
       run: () => startDrill('black'),
     },
     {
+      id: 'drill-reveal',
+      label: 'Show the drill move',
+      hint: drillRevealReason ?? 'Reveal the prepared move without counting a wrong attempt',
+      keywords: ['repertoire', 'hint', 'help', 'answer', 'stuck', 'reveal'],
+      disabled: Boolean(drillRevealReason),
+      run: revealDrillMove,
+    },
+    {
       id: 'drill-stop',
       label: 'Stop drilling',
       hint: drill ? 'Leave the line where it is' : 'No drill is running',
@@ -6357,7 +6393,7 @@ function App() {
   ], [analysisExperience, atVariationFork, autoFlipBoard, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyGameLink, copyPgn, drill, reviewFinishedGame, reviewFromPlay, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
     goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, moveEntryCommandReason, requestMoveEntry,
       goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
-      previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay,
+      previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay, drillRevealReason, revealDrillMove,
       openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger,
       reviewFaultCount, reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason, workspaceMode])
 
@@ -6770,9 +6806,9 @@ function App() {
       ? canReturn
         ? 'Return to the question you left, or restart from the beginning.'
         : 'That question is no longer in this study. Restart to practise the line again.'
-      : !finished && drill.misses > 0
-        ? answerSan ? `Not the line. It plays ${answerSan}.` : 'Not the line. Try again.'
-        : null
+      : !finished && answerSan
+        ? drill.misses > 0 ? `Not the line. It plays ${answerSan}.` : `The line plays ${answerSan}.`
+        : !finished && drill.misses > 0 ? 'Not the line. Try again.' : null
     // Every rejected answer needs a fresh live update, including attempts
     // after the hint has already been revealed and its wording stays the same.
     const attempt = !finished && !awayFromLine && drill.misses > 0 ? `Attempt ${drill.misses}.` : null
@@ -6793,6 +6829,11 @@ function App() {
           {detail && <p className="drill-miss panel-copy small">{detail}</p>}
         </div>
         <div className="inline-actions">
+          {!finished && !awayFromLine && !drill.revealed && (
+            <button type="button" className="btn-cancel" onClick={revealDrillMove}>
+              Show move
+            </button>
+          )}
           {awayFromLine && <button type="button" className="btn-cancel" onClick={returnToDrill}
             onFocus={event => {
               const button = event.currentTarget
@@ -6831,9 +6872,8 @@ function App() {
     const { done, total, finished, awayFromLine, answerSan, spoken } = drillFeedback
     if (finished) return { tone: 'correct', label: 'Drill · done', spoken }
     if (awayFromLine) return { tone: 'away', label: `Drill · paused ${done + 1}/${total}`, spoken }
-    if (drill.misses > 0) {
-      return { tone: 'retry', label: answerSan ? `Answer ${answerSan} · ${done + 1}/${total}` : `Not the line · ${done + 1}/${total}`, spoken }
-    }
+    if (answerSan) return { tone: drill.misses > 0 ? 'retry' : 'ready', label: `Answer ${answerSan} · ${done + 1}/${total}`, spoken }
+    if (drill.misses > 0) return { tone: 'retry', label: `Not the line · ${done + 1}/${total}`, spoken }
     return { tone: 'ready', label: `Drill · ${done + 1}/${total}`, spoken }
   })()
 
