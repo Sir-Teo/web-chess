@@ -1,0 +1,3 @@
+{"name": "nag-after-last-comment", "input": "1. e4 {first} {[%eval 0.31]} $1 e5 *", "normalized": "1. e4 {first} $1 {[%eval 0.31]} e5 *", "error": "Expected end of input, game termination marker, move number, standard algebraic notation, or whitespace but \"$\" found."}
+{"name": "alternating-annotations", "input": "1. e4 {first} $1 {second} $14 {third} $10 e5 *", "normalized": "1. e4 $1 {first} $14 {second} $10 {third} e5 *", "error": "Expected end of input, game termination marker, move number, standard algebraic notation, or whitespace but \"$\" found."}
+{"name": "comment-literal-nag", "input": "1. e4 {literal $14} e5 *", "normalized": "1. e4 {literal $14} e5 *", "evaluations": 0, "rootMoves": [{"comment": "literal $14", "nags": null, "clockMs": null, "san": "e4"}]}

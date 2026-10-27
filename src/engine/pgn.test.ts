@@ -1224,6 +1224,43 @@ describe('annotation shapes chess.js will not take', () => {
         expect(reorderPgnAnnotations(`${header}\n\n1. e4 {note} $1 e5 *`))
             .toBe(`${header}\n\n1. e4 $1 {note} e5 *`)
     })
+
+    it('imports a judgement after the last of several comments', () => {
+        const parsed = parsePgnMoveTree('1. e4 {first} {[%eval 0.31]} $1 e5 *')
+        expect(parsed.moves[0]).toMatchObject({ comment: 'first', nags: ['1'] })
+        expect(parsed.evaluations.get(parsed.moves[0].fen)).toMatchObject({ cp: -31 })
+    })
+
+    it('retains alternating judgements, notes, clocks and evaluations in order', () => {
+        const parsed = parsePgnMoveTree('1. e4 $1 {first} $14 {[%clk 0:05:00]} $10 {second [%eval 0.31]} e5 *')
+        expect(parsed.moves[0]).toMatchObject({ comment: 'first second', nags: ['1', '14', '10'], clockMs: 300000 })
+        expect(parsed.evaluations.get(parsed.moves[0].fen)).toMatchObject({ cp: -31 })
+    })
+
+    it('normalizes annotation runs within a side variation', () => {
+        const parsed = parsePgnMoveTree('1. e4 (1. d4 {side one} $1 {side two} $14 d5) e5 *')
+        const side = parsed.moves.find(entry => entry.move.san === 'd4')
+        expect(side).toMatchObject({ comment: 'side one side two', nags: ['1', '14'] })
+        expect(side?.children?.[0].move.san).toBe('d5')
+    })
+
+    it('keeps annotation runs attached to their own move', () => {
+        const parsed = parsePgnMoveTree('1. e4 {white} $1 {idea} $14 e5 {black} $2 {reply} $15 *')
+        expect(parsed.moves[0]).toMatchObject({ comment: 'white idea', nags: ['1', '14'] })
+        expect(parsed.moves[0].children?.[0]).toMatchObject({ comment: 'black reply', nags: ['2', '15'] })
+    })
+
+    it('preserves literal annotation text and unmatched braces in line comments', () => {
+        for (const ending of ['\n', '\r', '\r\n']) {
+            const prefix = `1. e4 ; literal {note} $1 and unfinished {{${ending}`
+            expect(reorderPgnAnnotations(`${prefix}e5 {real} $2 *`)).toBe(`${prefix}e5 $2 {real} *`)
+        }
+    })
+
+    it('retains an unfinished trailing comment after normalizing the complete run', () => {
+        expect(reorderPgnAnnotations('1. e4 {first} $1 {unfinished'))
+            .toBe('1. e4 $1 {first} {unfinished')
+    })
 })
 
 describe('a PGN file as it arrives from a disk', () => {

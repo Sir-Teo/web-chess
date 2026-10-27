@@ -1,0 +1,8 @@
+{"browser":"chromium","width":1280,"scale":1,"theme":"dark","round":1,"mainlinePlies":3,"sideVariation":true,"notesJudgementsClocksEvaluationsAndLiteralHeaderRetained":true,"stableExport":false,"errors":[]}
+{"browser":"chromium","width":1280,"scale":1,"theme":"dark","round":2,"mainlinePlies":3,"sideVariation":true,"notesJudgementsClocksEvaluationsAndLiteralHeaderRetained":true,"stableExport":true,"errors":[]}
+{"browser":"chromium","width":375,"scale":2,"theme":"light","round":1,"mainlinePlies":3,"sideVariation":true,"notesJudgementsClocksEvaluationsAndLiteralHeaderRetained":true,"stableExport":false,"errors":[]}
+{"browser":"chromium","width":375,"scale":2,"theme":"light","round":2,"mainlinePlies":3,"sideVariation":true,"notesJudgementsClocksEvaluationsAndLiteralHeaderRetained":true,"stableExport":true,"errors":[]}
+{"browser":"firefox","width":1280,"scale":1,"theme":"dark","round":1,"mainlinePlies":3,"sideVariation":true,"notesJudgementsClocksEvaluationsAndLiteralHeaderRetained":true,"stableExport":false,"errors":[]}
+{"browser":"firefox","width":1280,"scale":1,"theme":"dark","round":2,"mainlinePlies":3,"sideVariation":true,"notesJudgementsClocksEvaluationsAndLiteralHeaderRetained":true,"stableExport":true,"errors":[]}
+{"browser":"firefox","width":375,"scale":2,"theme":"light","round":1,"mainlinePlies":3,"sideVariation":true,"notesJudgementsClocksEvaluationsAndLiteralHeaderRetained":true,"stableExport":false,"errors":[]}
+{"browser":"firefox","width":375,"scale":2,"theme":"light","round":2,"mainlinePlies":3,"sideVariation":true,"notesJudgementsClocksEvaluationsAndLiteralHeaderRetained":true,"stableExport":true,"errors":[]}

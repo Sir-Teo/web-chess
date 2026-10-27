@@ -742,40 +742,64 @@ function buildImportEntries(
  * a Lichess study where a written note sits beside an `[%eval]`, land in the
  * second shape routinely.
  *
- * Two rewrites, both safe on text that does not contain them:
- *
- *   {a} {b}   ->  {a b}     one comment, which is all a node can hold anyway
- *   {a} $1    ->  $1 {a}    the order chess.js does accept
- *
- * A `}` can only ever end a comment — PGN comments do not nest — so matching on
- * the braces cannot reach inside one.
+ * Collect each complete run once: `{a} $1 {b} $14` becomes `$1 $14 {a b}`.
+ * Keep the note order, NAG order and gaps within a NAG group. A comment ends at
+ * the first `}`; line comments are literal text, and an unfinished tail stays
+ * available for the parser to reject rather than being discarded.
  */
 function reorderPgnMovetextAnnotations(pgnText: string): string {
-    // NAGs first, so a `{a} $1 {b}` becomes `$1 {a} {b}` and then `$1 {a b}`.
-    // Find each complete comment once. A global `{...}` pattern retries every
-    // opening brace when the closing brace is missing, freezing malformed imports.
+    const starts = /[;{]/g
+    const lineEnding = /[\r\n]/g
+    const whitespace = /\s*/y
     const followingNags = /(\s*)((?:\$\d+)(?:\s+\$\d+)*)/y
-    let nagsBeforeComments = ''
+    let output = ''
     let copiedThrough = 0
     let cursor = 0
     for (;;) {
-        const open = pgnText.indexOf('{', cursor)
-        if (open < 0) break
+        starts.lastIndex = cursor
+        const start = starts.exec(pgnText)
+        if (!start) break
+        const open = start.index
+        if (start[0] === ';') {
+            lineEnding.lastIndex = open + 1
+            const ending = lineEnding.exec(pgnText)
+            if (!ending) break
+            cursor = ending.index + 1
+            continue
+        }
         const close = pgnText.indexOf('}', open + 1)
         if (close < 0) break
-        followingNags.lastIndex = close + 1
-        const match = followingNags.exec(pgnText)
-        if (match) {
-            nagsBeforeComments += pgnText.slice(copiedThrough, open)
-                + match[2] + (match[1] || ' ') + pgnText.slice(open, close + 1)
-            copiedThrough = followingNags.lastIndex
-            cursor = copiedThrough
-        } else {
-            cursor = close + 1
+        const comments: string[] = []
+        const nags: string[] = []
+        let nagGap = ' '
+        let commentOpen = open
+        let commentClose = close
+        let runEnd = close + 1
+        for (;;) {
+            comments.push(pgnText.slice(commentOpen + 1, commentClose))
+            runEnd = commentClose + 1
+            followingNags.lastIndex = runEnd
+            const match = followingNags.exec(pgnText)
+            if (match) {
+                if (nags.length === 0) nagGap = match[1] || ' '
+                nags.push(match[2])
+                runEnd = followingNags.lastIndex
+            }
+            whitespace.lastIndex = runEnd
+            whitespace.exec(pgnText)
+            const nextOpen = whitespace.lastIndex
+            if (pgnText[nextOpen] !== '{') break
+            const nextClose = pgnText.indexOf('}', nextOpen + 1)
+            if (nextClose < 0) break
+            commentOpen = nextOpen
+            commentClose = nextClose
         }
+        output += pgnText.slice(copiedThrough, open)
+            + (nags.length ? nags.join(' ') + nagGap : '') + `{${comments.join(' ')}}`
+        copiedThrough = runEnd
+        cursor = runEnd
     }
-    nagsBeforeComments += pgnText.slice(copiedThrough)
-    return nagsBeforeComments.replace(/\}(\s*)\{/g, ' ')
+    return output + pgnText.slice(copiedThrough)
 }
 
 export function reorderPgnAnnotations(pgnText: string): string {
