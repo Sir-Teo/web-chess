@@ -1,0 +1,23 @@
+  evaluation provenance (1280px): actual worker identity, retained score after engine switch, review source, deeper replacement, and optional PGN metadata
+  evaluation provenance (375px): actual worker identity, retained score after engine switch, review source, deeper replacement, and optional PGN metadata
+  review report: holds still after 4 positions were re-searched and disagreed
+  threat recovery (1280×900, 1x, dark, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (1280×900, 1x, dark, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (1280×900, 1x, dark, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (375×812, 1x, light, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (375×812, 1x, light, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (375×812, 1x, light, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (320×812, 2x, light, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (320×812, 2x, light, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (320×812, 2x, light, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (844×390, 2x, dark, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (844×390, 2x, dark, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (844×390, 2x, dark, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  engine release (1280px, 1x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (1280px, 2x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (375px, 1x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (375px, 2x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release: import stays unloaded; explicit Review loads; busy two-worker review pool blocks release even when foreground is Ready; Stop then Release closes every worker
+  engine release (hidden): hidden infinite search waits for visibility; Stop during reload cancels it
+  engine release (fallback): explicit search survives a failed boot and runs once on fallback
+  engine release (fallback-load): Load preserves prior lines through a failed boot and fallback handshake, without another search

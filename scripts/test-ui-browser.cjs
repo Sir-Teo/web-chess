@@ -892,6 +892,98 @@ async function checkMoveEntryAvailability(browser) {
   }
 }
 
+async function checkEngineProfileAutomaticAnalysis(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    for (const [autoAnalyze, mode] of [[true, 'finite'], [false, 'finite'], [true, 'hidden'], [true, 'released']]) {
+      const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript('console-search'))
+        await page.addInitScript(({ autoAnalyze, mode, theme }) => {
+          window.__profileVisibility = 'visible'
+          Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => window.__profileVisibility })
+          Object.defineProperty(document, 'hidden', { configurable: true, get: () => window.__profileVisibility === 'hidden' })
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+            workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze', autoAnalyze,
+            continuousAnalysis: mode === 'hidden', engineProfile: 'lite-single-local', analyzeMode: 'deep',
+            searchDepth: 6, hashMb: 96, multiPv: 3, showWdl: true, theme,
+          }))
+        }, { autoAnalyze, mode, theme })
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        const waitStatus = status => page.waitForFunction(status => document.querySelector('.bottom .status')?.textContent === status, status)
+        const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        await waitStatus('ready')
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        for (const [from, to, piece] of [['e2', 'e4', 'wP'], ['e7', 'e5', 'bP'], ['g1', 'f3', 'wN']]) {
+          await page.locator(`#chessboard-square-${from}`).click()
+          await page.locator(`#chessboard-square-${to}`).click()
+          await page.waitForFunction(({ from, to, piece }) => !document.querySelector(`#chessboard-square-${from} [data-piece]`)
+            && document.querySelector(`#chessboard-square-${to} [data-piece="${piece}"]`), { from, to, piece })
+        }
+        // Explicit navigation leaves a deeper reading that suppresses another
+        // automatic pass on this same position until the engine changes.
+        await page.getByRole('button', { name: 'Go to previous move', exact: true }).click()
+        await page.waitForFunction(() => window.__uciCommands.filter(line => line.startsWith('position fen')).at(-1)?.endsWith('moves e2e4 e7e5'))
+        await waitStatus('ready')
+        await page.getByRole('button', { name: 'Go to next move', exact: true }).click()
+        await page.waitForFunction(() => window.__uciCommands.filter(line => line.startsWith('position fen')).at(-1)?.endsWith('moves e2e4 e7e5 g1f3'))
+        await waitStatus('ready')
+        await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+        const picker = page.getByLabel('Engine profile in Engine Lab')
+        const board = () => page.locator('[id^="chessboard-square-"]').evaluateAll(els => els.map(el => ({
+          square: el.id, piece: el.querySelector('[data-piece]')?.getAttribute('data-piece') ?? null,
+        })))
+        const beforeBoard = await board()
+        if (mode === 'released') {
+          await page.getByRole('button', { name: 'Release engine', exact: true }).click()
+          await waitStatus('unloaded')
+        }
+        for (const profile of ['full-single-cdn', 'lite-single-local']) {
+          if (mode === 'hidden') await page.evaluate(() => { window.__profileVisibility = 'hidden'; document.dispatchEvent(new Event('visibilitychange')) })
+          const before = await page.evaluate(() => {
+            window.__holdConsoleReady = true
+            window.__releaseConsoleReady = null
+            return { made: window.__engineCount, commands: window.__uciCommands.length }
+          })
+          await picker.focus()
+          await picker.selectOption(profile)
+          if (mode === 'released') {
+            await settle()
+            assert(await page.evaluate(made => window.__engineCount === made && document.querySelector('.bottom .status')?.textContent === 'unloaded', before.made), 'changing a profile woke an explicitly released engine')
+          } else {
+            await page.waitForFunction(made => window.__engineCount === made + 1 && typeof window.__releaseConsoleReady === 'function', before.made)
+            await waitStatus('loading')
+            assert(await page.evaluate(count => !window.__uciCommands.slice(count).some(line => /^go\s/.test(line)), before.commands), 'profile analysis ran before startup readiness')
+            await page.evaluate(() => window.__releaseConsoleReady())
+            await waitStatus('ready')
+            await settle()
+            if (mode === 'hidden') {
+              assert(await page.evaluate(count => !window.__uciCommands.slice(count).some(line => /^go\s/.test(line)), before.commands), 'changing a profile ran infinite analysis while hidden')
+              await page.evaluate(() => { window.__profileVisibility = 'visible'; document.dispatchEvent(new Event('visibilitychange')) })
+              await page.waitForFunction(count => window.__uciCommands.slice(count).includes('go infinite'), before.commands)
+              await waitStatus('ready')
+            }
+          }
+          const sent = await page.evaluate(count => window.__uciCommands.slice(count), before.commands)
+          const searches = sent.filter(line => /^go\s/.test(line))
+          const expected = autoAnalyze && mode !== 'released' ? 1 : 0
+          assert(searches.length === expected, `profile ${profile}, Auto ${autoAnalyze}, ${mode}: expected ${expected} new search, received ${JSON.stringify(searches)}`)
+          if (expected) {
+            assert(searches[0] === (mode === 'hidden' ? 'go infinite' : 'go depth 6'), 'profile change lost the automatic search limit')
+            assert(sent.some(line => line.startsWith('position fen') && line.endsWith('moves e2e4 e7e5 g1f3')), 'profile analysis lost board history')
+            for (const command of ['setoption name Hash value 96', 'setoption name MultiPV value 3', 'setoption name UCI_ShowWDL value true']) assert(sent.includes(command), `profile analysis lost ${command}`)
+          }
+          assert(JSON.stringify(await board()) === JSON.stringify(beforeBoard), 'changing the engine profile changed the position')
+          assert(await picker.evaluate(el => el === document.activeElement), 'background profile analysis stole picker focus')
+        }
+        assert(errors.length === 0, `profile analysis errors: ${errors.join('; ')}`)
+        console.log(`  profile analysis (${width}×${height}, ${scale}x, ${theme}, auto ${autoAnalyze}, ${mode}): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkEngineRetry(browser) {
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
     for (const [kind, autoAnalyze] of [['boot', false], ['runtime', false], ['runtime', true], ['hidden', true]]) {
@@ -16406,6 +16498,7 @@ async function main() {
       resources: checkSingleThreadReviewPool,
       'engine-release': checkEngineRelease,
       'engine-retry': checkEngineRetry,
+      'profile-analysis': checkEngineProfileAutomaticAnalysis,
       'threat-engine-wake': checkThreatEngineWake,
       'threat-recovery': checkThreatInterruptionRecovery,
       'threat-shortcut': checkThreatShortcutDoesNotRestart,
@@ -17228,6 +17321,7 @@ async function main() {
     await checkThreatShortcutDoesNotRestart(browser)
     await checkEngineRelease(browser)
     await checkEngineRetry(browser)
+    await checkEngineProfileAutomaticAnalysis(browser)
     await checkConsoleSearchDeadlines(browser)
     await checkConsoleTools(browser)
     await checkConsoleLimitParsing(browser)

@@ -1,0 +1,4 @@
+{"browser":"chromium","autoAnalyze":true,"status":"ready","workers":1,"commands":["quit","uci","isready"],"storedProfile":"full-single-cdn"}
+{"browser":"chromium","autoAnalyze":false,"status":"ready","workers":1,"commands":["quit","uci","isready"],"storedProfile":"full-single-cdn"}
+{"browser":"firefox","autoAnalyze":true,"status":"ready","workers":1,"commands":["quit","uci","isready"],"storedProfile":"full-single-cdn"}
+{"browser":"firefox","autoAnalyze":false,"status":"ready","workers":1,"commands":["quit","uci","isready"],"storedProfile":"full-single-cdn"}

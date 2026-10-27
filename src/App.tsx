@@ -2296,7 +2296,7 @@ function App() {
   }, [])
 
   // ── Auto-analyze ─────────────────────────────────────
-  // A fresh retry requeues automatic work once. Ordinary status changes do not
+  // A profile change or retry requeues automatic work once. Status changes do not
   // restart a search, and the Auto toggle still decides whether to run one.
   const keepSearching = continuousAnalysis && analysisExperience === 'pro'
   const automaticPositionRef = useRef<AnalysisTarget | null>(null)
@@ -2383,6 +2383,7 @@ function App() {
     currentPathMovesKey,
     currentRootFen,
     engineEnabled,
+    engineProfile,
     engineRetryCount,
     fen,
     hashMb,
@@ -9597,7 +9598,11 @@ function App() {
                       <select
                         aria-label="Engine profile in Engine Lab"
                         value={engineProfile}
-                        onChange={e => setEngineProfile(e.target.value as EngineProfileId)}>
+                        onChange={e => {
+                          cancelStaleBackgroundAnalysis()
+                          skipFullAnalyzeFenRef.current = null
+                          setEngineProfile(e.target.value as EngineProfileId)
+                        }}>
                         <option value="auto">Auto (recommended)</option>
                         {engineProfiles.map(p => (
                           <option key={p.id} value={p.id}>{p.name}</option>

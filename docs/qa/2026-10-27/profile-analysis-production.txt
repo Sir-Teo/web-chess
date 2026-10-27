@@ -1,0 +1,16 @@
+  profile analysis (1280×900, 1x, dark, auto true, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (1280×900, 1x, dark, auto false, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (1280×900, 1x, dark, auto true, hidden): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (1280×900, 1x, dark, auto true, released): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (375×812, 1x, light, auto true, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (375×812, 1x, light, auto false, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (375×812, 1x, light, auto true, hidden): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (375×812, 1x, light, auto true, released): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (320×812, 2x, light, auto true, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (320×812, 2x, light, auto false, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (320×812, 2x, light, auto true, hidden): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (320×812, 2x, light, auto true, released): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (844×390, 2x, dark, auto true, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (844×390, 2x, dark, auto false, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (844×390, 2x, dark, auto true, hidden): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (844×390, 2x, dark, auto true, released): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading

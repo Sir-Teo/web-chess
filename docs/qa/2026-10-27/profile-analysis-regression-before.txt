@@ -1,0 +1,5 @@
+Error: profile full-single-cdn, Auto true, finite: expected 1 new search, received []
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkEngineProfileAutomaticAnalysis (/workspace/web-chess/scripts/test-ui-browser.cjs:970:11)
+    at async /tmp/web-chess-profile-analysis-check.cjs:10:9
