@@ -115,6 +115,7 @@ import { SavedReviews } from './components/SavedReviews'
 import { fetchSamplePgn } from './engine/samplePgn'
 import { buildFenShareUrl, hashCarriesShare, parseFenShareHash } from './engine/shareLink'
 import { MAX_SHARED_GAME_CHARS, buildGameShareUrl, parseGameShareHash, replaySharedGame } from './engine/shareGame'
+import { clearSharedRecovery, recordSharedRecovery, shouldResumeSharedRecovery } from './engine/sharedRecovery'
 import { nullMoveProbe } from './engine/threats'
 import {
   tablebaseMoveActionLabel,
@@ -482,6 +483,7 @@ function useStableNodeList(next: GameNode[]): GameNode[] {
   return next
 }
 const SHARED_LINK_UNREADABLE = 'That shared link could not be read — showing the starting position.'
+const SHARED_LINK_UNREADABLE_CURRENT = 'That shared link could not be read — keeping the current position.'
 
 /**
  * A link that carried more than it could give.
@@ -5524,6 +5526,7 @@ function App() {
   // The check is mount-only and runs before the first debounced write, so a
   // fresh board cannot clear the snapshot it is about to offer.
   const autoSaveCheckedRef = useRef(false)
+  const resumeSharedRecoveryRef = useRef(false)
 
   useEffect(() => {
     if (autoSaveCheckedRef.current) return
@@ -5531,7 +5534,10 @@ function App() {
     const snapshot = readAutoSavedGame()
     setAutoSaveReady(true)
     if (!snapshot) return
-    if (mainLineNodes.length > 1 || currentRootFen !== DEFAULT_POSITION) {
+    const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+    const resumeSharedRecovery = shouldResumeSharedRecovery(snapshot.savedAt, window.location.hash, navigation?.type ?? 'navigate')
+    resumeSharedRecoveryRef.current = resumeSharedRecovery
+    if (!resumeSharedRecovery && (mainLineNodes.length > 1 || currentRootFen !== DEFAULT_POSITION)) {
       // A share link already put a game on the board, so the snapshot is stale.
       clearAutoSavedGame()
       return
@@ -5566,6 +5572,7 @@ function App() {
         // Another tab may have saved since this board became empty.
         clearAutoSavedGame(undefined, autoSaveOwnedRevisionRef.current)
         autoSaveOwnedRevisionRef.current = null
+        clearSharedRecovery()
         setAutoSaveResult('empty')
         return
       }
@@ -5590,7 +5597,10 @@ function App() {
         playSessionRef.current,
         isPositionStudy,
       )
-      if (result === 'saved') autoSaveOwnedRevisionRef.current = { savedAt, pgn }
+      if (result === 'saved') {
+        autoSaveOwnedRevisionRef.current = { savedAt, pgn }
+        recordSharedRecovery(savedAt, window.location.hash)
+      }
       setAutoSaveResult(result)
     }
     const delay = autoSaveDelayMs(Date.now(), autoSaveLastWriteAtRef.current, AUTO_SAVE_DEBOUNCE_MS)
@@ -5626,6 +5636,7 @@ function App() {
     autoSaveCopyGeneration.current++
     clearAutoSavedGame()
     autoSaveOwnedRevisionRef.current = null
+    clearSharedRecovery()
     setAutoSaveCopyState('idle')
     setAutoSaveRestoreError(null)
     setAutoSaveRecovery(null)
@@ -5780,6 +5791,7 @@ function App() {
     setEvaluationsByFen(new Map())
     setFrozenReview(null)
     setDrill(null)
+    setReviewPractice(null)
     setAutoplay(false)
     setClock(null)
     setResignedBy(null)
@@ -5808,27 +5820,33 @@ function App() {
   ])
 
   useEffect(() => {
-    const loadSharedHash = () => {
+    const loadSharedHash = (event?: HashChangeEvent) => {
+      if (!event && resumeSharedRecoveryRef.current) return
       const sharedGame = parseGameShareHash(window.location.hash)
-      if (sharedGame && loadSharedGame(sharedGame)) return
+      if (sharedGame && loadSharedGame(sharedGame)) {
+        dismissAutoSaveRecovery()
+        setShowCommandPalette(false)
+        return
+      }
       const sharedFen = loadSharedFenFromUrl()
       if (!sharedFen) {
         // A link that carried something and gave nothing. Measured on a
         // truncated `#fen=`, which is what a chat app makes of a long link:
         // the board dropped to the starting position in Play mode and said
         // nothing, so the reader is left thinking the sender got it wrong.
-        if (hashCarriesShare(window.location.hash)) announce(SHARED_LINK_UNREADABLE, NOTICE_EXPLAIN_MS)
+        if (hashCarriesShare(window.location.hash)) {
+          announce(event ? SHARED_LINK_UNREADABLE_CURRENT : SHARED_LINK_UNREADABLE, NOTICE_EXPLAIN_MS)
+        }
         return
       }
       setShowPgnDialog(false)
       setShowNewGameDialog(false)
       setShowLibraryDialog(false)
       setSettingsOpen(false)
-      if (sharedFen === game.fen()) {
-        requestBoardReveal()
-        return
+      if (handleFenLoad(sharedFen, { forceAnalysis: true }).ok) {
+        dismissAutoSaveRecovery()
+        setShowCommandPalette(false)
       }
-      handleFenLoad(sharedFen, { forceAnalysis: true })
     }
 
     // Also on mount: a link opened cold has its hash before the first render,

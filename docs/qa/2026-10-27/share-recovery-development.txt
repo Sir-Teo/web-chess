@@ -1,0 +1,12 @@
+  shared recovery (1280px, 1x, dark, cold-game): valid links own the board; invalid links preserve recovery/current work; refresh retains later Unicode edits
+  shared recovery (1280px, 1x, dark, cold-start): valid links own the board; invalid links preserve recovery/current work; refresh retains later Unicode edits
+  shared recovery (1280px, 1x, dark, hash-game): valid links own the board; invalid links preserve recovery/current work; refresh retains later Unicode edits
+  shared recovery (1280px, 1x, dark, hash-position): valid links own the board; invalid links preserve recovery/current work; refresh retains later Unicode edits
+  shared recovery (1280px, 1x, dark, invalid): valid links own the board; invalid links preserve recovery/current work; refresh retains later Unicode edits
+  shared recovery (1280px, 1x, dark, restricted-position): valid links own the board; invalid links preserve recovery/current work; refresh retains later Unicode edits with session storage denied
+  shared recovery (375px, 2x, light, cold-game): valid links own the board; invalid links preserve recovery/current work; refresh retains later Unicode edits
+  shared recovery (375px, 2x, light, cold-start): valid links own the board; invalid links preserve recovery/current work; refresh retains later Unicode edits
+  shared recovery (375px, 2x, light, hash-game): valid links own the board; invalid links preserve recovery/current work; refresh retains later Unicode edits
+  shared recovery (375px, 2x, light, hash-position): valid links own the board; invalid links preserve recovery/current work; refresh retains later Unicode edits
+  shared recovery (375px, 2x, light, invalid): valid links own the board; invalid links preserve recovery/current work; refresh retains later Unicode edits
+  shared recovery (375px, 2x, light, restricted-position): valid links own the board; invalid links preserve recovery/current work; refresh retains later Unicode edits with session storage denied

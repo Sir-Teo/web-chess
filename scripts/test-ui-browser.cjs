@@ -16088,6 +16088,106 @@ async function checkASavedGameComesBack(browser) {
  * `about:blank` between the two openings: the links differ only in their hash,
  * and a navigation between them is same-document and never reloads.
  */
+async function checkSharedLinkRecoveryPriority(browser) {
+  const key = 'webchess:auto-saved-game:v1'
+  const oldPgn = '[Event "Old recovery"]\n\n1. d4 d5 *'
+  const start = new (require('chess.js').Chess)().fen()
+  const custom = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 12'
+  const gameHash = '#game=' + Buffer.from(start + '|e2e4 e7e5 g1f3 b8c6').toString('base64url') + '&ply=1'
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    for (const scenario of ['cold-game', 'cold-start', 'hash-game', 'hash-position', 'invalid', 'restricted-position']) {
+      const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(({ key, oldPgn, theme, restricted }) => {
+          if (!localStorage.getItem('qa-shared-recovery-seeded')) {
+            localStorage.setItem(key, JSON.stringify({ version: 1, savedAt: Date.now() - 60000, pgn: oldPgn, moveCount: 2 }))
+            localStorage.setItem('qa-shared-recovery-seeded', 'true')
+          }
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, theme }))
+          if (restricted) Object.defineProperty(window, 'sessionStorage', { configurable: true, get: () => { throw new DOMException('Session storage denied', 'SecurityError') } })
+        }, { key, oldPgn, theme, restricted: scenario === 'restricted-position' })
+        const enlarge = () => page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        const read = () => page.evaluate(key => JSON.parse(localStorage.getItem(key) || 'null'), key)
+        const recovery = page.locator('.auto-save-recovery')
+        const initialHash = scenario === 'cold-game' ? gameHash
+          : scenario === 'cold-start' ? '#fen=' + encodeURIComponent(start)
+            : scenario === 'restricted-position' ? '#fen=' + encodeURIComponent(custom) : ''
+        await page.goto(BASE + initialHash, { waitUntil: 'domcontentloaded' })
+        await enlarge()
+        if (!initialHash) {
+          await recovery.getByRole('button', { name: 'Restore', exact: true }).waitFor()
+          const origin = await page.evaluate(() => performance.timeOrigin)
+          const nextHash = scenario === 'hash-game' ? gameHash
+            : scenario === 'invalid' ? '#game=~~~~unreadable~~~~' : '#fen=' + encodeURIComponent(start)
+          await page.evaluate(hash => { location.hash = hash }, nextHash)
+          assert(await page.evaluate(() => performance.timeOrigin) === origin, 'the hash-change check reloaded the document')
+        }
+        if (scenario === 'invalid') {
+          await page.waitForFunction(() => document.querySelector('.app-notice-region')?.textContent === 'That shared link could not be read — keeping the current position.')
+          assert(await recovery.isVisible() && (await read())?.pgn === oldPgn, 'an invalid shared link discarded the previous recovery')
+          await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+          await page.locator('#chessboard-square-d5 [data-piece="bP"]').waitFor()
+        } else {
+          await page.waitForFunction(() => !document.querySelector('.auto-save-recovery') && document.querySelector('.app-shell')?.getAttribute('data-workspace-mode') === 'analysis')
+          assert(!await page.locator('.board-stage').evaluate(el => el.inert), 'a valid shared link left the board inert behind recovery')
+          if (scenario.endsWith('game')) {
+            await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+            assert(await page.locator('.mtree-chip').count() === 4 && await page.locator('#chessboard-square-e7 [data-piece="bP"]').count() === 1, 'the shared game lost its line or requested landing ply')
+            await page.getByRole('button', { name: 'Go to next move', exact: true }).click()
+            await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+            await page.getByRole('button', { name: 'Go to last position', exact: true }).click()
+          } else if (scenario === 'cold-start') {
+            assert(await page.locator('.board-surface [data-piece]').count() === 32 && await page.locator('.mtree-chip').count() === 0, 'the explicit starting-position link restored the older game')
+            assert(await read() === null, 'the old recovery survived an explicit starting-position link')
+          } else {
+            if (scenario === 'hash-position') {
+              assert(await read() === null, 'the default-FEN hash did not clear the older recovery')
+              await page.getByTestId('command-palette-btn').click()
+              await page.getByRole('combobox', { name: 'Search commands', exact: true }).fill('copy')
+              await page.evaluate(hash => { location.hash = hash }, '#fen=' + encodeURIComponent(custom))
+              await page.locator('[data-command-palette="true"]').waitFor({ state: 'detached' })
+            }
+            await page.waitForFunction(() => document.querySelectorAll('.board-surface [data-piece]').length === 3)
+            await page.locator('#chessboard-square-e2').click()
+            await page.locator('#chessboard-square-e4').click()
+            await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+          }
+          if (scenario !== 'cold-start') {
+            const note = page.getByRole('textbox', { name: 'Move note', exact: true })
+            await note.waitFor()
+            const edited = `Edited ${scenario} ♞`
+            await note.fill(edited)
+            // Refreshing a consumed link must recover edits made since opening
+            // it, including before the debounce and without session storage.
+            await page.reload({ waitUntil: 'domcontentloaded' })
+            await enlarge()
+            await recovery.getByRole('button', { name: 'Restore', exact: true }).waitFor()
+            assert((await read())?.pgn.includes(edited) && !(await read())?.pgn.includes('Old recovery'), 'refresh replaced the edited shared study with the old game or original URL')
+            await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+            await note.waitFor()
+            assert(await note.inputValue() === edited, 'the edited shared study could not be restored')
+            if (scenario.endsWith('game')) {
+              await page.locator('#chessboard-square-c6 [data-piece="bN"]').waitFor()
+              await page.evaluate(() => { location.hash = '#game=~~~~unreadable~~~~' })
+              await page.waitForFunction(() => document.querySelector('.app-notice-region')?.textContent === 'That shared link could not be read — keeping the current position.')
+              assert(await page.locator('#chessboard-square-c6 [data-piece="bN"]').count() === 1 && await note.inputValue() === edited, 'an invalid later link changed the current study')
+            }
+          }
+        }
+        assert(errors.length === 0, `shared recovery errors: ${errors.join('; ')}`)
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'shared recovery priority overflows')
+        const outcome = scenario === 'invalid' ? 'invalid link preserves the old recovery and its actual restored game'
+          : scenario === 'cold-start' ? 'explicit starting-position link opens directly in Analysis and clears older recovery'
+            : `valid link owns the board; immediate refresh restores later Unicode edits${scenario === 'restricted-position' ? ' with session storage denied' : ''}`
+        console.log(`  shared recovery (${width}px, ${scale}x, ${theme}, ${scenario}): ${outcome}`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkASharedLinkCarriesTheGame(browser) {
   const MOVES = [['e2', 'e4'], ['e7', 'e5'], ['g1', 'f3'], ['b8', 'c6']]
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
@@ -16657,9 +16757,19 @@ async function checkPracticeOwnsTheBoard(browser) {
       assert(await page.getByRole('button', { name: /^Go to move 1\. f3/ }).count() === 1
         && await page.getByRole('button', { name: /^Go to variation move 1\. e4/ }).count() === 1
         && await page.locator('.mtree-chip').count() === 5, 'practice changed the original main line or duplicated its solution')
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await practice.click()
+      await prompt.waitFor()
+      const incoming = '#game=' + Buffer.from(new Chess().fen() + '|d2d4 d7d5').toString('base64url') + '&ply=0'
+      await page.evaluate(hash => { location.hash = hash }, incoming)
+      await prompt.waitFor({ state: 'detached', timeout: 3000 })
+      await play('d2', 'd4')
+      await page.locator('#chessboard-square-d4 [data-piece="wP"]').waitFor()
+      await page.locator('#chessboard-square-d2 [data-piece="wP"]').waitFor({ state: 'detached' })
+      assert(await page.locator('.mtree-chip').count() === 2, 'the new shared game inherited an exercise variation')
       assert(errors.length === 0, `practice ownership errors: ${errors.join('; ')}`)
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'practice handoff overflows')
-      console.log(`  practice ownership (${width}×${height}, ${scale}x, ${theme}): drill, replay${touch ? ' and marking' : ''} yield to e4 practice; card/Commands hint preserve attempts, stop replay and focus the board; disabled reasons cover inactive/revealed/solved questions; fresh questions hide hints; Done/drill handoffs and original line/one solution variation remain correct`)
+      console.log(`  practice ownership (${width}×${height}, ${scale}x, ${theme}): drill, replay${touch ? ' and marking' : ''} yield to e4 practice; card/Commands hint preserve attempts, stop replay and focus the board; disabled reasons and fresh questions remain correct; original line/one solution variation retained; a new shared game releases old grading even at the same FEN and accepts d4`)
     } finally { await context.close() }
   }
 }
@@ -18386,6 +18496,7 @@ async function main() {
       'partial-backup': checkPartialLibraryBackup,
       'export-roundtrip': checkAnExportedGameComesBack,
       'autosave-roundtrip': checkAnInterruptedGameComesBack,
+      'share-recovery': checkSharedLinkRecoveryPriority,
       'recovery-export': checkFailedRecoveryExport,
       'saved-game-roundtrip': checkASavedGameComesBack,
       'share-roundtrip': checkASharedLinkCarriesTheGame,
@@ -19235,6 +19346,7 @@ async function main() {
     await checkFailedRecoveryExport(browser)
     await checkASavedGameComesBack(browser)
     await checkASharedLinkCarriesTheGame(browser)
+    await checkSharedLinkRecoveryPriority(browser)
     await checkSettingsSurviveAReload(browser)
     await checkSettingsSayWhenTheyCannotBeKept(browser)
     await checkHighContrastKeepsTheBoard(browser)

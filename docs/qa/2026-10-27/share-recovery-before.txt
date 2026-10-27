@@ -1,0 +1,1 @@
+SHARED RECOVERY PROBE {"e4":1,"e5":1,"recovery":1,"boardInert":true,"snapshot":"[Event \"Old recovery\"]\n\n1. d4 d5 *"}

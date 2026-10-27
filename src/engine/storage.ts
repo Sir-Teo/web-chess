@@ -23,6 +23,16 @@ export function getLocalStorage(): KeyValueStorage | null {
   }
 }
 
+/** Per-tab storage can be restricted independently of local storage. */
+export function getSessionStorage(): KeyValueStorage | null {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) return window.sessionStorage
+    return (globalThis as { sessionStorage?: Storage }).sessionStorage ?? null
+  } catch {
+    return null
+  }
+}
+
 export function readStorage(key: string, storage: KeyValueStorage | null = getLocalStorage()): string | null {
   try {
     return storage?.getItem(key) ?? null
