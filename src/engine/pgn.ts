@@ -8,7 +8,7 @@ import { looksLikeFen, looksLikeGameUrl } from './pastedText'
 import { decodeEvaluationEngine, encodeEvaluationEngine } from './evaluationSource'
 import { APP_PLACEHOLDER_HEADERS } from './pgnPlaceholders'
 import { formatLocalDate } from './localDate'
-import { pgnTagEnd } from './pgnHeaders'
+import { pgnTagEnd, readPgnHeaderSection } from './pgnHeaders'
 
 const INITIAL_FEN = new Chess().fen()
 const PGN_TAG_NAME_PATTERN = /^[A-Za-z0-9_]+$/
@@ -105,7 +105,7 @@ const DEFAULT_PGN_EXPORT_OPTIONS: Required<PgnExportOptions> = {
 function sanitizePgnHeaderValue(value: string): string {
     return value
         .replace(/[\r\n]+/g, ' ')
-        .replace(/"/g, "'")
+        .replace(/[\\"]/g, '\\$&')
 }
 
 type PgnTextToken = { kind: 'tag' | 'text'; start: number; end: number }
@@ -828,10 +828,14 @@ export function parsePgnMoveTree(pgnText: string): {
     const importError = pgnImportContentError(text)
     if (importError) throw new Error(importError)
 
-    const parsed = parsePgn(reorderPgnAnnotations(text))
-    const headers = { ...parsed.headers }
+    // chess.js's movetext grammar handles notes and variations, but its tag
+    // values stop at escaped quotes. Read tags with the same scanner used by
+    // the library, then give the dependency only the remaining movetext.
+    const headerSection = readPgnHeaderSection(text)
+    const parsed = parsePgn(reorderPgnAnnotations(text.slice(headerSection.end)))
+    const headers = { ...headerSection.headers, ...parsed.headers }
     if (parsed.result && !headers.Result) headers.Result = parsed.result
-    const rootFen = rootFenFromPgnHeaders(parsed.headers)
+    const rootFen = rootFenFromPgnHeaders(headers)
     const rootPosition = new Chess(rootFen)
     const evaluations = new Map<string, EvalSnapshot>()
 

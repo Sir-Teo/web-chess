@@ -377,13 +377,14 @@ describe('PGN export helpers', () => {
       'Bad]Tag': 'ignored',
     })
     const loader = new Chess()
-    loader.loadPgn(pgn)
+    // The dependency's header grammar does not support PGN quote escapes;
+    // its independent rules parser can still validate the exported movetext.
+    loader.loadPgn(pgn.split('\n\n')[1])
 
-    expect(pgn).toContain('[Event "Queen \'Sacrifice\' \\ Study Final"]')
+    expect(pgn).toContain(String.raw`[Event "Queen \"Sacrifice\" \\ Study Final"]`)
     expect(pgn).toContain('[Result "*"]')
     expect(pgn).not.toContain('[Injected "1"]')
     expect(pgn).not.toContain('Bad]Tag')
-    expect(loader.getHeaders().Event).toBe('Queen \'Sacrifice\' \\ Study Final')
     expect(loader.getHeaders().Result).toBe('*')
   })
 
@@ -925,6 +926,37 @@ describe('PGN import preflight', () => {
 })
 
 describe('exportAnnotatedPgn header preservation', () => {
+  it('imports escaped quotes and backslashes as literal header data', () => {
+    const parsed = parsePgnMoveTree(String.raw`[Event "Club \"Final\" [Board 1]"] [Site "Room \\ North"]
+
+1. e4 *`)
+    expect(parsed.headers).toMatchObject({ Event: 'Club "Final" [Board 1]', Site: String.raw`Room \ North` })
+    expect(flattenPgnMainLine(parsed.moves).map(entry => entry.move.san)).toEqual(['e4'])
+  })
+
+  it('reads valid tag names containing digits and underscores', () => {
+    const parsed = parsePgnMoveTree('[Board_1 "Main"]\n\n1. e4 *')
+    expect(parsed.headers.Board_1).toBe('Main')
+  })
+
+  it('round-trips quoted and backslash header values without changing their characters', () => {
+    const chess = new Chess()
+    const root = makeNode('root', chess.fen(), null, null, ['n1'])
+    const move = chess.move('e4')
+    const line = [root, makeNode('n1', chess.fen(), move, 'root')]
+    const headers = { Event: 'Club "Final" {first} $1', Site: String.raw`Room \ North`, Board_1: 'Main' }
+    const text = exportAnnotatedPgn(line, new Map(), headers)
+    expect(text).toContain(String.raw`[Event "Club \"Final\" {first} $1"]`)
+    expect(text).toContain(String.raw`[Site "Room \\ North"]`)
+    let repeated = text
+    for (let round = 0; round < 3; round++) {
+      const parsed = parsePgnMoveTree(repeated)
+      expect(parsed.headers).toMatchObject(headers)
+      repeated = exportAnnotatedPgn(line, parsed.evaluations, parsed.headers)
+      expect(repeated).toBe(text)
+    }
+  })
+
   it('keeps the headers a game was imported with', () => {
     const chess = new Chess()
     chess.move('e4')
