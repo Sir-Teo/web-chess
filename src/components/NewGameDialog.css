@@ -373,7 +373,8 @@
     color: #b91c1c;
 }
 
-.fen-counter-field input[aria-invalid='true'] {
+.fen-counter-field input[aria-invalid='true'],
+.fen-counter-field select[aria-invalid='true'] {
     border-color: var(--danger);
 }
 

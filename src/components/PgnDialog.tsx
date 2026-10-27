@@ -4,6 +4,7 @@ import { useModalFocus } from '../hooks/useModalFocus'
 import type { GameNode } from '../hooks/useGameTree'
 import type { EvalSnapshot } from '../engine/analysis'
 import { parseFenCounterValue, validateFenForAnalysis } from '../engine/fen'
+import { truncateUtf16 } from '../engine/textLength'
 import {
     PGN_MULTIPLE_GAMES_ERROR,
     exportAnnotatedPgn,
@@ -466,7 +467,10 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const canCopyShareLink = fenShareValidation.ok
     const canImportPgn = Boolean(importText.trim()) && !importContentError
     const enPassantTargets = setupEnPassantTargets(setup)
-    const unavailableEnPassant = setup.enPassant !== '-' && !enPassantTargets.includes(setup.enPassant)
+    const rawEnPassant = fenText.trim() ? rawSetupFields[3] : setup.enPassant
+    const unavailableEnPassant = rawEnPassant !== '-' && !enPassantTargets.includes(rawEnPassant as Square)
+    const enPassantPreview = rawEnPassant === undefined ? 'Missing in FEN'
+        : 'Invalid: ' + truncateUtf16(rawEnPassant, 32) + (rawEnPassant.length > 32 ? '…' : '')
     const availableCastlingRights = normalizeAvailableCastlingRights(setup)
     const unavailableCastlingRights = setup.castling !== availableCastlingRights
     const previewSetupFields = () => {
@@ -998,19 +1002,21 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                             <label className="fen-counter-field" htmlFor={enPassantId}>
                                                 <span>En passant target</span>
                                                 <select id={enPassantId}
-                                                    value={setup.enPassant}
+                                                    value={rawEnPassant ?? ''}
                                                     aria-invalid={unavailableEnPassant || undefined}
                                                     aria-describedby={`${enPassantId}-help`}
                                                     onChange={event => updateRawSetupFields([[3,
                                                         updateSetupEnPassant(setup, event.target.value as Square | '-').enPassant]])}>
                                                     <option value="-">None</option>
-                                                    {unavailableEnPassant && <option value={setup.enPassant}>{setup.enPassant} (invalid)</option>}
+                                                    {unavailableEnPassant && <option value={rawEnPassant ?? ''}>{enPassantPreview}</option>}
                                                     {enPassantTargets.map(square => <option key={square} value={square}>{square}</option>)}
                                                 </select>
                                             </label>
                                             <p id={`${enPassantId}-help`} className="fen-setup-help">
                                                 {unavailableEnPassant
-                                                    ? 'This target does not match the pieces. Choose None to clear it, or correct the board.'
+                                                    ? rawEnPassant === undefined
+                                                        ? 'Missing in FEN. Choose None or an available square.'
+                                                        : 'This target is invalid. Choose None or an available square, or correct the board.'
                                                     : 'The square crossed by a pawn that just moved two squares.'}
                                             </p>
                                         </div>

@@ -1,0 +1,3 @@
+{"raw":"4k3/8/8/3pP3/8/8/8/4K3 w - a9 17 24","selected":"-","invalid":null}
+Error: Malformed en passant field is hidden by a valid-looking None control
+    at /tmp/web-chess-raw-ep-probe.cjs:13:95

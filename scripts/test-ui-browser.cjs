@@ -16147,7 +16147,7 @@ async function checkEnPassantRightInputs(browser) {
             && await dialog.getByRole('button', { name: 'Copy Share Link', exact: true }).isDisabled(), 'a missing-pawn EP root can load or share')
           const target = dialog.getByRole('combobox', { name: 'En passant target', exact: true })
           assert(await target.inputValue() === 'd6' && await target.getAttribute('aria-invalid') === 'true', 'an unavailable EP target is hidden as None')
-          assert(await target.locator('option:checked').textContent() === 'd6 (invalid)', 'an unavailable EP target lacks a visible repair cue')
+          assert(await target.locator('option:checked').textContent() === 'Invalid: d6', 'an unavailable EP target lacks a visible repair cue')
           await target.selectOption('-')
           assert(await input.inputValue() === missingPawn.replace(' d6 ', ' - '), 'clearing the EP target changed the board or counters')
           assert(await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).isEnabled()
@@ -16691,6 +16691,70 @@ async function checkPgnDownloadRecovery(browser) {
         console.log(`  PGN download recovery (${width}px, ${scale}x, ${theme}, ${study}): Commands opens Export directly for games/studies with opener focus preserved; empty-board reason and generic Import destination; repeated URL/missing API/blocked click reveal full guidance and visible retry without stealing focus/selection; manual selection/older clipboard ownership/cleanup; exact named UTF-8 file reimports root/notes/variations`)
       } finally { await context.close() }
     }
+  }
+}
+
+async function checkRawEnPassantControls(browser) {
+  const placement = '4k3/8/8/3pP3/8/8/8/4K3'
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light'], [320, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      const dialog = page.locator('.pgn-dialog')
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      const input = dialog.locator('.fen-textarea')
+      const target = dialog.getByRole('combobox', { name: 'En passant target', exact: true })
+      const load = dialog.getByRole('button', { name: 'Load & Analyze', exact: true })
+      for (const token of ['a9', 'e4', 'NONE', 'd6junk', 'd3', 'd'.repeat(120)]) {
+        const raw = `${placement} w Kx ${token} 17junk 24`
+        await input.fill(raw)
+        assert(await target.inputValue() === token && await target.getAttribute('aria-invalid') === 'true', 'malformed raw EP was hidden by a valid-looking None control')
+        const info = await target.evaluate(el => ({ label: el.selectedOptions[0]?.textContent, help: document.getElementById(el.getAttribute('aria-describedby'))?.textContent }))
+        assert(info.label.startsWith('Invalid: ') && info.label.length <= 45 && info.help.includes('Choose None'), 'raw EP has no bounded associated repair guidance')
+        if (token.length > 32) {
+          await target.scrollIntoViewIfNeeded()
+          assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'long raw EP feedback overflows the page')
+          await page.screenshot({ path: `/tmp/web-chess-raw-ep-invalid-${width}.png` })
+        }
+        await target.focus(); await page.keyboard.press('Tab')
+        assert(await input.inputValue() === raw && await load.isDisabled(), 'reading invalid EP silently repaired the draft')
+        await target.focus(); await target.selectOption('-')
+        assert(await input.inputValue() === `${placement} w Kx - 17junk 24` && await target.evaluate(el => el === document.activeElement)
+          && await target.getAttribute('aria-invalid') === null && await load.isDisabled(), 'clearing malformed EP changed another field, retained an error or lost focus')
+      }
+      await input.fill(`${placement} w -`)
+      assert(await target.inputValue() === '' && await target.getAttribute('aria-invalid') === 'true'
+        && await target.locator('option:checked').textContent() === 'Missing in FEN', 'missing EP appears as an explicit None declaration')
+      await target.selectOption('-')
+      assert(await input.inputValue() === `${placement} w - -` && await load.isDisabled(), 'filling missing EP also supplied unrequested counters')
+      const ready = `${placement} w - d6 19 24`
+      await input.fill(ready); await input.fill('')
+      assert(await target.inputValue() === 'd6' && await target.getAttribute('aria-invalid') === null, 'an empty text box hid the preview target')
+      await target.selectOption('-')
+      assert(await input.inputValue() === ready.replace(' d6 ', ' - ') && await load.isEnabled(), 'blank-draft EP repair failed to rebuild the preview')
+      await input.fill(ready.replace(' d6 ', ' a9 '))
+      await target.selectOption('d6')
+      assert(await input.inputValue() === ready && await load.isEnabled() && await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'choosing an available target changed counters or loaded the draft')
+      await target.scrollIntoViewIfNeeded()
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'raw EP feedback overflows the page')
+      await page.screenshot({ path: `/tmp/web-chess-raw-ep-${width}.png` })
+      await load.click(); await dialog.waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-e5').click(); await page.locator('#chessboard-square-d6').click()
+      await page.locator('#chessboard-square-d6 [data-piece="wP"]').waitFor()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-d5')?.getAttribute('aria-label')?.includes('empty'))
+      assert(await page.locator('.board-surface [data-piece]').count() === 3 && await page.locator('.mtree-chip').count() === 1, 'repaired target did not allow the actual EP capture with exact pieces')
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      assert(await input.inputValue() === '4k3/8/3P4/8/8/8/8/4K3 b - - 0 24', 'repaired EP capture lost exact board/counters')
+      assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `raw EP errors: ${errors.join('; ')}`)
+      console.log(`  raw en passant (${width}px, ${scale}x, ${theme}): malformed/wrong-rank/long/missing targets stay visible with bounded associated guidance; reading preserves raw fields; None/available target repair only EP, retain focus and counters; blank preview reconstruction; explicit Load permits the actual capture with exact FEN/pieces`)
+    } finally { await context.close() }
   }
 }
 
@@ -19585,6 +19649,7 @@ async function main() {
       'castling-repair': checkUnavailableCastlingRepair,
       'setup-metadata': checkSetupMetadataControls,
       'counter-feedback': checkCounterRawFeedback,
+      'raw-en-passant': checkRawEnPassantControls,
       'empty-fen-controls': checkEmptyFenControls,
       'pgn-download': checkPgnDownloadRecovery,
       'pgn-export': checkPgnDownloadRecovery,
@@ -20447,6 +20512,7 @@ async function main() {
     await checkUnavailableCastlingRepair(browser)
     await checkSetupMetadataControls(browser)
     await checkCounterRawFeedback(browser)
+    await checkRawEnPassantControls(browser)
     await checkEmptyFenControls(browser)
     await checkPgnDownloadRecovery(browser)
     await checkRecoveryDownloadFallback(browser)
