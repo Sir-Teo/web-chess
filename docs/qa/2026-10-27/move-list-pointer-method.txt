@@ -1,0 +1,13 @@
+Keep move geometry stable through pointer focus — 27 October 2026
+
+Baseline 081df19: at Firefox 320×812 with 200% root text, import a six-move annotated study and click its d5 variation immediately. Twelve native trials with 0/30/80/150ms press delays lose six clicks. Trace shows d5 pressed at y≈426, focus moving it down ≈79.33px, release over main-line e5 and the resulting click on their DIV ancestor. The main line remains selected, so blindly typing would edit its note.
+
+Initial hypothesis was native focus scrolling. A preventScroll/mousedown attempt still loses five of twelve clicks and is fully reverted. Ancestor instrumentation shows scroll offsets remain fixed while the variation's layout position changes. Rows use content-visibility:auto with 36px estimated heights; Firefox replaces those estimates as focus makes rows relevant. Actual enlarged row heights differ by roughly the observed displacement. Overriding move rows/variations to measured geometry passes all twelve CSS-probe trials. Retain layout/paint/style containment for move rows, and keep content-visibility/estimates on the other existing targets. No input/focus handler remains in the product change.
+
+New alias move-list-pointer checks Chromium, Firefox and Linux WebKit at 1280×900 normal dark, 375×812 normal light, 320×812/200% dark and 844×390/200% light: twelve final workflows. Reimport and directly click the fresh variation at all four press durations before additional geometry reads. Require matching down/up/click targets and the correct selected note. Enter/Space/arrows still navigate; right click and a canceled press do not. Edit the chosen note and export all six branches/notes without overwriting its main-line counterpart. No page/app errors/overflow.
+
+Nineteen related Chromium transcript fitting (nested/castling/promotion, five layouts) and selected-position recovery workflows pass. Lint/typecheck/production build pass. Pure model/application logic is unchanged; the preceding full verification retains 2,115 tests and one existing skip.
+
+Compare 240-ply navigation with native Chromium keys, six-times CPU throttling, twelve samples per arm, CSS override matching the final change. Desktop median 83.4→78.3ms, p95 92.6→93.8ms; enlarged narrow median 74.9→83.8ms, p95 120.1→110.2ms. Import observations vary (desktop 1662→1374ms, narrow 1199→1422ms). These small sequential samples establish usable long-game behavior, not a general speed claim. No app errors; final selection is correct in every arm.
+
+Work remains local on work-next. Root text enlargement is not native zoom; Linux WebKit is not physical iOS.

@@ -1,0 +1,4 @@
+  paused clock navigation (1280×900, 1x, dark): keyboard/pointer/first/last and hidden Analysis browsing preserve both banks and Paused; explicit Resume starts the selected side; running navigation and takeback still hand over/resume correctly
+  paused clock navigation (375×812, 1x, light): keyboard/pointer/first/last and hidden Analysis browsing preserve both banks and Paused; explicit Resume starts the selected side; running navigation and takeback still hand over/resume correctly
+  paused clock navigation (320×812, 2x, dark): keyboard/pointer/first/last and hidden Analysis browsing preserve both banks and Paused; explicit Resume starts the selected side; running navigation and takeback still hand over/resume correctly
+  paused clock navigation (844×390, 2x, light): keyboard/pointer/first/last and hidden Analysis browsing preserve both banks and Paused; explicit Resume starts the selected side; running navigation and takeback still hand over/resume correctly

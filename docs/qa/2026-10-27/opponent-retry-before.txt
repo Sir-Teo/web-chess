@@ -1,0 +1,3 @@
+{"failed":{"workers":2,"step":true,"errors":["Lite Single (Local) could not start, so there is nobody to play against. Reload the page to try again — Human vs Human and everything on the Analysis side are unaffected."]},"restarted":{"workers":2,"title":"Engine unavailable · Web Chess","errors":["Lite Single (Local) could not start, so there is nobody to play against. Reload the page to try again — Human vs Human and everything on the Analysis side are unaffected."],"moves":["e4"]},"appError":0}
+Error: Starting another AI game does not retry the failed opponent
+    at /tmp/web-chess-step-engine-error-recovery-before.cjs:9:1444

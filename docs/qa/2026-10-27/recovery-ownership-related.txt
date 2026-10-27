@@ -1,0 +1,20 @@
+  autosave tabs (1280px, 1x, dark): own/restored reset clears its save; idle reload, stale-owner reset and empty-page exit preserve the other tab’s latest Unicode note and actual recovery
+  autosave tabs (375px, 2x, light): own/restored reset clears its save; idle reload, stale-owner reset and empty-page exit preserve the other tab’s latest Unicode note and actual recovery
+  autosave cursor (1280×900, 1x, dark): immediate reload keeps takeback/root/variation positions, paused clock/session and exact complete game/notes; selected note follows its branch; legacy, malformed and outdated routes retain normal recovery
+  autosave cursor (375×812, 1x, light): immediate reload keeps takeback/root/variation positions, paused clock/session and exact complete game/notes; selected note follows its branch; legacy, malformed and outdated routes retain normal recovery
+  autosave cursor (320×812, 2x, dark): immediate reload keeps takeback/root/variation positions, paused clock/session and exact complete game/notes; selected note follows its branch; legacy, malformed and outdated routes retain normal recovery
+  autosave cursor (844×390, 2x, light): immediate reload keeps takeback/root/variation positions, paused clock/session and exact complete game/notes; selected note follows its branch; legacy, malformed and outdated routes retain normal recovery
+  autosave lifecycle (1280×900, 1x): real immediate reload preserves position/move edits and the newest board move; repeated unopened recovery stays intact; simulated hidden-page event synchronously saves the latest note
+  autosave lifecycle (375×812, 1x): real immediate reload preserves position/move edits and the newest board move; repeated unopened recovery stays intact; simulated hidden-page event synchronously saves the latest note
+  autosave lifecycle (320×812, 2x): real immediate reload preserves position/move edits and the newest board move; repeated unopened recovery stays intact; simulated hidden-page event synchronously saves the latest note
+  autosave lifecycle (844×390, 2x): real immediate reload preserves position/move edits and the newest board move; repeated unopened recovery stays intact; simulated hidden-page event synchronously saves the latest note
+  autosave clock lifecycle: 1636ms of idle thinking reaches real reload recovery; both clock banks restore paused
+  recovery: reload restores moves; incidental dismissals preserve valid/failed snapshots; explicit discard clears them
+  contrast (Dark / recovery warning / 1280px): 162 measured, 0 under the floor (144 on a gradient, measured against its worst stop)
+  autosave (1280px, Dark): denied storage is visible, PGN downloads, retry recovers
+  contrast (Dark / recovery warning / 375px): 159 measured, 0 under the floor (137 on a gradient, measured against its worst stop)
+  autosave (375px, Dark): denied storage is visible, PGN downloads, retry recovers
+  contrast (Light / recovery warning / 1280px): 162 measured, 0 under the floor (144 on a gradient, measured against its worst stop)
+  autosave (1280px, Light): denied storage is visible, PGN downloads, retry recovers
+  contrast (Light / recovery warning / 375px): 159 measured, 0 under the floor (137 on a gradient, measured against its worst stop)
+  autosave (375px, Light): denied storage is visible, PGN downloads, retry recovers

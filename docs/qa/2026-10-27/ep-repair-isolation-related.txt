@@ -1,0 +1,18 @@
+  en passant inputs (1280px, 1x, dark, fen): impossible fields retain prior work/draft; real opposing pawn is captured; quiet king move and reload preserve exactly three pieces, two moves and exact FEN/counters; unavailable target stays visible and can be cleared; setup repair retains the target
+  en passant inputs (1280px, 1x, dark, pgn): impossible fields retain prior work/draft; real opposing pawn is captured; quiet king move and reload preserve exactly three pieces, two moves and exact FEN/counters
+  en passant inputs (1280px, 1x, dark, shared-missing-pawn): impossible fields retain prior work/draft; real opposing pawn is captured; quiet king move and reload preserve exactly three pieces, two moves and exact FEN/counters
+  en passant inputs (1280px, 1x, dark, shared-origin): impossible fields retain prior work/draft; real opposing pawn is captured; quiet king move and reload preserve exactly three pieces, two moves and exact FEN/counters
+  en passant inputs (375px, 2x, light, fen): impossible fields retain prior work/draft; real opposing pawn is captured; quiet king move and reload preserve exactly three pieces, two moves and exact FEN/counters; unavailable target stays visible and can be cleared; setup repair retains the target
+  en passant inputs (375px, 2x, light, pgn): impossible fields retain prior work/draft; real opposing pawn is captured; quiet king move and reload preserve exactly three pieces, two moves and exact FEN/counters
+  en passant inputs (375px, 2x, light, shared-missing-pawn): impossible fields retain prior work/draft; real opposing pawn is captured; quiet king move and reload preserve exactly three pieces, two moves and exact FEN/counters
+  en passant inputs (375px, 2x, light, shared-origin): impossible fields retain prior work/draft; real opposing pawn is captured; quiet king move and reload preserve exactly three pieces, two moves and exact FEN/counters
+  position setup (1280px): d6 survives a counter edit, can be cleared/restored, and allows a real en passant capture
+  position setup (375px): e3 survives a counter edit, can be cleared/restored, and allows a real en passant capture
+  castling inputs (1280px, 1x, dark, fen): missing-rook/away-king rights rejected with prior work retained; White kingside castle moves both correct pieces after repair; setup and raw validation agree
+  castling inputs (1280px, 1x, dark, pgn): missing-rook/away-king rights rejected with prior work retained; Black queenside castle moves both correct pieces after repair
+  castling inputs (1280px, 1x, dark, shared-missing-rook): missing-rook/away-king rights rejected with prior work retained; White kingside castle moves both correct pieces after repair
+  castling inputs (1280px, 1x, dark, shared-king-away): missing-rook/away-king rights rejected with prior work retained; Black queenside castle moves both correct pieces after repair
+  castling inputs (375px, 2x, light, fen): missing-rook/away-king rights rejected with prior work retained; White kingside castle moves both correct pieces after repair; setup and raw validation agree
+  castling inputs (375px, 2x, light, pgn): missing-rook/away-king rights rejected with prior work retained; Black queenside castle moves both correct pieces after repair
+  castling inputs (375px, 2x, light, shared-missing-rook): missing-rook/away-king rights rejected with prior work retained; White kingside castle moves both correct pieces after repair
+  castling inputs (375px, 2x, light, shared-king-away): missing-rook/away-king rights rejected with prior work retained; Black queenside castle moves both correct pieces after repair

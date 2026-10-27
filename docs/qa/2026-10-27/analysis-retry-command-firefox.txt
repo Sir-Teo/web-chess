@@ -1,0 +1,10 @@
+  engine retry via Commands (1280×900, 1x, dark, boot, auto false): one held replacement, opener focus, retained board/readings/draft, exact history/settings and one intended search; repeated failure recovers
+  engine retry via Commands (1280×900, 1x, dark, runtime, auto false): one held replacement, opener focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry via Commands (1280×900, 1x, dark, runtime, auto true): one held replacement, opener focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry via Commands (1280×900, 1x, dark, hidden, auto true): one held replacement, opener focus, retained board/readings/draft, exact history/settings and one intended search; infinite analysis waits for visibility
+  engine retry via Commands (320×480, 2x, light, boot, auto false): one held replacement, opener focus, retained board/readings/draft, exact history/settings and one intended search; repeated failure recovers
+  engine retry via Commands (320×480, 2x, light, runtime, auto false): one held replacement, opener focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry via Commands (320×480, 2x, light, runtime, auto true): one held replacement, opener focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry via Commands (320×480, 2x, light, hidden, auto true): one held replacement, opener focus, retained board/readings/draft, exact history/settings and one intended search; infinite analysis waits for visibility
+  analysis retry command 1280×900 text 100%: Play and released states explain unavailability; Enter keeps Commands open and starts no worker/search
+  analysis retry command 320×480 text 200%: Play and released states explain unavailability; Enter keeps Commands open and starts no worker/search

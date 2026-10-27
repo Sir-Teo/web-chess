@@ -1,0 +1,4 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  setup metadata (1280px, 1x, dark): counters/castling toggles/same-side selection preserve independent raw errors; actual side changes clear EP only; counter edit completes missing fields; explicit repairs retain exact pieces, castles and final FEN/counters
+  setup metadata (375px, 2x, light): counters/castling toggles/same-side selection preserve independent raw errors; actual side changes clear EP only; counter edit completes missing fields; explicit repairs retain exact pieces, castles and final FEN/counters
+  setup metadata (320px, 2x, dark): counters/castling toggles/same-side selection preserve independent raw errors; actual side changes clear EP only; counter edit completes missing fields; explicit repairs retain exact pieces, castles and final FEN/counters

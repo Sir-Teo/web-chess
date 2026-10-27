@@ -1,0 +1,3 @@
+{"before":["d4"],"after":["e4"],"mode":"false"}
+Error: A late saved-review open replaced the newly started game
+    at /tmp/web-chess-saved-review-open-before.cjs:7:866

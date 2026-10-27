@@ -1,0 +1,2 @@
+  keyboard premove 1280×900 text 100% White late-captured: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 320×480 text 200% White late-captured: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained

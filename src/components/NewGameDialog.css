@@ -37,6 +37,14 @@
     line-height: 1.4;
 }
 
+.pgn-import-status {
+    margin: 0.6rem 0 0;
+    font-size: 0.76rem;
+    line-height: 1.4;
+    color: var(--accent-ink);
+    overflow-wrap: anywhere;
+}
+
 .dialog-quick-actions {
     display: flex;
     flex-wrap: wrap;
@@ -134,7 +142,8 @@
     margin: 0 0 0.65rem;
 }
 
-.dialog-export-help {
+.dialog-export-help,
+.dialog-file-reading {
     margin: 0.5rem 0 0;
     font-size: 0.75rem;
     line-height: 1.4;
@@ -353,6 +362,29 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.35rem;
+    align-items: start;
+}
+
+.fen-counter-grid:has(.fen-counter-error) {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.fen-counter-error {
+    margin: 0;
+    color: var(--danger);
+    font-size: 0.68rem;
+    font-weight: 400;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+[data-theme='light'] .fen-counter-error {
+    color: #b91c1c;
+}
+
+.fen-counter-field input[aria-invalid='true'],
+.fen-counter-field select[aria-invalid='true'] {
+    border-color: var(--danger);
 }
 
 .fen-counter-field {
@@ -385,6 +417,10 @@
     font-weight: 400;
     line-height: 1.5;
     color: var(--text-tertiary);
+}
+
+.fen-setup-raw-help {
+    overflow-wrap: anywhere;
 }
 
 .dialog-check-option {

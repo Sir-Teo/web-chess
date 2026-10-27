@@ -1,0 +1,20 @@
+  clock controls (1280×900, 1x, dark, mouse): visible Pause/Resume, exact held banks, focused Space/Enter activation, turn-correct ticking, move restarts, Analysis hiding, flagged/untimed exclusion, replay coexistence and fitting/contrast pass
+  clock controls (375×812, 1x, light, coarse pointer): visible Pause/Resume, exact held banks, focused Space/Enter activation, turn-correct ticking, move restarts, Analysis hiding, flagged/untimed exclusion, replay coexistence and fitting/contrast pass
+  clock controls (320×812, 2x, dark, coarse pointer): visible Pause/Resume, exact held banks, focused Space/Enter activation, turn-correct ticking, move restarts, Analysis hiding, flagged/untimed exclusion, replay coexistence and fitting/contrast pass
+  clock controls (844×390, 2x, light, coarse pointer): visible Pause/Resume, exact held banks, focused Space/Enter activation, turn-correct ticking, move restarts, Analysis hiding, flagged/untimed exclusion, replay coexistence and fitting/contrast pass
+  step mode: held at 2:59 and 3:01 through five-second waits, and paid 3:01 and 3:03 for released moves; the human timer stays accessible and the first Space pauses it; the next Space resumes it
+  clock transition time (1280×900, 1x, dark): three delayed pause/resume cycles preserve exact stopped banks and original start times; >bank waits cannot retroactively flag; takeback charges only the new turn; resignation retains banks, complete game and result (8 held callbacks)
+  clock transition time (375×812, 2x, light): three delayed pause/resume cycles preserve exact stopped banks and original start times; >bank waits cannot retroactively flag; takeback charges only the new turn; resignation retains banks, complete game and result (8 held callbacks)
+  compact footer (901px, beginner): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+  compact footer (901px, pro): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+  compact footer (1280px, beginner): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+  compact footer (1280px, pro): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+  compact footer: a browser without the Popover API retains its inline engine readings
+  autoplay: walked to the end of the line and stopped
+  autoplay speed (1280px, 1x): Normal fallback selected, AI Step retained, Fast walks to the end
+  autoplay speed (375px, 1x): Normal fallback selected, AI Step retained, Fast walks to the end
+  autoplay speed (375px, 2x): Normal fallback selected, AI Step retained, Fast walks to the end
+  held shortcuts (1280px): Flip, autoplay, timed Pause and Commands act once; fresh presses work; navigation arrows repeat
+  held shortcuts (375px): Flip, autoplay, timed Pause and Commands act once; fresh presses work; navigation arrows repeat
+  reading space (1280px): 100% → 200% → 100% text without window resize preserves all ranks, visible keyboard focus and opening navigation; enlarged desktop header scrolls away
+  reading space (375px): 100% → 200% → 100% text without window resize preserves all ranks, visible keyboard focus and opening navigation; enlarged desktop header scrolls away

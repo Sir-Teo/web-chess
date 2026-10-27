@@ -1,0 +1,15 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  keyboard premove 1280×900 text 100% White queued: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 1280×900 text 100% Black queued: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 1280×900 text 100% White cancel: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 1280×900 text 100% Black cancel: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 1280×900 text 100% White invalid: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 1280×900 text 100% White arrival: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 1280×900 text 100% White new-focus: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 1280×900 text 100% White modal: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 1280×900 text 100% White captured: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+Error: a captured source stranded the former premove destination on the page body
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at checkKeyboardPremoves (/workspace/web-chess/scripts/test-ui-browser.cjs:9205:13)
+    at async /tmp/web-chess-keyboard-premoves-matrix.cjs:10:60

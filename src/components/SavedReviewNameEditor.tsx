@@ -12,6 +12,7 @@ export function SavedReviewNameEditor({ title, disabled, onRename }: {
   const [draft, setDraft] = useState(title)
   const [focusRequest, setFocusRequest] = useState(0)
   const [error, setError] = useState('')
+  const editor = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const returnFocus = useRef(false)
@@ -20,6 +21,10 @@ export function SavedReviewNameEditor({ title, disabled, onRename }: {
 
   useLayoutEffect(() => {
     if (!editing) return
+    // A storage response may arrive after the reader has chosen the board or
+    // another control. Only the initial edit always moves focus into the form.
+    if (focusRequest > 0 && document.activeElement !== document.body
+      && !editor.current?.contains(document.activeElement)) return
     input.current?.focus()
     input.current?.select()
   }, [editing, focusRequest])
@@ -27,6 +32,7 @@ export function SavedReviewNameEditor({ title, disabled, onRename }: {
   useLayoutEffect(() => {
     if (editing || disabled || !returnFocus.current) return
     returnFocus.current = false
+    if (document.activeElement !== document.body && !editor.current?.contains(document.activeElement)) return
     trigger.current?.focus()
   }, [disabled, editing])
 
@@ -38,11 +44,12 @@ export function SavedReviewNameEditor({ title, disabled, onRename }: {
     else { setError(message); setFocusRequest(value => value + 1) }
   }
 
-  return <div className="saved-review-name-editor">
+  return <div ref={editor} className="saved-review-name-editor">
     <div className="review-report-actions">
       <button ref={trigger} type="button" disabled={disabled || editing} onClick={() => {
         setDraft(title)
         setError('')
+        setFocusRequest(0)
         setEditing(true)
       }}>Rename saved review</button>
     </div>

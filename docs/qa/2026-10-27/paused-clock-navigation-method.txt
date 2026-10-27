@@ -1,0 +1,13 @@
+Paused pass-and-play navigation — 27 October 2026
+
+Before: a real UI 3+2 pass-and-play game, Space, then ArrowLeft removes Paused and starts Black without an explicit Resume. No engine result is required for this bug; the native check uses the deterministic engine fixture and browser clock.
+
+Fix: retain the current pause when handing over the clock during pass-and-play navigation. A running clock still follows the selected turn; takeback still deliberately resumes play. Capture the navigation time and side before the state updater.
+
+An initial production Chromium run exposed a second issue: the running control check moved to e5/White, then advancing 1.5 seconds changed Black from 3:00 to 2:58 while White remained 3:03. The native mutation trace retains White's running badge throughout. React can replay a queued updater, and Date.now inside it changes the effective handover time. Capturing navigation time outside the updater fixes this. The trace is included; no arbitrary delay was added to the check.
+
+Permanent checkPausedClockNavigation / paused-clock-navigation exercises 1280×900 normal dark, 375×812 normal light, 320×812 root text 200% dark, and 844×390 root text 200% light. Short enlarged layouts wait for the measured scroll-chrome transition. Each fresh context enters e4/e5/Nf3, pauses with Space, then uses keyboard, pointer, First, Last and an Analysis round trip. Both clock banks remain exact through repeated 2.1-second jumps, including hidden Analysis browsing. Explicit Space resumes Black at e4; only Black spends time. Running ArrowRight hands over to White; only White spends time. A paused takeback intentionally resumes Black and retains the entire continuation. Checks include no error boundary, page errors or horizontal overflow.
+
+Final production Chromium, Firefox and Linux WebKit checks cover twelve workflows. Related Chromium checks cover running pass-and-play/held-AI navigation, takeback, finished-clock navigation, all four selected-position recovery layouts and interrupted-game recovery. Build is frozen during these checks. Root font enlargement is not native zoom and Linux WebKit is not physical iOS.
+
+Full verification passes 124 files / 2,115 tests / one existing intentional skip. The final timestamp capture also passes TypeScript/build and focused lint. Changes are local on work-next; no additional release is implied.

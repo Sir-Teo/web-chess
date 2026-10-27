@@ -1,0 +1,6 @@
+  import (1280px): newer drafts win over old fetches and file reads; fetch cancellation keeps the draft
+  import (375px): newer drafts win over old fetches and file reads; fetch cancellation keeps the draft
+  archive fetch: Lichess brought back 2 games in one request, chess.com 3 across two
+  import box: 12 KB shown, 667 KB described ("2,200 games · 667 KB · too much to show here."), Clear gives the box back
+  drop: a .pgn on the board opens the import dialog holding it (339 characters), app still there
+  database: 560 games, 500 kept, the other 60 never parsed (2320ms, and the button said "Adding…" first)

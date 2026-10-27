@@ -3,7 +3,8 @@ import type { Square } from 'chess.js'
 import { useModalFocus } from '../hooks/useModalFocus'
 import type { GameNode } from '../hooks/useGameTree'
 import type { EvalSnapshot } from '../engine/analysis'
-import { validateFenForAnalysis } from '../engine/fen'
+import { parseFenCounterValue, validateFenForAnalysis } from '../engine/fen'
+import { truncateUtf16 } from '../engine/textLength'
 import {
     PGN_MULTIPLE_GAMES_ERROR,
     exportAnnotatedPgn,
@@ -43,7 +44,7 @@ import {
     type ArchiveSource,
 } from '../engine/gameArchives'
 import { fetchArchiveGames } from '../engine/archiveFetch'
-import { IconDownload, IconClipboard, IconUpload, IconFlip } from './icons'
+import { IconDownload, IconClipboard, IconUpload, IconFlip, IconClose } from './icons'
 import { fenTextForShareLink } from './pgnDialogHelpers'
 import { isCompositionKey } from './shortcutKeys'
 import { PositionCounterInput } from './PositionCounterInput'
@@ -138,6 +139,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const [archiveUsername, setArchiveUsername] = useState('')
     const [archiveCount, setArchiveCount] = useState(String(DEFAULT_ARCHIVE_GAMES))
     const [archiveBusy, setArchiveBusy] = useState(false)
+    const [readingFile, setReadingFile] = useState(false)
     const [archiveUsernameBlurred, setArchiveUsernameBlurred] = useState(false)
     const [databaseBusy, setDatabaseBusy] = useState(false)
     /** What `handleImportDatabase` asks; the state is what the button shows. */
@@ -153,6 +155,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const [importFileName, setImportFileName] = useState<string | null>(null)
     const titleId = useId()
     const importTextId = useId()
+    const fileReadStatusId = useId()
     const fenTextId = useId()
     const exportTextId = useId()
     const halfmoveId = useId()
@@ -160,6 +163,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const archiveUserId = useId()
     const archiveCountId = useId()
     const enPassantId = useId()
+    const sideHelpId = useId()
     const castlingHelpId = useId()
     const downloadErrorId = useId()
     const feedbackGenerationRef = useRef(0)
@@ -182,6 +186,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
         archiveAbortRef.current?.abort()
         archiveAbortRef.current = null
         setArchiveBusy(false)
+        setReadingFile(false)
     }, [])
 
     const closeDialog = useCallback(() => {
@@ -266,7 +271,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
 
     // A fetch outlives the dialog otherwise, and finishes into a component that
     // is no longer on screen.
-    useEffect(() => () => {
+    useLayoutEffect(() => () => {
         importRequestRef.current += 1
         archiveAbortRef.current?.abort()
     }, [])
@@ -345,6 +350,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
             return
         }
 
+        setReadingFile(true)
         try {
             const text = await file.text()
             if (request !== importRequestRef.current) return
@@ -361,6 +367,8 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
             if (request !== importRequestRef.current) return
             setImportFileName(null)
             setError('Could not read that PGN file.')
+        } finally {
+            if (request === importRequestRef.current) setReadingFile(false)
         }
     }, [cancelPendingImport, resetFeedback])
 
@@ -452,6 +460,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
         () => fenText.trim() ? validateFenForAnalysis(fenText) : null,
         [fenText],
     )
+    const rawSetupFields = useMemo(() => fenText.trim().split(/\s+/), [fenText])
     const fenValidationError = fenValidation && !fenValidation.ok ? fenValidation.error : null
     const fenShareValidation = useMemo(
         () => validateFenForAnalysis(fenTextForShareLink(fenText, currentFen)),
@@ -464,17 +473,46 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const canLoadFen = Boolean(fenText.trim()) && !fenValidationError
     const canCopyShareLink = fenShareValidation.ok
     const canImportPgn = Boolean(importText.trim()) && !importContentError
+    const rawTurn = fenText.trim() ? rawSetupFields[1] : setup.turn
+    const invalidSetupTurn = rawTurn !== 'w' && rawTurn !== 'b'
+    const turnPreview = rawTurn === undefined ? ''
+        : truncateUtf16(rawTurn, 32) + (rawTurn.length > 32 ? '…' : '')
     const enPassantTargets = setupEnPassantTargets(setup)
-    const unavailableEnPassant = setup.enPassant !== '-' && !enPassantTargets.includes(setup.enPassant)
+    const rawEnPassant = fenText.trim() ? rawSetupFields[3] : setup.enPassant
+    const unavailableEnPassant = rawEnPassant !== '-' && !enPassantTargets.includes(rawEnPassant as Square)
+    const enPassantPreview = rawEnPassant === undefined ? 'Missing in FEN'
+        : 'Invalid: ' + truncateUtf16(rawEnPassant, 32) + (rawEnPassant.length > 32 ? '…' : '')
+    const rawCastling = fenText.trim() ? rawSetupFields[2] : setup.castling
+    const invalidSetupCastling = rawCastling === undefined || !/^[KQkq-]+$/.test(rawCastling)
+    const castlingPreview = rawCastling === undefined ? ''
+        : truncateUtf16(rawCastling, 32) + (rawCastling.length > 32 ? '…' : '')
     const availableCastlingRights = normalizeAvailableCastlingRights(setup)
     const unavailableCastlingRights = setup.castling !== availableCastlingRights
-    const clearUnavailableCastlingRights = () => {
-        // Repair only this raw field; the draft may have other errors the
-        // reader still wants to inspect, including en passant or counters.
-        const fields = fenText.trim().split(/\s+/)
-        fields[2] = availableCastlingRights
+    const showCastlingRepair = invalidSetupCastling || unavailableCastlingRights
+    const previewSetupFields = () => {
+        const fields = positionSetupToFen(setup).split(' ')
+        // Match the declarations and safe counter values shown by the editor.
+        fields[2] = setup.castling
+        fields[3] = setup.enPassant
+        fields[4] = String(parseFenCounterValue(String(setup.halfmove)) ?? 0)
+        fields[5] = String(Math.max(1, parseFenCounterValue(String(setup.fullmove)) ?? 1))
+        return fields
+    }
+    const updateRawSetupFields = (updates: ReadonlyArray<readonly [1 | 2 | 3 | 4 | 5, string]>, complete = false) => {
+        // Retain existing raw fields. Explicit counter edits can fill missing
+        // trailing defaults; other metadata repairs leave them for the reader.
+        const trimmed = fenText.trim()
+        const fields = trimmed ? trimmed.split(/\s+/) : previewSetupFields()
+        const index = complete ? 5 : Math.max(...updates.map(([index]) => index))
+        if (fields.length <= index) {
+            fields.push(...previewSetupFields().slice(fields.length, index + 1))
+        }
+        for (const [index, value] of updates) fields[index] = value
         syncFenTextAndSetup(fields.join(' '))
         resetFeedback()
+    }
+    const clearUnavailableCastlingRights = () => {
+        updateRawSetupFields([[2, availableCastlingRights]])
         fenTextRef.current?.focus()
     }
     /**
@@ -794,13 +832,22 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                     accept=".pgn,.txt,application/x-chess-pgn,text/plain"
                                     onChange={event => void handleImportFileChange(event)}
                                 />
-                                <button type="button" className="btn-cancel" onClick={handlePickImportFile}>
-                                    <IconUpload /> Open PGN File
+                                <button type="button" className="btn-cancel"
+                                    aria-describedby={readingFile ? fileReadStatusId : undefined}
+                                    onClick={() => {
+                                        if (readingFile) {
+                                            cancelPendingImport()
+                                            resetFeedback()
+                                            setStatus('File read canceled. Your import text is unchanged.')
+                                        } else handlePickImportFile()
+                                    }}>
+                                    {readingFile ? <><IconClose /> Cancel file read</> : <><IconUpload /> Open PGN File</>}
                                 </button>
                                 {importFileName && (
                                     <span className="dialog-file-name" title={importFileName}>{importFileName}</span>
                                 )}
                             </div>
+                            {readingFile && <p id={fileReadStatusId} className="dialog-file-reading" role="status">Reading PGN file…</p>}
                             {loadedFileIsTooBigToShow ? (
                                 <div className="dialog-file-summary">
                                     <p>
@@ -836,7 +883,8 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                         setError(nextText.trim() ? pgnImportContentError(nextText) : null)
                                     }}
                                     aria-invalid={Boolean(error)}
-                                    aria-describedby={error ? `${importTextId}-error` : undefined}
+                                    aria-busy={readingFile || undefined}
+                                    aria-describedby={[error ? `${importTextId}-error` : '', readingFile ? fileReadStatusId : ''].filter(Boolean).join(' ') || undefined}
                                 />
                             )}
                             {error && <p id={`${importTextId}-error`} className="dialog-error" role="alert">{error}</p>}
@@ -846,7 +894,8 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                         type="button"
                                         className="btn-start"
                                         onClick={() => void handleImportDatabase()}
-                                        disabled={databaseBusy}
+                                        disabled={databaseBusy || readingFile}
+                                        aria-describedby={readingFile ? fileReadStatusId : undefined}
                                     >
                                         {databaseBusy
                                             ? 'Adding…'
@@ -854,7 +903,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                     </button>
                                 </div>
                             )}
-                            {status && <p className="library-status" role="status">{status}</p>}
+                            {status && <p className="pgn-import-status" role="status">{status}</p>}
                         </div>
                     )}
 
@@ -890,7 +939,9 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                     <div className="fen-setup-controls">
                                         <div className="fen-setup-control-block">
                                             <span className="dialog-label">Side</span>
-                                            <div className="fen-side-toggle" role="group" aria-label="Side to move">
+                                            <div className="fen-side-toggle" role="group" aria-label="Side to move"
+                                                aria-invalid={invalidSetupTurn || undefined}
+                                                aria-describedby={invalidSetupTurn ? sideHelpId : undefined}>
                                                 {([
                                                     { value: 'w', label: 'White' },
                                                     { value: 'b', label: 'Black' },
@@ -898,19 +949,29 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                                     <button
                                                         key={option.value}
                                                         type="button"
-                                                        className={`mode-card fen-side-btn ${setup.turn === option.value ? 'selected' : ''}`}
-                                                        aria-pressed={setup.turn === option.value}
-                                                        onClick={() => applySetupChange(current => updateSetupTurn(current, option.value))}
+                                                        className={`mode-card fen-side-btn ${rawTurn === option.value ? 'selected' : ''}`}
+                                                        aria-pressed={rawTurn === option.value}
+                                                        onClick={() => {
+                                                            const next = updateSetupTurn(setup, option.value)
+                                                            // A missing EP field has no declaration to adjust.
+                                                            updateRawSetupFields(next.turn === setup.turn || (Boolean(fenText.trim()) && rawSetupFields[3] === undefined)
+                                                                ? [[1, next.turn]]
+                                                                : [[1, next.turn], [3, next.enPassant]])
+                                                        }}
                                                     >
                                                         <strong>{option.label}</strong>
                                                     </button>
                                                 ))}
                                             </div>
+                                            {invalidSetupTurn && <p id={sideHelpId} className="fen-setup-help fen-setup-raw-help">
+                                                {rawTurn === undefined ? 'Missing in FEN.' : `FEN: “${turnPreview}”.`} Choose White or Black.
+                                            </p>}
                                         </div>
                                         <div className="fen-setup-control-block">
                                             <span className="dialog-label">Castling</span>
                                             <div className="fen-castling-grid" role="group" aria-label="Castling rights"
-                                                aria-describedby={unavailableCastlingRights ? castlingHelpId : undefined}>
+                                                aria-invalid={showCastlingRepair || undefined}
+                                                aria-describedby={showCastlingRepair ? castlingHelpId : undefined}>
                                                 {SETUP_CASTLING_OPTIONS.map(option => {
                                                     const canCastle = canUseSetupCastlingRight(setup, option.right)
                                                     const declared = setup.castling.includes(option.right)
@@ -928,9 +989,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                                                 aria-invalid={declared && !canCastle || undefined}
                                                                 aria-describedby={declared && !canCastle ? castlingHelpId : undefined}
                                                                 onChange={event => {
-                                                                    applySetupChange(current =>
-                                                                        updateSetupCastlingRight(current, option.right, event.target.checked),
-                                                                    )
+                                                                    updateRawSetupFields([[2, updateSetupCastlingRight(setup, option.right, event.target.checked).castling]])
                                                                 }}
                                                             />
                                                             <span>{option.short}</span>
@@ -939,65 +998,63 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                                     )
                                                 })}
                                             </div>
-                                            {unavailableCastlingRights && <>
-                                                <p id={castlingHelpId} className="fen-setup-help">
-                                                    Some declared castling rights are unavailable. Clear them, or correct the home king and rook.
+                                            {showCastlingRepair && <>
+                                                <p id={castlingHelpId} className={`fen-setup-help${invalidSetupCastling ? ' fen-setup-raw-help' : ''}`}>
+                                                    {invalidSetupCastling
+                                                        ? <>{rawCastling === undefined ? 'Missing in FEN.' : `FEN: “${castlingPreview}”.`} Use the checked rights that have their home king and rook, or edit the FEN.</>
+                                                        : 'Some declared castling rights are unavailable. Clear them, or correct the home king and rook.'}
                                                 </p>
                                                 <button type="button" className="btn-cancel" onClick={clearUnavailableCastlingRights}>
-                                                    Clear unavailable castling rights
+                                                    {invalidSetupCastling ? 'Fix castling' : 'Clear unavailable castling rights'}
                                                 </button>
                                             </>}
                                         </div>
                                         <div className="fen-setup-control-block">
                                             <span className="dialog-label">Counters</span>
                                             <div className="fen-counter-grid">
-                                                <label className="fen-counter-field" htmlFor={halfmoveId}>
-                                                    <span>Halfmove</span>
+                                                <div className="fen-counter-field">
+                                                    <label htmlFor={halfmoveId}>Halfmove</label>
                                                     <PositionCounterInput
                                                         id={halfmoveId}
                                                         min={0}
                                                         value={setup.halfmove}
+                                                        rawValue={rawSetupFields[4]}
                                                         position={setup}
-                                                        onValueChange={value => {
-                                                            applySetupChange(current =>
-                                                                updateSetupHalfmove(current, value),
-                                                            )
-                                                        }}
+                                                        onValueChange={value => updateRawSetupFields([[4, String(updateSetupHalfmove(setup, value).halfmove)]], true)}
                                                     />
-                                                </label>
-                                                <label className="fen-counter-field" htmlFor={fullmoveId}>
-                                                    <span>Fullmove</span>
+                                                </div>
+                                                <div className="fen-counter-field">
+                                                    <label htmlFor={fullmoveId}>Fullmove</label>
                                                     <PositionCounterInput
                                                         id={fullmoveId}
                                                         min={1}
                                                         value={setup.fullmove}
+                                                        rawValue={rawSetupFields[5]}
                                                         position={setup}
-                                                        onValueChange={value => {
-                                                            applySetupChange(current =>
-                                                                updateSetupFullmove(current, value),
-                                                            )
-                                                        }}
+                                                        onValueChange={value => updateRawSetupFields([[5, String(updateSetupFullmove(setup, value).fullmove)]], true)}
                                                     />
-                                                </label>
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="fen-setup-control-block">
                                             <label className="fen-counter-field" htmlFor={enPassantId}>
                                                 <span>En passant target</span>
                                                 <select id={enPassantId}
-                                                    value={setup.enPassant}
+                                                    value={rawEnPassant ?? ''}
                                                     aria-invalid={unavailableEnPassant || undefined}
                                                     aria-describedby={`${enPassantId}-help`}
-                                                    onChange={event => applySetupChange(current =>
-                                                        updateSetupEnPassant(current, event.target.value as Square | '-'))}>
+                                                    onChange={event => updateRawSetupFields([[3,
+                                                        updateSetupEnPassant(setup, event.target.value as Square | '-').enPassant]])}>
                                                     <option value="-">None</option>
-                                                    {unavailableEnPassant && <option value={setup.enPassant}>{setup.enPassant} (invalid)</option>}
+                                                    {unavailableEnPassant && <option value={rawEnPassant ?? ''}>{enPassantPreview}</option>}
                                                     {enPassantTargets.map(square => <option key={square} value={square}>{square}</option>)}
                                                 </select>
                                             </label>
                                             <p id={`${enPassantId}-help`} className="fen-setup-help">
                                                 {unavailableEnPassant
-                                                    ? 'This target does not match the pieces. Choose None to clear it, or correct the board.'
+                                                    ? rawEnPassant === undefined
+                                                        ? 'Missing in FEN. Choose None or an available square.'
+                                                        : 'This target is invalid. Choose None or an available square, or correct the board.'
                                                     : 'The square crossed by a pawn that just moved two squares.'}
                                             </p>
                                         </div>
@@ -1167,7 +1224,8 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                 {tab === 'import' && (
                     <div className="dialog-actions">
                         <button type="button" className="btn-cancel" onClick={closeDialog}>Cancel</button>
-                        <button type="button" className="btn-start" onClick={handleImport} disabled={!canImportPgn}>
+                        <button type="button" className="btn-start" onClick={handleImport} disabled={!canImportPgn || readingFile}
+                            aria-describedby={readingFile ? fileReadStatusId : undefined}>
                             Import & Analyze
                         </button>
                     </div>

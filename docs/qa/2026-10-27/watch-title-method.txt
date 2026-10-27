@@ -1,0 +1,13 @@
+Watch-game tab activity — 27 October 2026
+
+Before: the held-startup AI-vs-AI probe reports the same Web Chess title through loading, ready Step, thinking, completed Step and Fast paused. Its deliberate before assertion fails. It plays one legal e4 with the existing deterministic worker fixture.
+
+Extend the existing opponent title effect to both AI game modes, with Your move still restricted to human-vs-AI. Result and imported-player priority remain. Reuse loading, thinking, paused, waiting-for-Step and unavailable states. Also say the engine is unavailable in its error report instead of claiming every failure happened at startup.
+
+Permanent checkWatchTabTitle / watch-title covers desktop 1280×900 and touch-enabled 320×480 root text 200%, each with held startup and all-startup-failures. The lifecycle holds and explicitly completes searches, checks ready Step / thinking / paused / resume, induces two runtime build failures around held fallback readiness, retries with another held readiness handshake, preserves the exact one-move game, and switches to pass-and-play to clear stale activity. The failed-boot case checks unavailable and zero moves. It checks full titles, runtime report wording, page errors and ErrorBoundary. Existing six human-opponent title cases also run. All ten workflows pass in each of native Chromium, Firefox and Linux WebKit: 30 total. UI_TEST_ONLY=watch-title,play-title UI_TEST_BROWSER=chromium npm run test:ui:browser reproduces against a fresh build (substitute an installed browser).
+
+Related Chromium production checks pass: taking back mate, mode-switch clock restart, existing Step held-clock/increment workflow, and eight human Step clock/progress scenarios = 11 workflows. Full npm run verify passes typecheck, lint, 124 files / 2,146 tests / one pre-existing intentional skip and build.
+
+A real Chromium 375×812 session uses actual Stockfish 18 Lite WASM Multithreaded computation, Master difficulty, Threads 1 and 3+2. Worker logging passes all messages through without delaying or synthesizing readiness or results. One keyboard Step searches and completes exactly one move; the title transitions to thinking then waiting. Switching speed, resuming and pausing show paused/thinking/paused with stopped clocks. Successful WASM response, trusted native bestmove, title history, exact position/search commands, clocks and no errors are logged. This session does not simulate runtime failure; those cases use the deterministic fixture.
+
+Production artifact is frozen through all browser checks. Root text enlargement is not native browser zoom, and Linux WebKit is not a physical iOS device. No extra push/merge in this iteration.

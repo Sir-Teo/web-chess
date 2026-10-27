@@ -1,0 +1,3 @@
+{"before":"B\n3:01\nW\n3:01\nPAUSED","after":"B\n3:01\nW\n3:01","running":"Black 3 minutes 1 second, running","pausedBadge":0}
+Error: Navigating a paused pass-and-play game restarted its clock without Resume
+    at /tmp/web-chess-paused-clock-navigation-probe.cjs:12:18

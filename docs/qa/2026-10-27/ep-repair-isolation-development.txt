@@ -1,0 +1,3 @@
+  castling repair (1280px, 1x, dark): declared invalid rights stay checked/unavailable with repair help; keyboard clear preserves draft, valid rights, EP and counters; focus stays in the editor; both retained rights castle real pieces
+  castling repair (375px, 2x, light): declared invalid rights stay checked/unavailable with repair help; keyboard clear preserves draft, valid rights, EP and counters; focus stays in the editor; both retained rights castle real pieces
+  castling repair (320px, 2x, dark): declared invalid rights stay checked/unavailable with repair help; keyboard clear preserves draft, valid rights, EP and counters; focus stays in the editor; both retained rights castle real pieces

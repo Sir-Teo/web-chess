@@ -1,0 +1,12 @@
+PR #6 pre-merge validation — 27 October 2026
+https://github.com/Sir-Teo/web-chess/pull/6
+
+Complete npm run test:ui:browser finishes with exit zero and Browser UI checks passed. This is one uninterrupted Chromium production run on committed e68c2f3, from the three viewport smoke checks through final range-request, server-outage, offline and cross-origin-isolation checks. It includes all existing main-sequence workflows at that commit, including keyboard premoves and watch titles. Its full output is release-pr6-full-browser.txt.
+
+The two subsequent saved-review fixes are validated separately against their production artifacts, not represented as part of that earlier full build. The final bc5e208 application passes 30 saved-review open ownership cases across Chromium, Firefox and Linux WebKit, 14 related Chromium saved-review/search/rename workflows, final typecheck/lint, 124 files / 2,146 tests / one pre-existing intentional skip, and production build. The preceding rename ownership fix separately passed 18 cross-browser production cases. The keyboard premove and watch-mode changes also have recorded real Stockfish WASM checks. Dependency audit reports zero vulnerabilities; no dependency files changed afterward.
+
+Application artifact fingerprints:
+7530a148f7ee6e7f6377a80dc2aab01ccfabbaf90241aa8634198db0e5274cf3  dist/assets/index-gdMybw4V.js  (full browser run)
+923c329efacdfe122f427e843c3c301619691fce53e1af35a7640124b0c45761  /tmp/web-chess-saved-review-open-final-dist/assets/index-TCM721HG.js  (final saved-review production checks)
+
+The final documentation commit adds this record and trims trailing blank lines in five earlier QA text files. It changes no application behavior. Push/merge and Pages deployment results are recorded in PR #6.

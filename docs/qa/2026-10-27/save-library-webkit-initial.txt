@@ -1,0 +1,17 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  position notes (1280×900, 1x): zero-move study retains/edits notes, copies through Commands with exact FEN/no invented moves; Save game command checks empty-board eligibility, opens the focused Library form for the study and returns opener focus; saved notes recover after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+  position notes (375×812, 1x): zero-move study retains/edits notes, copies through Commands with exact FEN/no invented moves; Save game command checks empty-board eligibility, opens the focused Library form for the study and returns opener focus; saved notes recover after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+  position notes (320×812, 2x): zero-move study retains/edits notes, copies through Commands with exact FEN/no invented moves; Save game command checks empty-board eligibility, opens the focused Library form for the study and returns opener focus; saved notes recover after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+  position notes (844×390, 2x): zero-move study retains/edits notes, copies through Commands with exact FEN/no invented moves; Save game command checks empty-board eligibility, opens the focused Library form for the study and returns opener focus; saved notes recover after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+  library (1280px): Save game command opens the focused naming form after a real move; rejected save preserves its name and retries after freeing capacity; inline rename selects, cancels, commits and persists
+locator.waitFor: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('.library-dialog').getByRole('button', { name: 'Load My carefully named game', exact: true }) to be visible[22m
+
+    at checkLibraryEditing (/workspace/web-chess/scripts/test-ui-browser.cjs:7126:95)
+    at async /tmp/web-chess-save-library-check.cjs:10:60 {
+  log: [
+    "  - waiting for locator('.library-dialog').getByRole('button', { name: 'Load My carefully named game', exact: true }) to be visible"
+  ],
+  name: 'TimeoutError'
+}

@@ -1,0 +1,6 @@
+  board semantics (1280×812, 1x, dark): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture with selected-piece focus, arrival/departure cleanup, root navigation, flip and blindfold preserved
+  board semantics (375×812, 1x, light): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture with selected-piece focus, arrival/departure cleanup, root navigation, flip and blindfold preserved
+  board semantics (320×480, 2x, light): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture with selected-piece focus, arrival/departure cleanup, root navigation, flip and blindfold preserved
+  board semantics (844×390, 2x, dark): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture with selected-piece focus, arrival/departure cleanup, root navigation, flip and blindfold preserved
+  board drag focus (1280px, dark): native drag restores the arriving pawn; selecting the next piece keeps focus and keyboard reply succeeds
+  board drag focus (375px, light): native drag restores the arriving pawn; selecting the next piece keeps focus and keyboard reply succeeds

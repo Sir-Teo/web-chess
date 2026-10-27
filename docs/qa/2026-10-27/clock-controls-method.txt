@@ -1,0 +1,11 @@
+Visible pass-and-play clock controls — 27 October 2026
+
+Before: a timed pass-and-play game has one running clock and no Pause clock button. Space is the only direct pause action, unavailable to a touch-only user.
+
+WatchControls now offers a named Game clock group with Pause clock or Resume clock for a timed Human vs Human game in Play. It reads actual clock.running, because making a move intentionally restarts the next turn even if the AI pause flag remains true. Both states reuse the same button and existing handlers. Analysis, untimed and finished games do not offer the action. Existing AI controls and separately named Autoplay remain available in their own contexts. Shortcut help and README are updated.
+
+Permanent checkPassAndPlayClockControls / clock-controls covers 1280×900 normal dark with mouse, 375×812 normal light, 320×812 root text 200% dark, and 844×390 root text 200% light with native hasTouch/coarse pointers. Fresh native Chromium, Firefox and Linux WebKit contexts complete twelve workflows: pause by click/tap, exact unchanged banks through 3.5 seconds, focused native Space resumes once without replacing/losing focus, only the side to move ticks, native Enter pauses, making a move changes the action back to Pause, Analysis hides it, returning remains paused, a flag ends the game and removes the action, and an untimed game has neither clocks nor clock controls. Label/shortcut, text bounds, scroll-strip focus reveal, >=44px coarse targets, computed composited contrast, no document overflow/error boundary/page errors are checked.
+
+The production build stays frozen during native checks. Twelve related Chromium workflows cover all four paused-navigation layouts, replay completion, two held-key layouts, four compact-footer layouts and no-Popover fallback. Full verification passes 124 files / 2,115 tests / the existing intentional skip. Screenshots were inspected at 375×667 normal light and 844×390 text 200% light; the phone view is scrolled to move entry, and the compact landscape strip intentionally scrolls horizontally to reveal the clock action. Root text enlargement is not native zoom; Linux WebKit is not physical iOS. No physical speech-reader output is claimed.
+
+Changes remain local on work-next; no new deployment is part of this iteration.

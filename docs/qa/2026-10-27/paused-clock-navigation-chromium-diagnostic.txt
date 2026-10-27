@@ -1,0 +1,5 @@
+Error: ordinary running navigation did not tick only White: {"handedOver":{"black":"3:00","white":"3:03"},"running":{"black":"2:58","white":"3:03"}}
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkPausedClockNavigation (/workspace/web-chess/scripts/test-ui-browser.cjs:3639:7)
+    at async /tmp/web-chess-paused-clock-navigation-check.cjs:10:9

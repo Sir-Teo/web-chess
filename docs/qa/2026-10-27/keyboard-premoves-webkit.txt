@@ -1,0 +1,22 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  keyboard premove 1280×900 text 100% White queued: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 1280×900 text 100% Black queued: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 1280×900 text 100% White cancel: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 1280×900 text 100% Black cancel: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 1280×900 text 100% White invalid: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 1280×900 text 100% White arrival: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 1280×900 text 100% White new-focus: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 1280×900 text 100% White modal: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 1280×900 text 100% White captured: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 1280×900 text 100% White late-captured: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 320×480 text 200% White queued: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 320×480 text 200% Black queued: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 320×480 text 200% White cancel: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 320×480 text 200% Black cancel: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 320×480 text 200% White invalid: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 320×480 text 200% White arrival: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 320×480 text 200% White new-focus: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 320×480 text 200% White modal: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 320×480 text 200% White captured: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 320×480 text 200% White late-captured: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained
+  keyboard premove 320×225 text 200% White far-cancel: view-relative arrows/edges, honest targets, queue/source feedback, exact reply/move, clock/search and chosen focus retained

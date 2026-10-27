@@ -1,0 +1,10 @@
+  starred library (1280px, 1x, dark): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload
+  starred library (901px, 2x, light): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload
+  starred library (375px, 1x, dark): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload
+  starred library (320px, 2x, light): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload
+  library (1280px): Save game command opens the focused naming form after a real move; rejected save preserves its name and retries after freeing capacity; inline rename selects, cancels, commits and persists
+  library (375px): Save game command opens the focused naming form after a real move; rejected save preserves its name and retries after freeing capacity; inline rename selects, cancels, commits and persists
+  empty library focus (1280×900, 1x, dark): keyboard and pointer delete the last game with/without starred filter; visible Done focus, contained Tab and opener return
+  empty library focus (375×812, 1x, light): keyboard and pointer delete the last game with/without starred filter; visible Done focus, contained Tab and opener return
+  empty library focus (320×812, 2x, light): keyboard and pointer delete the last game with/without starred filter; visible Done focus, contained Tab and opener return
+  empty library focus (844×390, 2x, dark): keyboard and pointer delete the last game with/without starred filter; visible Done focus, contained Tab and opener return

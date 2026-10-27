@@ -122,7 +122,7 @@ import {
   tablebaseMoveSummary,
   tablebaseSummary,
 } from './engine/tablebaseLabels'
-import { isBoardSquare } from './engine/boardAccessibility'
+import { boardKeyboardDestination, isBoardSquare } from './engine/boardAccessibility'
 import { BOARD_A11Y_SYNC_MAX_RETRIES, syncRenderedBoardAccessibility } from './components/boardAccessibilitySync'
 import { isBoardInputLocked, isPromotionMove } from './engine/boardInput'
 import { boardSizing, isLandscapePhoneViewport, isMobileViewport } from './engine/boardSizing'
@@ -136,7 +136,7 @@ import {
 } from './engine/premove'
 import { moveSoundFor } from './engine/moveSound'
 import { spokenMove } from './engine/spokenMove'
-import { hasSiblingVariations, siblingVariation } from './engine/moveTree'
+import { gameTreeCursor, hasSiblingVariations, siblingVariation } from './engine/moveTree'
 import { chessComPositionUrl, lichessAnalysisUrl } from './engine/externalLinks'
 import { BOARD_THEMES, boardThemeById } from './engine/boardThemes'
 import {
@@ -367,6 +367,7 @@ type AnalysisTarget = {
 type PgnImportOptions = {
   analyzeAfterLoad?: boolean
   fromSample?: boolean
+  cursor?: readonly number[]
 }
 
 type FenLoadOptions = {
@@ -427,7 +428,7 @@ const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['T'], action: 'Show what the opponent threatens (Analysis mode)' },
   { keys: ['Z'], action: 'Take back your last move (Play mode)' },
   { keys: ['H'], action: 'Ask the engine for a hint (Play mode)' },
-  { keys: ['Space'], action: 'Pause or resume the AI (Play mode) · autoplay the moves (otherwise)' },
+  { keys: ['Space'], action: 'Pause or resume the game and clock (Play) · autoplay the moves (Analysis)' },
   { keys: [commandPaletteShortcutLabel()], action: 'Open the command palette' },
   { keys: ['?'], action: 'Show these shortcuts' },
 ]
@@ -1064,10 +1065,9 @@ function App() {
   playerColorRef.current = playerColor
 
   // ── Click-to-move (tap support) ───────────────────────
-  const restoreBoardFocusRef = useRef<Square | null>(null)
+  const restoreBoardFocusRef = useRef<{ square: Square; origin: Element | null; fen: string } | null>(null)
   const exerciseQuestionFocusRef = useRef<{ kind: 'drill' | 'practice'; fen: string } | null>(null)
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
-  const [legalTargets, setLegalTargets] = useState<Square[]>([])
   const [pendingPromotion, setPendingPromotion] = useState<PendingPromotion | null>(null)
   // Squares the reader right-clicked. Arrows they drag are the library's own
   // state; only the squares are ours, because it has no notion of them.
@@ -1123,7 +1123,8 @@ function App() {
   // ── AI speed (throttle delay between AI moves) ───────
   const [aiSpeed, setAiSpeed] = useState<AiSpeed>('normal')
   const aiSpeedRef = useRef<AiSpeed>('normal')
-  const stepPendingRef = useRef(false) // for Step mode: advance one move on demand
+  // A queued Step belongs to this exact node, including while the engine boots.
+  const stepPendingNodeRef = useRef<string | null>(null)
   const [stepRequestTick, setStepRequestTick] = useState(0)
 
   const handleSpeedChange = useCallback((s: AiSpeed) => {
@@ -1175,7 +1176,6 @@ function App() {
     aiMoveScheduledRef.current = false
     setPendingPromotion(null)
     setSelectedSquare(null)
-    setLegalTargets([])
     // A premove was queued against the position you were looking at. Take the
     // board anywhere else -- navigate, take a move back -- and it is a move for
     // a game that no longer exists: without this, a takeback played the queued
@@ -1192,11 +1192,9 @@ function App() {
   /**
    * Navigate, and leave the game saying the same thing everywhere.
    *
-   * Pass and play is not held -- navigation there is just browsing -- but the
-   * clock still has to follow the turn, the same handover a takeback makes and
-   * for the same reason: press ← after 1. e4 in a 3+2 game and the strip read
-   * "White to move" over Black's clock counting down. `takebackMove` fixed its
-   * own door and this one was left open.
+   * In pass and play, a running clock follows the selected turn and a paused
+   * one stays stopped. Before the turn handover, pressing ← after 1. e4
+   * left "White to move" over Black's clock counting down.
    *
    * Everywhere else the engine is held while the reader explores, and a held
    * game's clock stops with it. `paused` over a running clock is the one state
@@ -1213,16 +1211,20 @@ function App() {
     syncGameToNode(chess)
     const over = Boolean(readBoardEnding()) || Boolean(endedOffBoardRef.current)
     if (gameMode === 'human-vs-human') {
+      const holdClock = pausedRef.current || over
+      // React may replay the updater after another clock tick. The handover
+      // belongs to this navigation, not the later time when it is replayed.
+      const now = Date.now(), turn = chess.turn()
       setClock(previous => {
         if (!previous || previous.flagged) return previous
-        const now = Date.now()
-        return over ? pauseClock(previous, now) : startSide(previous, chess.turn(), now)
+        return holdClock ? pauseClock(previous, now) : startSide(previous, turn, now)
       })
       return
     }
     pausedRef.current = true
     setPaused(true)
-    setClock(previous => (previous ? pauseClock(previous, Date.now()) : previous))
+    const now = Date.now()
+    setClock(previous => (previous ? pauseClock(previous, now) : previous))
   }, [gameMode, readBoardEnding, syncGameToNode])
 
   const navigateAndPonder = useCallback((chess: Chess | null) => {
@@ -1253,10 +1255,13 @@ function App() {
    * remembered, because navigating the move list while paused can move it.
    */
   const pause = useCallback(() => {
+    // A queued updater can run again after a later tick. Keep the instant the
+    // player paused, so a replay cannot charge time spent with the game held.
+    const now = Date.now()
     pausedRef.current = true
     setPaused(true)
     setIsAiThinking(false)
-    setClock(previous => (previous ? pauseClock(previous, Date.now()) : previous))
+    setClock(previous => (previous ? pauseClock(previous, now) : previous))
   }, [])
 
   /**
@@ -1266,9 +1271,8 @@ function App() {
    * `moveEndedGame` stops the clock on the move that ends a game, for the
    * reason its own comment gives: a mated side's clock counting on will flag
    * and replace "Checkmate" with "flagged on time", and a stalemate would
-   * become a loss. Resume put it straight back. Pass and play has no Pause
-   * button -- Space is its pause -- so two presses over a finished game were
-   * all it took. The pause flag still clears, because that is what lets the
+   * become a loss. Resume put it straight back; two Space presses over a
+   * finished game were all it took. The pause flag still clears, which lets the
    * board and the AI loop out of it; only the clock stays where the ending
    * left it.
    *
@@ -1282,15 +1286,22 @@ function App() {
     setPaused(false)
     aiMoveScheduledRef.current = false
     const over = Boolean(readBoardEnding()) || Boolean(endedOffBoardRef.current)
-    setClock(previous => (
-      previous && !previous.flagged && !over ? startSide(previous, game.turn(), Date.now()) : previous
-    ))
+    const now = Date.now(), turn = game.turn()
+    const aiTurn = gameMode === 'ai-vs-ai'
+      || (gameMode === 'human-vs-ai' && turn !== playerColorToTurn(playerColor))
+    const waitForEngine = aiTurn && (aiPlayerStatusRef.current !== 'ready'
+      || (aiSpeedRef.current === 'step' && (stepPendingNodeRef.current === null
+        || stepPendingNodeRef.current !== gameTreeRef.current.currentPath().at(-1)?.id)))
+    setClock(previous => {
+      if (!previous || previous.flagged || over) return previous
+      return waitForEngine ? pauseClock(previous, now) : startSide(previous, turn, now)
+    })
     // `setPaused(false)` is what re-enters the AI loop: `paused` is one of that
     // effect's dependencies. This used to also call `setFen(f => f)`, commented
     // "nudge AI effect", which cannot do that -- React bails out of a state
     // update to an Object.is-equal value, so no dependency changed and no
     // effect re-ran. It was doing nothing, next to the line that does the job.
-  }, [game, readBoardEnding])
+  }, [game, gameMode, playerColor, readBoardEnding])
 
   const currentPathMoves = useMemo(
     () => currentPathNodes.slice(1).map(node => node.uci).filter(Boolean),
@@ -1522,7 +1533,6 @@ function App() {
       // a selected piece or a queued premove underneath it.
       if (e.key === 'Escape') {
         setSelectedSquare(null)
-        setLegalTargets([])
         setPremove(null)
         if (touchDrawing) {
           e.preventDefault()
@@ -2011,8 +2021,17 @@ function App() {
   const aiPlayerStatus = aiPlayer.status
   const cancelAiRequest = aiPlayer.cancelRequest
   const requestAiMove = aiPlayer.requestMove
+  const retryAiPlayer = aiPlayer.retry
   const setAiPlayerDifficulty = aiPlayer.setDifficulty
   const readAiSearch = aiPlayer.readLastSearch
+  const opponentRetryButtonRef = useRef<HTMLButtonElement | null>(null)
+  const attachOpponentRetry = useCallback((button: HTMLButtonElement | null) => {
+    const previous = opponentRetryButtonRef.current
+    if (!button && previous && document.activeElement === previous) {
+      boardStageRef.current?.focus({ preventScroll: true })
+    }
+    opponentRetryButtonRef.current = button
+  }, [])
   const aiPlayerStatusRef = useRef(aiPlayerStatus)
   const [aiReadyTick, setAiReadyTick] = useState(0)
 
@@ -2033,6 +2052,7 @@ function App() {
   }, [])
 
   const cancelPendingAiMove = useCallback(() => {
+    stepPendingNodeRef.current = null
     cancelAiRequest()
     aiMoveScheduledRef.current = false
     setIsAiThinking(false)
@@ -2094,7 +2114,8 @@ function App() {
     // down. Same handover `resume` makes, and no refund -- the think that was
     // spent stays spent, the way a takeback works everywhere else.
     if (!endedOffBoardRef.current) {
-      setClock(previous => (previous && !previous.flagged ? startSide(previous, chess.turn(), Date.now()) : previous))
+      const now = Date.now(), turn = chess.turn()
+      setClock(previous => (previous && !previous.flagged ? startSide(previous, turn, now) : previous))
     }
   }, [autoFlipBoard, cancelPendingAiMove, game, gameMode, playerColor, syncGameToNode])
   takebackMoveRef.current = takebackMove
@@ -3903,7 +3924,8 @@ function App() {
   useEffect(() => {
     if (!clock || clock.flagged || clock.running === null) return
     const id = window.setInterval(() => {
-      setClock(previous => (previous ? settleFlag(previous, Date.now()) : previous))
+      const now = Date.now()
+      setClock(previous => (previous ? settleFlag(previous, now) : previous))
     }, 250)
     return () => window.clearInterval(id)
   }, [clock])
@@ -3928,6 +3950,13 @@ function App() {
     endedOffBoard: Boolean(endedOffBoard),
     paused,
   })
+
+  // Derive this from the rendered position: an engine reply can turn a
+  // selected premove piece into an ordinary move without another selection.
+  const legalTargets = useMemo(() => {
+    if (!selectedSquare || premoveAllowed || (workspaceMode === 'play' && (isGameOver || endedOffBoard))) return []
+    return uniqueSquares(new Chess(fen).moves({ square: selectedSquare, verbose: true }).map(move => move.to as Square))
+  }, [endedOffBoard, fen, isGameOver, premoveAllowed, selectedSquare, workspaceMode])
 
   /**
    * Stepping out to Analysis stops the clock, and says so.
@@ -3960,7 +3989,8 @@ function App() {
     setResignedBy(side)
     // Everything a finished game stops doing. The clock is paused for the same
     // reason a checkmate pauses it: the game is over, so nobody is on move.
-    setClock(previous => (previous ? pauseClock(previous, Date.now()) : previous))
+    const now = Date.now()
+    setClock(previous => (previous ? pauseClock(previous, now) : previous))
     cancelPendingAiMove()
     setPremove(null)
     setHintMove(null)
@@ -4187,9 +4217,16 @@ function App() {
     // Read once, from the position the move created: a move that mates or
     // stalemates hands over to nobody, and the clock has to be told.
     const ended = Boolean(readBoardEnding())
+    const nextAiTurn = workspaceMode === 'play' && (gameMode === 'ai-vs-ai'
+      || (gameMode === 'human-vs-ai' && move.color === playerColorToTurn(playerColor)))
+    const holdNextClock = nextAiTurn && (aiSpeedRef.current === 'step'
+      || (!byEngine && aiPlayerStatusRef.current !== 'ready'))
     setClock(previous => {
       if (!previous) return previous
-      return ended ? moveEndedGame(previous, move.color, now) : moveMade(previous, move.color, now)
+      const next = ended ? moveEndedGame(previous, move.color, now) : moveMade(previous, move.color, now)
+      // Bank the move and increment, then hold an opponent who cannot move at
+      // that same instant. Waiting for a later effect would charge boot time.
+      return holdNextClock ? pauseClock(next, now) : next
     })
   }, [gameMode, playMoveSound, playerColor, readBoardEnding, workspaceMode])
   // Reached from the AI loop, which is an effect that must not re-install
@@ -4228,8 +4265,9 @@ function App() {
     if (!isAiTurn) return
 
     // In Step mode wait for user to request a move
-    if (aiSpeedRef.current === 'step' && !stepPendingRef.current) return
-    stepPendingRef.current = false
+    if (aiSpeedRef.current === 'step' && (stepPendingNodeRef.current === null
+      || stepPendingNodeRef.current !== gameTreeRef.current.currentPath().at(-1)?.id)) return
+    stepPendingNodeRef.current = null
 
     aiMoveScheduledRef.current = true
     setIsAiThinking(true)
@@ -4244,7 +4282,8 @@ function App() {
      * release; the engine has more than one way to be let go, and they all
      * arrive here.
      */
-    setClock(previous => (previous && !previous.flagged ? startSide(previous, currentTurn, Date.now()) : previous))
+    const searchStartedAt = Date.now()
+    setClock(previous => (previous && !previous.flagged ? startSide(previous, currentTurn, searchStartedAt) : previous))
 
     const stepModeMove = aiSpeedRef.current === 'step'
     const delayMs = AI_SPEED_MS[aiSpeedRef.current]
@@ -4350,7 +4389,6 @@ function App() {
   // ── Human move ────────────────────────────────────────
   const clearBoardSelection = useCallback(() => {
     setSelectedSquare(null)
-    setLegalTargets([])
   }, [])
 
   /**
@@ -4553,7 +4591,7 @@ function App() {
       // moment the move lands and focus drops to <body>. Play a move from the
       // keyboard and you were back at the top of the document, 32 piece stops
       // away from the board.
-      restoreBoardFocusRef.current = to
+      restoreBoardFocusRef.current = { square: to, origin: document.activeElement, fen: game.fen() }
       // A new move answers the nudge about the last one, whichever way.
       setBlunderNudge(null)
       // And takes the board back from a replay.
@@ -4622,8 +4660,22 @@ function App() {
 
     setPremove(null)
     const probe = new Chess(game.fen())
-    if (!applyPremove(probe, premove)) return
+    const active = document.activeElement as HTMLElement | null
+    const activeSquare = active?.closest('[id^="chessboard-square-"]')?.id.replace('chessboard-square-', '')
+    if (!applyPremove(probe, premove)) {
+      if (active === document.body || activeSquare === premove.from || activeSquare === premove.to) {
+        restoreBoardFocusRef.current = null
+        const source = game.get(premove.from)?.color === playerColorToTurn(playerColor)
+          ? document.getElementById(`chessboard-square-${premove.from}`)?.querySelector<HTMLElement>('button, [role="button"]')
+          : null
+        if (source) source.focus()
+        else boardStageRef.current?.focus({ preventScroll: true })
+      }
+      return
+    }
     applyHumanMove(premove.from, premove.to, premove.promotion)
+    // An automatic move must respect a newer piece the reader has focused.
+    if (activeSquare && activeSquare !== premove.from && activeSquare !== premove.to) restoreBoardFocusRef.current = null
   }, [applyHumanMove, endedOffBoard, fen, game, gameMode, playerColor, premove, readBoardEnding, workspaceMode])
 
 
@@ -4743,7 +4795,6 @@ function App() {
   const handleBoardDrop = useCallback(({ sourceSquare, targetSquare, piece }: PieceDropHandlerArgs) => {
     if (!targetSquare) return false
     setSelectedSquare(null)
-    setLegalTargets([])
     return onPieceDrop(sourceSquare as Square, targetSquare as Square, piece.pieceType)
   }, [onPieceDrop])
 
@@ -4854,7 +4905,6 @@ function App() {
       }
       if (isPremoveablePiece(game.fen(), square, playerColorToTurn(playerColor))) {
         setSelectedSquare(square)
-        setLegalTargets([])
       } else {
         // Anywhere else cancels, the way it does on every other board.
         setPremove(null)
@@ -4882,9 +4932,7 @@ function App() {
       // If clicking another own piece, re-select it
       const clickedPiece = game.get(square)
       if (clickedPiece && clickedPiece.color === game.turn()) {
-        const moves = game.moves({ square, verbose: true })
         setSelectedSquare(square)
-        setLegalTargets(uniqueSquares(moves.map(m => m.to as Square)))
         return
       }
       // Attempt the move
@@ -4900,9 +4948,7 @@ function App() {
     // First tap: select if it's a piece of the current player
     const piece = game.get(square)
     if (!piece || piece.color !== game.turn()) return
-    const moves = game.moves({ square, verbose: true })
     setSelectedSquare(square)
-    setLegalTargets(uniqueSquares(moves.map(m => m.to as Square)))
   }, [
     applyHumanMove,
     beginPromotion,
@@ -4921,22 +4967,25 @@ function App() {
   ])
 
   useEffect(() => {
-    // Only ever reclaims focus the move itself disturbed — focus still on the
-    // board, or already dropped to <body> because the square it was on stopped
-    // being focusable. Anywhere else and the reader moved on deliberately.
+    // Reclaim only focus the move disturbed. Another board square is also a
+    // deliberate choice, even while the arriving piece is still rendering.
+    // Navigation or previewing a different position ends this handoff too.
     const restoreBoardFocus = (settled: boolean) => {
-      const square = restoreBoardFocusRef.current
-      if (!square) return
+      const pending = restoreBoardFocusRef.current
+      if (!pending) return
+      const { square, origin, fen: movedFen } = pending
       const active = document.activeElement as HTMLElement | null
+      const squareEl = document.getElementById(`chessboard-square-${square}`)
       const stillOnBoard = Boolean(active?.closest?.('.board-surface'))
-      if (active !== document.body && !stillOnBoard) {
+      const ownsFocus = active === document.body || (stillOnBoard
+        && (active === origin || Boolean(active && squareEl?.contains(active))))
+      if (!ownsFocus || (previewChess ?? game).fen() !== movedFen) {
         restoreBoardFocusRef.current = null
         return
       }
       // Use the named piece control once it exists. During animation the
       // passive square is a named fallback; the structural observer retries
       // when the board replaces it with the arriving piece.
-      const squareEl = document.getElementById(`chessboard-square-${square}`)
       if (!squareEl) return
       const pieceControl = squareEl.querySelector<HTMLElement>('button, [role="button"]')
       const focusTarget = pieceControl ?? squareEl
@@ -4952,12 +5001,28 @@ function App() {
       // labelling e4 "empty" under a pawn the reader can see is worse than no
       // label. A preview has no selection and no legal targets, because
       // nothing can be moved in a position that is not the game.
+      const focusedBefore = document.activeElement as HTMLElement | null
       const applied = syncRenderedBoardAccessibility(
         previewChess ?? game,
         previewChess ? null : selectedSquare,
         previewChess ? [] : legalTargets,
         blindfold,
+        { keyboardHelpId: 'board-keyboard-help', premove: !previewChess && premoveAllowed, queuedPremove: previewChess ? null : premove },
       )
+      // Preserve a focused coordinate when an arriving piece replaces its
+      // temporary square control with the library's named piece control.
+      const active = document.activeElement as HTMLElement | null
+      if (focusedBefore?.matches('[id^="chessboard-square-"]') && (active === document.body || active === focusedBefore)) {
+        const control = focusedBefore.querySelector<HTMLElement>('button, [role="button"]')
+          ?? (focusedBefore.matches('[role="img"]') ? focusedBefore : null)
+        if (control) {
+          const neededTabIndex = control.tabIndex < 0 && !control.hasAttribute('tabindex')
+          if (neededTabIndex) control.setAttribute('tabindex', '-1')
+          // Some browsers defer blur after tabindex removal. Keep the active
+          // coordinate focusable before that deferred fixup can send it away.
+          if (control !== active || neededTabIndex) control.focus({ preventScroll: true })
+        }
+      }
       restoreBoardFocus(settled)
       return applied
     }
@@ -5001,27 +5066,67 @@ function App() {
       if (structureFrame !== null) window.cancelAnimationFrame(structureFrame)
       window.clearTimeout(settleTimer)
     }
-  }, [blindfold, fen, game, legalTargets, previewChess, selectedSquare])
+  }, [blindfold, fen, game, legalTargets, premove, premoveAllowed, previewChess, selectedSquare])
 
   const handleBoardKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
-      if (event.key !== 'Enter' && event.key !== ' ') return
-
+      if (!isPlainShortcut(event.nativeEvent) || isCompositionKey(event.nativeEvent)) return
       const target = event.target as HTMLElement | null
       const squareEl = target?.closest<HTMLElement>('[id^="chessboard-square-"]')
       if (!squareEl) return
-
       const square = squareEl.id.replace('chessboard-square-', '')
       if (!isBoardSquare(square)) return
 
+      const focusPiece = (from: Square) => {
+        const source = game.get(from) ? document.getElementById(`chessboard-square-${from}`) : null
+        const control = source?.querySelector<HTMLElement>('button, [role="button"]')
+          ?? (source?.matches('button, [role="button"]') ? source : null)
+        if (control) control.focus()
+        else boardStageRef.current?.focus({ preventScroll: true })
+      }
+      if (event.key === 'Escape' && (selectedSquare || premove)) {
+        // The pointer drag sensor also needs Escape; the global app handler
+        // already yields to defaultPrevented events.
+        event.preventDefault()
+        const from = selectedSquare ?? premove!.from
+        const returnToSource = Boolean(selectedSquare) || square === premove?.from || square === premove?.to
+        restoreBoardFocusRef.current = null
+        clearBoardSelection()
+        setPremove(null)
+        if (returnToSource) focusPiece(from)
+        return
+      }
+      const canChoose = selectedSquare && (workspaceMode !== 'play' || (!isGameOver && !endedOffBoard))
+      const next = canChoose ? boardKeyboardDestination(square, event.key, orientation) : null
+      if (next) {
+        event.preventDefault()
+        event.stopPropagation()
+        const destination = document.getElementById(`chessboard-square-${next}`)
+        const control = destination?.querySelector<HTMLElement>('button, [role="button"]') ?? destination
+        if (control) {
+          if (!control.hasAttribute('tabindex')) control.setAttribute('tabindex', '-1')
+          control.focus()
+        }
+        return
+      }
+      if (event.key !== 'Enter' && event.key !== ' ') return
       const isEmptyTarget = squareEl.getAttribute('data-webchess-a11y-target') === 'true'
       const isInteractiveSquare = Boolean(target?.closest('button, [role="button"]')) || isEmptyTarget
-      if (event.key === ' ' && !isInteractiveSquare) return
+      if (!isInteractiveSquare) {
+        // A selected piece may be inspected through passive empty squares.
+        // Their activation keys must not fall through to the game clock.
+        if (selectedSquare) { event.preventDefault(); event.stopPropagation() }
+        return
+      }
 
+      // Our square controls own these keys, ahead of the drag keyboard sensor.
       event.preventDefault()
+      event.stopPropagation()
+      const queuedFrom = premoveAllowed ? selectedSquare : null
       onSquareClick(square)
+      if (queuedFrom) focusPiece(queuedFrom)
     },
-    [onSquareClick],
+    [clearBoardSelection, endedOffBoard, game, isGameOver, onSquareClick, orientation, premove, premoveAllowed, selectedSquare, workspaceMode],
   )
 
   const promotionColor = pendingPromotion
@@ -5440,9 +5545,9 @@ function App() {
       setPgnHeaders(importedGame.headers)
 
       const mainLineEntries = flattenPgnMainLine(importedGame.moves)
-      gameTree.loadTree(importedGame.moves, rootFen, importedGame.rootCommands, importedGame.rootComment)
+      const selectedId = gameTree.loadTree(importedGame.moves, rootFen, importedGame.rootCommands, importedGame.rootComment, options?.cursor)
 
-      const finalFen = mainLineEntries.at(-1)?.fen ?? rootFen
+      const finalFen = gameTree.getNode(selectedId)?.fen ?? rootFen
       game.load(finalFen)
       setFen(finalFen)
       setEvaluationsByFen(importedGame.evaluations)
@@ -5579,6 +5684,16 @@ function App() {
         return
       }
       const pgn = exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
+      // Keep the exact metadata this write owns; another tab can save the same
+      // PGN in the same millisecond at a different position or clock reading.
+      const savedClock = clockRef.current ? {
+        control: clockRef.current.control,
+        whiteMs: remainingMs(clockRef.current, 'w', savedAt),
+        blackMs: remainingMs(clockRef.current, 'b', savedAt),
+        flagged: clockRef.current.flagged,
+      } : undefined
+      const savedPlay = playSessionRef.current
+      const savedCursor = gameTreeCursor(gameTreeRef.current.currentPath()) ?? undefined
       const result = writeAutoSavedGame(
         pgn,
         plies,
@@ -5586,21 +5701,18 @@ function App() {
         savedAt,
         // Banked times, read at the moment of writing, so a clock that is
         // running is stored as what it would show if it stopped now.
-        clockRef.current
-          ? {
-            control: clockRef.current.control,
-            whiteMs: remainingMs(clockRef.current, 'w', Date.now()),
-            blackMs: remainingMs(clockRef.current, 'b', Date.now()),
-            flagged: clockRef.current.flagged,
-          }
-          : undefined,
+        savedClock,
         // Only for a game being played. An imported PGN under analysis has no
         // side to take, and restoring one into Play mode would invent one.
-        playSessionRef.current,
+        savedPlay,
         isPositionStudy,
+        savedCursor,
       )
       if (result === 'saved') {
-        autoSaveOwnedRevisionRef.current = { savedAt, pgn }
+        autoSaveOwnedRevisionRef.current = {
+          savedAt, pgn, clock: savedClock, play: savedPlay, cursor: savedCursor,
+          positionStudy: isPositionStudy || undefined,
+        }
         recordSharedRecovery(savedAt, window.location.hash)
       }
       setAutoSaveResult(result)
@@ -5620,7 +5732,7 @@ function App() {
       window.removeEventListener('pagehide', flush)
       document.removeEventListener('visibilitychange', flushWhenHidden)
     }
-  }, [autoSaveReady, autoSaveRecovery, autoSaveRetry, mainLineNodes, isPositionStudy, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
+  }, [autoSaveReady, autoSaveRecovery, autoSaveRetry, mainLineNodes, isPositionStudy, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot, gameTree.current.id])
 
   const downloadRecoveryPgn = useCallback(() => {
     let url: string | undefined
@@ -5664,12 +5776,12 @@ function App() {
    */
   const restoreAutoSavedGame = useCallback(() => {
     if (!autoSaveRecovery) return
-    const result = handleAnalysisPgnImport(autoSaveRecovery.pgn)
+    const result = handlePgnImport(autoSaveRecovery.pgn, { analyzeAfterLoad: true, cursor: autoSaveRecovery.cursor })
     if (!result.ok) {
       setAutoSaveRestoreError(result.error ?? 'The saved moves could not be read.')
       return
     }
-    autoSaveOwnedRevisionRef.current = { savedAt: autoSaveRecovery.savedAt, pgn: autoSaveRecovery.pgn }
+    autoSaveOwnedRevisionRef.current = autoSaveRecovery
     setAutoSaveRestoreError(null)
     setAutoSaveRecovery(null)
     // Everything below runs after the import, which resets the board and the
@@ -5703,7 +5815,7 @@ function App() {
         flagged: saved.flagged,
       })
     }
-  }, [autoSaveRecovery, handleAnalysisPgnImport, setAiPlayerDifficulty])
+  }, [autoSaveRecovery, handlePgnImport, setAiPlayerDifficulty])
 
   const copyAutoSavedPgn = useCallback(async () => {
     const pgn = autoSaveRecovery?.pgn
@@ -5756,7 +5868,6 @@ function App() {
       setSampleLoadError(null)
       setPendingPromotion(null)
       setSelectedSquare(null)
-      setLegalTargets([])
       setIsImportingGame(false)
       pausedRef.current = true
       setPaused(true)
@@ -5932,6 +6043,7 @@ function App() {
       setSideChoice(chosenSide)
       setAiDifficulty(difficulty)
       setAiPlayerDifficulty(difficulty)
+      if (mode !== 'human-vs-human') retryAiPlayer()
 
       newGame()
       game.reset()
@@ -5964,10 +6076,11 @@ function App() {
 
       setTimeControlId(chosenTimeControlId)
       const control = timeControlPresetById(chosenTimeControlId)?.control ?? null
-      // White's clock runs from the start of the game, the way a clock does.
-      // The alternative -- starting it on the first move -- gives White an
-      // untimed think that Black never gets. Space pauses if you are not ready.
-      setClock(control ? startSide(createClock(control), 'w', Date.now()) : null)
+      // A human's first think starts now. An engine's clock starts in the AI
+      // loop once it can search, including when it is waiting for a first Step.
+      const humanStarts = mode === 'human-vs-human' || (mode === 'human-vs-ai' && color === 'white')
+      const initialClock = control ? createClock(control) : null
+      setClock(initialClock && humanStarts ? startSide(initialClock, 'w', Date.now()) : initialClock)
       setResignedBy(null)
       // The header the per-move `[%clk]` readings count down from. Without it
       // an exported timed game says how much time was left and never what of.
@@ -5976,7 +6089,7 @@ function App() {
       setOrientation(defaultOrientationForGameMode(mode, color))
       requestBoardReveal()
     },
-    [cancelPendingAiMove, cancelSampleLoad, clearBatchReview, clearBoardSelection, clearImportSweep, game, gameTree, newGame, requestBoardReveal, setAiPlayerDifficulty, setPgnHeaders],
+    [cancelPendingAiMove, cancelSampleLoad, clearBatchReview, clearBoardSelection, clearImportSweep, game, gameTree, newGame, requestBoardReveal, retryAiPlayer, setAiPlayerDifficulty, setPgnHeaders],
   )
 
   /**
@@ -6058,6 +6171,7 @@ function App() {
     setGameMode('human-vs-ai')
     setPlayerColor(humanColor)
     setAiPlayerDifficulty(aiDifficulty)
+    retryAiPlayer()
 
     newGame()
     game.load(startFen)
@@ -6106,6 +6220,7 @@ function App() {
     newGame,
     readBoardEnding,
     requestBoardReveal,
+    retryAiPlayer,
     setAiPlayerDifficulty,
     setPgnHeaders,
   ])
@@ -6202,7 +6317,7 @@ function App() {
   })
   const moveEntryDisabledReason = pendingPromotion ? 'Choose a promotion piece on the board.'
     : isAiThinking ? 'Waiting for the engine’s move.'
-      : aiPlayerStatus === 'error' ? 'The opponent is unavailable. Start a new game or switch to Analysis.'
+      : aiPlayerStatus === 'error' ? 'The opponent is unavailable. Retry the opponent below, start a new game or switch to Analysis.'
         : aiPlayerStatus === 'loading' ? 'The opponent is loading. Move entry opens on your turn.'
           : aiSpeed === 'step' ? 'Press Step for the engine’s move.'
             : 'Waiting for the engine’s move.'
@@ -6238,6 +6353,16 @@ function App() {
     return scheduleRevealRetries(reveal, [120, 320])
   }, [analysisPanelRevealTick, backgroundUiHidden, boardRevealTick, moveEntryFocusTick])
 
+  const analysisRetryReason = !engineEnabled ? 'Switch to Analysis to retry its engine.'
+    : status === 'error' ? null
+      : status === 'unloaded' ? 'The analysis engine is released. Load it first.'
+        : status === 'loading' ? 'The analysis engine is starting.'
+          : 'The analysis engine is already available.'
+  const opponentRetryReason = !aiEnabled ? 'Start an AI game to use an opponent.'
+    : aiPlayerStatus === 'error' ? null
+      : aiPlayer.retrying ? 'The opponent is restarting.'
+        : aiPlayerStatus === 'loading' ? 'The opponent is starting.'
+          : 'The opponent is already available.'
   const paletteCommands = useMemo<Command[]>(() => [
     { id: 'new-game', label: 'New game', shortcut: 'N', keywords: ['restart', 'reset'], run: openNewGameDialog },
     { id: 'enter-move', label: 'Enter a move by name',
@@ -6293,6 +6418,12 @@ function App() {
     },
     { id: 'library', label: 'Library', hint: 'Saved games', keywords: ['save', 'open', 'backup'],
       run: openLibraryDialog },
+    { id: 'save-library', label: 'Save game to Library',
+      hint: mainLineNodes.length <= 1 && !isPositionStudy ? 'Make a move or load a position study before saving'
+        : isPositionStudy ? 'Name and save this position study' : 'Name and save this game with its notes and variations',
+      keywords: ['keep', 'store', 'position', 'study', 'notes', 'variations'],
+      disabled: mainLineNodes.length <= 1 && !isPositionStudy,
+      run: openLibraryDialog },
     { id: 'mode-play', label: 'Play mode', keywords: ['workspace'], run: () => handleWorkspaceModeChange('play') },
     { id: 'mode-analysis', label: 'Analysis mode', keywords: ['workspace', 'engine'],
       run: () => handleWorkspaceModeChange('analysis') },
@@ -6322,6 +6453,22 @@ function App() {
       keywords: ['undo', 'takeback', 'revert', 'oops'],
       disabled: Boolean(takebackReason),
       run: takebackMove,
+    },
+    {
+      id: 'retry-analysis-engine',
+      label: 'Retry analysis engine',
+      hint: analysisRetryReason ?? 'Keep this position and restart the unavailable analysis engine',
+      keywords: ['recover', 'failed', 'unavailable', 'restart', 'stockfish'],
+      disabled: Boolean(analysisRetryReason),
+      run: handleRetryEngine,
+    },
+    {
+      id: 'retry-opponent',
+      label: 'Retry opponent',
+      hint: opponentRetryReason ?? 'Keep this game and restart the unavailable opponent',
+      keywords: ['engine', 'recover', 'failed', 'unavailable', 'restart'],
+      disabled: Boolean(opponentRetryReason),
+      run: retryAiPlayer,
     },
     {
       id: 'hint',
@@ -6511,7 +6658,7 @@ function App() {
     goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, moveEntryCommandReason, requestMoveEntry,
       goSiblingVariation, hintReason, isProbingThreat, isPositionStudy, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
       previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay, drillRevealReason, revealDrillMove, drillReturnReason, returnToDrill, practiceRevealReason, revealPracticeMove,
-      openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger,
+      openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger, opponentRetryReason, retryAiPlayer, analysisRetryReason, handleRetryEngine,
       reviewFaultCount, reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason, workspaceMode])
 
   /*
@@ -6620,21 +6767,27 @@ function App() {
 
   // ── Step: advance one AI move ─────────────────────────
   const handleStep = useCallback(() => {
-    if (readBoardEnding() || aiMoveScheduledRef.current) return
+    if (readBoardEnding() || aiMoveScheduledRef.current || aiPlayerStatusRef.current === 'error') return
     const currentTurn = game.turn()
     const isAiTurn =
       gameMode === 'ai-vs-ai' ||
       (gameMode === 'human-vs-ai' && currentTurn !== playerColor[0])
     if (!isAiTurn) return
 
-    stepPendingRef.current = true
+    stepPendingNodeRef.current = gameTreeRef.current.currentPath().at(-1)?.id ?? null
     pausedRef.current = false
     setPaused(false)
     aiMoveScheduledRef.current = false
     // The clock was held while the engine waited to be let go; give the time
     // back before it searches, so the search is on its own clock and the move
-    // it makes still earns its increment.
-    setClock(previous => (previous && !previous.flagged ? startSide(previous, currentTurn, Date.now()) : previous))
+    // it makes still earns its increment. A queued Step during boot cannot
+    // search yet; the AI loop starts its clock when readiness actually arrives.
+    const now = Date.now()
+    const ready = aiPlayerStatusRef.current === 'ready'
+    setClock(previous => {
+      if (!previous || previous.flagged) return previous
+      return ready ? startSide(previous, currentTurn, now) : pauseClock(previous, now)
+    })
     setStepRequestTick(tick => tick + 1)
   }, [game, gameMode, playerColor, readBoardEnding])
 
@@ -6820,8 +6973,8 @@ function App() {
     const parts: string[] = []
     if (gameResultLabel) {
       parts.push(gameResultLabel.split(' · ').pop() ?? gameResultLabel)
-    } else if (workspaceMode === 'play' && gameMode === 'human-vs-ai') {
-      if (game.turn() === playerColorToTurn(playerColor)) parts.push('Your move')
+    } else if (workspaceMode === 'play' && gameMode !== 'human-vs-human') {
+      if (gameMode === 'human-vs-ai' && game.turn() === playerColorToTurn(playerColor)) parts.push('Your move')
       else if (aiPlayerStatus === 'error') parts.push('Engine unavailable')
       else if (aiPlayerStatus === 'loading') parts.push('Engine loading')
       else if (aiSpeed === 'step' && !isAiThinking) parts.push('AI waiting for Step')
@@ -7096,6 +7249,12 @@ function App() {
   const canStepAiMove = playEngineActive && !isGameOver && !endedOffBoard && (
     gameMode === 'ai-vs-ai' || (gameMode === 'human-vs-ai' && game.turn() !== playerColor[0])
   )
+  // Step holds the engine, but the human turn still spends time. Use the
+  // waiting Step slot to let touch users pause/resume that clock too.
+  const showHumanClockControl = workspaceMode === 'play' && Boolean(clock) && (
+    gameMode === 'human-vs-human'
+    || (gameMode === 'human-vs-ai' && aiSpeed === 'step' && game.turn() === playerColor[0])
+  )
   /**
    * The engine is on move and something is holding it there.
    *
@@ -7153,17 +7312,22 @@ function App() {
      * **Measured**: 2:59 before the step and 2:59 after a move worth two
      * seconds.
      *
-     * Two flags, because one commit is not enough. `stepPendingRef` covers
+     * Two markers, because one commit is not enough. `stepPendingNodeRef` covers
      * the render `handleStep` causes, before the loop has looked. The loop
      * then clears it and sets `aiMoveScheduledRef` -- and it is declared
      * above this effect, so within that same commit it runs first and this
      * one would see a cleared flag and a search that has not raised
      * `isAiThinking` yet. Measured exactly there: the guard on
-     * `stepPendingRef` alone changed nothing at all.
+     * `stepPendingNodeRef` alone changed nothing at all.
      */
-    if (stepPendingRef.current || aiMoveScheduledRef.current) return
-    setClock(previous => (previous && previous.running !== null ? pauseClock(previous, Date.now()) : previous))
-  }, [awaitingAiStep, clock])
+    // A pending Step protects an engine's own search time, never its loading
+    // time. Boot/fallback can still hold the request before any search starts.
+    const stepForCurrentNode = stepPendingNodeRef.current !== null
+      && stepPendingNodeRef.current === gameTreeRef.current.currentPath().at(-1)?.id
+    if (!engineCannotSearchYet && (stepForCurrentNode || aiMoveScheduledRef.current)) return
+    const now = Date.now()
+    setClock(previous => (previous && previous.running !== null ? pauseClock(previous, now) : previous))
+  }, [awaitingAiStep, clock, engineCannotSearchYet])
   /**
    * Sideways on a phone, height is the scarce axis, and this pair made the
    * strip above the board two lines tall: the 44px Arrows target beside one
@@ -8363,7 +8527,18 @@ function App() {
                   </div>
                 )
               })()}
-              <div className="board-area" onKeyDown={handleBoardKeyDown}>
+              <div className="board-area" onKeyDownCapture={handleBoardKeyDown}>
+                <p id="board-keyboard-help" className="visually-hidden">
+                  {premoveAllowed
+                    ? 'Select your piece with Enter or Space. Use arrow keys or Tab to a premove destination, then Enter or Space to queue it. It plays only if legal after the reply.'
+                    : 'Press Enter or Space to select a piece. Use arrow keys or Tab to a legal move, then Enter or Space to play it.'}
+                  {' '}Home and End move along a rank. Escape cancels the selection or queued premove.
+                </p>
+                {workspaceMode === 'play' && gameMode === 'human-vs-ai' && (
+                  <span className="visually-hidden" role="status" aria-live="polite" aria-atomic="true" data-premove-status>
+                    {premove ? `Premove queued from ${premove.from} to ${premove.to}. It plays only if legal after the reply. Escape cancels.` : ''}
+                  </span>
+                )}
                 <div
                   className={`board-surface${isPreviewingLine ? ' previewing' : ''}${touchDrawing ? ' drawing' : ''}`}
                   aria-hidden={promotionDialogOpen ? true : undefined}
@@ -8762,11 +8937,23 @@ function App() {
                     <h3><span className="section-icon"><IconSwords /></span> {!playEngineActive ? 'Game' : gameMode === 'ai-vs-ai' ? 'Engines' : 'Opponent'}</h3>
                     {playEngineActive && (
                       <p
+                        id="play-opponent-report"
                         className={`panel-copy small${playEngineReport.failed ? ' error-copy' : ''}`}
-                        role={playEngineReport.failed ? 'alert' : undefined}
+                        role={playEngineReport.failed ? 'alert' : aiPlayer.retrying ? 'status' : undefined}
                       >
                         {playEngineReport.message}
                       </p>
+                    )}
+                    {playEngineActive && (aiPlayer.status === 'error' || aiPlayer.retrying) && (
+                      <div className="inline-actions">
+                        <button type="button" className="hint-btn opponent-retry" ref={attachOpponentRetry}
+                          onClick={aiPlayer.retrying ? undefined : retryAiPlayer}
+                          aria-disabled={aiPlayer.retrying || undefined}
+                          aria-busy={aiPlayer.retrying || undefined}
+                          aria-describedby="play-opponent-report">
+                          {aiPlayer.retrying ? 'Retrying opponent…' : 'Retry opponent'}
+                        </button>
+                      </div>
                     )}
                     <label className="switch-control">
                       <input
@@ -10060,10 +10247,14 @@ function App() {
               onNext={goNext}
               onLast={goLast}
               aiActive={playEngineActive}
+              clockRunning={showHumanClockControl && clock
+                ? clock.running !== null : undefined}
               paused={paused}
               isGameOver={isGameOver || Boolean(endedOffBoard)}
               stepMode={aiSpeed === 'step'}
               canStep={canStepAiMove}
+              stepThinking={isAiThinking}
+              stepUnavailable={aiPlayerStatus === 'error'}
               onPause={pause}
               onResume={resume}
               onStep={handleStep}

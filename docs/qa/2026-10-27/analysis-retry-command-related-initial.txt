@@ -1,0 +1,18 @@
+  engine retry (1280×900, 1x, dark, boot, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; repeated failure recovers
+  engine retry (1280×900, 1x, dark, runtime, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (1280×900, 1x, dark, runtime, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (1280×900, 1x, dark, hidden, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; infinite analysis waits for visibility
+  engine retry (375×812, 1x, light, boot, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; repeated failure recovers
+  engine retry (375×812, 1x, light, runtime, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (375×812, 1x, light, runtime, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (375×812, 1x, light, hidden, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; infinite analysis waits for visibility
+  engine retry (320×812, 2x, light, boot, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; repeated failure recovers
+  engine retry (320×812, 2x, light, runtime, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (320×812, 2x, light, runtime, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (320×812, 2x, light, hidden, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; infinite analysis waits for visibility
+page.waitForFunction: Timeout 30000ms exceeded.
+    at checkEngineRetry (/workspace/web-chess/scripts/test-ui-browser.cjs:1116:22)
+    at async /tmp/web-chess-analysis-retry-command-related.cjs:10:60 {
+  log: [],
+  name: 'TimeoutError'
+}

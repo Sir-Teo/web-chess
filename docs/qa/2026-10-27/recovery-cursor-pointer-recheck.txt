@@ -1,0 +1,168 @@
+RELOAD STATE {
+  current: 'Go to move 1... e5, current position',
+  note: undefined,
+  old: undefined
+} [ 0, 0 ]
+RELOAD STATE { current: undefined, note: undefined, old: [ 0, 0 ] } []
+VARIATION POINTER {
+  current: 'Go to variation move 1... d5, current position, review book, has comment',
+  trace: [
+    {
+      type: 'pointerdown',
+      label: 'Go to variation move 1... d5, has comment',
+      y: 378,
+      rect: [Object]
+    },
+    {
+      type: 'focusin',
+      label: 'Go to variation move 1... d5, has comment',
+      y: undefined,
+      rect: [Object]
+    },
+    {
+      type: 'pointerup',
+      label: 'Go to variation move 1... d5, has comment',
+      y: 378,
+      rect: [Object]
+    },
+    {
+      type: 'click',
+      label: 'Go to variation move 1... d5, has comment',
+      y: 378,
+      rect: [Object]
+    }
+  ]
+}
+RELOAD STATE {
+  current: 'Go to variation move 1... d5, current position, review book, has comment',
+  note: 'Edited side reply ♞',
+  old: []
+} [ 1, 0 ]
+RELOAD STATE {
+  current: 'Go to variation move 1... d5, current position, review book, has comment',
+  note: 'Edited side reply ♞',
+  old: [ 1, 0 ]
+} undefined
+RELOAD STATE {
+  current: 'Go to move 2. Nf3, current position, review book',
+  note: '',
+  old: undefined
+} undefined
+RELOAD STATE {
+  current: 'Go to move 2. Nf3, current position, review book',
+  note: '',
+  old: [ -1 ]
+} undefined
+  autosave cursor (320×812, 2x, dark): immediate reload keeps takeback/root/variation positions, paused clock/session and exact complete game/notes; selected note follows its branch; legacy, malformed and outdated routes retain normal recovery
+RELOAD STATE {
+  current: 'Go to move 1... e5, current position',
+  note: undefined,
+  old: undefined
+} [ 0, 0 ]
+RELOAD STATE { current: undefined, note: undefined, old: [ 0, 0 ] } []
+VARIATION POINTER {
+  current: 'Go to variation move 1... d5, current position, review book, has comment',
+  trace: [
+    {
+      type: 'pointerdown',
+      label: 'Go to variation move 1... d5, has comment',
+      y: 378,
+      rect: [Object]
+    },
+    {
+      type: 'focusin',
+      label: 'Go to variation move 1... d5, has comment',
+      y: undefined,
+      rect: [Object]
+    },
+    {
+      type: 'pointerup',
+      label: 'Go to variation move 1... d5, has comment',
+      y: 378,
+      rect: [Object]
+    },
+    {
+      type: 'click',
+      label: 'Go to variation move 1... d5, has comment',
+      y: 378,
+      rect: [Object]
+    }
+  ]
+}
+RELOAD STATE {
+  current: 'Go to variation move 1... d5, current position, review book, has comment',
+  note: 'Edited side reply ♞',
+  old: []
+} [ 1, 0 ]
+RELOAD STATE {
+  current: 'Go to variation move 1... d5, current position, review book, has comment',
+  note: 'Edited side reply ♞',
+  old: [ 1, 0 ]
+} undefined
+RELOAD STATE {
+  current: 'Go to move 2. Nf3, current position, review book',
+  note: '',
+  old: undefined
+} undefined
+RELOAD STATE {
+  current: 'Go to move 2. Nf3, current position, review book',
+  note: '',
+  old: [ -1 ]
+} undefined
+  autosave cursor (320×812, 2x, dark): immediate reload keeps takeback/root/variation positions, paused clock/session and exact complete game/notes; selected note follows its branch; legacy, malformed and outdated routes retain normal recovery
+RELOAD STATE {
+  current: 'Go to move 1... e5, current position',
+  note: undefined,
+  old: undefined
+} [ 0, 0 ]
+RELOAD STATE { current: undefined, note: undefined, old: [ 0, 0 ] } []
+VARIATION POINTER {
+  current: 'Go to variation move 1... d5, current position, review book, has comment',
+  trace: [
+    {
+      type: 'pointerdown',
+      label: 'Go to variation move 1... d5, has comment',
+      y: 378,
+      rect: [Object]
+    },
+    {
+      type: 'focusin',
+      label: 'Go to variation move 1... d5, has comment',
+      y: undefined,
+      rect: [Object]
+    },
+    {
+      type: 'pointerup',
+      label: 'Go to variation move 1... d5, has comment',
+      y: 378,
+      rect: [Object]
+    },
+    {
+      type: 'click',
+      label: 'Go to variation move 1... d5, has comment',
+      y: 378,
+      rect: [Object]
+    }
+  ]
+}
+RELOAD STATE {
+  current: 'Go to variation move 1... d5, current position, review book, has comment',
+  note: 'Edited side reply ♞',
+  old: []
+} [ 1, 0 ]
+RELOAD STATE {
+  current: 'Go to variation move 1... d5, current position, review book, has comment',
+  note: 'Edited side reply ♞',
+  old: [ 1, 0 ]
+} undefined
+RELOAD STATE {
+  current: 'Go to move 2. Nf3, current position, review book',
+  note: '',
+  old: undefined
+} undefined
+RELOAD STATE {
+  current: 'Go to move 2. Nf3, current position, review book',
+  note: '',
+  old: [ -1 ]
+} undefined
+  autosave cursor (320×812, 2x, dark): immediate reload keeps takeback/root/variation positions, paused clock/session and exact complete game/notes; selected note follows its branch; legacy, malformed and outdated routes retain normal recovery

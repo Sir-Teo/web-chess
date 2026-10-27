@@ -1,8 +1,42 @@
 import { describe, expect, it } from 'vitest'
 import type { GameNode } from '../hooks/useGameTree'
-import { hasSiblingVariations, isOnMainLine, promoteToMainLine, removeSubtree, siblingVariation, variationRootId } from './moveTree'
+import { gameTreeCursor, hasSiblingVariations, isOnMainLine, nodeAtGameTreeCursor, promoteToMainLine, removeSubtree, siblingVariation, variationRootId } from './moveTree'
 
 type Spec = Record<string, string[]>
+
+describe('selected position cursors', () => {
+  const nodes = treeFrom({ root: ['main', 'side'], main: ['end'], side: ['sideEnd'] })
+
+  it('keeps the root, a takeback position and a variation distinct', () => {
+    expect(gameTreeCursor([nodes.get('root')!])).toEqual([])
+    expect(gameTreeCursor([nodes.get('root')!, nodes.get('main')!])).toEqual([0])
+    expect(gameTreeCursor([nodes.get('root')!, nodes.get('side')!, nodes.get('sideEnd')!])).toEqual([1, 0])
+    expect(nodeAtGameTreeCursor(nodes, 'root', [])?.id).toBe('root')
+    expect(nodeAtGameTreeCursor(nodes, 'root', [0])?.id).toBe('main')
+  })
+
+  it('selects the same branch after node IDs are regenerated', () => {
+    const cursor = gameTreeCursor([nodes.get('root')!, nodes.get('side')!, nodes.get('sideEnd')!])!
+    const restored = treeFrom({ newRoot: ['newMain', 'newSide'], newMain: ['newEnd'], newSide: ['newSideEnd'] })
+    expect(nodeAtGameTreeCursor(restored, 'newRoot', cursor)?.id).toBe('newSideEnd')
+    expect(restored.size).toBe(5)
+  })
+
+  it.each([[-1], [0.5], [Number.NaN], [Number.POSITIVE_INFINITY], [2], [0, 1]].map(cursor => ({ cursor })))('declines an invalid or outdated route $cursor', ({ cursor }) => {
+    expect(nodeAtGameTreeCursor(nodes, 'root', cursor)).toBeNull()
+  })
+
+  it('declines incoherent paths and broken child references', () => {
+    expect(gameTreeCursor([])).toBeNull()
+    expect(gameTreeCursor([nodes.get('side')!])).toBeNull()
+    expect(gameTreeCursor([nodes.get('root')!, nodes.get('sideEnd')!])).toBeNull()
+    const broken = new Map(nodes)
+    broken.delete('sideEnd')
+    expect(nodeAtGameTreeCursor(broken, 'root', [1, 0])).toBeNull()
+    expect(nodeAtGameTreeCursor(nodes, 'missing', [])).toBeNull()
+    expect(nodeAtGameTreeCursor(nodes, 'side', [])).toBeNull()
+  })
+})
 
 /** A tree from an id -> children map. "root" is the root. */
 function treeFrom(spec: Spec): Map<string, GameNode> {

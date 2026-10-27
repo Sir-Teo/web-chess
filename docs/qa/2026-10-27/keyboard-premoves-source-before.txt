@@ -1,0 +1,3 @@
+{"label":"a1, White rook, premove queued to a8","active":true,"top":236.234375,"bottom":260.234375,"height":225,"hit":false}
+Error: Returning to the queued premove source hides its keyboard focus
+    at /tmp/web-chess-premove-source-visibility.cjs:2:1963

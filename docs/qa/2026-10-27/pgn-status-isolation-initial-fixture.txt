@@ -1,0 +1,6 @@
+Error: PGN feedback is needlessly indented or changes the draft
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at read (/workspace/web-chess/scripts/test-ui-browser.cjs:6267:9)
+    at async Object.checkPgnImportStatusIsolation (/workspace/web-chess/scripts/test-ui-browser.cjs:6271:22)
+    at async /tmp/web-chess-pgn-status-isolation-check.cjs:10:9

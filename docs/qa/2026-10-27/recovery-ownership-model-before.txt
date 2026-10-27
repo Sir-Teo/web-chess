@@ -1,0 +1,207 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/autoSave.test.ts (56 tests | 6 failed) 30ms
+     × keeps another tab’s 'root instead of last move' even with the same PGN and timestamp 6ms
+     × keeps another tab’s 'another variation' even with the same PGN and timestamp 1ms
+     × keeps another tab’s 'clock bank' even with the same PGN and timestamp 1ms
+     × keeps another tab’s 'added clock' even with the same PGN and timestamp 1ms
+     × keeps another tab’s 'player colour' even with the same PGN and timestamp 1ms
+     × keeps another tab’s 'opponent' even with the same PGN and timestamp 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/autoSave.test.ts > writing and reading back > keeps another tab’s 'root instead of last move' even with the same PGN and timestamp
+AssertionError: expected null to deeply equal { version: 1, savedAt: 1234, …(3) }
+
+- Expected:
+{
+  "cursor": [],
+  "moveCount": 3,
+  "pgn": "[Event \"Casual\"]
+
+1. e4 e5 2. Nf3 *",
+  "savedAt": 1234,
+  "version": 1,
+}
+
++ Received:
+null
+
+ ❯ src/engine/autoSave.test.ts:67:40
+     65|     storage.setItem(AUTO_SAVED_GAME_KEY, JSON.stringify(incoming))
+     66|     clearAutoSavedGame(storage, owned)
+     67|     expect(readAutoSavedGame(storage)).toEqual(incoming)
+       |                                        ^
+     68|   })
+     69|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  src/engine/autoSave.test.ts > writing and reading back > keeps another tab’s 'another variation' even with the same PGN and timestamp
+AssertionError: expected null to deeply equal { version: 1, savedAt: 1234, …(3) }
+
+- Expected:
+{
+  "cursor": [
+    1,
+    0,
+  ],
+  "moveCount": 3,
+  "pgn": "[Event \"Casual\"]
+
+1. e4 e5 2. Nf3 *",
+  "savedAt": 1234,
+  "version": 1,
+}
+
++ Received:
+null
+
+ ❯ src/engine/autoSave.test.ts:67:40
+     65|     storage.setItem(AUTO_SAVED_GAME_KEY, JSON.stringify(incoming))
+     66|     clearAutoSavedGame(storage, owned)
+     67|     expect(readAutoSavedGame(storage)).toEqual(incoming)
+       |                                        ^
+     68|   })
+     69|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  src/engine/autoSave.test.ts > writing and reading back > keeps another tab’s 'clock bank' even with the same PGN and timestamp
+AssertionError: expected null to deeply equal { version: 1, savedAt: 1234, …(3) }
+
+- Expected:
+{
+  "clock": {
+    "blackMs": 130000,
+    "control": {
+      "incrementMs": 2000,
+      "initialMs": 180000,
+    },
+    "flagged": null,
+    "whiteMs": 119000,
+  },
+  "moveCount": 3,
+  "pgn": "[Event \"Casual\"]
+
+1. e4 e5 2. Nf3 *",
+  "savedAt": 1234,
+  "version": 1,
+}
+
++ Received:
+null
+
+ ❯ src/engine/autoSave.test.ts:67:40
+     65|     storage.setItem(AUTO_SAVED_GAME_KEY, JSON.stringify(incoming))
+     66|     clearAutoSavedGame(storage, owned)
+     67|     expect(readAutoSavedGame(storage)).toEqual(incoming)
+       |                                        ^
+     68|   })
+     69|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  src/engine/autoSave.test.ts > writing and reading back > keeps another tab’s 'added clock' even with the same PGN and timestamp
+AssertionError: expected null to deeply equal { version: 1, savedAt: 1234, …(3) }
+
+- Expected:
+{
+  "clock": {
+    "blackMs": 130000,
+    "control": {
+      "incrementMs": 2000,
+      "initialMs": 180000,
+    },
+    "flagged": null,
+    "whiteMs": 120000,
+  },
+  "moveCount": 3,
+  "pgn": "[Event \"Casual\"]
+
+1. e4 e5 2. Nf3 *",
+  "savedAt": 1234,
+  "version": 1,
+}
+
++ Received:
+null
+
+ ❯ src/engine/autoSave.test.ts:67:40
+     65|     storage.setItem(AUTO_SAVED_GAME_KEY, JSON.stringify(incoming))
+     66|     clearAutoSavedGame(storage, owned)
+     67|     expect(readAutoSavedGame(storage)).toEqual(incoming)
+       |                                        ^
+     68|   })
+     69|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  src/engine/autoSave.test.ts > writing and reading back > keeps another tab’s 'player colour' even with the same PGN and timestamp
+AssertionError: expected null to deeply equal { version: 1, savedAt: 1234, …(3) }
+
+- Expected:
+{
+  "moveCount": 3,
+  "pgn": "[Event \"Casual\"]
+
+1. e4 e5 2. Nf3 *",
+  "play": {
+    "difficulty": 4,
+    "gameMode": "human-vs-human",
+    "playerColor": "black",
+  },
+  "savedAt": 1234,
+  "version": 1,
+}
+
++ Received:
+null
+
+ ❯ src/engine/autoSave.test.ts:67:40
+     65|     storage.setItem(AUTO_SAVED_GAME_KEY, JSON.stringify(incoming))
+     66|     clearAutoSavedGame(storage, owned)
+     67|     expect(readAutoSavedGame(storage)).toEqual(incoming)
+       |                                        ^
+     68|   })
+     69|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  src/engine/autoSave.test.ts > writing and reading back > keeps another tab’s 'opponent' even with the same PGN and timestamp
+AssertionError: expected null to deeply equal { version: 1, savedAt: 1234, …(3) }
+
+- Expected:
+{
+  "moveCount": 3,
+  "pgn": "[Event \"Casual\"]
+
+1. e4 e5 2. Nf3 *",
+  "play": {
+    "difficulty": 4,
+    "gameMode": "human-vs-ai",
+    "playerColor": "white",
+  },
+  "savedAt": 1234,
+  "version": 1,
+}
+
++ Received:
+null
+
+ ❯ src/engine/autoSave.test.ts:67:40
+     65|     storage.setItem(AUTO_SAVED_GAME_KEY, JSON.stringify(incoming))
+     66|     clearAutoSavedGame(storage, owned)
+     67|     expect(readAutoSavedGame(storage)).toEqual(incoming)
+       |                                        ^
+     68|   })
+     69|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 50 passed (56)
+   Start at  18:36:25
+   Duration  305ms (transform 74ms, setup 0ms, import 95ms, tests 30ms, environment 0ms)

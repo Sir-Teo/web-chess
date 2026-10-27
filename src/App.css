@@ -3094,6 +3094,13 @@ button.opening-move-row {
 .mtree-row,
 .mtree-variation {
   contain: layout paint style;
+}
+
+/* Estimated heights can change as a move receives focus, moving it away
+   before pointer release. Keep the move transcript's geometry measurable. */
+.pv-list article,
+.cloud-line-row,
+.moves-list li {
   content-visibility: auto;
 }
 
@@ -3102,9 +3109,7 @@ button.opening-move-row {
   contain-intrinsic-size: auto 92px;
 }
 
-.moves-list li,
-.mtree-row,
-.mtree-variation {
+.moves-list li {
   contain-intrinsic-size: auto 36px;
 }
 
@@ -5149,11 +5154,34 @@ button.pv-move:focus-visible {
     font-size: 1.15rem;
   }
 
+  /* Keep full clock labels beside navigation when space permits.
+     Its decorative icon can yield room without shrinking the touch target. */
+  .watch-controls button.wc-btn-clock {
+    font-size: 1rem;
+  }
+
+  .wc-btn-clock svg,
+  .wc-btn[aria-busy="true"] svg {
+    display: none;
+  }
 
   .watch-controls {
     flex-wrap: wrap;
     row-gap: 0.6rem;
     column-gap: 0.6rem;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .watch-controls :is(.wc-nav, .wc-speed) {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .watch-controls :is(.wc-nav, .wc-speed) > button {
+    flex-shrink: 0;
   }
 
   .bottom .panel-content {
@@ -5727,6 +5755,10 @@ button.wc-btn {
 .wc-btn:disabled {
   opacity: 0.28;
   cursor: default;
+}
+
+.wc-btn[aria-busy="true"] {
+  cursor: progress;
 }
 
 /* Play cluster */
@@ -7256,4 +7288,11 @@ button.hint-btn {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+
+.inline-actions .opponent-retry {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }

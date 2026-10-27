@@ -1,0 +1,5 @@
+{"layout":{"left":19.6875,"right":300.328125,"stripLeft":24,"stripRight":296,"focused":true}}
+Error: Focused Step progress is clipped after its label changes
+    at /tmp/web-chess-step-progress-layout-probe.cjs:9:418
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:502:9)

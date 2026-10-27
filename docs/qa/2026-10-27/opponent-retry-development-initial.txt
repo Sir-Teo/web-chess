@@ -1,0 +1,28 @@
+  opponent retry 1280×900 text 100% step: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 1280×900 text 100% chosen-focus: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 1280×900 text 100% retry-again: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 1280×900 text 100% new-game: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 1280×900 text 100% normal: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 1280×900 text 100% paused: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 320×480 text 200% step: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 320×480 text 200% chosen-focus: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 320×480 text 200% retry-again: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 320×480 text 200% new-game: failed builds, held banks, one worker/search, position and focus retained
+  opponent retry 320×480 text 200% normal: failed builds, held banks, one worker/search, position and focus retained
+locator.press: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('button', { name: 'Retry opponent', exact: true })[22m
+[2m    - locator resolved to <button type="button" class="hint-btn opponent-retry" aria-describedby="play-opponent-report">Retry opponent</button>[22m
+[2m  - elementHandle.press("Enter")[22m
+[2m  - element was detached from the DOM, retrying[22m
+
+    at Object.checkOpponentRetry (/workspace/web-chess/scripts/test-ui-browser.cjs:4953:30)
+    at async /tmp/web-chess-opponent-retry-check.cjs:4:136 {
+  log: [
+    "  - waiting for getByRole('button', { name: 'Retry opponent', exact: true })",
+    '    - locator resolved to <button type="button" class="hint-btn opponent-retry" aria-describedby="play-opponent-report">Retry opponent</button>',
+    '  - elementHandle.press("Enter")',
+    '  - element was detached from the DOM, retrying'
+  ],
+  name: 'TimeoutError'
+}

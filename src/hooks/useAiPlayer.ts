@@ -345,6 +345,9 @@ export function useAiPlayer(enabled = true) {
      * fail past -- so a failure there is a real failure and stops here.
      */
     const [fallbackProfileId, setFallbackProfileId] = useState<'lite-single-local' | null>(null)
+    const [bootRevision, setBootRevision] = useState(0)
+    const [retrying, setRetrying] = useState(false)
+    const retryPendingRef = useRef(false)
     /** What the Play panel reports, so "Maximum" can say what it is costing. */
     const [threadCount, setThreadCount] = useState(1)
     const difficultyRef = useRef<AiDifficulty>(4)
@@ -467,7 +470,11 @@ export function useAiPlayer(enabled = true) {
             cancelTablebaseRequest()
             settleRequest(null)
             queueMicrotask(() => {
-                if (active) setStatus('disabled')
+                if (active) {
+                    retryPendingRef.current = false
+                    setRetrying(false)
+                    setStatus('disabled')
+                }
             })
             return () => {
                 active = false
@@ -487,6 +494,8 @@ export function useAiPlayer(enabled = true) {
             const canFallBack = profile.id !== 'lite-single-local'
             queueMicrotask(() => {
                 if (!active) return
+                retryPendingRef.current = false
+                setRetrying(false)
                 setStatus(canFallBack ? 'loading' : 'error')
                 if (canFallBack) setFallbackProfileId('lite-single-local')
             })
@@ -510,6 +519,8 @@ export function useAiPlayer(enabled = true) {
         })
 
         const failWorker = () => {
+            retryPendingRef.current = false
+            setRetrying(false)
             clearTimeout(startupTimer)
             isReadyRef.current = false
             ignoredBestMoveCountRef.current = 0
@@ -555,6 +566,8 @@ export function useAiPlayer(enabled = true) {
                     if (awaitingReadyRef.current > 0) continue
                     clearTimeout(startupTimer)
                     isReadyRef.current = true
+                    retryPendingRef.current = false
+                    setRetrying(false)
                     setStatus('ready')
                     releaseReadyWaiters()
                 }
@@ -597,7 +610,7 @@ export function useAiPlayer(enabled = true) {
         }
 
         worker.onerror = () => {
-            if (!active) return
+            if (!active || workerRef.current !== worker) return
             failWorker()
         }
 
@@ -620,7 +633,7 @@ export function useAiPlayer(enabled = true) {
             releaseReadyWaiters()
             if (workerBlobUrl) URL.revokeObjectURL(workerBlobUrl)
         }
-    }, [applyStrength, cancelTablebaseRequest, clearStopAckTimeout, enabled, fallbackProfileId, finishRequest, releaseReadyWaiters, settleRequest])
+    }, [applyStrength, cancelTablebaseRequest, clearStopAckTimeout, enabled, fallbackProfileId, bootRevision, finishRequest, releaseReadyWaiters, settleRequest])
 
     const setDifficulty = useCallback((difficulty: AiDifficulty) => {
         difficultyRef.current = difficulty
@@ -653,6 +666,17 @@ export function useAiPlayer(enabled = true) {
         }
         if (enabled && worker && isReadyRef.current) setStatus('ready')
     }, [cancelTablebaseRequest, clearRequestTimeout, clearStopAckTimeout, enabled, releaseStoppedSearch, settleRequest])
+
+    // Retry the conservative build after terminal failure. A synchronous guard
+    // also covers repeated activations before React commits the loading state.
+    const retry = useCallback(() => {
+        if (!enabled || status !== 'error' || retryPendingRef.current) return
+        retryPendingRef.current = true
+        setRetrying(true)
+        cancelGenerationRef.current += 1
+        setStatus('loading')
+        setBootRevision(revision => revision + 1)
+    }, [enabled, status])
 
     /** Request the engine to pick a move for the given position.
      *  Returns a promise resolving to a UCI move string (e.g. "e2e4") or null. */
@@ -741,5 +765,6 @@ export function useAiPlayer(enabled = true) {
      */
     const readLastSearch = useCallback((): AiSearchReading | null => lastSearchRef.current, [])
 
-    return { status, requestMove, setDifficulty, cancelRequest, profileName, threadCount, readLastSearch }
+    return { status, requestMove, setDifficulty, cancelRequest, retry,
+        retrying, profileName, threadCount, readLastSearch }
 }

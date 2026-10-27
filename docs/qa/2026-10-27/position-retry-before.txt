@@ -1,0 +1,3 @@
+{"failed":{"workers":2,"stepDisabled":true,"errors":["Lite Single (Local) could not start, so there is nobody to play against. Retry the opponent below to keep playing this game. Human vs Human and Analysis are still available."]},"restarted":{"workers":2,"title":"Your move · Web Chess","errors":["Lite Single (Local) could not start, so there is nobody to play against. Retry the opponent below to keep playing this game. Human vs Human and Analysis are still available."],"moves":[],"blackCanMove":true,"rootPawn":1},"appError":0}
+Error: Play from this position carries a terminally failed opponent into its new game
+    at /tmp/web-chess-position-retry-before.cjs:9:1587

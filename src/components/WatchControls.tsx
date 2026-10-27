@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react'
 import type { AiSpeed } from './aiSpeed'
 import { IconSkipBack, IconChevronLeft, IconChevronRight, IconSkipForward, IconStepForward, IconPlay, IconPause } from './icons'
 
@@ -11,10 +12,14 @@ type Props = {
     onLast: () => void
     // play/pause (AI modes)
     aiActive: boolean
+    /** A pass-and-play clock or human Step turn; undefined when unavailable. */
+    clockRunning?: boolean
     paused: boolean
     isGameOver: boolean
     stepMode: boolean
     canStep: boolean
+    stepThinking?: boolean
+    stepUnavailable?: boolean
     onPause: () => void
     onResume: () => void
     onStep: () => void      // advance one AI move in step mode
@@ -42,6 +47,22 @@ const SPEEDS: { id: AiSpeed; label: string }[] = [
     { id: 'step', label: 'Step' },
 ]
 
+function revealControl(strip: HTMLElement, control: HTMLElement) {
+    const box = control.getBoundingClientRect(), bounds = strip.getBoundingClientRect()
+    let left = Math.max(0, bounds.left), right = Math.min(document.documentElement.clientWidth, bounds.right)
+    for (let parent = control.parentElement; parent && strip.contains(parent); parent = parent.parentElement) {
+        if (parent.scrollWidth > parent.clientWidth) {
+            const clipped = parent.getBoundingClientRect()
+            left = Math.max(left, clipped.left)
+            right = Math.min(right, clipped.right)
+        }
+        if (parent === strip) break
+    }
+    if (box.left < left - 1 || box.right > right + 1) {
+        control.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+    }
+}
+
 export function WatchControls({
     canGoBack,
     canGoForward,
@@ -50,10 +71,13 @@ export function WatchControls({
     onNext,
     onLast,
     aiActive,
+    clockRunning,
     paused,
     isGameOver,
     stepMode,
     canStep,
+    stepThinking = false,
+    stepUnavailable = false,
     onPause,
     onResume,
     onStep,
@@ -63,24 +87,22 @@ export function WatchControls({
     canAutoplay = false,
     onAutoplayToggle,
 }: Props) {
+    const stripRef = useRef<HTMLDivElement>(null)
     // The engine's controls and the replay's are never both on offer: one
     // plays moves, the other walks the ones already there.
     const replayOffered = !aiActive && Boolean(onAutoplayToggle) && (canAutoplay || autoplay)
+    const clockOffered = clockRunning !== undefined && (!aiActive || stepMode)
     // Replays use Normal's delay for the AI's manual Step setting. Show that
     // effective speed without changing the setting when returning to AI play.
     const displayedSpeed = !aiActive && aiSpeed === 'step' ? 'normal' : aiSpeed
+    useLayoutEffect(() => {
+        const strip = stripRef.current, active = document.activeElement
+        // Thinking and clock labels can grow while the same button keeps focus.
+        // Reveal it after that commit, without changing the reader's focus.
+        if (strip && active instanceof HTMLElement && strip.contains(active)) revealControl(strip, active)
+    }, [aiActive, autoplay, canStep, clockRunning, paused, stepMode, stepThinking, stepUnavailable])
     return (
-        <div className="watch-controls" onFocus={event => {
-            const strip = event.currentTarget
-            if (strip.scrollWidth <= strip.clientWidth) return
-            const control = event.target.getBoundingClientRect()
-            const bounds = strip.getBoundingClientRect()
-            // Native focus scrolling can leave a partly visible speed pill
-            // clipped. Reveal the whole focused control in a compact footer.
-            if (control.left < bounds.left || control.right > bounds.right) {
-                event.target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
-            }
-        }}>
+        <div className="watch-controls" ref={stripRef} onFocus={event => revealControl(event.currentTarget, event.target)}>
             {/* ── Navigation ── */}
             <div className="wc-nav" role="group" aria-label="Move navigation">
                 <button type="button" className="wc-btn" onClick={onFirst} disabled={!canGoBack} title="First position (⏮)" aria-label="Go to first position" aria-keyshortcuts="Home">
@@ -97,19 +119,33 @@ export function WatchControls({
                 </button>
             </div>
 
-            {/* ── Play / Pause / Step (AI only) ── */}
-            {aiActive && !isGameOver && (
-                <div className="wc-play">
-                    {stepMode ? (
+            {/* ── Play / Pause / Step, or the human clock in Step mode ── */}
+            {(aiActive || clockOffered) && !isGameOver && (
+                <div className="wc-play" role={clockOffered ? 'group' : undefined} aria-label={clockOffered ? 'Game clock' : undefined}>
+                    {clockOffered ? (
+                        <button
+                            type="button"
+                            className={`wc-btn wc-btn-clock ${clockRunning ? 'wc-btn-pause' : 'wc-btn-resume'}`}
+                            onClick={clockRunning ? onPause : onResume}
+                            title={`${clockRunning ? 'Pause' : 'Resume'} clock (Space)`}
+                            aria-label={`${clockRunning ? 'Pause' : 'Resume'} clock`}
+                            aria-keyshortcuts="Space"
+                        >
+                            {clockRunning ? <IconPause /> : <IconPlay />}
+                            <span>{clockRunning ? 'Pause clock' : 'Resume clock'}</span>
+                        </button>
+                    ) : stepMode ? (
                         <button
                             type="button"
                             className="wc-btn wc-btn-step"
-                            onClick={onStep}
-                            disabled={!canStep}
-                            title={canStep ? 'Advance one AI move' : 'Waiting for AI turn'}
-                            aria-label={canStep ? 'Advance one AI move' : 'Waiting for AI turn'}
+                            onClick={stepThinking || stepUnavailable ? undefined : onStep}
+                            disabled={!canStep || stepUnavailable}
+                            aria-disabled={stepThinking || undefined}
+                            aria-busy={stepThinking || undefined}
+                            title={stepUnavailable ? 'Retry the opponent in the Opponent panel' : stepThinking ? 'The engine is choosing its move' : canStep ? 'Advance one AI move' : 'Waiting for AI turn'}
+                            aria-label={stepUnavailable ? 'Engine unavailable' : stepThinking ? 'Engine is thinking' : canStep ? 'Advance one AI move' : 'Waiting for AI turn'}
                         >
-                            <IconStepForward /> Step
+                            <IconStepForward /> {stepThinking ? 'Thinking…' : 'Step'}
                         </button>
                     ) : paused ? (
                         <button type="button" className="wc-btn wc-btn-resume" onClick={onResume} title="Resume AI" aria-label="Resume AI play" aria-keyshortcuts="Space">
@@ -121,6 +157,10 @@ export function WatchControls({
                         </button>
                     )}
                 </div>
+            )}
+
+            {aiActive && stepMode && stepThinking && !isGameOver && (
+                <span className="visually-hidden" role="status">The engine is choosing its move.</span>
             )}
 
             {/* ── Autoplay (no engine playing) ── */}

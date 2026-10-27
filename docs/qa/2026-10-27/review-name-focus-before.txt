@@ -1,0 +1,5 @@
+{"before":"e4, White pawn","after":{"label":null,"text":"Rename saved review"}}
+Error: Saved-review rename completion took focus from the newly chosen board piece
+    at /tmp/web-chess-review-name-focus-before.cjs:6:625
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:502:9)

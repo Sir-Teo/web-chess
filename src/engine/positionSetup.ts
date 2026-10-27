@@ -174,6 +174,7 @@ export function updateSetupSquare(setup: PositionSetup, square: Square, piece: S
 }
 
 export function updateSetupTurn(setup: PositionSetup, turn: SetupTurn): PositionSetup {
+  if (turn === setup.turn) return setup
   const next = { ...setup, turn }
   return { ...next, enPassant: normalizeAvailableEnPassant(next) }
 }
@@ -203,14 +204,13 @@ export function updateSetupCastlingRight(
   enabled: boolean,
 ): PositionSetup {
   const rights = new Set(normalizeCastlingRights(setup.castling).replace('-', '').split(''))
-  if (enabled) rights.add(right)
+  if (enabled && canUseSetupCastlingRight(setup, right)) rights.add(right)
   else rights.delete(right)
 
-  const next = {
+  return {
     ...setup,
     castling: normalizeCastlingRights(CASTLING_ORDER.filter(castlingRight => rights.has(castlingRight)).join('')),
   }
-  return { ...next, castling: normalizeAvailableCastlingRights(next) }
 }
 
 export function updateSetupHalfmove(setup: PositionSetup, value: number): PositionSetup {

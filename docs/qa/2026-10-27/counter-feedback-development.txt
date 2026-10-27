@@ -1,0 +1,3 @@
+  raw counter feedback (1280px, 1x, dark): exact bad/missing/unsafe FEN values have associated bounded guidance; focus/blur preserves raw data; Enter explicitly accepts safe defaults without loading; sibling errors and valid leading zeros survive
+  raw counter feedback (375px, 2x, light): exact bad/missing/unsafe FEN values have associated bounded guidance; focus/blur preserves raw data; Enter explicitly accepts safe defaults without loading; sibling errors and valid leading zeros survive
+  raw counter feedback (320px, 2x, dark): exact bad/missing/unsafe FEN values have associated bounded guidance; focus/blur preserves raw data; Enter explicitly accepts safe defaults without loading; sibling errors and valid leading zeros survive

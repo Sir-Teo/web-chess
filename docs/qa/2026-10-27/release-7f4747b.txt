@@ -1,0 +1,6 @@
+PR https://github.com/Sir-Teo/web-chess/pull/5 merged successfully.
+Main commit: 7f4747bdb45a0e56b4739938c6f22c0b89e33d46
+Deployment success: https://github.com/Sir-Teo/web-chess/actions/runs/40524787557
+Public HTML matches the tested index-DEk6meO4.js bundle.
+Live Chromium uses real public assets and the lite local engine profile with automatic analysis off:
+{"url":"https://teozeng.dev/web-chess/","asset":"https://teozeng.dev/web-chess/assets/index-DEk6meO4.js","isolated":true,"setupCommand":"FEN","exportCommand":"Export","move":"e4","pageErrors":[]}

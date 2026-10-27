@@ -1,0 +1,28 @@
+  premove (1280×900, 1x, dark): held replies prove queuing; Escape cancels without changing the opponent search; modal Escape preserves the queue; legal reply executes in order; takeback clears it
+  premove (375×812, 1x, light): held replies prove queuing; Escape cancels without changing the opponent search; modal Escape preserves the queue; legal reply executes in order; takeback clears it
+  premove (320×812, 2x, light): held replies prove queuing; Escape cancels without changing the opponent search; modal Escape preserves the queue; legal reply executes in order; takeback clears it
+  premove (844×390, 2x, dark): held replies prove queuing; Escape cancels without changing the opponent search; modal Escape preserves the queue; legal reply executes in order; takeback clears it
+  board semantics (1280×812, 1x, dark): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture with selected-piece focus, arrival/departure cleanup, root navigation, flip and blindfold preserved
+  board semantics (375×812, 1x, light): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture with selected-piece focus, arrival/departure cleanup, root navigation, flip and blindfold preserved
+  board semantics (320×480, 2x, light): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture with selected-piece focus, arrival/departure cleanup, root navigation, flip and blindfold preserved
+  board semantics (844×390, 2x, dark): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture with selected-piece focus, arrival/departure cleanup, root navigation, flip and blindfold preserved
+  board drag focus (1280px, dark): native drag restores the arriving pawn; selecting the next piece keeps focus, keyboard reply succeeds, pointer-drag Escape cancels and arrows play the next move
+  board drag focus (375px, light): native drag restores the arriving pawn; selecting the next piece keeps focus, keyboard reply succeeds, pointer-drag Escape cancels and arrows play the next move
+  keyboard: e2 selected, e3 and e4 offered and named, Enter played e4, focus stayed on the board
+  contrast (Dark / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 1280px): 163 measured, 0 under the floor (146 on a gradient, measured against its worst stop)
+  typed moves (1280px, Dark): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  contrast (Dark / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 375px): 160 measured, 0 under the floor (142 on a gradient, measured against its worst stop)
+  typed moves (375px, Dark): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 1280px): 163 measured, 0 under the floor (146 on a gradient, measured against its worst stop)
+  typed moves (1280px, Light): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 375px): 160 measured, 0 under the floor (142 on a gradient, measured against its worst stop)
+  typed moves (375px, Light): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  finished game: the clock held at 3:03 through a pause, a resume and a walk
+  paused clock navigation (1280×900, 1x, dark): keyboard/pointer/first/last and hidden Analysis browsing preserve both banks and Paused; explicit Resume starts the selected side; running navigation and takeback still hand over/resume correctly
+  paused clock navigation (375×812, 1x, light): keyboard/pointer/first/last and hidden Analysis browsing preserve both banks and Paused; explicit Resume starts the selected side; running navigation and takeback still hand over/resume correctly
+  paused clock navigation (320×812, 2x, dark): keyboard/pointer/first/last and hidden Analysis browsing preserve both banks and Paused; explicit Resume starts the selected side; running navigation and takeback still hand over/resume correctly
+  paused clock navigation (844×390, 2x, light): keyboard/pointer/first/last and hidden Analysis browsing preserve both banks and Paused; explicit Resume starts the selected side; running navigation and takeback still hand over/resume correctly

@@ -1,0 +1,23 @@
+  command reopen (1280px): query and selection reset before the first key, across three reopen cycles
+  command keyboard (1280px): Tab activates the focused button; search editing and Enter work
+  command reopen (375px): query and selection reset before the first key, across three reopen cycles
+  command keyboard (375px): Tab activates the focused button; search editing and Enter work
+  palette reading (320×812, 2x, light): intact title; full unavailable card; hint 8.6:1 including opacity; steady phone search and Close
+  palette reading (375×812, 2x, dark): intact title; full unavailable card; hint 8.3:1 including opacity; steady phone search and Close
+  palette reading (320×568, 1x, light): intact title; full unavailable card; hint 9.7:1 including opacity; steady phone search and Close
+  palette reading (375×812, 1x, dark): intact title; full unavailable card; hint 8.3:1 including opacity; steady phone search and Close
+  palette reading (1280×800, 2x, light): intact title; full unavailable card; hint 9.7:1 including opacity; steady phone search and Close
+  command layout (320x568, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (375x812, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (768x1024, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (844x390, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (1280x800, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (320x568, 2x text): dialog, full label and reason fit; selection opens Settings
+  command layout (1280x800, 2x text): dialog, full label and reason fit; selection opens Settings
+  palette dialog return (1280px, 1x, button): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (1280px, 1x, typing): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (1280px, 1x, graph): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, button): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, typing): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, graph): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  library: three clicks saved one copy, a named copy and a further move both saved again

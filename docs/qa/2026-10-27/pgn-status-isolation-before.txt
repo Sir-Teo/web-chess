@@ -1,0 +1,3 @@
+{"before":{"font":"32px","color":"rgb(17, 24, 39)","margin":"32px 0px","width":279,"height":144},"after":{"font":"24.32px","color":"rgb(17, 94, 89)","margin":"19.2px 44.8px 0px","width":189.40625,"height":145.875}}
+Error: Opening Library changes the PGN import status styling
+    at /tmp/web-chess-pgn-status-isolation-before.cjs:8:358

@@ -1,0 +1,14 @@
+  library row focus (1280×900, 1x, dark): delayed rename commit/Escape/Cancel and filtered unstar respect the reader's new name/search focus, text and selection; normal rename/neighbor/final-star recovery still works; exact exported games/Unicode notes and unsent name/current board stay intact
+  library row focus (375×812, 2x, light): delayed rename commit/Escape/Cancel and filtered unstar respect the reader's new name/search focus, text and selection; normal rename/neighbor/final-star recovery still works; exact exported games/Unicode notes and unsent name/current board stay intact
+  library row focus (320×812, 2x, dark): delayed rename commit/Escape/Cancel and filtered unstar respect the reader's new name/search focus, text and selection; normal rename/neighbor/final-star recovery still works; exact exported games/Unicode notes and unsent name/current board stay intact
+locator.waitFor: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('#chessboard-square-e4 [data-piece="wP"]') to be visible[22m
+
+    at Object.checkLibraryRowFocusOwnership (/workspace/web-chess/scripts/test-ui-browser.cjs:6922:69)
+    at async /tmp/web-chess-library-row-focus-check.cjs:10:9 {
+  log: [
+    `  - waiting for locator('#chessboard-square-e4 [data-piece="wP"]') to be visible`
+  ],
+  name: 'TimeoutError'
+}

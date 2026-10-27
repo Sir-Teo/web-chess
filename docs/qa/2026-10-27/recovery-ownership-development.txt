@@ -1,0 +1,4 @@
+  recovery ownership (1280px, 1x, dark, cursor): same PGN/timestamp with different metadata survives stale-owner reset/exit; actual restore retains all moves, exact cursor/clock and pause; matching restored owner can still clear its save
+  recovery ownership (1280px, 1x, dark, clock): same PGN/timestamp with different metadata survives stale-owner reset/exit; actual restore retains all moves, exact cursor/clock and pause; matching restored owner can still clear its save
+  recovery ownership (375px, 2x, light, cursor): same PGN/timestamp with different metadata survives stale-owner reset/exit; actual restore retains all moves, exact cursor/clock and pause; matching restored owner can still clear its save
+  recovery ownership (375px, 2x, light, clock): same PGN/timestamp with different metadata survives stale-owner reset/exit; actual restore retains all moves, exact cursor/clock and pause; matching restored owner can still clear its save

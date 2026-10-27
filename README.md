@@ -33,7 +33,8 @@ given, and the app answering the reader who touches it.
   whichever it rolled. The difficulty dialog says what each level plays like
   and the Elo it asks the engine for, because the gentlest is about 1320 — a
   club player — and a learner deserves to know that before losing to it.
-- **Play and watch modes**: Play human vs human, human vs Stockfish, or AI vs AI with adjustable difficulty, pause/resume controls, speed control, and single-step playback. At *Maximum* the opponent searches on every thread the device can spare — the levels below it are capped by Elo, where extra threads buy nothing — and the panel says so. The two weakest levels vary their play by choosing among the engine's own top lines within a small window of the best, not by playing a random legal move: a Beginner that hangs its queen every third move is not one a learner can learn from. With a clock, a takeback, premoves and a resign button below, a game against the engine is a game rather than a position trainer.
+- **Play and watch modes**: Play human vs human, human vs Stockfish, or AI vs AI with adjustable difficulty, pause/resume controls, speed control, and single-step playback. The browser tab reports engine loading, thinking, pause, Step waiting and failure in both opponent and watch games. At *Maximum* the opponent searches on every thread the device can spare — the levels below it are capped by Elo, where extra threads buy nothing — and the panel says so. The two weakest levels vary their play by choosing among the engine's own top lines within a small window of the best, not by playing a random legal move: a Beginner that hangs its queen every third move is not one a learner can learn from. With a clock, a takeback, premoves and a resign button below, a game against the engine is a game rather than a position trainer.
+- **Recover an unavailable opponent**: If both engine builds fail, **Retry opponent** in the opponent card or Commands restarts the simpler build in place, keeping the position, moves, clock banks and Step/Pause settings. Starting another AI game, including **Play from here**, also retries a failed opponent.
 - **Either colour, or whichever**: The New Game dialog offered White or Black,
   so the default was White every game — and a player who only ever has the first
   move never practises the half of chess that starts a tempo down. Random is the
@@ -48,11 +49,21 @@ given, and the app answering the reader who touches it.
   engine plays to the clock rather than to a stopwatch: it takes a share of what
   it has left, so it cannot flag itself in a bullet game, and it uses a long
   clock when there is one to use.
-  `Space` pauses the clock as well as the AI, and stepping out to Analysis stops
-  it rather than letting it run while you consult the engine.
+  `Space` pauses the clock as well as the AI. Browsing moves keeps it paused;
+  pressing `Space` again resumes for the side to move. Stepping out to Analysis
+  stops it while you consult the engine.
+  Timed pass-and-play games, and your turn in AI Step mode, also offer
+  **Pause clock** and **Resume clock** in the bottom controls, including on
+  touch screens. In Step mode the same slot advances the engine on its turn
+  and shows **Thinking…** while it chooses the move.
+  A Step queued during loading keeps the engine’s clock stopped and runs once
+  it is ready, for that position. Starting another game clears the request.
 - **Premoves**: While the engine is thinking, drag or tap your reply and it is
   held, both squares ringed, then played the instant the position arrives.
-  **Escape** cancels a queued premove before the reply. A
+  With the keyboard, select your piece with Enter/Space, use arrows or Tab to
+  a destination, then Enter/Space to queue it. The source names its queued
+  destination and a status confirms it; targets are premoves, checked for
+  legality only after the reply. **Escape** on the board cancels the queue. A
   premove the engine's reply made illegal is dropped without comment, a pawn
   reaching the last rank promotes to a queen without asking, and clicking
   anywhere else cancels — the same rules every other board uses, because they
@@ -127,6 +138,11 @@ given, and the app answering the reader who touches it.
   Find it in **Commands** (`Ctrl/Cmd+K`) to open the panel and focus the field;
   reopening an existing field keeps its draft and selection. It is omitted
   while watching two engines.
+- **Move with the keyboard**: Focus a piece and press Enter or Space, use arrow
+  keys or Tab to a legal destination, then Enter or Space to play. Arrows follow
+  the current board orientation; Home/End move along the rank, and Escape
+  cancels the selection. Focus follows the moved piece and respects your next
+  selection.
 - **Keep searching**: The automatic analysis stops at the depth slider, which
   on a desktop is over in a second. Pro mode has a switch under the Coach/Pro
   toggle that asks for `go infinite` instead, so the depth climbs for as long
@@ -140,7 +156,8 @@ given, and the app answering the reader who touches it.
   Saved settings remain;
   the engine's hash table, console position and session-only UCI options reset
   on reload. Stop a search or review before releasing its workers.
-- **Retry a failed engine**: Analysis offers **Retry engine** after a startup
+- **Retry a failed engine**: Analysis offers **Retry engine**, also available as
+  **Retry analysis engine** in Commands, after a startup
   or runtime failure. It keeps the board, readings, saved settings and unsent console
   draft while replacing the worker. Automatic analysis resumes for the current
   position when enabled; otherwise the ready engine waits for an explicit
@@ -247,7 +264,9 @@ given, and the app answering the reader who touches it.
 - **Saved reviews and comparisons**: In Pro, **Save review** keeps the report,
   engine limits, WDL and reviewed branch on this device. Open **Saved reviews**
   to reopen a run, rename it for a study session, delete its stored copy with a second press, or
-  compare it with the open report for the same line. Untitled runs use the
+  compare it with the open report for the same line. Pending opens yield if you
+  start another game, change the line, leave Review or run a newer review.
+  Untitled runs use the
   reviewed branch’s opening; real player and event names take priority. The picker starts with
   the run name, so typing its beginning selects it. **Search saved reviews**
   matches names, engines, depth (for example, D16), and complete/partial status;
@@ -405,7 +424,7 @@ given, and the app answering the reader who touches it.
   would overflow the library says how many were left out. Collections without
   headers or Event tags work too; main-line results separate headerless games
   and their outcomes appear in the library and its search results.
-- **Saved games**: Keep games in a library stored in IndexedDB, search them by player, event or opening (including “jose” for “José” and “lodz” for “Łódź”), star and rename them, and export or import the whole shelf as JSON. Use **Starred only** to focus on saved favorites while keeping your search and sort order. **Game date** orders recorded dates newest first; partial dates stay with their known year or month, and unknown dates come last. Down from search enters the results; Up/Down moves the same action between games, and Home/End jumps to the first/last shown game. Up from the first row returns to search; Down from the last row reaches Show more when available. Rename inline with Enter to save or Escape to cancel. A rejected save keeps the name you typed so you can retry. The game in progress is auto-saved separately, so a reload offers to pick up where you left off — and for a game that was being *played*, that now includes the opponent, the side you had and the clock, stopped where it stood.
+- **Saved games**: Use **Save game to Library** in Commands to open the naming form for the current game or position study. Keep games in a library stored in IndexedDB, search them by player, event or opening (including “jose” for “José” and “lodz” for “Łódź”), star and rename them, and export or import the whole shelf as JSON. While a backup is being read, **Cancel import** or close Library to cancel it. Use **Starred only** to focus on saved favorites while keeping your search and sort order. **Game date** orders recorded dates newest first; partial dates stay with their known year or month, and unknown dates come last. Down from search enters the results; Up/Down moves the same action between games, and Home/End jumps to the first/last shown game. Up from the first row returns to search; Down from the last row reaches Show more when available. Rename inline with Enter to save or Escape to cancel. A rejected save keeps the name you typed so you can retry. The game in progress is auto-saved separately, so a reload offers to pick up where you left off — and for a game that was being *played*, that now includes the opponent, the side you had and the clock, stopped where it stood. Restore keeps the selected position too, including after a takeback or inside a variation.
 - **Unreadable game recovery**: If restoring an auto-saved game fails, copy or
   download its original PGN before discarding it. Clipboard failures leave a
   retry and download available; the saved text stays intact until you discard it.
@@ -418,6 +437,8 @@ given, and the app answering the reader who touches it.
 - **PGN and FEN workflows**: Import/export annotated PGN, copy FEN/share links, and build custom FEN positions with editable pieces, side to move, castling rights, en passant targets, and move counters. Flip the setup board to work from either player's viewpoint; coordinates and keyboard movement follow the view while the position stays intact. File and rank labels identify setup squares. Editing a position preserves its en passant capture; changing the side or removing the required pawn clears it. The palette and board each use one Tab stop. Left/Right move through tools; all four arrows move between board squares. Enter/Space selects a tool or places/erases. Home/End jumps to the first/last tool or either end of a rank.
   Invalid starting positions are rejected without replacing the current study;
   the import stays open for correction.
+  PGN file reads show progress; **Cancel file read** keeps the import text you
+  already have, and you can choose another file or paste instead.
   Declared castling rights require that side’s king and rook on their home squares.
 - **Share a game, not just a position**: `Copy Game Link` on the Export tab puts
   the whole game in the URL — the position it started from and every move — so

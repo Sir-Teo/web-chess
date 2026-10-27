@@ -1,0 +1,15 @@
+  setup metadata (1280px, 1x, dark): counters/castling toggles/same-side selection preserve independent raw errors; actual side changes clear EP only; counter edit completes missing fields; explicit repairs retain exact pieces, castles and final FEN/counters
+  setup metadata (375px, 2x, light): counters/castling toggles/same-side selection preserve independent raw errors; actual side changes clear EP only; counter edit completes missing fields; explicit repairs retain exact pieces, castles and final FEN/counters
+  setup metadata (320px, 2x, dark): counters/castling toggles/same-side selection preserve independent raw errors; actual side changes clear EP only; counter edit completes missing fields; explicit repairs retain exact pieces, castles and final FEN/counters
+  FEN counters (1280px, 1x): malformed/rounded values refused with associated errors; draft/board retained; corrected decimal counters round-trip
+  FEN counters (375px, 2x): malformed/rounded values refused with associated errors; draft/board retained; corrected decimal counters round-trip
+  imported counters (1280px, 1x): malformed shared roots refused; pasted/file PGNs preserve draft/board and identify the field; corrected counters load exactly
+  imported counters (375px, 2x): malformed shared roots refused; pasted/file PGNs preserve draft/board and identify the field; corrected counters load exactly
+  position setup (1280px): d6 survives a counter edit, can be cleared/restored, and allows a real en passant capture
+  position setup (375px): e3 survives a counter edit, can be cleared/restored, and allows a real en passant capture
+  castling repair (1280px, 1x, dark): declared invalid rights stay visible; EP/castling repair in either order preserves independent flags, counters and partial drafts; keyboard/focus recovery works; both retained rights castle real pieces
+  castling repair (375px, 2x, light): declared invalid rights stay visible; EP/castling repair in either order preserves independent flags, counters and partial drafts; keyboard/focus recovery works; both retained rights castle real pieces
+  castling repair (320px, 2x, dark): declared invalid rights stay visible; EP/castling repair in either order preserves independent flags, counters and partial drafts; keyboard/focus recovery works; both retained rights castle real pieces
+  setup keyboard (1280px, 1x text): Commands opens the current e4 board/turn/rights directly in FEN; palette/board each use one Tab stop; arrow/Home/End navigation, keyboard tool selection, placement and erasure load a real position
+  setup keyboard (375px, 1x text): Commands opens the current e4 board/turn/rights directly in FEN; palette/board each use one Tab stop; arrow/Home/End navigation, keyboard tool selection, placement and erasure load a real position
+  setup keyboard (320px, 2x text): Commands opens the current e4 board/turn/rights directly in FEN; palette/board each use one Tab stop; arrow/Home/End navigation, keyboard tool selection, placement and erasure load a real position

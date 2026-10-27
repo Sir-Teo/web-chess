@@ -1,0 +1,48 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 197 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DqYiTm0h.js   67.87 kB
+dist/assets/LibraryDialog-CzCaaBRU.css        5.21 kB │ gzip:   1.35 kB
+dist/assets/index-CfdrJwxh.css              134.98 kB │ gzip:  25.12 kB
+dist/assets/NewGameDialog-BUM_ybPz.js         4.36 kB │ gzip:   1.57 kB
+dist/assets/LibraryDialog-Dl_CqJpZ.js        15.21 kB │ gzip:   5.22 kB
+dist/assets/PgnDialog-Bs3yzl-R.js            33.28 kB │ gzip:  11.10 kB
+dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-DhGzDOw6.js               413.28 kB │ gzip: 133.47 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.47s
+  review: 116 moves, overall 95.8, white 95.3, black 96.3, ACPL 10
+  review engines: 1 (single)
+  practice: Coach hides the answer and opens a playable retry position
+  contrast (dark / settings): 68 measured, 0 under the floor (1 on a gradient, measured against its worst stop)
+  contrast (dark / analyze): 227 measured, 0 under the floor (210 on a gradient, measured against its worst stop)
+  contrast (dark / review): 835 measured, 0 under the floor (817 on a gradient, measured against its worst stop)
+  contrast (dark / new game): 22 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (dark / pgn export): 16 measured, 0 under the floor (1 on a gradient, measured against its worst stop)
+  contrast (dark / library): 5 measured, 0 under the floor (2 on a gradient, measured against its worst stop)
+  contrast (dark / play): 91 measured, 0 under the floor (74 on a gradient, measured against its worst stop)
+  contrast (light / settings): 68 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (light / analyze): 221 measured, 0 under the floor (204 on a gradient, measured against its worst stop)
+  contrast (light / review): 834 measured, 0 under the floor (816 on a gradient, measured against its worst stop)
+  contrast (light / new game): 22 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (light / pgn export): 16 measured, 0 under the floor (1 on a gradient, measured against its worst stop)
+  contrast (light / library): 5 measured, 0 under the floor (2 on a gradient, measured against its worst stop)
+  contrast (light / play): 91 measured, 0 under the floor (74 on a gradient, measured against its worst stop)
+Error: desktop: typing "libr" left 2 commands: LibrarySaved games, Save game to LibraryName and save this game with its notes and variations
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at main (/workspace/web-chess/scripts/test-ui-browser.cjs:21655:7)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:502:9)

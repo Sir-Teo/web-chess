@@ -1,0 +1,3 @@
+{"pending":true,"progress":0,"cancel":0,"draft":"1. d4 d5 *"}
+Error: A pending PGN file read has no progress/cancel control
+    at /tmp/web-chess-pgn-file-reading-before.cjs:7:340
