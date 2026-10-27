@@ -6097,6 +6097,113 @@ async function checkImportDraftOwnership(browser) {
   }
 }
 
+async function checkLibraryBackupReading(browser) {
+  const backup = games => JSON.stringify({ format: 'web-chess-library', version: 1, games })
+  const protectedGame = { id: 'read-protected', name: 'Protected Réti', pgn: '[White "José"]\n\n1. Nf3 d5 *', favorite: true, createdAt: 11, updatedAt: 22 }
+  const delayedGame = { id: 'read-delayed', name: 'Imported ♞ study', pgn: '[White "Zoë"]\n\n1. e4 e5 {Keep this note} *', favorite: true, createdAt: 33, updatedAt: 44 }
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 2, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme }))
+        window.__libraryReads = []
+        const nativeText = File.prototype.text
+        File.prototype.text = function () {
+          if (!this.name.startsWith('slow-')) return nativeText.call(this)
+          return new Promise((resolve, reject) => window.__libraryReads.push({ name: this.name, resolve, reject }))
+        }
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const opener = page.getByRole('button', { name: 'Open saved games library', exact: true })
+      const dialog = page.locator('.library-dialog'), file = dialog.locator('input[type="file"]')
+      const cancel = dialog.getByRole('button', { name: 'Cancel import', exact: true })
+      const reading = dialog.getByRole('status').filter({ hasText: 'Reading backup…' })
+      const store = () => page.evaluate(() => new Promise((resolve, reject) => {
+        const request = indexedDB.open('web-chess-library', 1)
+        request.onerror = () => reject(request.error)
+        request.onsuccess = () => {
+          const db = request.result, read = db.transaction('games').objectStore('games').getAll()
+          read.onsuccess = () => { db.close(); resolve(read.result) }
+          read.onerror = () => { db.close(); reject(read.error) }
+        }
+      }))
+      const settled = () => page.waitForFunction(() => !document.querySelector('.library-status')?.textContent.includes('Saving library changes'))
+      await opener.click()
+      await file.setInputFiles({ name: 'protected.json', mimeType: 'application/json', buffer: Buffer.from(backup([protectedGame])) })
+      await dialog.getByRole('button', { name: `Load ${protectedGame.name}`, exact: true }).waitFor()
+      await settled()
+      const original = await store()
+      const start = async index => {
+        await dialog.getByRole('button', { name: 'Import backup', exact: true }).focus()
+        await file.setInputFiles({ name: `slow-${index}.json`, mimeType: 'application/json', buffer: Buffer.from('{}') })
+        await page.waitForFunction(index => window.__libraryReads.length === index + 1, index)
+        await reading.waitFor()
+        assert(await file.isDisabled() && await cancel.evaluate(el => el === document.activeElement)
+          && await cancel.getAttribute('aria-describedby') === await reading.getAttribute('id'), 'pending backup has no focused cancel action or associated progress')
+      }
+      const finish = async (index, text, reject = false) => {
+        await page.evaluate(({ index, text, reject }) => {
+          const task = window.__libraryReads[index]
+          if (reject) task.reject(new Error('delayed read failed'))
+          else task.resolve(text)
+          return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        }, { index, text, reject })
+      }
+      await start(0)
+      await cancel.scrollIntoViewIfNeeded()
+      const contrast = await page.evaluate(contrastProbe, '.library-status')
+      assert(contrast.checked === 1 && contrast.failures.length === 0, `backup-read progress contrast: ${JSON.stringify(contrast)}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'backup-read progress overflows')
+      await page.screenshot({ path: `/tmp/web-chess-library-read-${width}-${height}.png` })
+      await page.keyboard.press('Enter')
+      await reading.waitFor({ state: 'detached' })
+      assert(await dialog.getByRole('button', { name: 'Import backup', exact: true }).evaluate(el => el === document.activeElement)
+        && await file.isEnabled(), 'canceling a backup read lost focus or blocked retry')
+      await dialog.getByRole('status').filter({ hasText: 'Backup import canceled.' }).waitFor()
+      await start(1)
+      await finish(0, backup([delayedGame]))
+      assert(await reading.isVisible() && await cancel.count() === 1 && JSON.stringify(await store()) === JSON.stringify(original), 'an older canceled read imported data or ended a newer pending read')
+      await finish(1, backup([delayedGame]))
+      await dialog.getByRole('button', { name: `Load ${delayedGame.name}`, exact: true }).waitFor()
+      await reading.waitFor({ state: 'detached' }); await settled()
+      const imported = await store()
+      assert(imported.length === 2 && JSON.stringify(imported.find(game => game.id === protectedGame.id)) === JSON.stringify(original[0]), 'successful read changed protected metadata')
+      const saved = imported.find(game => game.id === delayedGame.id)
+      assert(saved?.name === delayedGame.name && saved.pgn === delayedGame.pgn && saved.favorite
+        && saved.createdAt === 33 && saved.updatedAt === 44, 'successful read changed exact imported Unicode/PGN/favorite/timestamps')
+      await start(2); await cancel.click()
+      await finish(2, '', true)
+      assert(await dialog.getByRole('alert').count() === 0 && (await dialog.getByRole('status').allTextContents()).some(text => text.includes('canceled')), 'a canceled read rejection replaced current feedback')
+      await start(3)
+      await finish(3, '', true)
+      await dialog.getByRole('alert').filter({ hasText: 'That file could not be read.' }).waitFor()
+      assert(await file.isEnabled() && await cancel.count() === 0, 'failed read cannot be retried')
+      for (const [index, close] of [[4, 'done'], [5, 'escape'], [6, 'backdrop']]) {
+        await start(index)
+        if (close === 'done') await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+        else if (close === 'escape') await page.keyboard.press('Escape')
+        else await page.locator('.dialog-backdrop').click({ position: { x: 2, y: 2 } })
+        await dialog.waitFor({ state: 'detached' })
+        await finish(index, index === 5 ? '' : backup([{ ...delayedGame, id: `late-${index}` }]), index === 5)
+        await opener.click(); await dialog.waitFor()
+        assert(await cancel.count() === 0 && await dialog.getByRole('alert').count() === 0
+          && JSON.stringify(await store()) === JSON.stringify(imported), 'a closed dialog read mutated storage or a reopened dialog')
+      }
+      assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1 && await page.locator('.mtree-chip').count() === 0, 'backup reads changed the game before Load')
+      await dialog.getByRole('button', { name: `Load ${delayedGame.name}`, exact: true }).click()
+      await dialog.waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+      assert(await page.getByRole('textbox', { name: 'Move note', exact: true }).inputValue() === 'Keep this note', 'successful read did not load the exact saved game and note')
+      assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `backup-read errors: ${errors.join('; ')}`)
+      console.log(`  library backup read (${width}×${height}, ${scale}x, ${theme}): associated progress/keyboard cancel retain focus; older resolve/reject cannot replace newer work; success preserves exact protected/imported data; failures retry; Done/Escape/backdrop cancel pending reads without late writes; explicit Load restores the game/note`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkPartialLibraryBackup(browser) {
   const kept = { id: 'partial-kept', name: 'Protected study', pgn: '1. Nf3 d5 *', createdAt: 1, updatedAt: 1 }
   const recovered = { id: 'partial-recovered', name: 'Recovered Réti', pgn: '[White "José"]\n\n1. e4 e5 *', createdAt: 2, updatedAt: 2 }
@@ -19740,6 +19847,7 @@ async function main() {
       'chords': checkAChordBelongsToTheBrowser,
       'eval-bar': checkTheEvaluationBarSurvivesTheWdlSwitch,
       'library-double-save': checkOneGestureSavesOneGame,
+      'library-backup-reading': checkLibraryBackupReading,
       'library-editing': checkLibraryEditing,
       'international-search': checkInternationalLibrarySearch,
       'library-browsing': checkLibraryBrowsing,
@@ -20619,6 +20727,7 @@ async function main() {
     await checkTheLibrarySurvivesABackup(browser)
     await checkLibraryBackupLimits(browser)
     await checkLibraryBackupEnvelope(browser)
+    await checkLibraryBackupReading(browser)
     await checkPartialLibraryBackup(browser)
     await checkOneGestureSavesOneGame(browser)
     await checkLibraryEditing(browser)

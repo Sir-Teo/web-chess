@@ -112,6 +112,8 @@ export function LibraryDialog({
     const [sort, setSort] = useState<LibrarySort>('recent')
     const [error, setError] = useState<string | null>(null)
     const [status, setStatus] = useState<string | null>(null)
+    const [readingBackup, setReadingBackup] = useState(false)
+    const backupReadGenerationRef = useRef(0)
     const [backupParts, setBackupParts] = useState<string[]>([])
     const [downloadedParts, setDownloadedParts] = useState<number[]>([])
     const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null)
@@ -158,9 +160,13 @@ export function LibraryDialog({
     const searchId = useId()
     const renameId = useId()
     const errorId = useId()
+    const backupReadStatusId = useId()
     const renamingId = renaming?.id
 
     useModalFocus(open, panelRef, onClose, { initialFocus: '[data-library-name]' })
+
+    // Closing the dialog cancels the pending read before it can import data.
+    useLayoutEffect(() => () => { backupReadGenerationRef.current += 1 }, [])
 
     useLayoutEffect(() => {
         if (!open) return
@@ -365,24 +371,38 @@ export function LibraryDialog({
         }
     }
 
+    const cancelBackupRead = () => {
+        backupReadGenerationRef.current += 1
+        setReadingBackup(false)
+        setError(null)
+        setStatus('Backup import canceled.')
+    }
+
     const handleImportFile = async (file: File | undefined) => {
         if (!file) return
+        const generation = ++backupReadGenerationRef.current
+        setStatus(null)
+        setError(null)
         if (file.size > MAX_LIBRARY_BACKUP_BYTES) {
-            setStatus(null)
+            setReadingBackup(false)
             setError(BACKUP_TOO_LARGE_MESSAGE)
             return
         }
+        setReadingBackup(true)
         try {
             const text = await file.text()
+            if (generation !== backupReadGenerationRef.current) return
             if (text.length > MAX_LIBRARY_BACKUP_LENGTH) {
-                setStatus(null)
                 setError(BACKUP_TOO_LARGE_MESSAGE)
                 return
             }
             announce(onImportBackup(text), 'Backup imported.')
         } catch {
+            if (generation !== backupReadGenerationRef.current) return
             setStatus(null)
             setError('That file could not be read.')
+        } finally {
+            if (generation === backupReadGenerationRef.current) setReadingBackup(false)
         }
     }
 
@@ -679,6 +699,7 @@ export function LibraryDialog({
                     )}
                     {writeError && <p className="dialog-error" role="alert">{writeError}</p>}
                     {error && <p id={errorId} className="dialog-error" role="alert">{error}</p>}
+                    {readingBackup && <p id={backupReadStatusId} className="library-status" role="status">Reading backup…</p>}
                     {saving && <p className="library-status" role="status">Saving library changes…</p>}
                     {status && !writeError && !saving && <p className="library-status" role="status">{status}</p>}
                     {backupParts.length > 0 && (
@@ -700,6 +721,7 @@ export function LibraryDialog({
                         ref={fileInputRef}
                         type="file"
                         accept="application/json,.json"
+                        disabled={readingBackup}
                         className="dialog-file-input"
                         onChange={event => {
                             void handleImportFile(event.target.files?.[0])
@@ -709,9 +731,10 @@ export function LibraryDialog({
                     <button
                         type="button"
                         className="btn-cancel"
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={() => readingBackup ? cancelBackupRead() : fileInputRef.current?.click()}
+                        aria-describedby={readingBackup ? backupReadStatusId : undefined}
                     >
-                        <IconUpload /> Import backup
+                        {readingBackup ? <><IconClose /> Cancel import</> : <><IconUpload /> Import backup</>}
                     </button>
                     <button
                         type="button"
