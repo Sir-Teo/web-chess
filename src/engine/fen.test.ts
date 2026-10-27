@@ -1,6 +1,71 @@
 import { describe, expect, it } from 'vitest'
 import { FEN_KINGS_ADJACENT_ERROR, FEN_LOOKS_LIKE_GAME_ERROR, FEN_LOOKS_LIKE_URL_ERROR, FEN_NO_BLACK_KING_ERROR, FEN_NO_KINGS_ERROR, FEN_NO_WHITE_KING_ERROR, FEN_OPPONENT_IN_CHECK_ERROR, FEN_PARSE_ERROR, hasLegalKingPlacement, kingPlacementError, opponentIsInCheck, validateFenForAnalysis } from './fen'
 
+describe('declared en passant targets', () => {
+  it.each([
+    ['4k3/8/8/4P3/8/8/8/4K3 w - d6 0 12', 'd5'],
+    ['4k3/8/8/8/4p3/8/8/4K3 b - d3 0 12', 'd4'],
+  ])('requires the pawn that just advanced: %s', (fen, square) => {
+    const result = validateFenForAnalysis(fen)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(new RegExp(`en passant.*pawn on ${square}`))
+  })
+
+  it.each([
+    ['4k3/8/8/3PP3/8/8/8/4K3 w - d6 0 12'],
+    ['4k3/8/8/3rP3/8/8/8/4K3 w - d6 0 12'],
+    ['4k3/8/8/8/3pp3/8/8/4K3 b - d3 0 12'],
+    ['4k3/8/8/8/3Np3/8/8/4K3 b - d3 0 12'],
+  ])('requires the actual opposing pawn rather than a different piece: %s', fen => {
+    const result = validateFenForAnalysis(fen)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(/en passant.*pawn/)
+  })
+
+  it.each([
+    ['4k3/8/3B4/3pP3/8/8/8/4K3 w - d6 0 12', 'd6'],
+    ['4k3/8/8/8/3Pp3/3b4/8/4K3 b - d3 0 12', 'd3'],
+  ])('requires an empty target square: %s', (fen, target) => {
+    const result = validateFenForAnalysis(fen)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(new RegExp(`en passant.*${target}.*empty`))
+  })
+
+  it.each([
+    ['4k3/3p4/8/3pP3/8/8/8/4K3 w - d6 0 12', 'd7'],
+    ['4k3/8/8/8/3Pp3/8/3P4/4K3 b - d3 0 12', 'd2'],
+  ])('requires the double-push origin to be vacated: %s', (fen, origin) => {
+    const result = validateFenForAnalysis(fen)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(new RegExp(`en passant.*${origin}.*empty`))
+  })
+
+  it.each([
+    ['4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 12'],
+    ['4k3/8/8/8/3Pp3/8/8/4K3 b - d3 0 12'],
+    ['4k3/8/8/3p4/8/8/8/4K3 w - d6 0 12'],
+    ['4k3/8/8/8/3P4/8/8/4K3 b - d3 0 12'],
+    ['k3r3/8/8/3pP3/8/8/8/4K3 w - d6 0 12'],
+    ['4k3/8/8/3pP3/4K3/8/8/8 w - d6 0 12'],
+    ['8/8/8/4k3/3Pp3/8/8/4K3 b - d3 0 12'],
+  ])('accepts real double-push fields with no capturer, a pin or check: %s', fen => {
+    expect(validateFenForAnalysis(fen).ok).toBe(true)
+  })
+})
+
+describe('explicit shorthand support for imported roots', () => {
+  const placement = '4k3/8/8/8/8/8/4P3/4K3'
+  it.each([
+    [`${placement} w`, `${placement} w - - 0 1`],
+    [`${placement} w -`, `${placement} w - - 0 1`],
+    [`${placement} w - -`, `${placement} w - - 0 1`],
+    [`${placement} w - - 42`, `${placement} w - - 42 1`],
+  ])('keeps editor input strict while retaining importer defaults: %s', (input, complete) => {
+    expect(validateFenForAnalysis(input).ok).toBe(false)
+    expect(validateFenForAnalysis(input, { allowAbbreviated: true })).toEqual({ ok: true, fen: complete })
+  })
+})
+
 describe('declared castling rights', () => {
   it.each([
     ['White kingside', 'e1', 'h1', '4k3/8/8/8/8/8/P7/4K3 w K - 0 1'],

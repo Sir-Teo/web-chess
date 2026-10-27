@@ -612,8 +612,7 @@ export function rootFenFromPgnHeaders(headers: Record<string, string>): string {
 
     const counterError = fenCounterInputError(fenHeader)
     if (counterError) throw new PgnStartingPositionError(`PGN starting position: ${counterError.replace(/^Invalid FEN: /, '')}`)
-    const fen = new Chess(fenHeader).fen()
-    const validation = validateFenForAnalysis(fen)
+    const validation = validateFenForAnalysis(fenHeader, { allowAbbreviated: true })
     if (!validation.ok) throw new PgnStartingPositionError(`PGN starting position: ${validation.error.replace(/^Invalid FEN: /, '')}`)
     return validation.fen
 }

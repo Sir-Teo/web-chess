@@ -454,6 +454,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const canCopyShareLink = fenShareValidation.ok
     const canImportPgn = Boolean(importText.trim()) && !importContentError
     const enPassantTargets = setupEnPassantTargets(setup)
+    const unavailableEnPassant = setup.enPassant !== '-' && !enPassantTargets.includes(setup.enPassant)
     /**
      * A file too big for the box it landed in.
      *
@@ -940,16 +941,20 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                             <label className="fen-counter-field" htmlFor={enPassantId}>
                                                 <span>En passant target</span>
                                                 <select id={enPassantId}
-                                                    value={setup.enPassant !== '-' && enPassantTargets.includes(setup.enPassant) ? setup.enPassant : '-'}
+                                                    value={setup.enPassant}
+                                                    aria-invalid={unavailableEnPassant || undefined}
                                                     aria-describedby={`${enPassantId}-help`}
                                                     onChange={event => applySetupChange(current =>
                                                         updateSetupEnPassant(current, event.target.value as Square | '-'))}>
                                                     <option value="-">None</option>
+                                                    {unavailableEnPassant && <option value={setup.enPassant}>{setup.enPassant} (invalid)</option>}
                                                     {enPassantTargets.map(square => <option key={square} value={square}>{square}</option>)}
                                                 </select>
                                             </label>
                                             <p id={`${enPassantId}-help`} className="fen-setup-help">
-                                                The square crossed by a pawn that just moved two squares.
+                                                {unavailableEnPassant
+                                                    ? 'This target does not match the pieces. Choose None to clear it, or correct the board.'
+                                                    : 'The square crossed by a pawn that just moved two squares.'}
                                             </p>
                                         </div>
                                     </div>

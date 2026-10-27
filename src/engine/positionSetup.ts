@@ -1,5 +1,6 @@
 import { Chess, type Square } from 'chess.js'
 import { CASTLING_REQUIREMENTS } from './castlingRights'
+import { EN_PASSANT_REQUIREMENTS } from './enPassantRights'
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const
 const DISPLAY_RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'] as const
@@ -180,11 +181,7 @@ export function updateSetupTurn(setup: PositionSetup, turn: SetupTurn): Position
 /** Squares a pawn could have crossed on the previous double push. FEN records
  * that square even when no opposing pawn can capture there. */
 export function setupEnPassantTargets(setup: PositionSetup): Square[] {
-  const whiteToMove = setup.turn === 'w'
-  const rank = whiteToMove ? '6' : '3'
-  const pawnRank = whiteToMove ? '5' : '4'
-  const originRank = whiteToMove ? '7' : '2'
-  const pawn = whiteToMove ? 'p' : 'P'
+  const { targetRank: rank, pawnRank, originRank, pawnPiece: pawn } = EN_PASSANT_REQUIREMENTS[setup.turn]
   return FILES.filter(file => setup.pieces[`${file}${pawnRank}`] === pawn
     && !setup.pieces[`${file}${rank}`] && !setup.pieces[`${file}${originRank}`])
     .map(file => `${file}${rank}` as Square)

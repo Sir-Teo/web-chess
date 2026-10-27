@@ -1,0 +1,34 @@
+  setup keyboard (1280px, 1x text): palette/board each use one Tab stop; arrow/Home/End navigation, keyboard tool selection, placement and erasure load a real position
+  setup keyboard (375px, 1x text): palette/board each use one Tab stop; arrow/Home/End navigation, keyboard tool selection, placement and erasure load a real position
+  setup keyboard (320px, 2x text): palette/board each use one Tab stop; arrow/Home/End navigation, keyboard tool selection, placement and erasure load a real position
+  setup orientation (1280px, 1x): view-only flip, reversed coordinates/arrows/Home/End, keyboard and pointer placement, and unchanged FEN loading
+  setup orientation (375px, 1x): view-only flip, reversed coordinates/arrows/Home/End, keyboard and pointer placement, and unchanged FEN loading
+  setup orientation (320px, 2x): view-only flip, reversed coordinates/arrows/Home/End, keyboard and pointer placement, and unchanged FEN loading
+  position setup (1280px): d6 survives a counter edit, can be cleared/restored, and allows a real en passant capture
+  position setup (375px): e3 survives a counter edit, can be cleared/restored, and allows a real en passant capture
+  castling inputs (1280px, 1x, dark, fen): missing-rook/away-king rights rejected with prior work retained; White kingside castle moves both correct pieces after repair; setup and raw validation agree
+  castling inputs (1280px, 1x, dark, pgn): missing-rook/away-king rights rejected with prior work retained; Black queenside castle moves both correct pieces after repair
+  castling inputs (1280px, 1x, dark, shared-missing-rook): missing-rook/away-king rights rejected with prior work retained; White kingside castle moves both correct pieces after repair
+  castling inputs (1280px, 1x, dark, shared-king-away): missing-rook/away-king rights rejected with prior work retained; Black queenside castle moves both correct pieces after repair
+  castling inputs (375px, 2x, light, fen): missing-rook/away-king rights rejected with prior work retained; White kingside castle moves both correct pieces after repair; setup and raw validation agree
+  castling inputs (375px, 2x, light, pgn): missing-rook/away-king rights rejected with prior work retained; Black queenside castle moves both correct pieces after repair
+  castling inputs (375px, 2x, light, shared-missing-rook): missing-rook/away-king rights rejected with prior work retained; White kingside castle moves both correct pieces after repair
+  castling inputs (375px, 2x, light, shared-king-away): missing-rook/away-king rights rejected with prior work retained; Black queenside castle moves both correct pieces after repair
+  starting-position legality (1280px, 1x, dark, shared-adjacent): impossible root rejected before board publication; original study/recovery/draft retained; corrected legal check and king escape load without an error screen
+  starting-position legality (1280px, 1x, dark, shared-opponent-check): impossible root rejected before board publication; original study/recovery/draft retained; corrected legal check and king escape load without an error screen
+  starting-position legality (1280px, 1x, dark, pgn paste): impossible root rejected before board publication; original study/recovery/draft retained; corrected legal check and king escape load without an error screen
+  starting-position legality (1280px, 1x, dark, recovery): rejected before publication; exact original PGN download and retained slot; explicit discard clears it and e4 plays
+  starting-position legality (375px, 2x, light, shared-adjacent): impossible root rejected before board publication; original study/recovery/draft retained; corrected legal check and king escape load without an error screen
+  starting-position legality (375px, 2x, light, shared-opponent-check): impossible root rejected before board publication; original study/recovery/draft retained; corrected legal check and king escape load without an error screen
+  starting-position legality (375px, 2x, light, pgn file): impossible root rejected before board publication; original study/recovery/draft retained; corrected legal check and king escape load without an error screen
+  starting-position legality (375px, 2x, light, recovery): rejected before publication; exact original PGN download and retained slot; explicit discard clears it and e4 plays
+  empty game share (1280px, 1x, dark, standard): exact position opens without fake moves; later Unicode edits/real move recover after immediate refresh
+  empty game share (1280px, 1x, dark, custom): exact position opens without fake moves; later Unicode edits/real move recover after immediate refresh
+  empty game share (1280px, 1x, dark, bad-token): damaged move/illegal root rejected; previous game remains recoverable
+  empty game share (1280px, 1x, dark, illegal-first-move): damaged move/illegal root rejected; previous game remains recoverable
+  empty game share (1280px, 1x, dark, adjacent-kings): damaged move/illegal root rejected; previous game remains recoverable
+  empty game share (375px, 2x, light, standard): exact position opens without fake moves; later Unicode edits/real move recover after immediate refresh
+  empty game share (375px, 2x, light, custom): exact position opens without fake moves; later Unicode edits/real move recover after immediate refresh
+  empty game share (375px, 2x, light, bad-token): damaged move/illegal root rejected; previous game remains recoverable
+  empty game share (375px, 2x, light, illegal-first-move): damaged move/illegal root rejected; previous game remains recoverable
+  empty game share (375px, 2x, light, adjacent-kings): damaged move/illegal root rejected; previous game remains recoverable

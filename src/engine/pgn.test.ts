@@ -26,6 +26,17 @@ import {
 
 describe('PGN starting-position legality', () => {
   it.each([
+    ['4k3/8/8/4P3/8/8/8/4K3 w - d6 0 12', '12. Kd1 *'],
+    ['4k3/8/8/8/4p3/8/8/4K3 b - d3 0 12', '12... Kd8 *'],
+  ])('rejects a dangling en passant target before normalization/replay: %s', (fen, quietMove) => {
+    for (const movetext of ['*', quietMove]) {
+      let caught: unknown
+      try { parsePgnMoveTree(`[SetUp "1"]\n[FEN "${fen}"]\n\n${movetext}`) } catch (error) { caught = error }
+      expect(caught).toBeInstanceOf(Error)
+      expect(pgnImportUserErrorMessage(caught)).toMatch(/PGN starting position:.*en passant.*pawn/)
+    }
+  })
+  it.each([
     ['4k3/8/8/8/8/8/4R3/4K3 w - - 0 1', '1. Rxe8 *'],
     ['k3r3/8/8/8/8/8/8/4K3 b - - 0 1', '1... Rxe1 *'],
   ])('rejects an already checked nonmoving king before publishing moves: %s', (fen, capture) => {

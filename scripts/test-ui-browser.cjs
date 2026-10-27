@@ -16088,6 +16088,120 @@ async function checkASavedGameComesBack(browser) {
  * `about:blank` between the two openings: the links differ only in their hash,
  * and a navigation between them is same-document and never reloads.
  */
+async function checkEnPassantRightInputs(browser) {
+  const key = 'webchess:auto-saved-game:v1'
+  const protectedPgn = '1. e4 e5 {Keep the en passant check study} *'
+  const missingPawn = '4k3/8/8/4P3/8/8/8/4K3 w - d6 0 12'
+  const occupiedTarget = '4k3/8/3B4/3pP3/8/8/8/4K3 w - d6 0 12'
+  const occupiedOrigin = '4k3/3p4/8/3pP3/8/8/8/4K3 w - d6 0 12'
+  const validWhite = '4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 12'
+  const validBlack = '4k3/8/8/8/3Pp3/8/8/4K3 b - d3 0 12'
+  const hashFor = (fen, move) => '#game=' + Buffer.from(fen + '|' + move).toString('base64url')
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    for (const scenario of ['fen', 'pgn', 'shared-missing-pawn', 'shared-origin']) {
+      const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(({ key, protectedPgn, theme }) => {
+          if (!localStorage.getItem('qa-ep-input-seeded')) {
+            localStorage.setItem(key, JSON.stringify({ version: 1, savedAt: Date.now() - 60000, pgn: protectedPgn, moveCount: 2 }))
+            localStorage.setItem('qa-ep-input-seeded', 'true')
+          }
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme }))
+        }, { key, protectedPgn, theme })
+        await page.goto(BASE + (scenario === 'shared-missing-pawn' ? hashFor(missingPawn, 'e1d1') : ''), { waitUntil: 'domcontentloaded' })
+        const enlarge = () => page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        await enlarge()
+        const recovery = page.locator('.auto-save-recovery')
+        await recovery.getByRole('button', { name: 'Restore', exact: true }).waitFor()
+        if (scenario === 'shared-missing-pawn') {
+          await page.waitForFunction(() => document.querySelector('.app-notice-region')?.textContent?.includes('shared link could not be read'))
+          assert(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).pgn, key) === protectedPgn, 'an impossible EP root changed the saved game')
+        }
+        await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+        await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+        const note = page.getByRole('textbox', { name: 'Move note', exact: true })
+        await note.waitFor()
+        if (scenario === 'fen') {
+          await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+          const dialog = page.locator('.pgn-dialog')
+          await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+          const input = dialog.locator('.fen-textarea')
+          await input.fill(missingPawn)
+          await dialog.getByRole('status').filter({ hasText: 'en passant (d6) needs a Black pawn on d5' }).waitFor()
+          assert(await input.inputValue() === missingPawn && await input.getAttribute('aria-invalid') === 'true', 'invalid EP FEN lost its draft or error association')
+          assert(await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).isDisabled()
+            && await dialog.getByRole('button', { name: 'Copy Share Link', exact: true }).isDisabled(), 'a missing-pawn EP root can load or share')
+          const target = dialog.getByRole('combobox', { name: 'En passant target', exact: true })
+          assert(await target.inputValue() === 'd6' && await target.getAttribute('aria-invalid') === 'true', 'an unavailable EP target is hidden as None')
+          assert(await target.locator('option:checked').textContent() === 'd6 (invalid)', 'an unavailable EP target lacks a visible repair cue')
+          await target.selectOption('-')
+          assert(await input.inputValue() === missingPawn.replace(' d6 ', ' - '), 'clearing the EP target changed the board or counters')
+          assert(await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).isEnabled()
+            && await target.getAttribute('aria-invalid') === null, 'clearing the invalid target did not repair the FEN')
+          await input.fill(missingPawn)
+          await dialog.getByRole('toolbar', { name: 'Piece palette', exact: true }).getByRole('button', { name: 'Select Black pawn', exact: true }).click()
+          await dialog.getByRole('group', { name: 'Editable chessboard', exact: true }).getByRole('button', { name: /^d5,/ }).click()
+          assert(await input.inputValue() === validWhite, 'placing the real opposing pawn lost the EP target or counters')
+          await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).click()
+          await dialog.waitFor({ state: 'detached' })
+          await page.locator('#chessboard-square-d5 [data-piece="bP"]').waitFor()
+          await page.locator('#chessboard-square-e5').click()
+          await page.locator('#chessboard-square-d6').click()
+        } else if (scenario === 'pgn') {
+          await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+          const dialog = page.locator('.pgn-dialog'), input = dialog.locator('textarea')
+          for (const [label, fen, reason] of [['missing-pawn', missingPawn, 'needs a Black pawn on d5'], ['occupied-target', occupiedTarget, 'target d6 must be empty']]) {
+            const text = `[SetUp "1"]\n[FEN "${fen}"]\n\n12. Kd1 *`
+            if (width <= 900) {
+              await dialog.locator('input[type="file"]').setInputFiles({ name: `${label}.pgn`, mimeType: 'application/x-chess-pgn', buffer: Buffer.from(text) })
+              await page.waitForFunction(text => document.querySelector('.pgn-dialog textarea')?.value === text, text)
+            } else await input.fill(text)
+            await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+            await dialog.getByRole('alert').filter({ hasText: reason }).waitFor()
+            assert(await input.inputValue() === text && await page.locator('#chessboard-square-e5 [data-piece="bP"]').count() === 1, 'an invalid EP PGN replaced the study or lost its draft')
+          }
+          await input.fill(`[SetUp "1"]\n[FEN "${validBlack}"]\n\n12... exd3 *`)
+          await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+          await dialog.waitFor({ state: 'detached' })
+        } else {
+          if (scenario === 'shared-origin') {
+            await page.evaluate(hash => { location.hash = hash }, hashFor(occupiedOrigin, 'e1d1'))
+            await page.waitForFunction(() => document.querySelector('.app-notice-region')?.textContent === 'That shared link could not be read — keeping the current position.')
+            assert(await page.locator('#chessboard-square-e5 [data-piece="bP"]').count() === 1
+              && await note.inputValue() === 'Keep the en passant check study', 'an impossible EP origin changed the current game')
+          }
+          await page.evaluate(hash => { location.hash = hash }, scenario === 'shared-missing-pawn' ? hashFor(validWhite, 'e5d6') : hashFor(validBlack, 'e4d3'))
+        }
+        const white = scenario === 'fen' || scenario === 'shared-missing-pawn'
+        const destination = white ? 'd6' : 'd3', victim = white ? 'd5' : 'd4'
+        await page.locator(`#chessboard-square-${destination} [data-piece="${white ? 'wP' : 'bP'}"]`).waitFor()
+        assert(await page.locator(`#chessboard-square-${victim} [data-piece]`).count() === 0
+          && await page.locator('.board-surface [data-piece]').count() === 3, 'a legal EP capture invented or retained the captured pawn')
+        await page.locator(`#chessboard-square-${white ? 'e8' : 'e1'}`).click()
+        await page.locator(`#chessboard-square-${white ? 'd8' : 'd1'}`).click()
+        await page.locator(`#chessboard-square-${white ? 'd8' : 'd1'} [data-piece="${white ? 'bK' : 'wK'}"]`).waitFor()
+        assert(await page.locator('.board-surface [data-piece]').count() === 3, 'a quiet king move invented a pawn after EP')
+        await page.reload({ waitUntil: 'domcontentloaded' })
+        await enlarge()
+        await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+        await page.locator(`#chessboard-square-${destination} [data-piece="${white ? 'wP' : 'bP'}"]`).waitFor()
+        assert(await page.locator('.mtree-chip').count() === 2 && await page.locator('.board-surface [data-piece]').count() === 3, 'recovery invented a pawn or lost a real move')
+        const expected = new (require('chess.js').Chess)(white ? validWhite : validBlack)
+        expected.move(white ? 'exd6' : 'exd3'); expected.move(white ? 'Kd8' : 'Kd1')
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await page.locator('.pgn-dialog').getByRole('button', { name: 'FEN', exact: true }).click()
+        assert((await page.locator('.fen-textarea').inputValue()).trim() === expected.fen(), 'EP recovery changed the exact board or counters')
+        assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `EP input errors: ${errors.join('; ')}`)
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'EP validation overflows')
+        console.log(`  en passant inputs (${width}px, ${scale}x, ${theme}, ${scenario}): impossible fields retain prior work/draft; real opposing pawn is captured; quiet king move and reload preserve exactly three pieces, two moves and exact FEN/counters${scenario === 'fen' ? '; unavailable target stays visible and can be cleared; setup repair retains the target' : ''}`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkCastlingRightInputs(browser) {
   const key = 'webchess:auto-saved-game:v1'
   const protectedPgn = '1. e4 e5 {Keep the castling check study} *'
@@ -18750,6 +18864,7 @@ async function main() {
       'empty-game-share': checkEmptyGameShares,
       'illegal-roots': checkIllegalStartingPositions,
       'castling-rights': checkCastlingRightInputs,
+      'en-passant-rights': checkEnPassantRightInputs,
       'recovery-export': checkFailedRecoveryExport,
       'saved-game-roundtrip': checkASavedGameComesBack,
       'share-roundtrip': checkASharedLinkCarriesTheGame,
@@ -19603,6 +19718,7 @@ async function main() {
     await checkEmptyGameShares(browser)
     await checkIllegalStartingPositions(browser)
     await checkCastlingRightInputs(browser)
+    await checkEnPassantRightInputs(browser)
     await checkSettingsSurviveAReload(browser)
     await checkSettingsSayWhenTheyCannotBeKept(browser)
     await checkHighContrastKeepsTheBoard(browser)

@@ -1,6 +1,7 @@
-import { Chess, validateFen } from 'chess.js'
+import { Chess, validateFen, type Square } from 'chess.js'
 import { looksLikeGame, looksLikeGameUrl } from './pastedText'
 import { CASTLING_REQUIREMENTS } from './castlingRights'
+import { EN_PASSANT_REQUIREMENTS } from './enPassantRights'
 
 export const FEN_PARSE_ERROR = 'Failed to parse FEN. Check piece placement, side to move, castling rights, and counters.'
 /**
@@ -188,24 +189,54 @@ function castlingRightsError(position: Chess, fen: string): string | null {
   return null
 }
 
-export function validateFenForAnalysis(fenText: string): FenValidationResult {
+function enPassantError(position: Chess, fields: string[]): string | null {
+  const target = fields[3]
+  if (!target || target === '-') return null
+  const requirement = EN_PASSANT_REQUIREMENTS[fields[1] === 'b' ? 'b' : 'w']
+  const file = target.charAt(0)
+  const pawnSquare = `${file}${requirement.pawnRank}` as Square
+  const originSquare = `${file}${requirement.originRank}` as Square
+  if (position.get(target as Square)) return `Invalid FEN: en passant target ${target} must be empty.`
+  const pawn = position.get(pawnSquare)
+  const color = requirement.pawnPiece === 'p' ? 'b' : 'w'
+  if (pawn?.type !== 'p' || pawn.color !== color) {
+    return `Invalid FEN: en passant (${target}) needs a ${color === 'b' ? 'Black' : 'White'} pawn on ${pawnSquare}.`
+  }
+  if (position.get(originSquare)) {
+    return `Invalid FEN: en passant (${target}) needs ${originSquare} empty after the pawn’s double move.`
+  }
+  return null
+}
+
+export function validateFenForAnalysis(fenText: string, { allowAbbreviated = false }: { allowAbbreviated?: boolean } = {}): FenValidationResult {
   const trimmed = fenText.trim()
   // What it is, before what is wrong with it: a game and a link are both
   // things this box cannot take, and neither has piece placement to check.
   if (looksLikeGameUrl(trimmed)) return { ok: false, error: FEN_LOOKS_LIKE_URL_ERROR }
   if (looksLikeGame(trimmed)) return { ok: false, error: FEN_LOOKS_LIKE_GAME_ERROR }
-  const syntax = validateFen(trimmed)
+  const fields = trimmed.split(/\s+/)
+  // PGN/shared roots historically use chess.js’s trailing-field defaults.
+  // Complete those fields without calling fen(), which probes legal moves.
+  if (allowAbbreviated && fields.length >= 2 && fields.length < 6) {
+    fields.push(...['-', '-', '0', '1'].slice(fields.length - 2))
+  }
+  const input = fields.join(' ')
+  const syntax = validateFen(input)
   if (!syntax.ok) {
     return { ok: false, error: fenSyntaxUserError(syntax.error, trimmed) }
   }
 
   // chess.js uses parseInt for these fields: "1.5", "1junk" and "1e3"
   // all became 1. Large integers could also round or serialize as exponents.
-  const counterError = fenCounterInputError(trimmed)
+  const counterError = fenCounterInputError(input)
   if (counterError) return { ok: false, error: counterError }
 
   try {
-    const position = new Chess(trimmed)
+    const position = new Chess(input)
+    // An invalid EP probe can invent/replace a pawn while undoing a capture.
+    // Check its raw pieces before fen() or any legal-move generation.
+    const epError = enPassantError(position, fields)
+    if (epError) return { ok: false, error: epError }
     const fen = position.fen()
     const kingError = kingPlacementError(fen)
     if (kingError) {

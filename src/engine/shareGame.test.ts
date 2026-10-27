@@ -15,6 +15,12 @@ const SICILIAN = ['e2e4', 'c7c5', 'g1f3', 'd7d6', 'd2d4', 'c5d4', 'f3d4', 'g8f6'
 
 describe('shared starting-position legality', () => {
   it.each([
+    ['4k3/8/8/4P3/8/8/8/4K3 w - d6 0 12', 'e1d1'],
+    ['4k3/8/8/8/4p3/8/8/4K3 b - d3 0 12', 'e8d8'],
+  ])('rejects a dangling en passant target before a quiet move invents a pawn: %s', (fen, move) => {
+    expect(decodeSharedGame(encodeSharedGame(fen, [move]))).toBeNull()
+  })
+  it.each([
     ['adjacent kings', '8/8/8/8/8/8/4k3/4K3 w - - 0 1', 'e1e2'],
     ['Black already checked on White’s turn', '4k3/8/8/8/8/8/4R3/4K3 w - - 0 1', 'e2e8'],
     ['White already checked on Black’s turn', 'k3r3/8/8/8/8/8/8/4K3 b - - 0 1', 'e8e1'],

@@ -1,0 +1,3 @@
+EN PASSANT ROOT PROBE {"kind":"shared","loadDisabled":null,"inventedPawn":0,"kingD1":0,"moves":[],"errors":[],"validation":[],"notice":["That shared link could not be read — showing the starting position."]}
+EN PASSANT ROOT PROBE {"kind":"pgn","loadDisabled":null,"inventedPawn":0,"kingD1":0,"moves":[],"errors":[],"validation":["PGN starting position: en passant (d6) needs a Black pawn on d5."],"notice":[""]}
+EN PASSANT ROOT PROBE {"kind":"fen","loadDisabled":true,"inventedPawn":0,"kingD1":0,"moves":[],"errors":[],"validation":["Invalid FEN: en passant (d6) needs a Black pawn on d5."],"notice":[""]}

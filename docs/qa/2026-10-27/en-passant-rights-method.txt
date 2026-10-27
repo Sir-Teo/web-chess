@@ -1,0 +1,13 @@
+Validate en passant fields before reading positions — 27 October 2026
+
+Baseline e5711f6: actual FEN, PGN and shared-game inputs with an en passant target d6, a White pawn on e5 and no Black pawn on d5 are accepted. After a quiet Kd1, a Black pawn appears on d5. chess.js fen() probes possible en passant captures and its undo path assumes the captured pawn existed. Normalizing a raw PGN/shared root through fen() before validation already changes the board.
+
+Repair: share the setup editor's double-push requirements with raw FEN validation. Before fen() or legal-move generation, require an empty target, the correct opposing pawn on its landing square and an empty double-push origin. PGN/shared readers call this validator on the raw root. Explicit importer-only completion of two-to-five trailing FEN fields preserves existing chess.js shorthand defaults; the ordinary FEN editor remains strict. Real uncapturable targets, pinned capturers and legal check escapes remain valid. No halfmove-zero requirement is added.
+
+The editor preserves an unavailable typed target in its dropdown, marks it invalid and explains how to clear it or correct the board. Selecting None clears only the target; placing the missing pawn instead retains the now-valid target and counters.
+
+Twenty-five added model cases cover missing/wrong pieces, occupied targets/origins, both colors, ordinary uncapturable/pinned/check controls, explicit shorthand compatibility and raw PGN/shared roots carrying a quiet king move. The initial targeted run yields eighteen failures before the repair. Final targeted FEN/setup/PGN/shared coverage passes all 278 cases.
+
+Native alias en-passant-rights covers desktop 1280px normal text dark and phone 375px/200% root text light. Each layout checks FEN with both clearing and palette/board repair, PGN paste or file input with missing-pawn/occupied-target roots, a cold malformed shared game preserving recovery and a same-page occupied-origin shared link preserving the study. Corrected input captures a real pawn for both colors, then makes a quiet king move. Immediate reload/recovery retains exactly three pieces, two actual moves and the exact final FEN/counters. Invalid drafts, disabled Load/Share, associated error state, no error boundary/page errors and no document overflow are checked.
+
+Production browser results and related setup/root workflows are recorded alongside this method. Root text enlargement is not native browser zoom; Linux WebKit is not a physical iOS device.
