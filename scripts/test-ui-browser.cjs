@@ -16286,6 +16286,134 @@ async function checkCastlingRightInputs(browser) {
   }
 }
 
+async function checkLibraryDownloadRecovery(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    for (const multipart of [false, true]) {
+      const games = Array.from({ length: multipart ? 18 : 1 }, (_, i) => ({
+        id: `download-${i}`, name: `Download café ${i}`, createdAt: i + 1, updatedAt: i + 1, favorite: i % 2 === 0,
+        pgn: `[Event "Export ${i}"]\n\n1. e4 {Keep café ♞${multipart ? 'x'.repeat(470000) : ''}} e5 *`,
+      }))
+      const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce', acceptDownloads: true })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(games => new Promise((resolve, reject) => {
+          const request = indexedDB.open('web-chess-library', 1)
+          request.onupgradeneeded = () => request.result.createObjectStore('games', { keyPath: 'id' })
+          request.onerror = () => reject(request.error)
+          request.onsuccess = () => {
+            const db = request.result, tx = db.transaction('games', 'readwrite'), store = tx.objectStore('games')
+            store.clear(); for (const game of games) store.put(game)
+            tx.oncomplete = () => { db.close(); resolve() }; tx.onerror = () => reject(tx.error)
+          }
+        }), games)
+        await page.reload({ waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+        const dialog = page.locator('.library-dialog')
+        await dialog.getByRole('button', { name: 'Load Download café 0', exact: true }).waitFor()
+        const backup = dialog.getByRole('button', { name: 'Export backup', exact: true })
+        const pgn = dialog.getByRole('button', { name: 'Export PGN', exact: true })
+        await page.evaluate(() => {
+          window.__libraryCreated = []; window.__libraryRevoked = []
+          const create = URL.createObjectURL, revoke = URL.revokeObjectURL, click = HTMLAnchorElement.prototype.click
+          window.__setLibraryDownloadMode = mode => {
+            window.__libraryDownloadMode = mode
+            URL.createObjectURL = mode === 'missing' ? undefined : function (...args) {
+              if (window.__libraryDownloadMode === 'url') throw new DOMException('QA library URL denied', 'NotAllowedError')
+              const url = create.apply(this, args); window.__libraryCreated.push(url); return url
+            }
+          }
+          URL.revokeObjectURL = function (url) { window.__libraryRevoked.push(url); return revoke.call(this, url) }
+          HTMLAnchorElement.prototype.click = function (...args) {
+            if (window.__libraryDownloadMode === 'click' && this.download.startsWith('web-chess-library-')) throw new DOMException('QA library download blocked', 'NotAllowedError')
+            return click.apply(this, args)
+          }
+        })
+        const clean = () => page.waitForFunction(() => window.__libraryCreated.length === window.__libraryRevoked.length && !document.querySelector('a[download]'))
+        const fail = async (button, message, after) => {
+          for (const mode of ['url', 'missing', 'click']) {
+            await page.evaluate(mode => window.__setLibraryDownloadMode(mode), mode)
+            await button.focus()
+            await page.keyboard.press('Enter')
+            const error = dialog.getByRole('alert').filter({ hasText: message })
+            await error.waitFor({ timeout: 3000 })
+            assert(await button.getAttribute('aria-describedby') === await error.getAttribute('id')
+              && await button.isEnabled() && await button.evaluate(element => element === document.activeElement), 'Library export lost associated failure/focused retry')
+            await clean()
+            assert(await dialog.locator('.library-row').count() === games.length, 'a failed Library download changed its games')
+            if (after) await after()
+            assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'Library download recovery overflows')
+          }
+        }
+        const realDownload = async button => {
+          await page.evaluate(() => window.__setLibraryDownloadMode('success'))
+          const [file] = await Promise.all([page.waitForEvent('download'), button.click()])
+          assert(!await file.failure(), 'Library retry did not start its real download')
+          await clean()
+          assert(await dialog.getByRole('alert').count() === 0, 'a successful Library retry retained obsolete failure guidance')
+          return { name: file.suggestedFilename(), text: fs.readFileSync(await file.path(), 'utf8') }
+        }
+        const exported = []
+        if (!multipart) {
+          await fail(pgn, 'The browser could not start the PGN download.')
+          const file = await realDownload(pgn)
+          assert(/^web-chess-library-\d{4}-\d{2}-\d{2}\.pgn$/.test(file.name) && file.text === games[0].pgn + '\n', 'PGN retry changed the database text/filename')
+          await fail(backup, 'The browser could not start the backup download.')
+          await dialog.getByRole('alert').scrollIntoViewIfNeeded()
+          await page.screenshot({ path: `/tmp/web-chess-library-download-${width}-single.png` })
+          exported.push(await realDownload(backup))
+        } else {
+          await backup.click()
+          const parts = dialog.getByRole('group', { name: 'Backup files', exact: true })
+          const first = parts.getByRole('button', { name: 'Download part 1 of 2', exact: true })
+          const second = parts.getByRole('button', { name: 'Download part 2 of 2', exact: true })
+          await first.waitFor()
+          exported.push(await realDownload(first))
+          const started = parts.getByRole('status')
+          await started.filter({ hasText: '1 of 2 downloads started' }).waitFor()
+          const firstAgain = parts.getByRole('button', { name: 'Download again part 1 of 2', exact: true })
+          await fail(second, 'The browser could not start backup part 2.', async () => {
+            assert(await second.isVisible() && await firstAgain.isVisible() && (await started.textContent()).includes('1 of 2'), 'a failed second part changed the completed-part count')
+          })
+          await fail(firstAgain, 'The browser could not start backup part 1.', async () => {
+            assert((await started.textContent()).includes('1 of 2'), 'a failed repeated download lost or doubled its existing completion')
+          })
+          await dialog.getByRole('alert').scrollIntoViewIfNeeded()
+          await page.screenshot({ path: `/tmp/web-chess-library-download-${width}-multipart.png` })
+          exported.push(await realDownload(second))
+          await started.filter({ hasText: '2 of 2 downloads started' }).waitFor()
+          await realDownload(firstAgain)
+          assert((await started.textContent()).includes('2 of 2'), 'a repeated successful part was counted twice')
+        }
+        const records = exported.flatMap((file, index) => {
+          assert(multipart ? new RegExp(`-part-${index + 1}-of-2\\.json$`).test(file.name) : /^web-chess-library-\d{4}-\d{2}-\d{2}\.json$/.test(file.name), 'backup retry has the wrong single/part filename')
+          const data = JSON.parse(file.text)
+          assert(data.format === 'web-chess-library' && data.version === 1, 'backup retry lost the backup envelope')
+          return data.games
+        })
+        assert(records.length === games.length && new Set(records.map(record => record.id)).size === games.length, 'backup retry duplicated or lost games across parts')
+        for (const game of games) {
+          const record = records.find(record => record.id === game.id)
+          assert(record && Object.entries(game).every(([field, value]) => record[field] === value), 'backup retry changed PGN, names, favorite state or timestamps')
+        }
+        await page.evaluate(() => window.__setLibraryDownloadMode('success'))
+        const stored = await page.evaluate(() => new Promise((resolve, reject) => {
+          const request = indexedDB.open('web-chess-library', 1)
+          request.onerror = () => reject(request.error)
+          request.onsuccess = () => { const db = request.result, read = db.transaction('games').objectStore('games').getAll(); read.onsuccess = () => { db.close(); resolve(read.result) }; read.onerror = () => reject(read.error) }
+        }))
+        assert(stored.length === games.length && stored.every(record => games.some(game => game.id === record.id && game.pgn === record.pgn && game.name === record.name && game.favorite === record.favorite)), 'Library export mutated IndexedDB records')
+        assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1 && await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `Library download changed the board or emitted errors: ${errors.join('; ')}`)
+        console.log(`  Library download recovery (${width}px, ${scale}x, ${theme}, ${multipart ? 'two parts / 18 large games' : 'PGN and single backup'}): URL failures/missing API/blocked clicks retain focused retry, all records and truthful part counts; real UTF-8 downloads retain complete exact PGN/metadata with cleanup; repeated parts do not double-count`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkRecoveryDownloadFallback(browser) {
   const key = 'webchess:auto-saved-game:v1'
   const original = '  [Event "Łódź recovery"]\r\n\r\n1. e4 { Keep café ♞ — exactly } Qh9 *\r\n'
@@ -19161,6 +19289,7 @@ async function main() {
       'castling-repair': checkUnavailableCastlingRepair,
       'pgn-download': checkPgnDownloadRecovery,
       'recovery-download': checkRecoveryDownloadFallback,
+      'library-download': checkLibraryDownloadRecovery,
       'en-passant-rights': checkEnPassantRightInputs,
       'recovery-export': checkFailedRecoveryExport,
       'saved-game-roundtrip': checkASavedGameComesBack,
@@ -20018,6 +20147,7 @@ async function main() {
     await checkUnavailableCastlingRepair(browser)
     await checkPgnDownloadRecovery(browser)
     await checkRecoveryDownloadFallback(browser)
+    await checkLibraryDownloadRecovery(browser)
     await checkEnPassantRightInputs(browser)
     await checkSettingsSurviveAReload(browser)
     await checkSettingsSayWhenTheyCannotBeKept(browser)

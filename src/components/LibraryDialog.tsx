@@ -62,6 +62,9 @@ type Props = {
  * size web-xiangqi's library panel already uses.
  */
 const PAGE_SIZE = 100
+const PGN_DOWNLOAD_ERROR = 'The browser could not start the PGN download. Try Export PGN again.'
+const BACKUP_DOWNLOAD_ERROR = 'The browser could not start the backup download. Try Export backup again.'
+const backupPartDownloadError = (index: number) => `The browser could not start backup part ${index + 1}. Try that part again.`
 const ROW_BUTTONS = '.library-favorite, .library-row-actions > button'
 const BACKUP_TOO_LARGE_MESSAGE = 'That backup is too large. Import one exported backup part at a time.'
 
@@ -154,6 +157,7 @@ export function LibraryDialog({
     const nameId = useId()
     const searchId = useId()
     const renameId = useId()
+    const errorId = useId()
     const renamingId = renaming?.id
 
     useModalFocus(open, panelRef, onClose, { initialFocus: '[data-library-name]' })
@@ -289,45 +293,75 @@ export function LibraryDialog({
     }
 
     const download = (text: string, filename: string, type: string) => {
-        const blob = new Blob([text], { type })
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = filename
-        link.click()
-        URL.revokeObjectURL(url)
+        let url: string | undefined
+        let link: HTMLAnchorElement | undefined
+        try {
+            url = URL.createObjectURL(new Blob([text], { type }))
+            link = document.createElement('a')
+            link.href = url
+            link.download = filename
+            document.body.append(link)
+            link.click()
+        } finally {
+            link?.remove()
+            if (url) {
+                const downloadUrl = url
+                window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0)
+            }
+        }
     }
 
     const today = () => formatLocalDate()
 
     const handleExportPgn = () => {
-        const text = onExportPgn()
-        if (!text) {
+        try {
+            const text = onExportPgn()
+            if (!text) {
+                setStatus(null)
+                setError('There is nothing in the library to export yet.')
+                return
+            }
+            download(text, `web-chess-library-${today()}.pgn`, 'application/x-chess-pgn')
+            setError(null)
+            setStatus(`Exported ${stats.count} ${stats.count === 1 ? 'game' : 'games'} as PGN.`)
+        } catch {
             setStatus(null)
-            setError('There is nothing in the library to export yet.')
-            return
+            setError(PGN_DOWNLOAD_ERROR)
         }
-        download(text, `web-chess-library-${today()}.pgn`, 'application/x-chess-pgn')
-        setError(null)
-        setStatus(`Exported ${stats.count} ${stats.count === 1 ? 'game' : 'games'} as PGN.`)
     }
 
     const handleExport = () => {
+        let parts: string[]
         try {
             const result = onExportBackup()
-            const parts = typeof result === 'string' ? [result] : result
+            parts = typeof result === 'string' ? [result] : result
             setDownloadedParts([])
             setBackupParts(parts.length > 1 ? parts : [])
-            if (parts.length === 1) {
-                download(parts[0], `web-chess-library-${today()}.json`, 'application/json')
-            }
+        } catch {
+            setStatus(null)
+            setError('The backup could not be prepared. Export PGN to keep a copy of your games.')
+            return
+        }
+        try {
+            if (parts.length === 1) download(parts[0], `web-chess-library-${today()}.json`, 'application/json')
             setError(null)
             setStatus(parts.length > 1
                 ? `Your library needs ${parts.length} backup files. Download every part below. To restore the full library, import each part.`
                 : `Exported ${stats.count} ${stats.count === 1 ? 'game' : 'games'}.`)
         } catch {
             setStatus(null)
-            setError('The backup could not be prepared. Export PGN to keep a copy of your games.')
+            setError(BACKUP_DOWNLOAD_ERROR)
+        }
+    }
+
+    const handleDownloadPart = (part: string, index: number) => {
+        setStatus(null)
+        try {
+            download(part, `web-chess-library-${today()}-part-${index + 1}-of-${backupParts.length}.json`, 'application/json')
+            setDownloadedParts(previous => previous.includes(index) ? previous : [...previous, index])
+            setError(null)
+        } catch {
+            setError(backupPartDownloadError(index))
         }
     }
 
@@ -641,20 +675,19 @@ export function LibraryDialog({
                         </p>
                     )}
                     {writeError && <p className="dialog-error" role="alert">{writeError}</p>}
-                    {error && <p className="dialog-error" role="alert">{error}</p>}
+                    {error && <p id={errorId} className="dialog-error" role="alert">{error}</p>}
                     {saving && <p className="library-status" role="status">Saving library changes…</p>}
                     {status && !writeError && !saving && <p className="library-status" role="status">{status}</p>}
                     {backupParts.length > 0 && (
                         <div className="library-backup-parts" role="group" aria-label="Backup files">
                             {backupParts.map((part, index) => (
-                                <button type="button" className="btn-cancel" key={index} onClick={() => {
-                                    download(part, `web-chess-library-${today()}-part-${index + 1}-of-${backupParts.length}.json`, 'application/json')
-                                    setDownloadedParts(previous => previous.includes(index) ? previous : [...previous, index])
-                                }}>
+                                <button type="button" className="btn-cancel" key={index}
+                                    aria-describedby={error === backupPartDownloadError(index) ? errorId : undefined}
+                                    onClick={() => handleDownloadPart(part, index)}>
                                     <IconDownload /> {downloadedParts.includes(index) ? 'Download again' : 'Download'} part {index + 1} of {backupParts.length}
                                 </button>
                             ))}
-                            <p className="library-hint">{downloadedParts.length} of {backupParts.length} downloads started. Keep all parts together.</p>
+                            <p className="library-hint" role="status">{downloadedParts.length} of {backupParts.length} downloads started. Keep all parts together.</p>
                         </div>
                     )}
                 </div>
@@ -681,6 +714,7 @@ export function LibraryDialog({
                         type="button"
                         className="btn-cancel"
                         onClick={handleExport}
+                        aria-describedby={error === BACKUP_DOWNLOAD_ERROR ? errorId : undefined}
                         disabled={!games.length}
                         title={games.length
                             ? 'Every saved game with its details, as one file to keep'
@@ -692,6 +726,7 @@ export function LibraryDialog({
                         type="button"
                         className="btn-cancel"
                         onClick={handleExportPgn}
+                        aria-describedby={error === PGN_DOWNLOAD_ERROR ? errorId : undefined}
                         disabled={!games.length}
                         title={games.length
                             ? 'A PGN database every other chess program can open'

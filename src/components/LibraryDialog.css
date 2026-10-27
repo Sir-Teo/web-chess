@@ -236,6 +236,10 @@
     color: var(--accent-ink);
 }
 
+.library-dialog .dialog-body > .dialog-error {
+    margin-inline: 1.4rem;
+}
+
 .library-dialog .dialog-actions {
     flex-wrap: wrap;
 }
