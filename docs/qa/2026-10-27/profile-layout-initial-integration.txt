@@ -1,0 +1,47 @@
+  threat shortcut (1280×900, 1x, dark): repeats and busy presses preserve the held search; completion ignores the held key; release and press asks again
+  threat shortcut (375×812, 1x, light): repeats and busy presses preserve the held search; completion ignores the held key; release and press asks again
+  threat shortcut (320×812, 2x, light): repeats and busy presses preserve the held search; completion ignores the held key; release and press asks again
+  threat shortcut (844×390, 2x, dark): repeats and busy presses preserve the held search; completion ignores the held key; release and press asks again
+  engine release (1280px, 1x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (1280px, 2x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (375px, 1x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (375px, 2x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release: import stays unloaded; explicit Review loads; busy two-worker review pool blocks release even when foreground is Ready; Stop then Release closes every worker
+  engine release (hidden): hidden infinite search waits for visibility; Stop during reload cancels it
+  engine release (fallback): explicit search survives a failed boot and runs once on fallback
+  engine release (fallback-load): Load preserves prior lines through a failed boot and fallback handshake, without another search
+  engine retry (1280×900, 1x, dark, boot, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; repeated failure recovers
+  engine retry (1280×900, 1x, dark, runtime, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (1280×900, 1x, dark, runtime, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (1280×900, 1x, dark, hidden, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; infinite analysis waits for visibility
+  engine retry (375×812, 1x, light, boot, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; repeated failure recovers
+  engine retry (375×812, 1x, light, runtime, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (375×812, 1x, light, runtime, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (375×812, 1x, light, hidden, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; infinite analysis waits for visibility
+  engine retry (320×812, 2x, light, boot, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; repeated failure recovers
+  engine retry (320×812, 2x, light, runtime, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (320×812, 2x, light, runtime, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (320×812, 2x, light, hidden, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; infinite analysis waits for visibility
+  engine retry (844×390, 2x, dark, boot, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; repeated failure recovers
+  engine retry (844×390, 2x, dark, runtime, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (844×390, 2x, dark, runtime, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (844×390, 2x, dark, hidden, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; infinite analysis waits for visibility
+  profile analysis (1280×900, 1x, dark, auto true, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (1280×900, 1x, dark, auto false, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (1280×900, 1x, dark, auto true, hidden): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (1280×900, 1x, dark, auto true, released): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (375×812, 1x, light, auto true, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (375×812, 1x, light, auto false, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (375×812, 1x, light, auto true, hidden): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (375×812, 1x, light, auto true, released): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (320×812, 2x, light, auto true, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (320×812, 2x, light, auto false, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (320×812, 2x, light, auto true, hidden): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (320×812, 2x, light, auto true, released): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+page.waitForFunction: Timeout 30000ms exceeded.
+    at checkEngineProfileAutomaticAnalysis (/workspace/web-chess/scripts/test-ui-browser.cjs:1022:22)
+    at async checkRemaining (/workspace/web-chess/scripts/test-ui-browser.cjs:22019:5)
+    at async /tmp/web-chess-ui-after-threat.cjs:15:60 {
+  log: [],
+  name: 'TimeoutError'
+}

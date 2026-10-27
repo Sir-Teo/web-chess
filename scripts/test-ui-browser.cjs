@@ -1016,6 +1016,8 @@ async function checkEngineProfileAutomaticAnalysis(browser) {
         const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
         await waitStatus('ready')
         await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true'
+          && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
         for (const [from, to, piece] of [['e2', 'e4', 'wP'], ['e7', 'e5', 'bP'], ['g1', 'f3', 'wN']]) {
           await page.locator(`#chessboard-square-${from}`).click()
           await page.locator(`#chessboard-square-${to}`).click()

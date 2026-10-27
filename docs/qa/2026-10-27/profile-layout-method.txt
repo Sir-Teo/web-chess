@@ -1,0 +1,7 @@
+Engine-profile layout preparation — 27 October 2026
+
+Continuing the broad production sequence after threat recovery passes threat shortcuts, engine release and sixteen original card retries. The profile-change check passes its first twelve desktop/phone contexts, then times out preparing its first short/enlarged landscape board move immediately after changing root font size. The raw continuation log is retained.
+
+Apply the same existing scroll-chrome/ResizeObserver layout wait as the short/enlarged retry and threat checks, before the first board click. All sixteen isolated profile-change cases now pass on the unchanged production app: four layouts × automatic finite, manual finite, hidden continuous and explicitly released engine. Each changes profiles in both directions, retains the board/history/settings and picker focus, respects readiness/automatic-analysis/release/visibility, and refreshes an old deeper reading. Script lint passes. No application or storage behavior changes.
+
+The broader continuation resumes with queued-analysis fallback while this isolated profile matrix runs independently. Its completion is recorded separately; these artifacts make no claim of an uninterrupted full-suite pass. The fixed app fingerprint remains integration-recovery-build.txt. Root text enlargement is not native zoom. No new push or merge.
