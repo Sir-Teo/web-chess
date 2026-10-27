@@ -16548,7 +16548,7 @@ async function checkRecoveryDownloadFallback(browser) {
 async function checkPgnDownloadRecovery(browser) {
   const rootFen = '4k3/8/8/8/8/8/8/4K2R w K - 7 23'
   const headers = `[Event "Download recovery"]\n[White "Réti, Richard"]\n[Black "Tester"]\n[Date "2026.10.27"]\n[SetUp "1"]\n[FEN "${rootFen}"]\n[Result "*"]`
-  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light'], [320, 2, 'dark']]) {
     for (const study of ['game', 'position']) {
       const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce', acceptDownloads: true })
       const page = await context.newPage(), errors = []
@@ -16585,7 +16585,7 @@ async function checkPgnDownloadRecovery(browser) {
         assert(expected.includes(`FEN "${rootFen}"`) && expected.includes('Root café ♞ — keep exactly'), 'export fixture lost its custom root or Unicode note')
         assert(study !== 'game' || expected.includes('Variation note'), 'export fixture lost its variation')
         const button = dialog.getByRole('button', { name: 'Download PGN', exact: true })
-        const notice = dialog.getByRole('alert').filter({ hasText: 'The browser could not start the PGN download.' })
+        const notice = dialog.getByRole('alert').filter({ hasText: 'PGN download failed.' })
         await page.evaluate(() => {
           window.__pgnCreated = []; window.__pgnRevoked = []
           const create = URL.createObjectURL, revoke = URL.revokeObjectURL, click = HTMLAnchorElement.prototype.click
@@ -16602,11 +16602,29 @@ async function checkPgnDownloadRecovery(browser) {
             return click.apply(this, args)
           }
         })
+        const assertRecoveryVisible = async (retryHasFocus = true) => {
+          await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+          const reading = await notice.evaluate(element => {
+            const rect = element.getBoundingClientRect(), body = element.closest('.dialog-body').getBoundingClientRect(), panel = element.closest('.dialog-panel').getBoundingClientRect()
+            const retry = element.closest('.dialog-panel').querySelectorAll('.dialog-actions button')[1].getBoundingClientRect()
+            return { fits: rect.top >= Math.max(0, body.top, panel.top) - 1 && rect.bottom <= Math.min(innerHeight, body.bottom, panel.bottom) + 1,
+              error: { top: rect.top, bottom: rect.bottom }, body: { top: body.top, bottom: body.bottom },
+              panel: { top: panel.top, bottom: panel.bottom }, retry: { top: retry.top, bottom: retry.bottom } }
+          })
+          if (!reading.fits) await page.screenshot({ path: `/tmp/web-chess-pgn-error-reveal-failed-${browser.browserType().name()}.png` })
+          assert(reading.fits, `PGN download error remains outside the dialog reading area: ${JSON.stringify(reading)}`)
+          if (retryHasFocus) assert(await button.evaluate(element => {
+            const rect = element.getBoundingClientRect(), panel = element.closest('.dialog-panel').getBoundingClientRect()
+            return rect.top >= Math.max(0, panel.top) - 1 && rect.bottom <= Math.min(innerHeight, panel.bottom) + 1
+          }), 'revealing the download guidance clips its focused retry action')
+        }
         for (const mode of ['url', 'missing', 'click']) {
           await page.evaluate(mode => window.__setPgnDownloadMode(mode), mode)
+          await dialog.locator('.dialog-body').evaluate(element => { element.scrollTop = 0 })
           await button.focus()
           await page.keyboard.press('Enter')
           await notice.waitFor({ timeout: 3000 })
+          await assertRecoveryVisible()
           assert(await button.getAttribute('aria-describedby') === await notice.getAttribute('id'), 'download failure is not associated with the retry action')
           assert(await button.isEnabled() && await button.evaluate(element => element === document.activeElement), 'failed PGN download lost its focused keyboard retry')
           await page.waitForFunction(() => window.__pgnCreated.length === window.__pgnRevoked.length && !document.querySelector('a[download]'))
@@ -16618,6 +16636,16 @@ async function checkPgnDownloadRecovery(browser) {
           assert(await output.evaluate(element => element === document.activeElement && element.selectionStart === 0 && element.selectionEnd === element.value.length), 'manual download fallback did not select the exact PGN')
           assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'PGN download recovery overflows')
         }
+        await dialog.getByRole('button', { name: 'Export', exact: true }).click()
+        await notice.waitFor({ state: 'detached' })
+        await page.evaluate(() => window.__setPgnDownloadMode('url'))
+        await output.focus()
+        await output.press('Control+a')
+        await button.evaluate(element => element.click())
+        await notice.waitFor()
+        await assertRecoveryVisible(false)
+        assert(await output.evaluate(element => element === document.activeElement && element.selectionStart === 0 && element.selectionEnd === element.value.length)
+          && await output.inputValue() === expected, 'non-focusing failed Download stole the PGN reading or selection')
         for (const outcome of ['resolve', 'reject']) {
           await page.evaluate(() => {
             window.__pendingPgnCopy = null
@@ -16660,7 +16688,7 @@ async function checkPgnDownloadRecovery(browser) {
         await page.locator(`#chessboard-square-${king} [data-piece="wK"]`).waitFor()
         assert(await page.locator('.mtree-chip').count() === nodeCount, 'downloaded PGN reimport changed move/variation count')
         assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `PGN export errors: ${errors.join('; ')}`)
-        console.log(`  PGN download recovery (${width}px, ${scale}x, ${theme}, ${study}): Commands opens Export directly for games/studies with opener focus preserved; empty-board reason and generic Import destination; URL failure/missing API/blocked click retain exact text/focused retry; manual selection/older clipboard ownership/cleanup; exact named UTF-8 file reimports root/notes/variations`)
+        console.log(`  PGN download recovery (${width}px, ${scale}x, ${theme}, ${study}): Commands opens Export directly for games/studies with opener focus preserved; empty-board reason and generic Import destination; repeated URL/missing API/blocked click reveal full guidance and visible retry without stealing focus/selection; manual selection/older clipboard ownership/cleanup; exact named UTF-8 file reimports root/notes/variations`)
       } finally { await context.close() }
     }
   }

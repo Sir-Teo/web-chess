@@ -126,7 +126,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const [error, setError] = useState<string | null>(null)
     const [status, setStatus] = useState<string | null>(null)
     const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
-    const [downloadFailed, setDownloadFailed] = useState(false)
+    const [downloadFailure, setDownloadFailure] = useState<{ message: string } | null>(null)
     const [copiedText, setCopiedText] = useState<string | null>(null)
     const [exportTextSnapshot, setExportTextSnapshot] = useState<string | null>(null)
     const [exportOptions, setExportOptions] = useState(DEFAULT_EXPORT_OPTIONS)
@@ -147,6 +147,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const panelRef = useRef<HTMLDivElement>(null)
     const fenTextRef = useRef<HTMLTextAreaElement>(null)
     const exportTextRef = useRef<HTMLTextAreaElement>(null)
+    const downloadFailureRef = useRef<HTMLDivElement>(null)
     const importFileInputRef = useRef<HTMLInputElement>(null)
     const wasOpenRef = useRef(false)
     const [importFileName, setImportFileName] = useState<string | null>(null)
@@ -168,7 +169,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
         setError(null)
         setStatus(null)
         setCopyStatus('idle')
-        setDownloadFailed(false)
+        setDownloadFailure(null)
         setCopiedText(null)
         setExportTextSnapshot(null)
         setShareLinkFallback('')
@@ -436,6 +437,11 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     )
     const displayedExportText = exportTextSnapshot ?? exportText
     useLayoutEffect(() => {
+        if (open && downloadFailure) {
+            downloadFailureRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+        }
+    }, [downloadFailure, open])
+    useLayoutEffect(() => {
         // Some browsers activate a button without moving focus. Explicit copy,
         // download or option changes refresh the reading, then hold it again.
         if (exportTextSnapshot === null && exportTextRef.current === document.activeElement) {
@@ -546,7 +552,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
             document.body.append(link)
             link.click()
         } catch {
-            setDownloadFailed(true)
+            setDownloadFailure({ message: 'PGN download failed.' })
         } finally {
             link?.remove()
             if (url) {
@@ -1094,9 +1100,9 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                             <p id={`${exportTextId}-help`} className="dialog-export-help">
                                 Text stays still while focused; updates resume when you leave this field.
                             </p>
-                            {downloadFailed && (
-                                <div id={downloadErrorId} className="dialog-share-fallback" role="alert">
-                                    <p className="dialog-error">The browser could not start the PGN download. Try again, or select the text and copy it manually.</p>
+                            {downloadFailure && (
+                                <div ref={downloadFailureRef} id={downloadErrorId} className="dialog-share-fallback" role="alert">
+                                    <p className="dialog-error">{downloadFailure.message}</p>
                                     <button type="button" className="btn-cancel" onClick={() => selectForManualCopy(exportTextRef.current)}>
                                         Select PGN text
                                     </button>
@@ -1178,7 +1184,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                     <div className="dialog-actions">
                         <button type="button" className="btn-cancel" onClick={closeDialog}>Close</button>
                         <button type="button" className="btn-cancel" onClick={handleDownload}
-                            aria-describedby={downloadFailed ? downloadErrorId : undefined}>
+                            aria-describedby={downloadFailure ? downloadErrorId : undefined}>
                             Download PGN
                         </button>
                         <button

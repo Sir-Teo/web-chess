@@ -1,0 +1,9 @@
+  PGN download recovery (1280px, 1x, dark, game): Commands opens Export directly for games/studies with opener focus preserved; empty-board reason and generic Import destination; URL failure/missing API/blocked click retain exact text/focused retry; manual selection/older clipboard ownership/cleanup; exact named UTF-8 file reimports root/notes/variations
+  PGN download recovery (1280px, 1x, dark, position): Commands opens Export directly for games/studies with opener focus preserved; empty-board reason and generic Import destination; URL failure/missing API/blocked click retain exact text/focused retry; manual selection/older clipboard ownership/cleanup; exact named UTF-8 file reimports root/notes/variations
+Error: PGN download error remains outside the dialog reading area: {"fits":false,"error":{"top":-31.75,"bottom":251.578125},"body":{"top":-829.046875,"bottom":342.421875}}
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkPgnDownloadRecovery (/workspace/web-chess/scripts/test-ui-browser.cjs:16623:11)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:502:9)
+    at async /tmp/web-chess-pgn-download-check.cjs:10:9
