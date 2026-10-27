@@ -16088,6 +16088,90 @@ async function checkASavedGameComesBack(browser) {
  * `about:blank` between the two openings: the links differ only in their hash,
  * and a navigation between them is same-document and never reloads.
  */
+async function checkCastlingRightInputs(browser) {
+  const key = 'webchess:auto-saved-game:v1'
+  const protectedPgn = '1. e4 e5 {Keep the castling check study} *'
+  const missingRook = '4k3/8/8/8/8/8/P7/4K3 w K - 0 12'
+  const awayKing = 'r7/4k2p/8/8/8/8/8/4K3 b q - 0 12'
+  const validWhite = '4k3/8/8/8/8/8/P7/4K2R w K - 0 12'
+  const validBlack = 'r3k3/7p/8/8/8/8/8/4K3 b q - 0 12'
+  const hashFor = (fen, move) => '#game=' + Buffer.from(fen + '|' + move).toString('base64url')
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    for (const scenario of ['fen', 'pgn', 'shared-missing-rook', 'shared-king-away']) {
+      const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(({ key, protectedPgn, theme }) => {
+          localStorage.setItem(key, JSON.stringify({ version: 1, savedAt: Date.now() - 60000, pgn: protectedPgn, moveCount: 2 }))
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme }))
+        }, { key, protectedPgn, theme })
+        await page.goto(BASE + (scenario === 'shared-missing-rook' ? hashFor(missingRook, 'e1g1') : ''), { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        const recovery = page.locator('.auto-save-recovery')
+        await recovery.getByRole('button', { name: 'Restore', exact: true }).waitFor()
+        if (scenario === 'shared-missing-rook') {
+          await page.waitForFunction(() => document.querySelector('.app-notice-region')?.textContent?.includes('shared link could not be read'))
+          assert(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).pgn, key) === protectedPgn, 'a missing-rook castle replaced recovery')
+        }
+        await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+        await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+        if (scenario === 'fen') {
+          await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+          const dialog = page.locator('.pgn-dialog')
+          await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+          const input = dialog.locator('.fen-textarea'), right = dialog.getByRole('checkbox', { name: 'White kingside', exact: true })
+          await input.fill(missingRook)
+          await dialog.getByRole('status').filter({ hasText: 'White kingside castling' }).waitFor()
+          assert(await input.inputValue() === missingRook && await input.getAttribute('aria-invalid') === 'true', 'invalid castling FEN lost its draft or associated validation')
+          assert(await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).isDisabled()
+            && await dialog.getByRole('button', { name: 'Copy Share Link', exact: true }).isDisabled(), 'an impossible castling position can still load or share')
+          assert(await right.isDisabled() && !await right.isChecked(), 'setup control disagrees with the missing home rook')
+          await dialog.getByRole('toolbar', { name: 'Piece palette', exact: true }).getByRole('button', { name: 'Select White rook', exact: true }).click()
+          await dialog.getByRole('group', { name: 'Editable chessboard', exact: true }).getByRole('button', { name: /^h1,/ }).click()
+          assert(await right.isEnabled(), 'placing the home rook did not enable its castling right')
+          await right.check()
+          assert(await input.inputValue() === validWhite, 'setup repair changed unrelated FEN fields or counters')
+          await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).click()
+          await dialog.waitFor({ state: 'detached' })
+          await page.locator('#chessboard-square-e1').click()
+          await page.locator('#chessboard-square-g1').click()
+        } else if (scenario === 'pgn') {
+          await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+          const dialog = page.locator('.pgn-dialog'), input = dialog.locator('textarea')
+          const text = `[SetUp "1"]\n[FEN "${awayKing}"]\n\n12... O-O-O *`
+          if (width <= 900) {
+            await dialog.locator('input[type="file"]').setInputFiles({ name: 'away-king.pgn', mimeType: 'application/x-chess-pgn', buffer: Buffer.from(text) })
+            await page.waitForFunction(text => document.querySelector('.pgn-dialog textarea')?.value === text, text)
+          } else await input.fill(text)
+          await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+          await dialog.getByRole('alert').filter({ hasText: 'Black queenside castling' }).waitFor()
+          assert(await input.inputValue() === text && await page.locator('#chessboard-square-e5 [data-piece="bP"]').count() === 1, 'invalid castling PGN lost the draft or current board')
+          await input.fill(`[SetUp "1"]\n[FEN "${validBlack}"]\n\n12... O-O-O *`)
+          await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+          await dialog.waitFor({ state: 'detached' })
+        } else {
+          if (scenario === 'shared-king-away') {
+            await page.evaluate(hash => { location.hash = hash }, hashFor(awayKing, 'e7c7'))
+            await page.waitForFunction(() => document.querySelector('.app-notice-region')?.textContent === 'That shared link could not be read — keeping the current position.')
+            assert(await page.locator('#chessboard-square-e5 [data-piece="bP"]').count() === 1, 'a king-away castle changed the current study')
+          }
+          await page.evaluate(hash => { location.hash = hash }, scenario === 'shared-missing-rook' ? hashFor(validWhite, 'e1g1') : hashFor(validBlack, 'e8c8'))
+        }
+        const white = scenario === 'fen' || scenario === 'shared-missing-rook'
+        await page.locator(`#chessboard-square-${white ? 'g1' : 'c8'} [data-piece="${white ? 'wK' : 'bK'}"]`).waitFor()
+        await page.locator(`#chessboard-square-${white ? 'f1' : 'd8'} [data-piece="${white ? 'wR' : 'bR'}"]`).waitFor()
+        assert(await page.locator(`#chessboard-square-${white ? 'h1' : 'a8'} [data-piece]`).count() === 0
+          && await page.locator('.mtree-chip').count() === 1, 'the corrected castle did not move both home pieces exactly once')
+        assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `castling input errors: ${errors.join('; ')}`)
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'castling input validation overflows')
+        console.log(`  castling inputs (${width}px, ${scale}x, ${theme}, ${scenario}): missing-rook/away-king rights rejected with prior work retained; ${white ? 'White kingside' : 'Black queenside'} castle moves both correct pieces after repair${scenario === 'fen' ? '; setup and raw validation agree' : ''}`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkIllegalStartingPositions(browser) {
   const key = 'webchess:auto-saved-game:v1'
   const protectedPgn = '[Event "Protected game"]\n\n1. e4 e5 {Keep existing note} *'
@@ -18665,6 +18749,7 @@ async function main() {
       'share-recovery': checkSharedLinkRecoveryPriority,
       'empty-game-share': checkEmptyGameShares,
       'illegal-roots': checkIllegalStartingPositions,
+      'castling-rights': checkCastlingRightInputs,
       'recovery-export': checkFailedRecoveryExport,
       'saved-game-roundtrip': checkASavedGameComesBack,
       'share-roundtrip': checkASharedLinkCarriesTheGame,
@@ -19517,6 +19602,7 @@ async function main() {
     await checkSharedLinkRecoveryPriority(browser)
     await checkEmptyGameShares(browser)
     await checkIllegalStartingPositions(browser)
+    await checkCastlingRightInputs(browser)
     await checkSettingsSurviveAReload(browser)
     await checkSettingsSayWhenTheyCannotBeKept(browser)
     await checkHighContrastKeepsTheBoard(browser)

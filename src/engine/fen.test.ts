@@ -1,6 +1,62 @@
 import { describe, expect, it } from 'vitest'
 import { FEN_KINGS_ADJACENT_ERROR, FEN_LOOKS_LIKE_GAME_ERROR, FEN_LOOKS_LIKE_URL_ERROR, FEN_NO_BLACK_KING_ERROR, FEN_NO_KINGS_ERROR, FEN_NO_WHITE_KING_ERROR, FEN_OPPONENT_IN_CHECK_ERROR, FEN_PARSE_ERROR, hasLegalKingPlacement, kingPlacementError, opponentIsInCheck, validateFenForAnalysis } from './fen'
 
+describe('declared castling rights', () => {
+  it.each([
+    ['White kingside', 'e1', 'h1', '4k3/8/8/8/8/8/P7/4K3 w K - 0 1'],
+    ['White queenside', 'e1', 'a1', '4k3/8/8/8/8/8/P7/4K3 w Q - 0 1'],
+    ['Black kingside', 'e8', 'h8', '4k3/p7/8/8/8/8/8/4K3 b k - 0 1'],
+    ['Black queenside', 'e8', 'a8', '4k3/p7/8/8/8/8/8/4K3 b q - 0 1'],
+  ])('requires the home rook for %s', (label, king, rook, fen) => {
+    const result = validateFenForAnalysis(fen)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(new RegExp(`${label} castling.*${king}.*${rook}`))
+  })
+
+  it.each([
+    ['4k3/8/8/8/8/8/4K3/7R w K - 0 1'],
+    ['4k3/8/8/8/8/8/4K3/R7 w Q - 0 1'],
+    ['7r/4k3/8/8/8/8/8/4K3 b k - 0 1'],
+    ['r7/4k3/8/8/8/8/8/4K3 b q - 0 1'],
+  ])('requires the king to remain home when a right is declared: %s', fen => {
+    const result = validateFenForAnalysis(fen)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(/castling.*king on e[18]/)
+  })
+
+  it.each([
+    ['4k3/8/8/8/8/8/P7/4K2r w K - 0 1'],
+    ['4k3/8/8/8/8/8/P7/r3K3 w Q - 0 1'],
+    ['4k2R/p7/8/8/8/8/8/4K3 b k - 0 1'],
+    ['R3k3/p7/8/8/8/8/8/4K3 b q - 0 1'],
+  ])('requires the rook to belong to the castling side: %s', fen => {
+    const result = validateFenForAnalysis(fen)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(/castling/)
+  })
+
+  it.each([
+    ['4k3/8/8/8/8/8/P7/4K2B w K - 0 1'],
+    ['4k3/8/8/8/8/8/P7/N3K3 w Q - 0 1'],
+    ['4k2b/p7/8/8/8/8/8/4K3 b k - 0 1'],
+    ['n3k3/p7/8/8/8/8/8/4K3 b q - 0 1'],
+  ])('requires an actual rook rather than another friendly piece: %s', fen => {
+    const result = validateFenForAnalysis(fen)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(/castling/)
+  })
+
+  it.each([
+    ['rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'],
+    ['r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1'],
+    ['k3r3/8/8/8/8/8/8/4K2R w K - 0 1'],
+    ['4k3/8/8/8/8/8/4K3/7R w - - 0 1'],
+    ['4k3/8/8/8/8/8/P7/4K3 w - - 0 1'],
+  ])('keeps valid rights, blocked paths, check, and positions without rights: %s', fen => {
+    expect(validateFenForAnalysis(fen)).toEqual({ ok: true, fen })
+  })
+})
+
 describe('FEN validation helpers', () => {
   it('accepts separated kings and rejects adjacent kings', () => {
     expect(hasLegalKingPlacement('8/8/8/8/8/8/4K3/6k1 w - - 0 1')).toBe(true)

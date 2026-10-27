@@ -1,5 +1,6 @@
 import { Chess, validateFen } from 'chess.js'
 import { looksLikeGame, looksLikeGameUrl } from './pastedText'
+import { CASTLING_REQUIREMENTS } from './castlingRights'
 
 export const FEN_PARSE_ERROR = 'Failed to parse FEN. Check piece placement, side to move, castling rights, and counters.'
 /**
@@ -173,6 +174,20 @@ export function fenCounterInputError(fenText: string): string | null {
   return null
 }
 
+function castlingRightsError(position: Chess, fen: string): string | null {
+  const rights = fen.split(' ')[2] ?? '-'
+  for (const [right, requirement] of Object.entries(CASTLING_REQUIREMENTS)) {
+    if (!rights.includes(right)) continue
+    const color = requirement.kingPiece === 'K' ? 'w' : 'b'
+    const king = position.get(requirement.king), rook = position.get(requirement.rook)
+    if (king?.type === 'k' && king.color === color && rook?.type === 'r' && rook.color === color) continue
+    const side = color === 'w' ? 'White' : 'Black'
+    const wing = right.toLowerCase() === 'k' ? 'kingside' : 'queenside'
+    return `Invalid FEN: ${side} ${wing} castling (${right}) needs the ${side} king on ${requirement.king} and a ${side} rook on ${requirement.rook}.`
+  }
+  return null
+}
+
 export function validateFenForAnalysis(fenText: string): FenValidationResult {
   const trimmed = fenText.trim()
   // What it is, before what is wrong with it: a game and a link are both
@@ -190,11 +205,14 @@ export function validateFenForAnalysis(fenText: string): FenValidationResult {
   if (counterError) return { ok: false, error: counterError }
 
   try {
-    const fen = new Chess(trimmed).fen()
+    const position = new Chess(trimmed)
+    const fen = position.fen()
     const kingError = kingPlacementError(fen)
     if (kingError) {
       return { ok: false, error: kingError }
     }
+    const castlingError = castlingRightsError(position, fen)
+    if (castlingError) return { ok: false, error: castlingError }
     if (opponentIsInCheck(fen)) {
       return { ok: false, error: FEN_OPPONENT_IN_CHECK_ERROR }
     }

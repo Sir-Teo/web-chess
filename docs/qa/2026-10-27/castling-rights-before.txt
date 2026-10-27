@@ -1,0 +1,2 @@
+CASTLING ROOT PROBE {"label":"missing-rook","kingJump":1,"rookAtDestination":0,"moves":["O-O"],"notice":"","fatal":0,"errors":[]}
+CASTLING ROOT PROBE {"label":"king-away","kingJump":1,"rookAtDestination":0,"moves":["O-O"],"notice":"","fatal":0,"errors":[]}

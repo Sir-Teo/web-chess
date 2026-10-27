@@ -1,4 +1,5 @@
 import { Chess, type Square } from 'chess.js'
+import { CASTLING_REQUIREMENTS } from './castlingRights'
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const
 const DISPLAY_RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'] as const
@@ -9,18 +10,6 @@ const CASTLING_ORDER = ['K', 'Q', 'k', 'q'] as const
 export type SetupPiece = 'P' | 'N' | 'B' | 'R' | 'Q' | 'K' | 'p' | 'n' | 'b' | 'r' | 'q' | 'k'
 export type SetupTurn = 'w' | 'b'
 export type SetupCastlingRight = typeof CASTLING_ORDER[number]
-
-const CASTLING_REQUIREMENTS: Record<SetupCastlingRight, {
-  king: Square
-  kingPiece: SetupPiece
-  rook: Square
-  rookPiece: SetupPiece
-}> = {
-  K: { king: 'e1', kingPiece: 'K', rook: 'h1', rookPiece: 'R' },
-  Q: { king: 'e1', kingPiece: 'K', rook: 'a1', rookPiece: 'R' },
-  k: { king: 'e8', kingPiece: 'k', rook: 'h8', rookPiece: 'r' },
-  q: { king: 'e8', kingPiece: 'k', rook: 'a8', rookPiece: 'r' },
-}
 
 export type PositionSetup = {
   pieces: Partial<Record<Square, SetupPiece>>
