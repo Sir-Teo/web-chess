@@ -16088,6 +16088,82 @@ async function checkASavedGameComesBack(browser) {
  * `about:blank` between the two openings: the links differ only in their hash,
  * and a navigation between them is same-document and never reloads.
  */
+async function checkEmptyGameShares(browser) {
+  const start = new (require('chess.js').Chess)().fen()
+  const custom = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 12'
+  const oldPgn = '1. d4 d5 {Previous recoverable game} *'
+  const key = 'webchess:auto-saved-game:v1'
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    for (const scenario of ['standard', 'custom', 'bad-token', 'illegal-first-move', 'adjacent-kings']) {
+      const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(({ key, oldPgn, theme }) => {
+          if (!localStorage.getItem('qa-empty-share-seeded')) {
+            localStorage.setItem(key, JSON.stringify({ version: 1, savedAt: Date.now() - 60000, pgn: oldPgn, moveCount: 2 }))
+            localStorage.setItem('qa-empty-share-seeded', 'true')
+          }
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, theme }))
+        }, { key, oldPgn, theme })
+        const fen = scenario === 'custom' ? custom
+          : scenario === 'adjacent-kings' ? '8/8/8/8/8/8/4k3/4K3 w - - 0 1' : start
+        const moves = scenario === 'bad-token' ? 'not-a-move' : scenario === 'illegal-first-move' ? 'e2e5' : ''
+        const hash = '#game=' + Buffer.from(fen + '|' + moves).toString('base64url')
+        await page.goto(BASE + hash, { waitUntil: 'domcontentloaded' })
+        const enlarge = () => page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        await enlarge()
+        const recovery = page.locator('.auto-save-recovery')
+        if (scenario !== 'standard' && scenario !== 'custom') {
+          await page.waitForFunction(() => document.querySelector('.app-notice-region')?.textContent === 'That shared link could not be read — showing the starting position.')
+          assert(await recovery.isVisible(), 'a damaged move sequence or illegal root silently became an empty study')
+          assert(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).pgn, key) === oldPgn, 'an invalid empty-looking game erased recovery')
+          await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+          await page.locator('#chessboard-square-d5 [data-piece="bP"]').waitFor()
+        } else {
+          await page.waitForFunction(() => !document.querySelector('.auto-save-recovery') && document.querySelector('.app-shell')?.getAttribute('data-workspace-mode') === 'analysis')
+          const assertFen = async expected => {
+            await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+            await page.locator('.pgn-dialog').getByRole('button', { name: 'FEN', exact: true }).click()
+            assert((await page.locator('.fen-textarea').inputValue()).trim() === expected, 'the empty game link changed the position or its counters')
+            await page.keyboard.press('Escape')
+            await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+          }
+          assert(await page.locator('.mtree-chip').count() === 0, 'a position-only game link invented played moves')
+          assert(await page.locator('.board-surface [data-piece]').count() === (scenario === 'custom' ? 3 : 32), 'the empty game link opened a different root')
+          await assertFen(fen)
+          assert(!(await page.locator('.app-notice-region').textContent()).includes('could not be read'), 'a valid empty game was called unreadable')
+          if (scenario === 'standard') {
+            await page.locator('#chessboard-square-e2').click()
+            await page.locator('#chessboard-square-e4').click()
+            await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+          }
+          const note = page.getByRole('textbox', { name: scenario === 'custom' ? 'Position note' : 'Move note', exact: true })
+          await note.waitFor()
+          const edited = `Edited empty ${scenario} ♞`
+          await note.fill(edited)
+          await page.reload({ waitUntil: 'domcontentloaded' })
+          await enlarge()
+          await recovery.getByRole('button', { name: 'Restore', exact: true }).waitFor()
+          const snapshot = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), key)
+          assert(snapshot.pgn.includes(edited) && snapshot.moveCount === (scenario === 'custom' ? 0 : 1), 'the position-only game lost its note or real move on refresh')
+          assert(Boolean(snapshot.positionStudy) === (scenario === 'custom'), 'the position-only game saved the wrong recovery kind')
+          await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+          await note.waitFor()
+          assert(await note.inputValue() === edited, 'the edited empty-link study could not be recovered')
+          const continued = new (require('chess.js').Chess)(fen)
+          if (scenario === 'standard') continued.move('e4')
+          await assertFen(continued.fen())
+        }
+        assert(errors.length === 0, `empty game share errors: ${errors.join('; ')}`)
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'empty game share overflows')
+        console.log(`  empty game share (${width}px, ${scale}x, ${theme}, ${scenario}): ${scenario === 'standard' || scenario === 'custom' ? 'exact position opens without fake moves; later Unicode edits/real move recover after immediate refresh' : 'damaged move/illegal root rejected; previous game remains recoverable'}`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkSharedLinkRecoveryPriority(browser) {
   const key = 'webchess:auto-saved-game:v1'
   const oldPgn = '[Event "Old recovery"]\n\n1. d4 d5 *'
@@ -18497,6 +18573,7 @@ async function main() {
       'export-roundtrip': checkAnExportedGameComesBack,
       'autosave-roundtrip': checkAnInterruptedGameComesBack,
       'share-recovery': checkSharedLinkRecoveryPriority,
+      'empty-game-share': checkEmptyGameShares,
       'recovery-export': checkFailedRecoveryExport,
       'saved-game-roundtrip': checkASavedGameComesBack,
       'share-roundtrip': checkASharedLinkCarriesTheGame,
@@ -19347,6 +19424,7 @@ async function main() {
     await checkASavedGameComesBack(browser)
     await checkASharedLinkCarriesTheGame(browser)
     await checkSharedLinkRecoveryPriority(browser)
+    await checkEmptyGameShares(browser)
     await checkSettingsSurviveAReload(browser)
     await checkSettingsSayWhenTheyCannotBeKept(browser)
     await checkHighContrastKeepsTheBoard(browser)

@@ -424,6 +424,7 @@ given, and the app answering the reader who touches it.
   game is a 166-character link and a 120-ply one is under 1,200. Refused rather
   than truncated past 8,000 characters, and a link that has been edited or cut
   short plays as far as it really goes instead of being thrown away.
+  A link with a starting position and no moves opens that position in Analysis.
   New valid links open directly even when an older recovery exists. Refreshing
   after editing a shared study offers its latest recovery; an invalid link
   keeps the current board and recovery available.

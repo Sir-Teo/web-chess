@@ -5773,10 +5773,13 @@ function App() {
    */
   const loadSharedGame = useCallback((shared: { rootFen: string; moves: string[]; carried?: number; ply?: number }): boolean => {
     const played = replaySharedGame(shared)
-    if (!played.length) return false
+    const carried = Math.max(shared.carried ?? shared.moves.length, shared.moves.length)
+    // An intentional empty game still carries a position. A damaged or
+    // illegal first move must not silently turn into an empty study.
+    if (!played.length && (carried > 0 || !validateFenForAnalysis(shared.rootFen).ok)) return false
     // Two ways to lose the end of a link: a token the decoder could not read
     // (a cut lands mid-move) and a move the position will not take.
-    const lost = Math.max(shared.carried ?? shared.moves.length, shared.moves.length) - played.length
+    const lost = carried - played.length
 
     cancelSampleLoad()
     cancelPendingAiMove()

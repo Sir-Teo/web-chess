@@ -1,0 +1,1 @@
+ROOT ONLY SHARE PROBE {"pieceCount":32,"notice":"That shared link could not be read — showing the starting position.","e4":0,"e5":0,"recovery":1,"boardInert":true,"snapshot":"[Event \"Old recovery\"]\n\n1. d4 d5 *"}
