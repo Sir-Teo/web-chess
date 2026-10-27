@@ -334,36 +334,37 @@ export function LibraryDialog({
 
                 <div className="dialog-body">
                     <div className="dialog-section">
-                        <label className="dialog-label" htmlFor={nameId}>Save the current game</label>
-                        <form className="library-save-row" onSubmit={event => {
-                            event.preventDefault()
-                            handleSave()
-                        }}>
-                            <input
-                                id={nameId}
-                                data-library-name
-                                type="text"
-                                value={name}
-                                maxLength={MAX_LIBRARY_NAME_LENGTH}
-                                placeholder={suggestedName || 'Untitled game'}
-                                onChange={event => {
-                                    // Editing explicitly asks for another copy; repeat
-                                    // submissions before that edit belong to one save.
-                                    savedNameRef.current = null
-                                    setName(event.target.value)
-                                }}
-                                disabled={!currentPgn || !loaded}
-                            />
-                            <button
-                                type="submit"
-                                className="btn-start"
-                                disabled={!currentPgn || !loaded || alreadySaved}
-                                title={alreadySaved ? 'This game is already in the library. Type a name to save another copy.' : undefined}
-                            >
-                                Save
-                            </button>
-                        </form>
-                        {!currentPgn && (
+                        {currentPgn ? <>
+                            <label className="dialog-label" htmlFor={nameId}>Save the current game</label>
+                            <form className="library-save-row" onSubmit={event => {
+                                event.preventDefault()
+                                handleSave()
+                            }}>
+                                <input
+                                    id={nameId}
+                                    data-library-name
+                                    type="text"
+                                    value={name}
+                                    maxLength={MAX_LIBRARY_NAME_LENGTH}
+                                    placeholder={suggestedName || 'Untitled game'}
+                                    onChange={event => {
+                                        // Editing explicitly asks for another copy; repeat
+                                        // submissions before that edit belong to one save.
+                                        savedNameRef.current = null
+                                        setName(event.target.value)
+                                    }}
+                                    disabled={!currentPgn || !loaded}
+                                />
+                                <button
+                                    type="submit"
+                                    className="btn-start"
+                                    disabled={!currentPgn || !loaded || alreadySaved}
+                                    title={alreadySaved ? 'This game is already in the library. Type a name to save another copy.' : undefined}
+                                >
+                                    Save
+                                </button>
+                            </form>
+                        </> : (
                             <p className="library-hint">Play or import a game to have something to save.</p>
                         )}
                     </div>

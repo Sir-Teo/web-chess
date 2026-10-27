@@ -1,5 +1,6 @@
 .library-dialog {
     max-width: 620px;
+    container-type: inline-size;
 }
 
 .library-save-row {
@@ -243,6 +244,24 @@
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
+}
+
+/* Text enlargement can turn a desktop footer into three rows. Query the
+   dialog's text size as well as its width; phones keep their stacking below. */
+@container (min-width: 480px) and (max-width: 24em) {
+    .library-dialog .dialog-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .library-dialog .dialog-actions > button {
+        min-width: 0;
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+        padding-inline: 0.5rem;
+        white-space: normal;
+    }
 }
 
 /* Keep two columns on a small phone, and stack when enlarged text needs
