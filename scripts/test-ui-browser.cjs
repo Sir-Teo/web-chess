@@ -7351,13 +7351,26 @@ async function checkPositionStudyNotes(browser) {
     page.on('pageerror', error => errors.push(error.message))
     try {
       await page.addInitScript(fakeEngineScript())
-      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.addInitScript(theme => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme }))
+        window.__positionNoteCopies = []
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+          writeText: text => { window.__positionNoteCopies.push(String(text)); return Promise.resolve() },
+        } })
+      }, theme)
       const enlarge = () => page.evaluate(async scale => {
         document.documentElement.style.fontSize = `${scale * 100}%`
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
       }, scale)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await enlarge()
+      const copyCommand = async () => {
+        await page.getByTestId('command-palette-btn').click()
+        await page.getByRole('combobox', { name: 'Search commands', exact: true }).fill('copy pgn')
+        return page.locator('[data-command-id="copy-pgn"] button')
+      }
+      assert(await (await copyCommand()).isDisabled(), 'the untouched standard board offers an empty game copy')
+      await page.keyboard.press('Escape')
       const importText = async text => {
         await page.locator('.pgn-dialog textarea').fill(text)
         await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
@@ -7377,6 +7390,20 @@ async function checkPositionStudyNotes(browser) {
         return value?.positionStudy === true && value.moveCount === 0 && value.pgn.includes(text)
       }, text)
       await savedStudy(edited)
+      const copyStudy = await copyCommand()
+      assert(await copyStudy.isEnabled(), 'Copy PGN is disabled for a valid standalone position study')
+      await copyStudy.click()
+      await page.locator('[data-command-palette="true"]').waitFor({ state: 'detached' })
+      await page.waitForFunction(() => document.querySelector('.app-notice-region')?.textContent === 'PGN copied')
+      const copiedStudy = await page.evaluate(() => window.__positionNoteCopies.at(-1))
+      assert(copiedStudy?.includes(edited) && copiedStudy.includes(`[FEN "${fen}"]`) && copiedStudy.includes('[SetUp "1"]'), 'Commands copied an incomplete position study')
+      const parsedStudy = new (require('chess.js').Chess)()
+      parsedStudy.loadPgn(copiedStudy)
+      assert(parsedStudy.fen() === fen && parsedStudy.history().length === 0, 'Commands invented moves or changed the standalone position')
+      await page.waitForFunction(() => document.activeElement?.getAttribute('data-testid') === 'command-palette-btn')
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await importText(copiedStudy)
+      assert(await note.inputValue() === edited, 'the copied standalone PGN could not restore its note')
       await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
       const library = page.locator('.library-dialog')
       await library.getByRole('textbox', { name: 'Save the current position study', exact: true }).fill('Saved position study')
@@ -7429,7 +7456,7 @@ async function checkPositionStudyNotes(browser) {
       })
       assert(errors.length === 0, `position note errors: ${errors.join('; ')}`)
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'position notes overflow')
-      console.log(`  position notes (${width}×${height}, ${scale}x): zero-move study retains/edits notes, saves to Library and recovers after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata`)
+      console.log(`  position notes (${width}×${height}, ${scale}x): zero-move study retains/edits notes, copies through Commands with exact FEN/no invented moves, saves to Library and recovers after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata`)
     } finally { await context.close() }
   }
 }

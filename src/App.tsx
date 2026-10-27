@@ -6075,10 +6075,10 @@ function App() {
     void copyCommandText(fen, 'FEN')
   }, [copyCommandText, fen])
   const copyPgn = useCallback(() => {
-    if (mainLineNodes.length <= 1) return
+    if (mainLineNodes.length <= 1 && !isPositionStudy) return
     const pgn = exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
     void copyCommandText(pgn, 'PGN')
-  }, [copyCommandText, evaluationsByFen, gameTree.nodesSnapshot, mainLineNodes, pgnHeaders])
+  }, [copyCommandText, evaluationsByFen, gameTree.nodesSnapshot, isPositionStudy, mainLineNodes, pgnHeaders])
   /**
    * The game-link button, where the other two copies already were. It lived
    * only on the PGN dialog's Export tab, so the palette could copy the FEN and
@@ -6190,9 +6190,10 @@ function App() {
     {
       id: 'copy-pgn',
       label: 'Copy PGN',
-      hint: mainLineNodes.length > 1 ? 'The whole game, variations and all' : 'No moves to copy yet',
+      hint: isPositionStudy ? 'The starting position and its notes'
+        : mainLineNodes.length > 1 ? 'The whole game, variations and all' : 'No moves to copy yet',
       keywords: ['clipboard', 'game', 'export', 'share'],
-      disabled: mainLineNodes.length <= 1,
+      disabled: mainLineNodes.length <= 1 && !isPositionStudy,
       run: copyPgn,
     },
     {
@@ -6427,7 +6428,7 @@ function App() {
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
   ], [analysisExperience, atVariationFork, autoFlipBoard, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyGameLink, copyPgn, drill, reviewFinishedGame, reviewFromPlay, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
     goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, moveEntryCommandReason, requestMoveEntry,
-      goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
+      goSiblingVariation, hintReason, isProbingThreat, isPositionStudy, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
       previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay, drillRevealReason, revealDrillMove, drillReturnReason, returnToDrill,
       openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger,
       reviewFaultCount, reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason, workspaceMode])
