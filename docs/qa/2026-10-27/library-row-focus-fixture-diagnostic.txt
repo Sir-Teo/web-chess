@@ -1,0 +1,41 @@
+NORMAL RENAME EXPECTED Renamed commit search {
+  correct: true,
+  raf: 'function requestAnimationFrame() { [native code] }',
+  held: 1
+}
+NORMAL RENAME ACTIVE {
+  active: '<button type="button" class="btn-cancel" aria-expanded="false" aria-label="Rename Renamed commit search" title="Rename"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg></button>',
+  trace: [
+    {
+      element: '<button type="button" class="btn-cancel" aria-expanded="false" aria-label="Rename Renamed commit search" title="Rename"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg></button>',
+      stack: 'Error\n' +
+        '    at HTMLDocument.eval (eval at evaluate (:311:30), <anonymous>:1:140)'
+    },
+    {
+      element: '<input id="_r_a_-name" maxlength="120" value="Renamed commit search">',
+      stack: 'Error\n' +
+        '    at HTMLDocument.eval (eval at evaluate (:311:30), <anonymous>:1:140)\n' +
+        '    at http://127.0.0.1:4324/web-chess/src/components/LibraryDialog.tsx?t=1793120003624:106:31\n' +
+        '    at Object.react_stack_bottom_frame (http://127.0.0.1:4324/web-chess/node_modules/.vite/deps/react-dom_client.js?v=85411a3e:18567:20)\n' +
+        '    at runWithFiberInDEV (http://127.0.0.1:4324/web-chess/node_modules/.vite/deps/react-dom_client.js?v=85411a3e:997:72)\n' +
+        '    at commitHookEffectListMount (http://127.0.0.1:4324/web-chess/node_modules/.vite/deps/react-dom_client.js?v=85411a3e:9411:163)\n' +
+        '    at commitHookLayoutEffects (http://127.0.0.1:4324/web-chess/node_modules/.vite/deps/react-dom_client.js?v=85411a3e:9391:60)\n' +
+        '    at commitLayoutEffectOnFiber (http://127.0.0.1:4324/web-chess/node_modules/.vite/deps/react-dom_client.js?v=85411a3e:9904:26)\n' +
+        '    at recursivelyTraverseLayoutEffects (http://127.0.0.1:4324/web-chess/node_modules/.vite/deps/react-dom_client.js?v=85411a3e:10792:13)\n' +
+        '    at commitLayoutEffectOnFiber (http://127.0.0.1:4324/web-chess/node_modules/.vite/deps/react-dom_client.js?v=85411a3e:10066:20)\n' +
+        '    at recursivelyTraverseLayoutEffects (http://127.0.0.1:4324/web-chess/node_modules/.vite/deps/react-dom_client.js?v=85411a3e:10792:13)'
+    },
+    {
+      element: '<button type="button" class="btn-cancel" aria-expanded="false" aria-label="Rename Renamed commit search" title="Rename"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg></button>',
+      stack: 'Error\n' +
+        '    at HTMLDocument.eval (eval at evaluate (:311:30), <anonymous>:1:140)\n' +
+        '    at http://127.0.0.1:4324/web-chess/src/components/LibraryDialog.tsx?t=1793120003624:115:38'
+    }
+  ]
+}
+page.waitForFunction: Timeout 3000ms exceeded.
+    at Object.checkLibraryRowFocusOwnership (/workspace/web-chess/scripts/test-ui-browser.cjs:6974:18)
+    at async /tmp/web-chess-library-row-focus-debug2.cjs:11:9 {
+  log: [],
+  name: 'TimeoutError'
+}

@@ -180,6 +180,7 @@ export function LibraryDialog({
         if (!target) return
         // Restore after the renamed row has moved or left the filtered list.
         const frame = requestAnimationFrame(() => {
+            if (document.activeElement !== document.body) return
             if (target.isConnected) target.focus()
             else panelRef.current?.querySelector<HTMLElement>('input[type="search"], [data-library-done]')?.focus()
         })
@@ -546,11 +547,15 @@ export function LibraryDialog({
                                             aria-label={game.favorite ? `Unstar ${game.name}` : `Star ${game.name}`}
                                             title={game.favorite ? 'Starred' : 'Not starred'}
                                             onClick={event => {
+                                                const trigger = event.currentTarget
                                                 if (starredOnly && game.favorite) {
-                                                    const row = event.currentTarget.closest('li')
+                                                    const row = trigger.closest('li')
                                                     const neighbor = row?.nextElementSibling ?? row?.previousElementSibling
                                                     const target = neighbor?.querySelector<HTMLButtonElement>('.library-favorite') ?? starredFilterRef.current
-                                                    requestAnimationFrame(() => { if (target?.isConnected) target.focus() })
+                                                    requestAnimationFrame(() => {
+                                                        if (document.activeElement !== document.body && document.activeElement !== trigger) return
+                                                        if (target?.isConnected) target.focus()
+                                                    })
                                                 }
                                                 onToggleFavorite(game.id)
                                             }}

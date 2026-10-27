@@ -6904,6 +6904,102 @@ async function checkLibraryKeyboardNavigation(browser) {
   }
 }
 
+async function checkLibraryRowFocusOwnership(browser) {
+  const records = [
+    { id: 'focus-keep', name: 'Keeper', pgn: '1. d4 d5 *', favorite: true, createdAt: 11, updatedAt: 22 },
+    { id: 'focus-edit', name: 'Beta', pgn: '[White "José"]\n\n1. e4 e5 {Preserve note ♞} *', favorite: true, createdAt: 33, updatedAt: 44 },
+  ]
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 2, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', acceptDownloads: true })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog textarea').fill('1. e4 *')
+      await page.locator('.pgn-dialog').getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      const dialog = page.locator('.library-dialog'), name = dialog.locator('[data-library-name]')
+      const search = dialog.getByRole('searchbox', { name: 'Search saved games', exact: true })
+      const starred = dialog.getByRole('button', { name: 'Starred only', exact: true })
+      await dialog.locator('input[type="file"]').setInputFiles({ name: 'focus.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ format: 'web-chess-library', version: 1, games: records })) })
+      await dialog.getByRole('button', { name: 'Load Beta', exact: true }).waitFor()
+      const holdFrames = () => page.evaluate(() => {
+        const raf = window.requestAnimationFrame
+        let holding = true
+        window.__rowFocusFrames = []
+        window.requestAnimationFrame = callback => {
+          if (!holding) return raf(callback)
+          window.__rowFocusFrames.push(callback)
+          return raf(() => {})
+        }
+        window.__flushRowFocusFrames = () => {
+          holding = false
+          window.requestAnimationFrame = raf
+          for (const callback of window.__rowFocusFrames.splice(0)) callback(performance.now())
+        }
+      })
+      const chooseField = async kind => {
+        const field = kind === 'name' ? name : search, value = kind === 'name' ? 'Unsent name ♞' : 'e'
+        await field.fill(value)
+        await field.evaluate(el => el.setSelectionRange(0, 1))
+        await page.evaluate(() => window.__flushRowFocusFrames())
+        assert(await field.evaluate(el => el === document.activeElement && el.selectionStart === 0 && el.selectionEnd === 1)
+          && await field.inputValue() === value, `deferred row focus stole the reader's ${kind} field or selection`)
+      }
+      let title = 'Beta'
+      for (const kind of ['name', 'search']) {
+        for (const action of ['commit', 'escape', 'cancel']) {
+          await search.fill('')
+          await dialog.getByRole('button', { name: `Rename ${title}`, exact: true }).click()
+          const rename = dialog.getByRole('textbox', { name: 'New game name', exact: true })
+          await rename.fill(`Renamed ${action} ${kind}`)
+          await holdFrames()
+          if (action === 'commit') { await rename.press('Enter'); title = `Renamed ${action} ${kind}` }
+          else if (action === 'escape') await rename.press('Escape')
+          else await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+          await rename.waitFor({ state: 'detached' })
+          await chooseField(kind)
+          assert(await dialog.getByRole('button', { name: `Load ${title}`, exact: true }).count() === 1, 'rename cancel/commit changed the wrong stored name')
+        }
+        await search.fill('')
+        await starred.click()
+        const unstar = dialog.getByRole('button', { name: `Unstar ${title}`, exact: true })
+        await holdFrames(); await unstar.click()
+        await dialog.getByRole('button', { name: `Load ${title}`, exact: true }).waitFor({ state: 'detached' })
+        await chooseField(kind)
+        await starred.click()
+        await search.fill('')
+        await dialog.getByRole('button', { name: `Star ${title}`, exact: true }).click()
+      }
+      await dialog.getByRole('button', { name: `Rename ${title}`, exact: true }).click()
+      await dialog.getByRole('textbox', { name: 'New game name', exact: true }).press('Escape')
+      await page.waitForFunction(title => document.activeElement?.getAttribute('aria-label') === `Rename ${title}`, title)
+      await starred.click()
+      await dialog.getByRole('button', { name: `Unstar ${title}`, exact: true }).focus(); await page.keyboard.press('Enter')
+      await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Unstar Keeper')
+      await page.keyboard.press('Enter')
+      await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Starred only')
+      await page.waitForFunction(() => !document.querySelector('.library-status')?.textContent.includes('Saving library changes'))
+      const [download] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Export backup', exact: true }).click()])
+      const exported = JSON.parse(fs.readFileSync(await download.path(), 'utf8')).games
+      assert(exported.length === 2 && exported.find(game => game.id === records[0].id)?.name === 'Keeper'
+        && exported.find(game => game.id === records[1].id)?.name === title
+        && exported.every(game => game.pgn === records.find(record => record.id === game.id)?.pgn && !game.favorite), 'focus handling changed exported records, notes or favorite state')
+      assert(await name.inputValue() === 'Unsent name ♞' && await page.locator('#chessboard-square-e4 [data-piece="wP"]').count() === 1
+        && await page.locator('.mtree-chip').count() === 1, 'row actions submitted the unsent name or changed the current game')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'row-focus workflow overflows')
+      assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `row-focus errors: ${errors.join('; ')}`)
+      console.log(`  library row focus (${width}×${height}, ${scale}x, ${theme}): delayed rename commit/Escape/Cancel and filtered unstar respect the reader's new name/search focus, text and selection; normal rename/neighbor/final-star recovery still works; exact exported games/Unicode notes and unsent name/current board stay intact`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkLibraryStarredFilter(browser) {
   for (const [width, scale, theme] of [[1280, 1, 'dark'], [901, 2, 'light'], [375, 1, 'dark'], [320, 2, 'light']]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -19847,6 +19943,7 @@ async function main() {
       'chords': checkAChordBelongsToTheBrowser,
       'eval-bar': checkTheEvaluationBarSurvivesTheWdlSwitch,
       'library-double-save': checkOneGestureSavesOneGame,
+      'library-row-focus': checkLibraryRowFocusOwnership,
       'library-backup-reading': checkLibraryBackupReading,
       'library-editing': checkLibraryEditing,
       'international-search': checkInternationalLibrarySearch,
@@ -20733,6 +20830,7 @@ async function main() {
     await checkLibraryEditing(browser)
     await checkInternationalLibrarySearch(browser)
     await checkLibraryBrowsing(browser)
+    await checkLibraryRowFocusOwnership(browser)
     await checkLibraryStarredFilter(browser)
     await checkLibraryKeyboardNavigation(browser)
     await checkLibraryEmptyFocus(browser)
