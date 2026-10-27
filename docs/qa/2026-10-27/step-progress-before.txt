@@ -1,0 +1,3 @@
+{"searching":true,"control":{"text":"Step","disabled":false,"label":"Advance one AI move","busy":null,"ariaDisabled":null},"thinkingButtons":0,"moves":["e4"]}
+Error: A running Step search still offers an idle enabled Step button
+    at /tmp/web-chess-step-progress-before.cjs:9:468

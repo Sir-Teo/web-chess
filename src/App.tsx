@@ -10097,6 +10097,7 @@ function App() {
               isGameOver={isGameOver || Boolean(endedOffBoard)}
               stepMode={aiSpeed === 'step'}
               canStep={canStepAiMove}
+              stepThinking={isAiThinking}
               onPause={pause}
               onResume={resume}
               onStep={handleStep}

@@ -1,0 +1,2 @@
+{"layout":{"left":44.46875,"right":275.515625,"stripLeft":24,"stripRight":296,"focused":true}}
+{"searching":true,"control":{"text":"Thinking…","disabled":false,"label":"Engine is thinking","busy":"true","ariaDisabled":"true"},"thinkingButtons":1,"moves":["e4"]}

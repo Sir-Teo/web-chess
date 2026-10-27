@@ -1,0 +1,4 @@
+{"layout":{"left":100.8125,"right":268.890625,"stripLeft":-288,"stripRight":320.140625,"focused":true}}
+{"searching":true,"control":{"text":"Step","disabled":false,"label":"Advance one AI move","busy":null,"ariaDisabled":null},"thinkingButtons":0,"moves":["e4"]}
+Error: A running Step search still offers an idle enabled Step button
+    at /tmp/web-chess-step-progress-layout-probe.cjs:9:951

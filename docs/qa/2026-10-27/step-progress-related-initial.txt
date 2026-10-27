@@ -1,0 +1,8 @@
+  clock controls (1280×900, 1x, dark, mouse): visible Pause/Resume, exact held banks, focused Space/Enter activation, turn-correct ticking, move restarts, Analysis hiding, flagged/untimed exclusion, replay coexistence and fitting/contrast pass
+  clock controls (375×812, 1x, light, coarse pointer): visible Pause/Resume, exact held banks, focused Space/Enter activation, turn-correct ticking, move restarts, Analysis hiding, flagged/untimed exclusion, replay coexistence and fitting/contrast pass
+Error: clock action does not fit/reveal: {"width":300.546875,"height":61.171875,"revealed":false,"textFits":true}
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at checkAction (/workspace/web-chess/scripts/test-ui-browser.cjs:3712:9)
+    at async checkPassAndPlayClockControls (/workspace/web-chess/scripts/test-ui-browser.cjs:3718:7)
+    at async /tmp/web-chess-step-progress-related.cjs:10:60

@@ -1,0 +1,3 @@
+{"layout":{"left":-124.25,"right":156.390625,"stripLeft":-288,"stripRight":320.140625,"focused":true}}
+Error: Focused Step progress is clipped after its label changes
+    at /tmp/web-chess-step-progress-layout-probe.cjs:9:418
