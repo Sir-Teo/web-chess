@@ -13,6 +13,26 @@ const START = new Chess().fen()
 const HREF = 'https://example.test/web-chess/'
 const SICILIAN = ['e2e4', 'c7c5', 'g1f3', 'd7d6', 'd2d4', 'c5d4', 'f3d4', 'g8f6']
 
+describe('shared starting-position legality', () => {
+  it.each([
+    ['adjacent kings', '8/8/8/8/8/8/4k3/4K3 w - - 0 1', 'e1e2'],
+    ['Black already checked on White’s turn', '4k3/8/8/8/8/8/4R3/4K3 w - - 0 1', 'e2e8'],
+    ['White already checked on Black’s turn', 'k3r3/8/8/8/8/8/8/4K3 b - - 0 1', 'e8e1'],
+  ])('rejects %s before replay can capture a king', (_, fen, capture) => {
+    expect(decodeSharedGame(encodeSharedGame(fen, []))).toBeNull()
+    expect(decodeSharedGame(encodeSharedGame(fen, [capture]))).toBeNull()
+  })
+
+  it.each([
+    ['k3r3/8/8/8/8/8/8/4K3 w - - 0 1', 'e1d1'],
+    ['4k3/8/8/8/8/8/8/K3R3 b - - 0 1', 'e8d8'],
+  ])('still reads a legal check and escape: %s', (fen, escape) => {
+    const parsed = decodeSharedGame(encodeSharedGame(fen, [escape]))
+    expect(parsed).not.toBeNull()
+    expect(replaySharedGame(parsed!).map(entry => entry.move.san)).toEqual([escape === 'e1d1' ? 'Kd1' : 'Kd8'])
+  })
+})
+
 describe('shared starting-position counter precision', () => {
   const position = '7k/8/8/8/8/8/7P/K7 w - -'
 

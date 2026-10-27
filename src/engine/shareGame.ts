@@ -1,6 +1,6 @@
 import { Chess, type Move } from 'chess.js'
 import { normalizeUciMoves } from './uci'
-import { fenCounterInputError } from './fen'
+import { fenCounterInputError, validateFenForAnalysis } from './fen'
 
 /**
  * A whole game in a link, not just a position.
@@ -106,6 +106,11 @@ export function decodeSharedGame(encoded: string): SharedGame | null {
   } catch {
     return null
   }
+  // chess.js accepts syntactically valid but unreachable roots, including
+  // adjacent kings. Replaying one can "capture" a king and publish a FEN
+  // that the rest of the app cannot construct.
+  const normalizedFen = position.fen()
+  if (!validateFenForAnalysis(normalizedFen).ok) return null
 
   // Counted before normalising, because that is where a cut link loses its
   // tail: "…g1f3 b8c" is two tokens and one move, and by the time the caller
@@ -114,7 +119,7 @@ export function decodeSharedGame(encoded: string): SharedGame | null {
   // half a game with nothing said about the other half.
   const tokens = text.slice(separator + 1).split(/\s+/g).filter(Boolean)
   const moves = normalizeUciMoves(tokens)
-  return { rootFen: position.fen(), moves, carried: tokens.length }
+  return { rootFen: normalizedFen, moves, carried: tokens.length }
 }
 
 export type ReplayedSharedMove = {

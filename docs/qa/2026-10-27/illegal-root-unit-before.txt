@@ -1,0 +1,101 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/pgn.test.ts (152 tests | 2 failed) 162ms
+     × rejects an already checked nonmoving king before publishing moves: 4k3/8/8/8/8/8/4R3/4K3 w - - 0 1 18ms
+     × rejects an already checked nonmoving king before publishing moves: k3r3/8/8/8/8/8/8/4K3 b - - 0 1 1ms
+ ❯ src/engine/shareGame.test.ts (33 tests | 3 failed) 407ms
+     × rejects adjacent kings before replay can capture a king 11ms
+     × rejects Black already checked on White’s turn before replay can capture a king 6ms
+     × rejects White already checked on Black’s turn before replay can capture a king 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/pgn.test.ts > PGN starting-position legality > rejects an already checked nonmoving king before publishing moves: 4k3/8/8/8/8/8/4R3/4K3 w - - 0 1
+ FAIL  src/engine/pgn.test.ts > PGN starting-position legality > rejects an already checked nonmoving king before publishing moves: k3r3/8/8/8/8/8/8/4K3 b - - 0 1
+AssertionError: expected undefined to be an instance of Error
+ ❯ src/engine/pgn.test.ts:35:22
+     33|       let caught: unknown
+     34|       try { parsePgnMoveTree(`[SetUp "1"]\n[FEN "${fen}"]\n\n${movetex…
+     35|       expect(caught).toBeInstanceOf(Error)
+       |                      ^
+     36|       expect(pgnImportUserErrorMessage(caught)).toMatch(/PGN starting …
+     37|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/engine/shareGame.test.ts > shared starting-position legality > rejects adjacent kings before replay can capture a king
+AssertionError: expected { …(3) } to be null
+
+- Expected:
+null
+
++ Received:
+{
+  "carried": 0,
+  "moves": [],
+  "rootFen": "8/8/8/8/8/8/4k3/4K3 w - - 0 1",
+}
+
+ ❯ src/engine/shareGame.test.ts:22:57
+     20|     ['White already checked on Black’s turn', 'k3r3/8/8/8/8/8/8/4K3 b …
+     21|   ])('rejects %s before replay can capture a king', (_, fen, capture) …
+     22|     expect(decodeSharedGame(encodeSharedGame(fen, []))).toBeNull()
+       |                                                         ^
+     23|     expect(decodeSharedGame(encodeSharedGame(fen, [capture]))).toBeNul…
+     24|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/engine/shareGame.test.ts > shared starting-position legality > rejects Black already checked on White’s turn before replay can capture a king
+AssertionError: expected { …(3) } to be null
+
+- Expected:
+null
+
++ Received:
+{
+  "carried": 0,
+  "moves": [],
+  "rootFen": "4k3/8/8/8/8/8/4R3/4K3 w - - 0 1",
+}
+
+ ❯ src/engine/shareGame.test.ts:22:57
+     20|     ['White already checked on Black’s turn', 'k3r3/8/8/8/8/8/8/4K3 b …
+     21|   ])('rejects %s before replay can capture a king', (_, fen, capture) …
+     22|     expect(decodeSharedGame(encodeSharedGame(fen, []))).toBeNull()
+       |                                                         ^
+     23|     expect(decodeSharedGame(encodeSharedGame(fen, [capture]))).toBeNul…
+     24|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/engine/shareGame.test.ts > shared starting-position legality > rejects White already checked on Black’s turn before replay can capture a king
+AssertionError: expected { …(3) } to be null
+
+- Expected:
+null
+
++ Received:
+{
+  "carried": 0,
+  "moves": [],
+  "rootFen": "k3r3/8/8/8/8/8/8/4K3 b - - 0 1",
+}
+
+ ❯ src/engine/shareGame.test.ts:22:57
+     20|     ['White already checked on Black’s turn', 'k3r3/8/8/8/8/8/8/4K3 b …
+     21|   ])('rejects %s before replay can capture a king', (_, fen, capture) …
+     22|     expect(decodeSharedGame(encodeSharedGame(fen, []))).toBeNull()
+       |                                                         ^
+     23|     expect(decodeSharedGame(encodeSharedGame(fen, [capture]))).toBeNul…
+     24|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  5 failed | 180 passed (185)
+   Start at  12:37:37
+   Duration  703ms (transform 347ms, setup 0ms, import 442ms, tests 569ms, environment 0ms)
+

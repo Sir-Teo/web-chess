@@ -16088,6 +16088,96 @@ async function checkASavedGameComesBack(browser) {
  * `about:blank` between the two openings: the links differ only in their hash,
  * and a navigation between them is same-document and never reloads.
  */
+async function checkIllegalStartingPositions(browser) {
+  const key = 'webchess:auto-saved-game:v1'
+  const protectedPgn = '[Event "Protected game"]\n\n1. e4 e5 {Keep existing note} *'
+  const adjacent = '8/8/8/8/8/8/4k3/4K3 w - - 0 1'
+  const checkedOpponent = '4k3/8/8/8/8/8/4R3/4K3 w - - 0 1'
+  const legalWhiteCheck = 'k3r3/8/8/8/8/8/8/4K3 w - - 0 12'
+  const legalBlackCheck = '4k3/8/8/8/8/8/8/K3R3 b - - 0 12'
+  const hashFor = (fen, move) => '#game=' + Buffer.from(fen + '|' + move).toString('base64url')
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    for (const scenario of ['shared-adjacent', 'shared-opponent-check', 'pgn', 'recovery']) {
+      const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce', acceptDownloads: true })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        const recoveryPgn = scenario === 'recovery' ? `[SetUp "1"]\n[FEN "${checkedOpponent}"]\n\n1. Rxe8 *` : protectedPgn
+        await page.addInitScript(({ key, recoveryPgn, theme }) => {
+          localStorage.setItem(key, JSON.stringify({ version: 1, savedAt: Date.now() - 60000, pgn: recoveryPgn, moveCount: 2 }))
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme }))
+        }, { key, recoveryPgn, theme })
+        await page.goto(BASE + (scenario === 'shared-adjacent' ? hashFor(adjacent, 'e1e2') : ''), { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        const recovery = page.locator('.auto-save-recovery')
+        await recovery.getByRole('button', { name: 'Restore', exact: true }).waitFor()
+        if (scenario === 'recovery') {
+          await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+          await recovery.getByRole('button', { name: 'Download PGN', exact: true }).waitFor()
+          assert((await recovery.innerText()).includes('not to move is already in check') && await page.locator('.app-error-shell').count() === 0, 'unsafe recovery crashed instead of explaining the starting position')
+          const [download] = await Promise.all([page.waitForEvent('download'), recovery.getByRole('button', { name: 'Download PGN', exact: true }).click()])
+          assert(fs.readFileSync(await download.path(), 'utf8') === recoveryPgn, 'unsafe recovery download changed the original PGN')
+          assert(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).pgn, key) === recoveryPgn, 'rejecting unsafe recovery discarded its saved text')
+          await recovery.getByRole('button', { name: 'Discard it', exact: true }).click()
+          assert(await page.evaluate(key => localStorage.getItem(key), key) === null, 'explicit unsafe-recovery discard left its PGN behind')
+          await page.locator('#chessboard-square-e2').click()
+          await page.locator('#chessboard-square-e4').click()
+          await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+          assert(errors.length === 0 && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'unsafe-recovery handling errored or overflowed')
+          console.log(`  starting-position legality (${width}px, ${scale}x, ${theme}, recovery): rejected before publication; exact original PGN download and retained slot; explicit discard clears it and e4 plays`)
+          continue
+        }
+        if (scenario === 'shared-adjacent') {
+          await page.waitForFunction(() => document.querySelector('.app-notice-region')?.textContent?.includes('shared link could not be read'))
+          assert(await page.locator('.app-error-shell').count() === 0 && await page.locator('.board-stage').count() === 1, 'adjacent-king link crashed before recovery')
+          assert(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).pgn, key) === protectedPgn, 'the rejected shared root changed its recovery')
+        }
+        await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+        await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+        const note = page.getByRole('textbox', { name: 'Move note', exact: true })
+        await note.waitFor()
+        assert(await note.inputValue() === 'Keep existing note', 'the protected study did not load its note')
+        if (scenario === 'pgn') {
+          await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+          const dialog = page.locator('.pgn-dialog'), input = dialog.locator('textarea')
+          for (const [label, fen, move, reason] of [['checked-opponent', checkedOpponent, 'Rxe8', 'not to move is already in check'], ['adjacent-kings', adjacent, 'Kxe2', 'kings are side by side']]) {
+            const text = `[SetUp "1"]\n[FEN "${fen}"]\n\n1. ${move} *`
+            if (width <= 900) {
+              await dialog.locator('input[type="file"]').setInputFiles({ name: `${label}.pgn`, mimeType: 'application/x-chess-pgn', buffer: Buffer.from(text) })
+              await page.waitForFunction(text => document.querySelector('.pgn-dialog textarea')?.value === text, text)
+            } else await input.fill(text)
+            await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+            await dialog.getByRole('alert').filter({ hasText: reason }).waitFor()
+            assert(await input.inputValue() === text && await input.getAttribute('aria-invalid') === 'true', 'rejecting a root lost or disassociated the PGN draft')
+            assert(await page.locator('#chessboard-square-e5 [data-piece="bP"]').count() === 1
+              && await page.locator('.mtree-chip').count() === 2, 'an invalid PGN published moves before its starting position was checked')
+            assert(await page.locator('.app-error-shell').count() === 0, 'an invalid PGN reached the app error screen')
+          }
+          await input.fill(`[SetUp "1"]\n[FEN "${legalWhiteCheck}"]\n\n12. Kd1 *`)
+          await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+          await dialog.waitFor({ state: 'detached' })
+          await page.locator('#chessboard-square-d1 [data-piece="wK"]').waitFor()
+          assert(await page.locator('.mtree-chip').count() === 1, 'a legal check-and-escape PGN was rejected or lost its move')
+        } else {
+          if (scenario === 'shared-opponent-check') {
+            await page.evaluate(hash => { location.hash = hash }, hashFor(checkedOpponent, 'e2e8'))
+            await page.waitForFunction(() => document.querySelector('.app-notice-region')?.textContent === 'That shared link could not be read — keeping the current position.')
+            assert(await page.locator('#chessboard-square-e5 [data-piece="bP"]').count() === 1
+              && await note.inputValue() === 'Keep existing note', 'a rejected shared root changed the current study')
+          }
+          await page.evaluate(hash => { location.hash = hash }, hashFor(legalBlackCheck, 'e8d8'))
+          await page.locator('#chessboard-square-d8 [data-piece="bK"]').waitFor()
+          assert(await page.locator('.mtree-chip').count() === 1, 'the legal checked-side shared game lost its escape move')
+        }
+        assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `illegal-root failure: ${errors.join('; ')}`)
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'illegal-root feedback overflows')
+        console.log(`  starting-position legality (${width}px, ${scale}x, ${theme}, ${scenario}${scenario === 'pgn' ? width <= 900 ? ' file' : ' paste' : ''}): impossible root rejected before board publication; original study/recovery/draft retained; corrected legal check and king escape load without an error screen`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkEmptyGameShares(browser) {
   const start = new (require('chess.js').Chess)().fen()
   const custom = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 12'
@@ -18574,6 +18664,7 @@ async function main() {
       'autosave-roundtrip': checkAnInterruptedGameComesBack,
       'share-recovery': checkSharedLinkRecoveryPriority,
       'empty-game-share': checkEmptyGameShares,
+      'illegal-roots': checkIllegalStartingPositions,
       'recovery-export': checkFailedRecoveryExport,
       'saved-game-roundtrip': checkASavedGameComesBack,
       'share-roundtrip': checkASharedLinkCarriesTheGame,
@@ -19425,6 +19516,7 @@ async function main() {
     await checkASharedLinkCarriesTheGame(browser)
     await checkSharedLinkRecoveryPriority(browser)
     await checkEmptyGameShares(browser)
+    await checkIllegalStartingPositions(browser)
     await checkSettingsSurviveAReload(browser)
     await checkSettingsSayWhenTheyCannotBeKept(browser)
     await checkHighContrastKeepsTheBoard(browser)

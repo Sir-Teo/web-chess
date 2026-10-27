@@ -1,0 +1,9 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  starting-position legality (1280px, 1x, dark, shared-adjacent): impossible root rejected before board publication; original study/recovery/draft retained; corrected legal check and king escape load without an error screen
+  starting-position legality (1280px, 1x, dark, shared-opponent-check): impossible root rejected before board publication; original study/recovery/draft retained; corrected legal check and king escape load without an error screen
+  starting-position legality (1280px, 1x, dark, pgn paste): impossible root rejected before board publication; original study/recovery/draft retained; corrected legal check and king escape load without an error screen
+  starting-position legality (1280px, 1x, dark, recovery): rejected before publication; exact original PGN download and retained slot; explicit discard clears it and e4 plays
+  starting-position legality (375px, 2x, light, shared-adjacent): impossible root rejected before board publication; original study/recovery/draft retained; corrected legal check and king escape load without an error screen
+  starting-position legality (375px, 2x, light, shared-opponent-check): impossible root rejected before board publication; original study/recovery/draft retained; corrected legal check and king escape load without an error screen
+  starting-position legality (375px, 2x, light, pgn file): impossible root rejected before board publication; original study/recovery/draft retained; corrected legal check and king escape load without an error screen
+  starting-position legality (375px, 2x, light, recovery): rejected before publication; exact original PGN download and retained slot; explicit discard clears it and e4 plays

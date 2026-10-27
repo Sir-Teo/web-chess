@@ -24,6 +24,31 @@ import {
   stripPgnByteOrderMark,
 } from './pgn'
 
+describe('PGN starting-position legality', () => {
+  it.each([
+    ['4k3/8/8/8/8/8/4R3/4K3 w - - 0 1', '1. Rxe8 *'],
+    ['k3r3/8/8/8/8/8/8/4K3 b - - 0 1', '1... Rxe1 *'],
+  ])('rejects an already checked nonmoving king before publishing moves: %s', (fen, capture) => {
+    for (const movetext of ['*', capture]) {
+      let caught: unknown
+      try { parsePgnMoveTree(`[SetUp "1"]\n[FEN "${fen}"]\n\n${movetext}`) } catch (error) { caught = error }
+      expect(caught).toBeInstanceOf(Error)
+      expect(pgnImportUserErrorMessage(caught)).toMatch(/PGN starting position:.*not to move.*already in check/)
+    }
+  })
+
+  it.each([
+    ['k3r3/8/8/8/8/8/8/4K3 w - - 0 1', '1. Kd1 *', 'd1'],
+    ['4k3/8/8/8/8/8/8/K3R3 b - - 0 1', '1... Kd8 *', 'd8'],
+  ])('still imports a legal check and king escape: %s', (fen, movetext, destination) => {
+    const parsed = parsePgnMoveTree(`[SetUp "1"]\n[FEN "${fen}"]\n\n${movetext}`)
+    expect(parsed.rootFen).toBe(fen)
+    expect(parsed.moves).toHaveLength(1)
+    expect(parsed.moves[0].move.to).toBe(destination)
+    expect(() => new Chess(parsed.moves[0].fen)).not.toThrow()
+  })
+})
+
 describe('PGN starting-position counter precision', () => {
   const position = '7k/8/8/8/8/8/7P/K7 w - -'
   const documentFor = (fen: string) => `[SetUp "1"]\n[FEN "${fen}"]\n\n*`
@@ -166,7 +191,7 @@ describe('PGN export helpers', () => {
   it('rejects PGN FEN headers with impossible adjacent kings', () => {
     expect(() => rootFenFromPgnHeaders({
       FEN: '8/8/8/8/8/8/7K/6k1 w - - 0 1',
-    })).toThrow('Invalid FEN king placement')
+    })).toThrow(/PGN starting position:.*kings are side by side/)
   })
 
   it('preserves mate distance from side-to-move engine scores', () => {
