@@ -34,6 +34,7 @@ function useElementExtent(
   // leave an existing observer and its last measurement alone.
   const observedRef = useRef<HTMLElement | null>(null)
   const observerRef = useRef<ResizeObserver | null>(null)
+  const measurementFrameRef = useRef<number | null>(null)
 
   useLayoutEffect(() => {
     const el = ref.current
@@ -41,6 +42,10 @@ function useElementExtent(
 
     observerRef.current?.disconnect()
     observerRef.current = null
+    if (measurementFrameRef.current !== null) {
+      cancelAnimationFrame(measurementFrameRef.current)
+      measurementFrameRef.current = null
+    }
     observedRef.current = el
     if (!el) return
 
@@ -53,7 +58,15 @@ function useElementExtent(
     // Older hosts without ResizeObserver retain render-time measurements.
     if (typeof ResizeObserver === 'undefined') return
 
-    const observer = new ResizeObserver(measure)
+    // Updating layout during resize delivery can feed another observation in
+    // the same cycle. Read the latest size once in the next frame instead.
+    const observer = new ResizeObserver(() => {
+      if (measurementFrameRef.current !== null) return
+      measurementFrameRef.current = requestAnimationFrame(() => {
+        measurementFrameRef.current = null
+        measure()
+      })
+    })
     observer.observe(el)
     observerRef.current = observer
   })
@@ -62,6 +75,8 @@ function useElementExtent(
   // changes, so the only disconnect left to do is the last one.
   useEffect(() => () => {
     observerRef.current?.disconnect()
+    if (measurementFrameRef.current !== null) cancelAnimationFrame(measurementFrameRef.current)
+    measurementFrameRef.current = null
     observerRef.current = null
     observedRef.current = null
   }, [])

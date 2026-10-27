@@ -1,0 +1,7 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  responsive gesture (1280px, click): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+Error: responsive compaction moved the toolbar during a held pointer gesture
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkViewportResizePreservesGesture (/workspace/web-chess/scripts/test-ui-browser.cjs:6413:9)
+    at async /tmp/web-chess-viewport-gesture-check.cjs:10:9

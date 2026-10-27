@@ -6383,6 +6383,11 @@ async function checkViewportResizePreservesGesture(browser) {
         await page.addInitScript(() => {
           localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false }))
           window.addEventListener('pointerdown', event => { window.__qaPointerId = event.pointerId }, true)
+          // Hold both inputs to the measured viewport, including a browser's
+          // late initial resize. Release the latest size through the rem probe.
+          window.addEventListener('resize', event => {
+            if (window.__holdRemProbe) event.stopImmediatePropagation()
+          }, true)
           const NativeObserver = window.ResizeObserver
           window.ResizeObserver = class extends NativeObserver {
             constructor(callback) {
@@ -6396,7 +6401,9 @@ async function checkViewportResizePreservesGesture(browser) {
         })
         await page.goto(BASE, { waitUntil: 'domcontentloaded' })
         await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
-        await page.evaluate(() => {
+        await page.evaluate(async () => {
+          // Finish the initial observation/frame before installing the hold.
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve))))
           window.__holdRemProbe = true
           document.documentElement.style.fontSize = '200%'
         })
@@ -10220,6 +10227,7 @@ async function checkReadingSpace(browser) {
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await page.locator('#chessboard-square-e2').click()
       await page.locator('#chessboard-square-e4').click()
+      await waitForBoardToSettle(page)
       const initialWidth = await page.locator('.board-surface').evaluate(el => el.getBoundingClientRect().width)
       for (const scale of [1, 2, 1]) {
         // Deliberately do not dispatch resize: text enlargement is independent
@@ -10230,7 +10238,22 @@ async function checkReadingSpace(browser) {
           document.querySelector('.board-stage').scrollTop = 0
           document.querySelector('.right .panel-inner').scrollTop = 0
         }, scale)
-        await waitForBoardToSettle(page)
+        // A quiet geometry sample can precede a queued size observation.
+        // Await the required layout before checking that it stays settled.
+        const settleDeadline = Date.now() + 8000
+        await page.waitForFunction(({ width, scale, initialWidth }) => {
+          const board = document.querySelector('.board-surface')?.getBoundingClientRect()
+          const main = document.querySelector('.main-container')?.getBoundingClientRect()
+          const stage = document.querySelector('.board-stage')
+          const header = document.querySelector('.analysis-header')
+          if (!board || !main || !stage || !header) return false
+          const scrollable = getComputedStyle(stage).overflowY === 'auto' && stage.scrollHeight > stage.clientHeight
+          return (board.bottom <= main.bottom + 1 || (width > 900 && board.width === 260 && scrollable))
+            && document.documentElement.scrollWidth <= innerWidth
+            && (scale !== 1 || Math.abs(initialWidth - board.width) <= 1)
+            && (width <= 900 || getComputedStyle(header).position === (scale === 1 ? 'sticky' : 'static'))
+        }, { width, scale, initialWidth }, { timeout: 8000 })
+        await waitForBoardToSettle(page, { timeoutMs: Math.max(1, settleDeadline - Date.now()) })
         const layout = await page.evaluate(() => {
           const main = document.querySelector('.main-container').getBoundingClientRect()
           const board = document.querySelector('.board-surface').getBoundingClientRect()

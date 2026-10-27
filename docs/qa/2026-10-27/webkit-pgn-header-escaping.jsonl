@@ -1,0 +1,5 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+{"browser":"webkit","width":1280,"scale":1,"theme":"dark","headerLayout":"separate-lines","literalEvent":"Club \"Final\" {first} $1","literalSite":"Room \\ North","importedPlies":3,"moveAnnotationRetained":true,"stableSecondExport":true,"errors":[]}
+{"browser":"webkit","width":1280,"scale":1,"theme":"dark","headerLayout":"inline","literalEvent":"Club \"Final\" {first} $1","literalSite":"Room \\ North","importedPlies":3,"moveAnnotationRetained":true,"stableSecondExport":true,"errors":[]}
+{"browser":"webkit","width":375,"scale":2,"theme":"light","headerLayout":"separate-lines","literalEvent":"Club \"Final\" {first} $1","literalSite":"Room \\ North","importedPlies":3,"moveAnnotationRetained":true,"stableSecondExport":true,"errors":[]}
+{"browser":"webkit","width":375,"scale":2,"theme":"light","headerLayout":"inline","literalEvent":"Club \"Final\" {first} $1","literalSite":"Room \\ North","importedPlies":3,"moveAnnotationRetained":true,"stableSecondExport":true,"errors":[]}

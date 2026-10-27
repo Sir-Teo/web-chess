@@ -1,0 +1,6 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+Error: responsive gesture errors: ResizeObserver loop completed with undelivered notifications.
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkViewportResizePreservesGesture (/workspace/web-chess/scripts/test-ui-browser.cjs:6441:9)
+    at async /tmp/web-chess-viewport-gesture-check.cjs:10:9
