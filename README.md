@@ -464,7 +464,10 @@ given, and the app answering the reader who touches it.
   `Copy PGN`, `Copy position link` and `Copy game link` work without opening
   the PGN dialog. Position links open the exact board, including a variation
   or a study with no moves; game links share the main line. Copy PGN includes
-  standalone position notes. `Open in Lichess` takes the current line, while
+  standalone position notes. `Export PGN` opens the export options directly
+  for a download or manual copy of the game or position study.
+  `Set up position` opens the current board in the piece editor.
+  `Open in Lichess` takes the current line, while
   `Open in chess.com` takes the current position. Copies report success or
   explain how to copy manually when clipboard access is unavailable.
 - **Installable app metadata**: PWA manifest and app icon are configured for hosted releases.

@@ -5428,11 +5428,22 @@ async function checkPositionSetupKeyboard(browser) {
     const page = await context.newPage()
     try {
       await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false })))
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
-      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+      await page.getByTestId('command-palette-btn').click()
+      await page.getByRole('combobox', { name: 'Search commands', exact: true }).fill('set up position')
+      const command = page.locator('[data-command-id="setup-position"] button')
+      assert(await command.isEnabled(), 'Commands cannot open the position editor from the starting board')
+      await command.focus()
+      await page.keyboard.press('Enter')
+      await page.locator('[data-command-palette="true"]').waitFor({ state: 'detached' })
       const dialog = page.locator('.pgn-dialog')
-      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      assert(await dialog.getByRole('button', { name: 'FEN', exact: true }).getAttribute('aria-pressed') === 'true', 'Set up position did not open its editor destination directly')
+      assert(await dialog.locator('.fen-textarea').inputValue() === 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1', 'Set up position did not preserve the current board, turn and rights')
       assert(await dialog.locator('.fen-setup-square').evaluateAll(squares => squares.every(square =>
         square.scrollHeight <= square.clientHeight + 1 && square.scrollWidth <= square.clientWidth + 1)),
       'setup pieces overlap their squares when text is enlarged')
@@ -5525,7 +5536,7 @@ async function checkPositionSetupKeyboard(browser) {
       await waitForBoardPiece(page, 'e8', 'Black king')
       assert((await page.locator('#chessboard-square-e1').evaluate(readBoardSquareLabel)).includes('White king'),
         'the keyboard-built position did not reach the analysis board')
-      console.log(`  setup keyboard (${width}px, ${scale}x text): palette/board each use one Tab stop; arrow/Home/End navigation, keyboard tool selection, placement and erasure load a real position`)
+      console.log(`  setup keyboard (${width}px, ${scale}x text): Commands opens the current e4 board/turn/rights directly in FEN; palette/board each use one Tab stop; arrow/Home/End navigation, keyboard tool selection, placement and erasure load a real position`)
     } finally { await context.close() }
   }
 }
@@ -16547,6 +16558,14 @@ async function checkPgnDownloadRecovery(browser) {
         await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
         await page.goto(BASE, { waitUntil: 'domcontentloaded' })
         await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        const exportCommand = async () => {
+          await page.getByTestId('command-palette-btn').click()
+          await page.getByRole('combobox', { name: 'Search commands', exact: true }).fill('export pgn')
+          return page.locator('[data-command-id="export-pgn"] button')
+        }
+        const unavailable = await exportCommand()
+        assert(await unavailable.isDisabled() && (await page.locator('[data-command-id="export-pgn"]').textContent()).includes('No game or position study'), 'the empty standard board offers a meaningless PGN export')
+        await page.keyboard.press('Escape')
         await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
         const dialog = page.locator('.pgn-dialog')
         await dialog.locator('textarea').fill(`${headers}\n\n{Root café ♞ — keep exactly}${study === 'game' ? '\n23. O-O {Main note} (23. Kd1 {Variation note}) Kd8 *' : '\n*'}`)
@@ -16555,8 +16574,12 @@ async function checkPgnDownloadRecovery(browser) {
         const king = study === 'game' ? 'g1' : 'e1'
         await page.locator(`#chessboard-square-${king} [data-piece="wK"]`).waitFor()
         const nodeCount = await page.locator('.mtree-chip').count()
-        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
-        await dialog.getByRole('button', { name: 'Export', exact: true }).click()
+        const command = await exportCommand()
+        assert(await command.isEnabled(), 'Export PGN is unavailable for a game or standalone position study')
+        await command.focus()
+        await page.keyboard.press('Enter')
+        await page.locator('[data-command-palette="true"]').waitFor({ state: 'detached' })
+        assert(await dialog.getByRole('button', { name: 'Export', exact: true }).getAttribute('aria-pressed') === 'true', 'Export PGN did not open its export destination directly')
         const output = dialog.getByRole('textbox', { name: 'Annotated Output', exact: true })
         const expected = await output.inputValue()
         assert(expected.includes(`FEN "${rootFen}"`) && expected.includes('Root café ♞ — keep exactly'), 'export fixture lost its custom root or Unicode note')
@@ -16626,14 +16649,18 @@ async function checkPgnDownloadRecovery(browser) {
         await notice.waitFor({ state: 'detached' })
         assert(await dialog.getByRole('button', { name: 'Select PGN text', exact: true }).count() === 0 && await button.getAttribute('aria-describedby') === null, 'successful retry retained the obsolete download failure')
         await page.waitForFunction(() => window.__pgnCreated.length === window.__pgnRevoked.length && !document.querySelector('a[download]'))
-        await dialog.getByRole('button', { name: 'Import', exact: true }).click()
+        await dialog.getByRole('button', { name: 'Close', exact: true }).click()
+        await dialog.waitFor({ state: 'detached' })
+        await page.waitForFunction(() => document.activeElement?.getAttribute('data-testid') === 'command-palette-btn')
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        assert(await dialog.getByRole('button', { name: 'Import', exact: true }).getAttribute('aria-pressed') === 'true', 'direct export changed the generic PGN opener destination')
         await dialog.locator('textarea').fill(fileText)
         await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
         await dialog.waitFor({ state: 'detached' })
         await page.locator(`#chessboard-square-${king} [data-piece="wK"]`).waitFor()
         assert(await page.locator('.mtree-chip').count() === nodeCount, 'downloaded PGN reimport changed move/variation count')
         assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `PGN export errors: ${errors.join('; ')}`)
-        console.log(`  PGN download recovery (${width}px, ${scale}x, ${theme}, ${study}): URL failure/missing API/blocked click retain study, exact text and focused retry; manual selection works; older clipboard success/failure cannot replace guidance; URL/anchor cleanup; retry downloads named UTF-8 PGN with root/notes/variations and reimports it`)
+        console.log(`  PGN download recovery (${width}px, ${scale}x, ${theme}, ${study}): Commands opens Export directly for games/studies with opener focus preserved; empty-board reason and generic Import destination; URL failure/missing API/blocked click retain exact text/focused retry; manual selection/older clipboard ownership/cleanup; exact named UTF-8 file reimports root/notes/variations`)
       } finally { await context.close() }
     }
   }
@@ -19288,6 +19315,7 @@ async function main() {
       'castling-rights': checkCastlingRightInputs,
       'castling-repair': checkUnavailableCastlingRepair,
       'pgn-download': checkPgnDownloadRecovery,
+      'pgn-export': checkPgnDownloadRecovery,
       'recovery-download': checkRecoveryDownloadFallback,
       'library-download': checkLibraryDownloadRecovery,
       'en-passant-rights': checkEnPassantRightInputs,

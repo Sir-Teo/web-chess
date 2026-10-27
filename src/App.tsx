@@ -1005,6 +1005,7 @@ function App() {
   // ── Game mode ────────────────────────────────────────
   const [showNewGameDialog, setShowNewGameDialog] = useState(false)
   const [showPgnDialog, setShowPgnDialog] = useState(false)
+  const [pgnDialogInitialTab, setPgnDialogInitialTab] = useState<'import' | 'fen' | 'export'>('import')
   const [droppedPgnFile, setDroppedPgnFile] = useState<File | null>(null)
   /** Set when the browser refuses to keep settings. See {@link persistSettings}. */
   const [settingsAreKept, setSettingsAreKept] = useState(true)
@@ -5117,8 +5118,9 @@ function App() {
   }, [gameMode, openNewGameDialogForMode])
   openNewGameDialogRef.current = openNewGameDialog
   const clearDroppedPgnFile = useCallback(() => setDroppedPgnFile(null), [])
-  const openPgnDialog = useCallback((event?: SyntheticEvent<HTMLElement>) => {
+  const openPgnDialog = useCallback((event?: SyntheticEvent<HTMLElement>, initialTab: 'import' | 'fen' | 'export' = 'import') => {
     rememberModalTrigger(event)
+    setPgnDialogInitialTab(initialTab)
     setSettingsOpen(false)
     setShowNewGameDialog(false)
     setShowLibraryDialog(false)
@@ -6245,6 +6247,15 @@ function App() {
       run: () => setOrientation(value => (value === 'white' ? 'black' : 'white')) },
     { id: 'pgn', label: 'PGN and FEN', hint: 'Import, export, share', keywords: ['paste', 'copy', 'link', 'position'],
       run: openPgnDialog },
+    { id: 'setup-position', label: 'Set up position', hint: 'Edit the pieces and rules of the current position',
+      keywords: ['fen', 'diagram', 'board', 'pieces', 'editor'], run: () => openPgnDialog(undefined, 'fen') },
+    { id: 'export-pgn', label: 'Export PGN',
+      hint: mainLineNodes.length <= 1 && !isPositionStudy ? 'No game or position study to export yet'
+        : isPositionStudy ? 'Save the starting position and its notes'
+          : 'Download or copy the whole game with notes and variations',
+      keywords: ['download', 'file', 'notes', 'variations'],
+      disabled: mainLineNodes.length <= 1 && !isPositionStudy,
+      run: () => openPgnDialog(undefined, 'export') },
     { id: 'copy-fen', label: 'Copy FEN', hint: 'The position on the board', keywords: ['clipboard', 'position', 'share'],
       run: copyFen },
     { id: 'copy-position-link', label: 'Copy position link', hint: 'A link to the exact position on the board',
@@ -8467,6 +8478,7 @@ function App() {
           {showPgnDialog && (
             <PgnDialog
               open
+              initialTab={pgnDialogInitialTab}
               onClose={closePgnDialog}
               onImport={handleAnalysisPgnImport}
               onLoadFen={handleAnalysisFenLoad}

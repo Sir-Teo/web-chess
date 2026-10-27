@@ -62,6 +62,7 @@ import './NewGameDialog.css'
 
 type PgnDialogProps = {
     open: boolean
+    initialTab?: 'import' | 'fen' | 'export'
     onClose: () => void
     onImport: (pgn: string) => ImportResult
     onLoadFen: (fen: string) => ImportResult
@@ -118,8 +119,8 @@ const SETUP_CASTLING_OPTIONS: Array<{ right: SetupCastlingRight; label: string; 
     { right: 'q', label: 'Black queenside', short: 'q' },
 ]
 
-export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, mainLineNodes, gameNodes, evaluations, pgnHeaders, openingName, onImportManyToLibrary, droppedFile, onDroppedFileTaken }: PgnDialogProps) {
-    const [tab, setTab] = useState<'import' | 'fen' | 'export'>('import')
+export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLoadFen, currentFen, mainLineNodes, gameNodes, evaluations, pgnHeaders, openingName, onImportManyToLibrary, droppedFile, onDroppedFileTaken }: PgnDialogProps) {
+    const [tab, setTab] = useState<'import' | 'fen' | 'export'>(initialTab)
     const [importText, setImportText] = useState('')
     const [fenText, setFenText] = useState(currentFen)
     const [error, setError] = useState<string | null>(null)
