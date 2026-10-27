@@ -48,8 +48,9 @@ given, and the app answering the reader who touches it.
   engine plays to the clock rather than to a stopwatch: it takes a share of what
   it has left, so it cannot flag itself in a bullet game, and it uses a long
   clock when there is one to use.
-  `Space` pauses the clock as well as the AI, and stepping out to Analysis stops
-  it rather than letting it run while you consult the engine.
+  `Space` pauses the clock as well as the AI. Browsing moves keeps it paused;
+  pressing `Space` again resumes for the side to move. Stepping out to Analysis
+  stops it while you consult the engine.
 - **Premoves**: While the engine is thinking, drag or tap your reply and it is
   held, both squares ringed, then played the instant the position arrives.
   **Escape** cancels a queued premove before the reply. A

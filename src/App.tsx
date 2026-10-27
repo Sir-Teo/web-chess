@@ -1193,11 +1193,9 @@ function App() {
   /**
    * Navigate, and leave the game saying the same thing everywhere.
    *
-   * Pass and play is not held -- navigation there is just browsing -- but the
-   * clock still has to follow the turn, the same handover a takeback makes and
-   * for the same reason: press ← after 1. e4 in a 3+2 game and the strip read
-   * "White to move" over Black's clock counting down. `takebackMove` fixed its
-   * own door and this one was left open.
+   * In pass and play, a running clock follows the selected turn and a paused
+   * one stays stopped. Before the turn handover, pressing ← after 1. e4
+   * left "White to move" over Black's clock counting down.
    *
    * Everywhere else the engine is held while the reader explores, and a held
    * game's clock stops with it. `paused` over a running clock is the one state
@@ -1214,10 +1212,13 @@ function App() {
     syncGameToNode(chess)
     const over = Boolean(readBoardEnding()) || Boolean(endedOffBoardRef.current)
     if (gameMode === 'human-vs-human') {
+      const holdClock = pausedRef.current || over
+      // React may replay the updater after another clock tick. The handover
+      // belongs to this navigation, not the later time when it is replayed.
+      const now = Date.now(), turn = chess.turn()
       setClock(previous => {
         if (!previous || previous.flagged) return previous
-        const now = Date.now()
-        return over ? pauseClock(previous, now) : startSide(previous, chess.turn(), now)
+        return holdClock ? pauseClock(previous, now) : startSide(previous, turn, now)
       })
       return
     }

@@ -3585,6 +3585,69 @@ async function checkAFinishedGameKeepsItsStoppedClock(browser) {
  * held too; it used to drain whoever was on move, sometimes the engine,
  * behind a pause the badge could not even show.
  */
+async function checkPausedClockNavigation(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.clock.install({ time: new Date('2026-10-27T12:00:00Z') })
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, timeControlId: '3+2', theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true'
+        && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
+      await page.getByRole('button', { name: 'Pass and play', exact: true }).click()
+      await page.locator('.move-entry summary').click()
+      const input = page.locator('.move-entry input')
+      for (const [move, square, piece] of [['e4', 'e4', 'wP'], ['e5', 'e5', 'bP'], ['Nf3', 'f3', 'wN']]) {
+        await input.fill(move); await input.press('Enter')
+        await page.locator(`#chessboard-square-${square} [data-piece="${piece}"]`).waitFor()
+      }
+      const space = async () => { await page.evaluate(() => document.activeElement?.blur()); await page.keyboard.press('Space') }
+      const clocks = () => page.locator('.clock-face').evaluateAll(els => Object.fromEntries(els.map(el => [el.classList.contains('clock-white') ? 'white' : 'black', el.querySelector('strong').textContent])))
+      await space(); await page.locator('.clock-paused').waitFor({ state: 'attached' })
+      const paused = await clocks()
+      const stillPaused = async label => {
+        assert(await page.locator('.clock-face.running').count() === 0 && await page.locator('.clock-paused').count() === 1, `${label} resumed a deliberately paused clock`)
+        await page.clock.fastForward(2100)
+        assert(JSON.stringify(await clocks()) === JSON.stringify(paused), `${label} spent paused clock time`)
+      }
+      await page.keyboard.press('ArrowLeft')
+      await stillPaused('keyboard previous')
+      await page.getByRole('button', { name: /^Go to move 1\. e4/ }).click()
+      await stillPaused('pointer move navigation')
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      await stillPaused('first position')
+      await page.getByRole('button', { name: 'Go to last position', exact: true }).click()
+      await stillPaused('last position')
+      await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+      await page.getByRole('button', { name: /^Go to move 1\. e4/ }).click()
+      await page.clock.fastForward(2100)
+      await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+      await stillPaused('analysis round trip')
+      await space()
+      await page.locator('.clock-black.running').waitFor()
+      const resumed = await clocks(); await page.clock.fastForward(1500)
+      const ticking = await clocks()
+      assert(ticking.black !== resumed.black && ticking.white === resumed.white && await page.locator('.clock-paused').count() === 0, 'explicit resume did not run only the selected side')
+      await page.keyboard.press('ArrowRight')
+      await page.locator('.clock-white.running').waitFor()
+      const handedOver = await clocks(); await page.clock.fastForward(1500)
+      const running = await clocks()
+      assert(running.white !== handedOver.white && running.black === handedOver.black, `ordinary running navigation did not tick only White: ${JSON.stringify({ handedOver, running })}`)
+      await space(); await page.locator('.clock-paused').waitFor({ state: 'attached' })
+      await page.getByRole('button', { name: 'Take back your move', exact: true }).click()
+      await page.locator('.clock-black.running').waitFor()
+      assert(await page.locator('.clock-paused').count() === 0 && await page.locator('.mtree-chip').count() === 3, 'takeback lost its intentional resume or discarded the continuation')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'paused navigation overflows')
+      assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `paused navigation errors: ${errors.join('; ')}`)
+      console.log(`  paused clock navigation (${width}×${height}, ${scale}x, ${theme}): keyboard/pointer/first/last and hidden Analysis browsing preserve both banks and Paused; explicit Resume starts the selected side; running navigation and takeback still hand over/resume correctly`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkNavigationKeepsTheClockHonest(browser) {
   const timedGame = async (mode) => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
@@ -20130,6 +20193,7 @@ async function main() {
       'library-keyboard': checkLibraryKeyboardNavigation,
       'library-empty-focus': checkLibraryEmptyFocus,
       'confirmation-keys': checkConfirmationKeys,
+      'paused-clock-navigation': checkPausedClockNavigation,
       'move-list-pointer': checkMoveListPointerActivation,
       'move-list-fit': checkMoveListFitting,
       'drill-restart': checkDrillRestartKeepsItsLine,
@@ -20921,6 +20985,7 @@ async function main() {
     await checkTheMarkupSaysWhatItShows(browser)
     await checkAMoveCanBePlayedFromTheKeyboard(browser)
     await checkAFinishedGameKeepsItsStoppedClock(browser)
+    await checkPausedClockNavigation(browser)
     await checkNavigationKeepsTheClockHonest(browser)
     await checkKeepSearchingIsUnbounded(browser)
     await checkAutoplayWalksTheLine(browser)

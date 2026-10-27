@@ -1,0 +1,7 @@
+  paused clock navigation (1280×900, 1x, dark): keyboard/pointer/first/last and hidden Analysis browsing preserve both banks and Paused; explicit Resume starts the selected side; running navigation and takeback still hand over/resume correctly
+  paused clock navigation (375×812, 1x, light): keyboard/pointer/first/last and hidden Analysis browsing preserve both banks and Paused; explicit Resume starts the selected side; running navigation and takeback still hand over/resume correctly
+Error: ordinary running navigation no longer hands the clock to the selected turn
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkPausedClockNavigation (/workspace/web-chess/scripts/test-ui-browser.cjs:3639:7)
+    at async /tmp/web-chess-paused-clock-navigation-check.cjs:10:9

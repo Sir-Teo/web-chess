@@ -1,0 +1,16 @@
+at handover [{"t":1793102415304,"current":"e5","clock":[{"running":false,"text":"Black 3 minutes 0 seconds"},{"running":true,"text":"White 3 minutes 3 seconds, running"}]}]
+after advance [{"t":1793102415304,"current":"e5","clock":[{"running":false,"text":"Black 3 minutes 0 seconds"},{"running":true,"text":"White 3 minutes 3 seconds, running"}]},{"t":1793102416815,"current":"e5","clock":[{"running":false,"text":"Black 3 minutes 0 seconds"},{"running":true,"text":"White 3 minutes 2 seconds, running"}]}]
+  paused clock navigation (1280×900, 1x, dark): keyboard/pointer/first/last and hidden Analysis browsing preserve both banks and Paused; explicit Resume starts the selected side; running navigation and takeback still hand over/resume correctly
+at handover [{"t":1793102415414,"current":"e5","clock":[{"running":false,"text":"Black 3 minutes 0 seconds"},{"running":true,"text":"White 3 minutes 3 seconds, running"}]}]
+after advance [{"t":1793102415414,"current":"e5","clock":[{"running":false,"text":"Black 3 minutes 0 seconds"},{"running":true,"text":"White 3 minutes 3 seconds, running"}]},{"t":1793102416914,"current":"e5","clock":[{"running":false,"text":"Black 3 minutes 0 seconds"},{"running":true,"text":"White 3 minutes 2 seconds, running"}]}]
+  paused clock navigation (375×812, 1x, light): keyboard/pointer/first/last and hidden Analysis browsing preserve both banks and Paused; explicit Resume starts the selected side; running navigation and takeback still hand over/resume correctly
+at handover [{"t":1793102415280,"current":"e5","clock":[{"running":false,"text":"Black 3 minutes 0 seconds"},{"running":true,"text":"White 3 minutes 3 seconds, running"}]}]
+after advance [{"t":1793102415280,"current":"e5","clock":[{"running":false,"text":"Black 3 minutes 0 seconds"},{"running":true,"text":"White 3 minutes 3 seconds, running"}]},{"t":1793102416787,"current":"e5","clock":[{"running":false,"text":"Black 3 minutes 0 seconds"},{"running":true,"text":"White 3 minutes 2 seconds, running"}]}]
+  paused clock navigation (320×812, 2x, dark): keyboard/pointer/first/last and hidden Analysis browsing preserve both banks and Paused; explicit Resume starts the selected side; running navigation and takeback still hand over/resume correctly
+at handover [{"t":1793102415540,"current":"e5","clock":[{"running":false,"text":"Black 3 minutes 0 seconds"},{"running":true,"text":"White 3 minutes 3 seconds, running"}]}]
+after advance [{"t":1793102415540,"current":"e5","clock":[{"running":false,"text":"Black 3 minutes 0 seconds"},{"running":true,"text":"White 3 minutes 3 seconds, running"}]},{"t":1793102417040,"current":"e5","clock":[{"running":false,"text":"Black 2 minutes 58 seconds"},{"running":true,"text":"White 3 minutes 3 seconds, running"}]}]
+Error: ordinary running navigation did not tick only White: {"handedOver":{"black":"3:00","white":"3:03"},"running":{"black":"2:58","white":"3:03"}}
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkPausedClockNavigation (/workspace/web-chess/scripts/test-ui-browser.cjs:3638:7)
+    at async /tmp/web-chess-paused-clock-navigation-trace.cjs:10:9
