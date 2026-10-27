@@ -6228,6 +6228,115 @@ async function checkPositionSetupEnPassant(browser) {
   }
 }
 
+async function checkPgnFileReading(browser) {
+  const fresh = '[Event "File read ♞"]\n\n1. d4 {José’s note} (1. e4 {Side note} e5) d5 2. c4 {Fresh read ♞} *'
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 2, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height }, hasTouch: width < 900, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme }))
+        window.__pgnFileReads = []
+        const nativeText = File.prototype.text
+        File.prototype.text = function () {
+          if (!this.name.startsWith('slow-')) return nativeText.call(this)
+          return new Promise((resolve, reject) => window.__pgnFileReads.push({ resolve, reject }))
+        }
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true'
+        && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
+      await page.locator('.move-entry summary').click()
+      await page.locator('.move-entry input').fill('e4'); await page.locator('.move-entry input').press('Enter')
+      const opener = page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true })
+      const dialog = page.locator('.pgn-dialog'), draft = dialog.locator('textarea.input-textarea'), file = dialog.locator('input[type=file]')
+      const reading = dialog.getByRole('status').filter({ hasText: 'Reading PGN file…' })
+      const cancel = () => dialog.getByRole('button', { name: 'Cancel file read', exact: true })
+      const open = () => dialog.getByRole('button', { name: 'Open PGN File', exact: true })
+      const start = async () => {
+        const index = await page.evaluate(() => window.__pgnFileReads.length)
+        await dialog.getByRole('button', { name: /^(Open PGN File|Cancel file read)$/ }).focus()
+        await file.setInputFiles({ name: `slow-${index}.pgn`, mimeType: 'application/x-chess-pgn', buffer: Buffer.from('1. e4 e5 *') })
+        await page.waitForFunction(index => window.__pgnFileReads.length === index + 1, index)
+        await reading.waitFor()
+        const id = await reading.getAttribute('id')
+        assert(await cancel().getAttribute('aria-describedby') === id && (await draft.getAttribute('aria-describedby')).split(' ').includes(id)
+          && await draft.getAttribute('aria-busy') === 'true', 'pending PGN file has no associated progress/busy state')
+        assert(await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).isDisabled(), 'pending PGN file can import an older draft')
+        return index
+      }
+      const finish = (index, text, reject = false) => page.evaluate(async ({ index, text, reject }) => {
+        const task = window.__pgnFileReads[index]
+        if (reject) task.reject(new Error('delayed file read failed'))
+        else task.resolve(text)
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      }, { index, text, reject })
+      const boardUnchanged = async () => {
+        assert(await page.locator('#chessboard-square-e4 [data-piece="wP"]').count() === 1 && await page.locator('.mtree-chip').count() === 1,
+          'reading/canceling a proposed PGN changed the current game')
+      }
+      await opener.click(); await draft.fill('1. d4 {Existing draft ♞} d5 *')
+      const first = await start()
+      await cancel().evaluate(el => { window.__pgnFileAction = el })
+      await cancel().scrollIntoViewIfNeeded()
+      const contrast = await page.evaluate(contrastProbe, '.pgn-dialog .dialog-file-reading')
+      assert(contrast.checked === 1 && contrast.failures.length === 0, `PGN read progress contrast: ${JSON.stringify(contrast)}`)
+      const bounds = await cancel().boundingBox()
+      assert(width >= 900 || bounds.width >= 44 && bounds.height >= 44, 'Cancel file read has a small coarse-pointer target')
+      const fits = await cancel().evaluate(el => {
+        const control = el.getBoundingClientRect(), row = el.parentElement.getBoundingClientRect()
+        const range = document.createRange(); range.selectNodeContents(el)
+        const content = range.getBoundingClientRect()
+        return control.left >= row.left - 1 && control.right <= row.right + 1 && content.left >= control.left - 1 && content.right <= control.right + 1
+      })
+      assert(fits, 'the file-read action or its label exceeds the dialog row')
+      await cancel().press('Enter'); await open().waitFor()
+      assert(await open().evaluate(el => el === window.__pgnFileAction && el === document.activeElement), 'canceling a file read replaced/lost the focused file button')
+      const canceledStatus = await dialog.getByRole('status').filter({ hasText: 'File read canceled.' }).innerText()
+      await finish(first, fresh)
+      assert(await draft.inputValue() === '1. d4 {Existing draft ♞} d5 *' && await draft.getAttribute('aria-busy') === null
+        && await dialog.getByRole('status').filter({ hasText: 'File read canceled.' }).innerText() === canceledStatus, 'canceled file completion changed the draft or its feedback')
+      const old = await start(), newest = await start()
+      await finish(old, '', true)
+      assert(await reading.count() === 1 && await cancel().count() === 1 && await dialog.getByRole('alert').count() === 0, 'an older rejection cleared a newer file read or showed an error')
+      await finish(newest, fresh); await open().waitFor()
+      assert(await draft.inputValue() === fresh && await dialog.locator('.dialog-file-name').innerText() === `slow-${newest}.pgn`, 'a current file did not fill its exact Unicode PGN and filename')
+      const failure = await start(); await finish(failure, '', true)
+      await dialog.getByRole('alert').filter({ hasText: 'Could not read that PGN file.' }).waitFor()
+      assert(await open().isEnabled() && await draft.inputValue() === fresh && await reading.count() === 0, 'a failed read lost the draft or blocked retry')
+      const paste = await start(); await draft.fill('1. c4 {New paste} e5 *'); await finish(paste, fresh)
+      assert(await draft.inputValue() === '1. c4 {New paste} e5 *' && await cancel().count() === 0 && await reading.count() === 0, 'a later paste did not take ownership of file progress and content')
+      const tab = await start(); await dialog.getByRole('button', { name: 'FEN', exact: true }).click(); await finish(tab, fresh)
+      await dialog.getByRole('button', { name: 'Import', exact: true }).click()
+      assert(await draft.inputValue() === '1. c4 {New paste} e5 *' && await reading.count() === 0, 'an old-tab file completion restored progress or changed the draft')
+      for (const method of ['Escape', 'Cancel']) {
+        const pending = await start()
+        if (method === 'Escape') await cancel().press('Escape')
+        else await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+        await dialog.waitFor({ state: 'detached' }); await finish(pending, fresh)
+        await opener.click(); await draft.waitFor()
+        assert(await draft.inputValue() === '' && await reading.count() === 0 && await cancel().count() === 0, `${method} left a late read in the reopened dialog`)
+      }
+      await boardUnchanged()
+      await draft.fill('1. d4 d5 *\n\n1. e4 e5 *')
+      const database = await start()
+      assert(await dialog.getByRole('button', { name: 'Add 2 games to the library', exact: true }).isDisabled(), 'a pending file can save the old database draft')
+      await cancel().press('Enter'); await finish(database, fresh)
+      assert(await dialog.getByRole('button', { name: 'Add 2 games to the library', exact: true }).isEnabled(), 'canceling a file read did not return the original database action')
+      const final = await start(); await finish(final, fresh)
+      await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await dialog.waitFor({ state: 'detached' }); await page.locator('#chessboard-square-c4 [data-piece="wP"]').waitFor()
+      assert(await page.locator('.mtree-chip').count() === 5 && await page.getByRole('textbox', { name: 'Move note', exact: true }).inputValue() === 'Fresh read ♞', 'the final file lost its variation or note during actual import')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'PGN read controls overflow')
+      assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `PGN file-read errors: ${errors.join('; ')}`)
+      console.log(`  PGN file reading (${width}×${height}, ${scale}x, ${theme}): associated progress/Cancel, fitting/coarse target/contrast, focused retry, stale resolve/reject ownership, own failure, paste/tab/close cancellation and exact Unicode/variation import pass without changing the board before explicit import`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkImportDraftOwnership(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 900 } })
@@ -20435,6 +20544,7 @@ async function main() {
       'clock-controls': checkPassAndPlayClockControls,
       'clock-transition-time': checkClockTransitionTimesSurviveQueuedWork,
       'recovery-ownership': checkRecoveryOwnershipIncludesSessionState,
+      'pgn-file-reading': checkPgnFileReading,
       'move-list-pointer': checkMoveListPointerActivation,
       'move-list-fit': checkMoveListFitting,
       'drill-restart': checkDrillRestartKeepsItsLine,
@@ -21230,6 +21340,7 @@ async function main() {
     await checkPassAndPlayClockControls(browser)
     await checkClockTransitionTimesSurviveQueuedWork(browser)
     await checkRecoveryOwnershipIncludesSessionState(browser)
+    await checkPgnFileReading(browser)
     await checkNavigationKeepsTheClockHonest(browser)
     await checkKeepSearchingIsUnbounded(browser)
     await checkAutoplayWalksTheLine(browser)

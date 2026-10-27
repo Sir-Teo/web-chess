@@ -421,6 +421,8 @@ given, and the app answering the reader who touches it.
 - **PGN and FEN workflows**: Import/export annotated PGN, copy FEN/share links, and build custom FEN positions with editable pieces, side to move, castling rights, en passant targets, and move counters. Flip the setup board to work from either player's viewpoint; coordinates and keyboard movement follow the view while the position stays intact. File and rank labels identify setup squares. Editing a position preserves its en passant capture; changing the side or removing the required pawn clears it. The palette and board each use one Tab stop. Left/Right move through tools; all four arrows move between board squares. Enter/Space selects a tool or places/erases. Home/End jumps to the first/last tool or either end of a rank.
   Invalid starting positions are rejected without replacing the current study;
   the import stays open for correction.
+  PGN file reads show progress; **Cancel file read** keeps the import text you
+  already have, and you can choose another file or paste instead.
   Declared castling rights require that side’s king and rook on their home squares.
 - **Share a game, not just a position**: `Copy Game Link` on the Export tab puts
   the whole game in the URL — the position it started from and every move — so

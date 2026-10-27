@@ -44,7 +44,7 @@ import {
     type ArchiveSource,
 } from '../engine/gameArchives'
 import { fetchArchiveGames } from '../engine/archiveFetch'
-import { IconDownload, IconClipboard, IconUpload, IconFlip } from './icons'
+import { IconDownload, IconClipboard, IconUpload, IconFlip, IconClose } from './icons'
 import { fenTextForShareLink } from './pgnDialogHelpers'
 import { isCompositionKey } from './shortcutKeys'
 import { PositionCounterInput } from './PositionCounterInput'
@@ -139,6 +139,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const [archiveUsername, setArchiveUsername] = useState('')
     const [archiveCount, setArchiveCount] = useState(String(DEFAULT_ARCHIVE_GAMES))
     const [archiveBusy, setArchiveBusy] = useState(false)
+    const [readingFile, setReadingFile] = useState(false)
     const [archiveUsernameBlurred, setArchiveUsernameBlurred] = useState(false)
     const [databaseBusy, setDatabaseBusy] = useState(false)
     /** What `handleImportDatabase` asks; the state is what the button shows. */
@@ -154,6 +155,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const [importFileName, setImportFileName] = useState<string | null>(null)
     const titleId = useId()
     const importTextId = useId()
+    const fileReadStatusId = useId()
     const fenTextId = useId()
     const exportTextId = useId()
     const halfmoveId = useId()
@@ -184,6 +186,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
         archiveAbortRef.current?.abort()
         archiveAbortRef.current = null
         setArchiveBusy(false)
+        setReadingFile(false)
     }, [])
 
     const closeDialog = useCallback(() => {
@@ -268,7 +271,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
 
     // A fetch outlives the dialog otherwise, and finishes into a component that
     // is no longer on screen.
-    useEffect(() => () => {
+    useLayoutEffect(() => () => {
         importRequestRef.current += 1
         archiveAbortRef.current?.abort()
     }, [])
@@ -347,6 +350,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
             return
         }
 
+        setReadingFile(true)
         try {
             const text = await file.text()
             if (request !== importRequestRef.current) return
@@ -363,6 +367,8 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
             if (request !== importRequestRef.current) return
             setImportFileName(null)
             setError('Could not read that PGN file.')
+        } finally {
+            if (request === importRequestRef.current) setReadingFile(false)
         }
     }, [cancelPendingImport, resetFeedback])
 
@@ -826,13 +832,22 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                     accept=".pgn,.txt,application/x-chess-pgn,text/plain"
                                     onChange={event => void handleImportFileChange(event)}
                                 />
-                                <button type="button" className="btn-cancel" onClick={handlePickImportFile}>
-                                    <IconUpload /> Open PGN File
+                                <button type="button" className="btn-cancel"
+                                    aria-describedby={readingFile ? fileReadStatusId : undefined}
+                                    onClick={() => {
+                                        if (readingFile) {
+                                            cancelPendingImport()
+                                            resetFeedback()
+                                            setStatus('File read canceled. Your import text is unchanged.')
+                                        } else handlePickImportFile()
+                                    }}>
+                                    {readingFile ? <><IconClose /> Cancel file read</> : <><IconUpload /> Open PGN File</>}
                                 </button>
                                 {importFileName && (
                                     <span className="dialog-file-name" title={importFileName}>{importFileName}</span>
                                 )}
                             </div>
+                            {readingFile && <p id={fileReadStatusId} className="dialog-file-reading" role="status">Reading PGN file…</p>}
                             {loadedFileIsTooBigToShow ? (
                                 <div className="dialog-file-summary">
                                     <p>
@@ -868,7 +883,8 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                         setError(nextText.trim() ? pgnImportContentError(nextText) : null)
                                     }}
                                     aria-invalid={Boolean(error)}
-                                    aria-describedby={error ? `${importTextId}-error` : undefined}
+                                    aria-busy={readingFile || undefined}
+                                    aria-describedby={[error ? `${importTextId}-error` : '', readingFile ? fileReadStatusId : ''].filter(Boolean).join(' ') || undefined}
                                 />
                             )}
                             {error && <p id={`${importTextId}-error`} className="dialog-error" role="alert">{error}</p>}
@@ -878,7 +894,8 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                         type="button"
                                         className="btn-start"
                                         onClick={() => void handleImportDatabase()}
-                                        disabled={databaseBusy}
+                                        disabled={databaseBusy || readingFile}
+                                        aria-describedby={readingFile ? fileReadStatusId : undefined}
                                     >
                                         {databaseBusy
                                             ? 'Adding…'
@@ -1207,7 +1224,8 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                 {tab === 'import' && (
                     <div className="dialog-actions">
                         <button type="button" className="btn-cancel" onClick={closeDialog}>Cancel</button>
-                        <button type="button" className="btn-start" onClick={handleImport} disabled={!canImportPgn}>
+                        <button type="button" className="btn-start" onClick={handleImport} disabled={!canImportPgn || readingFile}
+                            aria-describedby={readingFile ? fileReadStatusId : undefined}>
                             Import & Analyze
                         </button>
                     </div>
