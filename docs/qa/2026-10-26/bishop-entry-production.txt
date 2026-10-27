@@ -1,0 +1,38 @@
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 191 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-xH5xZh9_.js   60.12 kB
+dist/assets/LibraryDialog-BCEY11vH.css        4.23 kB │ gzip:   1.17 kB
+dist/assets/index-DzmTfwZm.css              130.74 kB │ gzip:  24.39 kB
+dist/assets/NewGameDialog-BDzso-Nw.js         4.25 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-pW8rKpu-.js        10.23 kB │ gzip:   3.67 kB
+dist/assets/PgnDialog-B4VFK2g3.js            28.68 kB │ gzip:   9.67 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-Coq7KlGk.js               379.03 kB │ gzip: 122.14 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.93s
+  contrast (Dark / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 1280px): 156 measured, 0 under the floor (139 on a gradient, measured against its worst stop)
+  typed moves (1280px, Dark): SAN, UCI, lowercase bishop/pawn distinction, invalid input, focus and navigation OK
+  contrast (Dark / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 375px): 153 measured, 0 under the floor (135 on a gradient, measured against its worst stop)
+  typed moves (375px, Dark): SAN, UCI, lowercase bishop/pawn distinction, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 1280px): 156 measured, 0 under the floor (139 on a gradient, measured against its worst stop)
+  typed moves (1280px, Light): SAN, UCI, lowercase bishop/pawn distinction, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 375px): 153 measured, 0 under the floor (135 on a gradient, measured against its worst stop)
+  typed moves (375px, Light): SAN, UCI, lowercase bishop/pawn distinction, invalid input, focus and navigation OK
+  keyboard: e2 selected, e3 and e4 offered and named, Enter played e4, focus stayed on the board
+  autoplay speed (1280px, 1x): Normal fallback selected, AI Step retained, Fast walks to the end
+  autoplay speed (375px, 1x): Normal fallback selected, AI Step retained, Fast walks to the end
+  autoplay speed (375px, 2x): Normal fallback selected, AI Step retained, Fast walks to the end
+Focused browser UI checks passed.

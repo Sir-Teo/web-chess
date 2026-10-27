@@ -1,0 +1,2 @@
+{"name": "header-annotation-literal", "input": "[Event \"Club {first} $1 Final\"]\n\n1. e4 *", "normalized": "[Event \"Club $1 {first} Final\"]\n\n1. e4 *", "headers": {"Event": "Club $1 {first} Final", "Result": "*"}}
+{"name": "header-separated-braces", "input": "[Event \"Club } { final\"]\n\n1. e4 *", "normalized": "[Event \"Club   final\"]\n\n1. e4 *", "headers": {"Event": "Club   final", "Result": "*"}}

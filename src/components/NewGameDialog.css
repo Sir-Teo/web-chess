@@ -50,6 +50,12 @@
     min-height: 36px;
 }
 
+.dialog-quick-actions .btn-cancel[aria-pressed="true"] {
+    color: var(--accent-ink);
+    background: var(--accent-subtle);
+    border-color: var(--border-accent);
+}
+
 .dialog-file-input {
     display: none;
 }
@@ -100,6 +106,13 @@
     gap: 0.45rem;
 }
 
+.dialog-share-fallback .btn-cancel {
+    min-height: 44px;
+    max-width: 100%;
+    justify-self: start;
+    white-space: normal;
+}
+
 .dialog-share-fallback input {
     width: 100%;
     min-width: 0;
@@ -121,6 +134,13 @@
     margin: 0 0 0.65rem;
 }
 
+.dialog-export-help {
+    margin: 0.5rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--text-secondary);
+}
+
 .fen-setup-card {
     display: grid;
     gap: 0.45rem;
@@ -135,6 +155,11 @@
     display: grid;
     grid-template-columns: repeat(13, minmax(0, 1fr));
     gap: 0.24rem;
+}
+
+.fen-piece-btn, .fen-setup-square {
+    font-family: 'Segoe UI Symbol', 'Apple Symbols', 'Noto Sans Symbols 2', 'DejaVu Sans', sans-serif;
+    font-variant-emoji: text;
 }
 
 .fen-piece-btn {
@@ -169,12 +194,39 @@
     align-items: start;
 }
 
+.fen-setup-board-region {
+    min-width: 0;
+    display: grid;
+    gap: 0.5rem;
+}
+
+.fen-setup-board-frame {
+    display: grid;
+    grid-template-columns: 0.8rem minmax(0, 1fr);
+    grid-template-rows: auto 0.8rem;
+    width: min(100%, 16.25rem);
+}
+
+.fen-setup-ranks, .fen-setup-files {
+    display: grid;
+    align-items: center;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.5rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.fen-setup-ranks { grid-template-rows: repeat(8, 1fr); }
+.fen-setup-files { grid-column: 2; grid-template-columns: repeat(8, 1fr); }
+
 .fen-setup-board {
+    container-type: inline-size;
     display: grid;
     grid-template-columns: repeat(8, minmax(0, 1fr));
     grid-template-rows: repeat(8, minmax(0, 1fr));
     aspect-ratio: 1;
-    width: min(100%, 16.25rem);
+    width: 100%;
     border: 1px solid var(--border-default);
     border-radius: var(--radius-sm);
     overflow: hidden;
@@ -189,7 +241,7 @@
     border-radius: 0;
     background: #f0d9b5;
     color: #f8fafc;
-    font-size: 1.2rem;
+    font-size: min(1.2rem, 8cqi);
     line-height: 1;
     display: grid;
     place-items: center;
@@ -211,6 +263,11 @@
 .fen-setup-square.black-piece {
     color: #16191f;
     text-shadow: 0 1px 2px rgba(255, 255, 255, 0.38);
+}
+
+.app-shell button.fen-setup-square:focus-visible {
+    outline: 2px solid #101218;
+    outline-offset: -3px;
 }
 
 .fen-setup-controls {
@@ -307,7 +364,8 @@
     font-weight: 700;
 }
 
-.fen-counter-field input {
+.fen-counter-field input,
+.fen-counter-field select {
     width: 100%;
     min-width: 0;
     min-height: 34px;
@@ -319,6 +377,14 @@
     font: inherit;
     font-size: 0.76rem;
     box-sizing: border-box;
+}
+
+.fen-setup-help {
+    margin: 0;
+    font-size: 0.68rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--text-tertiary);
 }
 
 .dialog-check-option {
@@ -504,13 +570,13 @@
         grid-template-columns: 1fr;
     }
 
-    .fen-setup-board {
+    .fen-setup-board-frame {
         width: min(100%, 23rem);
         justify-self: center;
     }
 
     .fen-setup-square {
-        font-size: 1.35rem;
+        font-size: min(1.35rem, 8cqi);
     }
 
     .fen-side-toggle {
@@ -668,6 +734,10 @@
     padding: 1.1rem 1.4rem 1.2rem;
     margin-top: 0.5rem;
     border-top: 1px solid var(--border-subtle);
+}
+
+.auto-save-recovery .dialog-actions {
+    flex-wrap: wrap;
 }
 
 .btn-cancel {
@@ -847,7 +917,8 @@
     .dialog-actions .btn-cancel,
     .dialog-actions .btn-start,
     .dialog-export-options .dialog-check-option,
-    .fen-counter-field input {
+    .fen-counter-field input,
+    .fen-counter-field select {
         min-height: 44px;
     }
 }
@@ -963,6 +1034,9 @@
    unselected and 3.80:1 once chosen, at 10px. One rung up on the selected card
    only, which measures 5.13 there. The same trade the analysis presets make in
    App.css, and the third place a selected state has cost contrast. */
+/* Hover also lifts the background: muted captions fall to 4.15:1 in
+   the dark theme. Keep the same readable ink as the selected state. */
+.time-control-card:hover span,
 .time-control-card.selected span {
     color: var(--text-tertiary);
 }
@@ -1036,13 +1110,16 @@
 
 .archive-fetch-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: stretch;
     gap: 0.4rem;
 }
 
 .archive-input {
-    flex: 1 1 auto;
-    min-width: 0;
+    /* Enlarged text also needs wrapping above the phone breakpoint. Without
+       a readable minimum the username shrank to 44px at 844px / 200% text. */
+    flex: 1 1 12rem;
+    min-width: min(100%, 12rem);
     padding: 0.5rem 0.65rem;
     border-radius: var(--radius-md);
     border: 1.5px solid var(--border-subtle);

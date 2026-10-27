@@ -1,0 +1,739 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 194 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DeAqgitL.js   65.00 kB
+dist/assets/LibraryDialog-CfcSTBr6.css        5.15 kB │ gzip:   1.33 kB
+dist/assets/index-BGvy08QC.css              133.95 kB │ gzip:  24.95 kB
+dist/assets/NewGameDialog-BxkZCOTm.js         4.36 kB │ gzip:   1.57 kB
+dist/assets/LibraryDialog-B_heDP4S.js        13.92 kB │ gzip:   4.82 kB
+dist/assets/PgnDialog-WHRwbnhe.js            29.78 kB │ gzip:   9.95 kB
+dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-CIaFyLPs.js               401.95 kB │ gzip: 129.91 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.18s
+  review: 116 moves, overall 95.8, white 95.3, black 96.3, ACPL 10
+  review engines: 1 (single)
+  practice: Coach hides the answer and opens a playable retry position
+  contrast (dark / settings): 68 measured, 0 under the floor (1 on a gradient, measured against its worst stop)
+  contrast (dark / analyze): 227 measured, 0 under the floor (210 on a gradient, measured against its worst stop)
+  contrast (dark / review): 835 measured, 0 under the floor (817 on a gradient, measured against its worst stop)
+  contrast (dark / new game): 22 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (dark / pgn export): 16 measured, 0 under the floor (1 on a gradient, measured against its worst stop)
+  contrast (dark / library): 5 measured, 0 under the floor (2 on a gradient, measured against its worst stop)
+  contrast (dark / play): 91 measured, 0 under the floor (74 on a gradient, measured against its worst stop)
+  contrast (light / settings): 68 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (light / analyze): 221 measured, 0 under the floor (204 on a gradient, measured against its worst stop)
+  contrast (light / review): 834 measured, 0 under the floor (816 on a gradient, measured against its worst stop)
+  contrast (light / new game): 22 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (light / pgn export): 16 measured, 0 under the floor (1 on a gradient, measured against its worst stop)
+  contrast (light / library): 5 measured, 0 under the floor (2 on a gradient, measured against its worst stop)
+  contrast (light / play): 91 measured, 0 under the floor (74 on a gradient, measured against its worst stop)
+  desktop: boot, engine handshake, layout, control names, board 550x550 OK
+  contrast (mobile / dark): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (mobile / dark settings): 69 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (mobile / light settings): 69 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (mobile / light): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  mobile: boot, engine handshake, layout, control names, board 325x325 OK
+  mode strip: "Play" in view, game modes left to the New game dialog
+  contrast (mobile landscape / dark): 139 measured, 0 under the floor (121 on a gradient, measured against its worst stop)
+  contrast (mobile landscape / dark settings): 69 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (mobile landscape / light settings): 69 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  contrast (mobile landscape / light): 139 measured, 0 under the floor (121 on a gradient, measured against its worst stop)
+  mobile landscape: boot, engine handshake, layout, control names, board 214x214 OK
+  command reopen (1280px): query and selection reset before the first key, across three reopen cycles
+  command keyboard (1280px): Tab activates the focused button; search editing and Enter work
+  command reopen (375px): query and selection reset before the first key, across three reopen cycles
+  command keyboard (375px): Tab activates the focused button; search editing and Enter work
+  command copy (1280px, 1x, dark, missing): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (1280px, 1x, dark, method-missing): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (1280px, 1x, dark, getter): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (1280px, 1x, dark, throw): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (1280px, 1x, dark, deny): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (1280px, 1x, dark, success): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (1280px, 1x): successful payloads include exact FEN, parsed Unicode PGN and an actual replayable game link; old rejected/successful replies cannot replace newer feedback
+  command copy (375px, 2x, light, missing): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (375px, 2x, light, method-missing): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (375px, 2x, light, getter): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (375px, 2x, light, throw): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (375px, 2x, light, deny): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (375px, 2x, light, success): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (375px, 2x): successful payloads include exact FEN, parsed Unicode PGN and an actual replayable game link; old rejected/successful replies cannot replace newer feedback
+  command layout (320x568, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (375x812, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (768x1024, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (844x390, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (1280x800, 1x text): dialog, full label and reason fit; selection opens Settings
+  command layout (320x568, 2x text): dialog, full label and reason fit; selection opens Settings
+  command layout (1280x800, 2x text): dialog, full label and reason fit; selection opens Settings
+  palette reading (320×812, 2x, light): intact title; full unavailable card; hint 9.7:1 including opacity; steady phone search and Close
+  palette reading (375×812, 2x, dark): intact title; full unavailable card; hint 8.3:1 including opacity; steady phone search and Close
+  palette reading (320×568, 1x, light): intact title; full unavailable card; hint 9.7:1 including opacity; steady phone search and Close
+  palette reading (375×812, 1x, dark): intact title; full unavailable card; hint 8.3:1 including opacity; steady phone search and Close
+  palette reading (1280×800, 2x, light): intact title; full unavailable card; hint 9.7:1 including opacity; steady phone search and Close
+  failed dialog (1280px): board stays playable after repeated failures; other dialogs still open
+  failed dialog (375px): board stays playable after repeated failures; other dialogs still open
+  slow dialog (NewGameDialog, 1280px, 200% text): Escape, Cancel, focus trap, reopen, completed download and playable board
+  slow dialog (PgnDialog, 1280px, 200% text): Escape, Cancel, focus trap, reopen, completed download and playable board
+  slow dialog (LibraryDialog, 1280px, 200% text): Escape, Cancel, focus trap, reopen, completed download and playable board
+  slow dialog (NewGameDialog, 375px, 200% text): Escape, Cancel, focus trap, reopen, completed download and playable board
+  slow dialog (PgnDialog, 375px, 200% text): Escape, Cancel, focus trap, reopen, completed download and playable board
+  slow dialog (LibraryDialog, 375px, 200% text): Escape, Cancel, focus trap, reopen, completed download and playable board
+  contrast (Dark / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 1280px): 163 measured, 0 under the floor (146 on a gradient, measured against its worst stop)
+  typed moves (1280px, Dark): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  contrast (Dark / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 375px): 160 measured, 0 under the floor (142 on a gradient, measured against its worst stop)
+  typed moves (375px, Dark): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 1280px): 163 measured, 0 under the floor (146 on a gradient, measured against its worst stop)
+  typed moves (1280px, Light): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 375px): 160 measured, 0 under the floor (142 on a gradient, measured against its worst stop)
+  typed moves (375px, Light): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  bishop guidance (1280px, 1x, dark): refused a/c pawn drafts keep focus/board; associated legal bishop choices wrap; corrected and explicitly disambiguated captures move the selected bishop and clear errors
+  bishop guidance (375px, 1x, light): refused a/c pawn drafts keep focus/board; associated legal bishop choices wrap; corrected and explicitly disambiguated captures move the selected bishop and clear errors
+  bishop guidance (375px, 2x, dark): refused a/c pawn drafts keep focus/board; associated legal bishop choices wrap; corrected and explicitly disambiguated captures move the selected bishop and clear errors
+  bishop guidance (320px, 2x, light): refused a/c pawn drafts keep focus/board; associated legal bishop choices wrap; corrected and explicitly disambiguated captures move the selected bishop and clear errors
+  contrast (Dark / recovery warning / 1280px): 162 measured, 0 under the floor (144 on a gradient, measured against its worst stop)
+  autosave (1280px, Dark): denied storage is visible, PGN downloads, retry recovers
+  contrast (Dark / recovery warning / 375px): 159 measured, 0 under the floor (137 on a gradient, measured against its worst stop)
+  autosave (375px, Dark): denied storage is visible, PGN downloads, retry recovers
+  contrast (Light / recovery warning / 1280px): 162 measured, 0 under the floor (144 on a gradient, measured against its worst stop)
+  autosave (1280px, Light): denied storage is visible, PGN downloads, retry recovers
+  contrast (Light / recovery warning / 375px): 159 measured, 0 under the floor (137 on a gradient, measured against its worst stop)
+  autosave (375px, Light): denied storage is visible, PGN downloads, retry recovers
+  startup (analysis, silent-first): fallback answered
+  startup (analysis, silent-all): failure is visible
+  startup (play, silent-first): fallback answered
+  startup (play, silent-all): failure is visible
+  contrast (Engine Lab shared settings / 1280px): 131 measured, 0 under the floor (113 on a gradient, measured against its worst stop)
+  Engine Lab (1280px): shared settings, next search, reload, and console updates agree
+  contrast (Engine Lab shared settings / 375px): 129 measured, 0 under the floor (110 on a gradient, measured against its worst stop)
+  Engine Lab (375px): shared settings, next search, reload, and console updates agree
+  console search (1280px): startup guard, tab/space commands, busy status, stop/acknowledge before new position, isolated late scores, working Stop and completed perft
+  console search (375px): startup guard, tab/space commands, busy status, stop/acknowledge before new position, isolated late scores, working Stop and completed perft
+  threat reload (1280×900, 1x, dark): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat reload (375×812, 1x, light): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat reload (320×812, 2x, light): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat reload (844×390, 2x, dark): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat recovery (1280×900, 1x, dark, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (1280×900, 1x, dark, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (1280×900, 1x, dark, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (375×812, 1x, light, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (375×812, 1x, light, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (375×812, 1x, light, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (320×812, 2x, light, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (320×812, 2x, light, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (320×812, 2x, light, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (844×390, 2x, dark, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (844×390, 2x, dark, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (844×390, 2x, dark, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat shortcut (1280×900, 1x, dark): repeats and busy presses preserve the held search; completion ignores the held key; release and press asks again
+  threat shortcut (375×812, 1x, light): repeats and busy presses preserve the held search; completion ignores the held key; release and press asks again
+  threat shortcut (320×812, 2x, light): repeats and busy presses preserve the held search; completion ignores the held key; release and press asks again
+  threat shortcut (844×390, 2x, dark): repeats and busy presses preserve the held search; completion ignores the held key; release and press asks again
+  engine release (1280px, 1x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (1280px, 2x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (375px, 1x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (375px, 2x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release: import stays unloaded; explicit Review loads; busy two-worker review pool blocks release even when foreground is Ready; Stop then Release closes every worker
+  engine release (hidden): hidden infinite search waits for visibility; Stop during reload cancels it
+  engine release (fallback): explicit search survives a failed boot and runs once on fallback
+  engine release (fallback-load): Load preserves prior lines through a failed boot and fallback handshake, without another search
+  engine retry (1280×900, 1x, dark, boot, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; repeated failure recovers
+  engine retry (1280×900, 1x, dark, runtime, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (1280×900, 1x, dark, runtime, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (1280×900, 1x, dark, hidden, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; infinite analysis waits for visibility
+  engine retry (375×812, 1x, light, boot, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; repeated failure recovers
+  engine retry (375×812, 1x, light, runtime, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (375×812, 1x, light, runtime, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (375×812, 1x, light, hidden, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; infinite analysis waits for visibility
+  engine retry (320×812, 2x, light, boot, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; repeated failure recovers
+  engine retry (320×812, 2x, light, runtime, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (320×812, 2x, light, runtime, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (320×812, 2x, light, hidden, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; infinite analysis waits for visibility
+  engine retry (844×390, 2x, dark, boot, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; repeated failure recovers
+  engine retry (844×390, 2x, dark, runtime, auto false): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (844×390, 2x, dark, runtime, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry (844×390, 2x, dark, hidden, auto true): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search; infinite analysis waits for visibility
+  profile analysis (1280×900, 1x, dark, auto true, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (1280×900, 1x, dark, auto false, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (1280×900, 1x, dark, auto true, hidden): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (1280×900, 1x, dark, auto true, released): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (375×812, 1x, light, auto true, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (375×812, 1x, light, auto false, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (375×812, 1x, light, auto true, hidden): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (375×812, 1x, light, auto true, released): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (320×812, 2x, light, auto true, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (320×812, 2x, light, auto false, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (320×812, 2x, light, auto true, hidden): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (320×812, 2x, light, auto true, released): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (844×390, 2x, dark, auto true, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (844×390, 2x, dark, auto false, finite): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (844×390, 2x, dark, auto true, hidden): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  profile analysis (844×390, 2x, dark, auto true, released): both directions retain position/history/settings and picker focus, obey readiness/Auto/release/visibility, and refresh the previous deeper reading
+  queued fallback (1280×900, 1x, dark, auto): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (1280×900, 1x, dark, manual): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (1280×900, 1x, dark, latest): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (1280×900, 1x, dark, hidden): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (1280×900, 1x, dark, cancelled): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (1280×900, 1x, dark, constructor): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (375×812, 1x, light, auto): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (375×812, 1x, light, manual): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (375×812, 1x, light, latest): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (375×812, 1x, light, hidden): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (375×812, 1x, light, cancelled): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (375×812, 1x, light, constructor): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (320×812, 2x, light, auto): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (320×812, 2x, light, manual): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (320×812, 2x, light, latest): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (320×812, 2x, light, hidden): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (320×812, 2x, light, cancelled): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (320×812, 2x, light, constructor): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (844×390, 2x, dark, auto): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (844×390, 2x, dark, manual): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (844×390, 2x, dark, latest): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (844×390, 2x, dark, hidden): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (844×390, 2x, dark, cancelled): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  queued fallback (844×390, 2x, dark, constructor): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected
+  console deadlines (1280px, 1x): timed/depth/node/clock searches survive 95s, hidden finite completion, reachable Stop, isolated scores, diagnostic timeout and recovery
+  console deadlines (1280px, 2x): timed/depth/node/clock searches survive 95s, hidden finite completion, reachable Stop, isolated scores, diagnostic timeout and recovery
+  console deadlines (375px, 1x): timed/depth/node/clock searches survive 95s, hidden finite completion, reachable Stop, isolated scores, diagnostic timeout and recovery
+  console deadlines (375px, 2x): timed/depth/node/clock searches survive 95s, hidden finite completion, reachable Stop, isolated scores, diagnostic timeout and recovery
+  console tools (1280px, 1x text, dark): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable
+  console tools (1280px, 2x text, light): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable
+  console tools (375px, 1x text, light): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable
+  console tools (375px, 2x text, dark): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable
+  console limits (1280px, 1x): native keyword/integer rules, final duplicate limits, zero-perft/mate-only pause/resume, and finite work preserved
+  console limits (375px, 2x): native keyword/integer rules, final duplicate limits, zero-perft/mate-only pause/resume, and finite work preserved
+  console whitespace (1280px, 1x, dark): Unicode spaces/tabs dispatch native ASCII search tokens; raw echo/history and recall retained; bounded searches finish without expert mode; zero/trailing-limit/uppercase guards remain enforced; board unchanged
+  console whitespace (375px, 2x, light): Unicode spaces/tabs dispatch native ASCII search tokens; raw echo/history and recall retained; bounded searches finish without expert mode; zero/trailing-limit/uppercase guards remain enforced; board unchanged
+  perft Stop (1280px, 1x): button/typed cancellation releases worker, retains output/draft/board/managed options, reloads cleanly and ignores late replies; zero-perft uses ordinary Stop
+  perft Stop (375px, 2x): button/typed cancellation releases worker, retains output/draft/board/managed options, reloads cleanly and ignores late replies; zero-perft uses ordinary Stop
+  raw spin options (1280px, 1x): native syntax/ranges, retained settings/output/drafts, missing values, canonical keywords/names, multiword zero value and managed Hash behavior
+  raw spin options (375px, 2x): native syntax/ranges, retained settings/output/drafts, missing values, canonical keywords/names, multiword zero value and managed Hash behavior
+  thread configuration: startup readiness, console/direct-control acknowledgements, managed-command guards, newer drafts and subsequent search
+  console drafts (1280px, 1x): new drafts survive completion and Stop, typed Stop retains terminal output/history, unchanged submissions clear, and reset discards late output
+  console drafts (375px, 2x): new drafts survive completion and Stop, typed Stop retains terminal output/history, unchanged submissions clear, and reset discards late output
+  console history (1280px, 1x): full history leaves feedback visible and output first; recall focuses/selects, Enter repeats, typing replaces, and associated alerts clear on new edits
+  console history (375px, 2x): full history leaves feedback visible and output first; recall focuses/selects, Enter repeats, typing replaces, and associated alerts clear on new edits
+  console following (1280px, 1x): 300-line tail, manual reading retained, latest/focus restored, keyboard scope/Commands, new command and Clear reset following
+  console following (375px, 1x): 300-line tail, manual reading retained, latest/focus restored, keyboard scope/Commands, new command and Clear reset following
+  console following (375px, 2x): 300-line tail, manual reading retained, latest/focus restored, keyboard scope/Commands, new command and Clear reset following
+  console copy (1280px, 1x): rendered snapshot, Clear/new command ownership, newer validation/runtime errors, overlapping results, retry, tab change and workspace reset
+  console copy (375px, 2x): rendered snapshot, Clear/new command ownership, newer validation/runtime errors, overlapping results, retry, tab change and workspace reset
+  console download (1280×812, 1x, dark): exact finite/live UTF-8 files; clipboard denial and older reply; draft/selection and diagnostics preserved; failure/retry; visible 300-line cap; URL/anchor cleanup; reachable action and Clear
+  console download (375×812, 1x, light): exact finite/live UTF-8 files; clipboard denial and older reply; draft/selection and diagnostics preserved; failure/retry; visible 300-line cap; URL/anchor cleanup; reachable action and Clear
+  console download (320×812, 2x, light): exact finite/live UTF-8 files; clipboard denial and older reply; draft/selection and diagnostics preserved; failure/retry; visible 300-line cap; URL/anchor cleanup; reachable action and Clear
+  console download (844×390, 2x, dark): exact finite/live UTF-8 files; clipboard denial and older reply; draft/selection and diagnostics preserved; failure/retry; visible 300-line cap; URL/anchor cleanup; reachable action and Clear
+  console Select All (1280px, 1x, dark): Control/Command+A select only output; denied API still allows native Copy + actual clipboard; input/Commands/composing/modifier scope; live Unicode and retained 300-line selection; board unchanged
+  console Select All (375px, 1x, light): Control/Command+A select only output; denied API still allows native Copy + actual clipboard; input/Commands/composing/modifier scope; live Unicode and retained 300-line selection; board unchanged
+  console Select All (375px, 2x, dark): Control/Command+A select only output; denied API still allows native Copy + actual clipboard; input/Commands/composing/modifier scope; live Unicode and retained 300-line selection; board unchanged
+  console Select All (320px, 2x, light): Control/Command+A select only output; denied API still allows native Copy + actual clipboard; input/Commands/composing/modifier scope; live Unicode and retained 300-line selection; board unchanged
+  console copy feedback (1280px, 1x, dark): matching finite/live payloads only; new output and delayed success keep Copy; latest request owns results; identical 300-line tail keeps Copied; denial/retry, terminal output and Clear reset correctly
+  console copy feedback (375px, 1x, light): matching finite/live payloads only; new output and delayed success keep Copy; latest request owns results; identical 300-line tail keeps Copied; denial/retry, terminal output and Clear reset correctly
+  console copy feedback (375px, 2x, dark): matching finite/live payloads only; new output and delayed success keep Copy; latest request owns results; identical 300-line tail keeps Copied; denial/retry, terminal output and Clear reset correctly
+  console copy feedback (320px, 2x, light): matching finite/live payloads only; new output and delayed success keep Copy; latest request owns results; identical 300-line tail keeps Copied; denial/retry, terminal output and Clear reset correctly
+  console keyboard history (1280px, 1x): bounded Up/Down recall, unsent/edited draft restoration and caret, click/submit reset, IME/modifier scope, discoverable help and empty history
+  console keyboard history (375px, 2x): bounded Up/Down recall, unsent/edited draft restoration and caret, click/submit reset, IME/modifier scope, discoverable help and empty history
+  clear command history (1280×812, 1x, dark): pointer/Enter/Space clear only persisted history; draft/selection, visible focus, output and workspace retained; recall resets; active command completes normally; new commands start a fresh history
+  clear command history (375×812, 1x, light): pointer/Enter/Space clear only persisted history; draft/selection, visible focus, output and workspace retained; recall resets; active command completes normally; new commands start a fresh history
+  clear command history (375×812, 2x, dark): pointer/Enter/Space clear only persisted history; draft/selection, visible focus, output and workspace retained; recall resets; active command completes normally; new commands start a fresh history
+  clear command history (320×812, 2x, light): pointer/Enter/Space clear only persisted history; draft/selection, visible focus, output and workspace retained; recall resets; active command completes normally; new commands start a fresh history
+  clear command history (844×390, 2x, dark): pointer/Enter/Space clear only persisted history; draft/selection, visible focus, output and workspace retained; recall resets; active command completes normally; new commands start a fresh history
+  normalized history (1280px, 1x, dark): duplicate/whitespace legacy entries yield distinct ordered buttons; older commands remain reachable; Up/Down restores draft without sending; running/reloading/recalling keeps unique order and no duplicate-key errors
+  normalized history (375px, 2x, light): duplicate/whitespace legacy entries yield distinct ordered buttons; older commands remain reachable; Up/Down restores draft without sending; running/reloading/recalling keeps unique order and no duplicate-key errors
+  console visibility (1280px, 1x): survives 95s, bounded/Clear output, held-frame Clear and completion, stop/ack/resume, rapid return, hidden submission, Stop cancellation, board handoff, finite work and teardown
+  console visibility (1280px, 2x): survives 95s, bounded/Clear output, held-frame Clear and completion, stop/ack/resume, rapid return, hidden submission, Stop cancellation, board handoff, finite work and teardown
+  console visibility (375px, 1x): survives 95s, bounded/Clear output, held-frame Clear and completion, stop/ack/resume, rapid return, hidden submission, Stop cancellation, board handoff, finite work and teardown
+  console visibility (375px, 2x): survives 95s, bounded/Clear output, held-frame Clear and completion, stop/ack/resume, rapid return, hidden submission, Stop cancellation, board handoff, finite work and teardown
+  console layout (1280px, 1x): full FEN summary and history, complete recalled command, 2 balanced action rows and 32px minimum targets
+  console layout (1280px, 2x): full FEN summary and history, complete recalled command, 4 balanced action rows and 32px minimum targets
+  console layout (375px, 1x): full FEN summary and history, complete recalled command, 2 balanced action rows and 44px minimum targets
+  console layout (375px, 2x): full FEN summary and history, complete recalled command, 4 balanced action rows and 44px minimum targets
+  console layout (320px, 1x): full FEN summary and history, complete recalled command, 2 balanced action rows and 44px minimum targets
+  console layout (320px, 2x): full FEN summary and history, complete recalled command, 4 balanced action rows and 44px minimum targets
+  single-thread profile: 64 MB / limit 4, 4 pool workers; resource control persists
+  single-thread profile: 32 MB / limit 4, 2 pool workers; resource control persists
+  single-thread profile: 64 MB / limit 1, 0 pool workers; resource control persists
+  Coach: cloud position score agrees with the bar; local candidate depth is labeled separately
+  bounded score: eval bar reads -2.2, not the bound
+  candidate search (1280px, known position): preserves position/export, labels candidates, and clears the restriction on the next search
+  candidate search (375px, known position): preserves position/export, labels candidates, and clears the restriction on the next search
+  candidate search (375px, unevaluated position): preserves position/export, labels candidates, and clears the restriction on the next search
+  evaluation provenance (1280px): actual worker identity, retained score after engine switch, review source, deeper replacement, and optional PGN metadata
+  evaluation provenance (375px): actual worker identity, retained score after engine switch, review source, deeper replacement, and optional PGN metadata
+  PV reuse (1280px): focus previews and restores the board; repeated search keeps the line clickable; export contains both committed plies
+  PV reuse (375px): focus previews and restores the board; repeated search keeps the line clickable; export contains both committed plies
+  review controls (1280px): fresh search, exact report PGN download, and 200% text fit
+  review engine (1280px, limit 4): switched engine searches the full game, report excludes deeper old scores, completed readings are reusable
+  review controls (375px): fresh search, exact report PGN download, and 200% text fit
+  review engine (375px, limit 1): switched engine searches the full game, report excludes deeper old scores, completed readings are reusable
+  review controls (1280px): fresh search, exact report PGN download, and 200% text fit
+  review engine (1280px, limit 4, mid-search pool failure): switched engine searches the full game, report excludes deeper old scores, completed readings are reusable
+  review search (1280×900, 1x, dark): international/multi-term filters, explicit empty results, correct actions/opening, complete unchanged backup, keyboard clearing, rename/save visibility and deletion focus preserve the report
+  review search (375×812, 1x, light): international/multi-term filters, explicit empty results, correct actions/opening, complete unchanged backup, keyboard clearing, rename/save visibility and deletion focus preserve the report
+  review search (320×812, 2x, light): international/multi-term filters, explicit empty results, correct actions/opening, complete unchanged backup, keyboard clearing, rename/save visibility and deletion focus preserve the report
+  review search (844×390, 2x, dark): international/multi-term filters, explicit empty results, correct actions/opening, complete unchanged backup, keyboard clearing, rename/save visibility and deletion focus preserve the report
+  saved reviews (1280px, dark): two producers survive reload; comparison keeps own scores/WDL, navigates, focuses all reveal pages and close, announces counts and preserves delayed-read focus; open another line, export, delete and 200% text fit
+  saved reviews (375px, light): two producers survive reload; comparison keeps own scores/WDL, navigates, focuses all reveal pages and close, announces counts and preserves delayed-read focus; open another line, export, delete and 200% text fit
+  saved reviews (320px, light): two producers survive reload; comparison keeps own scores/WDL, navigates, focuses all reveal pages and close, announces counts and preserves delayed-read focus; open another line, export, delete and 200% text fit
+  saved reviews (844px, dark): two producers survive reload; comparison keeps own scores/WDL, navigates, focuses all reveal pages and close, announces counts and preserves delayed-read focus; open another line, export, delete and 200% text fit
+  review deletion focus (1280×900, 1x, dark): first press/held Enter preserve storage; Escape/blur/selection/expiry/disclosure disarm; second press confirms; retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained
+  review deletion focus (375×812, 1x, light): first press/held Enter preserve storage; Escape/blur/selection/expiry/disclosure disarm; second press confirms; retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained
+  review deletion focus (320×812, 2x, light): first press/held Enter preserve storage; Escape/blur/selection/expiry/disclosure disarm; second press confirms; retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained
+  review deletion focus (844×390, 2x, dark): first press/held Enter preserve storage; Escape/blur/selection/expiry/disclosure disarm; second press confirms; retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained
+  review naming (1280px): selected draft/cancel, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery
+  review naming (375px): selected draft/cancel, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery
+  review names (1280px): saved title and dated download follow the reviewed Queen's Gambit branch after stepping back; whole-game export retains the King's Knight main line
+  review names (375px): saved title and dated download follow the reviewed Queen's Gambit branch after stepping back; whole-game export retains the King's Knight main line
+  saved review storage: quota failure is explicit and retryable; corrupt readings preserve the board; two tabs fill one free slot without eviction
+  saved ending (checkmate, 375px): completed report saves, reopens and exports with 1 engine readings
+  saved ending (insufficient material, 375px): completed report saves, reopens and exports with 0 engine readings
+  repetition (1280px): import, navigation, charts and Play keep the draw; same-FEN histories and sibling lines stay separate; complete Coach readings at 200% text
+  repetition (375px): import, navigation, charts and Play keep the draw; same-FEN histories and sibling lines stay separate; complete Coach readings at 200% text
+  repetition review (1280px, 4 workers): 14 engine searches, draw omitted; old complete/partial runs open, compare and back up unchanged; resume needs no search
+  repetition review (375px, 1 workers): 14 engine searches, draw omitted; old complete/partial runs open, compare and back up unchanged; resume needs no search
+  finished automatic analysis (1280px): import omits the draw, returning stops the old infinite search; explicit Analyze/Stop remain usable and unfinished navigation resumes
+  finished automatic analysis (375px): import omits the draw, returning stops the old infinite search; explicit Analyze/Stop remain usable and unfinished navigation resumes
+  review backup export (1280px): a native worker exports complete/partial runs with exact WDL, settings and timestamps; 200% text and download failure preserve the open report
+  review backup export (375px): a native worker exports complete/partial runs with exact WDL, settings and timestamps; 200% text and download failure preserve the open report
+  review backup import (1280px): a clean browser restores exact complete/partial runs, preserves ID collisions, deduplicates retries, keeps the current board and rejects corrupt data; post-insert abort, capacity and concurrent imports are atomic
+  review backup import (375px): a clean browser restores exact complete/partial runs, preserves ID collisions, deduplicates retries, keeps the current board and rejects corrupt data; the cached worker imports and exports offline
+  review depth (1280px, max 4 workers): D6 completes and reuses, preserves 117 saved/exported scores without accuracy grades; Deepen review runs D10 and grades every move
+  review depth (375px, max 1 workers): D6 completes and reuses, preserves 117 saved/exported scores without accuracy grades; Deepen review runs D10 and grades every move
+  takeback: the game follows the move played, not the one undone
+  takeback: the clock follows the turn back
+  takeback: the mate's 0-1 came off with the mate
+  results: cleared with their own mate, kept across three games, and an imported 1-0 survived
+  mode switch: the clock started again, 2:59 -> 2:58
+  recorded clocks: 0:03:01 and 0:03:01, the readings on the faces
+  replayed clock: 3:01 before the take-back, 2:57 after, and 0:02:57 recorded
+  step mode: held at 2:59 and 3:01 through five-second waits, and paid 3:01 and 3:03 for released moves; the human timer stays accessible and the first Space pauses it; the next Space resumes it
+  engine boot: held at 2:59 through a five-second load, then paid 3:01 for the move it made
+  top arrows: slider 3, MultiPV 2, 2 drawn, and the card says which limit applies
+  opening filters: Lichess asked with blitz,bullet,classical,rapid and ratings 1600,1800,2000,2200; 1 Masters request(s) carried neither
+  advanced limits: go depth 16 nodes 50000 wtime 61000 btime 62000 winc 3000 binc 4000 movestogo 7
+  palette tabs: Engine Lab from Play mode lands on ["Analyze:false","Review:false","Engine Lab:true"]
+  hint threads: 0 thread change(s) for one hint []
+  reset workspace: analyze controls go back to defaults, the light theme stays light
+  sound release: one context per on-period, closed the moment the switch says off ({"supported":true,"made":2,"closed":1})
+  small device: 2GB dual-core gets 16 MB hash, 1 line, and "up to 1 engine, 1 thread each, 16 MB hash each"
+  settings dialog: all 26 focusable controls are inside the trap, disclosure included
+  backdrop: clicking away closes the dialog and returns focus to its opener
+  New game: 11 focusable controls, all inside the trap
+  PGN and FEN: 10 focusable controls, all inside the trap
+  Library: 2 focusable controls, all inside the trap
+  Command palette: 24 focusable controls, all inside the trap
+  Promotion chooser: 5 focusable controls, all inside the trap
+  markup: skip link reachable and lands on the board, heading outline unbroken, nothing stranded behind a dialog, inert honoured, every field named, no id used twice
+  keyboard: e2 selected, e3 and e4 offered and named, Enter played e4, focus stayed on the board
+  finished game: the clock held at 3:03 through a pause, a resume and a walk
+  navigation: pass and play hands the clock back with the turn
+  navigation: exploring against the engine holds both clocks at 2:58|3:01
+  keep searching: off asks for "go depth 16", on asks for "go infinite"
+  autoplay: walked to the end of the line and stopped
+  autoplay speed (1280px, 1x): Normal fallback selected, AI Step retained, Fast walks to the end
+  autoplay speed (375px, 1x): Normal fallback selected, AI Step retained, Fast walks to the end
+  autoplay speed (375px, 2x): Normal fallback selected, AI Step retained, Fast walks to the end
+  typed move: nf3 and e7e5 landed, a repeated Nf3 was refused and kept
+  move times: ten timed moves drawn, longest think 47s
+  review offer: one press from Analyze reviewed all ten moves
+  move list fit (1280×900, 1x, dark, nested study): all 7 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (1280×900, 1x, dark, castling): all 3 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (1280×900, 1x, dark, promotion): all 4 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (901×812, 2x, light, nested study): all 7 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (901×812, 2x, light, castling): all 3 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (901×812, 2x, light, promotion): all 4 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (375×812, 1x, light, nested study): all 7 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (375×812, 1x, light, castling): all 3 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (375×812, 1x, light, promotion): all 4 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (320×812, 2x, dark, nested study): all 7 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (320×812, 2x, dark, castling): all 3 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (320×812, 2x, dark, promotion): all 4 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (844×390, 2x, dark, nested study): all 7 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (844×390, 2x, dark, castling): all 3 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (844×390, 2x, dark, promotion): all 4 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  confirmation keys (1280×900, 1x, dark): native repeated Enter preserves the library, variation and live game; a separate press confirms each action
+  confirmation keys (375×812, 1x, light): native repeated Enter preserves the library, variation and live game; a separate press confirms each action
+  confirmation keys (320×812, 2x, light): native repeated Enter preserves the library, variation and live game; a separate press confirms each action
+  confirmation keys (844×390, 2x, dark): native repeated Enter preserves the library, variation and live game; a separate press confirms each action
+  resignation: take back is off, with the reason; Play again starts afresh
+  quick start: a Master, Black, 3+2 game from one press
+  premove (1280×900, 1x, dark): held replies prove queuing; Escape cancels without changing the opponent search; modal Escape preserves the queue; legal reply executes in order; takeback clears it
+  premove (375×812, 1x, light): held replies prove queuing; Escape cancels without changing the opponent search; modal Escape preserves the queue; legal reply executes in order; takeback clears it
+  premove (320×812, 2x, light): held replies prove queuing; Escape cancels without changing the opponent search; modal Escape preserves the queue; legal reply executes in order; takeback clears it
+  premove (844×390, 2x, dark): held replies prove queuing; Escape cancels without changing the opponent search; modal Escape preserves the queue; legal reply executes in order; takeback clears it
+  threat: asked with the move handed over and no en passant, bounded, board handed back, cleared by a move
+  board semantics (1280px, dark): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture, arrival/departure cleanup, root navigation, flip and blindfold preserved
+  board semantics (375px, light): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture, arrival/departure cleanup, root navigation, flip and blindfold preserved
+  blindfold: no tooltip names a piece, occupied reads as empty, the accessible name is untouched
+  hint: three presses asked once, drew an arrow, and did not outlive the position
+  hint shortcut (1280×900, 1x, dark): first press answers once; held H retains the hint without searching; release and press asks again without moving
+  hint shortcut (375×812, 1x, light): first press answers once; held H retains the hint without searching; release and press asks again without moving
+  hint shortcut (320×812, 2x, light): first press answers once; held H retains the hint without searching; release and press asks again without moving
+  hint shortcut (844×390, 2x, dark): first press answers once; held H retains the hint without searching; release and press asks again without moving
+  hint copy: "Try e4 — drawn on the board in green." with arrows on, "Try e4 — board arrows are off, so nothing is drawn." with them off
+  import sweep: reached 35/40 and closed
+  nudge: a blunder is pointed out where it happens, and the take-back clears it
+  review report: holds still after 4 positions were re-searched and disagreed
+  review offer: spent on the reviewed line, offered again for the game played from that position (Ba4)
+  practice ownership (1280×900, 1x, dark): active f3 drill, Slow replay yield to e4 practice; board focus, legal wrong-answer reset and correct solution work; Done restores the question; a new drill accepts f3; original line and one solution variation remain
+  practice ownership (375×812, 1x, light): active f3 drill, Slow replay and marking yield to e4 practice; board focus, legal wrong-answer reset and correct solution work; Done restores the question; a new drill accepts f3; original line and one solution variation remain
+  practice ownership (320×812, 2x, dark): active f3 drill, Slow replay and marking yield to e4 practice; board focus, legal wrong-answer reset and correct solution work; Done restores the question; a new drill accepts f3; original line and one solution variation remain
+  practice ownership (844×390, 2x, light): active f3 drill, Slow replay and marking yield to e4 practice; board focus, legal wrong-answer reset and correct solution work; Done restores the question; a new drill accepts f3; original line and one solution variation remain
+  return to drill (1280×900, 1x, dark, White): keyboard/pointer return preserves exact question, progress, misses and revealed answer; stops replay and focuses the board; correct moves complete without changing the study; removed question disables Return and Restart rebuilds the line
+  return to drill (1280×900, 1x, dark, Black): keyboard/pointer return preserves exact question, progress, misses and revealed answer; stops replay and focuses the board; correct moves complete without changing the study
+  return to drill (375×812, 1x, light, White): keyboard/pointer return preserves exact question, progress, misses and revealed answer; stops replay and focuses the board; correct moves complete without changing the study
+  return to drill (375×812, 1x, light, Black): keyboard/pointer return preserves exact question, progress, misses and revealed answer; stops replay and focuses the board; correct moves complete without changing the study
+  return to drill (320×812, 2x, light, White): keyboard/pointer return preserves exact question, progress, misses and revealed answer; stops replay and focuses the board; correct moves complete without changing the study; removed question disables Return and Restart rebuilds the line
+  return to drill (320×812, 2x, light, Black): keyboard/pointer return preserves exact question, progress, misses and revealed answer; stops replay and focuses the board; correct moves complete without changing the study
+  return to drill (844×390, 2x, dark, White): keyboard/pointer return preserves exact question, progress, misses and revealed answer; stops replay and focuses the board; correct moves complete without changing the study
+  return to drill (844×390, 2x, dark, Black): keyboard/pointer return preserves exact question, progress, misses and revealed answer; stops replay and focuses the board; correct moves complete without changing the study
+  drill hidden hints (1280×900, 1x, dark): known best/reply titles disappear in Coach/Pro and through one miss, advance and restart; two misses/exit restore titles; native hover and all 64 useful square labels retain no answer coordinates; one persistent board status announces both misses and truthful completion; the readable card stays non-live and the revealed answer reaches the board
+  drill hidden hints (375×812, 1x, light): known best/reply titles disappear in Coach/Pro and through one miss, advance and restart; two misses/exit restore titles; native hover and all 64 useful square labels retain no answer coordinates; one persistent board status announces both misses and truthful completion; the readable card stays non-live and the revealed answer reaches the board
+  drill hidden hints (320×812, 2x, dark): known best/reply titles disappear in Coach/Pro and through one miss, advance and restart; two misses/exit restore titles; native hover and all 64 useful square labels retain no answer coordinates; one persistent board status announces both misses and truthful completion; the readable card stays non-live and the revealed answer reaches the board
+  drill hidden hints (844×390, 2x, light): known best/reply titles disappear in Coach/Pro and through one miss, advance and restart; two misses/exit restore titles; native hover and all 64 useful square labels retain no answer coordinates; one persistent board status announces both misses and truthful completion; the readable card stays non-live and the revealed answer reaches the board
+  show drill move (1280×900, 1x, White): explicit answer at board and card without a fabricated miss; board focus/input, hint retention on a wrong attempt, next-question/reset hiding and unchanged completed study
+  show drill move (1280×900, 1x, Black): explicit answer at board and card without a fabricated miss; board focus/input, hint retention on a wrong attempt, next-question/reset hiding and unchanged completed study
+  show drill move (375×812, 1x, White): explicit answer at board and card without a fabricated miss; board focus/input, hint retention on a wrong attempt, next-question/reset hiding and unchanged completed study
+  show drill move (375×812, 1x, Black): explicit answer at board and card without a fabricated miss; board focus/input, hint retention on a wrong attempt, next-question/reset hiding and unchanged completed study
+  show drill move (320×812, 2x, White): explicit answer at board and card without a fabricated miss; board focus/input, hint retention on a wrong attempt, next-question/reset hiding and unchanged completed study
+  show drill move (320×812, 2x, Black): explicit answer at board and card without a fabricated miss; board focus/input, hint retention on a wrong attempt, next-question/reset hiding and unchanged completed study
+  show drill move (844×390, 2x, White): explicit answer at board and card without a fabricated miss; board focus/input, hint retention on a wrong attempt, next-question/reset hiding and unchanged completed study
+  show drill move (844×390, 2x, Black): explicit answer at board and card without a fabricated miss; board focus/input, hint retention on a wrong attempt, next-question/reset hiding and unchanged completed study
+  drill restart (1280×900, 1x, dark, White): three-move captured line survives browsing a shorter branch; misses reset, active autoplay stops, original answer advances and study is unchanged; explicitly starting another side follows the new branch while already drilling
+  drill restart (1280×900, 1x, dark, Black): three-move captured line survives browsing a shorter branch; misses reset, active autoplay stops, original answer advances and study is unchanged; explicitly starting another side follows the new branch while already drilling
+  drill restart (375×812, 1x, light, White): three-move captured line survives browsing a shorter branch; misses reset, active autoplay stops, original answer advances and study is unchanged; explicitly starting another side follows the new branch while already drilling; first start, Restart and side change leave marking and accept board moves
+  drill restart (375×812, 1x, light, Black): three-move captured line survives browsing a shorter branch; misses reset, active autoplay stops, original answer advances and study is unchanged; explicitly starting another side follows the new branch while already drilling; first start, Restart and side change leave marking and accept board moves
+  drill restart (320×812, 2x, light, White): three-move captured line survives browsing a shorter branch; misses reset, active autoplay stops, original answer advances and study is unchanged; explicitly starting another side follows the new branch while already drilling; first start, Restart and side change leave marking and accept board moves
+  drill restart (320×812, 2x, light, Black): three-move captured line survives browsing a shorter branch; misses reset, active autoplay stops, original answer advances and study is unchanged; explicitly starting another side follows the new branch while already drilling; first start, Restart and side change leave marking and accept board moves
+  drill restart (844×390, 2x, dark, White): three-move captured line survives browsing a shorter branch; misses reset, active autoplay stops, original answer advances and study is unchanged; explicitly starting another side follows the new branch while already drilling; first start, Restart and side change leave marking and accept board moves
+  drill restart (844×390, 2x, dark, Black): three-move captured line survives browsing a shorter branch; misses reset, active autoplay stops, original answer advances and study is unchanged; explicitly starting another side follows the new branch while already drilling; first start, Restart and side change leave marking and accept board moves
+  drill: two wrong moves and a right one leave the line byte for byte
+  drill: left behind on the way out of Analysis, so Play still takes a move off the line
+  shortcuts: six chords left to the browser, and f and ArrowLeft still the app's
+  evaluation bar: drawn either way, reading "-2.2" with the detail off
+  draw mode: ends at the move into Play, can still be turned on there, and draws a finger stroke
+  drawing cancellation (375×812, 1x): Escape cancels a stroke and leaves completed marks; dialog/modifier/composition scope; native pointer-capability change hides controls and releases the board; e2-e4 and e7-e5 play
+  drawing cancellation (375×812, 2x): Escape cancels a stroke and leaves completed marks; dialog/modifier/composition scope; native pointer-capability change hides controls and releases the board; e2-e4 and e7-e5 play
+  drawing cancellation (844×390, 1x): Escape cancels a stroke and leaves completed marks; dialog/modifier/composition scope; native pointer-capability change hides controls and releases the board; e2-e4 and e7-e5 play
+  reach (320x568): all 64 squares answer a press, at 34px a square
+  reach (360x640): all 64 squares answer a press, at 38px a square
+  reach (375x812): all 64 squares answer a press, at 44px a square
+  tap: a finger drifting 3px still selects (2 targets lit), and a drag still drags
+  thumb: the board pans, a piece keeps the drag, and both the drag and the second tap still play
+  targets: 226 controls across 8 surfaces all clear 44px (10 cleared by their label, 2 inline links exempt under 2.5.8)
+  graph readings: winrate (60, 40, 60, 40%) and WDL White (40, 20, 40, 20%) follow the board and agree with their selected positions
+  graph gaps: an unscored new branch keeps its graphs without borrowing the root’s readings
+  observed layout: late graphs, keyboard panel resize, collapse/reopen, phone rotation and e2-e4 remain correct
+  narrow desktop (901px, beginner): whole board and graph headings at 100%/200% text, four focused corners, accurate keyboard/pointer resizing, collapse/reopen, preference restoration and e2-e4
+  narrow desktop (901px, pro): whole board and graph headings at 100%/200% text, four focused corners, accurate keyboard/pointer resizing, collapse/reopen, preference restoration and e2-e4
+  narrow desktop (950px, beginner): whole board and graph headings at 100%/200% text, four focused corners, accurate keyboard/pointer resizing, collapse/reopen, preference restoration and e2-e4
+  narrow desktop (950px, pro): whole board and graph headings at 100%/200% text, four focused corners, accurate keyboard/pointer resizing, collapse/reopen, preference restoration and e2-e4
+  narrow desktop (1024px, beginner): whole board and graph headings at 100%/200% text, four focused corners, accurate keyboard/pointer resizing, collapse/reopen, preference restoration and e2-e4
+  narrow desktop (1024px, pro): whole board and graph headings at 100%/200% text, four focused corners, accurate keyboard/pointer resizing, collapse/reopen, preference restoration and e2-e4
+  compact toolbar (901px): 100% → 200% → 100%, eleven reachable controls, all dialogs, modes and Flip; enlarged top bar stays within 215px
+  compact toolbar (1280px): 100% → 200% → 100%, eleven reachable controls, all dialogs, modes and Flip; enlarged top bar stays within 215px
+  compact toolbar (1440px): 100% → 200% → 100%, eleven reachable controls, all dialogs, modes and Flip; enlarged top bar stays within 215px
+  short window (901×360, beginner): complete focused controls, all board corners, move reveal, bars, settings, clocks, practice; 200% → 100% text restores the fixed layout
+  short window (901×360, pro): complete focused controls, all board corners, move reveal, bars, settings, clocks; 200% → 100% text restores the fixed layout
+  short window (1280×480, beginner): complete focused controls, all board corners, move reveal, bars, settings, clocks, practice; 200% → 100% text restores the fixed layout
+  short window (1280×480, pro): complete focused controls, all board corners, move reveal, bars, settings, clocks; 200% → 100% text restores the fixed layout
+  short window (1600×600, beginner): complete focused controls, all board corners, move reveal, bars, settings, clocks, practice; 200% → 100% text restores the fixed layout
+  short window (1600×600, pro): complete focused controls, all board corners, move reveal, bars, settings, clocks; 200% → 100% text restores the fixed layout
+  short mobile workspace (320×225): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short mobile workspace (375×250): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short mobile workspace (599×300): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short mobile workspace (600×375): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short mobile workspace (640×450): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short dialogs (901×360, 200% text, dark): whole mode choices, engine readings, PGN download, library save/load and Commands search remain reachable
+  short dialogs (901×256, 100% text, dark): whole mode choices, engine readings, PGN download, library save/load and Commands search remain reachable
+  short dialogs (901×256, 200% text, dark): whole mode choices, engine readings, PGN download, library save/load and Commands search remain reachable
+  short dialogs (901×256, 200% text, light): whole mode choices, engine readings, PGN download, library save/load and Commands search remain reachable
+  portrait dialogs (320px, light, New Game difficulty): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (320px, light, PGN import): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (320px, light, PGN export): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (320px, light, FEN draft): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (320px, light, Library name): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (320px, light, Commands search): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, New Game difficulty): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, PGN import): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, PGN export): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, FEN draft): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, Library name): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, Commands search): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  compact footer (901px, beginner): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+  compact footer (901px, pro): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+  compact footer (1280px, beginner): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+  compact footer (1280px, pro): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+  compact footer: a browser without the Popover API retains its inline engine readings
+  reading space (1280px): 100% → 200% → 100% text without window resize preserves all ranks, visible keyboard focus and opening navigation; enlarged desktop header scrolls away
+  reading space (375px): 100% → 200% → 100% text without window resize preserves all ranks, visible keyboard focus and opening navigation; enlarged desktop header scrolls away
+  opening layout (1280px): source controls stay inside the card; token/rating labels do not overlap their editable controls at 100% and 200% text
+  opening layout (375px): source controls stay inside the card; token/rating labels do not overlap their editable controls at 100% and 200% text
+  opening layout (320px): source controls stay inside the card; token/rating labels do not overlap their editable controls at 100% and 200% text
+  opening explorer: counts cleared on the move and came back as "Position ply 1"
+  tablebase: asked about the position on the board, reported "3 pieces · Win · DTM 21 · DTZ 11"
+  tablebase retry (1280px, 1x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  cloud retry (1280px, 1x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  tablebase retry (375px, 2x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  cloud retry (375px, 2x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  tablebase move reading (1280px, 1x, pro): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  tablebase move reading (1280px, 1x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  tablebase move reading (375px, 1x, pro): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  tablebase move reading (375px, 1x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  tablebase move reading (375px, 2x, pro): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  tablebase move reading (375px, 2x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  contrast (tablebase moves / pro / 200% text): 156 measured, 0 under the floor (138 on a gradient, measured against its worst stop)
+  tablebase move reading (320px, 2x, pro): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  contrast (tablebase moves / beginner / 200% text): 141 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  tablebase move reading (320px, 2x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis
+  FEN counters (1280px, 1x): malformed/rounded values refused with associated errors; draft/board retained; corrected decimal counters round-trip
+  FEN counters (375px, 2x): malformed/rounded values refused with associated errors; draft/board retained; corrected decimal counters round-trip
+  held shortcuts (1280px): Flip, autoplay, timed Pause and Commands act once; fresh presses work; navigation arrows repeat
+  held shortcuts (375px): Flip, autoplay, timed Pause and Commands act once; fresh presses work; navigation arrows repeat
+  imported counters (1280px, 1x): malformed shared roots refused; pasted/file PGNs preserve draft/board and identify the field; corrected counters load exactly
+  imported counters (375px, 2x): malformed shared roots refused; pasted/file PGNs preserve draft/board and identify the field; corrected counters load exactly
+  opening retry (1280px, 1x): token gate, repeated failures, one pending request, stale source ignored, retained filters/board/focus, recovery
+  opening retry (375px, 2x): token gate, repeated failures, one pending request, stale source ignored, retained filters/board/focus, recovery
+  play title (1280px): Your move, thinking, paused, waiting for Step, stepped search and resumed search
+  play title (1280px): held boot says loading; ready Step mode waits for the reader
+  play title (1280px): all boot attempts failed, failure appears in the tab
+  play title (375px): Your move, thinking, paused, waiting for Step, stepped search and resumed search
+  play title (375px): held boot says loading; ready Step mode waits for the reader
+  play title (375px): all boot attempts failed, failure appears in the tab
+  preview ending (1280px, 1x, d8h4): Checkmate · Black wins, Move 2; restore preserves live game; click commits 0-1
+  preview ending (1280px, 1x, f7g7): Checkmate · White wins, Move 1; restore preserves live game; click commits 1-0
+  preview ending (1280px, 1x, f7e6): Stalemate · Draw, Move 1; restore preserves live game; click commits 1/2-1/2
+  preview ending (1280px, 1x, a1b1): Fifty-move rule · Draw, Move 50; restore preserves live game; click commits 1/2-1/2
+  preview ending (1280px, 1x, d4g7): Insufficient material · Draw, Move 1; restore preserves live game; click commits 1/2-1/2
+  preview ending (375px, 2x, d8h4): Checkmate · Black wins, Move 2; restore preserves live game; click commits 0-1
+  preview ending (375px, 2x, f7g7): Checkmate · White wins, Move 1; restore preserves live game; click commits 1-0
+  preview ending (375px, 2x, f7e6): Stalemate · Draw, Move 1; restore preserves live game; click commits 1/2-1/2
+  preview ending (375px, 2x, a1b1): Fifty-move rule · Draw, Move 50; restore preserves live game; click commits 1/2-1/2
+  preview ending (375px, 2x, d4g7): Insufficient material · Draw, Move 1; restore preserves live game; click commits 1/2-1/2
+  dialog focus handoff (1280px, 1x): explicit opener restored; held callbacks yield to a newer preview and modal
+  dialog focus handoff (375px, 1x): explicit opener restored; held callbacks yield to a newer preview and modal
+  dialog focus handoff (375px, 2x): explicit opener restored; held callbacks yield to a newer preview and modal
+  palette dialog return (1280px, 1x, button): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (1280px, 1x, typing): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (1280px, 1x, graph): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, button): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, typing): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, graph): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  settings gear (1280×900, 1x, dark): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  settings gear (901×812, 1x, light): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  settings gear (375×812, 1x, dark): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  settings gear (375×812, 2x, light): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  settings gear (844×390, 1x, dark): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  move entry availability (1280px, 1x, hold-search): visible associated reason, matching editability, intact focus and no clipping; reply, Step, paused editing, watch-mode omission and pass-and-play
+  move entry availability (1280px, 1x, slow-boot): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (1280px, 1x, silent-all): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (375px, 2x, hold-search): visible associated reason, matching editability, intact focus and no clipping; reply, Step, paused editing, watch-mode omission and pass-and-play
+  move entry availability (375px, 2x, slow-boot): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (375px, 2x, silent-all): visible associated reason, matching editability, intact focus and no clipping
+  command move entry (1280px, 1x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  command move entry (375px, 1x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  command move entry (375px, 2x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  command move entry (320px, 2x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  board canvas (1280px): changed arrow colors/moves, orientation, e2-e4, navigation and a new d2-d4 branch stay current
+  board canvas (375px): changed arrow colors/moves, orientation, e2-e4, navigation and a new d2-d4 branch stay current
+  graph guide (1280px, pro, dark, 1× text): available in Review, keyboard disclosure, readable layout and 44px references
+  graph guide (1280px, beginner, light, 2× text): available in Review, keyboard disclosure, readable layout and 44px references
+  graph guide (375px, pro, light, 1× text): available in Review, keyboard disclosure, readable layout and 44px references
+  graph guide (375px, beginner, dark, 2× text): available in Review, keyboard disclosure, readable layout and 44px references
+  review: the row reads "2 costly moves" for 1 inaccuracies, 1 mistakes and 0 blunders
+  database: 560 games, 500 kept, the other 60 never parsed (1827ms, and the button said "Adding…" first)
+  import box: 12 KB shown, 667 KB described ("2,200 games · 667 KB · too much to show here."), Clear gives the box back
+  drop: a .pgn on the board opens the import dialog holding it (339 characters), app still there
+  back: closes the sheet and keeps the board; one more Back still leaves
+  promotion: every choice clears 44px at five sizes, and is painted where it is pressed
+  contrast (promotion / 1280px / 1x / dark): 7 measured, 0 under the floor (2 on a gradient, measured against its worst stop)
+  promotion (1280×812, 1x, dark, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (1280×812, 1x, dark, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  contrast (promotion / 375px / 2x / dark): 7 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  promotion (375×812, 2x, dark, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (375×812, 2x, dark, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  contrast (promotion / 320px / 2x / light): 7 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  promotion (320×568, 2x, light, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (320×568, 2x, light, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  promotion (320×225, 1x, light, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (320×225, 1x, light, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  promotion (667×375, 2x, dark, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (667×375, 2x, dark, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  notice: the longest message fits 320px and is drawn in front of the bar it lands on
+  layers: nothing the app draws is buried, across five states and three sizes
+  focus: every control shows it, and the board ring clears 3:1 on all five schemes
+  names: 889 controls over nine surfaces, every one named and every name keeping its own printed word
+  big text: nothing loses a word at 200%, on the desktop layout or a phone, board or dialog
+  archive: an unusable username says so once the field is left, and stops when it is fixed
+  archive fetch: Lichess brought back 2 games in one request, chess.com 3 across two
+  historical library: 10 games offered, 116 moves loaded from the first
+  failed lookups: ten failures across five services, each a finished sentence and none still loading
+  backup: 8 games out and back byte for byte, twice over without doubling
+  library backup limits: oversized files rejected before reading; oversized text preserves the library; an app-exported UTF-8 backup above 8 MB round-trips exactly
+  backup envelope (1280px, 1x, dark): actual BOM file import; specific unsupported/missing/string version, damaged, empty, unreadable and wrong-file errors; unchanged original backup/board; supported retry retains both Unicode games and actually loads
+  backup envelope (375px, 1x, light): actual BOM file import; specific unsupported/missing/string version, damaged, empty, unreadable and wrong-file errors; unchanged original backup/board; supported retry retains both Unicode games and actually loads
+  backup envelope (375px, 2x, dark): actual BOM file import; specific unsupported/missing/string version, damaged, empty, unreadable and wrong-file errors; unchanged original backup/board; supported retry retains both Unicode games and actually loads
+  backup envelope (320px, 2x, light): actual BOM file import; specific unsupported/missing/string version, damaged, empty, unreadable and wrong-file errors; unchanged original backup/board; supported retry retains both Unicode games and actually loads
+  partial backup (1280px, 1x, dark): readable Unicode game salvaged; invalid/repeated entries counted; original game retained; repeated partial import reports both categories without changing export; clean retry clears feedback; recovered game actually loads
+  partial backup (375px, 1x, light): readable Unicode game salvaged; invalid/repeated entries counted; original game retained; repeated partial import reports both categories without changing export; clean retry clears feedback; recovered game actually loads
+  partial backup (375px, 2x, dark): readable Unicode game salvaged; invalid/repeated entries counted; original game retained; repeated partial import reports both categories without changing export; clean retry clears feedback; recovered game actually loads
+  partial backup (320px, 2x, light): readable Unicode game salvaged; invalid/repeated entries counted; original game retained; repeated partial import reports both categories without changing export; clean retry clears feedback; recovered game actually loads
+  library: three clicks saved one copy, a named copy and a further move both saved again
+  library (1280px): rejected save preserves its name; inline rename selects, cancels, commits and persists
+  library (375px): rejected save preserves its name; inline rename selects, cancels, commits and persists
+  international search (1280px, 1x, dark): ASCII names/player/event/site queries and decomposed accents match; focus/query preserved; negative filter, complete original Unicode backup, actual game load and accented Commands query
+  international search (375px, 1x, light): ASCII names/player/event/site queries and decomposed accents match; focus/query preserved; negative filter, complete original Unicode backup, actual game load and accented Commands query
+  international search (375px, 2x, dark): ASCII names/player/event/site queries and decomposed accents match; focus/query preserved; negative filter, complete original Unicode backup, actual game load and accented Commands query
+  international search (320px, 2x, light): ASCII names/player/event/site queries and decomposed accents match; focus/query preserved; negative filter, complete original Unicode backup, actual game load and accented Commands query
+  library browsing (1280px, 1x): keyboard and pointer pages focus/reveal first new row; Tab reaches Load; final page keeps focus; described live counts; 44px pointer/Enter/Space search clearing restores first page and input focus, including whitespace; final game actually loads
+  library browsing (375px, 1x): keyboard and pointer pages focus/reveal first new row; Tab reaches Load; final page keeps focus; described live counts; 44px pointer/Enter/Space search clearing restores first page and input focus, including whitespace; final game actually loads
+  library browsing (375px, 2x): keyboard and pointer pages focus/reveal first new row; Tab reaches Load; final page keeps focus; described live counts; 44px pointer/Enter/Space search clearing restores first page and input focus, including whitespace; final game actually loads
+  library browsing (320px, 2x): keyboard and pointer pages focus/reveal first new row; Tab reaches Load; final page keeps focus; described live counts; 44px pointer/Enter/Space search clearing restores first page and input focus, including whitespace; final game actually loads
+  starred library (1280px, 1x, dark): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload
+  starred library (901px, 2x, light): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload
+  starred library (375px, 1x, dark): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload
+  starred library (320px, 2x, light): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload
+  library keyboard (1280×900, 1x, dark): search/rows/Home/End preserve action and visible focus; composition/modifiers/editing stay native; filtered and paged navigation loads the intended game without stray work
+  library keyboard (901×812, 2x, light): search/rows/Home/End preserve action and visible focus; composition/modifiers/editing stay native; filtered and paged navigation loads the intended game without stray work
+  library keyboard (375×812, 1x, dark): search/rows/Home/End preserve action and visible focus; composition/modifiers/editing stay native; filtered and paged navigation loads the intended game without stray work
+  library keyboard (320×812, 2x, light): search/rows/Home/End preserve action and visible focus; composition/modifiers/editing stay native; filtered and paged navigation loads the intended game without stray work
+  library keyboard (844×390, 2x, dark): search/rows/Home/End preserve action and visible focus; composition/modifiers/editing stay native; filtered and paged navigation loads the intended game without stray work
+  empty library focus (1280×900, 1x, dark): keyboard and pointer delete the last game with/without starred filter; visible Done focus, contained Tab and opener return
+  empty library focus (375×812, 1x, light): keyboard and pointer delete the last game with/without starred filter; visible Done focus, contained Tab and opener return
+  empty library focus (320×812, 2x, light): keyboard and pointer delete the last game with/without starred filter; visible Done focus, contained Tab and opener return
+  empty library focus (844×390, 2x, dark): keyboard and pointer delete the last game with/without starred filter; visible Done focus, contained Tab and opener return
+  responsive gesture (1280px, click): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+  responsive gesture (1280px, outside): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+  responsive gesture (1280px, cancel): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+  responsive gesture (1280px, blur): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+  responsive gesture (901px, click): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+  responsive gesture (901px, outside): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+  responsive gesture (901px, cancel): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+  responsive gesture (901px, blur): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+  library sort (1280px, 1x, dark): native keyboard and all five orders; recorded/partial/missing game dates, starred priority, filter/clear, star toggles and focus retained; full longest label, 44px target, 44px toolbar; actual game load
+  library sort (375px, 1x, light): native keyboard and all five orders; recorded/partial/missing game dates, starred priority, filter/clear, star toggles and focus retained; full longest label, 44px target, 44px toolbar; actual game load
+  library sort (375px, 2x, dark): native keyboard and all five orders; recorded/partial/missing game dates, starred priority, filter/clear, star toggles and focus retained; full longest label, 61.59375px target, 148.1875px toolbar; actual game load
+  library sort (320px, 2x, light): native keyboard and all five orders; recorded/partial/missing game dates, starred priority, filter/clear, star toggles and focus retained; full longest label, 61.59375px target, 148.1875px toolbar; actual game load
+  library lock fallback (1280px, 1x, async-denied): actual named Save and star while restricted; durable or explicitly session-only storage; restored lock/storage keeps and persists the game; reload and actual Load succeed
+  library lock fallback (1280px, 1x, sync-denied): actual named Save and star while restricted; durable or explicitly session-only storage; restored lock/storage keeps and persists the game; reload and actual Load succeed
+  library lock fallback (1280px, 1x, getter-denied): actual named Save and star while restricted; durable or explicitly session-only storage; restored lock/storage keeps and persists the game; reload and actual Load succeed
+  library lock fallback (1280px, 1x, memory-only): actual named Save and star while restricted; durable or explicitly session-only storage; restored lock/storage keeps and persists the game; reload and actual Load succeed
+  library lock fallback (375px, 1x, async-denied): actual named Save and star while restricted; durable or explicitly session-only storage; restored lock/storage keeps and persists the game; reload and actual Load succeed
+  library lock fallback (375px, 1x, sync-denied): actual named Save and star while restricted; durable or explicitly session-only storage; restored lock/storage keeps and persists the game; reload and actual Load succeed
+  library lock fallback (375px, 1x, getter-denied): actual named Save and star while restricted; durable or explicitly session-only storage; restored lock/storage keeps and persists the game; reload and actual Load succeed
+  library lock fallback (375px, 1x, memory-only): actual named Save and star while restricted; durable or explicitly session-only storage; restored lock/storage keeps and persists the game; reload and actual Load succeed
+  library lock fallback (375px, 2x, async-denied): actual named Save and star while restricted; durable or explicitly session-only storage; restored lock/storage keeps and persists the game; reload and actual Load succeed
+  library lock fallback (375px, 2x, sync-denied): actual named Save and star while restricted; durable or explicitly session-only storage; restored lock/storage keeps and persists the game; reload and actual Load succeed
+  library lock fallback (375px, 2x, getter-denied): actual named Save and star while restricted; durable or explicitly session-only storage; restored lock/storage keeps and persists the game; reload and actual Load succeed
+  library lock fallback (375px, 2x, memory-only): actual named Save and star while restricted; durable or explicitly session-only storage; restored lock/storage keeps and persists the game; reload and actual Load succeed
+  library lock fallback (320px, 2x, async-denied): actual named Save and star while restricted; durable or explicitly session-only storage; restored lock/storage keeps and persists the game; reload and actual Load succeed
+  library lock fallback (320px, 2x, sync-denied): actual named Save and star while restricted; durable or explicitly session-only storage; restored lock/storage keeps and persists the game; reload and actual Load succeed
+  library lock fallback (320px, 2x, getter-denied): actual named Save and star while restricted; durable or explicitly session-only storage; restored lock/storage keeps and persists the game; reload and actual Load succeed
+  library lock fallback (320px, 2x, memory-only): actual named Save and star while restricted; durable or explicitly session-only storage; restored lock/storage keeps and persists the game; reload and actual Load succeed
+  import (1280px): newer drafts win over old fetches and file reads; fetch cancellation keeps the draft
+  import (375px): newer drafts win over old fetches and file reads; fetch cancellation keeps the draft
+  position setup (1280px): d6 survives a counter edit, can be cleared/restored, and allows a real en passant capture
+  position setup (375px): e3 survives a counter edit, can be cleared/restored, and allows a real en passant capture
+  setup keyboard (1280px, 1x text): palette/board each use one Tab stop; arrow/Home/End navigation, keyboard tool selection, placement and erasure load a real position
+  setup keyboard (375px, 1x text): palette/board each use one Tab stop; arrow/Home/End navigation, keyboard tool selection, placement and erasure load a real position
+  setup keyboard (320px, 2x text): palette/board each use one Tab stop; arrow/Home/End navigation, keyboard tool selection, placement and erasure load a real position
+  setup orientation (1280px, 1x): view-only flip, reversed coordinates/arrows/Home/End, keyboard and pointer placement, and unchanged FEN loading
+  setup orientation (375px, 1x): view-only flip, reversed coordinates/arrows/Home/End, keyboard and pointer placement, and unchanged FEN loading
+  setup orientation (320px, 2x): view-only flip, reversed coordinates/arrows/Home/End, keyboard and pointer placement, and unchanged FEN loading
+  FEN copy (1280px, 1x): edited/unfinished drafts copy intact, denial preserves work, blank drafts are disabled, and old replies cannot relabel new edits
+  FEN copy (375px, 2x): edited/unfinished drafts copy intact, denial preserves work, blank drafts are disabled, and old replies cannot relabel new edits
+  manual copy (1280×900, 1x, dark): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy + actual clipboard, 44px actions and opener focus
+  manual copy (375×812, 1x, light): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy + actual clipboard, 44px actions and opener focus
+  manual copy (375×812, 2x, dark): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy + actual clipboard, 44px actions and opener focus
+  manual copy (320×568, 2x, light): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy + actual clipboard, 44px actions and opener focus
+  manual copy (844×390, 2x, dark): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy + actual clipboard, 44px actions and opener focus
+  live export (1280px, 1x, dark): selected text survives engine score updates; native Copy + clipboard; latest download; current and delayed copy feedback; fallback/options/tab recovery; non-focusing action refresh and hold
+  live export (375px, 1x, light): selected text survives engine score updates; native Copy + clipboard; latest download; current and delayed copy feedback; fallback/options/tab recovery; non-focusing action refresh and hold
+  live export (375px, 2x, dark): selected text survives engine score updates; native Copy + clipboard; latest download; current and delayed copy feedback; fallback/options/tab recovery; non-focusing action refresh and hold
+  live export (320px, 2x, light): selected text survives engine score updates; native Copy + clipboard; latest download; current and delayed copy feedback; fallback/options/tab recovery; non-focusing action refresh and hold
+  live share (1280px, 1x, game): opponent moves invalidate copied feedback; delayed old completion stays unconfirmed; retry copies the new URL
+  live share (1280px, 1x, fen): opponent moves invalidate copied feedback; delayed old completion stays unconfirmed; retry copies the new URL; blank draft stays intact
+  live share (375px, 2x, game): opponent moves invalidate copied feedback; delayed old completion stays unconfirmed; retry copies the new URL
+  live share (375px, 2x, fen): opponent moves invalidate copied feedback; delayed old completion stays unconfirmed; retry copies the new URL; blank draft stays intact
+  text composition: Enter/Escape and legacy 229 preserve Commands, archive and rename drafts; ordinary keys still work
+  reveal timers: dialogs retain focused drafts through delayed board/analysis callbacks; closing keeps opener focus
+  reveal interaction: a held click stays in place and completes its review; focus alone preserves visible Load through pending panel retries at 200% text without waking the engine
+  review phases (1280px, dark): all three native button names include both scores and move counts; unscored side says not available; Enter/Space select and clear filters with stable focus, board and report; enlarged text fits
+  review phases (375px, light): all three native button names include both scores and move counts; unscored side says not available; Enter/Space select and clear filters with stable focus, board and report; enlarged text fits
+  review export recovery (1280×900, 1x, dark): URL/click failures explained and associated with enabled retry, resources cleaned, exact PGN/metadata downloaded on retry, no engine work or report changes, newer report clears older feedback
+  review export recovery (375×812, 1x, light): URL/click failures explained and associated with enabled retry, resources cleaned, exact PGN/metadata downloaded on retry, no engine work or report changes, newer report clears older feedback
+  review export recovery (320×812, 2x, light): URL/click failures explained and associated with enabled retry, resources cleaned, exact PGN/metadata downloaded on retry, no engine work or report changes, newer report clears older feedback
+  review export recovery (844×390, 2x, dark): URL/click failures explained and associated with enabled retry, resources cleaned, exact PGN/metadata downloaded on retry, no engine work or report changes, newer report clears older feedback
+  review list (1280px, 1x): selected moves follow buttons/keys, root resets, outer scroll/focus stays put, and new readings preserve manual scrolling
+  review list (1280px, 2x): selected moves follow buttons/keys, root resets, outer scroll/focus stays put, and new readings preserve manual scrolling
+  review list (375px, 1x): selected moves follow buttons/keys, root resets, outer scroll/focus stays put, and new readings preserve manual scrolling
+  review list (375px, 2x): selected moves follow buttons/keys, root resets, outer scroll/focus stays put, and new readings preserve manual scrolling
+  dialog resizing (1x text): PGN, Commands and library drafts retain focus and stay visible through short-phone and landscape viewports
+  dialog resizing (2x text): PGN, Commands and library drafts retain focus and stay visible through short-phone and landscape viewports
+  position notes (1280×900, 1x): zero-move study retains/edits notes, saves to Library and recovers after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+  position notes (375×812, 1x): zero-move study retains/edits notes, saves to Library and recovers after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+  position notes (320×812, 2x): zero-move study retains/edits notes, saves to Library and recovers after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+  position notes (844×390, 2x): zero-move study retains/edits notes, saves to Library and recovers after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+  post-variation notes (1280×900, 1x): import accepts notes/NAGs after sibling and nested variations; nine moves retained; main/inner/alternative note ownership and quoted header survive export/reimport
+  post-variation notes (375×812, 1x): import accepts notes/NAGs after sibling and nested variations; nine moves retained; main/inner/alternative note ownership and quoted header survive export/reimport
+  post-variation notes (320×812, 2x): import accepts notes/NAGs after sibling and nested variations; nine moves retained; main/inner/alternative note ownership and quoted header survive export/reimport
+  post-variation notes (844×390, 2x): import accepts notes/NAGs after sibling and nested variations; nine moves retained; main/inner/alternative note ownership and quoted header survive export/reimport
+  library PGN endings (1280×900, 1x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  library PGN endings (375×812, 1x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  library PGN endings (320×812, 2x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  library PGN endings (844×390, 2x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  database boundaries (1280×900, 1x, BOM paste): four headerless/Event-less games offered and saved intact; current board retained; FEN game and annotated variation load individually
+  database boundaries (375×812, 1x, BOM paste): four headerless/Event-less games offered and saved intact; current board retained; FEN game and annotated variation load individually
+  database boundaries (320×812, 2x, BOM/CRLF file): four headerless/Event-less games offered and saved intact; current board retained; FEN game and annotated variation load individually
+  database boundaries (844×390, 2x, BOM/CRLF file): four headerless/Event-less games offered and saved intact; current board retained; FEN game and annotated variation load individually
+  database import: 4 games in the file, three presses, 4 in the library
+  export: a game comes back byte for byte, and its report with it (116/116, 117 points)
+  recovery: reload restores moves; incidental dismissals preserve valid/failed snapshots; explicit discard clears them
+  failed recovery (1280×812, 1x, dark, missing clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (1280×812, 1x, dark, denied clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (1280×812, 1x, dark, throw clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (1280×812, 1x, dark, deferred clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (375×812, 1x, light, missing clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (375×812, 1x, light, denied clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (375×812, 1x, light, throw clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (375×812, 1x, light, deferred clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (320×812, 2x, light, missing clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (320×812, 2x, light, denied clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (320×812, 2x, light, throw clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (320×812, 2x, light, deferred clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (844×390, 2x, dark, missing clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (844×390, 2x, dark, denied clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (844×390, 2x, dark, throw clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (844×390, 2x, dark, deferred clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  library: a game with side lines saved and loaded back byte for byte (291 characters)
+  share: both links arrive on the position they were copied from (140 characters)
+  settings: three changes survive a reload, and the board comes back wearing them
+  settings: a browser that will not keep them says so, and one that will stays quiet
+  high contrast: the board keeps its squares and the evaluation bar its halves
+  dialog actions: every button on screen at 320px, on all three tabs
+  visibility: a finite search is left to finish; an infinite one stops once and resumes
+  analysis cache: returning to a position reuses its completed search
+  opening table: not fetched at boot, fetched once a move needs naming
+  cache ownership: sibling apps preserved; obsolete chess caches removed
+  headerless host: service worker restored cross-origin isolation
+  warm reload: 4 cached build assets, zero network requests for them
+  deploy: a saved chunk survives removal; a new hash and the document still reach the network
+  range request: served 206, cache holds nothing
+  server outage: cached app stays playable and isolated; cache misses and permission errors stay visible
+  offline: app rendered from cache, still isolated
+Browser UI checks passed.

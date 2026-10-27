@@ -122,11 +122,14 @@ describe('Stockfish command queue safety', () => {
     // for and held the console for its whole fifteen-second timeout.
     expect(commandNeedsReadySentinel('foo bar')).toBe(true)
     expect(commandNeedsReadySentinel('compiler')).toBe(true)
+    expect(commandNeedsReadySentinel('setoption name Threads value 2')).toBe(true)
+    expect(commandNeedsReadySentinel('setoption name Hash value 16')).toBe(true)
+    expect(commandNeedsReadySentinel('setoption name Clear Hash')).toBe(true)
     for (const known of ['uci', 'isready', 'go depth 5', 'd', 'eval', 'go perft 3']) {
       expect(commandNeedsReadySentinel(known)).toBe(false)
     }
     // No reply is expected at all for these, so there is nothing to end.
-    for (const silent of ['position startpos', 'setoption name Hash value 16', 'ucinewgame', 'stop']) {
+    for (const silent of ['position startpos', 'ucinewgame', 'stop']) {
       expect(commandNeedsReadySentinel(silent)).toBe(false)
     }
   })

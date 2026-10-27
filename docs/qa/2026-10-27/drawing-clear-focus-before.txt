@@ -1,0 +1,7 @@
+Error: Clear removes its button and leaves keyboard focus off the drawing controls
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkDrawingCancellation (/workspace/web-chess/scripts/test-ui-browser.cjs:17319:7)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:502:9)
+    at async /tmp/web-chess-drawing-clear-focus-check.cjs:10:9

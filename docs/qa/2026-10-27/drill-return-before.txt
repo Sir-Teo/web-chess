@@ -1,0 +1,11 @@
+locator.waitFor: Timeout 3000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('region', { name: 'Line drill', exact: true }).getByRole('button', { name: 'Return to drill', exact: true }) to be visible[22m
+
+    at Object.checkReturnToDrill (/workspace/web-chess/scripts/test-ui-browser.cjs:16054:28)
+    at async /tmp/web-chess-drill-return-check.cjs:10:9 {
+  log: [
+    "  - waiting for getByRole('region', { name: 'Line drill', exact: true }).getByRole('button', { name: 'Return to drill', exact: true }) to be visible"
+  ],
+  name: 'TimeoutError'
+}

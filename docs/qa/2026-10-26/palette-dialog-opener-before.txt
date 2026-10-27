@@ -1,0 +1,4 @@
+{
+  "openerFocused": false,
+  "active": "<body>\n  <div id=\"root\"><main class=\"app-shell\" data-workspace-mode=\"analysis\"><span class=\"rem-probe\" aria-hidden=\"true\"></span><nav class=\"skip-links\" aria-label=\"Skip links\"><a href=\"#chessboard-stage\" tabindex=\"0\">Skip to board</a><a href=\"#analysis-panel\""
+}

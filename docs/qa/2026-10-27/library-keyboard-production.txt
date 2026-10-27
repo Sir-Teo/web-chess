@@ -1,0 +1,5 @@
+  library keyboard (1280×900, 1x, dark): search/rows/Home/End preserve action and visible focus; composition/modifiers/editing stay native; filtered and paged navigation loads the intended game without stray work
+  library keyboard (901×812, 2x, light): search/rows/Home/End preserve action and visible focus; composition/modifiers/editing stay native; filtered and paged navigation loads the intended game without stray work
+  library keyboard (375×812, 1x, dark): search/rows/Home/End preserve action and visible focus; composition/modifiers/editing stay native; filtered and paged navigation loads the intended game without stray work
+  library keyboard (320×812, 2x, light): search/rows/Home/End preserve action and visible focus; composition/modifiers/editing stay native; filtered and paged navigation loads the intended game without stray work
+  library keyboard (844×390, 2x, dark): search/rows/Home/End preserve action and visible focus; composition/modifiers/editing stay native; filtered and paged navigation loads the intended game without stray work

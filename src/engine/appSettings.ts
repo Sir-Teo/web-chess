@@ -303,10 +303,10 @@ export function loadPersistedSettings(): PersistedAppSettings {
 
     const parsed = JSON.parse(raw) as Record<string, unknown>
     const labCommandHistory = Array.isArray(parsed.labCommandHistory)
-      ? parsed.labCommandHistory
+      ? [...new Set(parsed.labCommandHistory
         .filter((value): value is string => typeof value === 'string')
         .map(item => item.trim())
-        .filter(Boolean)
+        .filter(Boolean))]
         .slice(0, 20)
       : DEFAULT_PERSISTED_SETTINGS.labCommandHistory
 

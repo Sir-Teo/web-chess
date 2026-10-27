@@ -1,0 +1,10 @@
+  empty game share (1280px, 1x, dark, standard): exact position opens without fake moves; later Unicode edits/real move recover after immediate refresh
+  empty game share (1280px, 1x, dark, custom): exact position opens without fake moves; later Unicode edits/real move recover after immediate refresh
+  empty game share (1280px, 1x, dark, bad-token): damaged move/illegal root rejected; previous game remains recoverable
+  empty game share (1280px, 1x, dark, illegal-first-move): damaged move/illegal root rejected; previous game remains recoverable
+  empty game share (1280px, 1x, dark, adjacent-kings): damaged move/illegal root rejected; previous game remains recoverable
+  empty game share (375px, 2x, light, standard): exact position opens without fake moves; later Unicode edits/real move recover after immediate refresh
+  empty game share (375px, 2x, light, custom): exact position opens without fake moves; later Unicode edits/real move recover after immediate refresh
+  empty game share (375px, 2x, light, bad-token): damaged move/illegal root rejected; previous game remains recoverable
+  empty game share (375px, 2x, light, illegal-first-move): damaged move/illegal root rejected; previous game remains recoverable
+  empty game share (375px, 2x, light, adjacent-kings): damaged move/illegal root rejected; previous game remains recoverable

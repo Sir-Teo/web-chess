@@ -1,0 +1,5 @@
+Error: promotion intercepted browser/composition keys: [{"key":"q","ctrlKey":true,"prevented":true},{"key":"r","ctrlKey":true,"prevented":true},{"key":"b","ctrlKey":true,"prevented":true},{"key":"n","ctrlKey":true,"prevented":true},{"key":"q","metaKey":true,"prevented":true},{"key":"R","metaKey":true,"shiftKey":true,"prevented":true},{"key":"n","altKey":true,"prevented":true},{"key":"q","isComposing":true,"prevented":true},{"key":"q","keyCode":229,"prevented":true}]
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:33:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:37:19)
+    at Object.checkPromotionShortcutScope (/workspace/web-chess/scripts/test-ui-browser.cjs:10290:9)
+    at async main (/tmp/web-chess-promotion-keys-check.cjs:10:8)

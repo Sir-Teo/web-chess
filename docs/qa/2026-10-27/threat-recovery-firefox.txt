@@ -1,0 +1,12 @@
+  threat recovery (1280×900, 1x, dark, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (1280×900, 1x, dark, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (1280×900, 1x, dark, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (375×812, 1x, light, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (375×812, 1x, light, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (375×812, 1x, light, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (320×812, 2x, light, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (320×812, 2x, light, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (320×812, 2x, light, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (844×390, 2x, dark, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (844×390, 2x, dark, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (844×390, 2x, dark, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds

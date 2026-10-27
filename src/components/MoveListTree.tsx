@@ -1,4 +1,5 @@
-import React, { memo, useCallback, useEffect, useId, useRef, useState } from 'react'
+import React, { memo, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { DEFAULT_POSITION } from 'chess.js'
 import { useDisarmAfter } from '../hooks/useDisarmAfter'
 import type { GameTreeHandle, GameNode } from '../hooks/useGameTree'
 import { IconPawn, IconBranch } from './icons'
@@ -6,6 +7,7 @@ import { buildVariationPreview } from './variationPreview'
 import { isOnMainLine } from '../engine/moveTree'
 import { moveNumberPrefix } from '../engine/moveLabels'
 import { MOVE_GLYPHS, glyphName, moveGlyphFor, positionGlyphsFor } from '../engine/nags'
+import { scrollWithinContainer } from './scrollWithinContainer'
 
 type Props = {
     tree: GameTreeHandle
@@ -20,37 +22,6 @@ type Props = {
  * line, where it becomes the one being drawn from.
  */
 const MAX_VARIATION_DEPTH = 6
-
-function scrollWithinMoveList(container: HTMLElement, element: HTMLElement) {
-    const outerScrollPositions: Array<{ element: Element; left: number; top: number }> = []
-    let parent = container.parentElement
-
-    while (parent) {
-        if (parent.scrollHeight > parent.clientHeight || parent.scrollWidth > parent.clientWidth) {
-            outerScrollPositions.push({
-                element: parent,
-                left: parent.scrollLeft,
-                top: parent.scrollTop,
-            })
-        }
-        parent = parent.parentElement
-    }
-
-    if (document.scrollingElement) {
-        outerScrollPositions.push({
-            element: document.scrollingElement,
-            left: document.scrollingElement.scrollLeft,
-            top: document.scrollingElement.scrollTop,
-        })
-    }
-
-    element.scrollIntoView({ block: 'nearest', behavior: 'auto' })
-
-    for (const { element: scrollElement, left, top } of outerScrollPositions) {
-        scrollElement.scrollLeft = left
-        scrollElement.scrollTop = top
-    }
-}
 
 /**
  * Renders the game tree as a flat, numbered move list with inline variations.
@@ -91,6 +62,8 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
     // whether the line the reader is standing in hangs off one of its moves.
     const currentPathIds = new Set(currentPath().map(node => node.id))
     const currentComment = current.comment?.trim() ?? ''
+    const showCurrentComment = Boolean((current.move || currentComment || (allowCommentEditing && current.fen !== DEFAULT_POSITION))
+        && (allowCommentEditing || currentComment))
     const currentGlyph = moveGlyphFor(current)
     // A variation is a footnote until it is promoted: mainLine() is what the
     // review pass, the accuracy summary, the graphs and PGN export all read.
@@ -103,9 +76,9 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
         setDeleteArmed(false)
     }, [current.id])
 
-    // Deliberately keyed on the move, not on its comment: re-reading the stored
-    // value on every keystroke is what swallowed the space to begin with.
-    useEffect(() => {
+    // Follow the selected node before its new label is painted. Keep the draft
+    // independent of stored comments so typing leading spaces stays intact.
+    useLayoutEffect(() => {
         setCommentDraft(tree.getNode(current.id)?.comment ?? '')
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [current.id])
@@ -114,10 +87,10 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
         const container = scrollRef.current
         const el = container?.querySelector(`[data-node-id="${current.id}"]`) as HTMLElement | null
         if (!container || !el) return
-        scrollWithinMoveList(container, el)
+        scrollWithinContainer(container, el)
     }, [current.id])
 
-    if (line.length <= 1) {
+    if (line.length <= 1 && !showCurrentComment) {
         return (
             <div className="empty-state">
                 <span className="empty-state-icon"><IconPawn /></span>
@@ -304,6 +277,7 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
                     <button
                         type="button"
                         className={`mtree-delete-btn ${deleteArmed ? 'armed' : ''}`}
+                        onKeyDown={event => { if (event.key === 'Enter' && event.repeat) event.preventDefault() }}
                         onClick={() => {
                             if (!deleteArmed) {
                                 setDeleteArmed(true)
@@ -325,13 +299,13 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
                     </button>
                 </div>
             )}
-            {current.move && (allowCommentEditing || currentComment) && (
-                <aside className="mtree-current-comment" aria-label="Current move comment">
+            {showCurrentComment && (
+                <aside className="mtree-current-comment" aria-label={current.move ? 'Current move comment' : 'Starting position comment'}>
                     {allowCommentEditing ? (
                         <>
                             {/* The six judgements, on the move under the cursor.
                                 Pressing the one it already has takes it off. */}
-                            <div className="mtree-glyph-row" role="group" aria-label="Move judgement">
+                            {current.move && <div className="mtree-glyph-row" role="group" aria-label="Move judgement">
                                 {MOVE_GLYPHS.map(glyph => {
                                     const active = currentGlyph === glyph
                                     return (
@@ -348,8 +322,8 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
                                         </button>
                                     )
                                 })}
-                            </div>
-                            <label htmlFor={commentId}>Move note</label>
+                            </div>}
+                            <label htmlFor={commentId}>{current.move ? 'Move note' : 'Position note'}</label>
                             <textarea
                                 id={commentId}
                                 className="mtree-comment-input"
@@ -364,7 +338,7 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
                         </>
                     ) : (
                         <>
-                            <span className="mtree-current-comment-label">Move note</span>
+                            <span className="mtree-current-comment-label">{current.move ? 'Move note' : 'Position note'}</span>
                             <p>{currentComment}</p>
                         </>
                     )}
@@ -406,7 +380,8 @@ function MoveChip({ node, isCurrent, onClick, compact, prefix }: ChipProps) {
     const annotation = [glyph ? glyphName(glyph) : '', ...positionGlyphs.map(glyphName)].filter(Boolean).join(', ')
     // Always numbered for a screen reader, whatever the row shows: the button
     // is read on its own, and "e6" with nothing to place it is not a move.
-    const numbered = `${moveNumberPrefix(node.fen) ?? ''} ${displaySan}`.trim()
+    const movePrefix = moveNumberPrefix(node.fen) ?? ''
+    const numbered = `${movePrefix} ${displaySan}`.trim()
     const labelParts = [
         `Go to ${compact ? 'variation move' : 'move'} ${numbered}`,
         annotation,
@@ -424,6 +399,7 @@ function MoveChip({ node, isCurrent, onClick, compact, prefix }: ChipProps) {
     return (
         <button
             data-node-id={node.id}
+            data-move-prefix={compact ? undefined : movePrefix}
             type="button"
             aria-label={labelParts.join(', ')}
             aria-current={isCurrent ? 'step' : undefined}

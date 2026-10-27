@@ -1,0 +1,115 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/labCommands.test.ts (53 tests | 6 failed) 21ms
+     × normalizes structural tokens while retaining the value for setoption name UCI_Chess960 value true 6ms
+     × normalizes structural tokens while retaining the value for  SETOPTION	NAME	UCI_LimitStrength	VALUE	true  1ms
+     × normalizes structural tokens while retaining the value for setoption name Clear Hash 1ms
+     × normalizes structural tokens while retaining the value for setoption name EvalFile value 1ms
+     × normalizes structural tokens while retaining the value for setoption name EvalFile value café network  file.nnue 0ms
+     × normalizes structural tokens while retaining the value for setoption name Example value  leading  value	text 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/labCommands.test.ts > native option protocol whitespace > normalizes structural tokens while retaining the value for setoption name UCI_Chess960 value true
+AssertionError: expected 'setoption name UCI_Chess960 value true' to be 'setoption name UCI_Chess960 value true' // Object.is equality
+
+Expected: "setoption name UCI_Chess960 value true"
+Received: "setoption name UCI_Chess960 value true"
+
+ ❯ src/engine/labCommands.test.ts:256:46
+    254|     ['setoption\u00a0name Example\u00a0value \u00a0leading  value\ttex…
+    255|   ])('normalizes structural tokens while retaining the value for %s', …
+    256|     expect(normalizeEngineLabCommand(input)).toBe(expected)
+       |                                              ^
+    257|   })
+    258| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  src/engine/labCommands.test.ts > native option protocol whitespace > normalizes structural tokens while retaining the value for  SETOPTION	NAME	UCI_LimitStrength	VALUE	true 
+AssertionError: expected 'SETOPTION\tNAME\tUCI_LimitStrength\tV…' to be 'setoption name UCI_LimitStrength valu…' // Object.is equality
+
+Expected: "setoption name UCI_LimitStrength value true"
+Received: "SETOPTION	NAME	UCI_LimitStrength	VALUE	true"
+
+ ❯ src/engine/labCommands.test.ts:256:46
+    254|     ['setoption\u00a0name Example\u00a0value \u00a0leading  value\ttex…
+    255|   ])('normalizes structural tokens while retaining the value for %s', …
+    256|     expect(normalizeEngineLabCommand(input)).toBe(expected)
+       |                                              ^
+    257|   })
+    258| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  src/engine/labCommands.test.ts > native option protocol whitespace > normalizes structural tokens while retaining the value for setoption name Clear Hash
+AssertionError: expected 'setoption name Clear Hash' to be 'setoption name Clear Hash' // Object.is equality
+
+Expected: "setoption name Clear Hash"
+Received: "setoption name Clear Hash"
+
+ ❯ src/engine/labCommands.test.ts:256:46
+    254|     ['setoption\u00a0name Example\u00a0value \u00a0leading  value\ttex…
+    255|   ])('normalizes structural tokens while retaining the value for %s', …
+    256|     expect(normalizeEngineLabCommand(input)).toBe(expected)
+       |                                              ^
+    257|   })
+    258| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  src/engine/labCommands.test.ts > native option protocol whitespace > normalizes structural tokens while retaining the value for setoption name EvalFile value
+AssertionError: expected 'setoption name EvalFile value' to be 'setoption name EvalFile value' // Object.is equality
+
+Expected: "setoption name EvalFile value"
+Received: "setoption name EvalFile value"
+
+ ❯ src/engine/labCommands.test.ts:256:46
+    254|     ['setoption\u00a0name Example\u00a0value \u00a0leading  value\ttex…
+    255|   ])('normalizes structural tokens while retaining the value for %s', …
+    256|     expect(normalizeEngineLabCommand(input)).toBe(expected)
+       |                                              ^
+    257|   })
+    258| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  src/engine/labCommands.test.ts > native option protocol whitespace > normalizes structural tokens while retaining the value for setoption name EvalFile value café network  file.nnue
+AssertionError: expected 'setoption name EvalFile value café ne…' to be 'setoption name EvalFile value café ne…' // Object.is equality
+
+Expected: "setoption name EvalFile value café network  file.nnue"
+Received: "setoption name EvalFile value café network  file.nnue"
+
+ ❯ src/engine/labCommands.test.ts:256:46
+    254|     ['setoption\u00a0name Example\u00a0value \u00a0leading  value\ttex…
+    255|   ])('normalizes structural tokens while retaining the value for %s', …
+    256|     expect(normalizeEngineLabCommand(input)).toBe(expected)
+       |                                              ^
+    257|   })
+    258| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  src/engine/labCommands.test.ts > native option protocol whitespace > normalizes structural tokens while retaining the value for setoption name Example value  leading  value	text
+AssertionError: expected 'setoption name Example value  leading…' to be 'setoption name Example value  leading…' // Object.is equality
+
+Expected: "setoption name Example value  leading  value	text"
+Received: "setoption name Example value  leading  value	text"
+
+ ❯ src/engine/labCommands.test.ts:256:46
+    254|     ['setoption\u00a0name Example\u00a0value \u00a0leading  value\ttex…
+    255|   ])('normalizes structural tokens while retaining the value for %s', …
+    256|     expect(normalizeEngineLabCommand(input)).toBe(expected)
+       |                                              ^
+    257|   })
+    258| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 47 passed (53)
+   Start at  00:01:24
+   Duration  230ms (transform 55ms, setup 0ms, import 71ms, tests 21ms, environment 0ms)
+

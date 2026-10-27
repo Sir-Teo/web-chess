@@ -1,0 +1,10 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  settings dialog: all 26 focusable controls are inside the trap, disclosure included
+  backdrop: clicking away closes the dialog and returns focus to its opener
+  New game: 11 focusable controls, all inside the trap
+  PGN and FEN: 10 focusable controls, all inside the trap
+  Library: 2 focusable controls, all inside the trap
+  Command palette: 24 focusable controls, all inside the trap
+  Promotion chooser: 5 focusable controls, all inside the trap
+  markup: skip link reachable and lands on the board, heading outline unbroken, nothing stranded behind a dialog, inert honoured, every field named, no id used twice
+  big text: nothing loses a word at 200%, on the desktop layout or a phone, board or dialog

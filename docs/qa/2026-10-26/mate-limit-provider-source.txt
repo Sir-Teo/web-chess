@@ -1,0 +1,12 @@
+stockfish npm 18.0.7 gitHead: 32d4b5ae40c01db88219bfbe2b82dbe6dec93832
+https://raw.githubusercontent.com/nmrugg/stockfish.js/32d4b5ae40c01db88219bfbe2b82dbe6dec93832/src/search.cpp
+
+478:         // Have we found a "mate in x"?
+479:         if (limits.mate && rootMoves[0].score == rootMoves[0].uciScore
+480:             && ((rootMoves[0].score >= VALUE_MATE_IN_MAX_PLY
+481:                  && VALUE_MATE - rootMoves[0].score <= 2 * limits.mate)
+482:                 || (rootMoves[0].score != -VALUE_INFINITE
+483:                     && rootMoves[0].score <= VALUE_MATED_IN_MAX_PLY
+484:                     && VALUE_MATE + rootMoves[0].score <= 2 * limits.mate)))
+485:             threads.stop = true;
+486: 

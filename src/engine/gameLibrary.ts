@@ -5,11 +5,17 @@
  */
 import { withoutAppPlaceholder } from './pgnPlaceholders'
 import { matchesSearchTerms, toSearchTerms } from './searchTerms'
+import { truncateUtf16 } from './textLength'
+import { readPgnHeaderSection } from './pgnHeaders'
+import { isPgnResult, readPgnMainlineResult } from './pgnText'
 
 export const MAX_LIBRARY_GAMES = 500
 export const MAX_LIBRARY_PGN_LENGTH = 512_000
 export const MAX_LIBRARY_NAME_LENGTH = 120
 export const MAX_LIBRARY_BACKUP_LENGTH = 8_000_000
+// A UTF-8 file needs at most three bytes per UTF-16 code unit. Keep every
+// valid exported part readable, including comments written in non-ASCII text.
+export const MAX_LIBRARY_BACKUP_BYTES = MAX_LIBRARY_BACKUP_LENGTH * 3
 
 export const LIBRARY_BACKUP_FORMAT = 'web-chess-library'
 export const LIBRARY_BACKUP_VERSION = 1
@@ -35,20 +41,16 @@ export type LibraryGame = {
   createdAt: number
   updatedAt: number
   moveCount: number
+  /** UTF-8 bytes in the PGN, excluding library metadata. */
   size: number
   favorite: boolean
   metadata: LibraryGameMetadata
 }
 
-export type LibrarySort = 'recent' | 'oldest' | 'name' | 'moves'
+export type LibrarySort = 'recent' | 'oldest' | 'name' | 'moves' | 'date'
 
-const HEADER_LINE = /^\s*\[\s*([A-Za-z0-9_]+)\s+"((?:[^"\\]|\\.)*)"\s*\]\s*$/
 const SAN_TOKEN = /^(?:O-O-O|O-O|0-0-0|0-0|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=?[QRBN])?)[+#]?[!?]*$/
 const RESULT_TOKEN = /^(?:1-0|0-1|1\/2-1\/2|\*)$/
-
-function unescapePgnHeaderValue(value: string): string {
-  return value.replace(/\\(["\\])/g, '$1')
-}
 
 function trimmedOrUndefined(value: string | undefined): string | undefined {
   const trimmed = value?.trim()
@@ -62,17 +64,7 @@ function positiveIntOrUndefined(value: string | undefined): number | undefined {
 }
 
 export function parsePgnHeaders(pgn: string): Record<string, string> {
-  const headers: Record<string, string> = {}
-  for (const line of String(pgn ?? '').split(/\r?\n/)) {
-    const match = HEADER_LINE.exec(line)
-    if (match) {
-      headers[match[1]] = unescapePgnHeaderValue(match[2])
-      continue
-    }
-    // Header block ends at the first non-header, non-blank line.
-    if (line.trim()) break
-  }
-  return headers
+  return readPgnHeaderSection(String(pgn ?? '')).headers
 }
 
 /**
@@ -106,7 +98,7 @@ export function extractLibraryMetadata(pgn: string): LibraryGameMetadata {
     round: trimmedOrUndefined(headers.Round),
     white: trimmedOrUndefined(headers.White),
     black: trimmedOrUndefined(headers.Black),
-    result: resultOrUndefined(headers.Result),
+    result: resultOrUndefined(headers.Result ?? readPgnMainlineResult(pgn) ?? undefined),
     eco: trimmedOrUndefined(headers.ECO),
     opening: trimmedOrUndefined(headers.Opening),
     whiteElo: positiveIntOrUndefined(headers.WhiteElo),
@@ -129,10 +121,8 @@ function resultOrUndefined(value: string | undefined): string | undefined {
 }
 
 function stripPgnHeaders(pgn: string): string {
-  const lines = String(pgn ?? '').split(/\r?\n/)
-  let index = 0
-  while (index < lines.length && (HEADER_LINE.test(lines[index]) || !lines[index].trim())) index += 1
-  return lines.slice(index).join('\n')
+  const text = String(pgn ?? '')
+  return text.slice(readPgnHeaderSection(text).end)
 }
 
 /**
@@ -155,25 +145,39 @@ function stripBlockComments(text: string): string {
   }
 }
 
-/** Drops bracketed variations, honouring nesting, so only the main line is left. */
-function stripVariations(movetext: string): string {
+/** Main-line text with comment and variation boundaries kept as token gaps. */
+function libraryMainlineMovetext(text: string): string {
+  const delimiters = /[;{()]/g
+  const lineEnding = /[\r\n]/g
   let depth = 0
   let out = ''
-  for (const char of movetext) {
-    if (char === '(') depth += 1
-    else if (char === ')') depth = Math.max(0, depth - 1)
-    else if (depth === 0) out += char
+  let cursor = 0
+  for (;;) {
+    delimiters.lastIndex = cursor
+    const delimiter = delimiters.exec(text)
+    if (!delimiter) return out + (depth === 0 ? text.slice(cursor) : '')
+    const open = delimiter.index
+    if (depth === 0) out += text.slice(cursor, open) + ' '
+    if (delimiter[0] === '{') {
+      const close = text.indexOf('}', open + 1)
+      // Keep an unfinished tail available to the tolerant library counter;
+      // the actual game importer separately rejects malformed comments.
+      if (close < 0) return out + (depth === 0 ? text.slice(open) : '')
+      cursor = close + 1
+    } else if (delimiter[0] === ';') {
+      lineEnding.lastIndex = open + 1
+      cursor = lineEnding.exec(text)?.index ?? text.length
+    } else {
+      depth = delimiter[0] === '(' ? depth + 1 : Math.max(0, depth - 1)
+      cursor = open + 1
+    }
   }
-  return out
 }
 
 /** Plies in the main line. Comments, variations, NAGs and results do not count. */
 export function countPgnMoves(pgn: string): number {
-  const movetext = stripVariations(
-    stripBlockComments(stripPgnHeaders(pgn))
-      .replace(/;[^\n]*/g, ' ')
-      .replace(/\$\d+/g, ' '),
-  )
+  const movetext = libraryMainlineMovetext(stripPgnHeaders(pgn))
+    .replace(/\$\d+|\b\d+\.(?:\.\.)?/g, ' ')
   return movetext
     .split(/\s+/)
     .filter(token => token && !RESULT_TOKEN.test(token) && SAN_TOKEN.test(token))
@@ -206,17 +210,17 @@ export function suggestGameName(pgn: string, openingName?: string): string {
   // A date alone reads as a file name, not a game.
   const label = players || event || openingName?.trim() || (date ? 'Game' : '')
   const parts = [label, date].filter(Boolean)
-  return parts.join(' · ').slice(0, MAX_LIBRARY_NAME_LENGTH) || 'Untitled game'
+  return truncateUtf16(parts.join(' · '), MAX_LIBRARY_NAME_LENGTH) || 'Untitled game'
 }
 
 export function getUniqueGameName(name: string, existingNames: Iterable<string>): string {
   const taken = new Set(existingNames)
-  const base = name.trim().slice(0, MAX_LIBRARY_NAME_LENGTH) || 'Untitled game'
+  const base = truncateUtf16(name.trim(), MAX_LIBRARY_NAME_LENGTH) || 'Untitled game'
   if (!taken.has(base)) return base
 
   for (let suffix = 2; suffix < 1000; suffix += 1) {
     const tail = ` (${suffix})`
-    const candidate = `${base.slice(0, MAX_LIBRARY_NAME_LENGTH - tail.length)}${tail}`
+    const candidate = `${truncateUtf16(base, MAX_LIBRARY_NAME_LENGTH - tail.length)}${tail}`
     if (!taken.has(candidate)) return candidate
   }
   return base
@@ -233,12 +237,12 @@ export function createLibraryGame(name: string, pgn: string, now: number, id?: s
   const text = String(pgn ?? '')
   return {
     id: id ?? makeLibraryId(now),
-    name: name.trim().slice(0, MAX_LIBRARY_NAME_LENGTH) || suggestGameName(text),
+    name: truncateUtf16(name.trim(), MAX_LIBRARY_NAME_LENGTH) || suggestGameName(text),
     pgn: text,
     createdAt: now,
     updatedAt: now,
     moveCount: countPgnMoves(text),
-    size: text.length,
+    size: new TextEncoder().encode(text).byteLength,
     favorite: false,
     metadata: extractLibraryMetadata(text),
   }
@@ -278,12 +282,12 @@ export function normalizeLibraryGames(value: unknown, now = 0): LibraryGame[] {
     const rawName = typeof entry.name === 'string' ? entry.name.trim() : ''
     games.push({
       id,
-      name: (rawName || suggestGameName(pgn)).slice(0, MAX_LIBRARY_NAME_LENGTH),
+      name: truncateUtf16(rawName, MAX_LIBRARY_NAME_LENGTH) || suggestGameName(pgn),
       pgn,
       createdAt,
       updatedAt: finiteTimestamp(entry.updatedAt, createdAt),
       moveCount: countPgnMoves(pgn),
-      size: pgn.length,
+      size: new TextEncoder().encode(pgn).byteLength,
       favorite: entry.favorite === true,
       metadata: extractLibraryMetadata(pgn),
     })
@@ -353,7 +357,7 @@ export function mergeLibraryBackup(
  * handed over and what they got, and they should hear it from the app rather
  * than notice it later.
  */
-export function backupMergeNote(merge: LibraryBackupMerge): string | null {
+export function backupMergeNote(merge: LibraryBackupMerge, skippedEntries = 0): string | null {
   const plural = (count: number) => (count === 1 ? 'game' : 'games')
   const parts: string[] = []
 
@@ -362,6 +366,9 @@ export function backupMergeNote(merge: LibraryBackupMerge): string | null {
   }
   if (merge.omitted > 0) {
     parts.push(`${merge.omitted} ${plural(merge.omitted)} left out — the library holds ${MAX_LIBRARY_GAMES}`)
+  }
+  if (skippedEntries > 0) {
+    parts.push(`${skippedEntries} backup ${skippedEntries === 1 ? 'entry' : 'entries'} skipped while reading the file`)
   }
   if (!parts.length) return null
 
@@ -420,6 +427,19 @@ export function libraryGameMatchesQuery(game: LibraryGame, query: string): boole
   return matchesSearchTerms(getLibraryGameSearchText(game), terms)
 }
 
+/** Sort by recorded date parts, leaving unknown parts last in their period. */
+function gameDateOrder(date: string | undefined): number {
+  const match = /^(\d{4})(?:([.-])(\d{2}|\?\?)(?:\2(\d{2}|\?\?))?)?$/.exec(date?.trim() ?? '')
+  if (!match) return -1
+  const year = Number(match[1])
+  const month = !match[3] || match[3] === '??' ? 0 : Number(match[3])
+  const day = !match[4] || match[4] === '??' ? 0 : Number(match[4])
+  if (!year || month > 12 || day > 31
+    || match[3] === '00' || match[4] === '00') return -1
+  // A known day cannot add precision when its month is unknown.
+  return year * 10_000 + month * 100 + (month ? day : 0)
+}
+
 export function sortLibraryGames(games: LibraryGame[], sort: LibrarySort): LibraryGame[] {
   const sorted = [...games]
   switch (sort) {
@@ -429,6 +449,9 @@ export function sortLibraryGames(games: LibraryGame[], sort: LibrarySort): Libra
       return sorted.sort((a, b) => a.name.localeCompare(b.name))
     case 'moves':
       return sorted.sort((a, b) => b.moveCount - a.moveCount)
+    case 'date':
+      return sorted.map(game => ({ game, date: gameDateOrder(game.metadata.date) }))
+        .sort((a, b) => b.date - a.date).map(entry => entry.game)
     case 'recent':
     default:
       return sorted.sort((a, b) => b.updatedAt - a.updatedAt)
@@ -461,7 +484,9 @@ export function getLibraryStats(games: LibraryGame[]): { count: number; moves: n
  * in Lichess, chess.com, SCID, ChessBase and everything else.
  *
  * Games are separated by a blank line, which is what the standard asks for and
- * what `splitPgnGames` reads back. Names are not written: a library name is
+ * what `splitPgnGames` reads back. Missing termination markers are supplied
+ * so headerless games and setup-only studies keep their own boundaries.
+ * Names are not written: a library name is
  * this app's label for a game, and a PGN already carries the headers every
  * other program uses to identify one.
  */
@@ -469,6 +494,12 @@ export function createLibraryPgn(games: LibraryGame[]): string {
   const text = games
     .map(game => game.pgn.trim())
     .filter(Boolean)
+    .map(pgn => {
+      if (readPgnMainlineResult(pgn)) return pgn
+      const declared = readPgnHeaderSection(pgn).headers.Result?.trim()
+      // A fresh line keeps the marker outside a trailing semicolon comment.
+      return `${pgn}\n${isPgnResult(declared) ? declared : '*'}`
+    })
     .join('\n\n')
   return text ? `${text}\n` : ''
 }
@@ -508,16 +539,35 @@ export function createLibraryBackup(games: LibraryGame[]): string {
   return parts[0]
 }
 
-export function parseLibraryBackup(json: string, now = 0): LibraryGame[] {
-  if (typeof json !== 'string' || json.length > MAX_LIBRARY_BACKUP_LENGTH) return []
+/** Skipped entries include malformed records, repeated IDs and the file cap. */
+export type LibraryBackupReadResult =
+  | { ok: true; games: LibraryGame[]; skippedEntries: number }
+  | { ok: false; error: string }
+
+/** Read an import envelope without confusing an unsupported backup with a PGN. */
+export function readLibraryBackup(json: string, now = 0): LibraryBackupReadResult {
+  const wrongFile = { ok: false, error: 'This is not a Web Chess library backup. Review backups and PGNs use their own import controls.' } as const
+  if (typeof json !== 'string') return wrongFile
+  const offset = json.charCodeAt(0) === 0xFEFF ? 1 : 0
+  if (json.length - offset > MAX_LIBRARY_BACKUP_LENGTH) return { ok: false, error: 'That backup is too large. Import one exported backup part at a time.' }
   let parsed: unknown
   try {
-    parsed = JSON.parse(json)
+    parsed = JSON.parse(offset ? json.slice(offset) : json)
   } catch {
-    return []
+    return wrongFile
   }
-  if (!isRecord(parsed) || parsed.format !== LIBRARY_BACKUP_FORMAT) return []
-  return normalizeLibraryGames(parsed.games, now)
+  if (!isRecord(parsed) || parsed.format !== LIBRARY_BACKUP_FORMAT) return wrongFile
+  if (parsed.version !== LIBRARY_BACKUP_VERSION) return { ok: false, error: 'This library backup uses an unsupported version. Nothing was imported.' }
+  if (!Array.isArray(parsed.games)) return { ok: false, error: 'The library backup is incomplete or damaged. Nothing was imported.' }
+  const games = normalizeLibraryGames(parsed.games, now)
+  if (parsed.games.length > 0 && games.length === 0) return { ok: false, error: 'No saved games could be read from this library backup.' }
+  return { ok: true, games, skippedEntries: parsed.games.length - games.length }
+}
+
+/** Storage/fuzz callers retain the non-throwing, empty-array fallback. */
+export function parseLibraryBackup(json: string, now = 0): LibraryGame[] {
+  const result = readLibraryBackup(json, now)
+  return result.ok ? result.games : []
 }
 
 /**
@@ -529,5 +579,5 @@ export function parseLibraryBackup(json: string, now = 0): LibraryGame[] {
  */
 export function sameGameKey(pgn: string): string {
   // Move numbers too: a comment makes the exporter restate Black's ("13...").
-  return pgn.replace(/\{[^}]*\}/g, ' ').replace(/\$\d+|\b\d+\.(\.\.)?/g, ' ').replace(/\s+/g, ' ').trim()
+  return stripBlockComments(pgn).replace(/\$\d+|\b\d+\.(\.\.)?/g, ' ').replace(/\s+/g, ' ').trim()
 }

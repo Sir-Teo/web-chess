@@ -1,0 +1,28 @@
+stockfish npm 18.0.7 gitHead: 32d4b5ae40c01db88219bfbe2b82dbe6dec93832
+https://raw.githubusercontent.com/nmrugg/stockfish.js/32d4b5ae40c01db88219bfbe2b82dbe6dec93832/src/ucioption.cpp
+
+42: void OptionsMap::setoption(std::istringstream& is) {
+43:     std::string token, name, value;
+44: 
+45:     is >> token;  // Consume the "name" token
+46: 
+47:     // Read the option name (can contain spaces)
+48:     while (is >> token && token != "value")
+49:         name += (name.empty() ? "" : " ") + token;
+50: 
+51:     // Read the option value (can contain spaces)
+52:     while (is >> token)
+53:         value += (value.empty() ? "" : " ") + token;
+54: 
+
+148: // Updates currentValue and triggers on_change() action. It's up to
+149: // the GUI to check for option's limits, but we could receive the new value
+150: // from the user by console window, so let's check the bounds anyway.
+151: Option& Option::operator=(const std::string& v) {
+152: 
+153:     assert(!type.empty());
+154: 
+155:     if ((type != "button" && type != "string" && v.empty())
+156:         || (type == "check" && v != "true" && v != "false")
+157:         || (type == "spin" && (std::stoi(v) < min || std::stoi(v) > max)))
+158:         return *this;

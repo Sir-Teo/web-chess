@@ -1,0 +1,3 @@
+{"command":"copy-fen","notice":"","errors":["Clipboard blocked synchronously"]}
+{"command":"copy-pgn","notice":"","errors":["Clipboard blocked synchronously"]}
+{"command":"copy-game-link","notice":"","errors":["Clipboard blocked synchronously"]}

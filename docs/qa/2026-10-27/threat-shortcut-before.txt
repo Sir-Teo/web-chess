@@ -1,0 +1,5 @@
+Error: a held T key stopped or restarted the pending threat search
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkThreatShortcutDoesNotRestart (/workspace/web-chess/scripts/test-ui-browser.cjs:11479:7)
+    at async /tmp/web-chess-threat-shortcut-check.cjs:10:9

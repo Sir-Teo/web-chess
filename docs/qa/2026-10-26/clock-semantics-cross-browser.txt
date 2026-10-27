@@ -1,0 +1,4 @@
+Chromium
+  step mode: held at 2:59 and 3:01 through five-second waits, and paid 3:01 and 3:03 for released moves; the running human clock stays highlighted and exposed as a named timer
+Firefox
+  step mode: held at 2:59 and 3:01 through five-second waits, and paid 3:01 and 3:03 for released moves; the running human clock stays highlighted and exposed as a named timer

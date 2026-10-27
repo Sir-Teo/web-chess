@@ -1,0 +1,33 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/labCommands.test.ts (46 tests | 1 failed) 17ms
+     × gates mate-only searches and pauses them while hidden 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/labCommands.test.ts > mate goals without a stopping limit > gates mate-only searches and pauses them while hidden
+AssertionError: go mate 1: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/engine/labCommands.test.ts:217:57
+    215|     for (const command of ['go mate 1', 'go mate 0 mate 2', 'go mate 3…
+    216|       expect(engineLabCommandBlockMessage(command)).toBeNull()
+    217|       expect(isHeavyEngineLabCommand(command), command).toBe(true)
+       |                                                         ^
+    218|       expect(isUnboundedEngineLabSearch(command), command).toBe(true)
+    219|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 45 passed (46)
+   Start at  23:41:45
+   Duration  215ms (transform 56ms, setup 0ms, import 69ms, tests 17ms, environment 0ms)
+

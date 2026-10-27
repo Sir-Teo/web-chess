@@ -1,0 +1,226 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/fen.test.ts (76 tests | 14 failed) 41ms
+     × requires the pawn that just advanced: 4k3/8/8/4P3/8/8/8/4K3 w - d6 0 12 10ms
+     × requires the pawn that just advanced: 4k3/8/8/8/4p3/8/8/4K3 b - d3 0 12 1ms
+     × requires the actual opposing pawn rather than a different piece: 4k3/8/8/3PP3/8/8/8/4K3 w - d6 0 12 1ms
+     × requires the actual opposing pawn rather than a different piece: 4k3/8/8/3rP3/8/8/8/4K3 w - d6 0 12 1ms
+     × requires the actual opposing pawn rather than a different piece: 4k3/8/8/8/3pp3/8/8/4K3 b - d3 0 12 1ms
+     × requires the actual opposing pawn rather than a different piece: 4k3/8/8/8/3Np3/8/8/4K3 b - d3 0 12 1ms
+     × requires an empty target square: 4k3/8/3B4/3pP3/8/8/8/4K3 w - d6 0 12 1ms
+     × requires an empty target square: 4k3/8/8/8/3Pp3/3b4/8/4K3 b - d3 0 12 1ms
+     × requires the double-push origin to be vacated: 4k3/3p4/8/3pP3/8/8/8/4K3 w - d6 0 12 1ms
+     × requires the double-push origin to be vacated: 4k3/8/8/8/3Pp3/8/3P4/4K3 b - d3 0 12 1ms
+     × keeps editor input strict while retaining importer defaults: 4k3/8/8/8/8/8/4P3/4K3 w 2ms
+     × keeps editor input strict while retaining importer defaults: 4k3/8/8/8/8/8/4P3/4K3 w - 1ms
+     × keeps editor input strict while retaining importer defaults: 4k3/8/8/8/8/8/4P3/4K3 w - - 1ms
+     × keeps editor input strict while retaining importer defaults: 4k3/8/8/8/8/8/4P3/4K3 w - - 42 1ms
+ ❯ src/engine/pgn.test.ts (154 tests | 2 failed) 168ms
+     × rejects a dangling en passant target before normalization/replay: 4k3/8/8/4P3/8/8/8/4K3 w - d6 0 12 13ms
+     × rejects a dangling en passant target before normalization/replay: 4k3/8/8/8/4p3/8/8/4K3 b - d3 0 12 1ms
+ ❯ src/engine/shareGame.test.ts (35 tests | 2 failed) 412ms
+     × rejects a dangling en passant target before a quiet move invents a pawn: 4k3/8/8/4P3/8/8/8/4K3 w - d6 0 12 10ms
+     × rejects a dangling en passant target before a quiet move invents a pawn: 4k3/8/8/8/4p3/8/8/4K3 b - d3 0 12 1ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 18 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/fen.test.ts > declared en passant targets > requires the pawn that just advanced: 4k3/8/8/4P3/8/8/8/4K3 w - d6 0 12
+ FAIL  src/engine/fen.test.ts > declared en passant targets > requires the pawn that just advanced: 4k3/8/8/8/4p3/8/8/4K3 b - d3 0 12
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/engine/fen.test.ts:10:23
+      8|   ])('requires the pawn that just advanced: %s', (fen, square) => {
+      9|     const result = validateFenForAnalysis(fen)
+     10|     expect(result.ok).toBe(false)
+       |                       ^
+     11|     expect(!result.ok && result.error).toMatch(new RegExp(`en passant.…
+     12|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/18]⎯
+
+ FAIL  src/engine/fen.test.ts > declared en passant targets > requires the actual opposing pawn rather than a different piece: 4k3/8/8/3PP3/8/8/8/4K3 w - d6 0 12
+ FAIL  src/engine/fen.test.ts > declared en passant targets > requires the actual opposing pawn rather than a different piece: 4k3/8/8/3rP3/8/8/8/4K3 w - d6 0 12
+ FAIL  src/engine/fen.test.ts > declared en passant targets > requires the actual opposing pawn rather than a different piece: 4k3/8/8/8/3pp3/8/8/4K3 b - d3 0 12
+ FAIL  src/engine/fen.test.ts > declared en passant targets > requires the actual opposing pawn rather than a different piece: 4k3/8/8/8/3Np3/8/8/4K3 b - d3 0 12
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/engine/fen.test.ts:21:23
+     19|   ])('requires the actual opposing pawn rather than a different piece:…
+     20|     const result = validateFenForAnalysis(fen)
+     21|     expect(result.ok).toBe(false)
+       |                       ^
+     22|     expect(!result.ok && result.error).toMatch(/en passant.*pawn/)
+     23|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/18]⎯
+
+ FAIL  src/engine/fen.test.ts > declared en passant targets > requires an empty target square: 4k3/8/3B4/3pP3/8/8/8/4K3 w - d6 0 12
+ FAIL  src/engine/fen.test.ts > declared en passant targets > requires an empty target square: 4k3/8/8/8/3Pp3/3b4/8/4K3 b - d3 0 12
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/engine/fen.test.ts:30:23
+     28|   ])('requires an empty target square: %s', (fen, target) => {
+     29|     const result = validateFenForAnalysis(fen)
+     30|     expect(result.ok).toBe(false)
+       |                       ^
+     31|     expect(!result.ok && result.error).toMatch(new RegExp(`en passant.…
+     32|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/18]⎯
+
+ FAIL  src/engine/fen.test.ts > declared en passant targets > requires the double-push origin to be vacated: 4k3/3p4/8/3pP3/8/8/8/4K3 w - d6 0 12
+ FAIL  src/engine/fen.test.ts > declared en passant targets > requires the double-push origin to be vacated: 4k3/8/8/8/3Pp3/8/3P4/4K3 b - d3 0 12
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/engine/fen.test.ts:39:23
+     37|   ])('requires the double-push origin to be vacated: %s', (fen, origin…
+     38|     const result = validateFenForAnalysis(fen)
+     39|     expect(result.ok).toBe(false)
+       |                       ^
+     40|     expect(!result.ok && result.error).toMatch(new RegExp(`en passant.…
+     41|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/18]⎯
+
+ FAIL  src/engine/fen.test.ts > explicit shorthand support for imported roots > keeps editor input strict while retaining importer defaults: 4k3/8/8/8/8/8/4P3/4K3 w
+ FAIL  src/engine/fen.test.ts > explicit shorthand support for imported roots > keeps editor input strict while retaining importer defaults: 4k3/8/8/8/8/8/4P3/4K3 w -
+ FAIL  src/engine/fen.test.ts > explicit shorthand support for imported roots > keeps editor input strict while retaining importer defaults: 4k3/8/8/8/8/8/4P3/4K3 w - -
+AssertionError: expected { ok: false, …(1) } to deeply equal { ok: true, …(1) }
+
+- Expected
++ Received
+
+  {
+-   "fen": "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1",
+-   "ok": true,
++   "error": "Failed to parse FEN. Check piece placement, side to move, castling rights, and counters.",
++   "ok": false,
+  }
+
+ ❯ src/engine/fen.test.ts:65:71
+     63|   ])('keeps editor input strict while retaining importer defaults: %s'…
+     64|     expect(validateFenForAnalysis(input).ok).toBe(false)
+     65|     expect(validateFenForAnalysis(input, { allowAbbreviated: true })).…
+       |                                                                       ^
+     66|   })
+     67| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/18]⎯
+
+ FAIL  src/engine/fen.test.ts > explicit shorthand support for imported roots > keeps editor input strict while retaining importer defaults: 4k3/8/8/8/8/8/4P3/4K3 w - - 42
+AssertionError: expected { ok: false, …(1) } to deeply equal { ok: true, …(1) }
+
+- Expected
++ Received
+
+  {
+-   "fen": "4k3/8/8/8/8/8/4P3/4K3 w - - 42 1",
+-   "ok": true,
++   "error": "Failed to parse FEN. Check piece placement, side to move, castling rights, and counters.",
++   "ok": false,
+  }
+
+ ❯ src/engine/fen.test.ts:65:71
+     63|   ])('keeps editor input strict while retaining importer defaults: %s'…
+     64|     expect(validateFenForAnalysis(input).ok).toBe(false)
+     65|     expect(validateFenForAnalysis(input, { allowAbbreviated: true })).…
+       |                                                                       ^
+     66|   })
+     67| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/18]⎯
+
+ FAIL  src/engine/pgn.test.ts > PGN starting-position legality > rejects a dangling en passant target before normalization/replay: 4k3/8/8/4P3/8/8/8/4K3 w - d6 0 12
+ FAIL  src/engine/pgn.test.ts > PGN starting-position legality > rejects a dangling en passant target before normalization/replay: 4k3/8/8/8/4p3/8/8/4K3 b - d3 0 12
+AssertionError: expected undefined to be an instance of Error
+ ❯ src/engine/pgn.test.ts:35:22
+     33|       let caught: unknown
+     34|       try { parsePgnMoveTree(`[SetUp "1"]\n[FEN "${fen}"]\n\n${movetex…
+     35|       expect(caught).toBeInstanceOf(Error)
+       |                      ^
+     36|       expect(pgnImportUserErrorMessage(caught)).toMatch(/PGN starting …
+     37|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/18]⎯
+
+ FAIL  src/engine/shareGame.test.ts > shared starting-position legality > rejects a dangling en passant target before a quiet move invents a pawn: 4k3/8/8/4P3/8/8/8/4K3 w - d6 0 12
+AssertionError: expected { …(3) } to be null
+
+- Expected:
+null
+
++ Received:
+{
+  "carried": 1,
+  "moves": [
+    "e1d1",
+  ],
+  "rootFen": "4k3/8/8/4P3/8/8/8/4K3 w - d6 0 12",
+}
+
+ ❯ src/engine/shareGame.test.ts:21:61
+     19|     ['4k3/8/8/8/4p3/8/8/4K3 b - d3 0 12', 'e8d8'],
+     20|   ])('rejects a dangling en passant target before a quiet move invents…
+     21|     expect(decodeSharedGame(encodeSharedGame(fen, [move]))).toBeNull()
+       |                                                             ^
+     22|   })
+     23|   it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/18]⎯
+
+ FAIL  src/engine/shareGame.test.ts > shared starting-position legality > rejects a dangling en passant target before a quiet move invents a pawn: 4k3/8/8/8/4p3/8/8/4K3 b - d3 0 12
+AssertionError: expected { …(3) } to be null
+
+- Expected:
+null
+
++ Received:
+{
+  "carried": 1,
+  "moves": [
+    "e8d8",
+  ],
+  "rootFen": "4k3/8/8/8/4p3/8/8/4K3 b - d3 0 12",
+}
+
+ ❯ src/engine/shareGame.test.ts:21:61
+     19|     ['4k3/8/8/8/4p3/8/8/4K3 b - d3 0 12', 'e8d8'],
+     20|   ])('rejects a dangling en passant target before a quiet move invents…
+     21|     expect(decodeSharedGame(encodeSharedGame(fen, [move]))).toBeNull()
+       |                                                             ^
+     22|   })
+     23|   it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/18]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  18 failed | 247 passed (265)
+   Start at  13:28:20
+   Duration  730ms (transform 521ms, setup 0ms, import 739ms, tests 621ms, environment 0ms)
+

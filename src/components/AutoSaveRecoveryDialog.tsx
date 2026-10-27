@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useModalFocus } from '../hooks/useModalFocus'
 import { IconRefresh } from './icons'
 import { describeElapsed } from './elapsedLabel'
@@ -13,6 +13,7 @@ type Props = {
      * player as a game twice as long as the one they left.
      */
     plyCount: number
+    positionStudy?: boolean
     onRestore: () => void
     onDismiss: () => void
     /**
@@ -23,7 +24,12 @@ type Props = {
     error?: string | null
     /** Hands the unreadable PGN to the clipboard, so it is not simply lost. */
     onCopyPgn?: () => void
+    onDownloadPgn?: () => boolean
+    /** Preserve unreadable text for manual retrieval when browser APIs fail. */
+    pgn?: string
     copyLabel?: string
+    copying?: boolean
+    copyError?: string
     /**
      * The saved game's PGN `Result`, when it has one. A game that ended is not
      * "in progress", and asking someone to pick up where they left off after a
@@ -42,17 +48,24 @@ function describeSavedOutcome(result: string | undefined): string | null {
     return null
 }
 
-export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss, error, onCopyPgn, copyLabel, result }: Props) {
+export function AutoSaveRecoveryDialog({ savedAt, plyCount, positionStudy = false, onRestore, onDismiss, error, onCopyPgn, onDownloadPgn, pgn, copyLabel, copying, copyError, result }: Props) {
     const moveCount = Math.ceil(Math.max(0, plyCount) / 2)
     const outcome = describeSavedOutcome(result)
     const panelRef = useRef<HTMLDivElement>(null)
-    useModalFocus(true, panelRef, onDismiss, { initialFocus: '[data-restore]' })
+    const pgnRef = useRef<HTMLTextAreaElement>(null)
+    const pgnId = useId()
+    const copyErrorId = useId()
+    const downloadErrorId = useId()
+    const [downloadFailed, setDownloadFailed] = useState(false)
+    // Dismissing clears the only recovery slot. An incidental Escape or tap
+    // outside the panel must not make the same choice as Start fresh/Discard.
+    useModalFocus(true, panelRef, onDismiss, { initialFocus: '[data-restore]', closeOnEscape: false })
 
     return (
-        <div className="dialog-backdrop" onClick={onDismiss}>
+        <div className="dialog-backdrop">
             <div
                 ref={panelRef}
-                className="dialog-panel"
+                className="dialog-panel auto-save-recovery"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="auto-save-title"
@@ -61,7 +74,7 @@ export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss
             >
                 <header className="dialog-header">
                     <span className="dialog-icon"><IconRefresh /></span>
-                    <h2 id="auto-save-title">{outcome ? 'Finished game' : 'Unfinished game'}</h2>
+                    <h2 id="auto-save-title">{positionStudy ? 'Position study' : outcome ? 'Finished game' : 'Unfinished game'}</h2>
                 </header>
 
                 {/* Inside a section like every other dialog's copy: the body
@@ -72,17 +85,31 @@ export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss
                     <div className="dialog-section">
                         <p id="auto-save-body">
                             {error
-                                ? `That saved game could not be read back: ${error}`
+                                ? `That saved ${positionStudy ? 'position study' : 'game'} could not be read back: ${error}`
+                                : positionStudy
+                                    ? `A position study was open ${describeElapsed(savedAt)}. Pick up where you left off?`
                                 : outcome
                                     ? `${outcome} in ${moveCount} ${moveCount === 1 ? 'move' : 'moves'}, ${describeElapsed(savedAt)}. Open it again?`
+                                    : moveCount === 0
+                                      ? `The starting position was ready ${describeElapsed(savedAt)}. Pick up where you left off?`
                                     : `${moveCount} ${moveCount === 1 ? 'move was' : 'moves were'} in progress ${describeElapsed(savedAt)}. Pick up where you left off?`}
                         </p>
                         {error && (
                             <p className="dialog-note">
-                                Copy it first if you want to keep the moves — discarding is the only way to stop
-                                being asked, and it cannot be undone.
+                                Copy or download the PGN first. Discarding cannot be undone.
                             </p>
                         )}
+                        {copyError && <p id={copyErrorId} className="dialog-error" role="alert">{copyError}</p>}
+                        {downloadFailed && <p id={downloadErrorId} className="dialog-error" role="alert">
+                            The browser could not start the recovery download. Try again, or select the saved PGN text and copy it manually.
+                        </p>}
+                        {error && pgn && (copyError || downloadFailed) && <>
+                            <label className="dialog-label" htmlFor={pgnId}>Saved PGN</label>
+                            <textarea id={pgnId} ref={pgnRef} className="input-textarea" readOnly value={pgn} spellCheck={false} />
+                            <button type="button" className="btn-cancel" onClick={() => { pgnRef.current?.focus(); pgnRef.current?.select() }}>
+                                Select saved PGN text
+                            </button>
+                        </>}
                     </div>
                 </div>
 
@@ -91,7 +118,11 @@ export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss
                         ? (
                             <>
                                 <button type="button" className="btn-cancel" onClick={onDismiss}>Discard it</button>
-                                <button type="button" className="btn-start" data-restore onClick={onCopyPgn}>
+                                {onDownloadPgn && <button type="button" className="btn-cancel"
+                                    aria-describedby={downloadFailed ? downloadErrorId : undefined}
+                                    onClick={() => setDownloadFailed(!onDownloadPgn())}>Download PGN</button>}
+                                <button type="button" className="btn-start" data-restore aria-busy={copying || undefined}
+                                    aria-describedby={copyError ? copyErrorId : undefined} onClick={onCopyPgn}>
                                     {copyLabel ?? 'Copy PGN'}
                                 </button>
                             </>

@@ -1,0 +1,7 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+NOTE TRANSITION {"message":"reimport lost the distinct starting-position note","immediate":"Move-specific note","after":"Annotated position ♞"}
+  position notes (1280×900, 1x): zero-move study retains/edits notes, saves to Library and recovers after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+  position notes (1280×900, 1x): zero-move study retains/edits notes, saves to Library and recovers after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+  position notes (375×812, 1x): zero-move study retains/edits notes, saves to Library and recovers after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+NOTE TRANSITION {"message":"reimport lost the distinct starting-position note","immediate":"Move-specific note","after":"Annotated position ♞"}
+  position notes (375×812, 1x): zero-move study retains/edits notes, saves to Library and recovers after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata

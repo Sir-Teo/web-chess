@@ -1,0 +1,4 @@
+  database boundaries (1280×900, 1x, BOM paste): four headerless/Event-less games offered and saved intact; current board retained; FEN game and annotated variation load individually
+  database boundaries (375×812, 1x, BOM paste): four headerless/Event-less games offered and saved intact; current board retained; FEN game and annotated variation load individually
+  database boundaries (320×812, 2x, BOM/CRLF file): four headerless/Event-less games offered and saved intact; current board retained; FEN game and annotated variation load individually
+  database boundaries (844×390, 2x, BOM/CRLF file): four headerless/Event-less games offered and saved intact; current board retained; FEN game and annotated variation load individually

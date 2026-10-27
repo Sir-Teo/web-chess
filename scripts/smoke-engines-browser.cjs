@@ -9,6 +9,211 @@ const output = process.env.SMOKE_OUTPUT || '/tmp/web-chess-engine-smoke'
 const browsers = { chromium, firefox, webkit }
 const widths = (process.env.SMOKE_WIDTHS || '1280,375').split(',').map(Number)
 
+async function checkNativeConsoleLimits(page) {
+  const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+  const submit = async text => { await command.fill(text); await command.press('Enter') }
+  const ready = () => page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+  for (const [text, reason] of [
+    ['go DEPTH 1', 'lowercase UCI keywords'], ['go depth 0x10', 'whole decimal integer'],
+    ['go nodes 0b10', 'whole decimal integer'], ['go depth nope movetime 20', 'whole decimal integer'],
+    ['go depth 1 depth 0', 'Enable expert mode'],
+    ['go mate 1', 'Enable expert mode for a mate-only search'],
+    ['go ponder depth 1', 'Ponder searches are not supported'], ['ponderhit', 'Ponder searches are not supported'],
+  ]) {
+    await submit(text)
+    await page.locator('.error-copy').filter({ hasText: reason }).waitFor()
+    assert.equal(await page.evaluate(text => window.__smokeCommands.includes(text), text), false, `${text} reached real Stockfish`)
+  }
+  const nullCommand = 'go\u0000 depth 1'
+  await command.fill(nullCommand)
+  const enteredNull = await command.inputValue()
+  await command.press('Enter')
+  if (enteredNull.includes('\u0000')) {
+    await page.locator('.error-copy').filter({ hasText: 'null character' }).waitFor()
+    assert.equal(await command.inputValue(), nullCommand)
+    assert.equal(await page.evaluate(text => window.__smokeCommands.includes(text), nullCommand), false)
+  } else {
+    assert.equal(enteredNull, 'go depth 1')
+    await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+    await ready()
+    assert.match(await page.getByLabel('UCI console output', { exact: true }).textContent(), /bestmove /)
+  }
+  for (const text of ['go mate 1 depth 2', 'go mate 1 movetime 20']) {
+    await submit(text)
+    await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+    await ready()
+    assert.match(await page.getByLabel('UCI console output', { exact: true }).textContent(), /bestmove /)
+  }
+  const expert = page.getByRole('checkbox', { name: 'Enable expert engine commands', exact: true })
+  await expert.check()
+  for (const text of ['go depth 0 depth +0001', 'go perft 0 depth 1']) {
+    await submit(text)
+    await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+    await ready()
+    const output = await page.getByLabel('UCI console output', { exact: true }).textContent()
+    assert.match(output, /bestmove /)
+    assert.deepEqual([...new Set([...output.matchAll(/\binfo depth (\d+)/g)].map(match => Number(match[1])))], [1])
+  }
+  // Native root perft treats negative int32 depths like depth one. Keep
+  // this distinct from zero, which falls through to an ordinary search.
+  for (const text of ['go perft -1', 'go perft -2', 'go perft -2147483648']) {
+    await submit(text)
+    await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+    await ready()
+    const output = await page.getByLabel('UCI console output', { exact: true }).textContent()
+    assert.match(output, /Nodes searched: 20(?:\s|$)/)
+    assert.doesNotMatch(output, /bestmove |\binfo depth /)
+    await submit('isready')
+    await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+    assert.match(await page.getByLabel('UCI console output', { exact: true }).textContent(), /readyok/)
+  }
+  await page.evaluate(() => {
+    window.__consoleProbeVisibility = 'visible'
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => window.__consoleProbeVisibility })
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => window.__consoleProbeVisibility === 'hidden' })
+  })
+  const visibility = value => page.evaluate(value => {
+    window.__consoleProbeVisibility = value
+    document.dispatchEvent(new Event('visibilitychange'))
+  }, value)
+  try {
+    for (const text of ['go depth 1 depth 0', 'go perft 0', 'go mate 1']) {
+      await submit(text)
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
+      const searches = await page.evaluate(text => window.__smokeCommands.filter(command => command === text).length, text)
+      await visibility('hidden')
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'paused')
+      await visibility('visible')
+      await page.waitForFunction(({ text, searches }) => window.__smokeCommands.filter(command => command === text).length === searches + 1, { text, searches })
+      if (text === 'go perft 0') {
+        await submit('StOp')
+        await command.fill('isready')
+      } else {
+        await command.fill('isready')
+        await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
+      }
+      await ready()
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      assert.equal(await command.inputValue(), 'isready', 'completion erased the next console command')
+      assert.match(await page.getByLabel('UCI console output', { exact: true }).textContent(), /bestmove /)
+      await command.press('Enter')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      assert.match(await page.getByLabel('UCI console output', { exact: true }).textContent(), /readyok/)
+    }
+  } finally {
+    await page.evaluate(() => {
+      delete document.visibilityState
+      delete document.hidden
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+  }
+  await expert.uncheck()
+}
+
+async function checkNativePerftCancellation(page) {
+  const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+  const output = page.getByLabel('UCI console output', { exact: true })
+  const expert = page.getByRole('checkbox', { name: 'Enable expert engine commands', exact: true })
+  await expert.check()
+  await command.fill('position startpos moves e2e4')
+  await command.press('Enter')
+  await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+  await command.fill('go perft 8')
+  await command.press('Enter')
+  await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
+  await command.fill('isready')
+  await page.getByRole('button', { name: 'Stop engine search', exact: true }).click()
+  await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'unloaded', null, { timeout: 5000 })
+  await output.filter({ hasText: '[app] Perft canceled; engine released.' }).waitFor()
+  assert.equal(await command.inputValue(), 'isready')
+  assert.doesNotMatch(await output.textContent(), /Nodes searched:|bestmove /)
+  await page.getByRole('button', { name: 'Load engine', exact: true }).click()
+  await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+  await command.press('Enter')
+  await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+  assert.match(await output.textContent(), /readyok/)
+  // A fresh worker resets the prior e2-e4 console position to the start.
+  await command.fill('go perft 3')
+  await command.press('Enter')
+  await output.filter({ hasText: 'Nodes searched: 8902' }).waitFor()
+  await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+  await expert.uncheck()
+}
+
+async function checkNativeSpinOptions(page) {
+  const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+  const threads = page.getByRole('spinbutton', { name: 'Threads', exact: true })
+  const original = await threads.inputValue()
+  const maximum = Number(await threads.getAttribute('max'))
+  const submit = async text => { await command.fill(text); await command.press('Enter') }
+  const run = async text => {
+    await submit(text)
+    await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+  }
+  for (const value of ['0', String(maximum + 1), '1.5', 'nope']) {
+    const text = `setoption name Threads value ${value}`
+    await submit(text)
+    await page.getByRole('alert').filter({ hasText: `for Threads.` }).waitFor()
+    assert.equal(await threads.inputValue(), original)
+    assert.equal(await command.inputValue(), text)
+    assert.equal(await page.evaluate(text => window.__smokeCommands.includes(text), text), false)
+  }
+  const valid = Math.min(2, maximum)
+  await run(`SETOPTION NAME tHrEaDs VALUE +000${valid}`)
+  assert.equal(await threads.inputValue(), String(valid))
+  assert.equal(await page.evaluate(value => window.__smokeCommands.includes(`setoption name Threads value ${value}`), valid), true)
+  await run('isready')
+  await run(`setoption name Threads value ${original}`)
+  await run('isready')
+  const overhead = page.getByRole('spinbutton', { name: 'Move Overhead', exact: true })
+  const originalOverhead = await overhead.inputValue()
+  await run('setoption name mOvE    OvErHeAd VALUE -0')
+  assert.equal(await overhead.inputValue(), '0')
+  await run(`setoption name Move Overhead value ${originalOverhead}`)
+  await run('isready')
+  assert.match(await page.getByLabel('UCI console output', { exact: true }).textContent(), /readyok/)
+}
+
+async function checkNativeOptionWhitespace(page) {
+  const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+  const option = page.getByRole('checkbox', { name: 'UCI_Chess960', exact: true })
+  const output = page.getByLabel('UCI console output', { exact: true })
+  const submit = async text => {
+    await command.fill(text); await command.press('Enter')
+    await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === ''
+      && document.querySelector('.bottom .status')?.textContent === 'ready')
+  }
+  // Native d exposes the applied option through its FEN castling notation.
+  // Checking the checkbox alone would pass even when the worker ignored it.
+  for (const [raw, value, castling] of [
+    ['setoption\u00a0name\u00a0UCI_Chess960\u00a0value\u00a0true', true, 'HAha'],
+    ['SETOPTION\tNAME\tUCI_Chess960\tVALUE\tFaLsE', false, 'KQkq'],
+  ]) {
+    const before = await page.evaluate(() => window.__smokeCommands.length)
+    await submit(raw)
+    assert.equal(await option.isChecked(), value)
+    assert.equal((await output.textContent()).startsWith(`> ${raw}\n`), true)
+    assert.equal((await page.locator('.lab-history-list button').allTextContents()).includes(raw), true)
+    assert.equal(await page.evaluate(({ before, value }) => window.__smokeCommands.slice(before).includes(`setoption name UCI_Chess960 value ${value}`), { before, value }), true)
+    await submit('position startpos')
+    await submit('d')
+    const fen = /Fen:\s*([^\n]+)/.exec(await output.textContent())?.[1]
+    assert.equal(fen?.split(' ')[2], castling, 'the option control disagrees with native Stockfish')
+    if (value) {
+      for (const invalid of ['setoption name UCI_Chess960 value yes', 'setoption name UCI_Chess960 value', 'setoption name UCI_Chess960']) {
+        const sent = await page.evaluate(() => window.__smokeCommands.length)
+        const previousOutput = await output.textContent()
+        await command.fill(invalid); await command.press('Enter')
+        await page.locator('.error-copy').filter({ hasText: 'Use true or false for UCI_Chess960.' }).waitFor()
+        assert.equal(await option.isChecked(), true)
+        assert.equal(await command.inputValue(), invalid)
+        assert.equal(await output.textContent(), previousOutput)
+        assert.equal(await page.evaluate(() => window.__smokeCommands.length), sent)
+      }
+    }
+  }
+}
+
 async function main() {
   assert(widths.length > 0 && widths.every(width => Number.isInteger(width) && width >= 320), 'SMOKE_WIDTHS must contain viewport widths of at least 320px')
   fs.mkdirSync(output, { recursive: true })
@@ -28,8 +233,16 @@ async function main() {
         page.on('pageerror', error => errors.push(error.message))
         let stage = 'boot'
         try {
-          await page.route(/https:\/\/(lichess\.org|[^/]*lichess\.ovh)\//, route => route.fulfill({ status: 404, body: '{}' }))
           await page.addInitScript(() => {
+            // Page routing cannot intercept service-worker-owned requests.
+            // Keep cloud readings out before the production worker can fetch
+            // them, so this smoke measures the real local engine in isolation.
+            const nativeFetch = window.fetch.bind(window)
+            window.fetch = (input, init) => {
+              const url = new URL(input instanceof Request ? input.url : String(input), location.href)
+              return url.hostname === 'lichess.org' || url.hostname.endsWith('.lichess.ovh')
+                ? Promise.resolve(new Response('{}', { status: 404 })) : nativeFetch(input, init)
+            }
             localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
               workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false,
               showAdvancedAnalyze: true, analyzeMode: 'deep', searchDepth: 12,
@@ -83,7 +296,7 @@ async function main() {
           await page.keyboard.press('Escape')
           await page.locator('#chessboard-square-e2').click()
           await page.locator('#chessboard-square-e4').click()
-          await page.waitForFunction(() => document.querySelector('#chessboard-square-e4')?.getAttribute('aria-label')?.includes('White pawn'))
+          await page.getByRole('button', { name: /^e4, White pawn(?:,|$)/ }).waitFor()
           assert.equal(await page.locator('[id^="chessboard-square-"]').count(), 64)
 
           stage = 'shared engine options'
@@ -97,8 +310,18 @@ async function main() {
               const field = document.querySelector('input[aria-label="Hash"]')
               return field?.value === value && window.__smokeCommands.slice(sentBefore).includes(`setoption name Hash value ${value}`)
                 && JSON.parse(localStorage.getItem('webchess:analysis-settings:v1')).hashMb === Number(value)
+                && document.querySelector('[aria-label="UCI command"]')?.value === ''
             }, { value, sentBefore })
           }
+
+          stage = 'native console limit parsing'
+          await checkNativeConsoleLimits(page)
+          stage = 'native perft cancellation'
+          await checkNativePerftCancellation(page)
+          stage = 'native spin option validation'
+          await checkNativeSpinOptions(page)
+          stage = 'native option protocol whitespace'
+          await checkNativeOptionWhitespace(page)
 
           stage = 'game review and export'
           await page.getByRole('button', { name: 'Review', exact: true }).click()
@@ -142,6 +365,7 @@ async function main() {
           assert.equal(backup.reviews[0].settings.depth, 6)
           assert.ok(backup.reviews[0].finishedAt >= backup.reviews[0].startedAt)
           await page.getByRole('button', { name: 'Delete saved review', exact: true }).click()
+          await page.getByRole('button', { name: /^Confirm delete: / }).click()
           await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 0)
           await page.getByLabel('Review backup file', { exact: true }).setInputFiles({ name: 'review-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) })
           await page.getByText('Imported 1 review; 0 identical reviews skipped.', { exact: true }).waitFor()
@@ -162,7 +386,8 @@ async function main() {
           await guide.locator('summary').focus()
           await page.keyboard.press('Enter')
           assert.notEqual(await guide.getAttribute('open'), null)
-          assert.match(await guide.innerText(), /human games/)
+          assert.match(await guide.innerText(), /win as one point and a draw as half a point/)
+          assert.match(await guide.innerText(), /score-based estimate otherwise/)
           assert.match(await guide.innerText(), /strong engines/)
           assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
           await page.keyboard.press('Enter')
@@ -237,9 +462,19 @@ async function main() {
           assert.equal(await depthTenSearches(), rerunBefore, 'reopening lost reusable real-engine readings')
           assert.deepEqual(errors, [])
           results.push({ browser: name, width, status: 'passed', source, positionScore: before,
-            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'shared console options', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus', 'repetition review: eight depth-10 searches, save, reopen, backup and reuse'] })
+            isolated: await page.evaluate(() => crossOriginIsolated), checks: ['real UCI search', 'restricted score isolation', 'producer identity', 'responsive layout', 'modal editing', 'e2-e4', 'shared console options', 'native console limits and next command drafts: rejected syntax, duplicate limits, zero-perft depth-1, negative perft int32 depths and readiness recovery, pause/resume, preserved and submitted drafts', 'perft 8 cancellation releases worker, preserves draft and reloads a reset console position', 'native spin validation and canonical option updates with readiness acknowledgements', 'Unicode option prefixes, original echo/history and native castling state', 'game review', 'fresh depth-6 review', 'shallow review PGN download', 'deepen review', 'save and reopen review', 'same-report comparison', 'full saved-review backup and restore', 'keyboard chart explanation', '200% text without window resize', 'enlarged panel keyboard focus', 'repetition review: eight depth-10 searches, save, reopen, backup and reuse'] })
         } catch (error) {
-          results.push({ browser: name, width, status: 'failed', stage, error: String(error), pageErrors: errors })
+          const diagnostics = await page.evaluate(() => ({
+            commands: window.__smokeCommands?.slice(-80),
+            bestmoves: window.__smokeBestmoves,
+            review: document.querySelector('[data-testid="review-run-summary"]')?.textContent,
+            reviewControls: [...document.querySelectorAll('button')]
+              .filter(button => /^(Fresh review|Review Game|Reviewing)/.test(button.textContent.trim()))
+              .map(button => ({ text: button.textContent.trim(), disabled: button.disabled })),
+            notices: [...document.querySelectorAll('[role="alert"], [role="status"]')]
+              .map(node => node.textContent.trim().slice(0, 250)).filter(Boolean).slice(-8),
+          })).catch(() => null)
+          results.push({ browser: name, width, status: 'failed', stage, error: String(error), pageErrors: errors, diagnostics })
           await page.screenshot({ path: path.join(output, `${name}-${width}-failure.png`) }).catch(() => {})
           process.exitCode = 1
         } finally { await context.close() }

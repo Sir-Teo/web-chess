@@ -1,0 +1,4 @@
+  threat shortcut (1280×900, 1x, dark): repeats and busy presses preserve the held search; completion ignores the held key; release and press asks again
+  threat shortcut (375×812, 1x, light): repeats and busy presses preserve the held search; completion ignores the held key; release and press asks again
+  threat shortcut (320×812, 2x, light): repeats and busy presses preserve the held search; completion ignores the held key; release and press asks again
+  threat shortcut (844×390, 2x, dark): repeats and busy presses preserve the held search; completion ignores the held key; release and press asks again

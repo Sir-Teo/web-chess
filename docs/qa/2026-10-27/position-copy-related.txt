@@ -1,0 +1,14 @@
+  command copy (1280px, 1x, dark, missing): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (1280px, 1x, dark, method-missing): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (1280px, 1x, dark, getter): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (1280px, 1x, dark, throw): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (1280px, 1x, dark, deny): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (1280px, 1x, dark, success): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (1280px, 1x): successful payloads include exact FEN, parsed Unicode PGN and an actual replayable game link; old rejected/successful replies cannot replace newer feedback
+  command copy (375px, 2x, light, missing): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (375px, 2x, light, method-missing): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (375px, 2x, light, getter): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (375px, 2x, light, throw): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (375px, 2x, light, deny): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (375px, 2x, light, success): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved
+  command copy (375px, 2x): successful payloads include exact FEN, parsed Unicode PGN and an actual replayable game link; old rejected/successful replies cannot replace newer feedback

@@ -1,13 +1,16 @@
 .phase-accuracy {
+  container: review-phase-accuracy / inline-size;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0.24rem;
   margin-bottom: 0.48rem;
 }
 
-.phase-accuracy-row {
+.phase-accuracy button.phase-accuracy-row {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: baseline;
   gap: 0.5rem;
   width: 100%;
@@ -22,11 +25,11 @@
   transition: border-color 150ms ease, background 150ms ease;
 }
 
-.phase-accuracy-row:hover {
+.phase-accuracy button.phase-accuracy-row:hover {
   border-color: var(--border-default);
 }
 
-.phase-accuracy-row.selected {
+.phase-accuracy button.phase-accuracy-row.selected {
   border-color: var(--border-accent);
   background: var(--accent-subtle);
 }
@@ -61,4 +64,10 @@
   color: var(--text-tertiary);
   font-size: 0.6rem;
   white-space: nowrap;
+}
+
+@container review-phase-accuracy (max-width: 16rem) {
+  .phase-accuracy button.phase-accuracy-row { grid-template-columns: minmax(0, 1fr); gap: 0.25rem; }
+  .phase-accuracy-scores { min-width: 0; flex-wrap: wrap; }
+  .phase-accuracy-scores > span { white-space: nowrap; }
 }

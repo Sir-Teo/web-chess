@@ -1,0 +1,146 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/pgn.test.ts (112 tests | 4 failed | 108 skipped) 14ms
+     × splits after a comment containing a literal opening brace 10ms
+     × does not treat a brace in a line comment as an unfinished block comment 1ms
+     × finds the next game when its header follows the result on the same line 1ms
+     × accepts carriage-return and CRLF files with the same normalized game text 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/pgn.test.ts > splitting a database file into its games > splits after a comment containing a literal opening brace
+AssertionError: expected [ Array(1) ] to deeply equal [ …(2) ]
+
+- Expected
++ Received
+
+@@ -2,12 +2,13 @@
+    "[Event \"First\"]
+  [White \"A\"]
+  [Black \"B\"]
+  [Result \"*\"]
+
+- 1. e4 {A literal { character is part of the note.} e5 *",
+-   "[Event \"Second\"]
++ 1. e4 {A literal { character is part of the note.} e5 *
++
++ [Event \"Second\"]
+  [White \"A\"]
+  [Black \"B\"]
+  [Result \"*\"]
+
+  1. d4 d5 *",
+
+ ❯ src/engine/pgn.test.ts:1414:19
+    1412|     const second = game('Second', '1. d4 d5 *')
+    1413|     const parts = splitPgnGames(`${first}\n\n${second}`)
+    1414|     expect(parts).toEqual([first, second])
+       |                   ^
+    1415|     expect(parts.map(part => parsePgnMoveTree(part).headers.Event)).to…
+    1416|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/engine/pgn.test.ts > splitting a database file into its games > does not treat a brace in a line comment as an unfinished block comment
+AssertionError: expected [ Array(1) ] to deeply equal [ …(2) ]
+
+- Expected
++ Received
+
+@@ -3,12 +3,13 @@
+  [White \"A\"]
+  [Black \"B\"]
+  [Result \"*\"]
+
+  1. e4 ; { is literal here
+- e5 *",
+-   "[Event \"Second\"]
++ e5 *
++
++ [Event \"Second\"]
+  [White \"A\"]
+  [Black \"B\"]
+  [Result \"*\"]
+
+  1. d4 d5 *",
+
+ ❯ src/engine/pgn.test.ts:1422:19
+    1420|     const second = game('Second', '1. d4 d5 *')
+    1421|     const parts = splitPgnGames(`${first}\n\n${second}`)
+    1422|     expect(parts).toEqual([first, second])
+       |                   ^
+    1423|     expect(parts.map(part => parsePgnMoveTree(part).headers.Event)).to…
+    1424|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/engine/pgn.test.ts > splitting a database file into its games > finds the next game when its header follows the result on the same line
+AssertionError: expected [ Array(1) ] to deeply equal [ …(2) ]
+
+- Expected
++ Received
+
+@@ -2,12 +2,11 @@
+    "[Event \"First\"]
+  [White \"A\"]
+  [Black \"B\"]
+  [Result \"*\"]
+
+- 1. e4 e5 *",
+-   "[Event \"Second\"]
++ 1. e4 e5 * [Event \"Second\"]
+  [White \"A\"]
+  [Black \"B\"]
+  [Result \"*\"]
+
+  1. d4 d5 *",
+
+ ❯ src/engine/pgn.test.ts:1430:19
+    1428|     const second = game('Second', '1. d4 d5 *')
+    1429|     const parts = splitPgnGames(`${first} ${second}`)
+    1430|     expect(parts).toEqual([first, second])
+       |                   ^
+    1431|     expect(parts.map(part => parsePgnMoveTree(part).headers.Event)).to…
+    1432|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/engine/pgn.test.ts > splitting a database file into its games > accepts carriage-return and CRLF files with the same normalized game text
+AssertionError: expected [ Array(1) ] to deeply equal [ …(2) ]
+
+- Expected
++ Received
+
+  [
+-   "[Event \"First\"]
+- [White \"A\"]
+- [Black \"B\"]
+- [Result \"*\"]
+-
+- 1. e4 e5 *",
+-   "[Event \"Second\"]
+- [White \"A\"]
+- [Black \"B\"]
+- [Result \"*\"]
+-
+- 1. d4 d5 *",
++   "[Event \"First\"][White \"A\"][Black \"B\"][Result \"*\"]1. e4 e5 *[Event \"Second\"][White \"A\"][Black \"B\"][Result \"*\"]1. d4 d5 *",
+  ]
+
+ ❯ src/engine/pgn.test.ts:1439:21
+    1437|     for (const ending of ['\r', '\r\n']) {
+    1438|       const parts = splitPgnGames(`${first}\n\n${second}`.replace(/\n/…
+    1439|       expect(parts).toEqual([first, second])
+       |                     ^
+    1440|       expect(parts.map(part => parsePgnMoveTree(part).headers.Event)).…
+    1441|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 108 skipped (112)
+   Start at  03:19:04
+   Duration  450ms (transform 244ms, setup 0ms, import 294ms, tests 14ms, environment 0ms)
+

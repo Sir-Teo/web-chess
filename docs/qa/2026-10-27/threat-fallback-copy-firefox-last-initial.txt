@@ -1,0 +1,7 @@
+page.waitForFunction: Timeout 30000ms exceeded.
+    at waitStatus (/workspace/web-chess/scripts/test-ui-browser.cjs:11892:43)
+    at Object.checkThreatInterruptionRecovery (/workspace/web-chess/scripts/test-ui-browser.cjs:11898:15)
+    at async /tmp/web-chess-threat-fallback-copy-firefox-last.cjs:14:9 {
+  log: [],
+  name: 'TimeoutError'
+}

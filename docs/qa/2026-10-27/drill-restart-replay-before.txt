@@ -1,0 +1,5 @@
+Error: Restart left autoplay running while the drill asks for its first answer
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkDrillRestartKeepsItsLine (/workspace/web-chess/scripts/test-ui-browser.cjs:16059:9)
+    at async /tmp/web-chess-drill-replay-before.cjs:21:9

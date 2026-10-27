@@ -1,0 +1,32 @@
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 191 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-m_0vzQ90.js   60.55 kB
+dist/assets/LibraryDialog-BG8YTy1f.css        4.36 kB │ gzip:   1.17 kB
+dist/assets/index-DfCtZuBM.css              131.78 kB │ gzip:  24.56 kB
+dist/assets/NewGameDialog-Cy86p3B9.js         4.26 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-CoBGA9xt.js        11.14 kB │ gzip:   3.98 kB
+dist/assets/PgnDialog-B86ZgH9o.js            29.75 kB │ gzip:   9.95 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-B69Vuo8W.js               385.54 kB │ gzip: 124.55 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 3.11s
+  normalized history (1280px, 1x, dark): duplicate/whitespace legacy entries yield distinct ordered buttons; older commands remain reachable; Up/Down restores draft without sending; running/reloading/recalling keeps unique order and no duplicate-key errors
+  normalized history (375px, 2x, light): duplicate/whitespace legacy entries yield distinct ordered buttons; older commands remain reachable; Up/Down restores draft without sending; running/reloading/recalling keeps unique order and no duplicate-key errors
+  console keyboard history (1280px, 1x): bounded Up/Down recall, unsent/edited draft restoration and caret, click/submit reset, IME/modifier scope, discoverable help and empty history
+  console keyboard history (375px, 2x): bounded Up/Down recall, unsent/edited draft restoration and caret, click/submit reset, IME/modifier scope, discoverable help and empty history
+  clear command history (1280×812, 1x, dark): pointer/Enter/Space clear only persisted history; draft/selection, visible focus, output and workspace retained; recall resets; active command completes normally; new commands start a fresh history
+  clear command history (375×812, 1x, light): pointer/Enter/Space clear only persisted history; draft/selection, visible focus, output and workspace retained; recall resets; active command completes normally; new commands start a fresh history
+  clear command history (375×812, 2x, dark): pointer/Enter/Space clear only persisted history; draft/selection, visible focus, output and workspace retained; recall resets; active command completes normally; new commands start a fresh history
+  clear command history (320×812, 2x, light): pointer/Enter/Space clear only persisted history; draft/selection, visible focus, output and workspace retained; recall resets; active command completes normally; new commands start a fresh history
+  clear command history (844×390, 2x, dark): pointer/Enter/Space clear only persisted history; draft/selection, visible focus, output and workspace retained; recall resets; active command completes normally; new commands start a fresh history
+  settings: three changes survive a reload, and the board comes back wearing them
+Focused browser UI checks passed.

@@ -16,6 +16,7 @@ describe('ChessClock', () => {
 
   it('says Paused when the reader stopped a running clock', () => {
     expect(showsPaused(render(pauseClock(running, 5_000), true))).toBe(true)
+    expect(render(pauseClock(running, 5_000), true)).not.toContain(', running')
   })
 
   // Step mode sets `paused` after every engine move while the clock keeps
@@ -23,6 +24,8 @@ describe('ChessClock', () => {
   // that was counting down.
   it('does not say Paused while a clock is still counting', () => {
     expect(showsPaused(render(running, true))).toBe(false)
+    expect(render(running, true)).toContain('White 3 minutes 0 seconds, running')
+    expect(render(running, true)).toContain('clock-face clock-white running')
     expect(showsPaused(render(running, false))).toBe(false)
   })
 

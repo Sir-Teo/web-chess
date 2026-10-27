@@ -1,0 +1,24 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  review deletion focus (1280×900, 1x, dark): first press/held Enter preserve storage; Escape/blur/selection/expiry/disclosure disarm; second press confirms; retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained
+  review deletion focus (375×812, 1x, light): first press/held Enter preserve storage; Escape/blur/selection/expiry/disclosure disarm; second press confirms; retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained
+  review deletion focus (320×812, 2x, light): first press/held Enter preserve storage; Escape/blur/selection/expiry/disclosure disarm; second press confirms; retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained
+FOCUS DIAGNOSTIC {
+  width: 844,
+  height: 390,
+  scale: 2,
+  control: 'remove',
+  geometry: {
+    active: '<button type="button">Delete saved review</button>',
+    hit: '<div class="mobile-actions"><button type="button" aria-label="Start new game" title="New game"><span class="btn-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M21 13a9 9 0 1 1-3-7.7L21 8"></path></svg></span> <span class="btn-label">New game</span></button><button type="button" aria-label="Flip board" aria-keyshortcuts="F" title="Flip board"><span class="btn-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-4 4-4-4"></path><path d="M17 20V4"></path><path d="m3 8 4-4 4 4"></path><path d="M7 4v16"></path></svg></span> <span class="btn-label">Flip</span></button><button type="button" aria-label="Open PGN and FEN dialog" title="PGN and FEN"><span class="btn-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg></span> <span class="btn-label">PGN</span></button><button type="button" aria-label="Open saved games library" title="Library"><span class="btn-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path></svg></span> <span class="btn-label">Library</span></button><button type="button" aria-label="Open the Commands palette" aria-keyshortcuts="Meta+K Control+K" title="Commands (Ctrl+K)" data-testid="command-palette-btn"><span class="btn-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg></span> <span class="btn-label">Commands</span></button></div>',
+    ancestors: [
+      [Object], [Object],
+      [Object], [Object],
+      [Object], [Object],
+      [Object], [Object],
+      [Object], [Object],
+      [Object], [Object],
+      [Object], [Object]
+    ]
+  }
+}
+  review deletion focus (844×390, 2x, dark): first press/held Enter preserve storage; Escape/blur/selection/expiry/disclosure disarm; second press confirms; retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained

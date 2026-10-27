@@ -1,0 +1,5 @@
+  move list fit (1280×900, 1x, dark, promotion): all 4 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (901×812, 2x, light, promotion): all 4 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (375×812, 1x, light, promotion): all 4 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (320×812, 2x, dark, promotion): all 4 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (844×390, 2x, dark, promotion): all 4 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling

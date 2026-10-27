@@ -1,0 +1,49 @@
+
+> web-chess@1.0.0 verify
+> npm run typecheck && npm run lint && npm test && npm run build
+
+
+> web-chess@1.0.0 typecheck
+> tsc -b
+
+
+> web-chess@1.0.0 lint
+> eslint .
+
+
+> web-chess@1.0.0 test
+> vitest run
+
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/importRobustness.test.ts (16 tests | 1 failed) 160ms
+     × still finds the comments it is supposed to strip 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/importRobustness.test.ts > a file full of braces that is not really a PGN > still finds the comments it is supposed to strip
+AssertionError: expected 2 to be 4 // Object.is equality
+
+- Expected
++ Received
+
+- 4
++ 2
+
+ ❯ src/engine/importRobustness.test.ts:97:61
+     95|     // count — which is what the regex did too. Preserved deliberately…
+     96|     // was a change of algorithm, not of meaning.
+     97|     expect(countPgnMoves('1. e4 e5 {unterminated Nf3 Nc6')).toBe(4)
+       |                                                             ^
+     98|   })
+     99| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 122 passed (123)
+      Tests  1 failed | 1961 passed | 1 skipped (1963)
+   Start at  03:40:15
+   Duration  37.74s (transform 2.18s, setup 0ms, import 28.48s, tests 56.92s, environment 11ms)
+

@@ -1,0 +1,39 @@
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 191 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-xH5xZh9_.js   60.12 kB
+dist/assets/LibraryDialog-BCEY11vH.css        4.23 kB │ gzip:   1.17 kB
+dist/assets/index-CJY1v7ca.css              130.41 kB │ gzip:  24.27 kB
+dist/assets/NewGameDialog-DtgnYyms.js         4.25 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-BbAoKabb.js        10.23 kB │ gzip:   3.67 kB
+dist/assets/PgnDialog-CqArsl-E.js            28.68 kB │ gzip:   9.67 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-DVXZF4Ak.js               378.01 kB │ gzip: 121.89 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 3.34s
+  contrast (promotion / 1280px / 1x / dark): 8 measured, 0 under the floor (3 on a gradient, measured against its worst stop)
+  promotion (1280×812, 1x, dark, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (1280×812, 1x, dark, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  contrast (promotion / 375px / 2x / dark): 8 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  promotion (375×812, 2x, dark, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (375×812, 2x, dark, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  contrast (promotion / 320px / 2x / light): 8 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  promotion (320×568, 2x, light, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (320×568, 2x, light, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  promotion (320×225, 1x, light, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (320×225, 1x, light, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  promotion (667×375, 2x, dark, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (667×375, 2x, dark, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  promotion: every choice clears 44px at five sizes, and is painted where it is pressed
+  shortcuts: six chords left to the browser, and f and ArrowLeft still the app's
+  text composition: Enter/Escape and legacy 229 preserve Commands, archive and rename drafts; ordinary keys still work
+  keyboard: e2 selected, e3 and e4 offered and named, Enter played e4, focus stayed on the board
+Focused browser UI checks passed.

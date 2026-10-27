@@ -1,0 +1,4 @@
+  post-variation notes (1280×900, 1x): import accepts notes/NAGs after sibling and nested variations; nine moves retained; main/inner/alternative note ownership and quoted header survive export/reimport
+  post-variation notes (375×812, 1x): import accepts notes/NAGs after sibling and nested variations; nine moves retained; main/inner/alternative note ownership and quoted header survive export/reimport
+  post-variation notes (320×812, 2x): import accepts notes/NAGs after sibling and nested variations; nine moves retained; main/inner/alternative note ownership and quoted header survive export/reimport
+  post-variation notes (844×390, 2x): import accepts notes/NAGs after sibling and nested variations; nine moves retained; main/inner/alternative note ownership and quoted header survive export/reimport

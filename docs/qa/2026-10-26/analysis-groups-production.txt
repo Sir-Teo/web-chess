@@ -1,0 +1,29 @@
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 191 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-m_0vzQ90.js   60.55 kB
+dist/assets/LibraryDialog-BG8YTy1f.css        4.36 kB │ gzip:   1.17 kB
+dist/assets/index-BACSzjy6.css              132.43 kB │ gzip:  24.67 kB
+dist/assets/NewGameDialog-DANfv88N.js         4.36 kB │ gzip:   1.57 kB
+dist/assets/LibraryDialog-DhL5ihpp.js        11.15 kB │ gzip:   3.98 kB
+dist/assets/PgnDialog-CzWw1u9_.js            29.78 kB │ gzip:   9.95 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-Z04nNJKg.js               387.67 kB │ gzip: 125.16 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.42s
+  markup: skip link reachable and lands on the board, heading outline unbroken, nothing stranded behind a dialog, inert honoured, every field named, no id used twice
+  FEN counters (1280px, 1x): malformed/rounded values refused with associated errors; draft/board retained; corrected decimal counters round-trip
+  FEN counters (375px, 2x): malformed/rounded values refused with associated errors; draft/board retained; corrected decimal counters round-trip
+  review phases (1280px, dark): all three native button names include both scores and move counts; unscored side says not available; Enter/Space select and clear filters with stable focus, board and report; enlarged text fits
+  review phases (375px, light): all three native button names include both scores and move counts; unscored side says not available; Enter/Space select and clear filters with stable focus, board and report; enlarged text fits
+  opening filters: Lichess asked with blitz,bullet,classical,rapid and ratings 1600,1800,2000,2200; 1 Masters request(s) carried neither
+  backup: 8 games out and back byte for byte, twice over without doubling
+Focused browser UI checks passed.

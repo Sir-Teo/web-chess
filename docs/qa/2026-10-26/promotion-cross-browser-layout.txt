@@ -1,0 +1,26 @@
+  contrast (promotion / 1280px / 1x / dark): 8 measured, 0 under the floor (3 on a gradient, measured against its worst stop)
+  promotion (1280×812, 1x, dark, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (1280×812, 1x, dark, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  contrast (promotion / 375px / 2x / dark): 8 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  promotion (375×812, 2x, dark, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (375×812, 2x, dark, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  contrast (promotion / 320px / 2x / light): 8 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  promotion (320×568, 2x, light, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (320×568, 2x, light, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  promotion (320×225, 1x, light, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (320×225, 1x, light, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  promotion (667×375, 2x, dark, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (667×375, 2x, dark, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  contrast (promotion / 1280px / 1x / dark): 8 measured, 0 under the floor (3 on a gradient, measured against its worst stop)
+  promotion (1280×812, 1x, dark, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (1280×812, 1x, dark, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  contrast (promotion / 375px / 2x / dark): 8 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  promotion (375×812, 2x, dark, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (375×812, 2x, dark, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  contrast (promotion / 320px / 2x / light): 8 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  promotion (320×568, 2x, light, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (320×568, 2x, light, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  promotion (320×225, 1x, light, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (320×225, 1x, light, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  promotion (667×375, 2x, dark, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (667×375, 2x, dark, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion

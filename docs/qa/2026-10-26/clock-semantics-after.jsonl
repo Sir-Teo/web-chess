@@ -1,0 +1,2 @@
+{"browser":"chromium","timers":2,"snapshot":"- group \"Clocks\":\n  - timer \"Black 3 minutes 0 seconds\"\n  - timer \"White 2 minutes 59 seconds, running\""}
+{"browser":"firefox","timers":2,"snapshot":"- group \"Clocks\":\n  - timer \"Black 3 minutes 0 seconds\"\n  - timer \"White 2 minutes 59 seconds, running\""}

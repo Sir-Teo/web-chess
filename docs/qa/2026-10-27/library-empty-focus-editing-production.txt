@@ -1,0 +1,2 @@
+  library (1280px): rejected save preserves its name; inline rename selects, cancels, commits and persists
+  library (375px): rejected save preserves its name; inline rename selects, cancels, commits and persists

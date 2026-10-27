@@ -1,0 +1,3 @@
+  takeback: the game follows the move played, not the one undone
+  autoplay: walked to the end of the line and stopped
+  drill: two wrong moves and a right one leave the line byte for byte

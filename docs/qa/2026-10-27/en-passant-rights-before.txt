@@ -1,0 +1,3 @@
+EN PASSANT ROOT PROBE {"kind":"shared","loadDisabled":null,"inventedPawn":1,"kingD1":1,"moves":["Kd1"],"errors":[],"validation":[],"notice":[""]}
+EN PASSANT ROOT PROBE {"kind":"pgn","loadDisabled":null,"inventedPawn":1,"kingD1":1,"moves":["Kd1"],"errors":[],"validation":[],"notice":[""]}
+EN PASSANT ROOT PROBE {"kind":"fen","loadDisabled":false,"inventedPawn":1,"kingD1":1,"moves":["Kd1"],"errors":[],"validation":[],"notice":[""]}

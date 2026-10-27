@@ -1,0 +1,8 @@
+  move list fit (1280×900, 1x, dark, nested study): all 7 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (1280×900, 1x, dark, castling): all 3 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+  move list fit (1280×900, 1x, dark, promotion): all 4 main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling
+Error: nested study: a move is clipped inside its transcript: {"label":"Go to move 1. e4, review book","left":798.390625,"right":834.5,"clipLeft":729.59375,"clipRight":875.40625,"content":50,"available":34}
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkMoveListFitting (/workspace/web-chess/scripts/test-ui-browser.cjs:6551:11)
+    at async /tmp/web-chess-move-list-fit-check.cjs:10:9

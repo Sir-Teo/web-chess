@@ -1,0 +1,5 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  recovery download (1280px, 1x, dark, saved): missing/throwing URL and blocked click retain work with focused retry, manual text retrieval and cleanup; real retry exports exact raw/latest PGN; copy/storage retry and explicit discard remain usable
+  recovery download (1280px, 1x, dark, live): missing/throwing URL and blocked click retain work with focused retry, manual text retrieval and cleanup; real retry exports exact raw/latest PGN; copy/storage retry and explicit discard remain usable
+  recovery download (375px, 2x, light, saved): missing/throwing URL and blocked click retain work with focused retry, manual text retrieval and cleanup; real retry exports exact raw/latest PGN; copy/storage retry and explicit discard remain usable
+  recovery download (375px, 2x, light, live): missing/throwing URL and blocked click retain work with focused retry, manual text retrieval and cleanup; real retry exports exact raw/latest PGN; copy/storage retry and explicit discard remain usable

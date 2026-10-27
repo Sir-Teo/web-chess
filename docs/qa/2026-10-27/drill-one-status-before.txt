@@ -1,0 +1,5 @@
+Error: drill has duplicate automatic feedback: [{"surface":"board-meta-drill ready","live":"polite"},{"surface":"drill-feedback","live":"polite"}]
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkDrillHiddenHints (/workspace/web-chess/scripts/test-ui-browser.cjs:16170:7)
+    at async /tmp/web-chess-drill-hidden-hints-check.cjs:10:9

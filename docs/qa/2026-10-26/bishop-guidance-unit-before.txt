@@ -1,0 +1,64 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/moveEntry.test.ts (48 tests | 3 failed) 74ms
+     × offers legal bishop notation in 4k3/8/5B2/8/8/2n5/8/4K3 w - - 0 1 6ms
+     × offers legal bishop notation in 7k/8/3B4/8/8/n7/8/7K w - - 0 1 2ms
+     × offers legal bishop notation in 4k3/8/5B2/8/1B6/2n5/8/4K3 w - - 0 1 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/moveEntry.test.ts > bishop guidance for a refused b-file pawn capture > offers legal bishop notation in 4k3/8/5B2/8/8/2n5/8/4K3 w - - 0 1
+AssertionError: expected 'No pawn on the b-file can take on c3 …' to be 'No pawn on the b-file can take on c3 …' // Object.is equality
+
+Expected: "No pawn on the b-file can take on c3 here. For a bishop, use Bxc3."
+Received: "No pawn on the b-file can take on c3 here."
+
+ ❯ src/engine/moveEntry.test.ts:152:46
+    150|   ])('offers legal bishop notation in %s', (fen, input, message) => {
+    151|     expect(parseMoveEntry(fen, input)).toBeNull()
+    152|     expect(moveEntryExplanation(fen, input)).toBe(message)
+       |                                              ^
+    153|   })
+    154|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/engine/moveEntry.test.ts > bishop guidance for a refused b-file pawn capture > offers legal bishop notation in 7k/8/3B4/8/8/n7/8/7K w - - 0 1
+AssertionError: expected 'No pawn on the b-file can take on a3 …' to be 'No pawn on the b-file can take on a3 …' // Object.is equality
+
+Expected: "No pawn on the b-file can take on a3 here. For a bishop, use Bxa3."
+Received: "No pawn on the b-file can take on a3 here."
+
+ ❯ src/engine/moveEntry.test.ts:152:46
+    150|   ])('offers legal bishop notation in %s', (fen, input, message) => {
+    151|     expect(parseMoveEntry(fen, input)).toBeNull()
+    152|     expect(moveEntryExplanation(fen, input)).toBe(message)
+       |                                              ^
+    153|   })
+    154|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/engine/moveEntry.test.ts > bishop guidance for a refused b-file pawn capture > offers legal bishop notation in 4k3/8/5B2/8/1B6/2n5/8/4K3 w - - 0 1
+AssertionError: expected 'No pawn on the b-file can take on c3 …' to be 'No pawn on the b-file can take on c3 …' // Object.is equality
+
+Expected: "No pawn on the b-file can take on c3 here. For a bishop, use Bbxc3 or Bfxc3."
+Received: "No pawn on the b-file can take on c3 here."
+
+ ❯ src/engine/moveEntry.test.ts:152:46
+    150|   ])('offers legal bishop notation in %s', (fen, input, message) => {
+    151|     expect(parseMoveEntry(fen, input)).toBeNull()
+    152|     expect(moveEntryExplanation(fen, input)).toBe(message)
+       |                                              ^
+    153|   })
+    154|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 45 passed (48)
+   Start at  19:59:08
+   Duration  318ms (transform 64ms, setup 0ms, import 87ms, tests 74ms, environment 0ms)
+

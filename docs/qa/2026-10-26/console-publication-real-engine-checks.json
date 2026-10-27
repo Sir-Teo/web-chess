@@ -1,0 +1,80 @@
+[
+  {
+    "browser": "chromium",
+    "width": 1280,
+    "passed": true,
+    "commands": [
+      "uci",
+      "isready",
+      "setoption name Threads value 3",
+      "go depth 0 depth +0001",
+      "go perft 0 depth 1",
+      "go depth 1 depth 0",
+      "stop",
+      "go depth 1 depth 0",
+      "stop",
+      "go perft 0",
+      "stop",
+      "go perft 0",
+      "stop"
+    ]
+  },
+  {
+    "browser": "chromium",
+    "width": 375,
+    "passed": true,
+    "commands": [
+      "uci",
+      "isready",
+      "go depth 0 depth +0001",
+      "go perft 0 depth 1",
+      "go depth 1 depth 0",
+      "stop",
+      "go depth 1 depth 0",
+      "stop",
+      "go perft 0",
+      "stop",
+      "go perft 0",
+      "stop"
+    ]
+  },
+  {
+    "browser": "firefox",
+    "width": 1280,
+    "passed": true,
+    "commands": [
+      "uci",
+      "isready",
+      "setoption name Threads value 3",
+      "go depth 0 depth +0001",
+      "go perft 0 depth 1",
+      "go depth 1 depth 0",
+      "stop",
+      "go depth 1 depth 0",
+      "stop",
+      "go perft 0",
+      "stop",
+      "go perft 0",
+      "stop"
+    ]
+  },
+  {
+    "browser": "firefox",
+    "width": 375,
+    "passed": true,
+    "commands": [
+      "uci",
+      "isready",
+      "go depth 0 depth +0001",
+      "go perft 0 depth 1",
+      "go depth 1 depth 0",
+      "stop",
+      "go depth 1 depth 0",
+      "stop",
+      "go perft 0",
+      "stop",
+      "go perft 0",
+      "stop"
+    ]
+  }
+]

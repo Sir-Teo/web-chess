@@ -1,0 +1,10 @@
+  library PGN endings (1280×900, 1x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  library PGN endings (375×812, 1x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  library PGN endings (320×812, 2x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  library PGN endings (844×390, 2x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  backup: 8 games out and back byte for byte, twice over without doubling
+  library backup limits: oversized files rejected before reading; oversized text preserves the library; an app-exported UTF-8 backup above 8 MB round-trips exactly
+  partial backup (1280px, 1x, dark): readable Unicode game salvaged; invalid/repeated entries counted; original game retained; repeated partial import reports both categories without changing export; clean retry clears feedback; recovered game actually loads
+  partial backup (375px, 1x, light): readable Unicode game salvaged; invalid/repeated entries counted; original game retained; repeated partial import reports both categories without changing export; clean retry clears feedback; recovered game actually loads
+  partial backup (375px, 2x, dark): readable Unicode game salvaged; invalid/repeated entries counted; original game retained; repeated partial import reports both categories without changing export; clean retry clears feedback; recovered game actually loads
+  partial backup (320px, 2x, light): readable Unicode game salvaged; invalid/repeated entries counted; original game retained; repeated partial import reports both categories without changing export; clean retry clears feedback; recovered game actually loads

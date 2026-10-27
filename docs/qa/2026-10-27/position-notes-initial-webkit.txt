@@ -1,0 +1,7 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  position notes (1280×900, 1x): zero-move study retains/edits notes, saves to Library and recovers after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+Error: adding a move lost its starting-position note
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkPositionStudyNotes (/workspace/web-chess/scripts/test-ui-browser.cjs:7307:7)
+    at async /tmp/web-chess-position-notes-check.cjs:10:9

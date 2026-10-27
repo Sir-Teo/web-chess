@@ -1,0 +1,21 @@
+  threat shortcut (1280×900, 1x, dark): repeats and busy presses preserve the held search; completion ignores the held key; release and press asks again
+  threat shortcut (375×812, 1x, light): repeats and busy presses preserve the held search; completion ignores the held key; release and press asks again
+  threat shortcut (320×812, 2x, light): repeats and busy presses preserve the held search; completion ignores the held key; release and press asks again
+  threat shortcut (844×390, 2x, dark): repeats and busy presses preserve the held search; completion ignores the held key; release and press asks again
+  threat recovery (1280×900, 1x, dark, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (1280×900, 1x, dark, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (1280×900, 1x, dark, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (375×812, 1x, light, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (375×812, 1x, light, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (375×812, 1x, light, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (320×812, 2x, light, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (320×812, 2x, light, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (320×812, 2x, light, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (844×390, 2x, dark, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (844×390, 2x, dark, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (844×390, 2x, dark, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat reload (1280×900, 1x, dark): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat reload (375×812, 1x, light): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat reload (320×812, 2x, light): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat reload (844×390, 2x, dark): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat: asked with the move handed over and no en passant, bounded, board handed back, cleared by a move

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { GameNode } from '../hooks/useGameTree'
 import { pvLineMoves, type EvalSnapshot } from '../engine/analysis'
 import { evaluationEngineLabel } from '../engine/evaluationSource'
@@ -23,11 +23,21 @@ export function ReviewComparison({ line, report, saved, onNavigate, onClose }: P
   const comparison = useMemo(() => compareReviews(line, report, saved), [line, report, saved])
   const [onlyDifferences, setOnlyDifferences] = useState(true)
   const [visibleCount, setVisibleCount] = useState(10)
+  const list = useRef<HTMLOListElement>(null)
+  const revealIndex = useRef<number | null>(null)
+  const listId = useId()
+  const countId = useId()
+
+  useLayoutEffect(() => {
+    const index = revealIndex.current
+    revealIndex.current = null
+    if (index !== null) list.current?.querySelectorAll<HTMLButtonElement>('.comparison-position')[index]?.focus()
+  }, [visibleCount])
   if (!comparison) return null
   const rows = comparison.rows.filter(row => !onlyDifferences || row.differs)
   return (
     <section className="review-comparison" aria-label="Review comparison">
-      <h4>Review comparison</h4>
+      <h4 tabIndex={-1}>Review comparison</h4>
       <p className="panel-copy small"><strong>Open:</strong> {evaluationEngineLabel(report.settings.engine)} · D{report.settings.depth} · Hash {report.settings.hashMb} MB · {new Date(report.finishedAt).toLocaleString()}</p>
       <p className="panel-copy small"><strong>Saved:</strong> {evaluationEngineLabel(saved.settings.engine)} · D{saved.settings.depth} · Hash {saved.settings.hashMb} MB · {new Date(saved.finishedAt).toLocaleString()}</p>
       <p className="panel-copy" data-testid="review-comparison-summary">
@@ -37,9 +47,9 @@ export function ReviewComparison({ line, report, saved, onNavigate, onClose }: P
       </p>
       <p className="panel-copy small">Scores and changes favor White when positive. Change = open − saved, in pawns. Mate scores retain their distance. WDL = White / draw / Black (%). Different sources or limits can produce different readings.</p>
       <label className="comparison-filter"><input type="checkbox" checked={onlyDifferences}
-        onChange={event => { setOnlyDifferences(event.target.checked); setVisibleCount(10) }} />Only differences</label>
-      <p className="panel-copy small">{rows.length ? `Showing ${Math.min(visibleCount, rows.length)} of ${rows.length} positions, in move order.` : 'No differences in the recorded scores, best moves or WDL.'}</p>
-      <ol className="comparison-positions">
+        onChange={event => { revealIndex.current = null; setOnlyDifferences(event.target.checked); setVisibleCount(10) }} />Only differences</label>
+      <p id={countId} className="panel-copy small" role="status">{rows.length ? `Showing ${Math.min(visibleCount, rows.length)} of ${rows.length} positions, in move order.` : 'No differences in the recorded scores, best moves or WDL.'}</p>
+      <ol ref={list} id={listId} className="comparison-positions" aria-describedby={countId}>
         {rows.slice(0, visibleCount).map(row => <li key={row.node.id}>
           <button className="comparison-position" type="button" onClick={() => onNavigate(row.node)}
             aria-label={row.label === 'Start' ? 'Show starting position' : `Show position after ${row.label}`}>{row.label}</button>
@@ -57,7 +67,10 @@ export function ReviewComparison({ line, report, saved, onNavigate, onClose }: P
         </li>)}
       </ol>
       <div className="review-report-actions">
-        {visibleCount < rows.length && <button type="button" onClick={() => setVisibleCount(count => count + 10)}>Show 10 more positions</button>}
+        {visibleCount < rows.length && <button type="button" aria-controls={listId} aria-describedby={countId} onClick={() => {
+          revealIndex.current = visibleCount
+          setVisibleCount(count => count + 10)
+        }}>Show {Math.min(10, rows.length - visibleCount)} more positions</button>}
         <button type="button" onClick={onClose}>Close comparison</button>
       </div>
     </section>

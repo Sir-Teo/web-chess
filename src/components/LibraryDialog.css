@@ -1,5 +1,6 @@
 .library-dialog {
     max-width: 620px;
+    container-type: inline-size;
 }
 
 .library-save-row {
@@ -33,8 +34,16 @@
     margin-bottom: 0.6rem;
 }
 
-.library-toolbar input[type='search'] {
+.library-search {
     flex: 1 1 12rem;
+    display: flex;
+    gap: 0.35rem;
+    min-width: 0;
+    min-height: 44px;
+}
+
+.library-toolbar input[type='search'] {
+    flex: 1;
     min-width: 0;
     min-height: 32px;
     padding: 0.4rem 0.65rem;
@@ -46,33 +55,55 @@
     font-size: 0.78rem;
 }
 
+.library-clear-search {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.4rem;
+    line-height: 1;
+}
+
+.library-search input::-webkit-search-cancel-button {
+    display: none;
+}
+
+.library-save-row input::placeholder,
+.library-toolbar input[type='search']::placeholder {
+    color: var(--text-secondary);
+    opacity: 1;
+}
+
 .library-sort {
-    display: flex;
-    gap: 0.2rem;
-}
-
-.library-sort button {
-    min-height: 32px;
-    padding: 0.35rem 0.6rem;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border-subtle);
-    background: transparent;
-    color: var(--text-tertiary);
+    max-width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0.4rem 0.65rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-default);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
     font-family: inherit;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     cursor: pointer;
-    transition: all 150ms ease;
 }
 
-.library-sort button:hover {
-    background: var(--bg-elevated);
-    color: var(--text-primary);
+.library-starred-filter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 44px;
+    max-width: 100%;
+    white-space: normal;
+    flex-shrink: 0;
 }
 
-.library-sort button.selected {
-    border-color: var(--border-accent);
-    background: var(--accent-subtle);
-    color: var(--text-primary);
+.library-starred-filter[aria-pressed='true'] {
+    color: var(--accent-ink);
+    border-color: currentColor;
 }
 
 .library-list {
@@ -133,6 +164,34 @@
     flex-shrink: 0;
 }
 
+.library-row-editing {
+    flex-wrap: wrap;
+}
+
+.library-rename {
+    flex-basis: 100%;
+    min-width: 0;
+}
+
+.library-rename label {
+    display: block;
+    margin-bottom: 0.4rem;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+}
+
+.library-rename .library-save-row {
+    flex-wrap: wrap;
+}
+
+.library-rename input {
+    flex-basis: 100%;
+}
+
+.library-rename .btn-cancel {
+    min-height: 36px;
+}
+
 .library-row-actions .btn-cancel {
     min-height: 30px;
     padding: 0.3rem 0.5rem;
@@ -177,6 +236,10 @@
     color: var(--accent-ink);
 }
 
+.library-dialog .dialog-body > .dialog-error {
+    margin-inline: 1.4rem;
+}
+
 .library-dialog .dialog-actions {
     flex-wrap: wrap;
 }
@@ -187,24 +250,59 @@
     gap: 0.35rem;
 }
 
-/* Four actions wrapped into three ragged rows on a small phone, and the
-   footer took the room the saved games needed: at 320x568 the list was left
-   one row. Two by two keeps the footer to two rows. */
+/* Text enlargement can turn a desktop footer into three rows. Query the
+   dialog's text size as well as its width; phones keep their stacking below. */
+@container (min-width: 480px) and (max-width: 24em) {
+    .library-dialog .dialog-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .library-dialog .dialog-actions > button {
+        min-width: 0;
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+        padding-inline: 0.5rem;
+        white-space: normal;
+    }
+}
+
+/* Keep two columns on a small phone, and stack when enlarged text needs
+   the full width. A fixed pair of columns clips backup/export actions at 200%. */
 @media (max-width: 420px) {
     .library-dialog .dialog-actions {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
     }
 
     .library-dialog .dialog-actions > button {
         width: 100%;
         justify-content: center;
         padding-inline: 0.5rem;
-        white-space: nowrap;
+        white-space: normal;
     }
 }
 
 @media (max-width: 640px) {
+    .library-starred-filter {
+        min-width: 44px;
+        padding: 0.4rem;
+        font-size: 1rem;
+    }
+
+    .library-starred-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+        border: 0;
+    }
+
     .library-row {
         flex-direction: column;
         align-items: stretch;
@@ -255,24 +353,13 @@
     min-height: 44px;
 }
 
-/*
- * A finger's worth of height for the controls in here.
- *
- * Same story as the command palette: the fourth pass's 44px sweep put
- * `min-height: 44px` on fourteen selectors and every one of them is in App.css,
- * so a dialog with its own stylesheet was never in it. This file does know the
- * number -- `.library-backup-parts .btn-cancel` carries it -- which is what
- * makes the rest of it an omission rather than a decision. **Measured** at
- * 375x667: the search field 343x**32**, the four sort buttons 53-59x**32**, the
- * rename field 260x**36**, its Save 75x**36**, and the per-row actions 30px.
- *
- * The list scrolls, so the only thing this costs is scrolling a little sooner.
- */
+/* Keep mobile row actions and editable fields large enough to tap. Search
+   and sorting keep the same 44px floor at every viewport width. */
 @media (max-width: 640px) {
     .library-toolbar input[type='search'],
-    .library-sort button,
     .library-save-row input,
     .library-save-row .btn-start,
+    .library-rename .btn-cancel,
     .library-row-actions .btn-cancel,
     .library-favorite {
         min-height: 44px;

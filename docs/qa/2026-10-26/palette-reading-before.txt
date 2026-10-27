@@ -1,0 +1,5 @@
+Error: Commands cannot show its complete title and unavailable reason: {"width":320,"height":812,"scale":2,"theme":"light","titleLines":3,"rowHeight":534,"listHeight":406,"contrast":2.41,"unsupportedGradient":false,"hintFits":true}
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkPaletteReading (/workspace/web-chess/scripts/test-ui-browser.cjs:14247:7)
+    at async main (/tmp/web-chess-palette-reading-check.cjs:10:8)

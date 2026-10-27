@@ -1,0 +1,34 @@
+  library PGN endings (1280×900, 1x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  library PGN endings (375×812, 1x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  library PGN endings (320×812, 2x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  library PGN endings (844×390, 2x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  database boundaries (1280×900, 1x, BOM paste): four headerless/Event-less games offered and saved intact; current board retained; FEN game and annotated variation load individually
+  database boundaries (375×812, 1x, BOM paste): four headerless/Event-less games offered and saved intact; current board retained; FEN game and annotated variation load individually
+  database boundaries (320×812, 2x, BOM/CRLF file): four headerless/Event-less games offered and saved intact; current board retained; FEN game and annotated variation load individually
+  database boundaries (844×390, 2x, BOM/CRLF file): four headerless/Event-less games offered and saved intact; current board retained; FEN game and annotated variation load individually
+  position notes (1280×900, 1x): zero-move study retains/edits notes, copies through Commands with exact FEN/no invented moves, saves to Library and recovers after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+  position notes (375×812, 1x): zero-move study retains/edits notes, copies through Commands with exact FEN/no invented moves, saves to Library and recovers after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+  position notes (320×812, 2x): zero-move study retains/edits notes, copies through Commands with exact FEN/no invented moves, saves to Library and recovers after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+  position notes (844×390, 2x): zero-move study retains/edits notes, copies through Commands with exact FEN/no invented moves, saves to Library and recovers after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata
+  empty game share (1280px, 1x, dark, standard): exact position opens without fake moves; later Unicode edits/real move recover after immediate refresh
+  empty game share (1280px, 1x, dark, custom): exact position opens without fake moves; later Unicode edits/real move recover after immediate refresh
+  empty game share (1280px, 1x, dark, bad-token): damaged move/illegal root rejected; previous game remains recoverable
+  empty game share (1280px, 1x, dark, illegal-first-move): damaged move/illegal root rejected; previous game remains recoverable
+  empty game share (1280px, 1x, dark, adjacent-kings): damaged move/illegal root rejected; previous game remains recoverable
+  empty game share (375px, 2x, light, standard): exact position opens without fake moves; later Unicode edits/real move recover after immediate refresh
+  empty game share (375px, 2x, light, custom): exact position opens without fake moves; later Unicode edits/real move recover after immediate refresh
+  empty game share (375px, 2x, light, bad-token): damaged move/illegal root rejected; previous game remains recoverable
+  empty game share (375px, 2x, light, illegal-first-move): damaged move/illegal root rejected; previous game remains recoverable
+  empty game share (375px, 2x, light, adjacent-kings): damaged move/illegal root rejected; previous game remains recoverable
+  shared recovery (1280px, 1x, dark, cold-game): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (1280px, 1x, dark, cold-start): explicit starting-position link opens directly in Analysis and clears older recovery
+  shared recovery (1280px, 1x, dark, hash-game): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (1280px, 1x, dark, hash-position): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (1280px, 1x, dark, invalid): invalid link preserves the old recovery and its actual restored game
+  shared recovery (1280px, 1x, dark, restricted-position): valid link owns the board; immediate refresh restores later Unicode edits with session storage denied
+  shared recovery (375px, 2x, light, cold-game): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (375px, 2x, light, cold-start): explicit starting-position link opens directly in Analysis and clears older recovery
+  shared recovery (375px, 2x, light, hash-game): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (375px, 2x, light, hash-position): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (375px, 2x, light, invalid): invalid link preserves the old recovery and its actual restored game
+  shared recovery (375px, 2x, light, restricted-position): valid link owns the board; immediate refresh restores later Unicode edits with session storage denied

@@ -1,0 +1,8 @@
+  bishop guidance (1280px, 1x, dark): refused a/c pawn drafts keep focus/board; associated legal bishop choices wrap; corrected and explicitly disambiguated captures move the selected bishop and clear errors
+  bishop guidance (375px, 1x, light): refused a/c pawn drafts keep focus/board; associated legal bishop choices wrap; corrected and explicitly disambiguated captures move the selected bishop and clear errors
+  bishop guidance (375px, 2x, dark): refused a/c pawn drafts keep focus/board; associated legal bishop choices wrap; corrected and explicitly disambiguated captures move the selected bishop and clear errors
+  bishop guidance (320px, 2x, light): refused a/c pawn drafts keep focus/board; associated legal bishop choices wrap; corrected and explicitly disambiguated captures move the selected bishop and clear errors
+  bishop guidance (1280px, 1x, dark): refused a/c pawn drafts keep focus/board; associated legal bishop choices wrap; corrected and explicitly disambiguated captures move the selected bishop and clear errors
+  bishop guidance (375px, 1x, light): refused a/c pawn drafts keep focus/board; associated legal bishop choices wrap; corrected and explicitly disambiguated captures move the selected bishop and clear errors
+  bishop guidance (375px, 2x, dark): refused a/c pawn drafts keep focus/board; associated legal bishop choices wrap; corrected and explicitly disambiguated captures move the selected bishop and clear errors
+  bishop guidance (320px, 2x, light): refused a/c pawn drafts keep focus/board; associated legal bishop choices wrap; corrected and explicitly disambiguated captures move the selected bishop and clear errors

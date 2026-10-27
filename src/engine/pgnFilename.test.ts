@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { pgnDownloadFilename } from './pgnFilename'
 
-const TODAY = new Date('2026-09-27T12:00:00Z')
+const TODAY = new Date(2026, 8, 27, 12)
 
 describe('the name a downloaded game is saved under', () => {
   it('is the players and the day the game was played', () => {

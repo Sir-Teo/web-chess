@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import type { Square } from 'chess.js'
 import { useModalFocus } from '../hooks/useModalFocus'
 import type { GameNode } from '../hooks/useGameTree'
 import type { EvalSnapshot } from '../engine/analysis'
@@ -14,15 +15,13 @@ import {
     createEmptyPositionSetup,
     createStartingPositionSetup,
     canUseSetupCastlingRight,
-    hasSetupCastlingRight,
+    normalizeAvailableCastlingRights,
     parsePositionSetupFen,
     positionSetupToFen,
-    SETUP_BOARD_SQUARES,
-    SETUP_PIECE_OPTIONS,
-    setupPieceGlyph,
-    setupPieceLabel,
+    setupEnPassantTargets,
     updateSetupCastlingRight,
     updateSetupFullmove,
+    updateSetupEnPassant,
     updateSetupHalfmove,
     updateSetupSquare,
     updateSetupTurn,
@@ -44,8 +43,12 @@ import {
     type ArchiveSource,
 } from '../engine/gameArchives'
 import { fetchArchiveGames } from '../engine/archiveFetch'
-import { IconDownload, IconClipboard, IconUpload } from './icons'
+import { IconDownload, IconClipboard, IconUpload, IconFlip } from './icons'
 import { fenTextForShareLink } from './pgnDialogHelpers'
+import { isCompositionKey } from './shortcutKeys'
+import { PositionCounterInput } from './PositionCounterInput'
+import { PositionSetupBoard } from './PositionSetupBoard'
+import { PositionSetupPalette } from './PositionSetupPalette'
 import {
     MAX_PGN_IMPORT_BYTES,
     PGN_IMPORT_LIMIT_MESSAGE,
@@ -59,6 +62,7 @@ import './NewGameDialog.css'
 
 type PgnDialogProps = {
     open: boolean
+    initialTab?: 'import' | 'fen' | 'export'
     onClose: () => void
     onImport: (pgn: string) => ImportResult
     onLoadFen: (fen: string) => ImportResult
@@ -115,27 +119,35 @@ const SETUP_CASTLING_OPTIONS: Array<{ right: SetupCastlingRight; label: string; 
     { right: 'q', label: 'Black queenside', short: 'q' },
 ]
 
-export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, mainLineNodes, gameNodes, evaluations, pgnHeaders, openingName, onImportManyToLibrary, droppedFile, onDroppedFileTaken }: PgnDialogProps) {
-    const [tab, setTab] = useState<'import' | 'fen' | 'export'>('import')
+export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLoadFen, currentFen, mainLineNodes, gameNodes, evaluations, pgnHeaders, openingName, onImportManyToLibrary, droppedFile, onDroppedFileTaken }: PgnDialogProps) {
+    const [tab, setTab] = useState<'import' | 'fen' | 'export'>(initialTab)
     const [importText, setImportText] = useState('')
     const [fenText, setFenText] = useState(currentFen)
     const [error, setError] = useState<string | null>(null)
     const [status, setStatus] = useState<string | null>(null)
     const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
+    const [downloadFailure, setDownloadFailure] = useState<{ message: string } | null>(null)
+    const [copiedText, setCopiedText] = useState<string | null>(null)
+    const [exportTextSnapshot, setExportTextSnapshot] = useState<string | null>(null)
     const [exportOptions, setExportOptions] = useState(DEFAULT_EXPORT_OPTIONS)
     const [setup, setSetup] = useState<PositionSetup>(() => parsePositionSetupFen(currentFen) ?? createStartingPositionSetup())
     const [selectedSetupPiece, setSelectedSetupPiece] = useState<SetupPiece | null>('P')
+    const [setupFlipped, setSetupFlipped] = useState(false)
     const [shareLinkFallback, setShareLinkFallback] = useState('')
     const [archiveSource, setArchiveSource] = useState<ArchiveSource>('lichess')
     const [archiveUsername, setArchiveUsername] = useState('')
-    const [archiveCount, setArchiveCount] = useState(DEFAULT_ARCHIVE_GAMES)
+    const [archiveCount, setArchiveCount] = useState(String(DEFAULT_ARCHIVE_GAMES))
     const [archiveBusy, setArchiveBusy] = useState(false)
     const [archiveUsernameBlurred, setArchiveUsernameBlurred] = useState(false)
     const [databaseBusy, setDatabaseBusy] = useState(false)
     /** What `handleImportDatabase` asks; the state is what the button shows. */
     const databaseBusyRef = useRef(false)
     const archiveAbortRef = useRef<AbortController | null>(null)
+    const importRequestRef = useRef(0)
     const panelRef = useRef<HTMLDivElement>(null)
+    const fenTextRef = useRef<HTMLTextAreaElement>(null)
+    const exportTextRef = useRef<HTMLTextAreaElement>(null)
+    const downloadFailureRef = useRef<HTMLDivElement>(null)
     const importFileInputRef = useRef<HTMLInputElement>(null)
     const wasOpenRef = useRef(false)
     const [importFileName, setImportFileName] = useState<string | null>(null)
@@ -147,18 +159,36 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const fullmoveId = useId()
     const archiveUserId = useId()
     const archiveCountId = useId()
+    const enPassantId = useId()
+    const castlingHelpId = useId()
+    const downloadErrorId = useId()
+    const feedbackGenerationRef = useRef(0)
 
     const resetFeedback = useCallback(() => {
+        feedbackGenerationRef.current += 1
         setError(null)
         setStatus(null)
         setCopyStatus('idle')
+        setDownloadFailure(null)
+        setCopiedText(null)
+        setExportTextSnapshot(null)
         setShareLinkFallback('')
     }, [])
 
+    // A newer paste, file, or archive choice owns the import box. Cancel the
+    // network request and invalidate file reads that cannot themselves abort.
+    const cancelPendingImport = useCallback(() => {
+        importRequestRef.current += 1
+        archiveAbortRef.current?.abort()
+        archiveAbortRef.current = null
+        setArchiveBusy(false)
+    }, [])
+
     const closeDialog = useCallback(() => {
+        cancelPendingImport()
         resetFeedback()
         onClose()
-    }, [onClose, resetFeedback])
+    }, [cancelPendingImport, onClose, resetFeedback])
 
     const handleImport = () => {
         const importError = pgnImportLengthError(importText) ?? pgnImportContentError(importText)
@@ -178,6 +208,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     }
 
     const archiveSourceInfo = ARCHIVE_SOURCES.find(source => source.id === archiveSource) ?? ARCHIVE_SOURCES[0]
+    const archiveGameCount = clampArchiveGameCount(archiveCount.trim() ? Number(archiveCount) : DEFAULT_ARCHIVE_GAMES)
     const archiveUsernameValid = normalizeArchiveUsername(archiveUsername) !== null
     /** Something is typed, it cannot be used, and the reader has moved on from it. */
     const archiveUsernameUnusable = archiveUsernameBlurred
@@ -200,13 +231,14 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
             return
         }
 
-        archiveAbortRef.current?.abort()
+        cancelPendingImport()
+        setArchiveCount(String(archiveGameCount))
         const controller = new AbortController()
         archiveAbortRef.current = controller
         resetFeedback()
         setArchiveBusy(true)
         try {
-            const games = await fetchArchiveGames(archiveSource, username, archiveCount, { signal: controller.signal })
+            const games = await fetchArchiveGames(archiveSource, username, archiveGameCount, { signal: controller.signal })
             if (controller.signal.aborted) return
             if (games.length === 0) {
                 setError(`${archiveSourceInfo.label} has no public games for “${username}”.`)
@@ -230,11 +262,14 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                 setArchiveBusy(false)
             }
         }
-    }, [archiveCount, archiveSource, archiveSourceInfo.label, archiveUsername, resetFeedback])
+    }, [archiveGameCount, archiveSource, archiveSourceInfo.label, archiveUsername, cancelPendingImport, resetFeedback])
 
     // A fetch outlives the dialog otherwise, and finishes into a component that
     // is no longer on screen.
-    useEffect(() => () => archiveAbortRef.current?.abort(), [])
+    useEffect(() => () => {
+        importRequestRef.current += 1
+        archiveAbortRef.current?.abort()
+    }, [])
 
     /**
      * Keep every game in the file.
@@ -283,11 +318,13 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     }
 
     const handlePickImportFile = () => {
+        cancelPendingImport()
         resetFeedback()
         importFileInputRef.current?.click()
     }
 
     const handleClearImport = () => {
+        cancelPendingImport()
         setImportText('')
         setImportFileName(null)
         resetFeedback()
@@ -299,6 +336,8 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
      * same messages and the same offer as one chosen through the button.
      */
     const loadImportFile = useCallback(async (file: File) => {
+        cancelPendingImport()
+        const request = importRequestRef.current
         resetFeedback()
         if (file.size > MAX_PGN_IMPORT_BYTES) {
             setImportFileName(null)
@@ -308,6 +347,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
 
         try {
             const text = await file.text()
+            if (request !== importRequestRef.current) return
             const limitError = pgnImportLengthError(text)
             if (limitError) {
                 setImportFileName(null)
@@ -318,10 +358,11 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
             setImportFileName(file.name)
             setError(pgnImportContentError(text))
         } catch {
+            if (request !== importRequestRef.current) return
             setImportFileName(null)
             setError('Could not read that PGN file.')
         }
-    }, [resetFeedback])
+    }, [cancelPendingImport, resetFeedback])
 
     const handleImportFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
         const input = event.currentTarget
@@ -347,7 +388,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
 
     const setExportOption = (key: keyof PgnExportOptions, value: boolean) => {
         setExportOptions(options => ({ ...options, [key]: value }))
-        setCopyStatus('idle')
+        resetFeedback()
     }
 
     const syncFenTextAndSetup = useCallback((nextFen: string) => {
@@ -394,6 +435,19 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
             : '',
         [evaluations, exportOptions, gameNodes, mainLineNodes, pgnHeaders, tab],
     )
+    const displayedExportText = exportTextSnapshot ?? exportText
+    useLayoutEffect(() => {
+        if (open && downloadFailure) {
+            downloadFailureRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+        }
+    }, [downloadFailure, open])
+    useLayoutEffect(() => {
+        // Some browsers activate a button without moving focus. Explicit copy,
+        // download or option changes refresh the reading, then hold it again.
+        if (exportTextSnapshot === null && exportTextRef.current === document.activeElement) {
+            setExportTextSnapshot(exportText)
+        }
+    }, [exportText, exportTextSnapshot])
     const fenValidation = useMemo(
         () => fenText.trim() ? validateFenForAnalysis(fenText) : null,
         [fenText],
@@ -410,6 +464,19 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const canLoadFen = Boolean(fenText.trim()) && !fenValidationError
     const canCopyShareLink = fenShareValidation.ok
     const canImportPgn = Boolean(importText.trim()) && !importContentError
+    const enPassantTargets = setupEnPassantTargets(setup)
+    const unavailableEnPassant = setup.enPassant !== '-' && !enPassantTargets.includes(setup.enPassant)
+    const availableCastlingRights = normalizeAvailableCastlingRights(setup)
+    const unavailableCastlingRights = setup.castling !== availableCastlingRights
+    const clearUnavailableCastlingRights = () => {
+        // Repair only this raw field; the draft may have other errors the
+        // reader still wants to inspect, including en passant or counters.
+        const fields = fenText.trim().split(/\s+/)
+        fields[2] = availableCastlingRights
+        syncFenTextAndSetup(fields.join(' '))
+        resetFeedback()
+        fenTextRef.current?.focus()
+    }
     /**
      * A file too big for the box it landed in.
      *
@@ -449,30 +516,50 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         setError(result.error ?? 'Could not load that FEN.')
     }
 
-    const handleCopy = async () => {
-        // Resets first, like the two link copies do. Without it a failed game
-        // link left `shareLinkFallback` set, and a failed PGN copy after it
-        // showed that stale link under "select the game link" -- an answer to
-        // a question the reader had stopped asking.
+    const copyText = async (text: string, success: Exclude<CopyStatus, 'idle' | 'failed'>, fallback = '') => {
         resetFeedback()
+        // A permission prompt can outlive the draft, tab, or next copy action.
+        const generation = feedbackGenerationRef.current
         try {
-            await navigator.clipboard.writeText(exportText)
-            setCopyStatus('pgn-copied')
+            await navigator.clipboard.writeText(text)
+            if (generation === feedbackGenerationRef.current) {
+                setCopyStatus(success)
+                setCopiedText(text)
+            }
         } catch {
+            if (generation !== feedbackGenerationRef.current) return
             setCopyStatus('failed')
+            setShareLinkFallback(fallback)
         }
     }
 
+    const handleCopy = () => copyText(exportText, 'pgn-copied')
+    const selectForManualCopy = (field: HTMLTextAreaElement | null) => {
+        field?.focus()
+        field?.select()
+    }
+
     const handleDownload = () => {
-        const blob = new Blob([exportText], { type: 'application/x-chess-pgn;charset=utf-8' })
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = pgnDownloadFilename(pgnHeaders, openingName)
-        document.body.append(link)
-        link.click()
-        link.remove()
-        window.setTimeout(() => URL.revokeObjectURL(url), 0)
+        resetFeedback()
+        let url: string | undefined
+        let link: HTMLAnchorElement | undefined
+        try {
+            const blob = new Blob([exportText], { type: 'application/x-chess-pgn;charset=utf-8' })
+            url = URL.createObjectURL(blob)
+            link = document.createElement('a')
+            link.href = url
+            link.download = pgnDownloadFilename(pgnHeaders, openingName)
+            document.body.append(link)
+            link.click()
+        } catch {
+            setDownloadFailure({ message: 'PGN download failed.' })
+        } finally {
+            link?.remove()
+            if (url) {
+                const downloadUrl = url
+                window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0)
+            }
+        }
     }
 
     const handleUseCurrentFen = () => {
@@ -480,16 +567,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
         syncFenTextAndSetup(currentFen)
     }
 
-    const handleCopyCurrentFen = async () => {
-        resetFeedback()
-        syncFenTextAndSetup(currentFen)
-        try {
-            await navigator.clipboard.writeText(currentFen)
-            setCopyStatus('fen-copied')
-        } catch {
-            setCopyStatus('failed')
-        }
-    }
+    const handleCopyFen = () => copyText(fenText.trim(), 'fen-copied')
 
     /**
      * The whole game in a link, where "Copy Share Link" on the FEN tab shares
@@ -510,6 +588,10 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
             sharedPly >= 0 ? sharedPly : undefined,
         )
         : null
+    const fenShareUrl = fenShareValidation.ok
+        ? buildFenShareUrl(fenTextForShareLink(fenText, currentFen),
+            typeof window === 'undefined' ? 'https://localhost/' : window.location.href)
+        : ''
     const gameShareTooLong = Boolean(gameShareUrl && gameShareUrl.length > MAX_SHARED_GAME_CHARS)
     /**
      * The same game on Lichess's board. A link rather than a button that
@@ -530,13 +612,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
     const handleCopyGameLink = async () => {
         resetFeedback()
         if (!gameShareUrl || gameShareTooLong) return
-        try {
-            await navigator.clipboard.writeText(gameShareUrl)
-            setCopyStatus('game-link-copied')
-        } catch {
-            setCopyStatus('failed')
-            setShareLinkFallback(gameShareUrl)
-        }
+        await copyText(gameShareUrl, 'game-link-copied', gameShareUrl)
     }
 
     const handleCopyShareLink = async () => {
@@ -548,14 +624,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
             return
         }
 
-        const shareUrl = buildFenShareUrl(fenToShare, window.location.href)
-        try {
-            await navigator.clipboard.writeText(shareUrl)
-            setCopyStatus('link-copied')
-        } catch {
-            setCopyStatus('failed')
-            setShareLinkFallback(shareUrl)
-        }
+        await copyText(fenShareUrl, 'link-copied', fenShareUrl)
     }
 
     useModalFocus(open, panelRef, closeDialog)
@@ -584,6 +653,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                 type="button"
                                 className={`mode-card ${tab === 'import' ? 'selected' : ''}`}
                                 onClick={() => {
+                                    cancelPendingImport()
                                     resetFeedback()
                                     setTab('import')
                                 }}
@@ -596,6 +666,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                 type="button"
                                 className={`mode-card ${tab === 'fen' ? 'selected' : ''}`}
                                 onClick={() => {
+                                    cancelPendingImport()
                                     resetFeedback()
                                     setTab('fen')
                                 }}
@@ -608,6 +679,7 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                 type="button"
                                 className={`mode-card ${tab === 'export' ? 'selected' : ''}`}
                                 onClick={() => {
+                                    cancelPendingImport()
                                     resetFeedback()
                                     setTab('export')
                                 }}
@@ -630,7 +702,11 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                             type="button"
                                             className={`archive-source-btn ${archiveSource === source.id ? 'selected' : ''}`}
                                             aria-pressed={archiveSource === source.id}
-                                            onClick={() => setArchiveSource(source.id)}
+                                            onClick={() => {
+                                                cancelPendingImport()
+                                                resetFeedback()
+                                                setArchiveSource(source.id)
+                                            }}
                                         >
                                             {source.label}
                                         </button>
@@ -655,13 +731,14 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         aria-invalid={archiveUsernameUnusable || undefined}
                                         aria-describedby={archiveUsernameUnusable ? `${archiveUserId}-error` : undefined}
                                         onChange={event => {
+                                            cancelPendingImport()
+                                            resetFeedback()
                                             setArchiveUsername(event.target.value)
                                             setArchiveUsernameBlurred(false)
-                                            setError(null)
                                         }}
                                         onBlur={() => setArchiveUsernameBlurred(true)}
                                         onKeyDown={event => {
-                                            if (event.key !== 'Enter') return
+                                            if (event.key !== 'Enter' || isCompositionKey(event.nativeEvent)) return
                                             event.preventDefault()
                                             void handleFetchArchive()
                                         }}
@@ -674,16 +751,28 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                             min={1}
                                             max={MAX_ARCHIVE_GAMES}
                                             value={archiveCount}
-                                            onChange={event => setArchiveCount(clampArchiveGameCount(Number(event.target.value)))}
+                                            onChange={event => {
+                                                cancelPendingImport()
+                                                resetFeedback()
+                                                setArchiveCount(event.target.value)
+                                            }}
+                                            onBlur={() => setArchiveCount(String(archiveGameCount))}
                                         />
                                     </div>
                                     <button
                                         type="button"
-                                        className="btn-start archive-fetch-btn"
-                                        onClick={() => void handleFetchArchive()}
-                                        disabled={archiveBusy || !archiveUsernameValid}
+                                        className={`${archiveBusy ? 'btn-cancel' : 'btn-start'} archive-fetch-btn`}
+                                        onClick={() => {
+                                            if (archiveBusy) {
+                                                cancelPendingImport()
+                                                setStatus('Fetch canceled. Your import text is unchanged.')
+                                            } else {
+                                                void handleFetchArchive()
+                                            }
+                                        }}
+                                        disabled={!archiveBusy && !archiveUsernameValid}
                                     >
-                                        {archiveBusy ? 'Fetching…' : 'Fetch'}
+                                        {archiveBusy ? 'Cancel fetch' : 'Fetch'}
                                     </button>
                                 </div>
                                 {archiveUsernameUnusable ? (
@@ -691,8 +780,8 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         {ARCHIVE_USERNAME_ERROR}
                                     </p>
                                 ) : (
-                                    <p className="archive-hint">
-                                        Public games, no sign-in. They land in the box below, newest first.
+                                    <p className="archive-hint" role="status">
+                                        {archiveBusy ? 'Fetching games…' : 'Public games, no sign-in. They land in the box below, newest first.'}
                                     </p>
                                 )}
                             </div>
@@ -734,6 +823,8 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                     spellCheck={false}
                                     value={importText}
                                     onChange={e => {
+                                        cancelPendingImport()
+                                        resetFeedback()
                                         const nextText = e.target.value
                                         const limitError = pgnImportLengthError(nextText)
                                         if (limitError) {
@@ -745,9 +836,10 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         setError(nextText.trim() ? pgnImportContentError(nextText) : null)
                                     }}
                                     aria-invalid={Boolean(error)}
+                                    aria-describedby={error ? `${importTextId}-error` : undefined}
                                 />
                             )}
-                            {error && <p className="dialog-error" role="alert">{error}</p>}
+                            {error && <p id={`${importTextId}-error`} className="dialog-error" role="alert">{error}</p>}
                             {databaseGames && databaseGames.length > 1 && (
                                 <div className="dialog-database-offer">
                                     <button
@@ -779,64 +871,26 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                 <button type="button" className="btn-cancel" onClick={() => loadSetupPreset(createEmptyPositionSetup())}>
                                     Clear Board
                                 </button>
-                                <button type="button" className="btn-cancel" onClick={handleCopyCurrentFen}>
-                                    {copyStatus === 'fen-copied' ? 'Copied FEN' : 'Copy Current FEN'}
+                                <button type="button" className="btn-cancel" aria-pressed={setupFlipped}
+                                    onClick={() => setSetupFlipped(flipped => !flipped)}>
+                                    <IconFlip /> Flip board
+                                </button>
+                                <button type="button" className="btn-cancel" onClick={handleCopyFen} disabled={!fenText.trim()}>
+                                    {copyStatus === 'fen-copied' && copiedText === fenText.trim() ? 'Copied FEN' : 'Copy FEN'}
                                 </button>
                                 <button type="button" className="btn-cancel" onClick={handleCopyShareLink} disabled={!canCopyShareLink}>
-                                    <IconClipboard /> {copyStatus === 'link-copied' ? 'Copied Link' : 'Copy Share Link'}
+                                    <IconClipboard /> {copyStatus === 'link-copied' && copiedText === fenShareUrl ? 'Copied Link' : 'Copy Share Link'}
                                 </button>
                             </div>
-                            <div className="fen-setup-card" aria-label="Position setup">
-                                <div className="fen-setup-palette" aria-label="Piece palette">
-                                    {SETUP_PIECE_OPTIONS.map(option => (
-                                        <button
-                                            key={option.piece}
-                                            type="button"
-                                            className={`fen-piece-btn ${selectedSetupPiece === option.piece ? 'active' : ''}`}
-                                            aria-pressed={selectedSetupPiece === option.piece}
-                                            aria-label={`Select ${option.label}`}
-                                            title={option.label}
-                                            onClick={() => setSelectedSetupPiece(option.piece)}
-                                        >
-                                            {option.glyph}
-                                        </button>
-                                    ))}
-                                    <button
-                                        type="button"
-                                        className={`fen-piece-btn eraser ${selectedSetupPiece === null ? 'active' : ''}`}
-                                        aria-pressed={selectedSetupPiece === null}
-                                        aria-label="Select empty square eraser"
-                                        title="Clear square"
-                                        onClick={() => setSelectedSetupPiece(null)}
-                                    >
-                                        ×
-                                    </button>
-                                </div>
+                            <div className="fen-setup-card" role="group" aria-label="Position setup">
+                                <PositionSetupPalette selectedPiece={selectedSetupPiece} onSelect={setSelectedSetupPiece} />
                                 <div className="fen-setup-grid">
-                                    <div className="fen-setup-board" role="group" aria-label="Editable chessboard">
-                                        {SETUP_BOARD_SQUARES.map(square => {
-                                            const piece = setup.pieces[square]
-                                            const squareLabel = piece ? setupPieceLabel(piece) : 'empty square'
-                                            const actionLabel = selectedSetupPiece
-                                                ? `place ${setupPieceLabel(selectedSetupPiece)}`
-                                                : 'clear square'
-                                            return (
-                                                <button
-                                                    key={square}
-                                                    type="button"
-                                                    className={`fen-setup-square ${piece && piece === piece.toLowerCase() ? 'black-piece' : ''}`}
-                                                    aria-label={`${square}, ${squareLabel}, ${actionLabel}`}
-                                                    onClick={() => applySetupChange(current => updateSetupSquare(current, square, selectedSetupPiece))}
-                                                >
-                                                    {piece ? setupPieceGlyph(piece) : ''}
-                                                </button>
-                                            )
-                                        })}
-                                    </div>
+                                    <PositionSetupBoard pieces={setup.pieces} selectedPiece={selectedSetupPiece} flipped={setupFlipped}
+                                        onPlace={square => applySetupChange(current => updateSetupSquare(current, square, selectedSetupPiece))} />
                                     <div className="fen-setup-controls">
                                         <div className="fen-setup-control-block">
                                             <span className="dialog-label">Side</span>
-                                            <div className="fen-side-toggle" aria-label="Side to move">
+                                            <div className="fen-side-toggle" role="group" aria-label="Side to move">
                                                 {([
                                                     { value: 'w', label: 'White' },
                                                     { value: 'b', label: 'Black' },
@@ -855,9 +909,11 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         </div>
                                         <div className="fen-setup-control-block">
                                             <span className="dialog-label">Castling</span>
-                                            <div className="fen-castling-grid" role="group" aria-label="Castling rights">
+                                            <div className="fen-castling-grid" role="group" aria-label="Castling rights"
+                                                aria-describedby={unavailableCastlingRights ? castlingHelpId : undefined}>
                                                 {SETUP_CASTLING_OPTIONS.map(option => {
                                                     const canCastle = canUseSetupCastlingRight(setup, option.right)
+                                                    const declared = setup.castling.includes(option.right)
                                                     return (
                                                         <label
                                                             key={option.right}
@@ -867,8 +923,10 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                                             <input
                                                                 type="checkbox"
                                                                 aria-label={option.label}
-                                                                checked={hasSetupCastlingRight(setup, option.right)}
+                                                                checked={declared}
                                                                 disabled={!canCastle}
+                                                                aria-invalid={declared && !canCastle || undefined}
+                                                                aria-describedby={declared && !canCastle ? castlingHelpId : undefined}
                                                                 onChange={event => {
                                                                     applySetupChange(current =>
                                                                         updateSetupCastlingRight(current, option.right, event.target.checked),
@@ -881,49 +939,74 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                                     )
                                                 })}
                                             </div>
+                                            {unavailableCastlingRights && <>
+                                                <p id={castlingHelpId} className="fen-setup-help">
+                                                    Some declared castling rights are unavailable. Clear them, or correct the home king and rook.
+                                                </p>
+                                                <button type="button" className="btn-cancel" onClick={clearUnavailableCastlingRights}>
+                                                    Clear unavailable castling rights
+                                                </button>
+                                            </>}
                                         </div>
                                         <div className="fen-setup-control-block">
                                             <span className="dialog-label">Counters</span>
                                             <div className="fen-counter-grid">
                                                 <label className="fen-counter-field" htmlFor={halfmoveId}>
                                                     <span>Halfmove</span>
-                                                    <input
+                                                    <PositionCounterInput
                                                         id={halfmoveId}
-                                                        type="number"
                                                         min={0}
-                                                        step={1}
-                                                        inputMode="numeric"
                                                         value={setup.halfmove}
-                                                        onChange={event => {
+                                                        position={setup}
+                                                        onValueChange={value => {
                                                             applySetupChange(current =>
-                                                                updateSetupHalfmove(current, Number(event.target.value)),
+                                                                updateSetupHalfmove(current, value),
                                                             )
                                                         }}
                                                     />
                                                 </label>
                                                 <label className="fen-counter-field" htmlFor={fullmoveId}>
                                                     <span>Fullmove</span>
-                                                    <input
+                                                    <PositionCounterInput
                                                         id={fullmoveId}
-                                                        type="number"
                                                         min={1}
-                                                        step={1}
-                                                        inputMode="numeric"
                                                         value={setup.fullmove}
-                                                        onChange={event => {
+                                                        position={setup}
+                                                        onValueChange={value => {
                                                             applySetupChange(current =>
-                                                                updateSetupFullmove(current, Number(event.target.value)),
+                                                                updateSetupFullmove(current, value),
                                                             )
                                                         }}
                                                     />
                                                 </label>
                                             </div>
                                         </div>
+                                        <div className="fen-setup-control-block">
+                                            <label className="fen-counter-field" htmlFor={enPassantId}>
+                                                <span>En passant target</span>
+                                                <select id={enPassantId}
+                                                    value={setup.enPassant}
+                                                    aria-invalid={unavailableEnPassant || undefined}
+                                                    aria-describedby={`${enPassantId}-help`}
+                                                    onChange={event => applySetupChange(current =>
+                                                        updateSetupEnPassant(current, event.target.value as Square | '-'))}>
+                                                    <option value="-">None</option>
+                                                    {unavailableEnPassant && <option value={setup.enPassant}>{setup.enPassant} (invalid)</option>}
+                                                    {enPassantTargets.map(square => <option key={square} value={square}>{square}</option>)}
+                                                </select>
+                                            </label>
+                                            <p id={`${enPassantId}-help`} className="fen-setup-help">
+                                                {unavailableEnPassant
+                                                    ? 'This target does not match the pieces. Choose None to clear it, or correct the board.'
+                                                    : 'The square crossed by a pawn that just moved two squares.'}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                             <textarea
                                 id={fenTextId}
+                                ref={fenTextRef}
                                 className="input-textarea fen-textarea"
                                 /* FEN is case-sensitive: a phone capitalising
                                    the first letter turns Black's rook White. */
@@ -934,14 +1017,14 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                 value={fenText}
                                 onChange={e => {
                                     syncFenTextAndSetup(e.target.value)
-                                    setError(null)
-                                    setCopyStatus('idle')
+                                    resetFeedback()
                                 }}
                                 aria-invalid={Boolean(error || fenValidationError)}
+                                aria-describedby={error || fenValidationError ? `${fenTextId}-error` : undefined}
                             />
-                            {error && <p className="dialog-error" role="alert">{error}</p>}
+                            {error && <p id={`${fenTextId}-error`} className="dialog-error" role="alert">{error}</p>}
                             {!error && fenValidationError && (
-                                <p className="dialog-error" role="status">{fenValidationError}</p>
+                                <p id={`${fenTextId}-error`} className="dialog-error" role="status">{fenValidationError}</p>
                             )}
                             {copyStatus === 'failed' && (
                                 shareLinkFallback ? (
@@ -956,7 +1039,12 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         />
                                     </div>
                                 ) : (
-                                    <p className="dialog-error" role="alert">Clipboard access failed. The current FEN is in the text box.</p>
+                                    <div className="dialog-share-fallback">
+                                        <p className="dialog-error" role="alert">Clipboard access failed. Select the FEN text and copy it manually.</p>
+                                        <button type="button" className="btn-cancel" onClick={() => selectForManualCopy(fenTextRef.current)}>
+                                            Select FEN text
+                                        </button>
+                                    </div>
                                 )
                             )}
                         </div>
@@ -1001,10 +1089,25 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                             </div>
                             <textarea
                                 id={exportTextId}
+                                ref={exportTextRef}
                                 className="input-textarea"
                                 readOnly
-                                value={exportText}
+                                value={displayedExportText}
+                                onFocus={event => setExportTextSnapshot(event.currentTarget.value)}
+                                onBlur={() => setExportTextSnapshot(null)}
+                                aria-describedby={`${exportTextId}-help`}
                             />
+                            <p id={`${exportTextId}-help`} className="dialog-export-help">
+                                Text stays still while focused; updates resume when you leave this field.
+                            </p>
+                            {downloadFailure && (
+                                <div ref={downloadFailureRef} id={downloadErrorId} className="dialog-share-fallback" role="alert">
+                                    <p className="dialog-error">{downloadFailure.message}</p>
+                                    <button type="button" className="btn-cancel" onClick={() => selectForManualCopy(exportTextRef.current)}>
+                                        Select PGN text
+                                    </button>
+                                </div>
+                            )}
                             {/* Two buttons on this tab can fail, and they fail
                                 differently. The PGN is already in the box above, so
                                 "select the text" is a real instruction for it. The
@@ -1027,7 +1130,12 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                         />
                                     </div>
                                 ) : (
-                                    <p className="dialog-error" role="alert">Clipboard access failed. Select the text and copy it manually.</p>
+                                    <div className="dialog-share-fallback">
+                                        <p className="dialog-error" role="alert">Clipboard access failed. Select the text and copy it manually.</p>
+                                        <button type="button" className="btn-cancel" onClick={() => selectForManualCopy(exportTextRef.current)}>
+                                            Select PGN text
+                                        </button>
+                                    </div>
                                 )
                             )}
                             {/* Under the output rather than in the button row, which
@@ -1075,7 +1183,8 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                 {tab === 'export' && (
                     <div className="dialog-actions">
                         <button type="button" className="btn-cancel" onClick={closeDialog}>Close</button>
-                        <button type="button" className="btn-cancel" onClick={handleDownload}>
+                        <button type="button" className="btn-cancel" onClick={handleDownload}
+                            aria-describedby={downloadFailure ? downloadErrorId : undefined}>
                             Download PGN
                         </button>
                         <button
@@ -1092,10 +1201,10 @@ export function PgnDialog({ open, onClose, onImport, onLoadFen, currentFen, main
                                     ? 'Copy a link to this whole game, opening at this move'
                                     : 'Copy a link to this whole game'}
                         >
-                            <IconClipboard /> {copyStatus === 'game-link-copied' ? 'Copied Link' : 'Copy Game Link'}
+                            <IconClipboard /> {copyStatus === 'game-link-copied' && copiedText === gameShareUrl ? 'Copied Link' : 'Copy Game Link'}
                         </button>
                         <button type="button" className="btn-start" onClick={handleCopy}>
-                            {copyStatus === 'pgn-copied' ? 'Copied' : 'Copy PGN'}
+                            {copyStatus === 'pgn-copied' && copiedText === displayedExportText ? 'Copied' : 'Copy PGN'}
                         </button>
                     </div>
                 )}

@@ -1,0 +1,108 @@
+[
+  {
+    "browser": "chromium",
+    "width": 1280,
+    "passed": true,
+    "checks": [
+      "native limit parsing",
+      "pause/resume/Stop",
+      "new draft preserved through Stop and then submitted"
+    ],
+    "commands": [
+      "uci",
+      "isready",
+      "setoption name Threads value 3",
+      "go depth 0 depth +0001",
+      "go perft 0 depth 1",
+      "go depth 1 depth 0",
+      "stop",
+      "go depth 1 depth 0",
+      "stop",
+      "isready",
+      "go perft 0",
+      "stop",
+      "go perft 0",
+      "stop",
+      "isready"
+    ]
+  },
+  {
+    "browser": "chromium",
+    "width": 375,
+    "passed": true,
+    "checks": [
+      "native limit parsing",
+      "pause/resume/Stop",
+      "new draft preserved through Stop and then submitted"
+    ],
+    "commands": [
+      "uci",
+      "isready",
+      "go depth 0 depth +0001",
+      "go perft 0 depth 1",
+      "go depth 1 depth 0",
+      "stop",
+      "go depth 1 depth 0",
+      "stop",
+      "isready",
+      "go perft 0",
+      "stop",
+      "go perft 0",
+      "stop",
+      "isready"
+    ]
+  },
+  {
+    "browser": "firefox",
+    "width": 1280,
+    "passed": true,
+    "checks": [
+      "native limit parsing",
+      "pause/resume/Stop",
+      "new draft preserved through Stop and then submitted"
+    ],
+    "commands": [
+      "uci",
+      "isready",
+      "setoption name Threads value 3",
+      "go depth 0 depth +0001",
+      "go perft 0 depth 1",
+      "go depth 1 depth 0",
+      "stop",
+      "go depth 1 depth 0",
+      "stop",
+      "isready",
+      "go perft 0",
+      "stop",
+      "go perft 0",
+      "stop",
+      "isready"
+    ]
+  },
+  {
+    "browser": "firefox",
+    "width": 375,
+    "passed": true,
+    "checks": [
+      "native limit parsing",
+      "pause/resume/Stop",
+      "new draft preserved through Stop and then submitted"
+    ],
+    "commands": [
+      "uci",
+      "isready",
+      "go depth 0 depth +0001",
+      "go perft 0 depth 1",
+      "go depth 1 depth 0",
+      "stop",
+      "go depth 1 depth 0",
+      "stop",
+      "isready",
+      "go perft 0",
+      "stop",
+      "go perft 0",
+      "stop",
+      "isready"
+    ]
+  }
+]

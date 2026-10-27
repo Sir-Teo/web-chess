@@ -1,5 +1,6 @@
 import { Chess, type Move } from 'chess.js'
 import { normalizeUciMoves } from './uci'
+import { fenCounterInputError, validateFenForAnalysis } from './fen'
 
 /**
  * A whole game in a link, not just a position.
@@ -97,13 +98,12 @@ export function decodeSharedGame(encoded: string): SharedGame | null {
 
   const rootFen = text.slice(0, separator).trim()
   if (!rootFen) return null
+  if (fenCounterInputError(rootFen)) return null
 
-  let position: Chess
-  try {
-    position = new Chess(rootFen)
-  } catch {
-    return null
-  }
+  // Validate raw fields before normalization: even fen() probes EP captures
+  // and assumes their opposing pawn is present.
+  const validation = validateFenForAnalysis(rootFen, { allowAbbreviated: true })
+  if (!validation.ok) return null
 
   // Counted before normalising, because that is where a cut link loses its
   // tail: "…g1f3 b8c" is two tokens and one move, and by the time the caller
@@ -112,7 +112,7 @@ export function decodeSharedGame(encoded: string): SharedGame | null {
   // half a game with nothing said about the other half.
   const tokens = text.slice(separator + 1).split(/\s+/g).filter(Boolean)
   const moves = normalizeUciMoves(tokens)
-  return { rootFen: position.fen(), moves, carried: tokens.length }
+  return { rootFen: validation.fen, moves, carried: tokens.length }
 }
 
 export type ReplayedSharedMove = {

@@ -66,6 +66,9 @@ export function WatchControls({
     // The engine's controls and the replay's are never both on offer: one
     // plays moves, the other walks the ones already there.
     const replayOffered = !aiActive && Boolean(onAutoplayToggle) && (canAutoplay || autoplay)
+    // Replays use Normal's delay for the AI's manual Step setting. Show that
+    // effective speed without changing the setting when returning to AI play.
+    const displayedSpeed = !aiActive && aiSpeed === 'step' ? 'normal' : aiSpeed
     return (
         <div className="watch-controls" onFocus={event => {
             const strip = event.currentTarget
@@ -79,7 +82,7 @@ export function WatchControls({
             }
         }}>
             {/* ── Navigation ── */}
-            <div className="wc-nav" aria-label="Move navigation">
+            <div className="wc-nav" role="group" aria-label="Move navigation">
                 <button type="button" className="wc-btn" onClick={onFirst} disabled={!canGoBack} title="First position (⏮)" aria-label="Go to first position" aria-keyshortcuts="Home">
                     <IconSkipBack />
                 </button>
@@ -144,15 +147,15 @@ export function WatchControls({
                 row of the bottom bar, and a row for a speed nothing is
                 moving at is space taken from the board. */}
             {(aiActive || autoplay) && (
-                <div className="wc-speed" aria-label={aiActive ? 'AI speed' : 'Autoplay speed'}>
+                <div className="wc-speed" role="group" aria-label={aiActive ? 'AI speed' : 'Autoplay speed'}>
                     <span className="wc-speed-label">Speed</span>
                     {SPEEDS.filter(({ id }) => aiActive || id !== 'step').map(({ id, label }) => (
                         <button
                             key={id}
                             type="button"
-                            className={`wc-speed-pill ${aiSpeed === id ? 'wc-speed-active' : ''}`}
+                            className={`wc-speed-pill ${displayedSpeed === id ? 'wc-speed-active' : ''}`}
                             aria-label={`Set ${aiActive ? 'AI' : 'autoplay'} speed to ${label}`}
-                            aria-pressed={aiSpeed === id}
+                            aria-pressed={displayedSpeed === id}
                             onClick={() => onSpeedChange(id)}
                         >
                             {label}
@@ -163,7 +166,7 @@ export function WatchControls({
 
             {/* ── Paused indicator ── */}
             {paused && aiActive && (
-                <span className="wc-paused-label" role="status"><IconPause /> Paused</span>
+                <span className="wc-paused-label" role="status"><IconPause /> AI paused</span>
             )}
         </div>
     )

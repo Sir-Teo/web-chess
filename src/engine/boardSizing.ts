@@ -41,6 +41,8 @@ export const LANDSCAPE_BOARD_STACK_REM = 1.875 + 0.25
 
 /** Below this the layout stacks; above it the board sits between two panels. */
 export const MOBILE_BREAKPOINT_PX = 900
+/** Match the landscape CSS: narrower windows need a scrolling stacked layout. */
+export const MIN_LANDSCAPE_PHONE_WIDTH_PX = 600
 /** The desktop board never shrinks past this, however narrow the window. */
 export const MIN_DESKTOP_BOARD_PX = 260
 /** Nor grows past this, however wide. */
@@ -91,13 +93,10 @@ export function isMobileViewport(viewport: Pick<BoardViewport, 'width'>): boolea
   return viewport.width <= MOBILE_BREAKPOINT_PX
 }
 
-/**
- * The one layout that lays the board beside the panels with no room to scroll
- * if it overshoots, so its height budget is a hard ceiling rather than a
- * preference. Matches the landscape-phone media query.
- */
+/** Board beside the panels, with its own scroller when height is scarce. */
 export function isLandscapePhoneViewport(viewport: Pick<BoardViewport, 'width' | 'height'>): boolean {
-  return isMobileViewport(viewport) && viewport.height <= 520 && viewport.width > viewport.height
+  return isMobileViewport(viewport) && viewport.width >= MIN_LANDSCAPE_PHONE_WIDTH_PX
+    && viewport.height <= 520 && viewport.width > viewport.height
 }
 
 export function boardChromeFor(viewport: Pick<BoardViewport, 'width' | 'height'>) {
@@ -161,8 +160,8 @@ export function boardSizing({
   const heightBudget = boardHeightBudget(viewport, stageHeight, extraStackHeight)
 
   // Mobile prefers finger-friendly squares while respecting narrow screens: a
-  // share of the viewport height, unless the phone is on its side, where the
-  // measured budget is all there is.
+  // share of the viewport height, or the measured stage on its side. A short
+  // landscape stage scrolls rather than shrinking squares below the touch floor.
   //
   // The share is a preference and the container is the fact. `0.46 * height`
   // with a 300px floor describes a phone whose bars leave room for it, and the
@@ -177,7 +176,7 @@ export function boardSizing({
   const mobileWidth = Math.min(
     Math.max(0, viewport.width - viewport.scrollbar - chromeWidth),
     isLandscapePhoneViewport(viewport)
-      ? heightBudget
+      ? Math.max(MIN_TOUCH_BOARD_PX, heightBudget)
       : Math.max(
         MIN_TOUCH_BOARD_PX,
         Math.min(Math.max(300, Math.round(viewport.height * 0.46)), roomForBoard),

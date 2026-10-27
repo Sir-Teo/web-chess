@@ -1,0 +1,7 @@
+  library PGN endings (1280×900, 1x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  library PGN endings (375×812, 1x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  library PGN endings (320×812, 2x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  library PGN endings (844×390, 2x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  database import: 4 games in the file, three presses, 4 in the library
+  database: 560 games, 500 kept, the other 60 never parsed (2813ms, and the button said "Adding…" first)
+  export: a game comes back byte for byte, and its report with it (116/116, 117 points)

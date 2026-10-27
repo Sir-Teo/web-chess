@@ -1,0 +1,12 @@
+  saved reviews (1280px, dark): two producers survive reload; comparison keeps own scores/WDL, navigates, focuses all reveal pages and close, announces counts and preserves delayed-read focus; open another line, export, delete and 200% text fit
+  saved reviews (375px, light): two producers survive reload; comparison keeps own scores/WDL, navigates, focuses all reveal pages and close, announces counts and preserves delayed-read focus; open another line, export, delete and 200% text fit
+  saved reviews (320px, light): two producers survive reload; comparison keeps own scores/WDL, navigates, focuses all reveal pages and close, announces counts and preserves delayed-read focus; open another line, export, delete and 200% text fit
+  saved reviews (844px, dark): two producers survive reload; comparison keeps own scores/WDL, navigates, focuses all reveal pages and close, announces counts and preserves delayed-read focus; open another line, export, delete and 200% text fit
+  review deletion focus (1280×900, 1x, dark): retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained
+  review deletion focus (375×812, 1x, light): retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained
+  review deletion focus (320×812, 2x, light): retry button on failure, remaining selector after deletion, summary for empty list, preserved new focus during delayed write, exact storage and displayed report retained
+Error: retry focus is obscured
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkSavedReviewDeleteFocus (/workspace/web-chess/scripts/test-ui-browser.cjs:1719:7)
+    at async /tmp/web-chess-comparison-focus-check.cjs:1:616

@@ -1,0 +1,11 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  practice ownership (1280×900, 1x, dark): active f3 drill, Slow replay yield to e4 practice; board focus, legal wrong-answer reset and correct solution work; Done restores the question; a new drill accepts f3; original line and one solution variation remain
+locator.waitFor: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-review-practice]') to be visible[22m
+
+    at Object.checkPracticeOwnsTheBoard (/workspace/web-chess/scripts/test-ui-browser.cjs:16096:20)
+    at async /tmp/web-chess-practice-ownership-check.cjs:10:9 {
+  log: [ "  - waiting for locator('[data-review-practice]') to be visible" ],
+  name: 'TimeoutError'
+}

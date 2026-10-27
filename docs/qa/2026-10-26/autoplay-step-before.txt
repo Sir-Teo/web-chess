@@ -1,0 +1,14 @@
+[
+  {
+    "name": "Set autoplay speed to Slow",
+    "pressed": "false"
+  },
+  {
+    "name": "Set autoplay speed to Normal",
+    "pressed": "false"
+  },
+  {
+    "name": "Set autoplay speed to Fast",
+    "pressed": "false"
+  }
+]

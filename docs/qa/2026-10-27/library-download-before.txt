@@ -1,0 +1,12 @@
+locator.waitFor: Timeout 3000ms exceeded.
+Call log:
+[2m  - waiting for locator('.library-dialog').getByRole('alert').filter({ hasText: 'The browser could not start the PGN download.' }) to be visible[22m
+
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:16343:25)
+    at async Object.checkLibraryDownloadRecovery (/workspace/web-chess/scripts/test-ui-browser.cjs:16362:11)
+    at async /tmp/web-chess-library-download-check.cjs:10:9 {
+  log: [
+    "  - waiting for locator('.library-dialog').getByRole('alert').filter({ hasText: 'The browser could not start the PGN download.' }) to be visible"
+  ],
+  name: 'TimeoutError'
+}

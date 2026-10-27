@@ -130,7 +130,7 @@ body.resizing * {
   margin-bottom: 0.75rem;
 }
 
-.review-report-actions button {
+.panel .review-report-actions button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -236,7 +236,11 @@ input[type="checkbox"] {
   a,
   [role="button"],
   [role="slider"],
-  [role="separator"]):focus-visible {
+  [role="separator"],
+  .analysis-context-row,
+  .tablebase-card > [role="status"],
+  .cloud-eval-card > [role="status"],
+  .opening-intel-card > [role="status"]):focus-visible {
   outline: 2px solid var(--info);
   outline-offset: 2px;
 }
@@ -638,7 +642,7 @@ input[type="checkbox"] {
 /* Settings dropdown */
 .top .settings-menu {
   margin-bottom: 0;
-  margin-left: 0.2rem;
+  margin-left: auto;
   border: none;
   background: none;
   position: relative;
@@ -676,6 +680,12 @@ input[type="checkbox"] {
 
 .top .settings-menu[open] {
   position: relative;
+}
+
+.top .settings-menu[open]>summary {
+  /* The dismissal layer is 990; the panel stays above both at 1000. */
+  position: relative;
+  z-index: 991;
 }
 
 .top .settings-body {
@@ -1289,28 +1299,52 @@ button.board-meta-opening {
   align-items: center;
 }
 
+.board-stage.promoting {
+  z-index: 2500;
+}
+
 .promotion-overlay {
-  position: absolute;
+  --promotion-gutter: clamp(8px, 2vmin, 1rem);
+  position: fixed;
   inset: 0;
-  z-index: 6;
+  z-index: 3000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
-  border-radius: 14px;
-  background: var(--bg-inset);
+  padding: var(--promotion-gutter);
+  background: var(--backdrop);
+  container: promotion / inline-size;
 }
 
 .promotion-chooser {
-  width: min(420px, 100%);
+  width: min(26.25rem, 100%);
+  max-height: calc(100vh - 2 * var(--promotion-gutter));
+  max-height: calc(100dvh - 2 * var(--promotion-gutter));
+  overflow: auto;
+  scroll-padding: 8px;
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   padding: 10px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  background: var(--bg-panel);
+  background: var(--bg-elevated);
   box-shadow: var(--shadow-lg);
+}
+
+.promotion-title {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  text-align: center;
+}
+
+@container promotion (max-width: 20rem) {
+  .promotion-chooser {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .promotion-choice {
@@ -1331,9 +1365,8 @@ button.board-meta-opening {
 
 .promotion-label {
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
   font-size: 0.72rem;
 }
 
@@ -1358,7 +1391,8 @@ button.board-meta-opening {
 }
 
 .promotion-glyph {
-  font-size: 2.35rem;
+  font-size: min(2.35rem, 12vh);
+  font-size: min(2.35rem, 12dvh);
   line-height: 1;
 }
 
@@ -1376,6 +1410,8 @@ button.board-meta-opening {
   border: 1px solid var(--border-subtle);
   background: transparent;
   color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.8rem;
 }
 
 .thinking-dots span {
@@ -2426,7 +2462,14 @@ button.board-meta-opening {
   margin-right: 0.2rem;
 }
 
+.panel button.remote-retry {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
+}
+
 .tablebase-card {
+  container: tablebase / inline-size;
   margin-bottom: var(--space-md);
   border: 1px solid var(--border-strong);
   border-left: 3px solid var(--info);
@@ -2455,43 +2498,59 @@ button.board-meta-opening {
 /* Element+class so `display: grid` survives `.panel button`'s inline-flex,
    which was leaving the column template inert and the rows ragged. */
 button.tablebase-move-row {
+  min-height: 44px;
+  min-width: 0;
   border: 1px solid var(--border-subtle);
   background: var(--bg-card);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   font-size: 0.68rem;
+  line-height: 1.4;
   display: grid;
-  grid-template-columns: minmax(3rem, 0.7fr) minmax(0, 1.2fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.42rem;
   text-align: left;
   padding: 0.3rem 0.45rem;
 }
 
-/* Coach view keeps the move and the verdict. The raw UCI is already the row's
-   tooltip, and it stays visible in Pro — same split as the review list. */
-button.tablebase-move-row.compact {
-  grid-template-columns: minmax(3rem, 0.7fr) minmax(0, 1fr);
-}
-
 .tablebase-move-row strong {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-primary);
 }
 
 .tablebase-move-row span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.tablebase-move-row span:last-child {
+/* The proven verdict needs its own line: three columns reduced "Win · DTZ 5"
+   to "W…" at enlarged phone text. Pro keeps raw UCI beside the SAN move, or
+   below the verdict when the card is too narrow for both notations. */
+.tablebase-move-row > span:nth-child(2) {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.tablebase-move-row > span:nth-child(3) {
+  grid-column: 2;
+  grid-row: 1;
+  white-space: nowrap;
   font-family: var(--font-mono);
   color: var(--text-muted);
+}
+
+@container tablebase (max-width: 8rem) {
+  .tablebase-move-row strong {
+    grid-column: 1 / -1;
+  }
+
+  .tablebase-move-row > span:nth-child(3) {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
 }
 
 .preset-grid {
@@ -2831,6 +2890,10 @@ button.opening-move-row {
   min-width: 0;
 }
 
+.engine-lab-console .engine-console-download {
+  grid-column: 1 / -1;
+}
+
 .diagnostics-actions {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: 0.45rem;
@@ -2870,6 +2933,26 @@ button.opening-move-row {
   color: var(--text-tertiary);
 }
 
+.lab-history-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+
+.lab-history-heading h4 {
+  margin: 0;
+}
+
+.lab-history-heading button {
+  min-width: 44px;
+  min-height: 32px;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.68rem;
+}
+
 .lab-history-list {
   display: flex;
   gap: 0.28rem;
@@ -2906,6 +2989,30 @@ button.opening-move-row {
   font-family: var(--font-mono);
 }
 
+.engine-console-output {
+  min-width: 0;
+}
+
+.engine-lab-output-lines {
+  display: block;
+}
+
+.engine-lab-output:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.engine-lab-output-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.panel .engine-lab-output-actions button {
+  min-height: 44px;
+  white-space: normal;
+}
+
 .engine-lab-inline {
   margin-top: 0.4rem;
   display: grid;
@@ -2915,6 +3022,7 @@ button.opening-move-row {
 .error-copy,
 .panel-copy.error-copy {
   color: var(--danger);
+  overflow-wrap: anywhere;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -3145,6 +3253,7 @@ button.pv-move:focus-visible {
 }
 
 .critical-moments-card {
+  container: critical-moments / inline-size;
   margin-top: var(--space-md);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -3169,7 +3278,7 @@ button.pv-move:focus-visible {
   gap: 0.34rem;
 }
 
-button.critical-moment-row {
+.critical-moment-row {
   width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -3239,6 +3348,7 @@ button.critical-moment-row {
   display: grid;
   gap: 0.12rem;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .critical-moment-move strong {
@@ -3266,6 +3376,49 @@ button.critical-moment-row {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@container critical-moments (max-width: 15rem) {
+  .critical-moment-row,
+  .panel .critical-moment-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .panel .critical-moment-best-action {
+    justify-self: start;
+    max-width: 100%;
+    flex-wrap: wrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+  }
+
+  .critical-moment-impact {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (pointer: coarse) {
+  .panel .critical-moment-main,
+  .panel .critical-moment-best-action {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+@container critical-moments (max-width: 5rem) {
+  .critical-moment-row {
+    padding: 0.35rem 0.1rem;
+  }
+
+  .panel .critical-moment-best-action {
+    padding: 0.25rem 0.15rem;
+  }
+
+  .critical-moment-best-action svg {
+    display: none;
+  }
 }
 
 .review-book-list {
@@ -3584,6 +3737,11 @@ button.critical-moment-row {
 }
 
 .review-move-list li {
+  /* These rows determine the height above the Practice controls. Deferring
+     their layout moved those controls between pointerdown and pointerup in
+     WebKit when the review scrolled into view. Keep their geometry measured. */
+  content-visibility: visible;
+  contain-intrinsic-size: none;
   padding: 0;
   overflow: hidden;
 }
@@ -5217,48 +5375,9 @@ button.critical-moment-row {
 /* ═══════════════════════════════════════════════════
    Landscape phone: board beside the panels
    ═══════════════════════════════════════════════════ */
-@media (max-width: 900px) and (max-height: 520px) and (orientation: landscape) {
+@media (min-width: 600px) and (max-width: 900px) and (max-height: 520px) and (orientation: landscape) {
   :root {
     --stage-pad-y: 0.5rem;
-  }
-
-  /* The chooser is sized by the window here, not by the board.
-     Sideways on a phone the board is 203px wide, so four columns inside it are
-     31px each -- measured at 844x390, and 27px at 667x375, for the press that
-     decides what a pawn becomes. Fixed to the window it is the same 420px it
-     is everywhere else, and each choice is 94px. */
-  .promotion-overlay {
-    position: fixed;
-    /* Widening it to the window is what makes this necessary. At 169px it sat
-       inside the board and cleared the panels by geometry alone; at 420px it
-       runs under them. Measured with the z-index left at 6: still clickable,
-       because hit-testing put it on top, and painted behind the analysis
-       column, so what a reader saw was a sliver with a "Q" in it. 3000 is
-       where this app's other dialogs sit, which is what this is. */
-    z-index: 3000;
-    border-radius: 0;
-    /* Over the whole window now, the board's faint inset let the panels'
-       text read through around the choices. The dialogs' scrim colour, but
-       not their blur: the board stays legible behind the choice, and the
-       pawn being promoted is what the choice is about. */
-    background: var(--backdrop);
-  }
-
-  /* Sideways it sits over the panels, not the board, and the panel's
-     translucent surface let their text read through the choices. */
-  .promotion-chooser {
-    background: var(--bg-elevated);
-  }
-
-  /* And the stage has to come up with it. `.board-stage` is `position:
-     relative; z-index: 1` and `.panel` is `z-index: 4`, so everything inside
-     the stage paints under the panels whatever its own z-index -- measured
-     with the overlay at 3000, still drawn behind the analysis column. Only
-     while the chooser is up, so nothing else about the stacking of the board
-     against the panels changes. 2500 covers the top bar at 2000 the way a
-     modal should, and stays under the dialogs at 3000. */
-  .board-stage.promoting {
-    z-index: 2500;
   }
 
   .main-container {
@@ -5273,6 +5392,16 @@ button.critical-moment-row {
     width: auto;
     max-width: none;
     padding: var(--stage-pad-y) var(--stage-pad-x);
+    overflow: auto;
+    align-items: flex-start;
+    justify-content: flex-start;
+    scroll-padding: 8px;
+  }
+
+  .board-stage .board-layout {
+    margin: auto;
+    flex-shrink: 0;
+    max-width: none;
   }
 
   /* Height is the scarce axis here -- the bar above already folds back to one
@@ -5463,6 +5592,18 @@ button.critical-moment-row {
     min-height: 0;
     max-height: none;
   }
+}
+
+.engine-error-notice {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.engine-error-notice button {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
 }
 
 /* Two classes so it outranks `.panel-copy.error-copy`. The tinted background
@@ -5713,6 +5854,7 @@ button.wc-speed-pill {
    nothing moves at 100% and the window keeps its rows at every size. */
 .mtree-scroll {
   height: 16.25rem;
+  container: move-list / inline-size;
   overflow-y: auto;
   outline: none;
   padding: 0.1rem 0;
@@ -6040,6 +6182,41 @@ button.mtree-chip-compact {
   font-family: var(--font-mono);
   font-size: 0.64rem;
   font-weight: 500;
+}
+
+/* At large text sizes a narrow panel cannot hold a number plus two moves.
+   Keep every move inside its paint boundary, with its own visible number
+   instead of relying on White/Black columns. The accessible name already
+   includes that number. Branch markers still distinguish variations. */
+@container move-list (max-width: 12rem) {
+  .mtree-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mtree-num,
+  .mtree-spacer {
+    display: none;
+  }
+
+  .mtree-variation {
+    padding-left: 0;
+    margin-left: 0;
+  }
+
+  .panel button.mtree-chip {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+  }
+
+  button.mtree-chip[data-move-prefix]::before {
+    content: attr(data-move-prefix);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.64rem;
+    font-weight: 500;
+  }
 }
 
 /* What the NAGs say about the position, after the move: "Bb5 ±". The move's
@@ -6864,17 +7041,17 @@ button.hint-btn {
   height: 100dvh;
 }
 
-.app-shell[data-scroll-chrome="true"] .dialog-backdrop {
+.app-shell[data-scroll-dialogs="true"] .dialog-backdrop {
   padding: 0.5rem;
 }
 
-.app-shell[data-scroll-chrome="true"] .dialog-panel {
+.app-shell[data-scroll-dialogs="true"] .dialog-panel {
   max-height: calc(100dvh - 1rem);
   overflow-y: auto;
   scroll-padding-block: 8px;
 }
 
-.app-shell[data-scroll-chrome="true"] .new-game-dialog {
+.app-shell[data-scroll-dialogs="true"] .new-game-dialog {
   /* Keep the choices readable as text grows, using the available width. */
   max-width: 28.75rem;
 }
@@ -6884,7 +7061,7 @@ button.hint-btn {
   max-height: calc(100dvh - 2rem);
 }
 
-.app-shell[data-scroll-chrome="true"] .command-palette-input {
+.app-shell[data-scroll-dialogs="true"] .command-palette-input {
   /* Revealing an active command must not scroll the focused search away. */
   position: sticky;
   top: 0;
@@ -6892,7 +7069,7 @@ button.hint-btn {
   background: var(--bg-base);
 }
 
-.app-shell[data-scroll-chrome="true"] .dialog-panel > :is(.dialog-header, .dialog-body, .dialog-actions) {
+.app-shell[data-scroll-dialogs="true"] .dialog-panel > :is(.dialog-header, .dialog-body, .dialog-actions) {
   flex: none;
 }
 
@@ -6900,8 +7077,11 @@ button.hint-btn {
    A short window with enlarged text is the other place a row cannot hold them:
    **measured** at 901x360 with 200% text, the PGN export row ran 113px past
    the dialog's left edge, and Download PGN sat behind the backdrop. */
-.app-shell[data-scroll-chrome="true"] .dialog-actions {
+.app-shell[data-scroll-dialogs="true"] .dialog-actions {
   flex-wrap: wrap;
+  /* The whole panel scrolls here; a sticky phone footer would cover the form
+     instead of giving it the space recovered above. */
+  position: static;
 }
 
 /* At 901x256 with 200% text the whole New Game dialog is 224px tall, and each
@@ -6909,12 +7089,12 @@ button.hint-btn {
    The description is the part to give up: each card's accessible name still
    carries it, and the label and icon say which mode it is. */
 @media (max-height: 320px) {
-  .app-shell[data-scroll-chrome="true"] .new-game-dialog .mode-desc {
+  .app-shell[data-scroll-dialogs="true"] .new-game-dialog .mode-desc {
     display: none;
   }
 }
 
-.app-shell[data-scroll-chrome="true"] .dialog-panel > .dialog-body {
+.app-shell[data-scroll-dialogs="true"] .dialog-panel > .dialog-body {
   /* Enlarged headings and actions must not squeeze the form to zero height. */
   max-height: none;
   overflow: visible;

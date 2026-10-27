@@ -14,7 +14,7 @@
  * pasting a game into the palette cannot turn into thousands of terms scanned
  * against every command.
  */
-import { toSearchTerms } from '../engine/searchTerms'
+import { normalizeSearchText, toSearchTerms } from '../engine/searchTerms'
 import { readStorage, writeStorage } from '../engine/storage'
 
 export const RECENT_COMMANDS_STORAGE_KEY = 'webchess:recent-commands:v1'
@@ -37,9 +37,8 @@ export type Command = {
 }
 
 function haystack(command: Command): string {
-    return [command.label, command.hint ?? '', command.shortcut ?? '', ...(command.keywords ?? [])]
-        .join(' ')
-        .toLowerCase()
+    return normalizeSearchText([command.label, command.hint ?? '', command.shortcut ?? '', ...(command.keywords ?? [])]
+        .join(' '))
 }
 
 export function commandMatches(command: Command, terms: string[]): boolean {
@@ -67,7 +66,7 @@ export function rankCommands(commands: Command[], query: string, recentIds: stri
 
     const needle = terms.join(' ')
     const score = (command: Command): number => {
-        const label = command.label.toLowerCase()
+        const label = normalizeSearchText(command.label)
         if (label.startsWith(needle)) return 0
         if (label.includes(needle)) return 1
         if (terms.every(term => label.includes(term))) return 2

@@ -1,0 +1,14 @@
+  threat reload (1280×900, 1x, dark): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat reload (375×812, 1x, light): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat reload (320×812, 2x, light): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat reload (844×390, 2x, dark): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  engine release (1280px, 1x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (1280px, 2x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (375px, 1x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (375px, 2x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release: import stays unloaded; explicit Review loads; busy two-worker review pool blocks release even when foreground is Ready; Stop then Release closes every worker
+  engine release (hidden): hidden infinite search waits for visibility; Stop during reload cancels it
+  engine release (fallback): explicit search survives a failed boot and runs once on fallback
+  engine release (fallback-load): Load preserves prior lines through a failed boot and fallback handshake, without another search
+  threat: asked with the move handed over and no en passant, bounded, board handed back, cleared by a move
+  analysis cache: returning to a position reuses its completed search

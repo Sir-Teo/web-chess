@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   cloudEvalRequestKey,
   fetchCloudEvaluation,
@@ -30,6 +30,7 @@ export function useCloudEvaluation({ fen, multiPv, enabled }: UseCloudEvaluation
   )
   const [evaluations, setEvaluations] = useState<Map<string, CloudEvalResult>>(new Map())
   const [missingKeys, setMissingKeys] = useState<Map<string, true>>(new Map())
+  const [retryAttempt, setRetryAttempt] = useState(0)
   const [requestState, setRequestState] = useState<{
     error: string | null
     key: string
@@ -51,6 +52,11 @@ export function useCloudEvaluation({ fen, multiPv, enabled }: UseCloudEvaluation
         ? requestState.status
         : 'idle'
   const error = status === 'error' && requestState.key === currentKey ? requestState.error : null
+  const retry = useCallback(() => {
+    if (!enabled || status !== 'error') return
+    setRequestState({ error: null, key: currentKey, status: 'loading' })
+    setRetryAttempt(attempt => attempt + 1)
+  }, [currentKey, enabled, status])
 
   useEffect(() => {
     if (!enabled || cached || missing) return
@@ -94,12 +100,13 @@ export function useCloudEvaluation({ fen, multiPv, enabled }: UseCloudEvaluation
       window.clearTimeout(timer)
       controller.abort()
     }
-  }, [cached, currentKey, enabled, missing, normalizedFen, normalizedMultiPv])
+  }, [cached, currentKey, enabled, missing, normalizedFen, normalizedMultiPv, retryAttempt])
 
   return {
     error,
     multiPv: normalizedMultiPv,
     result,
+    retry,
     status,
   }
 }

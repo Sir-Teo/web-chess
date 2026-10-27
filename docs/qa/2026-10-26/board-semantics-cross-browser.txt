@@ -1,0 +1,12 @@
+web-chess-board-semantics-native-dev.log
+  board semantics (1280px, dark): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture, arrival/departure cleanup, root navigation, flip and blindfold preserved
+  board semantics (375px, light): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture, arrival/departure cleanup, root navigation, flip and blindfold preserved
+
+web-chess-board-semantics-native-dev-firefox.log
+  board semantics (1280px, dark): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture, arrival/departure cleanup, root navigation, flip and blindfold preserved
+  board semantics (375px, light): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture, arrival/departure cleanup, root navigation, flip and blindfold preserved
+
+web-chess-board-semantics-native-prod-firefox.log
+  board semantics (1280px, dark): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture, arrival/departure cleanup, root navigation, flip and blindfold preserved
+  board semantics (375px, light): 64 named square objects, passive images without tab stops, legal-target buttons, keyboard moves/capture, arrival/departure cleanup, root navigation, flip and blindfold preserved
+

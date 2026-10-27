@@ -1,6 +1,127 @@
 import { describe, expect, it } from 'vitest'
 import { FEN_KINGS_ADJACENT_ERROR, FEN_LOOKS_LIKE_GAME_ERROR, FEN_LOOKS_LIKE_URL_ERROR, FEN_NO_BLACK_KING_ERROR, FEN_NO_KINGS_ERROR, FEN_NO_WHITE_KING_ERROR, FEN_OPPONENT_IN_CHECK_ERROR, FEN_PARSE_ERROR, hasLegalKingPlacement, kingPlacementError, opponentIsInCheck, validateFenForAnalysis } from './fen'
 
+describe('declared en passant targets', () => {
+  it.each([
+    ['4k3/8/8/4P3/8/8/8/4K3 w - d6 0 12', 'd5'],
+    ['4k3/8/8/8/4p3/8/8/4K3 b - d3 0 12', 'd4'],
+  ])('requires the pawn that just advanced: %s', (fen, square) => {
+    const result = validateFenForAnalysis(fen)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(new RegExp(`en passant.*pawn on ${square}`))
+  })
+
+  it.each([
+    ['4k3/8/8/3PP3/8/8/8/4K3 w - d6 0 12'],
+    ['4k3/8/8/3rP3/8/8/8/4K3 w - d6 0 12'],
+    ['4k3/8/8/8/3pp3/8/8/4K3 b - d3 0 12'],
+    ['4k3/8/8/8/3Np3/8/8/4K3 b - d3 0 12'],
+  ])('requires the actual opposing pawn rather than a different piece: %s', fen => {
+    const result = validateFenForAnalysis(fen)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(/en passant.*pawn/)
+  })
+
+  it.each([
+    ['4k3/8/3B4/3pP3/8/8/8/4K3 w - d6 0 12', 'd6'],
+    ['4k3/8/8/8/3Pp3/3b4/8/4K3 b - d3 0 12', 'd3'],
+  ])('requires an empty target square: %s', (fen, target) => {
+    const result = validateFenForAnalysis(fen)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(new RegExp(`en passant.*${target}.*empty`))
+  })
+
+  it.each([
+    ['4k3/3p4/8/3pP3/8/8/8/4K3 w - d6 0 12', 'd7'],
+    ['4k3/8/8/8/3Pp3/8/3P4/4K3 b - d3 0 12', 'd2'],
+  ])('requires the double-push origin to be vacated: %s', (fen, origin) => {
+    const result = validateFenForAnalysis(fen)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(new RegExp(`en passant.*${origin}.*empty`))
+  })
+
+  it.each([
+    ['4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 12'],
+    ['4k3/8/8/8/3Pp3/8/8/4K3 b - d3 0 12'],
+    ['4k3/8/8/3p4/8/8/8/4K3 w - d6 0 12'],
+    ['4k3/8/8/8/3P4/8/8/4K3 b - d3 0 12'],
+    ['k3r3/8/8/3pP3/8/8/8/4K3 w - d6 0 12'],
+    ['4k3/8/8/3pP3/4K3/8/8/8 w - d6 0 12'],
+    ['8/8/8/4k3/3Pp3/8/8/4K3 b - d3 0 12'],
+  ])('accepts real double-push fields with no capturer, a pin or check: %s', fen => {
+    expect(validateFenForAnalysis(fen).ok).toBe(true)
+  })
+})
+
+describe('explicit shorthand support for imported roots', () => {
+  const placement = '4k3/8/8/8/8/8/4P3/4K3'
+  it.each([
+    [`${placement} w`, `${placement} w - - 0 1`],
+    [`${placement} w -`, `${placement} w - - 0 1`],
+    [`${placement} w - -`, `${placement} w - - 0 1`],
+    [`${placement} w - - 42`, `${placement} w - - 42 1`],
+  ])('keeps editor input strict while retaining importer defaults: %s', (input, complete) => {
+    expect(validateFenForAnalysis(input).ok).toBe(false)
+    expect(validateFenForAnalysis(input, { allowAbbreviated: true })).toEqual({ ok: true, fen: complete })
+  })
+})
+
+describe('declared castling rights', () => {
+  it.each([
+    ['White kingside', 'e1', 'h1', '4k3/8/8/8/8/8/P7/4K3 w K - 0 1'],
+    ['White queenside', 'e1', 'a1', '4k3/8/8/8/8/8/P7/4K3 w Q - 0 1'],
+    ['Black kingside', 'e8', 'h8', '4k3/p7/8/8/8/8/8/4K3 b k - 0 1'],
+    ['Black queenside', 'e8', 'a8', '4k3/p7/8/8/8/8/8/4K3 b q - 0 1'],
+  ])('requires the home rook for %s', (label, king, rook, fen) => {
+    const result = validateFenForAnalysis(fen)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(new RegExp(`${label} castling.*${king}.*${rook}`))
+  })
+
+  it.each([
+    ['4k3/8/8/8/8/8/4K3/7R w K - 0 1'],
+    ['4k3/8/8/8/8/8/4K3/R7 w Q - 0 1'],
+    ['7r/4k3/8/8/8/8/8/4K3 b k - 0 1'],
+    ['r7/4k3/8/8/8/8/8/4K3 b q - 0 1'],
+  ])('requires the king to remain home when a right is declared: %s', fen => {
+    const result = validateFenForAnalysis(fen)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(/castling.*king on e[18]/)
+  })
+
+  it.each([
+    ['4k3/8/8/8/8/8/P7/4K2r w K - 0 1'],
+    ['4k3/8/8/8/8/8/P7/r3K3 w Q - 0 1'],
+    ['4k2R/p7/8/8/8/8/8/4K3 b k - 0 1'],
+    ['R3k3/p7/8/8/8/8/8/4K3 b q - 0 1'],
+  ])('requires the rook to belong to the castling side: %s', fen => {
+    const result = validateFenForAnalysis(fen)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(/castling/)
+  })
+
+  it.each([
+    ['4k3/8/8/8/8/8/P7/4K2B w K - 0 1'],
+    ['4k3/8/8/8/8/8/P7/N3K3 w Q - 0 1'],
+    ['4k2b/p7/8/8/8/8/8/4K3 b k - 0 1'],
+    ['n3k3/p7/8/8/8/8/8/4K3 b q - 0 1'],
+  ])('requires an actual rook rather than another friendly piece: %s', fen => {
+    const result = validateFenForAnalysis(fen)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(/castling/)
+  })
+
+  it.each([
+    ['rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'],
+    ['r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1'],
+    ['k3r3/8/8/8/8/8/8/4K2R w K - 0 1'],
+    ['4k3/8/8/8/8/8/4K3/7R w - - 0 1'],
+    ['4k3/8/8/8/8/8/P7/4K3 w - - 0 1'],
+  ])('keeps valid rights, blocked paths, check, and positions without rights: %s', fen => {
+    expect(validateFenForAnalysis(fen)).toEqual({ ok: true, fen })
+  })
+})
+
 describe('FEN validation helpers', () => {
   it('accepts separated kings and rejects adjacent kings', () => {
     expect(hasLegalKingPlacement('8/8/8/8/8/8/4K3/6k1 w - - 0 1')).toBe(true)
@@ -25,6 +146,34 @@ describe('FEN validation helpers', () => {
       ok: false,
       error: FEN_PARSE_ERROR,
     })
+  })
+})
+
+describe('FEN move counters retain their exact meaning', () => {
+  const position = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -'
+
+  it.each(['0junk', '1.5', '1e3', '0x10', '+1'])('refuses a partial or non-decimal halfmove clock: %s', counter => {
+    const result = validateFenForAnalysis(`${position} ${counter} 1`)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(/halfmove/i)
+  })
+
+  it.each(['1junk', '1.5', '1e3', '+1'])('refuses a partial or non-decimal fullmove number: %s', counter => {
+    const result = validateFenForAnalysis(`${position} 0 ${counter}`)
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toMatch(/fullmove/i)
+  })
+
+  it.each(['9007199254740992', '9007199254740993', '1000000000000000000000'])('refuses counters that cannot round-trip as exact decimal integers: %s', counter => {
+    for (const [halfmove, fullmove] of [[counter, '1'], ['0', counter]]) {
+      const result = validateFenForAnalysis(`${position} ${halfmove} ${fullmove}`)
+      expect(result.ok).toBe(false)
+      expect(!result.ok && result.error).toMatch(/too large/i)
+    }
+  })
+
+  it('normalizes leading zeros while preserving ordinary counter values', () => {
+    expect(validateFenForAnalysis(`${position} 00042 00123`)).toEqual({ ok: true, fen: `${position} 42 123` })
   })
 })
 

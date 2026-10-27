@@ -1,0 +1,4 @@
+  console tools (1280px, 1x text, dark): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable
+  console tools (1280px, 2x text, light): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable
+  console tools (375px, 1x text, light): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable
+  console tools (375px, 2x text, dark): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable

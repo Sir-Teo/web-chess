@@ -1,0 +1,14 @@
+locator.waitFor: Timeout 5000ms exceeded.
+Call log:
+[2m  - waiting for locator('.pgn-dialog') to be detached[22m
+[2m    14 × locator resolved to visible <div role="dialog" aria-modal="true" aria-labelledby="_r_f_" class="dialog-panel pgn-dialog">…</div>[22m
+
+    at importText (/workspace/web-chess/scripts/test-ui-browser.cjs:7258:43)
+    at async Object.checkPostVariationNotes (/workspace/web-chess/scripts/test-ui-browser.cjs:7261:7)
+    at async /tmp/web-chess-pgn-after-variation-check.cjs:10:9 {
+  log: [
+    "  - waiting for locator('.pgn-dialog') to be detached",
+    '    14 × locator resolved to visible <div role="dialog" aria-modal="true" aria-labelledby="_r_f_" class="dialog-panel pgn-dialog">…</div>'
+  ],
+  name: 'TimeoutError'
+}

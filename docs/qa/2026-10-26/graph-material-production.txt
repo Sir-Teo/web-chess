@@ -1,0 +1,8 @@
+  graph readings: winrate (60, 40, 60, 40%) and WDL White (40, 20, 40, 20%) follow the board and agree with their selected positions
+  graph gaps: an unscored new branch keeps its graphs without borrowing the root’s readings
+  graph guide (1280px, pro, dark, 1× text): available in Review, keyboard disclosure, readable layout and 44px references
+  graph guide (1280px, beginner, light, 2× text): available in Review, keyboard disclosure, readable layout and 44px references
+  graph guide (375px, pro, light, 1× text): available in Review, keyboard disclosure, readable layout and 44px references
+  graph guide (375px, beginner, dark, 2× text): available in Review, keyboard disclosure, readable layout and 44px references
+  markup: skip link reachable and lands on the board, heading outline unbroken, nothing stranded behind a dialog, inert honoured, every field named, no id used twice
+  recorded clocks: 0:03:01 and 0:03:01, the readings on the faces

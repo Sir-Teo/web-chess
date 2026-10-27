@@ -1,0 +1,42 @@
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 191 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-xH5xZh9_.js   60.12 kB
+dist/assets/LibraryDialog-BCEY11vH.css        4.23 kB │ gzip:   1.17 kB
+dist/assets/index-8E-53YsP.css              130.05 kB │ gzip:  24.20 kB
+dist/assets/NewGameDialog-V-feoKLJ.js         4.25 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-NbnDLvR-.js        10.23 kB │ gzip:   3.67 kB
+dist/assets/PgnDialog-BQlXG7T2.js            28.68 kB │ gzip:   9.67 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-BnQD8HSx.js               376.08 kB │ gzip: 121.22 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.64s
+  perft Stop (1280px, 1x): button/typed cancellation releases worker, retains output/draft/board/managed options, reloads cleanly and ignores late replies; zero-perft uses ordinary Stop
+  perft Stop (375px, 2x): button/typed cancellation releases worker, retains output/draft/board/managed options, reloads cleanly and ignores late replies; zero-perft uses ordinary Stop
+  console search (1280px): startup guard, tab/space commands, busy status, stop/acknowledge before new position, isolated late scores, working Stop and completed perft
+  console search (375px): startup guard, tab/space commands, busy status, stop/acknowledge before new position, isolated late scores, working Stop and completed perft
+  console limits (1280px, 1x): native keyword/integer rules, final duplicate limits, zero-perft pause/resume, and finite work preserved
+  console limits (375px, 2x): native keyword/integer rules, final duplicate limits, zero-perft pause/resume, and finite work preserved
+  console visibility (1280px, 1x): survives 95s, bounded/Clear output, held-frame Clear and completion, stop/ack/resume, rapid return, hidden submission, Stop cancellation, board handoff, finite work and teardown
+  console visibility (1280px, 2x): survives 95s, bounded/Clear output, held-frame Clear and completion, stop/ack/resume, rapid return, hidden submission, Stop cancellation, board handoff, finite work and teardown
+  console visibility (375px, 1x): survives 95s, bounded/Clear output, held-frame Clear and completion, stop/ack/resume, rapid return, hidden submission, Stop cancellation, board handoff, finite work and teardown
+  console visibility (375px, 2x): survives 95s, bounded/Clear output, held-frame Clear and completion, stop/ack/resume, rapid return, hidden submission, Stop cancellation, board handoff, finite work and teardown
+  console drafts (1280px, 1x): new drafts survive completion and Stop, typed Stop retains terminal output/history, unchanged submissions clear, and reset discards late output
+  console drafts (375px, 2x): new drafts survive completion and Stop, typed Stop retains terminal output/history, unchanged submissions clear, and reset discards late output
+  engine release (1280px, 1x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (1280px, 2x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (375px, 1x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (375px, 2x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release: import stays unloaded; explicit Review loads; busy two-worker review pool blocks release even when foreground is Ready; Stop then Release closes every worker
+  engine release (hidden): hidden infinite search waits for visibility; Stop during reload cancels it
+  engine release (fallback): explicit search survives a failed boot and runs once on fallback
+  engine release (fallback-load): Load preserves prior lines through a failed boot and fallback handshake, without another search
+Focused browser UI checks passed.

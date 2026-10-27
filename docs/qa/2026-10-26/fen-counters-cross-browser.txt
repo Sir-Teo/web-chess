@@ -1,0 +1,4 @@
+  FEN counters (1280px, 1x): malformed/rounded values refused with associated errors; draft/board retained; corrected decimal counters round-trip
+  FEN counters (375px, 2x): malformed/rounded values refused with associated errors; draft/board retained; corrected decimal counters round-trip
+  FEN counters (1280px, 1x): malformed/rounded values refused with associated errors; draft/board retained; corrected decimal counters round-trip
+  FEN counters (375px, 2x): malformed/rounded values refused with associated errors; draft/board retained; corrected decimal counters round-trip

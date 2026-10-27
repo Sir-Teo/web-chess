@@ -55,6 +55,15 @@ describe('WatchControls', () => {
         expect(html).toContain('disabled=""')
     })
 
+    it('identifies Normal as the replay speed when the AI is set to manual Step', () => {
+        const html = renderWatchControls({ aiActive: false, aiSpeed: 'step', autoplay: true, onAutoplayToggle: noop })
+
+        expect(html).toContain('aria-label="Set autoplay speed to Normal" aria-pressed="true"')
+        expect(html).toContain('aria-label="Set autoplay speed to Slow" aria-pressed="false"')
+        expect(html).toContain('aria-label="Set autoplay speed to Fast" aria-pressed="false"')
+        expect(html).not.toContain('Set autoplay speed to Step')
+    })
+
     it('offers nothing to replay on an empty board', () => {
         const html = renderWatchControls({ aiActive: false, canGoForward: false, canAutoplay: false, onAutoplayToggle: noop })
 

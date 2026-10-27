@@ -1,0 +1,11 @@
+Library reading space verification, 27 October 2026
+
+At 901px/200% text the desktop footer used three rows: Chromium 317.77px, Firefox 304.80px. Its controls consumed roughly forty percent of the viewport. A six-case browser CSS prototype showed that a font-relative container query can fit the wider dialog footer into two columns, reducing it by 85px/81px while preserving normal desktop and phone footer geometry. The before-and-prototype file records both measurements; prototype styles were injected in isolated browser contexts, not application source.
+
+Apply the query only to dialog widths of at least 480px and no more than 24em; narrow dialogs retain their existing readable stacking. Also omit the disabled save form when there is no current PGN, retaining its hint and restoring the complete form when a game is loaded. This brings the first saved row into view at 200% text: the final 901px probes see 86.81px/103.27px of the list, compared with zero in the original focused-filter view.
+
+Twelve source-built Chromium/Firefox cases cover 1280px normal/200%, 901px 200%/300%, 375px/200% and 320px/200%, both themes. All footer labels fit, all controls take visible/hit-testable focus, no document overflow occurs, and loading the actual saved game restores an enabled save form. Enlarged desktop screenshots were inspected; binary screenshots remain temporary. Text enlargement is not native page zoom or a physical mobile keyboard test.
+
+The initial run passes seven cases, then Firefox times out waiting for the file input after its Library-opener click at 1280px/200%. No layout assertion fails. The remaining five Firefox cases pass in a continuation using the same actions; retain the raw failed run and continuation rather than claim one uninterrupted matrix. Existing full-library save rejection/rename/filtered deletion, empty-library keyboard/pointer focus and Firefox starred-filter workflows pass.
+
+Lint, TypeScript and production build pass for this markup/CSS change; the final whitespace-only JSX indentation also passes focused ESLint. No new unit tests mirror low-impact markup/layout. The preceding full verification has 1,965 passing tests and the existing skip.

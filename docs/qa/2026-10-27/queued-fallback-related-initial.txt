@@ -1,0 +1,8 @@
+  engine release (1280px, 1x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (1280px, 2x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+  engine release (375px, 1x): idle teardown, retained lines, reachable reload, no automatic wake, exact manual history/settings, review wake/protection and workspace transitions
+Error: Load engine is obscured: {"fits":false,"rect":{"x":63.421875,"y":823.171875,"width":248.15625,"height":52.546875,"top":823.171875,"right":311.578125,"bottom":875.71875,"left":63.421875}}
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at checkEngineRelease (/workspace/web-chess/scripts/test-ui-browser.cjs:11972:7)
+    at async /tmp/web-chess-queued-fallback-related-checks.cjs:10:60

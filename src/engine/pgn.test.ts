@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { GameNode } from '../hooks/useGameTree'
 import { Chess } from 'chess.js'
 import { type EvalSnapshot, buildReviewRows as buildReviewRowsForTest } from './analysis'
@@ -23,6 +23,68 @@ import {
   splitPgnGames,
   stripPgnByteOrderMark,
 } from './pgn'
+
+describe('PGN starting-position legality', () => {
+  it.each([
+    ['4k3/8/8/4P3/8/8/8/4K3 w - d6 0 12', '12. Kd1 *'],
+    ['4k3/8/8/8/4p3/8/8/4K3 b - d3 0 12', '12... Kd8 *'],
+  ])('rejects a dangling en passant target before normalization/replay: %s', (fen, quietMove) => {
+    for (const movetext of ['*', quietMove]) {
+      let caught: unknown
+      try { parsePgnMoveTree(`[SetUp "1"]\n[FEN "${fen}"]\n\n${movetext}`) } catch (error) { caught = error }
+      expect(caught).toBeInstanceOf(Error)
+      expect(pgnImportUserErrorMessage(caught)).toMatch(/PGN starting position:.*en passant.*pawn/)
+    }
+  })
+  it.each([
+    ['4k3/8/8/8/8/8/4R3/4K3 w - - 0 1', '1. Rxe8 *'],
+    ['k3r3/8/8/8/8/8/8/4K3 b - - 0 1', '1... Rxe1 *'],
+  ])('rejects an already checked nonmoving king before publishing moves: %s', (fen, capture) => {
+    for (const movetext of ['*', capture]) {
+      let caught: unknown
+      try { parsePgnMoveTree(`[SetUp "1"]\n[FEN "${fen}"]\n\n${movetext}`) } catch (error) { caught = error }
+      expect(caught).toBeInstanceOf(Error)
+      expect(pgnImportUserErrorMessage(caught)).toMatch(/PGN starting position:.*not to move.*already in check/)
+    }
+  })
+
+  it.each([
+    ['k3r3/8/8/8/8/8/8/4K3 w - - 0 1', '1. Kd1 *', 'd1'],
+    ['4k3/8/8/8/8/8/8/K3R3 b - - 0 1', '1... Kd8 *', 'd8'],
+  ])('still imports a legal check and king escape: %s', (fen, movetext, destination) => {
+    const parsed = parsePgnMoveTree(`[SetUp "1"]\n[FEN "${fen}"]\n\n${movetext}`)
+    expect(parsed.rootFen).toBe(fen)
+    expect(parsed.moves).toHaveLength(1)
+    expect(parsed.moves[0].move.to).toBe(destination)
+    expect(() => new Chess(parsed.moves[0].fen)).not.toThrow()
+  })
+})
+
+describe('PGN starting-position counter precision', () => {
+  const position = '7k/8/8/8/8/8/7P/K7 w - -'
+  const documentFor = (fen: string) => `[SetUp "1"]\n[FEN "${fen}"]\n\n*`
+
+  it.each(['1junk', '1.5', '1e3', '+1', '9007199254740993', '1000000000000000000000'])(
+    'refuses a FEN counter before a PGN normalizes it: %s', counter => {
+      for (const [half, full, field] of [[counter, '1', 'halfmove'], ['0', counter, 'fullmove']]) {
+        const text = documentFor(`${position} ${half} ${full}`)
+        expect(() => parsePgnMoveTree(text)).toThrow(new RegExp(field))
+        try { parsePgnMoveTree(text) } catch (error) {
+          expect(pgnImportUserErrorMessage(error)).toMatch(new RegExp(`PGN starting position:.*${field}`))
+        }
+      }
+    },
+  )
+
+  it('preserves valid counter values after leading-zero normalization', () => {
+    expect(parsePgnMoveTree(documentFor(`${position} 00042 00123`)).rootFen).toBe(`${position} 42 123`)
+  })
+
+  it('retains the existing defaults for abbreviated starting-position headers', () => {
+    expect(rootFenFromPgnHeaders({ FEN: position })).toBe(`${position} 0 1`)
+    expect(rootFenFromPgnHeaders({ FEN: `${position} 42` })).toBe(`${position} 42 1`)
+  })
+})
 
 function makeNode(
   id: string,
@@ -140,7 +202,7 @@ describe('PGN export helpers', () => {
   it('rejects PGN FEN headers with impossible adjacent kings', () => {
     expect(() => rootFenFromPgnHeaders({
       FEN: '8/8/8/8/8/8/7K/6k1 w - - 0 1',
-    })).toThrow('Invalid FEN king placement')
+    })).toThrow(/PGN starting position:.*kings are side by side/)
   })
 
   it('preserves mate distance from side-to-move engine scores', () => {
@@ -290,6 +352,48 @@ describe('PGN export helpers', () => {
     expect(loader.history()).toEqual(['d4'])
   })
 
+  it('reuses unchanged best-move calculations while exporting newer scores and alternatives', () => {
+    const chess = new Chess(new Chess().fen().replace('0 1', '0 83'))
+    const rootFen = chess.fen()
+    const move = chess.move('d4')
+    const line = [
+      makeNode('r', rootFen, null, null, ['n']),
+      makeNode('n', chess.fen(), move, 'r'),
+    ]
+    const evaluations = new Map<string, EvalSnapshot>([[rootFen, { cp: 23, bestMove: 'e2e4' }]])
+    const header = { Date: '2026.10.26' }
+    const first = exportAnnotatedPgn(line, evaluations, header)
+    const replay = vi.spyOn(Chess.prototype, 'move')
+    try {
+      evaluations.set(rootFen, { cp: 37, bestMove: 'e2e4' })
+      const updated = exportAnnotatedPgn(line, evaluations, header)
+      expect(updated).toBe(first.replace('[%eval 0.23]', '[%eval 0.37]'))
+      expect(replay).not.toHaveBeenCalled()
+      evaluations.set(rootFen, { cp: 37, bestMove: 'g1f3' })
+      expect(exportAnnotatedPgn(line, evaluations, header)).toContain('Best Nf3')
+    } finally { replay.mockRestore() }
+  })
+
+  it.each([
+    ['r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 15', 'Rh2', 'e1g1', 'O-O'],
+    ['r3k2r/8/8/8/8/8/8/R3K2R w - - 0 15', 'Rh2', 'e1g1', 'e1g1'],
+    ['4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 30', 'e6', 'e5d6', 'exd6'],
+    ['4k3/8/8/3pP3/8/8/8/4K3 w - - 0 30', 'e6', 'e5d6', 'e5d6'],
+    ['8/P6k/8/8/8/8/7K/8 w - - 0 42', 'Kh3', 'a7a8q', 'a8=Q'],
+    ['8/P6k/8/8/8/8/7K/8 w - - 0 42', 'Kh3', 'a7a8n', 'a8=N'],
+  ])('preserves best-move notation and legality for %s / %s / %s', (fen, played, bestMove, san) => {
+    const chess = new Chess(fen)
+    const move = chess.move(played)
+    const line = [makeNode('r', fen, null, null, ['n']), makeNode('n', chess.fen(), move, 'r')]
+    const evaluations = new Map<string, EvalSnapshot>([[fen, { cp: 0, bestMove }]])
+    const pgn = exportAnnotatedPgn(line, evaluations)
+    expect(pgn).toContain(`Best ${san}`)
+    const restored = new Chess()
+    restored.loadPgn(pgn)
+    expect(restored.history()).toEqual([move.san])
+    expect(exportAnnotatedPgn(line, evaluations)).toBe(pgn)
+  })
+
   it('sanitizes tag values and ignores invalid tag names when exporting', () => {
     const mainLine = [
       {
@@ -309,13 +413,14 @@ describe('PGN export helpers', () => {
       'Bad]Tag': 'ignored',
     })
     const loader = new Chess()
-    loader.loadPgn(pgn)
+    // The dependency's header grammar does not support PGN quote escapes;
+    // its independent rules parser can still validate the exported movetext.
+    loader.loadPgn(pgn.split('\n\n')[1])
 
-    expect(pgn).toContain('[Event "Queen \'Sacrifice\' \\ Study Final"]')
+    expect(pgn).toContain(String.raw`[Event "Queen \"Sacrifice\" \\ Study Final"]`)
     expect(pgn).toContain('[Result "*"]')
     expect(pgn).not.toContain('[Injected "1"]')
     expect(pgn).not.toContain('Bad]Tag')
-    expect(loader.getHeaders().Event).toBe('Queen \'Sacrifice\' \\ Study Final')
     expect(loader.getHeaders().Result).toBe('*')
   })
 
@@ -821,6 +926,35 @@ describe('PGN import preflight', () => {
     expect(pgnImportContentError(singleGamePgn)).toBeNull()
   })
 
+  it('does not count an Event tag quoted inside a block comment', () => {
+    const text = '[Event "Real study"]\n[Result "*"]\n\n1. e4 {Reference:\n[Event "Other tournament"]\n} e5 *'
+    expect(hasMultiplePgnGames(text)).toBe(false)
+    expect(pgnImportContentError(text)).toBeNull()
+    expect(parsePgnMoveTree(text).moves[0].comment).toContain('[Event "Other tournament"]')
+  })
+
+  it('does not count a Result tag quoted inside a block comment', () => {
+    const text = '[Result "*"]\n\n1. e4 {Reference:\n[Result "1-0"]\n} e5 *'
+    expect(hasMultiplePgnGames(text)).toBe(false)
+    expect(pgnImportContentError(text)).toBeNull()
+    expect(parsePgnMoveTree(text).moves[0].comment).toContain('[Result "1-0"]')
+  })
+
+  it('keeps a brace in a line comment from hiding a real game result', () => {
+    for (const ending of ['\n', '\r', '\r\n']) {
+      const text = `1. e4 ; { literal brace${ending}e5 1-0${ending}${ending}1. d4 {actual note} d5 0-1`
+      expect(hasMultiplePgnGames(text)).toBe(true)
+      expect(pgnImportContentError(text)).toBe(PGN_MULTIPLE_GAMES_ERROR)
+    }
+  })
+
+  it('ignores result-looking words inside inline quoted headers', () => {
+    const text = '[Event "Score 1-0 then 0-1 final"] [Site "Club {phase}; Final"]\n\n1. e4 e5 *'
+    expect(hasMultiplePgnGames(text)).toBe(false)
+    expect(pgnImportContentError(text)).toBeNull()
+    expect(parsePgnMoveTree(text).headers).toMatchObject({ Event: 'Score 1-0 then 0-1 final', Site: 'Club {phase}; Final' })
+  })
+
   it('accepts a normal single-game PGN for import', () => {
     expect(hasMultiplePgnGames('[Event "Game one"]\n\n1. e4 e5 *')).toBe(false)
     expect(pgnImportContentError('[Event "Game one"]\n\n1. e4 e5 *')).toBeNull()
@@ -828,6 +962,37 @@ describe('PGN import preflight', () => {
 })
 
 describe('exportAnnotatedPgn header preservation', () => {
+  it('imports escaped quotes and backslashes as literal header data', () => {
+    const parsed = parsePgnMoveTree(String.raw`[Event "Club \"Final\" [Board 1]"] [Site "Room \\ North"]
+
+1. e4 *`)
+    expect(parsed.headers).toMatchObject({ Event: 'Club "Final" [Board 1]', Site: String.raw`Room \ North` })
+    expect(flattenPgnMainLine(parsed.moves).map(entry => entry.move.san)).toEqual(['e4'])
+  })
+
+  it('reads valid tag names containing digits and underscores', () => {
+    const parsed = parsePgnMoveTree('[Board_1 "Main"]\n\n1. e4 *')
+    expect(parsed.headers.Board_1).toBe('Main')
+  })
+
+  it('round-trips quoted and backslash header values without changing their characters', () => {
+    const chess = new Chess()
+    const root = makeNode('root', chess.fen(), null, null, ['n1'])
+    const move = chess.move('e4')
+    const line = [root, makeNode('n1', chess.fen(), move, 'root')]
+    const headers = { Event: 'Club "Final" {first} $1', Site: String.raw`Room \ North`, Board_1: 'Main' }
+    const text = exportAnnotatedPgn(line, new Map(), headers)
+    expect(text).toContain(String.raw`[Event "Club \"Final\" {first} $1"]`)
+    expect(text).toContain(String.raw`[Site "Room \\ North"]`)
+    let repeated = text
+    for (let round = 0; round < 3; round++) {
+      const parsed = parsePgnMoveTree(repeated)
+      expect(parsed.headers).toMatchObject(headers)
+      repeated = exportAnnotatedPgn(line, parsed.evaluations, parsed.headers)
+      expect(repeated).toBe(text)
+    }
+  })
+
   it('keeps the headers a game was imported with', () => {
     const chess = new Chess()
     chess.move('e4')
@@ -1121,6 +1286,149 @@ describe('annotation shapes chess.js will not take', () => {
     it('does not rewrite braces that are part of a comment body', () => {
         expect(reorderPgnAnnotations('1. e4 { a $1 b } *')).toBe('1. e4 { a $1 b } *')
     })
+
+    it('keeps NAG groups and their original gap when moving them before comments', () => {
+        expect(reorderPgnAnnotations('1. e4 {note}$1 $2 e5 {reply}\t$15 *'))
+            .toBe('1. e4 $1 $2 {note} e5 $15\t{reply} *')
+        expect(reorderPgnAnnotations('1. e4 {note}\u00a0$1 *'))
+            .toBe('1. e4 $1\u00a0{note} *')
+    })
+
+    it('leaves an unterminated comment and its annotations untouched', () => {
+        expect(reorderPgnAnnotations('1. e4 {unfinished {note $1 $2 *'))
+            .toBe('1. e4 {unfinished {note $1 $2 *')
+    })
+
+    it('preserves annotation-looking text inside PGN headers', () => {
+        const text = '[Event "Club {first} $1 Final"]\n[Site "Room } { North"]\n\n1. e4 *'
+        expect(reorderPgnAnnotations(text)).toBe(text)
+        expect(parsePgnMoveTree(text).headers).toMatchObject({
+            Event: 'Club {first} $1 Final', Site: 'Room } { North',
+        })
+    })
+
+    it('protects inline headers while still reordering actual move annotations', () => {
+        const header = '[Event "Club {first} $1 Final"] [Site "Room } { North"]'
+        const text = `${header}\n\n1. e4 {note} $1 e5 *`
+        expect(reorderPgnAnnotations(text)).toBe(`${header}\n\n1. e4 $1 {note} e5 *`)
+        expect(parsePgnMoveTree(text).headers).toMatchObject({
+            Event: 'Club {first} $1 Final', Site: 'Room } { North',
+        })
+    })
+
+    it('keeps brackets and escaped quotes within a header value', () => {
+        const header = '[Event "Club \\"[Final]\\" {first} $1"]'
+        expect(reorderPgnAnnotations(`${header}\n\n1. e4 {note} $1 e5 *`))
+            .toBe(`${header}\n\n1. e4 $1 {note} e5 *`)
+    })
+
+    it('imports a judgement after the last of several comments', () => {
+        const parsed = parsePgnMoveTree('1. e4 {first} {[%eval 0.31]} $1 e5 *')
+        expect(parsed.moves[0]).toMatchObject({ comment: 'first', nags: ['1'] })
+        expect(parsed.evaluations.get(parsed.moves[0].fen)).toMatchObject({ cp: -31 })
+    })
+
+    it('keeps a line comment after a variation on the main-line move', () => {
+        const parsed = parsePgnMoveTree('1. e4 e5 (1... c5) ; the main move note\n*')
+        expect(parsed.moves[0].children?.map(entry => entry.move.san)).toEqual(['e5', 'c5'])
+        expect(parsed.moves[0].children?.[0].comment).toBe('the main move note')
+        expect(parsed.moves[0].children?.[1].comment).toBeUndefined()
+    })
+
+    it('keeps post-variation comments and NAGs before the main line continues', () => {
+        const parsed = parsePgnMoveTree('1. e4 e5 {before} (1... c5) (1... e6) {after} $2 2. Nf3 *')
+        const replies = parsed.moves[0].children!
+        expect(replies.map(entry => entry.move.san)).toEqual(['e5', 'c5', 'e6'])
+        expect(replies[0]).toMatchObject({ comment: 'before after', nags: ['2'] })
+        expect(replies[0].children?.[0].move.san).toBe('Nf3')
+    })
+
+    it('attaches notes after nested variations at their own level', () => {
+        const parsed = parsePgnMoveTree('1. e4 e5 (1... c5 2. Nf3 (2. Nc3) {inner note} d6) {outer note} 2. Nf3 *')
+        const replies = parsed.moves[0].children!
+        expect(replies[0].comment).toBe('outer note')
+        expect(replies[1].children?.map(entry => entry.move.san)).toEqual(['Nf3', 'Nc3'])
+        expect(replies[1].children?.[0].comment).toBe('inner note')
+        expect(replies[1].children?.[0].children?.[0].move.san).toBe('d6')
+    })
+
+    it.each(['\n', '\r', '\r\n'])('retains literal braces and NAG-looking text in a post-variation line note with %j', ending => {
+        const parsed = parsePgnMoveTree(`1. e4 e5 {before} (1... c5) ; literal {brace} $1 stays literal${ending}$2 2. Nf3 *`)
+        expect(parsed.moves[0].children?.[0]).toMatchObject({
+            comment: 'before literal [brace] $1 stays literal', nags: ['2'],
+        })
+    })
+
+    it('reads a final line note after a variation without inventing a result', () => {
+        const parsed = parsePgnMoveTree('1. e4 e5 (1... c5) ; unfinished study')
+        expect(parsed.result).toBeUndefined()
+        expect(parsed.moves[0].children?.[0].comment).toBe('unfinished study')
+    })
+
+    it.each(['1-0', '0-1', '1/2-1/2', '*'])('preserves the last move note before a %s closing comment', result => {
+        const parsed = parsePgnMoveTree(`1. e4 {white note} e5 {last move note} ${result} {closing note}`)
+        expect(parsed.result).toBe(result)
+        expect(parsed.moves[0].comment).toBe('white note')
+        expect(parsed.moves[0].children?.[0].comment).toBe('last move note closing note')
+    })
+
+    it('retains literal braces and NAG-looking text in a closing line comment', () => {
+        const parsed = parsePgnMoveTree('1. e4 e5 {last move note} 1-0 ; final {brace} $1')
+        expect(parsed.moves[0].children?.[0]).toMatchObject({ comment: 'last move note final [brace] $1' })
+        expect(parsed.moves[0].children?.[0].nags).toBeUndefined()
+    })
+
+    it('keeps a closing note on the main line without changing side notes', () => {
+        const parsed = parsePgnMoveTree('1. e4 e5 {main note} (1... c5 {side note}) 1-0 {closing note}')
+        expect(parsed.moves[0].children?.map(entry => entry.comment)).toEqual(['main note closing note', 'side note'])
+    })
+
+    it('preserves multiple closing comments in their original order', () => {
+        const parsed = parsePgnMoveTree('1. e4 e5 {last move note} 1-0 {first closing note} ; second closing note')
+        expect(parsed.moves[0].children?.[0].comment).toBe('last move note first closing note second closing note')
+    })
+
+    it('does not duplicate a closing comment when the last move has no note', () => {
+        expect(parsePgnMoveTree('1. e4 e5 1-0 {closing note}').moves[0].children?.[0].comment).toBe('closing note')
+    })
+
+    it('retains the last move clock, evaluation and judgement beside a closing note', () => {
+        const parsed = parsePgnMoveTree('1. e4 e5 $2 {move note [%clk 0:04:12] [%eval 0.34]} 1-0 {closing note}')
+        const last = parsed.moves[0].children![0]
+        expect(last).toMatchObject({ comment: 'move note closing note', clockMs: 252000, nags: ['2'] })
+        expect(parsed.evaluations.get(last.fen)).toMatchObject({ cp: 34 })
+    })
+
+    it('retains alternating judgements, notes, clocks and evaluations in order', () => {
+        const parsed = parsePgnMoveTree('1. e4 $1 {first} $14 {[%clk 0:05:00]} $10 {second [%eval 0.31]} e5 *')
+        expect(parsed.moves[0]).toMatchObject({ comment: 'first second', nags: ['1', '14', '10'], clockMs: 300000 })
+        expect(parsed.evaluations.get(parsed.moves[0].fen)).toMatchObject({ cp: -31 })
+    })
+
+    it('normalizes annotation runs within a side variation', () => {
+        const parsed = parsePgnMoveTree('1. e4 (1. d4 {side one} $1 {side two} $14 d5) e5 *')
+        const side = parsed.moves.find(entry => entry.move.san === 'd4')
+        expect(side).toMatchObject({ comment: 'side one side two', nags: ['1', '14'] })
+        expect(side?.children?.[0].move.san).toBe('d5')
+    })
+
+    it('keeps annotation runs attached to their own move', () => {
+        const parsed = parsePgnMoveTree('1. e4 {white} $1 {idea} $14 e5 {black} $2 {reply} $15 *')
+        expect(parsed.moves[0]).toMatchObject({ comment: 'white idea', nags: ['1', '14'] })
+        expect(parsed.moves[0].children?.[0]).toMatchObject({ comment: 'black reply', nags: ['2', '15'] })
+    })
+
+    it('preserves literal annotation text and unmatched braces in line comments', () => {
+        for (const ending of ['\n', '\r', '\r\n']) {
+            const prefix = `1. e4 ; literal {note} $1 and unfinished {{${ending}`
+            expect(reorderPgnAnnotations(`${prefix}e5 {real} $2 *`)).toBe(`${prefix}e5 $2 {real} *`)
+        }
+    })
+
+    it('retains an unfinished trailing comment after normalizing the complete run', () => {
+        expect(reorderPgnAnnotations('1. e4 {first} $1 {unfinished'))
+            .toBe('1. e4 $1 {first} {unfinished')
+    })
 })
 
 describe('a PGN file as it arrives from a disk', () => {
@@ -1238,6 +1546,40 @@ describe('splitting a database file into its games', () => {
     expect(parts[0]).toContain('Linares')
   })
 
+  it('splits after a comment containing a literal opening brace', () => {
+    const first = game('First', '1. e4 {A literal { character is part of the note.} e5 *')
+    const second = game('Second', '1. d4 d5 *')
+    const parts = splitPgnGames(`${first}\n\n${second}`)
+    expect(parts).toEqual([first, second])
+    expect(parts.map(part => parsePgnMoveTree(part).headers.Event)).toEqual(['First', 'Second'])
+  })
+
+  it('does not treat a brace in a line comment as an unfinished block comment', () => {
+    const first = game('First', '1. e4 ; { is literal here\ne5 *')
+    const second = game('Second', '1. d4 d5 *')
+    const parts = splitPgnGames(`${first}\n\n${second}`)
+    expect(parts).toEqual([first, second])
+    expect(parts.map(part => parsePgnMoveTree(part).headers.Event)).toEqual(['First', 'Second'])
+  })
+
+  it('finds the next game when its header follows the result on the same line', () => {
+    const first = game('First', '1. e4 e5 *')
+    const second = game('Second', '1. d4 d5 *')
+    const parts = splitPgnGames(`${first} ${second}`)
+    expect(parts).toEqual([first, second])
+    expect(parts.map(part => parsePgnMoveTree(part).headers.Event)).toEqual(['First', 'Second'])
+  })
+
+  it('accepts carriage-return and CRLF files with the same normalized game text', () => {
+    const first = game('First', '1. e4 e5 *')
+    const second = game('Second', '1. d4 d5 *')
+    for (const ending of ['\r', '\r\n']) {
+      const parts = splitPgnGames(`${first}\n\n${second}`.replace(/\n/g, ending))
+      expect(parts).toEqual([first, second])
+      expect(parts.map(part => parsePgnMoveTree(part).headers.Event)).toEqual(['First', 'Second'])
+    }
+  })
+
   it('keeps each game whole, headers and all', () => {
     const parts = splitPgnGames(`${game('First', '1. e4 e5 1-0')}\n\n${game('Second', '1. d4 d5 0-1')}`)
     expect(parts[0]).toContain('[White "A"]')
@@ -1248,6 +1590,55 @@ describe('splitting a database file into its games', () => {
 
   it('handles a headerless game, which is still a game', () => {
     expect(splitPgnGames('1. e4 e5 2. Nf3 *')).toEqual(['1. e4 e5 2. Nf3 *'])
+  })
+
+  it.each(['\n\n', ' ', '\r\n', '\r'])('splits headerless games separated by %j', separator => {
+    const first = '1. e4 e5 1-0', second = '1. d4 d5 0-1'
+    const text = first + separator + second
+    expect(hasMultiplePgnGames(text)).toBe(true)
+    expect(splitPgnGames(text)).toEqual([first, second])
+    const trees = splitPgnGames(text).map(part => parsePgnMoveTree(part))
+    expect(trees.map(tree => tree.moves[0].move.san)).toEqual(['e4', 'd4'])
+    expect(trees.map(tree => tree.moves[0].children?.[0].move.san)).toEqual(['e5', 'd5'])
+  })
+
+  it('recognizes a second headerless game whose final result was not copied', () => {
+    const first = '1. e4 e5 1/2-1/2', second = '1. d4 d5'
+    expect(hasMultiplePgnGames(`${first}\n\n${second}`)).toBe(true)
+    expect(splitPgnGames(`${first}\n\n${second}`)).toEqual([first, second])
+  })
+
+  it.each(['1-0', '0-1', '1/2-1/2', '*'])('recognizes %s before another headerless game', result => {
+    const first = `1. e4 e5 ${result}`, second = '1. d4 d5 *'
+    expect(splitPgnGames(`${first}\n${second}`)).toEqual([first, second])
+  })
+
+  it('recognizes new header blocks even when both results and Event were omitted', () => {
+    const first = '[White "First"]\n\n1. e4 e5', second = '[White "Second"]\n\n1. d4 d5'
+    expect(hasMultiplePgnGames(`${first}\n\n${second}`)).toBe(true)
+    expect(splitPgnGames(`${first}\n\n${second}`)).toEqual([first, second])
+  })
+
+  it('keeps header blocks together when entries have no Event tag', () => {
+    const first = '[White "Ada"]\n[Black "Max"]\n[Result "1-0"]\n\n1. e4 e5 1-0'
+    const second = '[White "Lee"]\n[Black "Noor"]\n[Result "0-1"]\n\n1. d4 d5 0-1'
+    expect(splitPgnGames(`${first}\n\n${second}`)).toEqual([first, second])
+    expect(splitPgnGames(`${first}\n\n${second}`).map(part => parsePgnMoveTree(part).headers.White)).toEqual(['Ada', 'Lee'])
+  })
+
+  it('mixes headerless and tagged games without cutting notes or variations', () => {
+    const first = '1. e4 {the note says 0-1 and [White "Elsewhere"]} (1. d4 d5) e5 * ; after the result: 1-0'
+    const second = '[Site "An escaped \\"quote\\" and ] bracket"]\n\n1. d4 d5 1/2-1/2'
+    const third = '1. c4 e5 *'
+    expect(splitPgnGames(`${first}\n${second}\n\n${third}`)).toEqual([first, second, third])
+    expect(splitPgnGames(`${first}\n${second}\n\n${third}`).map(part => parsePgnMoveTree(part).moves[0].move.san)).toEqual(['e4', 'd4', 'c4'])
+  })
+
+  it('does not split on a termination marker inside a variation', () => {
+    // Even malformed variation results must not become separate database games.
+    const text = '1. e4 (1. d4 1-0 2. c4) e5 *'
+    expect(hasMultiplePgnGames(text)).toBe(false)
+    expect(splitPgnGames(text)).toEqual([text])
   })
 
   it('reads back as many games as it was given', () => {
@@ -1265,6 +1656,34 @@ describe('splitting a database file into its games', () => {
   })
 })
 
+
+describe('starting-position notes', () => {
+  const fen = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1'
+  const headers = `[SetUp "1"]\n[FEN "${fen}"]\n\n`
+
+  it('keeps introductory and closing notes on a standalone position', () => {
+    const parsed = parsePgnMoveTree(headers + '{position introduction} * {closing study note}')
+    expect(parsed.moves).toEqual([])
+    expect(parsed.rootComment).toBe('position introduction closing study note')
+  })
+
+  it('keeps setup-position notes separate from the first move note', () => {
+    const parsed = parsePgnMoveTree(headers + '{position note} 1. e4 {move note} *')
+    expect(parsed.rootComment).toBe('position note')
+    expect(parsed.moves[0].comment).toBe('move note')
+  })
+
+  it('retains the existing opening-note placement for ordinary games', () => {
+    const parsed = parsePgnMoveTree('{opening introduction} 1. e4 {move note} *')
+    expect(parsed.rootComment).toBeUndefined()
+    expect(parsed.moves[0].comment).toContain('opening introduction')
+    expect(parsed.moves[0].comment).toContain('move note')
+  })
+
+  it('does not invent a position note when there is none', () => {
+    expect(parsePgnMoveTree(headers + '*').rootComment).toBeUndefined()
+  })
+})
 
 describe('lossless study directives', () => {
   it('retains drawings and unknown commands across repeated exports and variations', () => {

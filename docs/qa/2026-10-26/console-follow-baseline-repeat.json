@@ -1,0 +1,572 @@
+{
+  "benchmarkCommit": "5a8bacb",
+  "benchmarkSourceDiff": "",
+  "commit": "5a8bacb",
+  "sourceDiff": "",
+  "productionAssets": [
+    "LibraryDialog-BnDdjspJ.js",
+    "NewGameDialog-CFeRgh91.js",
+    "PgnDialog-D1A-FuzJ.js",
+    "chess-BgZTH1rp.js",
+    "eco-Y2BFBEFE.js",
+    "index-Bewo5DWx.js",
+    "react-CIDWvPgF.js",
+    "reviewBackupWorker-xH5xZh9_.js"
+  ],
+  "base": "http://127.0.0.1:4337/web-chess/",
+  "width": 1280,
+  "cpuRate": 4,
+  "durationMs": 6000,
+  "flipIntervalMs": 500,
+  "reducedMotion": true,
+  "consoleWorkload": true,
+  "trace": {
+    "recordedAt": "2026-09-12T19:04:11.944Z",
+    "packageVersion": "18.0.7",
+    "fixtureSha256": "c2e3faf8e84d507d6d4af48b6a7172685482080d770a75fa5a11da96218bc415",
+    "fen": "3kn3/7p/3r3P/1p2p3/p2p2R1/P2P2B1/R2K4/2N5 w - - 1 59",
+    "durationMs": 6000,
+    "engine": "id name Stockfish 18 Lite WASM",
+    "commands": [
+      "uci",
+      "setoption name Hash value 64",
+      "setoption name MultiPV value 5",
+      "setoption name UCI_ShowWDL value true",
+      "isready",
+      "position startpos moves e2e3 b7b5 b2b3 e7e5 e1e2 d8f6 d2d3 b8a6 e2d2 f6d8 d2c3 g7g6 e3e4 a6b8 c1a3 a7a5 f2f4 f8h6 a3c5 d8h4 d1e2 h4f4 a2a3 h6g5 h2h4 f4f1 e2d1 d7d5 d1e2 f7f5 c5b4 d5d4 c3b2 f1f4 b1d2 f5e4 b4d6 g8h6 d2b1 f4h2 e2f1 h2g2 h4h5 g2e2 f1e2 a8a6 b1d2 g5e3 b2a2 e3d2 e2f2 b8d7 c2c4 d7b6 d6b4 b6a8 g1e2 h8g8 h1h3 a5a4 c4c5 d2c1 f2f1 a6f6 e2c1 f6d6 f1e1 h6g4 h3f3 g6g5 h5h6 g4f2 a2b2 c8f5 e1f1 d6a6 b4e1 f2g4 f3g3 g4e3 b2b1 f5d7 b3b4 a6d6 c5d6 c7c5 g3g1 e3f1 b4c5 g8g6 c5c6 f1e3 c1e2 g6e6 b1b2 a8c7 c6d7 e8d8 e2c1 e3d5 d6c7 d5c7 a1a2 e6a6 e1g3 a6e6 g1e1 e6d6 b2c2 d6d7 c2d2 d7d6 e1e4 g5g4 e4g4 c7e8",
+      "go infinite",
+      "stop"
+    ],
+    "path": "scripts/fixtures/analysis-stockfish-18.json",
+    "eventCount": 115,
+    "uniquePvs": 96
+  },
+  "workload": "116-ply game, Engine Lab with a 300-line output buffer, recorded Stockfish output at original timings, board flip every 500ms; production build, main thread only",
+  "results": [
+    {
+      "sample": 1,
+      "metrics": {
+        "TaskDuration": 5.1349789999999995,
+        "ScriptDuration": 2.374121,
+        "LayoutDuration": 0.313601,
+        "RecalcStyleDuration": 0.456586,
+        "LayoutCount": 36,
+        "RecalcStyleCount": 24
+      },
+      "observed": {
+        "updates": 115,
+        "longTasks": [
+          57,
+          104,
+          158,
+          90,
+          103,
+          59,
+          192,
+          50,
+          320,
+          128,
+          79,
+          277,
+          148,
+          138,
+          163,
+          71,
+          258,
+          79,
+          64,
+          124,
+          97,
+          98,
+          57,
+          66,
+          58,
+          59
+        ],
+        "flipToTwoFramesMs": [
+          106.53500000014901,
+          359.054999999702,
+          255.94999999925494,
+          106.19999999925494,
+          541.4950000010431,
+          478.410000000149,
+          386.6199999973178,
+          403.714999999851,
+          231.26999999955297,
+          200.54499999806285,
+          102.18000000342727
+        ],
+        "consolePublishes": 14
+      },
+      "finalPositionDepth": null,
+      "finalConsoleDepth": "D21",
+      "errors": [],
+      "topFrames": [
+        {
+          "frame": "(program) :0",
+          "selfMs": 2648
+        },
+        {
+          "frame": "(idle) :0",
+          "selfMs": 1660
+        },
+        {
+          "frame": "setValueForStyle ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:1273",
+          "selfMs": 192
+        },
+        {
+          "frame": "(garbage collector) :0",
+          "selfMs": 130
+        },
+        {
+          "frame": "removeChild :0",
+          "selfMs": 111
+        },
+        {
+          "frame": "updateProperties ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:13577",
+          "selfMs": 92
+        },
+        {
+          "frame": "setValueForStyles ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:1291",
+          "selfMs": 79
+        },
+        {
+          "frame": "(anonymous) ../../../../workspace/web-chess/node_modules/react-chessboard/dist/index.esm.js:5350",
+          "selfMs": 78
+        },
+        {
+          "frame": "setProp ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:12957",
+          "selfMs": 75
+        },
+        {
+          "frame": "renderWithHooks ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:4333",
+          "selfMs": 71
+        },
+        {
+          "frame": "App ../../src/App.tsx:504",
+          "selfMs": 64
+        },
+        {
+          "frame": "commitHostUpdate ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:8725",
+          "selfMs": 64
+        },
+        {
+          "frame": "setAttribute :0",
+          "selfMs": 63
+        },
+        {
+          "frame": "completeWork ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:7955",
+          "selfMs": 60
+        },
+        {
+          "frame": "updateElement ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:3365",
+          "selfMs": 58
+        },
+        {
+          "frame": "commitHookEffectListUnmount ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:8593",
+          "selfMs": 52
+        },
+        {
+          "frame": "createElementNS :0",
+          "selfMs": 46
+        },
+        {
+          "frame": "appendChild :0",
+          "selfMs": 38
+        },
+        {
+          "frame": "commitLayoutEffectOnFiber ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:9008",
+          "selfMs": 36
+        },
+        {
+          "frame": "commitMutationEffectsOnFiber ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:9427",
+          "selfMs": 33
+        },
+        {
+          "frame": "reconcileChildFibersImpl ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:3793",
+          "selfMs": 32
+        },
+        {
+          "frame": "Bt ../../../../workspace/web-chess/node_modules/react-chessboard/dist/index.esm.js:2773",
+          "selfMs": 31
+        },
+        {
+          "frame": "useDraggable ../../../../workspace/web-chess/node_modules/react-chessboard/dist/index.esm.js:3668",
+          "selfMs": 30
+        },
+        {
+          "frame": "(anonymous) ../../../../workspace/web-chess/node_modules/react-chessboard/dist/index.esm.js:3136",
+          "selfMs": 30
+        },
+        {
+          "frame": "setInitialProperties ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:13346",
+          "selfMs": 29
+        },
+        {
+          "frame": "children ../../../../workspace/web-chess/node_modules/react-chessboard/dist/index.esm.js:5559",
+          "selfMs": 26
+        },
+        {
+          "frame": "useStockfishEngine ../../src/hooks/useStockfishEngine.ts:402",
+          "selfMs": 24
+        },
+        {
+          "frame": "jsxProd ../../../../workspace/web-chess/node_modules/react/cjs/react-jsx-runtime.production.js:14",
+          "selfMs": 23
+        },
+        {
+          "frame": "createElement :0",
+          "selfMs": 23
+        },
+        {
+          "frame": "updateRef ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:5068",
+          "selfMs": 23
+        }
+      ]
+    },
+    {
+      "sample": 2,
+      "metrics": {
+        "TaskDuration": 3.3052580000000003,
+        "ScriptDuration": 1.453562,
+        "LayoutDuration": 0.234882,
+        "RecalcStyleDuration": 0.250117,
+        "LayoutCount": 40,
+        "RecalcStyleCount": 24
+      },
+      "observed": {
+        "updates": 115,
+        "longTasks": [
+          51,
+          50,
+          161,
+          66,
+          133,
+          58,
+          57,
+          216,
+          156,
+          97
+        ],
+        "flipToTwoFramesMs": [
+          113.61499999836087,
+          106.92500000074506,
+          101.5,
+          62.96499999985099,
+          94.60500000044703,
+          246.1899999976158,
+          92.58000000193715,
+          261.98499999940395,
+          265.80000000074506,
+          90.80000000074506,
+          271.5949999988079
+        ],
+        "consolePublishes": 16
+      },
+      "finalPositionDepth": null,
+      "finalConsoleDepth": "D21",
+      "errors": [],
+      "topFrames": [
+        {
+          "frame": "(idle) :0",
+          "selfMs": 3487
+        },
+        {
+          "frame": "(program) :0",
+          "selfMs": 1766
+        },
+        {
+          "frame": "setValueForStyle ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:1273",
+          "selfMs": 140
+        },
+        {
+          "frame": "renderWithHooks ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:4333",
+          "selfMs": 69
+        },
+        {
+          "frame": "commitBeforeMutationEffects ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:8842",
+          "selfMs": 59
+        },
+        {
+          "frame": "App ../../src/App.tsx:504",
+          "selfMs": 57
+        },
+        {
+          "frame": "removeChild :0",
+          "selfMs": 55
+        },
+        {
+          "frame": "(garbage collector) :0",
+          "selfMs": 55
+        },
+        {
+          "frame": "reconcileChildrenArray ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:3622",
+          "selfMs": 41
+        },
+        {
+          "frame": "setAttribute :0",
+          "selfMs": 40
+        },
+        {
+          "frame": "setProp ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:12957",
+          "selfMs": 37
+        },
+        {
+          "frame": "appendChild :0",
+          "selfMs": 36
+        },
+        {
+          "frame": "setValueForStyles ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:1291",
+          "selfMs": 35
+        },
+        {
+          "frame": "beginWork ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:7392",
+          "selfMs": 34
+        },
+        {
+          "frame": "(anonymous) ../../../../workspace/web-chess/node_modules/react-chessboard/dist/index.esm.js:5350",
+          "selfMs": 30
+        },
+        {
+          "frame": "jsxProd ../../../../workspace/web-chess/node_modules/react/cjs/react-jsx-runtime.production.js:14",
+          "selfMs": 26
+        },
+        {
+          "frame": "updateProperties ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:13577",
+          "selfMs": 26
+        },
+        {
+          "frame": "commitHookEffectListUnmount ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:8593",
+          "selfMs": 22
+        },
+        {
+          "frame": "reconcileChildFibersImpl ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:3793",
+          "selfMs": 21
+        },
+        {
+          "frame": "commitMutationEffectsOnFiber ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:9427",
+          "selfMs": 20
+        },
+        {
+          "frame": "completeWork ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:7955",
+          "selfMs": 20
+        },
+        {
+          "frame": "insertBefore :0",
+          "selfMs": 20
+        },
+        {
+          "frame": "workLoopSync ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:11181",
+          "selfMs": 20
+        },
+        {
+          "frame": "updateElement ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:3365",
+          "selfMs": 19
+        },
+        {
+          "frame": "updateCallback ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:5153",
+          "selfMs": 19
+        },
+        {
+          "frame": "(anonymous) ../../../../workspace/web-chess/node_modules/react-chessboard/dist/index.esm.js:3136",
+          "selfMs": 17
+        },
+        {
+          "frame": "detachDeletedInstance ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:852",
+          "selfMs": 16
+        },
+        {
+          "frame": "shouldSetTextContent ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:13997",
+          "selfMs": 16
+        },
+        {
+          "frame": "Bt ../../../../workspace/web-chess/node_modules/react-chessboard/dist/index.esm.js:2773",
+          "selfMs": 14
+        },
+        {
+          "frame": "pushSimpleEffect ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:5053",
+          "selfMs": 13
+        }
+      ]
+    },
+    {
+      "sample": 3,
+      "metrics": {
+        "TaskDuration": 4.382746,
+        "ScriptDuration": 2.04385,
+        "LayoutDuration": 0.391465,
+        "RecalcStyleDuration": 0.449279,
+        "LayoutCount": 37,
+        "RecalcStyleCount": 24
+      },
+      "observed": {
+        "updates": 115,
+        "longTasks": [
+          228,
+          83,
+          96,
+          55,
+          111,
+          133,
+          109,
+          51,
+          383,
+          62,
+          54,
+          55,
+          63,
+          108,
+          67,
+          117,
+          101,
+          126,
+          175,
+          89,
+          94,
+          57,
+          70,
+          117
+        ],
+        "flipToTwoFramesMs": [
+          417.9599999971688,
+          172.30000000074506,
+          458.589999999851,
+          125.60000000149012,
+          216.90000000223517,
+          233.1300000026822,
+          331.33000000193715,
+          163.46000000089407,
+          115.96000000089407,
+          62.065000001341105,
+          158.339999999851
+        ],
+        "consolePublishes": 15
+      },
+      "finalPositionDepth": null,
+      "finalConsoleDepth": "D21",
+      "errors": [],
+      "topFrames": [
+        {
+          "frame": "(idle) :0",
+          "selfMs": 2361
+        },
+        {
+          "frame": "(program) :0",
+          "selfMs": 2278
+        },
+        {
+          "frame": "setValueForStyle ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:1273",
+          "selfMs": 202
+        },
+        {
+          "frame": "setValueForStyles ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:1291",
+          "selfMs": 114
+        },
+        {
+          "frame": "removeChild :0",
+          "selfMs": 89
+        },
+        {
+          "frame": "renderWithHooks ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:4333",
+          "selfMs": 69
+        },
+        {
+          "frame": "App ../../src/App.tsx:504",
+          "selfMs": 67
+        },
+        {
+          "frame": "completeWork ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:7955",
+          "selfMs": 63
+        },
+        {
+          "frame": "updateProperties ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:13577",
+          "selfMs": 58
+        },
+        {
+          "frame": "setAttribute :0",
+          "selfMs": 58
+        },
+        {
+          "frame": "updateInput ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:1103",
+          "selfMs": 57
+        },
+        {
+          "frame": "detachDeletedInstance ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:852",
+          "selfMs": 48
+        },
+        {
+          "frame": "(garbage collector) :0",
+          "selfMs": 38
+        },
+        {
+          "frame": "reconcileChildFibersImpl ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:3793",
+          "selfMs": 36
+        },
+        {
+          "frame": "reconcileChildrenArray ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:3622",
+          "selfMs": 35
+        },
+        {
+          "frame": "appendChild :0",
+          "selfMs": 33
+        },
+        {
+          "frame": "createElement :0",
+          "selfMs": 32
+        },
+        {
+          "frame": "bubbleProperties ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:7931",
+          "selfMs": 32
+        },
+        {
+          "frame": "setProp ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:12957",
+          "selfMs": 30
+        },
+        {
+          "frame": "commitHookEffectListUnmount ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:8593",
+          "selfMs": 29
+        },
+        {
+          "frame": "updateElement ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:3365",
+          "selfMs": 28
+        },
+        {
+          "frame": "commitMutationEffectsOnFiber ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:9427",
+          "selfMs": 28
+        },
+        {
+          "frame": "performUnitOfWork ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:11304",
+          "selfMs": 27
+        },
+        {
+          "frame": "shouldSetTextContent ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:13997",
+          "selfMs": 27
+        },
+        {
+          "frame": "useState ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:5702",
+          "selfMs": 27
+        },
+        {
+          "frame": "commitHostUpdate ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:8725",
+          "selfMs": 24
+        },
+        {
+          "frame": "updateEffect ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:5100",
+          "selfMs": 24
+        },
+        {
+          "frame": "_undoMove ../../../../workspace/web-chess/node_modules/chess.js/dist/esm/chess.js:2685",
+          "selfMs": 24
+        },
+        {
+          "frame": "jsxProd ../../../../workspace/web-chess/node_modules/react/cjs/react-jsx-runtime.production.js:14",
+          "selfMs": 23
+        },
+        {
+          "frame": "updateCallback ../../../../workspace/web-chess/node_modules/react-dom/cjs/react-dom-client.production.js:5153",
+          "selfMs": 23
+        }
+      ]
+    }
+  ]
+}

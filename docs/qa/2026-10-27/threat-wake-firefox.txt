@@ -1,0 +1,4 @@
+  threat reload (1280×900, 1x, dark): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat reload (375×812, 1x, light): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat reload (320×812, 2x, light): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat reload (844×390, 2x, dark): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action

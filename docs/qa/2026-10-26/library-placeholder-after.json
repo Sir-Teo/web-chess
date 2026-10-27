@@ -1,0 +1,98 @@
+[
+  {
+    "browser": "chromium",
+    "theme": "light",
+    "surface": "library",
+    "checked": 14,
+    "unknown": 1,
+    "failures": [],
+    "placeholders": [
+      {
+        "text": "King's Pawn Game \u00b7 2026.10.26",
+        "rawColor": "rgb(55, 65, 81)",
+        "contrast": 9.7,
+        "floor": 4.5,
+        "opacity": 1
+      },
+      {
+        "text": "Search players, event, opening\u2026",
+        "rawColor": "rgb(55, 65, 81)",
+        "contrast": 9.7,
+        "floor": 4.5,
+        "opacity": 1
+      }
+    ]
+  },
+  {
+    "browser": "chromium",
+    "theme": "dark",
+    "surface": "library",
+    "checked": 14,
+    "unknown": 1,
+    "failures": [],
+    "placeholders": [
+      {
+        "text": "King's Pawn Game \u00b7 2026.10.26",
+        "rawColor": "rgb(178, 183, 194)",
+        "contrast": 9.31,
+        "floor": 4.5,
+        "opacity": 1
+      },
+      {
+        "text": "Search players, event, opening\u2026",
+        "rawColor": "rgb(178, 183, 194)",
+        "contrast": 9.31,
+        "floor": 4.5,
+        "opacity": 1
+      }
+    ]
+  },
+  {
+    "browser": "firefox",
+    "theme": "light",
+    "surface": "library",
+    "checked": 14,
+    "unknown": 1,
+    "failures": [],
+    "placeholders": [
+      {
+        "text": "King's Pawn Game \u00b7 2026.10.26",
+        "rawColor": "rgb(55, 65, 81)",
+        "contrast": 9.7,
+        "floor": 4.5,
+        "opacity": 1
+      },
+      {
+        "text": "Search players, event, opening\u2026",
+        "rawColor": "rgb(55, 65, 81)",
+        "contrast": 9.7,
+        "floor": 4.5,
+        "opacity": 1
+      }
+    ]
+  },
+  {
+    "browser": "firefox",
+    "theme": "dark",
+    "surface": "library",
+    "checked": 14,
+    "unknown": 1,
+    "failures": [],
+    "placeholders": [
+      {
+        "text": "King's Pawn Game \u00b7 2026.10.26",
+        "rawColor": "rgb(178, 183, 194)",
+        "contrast": 9.31,
+        "floor": 4.5,
+        "opacity": 1
+      },
+      {
+        "text": "Search players, event, opening\u2026",
+        "rawColor": "rgb(178, 183, 194)",
+        "contrast": 9.31,
+        "floor": 4.5,
+        "opacity": 1
+      }
+    ]
+  }
+]

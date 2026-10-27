@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchesSearchTerms, toSearchTerms } from './searchTerms'
+import { MAX_SEARCH_QUERY_LENGTH, matchesSearchTerms, toSearchTerms } from './searchTerms'
 import {
   MAX_LIBRARY_GAMES,
   MAX_LIBRARY_NAME_LENGTH,
@@ -19,13 +19,15 @@ import {
   mergeLibraryBackup,
   normalizeLibraryGames,
   parseLibraryBackup,
+  readLibraryBackup,
   parsePgnHeaders,
   pgnVariantName,
   sortLibraryGames,
   libraryPlayers,
   suggestGameName,
+  sameGameKey,
 } from './gameLibrary'
-import { pgnImportContentError, splitPgnGames } from './pgn'
+import { parsePgnMoveTree, pgnImportContentError, splitPgnGames } from './pgn'
 
 const PGN = `[Event "Casual Game"]
 [Site "Berlin GER"]
@@ -39,7 +41,42 @@ const PGN = `[Event "Casual Game"]
 
 1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Ba5 1-0`
 
+describe('saved-game identity', () => {
+  it('ignores comments, glyphs and repeated move numbers while keeping moves and headers', () => {
+    expect(sameGameKey('[Event "Game"]\n\n1. e4 { [%eval 0.3] } $1 e5 2. Nf3 *'))
+      .toBe(sameGameKey('[Event "Game"]\n\n1. e4 e5 2. Nf3 *'))
+    expect(sameGameKey('1. e4 {note} 1... e5 *')).toBe('e4 e5 *')
+    expect(sameGameKey('1. e4 {outer {inner} e5 *')).toBe('e4 e5 *')
+  })
+
+  it('retains text after an unterminated comment so malformed games stay distinct', () => {
+    expect(sameGameKey('1. e4 {unfinished {note')).toBe('e4 {unfinished {note')
+    expect(sameGameKey('1. e4 {unfinished {note')).not.toBe(sameGameKey('1. e4 *'))
+  })
+})
+
 describe('pgn header reading', () => {
+  it.each(['1-0', '0-1', '1/2-1/2'])('reads %s from headerless movetext', result => {
+    expect(extractLibraryMetadata(`1. e4 e5 ${result}`).result).toBe(result)
+  })
+
+  it('keeps an unfinished headerless game without a winner', () => {
+    expect(extractLibraryMetadata('1. e4 e5 *').result).toBeUndefined()
+  })
+
+  it('ignores result-looking notes, headers and side variations', () => {
+    const pgn = '[Site "Final 1-0"]\n\n1. e4 {0-1} e5 (1... c5 {1/2-1/2}) *'
+    expect(extractLibraryMetadata(pgn).result).toBeUndefined()
+  })
+
+  it('reads a completed result before a trailing line note', () => {
+    expect(extractLibraryMetadata('1. e4 e5 1-0 ; the note quotes 0-1').result).toBe('1-0')
+  })
+
+  it.each([['1-0', '1-0'], ['*', undefined]])('preserves an explicit Result tag %s', (declared, expected) => {
+    expect(extractLibraryMetadata(`[Result "${declared}"]\n\n1. e4 e5 0-1`).result).toBe(expected)
+  })
+
   it('pulls the seven tag roster and the extras we show', () => {
     expect(extractLibraryMetadata(PGN)).toMatchObject({
       event: 'Casual Game',
@@ -51,6 +88,28 @@ describe('pgn header reading', () => {
       whiteElo: 2600,
       eco: 'C52',
     })
+  })
+
+  it('reads inline tag pairs and stops at the first move', () => {
+    expect(parsePgnHeaders('[Event "Club"] [White "Ada"] [Black "Grace"] 1. e4 [White "Prose"]')).toEqual({
+      Event: 'Club', White: 'Ada', Black: 'Grace',
+    })
+    expect(extractLibraryMetadata('[White "Ada"] [Black "Grace"] [Date "2026.10.27"] 1. e4 *')).toMatchObject({
+      white: 'Ada', black: 'Grace', date: '2026.10.27',
+    })
+  })
+
+  it('reads CR-only and CRLF header sections', () => {
+    for (const ending of ['\r', '\r\n']) {
+      expect(parsePgnHeaders(`[Event "Club"]${ending}[White "Ada"]${ending}${ending}1. e4 *`)).toEqual({ Event: 'Club', White: 'Ada' })
+    }
+  })
+
+  it('keeps quoted brackets, escapes and tag-looking value text literal', () => {
+    expect(parsePgnHeaders(String.raw`[Event "The \"Final\" [White \"Guest\"]"] [White "Ada"] 1. e4 *`)).toEqual({
+      Event: 'The "Final" [White "Guest"]', White: 'Ada',
+    })
+    expect(parsePgnHeaders('[Event "unfinished] [White "Ada"]')).toEqual({})
   })
 
   it('treats the placeholder tag values as absent', () => {
@@ -91,6 +150,30 @@ describe('counting moves', () => {
     expect(countPgnMoves('1. e4 e5 (1... c5 2. Nf3 d6) 2. Nf3 *')).toBe(3)
     expect(countPgnMoves('1. e4 e5 (1... c5 (1... e6 2. d4) 2. Nf3) 2. Nf3 *')).toBe(3)
     expect(countPgnMoves('1. e4 ; a trailing comment\ne5 *')).toBe(2)
+  })
+
+  it('does not count SAN-looking words inside inline headers', () => {
+    expect(countPgnMoves('[Event "e4 Nf3 Nc6"] [White "Ada"] 1. e4 e5 2. Nf3 *')).toBe(3)
+  })
+
+  it('counts moves attached to their move numbers', () => {
+    expect(countPgnMoves('1.e4 e5 2.Nf3 *')).toBe(3)
+    expect(countPgnMoves('1.e4 1...e5 2.Nf3 *')).toBe(3)
+  })
+
+  it('keeps moves on either side of an adjacent variation separate', () => {
+    expect(countPgnMoves('1. e4(1. d4 d5)e5 2. Nf3 *')).toBe(3)
+    expect(countPgnMoves('1. e4(1. d4 {;) literal} d5 (1...Nf6))e5 2. Nf3 *')).toBe(3)
+  })
+
+  it('keeps braces and parentheses in line comments literal', () => {
+    expect(countPgnMoves('1. e4 ; { ( literal\ne5 2. Nf3 {last note} *')).toBe(3)
+  })
+
+  it('ends line comments at CR, LF or CRLF', () => {
+    for (const ending of ['\r', '\n', '\r\n']) {
+      expect(countPgnMoves(`1. e4 ; literal${ending}e5 2. Nf3 *`)).toBe(3)
+    }
   })
 
   it('counts castling, promotion, and decorated moves', () => {
@@ -134,9 +217,34 @@ describe('naming a saved game', () => {
     const long = 'x'.repeat(MAX_LIBRARY_NAME_LENGTH)
     expect(getUniqueGameName(long, [long]).length).toBeLessThanOrEqual(MAX_LIBRARY_NAME_LENGTH)
   })
+
+  it('keeps Unicode code points whole when making room for a duplicate-name suffix', () => {
+    const prefix = 'x'.repeat(115)
+    const name = `${prefix}😀abc`
+    expect(getUniqueGameName(name, [name])).toBe(`${prefix} (2)`)
+  })
 })
 
 describe('creating records', () => {
+  it('keeps whole Unicode code points at the saved and suggested name limits', () => {
+    const prefix = 'x'.repeat(119)
+    const name = `${prefix}😀`
+    expect(createLibraryGame(name, PGN, 1).name).toBe(prefix)
+    expect(suggestGameName(`[Event "${name}"]\n\n1. e4 *`)).toBe(prefix)
+    expect(normalizeLibraryGames([{ name, pgn: PGN }])[0].name).toBe(prefix)
+    const fits = `${'x'.repeat(118)}😀`
+    expect(createLibraryGame(fits, PGN, 1).name).toBe(fits)
+  })
+  it('reports UTF-8 file sizes for accented text, CJK, and surrogate pairs, including older saved records', () => {
+    // Ten ASCII bytes, plus é (2), 棋 (3), and 😀 (4).
+    const pgn = '1. e4 {é棋😀} *'
+    const game = createLibraryGame('Unicode comments', pgn, 123)
+    expect(game.size).toBe(19)
+    const [restored] = normalizeLibraryGames([{ ...game, size: pgn.length }])
+    expect(restored.size).toBe(19)
+    expect(formatLibrarySize(getLibraryStats([restored]).size)).toBe('19 B')
+  })
+
   it('captures the counts and metadata the rows need', () => {
     const game = createLibraryGame('Evergreen', PGN, 123)
     expect(game).toMatchObject({
@@ -161,6 +269,16 @@ describe('creating records', () => {
 })
 
 describe('normalizing what came back from storage', () => {
+  it('cleans fragments from older truncated names while retaining complete emoji and suffixes', () => {
+    const games = normalizeLibraryGames([
+      { id: 'old-copy', name: 'Prep\uD83D (2) 😀', pgn: PGN },
+      { id: 'empty-after-repair', name: '\uDC00', pgn: PGN },
+    ])
+    expect(games[0].name).toBe('Prep (2) 😀')
+    expect(games[1].name).toBe(suggestGameName(PGN))
+    expect(games.map(game => game.pgn)).toEqual([PGN, PGN])
+  })
+
   it('keeps well-formed rows and recomputes what it can', () => {
     const games = normalizeLibraryGames([
       { id: 'a', name: 'Kept', pgn: PGN, createdAt: 1, updatedAt: 2, favorite: true },
@@ -222,7 +340,37 @@ describe('searching and sorting', () => {
   it('does not reorder the array it was given', () => {
     const original = games.map(g => g.name)
     sortLibraryGames(games, 'name')
+    sortLibraryGames(games, 'date')
     expect(games.map(g => g.name)).toEqual(original)
+  })
+
+  it('sorts game dates independently of when games were saved', () => {
+    const newest = createLibraryGame('Newer game', '[Date "2026.10.27"]\n\n1. e4 *', 1, 'newer')
+    const oldest = createLibraryGame('Older game', '[Date "2025.12.31"]\n\n1. e4 *', 100, 'older')
+    expect(sortLibraryGames([oldest, newest], 'date').map(game => game.name)).toEqual(['Newer game', 'Older game'])
+  })
+
+  it('groups partial dates by the year and month that are known', () => {
+    const dated = (name: string, date: string) => createLibraryGame(name, `[Date "${date}"]\n\n1. e4 *`, 1, name)
+    const records = [dated('Year only', '2026.??.??'), dated('Previous year', '2025.12.31'),
+      dated('Month only', '2026.10.??'), dated('Known day', '2026.10.27'), dated('Later month', '2026.11.??')]
+    expect(sortLibraryGames(records, 'date').map(game => game.name))
+      .toEqual(['Later month', 'Known day', 'Month only', 'Year only', 'Previous year'])
+  })
+
+  it('keeps unknown and unreadable dates last without changing their relative order', () => {
+    const dates = ['????.12.31', 'not a date', '2026.13.01', '2026.00.01', '2026.10.32', '2026.10.00', '0000.01.01', '2026.10.27']
+    const records = dates.map((date, index) => createLibraryGame(date, `[Date "${date}"]\n\n1. e4 *`, index + 1, date))
+    const missing = createLibraryGame('Missing date', '1. e4 *', 100, 'missing')
+    expect(sortLibraryGames([...records, missing], 'date').map(game => game.name))
+      .toEqual(['2026.10.27', ...dates.slice(0, -1), 'Missing date'])
+  })
+
+  it('accepts ISO and shortened dates without inventing unknown month or day precision', () => {
+    const dates = ['2026', '2026.??.15', '2026-10', '2026.10.27', '2026-10-28']
+    const records = dates.map((date, index) => createLibraryGame(date, `[Date "${date}"]\n\n1. e4 *`, index + 1, date))
+    expect(sortLibraryGames(records, 'date').map(game => game.name))
+      .toEqual(['2026-10-28', '2026.10.27', '2026-10', '2026', '2026.??.15'])
   })
 
   it('totals the shelf', () => {
@@ -243,6 +391,63 @@ describe('searching and sorting', () => {
 })
 
 describe('backup round trip', () => {
+  it('reports damaged and repeated entries without losing the usable record', () => {
+    const game = createLibraryGame('Réti', PGN, 7, 'partial-valid')
+    const result = readLibraryBackup(JSON.stringify({ format: 'web-chess-library', version: 1,
+      games: [game, null, { pgn: 5 }, { ...game, pgn: '1. d4 *' }],
+    }))
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.games).toEqual([game])
+      expect(result.skippedEntries).toBe(3)
+    }
+  })
+
+  it('counts entries beyond the per-file normalization ceiling', () => {
+    const games = Array.from({ length: MAX_LIBRARY_GAMES + 3 }, (_, i) => createLibraryGame(`Study ${i}`, '1. e4 *', 1, `large-${i}`))
+    const result = readLibraryBackup(createLibraryBackup(games))
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.games).toHaveLength(MAX_LIBRARY_GAMES)
+      expect(result.skippedEntries).toBe(3)
+    }
+  })
+
+  it.each([
+    ['not json', 'not a Web Chess library backup'],
+    [JSON.stringify({ format: 'web-chess-review', version: 1, games: [] }), 'not a Web Chess library backup'],
+    [JSON.stringify({ format: 'web-chess-library', version: 2, games: [] }), 'unsupported version'],
+    [JSON.stringify({ format: 'web-chess-library', version: 1, games: {} }), 'incomplete or damaged'],
+    [JSON.stringify({ format: 'web-chess-library', version: 1, games: [null, { pgn: 5 }] }), 'No saved games could be read'],
+  ])('explains a rejected backup envelope: %s', (text, message) => {
+    const result = readLibraryBackup(text)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toContain(message)
+  })
+
+  it('recognizes an empty exported backup without calling it the wrong file', () => {
+    expect(readLibraryBackup(createLibraryBackup([]))).toEqual({ ok: true, games: [], skippedEntries: 0 })
+  })
+
+  it('accepts a UTF-8 byte-order mark without changing the restored Unicode game', () => {
+    const game = createLibraryGame('Réti — Łódź', PGN, 7)
+    const backup = createLibraryBackup([game])
+    expect(parseLibraryBackup('\uFEFF' + backup)).toEqual(parseLibraryBackup(backup))
+    expect(parseLibraryBackup('\uFEFF' + backup)[0]?.name).toBe(game.name)
+  })
+
+  it('keeps the decoded backup limit when a byte-order mark is present', () => {
+    const backup = createLibraryBackup([createLibraryGame('Study', PGN, 7)]).padEnd(MAX_LIBRARY_BACKUP_LENGTH, ' ')
+    expect(parseLibraryBackup('\uFEFF' + backup)).toHaveLength(1)
+    expect(readLibraryBackup('\uFEFF' + backup + ' ')).toMatchObject({ ok: false, error: expect.stringContaining('too large') })
+  })
+
+  it.each([0, 2, -1, '1', null, undefined])('refuses an unsupported backup version: %s', version => {
+    const backup = JSON.parse(createLibraryBackup([createLibraryGame('Study', PGN, 7)]))
+    backup.version = version
+    expect(parseLibraryBackup(JSON.stringify(backup))).toEqual([])
+  })
+
   it('restores the games it wrote', () => {
     const games = [createLibraryGame('Evergreen', PGN, 7)]
     const restored = parseLibraryBackup(createLibraryBackup(games))
@@ -302,6 +507,44 @@ describe('case insensitivity', () => {
 
     it('matches everything when no terms were given', () => {
         expect(matchesSearchTerms('anything', [])).toBe(true)
+    })
+})
+
+describe('international library search', () => {
+    it.each([
+        ['José Raúl Capablanca', 'JOSE RAUL'],
+        ['Richard Réti', 'reti'],
+        ['Joa\u0303o cafe\u0301', 'joao cafe'],
+        ['Søren’s Łódź study', 'soren lodz'],
+        ['Malmö Invitational', 'malmo'],
+        ['Ægir, Œuvre and Groß', 'aegir oeuvre gross'],
+        ['Héðinn Þór', 'hedinn thor'],
+        ['İstanbul', 'istanbul'],
+        ['Ｆｕｌｌｗｉｄｔｈ Réti', 'fullwidth reti'],
+    ])('finds %s with %s', (text, query) => {
+        expect(matchesSearchTerms(text, toSearchTerms(query))).toBe(true)
+    })
+
+    it('keeps marks that distinguish words in other writing systems', () => {
+        expect(matchesSearchTerms('काली', toSearchTerms('काली'))).toBe(true)
+        expect(matchesSearchTerms('काली', toSearchTerms('कली'))).toBe(false)
+        expect(matchesSearchTerms('がく', toSearchTerms('かく'))).toBe(false)
+        expect(matchesSearchTerms('がく', toSearchTerms('か\u3099く'))).toBe(true)
+    })
+
+    it('bounds the original query before expanding normalized letters', () => {
+        expect(toSearchTerms('æ'.repeat(MAX_SEARCH_QUERY_LENGTH) + ' outside'))
+            .toEqual(['ae'.repeat(MAX_SEARCH_QUERY_LENGTH)])
+    })
+
+    it('matches across accented metadata without rewriting the saved record', () => {
+        const game = createLibraryGame('Réti study', '[White "José Raúl Capablanca"]\n[Black "Zsófia Polgár"]\n[Event "Łódź"]\n[Site "Malmö"]\n\n1. e4 e5 *', 1)
+        const original = JSON.stringify(game)
+        expect(libraryGameMatchesQuery(game, 'jose polgar lodz malmo')).toBe(true)
+        expect(libraryGameMatchesQuery(game, 'jose tokyo')).toBe(false)
+        expect(JSON.stringify(game)).toBe(original)
+        expect(game.name).toBe('Réti study')
+        expect(game.metadata.white).toBe('José Raúl Capablanca')
     })
 })
 
@@ -400,6 +643,21 @@ describe('the data loss this merge exists to stop', () => {
 })
 
 describe('what the reader is told about a merge', () => {
+  it('reports skipped backup entries even when all readable games fit', () => {
+    expect(backupMergeNote({ games: [], added: 1, duplicates: 0, omitted: 0 }, 2))
+      .toBe('Added 1 game; 2 backup entries skipped while reading the file.')
+  })
+
+  it('counts a single skipped entry in the singular', () => {
+    expect(backupMergeNote({ games: [], added: 2, duplicates: 0, omitted: 0 }, 1))
+      .toBe('Added 2 games; 1 backup entry skipped while reading the file.')
+  })
+
+  it('separates unread entries from existing games and library capacity', () => {
+    expect(backupMergeNote({ games: [], added: 0, duplicates: 1, omitted: 2 }, 3))
+      .toBe(`Added nothing: 1 game already in the library, 2 games left out — the library holds ${MAX_LIBRARY_GAMES}, 3 backup entries skipped while reading the file.`)
+  })
+
   const merge = (added: number, duplicates: number, omitted: number) =>
     backupMergeNote({ games: [], added, duplicates, omitted })
 
@@ -474,9 +732,47 @@ describe('exporting the library as a PGN database', () => {
       expect(pgnImportContentError(part), part).toBeNull()
     }
   })
+
+  it.each([
+    '1. e4 e5',
+    '1. e4 {the note quotes 0-1} e5 ; the last note says 1-0',
+    '1. e4 e5 (1... c5)',
+  ])('keeps an unfinished headerless game separate from the next one: %s', first => {
+    const games = [createLibraryGame('one', first, 1, 'a'), createLibraryGame('two', '1. d4 d5 *', 1, 'b')]
+    const parts = splitPgnGames(createLibraryPgn(games))
+    expect(parts).toHaveLength(2)
+    expect(parts[0]).toContain(first)
+    expect(parts[0]).toMatch(/\n\*$/)
+    expect(parts.map(part => parsePgnMoveTree(part).moves[0].move.san)).toEqual(['e4', 'd4'])
+    expect(games[0].pgn).toBe(first)
+  })
+
+  it('uses the declared result when its termination marker is missing', () => {
+    const first = '[Result "0-1"]\n[Site "A quoted ] bracket and 1-0"]\n\n1. e4 e5'
+    const games = [createLibraryGame('one', first, 1, 'a'), createLibraryGame('two', '1. d4 d5 *', 1, 'b')]
+    const parts = splitPgnGames(createLibraryPgn(games))
+    expect(parts).toHaveLength(2)
+    expect(parts[0]).toBe(`${first}\n0-1`)
+    expect(parsePgnMoveTree(parts[0]).result).toBe('0-1')
+  })
+
+  it('keeps a setup-only study separate from a following headerless game', () => {
+    const fen = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1'
+    const first = `[SetUp "1"]\n[FEN "${fen}"]`
+    const games = [createLibraryGame('position', first, 1, 'a'), createLibraryGame('game', '1. d4 d5 *', 1, 'b')]
+    const parts = splitPgnGames(createLibraryPgn(games))
+    expect(parts).toHaveLength(2)
+    expect(parsePgnMoveTree(parts[0]).rootFen).toBe(fen)
+    expect(parsePgnMoveTree(parts[1]).moves[0].move.san).toBe('d4')
+  })
 })
 
 describe('pgnVariantName', () => {
+  it('recognizes unsupported variants in inline and CR-only headers', () => {
+    expect(pgnVariantName('[Event "Club"] [Variant "Chess960"] 1. e4 *')).toBe('Chess960')
+    expect(pgnVariantName('[Event "Club"]\r[Variant "Crazyhouse"]\r\r1. e4 *')).toBe('Crazyhouse')
+  })
+
   it('names a variant this board does not play', () => {
     expect(pgnVariantName('[Variant "Chess960"]\n[SetUp "1"]\n\n1. e4 *')).toBe('Chess960')
     expect(pgnVariantName('[Variant "Crazyhouse"]\n\n1. e4 *')).toBe('Crazyhouse')

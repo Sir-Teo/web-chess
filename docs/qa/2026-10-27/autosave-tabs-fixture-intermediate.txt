@@ -1,0 +1,5 @@
+Error: autosave tab errors: Failed to read the 'localStorage' property from 'Window': Access is denied for this document.
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkAutosaveTabIsolation (/workspace/web-chess/scripts/test-ui-browser.cjs:7294:7)
+    at async /tmp/web-chess-autosave-tabs-check.cjs:10:9

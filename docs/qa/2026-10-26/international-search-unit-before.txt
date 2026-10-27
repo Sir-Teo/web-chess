@@ -1,0 +1,135 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/components/commandPalette.test.ts (20 tests | 1 failed) 25ms
+     × normalizes accents and letter variants in labels, hints and ranking 12ms
+ ❯ src/engine/gameLibrary.test.ts (83 tests | 12 failed) 715ms
+     × finds José Raúl Capablanca with JOSE RAUL 6ms
+     × finds Richard Réti with reti 1ms
+     × finds João café with joao cafe 1ms
+     × finds Søren’s Łódź study with soren lodz 0ms
+     × finds Malmö Invitational with malmo 1ms
+     × finds Ægir, Œuvre and Groß with aegir oeuvre gross 0ms
+     × finds Héðinn Þór with hedinn thor 1ms
+     × finds İstanbul with istanbul 0ms
+     × finds Ｆｕｌｌｗｉｄｔｈ Réti with fullwidth reti 1ms
+     × keeps marks that distinguish words in other writing systems 1ms
+     × bounds the original query before expanding normalized letters 2ms
+     × matches across accented metadata without rewriting the saved record 1ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 13 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/commandPalette.test.ts > matching commands > normalizes accents and letter variants in labels, hints and ranking
+AssertionError: expected [] to deeply equal [ 'first', 'later' ]
+
+- Expected
++ Received
+
+- [
+-   "first",
+-   "later",
+- ]
++ []
+
+ ❯ src/components/commandPalette.test.ts:31:75
+     29|     it('normalizes accents and letter variants in labels, hints and ra…
+     30|         const commands = [make('later', 'Find Réti', { hint: 'Łódź stu…
+     31|         expect(rankCommands(commands, 'reti').map(command => command.i…
+       |                                                                           ^
+     32|         expect(rankCommands(commands, 'lodz').map(command => command.i…
+     33|     })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/13]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > international library search > finds José Raúl Capablanca with JOSE RAUL
+ FAIL  src/engine/gameLibrary.test.ts > international library search > finds Richard Réti with reti
+ FAIL  src/engine/gameLibrary.test.ts > international library search > finds João café with joao cafe
+ FAIL  src/engine/gameLibrary.test.ts > international library search > finds Søren’s Łódź study with soren lodz
+ FAIL  src/engine/gameLibrary.test.ts > international library search > finds Malmö Invitational with malmo
+ FAIL  src/engine/gameLibrary.test.ts > international library search > finds Ægir, Œuvre and Groß with aegir oeuvre gross
+ FAIL  src/engine/gameLibrary.test.ts > international library search > finds Héðinn Þór with hedinn thor
+ FAIL  src/engine/gameLibrary.test.ts > international library search > finds İstanbul with istanbul
+ FAIL  src/engine/gameLibrary.test.ts > international library search > finds Ｆｕｌｌｗｉｄｔｈ Réti with fullwidth reti
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/engine/gameLibrary.test.ts:355:64
+    353|         ['Ｆｕｌｌｗｉｄｔｈ Réti', 'fullwidth reti'],
+    354|     ])('finds %s with %s', (text, query) => {
+    355|         expect(matchesSearchTerms(text, toSearchTerms(query))).toBe(tr…
+       |                                                                ^
+    356|     })
+    357|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/13]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > international library search > keeps marks that distinguish words in other writing systems
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/engine/gameLibrary.test.ts:362:69
+    360|         expect(matchesSearchTerms('काली', toSearchTerms('कली'))).toBe(…
+    361|         expect(matchesSearchTerms('がく', toSearchTerms('かく'))).toBe(fal…
+    362|         expect(matchesSearchTerms('がく', toSearchTerms('か\u3099く'))).to…
+       |                                                                     ^
+    363|     })
+    364|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/13]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > international library search > bounds the original query before expanding normalized letters
+AssertionError: expected [ Array(1) ] to deeply equal [ Array(1) ]
+
+- Expected
++ Received
+
+  [
+-   "aeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeae",
++   "ææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææææ",
+  ]
+
+ ❯ src/engine/gameLibrary.test.ts:367:14
+    365|     it('bounds the original query before expanding normalized letters'…
+    366|         expect(toSearchTerms('æ'.repeat(MAX_SEARCH_QUERY_LENGTH) + ' o…
+    367|             .toEqual(['ae'.repeat(MAX_SEARCH_QUERY_LENGTH)])
+       |              ^
+    368|     })
+    369|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/13]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > international library search > matches across accented metadata without rewriting the saved record
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/engine/gameLibrary.test.ts:373:73
+    371|         const game = createLibraryGame('Réti study', '[White "José Raú…
+    372|         const original = JSON.stringify(game)
+    373|         expect(libraryGameMatchesQuery(game, 'jose polgar lodz malmo')…
+       |                                                                         ^
+    374|         expect(libraryGameMatchesQuery(game, 'jose tokyo')).toBe(false)
+    375|         expect(JSON.stringify(game)).toBe(original)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/13]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  13 failed | 90 passed (103)
+   Start at  17:09:09
+   Duration  1.21s (transform 326ms, setup 0ms, import 409ms, tests 740ms, environment 0ms)
+

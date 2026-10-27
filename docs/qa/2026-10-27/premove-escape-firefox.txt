@@ -1,0 +1,4 @@
+  premove (1280×900, 1x, dark): held replies prove queuing; Escape cancels without changing the opponent search; modal Escape preserves the queue; legal reply executes in order; takeback clears it
+  premove (375×812, 1x, light): held replies prove queuing; Escape cancels without changing the opponent search; modal Escape preserves the queue; legal reply executes in order; takeback clears it
+  premove (320×812, 2x, light): held replies prove queuing; Escape cancels without changing the opponent search; modal Escape preserves the queue; legal reply executes in order; takeback clears it
+  premove (844×390, 2x, dark): held replies prove queuing; Escape cancels without changing the opponent search; modal Escape preserves the queue; legal reply executes in order; takeback clears it

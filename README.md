@@ -2,8 +2,10 @@
 
 A browser chess app for playing, importing, and reviewing games with Stockfish-powered analysis.
 
-The [September 12 audit](docs/audit-2026-09-12.md) records current
-fixes, fresh Stockfish measurements, browser QA and the prioritized roadmap.
+The [October 25 audit](docs/audit-2026-10-25.md) records the latest library,
+import, position-setup, keyboard and dependency fixes with validation evidence.
+The [September 12 audit](docs/audit-2026-09-12.md) includes real Stockfish
+measurements, browser QA and the prioritized roadmap.
 
 The earlier September 2026 audit records fixes, real-engine performance
 measurements, browser QA, and prioritized beginner/pro study roadmap. It ran to
@@ -49,7 +51,8 @@ given, and the app answering the reader who touches it.
   `Space` pauses the clock as well as the AI, and stepping out to Analysis stops
   it rather than letting it run while you consult the engine.
 - **Premoves**: While the engine is thinking, drag or tap your reply and it is
-  held, both squares ringed, then played the instant the position arrives. A
+  held, both squares ringed, then played the instant the position arrives.
+  **Escape** cancels a queued premove before the reply. A
   premove the engine's reply made illegal is dropped without comment, a pawn
   reaching the last rank promotes to a queen without asking, and clicking
   anywhere else cancels — the same rules every other board uses, because they
@@ -118,9 +121,12 @@ given, and the app answering the reader who touches it.
   the window widens; dragging or using the resize handles' arrow keys adjusts
   the visible boundaries, and the widths you set are kept between visits and
   are what a collapsed panel reopens at.
-- **Type a move**: "Enter a move by name" at the top of the analysis panel
-  takes `Nf3`, `e2e4` or `O-O` — and the forms people actually type, `nf3`,
-  `0-0`, `e8q`, which it used to refuse while telling you to type `Nf3`.
+- **Type a move**: Open "Enter a move by name" in Play or Analysis for `Nf3`,
+  `e2e4` or `O-O`; lowercase `nf3`, `0-0` and `e8q` work too. The field keeps
+  focus while the opponent moves and explains loading, waiting and Step mode.
+  Find it in **Commands** (`Ctrl/Cmd+K`) to open the panel and focus the field;
+  reopening an existing field keeps its draft and selection. It is omitted
+  while watching two engines.
 - **Keep searching**: The automatic analysis stops at the depth slider, which
   on a desktop is over in a second. Pro mode has a switch under the Coach/Pro
   toggle that asks for `go infinite` instead, so the depth climbs for as long
@@ -129,10 +135,44 @@ given, and the app answering the reader who touches it.
   is never left running the machine.
 - **Release idle engine memory**: In Pro's Engine Lab, **Release engine** closes
   the idle engine while keeping the board and its displayed readings. **Load
-  engine**, an explicit **Analyze**, or **Review Game** loads it again. Automatic
-  analysis and navigating moves respect the release. Saved settings remain;
+  engine**, an explicit **Analyze**, **What is threatened?**, or **Review Game**
+  loads it again. Automatic analysis and navigating moves respect the release.
+  Saved settings remain;
   the engine's hash table, console position and session-only UCI options reset
   on reload. Stop a search or review before releasing its workers.
+- **Retry a failed engine**: Analysis offers **Retry engine** after a startup
+  or runtime failure. It keeps the board, readings, saved settings and unsent console
+  draft while replacing the worker. Automatic analysis resumes for the current
+  position when enabled; otherwise the ready engine waits for an explicit
+  analysis request. Its console position and session-only UCI options reset.
+- **Read live console output**: Engine Lab follows new lines while you are at
+  the end. Scroll back to read earlier output without being pulled down, then
+  choose **Jump to latest output** or press End in the focused output to follow
+  again. A new command or Clear starts following again.
+  **Download** saves the displayed output as a dated text file, including when
+  clipboard access is blocked.
+  With the output focused, Ctrl/Cmd+A selects only its text for native Copy.
+  Copied appears only while the displayed text matches the copied snapshot.
+  In the command field, Up/Down recall history; Down past the newest command
+  restores your unsent draft so you can keep typing.
+  Pasted search commands accept Unicode spaces while keeping their original
+  text in history; depth, node and time limits reach the engine as entered.
+  Option commands also accept Unicode protocol spacing and mixed keyword
+  case while preserving string value text. Checkbox values accept true/false
+  in either case; invalid or missing values stay editable with an explanation.
+  History’s **Clear** removes stored commands and preserves the output. It keeps
+  your working draft, restoring it when you’re browsing recalled commands.
+  Stopping a perft diagnostic releases its worker because native perft cannot
+  process Stop while counting. **Load engine** starts a fresh console session;
+  the board, displayed analysis, and saved controls remain available.
+  The browser console does not support ponder searches or ponderhit; use a
+  bounded search such as `go depth 12`, or `go infinite` followed by Stop.
+  A mate goal alone also needs expert mode: `go mate 1` can keep searching
+  when no mate is found. Add a stopping limit, such as `go mate 1 depth 12`,
+  to run it as a bounded search.
+- **Engine settings apply in order**: Numeric console options use the engine's
+  advertised limits. Configuration finishes before another setting is sent,
+  and keyboard focus returns after a temporarily disabled control is ready.
 - **An evaluation bar that never goes blank**: The bar beside the board draws
   the engine's win/draw/loss split when it has one, and White's winning chances
   from the score when it does not — a Lichess cloud evaluation, an `[%eval]`
@@ -158,6 +198,10 @@ given, and the app answering the reader who touches it.
   why a neutral 50% on one graph can accompany a high draw probability. It is
   available in Coach and Pro, including Review, with links to both models.
 - **Game review, of the line you are on**: Import a PGN, run a review pass, filter critical moments by side, inspect accuracy, and jump from a review row back to the board. The review follows the branch the board is standing in, so a variation can be reviewed like the game — and when that is not the main line it says so. Accuracy and move labels are scored on winning chances rather than raw centipawns, so an imprecision in a decided game is not called a blunder. The labels are the ones readers arrive knowing: *Book* while a sound move stays in the opening table, *Best* for the engine's own move and nothing else, *Excellent* for one that gave up almost nothing, then Good, Inaccuracy, Mistake and Blunder — so a row never reads "Best e4" beside a move it also calls Best. A best-move hint appears only once a search deep enough to grade the move has run; the 70 ms import sweep's choice is not one.
+- **Accuracy by phase**: When a line spans multiple phases, Opening,
+  Middlegame and Endgame show both players’ accuracy and scored-move counts.
+  Choose a phase to filter the review; choose it again to return to the whole
+  line. Narrow panels and enlarged text stack these details to keep them readable.
 - **A review that uses the whole machine**: the positions in a game review are
   independent of one another, so on a desktop the review runs several engines
   at once. The latest real Stockfish measurement uses the Opera Game's 33
@@ -197,13 +241,22 @@ given, and the app answering the reader who touches it.
   again, including positions already evaluated. **Export review** downloads the
   reviewed branch with its report's scores and engine identity, plus target
   depth, total hash budget, completion status and reuse count. Comments and
-  clocks remain attached. Normal PGN export still exports the study's live
-  evaluations. Choose Save review to keep the report after this session.
+  clocks remain attached. If a download fails, the report remains available
+  and Export review explains how to retry. Normal PGN export still exports
+  the study's live evaluations. Choose Save review to keep the report after this session.
 - **Saved reviews and comparisons**: In Pro, **Save review** keeps the report,
   engine limits, WDL and reviewed branch on this device. Open **Saved reviews**
-  to reopen a run, delete its stored copy, or compare it with the open report
-  for the same line. Comparison shows scores from White's point of view,
+  to reopen a run, rename it for a study session, delete its stored copy with a second press, or
+  compare it with the open report for the same line. Untitled runs use the
+  reviewed branch’s opening; real player and event names take priority. The picker starts with
+  the run name, so typing its beginning selects it. **Search saved reviews**
+  matches names, engines, depth (for example, D16), and complete/partial status;
+  combine terms and use unaccented spellings. Clear search restores the full
+  list, and review backups always include every saved run. Run names are included
+  in review backups. Comparison shows scores from White's point of view,
   best-move and WDL differences, missing readings and links back to positions.
+  **Show more positions** continues keyboard focus at the first new position;
+  **Close comparison** returns to the comparison button.
   Mate distances stay distinct from pawn-score changes. Up to 50 runs are
   retained, with no automatic eviction (2,048 plies / 512 KB per run). These
   records are separate from the game library and its backup. **Export review
@@ -221,8 +274,10 @@ given, and the app answering the reader who touches it.
   in and asks you to produce it. The line answers back, so you are asked your
   next move rather than your opponent's reply; a wrong move snaps back and is
   never recorded, so a drill cannot fill the tree with the moves you were trying
-  not to play; and the answer appears after two misses, as it does in review
-  practice. Until then nothing on screen gives it away: the candidate arrows,
+  not to play; and the board's status shows the answer after two misses, as in review
+  practice. **Show move** reveals it immediately when you want help, without
+  counting a wrong attempt. The hint stays visible through retries and resets
+  for the next question or Restart. Until revealed, hints stay hidden: the candidate arrows,
   the Coach's best move, its traits and line, the Pro lines, the cloud eval's
   lines, the tablebase's moves and the opening explorer's book moves are held
   back while the drill waits for your move, because each of them very often
@@ -230,15 +285,23 @@ given, and the app answering the reader who touches it.
   and a different thing as Black. Deliberately not a new subsystem: a repertoire
   line here is a line in the game tree, which means it is also a game in the
   library, which means it already imports, exports, saves and shares — load a
-  saved game and its line is drillable as it stands. All three commands are in
-  the command palette too, each saying why it is unavailable rather than
-  greying out in silence.
+  saved game and its line is drillable as it stands. Starting, stopping, returning and
+  showing the drill move are in Commands too, each saying why it is unavailable rather than
+  greying out in silence. Restart stops any replay and keeps the line you
+  began drilling, even after browsing another branch; choose Drill this line
+  to practise a new one. Return to drill brings back the question you left,
+  keeping your progress and previous attempts.
 - **Practice critical moments**: In Coach mode, a critical mistake becomes a
   playable retry. Engine answers and candidate arrows are hidden, wrong moves
   snap back without adding junk variations, and the answer appears after two
-  misses. Promotions are graded exactly, including the chosen piece. Done
+  misses. **Show move** asks for help immediately without counting a miss;
+  the hint stays visible through retries and resets for a fresh question.
+  **Show the practice move** in Commands offers the same help and returns
+  keyboard focus to the board.
+  Promotions are graded exactly, including the chosen piece. Done
   returns to the game, so the next critical moment is where you left it — the
-  solved line stays in the tree as a variation.
+  solved line stays in the tree as a variation. Starting practice stops the
+  line drill, autoplay and marking mode.
 - **Time trouble, in the review**: A move's clock reading rides with it — read
   from `[%clk]` on import, recorded from the running clock in a timed game, and
   written back out. So a review of a real blitz game shows *0:07* beside the
@@ -280,20 +343,27 @@ given, and the app answering the reader who touches it.
 - **Every variation, however deep, and the glyphs on it**: The move list
   draws a variation inside a variation in brackets within its row, numbered
   the way a PGN is, so an annotated game reads on screen as it does on paper.
+  Narrow panels put each main-line move on its own numbered row and reduce
+  branch indentation so enlarged notation stays readable and clickable.
   A `$1` in the file shows as `!` and a `$16` as `±`, and the current move can
   be judged from the list — `!!`, `!`, `!?`, `?!`, `?`, `??` — which is written
-  as the move's suffix and exported with it.
+  as the move's suffix and exported with it. Notes and glyphs after a variation
+  stay with their owning move, including inside nested variations. Closing game
+  comments keep the final move's existing notes too.
+- **Position studies with notes**: Annotate a setup position in **Position note**,
+  save it to Library, or recover it after reload. The position and each played
+  move keep separate notes through PGN export and reimport.
 - **Interactive analysis visuals**: Clickable winrate/WDL graphs, move transcript navigation, and board arrows for the played move, best move, and candidate lines. Point at either graph and it reads the ply under the pointer — "12. Nf3 · 61.2% White", or the win/draw/loss split — with a hairline marking it; a click still goes there.
 - **Your own arrows and marks**: Right-drag on the board to draw an arrow,
   right-click a square to mark it, `Shift` or `Ctrl` for the other two colours.
   They are blue, magenta and white rather than Lichess's green, because green
   already means "the engine likes this" on this board — amber is the move that
   was played, violet the threat, and red-to-green the candidate scale. Marks
-  clear on your next move or left click, the way the drawn arrows do. Mouse
-  only: both gestures live on the right button and there is no touch equivalent
-  yet, which Settings says on a touch device rather than describing a gesture
-  the screen cannot perform.
-- **Opening and endgame intelligence**: Offline ECO names work immediately; optional session-only Lichess tokens unlock Masters/Lichess opening stats, while eligible endgames use Lichess tablebase data.
+  clear on your next move or left click, the way the drawn arrows do. On a
+  touch screen, choose **Arrows**, then drag for an arrow or tap to mark. Turn
+  **Marking** off or press Escape to move pieces again; completed drawings
+  remain when you leave marking mode. **Clear** removes your drawings.
+- **Opening and endgame intelligence**: Offline ECO names work immediately; optional session-only Lichess tokens unlock Masters/Lichess opening stats, while eligible endgames use Lichess tablebase data. Move rows keep complete verdicts and distances readable with enlarged text. Failed opening-database, tablebase and cloud-evaluation requests offer Retry, preserving the current position, filters and keyboard focus.
 
 ### Throughout
 
@@ -305,13 +375,15 @@ given, and the app answering the reader who touches it.
   Escape while their code downloads. The board is available again immediately;
   reopening can continue the same download.
 - **Keyboard**: arrows walk the game, Home and End jump to its ends, F flips,
-  N starts a new game, Escape puts a picked-up piece back, and `?` opens the
-  full list at the top of Settings.
+  N starts a new game. Escape clears a selection or queued premove, or leaves
+  marking mode. `?` opens the full list at the top of Settings.
 
 - **Export the library as PGN**: Alongside the JSON backup, which only this app
   reads, the whole library saves as one PGN database that Lichess, chess.com,
   SCID and ChessBase all open. It round-trips: the file it writes is one the
-  database import above reads straight back.
+  database import above reads straight back. Missing result markers are added
+  to the download so unfinished headerless games stay separate; saved originals
+  keep their text. Setup-only studies also survive the roundtrip.
 - **Fetch your own games by username**: Type a Lichess or chess.com name on the
   Import tab and the last ten games — or up to fifty — arrive in the paste box,
   newest first, with no sign-in and no file to find. Both sites publish a
@@ -324,13 +396,29 @@ given, and the app answering the reader who touches it.
   themselves. A game in a variant this board does not play — Chess960 is the
   common one in a chess.com archive — is named and counted rather than reported
   as damaged.
+  A slow fetch can be canceled in place. Pasting text, choosing another file,
+  or changing the archive request keeps late replies from replacing your newer draft.
 - **Import a whole database**: Paste or open a PGN file with many games in it —
   which is what Lichess and chess.com hand you — and add the lot to the library
   in one go, each named from its own headers. A game in the file that will not
   parse is skipped and counted rather than silently dropped, and a file that
-  would overflow the library says how many were left out.
-- **Saved games**: Keep games in a library stored in IndexedDB, search them by player, event or opening, star and rename them, and export or import the whole shelf as JSON. The game in progress is auto-saved separately, so a reload offers to pick up where you left off — and for a game that was being *played*, that now includes the opponent, the side you had and the clock, stopped where it stood.
-- **PGN and FEN workflows**: Import/export annotated PGN, copy FEN/share links, and build custom FEN positions with editable pieces, side to move, castling rights, and move counters.
+  would overflow the library says how many were left out. Collections without
+  headers or Event tags work too; main-line results separate headerless games
+  and their outcomes appear in the library and its search results.
+- **Saved games**: Keep games in a library stored in IndexedDB, search them by player, event or opening (including “jose” for “José” and “lodz” for “Łódź”), star and rename them, and export or import the whole shelf as JSON. Use **Starred only** to focus on saved favorites while keeping your search and sort order. **Game date** orders recorded dates newest first; partial dates stay with their known year or month, and unknown dates come last. Down from search enters the results; Up/Down moves the same action between games, and Home/End jumps to the first/last shown game. Up from the first row returns to search; Down from the last row reaches Show more when available. Rename inline with Enter to save or Escape to cancel. A rejected save keeps the name you typed so you can retry. The game in progress is auto-saved separately, so a reload offers to pick up where you left off — and for a game that was being *played*, that now includes the opponent, the side you had and the clock, stopped where it stood.
+- **Unreadable game recovery**: If restoring an auto-saved game fails, copy or
+  download its original PGN before discarding it. Clipboard failures leave a
+  retry and download available; the saved text stays intact until you discard it.
+- **Manual copy recovery**: If clipboard access is blocked, select the whole
+  FEN or PGN with one action, then use native Copy. Selection keeps unfinished
+  position text and the current export options intact. Export text stays still
+  while focused, then shows newer analysis when you leave the field. Copy
+  confirmations track the displayed text or current share link.
+- **Promotion choices**: Choose a full named piece or press Q/R/B/N, including underpromotions for either color. The picker adapts to enlarged text and short screens, keeps keyboard focus visible, and preserves browser shortcuts and composing keystrokes.
+- **PGN and FEN workflows**: Import/export annotated PGN, copy FEN/share links, and build custom FEN positions with editable pieces, side to move, castling rights, en passant targets, and move counters. Flip the setup board to work from either player's viewpoint; coordinates and keyboard movement follow the view while the position stays intact. File and rank labels identify setup squares. Editing a position preserves its en passant capture; changing the side or removing the required pawn clears it. The palette and board each use one Tab stop. Left/Right move through tools; all four arrows move between board squares. Enter/Space selects a tool or places/erases. Home/End jumps to the first/last tool or either end of a rank.
+  Invalid starting positions are rejected without replacing the current study;
+  the import stays open for correction.
+  Declared castling rights require that side’s king and rook on their home squares.
 - **Share a game, not just a position**: `Copy Game Link` on the Export tab puts
   the whole game in the URL — the position it started from and every move — so
   opening the link replays it rather than showing where it ended up. Copied
@@ -339,6 +427,10 @@ given, and the app answering the reader who touches it.
   game is a 166-character link and a 120-ply one is under 1,200. Refused rather
   than truncated past 8,000 characters, and a link that has been edited or cut
   short plays as far as it really goes instead of being thrown away.
+  A link with a starting position and no moves opens that position in Analysis.
+  New valid links open directly even when an older recovery exists. Refreshing
+  after editing a shared study offers its latest recovery; an invalid link
+  keeps the current board and recovery available.
 - **Blindfold**: A switch in Settings hides the pieces and leaves everything
   else — the coordinates, the move list, the opening name, the clock, whose
   move it is. The pieces are drawn transparent rather than left unrendered,
@@ -368,14 +460,16 @@ given, and the app answering the reader who touches it.
   dark ones: a deuteranope keeps lightness and blue-yellow and little else,
   so on white the bad grades are a lightness ladder rather than a hue ladder.
 - **Command palette**: `Ctrl`/`Cmd`+`K` opens a searchable list of every
-  toolbar and mode action, with recently used commands first. Ported in shape
-  from web-katrain, sized for this app's twenty-odd commands. `Copy FEN`,
-  `Copy PGN`, `Open in Lichess` and `Open in chess.com` live there too, so the
-  position or the line you are looking at can leave without a trip through the
-  PGN dialog — the chess.com route takes the position, and was checked in a
-  real browser rather than believed, since nobody documents it; each
-  says what it did in a one-line notice, since a copy that finishes in silence
-  leaves you checking the clipboard.
+  toolbar and mode action, with recently used commands first. `Copy FEN`,
+  `Copy PGN`, `Copy position link` and `Copy game link` work without opening
+  the PGN dialog. Position links open the exact board, including a variation
+  or a study with no moves; game links share the main line. Copy PGN includes
+  standalone position notes. `Export PGN` opens the export options directly
+  for a download or manual copy of the game or position study.
+  `Set up position` opens the current board in the piece editor.
+  `Open in Lichess` takes the current line, while
+  `Open in chess.com` takes the current position. Copies report success or
+  explain how to copy manually when clipboard access is unavailable.
 - **Installable app metadata**: PWA manifest and app icon are configured for hosted releases.
 
 ## Technology Stack
@@ -426,6 +520,20 @@ npm run test:ui:install   # once per machine
 npm run test:ui:browser
 ```
 
+To rerun specific browser workflows after a fix, pass their names as a list:
+
+```bash
+UI_TEST_ONLY=library-editing,library-double-save,reveal-dialogs npm run test:ui:browser
+```
+
+`UI_TEST_ONLY=short-mobile` checks short responsive windows. To exercise
+Chromium's native 100%/200%/400% page zoom, use `UI_TEST_ONLY=native-zoom`.
+That optional check loads a temporary local extension in a fresh browser profile
+and removes both afterward; it verifies viewport/DPR changes, board input,
+focused corners, and a live import draft. It requires Playwright's full Chromium
+installation and writes its measurements to `/tmp/web-chess-native-browser-zoom.json`
+(override with `UI_ZOOM_OUTPUT`).
+
 `test:ui:browser` builds the app, serves it, and drives Chromium with a fake Stockfish injected in place of the
 real worker — so a review runs end to end, deterministically, in seconds and
 with no WASM. The technique is borrowed from web-xiangqi, which has had it
@@ -454,11 +562,16 @@ profiles go to `/tmp/web-chess-analysis-profile`; `BENCH_URL`, `BENCH_OUTPUT`,
 Set `BENCH_FLIP_MS=0` to isolate stationary telemetry updates, or another
 interval in milliseconds to change flip frequency. `BENCH_REDUCED_MOTION=1`
 profiles the reduced-motion preference.
+`BENCH_TRACE=scripts/fixtures/analysis-stockfish-18.json` replays recorded
+Stockfish output at its original timings. Add `BENCH_CONSOLE=1` to profile
+Engine Lab publication into a full 300-line buffer; results include output
+publication counts and require every recorded line and the final depth.
 It measures main-thread UI work with a simulated engine, not Stockfish speed
 or field INP. Hold `dist/` fixed while profiling or running browser tests.
 
-Analysis also supports keyboard move entry: open **Enter a move by name** and
-type SAN (`Nf3`) or UCI (`g1f3`). Independent single-thread engines can now pool
+Play and Analysis support keyboard move entry: open **Enter a move by name** and
+type SAN (`Nf3`) or UCI (`g1f3`). Clear lowercase piece moves such as `nf3`
+and `bc4` work too; `b4` and `bxc3` remain pawn moves. Independent single-thread engines can now pool
 long desktop reviews; the latest audit records the measured speedup and limits.
 
 `npm run audit` uses `--audit-level=moderate`, matching the sibling apps. A bare

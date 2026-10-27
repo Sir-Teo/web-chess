@@ -1,0 +1,26 @@
+  post-variation notes (1280×900, 1x): import accepts notes/NAGs after sibling and nested variations; nine moves retained; main/inner/alternative note ownership and quoted header survive export/reimport
+  post-variation notes (375×812, 1x): import accepts notes/NAGs after sibling and nested variations; nine moves retained; main/inner/alternative note ownership and quoted header survive export/reimport
+  post-variation notes (320×812, 2x): import accepts notes/NAGs after sibling and nested variations; nine moves retained; main/inner/alternative note ownership and quoted header survive export/reimport
+  post-variation notes (844×390, 2x): import accepts notes/NAGs after sibling and nested variations; nine moves retained; main/inner/alternative note ownership and quoted header survive export/reimport
+  empty library focus (1280×900, 1x, dark): keyboard and pointer delete the last game with/without starred filter; visible Done focus, contained Tab and opener return
+  empty library focus (375×812, 1x, light): keyboard and pointer delete the last game with/without starred filter; visible Done focus, contained Tab and opener return
+  empty library focus (320×812, 2x, light): keyboard and pointer delete the last game with/without starred filter; visible Done focus, contained Tab and opener return
+  empty library focus (844×390, 2x, dark): keyboard and pointer delete the last game with/without starred filter; visible Done focus, contained Tab and opener return
+  recovery: reload restores moves; incidental dismissals preserve valid/failed snapshots; explicit discard clears them
+  failed recovery (1280×812, 1x, dark, missing clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (1280×812, 1x, dark, denied clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (1280×812, 1x, dark, throw clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (1280×812, 1x, dark, deferred clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (375×812, 1x, light, missing clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (375×812, 1x, light, denied clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (375×812, 1x, light, throw clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (375×812, 1x, light, deferred clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (320×812, 2x, light, missing clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (320×812, 2x, light, denied clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (320×812, 2x, light, throw clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (320×812, 2x, light, deferred clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (844×390, 2x, dark, missing clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (844×390, 2x, dark, denied clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (844×390, 2x, dark, throw clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (844×390, 2x, dark, deferred clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  export: a game comes back byte for byte, and its report with it (116/116, 117 points)

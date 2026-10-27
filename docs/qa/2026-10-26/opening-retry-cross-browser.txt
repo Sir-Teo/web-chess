@@ -1,0 +1,4 @@
+  opening retry (1280px, 1x): token gate, repeated failures, one pending request, stale source ignored, retained filters/board/focus, recovery
+  opening retry (375px, 2x): token gate, repeated failures, one pending request, stale source ignored, retained filters/board/focus, recovery
+  opening retry (1280px, 1x): token gate, repeated failures, one pending request, stale source ignored, retained filters/board/focus, recovery
+  opening retry (375px, 2x): token gate, repeated failures, one pending request, stale source ignored, retained filters/board/focus, recovery

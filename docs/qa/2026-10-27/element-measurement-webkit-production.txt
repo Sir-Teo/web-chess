@@ -1,0 +1,9 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  responsive gesture (1280px, click): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+  responsive gesture (1280px, outside): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+  responsive gesture (1280px, cancel): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+  responsive gesture (1280px, blur): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+  responsive gesture (901px, click): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+  responsive gesture (901px, outside): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+  responsive gesture (901px, cancel): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+  responsive gesture (901px, blur): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus

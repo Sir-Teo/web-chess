@@ -1,0 +1,12 @@
+stockfish npm 18.0.7 registry gitHead: 32d4b5ae40c01db88219bfbe2b82dbe6dec93832
+https://raw.githubusercontent.com/nmrugg/stockfish.js/32d4b5ae40c01db88219bfbe2b82dbe6dec93832/src/search.cpp
+
+222: #ifndef __EMSCRIPTEN__
+223:     // When we reach the maximum depth, we can arrive here without a raise of
+224:     // threads.stop. However, if we are pondering or in an infinite search,
+225:     // the UCI protocol states that we shouldn't print the best move before the
+226:     // GUI sends a "stop" or "ponderhit" command. We therefore simply wait here
+227:     // until the GUI sends one of those commands.
+228:     while (!threads.stop && (main_manager()->ponder || limits.infinite))
+229:     {}  // Busy wait for a stop or a ponder reset
+230: #endif

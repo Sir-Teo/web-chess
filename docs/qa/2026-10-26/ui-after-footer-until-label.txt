@@ -1,0 +1,29 @@
+  reading space (1280px): 100% → 200% → 100% text without window resize preserves all ranks, visible keyboard focus and opening navigation; enlarged desktop header scrolls away
+  reading space (375px): 100% → 200% → 100% text without window resize preserves all ranks, visible keyboard focus and opening navigation; enlarged desktop header scrolls away
+  opening layout (1280px): source controls stay inside the card; token/rating labels do not overlap their editable controls at 100% and 200% text
+  opening layout (375px): source controls stay inside the card; token/rating labels do not overlap their editable controls at 100% and 200% text
+  opening layout (320px): source controls stay inside the card; token/rating labels do not overlap their editable controls at 100% and 200% text
+  opening explorer: counts cleared on the move and came back as "Position ply 1"
+  tablebase: asked about the position on the board, reported "3 pieces · Win · DTM 21 · DTZ 11"
+  board canvas (1280px): changed arrow colors/moves, orientation, e2-e4, navigation and a new d2-d4 branch stay current
+  board canvas (375px): changed arrow colors/moves, orientation, e2-e4, navigation and a new d2-d4 branch stay current
+  graph guide (1280px, pro, dark, 1× text): available in Review, keyboard disclosure, readable layout and 44px references
+  graph guide (1280px, beginner, light, 2× text): available in Review, keyboard disclosure, readable layout and 44px references
+  graph guide (375px, pro, light, 1× text): available in Review, keyboard disclosure, readable layout and 44px references
+  graph guide (375px, beginner, dark, 2× text): available in Review, keyboard disclosure, readable layout and 44px references
+  review: the row reads "2 costly moves" for 1 inaccuracies, 1 mistakes and 0 blunders
+  database: 560 games, 500 kept, the other 60 never parsed (2072ms, and the button said "Adding…" first)
+  import box: 12 KB shown, 667 KB described ("2,200 games · 667 KB · too much to show here."), Clear gives the box back
+  drop: a .pgn on the board opens the import dialog holding it (339 characters), app still there
+  back: closes the sheet and keeps the board; one more Back still leaves
+  promotion: every choice clears 44px at five sizes, and is painted where it is pressed
+  notice: the longest message fits 320px and is drawn in front of the bar it lands on
+  layers: nothing the app draws is buried, across five states and three sizes
+  focus: every control shows it, and the board ring clears 3:1 on all five schemes
+Completed checks: checkReadingSpace, checkOpeningLayout, checkOpeningNumbersBelongToTheirPosition, checkTheTablebaseAnswersForThisPosition, checkBoardCanvas, checkGraphEstimateGuide, checkTheReviewCardNamesItsSet, checkAFullLibraryStopsReadingTheFile, checkABigFileIsDescribedNotShown, checkADroppedPgnIsTaken, checkBackClosesTheSheet, checkThePromotionChooserCanBeHit, checkANoticeIsSeenAndFits, checkNothingIsDrawnBehindSomethingElse, checkFocusCanBeSeen
+Error: on the PGN dialog, FEN, voice control cannot reach: reads "flip board" but is named "Flip setup board"
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:33:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:37:19)
+    at surface (/workspace/web-chess/scripts/test-ui-browser.cjs:10621:7)
+    at async Object.checkEveryControlAnswersToWhatItSays (/workspace/web-chess/scripts/test-ui-browser.cjs:10638:18)
+    at async main (/tmp/web-chess-browser-remaining.cjs:8:158)

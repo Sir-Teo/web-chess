@@ -1,31 +1,43 @@
-import { useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useDisarmAfter } from '../hooks/useDisarmAfter'
 import type { GameNode } from '../hooks/useGameTree'
 import { evaluationEngineLabel } from '../engine/evaluationSource'
-import { createSavedReview, reviewLineKey, type SavedReview, type SavedReviewSummary } from '../engine/savedReviews'
-import { deleteSavedReview, listSavedReviews, loadSavedReview, saveReview } from '../engine/savedReviewStorage'
+import { createSavedReview, filterSavedReviewSummaries, reviewLineKey, type SavedReview, type SavedReviewSummary } from '../engine/savedReviews'
+import { deleteSavedReview, listSavedReviews, loadSavedReview, renameSavedReview, saveReview } from '../engine/savedReviewStorage'
 import type { ReviewSnapshot } from '../engine/reviewSession'
 import { ReviewComparison } from './ReviewComparison'
+import { SavedReviewNameEditor } from './SavedReviewNameEditor'
 import { exportReviewBackup, importReviewBackup } from '../engine/reviewBackupClient'
+import { formatLocalDate } from '../engine/localDate'
+import { MAX_SEARCH_QUERY_LENGTH } from '../engine/searchTerms'
+import { isCompositionKey, isPlainShortcut } from './shortcutKeys'
 import './SavedReviews.css'
 
 type Props = {
   line: GameNode[]
   report: ReviewSnapshot | null
   headers: Record<string, string>
+  openingName?: string
   qualities: Array<GameNode['quality']>
   busy: boolean
   onOpen: (saved: SavedReview) => void
   onNavigate: (node: GameNode) => void
 }
 
+type ActionFocus = { trigger: HTMLButtonElement; destination: 'trigger' | 'remaining' | 'comparison' }
+
 function failure(error: unknown, action: string): string {
   if (error instanceof Error && error.name === 'Error') return error.message
   return `The browser could not ${action}. Export the current review before closing this tab.`
 }
 
-export function SavedReviews({ line, report, headers, qualities, busy, onOpen, onNavigate }: Props) {
+export function SavedReviews({ line, report, headers, openingName, qualities, busy, onOpen, onNavigate }: Props) {
   const [runs, setRuns] = useState<SavedReviewSummary[]>([])
   const [selectedId, setSelectedId] = useState('')
+  const [query, setQuery] = useState('')
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null)
+  const disarmDelete = useCallback(() => setConfirmingDelete(null), [])
+  useDisarmAfter(confirmingDelete !== null, disarmDelete)
   const [loaded, setLoaded] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [working, setWorking] = useState(false)
@@ -57,16 +69,40 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
   const [comparison, setComparison] = useState<{ report: ReviewSnapshot; saved: SavedReview } | null>(null)
   const loadingVersion = useRef(0)
   const details = useRef<HTMLDetailsElement>(null)
+  const summary = useRef<HTMLElement>(null)
+  const choice = useRef<HTMLSelectElement>(null)
+  const search = useRef<HTMLInputElement>(null)
+  const compareTrigger = useRef<HTMLButtonElement>(null)
+  const actionFocus = useRef<ActionFocus | null>(null)
+
+  useLayoutEffect(() => {
+    if (working || !actionFocus.current) return
+    const request = actionFocus.current
+    actionFocus.current = null
+    // Disabling or removing the button can leave focus on the document.
+    // Preserve any new destination chosen while the storage write was pending.
+    if (document.activeElement !== document.body && document.activeElement !== request.trigger) return
+    const target = request.destination === 'remaining'
+      ? (details.current?.open ? (choice.current?.disabled ? search.current : choice.current) ?? summary.current : summary.current)
+      : request.destination === 'comparison'
+        ? details.current?.querySelector<HTMLElement>('.review-comparison h4') ?? request.trigger
+        : request.trigger
+    target?.focus()
+  }, [working])
   const backupInput = useRef<HTMLInputElement>(null)
-  const selected = runs.find(run => run.id === selectedId)
+  const visibleRuns = filterSavedReviewSummaries(runs, query)
+  const selected = visibleRuns.find(run => run.id === selectedId) ?? visibleRuns[0]
+  const visibleSelectedId = selected?.id ?? ''
   const sameLine = selected?.lineKey === reviewLineKey(line)
 
   async function refresh(preferredId?: string) {
+    disarmDelete()
     const version = ++loadingVersion.current
     try {
       const next = await listSavedReviews()
       if (version !== loadingVersion.current) return
       setRuns(next)
+      if (preferredId) setQuery('')
       setLoaded(true)
       setLoadFailed(false)
       setSelectedId(previous => next.some(run => run.id === (preferredId ?? previous)) ? (preferredId ?? previous) : next[0]?.id ?? '')
@@ -78,12 +114,19 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
     }
   }
 
+  function changeQuery(value: string) {
+    disarmDelete()
+    setQuery(value)
+    const matches = filterSavedReviewSummaries(runs, value)
+    setSelectedId(previous => !matches.length || matches.some(run => run.id === previous) ? previous : matches[0].id)
+  }
+
   async function save() {
     if (!report || busy || workingRef.current) return
     if (!beginWork()) return
     setNotice('Saving review…')
     try {
-      const saved = createSavedReview(line, report, headers, qualities)
+      const saved = createSavedReview(line, report, headers, qualities, undefined, openingName)
       await saveReview(saved)
       setLastSavedReport(report)
       setNotice('Review saved on this device. Export a review backup to keep a complete separate copy.')
@@ -104,11 +147,15 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
     finally { endWork() }
   }
 
-  async function remove() {
+  async function remove(trigger: HTMLButtonElement) {
     if (!selected || workingRef.current) return
     if (!beginWork()) return
+    trigger.focus({ preventScroll: true })
+    const focusRequest: ActionFocus = { trigger, destination: 'trigger' }
+    actionFocus.current = focusRequest
     try {
       await deleteSavedReview(selected.id)
+      focusRequest.destination = 'remaining'
       setLastSavedReport(null)
       setNotice('Saved copy deleted. The review currently on screen is still available.')
       await refresh()
@@ -116,11 +163,27 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
     finally { endWork() }
   }
 
-  async function compare() {
+  async function rename(title: string): Promise<string | null> {
+    if (!selected || busy || workingRef.current || !beginWork()) return 'Wait for the current operation to finish, then try again.'
+    try {
+      await renameSavedReview(selected.id, title)
+      setNotice('Saved review renamed.')
+      await refresh(selected.id)
+      return null
+    } catch (error) {
+      return failure(error, 'rename this saved review')
+    } finally { endWork() }
+  }
+
+  async function compare(trigger: HTMLButtonElement) {
     if (!selected || !report || !sameLine || busy || workingRef.current) return
     if (!beginWork()) return
+    trigger.focus({ preventScroll: true })
+    const focusRequest: ActionFocus = { trigger, destination: 'trigger' }
+    actionFocus.current = focusRequest
     try {
       const saved = await loadSavedReview(selected.id)
+      focusRequest.destination = 'comparison'
       setComparison({ saved, report })
       setNotice('Comparison opened below. The current report is unchanged.')
     } catch (error) { setNotice(failure(error, 'compare this review')) }
@@ -137,7 +200,7 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
       const link = document.createElement('a')
       try {
         link.href = url
-        link.download = `web-chess-reviews-${new Date().toISOString().slice(0, 10)}.json`
+        link.download = `web-chess-reviews-${formatLocalDate()}.json`
         document.body.append(link)
         link.click()
       } finally {
@@ -174,18 +237,30 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
         </button>
       </div>
       {notice && <p className="panel-copy small saved-review-notice" role="status">{notice}</p>}
-      <details ref={details} onToggle={event => { if (event.currentTarget.open) void refresh() }}>
-        <summary>Saved reviews{loaded ? ` (${runs.length})` : ''}</summary>
+      <details ref={details} onToggle={event => { disarmDelete(); if (event.currentTarget.open) void refresh() }}>
+        <summary ref={summary}>Saved reviews{loaded ? ` (${runs.length})` : ''}</summary>
         <div className="saved-reviews-content">
           {loadFailed ? <div className="review-report-actions">
             <button type="button" onClick={() => { setNotice(''); void refresh() }}>Retry saved reviews</button>
           </div> : !loaded ? <p className="panel-copy">Loading saved reviews…</p> : runs.length === 0
             ? <p className="panel-copy">No saved reviews yet. Finish a review, then choose Save review.</p>
             : <>
+              <label htmlFor="saved-review-search">Search saved reviews</label>
+              <input ref={search} id="saved-review-search" type="search" value={query} maxLength={MAX_SEARCH_QUERY_LENGTH}
+                placeholder="Name, engine, depth or complete/partial" disabled={working}
+                aria-controls="saved-review-choice" aria-describedby="saved-review-search-count"
+                onChange={event => changeQuery(event.target.value)} />
+              <p id="saved-review-search-count" className="panel-copy small" role="status">
+                {visibleRuns.length ? `${visibleRuns.length} of ${runs.length} saved reviews` : 'No saved reviews match your search.'}
+              </p>
+              {query && <div className="review-report-actions">
+                <button type="button" disabled={working} onClick={() => { changeQuery(''); search.current?.focus() }}>Clear search</button>
+              </div>}
               <label htmlFor="saved-review-choice">Choose a saved review</label>
-              <select id="saved-review-choice" value={selectedId} disabled={working} onChange={event => setSelectedId(event.target.value)}>
-                {runs.map(run => <option key={run.id} value={run.id}>
-                  {run.settings.engine.name} · D{run.settings.depth} · {run.title} · {new Date(run.finishedAt).toLocaleString()}{run.complete ? '' : ' · Partial'}
+              <select ref={choice} id="saved-review-choice" value={visibleSelectedId} disabled={working || !visibleRuns.length} onChange={event => { disarmDelete(); setSelectedId(event.target.value) }}>
+                {!visibleRuns.length && <option value="">No matching reviews</option>}
+                {visibleRuns.map(run => <option key={run.id} value={run.id}>
+                  {run.title} · {run.settings.engine.name} · D{run.settings.depth} · {new Date(run.finishedAt).toLocaleString()}{run.complete ? '' : ' · Partial'}
                 </option>)}
               </select>
               {selected && <>
@@ -197,19 +272,36 @@ export function SavedReviews({ line, report, headers, qualities, busy, onOpen, o
                   {selected.complete ? 'Complete' : 'Partial'} · {selected.evaluated}/{selected.total} positions · {selected.reused} reused
                 </p>
                 {!sameLine && <p className="panel-copy small">Opening replaces the board with this saved line. Other variations are not included.</p>}
+                <SavedReviewNameEditor key={selected.id} title={selected.title} disabled={busy || working} onRename={rename} />
                 <div className="review-report-actions">
                   <button type="button" disabled={busy || working} onClick={() => { void open() }}>
                     {sameLine ? 'Use saved review' : 'Open reviewed line'}
                   </button>
-                  <button type="button" disabled={working} onClick={() => { void remove() }}>Delete saved review</button>
-                  <button type="button" disabled={busy || working || !report || !sameLine} onClick={() => { void compare() }}
+                  <button type="button" disabled={working}
+                    aria-label={confirmingDelete === selected.id ? `Confirm delete: ${selected.title}` : undefined}
+                    title={confirmingDelete === selected.id ? 'Press again within 4 seconds to delete this saved copy. Escape cancels.' : undefined}
+                    onBlur={disarmDelete}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter' && event.repeat) { event.preventDefault(); return }
+                      if (confirmingDelete !== selected.id || event.key !== 'Escape'
+                        || isCompositionKey(event.nativeEvent) || !isPlainShortcut(event.nativeEvent)) return
+                      event.preventDefault()
+                      event.stopPropagation()
+                      disarmDelete()
+                    }}
+                    onClick={event => {
+                      if (confirmingDelete !== selected.id) { setConfirmingDelete(selected.id); return }
+                      disarmDelete()
+                      void remove(event.currentTarget)
+                    }}>{confirmingDelete === selected.id ? 'Confirm delete' : 'Delete saved review'}</button>
+                  <button ref={compareTrigger} type="button" disabled={busy || working || !report || !sameLine} onClick={event => { void compare(event.currentTarget) }}
                     title={sameLine && report ? 'Compare position readings with the report currently open.' : 'Open or review this same line first.'}>
                     Compare with open review
                   </button>
                 </div>
-                {comparison && comparison.report === report && comparison.saved.id === selectedId && sameLine && !busy && (
+                {comparison && comparison.report === report && comparison.saved.id === visibleSelectedId && sameLine && !busy && (
                   <ReviewComparison key={`${comparison.saved.id}:${report.finishedAt}`} line={line} report={report}
-                    saved={comparison.saved} onNavigate={onNavigate} onClose={() => setComparison(null)} />
+                    saved={comparison.saved} onNavigate={onNavigate} onClose={() => { setComparison(null); compareTrigger.current?.focus() }} />
                 )}
               </>}
             </>}

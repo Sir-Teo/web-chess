@@ -1,0 +1,61 @@
+{
+  "enginePackage": "stockfish@18.0.7",
+  "engineFlavor": "Lite Single WASM in Chromium",
+  "nativeSourceRef": "32d4b5ae40c01db88219bfbe2b82dbe6dec93832",
+  "sourceUrls": [
+    "https://github.com/nmrugg/stockfish.js/blob/32d4b5ae40c01db88219bfbe2b82dbe6dec93832/src/uci.cpp#L214",
+    "https://github.com/nmrugg/stockfish.js/blob/32d4b5ae40c01db88219bfbe2b82dbe6dec93832/src/search.h#L114"
+  ],
+  "note": "Raw native-worker probes before app validation changes. Each starts from startpos after ucinewgame and readiness acknowledgement. Stop is sent at 300ms when the search has not completed. Timings and achieved depths are diagnostic observations, not performance benchmarks or deadlines.",
+  "results": [
+    {
+      "go": "go depth 1",
+      "forcedStop": false,
+      "durationMs": 7,
+      "maxDepth": 1,
+      "last": "bestmove d2d4"
+    },
+    {
+      "go": "go DEPTH 1",
+      "forcedStop": true,
+      "durationMs": 327,
+      "maxDepth": 15,
+      "last": "bestmove e2e4 ponder e7e5"
+    },
+    {
+      "go": "go depth 0x10",
+      "forcedStop": true,
+      "durationMs": 326,
+      "maxDepth": 19,
+      "last": "bestmove e2e4 ponder e7e5"
+    },
+    {
+      "go": "go depth .5",
+      "forcedStop": true,
+      "durationMs": 324,
+      "maxDepth": 19,
+      "last": "bestmove e2e4 ponder e7e5"
+    },
+    {
+      "go": "go nodes 0b10",
+      "forcedStop": true,
+      "durationMs": 319,
+      "maxDepth": 19,
+      "last": "bestmove e2e4 ponder e7e5"
+    },
+    {
+      "go": "go depth 1 depth 0",
+      "forcedStop": true,
+      "durationMs": 324,
+      "maxDepth": 19,
+      "last": "bestmove e2e4 ponder e7e5"
+    },
+    {
+      "go": "go depth nope movetime 20",
+      "forcedStop": true,
+      "durationMs": 320,
+      "maxDepth": 19,
+      "last": "bestmove e2e4 ponder e7e5"
+    }
+  ]
+}

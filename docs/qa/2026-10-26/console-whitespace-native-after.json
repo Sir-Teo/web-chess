@@ -1,0 +1,36 @@
+{
+  "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.7922.34 Safari/537.36",
+  "engine": "id name Stockfish 18 Lite WASM",
+  "checks": [
+    {
+      "command": "go depth 1",
+      "dispatched": "go depth 1",
+      "block": null,
+      "safety": null,
+      "completedBeforeStop": true,
+      "maxDepth": 1,
+      "bestmove": "bestmove d2d4",
+      "ms": 7
+    },
+    {
+      "command": "go\tdepth\t1",
+      "dispatched": "go depth 1",
+      "block": null,
+      "safety": null,
+      "completedBeforeStop": true,
+      "maxDepth": 1,
+      "bestmove": "bestmove d2d4",
+      "ms": 7
+    },
+    {
+      "command": "go depth 1",
+      "dispatched": "go depth 1",
+      "block": null,
+      "safety": null,
+      "completedBeforeStop": true,
+      "maxDepth": 1,
+      "bestmove": "bestmove d2d4",
+      "ms": 1
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/pgn.test.ts (98 tests | 3 failed | 95 skipped) 13ms
+     × preserves annotation-looking text inside PGN headers 10ms
+     × protects inline headers while still reordering actual move annotations 1ms
+     × keeps brackets and escaped quotes within a header value 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > preserves annotation-looking text inside PGN headers
+AssertionError: expected '[Event "Club $1 {first} Final"]\n[Sit…' to be '[Event "Club {first} $1 Final"]\n[Sit…' // Object.is equality
+
+- Expected
++ Received
+
+- [Event "Club {first} $1 Final"]
++ [Event "Club $1 {first} Final"]
+- [Site "Room } { North"]
++ [Site "Room   North"]
+
+  1. e4 *
+
+ ❯ src/engine/pgn.test.ts:1207:45
+    1205|     it('preserves annotation-looking text inside PGN headers', () => {
+    1206|         const text = '[Event "Club {first} $1 Final"]\n[Site "Room } {…
+    1207|         expect(reorderPgnAnnotations(text)).toBe(text)
+       |                                             ^
+    1208|         expect(parsePgnMoveTree(text).headers).toMatchObject({
+    1209|             Event: 'Club {first} $1 Final', Site: 'Room } { North',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > protects inline headers while still reordering actual move annotations
+AssertionError: expected '[Event "Club $1 {first} Final"] [Site…' to be '[Event "Club {first} $1 Final"] [Site…' // Object.is equality
+
+- Expected
++ Received
+
+- [Event "Club {first} $1 Final"] [Site "Room } { North"]
++ [Event "Club $1 {first} Final"] [Site "Room } $1 { North"]
+
+- 1. e4 $1 {note} e5 *
++ 1. e4 {note} e5 *
+
+ ❯ src/engine/pgn.test.ts:1216:45
+    1214|         const header = '[Event "Club {first} $1 Final"] [Site "Room } …
+    1215|         const text = `${header}\n\n1. e4 {note} $1 e5 *`
+    1216|         expect(reorderPgnAnnotations(text)).toBe(`${header}\n\n1. e4 $…
+       |                                             ^
+    1217|         expect(parsePgnMoveTree(text).headers).toMatchObject({
+    1218|             Event: 'Club {first} $1 Final', Site: 'Room } { North',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > keeps brackets and escaped quotes within a header value
+AssertionError: expected '[Event "Club \"[Final]\" $1 {first}"]…' to be '[Event "Club \"[Final]\" {first} $1"]…' // Object.is equality
+
+- Expected
++ Received
+
+- [Event "Club \"[Final]\" {first} $1"]
++ [Event "Club \"[Final]\" $1 {first}"]
+
+  1. e4 $1 {note} e5 *
+
+ ❯ src/engine/pgn.test.ts:1225:14
+    1223|         const header = '[Event "Club \\"[Final]\\" {first} $1"]'
+    1224|         expect(reorderPgnAnnotations(`${header}\n\n1. e4 {note} $1 e5 …
+    1225|             .toBe(`${header}\n\n1. e4 $1 {note} e5 *`)
+       |              ^
+    1226|     })
+    1227| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 95 skipped (98)
+   Start at  01:29:25
+   Duration  394ms (transform 204ms, setup 0ms, import 251ms, tests 13ms, environment 0ms)
+

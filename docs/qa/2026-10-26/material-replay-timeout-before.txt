@@ -1,0 +1,43 @@
+
+> web-chess@1.0.0 verify
+> npm run typecheck && npm run lint && npm test && npm run build
+
+
+> web-chess@1.0.0 typecheck
+> tsc -b
+
+
+> web-chess@1.0.0 lint
+> eslint .
+
+
+> web-chess@1.0.0 test
+> vitest run
+
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/gameInvariants.test.ts (9 tests | 1 failed) 24250ms
+     × agrees with a count taken from the parsed board instead of the FEN 6142ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/gameInvariants.test.ts > materialBalance > agrees with a count taken from the parsed board instead of the FEN
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/engine/gameInvariants.test.ts:156:3
+    154|
+    155| describe('materialBalance', () => {
+    156|   it('agrees with a count taken from the parsed board instead of the F…
+       |   ^
+    157|     for (const played of walks) {
+    158|       const replay = new Chess()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 122 passed (123)
+      Tests  1 failed | 1845 passed | 1 skipped (1847)
+   Start at  14:20:35
+   Duration  67.47s (transform 5.41s, setup 0ms, import 54.82s, tests 100.48s, environment 14ms)
+

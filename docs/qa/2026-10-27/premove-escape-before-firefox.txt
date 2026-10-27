@@ -1,0 +1,7 @@
+Error: Escape left the queued premove active
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkAPremoveWaitsForItsTurn (/workspace/web-chess/scripts/test-ui-browser.cjs:6507:7)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:502:9)
+    at async /tmp/web-chess-controlled-premove-check.cjs:10:9

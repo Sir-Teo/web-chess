@@ -1,0 +1,52 @@
+  names: 888 controls over nine surfaces, every one named and every name keeping its own printed word
+  big text: nothing loses a word at 200%, on the desktop layout or a phone, board or dialog
+  archive: an unusable username says so once the field is left, and stops when it is fixed
+  archive fetch: Lichess brought back 2 games in one request, chess.com 3 across two
+  historical library: 10 games offered, 116 moves loaded from the first
+  failed lookups: ten failures across five services, each a finished sentence and none still loading
+  backup: 8 games out and back byte for byte, twice over without doubling
+  library backup limits: oversized files rejected before reading; oversized text preserves the library; an app-exported UTF-8 backup above 8 MB round-trips exactly
+  library: three clicks saved one copy, a named copy and a further move both saved again
+  library (1280px): rejected save preserves its name; inline rename selects, cancels, commits and persists
+  library (375px): rejected save preserves its name; inline rename selects, cancels, commits and persists
+  import (1280px): newer drafts win over old fetches and file reads; fetch cancellation keeps the draft
+  import (375px): newer drafts win over old fetches and file reads; fetch cancellation keeps the draft
+  position setup (1280px): d6 survives a counter edit, can be cleared/restored, and allows a real en passant capture
+  position setup (375px): e3 survives a counter edit, can be cleared/restored, and allows a real en passant capture
+  setup keyboard (1280px, 1x text): palette/board each use one Tab stop; arrow/Home/End navigation, keyboard tool selection, placement and erasure load a real position
+  setup keyboard (375px, 1x text): palette/board each use one Tab stop; arrow/Home/End navigation, keyboard tool selection, placement and erasure load a real position
+  setup keyboard (320px, 2x text): palette/board each use one Tab stop; arrow/Home/End navigation, keyboard tool selection, placement and erasure load a real position
+  setup orientation (1280px, 1x): view-only flip, reversed coordinates/arrows/Home/End, keyboard and pointer placement, and unchanged FEN loading
+  setup orientation (375px, 1x): view-only flip, reversed coordinates/arrows/Home/End, keyboard and pointer placement, and unchanged FEN loading
+  setup orientation (320px, 2x): view-only flip, reversed coordinates/arrows/Home/End, keyboard and pointer placement, and unchanged FEN loading
+  FEN copy (1280px, 1x): edited/unfinished drafts copy intact, denial preserves work, blank drafts are disabled, and old replies cannot relabel new edits
+  FEN copy (375px, 2x): edited/unfinished drafts copy intact, denial preserves work, blank drafts are disabled, and old replies cannot relabel new edits
+  text composition: Enter/Escape and legacy 229 preserve Commands, archive and rename drafts; ordinary keys still work
+  reveal timers: dialogs retain focused drafts through delayed board/analysis callbacks; closing keeps opener focus
+  reveal interaction: held board retries cannot move Fresh review during a click; the requested review completes
+  review list (1280px, 1x): selected moves follow buttons/keys, root resets, outer scroll/focus stays put, and new readings preserve manual scrolling
+  review list (1280px, 2x): selected moves follow buttons/keys, root resets, outer scroll/focus stays put, and new readings preserve manual scrolling
+  review list (375px, 1x): selected moves follow buttons/keys, root resets, outer scroll/focus stays put, and new readings preserve manual scrolling
+  review list (375px, 2x): selected moves follow buttons/keys, root resets, outer scroll/focus stays put, and new readings preserve manual scrolling
+  dialog resizing (1x text): PGN, Commands and library drafts retain focus and stay visible through short-phone and landscape viewports
+  dialog resizing (2x text): PGN, Commands and library drafts retain focus and stay visible through short-phone and landscape viewports
+  database import: 4 games in the file, three presses, 4 in the library
+  export: a game comes back byte for byte, and its report with it (116/116, 117 points)
+  recovery: reload restores moves; incidental dismissals preserve valid/failed snapshots; explicit discard clears them
+  library: a game with side lines saved and loaded back byte for byte (291 characters)
+  share: both links arrive on the position they were copied from (140 characters)
+  settings: three changes survive a reload, and the board comes back wearing them
+  settings: a browser that will not keep them says so, and one that will stays quiet
+  high contrast: the board keeps its squares and the evaluation bar its halves
+  dialog actions: every button on screen at 320px, on all three tabs
+  visibility: a finite search is left to finish; an infinite one stops once and resumes
+  analysis cache: returning to a position reuses its completed search
+  opening table: not fetched at boot, fetched once a move needs naming
+  cache ownership: sibling apps preserved; obsolete chess caches removed
+  headerless host: service worker restored cross-origin isolation
+  warm reload: 4 cached build assets, zero network requests for them
+  deploy: a saved chunk survives removal; a new hash and the document still reach the network
+  range request: served 206, cache holds nothing
+  server outage: cached app stays playable and isolated; cache misses and permission errors stay visible
+  offline: app rendered from cache, still isolated
+Remaining production browser checks passed: 33

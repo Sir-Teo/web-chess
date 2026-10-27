@@ -1,0 +1,11 @@
+Copy a standalone position study through Commands — 27 October 2026
+
+Baseline production 40748b4: the extended position-notes workflow fails with Copy PGN is disabled for a valid standalone position study. An untouched standard board remains disabled; after importing/editing the custom FEN study, both the palette button and run callback previously rejected its zero-move tree.
+
+Repair: allow the same isPositionStudy condition already used by Library and recovery, and describe copying the starting position and its notes. Keep the normal whole-game description after actual moves.
+
+Extended existing native alias position-notes, four layouts per browser: 1280x900 dark, 375x812 light, 320x812 dark with 200% root text, 844x390 light with 200% root text. Capture Clipboard API writes, require the enabled command to close/return focus and announce PGN copied, inspect SetUp/FEN/Unicode note, independently parse zero moves and the exact FEN with chess.js, then actually reimport the copied text. Continue existing Library/reload recovery, separate root/move notes, PGN export/reimport, clearing/leading spaces and real-move autosave checks. All twelve Chromium/Firefox/Linux WebKit production layouts pass. Root text enlargement is not native zoom; WebKit is not physical iOS.
+
+Related checkCommandCopyFailures passes Chromium desktop and 200% phone: missing API/method, inaccessible getter, synchronous exception, rejected promise, success, old rejection/success after newer copies, exact Unicode PGN/FEN and an actually replayed game link.
+
+Verification command: npm run typecheck && npm run lint && npm test && npm run build -- --outDir /tmp/web-chess-autosave-lifecycle-dist. All checks pass, including 2,018 tests and one existing intentional skip. Preview on 4337 uses the isolated candidate build; the concurrent broad baseline remains 5de3973 in the repository default dist.

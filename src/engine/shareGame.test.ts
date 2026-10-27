@@ -13,6 +13,52 @@ const START = new Chess().fen()
 const HREF = 'https://example.test/web-chess/'
 const SICILIAN = ['e2e4', 'c7c5', 'g1f3', 'd7d6', 'd2d4', 'c5d4', 'f3d4', 'g8f6']
 
+describe('shared starting-position legality', () => {
+  it.each([
+    ['4k3/8/8/4P3/8/8/8/4K3 w - d6 0 12', 'e1d1'],
+    ['4k3/8/8/8/4p3/8/8/4K3 b - d3 0 12', 'e8d8'],
+  ])('rejects a dangling en passant target before a quiet move invents a pawn: %s', (fen, move) => {
+    expect(decodeSharedGame(encodeSharedGame(fen, [move]))).toBeNull()
+  })
+  it.each([
+    ['adjacent kings', '8/8/8/8/8/8/4k3/4K3 w - - 0 1', 'e1e2'],
+    ['Black already checked on White’s turn', '4k3/8/8/8/8/8/4R3/4K3 w - - 0 1', 'e2e8'],
+    ['White already checked on Black’s turn', 'k3r3/8/8/8/8/8/8/4K3 b - - 0 1', 'e8e1'],
+  ])('rejects %s before replay can capture a king', (_, fen, capture) => {
+    expect(decodeSharedGame(encodeSharedGame(fen, []))).toBeNull()
+    expect(decodeSharedGame(encodeSharedGame(fen, [capture]))).toBeNull()
+  })
+
+  it.each([
+    ['k3r3/8/8/8/8/8/8/4K3 w - - 0 1', 'e1d1'],
+    ['4k3/8/8/8/8/8/8/K3R3 b - - 0 1', 'e8d8'],
+  ])('still reads a legal check and escape: %s', (fen, escape) => {
+    const parsed = decodeSharedGame(encodeSharedGame(fen, [escape]))
+    expect(parsed).not.toBeNull()
+    expect(replaySharedGame(parsed!).map(entry => entry.move.san)).toEqual([escape === 'e1d1' ? 'Kd1' : 'Kd8'])
+  })
+})
+
+describe('shared starting-position counter precision', () => {
+  const position = '7k/8/8/8/8/8/7P/K7 w - -'
+
+  it.each(['1junk', '1.5', '1e3', '+1', '9007199254740993', '1000000000000000000000'])(
+    'refuses a counter before decoding can normalize it: %s', counter => {
+      expect(decodeSharedGame(encodeSharedGame(`${position} ${counter} 1`, []))).toBeNull()
+      expect(decodeSharedGame(encodeSharedGame(`${position} 0 ${counter}`, []))).toBeNull()
+    },
+  )
+
+  it('normalizes leading zeros without changing valid counter values', () => {
+    expect(decodeSharedGame(encodeSharedGame(`${position} 00042 00123`, []))?.rootFen).toBe(`${position} 42 123`)
+  })
+
+  it('retains the existing defaults for abbreviated shared starting positions', () => {
+    expect(decodeSharedGame(encodeSharedGame(position, []))?.rootFen).toBe(`${position} 0 1`)
+    expect(decodeSharedGame(encodeSharedGame(`${position} 42`, []))?.rootFen).toBe(`${position} 42 1`)
+  })
+})
+
 function sansOf(rootFen: string, moves: string[]): string[] {
   const shared = decodeSharedGame(encodeSharedGame(rootFen, moves))!
   return replaySharedGame(shared).map(entry => entry.move.san)

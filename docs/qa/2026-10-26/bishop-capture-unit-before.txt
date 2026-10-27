@@ -1,0 +1,113 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/moveEntry.test.ts (42 tests | 4 failed) 71ms
+     × plays an unambiguous lowercase bishop capture 7k/8/8/8/1p6/B7/8/7K w - - 0 1 bxb4 8ms
+     × plays an unambiguous lowercase bishop capture 7k/8/8/8/3p4/2B5/8/7K w - - 0 1 bxd4 1ms
+     × plays an unambiguous lowercase bishop capture 7k/8/6b1/5P2/8/8/8/7K b - - 0 1 bxf5 1ms
+     × plays an unambiguous lowercase bishop capture 7k/8/6b1/7P/8/8/8/7K b - - 0 1 bxh5 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/moveEntry.test.ts > typed move entry > plays an unambiguous lowercase bishop capture 7k/8/8/8/1p6/B7/8/7K w - - 0 1 bxb4
+AssertionError: expected null to match object { from: 'a3', to: 'b4', …(2) }
+
+- Expected:
+{
+  "captured": "p",
+  "from": "a3",
+  "piece": "b",
+  "to": "b4",
+}
+
++ Received:
+null
+
+ ❯ src/engine/moveEntry.test.ts:44:40
+     42|     ['7k/8/6b1/7P/8/8/8/7K b - - 0 1', 'bxh5', 'g6', 'h5'],
+     43|   ])('plays an unambiguous lowercase bishop capture %s %s', (fen, inpu…
+     44|     expect(parseMoveEntry(fen, input)).toMatchObject({ from, to, piece…
+       |                                        ^
+     45|   })
+     46|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/engine/moveEntry.test.ts > typed move entry > plays an unambiguous lowercase bishop capture 7k/8/8/8/3p4/2B5/8/7K w - - 0 1 bxd4
+AssertionError: expected null to match object { from: 'c3', to: 'd4', …(2) }
+
+- Expected:
+{
+  "captured": "p",
+  "from": "c3",
+  "piece": "b",
+  "to": "d4",
+}
+
++ Received:
+null
+
+ ❯ src/engine/moveEntry.test.ts:44:40
+     42|     ['7k/8/6b1/7P/8/8/8/7K b - - 0 1', 'bxh5', 'g6', 'h5'],
+     43|   ])('plays an unambiguous lowercase bishop capture %s %s', (fen, inpu…
+     44|     expect(parseMoveEntry(fen, input)).toMatchObject({ from, to, piece…
+       |                                        ^
+     45|   })
+     46|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/engine/moveEntry.test.ts > typed move entry > plays an unambiguous lowercase bishop capture 7k/8/6b1/5P2/8/8/8/7K b - - 0 1 bxf5
+AssertionError: expected null to match object { from: 'g6', to: 'f5', …(2) }
+
+- Expected:
+{
+  "captured": "p",
+  "from": "g6",
+  "piece": "b",
+  "to": "f5",
+}
+
++ Received:
+null
+
+ ❯ src/engine/moveEntry.test.ts:44:40
+     42|     ['7k/8/6b1/7P/8/8/8/7K b - - 0 1', 'bxh5', 'g6', 'h5'],
+     43|   ])('plays an unambiguous lowercase bishop capture %s %s', (fen, inpu…
+     44|     expect(parseMoveEntry(fen, input)).toMatchObject({ from, to, piece…
+       |                                        ^
+     45|   })
+     46|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/engine/moveEntry.test.ts > typed move entry > plays an unambiguous lowercase bishop capture 7k/8/6b1/7P/8/8/8/7K b - - 0 1 bxh5
+AssertionError: expected null to match object { from: 'g6', to: 'h5', …(2) }
+
+- Expected:
+{
+  "captured": "p",
+  "from": "g6",
+  "piece": "b",
+  "to": "h5",
+}
+
++ Received:
+null
+
+ ❯ src/engine/moveEntry.test.ts:44:40
+     42|     ['7k/8/6b1/7P/8/8/8/7K b - - 0 1', 'bxh5', 'g6', 'h5'],
+     43|   ])('plays an unambiguous lowercase bishop capture %s %s', (fen, inpu…
+     44|     expect(parseMoveEntry(fen, input)).toMatchObject({ from, to, piece…
+       |                                        ^
+     45|   })
+     46|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 38 passed (42)
+   Start at  19:52:56
+   Duration  338ms (transform 66ms, setup 0ms, import 97ms, tests 71ms, environment 0ms)
+

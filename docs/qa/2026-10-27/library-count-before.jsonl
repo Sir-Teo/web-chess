@@ -1,0 +1,5 @@
+{"name":"compact-numbering","pgn":"[Event \"Club\"]\n[White \"Ada\"]\n[Black \"Grace\"]\n\n1.e4 e5 2.Nf3 *","count":1,"parsedMainline":["e4","e5","Nf3"]}
+{"name":"adjacent-variation","pgn":"[Event \"Club\"]\n[White \"Ada\"]\n[Black \"Grace\"]\n\n1. e4(1. d4 d5)e5 2. Nf3 *","count":2,"parsedMainline":["e4","e5","Nf3"]}
+{"name":"line-brace","pgn":"[Event \"Club\"]\n[White \"Ada\"]\n[Black \"Grace\"]\n\n1. e4 ; { literal\ne5 2. Nf3 {last note} *","count":1,"parsedMainline":["e4","e5","Nf3"]}
+{"name":"cr-line-comment","pgn":"[Event \"Club\"]\n[White \"Ada\"]\n[Black \"Grace\"]\n\n1. e4 ; literal\re5 2. Nf3 *","count":1,"parsedMainline":["e4","e5","Nf3"]}
+{"name":"comment-delimiters","pgn":"[Event \"Club\"]\n[White \"Ada\"]\n[Black \"Grace\"]\n\n1. e4 {Literal ; ( punctuation} e5 2. Nf3 *","count":3,"parsedMainline":["e4","e5","Nf3"]}

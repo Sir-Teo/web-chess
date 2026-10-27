@@ -1,0 +1,5 @@
+Error: holding F flipped the board back on a repeated keydown
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkHeldToggleShortcuts (/workspace/web-chess/scripts/test-ui-browser.cjs:5694:7)
+    at async main (/tmp/web-chess-held-shortcuts-check.cjs:10:8)

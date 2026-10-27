@@ -1,0 +1,11 @@
+locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('button', { name: 'Open saved games library', exact: true })[22m
+
+    at Object.checkLibraryStarredFilter (/workspace/web-chess/scripts/test-ui-browser.cjs:6455:89)
+    at async /tmp/web-chess-library-starred-check.cjs:10:9 {
+  log: [
+    "  - waiting for getByRole('button', { name: 'Open saved games library', exact: true })"
+  ],
+  name: 'TimeoutError'
+}

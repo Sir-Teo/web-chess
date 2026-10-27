@@ -174,7 +174,7 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
     : null
 
   return (
-    <div className="graph-wrap" aria-label="White expected score graph">
+    <div className="graph-wrap" role="group" aria-label="White expected score graph">
       <div className="graph-scroll" ref={scrollRef}>
         <svg
           className="winrate-graph"
@@ -302,7 +302,7 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
     : null
 
   return (
-    <div className="graph-wrap" aria-label="WDL progression graph">
+    <div className="graph-wrap" role="group" aria-label="WDL progression graph">
       <div className="graph-scroll" ref={scrollRef}>
         <svg
           className="winrate-graph"
@@ -447,7 +447,7 @@ export const MoveTimesGraph = memo(function MoveTimesGraph({ points, currentInde
   const currentLineX = currentIndex !== undefined && maxIndex > 0 ? toX(selectedIndex) : null
 
   return (
-    <div className="graph-wrap" aria-label="Move times graph">
+    <div className="graph-wrap" role="group" aria-label="Move times graph">
       <div className="graph-scroll" ref={scrollRef}>
         <svg
           className="winrate-graph"

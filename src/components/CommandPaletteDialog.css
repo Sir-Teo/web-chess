@@ -3,7 +3,29 @@
     /* Against the backdrop it sits in, which is the room there is, rather than
        `100vw`, which is that plus a classic scrollbar. Measured: the backdrop
        is exactly `documentElement.clientWidth` at 320, 360, 390 and 1440. */
-    width: min(32rem, calc(100% - 2rem));
+    width: 100%;
+    container-type: inline-size;
+}
+
+.command-palette .dialog-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem 0;
+}
+
+.command-palette .dialog-header h2 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.command-palette-close {
+    display: grid;
+    place-items: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.35rem;
+    line-height: 1;
 }
 
 .command-palette-input {
@@ -20,6 +42,20 @@
 
 .command-palette .dialog-body {
     padding: 0.75rem 1rem 1rem;
+}
+
+@container (max-width: 10rem) {
+    .command-palette :is(.dialog-header, .dialog-body) {
+        padding-inline: 0.75rem;
+    }
+
+    .command-palette .dialog-header h2 {
+        grid-column: 1 / -1;
+    }
+
+    .command-palette-close {
+        grid-column: 2;
+    }
 }
 
 .command-palette-list {
@@ -58,6 +94,9 @@
 
 .command-palette-button:disabled {
     cursor: default;
+}
+
+.command-palette-button:disabled :is(.command-palette-label, .command-palette-key) {
     opacity: 0.55;
 }
 
@@ -74,6 +113,11 @@
     overflow-wrap: anywhere;
     font-size: 0.75rem;
     opacity: 0.7;
+}
+
+.command-palette-button:disabled .command-palette-hint {
+    color: var(--text-secondary);
+    opacity: 1;
 }
 
 .command-palette-key {
@@ -124,10 +168,5 @@
 @media (max-width: 560px) {
     .command-palette-list {
         height: min(24rem, 50dvh);
-    }
-
-    /* No list when nothing matches; hold its room so the sheet stays put. */
-    .command-palette-count:last-child {
-        margin-bottom: calc(min(24rem, 50dvh) + 0.5rem);
     }
 }

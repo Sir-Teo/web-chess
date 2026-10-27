@@ -1,0 +1,17 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  shared recovery (1280px, 1x, dark, cold-game): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (1280px, 1x, dark, cold-start): explicit starting-position link opens directly in Analysis and clears older recovery
+  shared recovery (1280px, 1x, dark, hash-game): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (1280px, 1x, dark, hash-position): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (1280px, 1x, dark, invalid): invalid link preserves the old recovery and its actual restored game
+  shared recovery (1280px, 1x, dark, restricted-position): valid link owns the board; immediate refresh restores later Unicode edits with session storage denied
+  shared recovery (375px, 2x, light, cold-game): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (375px, 2x, light, cold-start): explicit starting-position link opens directly in Analysis and clears older recovery
+  shared recovery (375px, 2x, light, hash-game): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (375px, 2x, light, hash-position): valid link owns the board; immediate refresh restores later Unicode edits
+  shared recovery (375px, 2x, light, invalid): invalid link preserves the old recovery and its actual restored game
+  shared recovery (375px, 2x, light, restricted-position): valid link owns the board; immediate refresh restores later Unicode edits with session storage denied
+  practice ownership (1280×900, 1x, dark): drill, replay yield to e4 practice; card/Commands hint preserve attempts, stop replay and focus the board; disabled reasons and fresh questions remain correct; original line/one solution variation retained; a new shared game releases old grading even at the same FEN and accepts d4
+  practice ownership (375×812, 1x, light): drill, replay and marking yield to e4 practice; card/Commands hint preserve attempts, stop replay and focus the board; disabled reasons and fresh questions remain correct; original line/one solution variation retained; a new shared game releases old grading even at the same FEN and accepts d4
+  practice ownership (320×812, 2x, dark): drill, replay and marking yield to e4 practice; card/Commands hint preserve attempts, stop replay and focus the board; disabled reasons and fresh questions remain correct; original line/one solution variation retained; a new shared game releases old grading even at the same FEN and accepts d4
+  practice ownership (844×390, 2x, light): drill, replay and marking yield to e4 practice; card/Commands hint preserve attempts, stop replay and focus the board; disabled reasons and fresh questions remain correct; original line/one solution variation retained; a new shared game releases old grading even at the same FEN and accepts d4

@@ -1,0 +1,5 @@
+Error: a delayed panel reveal moved focused Load from 352.046875 to 823.046875
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkRevealRetriesYieldToInteraction (/workspace/web-chess/scripts/test-ui-browser.cjs:5283:5)
+    at async /tmp/web-chess-reveal-focus-check.cjs:10:9

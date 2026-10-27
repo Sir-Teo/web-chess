@@ -1,0 +1,43 @@
+{
+  "browser": "151.0.7922.34",
+  "base": "http://127.0.0.1:4336/web-chess/",
+  "measurements": [
+    {
+      "zoom": 1,
+      "width": 1280,
+      "height": 900,
+      "dpr": 1,
+      "rootFont": "16px",
+      "board": 630,
+      "workspace": 775
+    },
+    {
+      "zoom": 2,
+      "width": 640,
+      "height": 450,
+      "dpr": 2,
+      "rootFont": "16px",
+      "board": 264,
+      "workspace": 324
+    },
+    {
+      "zoom": 3.9999999999999996,
+      "width": 320,
+      "height": 225,
+      "dpr": 4,
+      "rootFont": "16px",
+      "board": 192,
+      "workspace": 225
+    }
+  ],
+  "checks": [
+    "native zoom API and DPR",
+    "four focused corners",
+    "usable board",
+    "e2-e4 at 400%",
+    "live dialog draft/focus/editing at 200% to 400%",
+    "opener focus",
+    "restored fixed layout"
+  ],
+  "errors": []
+}

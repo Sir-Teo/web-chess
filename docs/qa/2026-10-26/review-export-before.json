@@ -1,0 +1,11 @@
+{
+  "browser": "chromium",
+  "errors": [
+    "QA review download blocked"
+  ],
+  "alerts": [],
+  "created": 1,
+  "revoked": 0,
+  "remainingLinks": 1,
+  "report": "Completed review · Target depth 16 · 0 positions reused"
+}

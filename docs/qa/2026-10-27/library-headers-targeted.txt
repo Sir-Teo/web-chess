@@ -1,0 +1,9 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+
+ Test Files  3 passed (3)
+      Tests  278 passed (278)
+   Start at  03:35:05
+   Duration  868ms (transform 610ms, setup 0ms, import 877ms, tests 933ms, environment 0ms)
+

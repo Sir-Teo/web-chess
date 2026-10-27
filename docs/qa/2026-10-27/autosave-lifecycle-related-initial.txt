@@ -1,0 +1,17 @@
+  contrast (Dark / recovery warning / 1280px): 162 measured, 0 under the floor (144 on a gradient, measured against its worst stop)
+  autosave (1280px, Dark): denied storage is visible, PGN downloads, retry recovers
+  contrast (Dark / recovery warning / 375px): 159 measured, 0 under the floor (137 on a gradient, measured against its worst stop)
+  autosave (375px, Dark): denied storage is visible, PGN downloads, retry recovers
+  contrast (Light / recovery warning / 1280px): 162 measured, 0 under the floor (144 on a gradient, measured against its worst stop)
+  autosave (1280px, Light): denied storage is visible, PGN downloads, retry recovers
+  contrast (Light / recovery warning / 375px): 159 measured, 0 under the floor (137 on a gradient, measured against its worst stop)
+  autosave (375px, Light): denied storage is visible, PGN downloads, retry recovers
+locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('button', { name: /^restore$/i })[22m
+
+    at checkAnInterruptedGameComesBack (/workspace/web-chess/scripts/test-ui-browser.cjs:15875:60)
+    at async /tmp/web-chess-autosave-lifecycle-related.cjs:10:58 {
+  log: [ "  - waiting for getByRole('button', { name: /^restore$/i })" ],
+  name: 'TimeoutError'
+}

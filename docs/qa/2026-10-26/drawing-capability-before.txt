@@ -1,0 +1,2 @@
+capability changed {"coarse":false,"controlDisplay":"none","drawing":"true","overlay":1,"e2":"wP"}
+after e2-e4 {"coarse":false,"controlDisplay":"none","drawing":"true","overlay":1,"e2":"wP"}

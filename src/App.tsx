@@ -1,8 +1,10 @@
-import { Chess, type Move, type Square } from 'chess.js'
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type SyntheticEvent } from 'react'
+import { Chess, DEFAULT_POSITION, type Move, type Square } from 'chess.js'
+import { Suspense, lazy, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type SyntheticEvent } from 'react'
+import { flushSync } from 'react-dom'
 import type { PieceDropHandlerArgs } from 'react-chessboard'
 import { BoardCanvas } from './components/BoardCanvas'
 import { EngineDetails } from './components/EngineDetails'
+import { EngineConsoleOutput } from './components/EngineConsoleOutput'
 import {
   buildWdlSeries,
   buildWinrateSeries,
@@ -52,10 +54,11 @@ import {
   type OpeningSpeed,
 } from './engine/openingExplorer'
 import { parseCandidateMoveInput, describeBestMove } from './engine/candidateMoves'
-import { type AnalyzeMode, type UciGoLimits } from './engine/uci'
+import { parseSetOptionCommand, type AnalyzeMode, type UciGoLimits } from './engine/uci'
 import { exportAnnotatedPgn, flattenPgnMainLine, parsePgnMoveTree, pgnImportUserErrorMessage } from './engine/pgn'
 import { APP_PLACEHOLDER_HEADERS } from './engine/pgnPlaceholders'
 import { pgnDownloadFilename } from './engine/pgnFilename'
+import { formatLocalDate } from './engine/localDate'
 import { type LibraryGame, extractLibraryMetadata, suggestGameName } from './engine/gameLibrary'
 import { libraryStorageIsDurable } from './engine/gameLibraryStorage'
 import { narrativeTagToneClass, narrativeTags } from './engine/narrativeTags'
@@ -80,6 +83,7 @@ import { PhaseAccuracy } from './components/PhaseAccuracy'
 import {
   type AutoSavedGame,
   type AutoSavedPlay,
+  type AutoSaveRevision,
   type AutoSaveWriteResult,
   autoSaveDelayMs,
   clearAutoSavedGame,
@@ -109,8 +113,9 @@ import { exportReviewPgn } from './engine/reviewPgn'
 import { restoreSavedReview, reviewLineKey, type SavedReview } from './engine/savedReviews'
 import { SavedReviews } from './components/SavedReviews'
 import { fetchSamplePgn } from './engine/samplePgn'
-import { hashCarriesShare, parseFenShareHash } from './engine/shareLink'
+import { buildFenShareUrl, hashCarriesShare, parseFenShareHash } from './engine/shareLink'
 import { MAX_SHARED_GAME_CHARS, buildGameShareUrl, parseGameShareHash, replaySharedGame } from './engine/shareGame'
+import { clearSharedRecovery, recordSharedRecovery, shouldResumeSharedRecovery } from './engine/sharedRecovery'
 import { nullMoveProbe } from './engine/threats'
 import {
   tablebaseMoveActionLabel,
@@ -150,7 +155,7 @@ import {
   timeControlTag,
   type ClockState,
 } from './engine/chessClock'
-import { describeGameEndFromPath, gameResultScore } from './engine/gameEnd'
+import { describeGameEnd, describeGameEndFromPath, gameResultScore } from './engine/gameEnd'
 import { describeCaptures, materialAdvantageLabel, materialBalance } from './engine/material'
 import { hasMatingMaterial } from './engine/matingMaterial'
 import {
@@ -185,12 +190,13 @@ import {
   judgeDrillMove,
   opponentMovesFrom,
 } from './engine/lineDrill'
-import { ENGINE_CONSOLE_LINE_LIMIT, engineLabCommandBlockMessage, engineLabCommandSafetyMessage } from './engine/labCommands'
+import { ENGINE_CONSOLE_LINE_LIMIT, engineLabCommandBlockMessage, engineLabCommandSafetyMessage, engineLabSpinOptionValue, normalizeEngineLabCommand } from './engine/labCommands'
 import { aiSearchHistory, defaultOrientationForGameMode, describePlayEngine, hintDisabledReason, sideToMoveColor, takebackDisabledReason, takebackPlyCount, judgeMoveBetweenSearches, type AiSearchReading, type MoveJudgement } from './engine/playMode'
 import { useStockfishEngine } from './hooks/useStockfishEngine'
 import { DIFFICULTY_LABELS, useAiPlayer, type AiDifficulty } from './hooks/useAiPlayer'
 import { sameNodeList, useGameTree, type GameNode } from './hooks/useGameTree'
 import { useOpening, useOpeningBook } from './hooks/useOpening'
+import { scheduleRevealRetries } from './hooks/revealRetries'
 import { useCloudEvaluation } from './hooks/useCloudEvaluation'
 import { useOpeningExplorer } from './hooks/useOpeningExplorer'
 import { useTablebase } from './hooks/useTablebase'
@@ -234,7 +240,7 @@ import { useModalFocus } from './hooks/useModalFocus'
 import { useDisarmAfter } from './hooks/useDisarmAfter'
 import { useMoveSound } from './hooks/useMoveSound'
 import { IconClock, IconBot, IconDraw, IconBarChart, IconSearch, IconSwords, IconAlert, IconKing, IconRefresh, IconFlag, IconFlip, IconDownload, IconClipboard, IconUsers, IconZap, IconSettings, IconPlay, IconStop, IconTrendingUp, IconChevronLeft, IconChevronRight } from './components/icons'
-import { isPlainShortcut, isTypingTarget } from './components/shortcutKeys'
+import { isCompositionKey, isPlainShortcut, isTypingTarget } from './components/shortcutKeys'
 import { CommandPaletteDialog } from './components/CommandPaletteDialog'
 import type { Command } from './components/commandPalette'
 import { COMMAND_PALETTE_ARIA_KEYSHORTCUTS, commandPaletteShortcutLabel, isCommandPaletteChord } from './components/commandPalette'
@@ -248,6 +254,7 @@ const PgnDialog = lazy(() =>
 )
 /** Long enough that a fast sequence of moves writes once, not per move. */
 const AUTO_SAVE_DEBOUNCE_MS = 700
+const ENGINE_CONSOLE_DOWNLOAD_ERROR = 'The console output could not be downloaded. Try Copy or select the output manually.'
 
 const LibraryDialog = lazy(() =>
   import('./components/LibraryDialog').then(module => ({ default: module.LibraryDialog })),
@@ -266,6 +273,7 @@ type ReviewPracticeState = {
   expectedSan: string
   moveLabel: string
   attempts: number
+  hintRequested: boolean
   status: 'ready' | 'retry' | 'correct'
   solvedFen?: string
 }
@@ -415,7 +423,7 @@ const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['↑', '↓'], action: 'Previous / next variation at this move' },
   { keys: ['Home', 'End'], action: 'First / last position' },
   { keys: ['F'], action: 'Flip the board' },
-  { keys: ['Esc'], action: 'Put a picked-up piece back' },
+  { keys: ['Esc'], action: 'Cancel selection or premove; leave marking mode' },
   { keys: ['T'], action: 'Show what the opponent threatens (Analysis mode)' },
   { keys: ['Z'], action: 'Take back your last move (Play mode)' },
   { keys: ['H'], action: 'Ask the engine for a hint (Play mode)' },
@@ -475,6 +483,7 @@ function useStableNodeList(next: GameNode[]): GameNode[] {
   return next
 }
 const SHARED_LINK_UNREADABLE = 'That shared link could not be read — showing the starting position.'
+const SHARED_LINK_UNREADABLE_CURRENT = 'That shared link could not be read — keeping the current position.'
 
 /**
  * A link that carried more than it could give.
@@ -488,7 +497,7 @@ const SHARED_LINK_UNREADABLE = 'That shared link could not be read — showing t
  */
 const sharedLinkTruncated = (shown: number) =>
   `That shared link was cut short — showing the ${shown} ${shown === 1 ? 'move' : 'moves'} that survived it.`
-const PGN_POSITION_ONLY_NOTICE = 'That game has no moves — its position is on the board.'
+const PGN_POSITION_ONLY_NOTICE = 'Position study loaded.'
 
 function loadSharedFenFromUrl(): string | null {
   if (typeof window === 'undefined') return null
@@ -538,6 +547,7 @@ function App() {
   const boardStageRef = useRef<HTMLElement>(null)
   const analysisPanelRef = useRef<HTMLElement>(null)
   const analysisHeaderRef = useRef<HTMLElement>(null)
+  const analysisStatusRef = useRef<HTMLDivElement>(null)
   const revealOpeningIntelRef = useRef(false)
   const [viewport, setViewport] = useState(readViewport)
   /**
@@ -563,18 +573,22 @@ function App() {
   // Derive this from the viewport, not toolbar height, to avoid resize feedback.
   const compactDesktopChrome = !isMobileLayout
     && (viewport.width < 56.25 * viewport.rem || viewport.height < 30 * viewport.rem)
-  const scrollDesktopChrome = !isMobileLayout && viewport.height < 20 * viewport.rem
+  const scrollWorkspaceChrome = viewport.height < 20 * viewport.rem
+  // Large text also wraps portrait headings and actions: at 320px / 200%,
+  // they left only 137px for a 180px field in an otherwise tall viewport.
+  const scrollDialogs = scrollWorkspaceChrome
+    || (viewport.width < 14 * viewport.rem && viewport.height < 30 * viewport.rem)
   const previousBarStateRef = useRef({ top: topPanelOpen, bottom: bottomPanelOpen })
   useEffect(() => {
     const previous = previousBarStateRef.current
     previousBarStateRef.current = { top: topPanelOpen, bottom: bottomPanelOpen }
-    if (!scrollDesktopChrome) return
+    if (!scrollWorkspaceChrome) return
     const changed = previous.top !== topPanelOpen ? 'top' : previous.bottom !== bottomPanelOpen ? 'bottom' : null
     // A collapsed bar moves its still-focused handle. Focusing it again does
     // not make browsers reveal it, so keep the action's way back on screen.
     if (changed) document.querySelector(`.app-shell > .${changed} > .resize-handle`)
       ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
-  }, [topPanelOpen, bottomPanelOpen, scrollDesktopChrome])
+  }, [topPanelOpen, bottomPanelOpen, scrollWorkspaceChrome])
 
   /**
    * Keep a focused control inside a dialog that scrolls.
@@ -717,9 +731,50 @@ function App() {
   const [movesToGo, setMovesToGo] = useState<NumericInputValue>(persistedSettings.movesToGo ?? '')
   const [engineLabCommand, setEngineLabCommand] = useState('')
   const [engineLabError, setEngineLabError] = useState<string | null>(null)
+  const engineLabErrorId = useId()
+  const labCommandHelpId = useId()
+  const labCommandInputRef = useRef<HTMLInputElement>(null)
+  const [labHistoryRecallTick, setLabHistoryRecallTick] = useState(0)
+  // A completed command owns only its original draft, including when the
+  // reader edits away and back or recalls the same text from history.
+  const labCommandDraftVersionRef = useRef(0)
+  const labConsoleCopyVersionRef = useRef(0)
+  const labHistoryCursorRef = useRef<number | null>(null)
+  const labHistoryDraftRef = useRef('')
+  const labHistorySelectRef = useRef(true)
+  const updateLabCommandDraft = useCallback((value: string) => {
+    labCommandDraftVersionRef.current += 1
+    labConsoleCopyVersionRef.current += 1
+    labHistoryCursorRef.current = null
+    labHistorySelectRef.current = true
+    setEngineLabCommand(value)
+    setEngineLabError(null)
+  }, [])
+  useLayoutEffect(() => {
+    if (!labHistoryRecallTick) return
+    labCommandInputRef.current?.focus()
+    const input = labCommandInputRef.current
+    if (labHistorySelectRef.current) input?.select()
+    else if (input) input.setSelectionRange(input.value.length, input.value.length)
+  }, [labHistoryRecallTick])
+  useLayoutEffect(() => {
+    // Feedback appears above the form; retain the active control as it moves.
+    const active = document.activeElement
+    if (active instanceof HTMLElement && labCommandInputRef.current?.form?.contains(active)) {
+      active.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+    }
+  }, [engineLabError])
+  useEffect(() => () => { labConsoleCopyVersionRef.current += 1 }, [workspaceMode, analysisTab])
   const [engineLabOutputLines, setEngineLabOutputLines] = useState<string[]>([])
+  const [labConsoleSession, setLabConsoleSession] = useState(0)
   const labConsoleBufferRef = useRef<string[]>([])
-  const [engineLabCopyStatus, setEngineLabCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const labConsoleFrameRef = useRef<number | null>(null)
+  const cancelLabConsolePublication = useCallback(() => {
+    if (labConsoleFrameRef.current !== null) window.cancelAnimationFrame(labConsoleFrameRef.current)
+    labConsoleFrameRef.current = null
+  }, [])
+  useEffect(() => cancelLabConsolePublication, [cancelLabConsolePublication])
+  const [engineLabCopiedText, setEngineLabCopiedText] = useState<string | null>(null)
   const [expertModeEnabled, setExpertModeEnabled] = useState(persistedSettings.expertModeEnabled)
   const [labCommandHistory, setLabCommandHistory] = useState<string[]>(persistedSettings.labCommandHistory)
   const [lastLabRun, setLastLabRun] = useState<{ command: string; durationMs: number } | null>(null)
@@ -839,6 +894,10 @@ function App() {
   const [isImportingGame, setIsImportingGame] = useState(false)
   const [boardRevealTick, setBoardRevealTick] = useState(0)
   const [analysisPanelRevealTick, setAnalysisPanelRevealTick] = useState(0)
+  const handledBoardRevealRef = useRef(0)
+  const handledAnalysisRevealRef = useRef(0)
+  const [moveEntryFocusTick, setMoveEntryFocusTick] = useState(0)
+  const handledMoveEntryFocusRef = useRef(0)
   const [pendingShallowAnalyzeFen, setPendingShallowAnalyzeFen] = useState<string | null>(null)
   const [pendingPonderFen, setPendingPonderFen] = useState<string | null>(null)
   // The null-move position the "What is threatened?" probe is asking about, and
@@ -855,6 +914,8 @@ function App() {
   const [pendingGameReview, setPendingGameReview] = useState(false)
   const pendingReviewOptionsRef = useRef<{ fresh?: boolean; depth?: number } | undefined>(undefined)
   const [reviewPractice, setReviewPractice] = useState<ReviewPracticeState | null>(null)
+  const reviewPracticeAwaitingAnswer = Boolean(reviewPractice && reviewPractice.status !== 'correct'
+    && !reviewPractice.hintRequested && reviewPractice.attempts < 2)
 
   // ── What a running review hands back ─────────────────
   const reviewSessionRef = useRef<ReviewSession | null>(null)
@@ -916,12 +977,11 @@ function App() {
   /**
    * Playing a line from memory. Null when no drill is running.
    *
-   * `rootFen` is kept so the drill can be restarted, and so a move judged
-   * against the wrong position is impossible: the line is a list of moves from
-   * one place, and if the board is not that place the drill is over.
+   * Keep the captured line and root for Restart. `expectedFen` limits judging
+   * to the question being asked; browsing elsewhere pauses the drill.
    */
   const [drill, setDrill] = useState<
-    { line: DrillLine; rootFen: string; expectedFen: string; ply: number; misses: number; revealed: boolean } | null
+    { line: DrillLine; rootFen: string; expectedFen: string; expectedNodeId?: string; ply: number; misses: number; revealed: boolean } | null
   >(null)
   const [importSweepProgress, setImportSweepProgress] = useState<ImportSweepProgress>({ done: 0, total: 0 })
   const skipFullAnalyzeFenRef = useRef<string | null>(null)
@@ -945,6 +1005,7 @@ function App() {
   // ── Game mode ────────────────────────────────────────
   const [showNewGameDialog, setShowNewGameDialog] = useState(false)
   const [showPgnDialog, setShowPgnDialog] = useState(false)
+  const [pgnDialogInitialTab, setPgnDialogInitialTab] = useState<'import' | 'fen' | 'export'>('import')
   const [droppedPgnFile, setDroppedPgnFile] = useState<File | null>(null)
   /** Set when the browser refuses to keep settings. See {@link persistSettings}. */
   const [settingsAreKept, setSettingsAreKept] = useState(true)
@@ -970,8 +1031,10 @@ function App() {
   }, [])
   const [autoSaveRecovery, setAutoSaveRecovery] = useState<AutoSavedGame | null>(null)
   const [autoSaveRestoreError, setAutoSaveRestoreError] = useState<string | null>(null)
-  const [autoSaveCopyLabel, setAutoSaveCopyLabel] = useState('Copy PGN')
+  const [autoSaveCopyState, setAutoSaveCopyState] = useState<'idle' | 'copying' | 'copied' | 'failed'>('idle')
+  const autoSaveCopyGeneration = useRef(0)
   const [autoSaveResult, setAutoSaveResult] = useState<AutoSaveWriteResult | null>(null)
+  const [autoSaveReady, setAutoSaveReady] = useState(false)
   const [autoSaveRetry, setAutoSaveRetry] = useState(0)
   const [gameMode, setGameMode] = useState<GameMode>('human-vs-human')
   const [newGameMode, setNewGameMode] = useState<GameMode>('human-vs-human')
@@ -988,7 +1051,7 @@ function App() {
   const aiMoveScheduledRef = useRef(false)
   const gameModeRef = useRef<GameMode>('human-vs-human')
   const playerColorRef = useRef<PlayerColor>('white')
-  const modalTriggerRef = useRef<HTMLElement | null>(null)
+  const modalTriggerRef = useRef<{ element: HTMLElement | SVGElement; restoring: boolean } | null>(null)
   /**
    * The palette's open and close are declared with the keyboard handler, well
    * above `rememberModalTrigger` and `restoreModalTriggerFocus`. Reached
@@ -1002,6 +1065,7 @@ function App() {
 
   // ── Click-to-move (tap support) ───────────────────────
   const restoreBoardFocusRef = useRef<Square | null>(null)
+  const exerciseQuestionFocusRef = useRef<{ kind: 'drill' | 'practice'; fen: string } | null>(null)
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
   const [legalTargets, setLegalTargets] = useState<Square[]>([])
   const [pendingPromotion, setPendingPromotion] = useState<PendingPromotion | null>(null)
@@ -1021,6 +1085,20 @@ function App() {
   const [touchDrawing, setTouchDrawing] = useState(false)
   const [drawnArrows, setDrawnArrows] = useState<DrawnArrow[]>([])
   const [drawInProgress, setDrawInProgress] = useState<{ from: string; to: string | null } | null>(null)
+  const endTouchDrawing = useCallback(() => {
+    setTouchDrawing(false)
+    setDrawInProgress(null)
+  }, [])
+  useEffect(() => {
+    const query = window.matchMedia?.('(pointer: coarse)')
+    if (!query) return
+    const onChange = () => {
+      // The controls disappear with this media query; release their overlay too.
+      if (!query.matches) endTouchDrawing()
+    }
+    query.addEventListener('change', onChange)
+    return () => query.removeEventListener('change', onChange)
+  }, [endTouchDrawing])
   /** A move queued while the engine is thinking. One at a time, like everywhere else. */
   const [premove, setPremove] = useState<Premove | null>(null)
   /** The move a hint suggested, and whether one is being searched for. */
@@ -1232,6 +1310,7 @@ function App() {
   const openingRequestSpeeds = openingSource === 'lichess' ? openingSpeeds : undefined
   const openingRequestRatings = openingSource === 'lichess' ? openingRatings : undefined
   const hasOpeningExplorerToken = hasOpeningExplorerAuthToken(openingAuthToken)
+  const openingExplorerStatusRef = useRef<HTMLParagraphElement>(null)
   const openingExplorer = useOpeningExplorer({
     source: openingSource,
     fen: currentRootFen,
@@ -1399,7 +1478,7 @@ function App() {
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented) return
+      if (e.defaultPrevented || isCompositionKey(e)) return
       // The palette's own chord may close it; ordinary board shortcuts stay
       // suspended even when focus has moved from its search to a command.
       if (shortcutsSuspended && !showCommandPalette) return
@@ -1411,6 +1490,7 @@ function App() {
       // too, which is where a reader often is when they reach for it.
       if (isCommandPaletteChord(e)) {
         e.preventDefault()
+        if (e.repeat) return
         // Through the same pair the button uses, so the chord remembers and
         // restores what the button remembers and restores. Toggling the state
         // straight from here skipped both, which left Safari with a closed
@@ -1438,12 +1518,16 @@ function App() {
       // same rule for an app with six shortcuts.
       if (!isPlainShortcut(e)) return
 
-      // Escape puts a picked-up piece back, as on every other board. Dialogs
-      // claim the key first and mark it handled, so this never closes one
-      // and deselects in the same press.
+      // Dialogs claim Escape first, so dismissing one does not also discard
+      // a selected piece or a queued premove underneath it.
       if (e.key === 'Escape') {
         setSelectedSquare(null)
         setLegalTargets([])
+        setPremove(null)
+        if (touchDrawing) {
+          e.preventDefault()
+          endTouchDrawing()
+        }
         return
       }
       if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev() }
@@ -1456,7 +1540,7 @@ function App() {
       if (e.key === 'End') { e.preventDefault(); goLast() }
       if (e.key.toLowerCase() === 'f') {
         e.preventDefault()
-        setOrientation(value => value === 'white' ? 'black' : 'white')
+        if (!e.repeat) setOrientation(value => value === 'white' ? 'black' : 'white')
       }
       // The command palette printed "N" beside New game from the day it landed
       // and nothing here answered it. A shortcut a reader is shown and cannot
@@ -1470,7 +1554,7 @@ function App() {
       }
       if (e.key.toLowerCase() === 't' && workspaceMode === 'analysis') {
         e.preventDefault()
-        requestThreatRef.current()
+        if (!e.repeat) requestThreatRef.current()
       }
       // Z rather than Ctrl+Z: the chord belongs to the browser, and
       // `isPlainShortcut` above is what keeps it there.
@@ -1480,14 +1564,17 @@ function App() {
       }
       if (e.key.toLowerCase() === 'h' && workspaceMode === 'play') {
         e.preventDefault()
-        requestHintRef.current()
+        if (!e.repeat) requestHintRef.current()
       }
       if (e.key === ' ') {
-        if (tag === 'BUTTON') return
+        if (tag === 'BUTTON' || tag === 'SUMMARY') return
         e.preventDefault()
+        // A held toggle acts once; move-navigation arrows still repeat.
+        if (e.repeat) return
         if (workspaceMode === 'play') {
-          // A game: Space holds it, clock and engine both.
-          if (pausedRef.current) resume()
+          // Step holds the AI between replies while a human clock can still
+          // run. A running clock must pause on the first Space press.
+          if (pausedRef.current && !clockRef.current?.running) resume()
           else pause()
           return
         }
@@ -1498,10 +1585,13 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [closeCommandPalette, goFirst, goLast, goPrev, goNext, goSiblingVariation, openCommandPalette, pause, resume,
-    shortcutsSuspended, showCommandPalette, workspaceMode])
+  }, [closeCommandPalette, endTouchDrawing, goFirst, goLast, goPrev, goNext, goSiblingVariation, openCommandPalette, pause, resume,
+    shortcutsSuspended, showCommandPalette, touchDrawing, workspaceMode])
 
-  const closeSettings = useCallback(() => setSettingsOpen(false), [])
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false)
+    restoreModalTriggerFocusRef.current()
+  }, [])
   useModalFocus(settingsOpen, settingsBodyRef, closeSettings)
   // "?" says "show these shortcuts", but the dialog's own first focus is its
   // first enabled switch, which sits below the list: scrolling to it carried
@@ -1533,6 +1623,8 @@ function App() {
     profileMessage,
     releaseEngine,
     loadEngine,
+    retryEngine,
+    retryCount: engineRetryCount,
     analyze,
     sendCommand,
     newGame,
@@ -1545,13 +1637,14 @@ function App() {
   // Show and edit their persisted values in both places so a later search
   // cannot silently restore a different setting.
   const labOptions = useMemo(() => options.map(option => {
-    if (option.name === 'Hash') return { ...option, min: 16, max: 512, currentValue: String(hashMb) }
-    if (option.name === 'MultiPV') return { ...option, min: 1, max: 5, currentValue: String(multiPv) }
-    if (option.name === 'UCI_ShowWDL') return { ...option, currentValue: String(showWdl) }
+    const appliedValue = option.currentValue ?? option.defaultValue ?? ''
+    if (option.name === 'Hash') return { ...option, appliedValue, min: 16, max: 512, currentValue: String(hashMb) }
+    if (option.name === 'MultiPV') return { ...option, appliedValue, min: 1, max: 5, currentValue: String(multiPv) }
+    if (option.name === 'UCI_ShowWDL') return { ...option, appliedValue, currentValue: String(showWdl) }
     return option
   }), [hashMb, multiPv, options, showWdl])
 
-  const setLabOption = useCallback((name: string, value?: string | number | boolean) => {
+  const setLabOption = useCallback((name: string, value?: string | number | boolean, sendToEngine = true) => {
     let applied = value
     if (name === 'Hash' || name === 'MultiPV') {
       const option = labOptions.find(option => option.name === name)
@@ -1565,7 +1658,7 @@ function App() {
       applied = value === true || value === 'true'
       setShowWdl(applied)
     }
-    setOption(name, applied)
+    if (sendToEngine) setOption(name, applied, true)
     return applied
   }, [labOptions, setOption])
 
@@ -1604,6 +1697,8 @@ function App() {
    * rows should read live until it is.
    */
   const [frozenReview, setFrozenReview] = useState<ReviewSnapshot | null>(null)
+  const [failedReviewExport, setFailedReviewExport] = useState<ReviewSnapshot | null>(null)
+  const reviewExportErrorId = useId()
   const [runningReviewEvaluations, setRunningReviewEvaluations] = useState<Map<string, EvalSnapshot>>(new Map())
   const [batchReviewProgress, setBatchReviewProgress] = useState({ done: 0, total: 0 })
   // A percentage, because the Evaluated tile beside it shows a fraction of a
@@ -1630,6 +1725,8 @@ function App() {
    * engines and the shared one is free for the panel.
    */
   const reviewPoolRunRef = useRef<ReviewPoolRun | null>(null)
+  const tablebaseStatusRef = useRef<HTMLParagraphElement>(null)
+  const cloudEvalStatusRef = useRef<HTMLParagraphElement>(null)
   const tablebase = useTablebase({
     fen,
     enabled: workspaceMode === 'analysis',
@@ -1638,6 +1735,7 @@ function App() {
     error: cloudEvalError,
     multiPv: cloudEvalMultiPv,
     result: currentCloudEval,
+    retry: retryCloudEvaluation,
     status: cloudEvalStatus,
   } = useCloudEvaluation({
     fen,
@@ -1650,6 +1748,16 @@ function App() {
       tablebaseStatus: tablebase.status,
     }),
   })
+  useLayoutEffect(() => {
+    // Retry hands focus to a persistent status. Its text changes height as the
+    // request settles; keep it exposed only while the reader is still on it.
+    for (const ref of [analysisStatusRef, tablebaseStatusRef, cloudEvalStatusRef, openingExplorerStatusRef]) {
+      const target = ref.current
+      if (target && document.activeElement === target) {
+        target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+      }
+    }
+  }, [cloudEvalStatus, currentCloudEval, engineName, openingExplorer.data, openingExplorer.error, openingExplorer.loading, status, tablebase.result, tablebase.status])
 
   const finishBatchReview = useCallback(() => {
     flushReviewResults()
@@ -1692,6 +1800,15 @@ function App() {
     if (hadBatchReview) clearBatchReview()
     if (hadImportSweep || hadBatchReview) stop()
   }, [clearBatchReview, clearImportSweep, importSweepProgress.total, isBatchReviewing, stop])
+
+  const handleRetryEngine = useCallback(() => {
+    if (!retryEngine()) return
+    cancelStaleBackgroundAnalysis()
+    skipFullAnalyzeFenRef.current = null
+    // Hand focus over before this action disappears. A delayed handoff could
+    // lose a race with the board's own move-focus restoration.
+    analysisStatusRef.current?.focus()
+  }, [cancelStaleBackgroundAnalysis, retryEngine])
 
   const startBatchReview = useCallback((options?: { fresh?: boolean; depth?: number }) => {
     if (!engineEnabled || reviewLineNodesRef.current.length <= 1) return
@@ -2166,16 +2283,50 @@ function App() {
   // ── Viewport ─────────────────────────────────────────
   useEffect(() => {
     let resizeFrame: number | null = null
+    let resizePending = false
+    const activePointers = new Set<number>()
     const onResize = () => {
+      if (activePointers.size) {
+        resizePending = true
+        return
+      }
       if (resizeFrame !== null) return
       resizeFrame = window.requestAnimationFrame(() => {
         resizeFrame = null
+        // A rem observation can arrive between pointer-down and pointer-up.
+        // Keep the pressed control in place until that gesture completes.
+        if (activePointers.size) {
+          resizePending = true
+          return
+        }
+        resizePending = false
         const next = readViewport()
-        setViewport(previous => previous.width === next.width && previous.height === next.height
-          && previous.rem === next.rem && previous.scrollbar === next.scrollbar ? previous : next)
+        // Finish in this frame: a deferred React commit could otherwise land
+        // inside the next press, after the pointer guard was checked.
+        flushSync(() => {
+          setViewport(previous => previous.width === next.width && previous.height === next.height
+            && previous.rem === next.rem && previous.scrollbar === next.scrollbar ? previous : next)
+        })
       })
     }
+    const onPointerDown = (event: PointerEvent) => { activePointers.add(event.pointerId) }
+    const onPointerEnd = (event: PointerEvent) => {
+      activePointers.delete(event.pointerId)
+      if (!activePointers.size && resizePending) onResize()
+    }
+    const onPointerOut = (event: PointerEvent) => {
+      if (event.relatedTarget === null) onPointerEnd(event)
+    }
+    const onBlur = () => {
+      activePointers.clear()
+      if (resizePending) onResize()
+    }
     window.addEventListener('resize', onResize)
+    window.addEventListener('pointerdown', onPointerDown, { capture: true, passive: true })
+    window.addEventListener('pointerup', onPointerEnd, true)
+    window.addEventListener('pointercancel', onPointerEnd, true)
+    window.addEventListener('pointerout', onPointerOut, true)
+    window.addEventListener('blur', onBlur)
     // Text-only enlargement can change rem units without a window resize.
     // Observe a unit-sized box, independent of the board we are sizing.
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(onResize)
@@ -2184,10 +2335,17 @@ function App() {
       observer?.disconnect()
       if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame)
       window.removeEventListener('resize', onResize)
+      window.removeEventListener('pointerdown', onPointerDown, true)
+      window.removeEventListener('pointerup', onPointerEnd, true)
+      window.removeEventListener('pointercancel', onPointerEnd, true)
+      window.removeEventListener('pointerout', onPointerOut, true)
+      window.removeEventListener('blur', onBlur)
     }
   }, [])
 
   // ── Auto-analyze ─────────────────────────────────────
+  // A profile change or retry requeues automatic work once. Status changes do not
+  // restart a search, and the Auto toggle still decides whether to run one.
   const keepSearching = continuousAnalysis && analysisExperience === 'pro'
   const automaticPositionRef = useRef<AnalysisTarget | null>(null)
   useEffect(() => {
@@ -2273,6 +2431,8 @@ function App() {
     currentPathMovesKey,
     currentRootFen,
     engineEnabled,
+    engineProfile,
+    engineRetryCount,
     fen,
     hashMb,
     isBatchReviewing,
@@ -2477,7 +2637,7 @@ function App() {
    * reader is actually looking at.
    */
   const requestThreat = useCallback(() => {
-    if (!engineEnabled) return
+    if (!engineEnabled || threatRequest) return
 
     const probe = nullMoveProbe(fen)
     if (!probe.ok) {
@@ -2501,7 +2661,7 @@ function App() {
       hashMb,
       showWdl: false,
     })
-  }, [analyze, cancelStaleBackgroundAnalysis, engineEnabled, fen, hashMb])
+  }, [analyze, cancelStaleBackgroundAnalysis, engineEnabled, fen, hashMb, threatRequest])
   requestThreatRef.current = requestThreat
 
   /**
@@ -2544,6 +2704,19 @@ function App() {
     setThreatError(null)
     setThreatRequest(null)
   }, [fen])
+
+  // A worker replacement discards its pending search. Returning to Analysis
+  // or selecting another engine must leave the question available to ask again.
+  useEffect(() => {
+    setThreatRequest(null)
+    setThreatError(null)
+  }, [engineEnabled, engineProfile])
+
+  useEffect(() => {
+    if (status !== 'error' || !threatRequest) return
+    setThreatRequest(null)
+    setThreatError('The engine could not finish reading the threat. Ask again when the engine is ready.')
+  }, [status, threatRequest])
 
   const activeThreat = threatResult && threatResult.boardFen === fen ? threatResult : null
   const isProbingThreat = threatRequest !== null
@@ -2685,14 +2858,20 @@ function App() {
     // deliberately absent. So a reader on Light who cleared their analyze
     // controls had the app go dark on them, with nothing offering to.
     setOpeningPrefetchTick(0)
+    labConsoleCopyVersionRef.current += 1
     setEngineLabError(null)
+    labCommandDraftVersionRef.current += 1
+    labHistoryCursorRef.current = null
     setEngineLabCommand('')
+    cancelLabConsolePublication()
+    labConsoleBufferRef.current = []
     setEngineLabOutputLines([])
-    setEngineLabCopyStatus('idle')
+    setLabConsoleSession(0)
+    setEngineLabCopiedText(null)
     setLastLabRun(null)
     setPendingPromotion(null)
     clearBatchReview()
-  }, [clearBatchReview])
+  }, [cancelLabConsolePublication, clearBatchReview])
 
   const applyPreset = useCallback((presetId: AnalyzePresetId) => {
     setActivePreset(presetId)
@@ -2882,19 +3061,37 @@ function App() {
 
   const runLabCommand = useCallback(
     async (command: string) => {
+      labConsoleCopyVersionRef.current += 1
+      labHistoryCursorRef.current = null
       if (!engineEnabled) {
         setEngineLabError('Engine Lab is available only in Analysis mode.')
         return
       }
-      const trimmed = command.trim()
+      // Stop is an app action as well as a UCI command. Match the busy guard's
+      // case-insensitive intent before handing it to the lowercase protocol.
+      const trimmed = command.trim().replace(/^stop$/i, 'stop')
       if (!trimmed) return
       setEngineLabError(null)
       if (status === 'unloaded') {
         setEngineLabError('Load the engine before sending console commands. Its console position and session options reset when reloaded.')
         return
       }
+      if (status === 'analyzing' && trimmed === 'stop') {
+        // Stop ends the current stream. Replacing its buffer here would hide
+        // the final info/bestmove that still belongs to the running command.
+        stop()
+        setEngineLabCommand('')
+        setLabCommandHistory(previous => [trimmed, ...previous.filter(item => item !== trimmed)].slice(0, 20))
+        return
+      }
       if (status === 'analyzing' && trimmed.toLowerCase() !== 'stop') {
         setEngineLabError('Stop the active analysis before sending Engine Lab commands.')
+        return
+      }
+      if (trimmed !== 'stop' && (status !== 'ready' || queueLength > 0)) {
+        setEngineLabError(status !== 'ready'
+          ? 'Wait for the engine to finish starting before sending commands.'
+          : 'Stop the active search or wait for the pending command before sending another command.')
         return
       }
       const blockMessage = engineLabCommandBlockMessage(trimmed)
@@ -2908,6 +3105,8 @@ function App() {
         return
       }
 
+      let dispatchedCommand = normalizeEngineLabCommand(trimmed)
+      let settingNotice: string | undefined
       const managedOption = trimmed.match(/^setoption\s+name\s+(Hash|MultiPV|UCI_ShowWDL)\s+value\s+(.+)$/i)
       if (managedOption) {
         const name = labOptions.find(option => option.name.toLowerCase() === managedOption[1].toLowerCase())?.name
@@ -2916,62 +3115,146 @@ function App() {
           setEngineLabError('Use a number for Hash/MultiPV, or true/false for UCI_ShowWDL.')
           return
         }
-        const applied = setLabOption(name, value)
-        labConsoleBufferRef.current = []
-        setEngineLabOutputLines([`> ${trimmed}`, `Saved analysis setting: ${name} = ${String(applied)}`])
-        setEngineLabCopyStatus('idle')
-        setEngineLabCommand('')
-        setLabCommandHistory(previous => [trimmed, ...previous.filter(item => item !== trimmed)].slice(0, 20))
-        return
+        const applied = setLabOption(name, value, false)
+        dispatchedCommand = `setoption name ${name} value ${String(applied)}`
+        settingNotice = `Saved analysis setting: ${name} = ${String(applied)}`
       }
 
+      const optionCommand = parseSetOptionCommand(dispatchedCommand)
+      const optionName = optionCommand?.name.replace(/\s+/g, ' ').toLowerCase()
+      const matchedOption = labOptions.find(option => option.name.toLowerCase() === optionName)
+      if (matchedOption?.type === 'check') {
+        const value = optionCommand?.value?.toLowerCase()
+        if (value !== 'true' && value !== 'false') {
+          setEngineLabError(`Use true or false for ${matchedOption.name}.`)
+          return
+        }
+        dispatchedCommand = `setoption name ${matchedOption.name} value ${value}`
+      } else if (matchedOption?.type === 'spin') {
+        const value = engineLabSpinOptionValue(optionCommand?.value, matchedOption)
+        if (value === null) {
+          setEngineLabError(`Use a whole decimal integer from ${matchedOption.min ?? -2147483648} to ${matchedOption.max ?? 2147483647} for ${matchedOption.name}.`)
+          return
+        }
+        dispatchedCommand = `setoption name ${matchedOption.name} value ${value}`
+      }
       setLabCommandHistory(previous => [trimmed, ...previous.filter(item => item !== trimmed)].slice(0, 20))
       const startTime = performance.now()
+      const draftVersion = labCommandDraftVersionRef.current
       const outputLines = [`> ${trimmed}`]
+      cancelLabConsolePublication()
       labConsoleBufferRef.current = outputLines
+      setLabConsoleSession(session => session + 1)
       setEngineLabOutputLines(outputLines.slice())
-      setEngineLabCopyStatus('idle')
+      setEngineLabCopiedText(null)
       try {
-        const lines = await sendCommand(trimmed, {
+        const lines = await sendCommand(dispatchedCommand, {
           stream: line => {
             if (labConsoleBufferRef.current !== outputLines) return
             outputLines.push(line)
             if (outputLines.length > ENGINE_CONSOLE_LINE_LIMIT) outputLines.splice(0, outputLines.length - ENGINE_CONSOLE_LINE_LIMIT)
-            setEngineLabOutputLines(outputLines.slice())
+            // Keep every retained line immediately; publish at most once per
+            // frame while native multi-PV output arrives in bursts.
+            if (labConsoleFrameRef.current === null) {
+              labConsoleFrameRef.current = window.requestAnimationFrame(() => {
+                labConsoleFrameRef.current = null
+                if (labConsoleBufferRef.current === outputLines) setEngineLabOutputLines(outputLines.slice())
+              })
+            }
           },
         })
         if (labConsoleBufferRef.current !== outputLines) return
-        if (!lines.length) setEngineLabOutputLines([`> ${trimmed}`, '(no direct response)'])
+        cancelLabConsolePublication()
+        if (settingNotice) {
+          outputLines.push(settingNotice)
+          if (outputLines.length > ENGINE_CONSOLE_LINE_LIMIT) outputLines.splice(0, outputLines.length - ENGINE_CONSOLE_LINE_LIMIT)
+        }
+        // A command can finish while the document cannot paint frames.
+        setEngineLabOutputLines(lines.length || settingNotice ? outputLines.slice() : [`> ${trimmed}`, '(no direct response)'])
         setLastLabRun({ command: trimmed, durationMs: Math.round(performance.now() - startTime) })
-        setEngineLabCommand('')
+        if (labCommandDraftVersionRef.current === draftVersion) setEngineLabCommand('')
       } catch (error) {
         if (labConsoleBufferRef.current !== outputLines) return
-        if (outputLines.length === 1) setEngineLabOutputLines([`> ${trimmed}`, '(no response before error)'])
+        labConsoleCopyVersionRef.current += 1
+        cancelLabConsolePublication()
+        setEngineLabOutputLines(outputLines.length === 1 ? [`> ${trimmed}`, '(no response before error)'] : outputLines.slice())
         setLastLabRun({ command: trimmed, durationMs: Math.round(performance.now() - startTime) })
         setEngineLabError(error instanceof Error ? error.message : String(error))
       }
     },
-    [engineEnabled, expertModeEnabled, labOptions, sendCommand, setLabOption, status],
+    [cancelLabConsolePublication, engineEnabled, expertModeEnabled, labOptions, queueLength, sendCommand, setLabOption, status, stop],
   )
 
+  const clearLabHistory = useCallback(() => {
+    const recalling = labHistoryCursorRef.current !== null
+    const draft = recalling ? labHistoryDraftRef.current : engineLabCommand
+    if (recalling) updateLabCommandDraft(draft)
+    labHistoryCursorRef.current = null
+    labHistoryDraftRef.current = draft
+    labHistorySelectRef.current = false
+    setLabCommandHistory([])
+    const input = labCommandInputRef.current
+    if (recalling) {
+      setLabHistoryRecallTick(tick => tick + 1)
+    } else if (input) {
+      const { selectionStart, selectionEnd, selectionDirection } = input
+      input.focus()
+      if (selectionStart !== null && selectionEnd !== null) input.setSelectionRange(selectionStart, selectionEnd, selectionDirection ?? undefined)
+    }
+    announce(recalling ? 'Command history cleared. Draft restored.' : 'Command history cleared')
+  }, [announce, engineLabCommand, updateLabCommandDraft])
+
   const clearLabConsole = useCallback(() => {
+    labConsoleCopyVersionRef.current += 1
+    cancelLabConsolePublication()
     labConsoleBufferRef.current.length = 0
     setEngineLabOutputLines([])
     setEngineLabError(null)
-    setEngineLabCopyStatus('idle')
-  }, [])
+    setEngineLabCopiedText(null)
+  }, [cancelLabConsolePublication])
 
   const copyLabConsole = useCallback(async () => {
+    if (!engineLabOutputLines.length) return
+    const version = ++labConsoleCopyVersionRef.current
+    const text = engineLabOutputLines.join('\n')
+    setEngineLabCopiedText(null)
     try {
-      if (!engineLabOutputLines.length) return
-      await navigator.clipboard.writeText(engineLabOutputLines.join('\n'))
+      await navigator.clipboard.writeText(text)
+      if (version !== labConsoleCopyVersionRef.current) return
       setEngineLabError(null)
-      setEngineLabCopyStatus('copied')
+      setEngineLabCopiedText(text)
     } catch {
-      setEngineLabCopyStatus('failed')
-      setEngineLabError('Clipboard access failed. Select the console output and copy it manually.')
+      if (version !== labConsoleCopyVersionRef.current) return
+      setEngineLabCopiedText(null)
+      setEngineLabError('Clipboard access failed. Download the output or select it and copy manually.')
     }
   }, [engineLabOutputLines])
+
+  const downloadLabConsole = useCallback(() => {
+    if (!engineLabOutputLines.length) return
+    labConsoleCopyVersionRef.current += 1
+    setEngineLabCopiedText(null)
+    let downloadUrl: string | undefined
+    let link: HTMLAnchorElement | undefined
+    try {
+      downloadUrl = URL.createObjectURL(new Blob([engineLabOutputLines.join('\n')], { type: 'text/plain;charset=utf-8' }))
+      link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = `web-chess-console-${formatLocalDate()}.txt`
+      document.body.append(link)
+      link.click()
+      setEngineLabError(previous => previous === ENGINE_CONSOLE_DOWNLOAD_ERROR ? null : previous)
+      announce('Console download started')
+    } catch {
+      setEngineLabError(ENGINE_CONSOLE_DOWNLOAD_ERROR)
+    } finally {
+      link?.remove()
+      if (downloadUrl) {
+        const url = downloadUrl
+        window.setTimeout(() => URL.revokeObjectURL(url), 0)
+      }
+    }
+  }, [announce, engineLabOutputLines])
 
   useEffect(() => {
     setSettingsAreKept(persistSettings({
@@ -3138,6 +3421,11 @@ function App() {
    */
   const reviewLineNodes = currentLineNodes
   const reviewLineMoves = currentLineMoves
+  const reviewLineFenPath = useMemo(
+    () => workspaceMode === 'analysis' && analysisTab === 'review' ? reviewLineNodes.map(node => node.fen) : [],
+    [analysisTab, reviewLineNodes, workspaceMode],
+  )
+  const reviewOpening = useOpening(reviewLineFenPath, reviewLineFenPath.length > 1)
   const reviewLineUciMoves = useMemo(
     () => reviewLineNodes.slice(1).map(node => node.uci).filter(Boolean),
     [reviewLineNodes],
@@ -3187,6 +3475,8 @@ function App() {
   const reviewBookPrefixLength = Math.min(reviewLineUciMoves.length, REVIEW_BOOK_PREFETCH_LIMIT)
 
   const currentReviewReport = frozenReview?.lineEndId === reviewLineNodes.at(-1)?.id ? frozenReview : null
+  const reviewExportFailed = analysisExperience === 'pro' && !isBatchReviewing && currentReviewReport !== null
+    && failedReviewExport === currentReviewReport
 
   /**
    * The map the report is scored from: the frozen one when it belongs to the
@@ -3214,22 +3504,33 @@ function App() {
   )
   const downloadReview = useCallback(() => {
     if (!currentReviewReport) return
-    const pgn = exportReviewPgn(reviewLineNodes, currentReviewReport, {
-      ...pgnHeaders, Result: reviewsAVariation ? '*' : pgnHeaders.Result ?? '*',
-    }, reviewRows.map(row => row.quality))
-    if (!pgn) return
-    const url = URL.createObjectURL(new Blob([pgn], { type: 'application/x-chess-pgn;charset=utf-8' }))
-    const link = document.createElement('a')
-    link.href = url
-    // Named for the game, like Download PGN, and marked as its review: dated by
-    // the game when the PGN says, otherwise by when the review finished.
-    link.download = pgnDownloadFilename(pgnHeaders, gameOpening?.name, new Date(currentReviewReport.finishedAt))
-      .replace(/\.pgn$/, '-review.pgn')
-    document.body.append(link)
-    link.click()
-    link.remove()
-    window.setTimeout(() => URL.revokeObjectURL(url), 0)
-  }, [currentReviewReport, gameOpening?.name, pgnHeaders, reviewLineNodes, reviewRows, reviewsAVariation])
+    let url: string | undefined
+    let link: HTMLAnchorElement | undefined
+    try {
+      const pgn = exportReviewPgn(reviewLineNodes, currentReviewReport, {
+        ...pgnHeaders, Result: reviewsAVariation ? '*' : pgnHeaders.Result ?? '*',
+      }, reviewRows.map(row => row.quality))
+      if (!pgn) throw new Error('No review PGN was produced.')
+      url = URL.createObjectURL(new Blob([pgn], { type: 'application/x-chess-pgn;charset=utf-8' }))
+      link = document.createElement('a')
+      link.href = url
+      // Use this reviewed branch's opening and the game's date when known,
+      // otherwise the day the review finished.
+      link.download = pgnDownloadFilename(pgnHeaders, reviewOpening?.name, new Date(currentReviewReport.finishedAt))
+        .replace(/\.pgn$/, '-review.pgn')
+      document.body.append(link)
+      link.click()
+      setFailedReviewExport(null)
+    } catch {
+      setFailedReviewExport(currentReviewReport)
+    } finally {
+      link?.remove()
+      if (url) {
+        const downloadUrl = url
+        window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0)
+      }
+    }
+  }, [currentReviewReport, reviewOpening?.name, pgnHeaders, reviewLineNodes, reviewRows, reviewsAVariation])
   const visibleReviewRows = useMemo(
     () => filterReviewRowsBySide(reviewRows, reviewSideFilter),
     [reviewRows, reviewSideFilter],
@@ -3258,10 +3559,12 @@ function App() {
   const playFromHereDisabledReason = isGameOver
     ? 'This game is already over.'
     : null
-  // The Engine Lab greys controls out behind two gates. Both used to be silent.
+  // Explain every state that prevents an engine command from being applied.
   const engineBusyDisabledReason = status === 'analyzing'
     ? 'The engine is mid-search. Stop the analysis first.'
-    : status === 'unloaded' ? 'Load the engine before sending console commands.' : null
+    : status === 'unloaded' ? 'Load the engine before sending console commands.'
+      : status !== 'ready' ? 'Wait for the engine to finish loading.'
+        : queueLength > 0 ? 'Wait for the pending engine command to finish.' : null
   const engineReleaseDisabledReason = isBatchReviewing || pendingGameReview || isImportingGame
     || importSweepProgress.done < importSweepProgress.total
     ? 'Finish or stop the current review or import analysis before releasing the engine.'
@@ -3581,51 +3884,12 @@ function App() {
     setDrawInProgress(null)
   }, [fen])
 
-  /**
-   * And the drawing *mode* ends where the board's purpose changes.
-   *
-   * Draw eats presses by design: while it is on, a tap is an arrow and not a
-   * move, which is right while the reader is annotating and a trap the moment
-   * the app hands the board back to be moved in. Measured at 375x812 with Draw
-   * on: switching to Play left it on and e2-e4 did nothing; a new game left it
-   * on; and a drill started with it on sat asking for a move that no tap could
-   * make, its own pill reading "Drill · 1/2" for as long as the reader kept
-   * trying. The blue ring round the board is the only thing that said why.
-   *
-   * The state above already says a mode that stops the board moving must not
-   * outlive the session that threw it -- "a board that would not move pieces on
-   * the next visit because of a switch thrown last week is a bug report". This
-   * is the same bug report over a shorter span.
-   *
-   * Off the transition, not the toggle: `drillRunning` is a boolean rather than
-   * the drill object, so this fires when a drill begins and not on every move
-   * inside one. Turning Draw on *within* Play or a drill is left alone -- that
-   * is a deliberate press against a board wearing the ring.
-   */
-  const drillRunning = drill !== null
+  // Entering Play gives the board back to pieces. Starting/restarting a
+  // drill handles that handoff directly, including an already active drill.
+  // Deliberately enabling drawing within either mode remains available.
   useEffect(() => {
-    if (workspaceMode === 'play' || drillRunning) setTouchDrawing(false)
-  }, [workspaceMode, drillRunning])
-
-  /**
-   * A drill taking the board is the end of a replay, the same way the engine
-   * taking it is -- see the `aiEnabled` effect above, which says so in those
-   * words. Both play the moves a drill exists to ask the reader for.
-   *
-   * Measured at 1440x900 without this: with autoplay running, starting a drill
-   * gave a drill that broke itself. It opened correctly ("Playing White · move
-   * 1 of 4"), and 2.5 seconds later read "Paused at move 1 of 4 — the board has
-   * moved off the line" while autoplay kept stepping. Nothing the reader did
-   * moved the board; they had just asked for a drill.
-   *
-   * Only the replay that was *already* running. Pressing Autoplay during a
-   * drill is the reader moving the board off the line deliberately, which is
-   * what the navigation buttons do too, and the drill's paused card explains
-   * that case and offers a Restart.
-   */
-  useEffect(() => {
-    if (drillRunning) setAutoplay(false)
-  }, [drillRunning])
+    if (workspaceMode === 'play') endTouchDrawing()
+  }, [workspaceMode, endTouchDrawing])
 
   /**
    * Notice a flag.
@@ -3779,8 +4043,8 @@ function App() {
 
     // A retry that draws the engine answer on the board is only theatre. Keep
     // the move that reached the position for orientation, but hide every hint
-    // and candidate until two misses reveal the answer or the move is solved.
-    if (reviewPractice && reviewPractice.status !== 'correct' && reviewPractice.attempts < 2) {
+    // and candidate until help is requested, two misses reveal it, or it is solved.
+    if (reviewPracticeAwaitingAnswer) {
       return list
     }
     if (drillAwaitingAnswer) return list
@@ -3843,7 +4107,7 @@ function App() {
     }
 
     return list
-  }, [activeThreat, currentBoardMove, drillAwaitingAnswer, engineEnabled, fen, hintMove, linePreview, lines, reviewPractice, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
+  }, [activeThreat, currentBoardMove, drillAwaitingAnswer, engineEnabled, fen, hintMove, linePreview, lines, reviewPracticeAwaitingAnswer, showBoardArrows, showTopMoveArrows, topMoveArrowCount])
 
   /**
    * What the board is handed: everything the engine has to say, and then the
@@ -4134,11 +4398,17 @@ function App() {
     return { rootFen: root.fen, moves, rootTurn }
   }, [currentLineNodes])
 
-  const startDrill = useCallback((side: 'white' | 'black') => {
-    if (!drillableLine) return
-    const line: DrillLine = { moves: drillableLine.moves, side, rootTurn: drillableLine.rootTurn }
+  const startDrill = useCallback((side: 'white' | 'black', recorded?: { line: DrillLine; rootFen: string }) => {
+    // Restart belongs to the captured line, even after visiting another branch.
+    const source = recorded ? { ...recorded.line, rootFen: recorded.rootFen } : drillableLine
+    if (!source || source.rootFen !== gameTree.root.fen) return
+    const line: DrillLine = { moves: source.moves, side, rootTurn: source.rootTurn }
     if (drillUnavailableReason(line)) return
 
+    // Every start takes the board back, including Restart while a drill is
+    // already active. A boolean drill-running effect cannot catch that case.
+    setAutoplay(false)
+    endTouchDrawing()
     cancelStaleBackgroundAnalysis()
     stop()
     setReviewPractice(null)
@@ -4150,14 +4420,15 @@ function App() {
     setOrientation(side)
     // Back to the top of the line, then play whatever the opponent owns before
     // the first question.
-    gameTree.navigateTo(currentLineNodes[0]!.id)
-    game.load(drillableLine.rootFen)
+    gameTree.navigateTo(gameTree.root.id)
+    game.load(source.rootFen)
     const opening = opponentMovesFrom(line, 0)
     playDrillMoves(opening)
     setDrill({
       line,
-      rootFen: drillableLine.rootFen,
+      rootFen: source.rootFen,
       expectedFen: game.fen(),
+      expectedNodeId: gameTree.currentPath().at(-1)?.id,
       ply: opening.length,
       misses: 0,
       revealed: false,
@@ -4172,7 +4443,23 @@ function App() {
     // here`, the practice button, and the review list. The setter rather than
     // `requestBoardReveal`, which is declared further down.
     setBoardRevealTick(tick => tick + 1)
-  }, [cancelStaleBackgroundAnalysis, clearBoardSelection, currentLineNodes, drillableLine, game, gameTree, playDrillMoves, stop])
+  }, [cancelStaleBackgroundAnalysis, clearBoardSelection, drillableLine, endTouchDrawing, game, gameTree, playDrillMoves, stop])
+
+  const returnToDrill = useCallback(() => {
+    const question = drill?.expectedNodeId ? gameTree.getNode(drill.expectedNodeId) : undefined
+    if (!drill || !question || question.fen !== drill.expectedFen || gameTree.root.fen !== drill.rootFen
+      || !isDrillTurn(drill.line, drill.ply)) return
+    setAutoplay(false)
+    cancelStaleBackgroundAnalysis()
+    stop()
+    setReviewPractice(null)
+    endTouchDrawing()
+    setOrientation(drill.line.side)
+    navigateAndPause(gameTree.navigateTo(question.id))
+    setBoardRevealTick(tick => tick + 1)
+    setAnalysisTab(previous => previous === 'engine-lab' ? 'analyze' : previous)
+    exerciseQuestionFocusRef.current = { kind: 'drill', fen: drill.expectedFen }
+  }, [cancelStaleBackgroundAnalysis, drill, endTouchDrawing, gameTree, navigateAndPause, stop])
 
   const endDrill = useCallback(() => {
     setDrill(null)
@@ -4200,6 +4487,20 @@ function App() {
   const drillBlackReason = drillableLine
     ? drillUnavailableReason(drillLineForSide('black')!)
     : 'There is no line on the board to drill.'
+  const drillQuestion = drill?.expectedNodeId ? gameTree.getNode(drill.expectedNodeId) : undefined
+  const canReturnToDrill = Boolean(drill && drillQuestion?.fen === drill.expectedFen && gameTree.root.fen === drill.rootFen)
+  const drillReturnReason = !drill ? 'No drill is running'
+    : !isDrillTurn(drill.line, drill.ply) ? 'The drill is complete'
+      : !canReturnToDrill ? 'That question is no longer in this study; restart the drill'
+        : drill.expectedFen === fen ? 'Already at the drill question' : null
+  const drillRevealReason = !drill ? 'No drill is running'
+    : !isDrillTurn(drill.line, drill.ply) ? 'The drill is complete'
+      : drill.expectedFen !== fen ? 'Return to the drill question first'
+        : drill.revealed ? 'The move is already shown' : null
+  const practiceRevealReason = !reviewPractice ? 'Start a review practice question first'
+    : reviewPractice.status === 'correct' ? 'This practice question is already solved'
+      : reviewPractice.beforeFen !== fen ? 'The practice position has changed'
+        : !reviewPracticeAwaitingAnswer ? 'The practice move is already shown' : null
 
   const applyHumanMove = useCallback(
     (from: Square, to: Square, promotion?: PromotionPiece) => {
@@ -4225,7 +4526,7 @@ function App() {
         const judged = judgeDrillMove(activeDrill.line, activeDrill.ply, activeDrill.misses, move)
         if (!judged.correct) {
           game.undo()
-          setDrill(previous => (previous ? { ...previous, misses: judged.misses, revealed: judged.revealed } : previous))
+          setDrill(previous => (previous ? { ...previous, misses: judged.misses, revealed: previous.revealed || judged.revealed } : previous))
           clearBoardSelection()
           setPendingPromotion(null)
           return false
@@ -4291,8 +4592,10 @@ function App() {
         // than their opponent's reply.
         const reply = opponentMovesFrom(activeDrill.line, activeDrill.ply + 1)
         if (reply.length) playDrillMoves(reply)
+        const expectedFen = game.fen()
+        const expectedNodeId = gameTree.currentPath().at(-1)?.id
         setDrill(previous => (previous
-          ? { ...previous, ply: judged.ply, expectedFen: game.fen(), misses: 0, revealed: false }
+          ? { ...previous, ply: judged.ply, expectedFen, expectedNodeId, misses: 0, revealed: false }
           : previous))
       }
       clearBoardSelection()
@@ -4399,6 +4702,7 @@ function App() {
     }
   }, [linePreview])
   const isPreviewingLine = previewChess !== null
+  const previewEnding = useMemo(() => previewChess ? describeGameEnd(previewChess) : null, [previewChess])
 
   const beginPromotion = useCallback(
     (from: Square, to: Square) => {
@@ -4629,17 +4933,18 @@ function App() {
         restoreBoardFocusRef.current = null
         return
       }
-      // Focus the square, not the piece inside it: the board replaces the piece
-      // element as it animates in, which would drop focus straight back to
-      // <body>, while the square itself persists. It already carries the label
-      // a screen reader should hear ("e4, White pawn"), and -1 keeps it out of
-      // the tab order — the sync above only strips tabindex from squares it
-      // marked itself, so this survives.
+      // Use the named piece control once it exists. During animation the
+      // passive square is a named fallback; the structural observer retries
+      // when the board replaces it with the arriving piece.
       const squareEl = document.getElementById(`chessboard-square-${square}`)
       if (!squareEl) return
-      if (!squareEl.hasAttribute('tabindex')) squareEl.setAttribute('tabindex', '-1')
-      squareEl.focus()
-      if (settled) restoreBoardFocusRef.current = null
+      const pieceControl = squareEl.querySelector<HTMLElement>('button, [role="button"]')
+      const focusTarget = pieceControl ?? squareEl
+      if (!focusTarget.hasAttribute('tabindex')) focusTarget.setAttribute('tabindex', '-1')
+      focusTarget.focus()
+      if (settled && (pieceControl || !(previewChess ?? game).get(square))) {
+        restoreBoardFocusRef.current = null
+      }
     }
 
     const sync = (settled = false) => {
@@ -4670,14 +4975,30 @@ function App() {
       retryFrame = window.requestAnimationFrame(syncUntilBoardExists)
     }
 
+    // Piece children arrive after the position update, and the board can
+    // remount without changing the position (for example after resizing).
+    // Observe structure only: our own label/role writes must not reschedule us.
+    let structureFrame: number | null = null
+    const observer = new MutationObserver(() => {
+      if (structureFrame !== null) return
+      structureFrame = window.requestAnimationFrame(() => {
+        structureFrame = null
+        sync()
+      })
+    })
+    const boardArea = boardStageRef.current?.querySelector('.board-area')
+    if (boardArea) observer.observe(boardArea, { childList: true, subtree: true })
+
     const frame = window.requestAnimationFrame(syncUntilBoardExists)
     const settleTimer = window.setTimeout(() => sync(true), 360)
 
     sync()
 
     return () => {
+      observer.disconnect()
       window.cancelAnimationFrame(frame)
       if (retryFrame !== null) window.cancelAnimationFrame(retryFrame)
+      if (structureFrame !== null) window.cancelAnimationFrame(structureFrame)
       window.clearTimeout(settleTimer)
     }
   }, [blindfold, fen, game, legalTargets, previewChess, selectedSquare])
@@ -4731,7 +5052,7 @@ function App() {
     if (!pendingPromotion) return
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || isCompositionKey(event)) return
       const piece = PROMOTION_KEYS[event.key.toLowerCase()]
       if (!piece) return
       event.preventDefault()
@@ -4746,19 +5067,36 @@ function App() {
   const rememberModalTrigger = useCallback((event?: SyntheticEvent<HTMLElement>) => {
     // Safari can activate a button without focusing it. Pointer-opened dialogs
     // must return to that button; shortcuts and drops retain the active element.
-    modalTriggerRef.current = event?.currentTarget
-      ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null)
+    const active = document.activeElement instanceof HTMLElement || document.activeElement instanceof SVGElement
+      ? document.activeElement : null
+    const candidate = event?.currentTarget ?? active
+    const previousOwner = modalTriggerRef.current
+    const previous = previousOwner?.element
+    // Commands can replace themselves with another dialog before their close
+    // frame. Carry the original opener instead of a command that will detach.
+    const trigger = previous?.isConnected
+      && (candidate?.closest('[aria-modal="true"]') || (!event && active === document.body && previousOwner?.restoring))
+      ? previous : candidate
+    // Give the focus hook the explicit opener even in browsers whose pointer
+    // activation leaves focus on the previous control.
+    if (event && trigger && document.activeElement !== trigger) trigger.focus({ preventScroll: true })
+    modalTriggerRef.current = trigger ? { element: trigger, restoring: false } : null
   }, [])
 
   rememberModalTriggerRef.current = rememberModalTrigger
 
   const restoreModalTriggerFocus = useCallback(() => {
-    const trigger = modalTriggerRef.current
-    modalTriggerRef.current = null
-    if (!trigger) return
+    const owner = modalTriggerRef.current
+    if (!owner) return
+    owner.restoring = true
 
     window.requestAnimationFrame(() => {
-      if (document.contains(trigger)) {
+      if (modalTriggerRef.current !== owner) return
+      modalTriggerRef.current = null
+      const trigger = owner.element
+      // The reader may already have focused a preview or opened another modal
+      // before this frame. Restore only when focus still needs a destination.
+      if (document.activeElement === document.body && document.contains(trigger)) {
         trigger.focus()
       }
     })
@@ -4780,8 +5118,9 @@ function App() {
   }, [gameMode, openNewGameDialogForMode])
   openNewGameDialogRef.current = openNewGameDialog
   const clearDroppedPgnFile = useCallback(() => setDroppedPgnFile(null), [])
-  const openPgnDialog = useCallback((event?: SyntheticEvent<HTMLElement>) => {
+  const openPgnDialog = useCallback((event?: SyntheticEvent<HTMLElement>, initialTab: 'import' | 'fen' | 'export' = 'import') => {
     rememberModalTrigger(event)
+    setPgnDialogInitialTab(initialTab)
     setSettingsOpen(false)
     setShowNewGameDialog(false)
     setShowLibraryDialog(false)
@@ -4849,16 +5188,17 @@ function App() {
     restoreModalTriggerFocus()
   }, [restoreModalTriggerFocus])
   const library = useGameLibrary()
+  const isPositionStudy = mainLineNodes.length === 1 && currentRootFen !== DEFAULT_POSITION
   // Built only while the dialog is open; exportAnnotatedPgn walks the whole tree.
   const libraryPgn = useMemo(
-    () => (showLibraryDialog && mainLineNodes.length > 1
+    () => (showLibraryDialog && (mainLineNodes.length > 1 || isPositionStudy)
       ? exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
       : ''),
-    [showLibraryDialog, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot],
+    [showLibraryDialog, mainLineNodes, isPositionStudy, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot],
   )
   const librarySuggestedName = useMemo(
-    () => (libraryPgn ? suggestGameName(libraryPgn, gameOpening?.name) : ''),
-    [gameOpening?.name, libraryPgn],
+    () => (libraryPgn ? suggestGameName(libraryPgn, gameOpening?.name ?? (isPositionStudy ? 'Position study' : undefined)) : ''),
+    [gameOpening?.name, isPositionStudy, libraryPgn],
   )
   const closeLibraryDialog = useCallback(() => {
     setShowLibraryDialog(false)
@@ -4926,8 +5266,13 @@ function App() {
   }, [closeEveryOverlay])
   const handleSettingsToggle = (event: SyntheticEvent<HTMLDetailsElement>) => {
     const nextOpen = event.currentTarget.open
-    setSettingsOpen(nextOpen)
-    if (!nextOpen) return
+    // A controlled open/close also dispatches toggle. Only a native toggle
+    // starts or consumes an opener; a successor dialog already owns its own.
+    if (nextOpen === settingsOpen) return
+    if (!nextOpen) { closeSettings(); return }
+    event.currentTarget.querySelector('summary')?.focus({ preventScroll: true })
+    rememberModalTriggerRef.current()
+    setSettingsOpen(true)
     setShowNewGameDialog(false)
     setShowPgnDialog(false)
     setShowLibraryDialog(false)
@@ -4955,9 +5300,47 @@ function App() {
     setBoardRevealTick(tick => tick + 1)
   }, [])
 
+  const revealDrillMove = useCallback(() => {
+    if (drillRevealReason || !drill) return
+    setDrill(previous => previous && previous === drill ? { ...previous, revealed: true } : previous)
+    setAutoplay(false)
+    endTouchDrawing()
+    clearBoardSelection()
+    exerciseQuestionFocusRef.current = { kind: 'drill', fen: drill.expectedFen }
+    requestBoardReveal()
+  }, [clearBoardSelection, drill, drillRevealReason, endTouchDrawing, requestBoardReveal])
+
+  const revealPracticeMove = useCallback(() => {
+    if (practiceRevealReason || !reviewPractice) return
+    setReviewPractice(previous => previous === reviewPractice ? { ...previous, hintRequested: true } : previous)
+    setAutoplay(false)
+    endTouchDrawing()
+    clearBoardSelection()
+    exerciseQuestionFocusRef.current = { kind: 'practice', fen: reviewPractice.beforeFen }
+    requestBoardReveal()
+  }, [clearBoardSelection, endTouchDrawing, practiceRevealReason, requestBoardReveal, reviewPractice])
+
   useEffect(() => {
-    if (boardRevealTick === 0) return
-    if (scrollDesktopChrome) {
+    const request = exerciseQuestionFocusRef.current
+    if (!request) return
+    const currentQuestion = request.kind === 'drill' ? drill?.expectedFen : reviewPractice?.beforeFen
+    if (request.fen !== fen || currentQuestion !== fen) {
+      exerciseQuestionFocusRef.current = null
+      return
+    }
+    if (backgroundUiHidden) return
+    // A command runs while its closing palette still makes the board inert.
+    // Wait for that commit before handing focus to the requested question.
+    exerciseQuestionFocusRef.current = null
+    boardStageRef.current?.focus({ preventScroll: true })
+  }, [backgroundUiHidden, drill, fen, reviewPractice])
+
+  // Each reveal owns its settle timers. New input, a modal, or the other
+  // reveal supersedes them. Consumed requests never replay after cleanup.
+  useEffect(() => {
+    if (boardRevealTick === 0 || backgroundUiHidden || handledBoardRevealRef.current === boardRevealTick) return
+    handledBoardRevealRef.current = boardRevealTick
+    if (scrollWorkspaceChrome) {
       const stage = boardStageRef.current
       stage?.focus({ preventScroll: true })
       stage?.querySelector('.board-surface')?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' })
@@ -4965,68 +5348,42 @@ function App() {
     }
     if (!isMobileLayout) return
 
-    let settleTimer: ReturnType<typeof window.setTimeout> | null = null
-    let finalTimer: ReturnType<typeof window.setTimeout> | null = null
-    let longSettleTimer: ReturnType<typeof window.setTimeout> | null = null
-    const scrollBoardToTop = () => {
+    const scrollBoardToTop = (focus = false) => {
       const mainContainer = mainContainerRef.current
       const boardStage = boardStageRef.current
       if (!mainContainer || !boardStage) return
-      const activeElement = document.activeElement
-      if (activeElement instanceof HTMLElement) activeElement.blur()
-      boardStage.focus({ preventScroll: true })
+      if (focus) boardStage.focus({ preventScroll: true })
       mainContainer.scrollTo({
         top: boardStage.offsetTop,
         behavior: 'auto',
       })
     }
 
-    scrollBoardToTop()
-    settleTimer = window.setTimeout(scrollBoardToTop, 160)
-    finalTimer = window.setTimeout(scrollBoardToTop, 360)
-    longSettleTimer = window.setTimeout(scrollBoardToTop, 1200)
-
-    return () => {
-      if (settleTimer) window.clearTimeout(settleTimer)
-      if (finalTimer) window.clearTimeout(finalTimer)
-      if (longSettleTimer) window.clearTimeout(longSettleTimer)
-    }
-  }, [boardRevealTick, isMobileLayout, scrollDesktopChrome])
+    // Focus belongs to the explicit request. Later layout retries only scroll.
+    scrollBoardToTop(true)
+    return scheduleRevealRetries(scrollBoardToTop, [160, 360, 1200])
+  }, [analysisPanelRevealTick, backgroundUiHidden, boardRevealTick, isMobileLayout, moveEntryFocusTick, scrollWorkspaceChrome])
 
   useEffect(() => {
-    if (analysisPanelRevealTick === 0) return
+    if (analysisPanelRevealTick === 0 || backgroundUiHidden || handledAnalysisRevealRef.current === analysisPanelRevealTick) return
+    handledAnalysisRevealRef.current = analysisPanelRevealTick
     if (!isMobileLayout) return
     if (workspaceMode !== 'analysis') return
 
-    let settleTimer: ReturnType<typeof window.setTimeout> | null = null
-    let finalTimer: ReturnType<typeof window.setTimeout> | null = null
-    const scrollAnalysisPanelToTop = () => {
+    const scrollAnalysisPanelToTop = (focus = false) => {
       const mainContainer = mainContainerRef.current
       const analysisPanel = analysisPanelRef.current
       if (!mainContainer || !analysisPanel) return
-      const activeElement = document.activeElement
-      if (activeElement instanceof HTMLElement) activeElement.blur()
-      analysisPanel.focus({ preventScroll: true })
+      if (focus) analysisPanel.focus({ preventScroll: true })
       mainContainer.scrollTo({
         top: analysisPanel.offsetTop,
         behavior: 'auto',
       })
     }
 
-    scrollAnalysisPanelToTop()
-    settleTimer = window.setTimeout(scrollAnalysisPanelToTop, 120)
-    finalTimer = window.setTimeout(scrollAnalysisPanelToTop, 320)
-
-    return () => {
-      if (settleTimer) window.clearTimeout(settleTimer)
-      if (finalTimer) window.clearTimeout(finalTimer)
-    }
-  }, [analysisPanelRevealTick, isMobileLayout, workspaceMode])
-
-  useEffect(() => {
-    if (importSweepProgress.total <= 0) return
-    requestBoardReveal()
-  }, [importSweepProgress.total, requestBoardReveal])
+    scrollAnalysisPanelToTop(true)
+    return scheduleRevealRetries(scrollAnalysisPanelToTop, [120, 320])
+  }, [analysisPanelRevealTick, backgroundUiHidden, boardRevealTick, isMobileLayout, moveEntryFocusTick, workspaceMode])
 
   const readCachedSamplePgn = useCallback((sampleId: string): string | null => {
     const cached = samplePgnCacheRef.current.get(sampleId)
@@ -5083,7 +5440,7 @@ function App() {
       setPgnHeaders(importedGame.headers)
 
       const mainLineEntries = flattenPgnMainLine(importedGame.moves)
-      gameTree.loadTree(importedGame.moves, rootFen, importedGame.rootCommands)
+      gameTree.loadTree(importedGame.moves, rootFen, importedGame.rootCommands, importedGame.rootComment)
 
       const finalFen = mainLineEntries.at(-1)?.fen ?? rootFen
       game.load(finalFen)
@@ -5171,13 +5528,18 @@ function App() {
   // The check is mount-only and runs before the first debounced write, so a
   // fresh board cannot clear the snapshot it is about to offer.
   const autoSaveCheckedRef = useRef(false)
+  const resumeSharedRecoveryRef = useRef(false)
 
   useEffect(() => {
     if (autoSaveCheckedRef.current) return
     autoSaveCheckedRef.current = true
     const snapshot = readAutoSavedGame()
+    setAutoSaveReady(true)
     if (!snapshot) return
-    if (mainLineNodes.length > 1) {
+    const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+    const resumeSharedRecovery = shouldResumeSharedRecovery(snapshot.savedAt, window.location.hash, navigation?.type ?? 'navigate')
+    resumeSharedRecoveryRef.current = resumeSharedRecovery
+    if (!resumeSharedRecovery && (mainLineNodes.length > 1 || currentRootFen !== DEFAULT_POSITION)) {
       // A share link already put a game on the board, so the snapshot is stale.
       clearAutoSavedGame()
       return
@@ -5198,23 +5560,30 @@ function App() {
   // written. autoSaveDelayMs keeps the debounce for the quiet case and adds a
   // deadline for the noisy one.
   const autoSaveLastWriteAtRef = useRef<number | null>(null)
+  const autoSaveOwnedRevisionRef = useRef<AutoSaveRevision | null>(null)
 
-  useEffect(() => {
-    if (autoSaveRecovery) return
-    const delay = autoSaveDelayMs(Date.now(), autoSaveLastWriteAtRef.current, AUTO_SAVE_DEBOUNCE_MS)
-    const timeout = window.setTimeout(() => {
-      autoSaveLastWriteAtRef.current = Date.now()
+  useLayoutEffect(() => {
+    // Read recovery before installing a writer: an early pagehide must not
+    // replace an unopened snapshot with the initial empty board.
+    if (!autoSaveReady || autoSaveRecovery) return
+    const saveNow = () => {
+      const savedAt = Date.now()
+      autoSaveLastWriteAtRef.current = savedAt
       const plies = mainLineNodes.length - 1
-      if (plies <= 0) {
-        clearAutoSavedGame()
+      if (plies <= 0 && !isPositionStudy) {
+        // Another tab may have saved since this board became empty.
+        clearAutoSavedGame(undefined, autoSaveOwnedRevisionRef.current)
+        autoSaveOwnedRevisionRef.current = null
+        clearSharedRecovery()
         setAutoSaveResult('empty')
         return
       }
-      setAutoSaveResult(writeAutoSavedGame(
-        exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot),
+      const pgn = exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
+      const result = writeAutoSavedGame(
+        pgn,
         plies,
         undefined,
-        undefined,
+        savedAt,
         // Banked times, read at the moment of writing, so a clock that is
         // running is stored as what it would show if it stopped now.
         clockRef.current
@@ -5228,25 +5597,60 @@ function App() {
         // Only for a game being played. An imported PGN under analysis has no
         // side to take, and restoring one into Play mode would invent one.
         playSessionRef.current,
-      ))
-    }, delay)
-    return () => window.clearTimeout(timeout)
-  }, [autoSaveRecovery, autoSaveRetry, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
+        isPositionStudy,
+      )
+      if (result === 'saved') {
+        autoSaveOwnedRevisionRef.current = { savedAt, pgn }
+        recordSharedRecovery(savedAt, window.location.hash)
+      }
+      setAutoSaveResult(result)
+    }
+    const delay = autoSaveDelayMs(Date.now(), autoSaveLastWriteAtRef.current, AUTO_SAVE_DEBOUNCE_MS)
+    const timeout = window.setTimeout(saveNow, delay)
+    const flush = () => {
+      window.clearTimeout(timeout)
+      // Even after the timer fired, a running clock has spent more time.
+      saveNow()
+    }
+    const flushWhenHidden = () => { if (document.visibilityState === 'hidden') flush() }
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', flushWhenHidden)
+    return () => {
+      window.clearTimeout(timeout)
+      window.removeEventListener('pagehide', flush)
+      document.removeEventListener('visibilitychange', flushWhenHidden)
+    }
+  }, [autoSaveReady, autoSaveRecovery, autoSaveRetry, mainLineNodes, isPositionStudy, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
 
   const downloadRecoveryPgn = useCallback(() => {
-    const pgn = exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
-    const url = URL.createObjectURL(new Blob([pgn], { type: 'application/x-chess-pgn;charset=utf-8' }))
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `web-chess-recovery-${new Date().toISOString().slice(0, 10)}.pgn`
-    document.body.append(link)
-    link.click()
-    link.remove()
-    window.setTimeout(() => URL.revokeObjectURL(url), 0)
-  }, [mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
+    let url: string | undefined
+    let link: HTMLAnchorElement | undefined
+    try {
+      const pgn = autoSaveRecovery?.pgn ?? exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
+      url = URL.createObjectURL(new Blob([pgn], { type: 'application/x-chess-pgn;charset=utf-8' }))
+      link = document.createElement('a')
+      link.href = url
+      link.download = `web-chess-recovery-${formatLocalDate()}.pgn`
+      document.body.append(link)
+      link.click()
+      return true
+    } catch {
+      return false
+    } finally {
+      link?.remove()
+      if (url) {
+        const downloadUrl = url
+        window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0)
+      }
+    }
+  }, [autoSaveRecovery, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
 
   const dismissAutoSaveRecovery = useCallback(() => {
+    autoSaveCopyGeneration.current++
     clearAutoSavedGame()
+    autoSaveOwnedRevisionRef.current = null
+    clearSharedRecovery()
+    setAutoSaveCopyState('idle')
     setAutoSaveRestoreError(null)
     setAutoSaveRecovery(null)
   }, [])
@@ -5256,7 +5660,7 @@ function App() {
    * word, so the reader pressed Restore and watched their unfinished game
    * vanish into an empty board. Nothing here is recoverable once the slot is
    * gone, so the failure now says what went wrong, keeps the snapshot, and
-   * offers the moves to the clipboard before anything is discarded.
+   * offers the original text to copy or download before anything is discarded.
    */
   const restoreAutoSavedGame = useCallback(() => {
     if (!autoSaveRecovery) return
@@ -5265,6 +5669,7 @@ function App() {
       setAutoSaveRestoreError(result.error ?? 'The saved moves could not be read.')
       return
     }
+    autoSaveOwnedRevisionRef.current = { savedAt: autoSaveRecovery.savedAt, pgn: autoSaveRecovery.pgn }
     setAutoSaveRestoreError(null)
     setAutoSaveRecovery(null)
     // Everything below runs after the import, which resets the board and the
@@ -5300,13 +5705,18 @@ function App() {
     }
   }, [autoSaveRecovery, handleAnalysisPgnImport, setAiPlayerDifficulty])
 
-  const copyAutoSavedPgn = useCallback(() => {
+  const copyAutoSavedPgn = useCallback(async () => {
     const pgn = autoSaveRecovery?.pgn
     if (!pgn) return
-    navigator.clipboard?.writeText(pgn).then(
-      () => setAutoSaveCopyLabel('Copied'),
-      () => setAutoSaveCopyLabel('Copy failed'),
-    )
+    const generation = ++autoSaveCopyGeneration.current
+    setAutoSaveCopyState('copying')
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
+      await navigator.clipboard.writeText(pgn)
+      if (autoSaveCopyGeneration.current === generation) setAutoSaveCopyState('copied')
+    } catch {
+      if (autoSaveCopyGeneration.current === generation) setAutoSaveCopyState('failed')
+    }
   }, [autoSaveRecovery])
 
   const handleFenLoad = useCallback((fenText: string, options?: FenLoadOptions) => {
@@ -5376,10 +5786,13 @@ function App() {
    */
   const loadSharedGame = useCallback((shared: { rootFen: string; moves: string[]; carried?: number; ply?: number }): boolean => {
     const played = replaySharedGame(shared)
-    if (!played.length) return false
+    const carried = Math.max(shared.carried ?? shared.moves.length, shared.moves.length)
+    // An intentional empty game still carries a position. A damaged or
+    // illegal first move must not silently turn into an empty study.
+    if (!played.length && (carried > 0 || !validateFenForAnalysis(shared.rootFen).ok)) return false
     // Two ways to lose the end of a link: a token the decoder could not read
     // (a cut lands mid-move) and a move the position will not take.
-    const lost = Math.max(shared.carried ?? shared.moves.length, shared.moves.length) - played.length
+    const lost = carried - played.length
 
     cancelSampleLoad()
     cancelPendingAiMove()
@@ -5394,6 +5807,7 @@ function App() {
     setEvaluationsByFen(new Map())
     setFrozenReview(null)
     setDrill(null)
+    setReviewPractice(null)
     setAutoplay(false)
     setClock(null)
     setResignedBy(null)
@@ -5422,27 +5836,33 @@ function App() {
   ])
 
   useEffect(() => {
-    const loadSharedHash = () => {
+    const loadSharedHash = (event?: HashChangeEvent) => {
+      if (!event && resumeSharedRecoveryRef.current) return
       const sharedGame = parseGameShareHash(window.location.hash)
-      if (sharedGame && loadSharedGame(sharedGame)) return
+      if (sharedGame && loadSharedGame(sharedGame)) {
+        dismissAutoSaveRecovery()
+        setShowCommandPalette(false)
+        return
+      }
       const sharedFen = loadSharedFenFromUrl()
       if (!sharedFen) {
         // A link that carried something and gave nothing. Measured on a
         // truncated `#fen=`, which is what a chat app makes of a long link:
         // the board dropped to the starting position in Play mode and said
         // nothing, so the reader is left thinking the sender got it wrong.
-        if (hashCarriesShare(window.location.hash)) announce(SHARED_LINK_UNREADABLE, NOTICE_EXPLAIN_MS)
+        if (hashCarriesShare(window.location.hash)) {
+          announce(event ? SHARED_LINK_UNREADABLE_CURRENT : SHARED_LINK_UNREADABLE, NOTICE_EXPLAIN_MS)
+        }
         return
       }
       setShowPgnDialog(false)
       setShowNewGameDialog(false)
       setShowLibraryDialog(false)
       setSettingsOpen(false)
-      if (sharedFen === game.fen()) {
-        requestBoardReveal()
-        return
+      if (handleFenLoad(sharedFen, { forceAnalysis: true }).ok) {
+        dismissAutoSaveRecovery()
+        setShowCommandPalette(false)
       }
-      handleFenLoad(sharedFen, { forceAnalysis: true })
     }
 
     // Also on mount: a link opened cold has its hash before the first render,
@@ -5690,35 +6110,37 @@ function App() {
     setPgnHeaders,
   ])
 
-  /**
-   * The three things a reader with a position wants to do with it somewhere
-   * else, and had to open the PGN dialog for: put the FEN or the PGN on the
-   * clipboard, or take the line to Lichess for a second opinion.
-   */
+  // A permission prompt can resolve after another copy. Only the latest
+  // command owns the feedback, regardless of which payload it copied.
+  const commandCopyVersion = useRef(0)
+  const copyCommandText = useCallback(async (text: string, label: 'FEN' | 'PGN' | 'Game link' | 'Position link') => {
+    const version = ++commandCopyVersion.current
+    const fallback = label === 'Position link'
+      ? 'position link from the PGN dialog’s FEN tab'
+      : `${label === 'Game link' ? 'link' : label} from the PGN dialog`
+    try {
+      const clipboard = navigator.clipboard
+      if (!clipboard?.writeText) {
+        announce(`Clipboard unavailable — copy the ${fallback}`)
+        return
+      }
+      await clipboard.writeText(text)
+      if (commandCopyVersion.current === version) announce(`${label} copied`)
+    } catch {
+      if (commandCopyVersion.current === version) announce(`Clipboard blocked — copy the ${fallback}`)
+    }
+  }, [announce])
   const copyFen = useCallback(() => {
-    const clipboard = navigator.clipboard
-    if (!clipboard) {
-      announce('Clipboard unavailable — copy the FEN from the PGN dialog')
-      return
-    }
-    clipboard.writeText(fen).then(
-      () => announce('FEN copied'),
-      () => announce('Clipboard blocked — copy the FEN from the PGN dialog'),
-    )
-  }, [announce, fen])
+    void copyCommandText(fen, 'FEN')
+  }, [copyCommandText, fen])
+  const copyPositionLink = useCallback(() => {
+    void copyCommandText(buildFenShareUrl(fen, window.location.href), 'Position link')
+  }, [copyCommandText, fen])
   const copyPgn = useCallback(() => {
-    if (mainLineNodes.length <= 1) return
-    const clipboard = navigator.clipboard
-    if (!clipboard) {
-      announce('Clipboard unavailable — copy the PGN from the PGN dialog')
-      return
-    }
+    if (mainLineNodes.length <= 1 && !isPositionStudy) return
     const pgn = exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
-    clipboard.writeText(pgn).then(
-      () => announce('PGN copied'),
-      () => announce('Clipboard blocked — copy the PGN from the PGN dialog'),
-    )
-  }, [announce, evaluationsByFen, gameTree.nodesSnapshot, mainLineNodes, pgnHeaders])
+    void copyCommandText(pgn, 'PGN')
+  }, [copyCommandText, evaluationsByFen, gameTree.nodesSnapshot, isPositionStudy, mainLineNodes, pgnHeaders])
   /**
    * The game-link button, where the other two copies already were. It lived
    * only on the PGN dialog's Export tab, so the palette could copy the FEN and
@@ -5738,16 +6160,8 @@ function App() {
       announce('This game is too long for a link — copy the PGN instead')
       return
     }
-    const clipboard = navigator.clipboard
-    if (!clipboard) {
-      announce('Clipboard unavailable — copy the link from the PGN dialog')
-      return
-    }
-    clipboard.writeText(url).then(
-      () => announce('Game link copied'),
-      () => announce('Clipboard blocked — copy the link from the PGN dialog'),
-    )
-  }, [announce, gameTree, mainLineNodes])
+    void copyCommandText(url, 'Game link')
+  }, [announce, copyCommandText, gameTree, mainLineNodes])
   const openInLichess = useCallback(() => {
     // The line the reader is standing in, up to where they stand -- not the
     // main line, which may be a different game by now.
@@ -5770,26 +6184,95 @@ function App() {
       ? 'No moves ahead of this position.'
       : null
 
+  // Mate and stalemate leave no move to name. Read from the FEN, not the
+  // mutable `game`, so move generation runs per position, not every render.
+  const hasLegalMove = useMemo(() => {
+    const position = new Chess(fen)
+    return !position.isCheckmate() && !position.isStalemate()
+  }, [fen])
+  const boardInputLocked = isBoardInputLocked({
+    gameOver: isGameOver,
+    workspaceMode,
+    gameMode,
+    isAiThinking,
+    paused,
+    turn: game.turn(),
+    playerColor: playerColorToTurn(playerColor),
+    endedOffBoard: Boolean(endedOffBoard),
+  })
+  const moveEntryDisabledReason = pendingPromotion ? 'Choose a promotion piece on the board.'
+    : isAiThinking ? 'Waiting for the engine’s move.'
+      : aiPlayerStatus === 'error' ? 'The opponent is unavailable. Start a new game or switch to Analysis.'
+        : aiPlayerStatus === 'loading' ? 'The opponent is loading. Move entry opens on your turn.'
+          : aiSpeed === 'step' ? 'Press Step for the engine’s move.'
+            : 'Waiting for the engine’s move.'
+
+  const moveEntryCommandReason = workspaceMode === 'play' && gameMode === 'ai-vs-ai'
+    ? 'Start a human game or switch to Analysis to enter moves.'
+    : workspaceMode === 'play' && (isGameOver || endedOffBoard)
+      ? 'The game has ended. Switch to Analysis to explore.'
+      : !hasLegalMove ? 'This position has no legal moves.'
+        : boardInputLocked || pendingPromotion ? moveEntryDisabledReason : null
+  const requestMoveEntry = useCallback(() => {
+    // This explicit destination supersedes pending board/panel reveals.
+    handledBoardRevealRef.current = boardRevealTick
+    handledAnalysisRevealRef.current = analysisPanelRevealTick
+    endTouchDrawing()
+    if (workspaceMode === 'analysis' && analysisTab === 'engine-lab') setAnalysisTab('analyze')
+    setRightWidth(width => width || preferredRightWidthRef.current)
+    setMoveEntryFocusTick(tick => tick + 1)
+  }, [analysisPanelRevealTick, analysisTab, boardRevealTick, endTouchDrawing, workspaceMode])
+  useEffect(() => {
+    if (!moveEntryFocusTick || handledMoveEntryFocusRef.current === moveEntryFocusTick) return
+    handledMoveEntryFocusRef.current = moveEntryFocusTick
+    if (backgroundUiHidden) return
+    const entry = analysisPanelRef.current?.querySelector<HTMLDetailsElement>('.move-entry')
+    const input = entry?.querySelector<HTMLInputElement>('input')
+    if (!entry || !input) return
+    entry.open = true
+    input.focus({ preventScroll: true })
+    const reveal = () => {
+      if (document.activeElement === input) input.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+    }
+    reveal()
+    return scheduleRevealRetries(reveal, [120, 320])
+  }, [analysisPanelRevealTick, backgroundUiHidden, boardRevealTick, moveEntryFocusTick])
+
   const paletteCommands = useMemo<Command[]>(() => [
     { id: 'new-game', label: 'New game', shortcut: 'N', keywords: ['restart', 'reset'], run: openNewGameDialog },
+    { id: 'enter-move', label: 'Enter a move by name',
+      hint: moveEntryCommandReason ?? 'Focus the field for Nf3, e4 or e2e4',
+      keywords: ['type', 'keyboard', 'san', 'coordinates', 'notation'], disabled: Boolean(moveEntryCommandReason), run: requestMoveEntry },
     { id: 'flip-board', label: 'Flip board', shortcut: 'F', keywords: ['orientation', 'rotate', 'side'],
       run: () => setOrientation(value => (value === 'white' ? 'black' : 'white')) },
     { id: 'pgn', label: 'PGN and FEN', hint: 'Import, export, share', keywords: ['paste', 'copy', 'link', 'position'],
       run: openPgnDialog },
+    { id: 'setup-position', label: 'Set up position', hint: 'Edit the pieces and rules of the current position',
+      keywords: ['fen', 'diagram', 'board', 'pieces', 'editor'], run: () => openPgnDialog(undefined, 'fen') },
+    { id: 'export-pgn', label: 'Export PGN',
+      hint: mainLineNodes.length <= 1 && !isPositionStudy ? 'No game or position study to export yet'
+        : isPositionStudy ? 'Save the starting position and its notes'
+          : 'Download or copy the whole game with notes and variations',
+      keywords: ['download', 'file', 'notes', 'variations'],
+      disabled: mainLineNodes.length <= 1 && !isPositionStudy,
+      run: () => openPgnDialog(undefined, 'export') },
     { id: 'copy-fen', label: 'Copy FEN', hint: 'The position on the board', keywords: ['clipboard', 'position', 'share'],
       run: copyFen },
+    { id: 'copy-position-link', label: 'Copy position link', hint: 'A link to the exact position on the board',
+      keywords: ['clipboard', 'fen', 'share', 'url', 'send', 'board'], run: copyPositionLink },
     {
       id: 'copy-pgn',
       label: 'Copy PGN',
-      hint: mainLineNodes.length > 1 ? 'The whole game, variations and all' : 'No moves to copy yet',
+      hint: isPositionStudy ? 'The starting position and its notes'
+        : mainLineNodes.length > 1 ? 'The whole game, variations and all' : 'No moves to copy yet',
       keywords: ['clipboard', 'game', 'export', 'share'],
-      disabled: mainLineNodes.length <= 1,
+      disabled: mainLineNodes.length <= 1 && !isPositionStudy,
       run: copyPgn,
     },
     {
       id: 'copy-game-link',
       label: 'Copy game link',
-      hint: mainLineNodes.length > 1 ? 'A link that replays this game, from this move' : 'No moves to share yet',
+      hint: mainLineNodes.length > 1 ? 'A link to this game’s main line' : 'No moves to share yet',
       keywords: ['clipboard', 'share', 'url', 'send', 'link'],
       disabled: mainLineNodes.length <= 1,
       run: copyGameLink,
@@ -5955,6 +6438,30 @@ function App() {
       run: () => startDrill('black'),
     },
     {
+      id: 'drill-return',
+      label: 'Return to the drill question',
+      hint: drillReturnReason ?? 'Resume the exact question with your progress and hints intact',
+      keywords: ['repertoire', 'resume', 'continue', 'back', 'paused', 'practice'],
+      disabled: Boolean(drillReturnReason),
+      run: returnToDrill,
+    },
+    {
+      id: 'drill-reveal',
+      label: 'Show the drill move',
+      hint: drillRevealReason ?? 'Reveal the prepared move without counting a wrong attempt',
+      keywords: ['repertoire', 'hint', 'help', 'answer', 'stuck', 'reveal'],
+      disabled: Boolean(drillRevealReason),
+      run: revealDrillMove,
+    },
+    {
+      id: 'practice-reveal',
+      label: 'Show the practice move',
+      hint: practiceRevealReason ?? 'Reveal the reviewed best move without counting a wrong attempt',
+      keywords: ['review', 'hint', 'answer', 'help', 'stuck', 'reveal'],
+      disabled: Boolean(practiceRevealReason),
+      run: revealPracticeMove,
+    },
+    {
       id: 'drill-stop',
       label: 'Stop drilling',
       hint: drill ? 'Leave the line where it is' : 'No drill is running',
@@ -6000,10 +6507,10 @@ function App() {
     },
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
-  ], [analysisExperience, atVariationFork, autoFlipBoard, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyGameLink, copyPgn, drill, reviewFinishedGame, reviewFromPlay, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
-    goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast,
-      goSiblingVariation, hintReason, isProbingThreat, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
-      previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay,
+  ], [analysisExperience, atVariationFork, autoFlipBoard, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyGameLink, copyPgn, copyPositionLink, drill, reviewFinishedGame, reviewFromPlay, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
+    goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, moveEntryCommandReason, requestMoveEntry,
+      goSiblingVariation, hintReason, isProbingThreat, isPositionStudy, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
+      previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay, drillRevealReason, revealDrillMove, drillReturnReason, returnToDrill, practiceRevealReason, revealPracticeMove,
       openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger,
       reviewFaultCount, reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason, workspaceMode])
 
@@ -6040,6 +6547,11 @@ function App() {
     expectedSan: string,
     moveLabel: string,
   ) => {
+    // The new exercise owns the board; a prepared line must not judge its
+    // answers, and replay/drawing must not take its input away.
+    setDrill(null)
+    setAutoplay(false)
+    endTouchDrawing()
     const chess = gameTreeRef.current.navigateTo(beforeNode.id)
     setReviewPractice({
       beforeFen: beforeNode.fen,
@@ -6048,11 +6560,13 @@ function App() {
       expectedSan,
       moveLabel,
       attempts: 0,
+      hintRequested: false,
       status: 'ready',
     })
     navigateAndPonder(chess)
     requestBoardReveal()
-  }, [navigateAndPonder, requestBoardReveal])
+    boardStageRef.current?.focus({ preventScroll: true })
+  }, [endTouchDrawing, navigateAndPonder, requestBoardReveal])
 
   /**
    * Leave the exercise.
@@ -6269,10 +6783,10 @@ function App() {
   // board is the previewed position -- so "White to move" over a position where
   // it is Black's turn would be the one thing on screen that is simply wrong.
   // The Preview pill beside it says the position is not the game's.
-  const turnLabel = previewChess
-    ? `${previewChess.turn() === 'w' ? 'White' : 'Black'} to move${previewChess.isCheck() ? ' · Check' : ''}`
-    : gameResultLabel
-      ?? `${game.turn() === 'w' ? 'White' : 'Black'} to move${game.isCheck() ? ' · Check' : ''}`
+  const displayedResultLabel = previewChess ? previewEnding?.label : gameResultLabel
+  const displayedPosition = previewChess ?? game
+  const turnLabel = displayedResultLabel
+    ?? `${displayedPosition.turn() === 'w' ? 'White' : 'Black'} to move${displayedPosition.isCheck() ? ' · Check' : ''}`
   // An imported game already carries who played it. The app parsed those
   // headers, re-exported them, and never once showed them.
   // Not this app's own "Player 1" and "Player 2", which every saved game
@@ -6293,14 +6807,8 @@ function App() {
   // Only on the final position: a resignation or a flag stays the game's
   // result while the reader steps back through it, and there the FEN's count
   // is the right one.
-  const gameEndedOnBlackMove = Boolean(gameResultLabel) && !linePreview && !canGoForward && labelFenFields[1] === 'w'
+  const gameEndedOnBlackMove = Boolean(displayedResultLabel) && (isPreviewingLine || !canGoForward) && labelFenFields[1] === 'w'
   const moveNumberLabel = `Move ${gameEndedOnBlackMove && labelFullmove > 1 ? labelFullmove - 1 : labelFullmove}`
-  // Mate and stalemate leave no move to name. Read from the FEN, not the
-  // mutable `game`, so move generation runs per position, not every render.
-  const hasLegalMove = useMemo(() => {
-    const position = new Chess(fen)
-    return !position.isCheckmate() && !position.isStalemate()
-  }, [fen])
   /**
    * The tab's title says what the tab is doing. It read "Web Chess" whatever
    * was on the board, so a reader who had switched away to wait for the
@@ -6313,12 +6821,17 @@ function App() {
     if (gameResultLabel) {
       parts.push(gameResultLabel.split(' · ').pop() ?? gameResultLabel)
     } else if (workspaceMode === 'play' && gameMode === 'human-vs-ai') {
-      parts.push(game.turn() === playerColorToTurn(playerColor) ? 'Your move' : 'Engine thinking')
+      if (game.turn() === playerColorToTurn(playerColor)) parts.push('Your move')
+      else if (aiPlayerStatus === 'error') parts.push('Engine unavailable')
+      else if (aiPlayerStatus === 'loading') parts.push('Engine loading')
+      else if (aiSpeed === 'step' && !isAiThinking) parts.push('AI waiting for Step')
+      else if (paused) parts.push('AI paused')
+      else parts.push('Engine thinking')
     }
     if (importedPlayers) parts.push(importedPlayers)
     parts.push('Web Chess')
     document.title = parts.join(' · ')
-  }, [fen, game, gameMode, gameResultLabel, importedPlayers, playerColor, workspaceMode])
+  }, [aiPlayerStatus, aiSpeed, fen, game, gameMode, gameResultLabel, importedPlayers, isAiThinking, paused, playerColor, workspaceMode])
   // Counted from the game's own root rather than the standard array, so a
   // position pasted in as a FEN does not open fourteen captures down.
   const material = useMemo(
@@ -6356,7 +6869,7 @@ function App() {
    * with no control in front of them to explain it.
    */
   const experienceToggle = (
-    <div className="analysis-experience-toggle" aria-label="Analysis experience">
+    <div className="analysis-experience-toggle" role="group" aria-label="Analysis experience">
       {([
         { id: 'beginner', label: 'Coach' },
         { id: 'pro', label: 'Pro' },
@@ -6394,40 +6907,67 @@ function App() {
     </label>
   )
 
-  const drillCard = drill && (() => {
+  const drillFeedback = drill && (() => {
     const { done, total } = drillProgress(drill.line, drill.ply)
+    const finished = done >= total
+    const awayFromLine = !finished && drill.expectedFen !== fen
     const expected = expectedDrillMove(drill.line, drill.ply)
     const answerSan = drill.revealed && expected ? uciToSan(drill.expectedFen, expected) ?? expected : null
-    const finished = done >= total
-    // The drill stays armed while the reader looks somewhere else -- a move
-    // played there is an ordinary move and coming back resumes -- but a card
-    // reading "move 1 of 3" over a board that is not being asked anything is
-    // the app claiming to wait for something it is not.
-    const awayFromLine = !finished && drill.expectedFen !== fen
+    const canReturn = canReturnToDrill
+    const progress = finished
+      ? `Line complete — ${total} ${total === 1 ? 'move' : 'moves'} practised.`
+      : awayFromLine
+        ? `Paused at move ${done + 1} of ${total} — the board has moved off the line.`
+        : `Playing ${drill.line.side === 'white' ? 'White' : 'Black'} · move ${done + 1} of ${total}`
+    const detail = awayFromLine
+      ? canReturn
+        ? 'Return to the question you left, or restart from the beginning.'
+        : 'That question is no longer in this study. Restart to practise the line again.'
+      : !finished && answerSan
+        ? drill.misses > 0 ? `Not the line. It plays ${answerSan}.` : `The line plays ${answerSan}.`
+        : !finished && drill.misses > 0 ? 'Not the line. Try again.' : null
+    // Every rejected answer needs a fresh live update, including attempts
+    // after the hint has already been revealed and its wording stays the same.
+    const attempt = !finished && !awayFromLine && drill.misses > 0 ? `Attempt ${drill.misses}.` : null
+    const spoken = `Drill. ${[progress, ...(detail ? [detail] : []), ...(attempt ? [attempt] : [])]
+      .map(text => text.endsWith('.') ? text : `${text}.`).join(' ')}`
+    return { done, total, finished, awayFromLine, answerSan, canReturn, progress, detail, spoken }
+  })()
+
+  const drillCard = drill && drillFeedback && (() => {
+    const { finished, awayFromLine, canReturn, progress, detail } = drillFeedback
     return (
       <section className="panel-card drill-card" aria-label="Line drill">
         <h3><span className="section-icon"><IconSwords /></span> Drill</h3>
-        <p className="drill-progress" role="status">
-          {finished
-            ? `Line complete — ${total} ${total === 1 ? 'move' : 'moves'} from memory.`
-            : awayFromLine
-              ? `Paused at move ${done + 1} of ${total} — the board has moved off the line.`
-              : `Playing ${drill.line.side === 'white' ? 'White' : 'Black'} · move ${done + 1} of ${total}`}
-        </p>
-        {awayFromLine && (
-          <p className="drill-miss panel-copy small">
-            Go back to where you left it, or restart.
-          </p>
-        )}
-        {!finished && !awayFromLine && drill.misses > 0 && (
-          <p className="drill-miss panel-copy small">
-            {answerSan
-              ? `Not the line. It plays ${answerSan}.`
-              : 'Not the line. Try again.'}
-          </p>
-        )}
+        {/* The board strip owns automatic announcements. Keep this detail
+            readable without repeating the same live result from two places. */}
+        <div className="drill-feedback" role="status" aria-live="off" aria-atomic="true">
+          <p className="drill-progress">{progress}</p>
+          {detail && <p className="drill-miss panel-copy small">{detail}</p>}
+        </div>
         <div className="inline-actions">
-          <button type="button" className="btn-cancel" onClick={() => startDrill(drill.line.side)}>
+          {!finished && !awayFromLine && !drill.revealed && (
+            <button type="button" className="btn-cancel" onClick={revealDrillMove}>
+              Show move
+            </button>
+          )}
+          {awayFromLine && <button type="button" className="btn-cancel" onClick={returnToDrill}
+            onFocus={event => {
+              const button = event.currentTarget
+              requestAnimationFrame(() => {
+                // Nested native focus scrolling can leave part of this action
+                // above the viewport. Correct only the control still focused.
+                if (document.activeElement !== button) return
+                const bounds = button.getBoundingClientRect()
+                if (bounds.top < 0 || bounds.bottom > window.innerHeight) {
+                  button.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+                }
+              })
+            }}
+            disabled={!canReturn} title={canReturn ? 'Continue without resetting your progress.' : 'Restart to practise this line again.'}>
+            Return to drill
+          </button>}
+          <button type="button" className="btn-cancel" onClick={() => startDrill(drill.line.side, drill)}>
             Restart
           </button>
           <button type="button" className="btn-cancel" onClick={endDrill}>
@@ -6445,16 +6985,13 @@ function App() {
    * the buttons.
    */
   const drillStripStatus = (() => {
-    if (!drill) return null
-    const { done, total } = drillProgress(drill.line, drill.ply)
-    if (done >= total) return { tone: 'correct', label: 'Drill · done', spoken: `Drill complete, ${total} ${total === 1 ? 'move' : 'moves'} from memory.` }
-    if (drill.expectedFen !== fen) {
-      return { tone: 'away', label: `Drill · paused ${done + 1}/${total}`, spoken: `Drill paused at move ${done + 1} of ${total}. The board has moved off the line.` }
-    }
-    if (drill.misses > 0) {
-      return { tone: 'retry', label: `Not the line · ${done + 1}/${total}`, spoken: `Not the line. Try again: move ${done + 1} of ${total}.` }
-    }
-    return { tone: 'ready', label: `Drill · ${done + 1}/${total}`, spoken: `Drilling move ${done + 1} of ${total}.` }
+    if (!drill || !drillFeedback) return null
+    const { done, total, finished, awayFromLine, answerSan, spoken } = drillFeedback
+    if (finished) return { tone: 'correct', label: 'Drill · done', spoken }
+    if (awayFromLine) return { tone: 'away', label: `Drill · paused ${done + 1}/${total}`, spoken }
+    if (answerSan) return { tone: drill.misses > 0 ? 'retry' : 'ready', label: `Answer ${answerSan} · ${done + 1}/${total}`, spoken }
+    if (drill.misses > 0) return { tone: 'retry', label: `Not the line · ${done + 1}/${total}`, spoken }
+    return { tone: 'ready', label: `Drill · ${done + 1}/${total}`, spoken }
   })()
 
   const playFromHereRow = (
@@ -6627,17 +7164,6 @@ function App() {
     if (stepPendingRef.current || aiMoveScheduledRef.current) return
     setClock(previous => (previous && previous.running !== null ? pauseClock(previous, Date.now()) : previous))
   }, [awaitingAiStep, clock])
-  const boardInputLocked = isBoardInputLocked({
-    gameOver: isGameOver,
-    workspaceMode,
-    gameMode,
-    isAiThinking,
-    paused,
-    turn: game.turn(),
-    playerColor: playerColorToTurn(playerColor),
-    endedOffBoard: Boolean(endedOffBoard),
-  })
-
   /**
    * Sideways on a phone, height is the scarce axis, and this pair made the
    * strip above the board two lines tall: the 44px Arrows target beside one
@@ -6695,7 +7221,10 @@ function App() {
         <button
           type="button"
           className="board-draw-clear"
-          onClick={clearDrawings}
+          onClick={event => {
+            clearDrawings()
+            event.currentTarget.parentElement?.querySelector<HTMLButtonElement>('.board-draw-toggle')?.focus({ preventScroll: true })
+          }}
           title="Clear your arrows and marks"
         >
           Clear
@@ -6705,9 +7234,13 @@ function App() {
         type="button"
         className={`board-draw-toggle${touchDrawing ? ' active' : ''}`}
         aria-pressed={touchDrawing}
-        onClick={() => setTouchDrawing(value => !value)}
+        aria-keyshortcuts={touchDrawing ? 'Escape' : undefined}
+        onClick={() => {
+          setTouchDrawing(value => !value)
+          setDrawInProgress(null)
+        }}
         title={touchDrawing
-          ? 'Drawing: drag for an arrow, tap to mark. Turn off to move pieces again.'
+          ? 'Drawing: drag for an arrow, tap to mark. Turn off or press Escape to move pieces again.'
           : 'Draw arrows and mark squares with your finger'}
       >
         <IconDraw aria-hidden="true" />
@@ -6732,7 +7265,7 @@ function App() {
 
       {currentLastBestMove
         && !isGameOver
-        && (!reviewPractice || reviewPractice.status === 'correct' || reviewPractice.attempts >= 2)
+        && !reviewPracticeAwaitingAnswer
         && !drillAwaitingAnswer
         && (
           <p className="best-move" title={currentLastBestMove}>{isCandidateSearch ? 'Candidate' : 'Best'}: {bestMoveLabel(fen, currentLastBestMove)}</p>
@@ -6743,7 +7276,7 @@ function App() {
   // ─────────────────────────────────────────────────────
   return (
     <main className="app-shell" data-workspace-mode={workspaceMode} data-compact-chrome={compactDesktopChrome || undefined}
-      data-scroll-chrome={scrollDesktopChrome || undefined}>
+      data-scroll-chrome={scrollWorkspaceChrome || undefined} data-scroll-dialogs={scrollDialogs || undefined}>
       <span className="rem-probe" ref={remProbeRef} aria-hidden="true" />
       <nav
         className="skip-links"
@@ -6846,7 +7379,7 @@ function App() {
               aria-hidden={settingsOpen ? true : undefined}
               inert={settingsOpen ? true : undefined}
             >
-              <div className="top-mode-pills" data-mode-group="workspace" aria-label="Workspace mode">
+              <div className="top-mode-pills" data-mode-group="workspace" role="group" aria-label="Workspace mode">
                 {([
                   { id: 'play', label: 'Play', icon: <IconSwords /> },
                   { id: 'analysis', label: 'Analysis', icon: <IconSearch /> },
@@ -6866,7 +7399,7 @@ function App() {
 
               {/* Game mode switcher */}
               <span className="toolbar-divider desktop-only" />
-              <div className="top-mode-pills" data-mode-group="game" aria-label="Game mode">
+              <div className="top-mode-pills" data-mode-group="game" role="group" aria-label="Game mode">
                 {([
                   { id: 'human-vs-human', label: 'Human vs Human', title: 'Local board for two players', icon: <IconUsers /> },
                   { id: 'human-vs-ai', label: 'Human vs AI', title: 'Play against the engine', icon: <IconBot /> },
@@ -6887,8 +7420,6 @@ function App() {
               </div>
             </div>
 
-            <span className="toolbar-divider desktop-only" />
-
             <details
               className="settings-menu"
               open={settingsOpen}
@@ -6906,7 +7437,7 @@ function App() {
                 <>
                   <div className="settings-backdrop" onClick={(e) => {
                     e.preventDefault()
-                    setSettingsOpen(false)
+                    closeSettings()
                   }}></div>
                   <div
                     className="settings-body"
@@ -6919,7 +7450,7 @@ function App() {
                   <h2>Settings</h2>
                   <button type="button" className="settings-close-btn" onClick={(e) => {
                     e.preventDefault()
-                    setSettingsOpen(false)
+                    closeSettings()
                   }}>
                     Done
                   </button>
@@ -7099,7 +7630,7 @@ function App() {
                   <details className="advanced-settings" open>
                     <summary>Analyze controls</summary>
                     <div className="advanced-section">
-                      <div className="analysis-mode-pills" aria-label="Analysis search mode">
+                      <div className="analysis-mode-pills" role="group" aria-label="Analysis search mode">
                         {([
                           { id: 'quick', label: 'Quick' },
                           { id: 'deep', label: 'Deep' },
@@ -7422,6 +7953,7 @@ function App() {
 
       <div inert={backgroundUiHidden ? true : undefined} aria-hidden={backgroundUiHidden ? true : undefined}>
         <AutoSaveStatus result={autoSaveResult} onDownload={downloadRecoveryPgn}
+          onOpenPgn={openPgnDialog}
           onRetry={() => setAutoSaveRetry(value => value + 1)} />
       </div>
 
@@ -7545,7 +8077,7 @@ function App() {
                   <h2><span className="section-icon"><IconKing /></span> Historical Library</h2>
                   <span>{filteredSampleGames.length} games</span>
                 </header>
-                <div className="sample-filter-row" aria-label="Historical game filter">
+                <div className="sample-filter-row" role="group" aria-label="Historical game filter">
                   {([
                     { id: 'all', label: 'All' },
                     { id: 'classical', label: 'Classical' },
@@ -7629,7 +8161,7 @@ function App() {
           tabIndex={-1}
         >
           <div className="board-layout">
-            <div className="board-meta-strip" aria-label="Current game state">
+            <div className="board-meta-strip" role="group" aria-label="Current game state">
               {/* What the strip says scrolls; what it offers to press does not.
                   The same split the top bar makes, and for the same reason: at
                   375px this row already holds six things, and a flex row with
@@ -7638,9 +8170,7 @@ function App() {
                   game came to be drawn as "·0" and, at 320px, how a button
                   ended up 0px wide. */}
               <div className="board-meta-flow">
-              <span className={`turn-pill ${previewChess
-                ? previewChess.turn() === 'w' ? 'white' : 'black'
-                : gameResultLabel ? 'final' : game.turn() === 'w' ? 'white' : 'black'}`}>
+              <span className={`turn-pill ${displayedResultLabel ? 'final' : displayedPosition.turn() === 'w' ? 'white' : 'black'}`}>
                 {turnLabel}
                 {/* The engine's turn, said where whose turn it is is already
                     said. It was a badge on the board, over the middle of the
@@ -7663,20 +8193,27 @@ function App() {
                     aria-live="polite"
                     aria-label={reviewPractice.status === 'correct'
                       ? `Correct. The best move was ${reviewPractice.expectedSan}.`
-                      : reviewPractice.attempts >= 2
-                        ? `Try again. The best move is ${reviewPractice.expectedSan}.`
+                      : !reviewPracticeAwaitingAnswer
+                        ? reviewPractice.status === 'retry'
+                          ? `Try again. The best move is ${reviewPractice.expectedSan}. Attempt ${reviewPractice.attempts}.`
+                          : `The best move is ${reviewPractice.expectedSan}. Play it on the board.`
                         : reviewPractice.status === 'retry'
-                          ? 'Not quite. The position was reset; try another move.'
+                          ? `Not quite. The position was reset; try another move. Attempt ${reviewPractice.attempts}.`
                           : `Practice the position before ${reviewPractice.moveLabel}. Find a better move.`}
                   >
                     {reviewPractice.status === 'correct'
                       ? `Correct · ${reviewPractice.expectedSan}`
-                      : reviewPractice.attempts >= 2
+                      : !reviewPracticeAwaitingAnswer
                         ? `Answer · ${reviewPractice.expectedSan}`
                         : reviewPractice.status === 'retry'
                           ? 'Not quite · try again'
                           : `Practice · improve on ${reviewPractice.moveLabel}`}
                   </span>
+                  {reviewPracticeAwaitingAnswer && (
+                    <button type="button" onClick={revealPracticeMove}>
+                      Show move
+                    </button>
+                  )}
                   <button type="button" onClick={exitReviewPractice}>
                     {reviewPractice.status === 'correct' ? 'Done' : 'Exit'}
                   </button>
@@ -7699,6 +8236,7 @@ function App() {
                   className={`board-meta-drill ${drillStripStatus.tone}`}
                   role="status"
                   aria-live="polite"
+                  aria-atomic="true"
                   aria-label={drillStripStatus.spoken}
                 >
                   {drillStripStatus.label}
@@ -7713,8 +8251,11 @@ function App() {
                 </span>
               )}
               {!reviewPractice && materialLeader && materialDetail && (
-                <span className="board-meta-material" title={materialDetail} aria-label={materialDetail}>
-                  {materialLeader === 'w' ? 'White' : 'Black'} {materialAdvantageLabel(material.delta, materialLeader)}
+                <span className="board-meta-material" title={materialDetail}>
+                  <span aria-hidden="true">
+                    {materialLeader === 'w' ? 'White' : 'Black'} {materialAdvantageLabel(material.delta, materialLeader)}
+                  </span>
+                  <span className="visually-hidden">{materialDetail}</span>
                 </span>
               )}
               {!reviewPractice && importedPlayers && (
@@ -7787,6 +8328,7 @@ function App() {
             <div
               className={`board-opening-label${opening ? ' fade-in-slide' : ' is-empty'}`}
               ref={boardOpeningRef}
+              role="group"
               aria-label={opening ? `Opening ${opening.eco}: ${opening.name}` : undefined}
               title={opening ? `${opening.eco} ${opening.name}` : undefined}
               aria-hidden={opening ? undefined : true}
@@ -7884,10 +8426,10 @@ function App() {
                     role="dialog"
                     aria-modal="true"
                     aria-label="Choose promotion piece"
-                    ref={promotionDialogRef}
                     onClick={cancelPromotion}
                   >
-                    <div className="promotion-chooser" onClick={event => event.stopPropagation()}>
+                    <div ref={promotionDialogRef} className="promotion-chooser" onClick={event => event.stopPropagation()}>
+                      <h2 className="promotion-title">Promote pawn</h2>
                       {PROMOTION_OPTIONS.map(option => (
                         <button
                           key={option.piece}
@@ -7939,6 +8481,7 @@ function App() {
           {showPgnDialog && (
             <PgnDialog
               open
+              initialTab={pgnDialogInitialTab}
               onClose={closePgnDialog}
               onImport={handleAnalysisPgnImport}
               onLoadFen={handleAnalysisFenLoad}
@@ -7958,12 +8501,17 @@ function App() {
             <AutoSaveRecoveryDialog
               savedAt={autoSaveRecovery.savedAt}
               plyCount={autoSaveRecovery.moveCount}
+              positionStudy={autoSaveRecovery.positionStudy && !autoSaveRecovery.play}
               result={extractLibraryMetadata(autoSaveRecovery.pgn).result}
               onRestore={restoreAutoSavedGame}
               onDismiss={dismissAutoSaveRecovery}
               error={autoSaveRestoreError}
+              pgn={autoSaveRecovery.pgn}
               onCopyPgn={copyAutoSavedPgn}
-              copyLabel={autoSaveCopyLabel}
+              onDownloadPgn={downloadRecoveryPgn}
+              copyLabel={autoSaveCopyState === 'copied' ? 'Copied' : autoSaveCopyState === 'copying' ? 'Copying…' : 'Copy PGN'}
+              copying={autoSaveCopyState === 'copying'}
+              copyError={autoSaveCopyState === 'failed' ? 'Copy failed. Select the saved PGN text and copy it manually, or try again.' : undefined}
             />
           )}
 
@@ -7975,6 +8523,7 @@ function App() {
               writeError={library.writeError}
               saving={library.saving}
               currentPgn={libraryPgn}
+              positionStudy={isPositionStudy}
               suggestedName={librarySuggestedName}
               onClose={closeLibraryDialog}
               onSave={library.saveGame}
@@ -8078,6 +8627,8 @@ function App() {
               {workspaceMode === 'analysis' && (
                 <div
                   className="analysis-context-row"
+                  ref={analysisStatusRef}
+                  tabIndex={-1}
                   role="status"
                   aria-live="polite"
                   aria-atomic="true"
@@ -8093,9 +8644,12 @@ function App() {
                 /* An engine that fails to boot takes every analysis tab with it.
                    The reason was only in Settings and Engine Lab, two clicks from
                    where the failure is felt. */
-                <p className="panel-copy small error-copy engine-error-copy" role="alert">
-                  {profileMessage || 'The engine failed to start. Reload the page to try again.'}
-                </p>
+                <div className="engine-error-notice">
+                  <p className="panel-copy small error-copy engine-error-copy" role="alert">
+                    {profileMessage || 'The engine failed to start.'}
+                  </p>
+                  <div className="inline-actions"><button type="button" onClick={handleRetryEngine}>Retry engine</button></div>
+                </div>
               )}
             </header>
             <div className="panel-content">
@@ -8108,6 +8662,7 @@ function App() {
               {/* The field would only answer every entry with "not legal here". */}
               {workspaceMode === 'analysis' && analysisTab !== 'engine-lab' && hasLegalMove && (
                 <MoveEntry fen={fen} disabled={Boolean(pendingPromotion)}
+                  disabledReason={moveEntryDisabledReason}
                   onMove={move => applyHumanMove(move.from, move.to, move.promotion as PromotionPiece | undefined)} />
               )}
               {workspaceMode === 'analysis' && analysisExperience === 'beginner' && analysisTab === 'analyze' && <AnalysisGuide />}
@@ -8195,11 +8750,12 @@ function App() {
                   </div>
                   {/* The same typed entry Analysis has, for a keyboard or a
                       screen reader in the middle of a game: "Nf3" is one field
-                      away rather than sixty-four squares. Closed until asked
-                      for, and shut while the board is not taking the player's
-                      moves, exactly as the board itself is. */}
-                  {!gameResultLabel && (
+                      away rather than sixty-four squares. Read-only while
+                      waiting for the opponent, with a visible reason. Omitted
+                      while watching two engines, which accepts no human moves. */}
+                  {!gameResultLabel && gameMode !== 'ai-vs-ai' && (
                     <MoveEntry fen={fen} disabled={boardInputLocked || Boolean(pendingPromotion)}
+                      disabledReason={moveEntryDisabledReason}
                       onMove={move => applyHumanMove(move.from, move.to, move.promotion as PromotionPiece | undefined)} />
                   )}
                   <div className="engine-lab-card">
@@ -8270,6 +8826,7 @@ function App() {
                       <button
                         type="button"
                         className={`takeback-btn resign-btn${resignArmed ? ' armed' : ''}`}
+                        onKeyDown={event => { if (event.key === 'Enter' && event.repeat) event.preventDefault() }}
                         onClick={() => {
                           if (!resignArmed) { setResignArmedFen(fen); return }
                           setResignArmedFen(null)
@@ -8353,11 +8910,11 @@ function App() {
                       </div>
                       <div>
                         <span>{isCandidateSearch && !coachBestMoveIsTablebase ? 'Best candidate' : 'Best move'}</span>
-                        <strong title={coachBestMove ?? undefined}>{coachBestMoveText}</strong>
+                        <strong title={drillAwaitingAnswer ? undefined : coachBestMove ?? undefined}>{coachBestMoveText}</strong>
                       </div>
                       <div>
                         <span>Reply</span>
-                        <strong title={coachReplyMove ?? undefined}>{coachReplyMoveText}</strong>
+                        <strong title={drillAwaitingAnswer ? undefined : coachReplyMove ?? undefined}>{coachReplyMoveText}</strong>
                       </div>
                       <div title={coachDepthReading.title}>
                         <span>Position depth</span>
@@ -8462,7 +9019,7 @@ function App() {
                         clue to it, and hidden with it while a drill asks for the move. */}
                     {coachMoveInsight && !drillAwaitingAnswer && (
                       <div className="coach-insight">
-                        <div className="coach-tags" aria-label="Best move traits">
+                        <div className="coach-tags" role="group" aria-label="Best move traits">
                           {coachMoveInsight.tags.map(tag => <span key={tag}>{tag}</span>)}
                         </div>
                         <p>{coachMoveInsight.summary}</p>
@@ -8488,7 +9045,7 @@ function App() {
                   {/* An empty analysis board is a board waiting for a game. The
                       PGN icon in the top bar is one way in; a reader who has
                       just arrived should not have to find it. */}
-                  {mainLineNodes.length <= 1 && (
+                  {mainLineNodes.length <= 1 && !isPositionStudy && (
                     <div className="right-section analyze-move-card">
                       <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
                       <p className="panel-copy small">
@@ -8501,9 +9058,9 @@ function App() {
                       </div>
                     </div>
                   )}
-                  {mainLineNodes.length > 1 && (
+                  {(mainLineNodes.length > 1 || isPositionStudy) && (
                     <div className="right-section analyze-move-card">
-                      <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
+                      <h3><span className="section-icon"><IconSwords /></span> {isPositionStudy ? 'Position study' : 'Moves'}</h3>
                       <MoveListTree
                         tree={gameTree}
                         onNavigate={navigateMoveListAndPonder}
@@ -8513,8 +9070,9 @@ function App() {
                   {tablebase.eligible && (
                     <div className="tablebase-card">
                       <h3><span className="section-icon"><IconKing /></span> Endgame Tablebase</h3>
-                      <p className={`panel-copy small command-summary ${tablebase.error ? 'error-copy' : ''}`}>
-                        {tablebase.status === 'loading'
+                      <p ref={tablebaseStatusRef} tabIndex={-1} role="status"
+                        className={`panel-copy small command-summary ${tablebase.error ? 'error-copy' : ''}`}>
+                        {tablebase.status === 'loading' || tablebase.status === 'idle'
                           ? `${tablebase.pieceCount} pieces · checking exact result...`
                           : tablebase.result
                             ? `${tablebase.pieceCount} pieces · ${tablebaseSummary(tablebase.result)}`
@@ -8522,15 +9080,22 @@ function App() {
                               ? `Tablebase: ${tablebase.error}`
                               : `${tablebase.pieceCount} pieces · no tablebase result`}
                       </p>
+                      {tablebase.status === 'error' && (
+                        <button type="button" className="remote-retry" onClick={() => {
+                          tablebaseStatusRef.current?.focus()
+                          tablebase.retry()
+                        }}>Retry tablebase</button>
+                      )}
                       {/* Each of these is a move ranked by its result: in a drilled
                           endgame, the answer at the top of a list. */}
                       {tablebase.result?.moves.length && !drillAwaitingAnswer ? (
                         <div className="tablebase-move-list">
+                          <p className="panel-copy small">Choose a move to focus engine analysis.</p>
                           {tablebase.result.moves.slice(0, 4).map(move => (
                             <button
                               key={move.uci}
                               type="button"
-                              className={`tablebase-move-row ${analysisExperience === 'pro' ? '' : 'compact'}`}
+                              className="tablebase-move-row"
                               aria-label={tablebaseMoveActionLabel(move)}
                               title={tablebaseMoveActionLabel(move)}
                               onClick={() => {
@@ -8573,7 +9138,8 @@ function App() {
                   {analysisExperience === 'pro' && (currentCloudEval || cloudEvalStatus === 'loading' || cloudEvalStatus === 'missing' || cloudEvalStatus === 'error') && (
                     <div className="cloud-eval-card">
                       <h3><span className="section-icon"><IconZap /></span> Cloud Eval</h3>
-                      <p className={`panel-copy small command-summary ${cloudEvalStatus === 'error' ? 'error-copy' : ''}`}>
+                      <p ref={cloudEvalStatusRef} tabIndex={-1} role="status"
+                        className={`panel-copy small command-summary ${cloudEvalStatus === 'error' ? 'error-copy' : ''}`}>
                         {currentCloudEval
                           ? `Lichess cache · D${currentCloudEval.depth} · ${formatCloudNodes(currentCloudEval.knodes)}`
                           : cloudEvalStatus === 'loading'
@@ -8582,6 +9148,12 @@ function App() {
                               ? 'No cloud eval for this position.'
                               : `Cloud eval: ${cloudEvalError ?? 'unavailable'}`}
                       </p>
+                      {cloudEvalStatus === 'error' && (
+                        <button type="button" className="remote-retry" onClick={() => {
+                          cloudEvalStatusRef.current?.focus()
+                          retryCloudEvaluation()
+                        }}>Retry cloud eval</button>
+                      )}
                       {currentCloudEval && !drillAwaitingAnswer && (
                         <div className="cloud-line-list">
                           {currentCloudEval.pvs.slice(0, cloudEvalMultiPv).map((line, index) => {
@@ -8606,7 +9178,7 @@ function App() {
                   <div className="opening-intel-card" ref={openingIntelRef}>
                     <div className="opening-intel-head">
                       <h3><span className="section-icon"><IconBarChart /></span> Opening Intel</h3>
-                      <div className="opening-source-toggle" aria-label="Opening database source">
+                      <div className="opening-source-toggle" role="group" aria-label="Opening database source">
                         {OPENING_SOURCES.map(source => (
                           <button
                             key={source}
@@ -8641,7 +9213,7 @@ function App() {
                     </div>
                     {openingSource === 'lichess' && (
                       <>
-                        <div className="opening-speed-toggle" aria-label="Lichess time controls">
+                        <div className="opening-speed-toggle" role="group" aria-label="Lichess time controls">
                           {OPENING_SPEEDS.map(speed => (
                             <button
                               key={speed}
@@ -8670,24 +9242,26 @@ function App() {
                         </label>
                       </>
                     )}
-                    {openingExplorer.loading && !openingExplorer.data && (
-                      <p className="panel-copy small">Loading opening database...</p>
-                    )}
-                    {openingExplorer.authRequired && !openingExplorer.data && (
-                      <p className="panel-copy small warning-copy">
-                        Opening Explorer requires a Lichess token. Create a personal token with no scopes; local ECO names stay available offline.
-                      </p>
-                    )}
-                    {openingExplorer.error && (
-                      <p className="panel-copy small error-copy">Opening DB: {openingExplorer.error}</p>
+                    <p ref={openingExplorerStatusRef} tabIndex={-1} role="status"
+                      className={`panel-copy small ${!openingExplorer.data && openingExplorer.error ? 'error-copy' : openingExplorer.authRequired ? 'warning-copy' : ''}`}>
+                      {openingExplorer.data
+                        ? openingExplorer.data.opening
+                          ? `${openingExplorer.data.opening.eco} · ${openingExplorer.data.opening.name}`
+                          : 'No named opening at this position.'
+                        : openingExplorer.loading
+                          ? 'Loading opening database...'
+                          : openingExplorer.authRequired
+                            ? 'Opening Explorer requires a Lichess token. Create a personal token with no scopes; local ECO names stay available offline.'
+                            : openingExplorer.error ? `Opening DB: ${openingExplorer.error}` : ''}
+                    </p>
+                    {openingExplorer.error && !openingExplorer.data && (
+                      <button type="button" className="remote-retry" onClick={() => {
+                        openingExplorerStatusRef.current?.focus()
+                        openingExplorer.retry()
+                      }}>Retry opening database</button>
                     )}
                     {openingExplorer.data && (
                       <>
-                        <p className="panel-copy small">
-                          {openingExplorer.data.opening
-                            ? `${openingExplorer.data.opening.eco} · ${openingExplorer.data.opening.name}`
-                            : 'No named opening at this position.'}
-                        </p>
                         <p className="panel-copy small command-summary">
                           Games {openingTotalGames.toLocaleString()} · White {percentage(openingTotals?.white ?? 0, openingTotalGames).toFixed(1)}% ·
                           Draw {percentage(openingTotals?.draws ?? 0, openingTotalGames).toFixed(1)}% ·
@@ -8852,14 +9426,21 @@ function App() {
                           <IconSearch /> Fresh review
                         </button>
                         <button type="button" onClick={downloadReview}
+                          aria-describedby={reviewExportFailed ? reviewExportErrorId : undefined}
                           disabled={isBatchReviewing || !currentReviewReport}
                           title={currentReviewReport ? 'Download the reviewed line with this report’s scores and engine identity.' : 'Review this line first.'}>
                           <IconDownload /> Export review
                         </button>
                       </div>
                     )}
+                    {reviewExportFailed && (
+                      <p id={reviewExportErrorId} className="panel-copy small error-copy" role="alert">
+                        The browser could not start the review download. Try Export review again.
+                      </p>
+                    )}
                     {analysisExperience === 'pro' && (
                       <SavedReviews line={reviewLineNodes} report={currentReviewReport}
+                        openingName={reviewOpening?.name}
                         headers={{ ...pgnHeaders, Result: reviewsAVariation ? '*' : pgnHeaders.Result ?? '*' }}
                         qualities={reviewRows.map(row => row.quality)} busy={isBatchReviewing} onOpen={openSavedReview} onNavigate={navigateReviewNode} />
                     )}
@@ -8904,7 +9485,7 @@ function App() {
                         Promote it in the move list below to make it the game.
                       </p>
                     )}
-                    <div className="review-filter-row" aria-label="Review side filter">
+                    <div className="review-filter-row" role="group" aria-label="Review side filter">
                       {REVIEW_SIDE_FILTERS.map(filter => (
                         <button
                           key={filter.id}
@@ -8920,7 +9501,7 @@ function App() {
                         </button>
                       ))}
                     </div>
-                    <div className="accuracy-summary" aria-label="Accuracy summary">
+                    <div className="accuracy-summary" role="group" aria-label="Accuracy summary">
                       <div>
                         <span>Overall</span>
                         <strong>{formatAccuracyValue(reviewAccuracy.overall)}</strong>
@@ -9028,7 +9609,7 @@ function App() {
                       </div>
                     )}
                     {gameNarrativeTags.length > 0 && (
-                      <div className="review-chips" aria-label="Game summary">
+                      <div className="review-chips" role="group" aria-label="Game summary">
                         {gameNarrativeTags.map(tag => (
                           <span key={tag.id} className={narrativeTagToneClass(tag.tone)} title={tag.title}>
                             {tag.label}
@@ -9055,11 +9636,7 @@ function App() {
                         nodes={reviewLineNodes}
                         currentNodeId={gameTree.current.id}
                         showEngineDetail={analysisExperience === 'pro'}
-                        hideBestMoves={Boolean(
-                          reviewPractice
-                          && reviewPractice.status !== 'correct'
-                          && reviewPractice.attempts < 2
-                        )}
+                        hideBestMoves={reviewPracticeAwaitingAnswer}
                         onSelectNode={navigateReviewNode}
                       />
                     ) : (
@@ -9082,7 +9659,7 @@ function App() {
                             row.bestMove && row.bestMove !== row.uci ? `Best ${row.bestMoveSan ?? row.bestMove}` : null
                           const bestMoveLabel = row.bestMoveSan ?? row.bestMove
                           const practiceHidesAnswer = analysisExperience === 'beginner'
-                            && (!reviewPractice || (reviewPractice.status !== 'correct' && reviewPractice.attempts < 2))
+                            && (!reviewPractice || reviewPracticeAwaitingAnswer)
                           return (
                             <div
                               key={`${row.ply}-${row.uci}`}
@@ -9244,7 +9821,11 @@ function App() {
                       <select
                         aria-label="Engine profile in Engine Lab"
                         value={engineProfile}
-                        onChange={e => setEngineProfile(e.target.value as EngineProfileId)}>
+                        onChange={e => {
+                          cancelStaleBackgroundAnalysis()
+                          skipFullAnalyzeFenRef.current = null
+                          setEngineProfile(e.target.value as EngineProfileId)
+                        }}>
                         <option value="auto">Auto (recommended)</option>
                         {engineProfiles.map(p => (
                           <option key={p.id} value={p.id}>{p.name}</option>
@@ -9301,6 +9882,7 @@ function App() {
 
                   <div className="engine-lab-card">
                     <h3><span className="section-icon"><IconPlay /></span> UCI Console</h3>
+                    {engineLabError && <p id={engineLabErrorId} className="panel-copy small error-copy" role="alert">{engineLabError}</p>}
                     <form
                       className="engine-lab-console"
                       onSubmit={(e) => {
@@ -9309,15 +9891,31 @@ function App() {
                       }}
                     >
                       <input
+                        ref={labCommandInputRef}
                         type="text"
                         aria-label="UCI command"
+                        aria-describedby={[engineLabError && engineLabErrorId, labCommandHistory.length > 0 && labCommandHelpId].filter(Boolean).join(' ') || undefined}
                         autoCapitalize="off"
                         autoCorrect="off"
                         autoComplete="off"
                         spellCheck={false}
                         enterKeyHint="send"
                         value={engineLabCommand}
-                        onChange={e => setEngineLabCommand(e.target.value)}
+                        onChange={e => updateLabCommandDraft(e.target.value)}
+                        onKeyDown={e => {
+                          if (!isPlainShortcut(e.nativeEvent) || isCompositionKey(e.nativeEvent)
+                            || !labCommandHistory.length || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return
+                          const cursor = labHistoryCursorRef.current
+                          if (cursor === null && e.key === 'ArrowDown') return
+                          e.preventDefault()
+                          if (cursor === null) labHistoryDraftRef.current = engineLabCommand
+                          const next = e.key === 'ArrowUp' ? Math.min((cursor ?? -1) + 1, labCommandHistory.length - 1)
+                            : cursor !== null && cursor > 0 ? cursor - 1 : null
+                          updateLabCommandDraft(next === null ? labHistoryDraftRef.current : labCommandHistory[next])
+                          labHistoryCursorRef.current = next
+                          labHistorySelectRef.current = next !== null
+                          setLabHistoryRecallTick(tick => tick + 1)
+                        }}
                         placeholder="go depth 16"
                       />
                       <button type="submit">Send</button>
@@ -9327,10 +9925,17 @@ function App() {
                         onClick={() => void copyLabConsole()}
                         disabled={!engineLabOutputLines.length}
                       >
-                        {engineLabCopyStatus === 'copied' ? 'Copied' : 'Copy'}
+                        {engineLabCopiedText !== null && engineLabCopiedText === engineLabOutputLines.join('\n') ? 'Copied' : 'Copy'}
                       </button>
                       <button type="button" onClick={clearLabConsole}>Clear</button>
+                      <button type="button" className="engine-console-download" aria-label="Download console output"
+                        disabled={!engineLabOutputLines.length} onClick={downloadLabConsole}>
+                        Download
+                      </button>
                     </form>
+                    {labCommandHistory.length > 0 && <p id={labCommandHelpId} className="panel-copy small">
+                      Up/Down recall commands; Down past the newest restores your draft.
+                    </p>}
                     {lastLabRun && (
                       <p className="panel-copy small command-summary">
                         Last run: <strong>{lastLabRun.command}</strong> ({lastLabRun.durationMs} ms)
@@ -9373,50 +9978,30 @@ function App() {
                         perft 3
                       </button>
                     </div>
+                    {/* Replacing the bounded text buffer in a live region would
+                        reannounce all 300 lines on each update. Search start/end
+                        remain announced by the separate status region. */}
+                    <EngineConsoleOutput lines={engineLabOutputLines} session={labConsoleSession} />
+                    {engineLabOutputLines.length === ENGINE_CONSOLE_LINE_LIMIT && (
+                      <p className="panel-copy small">Showing the latest {ENGINE_CONSOLE_LINE_LIMIT} output lines. Copy and Download use these visible lines.</p>
+                    )}
                     {labCommandHistory.length > 0 && (
                       <div className="lab-history">
-                        <h4>History</h4>
+                        <div className="lab-history-heading">
+                          <h4>History</h4>
+                          <button type="button" aria-label="Clear command history" onClick={clearLabHistory}>Clear</button>
+                        </div>
                         <div className="lab-history-list">
                           {labCommandHistory.map(item => (
-                            <button key={item} type="button" onClick={() => setEngineLabCommand(item)}>
+                            <button key={item} type="button" onClick={() => {
+                              updateLabCommandDraft(item)
+                              setLabHistoryRecallTick(tick => tick + 1)
+                            }}>
                               {item}
                             </button>
                           ))}
                         </div>
                       </div>
-                    )}
-                    {engineLabError && <p className="panel-copy small error-copy">{engineLabError}</p>}
-                    {/*
-                      Not a live region, though it looks like one wants to be.
-
-                      React renders this as a single text node holding the whole
-                      buffer, and every arriving line rewrites it: measured with
-                      a MutationObserver, `childNodes: 1`, `textNodes: 1`, and
-                      every record `characterData` on that same node. So what
-                      `aria-live="polite"` offered a screen reader was not "a
-                      line arrived" but the entire console, read again, once per
-                      line -- and this buffer holds 300 of them, a cap the panel
-                      below announces because the volume is expected. A `go
-                      depth 20` is tens of lines.
-
-                      Silence is the better of those two. The console is an
-                      expert tool the reader opened deliberately and can read
-                      whenever they choose; the search's start and finish are
-                      still spoken by the analysis status region, which changes
-                      only on transitions.
-
-                      The fix that would earn a live region back is one node per
-                      line with a stable key, plus `role="log"`, so assistive
-                      tech announces the addition rather than the buffer. That
-                      needs line ids to survive the window sliding, which is a
-                      bigger change than this one and not worth it until someone
-                      wants the announcement.
-                    */}
-                    <pre className="engine-lab-output" aria-label="UCI console output">
-                      {(engineLabOutputLines.join('\n')) || 'No command output yet.'}
-                    </pre>
-                    {engineLabOutputLines.length === ENGINE_CONSOLE_LINE_LIMIT && (
-                      <p className="panel-copy small">Showing the latest {ENGINE_CONSOLE_LINE_LIMIT} output lines. Copy uses these visible lines.</p>
                     )}
                   </div>
 

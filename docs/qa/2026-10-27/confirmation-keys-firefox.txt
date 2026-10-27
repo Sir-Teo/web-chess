@@ -1,0 +1,4 @@
+  confirmation keys (1280×900, 1x, dark): native repeated Enter preserves the library, variation and live game; a separate press confirms each action
+  confirmation keys (375×812, 1x, light): native repeated Enter preserves the library, variation and live game; a separate press confirms each action
+  confirmation keys (320×812, 2x, light): native repeated Enter preserves the library, variation and live game; a separate press confirms each action
+  confirmation keys (844×390, 2x, dark): native repeated Enter preserves the library, variation and live game; a separate press confirms each action

@@ -12,7 +12,7 @@ import { createStockfishWorker } from '../engine/stockfishWorker'
 import { engineStartupTimeoutMs } from '../engine/engineStartup'
 import { buildAnalyzeCommand, buildNewGameCommands, changedSetOptions, engineOptionValueToString, normalizeUciMoves, optionKey, parseBestMoveLine, parseSetOptionCommand, type AnalyzeMode, type AnalyzePurpose, type AnalyzeRequest, type UciGoLimits } from '../engine/uci'
 import { engineBootFailureMessage } from '../engine/engineBootError'
-import { ENGINE_CONSOLE_LINE_LIMIT, isUnboundedEngineLabSearch } from '../engine/labCommands'
+import { ENGINE_CONSOLE_LINE_LIMIT, isEngineLabPerftDiagnostic, isUnboundedEngineLabSearch } from '../engine/labCommands'
 import { withBoundedMapEntry } from './cacheLimit'
 import { evaluationEngine, type EvaluationEngine } from '../engine/evaluationSource'
 
@@ -93,7 +93,7 @@ type QueuedCommand = {
  */
 const ENGINE_STATE_FLUSH_INTERVAL_MS = 100
 const NAVIGATION_ANALYSIS_CACHE_LIMIT = 96
-const NO_REPLY_COMMANDS = new Set(['ucinewgame', 'position', 'setoption', 'stop', 'ponderhit', 'quit'])
+const NO_REPLY_COMMANDS = new Set(['ucinewgame', 'position', 'stop', 'ponderhit', 'quit'])
 /**
  * The commands whose reply `isQueuedCommandDone` knows the end of. Anything
  * else -- a typo, a native-only command -- this browser build of Stockfish
@@ -402,6 +402,7 @@ export function parseOptionLine(line: string): EngineOption | null {
 export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', enabled = true) {
   const workerRef = useRef<Worker | null>(null)
   const [released, setReleased] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
   const releasedRef = useRef(false)
   const wakeAnalyzeRef = useRef<AnalyzeRequest | null>(null)
   const preserveReadingsOnBootRef = useRef(false)
@@ -470,6 +471,18 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     setReleased(false)
     setStatus('loading')
   }, [enabled])
+
+  const retryEngine = useCallback(() => {
+    if (!enabled || status !== 'error') return false
+    // A retry replaces the failed worker, without replaying its console work
+    // or a discarded threat/review request. The caller can requeue auto analysis.
+    wakeAnalyzeRef.current = null
+    visibilityResumeRequestRef.current = null
+    preserveReadingsOnBootRef.current = true
+    setStatus('loading')
+    setRetryCount(value => value + 1)
+    return true
+  }, [enabled, status])
 
   const releaseEngine = useCallback(() => {
     if (!enabled || !workerRef.current || !isReadyRef.current
@@ -550,6 +563,27 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     setQueueLength(queue.length)
     if (!item.discard) item.resolve(item.lines)
   }, [])
+
+  const cancelPerftDiagnostic = useCallback(() => {
+    const item = rawWorkRef.current
+    if (!item || !isEngineLabPerftDiagnostic(item.command)) return false
+    // Native perft does not poll Stop, so release its worker instead of waiting
+    // indefinitely for an acknowledgement. Loading again starts a fresh session.
+    releasedRef.current = true
+    visibilityResumeRequestRef.current = null
+    currentAnalysisRequestRef.current = null
+    pendingAnalyzeRef.current = null
+    wakeAnalyzeRef.current = null
+    setReleased(true)
+    setStatus('unloaded')
+    const message = '[app] Perft canceled; engine released. Load engine to continue. Console position and session-only options reset on reload.'
+    item.lines.push(message)
+    if (item.lines.length > ENGINE_CONSOLE_LINE_LIMIT) item.lines.splice(0, item.lines.length - ENGINE_CONSOLE_LINE_LIMIT)
+    item.stream?.(message)
+    finishQueuedCommand(item)
+    rawWorkRef.current = null
+    return true
+  }, [finishQueuedCommand])
 
   // A hidden console command keeps its queue entry and stream callback. Stop,
   // a board search or a new game cancels that reservation before doing new work.
@@ -674,7 +708,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       if (!trimmed) return Promise.resolve([])
       if (releasedRef.current) return Promise.reject(new Error('Load the engine before sending console commands. Its console position and session options reset when reloaded.'))
       if (!workerRef.current) return Promise.reject(new Error('Engine worker is not available.'))
-      if (trimmed === 'stop' && cancelConsoleSuspension()) return Promise.resolve([])
+      if (trimmed === 'stop' && (cancelConsoleSuspension() || cancelPerftDiagnostic())) return Promise.resolve([])
       if (trimmed !== 'stop') {
         if (!isReadyRef.current) return Promise.reject(new Error('Wait for the engine to finish starting before sending commands.'))
         if (isSearchingRef.current || commandQueueRef.current.length) {
@@ -759,27 +793,35 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
             return
           }
         }
-        send(trimmed)
+        sendRaw(trimmed)
         if (readySentinel) send('isready')
       })
     },
-    [cancelConsoleSuspension, send, sendRaw],
+    [cancelConsoleSuspension, cancelPerftDiagnostic, send, sendRaw],
   )
 
   const setOption = useCallback(
-    (name: string, value?: string | number | boolean) => {
+    (name: string, value?: string | number | boolean, awaitReady = false) => {
       analysisCacheRef.current = new Map()
       currentAnalysisCacheKeyRef.current = null
-      if (value === undefined) {
-        send(`setoption name ${name}`)
+      const normalized = value === undefined ? undefined : engineOptionValueToString(value)
+      const command = `setoption name ${name}${normalized === undefined ? '' : ` value ${normalized}`}`
+      if (isReadyRef.current && (awaitReady || optionKey(name) === 'threads')) {
+        // Lab mutations finish before another control can reconfigure the worker.
+        // Startup and managed search batches own their own ordering.
+        void sendCommand(command).catch(error => {
+          setProfileMessage(error instanceof Error ? error.message : String(error))
+        })
         return
       }
-
-      const normalized = engineOptionValueToString(value)
+      if (normalized === undefined) {
+        send(command)
+        return
+      }
       recordSentOption(name, normalized)
-      send(`setoption name ${name} value ${normalized}`)
+      send(command)
     },
-    [recordSentOption, send],
+    [recordSentOption, send, sendCommand],
   )
 
   const startAnalysis = useCallback(
@@ -889,9 +931,11 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     (request: AnalyzeRequest) => {
       if (!enabled) return
       if (releasedRef.current) {
-        // Navigation and background work respect an explicit release. Analyze
-        // is a new request and carries the exact board/history through boot.
-        if (request.purpose !== 'manual') return
+        // Navigation and background work respect an explicit release. Manual
+        // analysis and a requested threat probe carry their position through boot.
+        if (request.purpose !== 'manual' && request.purpose !== 'threat') return
+        // Retained completion markers cannot finish the new probe before boot.
+        if (request.purpose === 'threat') setLastBestMoveFen(null)
         wakeAnalyzeRef.current = request
         loadEngine()
         return
@@ -919,6 +963,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     visibilityResumeRequestRef.current = null
     pendingAnalyzeRef.current = null
     wakeAnalyzeRef.current = null
+    if (cancelPerftDiagnostic()) return
     if (!enabled) {
       setStatus('disabled')
       return
@@ -938,7 +983,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       if (value === 'error') return value
       return isReadyRef.current ? 'ready' : value
     })
-  }, [cancelConsoleSuspension, enabled, send])
+  }, [cancelConsoleSuspension, cancelPerftDiagnostic, enabled, send])
 
   const newGame = useCallback(() => {
     cancelConsoleSuspension()
@@ -1055,8 +1100,14 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       return
     }
 
-    const applyFallback = (reason: string) => {
+    const applyFallback = (reason: string, pendingRequest = pendingAnalyzeRef.current ?? visibilityResumeRequestRef.current) => {
       if (profile.id !== 'lite-single-local') {
+        // A requested Analyze/Auto pass waiting for startup still belongs to
+        // the reader. Carry its exact request into the replacement handshake.
+        // Other workflows handle their own failure/cancellation state.
+        if (pendingRequest?.purpose === 'manual' || pendingRequest?.purpose === 'auto') {
+          wakeAnalyzeRef.current = pendingRequest
+        }
         const fallback = resolveProfile('lite-single-local', capabilities)
         const message = `${reason} Falling back to ${fallback.name}.`
         setFallbackOverride({
@@ -1072,6 +1123,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     }
 
     const failWorker = (reason: string, queueMessage: string) => {
+      const pendingRequest = pendingAnalyzeRef.current ?? visibilityResumeRequestRef.current
       clearTimeout(startupTimer)
       isReadyRef.current = false
       isSearchingRef.current = false
@@ -1087,7 +1139,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       } catch {
         // Ignore shutdown errors from workers that are already gone.
       }
-      applyFallback(reason)
+      applyFallback(reason, pendingRequest)
     }
 
     try {
@@ -1208,6 +1260,14 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
         }
 
         if (line === 'uciok') {
+          // Configure the worker before advertising readiness. Overlapping a
+          // new Threads command with initial setup can stall native pthreads.
+          if (shouldApplyRecommendedThreads(
+            recommendedThreadCount(profile, capabilities),
+            appliedOptionsRef.current.get(optionKey('Threads')),
+          )) {
+            setOption('Threads', recommendedThreadCount(profile, capabilities))
+          }
           send('isready')
         }
 
@@ -1217,13 +1277,6 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
           // A failed preferred boot can create a fallback worker. Retain the
           // old readings through that replacement until startup succeeds.
           preserveReadingsOnBootRef.current = false
-          // A default, applied once per worker; see shouldApplyRecommendedThreads.
-          if (shouldApplyRecommendedThreads(
-            recommendedThreadCount(profile, capabilities),
-            appliedOptionsRef.current.get(optionKey('Threads')),
-          )) {
-            setOption('Threads', recommendedThreadCount(profile, capabilities))
-          }
           setStatus((value) => (value === 'error' ? value : isSearchingRef.current ? 'analyzing' : 'ready'))
           flushPendingAnalyze()
         }
@@ -1316,7 +1369,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     const startupTimer = setTimeout(() => {
       if (currentSession !== bootSessionRef.current || workerRef.current !== worker) return
       failWorker(
-        `${profile.name} did not finish starting. Check your connection or reload to retry.`,
+        `${profile.name} did not finish starting. Check your connection, then retry the engine.`,
         'Engine startup timed out.',
       )
     }, engineStartupTimeoutMs(profile))
@@ -1354,6 +1407,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     flushPendingAnalyze,
     rejectQueuedCommands,
     released,
+    retryCount,
     resumeConsoleSearch,
     resetLinesMap,
     resolvedProfile,
@@ -1390,6 +1444,8 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     profileMessage,
     releaseEngine,
     loadEngine,
+    retryEngine,
+    retryCount,
     analyze,
     sendRaw,
     sendCommand,

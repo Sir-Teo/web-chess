@@ -2,7 +2,7 @@ import { Chess } from 'chess.js'
 import { describe, expect, it } from 'vitest'
 import type { GameNode } from '../hooks/useGameTree'
 import { createReviewSession, recordReviewResult, snapshotReviewSession } from './reviewSession'
-import { createSavedReview, readSavedReview, restoreSavedReview, reviewLineKey, savedReviewSummary } from './savedReviews'
+import { createSavedReview, filterSavedReviewSummaries, readSavedReview, restoreSavedReview, reviewLineKey, savedReviewSummary } from './savedReviews'
 import { createReviewBackup, parseReviewBackup, planReviewImport } from './reviewBackup'
 
 function fixture(moves = ['Nf3', 'Nf6', 'g3'], rootFen?: string, depth = 16) {
@@ -22,6 +22,34 @@ function fixture(moves = ['Nf3', 'Nf6', 'g3'], rootFen?: string, depth = 16) {
 }
 
 describe('portable, isolated saved reviews', () => {
+  it.each([
+    [{ White: 'Player 1', Black: 'Player 2', Event: 'Web Chess Game', Opening: "King's Knight Opening" }, "Queen's Gambit", "Queen's Gambit"],
+    [{ White: 'Player 1', Black: 'Player 2', Event: 'Tournament round 3' }, "Queen's Gambit", 'Tournament round 3'],
+    [{ White: 'Real White', Black: 'Real Black', Event: 'Tournament round 3' }, "Queen's Gambit", 'Real White – Real Black'],
+    [{ White: '?', Black: '?', Event: '?' }, undefined, 'Reviewed line'],
+    [{ White: '?', Black: '?', Event: '?', Opening: 'Custom repertoire' }, undefined, 'Custom repertoire'],
+  ] as Array<[Record<string, string>, string | undefined, string]>)('names a new run from meaningful game details: %j', (headers, opening, expected) => {
+    const { line, report } = fixture()
+    const saved = createSavedReview(line, report, headers, [], 'named-run', opening)
+    expect(saved.title).toBe(expected)
+    expect(saved.lineKey).toBe(reviewLineKey(line))
+  })
+
+  it('repairs older title fragments without losing the saved report', () => {
+    const { saved } = fixture()
+    const old = { ...saved, title: 'Prep\uD83D (2) 😀' }
+    expect(savedReviewSummary(old)?.title).toBe('Prep (2) 😀')
+    expect(readSavedReview(old)).toEqual({ ...saved, title: 'Prep (2) 😀' })
+    expect(readSavedReview({ ...saved, title: '\uDC00' })?.title).toBe('Reviewed line')
+  })
+
+  it('keeps the saved title within its limit without splitting an emoji', () => {
+    const { line, report } = fixture()
+    const title = `${'x'.repeat(199)}😀`
+    const saved = createSavedReview(line, report, { Event: title }, [], 'unicode-title')
+    expect(saved.title).toBe('x'.repeat(199))
+    expect(readSavedReview(saved)?.title).toBe(saved.title)
+  })
   it('keeps exact scores, WDL, source, limits, notes and timestamps across JSON and fresh node IDs', () => {
     const { line, report, saved } = fixture()
     const reopened = readSavedReview(JSON.parse(JSON.stringify(saved)))!
@@ -118,5 +146,35 @@ describe('portable, isolated saved reviews', () => {
     }
     expect(readSavedReview({ ...saved, evaluations: [saved.evaluations[1], ...saved.evaluations.slice(1)] })).toBeNull()
     expect(readSavedReview({ ...saved, evaluations: [['unrelated-fen', reading], ...saved.evaluations.slice(1)] })).toBeNull()
+  })
+})
+
+
+describe('finding saved review runs', () => {
+  const runs = [
+    { ...fixture(['e4'], undefined, 6).saved, id: 'jose', title: 'José – Réti: Łódź prep' },
+    { ...fixture(['d4'], undefined, 16).saved, id: 'deep', title: 'Queen pawn study', complete: false, evaluated: 1,
+      settings: { ...fixture().saved.settings, engine: { profile: 'full-single-local', name: 'Stockfish 18 Full', version: '18.0.7' } } },
+  ]
+
+  it('matches names across accents, decomposed letters and fullwidth input', () => {
+    for (const query of ['jose reti lodz', 'RE\u0301TI', 'Ｊｏｓｅ']) {
+      expect(filterSavedReviewSummaries(runs, query).map(run => run.id)).toEqual(['jose'])
+    }
+  })
+
+  it('combines name, producer, build, target depth and completeness terms', () => {
+    expect(filterSavedReviewSummaries(runs, 'queen full d16 partial 18.0.7').map(run => run.id)).toEqual(['deep'])
+    expect(filterSavedReviewSummaries(runs, 'prep lite depth 6 complete').map(run => run.id)).toEqual(['jose'])
+    expect(filterSavedReviewSummaries(runs, 'queen lite')).toEqual([])
+    expect(filterSavedReviewSummaries(runs, 'missing')).toEqual([])
+  })
+
+  it('keeps stored order, titles and settings intact when searching or clearing', () => {
+    const before = structuredClone(runs)
+    expect(filterSavedReviewSummaries(runs, '  ').map(run => run.id)).toEqual(['jose', 'deep'])
+    filterSavedReviewSummaries(runs, 'reti d6')
+    expect(filterSavedReviewSummaries(runs, '').map(run => run.id)).toEqual(['jose', 'deep'])
+    expect(runs).toEqual(before)
   })
 })

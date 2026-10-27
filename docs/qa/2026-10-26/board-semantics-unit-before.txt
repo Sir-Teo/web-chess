@@ -1,0 +1,110 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/components/boardAccessibilitySync.test.ts (8 tests | 5 failed) 15ms
+     × makes an empty legal target reachable, and gives it back afterwards 5ms
+     × exposes a passive square description without adding a tab stop 1ms
+     × names the piece control without naming its generic wrapper 1ms
+     × removes its passive role when a piece arrives and restores it after departure 1ms
+     × preserves a square control and tab order supplied by its owner 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/boardAccessibilitySync.test.ts > syncRenderedBoardAccessibility > makes an empty legal target reachable, and gives it back afterwards
+AssertionError: expected null to be 'img' // Object.is equality
+
+- Expected:
+"img"
+
++ Received:
+null
+
+ ❯ src/components/boardAccessibilitySync.test.ts:62:41
+     60|     // Deselect: it stops being a target and must stop being a tab sto…
+     61|     syncRenderedBoardAccessibility(new Chess(), null, [])
+     62|     expect(square.getAttribute('role')).toBe('img')
+       |                                         ^
+     63|     expect(square.getAttribute('tabindex')).toBeNull()
+     64|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/components/boardAccessibilitySync.test.ts > syncRenderedBoardAccessibility > exposes a passive square description without adding a tab stop
+AssertionError: expected null to be 'img' // Object.is equality
+
+- Expected:
+"img"
+
++ Received:
+null
+
+ ❯ src/components/boardAccessibilitySync.test.ts:78:41
+     76|     const square = mountBoard(['e4']).get('chessboard-square-e4')!
+     77|     syncRenderedBoardAccessibility(new Chess(), null, [])
+     78|     expect(square.getAttribute('role')).toBe('img')
+       |                                         ^
+     79|     expect(square.getAttribute('aria-label')).toBe('e4, empty square')
+     80|     expect(square.getAttribute('tabindex')).toBeNull()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/components/boardAccessibilitySync.test.ts > syncRenderedBoardAccessibility > names the piece control without naming its generic wrapper
+AssertionError: expected 'e2, White pawn' to be null
+
+- Expected:
+null
+
++ Received:
+"e2, White pawn"
+
+ ❯ src/components/boardAccessibilitySync.test.ts:90:47
+     88|     syncRenderedBoardAccessibility(new Chess(), null, [])
+     89|     expect(piece.getAttribute('aria-label')).toBe('e2, White pawn')
+     90|     expect(square.getAttribute('aria-label')).toBeNull()
+       |                                               ^
+     91|     expect(square.getAttribute('role')).toBeNull()
+     92|     expect(square.getAttribute('title')).toBe('e2, White pawn')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/components/boardAccessibilitySync.test.ts > syncRenderedBoardAccessibility > removes its passive role when a piece arrives and restores it after departure
+AssertionError: expected null to be 'img' // Object.is equality
+
+- Expected:
+"img"
+
++ Received:
+null
+
+ ❯ src/components/boardAccessibilitySync.test.ts:99:41
+     97|     const game = new Chess()
+     98|     syncRenderedBoardAccessibility(game, null, [])
+     99|     expect(square.getAttribute('role')).toBe('img')
+       |                                         ^
+    100|
+    101|     game.move('e4')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/components/boardAccessibilitySync.test.ts > syncRenderedBoardAccessibility > preserves a square control and tab order supplied by its owner
+AssertionError: expected '0' to be '-1' // Object.is equality
+
+Expected: "-1"
+Received: "0"
+
+ ❯ src/components/boardAccessibilitySync.test.ts:125:45
+    123|     syncRenderedBoardAccessibility(new Chess(), 'e2', ['e4'])
+    124|     expect(square.getAttribute('role')).toBe('button')
+    125|     expect(square.getAttribute('tabindex')).toBe('-1')
+       |                                             ^
+    126|     expect(square.getAttribute('data-webchess-a11y-target')).toBeNull()
+    127|     syncRenderedBoardAccessibility(new Chess(), null, [])
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 3 passed (8)
+   Start at  22:51:50
+   Duration  215ms (transform 54ms, setup 0ms, import 73ms, tests 15ms, environment 0ms)
+

@@ -1,0 +1,3 @@
+ILLEGAL ROOT PROBE {"kind":"shared-adjacent","fatal":0,"board":1,"errors":[],"dialogError":[],"notice":["That shared link could not be read — showing the starting position."]}
+ILLEGAL ROOT PROBE {"kind":"shared-checked-opponent","fatal":0,"board":1,"errors":[],"dialogError":[],"notice":["That shared link could not be read — showing the starting position."]}
+ILLEGAL ROOT PROBE {"kind":"pgn-checked-opponent","fatal":0,"board":1,"errors":[],"dialogError":["PGN starting position: the side that is not to move is already in check, which no legal game can reach. Check the side to move."],"notice":[""]}

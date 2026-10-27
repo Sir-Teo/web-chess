@@ -10,7 +10,7 @@ import {
   getUniqueGameName,
   mergeLibraryBackup,
   normalizeLibraryGames,
-  parseLibraryBackup,
+  readLibraryBackup,
   suggestGameName,
 } from '../engine/gameLibrary'
 import { libraryImportNote, pgnVariantName } from '../engine/gameLibrary'
@@ -156,7 +156,8 @@ export function useGameLibrary() {
         continue
       }
       try {
-        if (!parsePgnMoveTree(text).moves.length) { unreadable++; continue }
+        // The parser rejects empty standard games, but accepts valid setup-only studies.
+        parsePgnMoveTree(text)
       } catch {
         unreadable++
         continue
@@ -184,23 +185,13 @@ export function useGameLibrary() {
   }, [commit])
 
   const importBackup = useCallback((json: string): LibraryWriteResult => {
-    const restored = parseLibraryBackup(json, Date.now())
-    /*
-     * Say where the right control is, the way the review importer does.
-     *
-     * Its answer to a wrong file -- "This is not a Web Chess review backup.
-     * Game-library backups and PGNs use their own import controls." -- names
-     * the file it wanted and points at the two it did not. This said only that
-     * the file was wrong, which is true and leaves a reader holding a file
-     * they were told nothing about, in an app with three import controls that
-     * all take a file.
-     *
-     * The three kinds are easy to confuse and easy to name, so name them.
-     */
+    const backup = readLibraryBackup(json, Date.now())
+    if (!backup.ok) return backup
+    const restored = backup.games
     if (!restored.length) {
       return {
         ok: false,
-        error: 'This is not a Web Chess library backup. Review backups and PGNs use their own import controls.',
+        error: 'This library backup contains no saved games.',
       }
     }
 
@@ -208,7 +199,9 @@ export function useGameLibrary() {
     // handing the whole lot to `commit` used to drop the reader's own games
     // off the end of it.
     const merge = mergeLibraryBackup(gamesRef.current, restored)
+    const note = backupMergeNote(merge, backup.skippedEntries)
     if (!merge.added) {
+      if (backup.skippedEntries > 0 && note) return { ok: false, error: note }
       return {
         ok: false,
         error: merge.omitted > 0
@@ -218,7 +211,6 @@ export function useGameLibrary() {
     }
 
     commit(merge.games)
-    const note = backupMergeNote(merge)
     return note ? { ok: true, note } : { ok: true }
   }, [commit])
 

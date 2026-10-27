@@ -1,0 +1,4 @@
+  imported counters (1280px, 1x): malformed shared roots refused; pasted/file PGNs preserve draft/board and identify the field; corrected counters load exactly
+  imported counters (375px, 2x): malformed shared roots refused; pasted/file PGNs preserve draft/board and identify the field; corrected counters load exactly
+  imported counters (1280px, 1x): malformed shared roots refused; pasted/file PGNs preserve draft/board and identify the field; corrected counters load exactly
+  imported counters (375px, 2x): malformed shared roots refused; pasted/file PGNs preserve draft/board and identify the field; corrected counters load exactly

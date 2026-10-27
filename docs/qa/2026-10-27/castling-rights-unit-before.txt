@@ -1,0 +1,91 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/fen.test.ts (51 tests | 12 failed) 26ms
+     × requires the home rook for White kingside 8ms
+     × requires the home rook for White queenside 1ms
+     × requires the home rook for Black kingside 1ms
+     × requires the home rook for Black queenside 1ms
+     × requires the king to remain home when a right is declared: 4k3/8/8/8/8/8/4K3/7R w K - 0 1 1ms
+     × requires the king to remain home when a right is declared: 4k3/8/8/8/8/8/4K3/R7 w Q - 0 1 1ms
+     × requires the king to remain home when a right is declared: 7r/4k3/8/8/8/8/8/4K3 b k - 0 1 1ms
+     × requires the king to remain home when a right is declared: r7/4k3/8/8/8/8/8/4K3 b q - 0 1 1ms
+     × requires the rook to belong to the castling side: 4k3/8/8/8/8/8/P7/4K2r w K - 0 1 1ms
+     × requires the rook to belong to the castling side: 4k3/8/8/8/8/8/P7/r3K3 w Q - 0 1 1ms
+     × requires the rook to belong to the castling side: 4k2R/p7/8/8/8/8/8/4K3 b k - 0 1 1ms
+     × requires the rook to belong to the castling side: R3k3/p7/8/8/8/8/8/4K3 b q - 0 1 0ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/fen.test.ts > declared castling rights > requires the home rook for White kingside
+ FAIL  src/engine/fen.test.ts > declared castling rights > requires the home rook for White queenside
+ FAIL  src/engine/fen.test.ts > declared castling rights > requires the home rook for Black kingside
+ FAIL  src/engine/fen.test.ts > declared castling rights > requires the home rook for Black queenside
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/engine/fen.test.ts:12:23
+     10|   ])('requires the home rook for %s', (label, king, rook, fen) => {
+     11|     const result = validateFenForAnalysis(fen)
+     12|     expect(result.ok).toBe(false)
+       |                       ^
+     13|     expect(!result.ok && result.error).toMatch(new RegExp(`${label} ca…
+     14|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+ FAIL  src/engine/fen.test.ts > declared castling rights > requires the king to remain home when a right is declared: 4k3/8/8/8/8/8/4K3/7R w K - 0 1
+ FAIL  src/engine/fen.test.ts > declared castling rights > requires the king to remain home when a right is declared: 4k3/8/8/8/8/8/4K3/R7 w Q - 0 1
+ FAIL  src/engine/fen.test.ts > declared castling rights > requires the king to remain home when a right is declared: 7r/4k3/8/8/8/8/8/4K3 b k - 0 1
+ FAIL  src/engine/fen.test.ts > declared castling rights > requires the king to remain home when a right is declared: r7/4k3/8/8/8/8/8/4K3 b q - 0 1
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/engine/fen.test.ts:23:23
+     21|   ])('requires the king to remain home when a right is declared: %s', …
+     22|     const result = validateFenForAnalysis(fen)
+     23|     expect(result.ok).toBe(false)
+       |                       ^
+     24|     expect(!result.ok && result.error).toMatch(/castling.*king on e[18…
+     25|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/12]⎯
+
+ FAIL  src/engine/fen.test.ts > declared castling rights > requires the rook to belong to the castling side: 4k3/8/8/8/8/8/P7/4K2r w K - 0 1
+ FAIL  src/engine/fen.test.ts > declared castling rights > requires the rook to belong to the castling side: 4k3/8/8/8/8/8/P7/r3K3 w Q - 0 1
+ FAIL  src/engine/fen.test.ts > declared castling rights > requires the rook to belong to the castling side: 4k2R/p7/8/8/8/8/8/4K3 b k - 0 1
+ FAIL  src/engine/fen.test.ts > declared castling rights > requires the rook to belong to the castling side: R3k3/p7/8/8/8/8/8/4K3 b q - 0 1
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/engine/fen.test.ts:34:23
+     32|   ])('requires the rook to belong to the castling side: %s', fen => {
+     33|     const result = validateFenForAnalysis(fen)
+     34|     expect(result.ok).toBe(false)
+       |                       ^
+     35|     expect(!result.ok && result.error).toMatch(/castling/)
+     36|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/12]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  12 failed | 39 passed (51)
+   Start at  12:58:05
+   Duration  278ms (transform 65ms, setup 0ms, import 92ms, tests 26ms, environment 0ms)
+

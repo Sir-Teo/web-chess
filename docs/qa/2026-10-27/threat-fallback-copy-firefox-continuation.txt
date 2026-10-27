@@ -1,0 +1,6 @@
+run 0
+  threat recovery (844×390, 2x, dark, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+run 1
+  threat recovery (844×390, 2x, dark, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+run 2
+  threat recovery (844×390, 2x, dark, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds

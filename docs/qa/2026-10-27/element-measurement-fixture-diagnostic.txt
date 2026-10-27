@@ -1,0 +1,14 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+run 0
+{"trace":[{"type":"pointerdown","target":"svg","pointerId":1,"hold":true}]}
+  responsive gesture (1280px, outside): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+run 1
+{"trace":[{"type":"pointerdown","target":"svg","pointerId":1,"hold":true}]}
+  responsive gesture (1280px, outside): native press retains its target; release or controlled cancel/blur applies latest layout; cancelled action stays closed; Library opens and returns focus
+run 2
+{"trace":[{"type":"pointerdown","target":"svg","pointerId":1,"compact":"true","hold":true}],"compact":"true"}
+Error: responsive compaction moved the toolbar during a held pointer gesture
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkViewportResizePreservesGesture (/workspace/web-chess/scripts/test-ui-browser.cjs:6413:157)
+    at async /tmp/web-chess-webkit-viewport-diagnostic.cjs:16:60

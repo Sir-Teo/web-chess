@@ -1,0 +1,123 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/gameLibrary.test.ts (109 tests | 5 failed) 708ms
+     × reads inline tag pairs and stops at the first move 7ms
+     × reads CR-only and CRLF header sections 2ms
+     × keeps quoted brackets, escapes and tag-looking value text literal 1ms
+     × does not count SAN-looking words inside inline headers 1ms
+     × recognizes unsupported variants in inline and CR-only headers 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > pgn header reading > reads inline tag pairs and stops at the first move
+AssertionError: expected {} to deeply equal { Event: 'Club', White: 'Ada', …(1) }
+
+- Expected
++ Received
+
+- {
+-   "Black": "Grace",
+-   "Event": "Club",
+-   "White": "Ada",
+- }
++ {}
+
+ ❯ src/engine/gameLibrary.test.ts:73:99
+     71|
+     72|   it('reads inline tag pairs and stops at the first move', () => {
+     73|     expect(parsePgnHeaders('[Event "Club"] [White "Ada"] [Black "Grace…
+       |                                                                                                   ^
+     74|       Event: 'Club', White: 'Ada', Black: 'Grace',
+     75|     })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > pgn header reading > reads CR-only and CRLF header sections
+AssertionError: expected {} to deeply equal { Event: 'Club', White: 'Ada' }
+
+- Expected
++ Received
+
+- {
+-   "Event": "Club",
+-   "White": "Ada",
+- }
++ {}
+
+ ❯ src/engine/gameLibrary.test.ts:83:96
+     81|   it('reads CR-only and CRLF header sections', () => {
+     82|     for (const ending of ['\r', '\r\n']) {
+     83|       expect(parsePgnHeaders(`[Event "Club"]${ending}[White "Ada"]${en…
+       |                                                                                                ^
+     84|     }
+     85|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > pgn header reading > keeps quoted brackets, escapes and tag-looking value text literal
+AssertionError: expected {} to deeply equal { …(2) }
+
+- Expected
++ Received
+
+- {
+-   "Event": "The \"Final\" [White \"Guest\"]",
+-   "White": "Ada",
+- }
++ {}
+
+ ❯ src/engine/gameLibrary.test.ts:88:106
+     86|
+     87|   it('keeps quoted brackets, escapes and tag-looking value text litera…
+     88|     expect(parsePgnHeaders(String.raw`[Event "The \"Final\" [White \"G…
+       |                                                                                                          ^
+     89|       Event: 'The "Final" [White "Guest"]', White: 'Ada',
+     90|     })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > counting moves > does not count SAN-looking words inside inline headers
+AssertionError: expected 4 to be 3 // Object.is equality
+
+- Expected
++ Received
+
+- 3
++ 4
+
+ ❯ src/engine/gameLibrary.test.ts:135:83
+    133|
+    134|   it('does not count SAN-looking words inside inline headers', () => {
+    135|     expect(countPgnMoves('[Event "e4 Nf3 Nc6"] [White "Ada"] 1. e4 e5 …
+       |                                                                                   ^
+    136|   })
+    137|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > pgnVariantName > recognizes unsupported variants in inline and CR-only headers
+AssertionError: expected null to be 'Chess960' // Object.is equality
+
+- Expected:
+"Chess960"
+
++ Received:
+null
+
+ ❯ src/engine/gameLibrary.test.ts:668:75
+    666| describe('pgnVariantName', () => {
+    667|   it('recognizes unsupported variants in inline and CR-only headers', …
+    668|     expect(pgnVariantName('[Event "Club"] [Variant "Chess960"] 1. e4 *…
+       |                                                                           ^
+    669|     expect(pgnVariantName('[Event "Club"]\r[Variant "Crazyhouse"]\r\r1…
+    670|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 104 passed (109)
+   Start at  03:34:49
+   Duration  1.09s (transform 205ms, setup 0ms, import 254ms, tests 708ms, environment 0ms)
+

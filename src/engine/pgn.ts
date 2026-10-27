@@ -2,20 +2,21 @@ import { Chess } from 'chess.js'
 import { parse as parsePgn } from 'chess.js/src/pgn.js'
 import type { Node as ParsedPgnNode } from 'chess.js/src/node'
 import type { GameNode, GameTreeImportEntry } from '../hooks/useGameTree'
-import type { EvalSnapshot } from './analysis'
-import { hasLegalKingPlacement } from './fen'
+import { uciToSan, type EvalSnapshot } from './analysis'
+import { fenCounterInputError, validateFenForAnalysis } from './fen'
 import { looksLikeFen, looksLikeGameUrl } from './pastedText'
 import { decodeEvaluationEngine, encodeEvaluationEngine } from './evaluationSource'
 import { APP_PLACEHOLDER_HEADERS } from './pgnPlaceholders'
+import { formatLocalDate } from './localDate'
+import { pgnTagEnd, readPgnHeaderSection } from './pgnHeaders'
+import { isPgnResult, pgnTokensOutsideComments, splitPgnEndingComments } from './pgnText'
+import { reorderPostVariationAnnotations } from './pgnVariations'
 
 const INITIAL_FEN = new Chess().fen()
 const PGN_TAG_NAME_PATTERN = /^[A-Za-z0-9_]+$/
-const PGN_EVENT_TAG_LINE_PATTERN = /^\s*\[Event\s+"(?:[^"\\]|\\.)*"\]\s*$/gim
-const PGN_RESULT_TAG_LINE_PATTERN = /^\s*\[Result\s+"(?:[^"\\]|\\.)*"\]\s*$/gim
-const PGN_HEADER_LINE_PATTERN = /^\s*\[[A-Za-z0-9_]+\s+"(?:[^"\\]|\\.)*"\]\s*$/gm
-const PGN_SEMICOLON_COMMENT_PATTERN = /;[^\r\n]*/g
-const PGN_MOVETEXT_RESULT_PATTERN = /(?:^|\s)(?:1-0|0-1|1\/2-1\/2|\*)(?=\s|$)/g
-const VALID_PGN_RESULTS = new Set(['1-0', '0-1', '1/2-1/2', '*'])
+const PGN_EVENT_TAG_PATTERN = /^\[Event\s+"(?:[^"\\]|\\.)*"\]$/i
+const PGN_RESULT_TAG_PATTERN = /^\[Result\s+"(?:[^"\\]|\\.)*"\]$/i
+const PGN_HEADER_TAG_PATTERN = /^\[\s*[A-Za-z0-9_]+\s+"(?:[^"\\]|\\.)*"\s*\]$/
 /**
  * Any `[%name ...]` command inside a comment. The PGN standard reserves this
  * shape for machine annotations, so none of them is prose: `[%clk]` from a
@@ -75,6 +76,8 @@ const PGN_IMPORT_USER_ERRORS = new Set([
     PGN_LOOKS_LIKE_URL_ERROR,
 ])
 
+class PgnStartingPositionError extends Error {}
+
 const QUALITY_EXPORT_LABELS: Record<NonNullable<GameNode['quality']>, string> = {
     book: 'Book',
     best: 'Best',
@@ -103,44 +106,49 @@ const DEFAULT_PGN_EXPORT_OPTIONS: Required<PgnExportOptions> = {
 function sanitizePgnHeaderValue(value: string): string {
     return value
         .replace(/[\r\n]+/g, ' ')
-        .replace(/"/g, "'")
+        .replace(/[\\"]/g, '\\$&')
 }
 
-/**
- * Replaces each `{...}` comment with a space, like the regex it replaces, but
- * in one pass. `/\{[^]*?\}/g` backtracks from every `{` that has no closing
- * brace, which is quadratic — a 5MB paste of a non-PGN file full of braces
- * (a minified script, a JSON dump) froze the tab rather than being rejected.
- *
- * Semantics are unchanged: a comment ends at the first `}`, and an unterminated
- * `{` is left in place exactly as the regex left it.
- */
-function stripPgnBlockComments(text: string): string {
-    if (!text.includes('{')) return text
-
-    let out = ''
-    let index = 0
-    for (;;) {
-        const open = text.indexOf('{', index)
-        if (open < 0) return out + text.slice(index)
-        const close = text.indexOf('}', open + 1)
-        if (close < 0) return out + text.slice(index)
-        out += `${text.slice(index, open)} `
-        index = close + 1
+/** Starts of subsequent games, with comments and recursive variations intact. */
+function* pgnGameBoundaries(text: string): Generator<number> {
+    let sawMoves = false
+    let ended = false
+    let variationDepth = 0
+    for (const token of pgnTokensOutsideComments(text)) {
+        const value = text.slice(token.start, token.end)
+        if (token.kind === 'tag') {
+            // Header blocks stay together; any real header after movetext can
+            // begin another game, even when the exporter omits Event.
+            if (variationDepth === 0 && sawMoves && PGN_HEADER_TAG_PATTERN.test(value)) {
+                yield token.start
+                sawMoves = false
+                ended = false
+            }
+            continue
+        }
+        for (const word of value.matchAll(/[()]|[^\s()]+/g)) {
+            if (word[0] === '(') { variationDepth++; continue }
+            if (word[0] === ')') { variationDepth = Math.max(0, variationDepth - 1); continue }
+            if (variationDepth > 0) continue
+            if (ended) yield token.start + word.index
+            sawMoves = true
+            ended = isPgnResult(word[0])
+        }
     }
 }
 
 export function hasMultiplePgnGames(pgnText: string): boolean {
-    const eventTags = pgnText.match(PGN_EVENT_TAG_LINE_PATTERN)
-    if ((eventTags?.length ?? 0) > 1) return true
-
-    const resultTags = pgnText.match(PGN_RESULT_TAG_LINE_PATTERN)
-    if ((resultTags?.length ?? 0) > 1) return true
-
-    const movetextOnly = stripPgnBlockComments(pgnText.replace(PGN_HEADER_LINE_PATTERN, '\n'))
-        .replace(PGN_SEMICOLON_COMMENT_PATTERN, ' ')
-    const terminationMarkers = movetextOnly.match(PGN_MOVETEXT_RESULT_PATTERN)
-    return (terminationMarkers?.length ?? 0) > 1
+    let eventTags = 0
+    let resultTags = 0
+    for (const token of pgnTokensOutsideComments(pgnText)) {
+        const value = pgnText.slice(token.start, token.end)
+        if (token.kind === 'tag') {
+            if (PGN_EVENT_TAG_PATTERN.test(value)) eventTags++
+            if (PGN_RESULT_TAG_PATTERN.test(value)) resultTags++
+            if (eventTags > 1 || resultTags > 1) return true
+        }
+    }
+    return !pgnGameBoundaries(pgnText).next().done
 }
 
 /**
@@ -163,52 +171,26 @@ export function stripPgnByteOrderMark(pgnText: string): string {
  * chess.com, and the importer used to refuse the whole thing and tell the
  * reader to split it themselves. This does that for them.
  *
- * Done line by line rather than with a regular expression because a `{}`
- * comment can span lines and can contain anything, including the text of a
- * header: a game annotated "as in {[Event "Linares"] 1993}" would otherwise
- * be cut in half. Tracking the braces is the only way to know whether a
- * bracket is markup or prose.
+ * Use the same scan as multi-game detection: quoted headers and both comment
+ * forms keep their own punctuation, and a brace comment never nests. Slice
+ * the original game text at actual boundaries so notes are not rewritten.
  *
- * A new game begins at an `[Event` line that follows movetext. Header blocks
- * run together at the top of a game, so the rule is "a header after moves",
- * not "a header".
+ * A new game begins at a header after movetext, or at new movetext after a
+ * main-line termination marker. Header blocks and variations stay together.
  */
 export function splitPgnGames(pgnText: string): string[] {
-    const text = stripPgnByteOrderMark(pgnText)
+    const text = stripPgnByteOrderMark(pgnText).replace(/\r\n?/g, '\n')
     if (!text.trim()) return []
 
     const games: string[] = []
-    let current: string[] = []
-    let sawMoves = false
-    let depth = 0
-
-    const flush = () => {
-        const game = current.join('\n').trim()
-        if (game) games.push(game)
-        current = []
-        sawMoves = false
+    let start = 0
+    for (const boundary of pgnGameBoundaries(text)) {
+        games.push(text.slice(start, boundary).trim())
+        start = boundary
     }
 
-    for (const line of text.split(/\r?\n/)) {
-        const outsideComment = depth === 0
-        const isEventTag = outsideComment && /^\s*\[Event\s/.test(line)
-
-        if (isEventTag && sawMoves) flush()
-        current.push(line)
-
-        // Braces only mean a comment outside a header line; a header's value is
-        // quoted text and cannot open one.
-        const isHeader = outsideComment && /^\s*\[[A-Za-z0-9_]+\s+"/.test(line)
-        if (!isHeader) {
-            for (const character of line) {
-                if (character === '{') depth++
-                else if (character === '}' && depth > 0) depth--
-            }
-            if (depth === 0 && line.trim() && !/^\s*\[/.test(line)) sawMoves = true
-        }
-    }
-
-    flush()
+    const last = text.slice(start).trim()
+    if (last) games.push(last)
     return games
 }
 
@@ -221,6 +203,7 @@ export function pgnImportContentError(pgnText: string): string | null {
 
 export function pgnImportUserErrorMessage(error: unknown): string | null {
     if (!(error instanceof Error)) return null
+    if (error instanceof PgnStartingPositionError) return error.message
     for (const prefix of [PGN_INVALID_MOVE_ERROR_PREFIX, CHESS_JS_INVALID_MOVE_PREFIX]) {
         // The app's own prefix is checked first: it also begins "Invalid move".
         if (error.message.startsWith(prefix)) {
@@ -232,14 +215,11 @@ export function pgnImportUserErrorMessage(error: unknown): string | null {
 
 function normalizePgnResult(result: string | undefined): string {
     const normalized = result?.trim()
-    return normalized && VALID_PGN_RESULTS.has(normalized) ? normalized : '*'
+    return normalized && isPgnResult(normalized) ? normalized : '*'
 }
 
 export function formatPgnDate(date = new Date()): string {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}.${month}.${day}`
+    return formatLocalDate(date, '.')
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -448,16 +428,11 @@ function moveTextForNode(
 }
 
 function bestMoveSanFromFen(fen: string, bestMove: string): string {
-    if (bestMove.length < 4) return bestMove
-
     try {
-        const replay = new Chess(fen)
-        const move = replay.move({
-            from: bestMove.slice(0, 2),
-            to: bestMove.slice(2, 4),
-            promotion: bestMove[4],
-        })
-        return move?.san ?? bestMove
+        // Autosave exports the same tree as scores improve. Share the bounded
+        // full-FEN/UCI cache used by review labels instead of replaying every
+        // unchanged best move on each write.
+        return uciToSan(fen, bestMove) ?? bestMove
     } catch {
         return bestMove
     }
@@ -635,9 +610,11 @@ export function rootFenFromPgnHeaders(headers: Record<string, string>): string {
     const fenHeader = headers.FEN?.trim()
     if (!fenHeader) return INITIAL_FEN
 
-    const fen = new Chess(fenHeader).fen()
-    if (!hasLegalKingPlacement(fen)) throw new Error('Invalid FEN king placement.')
-    return fen
+    const counterError = fenCounterInputError(fenHeader)
+    if (counterError) throw new PgnStartingPositionError(`PGN starting position: ${counterError.replace(/^Invalid FEN: /, '')}`)
+    const validation = validateFenForAnalysis(fenHeader, { allowAbbreviated: true })
+    if (!validation.ok) throw new PgnStartingPositionError(`PGN starting position: ${validation.error.replace(/^Invalid FEN: /, '')}`)
+    return validation.fen
 }
 
 type FirstMoveNode = {
@@ -744,27 +721,90 @@ function buildImportEntries(
  * a Lichess study where a written note sits beside an `[%eval]`, land in the
  * second shape routinely.
  *
- * Two rewrites, both safe on text that does not contain them:
- *
- *   {a} {b}   ->  {a b}     one comment, which is all a node can hold anyway
- *   {a} $1    ->  $1 {a}    the order chess.js does accept
- *
- * A `}` can only ever end a comment — PGN comments do not nest — so matching on
- * the braces cannot reach inside one.
+ * Collect each complete run once: `{a} $1 {b} $14` becomes `$1 $14 {a b}`.
+ * Keep the note order, NAG order and gaps within a NAG group. A comment ends at
+ * the first `}`; line comments are literal text, and an unfinished tail stays
+ * available for the parser to reject rather than being discarded.
  */
+function reorderPgnMovetextAnnotations(pgnText: string): string {
+    const starts = /[;{]/g
+    const lineEnding = /[\r\n]/g
+    const whitespace = /\s*/y
+    const followingNags = /(\s*)((?:\$\d+)(?:\s+\$\d+)*)/y
+    let output = ''
+    let copiedThrough = 0
+    let cursor = 0
+    for (;;) {
+        starts.lastIndex = cursor
+        const start = starts.exec(pgnText)
+        if (!start) break
+        const open = start.index
+        if (start[0] === ';') {
+            lineEnding.lastIndex = open + 1
+            const ending = lineEnding.exec(pgnText)
+            if (!ending) break
+            cursor = ending.index + 1
+            continue
+        }
+        const close = pgnText.indexOf('}', open + 1)
+        if (close < 0) break
+        const comments: string[] = []
+        const nags: string[] = []
+        let nagGap = ' '
+        let commentOpen = open
+        let commentClose = close
+        let runEnd = close + 1
+        for (;;) {
+            comments.push(pgnText.slice(commentOpen + 1, commentClose))
+            runEnd = commentClose + 1
+            followingNags.lastIndex = runEnd
+            const match = followingNags.exec(pgnText)
+            if (match) {
+                if (nags.length === 0) nagGap = match[1] || ' '
+                nags.push(match[2])
+                runEnd = followingNags.lastIndex
+            }
+            whitespace.lastIndex = runEnd
+            whitespace.exec(pgnText)
+            const nextOpen = whitespace.lastIndex
+            if (pgnText[nextOpen] !== '{') break
+            const nextClose = pgnText.indexOf('}', nextOpen + 1)
+            if (nextClose < 0) break
+            commentOpen = nextOpen
+            commentClose = nextClose
+        }
+        output += pgnText.slice(copiedThrough, open)
+            + (nags.length ? nags.join(' ') + nagGap : '') + `{${comments.join(' ')}}`
+        copiedThrough = runEnd
+        cursor = runEnd
+    }
+    return output + pgnText.slice(copiedThrough)
+}
+
 export function reorderPgnAnnotations(pgnText: string): string {
-    // NAGs first, so a `{a} $1 {b}` becomes `$1 {a} {b}` and then `$1 {a b}`.
-    const nagsBeforeComments = pgnText.replace(
-        /(\{[^}]*\})(\s*)((?:\$\d+)(?:\s+\$\d+)*)/g,
-        (_match, comment: string, gap: string, nags: string) => `${nags}${gap || ' '}${comment}`,
-    )
-    return nagsBeforeComments.replace(/\}(\s*)\{/g, ' ')
+    // Tag values are quoted data, including any braces or NAG-looking text.
+    // Read the complete leading tag section, allowing inline tag pairs and
+    // escaped quotes/brackets, before touching annotations in the movetext.
+    const whitespace = /\s*/y
+    let cursor = 0
+    let headerEnd = 0
+    while (cursor < pgnText.length) {
+        whitespace.lastIndex = cursor
+        whitespace.exec(pgnText)
+        cursor = whitespace.lastIndex
+        if (pgnText[cursor] !== '[') break
+        const end = pgnTagEnd(pgnText, cursor)
+        if (end === null) break
+        headerEnd = cursor = end
+    }
+    return pgnText.slice(0, headerEnd) + reorderPgnMovetextAnnotations(reorderPostVariationAnnotations(pgnText.slice(headerEnd)))
 }
 
 export function parsePgnMoveTree(pgnText: string): {
     headers: Record<string, string>
     rootFen: string
     rootCommands?: string[]
+    rootComment?: string
     moves: GameTreeImportEntry[]
     evaluations: Map<string, EvalSnapshot>
     result?: string
@@ -773,10 +813,21 @@ export function parsePgnMoveTree(pgnText: string): {
     const importError = pgnImportContentError(text)
     if (importError) throw new Error(importError)
 
-    const parsed = parsePgn(reorderPgnAnnotations(text))
-    const headers = { ...parsed.headers }
+    // chess.js's movetext grammar handles notes and variations, but its tag
+    // values stop at escaped quotes. Read tags with the same scanner used by
+    // the library, then give the dependency only the remaining movetext.
+    const headerSection = readPgnHeaderSection(text)
+    const movetext = reorderPgnAnnotations(text.slice(headerSection.end))
+    const ending = splitPgnEndingComments(movetext)
+    const parsed = parsePgn(ending?.movetext ?? movetext)
+    if (ending) {
+        let last = parsed.root
+        while (last.variations[0]) last = last.variations[0]
+        last.comment = [last.comment, ending.comment].filter(Boolean).join(' ')
+    }
+    const headers = { ...headerSection.headers, ...parsed.headers }
     if (parsed.result && !headers.Result) headers.Result = parsed.result
-    const rootFen = rootFenFromPgnHeaders(parsed.headers)
+    const rootFen = rootFenFromPgnHeaders(headers)
     const rootPosition = new Chess(rootFen)
     const evaluations = new Map<string, EvalSnapshot>()
 
@@ -789,7 +840,7 @@ export function parsePgnMoveTree(pgnText: string): {
         parsed.root.variations,
         rootPosition,
         evaluations,
-        humanCommentFromPgnComment(parsed.root.comment),
+        rootFen === INITIAL_FEN ? humanCommentFromPgnComment(parsed.root.comment) : undefined,
     )
     // A game with no moves is nothing -- unless its headers set up a position,
     // in which case the position is what was pasted and refusing it throws away
@@ -807,6 +858,7 @@ export function parsePgnMoveTree(pgnText: string): {
         headers,
         rootFen,
         rootCommands: preservedPgnCommands(parsed.root.comment),
+        rootComment: rootFen !== INITIAL_FEN ? humanCommentFromPgnComment(parsed.root.comment) : undefined,
         moves,
         evaluations,
         result: parsed.result,

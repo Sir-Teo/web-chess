@@ -1,0 +1,16 @@
+  practice ownership (1280×900, 1x, dark): active f3 drill, Slow replay yield to e4 practice; board focus, legal wrong-answer reset and correct solution work; Done restores the question; a new drill accepts f3; original line and one solution variation remain
+  practice ownership (375×812, 1x, light): active f3 drill, Slow replay and marking yield to e4 practice; board focus, legal wrong-answer reset and correct solution work; Done restores the question; a new drill accepts f3; original line and one solution variation remain
+  practice ownership (320×812, 2x, dark): active f3 drill, Slow replay and marking yield to e4 practice; board focus, legal wrong-answer reset and correct solution work; Done restores the question; a new drill accepts f3; original line and one solution variation remain
+locator.waitFor: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('.review-move-list .move-best').first().filter({ hasText: 'Best e4' }) to be visible[22m
+[2m    63 × locator resolved to hidden <span class="move-best">Best e4</span>[22m
+
+    at Object.checkPracticeOwnsTheBoard (/workspace/web-chess/scripts/test-ui-browser.cjs:16315:97)
+    at async /tmp/web-chess-practice-ownership-check.cjs:10:9 {
+  log: [
+    "  - waiting for locator('.review-move-list .move-best').first().filter({ hasText: 'Best e4' }) to be visible",
+    '    63 × locator resolved to hidden <span class="move-best">Best e4</span>'
+  ],
+  name: 'TimeoutError'
+}

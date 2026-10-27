@@ -1,0 +1,10 @@
+  settings gear (1280×900, 1x, dark): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  settings gear (901×812, 1x, light): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  settings gear (375×812, 1x, dark): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  settings gear (375×812, 2x, light): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  settings gear (844×390, 1x, dark): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  settings gear (1280×900, 1x, dark): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  settings gear (901×812, 1x, light): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  settings gear (375×812, 1x, dark): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  settings gear (375×812, 2x, light): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  settings gear (844×390, 1x, dark): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow

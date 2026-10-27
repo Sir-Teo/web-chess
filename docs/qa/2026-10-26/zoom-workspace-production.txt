@@ -1,0 +1,37 @@
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 191 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-xH5xZh9_.js   60.12 kB
+dist/assets/LibraryDialog-BCEY11vH.css        4.23 kB │ gzip:   1.17 kB
+dist/assets/index-8E-53YsP.css              130.05 kB │ gzip:  24.20 kB
+dist/assets/NewGameDialog-gjgkgs1T.js         4.25 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-FahYloE2.js        10.23 kB │ gzip:   3.67 kB
+dist/assets/PgnDialog-BaSUkqVu.js            28.68 kB │ gzip:   9.67 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-CPgyoTsD.js               375.51 kB │ gzip: 121.06 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.68s
+  short mobile workspace (320×225): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short mobile workspace (375×250): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short mobile workspace (599×300): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short mobile workspace (600×375): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short mobile workspace (640×450): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  native browser zoom: {"browser":"151.0.7922.34","base":"http://127.0.0.1:4319/web-chess/","measurements":[{"zoom":1,"width":1280,"height":900,"dpr":1,"rootFont":"16px","board":630,"workspace":775},{"zoom":2,"width":640,"height":450,"dpr":2,"rootFont":"16px","board":264,"workspace":324},{"zoom":3.9999999999999996,"width":320,"height":225,"dpr":4,"rootFont":"16px","board":192,"workspace":225}],"checks":["native zoom API and DPR","four focused corners","usable board","e2-e4 at 400%","live dialog draft/focus/editing at 200% to 400%","opener focus","restored fixed layout"],"errors":[]}
+  setup orientation (1280px, 1x): view-only flip, reversed coordinates/arrows/Home/End, keyboard and pointer placement, and unchanged FEN loading
+  setup orientation (375px, 1x): view-only flip, reversed coordinates/arrows/Home/End, keyboard and pointer placement, and unchanged FEN loading
+  setup orientation (320px, 2x): view-only flip, reversed coordinates/arrows/Home/End, keyboard and pointer placement, and unchanged FEN loading
+  dialog resizing (1x text): PGN, Commands and library drafts retain focus and stay visible through short-phone and landscape viewports
+  dialog resizing (2x text): PGN, Commands and library drafts retain focus and stay visible through short-phone and landscape viewports
+  short dialogs (901×360, 200% text, dark): whole mode choices, engine readings, PGN download, library save/load and Commands search remain reachable
+  short dialogs (901×256, 100% text, dark): whole mode choices, engine readings, PGN download, library save/load and Commands search remain reachable
+  short dialogs (901×256, 200% text, dark): whole mode choices, engine readings, PGN download, library save/load and Commands search remain reachable
+  short dialogs (901×256, 200% text, light): whole mode choices, engine readings, PGN download, library save/load and Commands search remain reachable
+Focused browser UI checks passed.

@@ -1,0 +1,4 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+CRITICAL GEOMETRY 844 2 {"row":{"w":88,"scroll":88,"border":"1px"},"actions":[{"label":"Review position before 1. f3","w":81.78125,"h":107.78125,"client":82,"scroll":82,"hit":true},{"label":"Practice the position before 1. f3","w":81.78125,"h":72.375,"client":80,"scroll":80,"hit":true}]}
+CRITICAL TEXT 844 2 [{"text":"1. f3Blunder","x":463.609375,"y":20.90625,"w":81.78125,"h":49.890625,"client":82,"scroll":82},{"text":"Lost 9.00","x":463.609375,"y":85.1875,"w":81.78125,"h":43.5,"client":82,"scroll":82}]
+  practice ownership (844×390, 2x, light): active f3 drill, Slow replay and marking yield to e4 practice; board focus, legal wrong-answer reset and correct solution work; Done restores the question; a new drill accepts f3; original line and one solution variation remain

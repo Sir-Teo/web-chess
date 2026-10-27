@@ -6,8 +6,9 @@ import { Chess, type Move } from 'chess.js'
  * chess.js takes SAN as printed -- `Nf3`, `exd5`, `O-O`, `e8=Q` -- and the
  * from-to pair below, but nothing looser: `nf3`, `0-0`, `e8q` were all refused
  * as typed, with a message saying to use `Nf3`, which is what the reader
- * thought they had done. A lowercase `b` is left alone on purpose: `bxc3` is a
- * pawn capture and `Bxc3` a bishop's, and only the reader knows which.
+ * thought they had done. A lowercase `b` ahead of a square (`bf4`) is clearly
+ * a bishop, as are captures outside the a- and c-files. `b4`, `bxa3` and
+ * `bxc3` stay pawn moves, distinct from `Bxa3` and `Bxc3`.
  */
 export function normalizeMoveEntry(input: string): string {
   let token = input.trim()
@@ -16,6 +17,7 @@ export function normalizeMoveEntry(input: string): string {
   if (/^[0oO]-[0oO](-[0oO])?[+#]?$/.test(token)) return token.replace(/[0o]/g, 'O')
   // A lowercase piece letter ahead of a square or a capture. Not `b`.
   token = token.replace(/^([kqrn])(?=[a-h1-8x])/, letter => letter.toUpperCase())
+  token = token.replace(/^b(?=[a-h][1-8]|x[bdefgh][1-8])/, 'B')
   // A promotion piece written without the `=`, or in lowercase: `e8q`, `e8=q`.
   const promotion = token.match(/^([a-h]?x?[a-h][18])=?([qrbnQRBN])([+#]?)$/)
   if (promotion) token = `${promotion[1]}=${promotion[2].toUpperCase()}${promotion[3]}`
@@ -40,6 +42,11 @@ export function parseMoveEntry(fen: string, input: string): Move | null {
 
 const PIECE_NAMES: Record<string, string> = { K: 'king', Q: 'queen', R: 'rook', B: 'bishop', N: 'knight' }
 
+function formatMoveChoices(moves: Move[]): string {
+  const sans = moves.map(move => move.san).sort()
+  return sans.length <= 2 ? sans.join(' or ') : `${sans.slice(0, -1).join(', ')} or ${sans[sans.length - 1]}`
+}
+
 /**
  * Why a typed piece move was refused, when there is more to say than
  * "not legal".
@@ -62,9 +69,7 @@ export function moveEntryExplanation(fen: string, input: string): string | null 
     // the whole sentence about notation, which the reader got right.
     if (!candidates.length) return `No ${PIECE_NAMES[match[1]]} can go to ${match[2]} here.`
     if (candidates.length < 2) return null
-    const sans = candidates.map(move => move.san).sort()
-    const choices = sans.length === 2 ? `${sans[0]} or ${sans[1]}` : `${sans.slice(0, -1).join(', ')} or ${sans[sans.length - 1]}`
-    return `More than one ${PIECE_NAMES[match[1]]} can go to ${match[2]}. Say which: ${choices}.`
+    return `More than one ${PIECE_NAMES[match[1]]} can go to ${match[2]}. Say which: ${formatMoveChoices(candidates)}.`
   } catch {
     return null
   }
@@ -77,10 +82,17 @@ export function moveEntryExplanation(fen: string, input: string): string | null 
  */
 function pawnMoveExplanation(fen: string, file: string, to: string, capture: boolean): string | null {
   try {
-    const candidates = new Chess(fen).moves({ verbose: true })
-      .filter(move => move.piece === 'p' && move.to === to && move.from[0] === file
+    const moves = new Chess(fen).moves({ verbose: true })
+    const candidates = moves.filter(move => move.piece === 'p' && move.to === to && move.from[0] === file
         && (capture ? move.from[0] !== to[0] : move.from[0] === to[0]))
-    if (!candidates.length) return capture ? `No pawn on the ${file}-file can take on ${to} here.` : `No pawn can go to ${to} here.`
+    if (!candidates.length) {
+      const message = capture ? `No pawn on the ${file}-file can take on ${to} here.` : `No pawn can go to ${to} here.`
+      if (capture && file === 'b') {
+        const bishops = moves.filter(move => move.piece === 'b' && move.to === to && Boolean(move.captured))
+        if (bishops.length) return `${message} For a bishop, use ${formatMoveChoices(bishops)}.`
+      }
+      return message
+    }
     if (candidates.some(move => move.promotion)) {
       const stem = capture ? `${file}x${to}` : to
       return `Say what the pawn becomes: ${stem}=Q, ${stem}=R, ${stem}=B or ${stem}=N.`

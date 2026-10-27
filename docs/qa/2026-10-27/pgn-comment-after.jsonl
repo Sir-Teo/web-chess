@@ -1,0 +1,7 @@
+{"name":"reorderPgnAnnotations","size":10000,"ms":0.19596400000000358,"unchanged":true}
+{"name":"reorderPgnAnnotations","size":20000,"ms":0.041358999999999924,"unchanged":true}
+{"name":"reorderPgnAnnotations","size":40000,"ms":0.06677799999999934,"unchanged":true}
+{"name":"sameGameKey","size":10000,"ms":0.1549580000000219,"unchanged":true}
+{"name":"sameGameKey","size":20000,"ms":0.02696600000001581,"unchanged":true}
+{"name":"sameGameKey","size":40000,"ms":0.04905899999999974,"unchanged":true}
+{"differentialSamples":20000,"seed":11027,"outputsMatch":true}

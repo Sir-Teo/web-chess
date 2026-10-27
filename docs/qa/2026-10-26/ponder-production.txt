@@ -1,0 +1,10 @@
+  console tools (1280px, 1x text, dark): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable
+  console tools (1280px, 2x text, light): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable
+  console tools (375px, 1x text, light): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable
+  console tools (375px, 2x text, dark): unsupported commands explained, bounded search enabled, perft gate/completion in every tested parameter order, controls reachable
+  console limits (1280px, 1x): native keyword/integer rules, final duplicate limits, zero-perft pause/resume, and finite work preserved
+  console limits (375px, 2x): native keyword/integer rules, final duplicate limits, zero-perft pause/resume, and finite work preserved
+  perft Stop (1280px, 1x): button/typed cancellation releases worker, retains output/draft/board/managed options, reloads cleanly and ignores late replies; zero-perft uses ordinary Stop
+  perft Stop (375px, 2x): button/typed cancellation releases worker, retains output/draft/board/managed options, reloads cleanly and ignores late replies; zero-perft uses ordinary Stop
+  console search (1280px): startup guard, tab/space commands, busy status, stop/acknowledge before new position, isolated late scores, working Stop and completed perft
+  console search (375px): startup guard, tab/space commands, busy status, stop/acknowledge before new position, isolated late scores, working Stop and completed perft

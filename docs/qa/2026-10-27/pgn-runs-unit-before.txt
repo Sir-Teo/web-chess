@@ -1,0 +1,120 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/pgn.test.ts (104 tests | 6 failed | 98 skipped) 22ms
+     × imports a judgement after the last of several comments 13ms
+     × retains alternating judgements, notes, clocks and evaluations in order 1ms
+     × normalizes annotation runs within a side variation 1ms
+     × keeps annotation runs attached to their own move 1ms
+     × preserves literal annotation text and unmatched braces in line comments 4ms
+     × retains an unfinished trailing comment after normalizing the complete run 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > imports a judgement after the last of several comments
+SyntaxError: Expected end of input, game termination marker, move number, standard algebraic notation, or whitespace but "$" found.
+ ❯ new peg$SyntaxError node_modules/chess.js/src/pgn.js:72:20
+     70|
+     71| function peg$SyntaxError(message, expected, found, location) {
+     72|   var self = Error.call(this, message);
+       |                    ^
+     73|   // istanbul ignore next Check is a necessary evil to support older e…
+     74|   if (Object.setPrototypeOf) {
+ ❯ peg$buildStructuredError node_modules/chess.js/src/pgn.js:473:12
+ ❯ peg$parse node_modules/chess.js/src/pgn.js:1295:11
+ ❯ parsePgnMoveTree src/engine/pgn.ts:823:20
+ ❯ src/engine/pgn.test.ts:1229:24
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > retains alternating judgements, notes, clocks and evaluations in order
+SyntaxError: Expected end of input, game termination marker, move number, standard algebraic notation, or whitespace but "$" found.
+ ❯ new peg$SyntaxError node_modules/chess.js/src/pgn.js:72:20
+     70|
+     71| function peg$SyntaxError(message, expected, found, location) {
+     72|   var self = Error.call(this, message);
+       |                    ^
+     73|   // istanbul ignore next Check is a necessary evil to support older e…
+     74|   if (Object.setPrototypeOf) {
+ ❯ peg$buildStructuredError node_modules/chess.js/src/pgn.js:473:12
+ ❯ peg$parse node_modules/chess.js/src/pgn.js:1295:11
+ ❯ parsePgnMoveTree src/engine/pgn.ts:823:20
+ ❯ src/engine/pgn.test.ts:1235:24
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > normalizes annotation runs within a side variation
+SyntaxError: Expected brace comment, end of input, game termination marker, move number, rest of line comment, standard algebraic notation, variation, or whitespace but "(" found.
+ ❯ new peg$SyntaxError node_modules/chess.js/src/pgn.js:72:20
+     70|
+     71| function peg$SyntaxError(message, expected, found, location) {
+     72|   var self = Error.call(this, message);
+       |                    ^
+     73|   // istanbul ignore next Check is a necessary evil to support older e…
+     74|   if (Object.setPrototypeOf) {
+ ❯ peg$buildStructuredError node_modules/chess.js/src/pgn.js:473:12
+ ❯ peg$parse node_modules/chess.js/src/pgn.js:1295:11
+ ❯ parsePgnMoveTree src/engine/pgn.ts:823:20
+ ❯ src/engine/pgn.test.ts:1241:24
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > keeps annotation runs attached to their own move
+SyntaxError: Expected end of input, game termination marker, move number, standard algebraic notation, or whitespace but "$" found.
+ ❯ new peg$SyntaxError node_modules/chess.js/src/pgn.js:72:20
+     70|
+     71| function peg$SyntaxError(message, expected, found, location) {
+     72|   var self = Error.call(this, message);
+       |                    ^
+     73|   // istanbul ignore next Check is a necessary evil to support older e…
+     74|   if (Object.setPrototypeOf) {
+ ❯ peg$buildStructuredError node_modules/chess.js/src/pgn.js:473:12
+ ❯ peg$parse node_modules/chess.js/src/pgn.js:1295:11
+ ❯ parsePgnMoveTree src/engine/pgn.ts:823:20
+ ❯ src/engine/pgn.test.ts:1248:24
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > preserves literal annotation text and unmatched braces in line comments
+AssertionError: expected '1. e4 ; literal $1 {note} and unfinis…' to be '1. e4 ; literal {note} $1 and unfinis…' // Object.is equality
+
+- Expected
++ Received
+
+- 1. e4 ; literal {note} $1 and unfinished {{
++ 1. e4 ; literal $1 {note} and unfinished $2 {{
+- e5 $2 {real} *
++ e5 {real} *
+
+ ❯ src/engine/pgn.test.ts:1255:66
+    1253|     it('preserves literal annotation text and unmatched braces in line…
+    1254|         const prefix = '1. e4 ; literal {note} $1 and unfinished {{\n'
+    1255|         expect(reorderPgnAnnotations(`${prefix}e5 {real} $2 *`)).toBe(…
+       |                                                                  ^
+    1256|     })
+    1257|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > retains an unfinished trailing comment after normalizing the complete run
+AssertionError: expected '1. e4 $1 {first unfinished' to be '1. e4 $1 {first} {unfinished' // Object.is equality
+
+Expected: "1. e4 $1 {first} {unfinished"
+Received: "1. e4 $1 {first unfinished"
+
+ ❯ src/engine/pgn.test.ts:1260:14
+    1258|     it('retains an unfinished trailing comment after normalizing the c…
+    1259|         expect(reorderPgnAnnotations('1. e4 {first} $1 {unfinished'))
+    1260|             .toBe('1. e4 $1 {first} {unfinished')
+       |              ^
+    1261|     })
+    1262| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 98 skipped (104)
+   Start at  01:34:59
+   Duration  420ms (transform 207ms, setup 0ms, import 260ms, tests 22ms, environment 0ms)
+

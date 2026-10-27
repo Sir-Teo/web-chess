@@ -1,0 +1,8 @@
+{"browser": "chromium", "width": 1280, "step": "reveal", "focus": "Show 10 more positions", "firstNew": "5... Qd8"}
+{"browser": "chromium", "width": 1280, "step": "close", "focus": {"tag": "BODY", "text": "\n  Skip to boardSkip to analysisWeb Chess New game Flip PGN Library CommandsPlayAnalysisHu"}}
+{"browser": "chromium", "width": 375, "step": "reveal", "focus": "Show 10 more positions", "firstNew": "5... Qd8"}
+{"browser": "chromium", "width": 375, "step": "close", "focus": {"tag": "BODY", "text": "\n  Skip to boardSkip to analysisWeb Chess New game Flip PGN Library CommandsPlayAnalysisHu"}}
+{"browser": "firefox", "width": 1280, "step": "reveal", "focus": "Show 10 more positions", "firstNew": "5... Qd8"}
+{"browser": "firefox", "width": 1280, "step": "close", "focus": {"tag": "BODY", "text": "\n  Skip to boardSkip to analysisWeb Chess New game Flip PGN Library CommandsPlayAnalysisHu"}}
+{"browser": "firefox", "width": 375, "step": "reveal", "focus": "Show 10 more positions", "firstNew": "5... Qd8"}
+{"browser": "firefox", "width": 375, "step": "close", "focus": {"tag": "BODY", "text": "\n  Skip to boardSkip to analysisWeb Chess New game Flip PGN Library CommandsPlayAnalysisHu"}}

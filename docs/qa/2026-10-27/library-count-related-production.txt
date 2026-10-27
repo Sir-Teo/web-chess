@@ -1,0 +1,7 @@
+  backup: 8 games out and back byte for byte, twice over without doubling
+  partial backup (1280px, 1x, dark): readable Unicode game salvaged; invalid/repeated entries counted; original game retained; repeated partial import reports both categories without changing export; clean retry clears feedback; recovered game actually loads
+  partial backup (375px, 1x, light): readable Unicode game salvaged; invalid/repeated entries counted; original game retained; repeated partial import reports both categories without changing export; clean retry clears feedback; recovered game actually loads
+  partial backup (375px, 2x, dark): readable Unicode game salvaged; invalid/repeated entries counted; original game retained; repeated partial import reports both categories without changing export; clean retry clears feedback; recovered game actually loads
+  partial backup (320px, 2x, light): readable Unicode game salvaged; invalid/repeated entries counted; original game retained; repeated partial import reports both categories without changing export; clean retry clears feedback; recovered game actually loads
+  export: a game comes back byte for byte, and its report with it (116/116, 117 points)
+  database import: 4 games in the file, three presses, 4 in the library

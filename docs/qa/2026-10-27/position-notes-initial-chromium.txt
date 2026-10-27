@@ -1,0 +1,6 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+Error: reimport lost the distinct starting-position note
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkPositionStudyNotes (/workspace/web-chess/scripts/test-ui-browser.cjs:7317:7)
+    at async /tmp/web-chess-position-notes-check.cjs:10:9

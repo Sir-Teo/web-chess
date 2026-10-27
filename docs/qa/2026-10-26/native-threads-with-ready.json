@@ -1,0 +1,60 @@
+[
+  {
+    "counts": [
+      2
+    ],
+    "steps": [
+      {
+        "count": 2,
+        "acknowledged": true,
+        "lines": [
+          "readyok"
+        ]
+      }
+    ]
+  },
+  {
+    "counts": [
+      3,
+      2
+    ],
+    "steps": [
+      {
+        "count": 3,
+        "acknowledged": true,
+        "lines": [
+          "readyok"
+        ]
+      },
+      {
+        "count": 2,
+        "acknowledged": true,
+        "lines": [
+          "readyok"
+        ]
+      }
+    ]
+  },
+  {
+    "counts": [
+      3,
+      3
+    ],
+    "steps": [
+      {
+        "count": 3,
+        "acknowledged": true,
+        "lines": [
+          "readyok"
+        ]
+      },
+      {
+        "count": 3,
+        "acknowledged": true,
+        "lines": [
+          "readyok"
+        ]
+      }
+    ]
+  }
+]

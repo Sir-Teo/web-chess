@@ -1,4 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react'
+import { isCompositionKey } from '../components/shortcutKeys'
 
 const FOCUSABLE_SELECTOR = [
   'button:not([disabled])',
@@ -34,7 +35,7 @@ const FOCUSABLE_SELECTOR = [
  * Where focus goes when the dialog's own choice is not available.
  *
  * On a touch screen, focusing a text field opens the on-screen keyboard. The
- * Library asks for its name field, which is disabled until there is a game to
+ * Library asks for its name field, which is unavailable until there is a game to
  * save, and the first focusable thing after it is the search box: opening the
  * Library on a phone threw a keyboard over half the sheet before anyone asked
  * to type. A field a dialog names on purpose still gets focus; the fallback
@@ -50,6 +51,8 @@ function firstFallbackFocus(focusable: HTMLElement[]): HTMLElement | undefined {
 type Options = {
   /** Selector for the element to focus first; falls back to the first focusable. */
   initialFocus?: string
+  /** False when dismissing would discard data and requires an explicit choice. */
+  closeOnEscape?: boolean
   /**
    * Keep Tab inside the panel. True for a modal; false for a popover, which the
    * user should be able to tab out of.
@@ -68,7 +71,7 @@ export function useModalFocus(
   onClose: () => void,
   options: Options = {},
 ) {
-  const { initialFocus, trapFocus = true } = options
+  const { initialFocus, trapFocus = true, closeOnEscape = true } = options
 
   // Held in a ref so it stays out of the effect's dependencies. Callers rebuild
   // `onClose` on most renders, and an overlay's owner re-renders constantly —
@@ -123,6 +126,27 @@ export function useModalFocus(
     }
     panelEl.addEventListener('focusin', revealFocusedControl)
 
+    // A viewport change can clip a field that already has focus, so there is
+    // no new focusin event for the browser or the handler above to respond to.
+    // Wait for layout, reveal that same control, and cancel on close so a late
+    // callback cannot move the underlying page after its dialog is gone.
+    let resizeFrame: number | null = null
+    const revealAfterResize = () => {
+      if (resizeFrame !== null) return
+      resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = null
+        const active = document.activeElement
+        if (active instanceof HTMLElement && panelEl.isConnected && panelEl.contains(active)) {
+          active.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+        }
+      })
+    }
+    const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(revealAfterResize)
+    resizeObserver?.observe(panelEl)
+    // Headers and footers can grow while the panel itself stays at max-height.
+    for (const child of panelEl.children) resizeObserver?.observe(child)
+    window.addEventListener('resize', revealAfterResize)
+
     /*
      * Which way the reader is walking, for the net below.
      */
@@ -167,9 +191,10 @@ export function useModalFocus(
     ;(preferred ?? firstFallbackFocus(getFocusable()))?.focus()
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || isCompositionKey(event)) return
       if (event.key === 'Escape') {
         event.preventDefault()
-        onCloseRef.current()
+        if (closeOnEscape) onCloseRef.current()
         return
       }
 
@@ -198,15 +223,22 @@ export function useModalFocus(
 
     document.addEventListener('keydown', onKeyDown)
     return () => {
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', revealAfterResize)
+      if (resizeFrame !== null) cancelAnimationFrame(resizeFrame)
       document.removeEventListener('keydown', onKeyDown)
       document.removeEventListener('focusin', containFocus)
       panelEl.removeEventListener('focusin', revealFocusedControl)
       // Whatever opened the overlay may itself be gone by the time it closes —
       // a dialog opened from another dialog, a control the close re-rendered
       // away. Focusing a detached node silently drops focus to <body>.
-      if (previouslyFocused && document.contains(previouslyFocused)) {
+      // Passive cleanup may also run after the reader has focused something
+      // else. That newer focus no longer belongs to the closing dialog.
+      const active = document.activeElement
+      if (previouslyFocused && document.contains(previouslyFocused)
+        && (active === document.body || (active !== null && panelEl.contains(active)))) {
         previouslyFocused.focus?.()
       }
     }
-  }, [initialFocus, open, panelRef, trapFocus])
+  }, [closeOnEscape, initialFocus, open, panelRef, trapFocus])
 }

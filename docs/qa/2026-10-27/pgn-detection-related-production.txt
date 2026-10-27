@@ -1,0 +1,5 @@
+  export: a game comes back byte for byte, and its report with it (116/116, 117 points)
+  database import: 4 games in the file, three presses, 4 in the library
+  database: 560 games, 500 kept, the other 60 never parsed (1679ms, and the button said "Adding…" first)
+  imported counters (1280px, 1x): malformed shared roots refused; pasted/file PGNs preserve draft/board and identify the field; corrected counters load exactly
+  imported counters (375px, 2x): malformed shared roots refused; pasted/file PGNs preserve draft/board and identify the field; corrected counters load exactly

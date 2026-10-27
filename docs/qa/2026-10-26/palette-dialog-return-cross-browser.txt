@@ -1,0 +1,18 @@
+  palette dialog return (1280px, 1x, button): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (1280px, 1x, typing): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (1280px, 1x, graph): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, button): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, typing): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, graph): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (1280px, 1x, button): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (1280px, 1x, typing): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (1280px, 1x, graph): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, button): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, typing): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, graph): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  dialog focus handoff (1280px, 1x): explicit opener restored; held callbacks yield to a newer preview and modal
+  dialog focus handoff (375px, 1x): explicit opener restored; held callbacks yield to a newer preview and modal
+  dialog focus handoff (375px, 2x): explicit opener restored; held callbacks yield to a newer preview and modal
+  dialog focus handoff (1280px, 1x): explicit opener restored; held callbacks yield to a newer preview and modal
+  dialog focus handoff (375px, 1x): explicit opener restored; held callbacks yield to a newer preview and modal
+  dialog focus handoff (375px, 2x): explicit opener restored; held callbacks yield to a newer preview and modal

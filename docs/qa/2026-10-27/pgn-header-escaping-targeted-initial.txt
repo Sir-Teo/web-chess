@@ -1,0 +1,30 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/pgn.test.ts (115 tests | 1 failed) 220ms
+     × sanitizes tag values and ignores invalid tag names when exporting 8ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/pgn.test.ts > PGN export helpers > sanitizes tag values and ignores invalid tag names when exporting
+SyntaxError: Expected brace comment, end of input, game termination marker, move number, rest of line comment, standard algebraic notation, tag pair, or whitespace but "[" found.
+ ❯ new peg$SyntaxError node_modules/chess.js/src/pgn.js:72:19
+     70|
+     71| function peg$SyntaxError(message, expected, found, location) {
+     72|   var self = Error.call(this, message);
+       |                   ^
+     73|   // istanbul ignore next Check is a necessary evil to support older e…
+     74|   if (Object.setPrototypeOf) {
+ ❯ peg$buildStructuredError node_modules/chess.js/src/pgn.js:473:11
+ ❯ peg$parse node_modules/chess.js/src/pgn.js:1295:10
+ ❯ parse node_modules/src/chess.ts:2159:22
+ ❯ src/engine/pgn.test.ts:380:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  1 failed | 300 passed (301)
+   Start at  03:43:57
+   Duration  1.03s (transform 639ms, setup 0ms, import 957ms, tests 1.14s, environment 0ms)
+

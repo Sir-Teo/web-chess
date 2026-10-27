@@ -1,0 +1,67 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  confirmation keys (1280×900, 1x, dark): native repeated Enter preserves the library, variation and live game; a separate press confirms each action
+  confirmation keys (375×812, 1x, light): native repeated Enter preserves the library, variation and live game; a separate press confirms each action
+  confirmation keys (320×812, 2x, light): native repeated Enter preserves the library, variation and live game; a separate press confirms each action
+locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('button', { name: /^Go to variation move 1\.\.\. c5/ })[22m
+[2m    - locator resolved to <button title="c5" type="button" data-node-id="n6" class="mtree-chip mtree-chip-compact" aria-label="Go to variation move 1... c5">…</button>[22m
+[2m  - attempting click action[22m
+[2m    - waiting for element to be visible, enabled and stable[22m
+[2m    - element is not stable[22m
+[2m  - retrying click action[22m
+[2m    - waiting for element to be visible, enabled and stable[22m
+[2m    - element is visible, enabled and stable[22m
+[2m    - scrolling into view if needed[22m
+[2m    - done scrolling[22m
+[2m    - <div class="panel-content">…</div> intercepts pointer events[22m
+[2m  - retrying click action[22m
+[2m    - waiting 20ms[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <div class="panel-content">…</div> intercepts pointer events[22m
+[2m    - retrying click action[22m
+[2m      - waiting 100ms[22m
+[2m    55 × waiting for element to be visible, enabled and stable[22m
+[2m       - element is visible, enabled and stable[22m
+[2m       - scrolling into view if needed[22m
+[2m       - done scrolling[22m
+[2m       - <div class="panel-content">…</div> intercepts pointer events[22m
+[2m     - retrying click action[22m
+[2m       - waiting 500ms[22m
+
+    at Object.checkConfirmationKeys (/workspace/web-chess/scripts/test-ui-browser.cjs:6568:24)
+    at async /tmp/web-chess-confirmation-keys-check.cjs:11:9 {
+  log: [
+    "  - waiting for getByRole('button', { name: /^Go to variation move 1\\.\\.\\. c5/ })",
+    '    - locator resolved to <button title="c5" type="button" data-node-id="n6" class="mtree-chip mtree-chip-compact" aria-label="Go to variation move 1... c5">…</button>',
+    '  - attempting click action',
+    '    - waiting for element to be visible, enabled and stable',
+    '    - element is not stable',
+    '  - retrying click action',
+    '    - waiting for element to be visible, enabled and stable',
+    '    - element is visible, enabled and stable',
+    '    - scrolling into view if needed',
+    '    - done scrolling',
+    '    - <div class="panel-content">…</div> intercepts pointer events',
+    '  - retrying click action',
+    '    - waiting 20ms',
+    '    2 × waiting for element to be visible, enabled and stable',
+    '      - element is visible, enabled and stable',
+    '      - scrolling into view if needed',
+    '      - done scrolling',
+    '      - <div class="panel-content">…</div> intercepts pointer events',
+    '    - retrying click action',
+    '      - waiting 100ms',
+    '    55 × waiting for element to be visible, enabled and stable',
+    '       - element is visible, enabled and stable',
+    '       - scrolling into view if needed',
+    '       - done scrolling',
+    '       - <div class="panel-content">…</div> intercepts pointer events',
+    '     - retrying click action',
+    '       - waiting 500ms'
+  ],
+  name: 'TimeoutError'
+}

@@ -1,13 +1,18 @@
 import type { GameNode } from '../hooks/useGameTree'
 import { isReviewEvaluationSufficient, isTerminalPositionFen, type EvalSnapshot } from './analysis'
-import { decodeEvaluationEngine, encodeEvaluationEngine, sameEvaluationEngine } from './evaluationSource'
+import { decodeEvaluationEngine, encodeEvaluationEngine, evaluationEngineLabel, sameEvaluationEngine } from './evaluationSource'
 import { flattenPgnMainLine, parsePgnMoveTree } from './pgn'
 import { exportReviewPgn } from './reviewPgn'
 import type { ReviewSettings, ReviewSnapshot } from './reviewSession'
 import { reviewTargetFens } from './batchReview'
+import { truncateUtf16 } from './textLength'
+import { extractLibraryMetadata, libraryPlayers } from './gameLibrary'
+import { withoutAppPlaceholder } from './pgnPlaceholders'
+import { matchesSearchTerms, toSearchTerms } from './searchTerms'
 
 export const MAX_SAVED_REVIEWS = 50
 export const MAX_SAVED_REVIEW_BYTES = 512 * 1024
+export const MAX_SAVED_REVIEW_TITLE_LENGTH = 200
 const MAX_POSITIONS = 2049
 
 export type SavedReviewSummary = {
@@ -21,6 +26,17 @@ export type SavedReviewSummary = {
   complete: boolean
   reused: number
   evaluated: number
+}
+
+/** Search small run metadata without reading stored PGN or evaluations. */
+export function filterSavedReviewSummaries(runs: SavedReviewSummary[], query: string): SavedReviewSummary[] {
+  const terms = toSearchTerms(query)
+  return runs.filter(run => matchesSearchTerms([
+    run.title,
+    evaluationEngineLabel(run.settings.engine),
+    `Depth ${run.settings.depth} D${run.settings.depth}`,
+    run.complete ? 'Complete' : 'Partial',
+  ].join(' '), terms))
 }
 
 export type SavedReview = SavedReviewSummary & {
@@ -53,7 +69,7 @@ function settingsFrom(value: unknown): ReviewSettings | null {
 /** Read only small metadata when listing runs; validate the PGN/readings on opening. */
 export function savedReviewSummary(value: unknown): SavedReviewSummary | null {
   if (!object(value) || value.version !== 1 || typeof value.id !== 'string' || !/^[\w-]{1,100}$/.test(value.id)
-    || typeof value.title !== 'string' || !value.title || value.title.length > 200
+    || typeof value.title !== 'string' || !value.title || value.title.length > MAX_SAVED_REVIEW_TITLE_LENGTH
     || typeof value.lineKey !== 'string' || value.lineKey.length > 15000
     || !integer(value.startedAt, 0, 8.64e15) || !integer(value.finishedAt, value.startedAt, 8.64e15)
     || !integer(value.total, 0, MAX_POSITIONS) || !integer(value.reused, 0, value.total)
@@ -61,7 +77,7 @@ export function savedReviewSummary(value: unknown): SavedReviewSummary | null {
   const settings = settingsFrom(value.settings)
   if (!settings || value.complete !== (value.evaluated === value.total) || value.reused > value.evaluated) return null
   return {
-    id: value.id, title: value.title, lineKey: value.lineKey, settings,
+    id: value.id, title: truncateUtf16(value.title, MAX_SAVED_REVIEW_TITLE_LENGTH) || 'Reviewed line', lineKey: value.lineKey, settings,
     startedAt: value.startedAt, finishedAt: value.finishedAt, total: value.total,
     complete: value.complete, reused: value.reused, evaluated: value.evaluated,
   }
@@ -132,13 +148,16 @@ export function readSavedReview(value: unknown): SavedReview | null {
 
 export function createSavedReview(
   line: GameNode[], report: ReviewSnapshot, headers: Record<string, string>, qualities: Array<GameNode['quality']>,
-  id: string = crypto.randomUUID(),
+  id: string = crypto.randomUUID(), openingName?: string,
 ): SavedReview {
   const pgn = exportReviewPgn(line, report, headers, qualities)
   if (!pgn) throw new Error('This report belongs to a different line. Return to its reviewed line before saving.')
-  const title = headers.White && headers.Black ? `${headers.White} – ${headers.Black}` : headers.Event || 'Reviewed line'
+  const metadata = extractLibraryMetadata(pgn)
+  const title = libraryPlayers(metadata, ' – ', 'Unknown')
+    || withoutAppPlaceholder('Event', metadata.event)
+    || openingName?.trim() || metadata.opening || 'Reviewed line'
   const saved = readSavedReview({
-    version: 1, id, title: title.slice(0, 200), lineKey: reviewLineKey(line), pgn,
+    version: 1, id, title: truncateUtf16(title, MAX_SAVED_REVIEW_TITLE_LENGTH) || 'Reviewed line', lineKey: reviewLineKey(line), pgn,
     settings: report.settings, startedAt: report.startedAt, finishedAt: report.finishedAt,
     total: report.total, reused: report.reused, complete: report.complete,
     evaluated: report.evaluations.size, evaluations: [...report.evaluations],

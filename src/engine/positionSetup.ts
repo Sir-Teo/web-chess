@@ -1,4 +1,6 @@
 import { Chess, type Square } from 'chess.js'
+import { CASTLING_REQUIREMENTS } from './castlingRights'
+import { EN_PASSANT_REQUIREMENTS } from './enPassantRights'
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const
 const DISPLAY_RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'] as const
@@ -10,22 +12,11 @@ export type SetupPiece = 'P' | 'N' | 'B' | 'R' | 'Q' | 'K' | 'p' | 'n' | 'b' | '
 export type SetupTurn = 'w' | 'b'
 export type SetupCastlingRight = typeof CASTLING_ORDER[number]
 
-const CASTLING_REQUIREMENTS: Record<SetupCastlingRight, {
-  king: Square
-  kingPiece: SetupPiece
-  rook: Square
-  rookPiece: SetupPiece
-}> = {
-  K: { king: 'e1', kingPiece: 'K', rook: 'h1', rookPiece: 'R' },
-  Q: { king: 'e1', kingPiece: 'K', rook: 'a1', rookPiece: 'R' },
-  k: { king: 'e8', kingPiece: 'k', rook: 'h8', rookPiece: 'r' },
-  q: { king: 'e8', kingPiece: 'k', rook: 'a8', rookPiece: 'r' },
-}
-
 export type PositionSetup = {
   pieces: Partial<Record<Square, SetupPiece>>
   turn: SetupTurn
   castling: string
+  enPassant: Square | '-'
   halfmove: number
   fullmove: number
 }
@@ -41,7 +32,8 @@ export const SETUP_PIECE_OPTIONS: Array<{ piece: SetupPiece; label: string; glyp
   { piece: 'R', label: 'White rook', glyph: '♖' },
   { piece: 'Q', label: 'White queen', glyph: '♕' },
   { piece: 'K', label: 'White king', glyph: '♔' },
-  { piece: 'p', label: 'Black pawn', glyph: '♟' },
+  // Keep the pawn in text presentation, like the other chess symbols.
+  { piece: 'p', label: 'Black pawn', glyph: '♟\uFE0E' },
   { piece: 'n', label: 'Black knight', glyph: '♞' },
   { piece: 'b', label: 'Black bishop', glyph: '♝' },
   { piece: 'r', label: 'Black rook', glyph: '♜' },
@@ -65,6 +57,7 @@ export function createEmptyPositionSetup(): PositionSetup {
     pieces: {},
     turn: 'w',
     castling: '-',
+    enPassant: '-',
     halfmove: 0,
     fullmove: 1,
   }
@@ -134,6 +127,7 @@ export function parsePositionSetupFen(fen: string): PositionSetup | null {
     pieces,
     turn,
     castling: normalizeCastlingRights(parts[2]),
+    enPassant: /^[a-h][36]$/.test(parts[3] ?? '') ? parts[3] as Square : '-',
     halfmove,
     fullmove,
   }
@@ -165,7 +159,7 @@ export function positionSetupToFen(setup: PositionSetup): string {
     ranks.join('/'),
     setup.turn,
     normalizeAvailableCastlingRights(setup),
-    '-',
+    normalizeAvailableEnPassant(setup),
     Math.max(0, Math.floor(setup.halfmove)),
     Math.max(1, Math.floor(setup.fullmove)),
   ].join(' ')
@@ -176,11 +170,31 @@ export function updateSetupSquare(setup: PositionSetup, square: Square, piece: S
   if (piece) pieces[square] = piece
   else delete pieces[square]
   const next = { ...setup, pieces }
-  return { ...next, castling: normalizeAvailableCastlingRights(next) }
+  return { ...next, castling: normalizeAvailableCastlingRights(next), enPassant: normalizeAvailableEnPassant(next) }
 }
 
 export function updateSetupTurn(setup: PositionSetup, turn: SetupTurn): PositionSetup {
-  return { ...setup, turn }
+  const next = { ...setup, turn }
+  return { ...next, enPassant: normalizeAvailableEnPassant(next) }
+}
+
+/** Squares a pawn could have crossed on the previous double push. FEN records
+ * that square even when no opposing pawn can capture there. */
+export function setupEnPassantTargets(setup: PositionSetup): Square[] {
+  const { targetRank: rank, pawnRank, originRank, pawnPiece: pawn } = EN_PASSANT_REQUIREMENTS[setup.turn]
+  return FILES.filter(file => setup.pieces[`${file}${pawnRank}`] === pawn
+    && !setup.pieces[`${file}${rank}`] && !setup.pieces[`${file}${originRank}`])
+    .map(file => `${file}${rank}` as Square)
+}
+
+export function updateSetupEnPassant(setup: PositionSetup, enPassant: Square | '-'): PositionSetup {
+  const next = { ...setup, enPassant }
+  return { ...next, enPassant: normalizeAvailableEnPassant(next) }
+}
+
+function normalizeAvailableEnPassant(setup: PositionSetup): Square | '-' {
+  return setup.enPassant !== '-' && setupEnPassantTargets(setup).includes(setup.enPassant)
+    ? setup.enPassant : '-'
 }
 
 export function updateSetupCastlingRight(
@@ -218,7 +232,7 @@ function normalizeCounter(value: number, fallback: number, min: number): number 
   return Math.max(min, Math.floor(value))
 }
 
-function normalizeAvailableCastlingRights(setup: PositionSetup): string {
+export function normalizeAvailableCastlingRights(setup: PositionSetup): string {
   const normalized = normalizeCastlingRights(setup.castling)
   if (normalized === '-') return '-'
 

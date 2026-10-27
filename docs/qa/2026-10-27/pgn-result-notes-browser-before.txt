@@ -1,0 +1,5 @@
+Error: the closing note replaced the move note: closing note
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at notes (/workspace/web-chess/scripts/test-ui-browser.cjs:7272:17)
+    at async Object.checkPostVariationNotes (/workspace/web-chess/scripts/test-ui-browser.cjs:7274:7)
+    at async /tmp/web-chess-pgn-after-variation-check.cjs:10:9

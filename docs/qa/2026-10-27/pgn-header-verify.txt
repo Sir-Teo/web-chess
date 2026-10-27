@@ -1,0 +1,46 @@
+
+> web-chess@1.0.0 verify
+> npm run typecheck && npm run lint && npm test && npm run build
+
+
+> web-chess@1.0.0 typecheck
+> tsc -b
+
+
+> web-chess@1.0.0 lint
+> eslint .
+
+
+> web-chess@1.0.0 test
+> vitest run
+
+
+ RUN  v4.1.12 /workspace/web-chess
+
+
+ Test Files  123 passed (123)
+      Tests  1939 passed | 1 skipped (1940)
+   Start at  01:30:53
+   Duration  38.07s (transform 2.05s, setup 0ms, import 28.40s, tests 57.71s, environment 10ms)
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 191 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DdSJX8q9.js   61.02 kB
+dist/assets/LibraryDialog-BG8YTy1f.css        4.36 kB │ gzip:   1.17 kB
+dist/assets/index-DV_gxYCR.css              132.57 kB │ gzip:  24.70 kB
+dist/assets/NewGameDialog-Ct_kA9Rj.js         4.36 kB │ gzip:   1.57 kB
+dist/assets/LibraryDialog-DIAUgLjO.js        11.15 kB │ gzip:   3.98 kB
+dist/assets/PgnDialog-Dq2pG1DB.js            29.78 kB │ gzip:   9.95 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-DQmxZFoN.js               391.84 kB │ gzip: 126.37 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.27s

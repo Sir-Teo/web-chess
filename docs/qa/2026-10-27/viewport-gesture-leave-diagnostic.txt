@@ -1,0 +1,7 @@
+{"events":[{"type":"pointerout","target":"HTML","related":"DIV","pointerId":1,"buttons":0},{"type":"pointerout","target":"DIV","related":"svg","pointerId":1,"buttons":0},{"type":"pointerdown","target":"svg","pointerId":1,"buttons":1},{"type":"pointerout","target":"svg","related":"HTML","pointerId":1,"buttons":1}]}
+page.waitForFunction: Timeout 30000ms exceeded.
+    at Object.checkViewportResizePreservesGesture (/workspace/web-chess/scripts/test-ui-browser.cjs:6417:22)
+    at async /tmp/web-chess-viewport-gesture-leave-diagnostic.cjs:16:9 {
+  log: [],
+  name: 'TimeoutError'
+}

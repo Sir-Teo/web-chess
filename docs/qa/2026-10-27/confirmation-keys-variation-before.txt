@@ -1,0 +1,5 @@
+Error: held Enter confirmed a destructive action or lost its armed control: {"savedRows":0,"variationMoves":0,"turn":"Black to move","emptyLibrary":0}
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at holdEnter (/workspace/web-chess/scripts/test-ui-browser.cjs:6536:11)
+    at async Object.checkConfirmationKeys (/workspace/web-chess/scripts/test-ui-browser.cjs:6570:11)
+    at async /tmp/web-chess-confirmation-keys-check.cjs:11:9

@@ -1,0 +1,1 @@
+  reveal interaction: a held click stays in place and completes its review; focus alone preserves visible Load through pending panel retries at 200% text without waking the engine

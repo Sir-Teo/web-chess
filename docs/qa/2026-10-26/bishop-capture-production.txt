@@ -1,0 +1,45 @@
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 191 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-m_0vzQ90.js   60.55 kB
+dist/assets/LibraryDialog-BG8YTy1f.css        4.36 kB │ gzip:   1.17 kB
+dist/assets/index-WttUeRJk.css              131.52 kB │ gzip:  24.52 kB
+dist/assets/NewGameDialog-Dx7PdZBg.js         4.26 kB │ gzip:   1.55 kB
+dist/assets/LibraryDialog-eFN7U_kL.js        11.14 kB │ gzip:   3.98 kB
+dist/assets/PgnDialog-DKSrA3Y4.js            29.75 kB │ gzip:   9.95 kB
+dist/assets/chess-BgZTH1rp.js               118.31 kB │ gzip:  37.31 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-C2nQQpK7.js               384.83 kB │ gzip: 124.31 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.96s
+  contrast (Dark / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 1280px): 163 measured, 0 under the floor (146 on a gradient, measured against its worst stop)
+  typed moves (1280px, Dark): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  contrast (Dark / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 375px): 160 measured, 0 under the floor (142 on a gradient, measured against its worst stop)
+  typed moves (375px, Dark): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 1280px): 163 measured, 0 under the floor (146 on a gradient, measured against its worst stop)
+  typed moves (1280px, Light): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 375px): 160 measured, 0 under the floor (142 on a gradient, measured against its worst stop)
+  typed moves (375px, Light): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  keyboard: e2 selected, e3 and e4 offered and named, Enter played e4, focus stayed on the board
+  move entry availability (1280px, 1x, hold-search): visible associated reason, matching editability, intact focus and no clipping; reply, Step, paused editing, watch-mode omission and pass-and-play
+  move entry availability (1280px, 1x, slow-boot): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (1280px, 1x, silent-all): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (375px, 2x, hold-search): visible associated reason, matching editability, intact focus and no clipping; reply, Step, paused editing, watch-mode omission and pass-and-play
+  move entry availability (375px, 2x, slow-boot): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (375px, 2x, silent-all): visible associated reason, matching editability, intact focus and no clipping
+  command move entry (1280px, 1x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  command move entry (375px, 1x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  command move entry (375px, 2x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  command move entry (320px, 2x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+Focused browser UI checks passed.

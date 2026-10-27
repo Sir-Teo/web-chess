@@ -1,0 +1,8 @@
+  live share (1280px, 1x, game): opponent moves invalidate copied feedback; delayed old completion stays unconfirmed; retry copies the new URL
+  live share (1280px, 1x, fen): opponent moves invalidate copied feedback; delayed old completion stays unconfirmed; retry copies the new URL; blank draft stays intact
+  live share (375px, 2x, game): opponent moves invalidate copied feedback; delayed old completion stays unconfirmed; retry copies the new URL
+  live share (375px, 2x, fen): opponent moves invalidate copied feedback; delayed old completion stays unconfirmed; retry copies the new URL; blank draft stays intact
+  live share (1280px, 1x, game): opponent moves invalidate copied feedback; delayed old completion stays unconfirmed; retry copies the new URL
+  live share (1280px, 1x, fen): opponent moves invalidate copied feedback; delayed old completion stays unconfirmed; retry copies the new URL; blank draft stays intact
+  live share (375px, 2x, game): opponent moves invalidate copied feedback; delayed old completion stays unconfirmed; retry copies the new URL
+  live share (375px, 2x, fen): opponent moves invalidate copied feedback; delayed old completion stays unconfirmed; retry copies the new URL; blank draft stays intact

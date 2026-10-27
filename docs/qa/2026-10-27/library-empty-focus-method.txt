@@ -1,0 +1,9 @@
+Empty library focus verification, 27 October 2026
+
+Four native Chromium/Firefox before probes at desktop and enlarged-phone sizes delete the only saved game: the empty dialog remains open while activeElement is BODY. The new browser regression fails at its explicit Done-focus assertion before the repair. The deletion handler captured the search field before committing; deleting the final record removes that field as well as the row.
+
+After the commit, retain the captured neighboring Delete/search target when connected; otherwise look up the persistent Done action inside the still-open panel. Keep the existing frame scheduling and modal lifecycle.
+
+New library-empty-focus workflow: Chromium/Firefox, desktop, phone, 320px/200% light and 844x390/200% dark. Delete the only game with keyboard/no filter and pointer/starred filter, asserting the visible/hit-testable Done focus, contained Tab and focus return to Library after Escape. All sixteen deletion cases pass. Initial production checks asserted opener focus immediately after the dialog disappeared, before the existing scheduled restoration frame; await that documented focus destination, retaining the initial failure. Existing editing/capacity/filtered rename/delete cases pass.
+
+Full application verification passes: typecheck, lint, 123 files, 1,965 tests, one existing skip and production build. The subsequent script-only restoration wait also passes ESLint and browser checks. No model test mirrors this DOM focus behavior.

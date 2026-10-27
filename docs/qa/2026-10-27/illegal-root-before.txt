@@ -1,0 +1,3 @@
+ILLEGAL ROOT PROBE {"kind":"shared-adjacent","fatal":1,"board":0,"errors":[],"dialogError":[],"notice":[]}
+ILLEGAL ROOT PROBE {"kind":"shared-checked-opponent","fatal":1,"board":0,"errors":[],"dialogError":[],"notice":[]}
+ILLEGAL ROOT PROBE {"kind":"pgn-checked-opponent","fatal":1,"board":0,"errors":[],"dialogError":[],"notice":[]}

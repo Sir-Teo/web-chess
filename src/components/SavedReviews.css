@@ -10,13 +10,15 @@
 }
 .saved-reviews-content { display: grid; gap: 0.65rem; padding: 0 0.75rem 0.75rem; min-width: 0; }
 .saved-reviews label { font-size: 0.8rem; color: var(--text-secondary); }
-#saved-review-choice {
+#saved-review-choice, #saved-review-search, .saved-review-name-input {
   width: 100%; min-width: 0; min-height: 44px;
   padding: 0.5rem;
   font: inherit; font-size: 0.8rem;
   color: var(--text-primary); background: var(--bg-elevated);
   border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
 }
+#saved-review-search::placeholder { color: var(--text-secondary); opacity: 1; }
+.saved-review-name-editor, .saved-review-name-editor form { display: grid; gap: 0.65rem; min-width: 0; }
 .saved-review-description, .saved-review-notice { overflow-wrap: anywhere; }
 .saved-reviews .review-report-actions { margin-bottom: 0; }
 .saved-reviews .review-report-actions button { min-height: 44px; min-width: min-content; overflow-wrap: anywhere; }
@@ -26,9 +28,17 @@
 .review-comparison .panel-copy { overflow-wrap: anywhere; }
 .review-comparison .comparison-filter { display: flex; align-items: center; gap: 0.5rem; min-height: 44px; cursor: pointer; }
 .comparison-positions { display: grid; gap: 0.75rem; list-style: none; padding: 0; }
-.comparison-positions li { min-width: 0; padding: 0.6rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
+.comparison-positions li { container: review-comparison-row / inline-size; min-width: 0; padding: 0.6rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
 .review-comparison button.comparison-position { width: 100%; min-height: 44px; white-space: normal; text-align: left; color: var(--text-primary); }
 .comparison-positions dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.4rem; font-size: 0.75rem; }
 .comparison-positions dt, .comparison-positions dd { margin: 0; overflow-wrap: anywhere; }
 .comparison-positions dt { color: var(--text-secondary); }
 .comparison-positions dd { font-variant-numeric: tabular-nums; }
+
+/* Stack label/value pairs when either a narrow panel or enlarged text leaves
+   too little room to keep labels such as Saved and Change in whole words. */
+@container review-comparison-row (max-width: 14rem) {
+  .comparison-positions dl { grid-template-columns: minmax(0, 1fr); gap: 0.15rem; }
+  .comparison-positions dt { overflow-wrap: normal; }
+  .comparison-positions dd + dt { margin-top: 0.4rem; }
+}

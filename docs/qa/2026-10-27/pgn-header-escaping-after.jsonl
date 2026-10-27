@@ -1,0 +1,4 @@
+{"name":"quotes","event":"Club \"Final\"","exported":"[Event \"Club \\\"Final\\\"\"]","parsed":"Club \"Final\""}
+{"name":"backslash","event":"Club \\ North","exported":"[Event \"Club \\\\ North\"]","parsed":"Club \\ North"}
+{"name":"combined","event":"Club \\ \"Final\" [Board 1]","exported":"[Event \"Club \\\\ \\\"Final\\\" [Board 1]\"]","parsed":"Club \\ \"Final\" [Board 1]"}
+{"name":"import-escapes","input":"[Event \"Club \\\"Final\\\" and \\\\ North\"]\n\n1. e4 *","parsed":"Club \"Final\" and \\ North","library":"Club \"Final\" and \\ North"}

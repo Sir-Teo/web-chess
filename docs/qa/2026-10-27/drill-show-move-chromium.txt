@@ -1,0 +1,9 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  show drill move (1280×900, 1x, White): explicit answer at board and card without a fabricated miss; board focus/input, hint retention on a wrong attempt, next-question/reset hiding and unchanged completed study
+  show drill move (1280×900, 1x, Black): explicit answer at board and card without a fabricated miss; board focus/input, hint retention on a wrong attempt, next-question/reset hiding and unchanged completed study
+  show drill move (375×812, 1x, White): explicit answer at board and card without a fabricated miss; board focus/input, hint retention on a wrong attempt, next-question/reset hiding and unchanged completed study
+  show drill move (375×812, 1x, Black): explicit answer at board and card without a fabricated miss; board focus/input, hint retention on a wrong attempt, next-question/reset hiding and unchanged completed study
+  show drill move (320×812, 2x, White): explicit answer at board and card without a fabricated miss; board focus/input, hint retention on a wrong attempt, next-question/reset hiding and unchanged completed study
+  show drill move (320×812, 2x, Black): explicit answer at board and card without a fabricated miss; board focus/input, hint retention on a wrong attempt, next-question/reset hiding and unchanged completed study
+  show drill move (844×390, 2x, White): explicit answer at board and card without a fabricated miss; board focus/input, hint retention on a wrong attempt, next-question/reset hiding and unchanged completed study
+  show drill move (844×390, 2x, Black): explicit answer at board and card without a fabricated miss; board focus/input, hint retention on a wrong attempt, next-question/reset hiding and unchanged completed study

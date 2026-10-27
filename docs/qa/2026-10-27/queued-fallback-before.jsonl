@@ -1,0 +1,4 @@
+{"browser":"chromium","purpose":"auto","status":"ready","workers":1,"commands":["quit","uci","isready"],"profile":"Fake Stockfish"}
+{"browser":"chromium","purpose":"manual","status":"ready","workers":1,"commands":["quit","uci","isready"],"profile":"Fake Stockfish"}
+{"browser":"firefox","purpose":"auto","status":"ready","workers":1,"commands":["quit","uci","isready"],"profile":"Fake Stockfish"}
+{"browser":"firefox","purpose":"manual","status":"ready","workers":1,"commands":["quit","uci","isready"],"profile":"Fake Stockfish"}

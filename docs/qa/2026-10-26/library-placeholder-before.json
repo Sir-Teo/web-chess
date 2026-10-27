@@ -1,0 +1,97 @@
+[
+  {
+    "browser": "chromium",
+    "theme": "light",
+    "surface": "library",
+    "checked": 14,
+    "unknown": 1,
+    "failures": [
+      {
+        "selector": "input.",
+        "text": "King's Pawn Game \u00b7 2026.10.26",
+        "placeholder": true,
+        "rawColor": "rgb(117, 117, 117)",
+        "contrast": 4.34,
+        "floor": 4.5,
+        "px": 13.12,
+        "opacity": 1
+      },
+      {
+        "selector": "input.",
+        "text": "Search players, event, opening\u2026",
+        "placeholder": true,
+        "rawColor": "rgb(117, 117, 117)",
+        "contrast": 4.34,
+        "floor": 4.5,
+        "px": 12.48,
+        "opacity": 1
+      }
+    ]
+  },
+  {
+    "browser": "chromium",
+    "theme": "dark",
+    "surface": "library",
+    "checked": 14,
+    "unknown": 1,
+    "failures": [
+      {
+        "selector": "input.",
+        "text": "King's Pawn Game \u00b7 2026.10.26",
+        "placeholder": true,
+        "rawColor": "rgb(117, 117, 117)",
+        "contrast": 4.06,
+        "floor": 4.5,
+        "px": 13.12,
+        "opacity": 1
+      },
+      {
+        "selector": "input.",
+        "text": "Search players, event, opening\u2026",
+        "placeholder": true,
+        "rawColor": "rgb(117, 117, 117)",
+        "contrast": 4.06,
+        "floor": 4.5,
+        "px": 12.48,
+        "opacity": 1
+      }
+    ]
+  },
+  {
+    "browser": "firefox",
+    "theme": "light",
+    "surface": "library",
+    "checked": 14,
+    "unknown": 1,
+    "failures": [
+      {
+        "selector": "input.",
+        "text": "King's Pawn Game \u00b7 2026.10.26",
+        "placeholder": true,
+        "rawColor": "color(srgb 0.0666667 0.0941177 0.152941 / 0.54)",
+        "contrast": 3.78,
+        "floor": 4.5,
+        "px": 13.12,
+        "opacity": 1
+      },
+      {
+        "selector": "input.",
+        "text": "Search players, event, opening\u2026",
+        "placeholder": true,
+        "rawColor": "color(srgb 0.0666667 0.0941177 0.152941 / 0.54)",
+        "contrast": 3.78,
+        "floor": 4.5,
+        "px": 12.48,
+        "opacity": 1
+      }
+    ]
+  },
+  {
+    "browser": "firefox",
+    "theme": "dark",
+    "surface": "library",
+    "checked": 14,
+    "unknown": 1,
+    "failures": []
+  }
+]

@@ -1,0 +1,5 @@
+Error: a held H key launched another hint search
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkHintShortcutDoesNotRepeat (/workspace/web-chess/scripts/test-ui-browser.cjs:6830:7)
+    at async /tmp/web-chess-hint-shortcut-check.cjs:10:9
