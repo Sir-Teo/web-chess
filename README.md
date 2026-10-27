@@ -285,7 +285,9 @@ given, and the app answering the reader who touches it.
   library, which means it already imports, exports, saves and shares — load a
   saved game and its line is drillable as it stands. All three commands are in
   the command palette too, each saying why it is unavailable rather than
-  greying out in silence.
+  greying out in silence. Restart stops any replay and keeps the line you
+  began drilling, even after browsing another branch; choose Drill this line
+  to practise a new one.
 - **Practice critical moments**: In Coach mode, a critical mistake becomes a
   playable retry. Engine answers and candidate arrows are hidden, wrong moves
   snap back without adding junk variations, and the answer appears after two

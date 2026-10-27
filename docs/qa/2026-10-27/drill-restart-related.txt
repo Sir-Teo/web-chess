@@ -1,0 +1,2 @@
+  drill: two wrong moves and a right one leave the line byte for byte
+  drill: left behind on the way out of Analysis, so Play still takes a move off the line

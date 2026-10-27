@@ -16015,6 +16015,73 @@ async function checkDrawModeEndsWithItsPurpose(browser) {
   } finally { await context.close() }
 }
 
+async function checkDrillRestartKeepsItsLine(browser) {
+  const pgn = '1. e4 (1. d4 d5 2. c4) e5 2. Nf3 Nc6 3. Bb5 a6 *'
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    for (const side of ['White', 'Black']) {
+      const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(async scale => {
+          document.documentElement.style.fontSize = `${scale * 100}%`
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        }, scale)
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await page.locator('.pgn-dialog textarea').fill(pgn)
+        await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+        const originalIds = await page.locator('.mtree-chip').evaluateAll(chips => chips.map(chip => chip.dataset.nodeId))
+        const play = async (from, to) => {
+          await page.locator(`#chessboard-square-${from}`).click()
+          await page.locator(`#chessboard-square-${to}`).click()
+        }
+        const card = page.getByRole('region', { name: 'Line drill', exact: true })
+        await page.getByRole('button', { name: `Drill this line as ${side}`, exact: true }).click()
+        await card.getByRole('status').filter({ hasText: `Playing ${side} · move 1 of 3` }).waitFor()
+        if (side === 'White') await play('e2', 'e4')
+        else await play('e7', 'e5')
+        await card.getByRole('status').filter({ hasText: `Playing ${side} · move 2 of 3` }).waitFor()
+        for (const [from, to] of side === 'White' ? [['d2', 'd4'], ['f1', 'c4']] : [['d7', 'd6'], ['g8', 'f6']]) await play(from, to)
+        await card.getByText(side === 'White' ? 'Not the line. It plays Nf3.' : 'Not the line. It plays Nc6.', { exact: true }).waitFor()
+        const branch = page.getByRole('button', { name: /^Go to variation move 1\. d4/ })
+        await branch.click()
+        await card.getByRole('status').filter({ hasText: 'Paused at move 2 of 3' }).waitFor()
+        await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).click()
+        await page.getByRole('button', { name: 'Set autoplay speed to Slow', exact: true }).click()
+        await page.getByRole('button', { name: 'Stop autoplay', exact: true }).waitFor()
+        const restart = card.getByRole('button', { name: 'Restart', exact: true })
+        await restart.focus()
+        await restart.press('Enter')
+        assert(await page.getByRole('button', { name: 'Stop autoplay', exact: true }).count() === 0, 'Restart left autoplay running while the drill asks for its first answer')
+        try { await card.getByRole('status').filter({ hasText: `Playing ${side} · move 1 of 3` }).waitFor({ timeout: 3000 }) }
+        catch { fail(`Restart abandoned the captured line: ${await card.getByRole('status').innerText()}`) }
+        assert(await card.getByText(/Not the line/).count() === 0, 'Restart retained the previous question’s misses or revealed answer')
+        if (side === 'White') {
+          await page.locator('#chessboard-square-e2 [data-piece="wP"]').waitFor()
+          await play('e2', 'e4')
+        } else {
+          await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+          await page.locator('#chessboard-square-e7 [data-piece="bP"]').waitFor()
+          await play('e7', 'e5')
+        }
+        await card.getByRole('status').filter({ hasText: `Playing ${side} · move 2 of 3` }).waitFor()
+        assert(JSON.stringify(await page.locator('.mtree-chip').evaluateAll(chips => chips.map(chip => chip.dataset.nodeId))) === JSON.stringify(originalIds), 'Restart changed the study or recorded a rejected move')
+        await card.getByRole('button', { name: 'Stop drilling', exact: true }).click()
+        await branch.click()
+        await page.getByRole('button', { name: `Drill this line as ${side}`, exact: true }).click()
+        await card.getByRole('status').filter({ hasText: `Playing ${side} · move 1 of ${side === 'White' ? 2 : 1}` }).waitFor()
+        assert(errors.length === 0, `drill restart errors: ${errors.join('; ')}`)
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'drill restart overflows')
+        console.log(`  drill restart (${width}×${height}, ${scale}x, ${theme}, ${side}): three-move captured line survives browsing a shorter branch; misses reset, active autoplay stops, original answer advances and study is unchanged; explicitly starting a new branch still follows it`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkDrillLeavesTheLineAlone(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const page = await context.newPage()
@@ -17255,6 +17322,7 @@ async function main() {
       'library-empty-focus': checkLibraryEmptyFocus,
       'confirmation-keys': checkConfirmationKeys,
       'move-list-fit': checkMoveListFitting,
+      'drill-restart': checkDrillRestartKeepsItsLine,
       'viewport-gesture': checkViewportResizePreservesGesture,
       'library-sorting': checkLibrarySorting,
       'library-lock-fallback': checkLibraryLockFallback,
@@ -18038,6 +18106,7 @@ async function main() {
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkTheReviewOfferFollowsTheGame(browser)
+    await checkDrillRestartKeepsItsLine(browser)
     await checkDrillLeavesTheLineAlone(browser)
     await checkADrillStaysInAnalysis(browser)
     await checkAChordBelongsToTheBrowser(browser)

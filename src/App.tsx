@@ -971,9 +971,8 @@ function App() {
   /**
    * Playing a line from memory. Null when no drill is running.
    *
-   * `rootFen` is kept so the drill can be restarted, and so a move judged
-   * against the wrong position is impossible: the line is a list of moves from
-   * one place, and if the board is not that place the drill is over.
+   * Keep the captured line and root for Restart. `expectedFen` limits judging
+   * to the question being asked; browsing elsewhere pauses the drill.
    */
   const [drill, setDrill] = useState<
     { line: DrillLine; rootFen: string; expectedFen: string; ply: number; misses: number; revealed: boolean } | null
@@ -3903,26 +3902,6 @@ function App() {
   }, [workspaceMode, drillRunning, endTouchDrawing])
 
   /**
-   * A drill taking the board is the end of a replay, the same way the engine
-   * taking it is -- see the `aiEnabled` effect above, which says so in those
-   * words. Both play the moves a drill exists to ask the reader for.
-   *
-   * Measured at 1440x900 without this: with autoplay running, starting a drill
-   * gave a drill that broke itself. It opened correctly ("Playing White · move
-   * 1 of 4"), and 2.5 seconds later read "Paused at move 1 of 4 — the board has
-   * moved off the line" while autoplay kept stepping. Nothing the reader did
-   * moved the board; they had just asked for a drill.
-   *
-   * Only the replay that was *already* running. Pressing Autoplay during a
-   * drill is the reader moving the board off the line deliberately, which is
-   * what the navigation buttons do too, and the drill's paused card explains
-   * that case and offers a Restart.
-   */
-  useEffect(() => {
-    if (drillRunning) setAutoplay(false)
-  }, [drillRunning])
-
-  /**
    * Notice a flag.
    *
    * Nothing else can: the display is derived from `Date.now()` inside the clock
@@ -4429,11 +4408,16 @@ function App() {
     return { rootFen: root.fen, moves, rootTurn }
   }, [currentLineNodes])
 
-  const startDrill = useCallback((side: 'white' | 'black') => {
-    if (!drillableLine) return
-    const line: DrillLine = { moves: drillableLine.moves, side, rootTurn: drillableLine.rootTurn }
+  const startDrill = useCallback((side: 'white' | 'black', recorded?: { line: DrillLine; rootFen: string }) => {
+    // Restart belongs to the captured line, even after visiting another branch.
+    const source = recorded ? { ...recorded.line, rootFen: recorded.rootFen } : drillableLine
+    if (!source || source.rootFen !== gameTree.root.fen) return
+    const line: DrillLine = { moves: source.moves, side, rootTurn: source.rootTurn }
     if (drillUnavailableReason(line)) return
 
+    // Every start takes the board back, including Restart while a drill is
+    // already active. A boolean drill-running effect cannot catch that case.
+    setAutoplay(false)
     cancelStaleBackgroundAnalysis()
     stop()
     setReviewPractice(null)
@@ -4445,13 +4429,13 @@ function App() {
     setOrientation(side)
     // Back to the top of the line, then play whatever the opponent owns before
     // the first question.
-    gameTree.navigateTo(currentLineNodes[0]!.id)
-    game.load(drillableLine.rootFen)
+    gameTree.navigateTo(gameTree.root.id)
+    game.load(source.rootFen)
     const opening = opponentMovesFrom(line, 0)
     playDrillMoves(opening)
     setDrill({
       line,
-      rootFen: drillableLine.rootFen,
+      rootFen: source.rootFen,
       expectedFen: game.fen(),
       ply: opening.length,
       misses: 0,
@@ -4467,7 +4451,7 @@ function App() {
     // here`, the practice button, and the review list. The setter rather than
     // `requestBoardReveal`, which is declared further down.
     setBoardRevealTick(tick => tick + 1)
-  }, [cancelStaleBackgroundAnalysis, clearBoardSelection, currentLineNodes, drillableLine, game, gameTree, playDrillMoves, stop])
+  }, [cancelStaleBackgroundAnalysis, clearBoardSelection, drillableLine, game, gameTree, playDrillMoves, stop])
 
   const endDrill = useCallback(() => {
     setDrill(null)
@@ -6794,7 +6778,7 @@ function App() {
           </p>
         )}
         <div className="inline-actions">
-          <button type="button" className="btn-cancel" onClick={() => startDrill(drill.line.side)}>
+          <button type="button" className="btn-cancel" onClick={() => startDrill(drill.line.side, drill)}>
             Restart
           </button>
           <button type="button" className="btn-cancel" onClick={endDrill}>

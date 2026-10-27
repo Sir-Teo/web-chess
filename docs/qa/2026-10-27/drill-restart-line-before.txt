@@ -1,0 +1,4 @@
+Error: Restart abandoned the captured line: Playing White · move 1 of 2
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at Object.checkDrillRestartKeepsItsLine (/workspace/web-chess/scripts/test-ui-browser.cjs:16057:17)
+    at async /tmp/web-chess-drill-restart-check.cjs:10:9
