@@ -1329,6 +1329,40 @@ describe('annotation shapes chess.js will not take', () => {
         expect(parsed.moves[0].children?.[0].comment).toBe('unfinished study')
     })
 
+    it.each(['1-0', '0-1', '1/2-1/2', '*'])('preserves the last move note before a %s closing comment', result => {
+        const parsed = parsePgnMoveTree(`1. e4 {white note} e5 {last move note} ${result} {closing note}`)
+        expect(parsed.result).toBe(result)
+        expect(parsed.moves[0].comment).toBe('white note')
+        expect(parsed.moves[0].children?.[0].comment).toBe('last move note closing note')
+    })
+
+    it('retains literal braces and NAG-looking text in a closing line comment', () => {
+        const parsed = parsePgnMoveTree('1. e4 e5 {last move note} 1-0 ; final {brace} $1')
+        expect(parsed.moves[0].children?.[0]).toMatchObject({ comment: 'last move note final [brace] $1' })
+        expect(parsed.moves[0].children?.[0].nags).toBeUndefined()
+    })
+
+    it('keeps a closing note on the main line without changing side notes', () => {
+        const parsed = parsePgnMoveTree('1. e4 e5 {main note} (1... c5 {side note}) 1-0 {closing note}')
+        expect(parsed.moves[0].children?.map(entry => entry.comment)).toEqual(['main note closing note', 'side note'])
+    })
+
+    it('preserves multiple closing comments in their original order', () => {
+        const parsed = parsePgnMoveTree('1. e4 e5 {last move note} 1-0 {first closing note} ; second closing note')
+        expect(parsed.moves[0].children?.[0].comment).toBe('last move note first closing note second closing note')
+    })
+
+    it('does not duplicate a closing comment when the last move has no note', () => {
+        expect(parsePgnMoveTree('1. e4 e5 1-0 {closing note}').moves[0].children?.[0].comment).toBe('closing note')
+    })
+
+    it('retains the last move clock, evaluation and judgement beside a closing note', () => {
+        const parsed = parsePgnMoveTree('1. e4 e5 $2 {move note [%clk 0:04:12] [%eval 0.34]} 1-0 {closing note}')
+        const last = parsed.moves[0].children![0]
+        expect(last).toMatchObject({ comment: 'move note closing note', clockMs: 252000, nags: ['2'] })
+        expect(parsed.evaluations.get(last.fen)).toMatchObject({ cp: 34 })
+    })
+
     it('retains alternating judgements, notes, clocks and evaluations in order', () => {
         const parsed = parsePgnMoveTree('1. e4 $1 {first} $14 {[%clk 0:05:00]} $10 {second [%eval 0.31]} e5 *')
         expect(parsed.moves[0]).toMatchObject({ comment: 'first second', nags: ['1', '14', '10'], clockMs: 300000 })

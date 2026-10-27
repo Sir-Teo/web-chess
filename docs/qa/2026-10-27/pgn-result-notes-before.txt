@@ -1,0 +1,99 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/pgn.test.ts (143 tests | 7 failed) 203ms
+     × preserves the last move note before a 1-0 closing comment 13ms
+     × preserves the last move note before a 0-1 closing comment 2ms
+     × preserves the last move note before a 1/2-1/2 closing comment 1ms
+     × preserves the last move note before a * closing comment 2ms
+     × retains literal braces and NAG-looking text in a closing line comment 4ms
+     × keeps a closing note on the main line without changing side notes 2ms
+     × preserves multiple closing comments in their original order 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > preserves the last move note before a 1-0 closing comment
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > preserves the last move note before a 0-1 closing comment
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > preserves the last move note before a 1/2-1/2 closing comment
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > preserves the last move note before a * closing comment
+AssertionError: expected 'closing note' to be 'last move note closing note' // Object.is equality
+
+Expected: "last move note closing note"
+Received: "closing note"
+
+ ❯ src/engine/pgn.test.ts:1336:55
+    1334|         expect(parsed.result).toBe(result)
+    1335|         expect(parsed.moves[0].comment).toBe('white note')
+    1336|         expect(parsed.moves[0].children?.[0].comment).toBe('last move …
+       |                                                       ^
+    1337|     })
+    1338|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > retains literal braces and NAG-looking text in a closing line comment
+AssertionError: expected { …(8) } to match object { Object (comment) }
+(18 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "comment": "last move note final [brace] $1",
++   "comment": "final [brace] $1",
+  }
+
+ ❯ src/engine/pgn.test.ts:1341:47
+    1339|     it('retains literal braces and NAG-looking text in a closing line …
+    1340|         const parsed = parsePgnMoveTree('1. e4 e5 {last move note} 1-0…
+    1341|         expect(parsed.moves[0].children?.[0]).toMatchObject({ comment:…
+       |                                               ^
+    1342|         expect(parsed.moves[0].children?.[0].nags).toBeUndefined()
+    1343|     })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > keeps a closing note on the main line without changing side notes
+AssertionError: expected [ 'closing note', 'side note' ] to deeply equal [ 'main note closing note', …(1) ]
+
+- Expected
++ Received
+
+  [
+-   "main note closing note",
++   "closing note",
+    "side note",
+  ]
+
+ ❯ src/engine/pgn.test.ts:1347:71
+    1345|     it('keeps a closing note on the main line without changing side no…
+    1346|         const parsed = parsePgnMoveTree('1. e4 e5 {main note} (1... c5…
+    1347|         expect(parsed.moves[0].children?.map(entry => entry.comment)).…
+       |                                                                       ^
+    1348|     })
+    1349|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  src/engine/pgn.test.ts > annotation shapes chess.js will not take > preserves multiple closing comments in their original order
+SyntaxError: Expected end of input or whitespace but ";" found.
+ ❯ new peg$SyntaxError node_modules/chess.js/src/pgn.js:72:20
+     70|
+     71| function peg$SyntaxError(message, expected, found, location) {
+     72|   var self = Error.call(this, message);
+       |                    ^
+     73|   // istanbul ignore next Check is a necessary evil to support older e…
+     74|   if (Object.setPrototypeOf) {
+ ❯ peg$buildStructuredError node_modules/chess.js/src/pgn.js:473:12
+ ❯ peg$parse node_modules/chess.js/src/pgn.js:1295:11
+ ❯ parsePgnMoveTree src/engine/pgn.ts:819:20
+ ❯ src/engine/pgn.test.ts:1351:24
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 136 passed (143)
+   Start at  10:17:30
+   Duration  780ms (transform 295ms, setup 0ms, import 356ms, tests 203ms, environment 0ms)
+

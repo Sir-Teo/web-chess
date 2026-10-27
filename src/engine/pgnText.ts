@@ -41,16 +41,52 @@ export function* pgnTokensOutsideComments(text: string): Generator<PgnTextToken>
 }
 
 /** A terminal main-line result; quoted headers, comments and variations do not count. */
-export function readPgnMainlineResult(text: string): PgnResult | null {
+function readPgnMainlineEnding(text: string): { result: PgnResult; end: number } | null {
     let depth = 0
     let lastWord: string | undefined
+    let end = 0
     for (const token of pgnTokensOutsideComments(text)) {
         if (token.kind === 'tag') continue
         for (const word of text.slice(token.start, token.end).matchAll(/[()]|[^\s()]+/g)) {
             if (word[0] === '(') { depth++; continue }
             if (word[0] === ')') { depth = Math.max(0, depth - 1); continue }
-            if (depth === 0) lastWord = word[0]
+            if (depth === 0) {
+                lastWord = word[0]
+                end = token.start + word.index + word[0].length
+            }
         }
     }
-    return isPgnResult(lastWord) ? lastWord : null
+    return isPgnResult(lastWord) ? { result: lastWord, end } : null
+}
+
+export function readPgnMainlineResult(text: string): PgnResult | null {
+    return readPgnMainlineEnding(text)?.result ?? null
+}
+
+/** Detach closing notes so the dependency cannot overwrite the last move's note. */
+export function splitPgnEndingComments(text: string): { movetext: string; comment: string } | null {
+    if (!/(?:1-0|0-1|1\/2-1\/2|\*)\s*[{;]/.test(text)) return null
+    const ending = readPgnMainlineEnding(text)
+    if (!ending) return null
+    const comments: string[] = []
+    const whitespace = /\s*/y, lineEnding = /[\r\n]/g
+    let cursor = ending.end
+    while (cursor < text.length) {
+        whitespace.lastIndex = cursor
+        whitespace.exec(text)
+        cursor = whitespace.lastIndex
+        if (cursor === text.length) break
+        if (text[cursor] === '{') {
+            const close = text.indexOf('}', cursor + 1)
+            if (close < 0) return null
+            comments.push(text.slice(cursor + 1, close).replace(/[\r\n]+/g, ' '))
+            cursor = close + 1
+        } else if (text[cursor] === ';') {
+            lineEnding.lastIndex = cursor + 1
+            const end = lineEnding.exec(text)?.index ?? text.length
+            comments.push(text.slice(cursor + 1, end).trim())
+            cursor = end
+        } else return null
+    }
+    return comments.length ? { movetext: text.slice(0, ending.end), comment: comments.join(' ') } : null
 }

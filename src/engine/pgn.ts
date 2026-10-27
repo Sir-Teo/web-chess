@@ -9,7 +9,7 @@ import { decodeEvaluationEngine, encodeEvaluationEngine } from './evaluationSour
 import { APP_PLACEHOLDER_HEADERS } from './pgnPlaceholders'
 import { formatLocalDate } from './localDate'
 import { pgnTagEnd, readPgnHeaderSection } from './pgnHeaders'
-import { isPgnResult, pgnTokensOutsideComments } from './pgnText'
+import { isPgnResult, pgnTokensOutsideComments, splitPgnEndingComments } from './pgnText'
 import { reorderPostVariationAnnotations } from './pgnVariations'
 
 const INITIAL_FEN = new Chess().fen()
@@ -816,7 +816,14 @@ export function parsePgnMoveTree(pgnText: string): {
     // values stop at escaped quotes. Read tags with the same scanner used by
     // the library, then give the dependency only the remaining movetext.
     const headerSection = readPgnHeaderSection(text)
-    const parsed = parsePgn(reorderPgnAnnotations(text.slice(headerSection.end)))
+    const movetext = reorderPgnAnnotations(text.slice(headerSection.end))
+    const ending = splitPgnEndingComments(movetext)
+    const parsed = parsePgn(ending?.movetext ?? movetext)
+    if (ending) {
+        let last = parsed.root
+        while (last.variations[0]) last = last.variations[0]
+        last.comment = [last.comment, ending.comment].filter(Boolean).join(' ')
+    }
     const headers = { ...headerSection.headers, ...parsed.headers }
     if (parsed.result && !headers.Result) headers.Result = parsed.result
     const rootFen = rootFenFromPgnHeaders(headers)

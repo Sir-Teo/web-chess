@@ -7242,7 +7242,7 @@ async function checkOneGestureSavesOneGame(browser) {
  * real database file is hundreds.
  */
 async function checkPostVariationNotes(browser) {
-  const pgn = '[Event "Quoted ) {header} $1"]\n\n1. e4 e5 {before} (1... c5 2. Nf3 (2. Nc3) {inner note} d6) (1... e6) ; after literal {brace} $1\n$2 2. Nf3 Nc6 *'
+  const pgn = '[Event "Quoted ) {header} $1"]\n\n1. e4 e5 {before} (1... c5 2. Nf3 (2. Nc3) {inner note} d6) (1... e6) ; after literal {brace} $1\n$2 2. Nf3 Nc6 {last move note} * {closing note}'
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', acceptDownloads: true })
     const page = await context.newPage(), errors = []
@@ -7267,6 +7267,9 @@ async function checkPostVariationNotes(browser) {
         await page.waitForFunction(() => document.querySelector('.mtree-comment-input')?.value === 'inner note')
         await page.getByRole('button', { name: /^Go to variation move 2\. Nc3/ }).click()
         await page.waitForFunction(() => document.querySelector('.mtree-comment-input')?.value === '')
+        await page.getByRole('button', { name: /^Go to move 2\.\.\. Nc6/ }).click()
+        try { await page.waitForFunction(() => document.querySelector('.mtree-comment-input')?.value === 'last move note closing note', null, { timeout: 3000 }) }
+        catch { fail(`the closing note replaced the move note: ${await page.locator('.mtree-comment-input').inputValue()}`) }
       }
       await notes()
       await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
