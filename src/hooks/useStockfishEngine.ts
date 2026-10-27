@@ -1100,8 +1100,14 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       return
     }
 
-    const applyFallback = (reason: string) => {
+    const applyFallback = (reason: string, pendingRequest = pendingAnalyzeRef.current ?? visibilityResumeRequestRef.current) => {
       if (profile.id !== 'lite-single-local') {
+        // A requested Analyze/Auto pass waiting for startup still belongs to
+        // the reader. Carry its exact request into the replacement handshake.
+        // Other workflows handle their own failure/cancellation state.
+        if (pendingRequest?.purpose === 'manual' || pendingRequest?.purpose === 'auto') {
+          wakeAnalyzeRef.current = pendingRequest
+        }
         const fallback = resolveProfile('lite-single-local', capabilities)
         const message = `${reason} Falling back to ${fallback.name}.`
         setFallbackOverride({
@@ -1117,6 +1123,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     }
 
     const failWorker = (reason: string, queueMessage: string) => {
+      const pendingRequest = pendingAnalyzeRef.current ?? visibilityResumeRequestRef.current
       clearTimeout(startupTimer)
       isReadyRef.current = false
       isSearchingRef.current = false
@@ -1132,7 +1139,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
       } catch {
         // Ignore shutdown errors from workers that are already gone.
       }
-      applyFallback(reason)
+      applyFallback(reason, pendingRequest)
     }
 
     try {

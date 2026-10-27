@@ -1,0 +1,5 @@
+Error: queued auto request did not survive fallback exactly once: []
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkQueuedAnalysisSurvivesFallback (/workspace/web-chess/scripts/test-ui-browser.cjs:974:9)
+    at async /tmp/web-chess-queued-fallback-check.cjs:10:9

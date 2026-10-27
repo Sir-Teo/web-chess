@@ -184,7 +184,8 @@ const SCENARIO = ${JSON.stringify(scenario)};
   }
 
   class FakeStockfish {
-    constructor() {
+    constructor(workerUrl) {
+      this.workerUrl = workerUrl;
       window.__engineCount += 1;
       this.ordinal = window.__engineCount;
       this.reviewProducer = window.__reviewProducer || 'lite';
@@ -418,9 +419,10 @@ const SCENARIO = ${JSON.stringify(scenario)};
   window.__workerUrls = [];
   window.Worker = function Worker(url, options) {
     const target = String(url);
+    if (SCENARIO === 'console-search' && window.__throwPreferredBoot && target.includes('stockfish-18-single.wasm')) throw new Error('Controlled preferred constructor failure');
     window.__workerUrls.push(target.slice(0, 60));
     // Only the engine is faked; anything else the app or Vite starts is real.
-    if (target.startsWith('blob:') || target.includes('stockfish')) return new FakeStockfish();
+    if (target.startsWith('blob:') || target.includes('stockfish')) return new FakeStockfish(target);
     return new NativeWorker(url, options);
   };
   window.Worker.prototype = FakeStockfish.prototype;
@@ -889,6 +891,94 @@ async function checkMoveEntryAvailability(browser) {
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'move-entry availability overflows the page')
       console.log(`  move entry availability (${width}px, ${scale}x, ${scenario}): visible associated reason, matching editability, intact focus and no clipping${scenario === 'hold-search' ? '; reply, Step, paused editing, watch-mode omission and pass-and-play' : ''}`)
     } finally { await context.close() }
+  }
+}
+
+async function checkQueuedAnalysisSurvivesFallback(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    for (const kind of ['auto', 'manual', 'latest', 'hidden', 'cancelled', 'constructor']) {
+      const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript('console-search'))
+        await page.addInitScript(({ kind, theme }) => {
+          window.__holdConsoleReady = true
+          window.__fallbackVisibility = 'visible'
+          Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => window.__fallbackVisibility })
+          Object.defineProperty(document, 'hidden', { configurable: true, get: () => window.__fallbackVisibility === 'hidden' })
+          window.__throwPreferredBoot = kind === 'constructor'
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+            workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze',
+            autoAnalyze: ['auto', 'hidden', 'constructor'].includes(kind), continuousAnalysis: kind === 'hidden',
+            engineProfile: 'full-single-cdn', analyzeMode: 'deep', searchDepth: 6,
+            hashMb: 96, multiPv: 3, showWdl: true, theme,
+          }))
+        }, { kind, theme })
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        const waitStatus = status => page.waitForFunction(status => document.querySelector('.bottom .status')?.textContent === status, status)
+        await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'loading' && typeof window.__releaseConsoleReady === 'function')
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        const manual = ['manual', 'latest', 'cancelled'].includes(kind)
+        const play = async (from, to, piece) => {
+          await page.locator(`#chessboard-square-${from}`).click()
+          await page.locator(`#chessboard-square-${to}`).click()
+          await page.waitForFunction(({ from, to, piece }) => !document.querySelector(`#chessboard-square-${from} [data-piece]`)
+            && document.querySelector(`#chessboard-square-${to} [data-piece="${piece}"]`), { from, to, piece })
+        }
+        const run = page.getByRole('button', { name: 'Run analysis', exact: true })
+        if (manual) {
+          await play('e2', 'e4', 'wP'); await play('e7', 'e5', 'bP'); await play('g1', 'f3', 'wN')
+          await run.click()
+        }
+        if (kind === 'hidden') await page.evaluate(() => {
+          window.__fallbackVisibility = 'hidden'
+          document.dispatchEvent(new Event('visibilitychange'))
+        })
+        if (kind !== 'constructor') {
+          const made = await page.evaluate(() => {
+            const made = window.__engineCount
+            window.__preferredBootWorker = window.__consoleEngine
+            window.__releaseConsoleReady = null
+            window.__consoleEngine.onerror({ message: 'Controlled preferred boot failure' })
+            return made
+          })
+          await page.waitForFunction(made => window.__engineCount === made + 1 && typeof window.__releaseConsoleReady === 'function', made)
+          await page.evaluate(() => {
+            window.__preferredBootWorker.send('readyok')
+            window.__preferredBootWorker.send('bestmove e2e4')
+            return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+          })
+        }
+        assert(await page.evaluate(() => window.__consoleEngine.workerUrl.includes('stockfish-18-lite-single.wasm')), 'the held worker is not the local fallback')
+        assert(await page.evaluate(() => !window.__uciCommands.some(line => /^go\s/.test(line))), 'a stale preferred-worker reply started analysis before fallback readiness')
+        if (kind === 'latest') { await play('b8', 'c6', 'bN'); await run.click() }
+        if (kind === 'cancelled') {
+          await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+          await page.evaluate(() => { window.__holdConsoleReady = false })
+          await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+        } else await page.evaluate(() => window.__releaseConsoleReady())
+        await waitStatus('ready')
+        if (kind === 'hidden') {
+          assert(await page.evaluate(() => !window.__uciCommands.some(line => /^go\s/.test(line))), 'fallback started hidden infinite analysis')
+          await page.evaluate(() => { window.__fallbackVisibility = 'visible'; document.dispatchEvent(new Event('visibilitychange')) })
+          await page.waitForFunction(() => window.__uciCommands.includes('go infinite'))
+          await waitStatus('ready')
+        }
+        const commands = await page.evaluate(() => window.__uciCommands)
+        const searches = commands.filter(line => /^go\s/.test(line))
+        assert(searches.length === (kind === 'cancelled' ? 0 : 1), `queued ${kind} request did not survive fallback exactly once: ${JSON.stringify(searches)}`)
+        if (kind !== 'cancelled') {
+          assert(searches[0] === (kind === 'hidden' ? 'go infinite' : 'go depth 6'), 'fallback changed the requested limit')
+          const position = commands.filter(line => line.startsWith('position fen')).at(-1)
+          assert(manual ? position.endsWith(`moves e2e4 e7e5 g1f3${kind === 'latest' ? ' b8c6' : ''}`) : position.endsWith(' w KQkq - 0 1'), 'fallback searched an obsolete position or lost its history')
+          for (const command of ['setoption name Hash value 96', 'setoption name MultiPV value 3', 'setoption name UCI_ShowWDL value true']) assert(commands.includes(command), `fallback lost ${command}`)
+          assert((await page.getByTestId('position-engine-source').textContent()).includes('Lite Single (Local)'), 'the fallback reading claims the failed preferred profile')
+        }
+        assert(errors.length === 0, `queued fallback errors: ${errors.join('; ')}`)
+        console.log(`  queued fallback (${width}×${height}, ${scale}x, ${theme}, ${kind}): exact queued search/history/settings, held readiness, ignored old replies, latest request/cancellation/visibility respected`)
+      } finally { await context.close() }
+    }
   }
 }
 
@@ -16499,6 +16589,7 @@ async function main() {
       'engine-release': checkEngineRelease,
       'engine-retry': checkEngineRetry,
       'profile-analysis': checkEngineProfileAutomaticAnalysis,
+      'queued-fallback': checkQueuedAnalysisSurvivesFallback,
       'threat-engine-wake': checkThreatEngineWake,
       'threat-recovery': checkThreatInterruptionRecovery,
       'threat-shortcut': checkThreatShortcutDoesNotRestart,
@@ -17322,6 +17413,7 @@ async function main() {
     await checkEngineRelease(browser)
     await checkEngineRetry(browser)
     await checkEngineProfileAutomaticAnalysis(browser)
+    await checkQueuedAnalysisSurvivesFallback(browser)
     await checkConsoleSearchDeadlines(browser)
     await checkConsoleTools(browser)
     await checkConsoleLimitParsing(browser)
