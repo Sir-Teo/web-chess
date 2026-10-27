@@ -1,0 +1,2 @@
+{"browser":"chromium","extraCommands":["stop","position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1","go movetime 700"],"button":" Reading the threat…","disabled":true}
+{"browser":"firefox","extraCommands":["stop","position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1","go movetime 700"],"button":" Reading the threat…","disabled":true}

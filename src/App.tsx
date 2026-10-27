@@ -1544,7 +1544,7 @@ function App() {
       }
       if (e.key.toLowerCase() === 't' && workspaceMode === 'analysis') {
         e.preventDefault()
-        requestThreatRef.current()
+        if (!e.repeat) requestThreatRef.current()
       }
       // Z rather than Ctrl+Z: the chord belongs to the browser, and
       // `isPlainShortcut` above is what keeps it there.
@@ -2573,7 +2573,7 @@ function App() {
    * reader is actually looking at.
    */
   const requestThreat = useCallback(() => {
-    if (!engineEnabled) return
+    if (!engineEnabled || threatRequest) return
 
     const probe = nullMoveProbe(fen)
     if (!probe.ok) {
@@ -2597,7 +2597,7 @@ function App() {
       hashMb,
       showWdl: false,
     })
-  }, [analyze, cancelStaleBackgroundAnalysis, engineEnabled, fen, hashMb])
+  }, [analyze, cancelStaleBackgroundAnalysis, engineEnabled, fen, hashMb, threatRequest])
   requestThreatRef.current = requestThreat
 
   /**

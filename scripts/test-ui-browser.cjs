@@ -11451,6 +11451,62 @@ async function checkThreatEngineWake(browser) {
   }
 }
 
+async function checkThreatShortcutDoesNotRestart(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze', autoAnalyze: false,
+        continuousAnalysis: false, engineProfile: 'lite-single-local', theme,
+      })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const ready = () => page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      const boardReady = () => page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready'
+        && window.__uciCommands.filter(line => line.startsWith('position fen')).at(-1)?.includes(' w '))
+      const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      await ready()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Analyze', exact: true }).focus()
+      await page.evaluate(() => { window.__withholdEngineInfo = true })
+      await page.keyboard.down('t')
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
+      const sent = await page.evaluate(() => window.__uciCommands.length)
+      const ask = page.getByRole('button', { name: 'Show what the opponent is threatening', exact: true })
+      assert(await ask.isDisabled(), 'the first keyboard threat did not hold its action')
+      for (let repeat = 0; repeat < 2; repeat++) await page.keyboard.down('t')
+      await settle()
+      assert(await page.evaluate(sent => window.__uciCommands.length === sent, sent), 'a held T key stopped or restarted the pending threat search')
+      await page.keyboard.up('t')
+      await page.keyboard.down('t')
+      await settle()
+      assert(await page.evaluate(sent => window.__uciCommands.length === sent, sent), 'another T press bypassed the disabled threat action')
+      assert(await ask.isDisabled() && await page.locator('.coach-threat-answer').count() === 0, 'repeated shortcuts fabricated an answer for the held search')
+      await page.evaluate(() => {
+        window.__withholdEngineInfo = false
+        window.__consoleEngine.emitInfo()
+        window.__consoleEngine.finishSearch()
+      })
+      await page.locator('.coach-threat-answer:not(.error-copy)').waitFor()
+      await boardReady()
+      const answered = await page.evaluate(() => window.__uciCommands.length)
+      await page.keyboard.down('t')
+      await settle()
+      assert(await page.evaluate(answered => window.__uciCommands.length === answered, answered), 'a key still held after completion launched another threat search')
+      assert(!await ask.isDisabled(), 'the completed threat left its action disabled')
+      await page.keyboard.up('t')
+      await page.keyboard.press('t')
+      await page.waitForFunction(() => window.__uciCommands.filter(line => /^go movetime [1-9]\d*$/.test(line)).length === 2)
+      await page.locator('.coach-threat-answer:not(.error-copy)').waitFor()
+      await boardReady()
+      assert(!await ask.isDisabled() && errors.length === 0, `threat shortcut recovery failed: ${errors.join('; ')}`)
+      console.log(`  threat shortcut (${width}×${height}, ${scale}x, ${theme}): repeats and busy presses preserve the held search; completion ignores the held key; release and press asks again`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkThreatInterruptionRecovery(browser) {
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
     for (const reason of ['leave-analysis', 'engine-profile', 'worker-error']) {
@@ -16184,6 +16240,7 @@ async function main() {
       'engine-release': checkEngineRelease,
       'threat-engine-wake': checkThreatEngineWake,
       'threat-recovery': checkThreatInterruptionRecovery,
+      'threat-shortcut': checkThreatShortcutDoesNotRestart,
       lab: checkLabSettingsStayInSync,
       'console-search': checkConsoleSearchOwnership,
       'console-deadlines': checkConsoleSearchDeadlines,
@@ -16999,6 +17056,7 @@ async function main() {
     await checkConsoleSearchOwnership(browser)
     await checkThreatEngineWake(browser)
     await checkThreatInterruptionRecovery(browser)
+    await checkThreatShortcutDoesNotRestart(browser)
     await checkEngineRelease(browser)
     await checkConsoleSearchDeadlines(browser)
     await checkConsoleTools(browser)
