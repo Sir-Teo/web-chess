@@ -135,6 +135,26 @@ describe('counting moves', () => {
     expect(countPgnMoves('[Event "e4 Nf3 Nc6"] [White "Ada"] 1. e4 e5 2. Nf3 *')).toBe(3)
   })
 
+  it('counts moves attached to their move numbers', () => {
+    expect(countPgnMoves('1.e4 e5 2.Nf3 *')).toBe(3)
+    expect(countPgnMoves('1.e4 1...e5 2.Nf3 *')).toBe(3)
+  })
+
+  it('keeps moves on either side of an adjacent variation separate', () => {
+    expect(countPgnMoves('1. e4(1. d4 d5)e5 2. Nf3 *')).toBe(3)
+    expect(countPgnMoves('1. e4(1. d4 {;) literal} d5 (1...Nf6))e5 2. Nf3 *')).toBe(3)
+  })
+
+  it('keeps braces and parentheses in line comments literal', () => {
+    expect(countPgnMoves('1. e4 ; { ( literal\ne5 2. Nf3 {last note} *')).toBe(3)
+  })
+
+  it('ends line comments at CR, LF or CRLF', () => {
+    for (const ending of ['\r', '\n', '\r\n']) {
+      expect(countPgnMoves(`1. e4 ; literal${ending}e5 2. Nf3 *`)).toBe(3)
+    }
+  })
+
   it('counts castling, promotion, and decorated moves', () => {
     expect(countPgnMoves('1. O-O O-O-O 2. e8=Q+ Kb8 3. Qxd8# *')).toBe(5)
     expect(countPgnMoves('1. e4! e5?? 2. Nf3!? *')).toBe(3)

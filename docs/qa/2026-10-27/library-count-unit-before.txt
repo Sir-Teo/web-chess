@@ -1,0 +1,93 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/gameLibrary.test.ts (113 tests | 4 failed) 379ms
+     × counts moves attached to their move numbers 7ms
+     × keeps moves on either side of an adjacent variation separate 1ms
+     × keeps braces and parentheses in line comments literal 1ms
+     × ends line comments at CR, LF or CRLF 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > counting moves > counts moves attached to their move numbers
+AssertionError: expected 1 to be 3 // Object.is equality
+
+- Expected
++ Received
+
+- 3
++ 1
+
+ ❯ src/engine/gameLibrary.test.ts:139:46
+    137|
+    138|   it('counts moves attached to their move numbers', () => {
+    139|     expect(countPgnMoves('1.e4 e5 2.Nf3 *')).toBe(3)
+       |                                              ^
+    140|     expect(countPgnMoves('1.e4 1...e5 2.Nf3 *')).toBe(3)
+    141|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > counting moves > keeps moves on either side of an adjacent variation separate
+AssertionError: expected 2 to be 3 // Object.is equality
+
+- Expected
++ Received
+
+- 3
++ 2
+
+ ❯ src/engine/gameLibrary.test.ts:144:57
+    142|
+    143|   it('keeps moves on either side of an adjacent variation separate', (…
+    144|     expect(countPgnMoves('1. e4(1. d4 d5)e5 2. Nf3 *')).toBe(3)
+       |                                                         ^
+    145|     expect(countPgnMoves('1. e4(1. d4 {;) literal} d5 (1...Nf6))e5 2. …
+    146|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > counting moves > keeps braces and parentheses in line comments literal
+AssertionError: expected 1 to be 3 // Object.is equality
+
+- Expected
++ Received
+
+- 3
++ 1
+
+ ❯ src/engine/gameLibrary.test.ts:149:75
+    147|
+    148|   it('keeps braces and parentheses in line comments literal', () => {
+    149|     expect(countPgnMoves('1. e4 ; { ( literal\ne5 2. Nf3 {last note} *…
+       |                                                                           ^
+    150|   })
+    151|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > counting moves > ends line comments at CR, LF or CRLF
+AssertionError: expected 1 to be 3 // Object.is equality
+
+- Expected
++ Received
+
+- 3
++ 1
+
+ ❯ src/engine/gameLibrary.test.ts:154:68
+    152|   it('ends line comments at CR, LF or CRLF', () => {
+    153|     for (const ending of ['\r', '\n', '\r\n']) {
+    154|       expect(countPgnMoves(`1. e4 ; literal${ending}e5 2. Nf3 *`)).toB…
+       |                                                                    ^
+    155|     }
+    156|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 109 passed (113)
+   Start at  03:38:48
+   Duration  787ms (transform 213ms, setup 0ms, import 270ms, tests 379ms, environment 0ms)
+

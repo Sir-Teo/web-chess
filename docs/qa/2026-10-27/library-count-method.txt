@@ -1,0 +1,9 @@
+Library move-count verification, 27 October 2026
+
+Four valid three-ply PGNs loaded to e4/e5/Nf3 but were counted as one or two plies: attached move numbers, an adjacent variation, an opening brace in a semicolon comment before a later block comment, and CR-ended line comments. The former cleanup could merge tokens across variations or let comment punctuation consume actual moves. The fifth punctuation-in-block-comment case is an already-correct control.
+
+Use a linear delimiter scan with nested variation depth, first-close block comments and CR/LF line comments. Preserve token gaps across removed sections and remove move numbers before counting SAN. The existing lightweight counter remains independent of legal-move parsing. Four new regressions fail before the change and pass afterward; existing malformed-input limits remain unchanged.
+
+Native Chromium/Firefox, 1280px normal dark and 375px 200% text light: five raw JSON backup restores per layout (twenty cases). Restore a three-ply target beside a two-ply reference, select Longest first, inspect row order/count and the combined library total, then load the target to the actual third-ply knight. Before, three forms sort behind the shorter reference and all four have incorrect totals; the adjacent-variation case ties at two. After, the target has three plies, sorts first and contributes to a five-ply total. Raw PGN text is retained. The controlled engine fixture isolates library behavior.
+
+The initial full verification exposed the existing tolerant unfinished-comment contract in importRobustness.test.ts. Retain unfinished tails for that counter while the importer rejects them; the affected 186-test run and final full verification pass. Final npm run verify: typecheck, lint, 123 test files, 1,962 passing tests, one existing skip and production build. Related complete/partial backup, export/report and database deduplication workflows pass.

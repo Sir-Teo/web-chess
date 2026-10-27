@@ -144,25 +144,39 @@ function stripBlockComments(text: string): string {
   }
 }
 
-/** Drops bracketed variations, honouring nesting, so only the main line is left. */
-function stripVariations(movetext: string): string {
+/** Main-line text with comment and variation boundaries kept as token gaps. */
+function libraryMainlineMovetext(text: string): string {
+  const delimiters = /[;{()]/g
+  const lineEnding = /[\r\n]/g
   let depth = 0
   let out = ''
-  for (const char of movetext) {
-    if (char === '(') depth += 1
-    else if (char === ')') depth = Math.max(0, depth - 1)
-    else if (depth === 0) out += char
+  let cursor = 0
+  for (;;) {
+    delimiters.lastIndex = cursor
+    const delimiter = delimiters.exec(text)
+    if (!delimiter) return out + (depth === 0 ? text.slice(cursor) : '')
+    const open = delimiter.index
+    if (depth === 0) out += text.slice(cursor, open) + ' '
+    if (delimiter[0] === '{') {
+      const close = text.indexOf('}', open + 1)
+      // Keep an unfinished tail available to the tolerant library counter;
+      // the actual game importer separately rejects malformed comments.
+      if (close < 0) return out + (depth === 0 ? text.slice(open) : '')
+      cursor = close + 1
+    } else if (delimiter[0] === ';') {
+      lineEnding.lastIndex = open + 1
+      cursor = lineEnding.exec(text)?.index ?? text.length
+    } else {
+      depth = delimiter[0] === '(' ? depth + 1 : Math.max(0, depth - 1)
+      cursor = open + 1
+    }
   }
-  return out
 }
 
 /** Plies in the main line. Comments, variations, NAGs and results do not count. */
 export function countPgnMoves(pgn: string): number {
-  const movetext = stripVariations(
-    stripBlockComments(stripPgnHeaders(pgn))
-      .replace(/;[^\n]*/g, ' ')
-      .replace(/\$\d+/g, ' '),
-  )
+  const movetext = libraryMainlineMovetext(stripPgnHeaders(pgn))
+    .replace(/\$\d+|\b\d+\.(?:\.\.)?/g, ' ')
   return movetext
     .split(/\s+/)
     .filter(token => token && !RESULT_TOKEN.test(token) && SAN_TOKEN.test(token))
