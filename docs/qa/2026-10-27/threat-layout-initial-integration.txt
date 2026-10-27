@@ -1,0 +1,66 @@
+  contrast (Dark / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 1280px): 163 measured, 0 under the floor (146 on a gradient, measured against its worst stop)
+  typed moves (1280px, Dark): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  contrast (Dark / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 375px): 160 measured, 0 under the floor (142 on a gradient, measured against its worst stop)
+  typed moves (375px, Dark): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 1280px): 163 measured, 0 under the floor (146 on a gradient, measured against its worst stop)
+  typed moves (1280px, Light): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 375px): 160 measured, 0 under the floor (142 on a gradient, measured against its worst stop)
+  typed moves (375px, Light): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  bishop guidance (1280px, 1x, dark): refused a/c pawn drafts keep focus/board; associated legal bishop choices wrap; corrected and explicitly disambiguated captures move the selected bishop and clear errors
+  bishop guidance (375px, 1x, light): refused a/c pawn drafts keep focus/board; associated legal bishop choices wrap; corrected and explicitly disambiguated captures move the selected bishop and clear errors
+  bishop guidance (375px, 2x, dark): refused a/c pawn drafts keep focus/board; associated legal bishop choices wrap; corrected and explicitly disambiguated captures move the selected bishop and clear errors
+  bishop guidance (320px, 2x, light): refused a/c pawn drafts keep focus/board; associated legal bishop choices wrap; corrected and explicitly disambiguated captures move the selected bishop and clear errors
+  contrast (Dark / recovery warning / 1280px): 162 measured, 0 under the floor (144 on a gradient, measured against its worst stop)
+  autosave (1280px, Dark): denied storage is visible, PGN downloads, retry recovers
+  contrast (Dark / recovery warning / 375px): 159 measured, 0 under the floor (137 on a gradient, measured against its worst stop)
+  autosave (375px, Dark): denied storage is visible, PGN downloads, retry recovers
+  contrast (Light / recovery warning / 1280px): 162 measured, 0 under the floor (144 on a gradient, measured against its worst stop)
+  autosave (1280px, Light): denied storage is visible, PGN downloads, retry recovers
+  contrast (Light / recovery warning / 375px): 159 measured, 0 under the floor (137 on a gradient, measured against its worst stop)
+  autosave (375px, Light): denied storage is visible, PGN downloads, retry recovers
+  engine retry via Commands (1280×900, 1x, dark, boot, auto false): one held replacement, opener focus, retained board/readings/draft, exact history/settings and one intended search; repeated failure recovers
+  engine retry via Commands (1280×900, 1x, dark, runtime, auto false): one held replacement, opener focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry via Commands (1280×900, 1x, dark, runtime, auto true): one held replacement, opener focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry via Commands (1280×900, 1x, dark, hidden, auto true): one held replacement, opener focus, retained board/readings/draft, exact history/settings and one intended search; infinite analysis waits for visibility
+  engine retry via Commands (320×480, 2x, light, boot, auto false): one held replacement, opener focus, retained board/readings/draft, exact history/settings and one intended search; repeated failure recovers
+  engine retry via Commands (320×480, 2x, light, runtime, auto false): one held replacement, opener focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry via Commands (320×480, 2x, light, runtime, auto true): one held replacement, opener focus, retained board/readings/draft, exact history/settings and one intended search
+  engine retry via Commands (320×480, 2x, light, hidden, auto true): one held replacement, opener focus, retained board/readings/draft, exact history/settings and one intended search; infinite analysis waits for visibility
+  analysis retry command 1280×900 text 100%: Play and released states explain unavailability; Enter keeps Commands open and starts no worker/search
+  analysis retry command 320×480 text 200%: Play and released states explain unavailability; Enter keeps Commands open and starts no worker/search
+  startup (analysis, silent-first): fallback answered
+  startup (analysis, silent-all): failure is visible
+  startup (play, silent-first): fallback answered
+  startup (play, silent-all): failure is visible
+  contrast (Engine Lab shared settings / 1280px): 131 measured, 0 under the floor (113 on a gradient, measured against its worst stop)
+  Engine Lab (1280px): shared settings, next search, reload, and console updates agree
+  contrast (Engine Lab shared settings / 375px): 129 measured, 0 under the floor (110 on a gradient, measured against its worst stop)
+  Engine Lab (375px): shared settings, next search, reload, and console updates agree
+  console search (1280px): startup guard, tab/space commands, busy status, stop/acknowledge before new position, isolated late scores, working Stop and completed perft
+  console search (375px): startup guard, tab/space commands, busy status, stop/acknowledge before new position, isolated late scores, working Stop and completed perft
+  threat reload (1280×900, 1x, dark): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat reload (375×812, 1x, light): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat reload (320×812, 2x, light): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat reload (844×390, 2x, dark): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action
+  threat recovery (1280×900, 1x, dark, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (1280×900, 1x, dark, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (1280×900, 1x, dark, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (375×812, 1x, light, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (375×812, 1x, light, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (375×812, 1x, light, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (320×812, 2x, light, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (320×812, 2x, light, engine-profile): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (320×812, 2x, light, worker-error): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+  threat recovery (844×390, 2x, dark, leave-analysis): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds
+page.waitForFunction: Timeout 30000ms exceeded.
+    at waitStatus (/workspace/web-chess/scripts/test-ui-browser.cjs:14223:43)
+    at checkThreatInterruptionRecovery (/workspace/web-chess/scripts/test-ui-browser.cjs:14229:15)
+    at async checkRemaining (/workspace/web-chess/scripts/test-ui-browser.cjs:22022:5)
+    at async /tmp/web-chess-ui-after-move-entry.cjs:15:60 {
+  log: [],
+  name: 'TimeoutError'
+}

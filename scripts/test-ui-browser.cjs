@@ -14223,6 +14223,8 @@ async function checkThreatInterruptionRecovery(browser) {
         const waitStatus = status => page.waitForFunction(status => document.querySelector('.bottom .status')?.textContent === status, status)
         await waitStatus('ready')
         await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true'
+          && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
         const ask = page.getByRole('button', { name: 'Show what the opponent is threatening', exact: true })
         await page.evaluate(() => { window.__withholdEngineInfo = true })
         await ask.click()
