@@ -5,7 +5,7 @@ import './AnalysisGuide.css'
 export const GraphEstimateGuide = memo(function GraphEstimateGuide() {
   return (
     <details className="analysis-guide graph-estimate-guide">
-      <summary>About these percentages</summary>
+      <summary>Chart guide</summary>
       <div>
         <p><strong>White score</strong> counts a win as one point and a draw as half a point.
           It uses Stockfish's win/draw/loss estimate when available and a score-based estimate otherwise.</p>
