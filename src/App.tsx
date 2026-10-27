@@ -6780,27 +6780,29 @@ function App() {
     return (
       <section className="panel-card drill-card" aria-label="Line drill">
         <h3><span className="section-icon"><IconSwords /></span> Drill</h3>
-        <p className="drill-progress" role="status">
-          {finished
-            ? `Line complete — ${total} ${total === 1 ? 'move' : 'moves'} from memory.`
-            : awayFromLine
-              ? `Paused at move ${done + 1} of ${total} — the board has moved off the line.`
-              : `Playing ${drill.line.side === 'white' ? 'White' : 'Black'} · move ${done + 1} of ${total}`}
-        </p>
-        {awayFromLine && (
-          <p className="drill-miss panel-copy small">
-            {canReturn
-              ? 'Return to the question you left, or restart from the beginning.'
-              : 'That question is no longer in this study. Restart to practise the line again.'}
+        <div className="drill-feedback" role="status" aria-live="polite" aria-atomic="true">
+          <p className="drill-progress">
+            {finished
+              ? `Line complete — ${total} ${total === 1 ? 'move' : 'moves'} practised.`
+              : awayFromLine
+                ? `Paused at move ${done + 1} of ${total} — the board has moved off the line.`
+                : `Playing ${drill.line.side === 'white' ? 'White' : 'Black'} · move ${done + 1} of ${total}`}
           </p>
-        )}
-        {!finished && !awayFromLine && drill.misses > 0 && (
-          <p className="drill-miss panel-copy small">
-            {answerSan
-              ? `Not the line. It plays ${answerSan}.`
-              : 'Not the line. Try again.'}
-          </p>
-        )}
+          {awayFromLine && (
+            <p className="drill-miss panel-copy small">
+              {canReturn
+                ? 'Return to the question you left, or restart from the beginning.'
+                : 'That question is no longer in this study. Restart to practise the line again.'}
+            </p>
+          )}
+          {!finished && !awayFromLine && drill.misses > 0 && (
+            <p className="drill-miss panel-copy small">
+              {answerSan
+                ? `Not the line. It plays ${answerSan}.`
+                : 'Not the line. Try again.'}
+            </p>
+          )}
+        </div>
         <div className="inline-actions">
           {awayFromLine && <button type="button" className="btn-cancel" onClick={returnToDrill}
             onFocus={event => {

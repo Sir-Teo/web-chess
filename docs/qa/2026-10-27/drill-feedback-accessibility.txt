@@ -1,0 +1,2 @@
+NATIVE ACCESSIBILITY STATUS {"role":"status","ignored":false,"live":"polite","atomic":true,"relevant":"additions text","text":"Playing White · move 1 of 2\n\nNot the line. Try again."}
+  drill hidden hints (1280×900, 1x, dark): known best/reply titles disappear in Coach/Pro and through one miss, advance and restart; two misses/exit restore titles; native hover and all 64 useful square labels retain no answer coordinates; stable polite status exposes both misses and completion without claiming unaided recall

@@ -16163,6 +16163,12 @@ async function checkDrillHiddenHints(browser) {
       const card = page.getByRole('region', { name: 'Line drill', exact: true })
       await page.getByRole('button', { name: 'Drill this line as White', exact: true }).click()
       await hidden()
+      const feedback = card.getByRole('status')
+      await feedback.evaluate(el => {
+        window.__drillFeedbackNode = el
+        window.__drillFeedbackChanges = []
+        new MutationObserver(() => window.__drillFeedbackChanges.push(el.textContent)).observe(el, { subtree: true, childList: true, characterData: true })
+      })
       await best.hover()
       await reply.hover()
       const squareLabels = await page.locator('[id^="chessboard-square-"]').evaluateAll(squares => squares.map(el => ({
@@ -16177,8 +16183,12 @@ async function checkDrillHiddenHints(browser) {
       await page.locator('.analysis-experience-toggle').getByRole('button', { name: 'Coach', exact: true }).click()
       await play('d2', 'd4')
       await hidden()
+      assert((await feedback.innerText()).includes('Not the line. Try again.'), 'wrong-answer feedback is outside the live drill status')
+      assert(await feedback.evaluate(el => el === window.__drillFeedbackNode && el.getAttribute('aria-live') === 'polite' && el.getAttribute('aria-atomic') === 'true'), 'feedback replaced its live region or lost polite atomic semantics')
+      assert((await feedback.ariaSnapshot()).includes('Not the line. Try again.') && await feedback.locator('button').count() === 0, 'accessible drill feedback omits the result or repeats action controls')
       await play('b1', 'c3')
       await card.getByText('Not the line. It plays e4.', { exact: true }).waitFor()
+      assert((await feedback.innerText()).includes('Not the line. It plays e4.'), 'revealed answer is outside the live drill status')
       await page.waitForFunction(() => {
         const values = document.querySelectorAll('.coach-grid > div strong')
         return values[1]?.getAttribute('title') === 'e2e4' && values[2]?.getAttribute('title') === 'e7e5'
@@ -16186,6 +16196,11 @@ async function checkDrillHiddenHints(browser) {
       await play('e2', 'e4')
       await card.getByRole('status').filter({ hasText: 'move 2 of 2' }).waitFor()
       await hidden()
+      await play('g1', 'f3')
+      await feedback.filter({ hasText: 'Line complete' }).waitFor()
+      const completed = await feedback.innerText()
+      assert(/2 moves/.test(completed) && !/from memory/i.test(completed), `completion claims recall despite a revealed answer: ${completed}`)
+      assert(await feedback.evaluate(el => el === window.__drillFeedbackNode && ['Not the line. Try again.', 'Not the line. It plays e4.', 'Line complete'].every(message => window.__drillFeedbackChanges.some(text => text.includes(message)))), 'actual live-region mutations lost a miss, reveal or completion')
       await card.getByRole('button', { name: 'Restart', exact: true }).click()
       await hidden()
       await card.getByRole('button', { name: 'Stop drilling', exact: true }).click()
@@ -16195,7 +16210,7 @@ async function checkDrillHiddenHints(browser) {
       })
       assert(errors.length === 0, `drill hidden hint errors: ${errors.join('; ')}`)
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'hidden drill hints overflow')
-      console.log(`  drill hidden hints (${width}×${height}, ${scale}x, ${theme}): known best/reply titles disappear in Coach/Pro and through one miss, advance and restart; two misses/exit restore titles; native hover and all 64 useful square labels retain no answer coordinates`)
+      console.log(`  drill hidden hints (${width}×${height}, ${scale}x, ${theme}): known best/reply titles disappear in Coach/Pro and through one miss, advance and restart; two misses/exit restore titles; native hover and all 64 useful square labels retain no answer coordinates; stable polite status exposes both misses and completion without claiming unaided recall`)
     } finally { await context.close() }
   }
 }
