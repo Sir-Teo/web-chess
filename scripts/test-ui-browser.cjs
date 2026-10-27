@@ -5233,7 +5233,7 @@ async function checkRevealRetriesYieldToInteraction(browser) {
     await page.addInitScript(fakeEngineScript() + `
       const nativeTimeout = window.setTimeout;
       window.setTimeout = (callback, delay, ...args) => nativeTimeout(callback,
-        [160, 360, 1200].includes(delay) ? 30000 : delay, ...args);
+        [120, 160, 320, 360, 1200].includes(delay) ? 30000 : delay, ...args);
       localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
         workspaceMode: 'play', analysisExperience: 'pro', autoAnalyze: false,
         engineProfile: 'lite-single-local', reviewMaxWorkers: 1,
@@ -5264,7 +5264,28 @@ async function checkRevealRetriesYieldToInteraction(browser) {
     assert(await page.evaluate(() => window.__revealFreshClicks) === 1, 'the review click was lost between pointer-down and pointer-up')
     await page.clock.runFor(300)
     await page.getByTestId('review-run-summary').filter({ hasText: 'Completed review' }).waitFor()
-    console.log('  reveal interaction: held board retries cannot move Fresh review during a click; the requested review completes')
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
+    await page.clock.runFor(400)
+    await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+    await page.getByRole('button', { name: 'Release engine', exact: true }).click()
+    await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'unloaded')
+    await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+    await page.clock.runFor(40)
+    const load = page.getByRole('button', { name: 'Load engine', exact: true })
+    await load.focus()
+    const focusedLoad = await load.boundingBox()
+    const workers = await page.evaluate(() => window.__engineCount)
+    assert(focusedLoad.y >= 0 && focusedLoad.y + focusedLoad.height <= 813, 'the newly focused Load action is not visible')
+    // Focus alone is meaningful navigation, including assistive technology.
+    // No pointer/key event should be needed to cancel an older panel reveal.
+    await page.clock.fastForward(31000)
+    const settledLoad = await load.boundingBox()
+    assert(settledLoad.y >= 0 && settledLoad.y + settledLoad.height <= 813, `a delayed panel reveal hid focused Load at ${settledLoad.y}`)
+    assert(await load.evaluate(el => el === document.activeElement && el.contains(document.elementFromPoint(
+      el.getBoundingClientRect().x + el.getBoundingClientRect().width / 2,
+      el.getBoundingClientRect().y + el.getBoundingClientRect().height / 2))), 'a delayed panel reveal obscured or unfocused Load')
+    assert(await page.evaluate(count => window.__engineCount === count && document.querySelector('.bottom .status')?.textContent === 'unloaded', workers), 'focusing Load woke the engine')
+    console.log('  reveal interaction: a held click stays in place and completes its review; focus alone preserves visible Load through pending panel retries at 200% text without waking the engine')
   } finally { await context.close() }
 }
 

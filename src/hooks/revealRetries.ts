@@ -1,7 +1,7 @@
-/** Retry layout settling only while the reader has not taken another action. */
+/** Retry layout settling until new input or focus movement takes over. */
 export function scheduleRevealRetries(reveal: () => void, delays: readonly number[]): () => void {
   const timers = new Set<ReturnType<typeof window.setTimeout>>()
-  const events = ['pointerdown', 'click', 'keydown', 'wheel', 'touchstart'] as const
+  const events = ['pointerdown', 'click', 'keydown', 'focusin', 'wheel', 'touchstart'] as const
   const cancel = () => {
     for (const timer of timers) window.clearTimeout(timer)
     timers.clear()
