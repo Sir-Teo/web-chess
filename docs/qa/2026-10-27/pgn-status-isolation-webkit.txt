@@ -1,0 +1,5 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  PGN status isolation (1280×900, 1x, dark): identical font/color/spacing/bounds before and after lazy Library load; full available width, wrapping/contrast and exact draft/current game preserved
+  PGN status isolation (375×812, 2x, light): identical font/color/spacing/bounds before and after lazy Library load; full available width, wrapping/contrast and exact draft/current game preserved
+  PGN status isolation (320×812, 2x, dark): identical font/color/spacing/bounds before and after lazy Library load; full available width, wrapping/contrast and exact draft/current game preserved
+  PGN status isolation (844×390, 2x, light): identical font/color/spacing/bounds before and after lazy Library load; full available width, wrapping/contrast and exact draft/current game preserved

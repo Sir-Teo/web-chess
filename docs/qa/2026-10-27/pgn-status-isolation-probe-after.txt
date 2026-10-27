@@ -1,0 +1,1 @@
+{"before":{"font":"24.32px","color":"rgb(17, 94, 89)","margin":"19.2px 0px 0px","width":279,"height":102.09375},"after":{"font":"24.32px","color":"rgb(17, 94, 89)","margin":"19.2px 0px 0px","width":279,"height":102.09375}}

@@ -37,6 +37,14 @@
     line-height: 1.4;
 }
 
+.pgn-import-status {
+    margin: 0.6rem 0 0;
+    font-size: 0.76rem;
+    line-height: 1.4;
+    color: var(--accent-ink);
+    overflow-wrap: anywhere;
+}
+
 .dialog-quick-actions {
     display: flex;
     flex-wrap: wrap;

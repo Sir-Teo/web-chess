@@ -6228,6 +6228,62 @@ async function checkPositionSetupEnPassant(browser) {
   }
 }
 
+async function checkPgnImportStatusIsolation(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 2, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height }, hasTouch: width < 900, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme }))
+        File.prototype.text = function () { return new Promise(() => {}) }
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true'
+        && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
+      await page.locator('.move-entry summary').click()
+      await page.locator('.move-entry input').fill('e4'); await page.locator('.move-entry input').press('Enter')
+      const draftText = '1. d4 {Keep this draft ♞} d5 *'
+      const read = async () => {
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        const dialog = page.locator('.pgn-dialog'), draft = dialog.locator('textarea.input-textarea')
+        await draft.fill(draftText)
+        await dialog.locator('input[type=file]').setInputFiles({ name: 'slow.pgn', mimeType: 'text/plain', buffer: Buffer.from('1. e4 *') })
+        await dialog.getByRole('button', { name: 'Cancel file read', exact: true }).press('Enter')
+        const status = dialog.getByRole('status').filter({ hasText: 'File read canceled.' })
+        await status.scrollIntoViewIfNeeded()
+        const style = await status.evaluate(el => {
+          const computed = getComputedStyle(el), box = el.getBoundingClientRect(), parent = el.parentElement.getBoundingClientRect()
+          const parentStyle = getComputedStyle(el.parentElement)
+          const left = parent.left + parseFloat(parentStyle.paddingLeft) + parseFloat(parentStyle.borderLeftWidth)
+          const right = parent.right - parseFloat(parentStyle.paddingRight) - parseFloat(parentStyle.borderRightWidth)
+          const range = document.createRange(); range.selectNodeContents(el)
+          const text = range.getBoundingClientRect()
+          return { font: computed.fontSize, lineHeight: computed.lineHeight, color: computed.color, margin: computed.margin,
+            width: box.width, height: box.height, availableWidth: right - left,
+            fits: box.left >= left - 1 && box.right <= right + 1 && text.left >= box.left - 1 && text.right <= box.right + 1 }
+        })
+        const contrast = await page.evaluate(contrastProbe, '.pgn-import-status')
+        assert(style.fits && contrast.checked === 1 && contrast.failures.length === 0, `PGN feedback does not fit or has poor contrast: ${JSON.stringify({ style, contrast })}`)
+        assert(style.width >= style.availableWidth - 1 && await draft.inputValue() === draftText, `PGN feedback is needlessly indented or changes the draft: ${JSON.stringify(style)}`)
+        await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+        return style
+      }
+      const before = await read()
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      await page.locator('.library-dialog').getByRole('button', { name: 'Done', exact: true }).click()
+      const after = await read()
+      assert(JSON.stringify(before) === JSON.stringify(after), `Library stylesheet changed PGN feedback: ${JSON.stringify({ before, after })}`)
+      assert(await page.locator('#chessboard-square-e4 [data-piece="wP"]').count() === 1 && await page.locator('.mtree-chip').count() === 1, 'status styling changed the current game')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'PGN feedback overflows the viewport')
+      assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `PGN status errors: ${errors.join('; ')}`)
+      console.log(`  PGN status isolation (${width}×${height}, ${scale}x, ${theme}): identical font/color/spacing/bounds before and after lazy Library load; full available width, wrapping/contrast and exact draft/current game preserved`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkPgnFileReading(browser) {
   const fresh = '[Event "File read ♞"]\n\n1. d4 {José’s note} (1. e4 {Side note} e5) d5 2. c4 {Fresh read ♞} *'
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 2, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
@@ -6427,7 +6483,7 @@ async function checkImportDraftOwnership(browser) {
       await startFetch()
       await finishFetch()
       await page.waitForFunction(() => document.querySelector('.pgn-dialog textarea').value.includes('Old archive'))
-      assert(await dialog.locator('.library-status').innerText() === 'Fetched 1 game for another-player.',
+      assert(await dialog.locator('.pgn-import-status').innerText() === 'Fetched 1 game for another-player.',
         'a fresh fetch did not recover after cancellation')
 
       const file = dialog.locator('input[type="file"]')
@@ -8437,7 +8493,7 @@ async function checkLibraryPgnEndings(browser) {
       await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
       await page.locator('.pgn-dialog input[type="file"]').setInputFiles({ name: 'roundtrip.pgn', mimeType: 'application/x-chess-pgn', buffer: Buffer.from(exported) })
       await page.getByRole('button', { name: 'Add 5 games to the library', exact: true }).click()
-      await page.locator('.pgn-dialog .library-status').filter({ hasText: 'Added 5 games' }).waitFor()
+      await page.locator('.pgn-dialog .pgn-import-status').filter({ hasText: 'Added 5 games' }).waitFor()
       await page.waitForFunction(() => new Promise(resolve => {
         const request = indexedDB.open('web-chess-library', 1)
         request.onerror = () => resolve(false)
@@ -8503,7 +8559,7 @@ async function checkDatabaseGameBoundaries(browser) {
       const offer = page.getByRole('button', { name: 'Add 4 games to the library', exact: true })
       await offer.waitFor({ timeout: 5000 })
       await offer.click()
-      await page.locator('.pgn-dialog .library-status').filter({ hasText: 'Added 4 games' }).waitFor()
+      await page.locator('.pgn-dialog .pgn-import-status').filter({ hasText: 'Added 4 games' }).waitFor()
       await page.waitForFunction(() => new Promise(resolve => {
         const request = indexedDB.open('web-chess-library', 1)
         request.onerror = () => resolve(false)
@@ -15081,9 +15137,9 @@ async function checkAFullLibraryStopsReadingTheFile(browser) {
 
     const started = Date.now()
     await offer.click()
-    const status = page.locator('.library-status')
+    const status = page.locator('.pgn-dialog .pgn-import-status')
     await status.waitFor({ timeout: 180000 })
-    await page.waitForFunction(() => /Added/.test(document.querySelector('.library-status')?.textContent || ''),
+    await page.waitForFunction(() => /Added/.test(document.querySelector('.pgn-import-status')?.textContent || ''),
       null, { timeout: 180000 })
     const took = Date.now() - started
     const note = (await status.textContent()).trim()
@@ -16431,7 +16487,7 @@ async function checkTheLibrarySurvivesABackup(browser) {
     })
     await page.locator('.dialog-database-offer button').waitFor({ timeout: 30000 })
     await page.evaluate(() => setTimeout(() => document.querySelector('.dialog-database-offer button').click(), 0))
-    await page.waitForFunction(() => /Added/.test(document.querySelector('.library-status')?.textContent || ''),
+    await page.waitForFunction(() => /Added/.test(document.querySelector('.pgn-import-status')?.textContent || ''),
       null, { timeout: 120000 })
     await page.keyboard.press('Escape')
     await page.waitForTimeout(400)
@@ -20545,6 +20601,7 @@ async function main() {
       'clock-transition-time': checkClockTransitionTimesSurviveQueuedWork,
       'recovery-ownership': checkRecoveryOwnershipIncludesSessionState,
       'pgn-file-reading': checkPgnFileReading,
+      'pgn-import-status': checkPgnImportStatusIsolation,
       'move-list-pointer': checkMoveListPointerActivation,
       'move-list-fit': checkMoveListFitting,
       'drill-restart': checkDrillRestartKeepsItsLine,
@@ -21341,6 +21398,7 @@ async function main() {
     await checkClockTransitionTimesSurviveQueuedWork(browser)
     await checkRecoveryOwnershipIncludesSessionState(browser)
     await checkPgnFileReading(browser)
+    await checkPgnImportStatusIsolation(browser)
     await checkNavigationKeepsTheClockHonest(browser)
     await checkKeepSearchingIsUnbounded(browser)
     await checkAutoplayWalksTheLine(browser)

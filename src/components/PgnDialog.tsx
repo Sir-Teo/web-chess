@@ -903,7 +903,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                     </button>
                                 </div>
                             )}
-                            {status && <p className="library-status" role="status">{status}</p>}
+                            {status && <p className="pgn-import-status" role="status">{status}</p>}
                         </div>
                     )}
 
