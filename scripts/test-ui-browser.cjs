@@ -6372,6 +6372,53 @@ async function checkLibrarySorting(browser) {
   }
 }
 
+async function checkLibraryEmptyFocus(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const opener = page.getByRole('button', { name: 'Open saved games library', exact: true })
+      const dialog = page.locator('.library-dialog')
+      for (const starredOnly of [false, true]) {
+        await opener.click()
+        await dialog.locator('input[type="file"]').setInputFiles({ name: 'last-game.json', mimeType: 'application/json',
+          buffer: Buffer.from(JSON.stringify({ format: 'web-chess-library', version: 1,
+            games: [{ id: `last-${starredOnly}`, name: 'Only game', pgn: '1. e4 e5 *', favorite: true, createdAt: 1, updatedAt: 1 }] })) })
+        const remove = dialog.getByRole('button', { name: 'Delete Only game', exact: true })
+        await remove.waitFor()
+        if (starredOnly) await dialog.getByRole('button', { name: 'Starred only', exact: true }).click()
+        if (starredOnly) await remove.click()
+        else { await remove.focus(); await remove.press('Enter') }
+        const confirm = dialog.getByRole('button', { name: 'Confirm deleting Only game', exact: true })
+        if (starredOnly) await confirm.click()
+        else await confirm.press('Enter')
+        await dialog.getByText('Nothing saved yet.', { exact: true }).waitFor()
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        const done = dialog.getByRole('button', { name: 'Done', exact: true })
+        assert(await done.evaluate(element => document.activeElement === element), 'deleting the last saved game lost focus instead of moving it to Done')
+        assert(await done.evaluate(element => {
+          const rect = element.getBoundingClientRect()
+          return rect.top >= 0 && rect.bottom <= innerHeight + 1
+            && element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2))
+        }), 'empty-library focus is outside the viewport or covered')
+        await page.keyboard.press('Tab')
+        assert(await page.evaluate(() => Boolean(document.activeElement?.closest('.library-dialog'))), 'Tab escaped the empty library')
+        await page.keyboard.press('Escape')
+        await dialog.waitFor({ state: 'detached' })
+        await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Open saved games library')
+        assert(await opener.evaluate(element => document.activeElement === element), 'empty library did not return focus to its opener')
+      }
+      assert(errors.length === 0, `empty library errors: ${errors.join('; ')}`)
+      console.log(`  empty library focus (${width}×${height}, ${scale}x, ${theme}): keyboard and pointer delete the last game with/without starred filter; visible Done focus, contained Tab and opener return`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkLibraryStarredFilter(browser) {
   for (const [width, scale, theme] of [[1280, 1, 'dark'], [901, 2, 'light'], [375, 1, 'dark'], [320, 2, 'light']]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -16830,6 +16877,7 @@ async function main() {
       'international-search': checkInternationalLibrarySearch,
       'library-browsing': checkLibraryBrowsing,
       'library-starred': checkLibraryStarredFilter,
+      'library-empty-focus': checkLibraryEmptyFocus,
       'library-sorting': checkLibrarySorting,
       'library-lock-fallback': checkLibraryLockFallback,
       'library-capacity': checkAFullLibraryStopsReadingTheFile,
@@ -17673,6 +17721,7 @@ async function main() {
     await checkInternationalLibrarySearch(browser)
     await checkLibraryBrowsing(browser)
     await checkLibraryStarredFilter(browser)
+    await checkLibraryEmptyFocus(browser)
     await checkLibrarySorting(browser)
     await checkLibraryLockFallback(browser)
     await checkImportDraftOwnership(browser)

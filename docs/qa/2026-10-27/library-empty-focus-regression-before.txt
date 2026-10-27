@@ -1,0 +1,5 @@
+Error: deleting the last saved game lost focus instead of moving it to Done
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkLibraryEmptyFocus (/workspace/web-chess/scripts/test-ui-browser.cjs:6403:9)
+    at async /tmp/web-chess-library-empty-focus-check.cjs:10:9

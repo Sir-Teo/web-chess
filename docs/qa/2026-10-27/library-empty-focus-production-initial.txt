@@ -1,0 +1,5 @@
+Error: empty library did not return focus to its opener
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkLibraryEmptyFocus (/workspace/web-chess/scripts/test-ui-browser.cjs:6413:9)
+    at async /tmp/web-chess-library-empty-focus-check.cjs:10:9

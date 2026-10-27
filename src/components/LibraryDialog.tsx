@@ -494,7 +494,12 @@ export function LibraryDialog({
                                                     const neighbor = row?.nextElementSibling ?? row?.previousElementSibling
                                                     const target = neighbor?.querySelector<HTMLElement>('[title="Delete"]')
                                                         ?? panelRef.current?.querySelector<HTMLElement>('input[type="search"], [data-library-done]')
-                                                    requestAnimationFrame(() => { if (target?.isConnected) target.focus() })
+                                                    requestAnimationFrame(() => {
+                                                        // Deleting the final game also removes search.
+                                                        const next = target?.isConnected ? target
+                                                            : panelRef.current?.querySelector<HTMLElement>('[data-library-done]')
+                                                        next?.focus()
+                                                    })
                                                     onDelete(game.id)
                                                     setConfirmingDelete(null)
                                                     if (renaming?.id === game.id) setRenaming(null)
