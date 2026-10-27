@@ -120,42 +120,52 @@ function pgnTagEnd(text: string, open: number): number | null {
     return null
 }
 
-export function hasMultiplePgnGames(pgnText: string): boolean {
-    // Count only actual tags and movetext. A quoted tag in a note is prose;
-    // a brace in a semicolon comment cannot swallow the following moves.
+type PgnTextToken = { kind: 'tag' | 'text'; start: number; end: number }
+
+/** Actual tag/text spans; block comments end at their first closing brace. */
+function* pgnTokensOutsideComments(text: string): Generator<PgnTextToken> {
     const starts = /[;[{]/g
     const lineEnding = /[\r\n]/g
-    let eventTags = 0
-    let resultTags = 0
-    let movetext = ''
-    let copiedThrough = 0
     let cursor = 0
     for (;;) {
         starts.lastIndex = cursor
-        const start = starts.exec(pgnText)
-        if (!start) break
+        const start = starts.exec(text)
+        if (!start) {
+            if (cursor < text.length) yield { kind: 'text', start: cursor, end: text.length }
+            return
+        }
         const open = start.index
-        let end: number
+        if (open > cursor) yield { kind: 'text', start: cursor, end: open }
         if (start[0] === '[') {
-            const tagEnd = pgnTagEnd(pgnText, open)
-            if (tagEnd === null) break
-            const tag = pgnText.slice(open, tagEnd)
-            if (PGN_EVENT_TAG_PATTERN.test(tag)) eventTags++
-            if (PGN_RESULT_TAG_PATTERN.test(tag)) resultTags++
-            if (eventTags > 1 || resultTags > 1) return true
-            end = tagEnd
+            const end = pgnTagEnd(text, open)
+            if (end === null) {
+                yield { kind: 'text', start: open, end: text.length }
+                return
+            }
+            yield { kind: 'tag', start: open, end }
+            cursor = end
         } else if (start[0] === ';') {
             lineEnding.lastIndex = open + 1
-            end = lineEnding.exec(pgnText)?.index ?? pgnText.length
+            cursor = lineEnding.exec(text)?.index ?? text.length
         } else {
-            const close = pgnText.indexOf('}', open + 1)
-            end = close < 0 ? pgnText.length : close + 1
+            const close = text.indexOf('}', open + 1)
+            cursor = close < 0 ? text.length : close + 1
         }
-        movetext += pgnText.slice(copiedThrough, open) + ' '
-        copiedThrough = end
-        cursor = end
     }
-    movetext += pgnText.slice(copiedThrough)
+}
+
+export function hasMultiplePgnGames(pgnText: string): boolean {
+    let eventTags = 0
+    let resultTags = 0
+    let movetext = ''
+    for (const token of pgnTokensOutsideComments(pgnText)) {
+        const value = pgnText.slice(token.start, token.end)
+        if (token.kind === 'tag') {
+            if (PGN_EVENT_TAG_PATTERN.test(value)) eventTags++
+            if (PGN_RESULT_TAG_PATTERN.test(value)) resultTags++
+            if (eventTags > 1 || resultTags > 1) return true
+        } else movetext += value + ' '
+    }
     const terminationMarkers = movetext.match(PGN_MOVETEXT_RESULT_PATTERN)
     return (terminationMarkers?.length ?? 0) > 1
 }
@@ -180,52 +190,35 @@ export function stripPgnByteOrderMark(pgnText: string): string {
  * chess.com, and the importer used to refuse the whole thing and tell the
  * reader to split it themselves. This does that for them.
  *
- * Done line by line rather than with a regular expression because a `{}`
- * comment can span lines and can contain anything, including the text of a
- * header: a game annotated "as in {[Event "Linares"] 1993}" would otherwise
- * be cut in half. Tracking the braces is the only way to know whether a
- * bracket is markup or prose.
+ * Use the same scan as multi-game detection: quoted headers and both comment
+ * forms keep their own punctuation, and a brace comment never nests. Slice
+ * the original game text at actual boundaries so notes are not rewritten.
  *
- * A new game begins at an `[Event` line that follows movetext. Header blocks
+ * A new game begins at an Event tag that follows movetext. Header blocks
  * run together at the top of a game, so the rule is "a header after moves",
  * not "a header".
  */
 export function splitPgnGames(pgnText: string): string[] {
-    const text = stripPgnByteOrderMark(pgnText)
+    const text = stripPgnByteOrderMark(pgnText).replace(/\r\n?/g, '\n')
     if (!text.trim()) return []
 
     const games: string[] = []
-    let current: string[] = []
+    let start = 0
     let sawMoves = false
-    let depth = 0
 
-    const flush = () => {
-        const game = current.join('\n').trim()
-        if (game) games.push(game)
-        current = []
-        sawMoves = false
-    }
-
-    for (const line of text.split(/\r?\n/)) {
-        const outsideComment = depth === 0
-        const isEventTag = outsideComment && /^\s*\[Event\s/.test(line)
-
-        if (isEventTag && sawMoves) flush()
-        current.push(line)
-
-        // Braces only mean a comment outside a header line; a header's value is
-        // quoted text and cannot open one.
-        const isHeader = outsideComment && /^\s*\[[A-Za-z0-9_]+\s+"/.test(line)
-        if (!isHeader) {
-            for (const character of line) {
-                if (character === '{') depth++
-                else if (character === '}' && depth > 0) depth--
-            }
-            if (depth === 0 && line.trim() && !/^\s*\[/.test(line)) sawMoves = true
+    for (const token of pgnTokensOutsideComments(text)) {
+        const value = text.slice(token.start, token.end)
+        if (token.kind === 'text') {
+            if (value.trim()) sawMoves = true
+        } else if (sawMoves && PGN_EVENT_TAG_PATTERN.test(value)) {
+            games.push(text.slice(start, token.start).trim())
+            start = token.start
+            sawMoves = false
         }
     }
 
-    flush()
+    const last = text.slice(start).trim()
+    if (last) games.push(last)
     return games
 }
 

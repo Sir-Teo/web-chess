@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { parsePgnMoveTree, pgnImportContentError, hasMultiplePgnGames } from './engine/pgn'
+import { parsePgnMoveTree, pgnImportContentError, hasMultiplePgnGames, splitPgnGames } from './engine/pgn'
 import { countPgnMoves, extractLibraryMetadata, parseLibraryBackup, normalizeLibraryGames, sameGameKey } from './engine/gameLibrary'
 import { hasLegalKingPlacement, validateFenForAnalysis } from './engine/fen'
 import { buildFenShareUrl, normalizeFenForShare, parseFenShareHash } from './engine/shareLink'
@@ -29,6 +29,7 @@ for (const [name, input] of NASTY) {
     const t0 = performance.now()
     pgnImportContentError(input)
     hasMultiplePgnGames(input)
+    splitPgnGames(input)
     countPgnMoves(input)
     extractLibraryMetadata(input)
     parseLibraryBackup(input)

@@ -1,0 +1,11 @@
+PGN database splitting verification, 27 October 2026
+
+Reproduced four valid two-game files that were detected as multiple games but split into one rejected piece: a literal opening brace in a block comment, a brace in a semicolon comment, an inline Event boundary, and CR-only line endings. A quoted-header control already split correctly.
+
+Detection and splitting now share a scanner for real tag/text spans outside comments. Block comments end at the first closing brace; quoted tag punctuation is literal. The splitter retains game text with CR/CRLF normalized to LF. Four model regressions fail before and pass after; the existing hostile-input sweep now also invokes the splitter with the unchanged 1,000ms budget.
+
+Production browser checks use native Chromium and Firefox, 1280px normal dark and 375px 200% text light. All sixteen file-picker/Add games workflows offer exactly two games, preserve normalized raw text in IndexedDB, leave the board and idle engine untouched while adding, and load both saved games through the library. Fake engine metadata isolates import behavior. No page errors occurred.
+
+Related production checks cover export/report round-trip, four-game deduplication, 560-input/500-kept capacity and imported counters. Eight study import/export rounds retain mainline/variation annotations, clocks, evaluations and literal headers; each second export is stable. Four 100,000-brace malformed-file cases preserve draft/board, remain below the existing one-second next-task budget, and accept the corrected game. Timings are diagnostic observations, not benchmarks.
+
+Full npm run verify: typecheck, lint, 123 passing test files, 1,953 passing tests, one pre-existing skip, production build.

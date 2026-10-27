@@ -1407,6 +1407,40 @@ describe('splitting a database file into its games', () => {
     expect(parts[0]).toContain('Linares')
   })
 
+  it('splits after a comment containing a literal opening brace', () => {
+    const first = game('First', '1. e4 {A literal { character is part of the note.} e5 *')
+    const second = game('Second', '1. d4 d5 *')
+    const parts = splitPgnGames(`${first}\n\n${second}`)
+    expect(parts).toEqual([first, second])
+    expect(parts.map(part => parsePgnMoveTree(part).headers.Event)).toEqual(['First', 'Second'])
+  })
+
+  it('does not treat a brace in a line comment as an unfinished block comment', () => {
+    const first = game('First', '1. e4 ; { is literal here\ne5 *')
+    const second = game('Second', '1. d4 d5 *')
+    const parts = splitPgnGames(`${first}\n\n${second}`)
+    expect(parts).toEqual([first, second])
+    expect(parts.map(part => parsePgnMoveTree(part).headers.Event)).toEqual(['First', 'Second'])
+  })
+
+  it('finds the next game when its header follows the result on the same line', () => {
+    const first = game('First', '1. e4 e5 *')
+    const second = game('Second', '1. d4 d5 *')
+    const parts = splitPgnGames(`${first} ${second}`)
+    expect(parts).toEqual([first, second])
+    expect(parts.map(part => parsePgnMoveTree(part).headers.Event)).toEqual(['First', 'Second'])
+  })
+
+  it('accepts carriage-return and CRLF files with the same normalized game text', () => {
+    const first = game('First', '1. e4 e5 *')
+    const second = game('Second', '1. d4 d5 *')
+    for (const ending of ['\r', '\r\n']) {
+      const parts = splitPgnGames(`${first}\n\n${second}`.replace(/\n/g, ending))
+      expect(parts).toEqual([first, second])
+      expect(parts.map(part => parsePgnMoveTree(part).headers.Event)).toEqual(['First', 'Second'])
+    }
+  })
+
   it('keeps each game whole, headers and all', () => {
     const parts = splitPgnGames(`${game('First', '1. e4 e5 1-0')}\n\n${game('Second', '1. d4 d5 0-1')}`)
     expect(parts[0]).toContain('[White "A"]')
