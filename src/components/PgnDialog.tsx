@@ -468,13 +468,18 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const unavailableEnPassant = setup.enPassant !== '-' && !enPassantTargets.includes(setup.enPassant)
     const availableCastlingRights = normalizeAvailableCastlingRights(setup)
     const unavailableCastlingRights = setup.castling !== availableCastlingRights
-    const clearUnavailableCastlingRights = () => {
-        // Repair only this raw field; the draft may have other errors the
-        // reader still wants to inspect, including en passant or counters.
+    const updateRawSetupField = (index: 2 | 3, value: string) => {
+        // Repair one metadata field without normalizing independent errors.
         const fields = fenText.trim().split(/\s+/)
-        fields[2] = availableCastlingRights
+        if (fields.length <= index) {
+            fields.push(...positionSetupToFen(setup).split(' ').slice(fields.length, index + 1))
+        }
+        fields[index] = value
         syncFenTextAndSetup(fields.join(' '))
         resetFeedback()
+    }
+    const clearUnavailableCastlingRights = () => {
+        updateRawSetupField(2, availableCastlingRights)
         fenTextRef.current?.focus()
     }
     /**
@@ -988,8 +993,8 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                                     value={setup.enPassant}
                                                     aria-invalid={unavailableEnPassant || undefined}
                                                     aria-describedby={`${enPassantId}-help`}
-                                                    onChange={event => applySetupChange(current =>
-                                                        updateSetupEnPassant(current, event.target.value as Square | '-'))}>
+                                                    onChange={event => updateRawSetupField(3,
+                                                        updateSetupEnPassant(setup, event.target.value as Square | '-').enPassant)}>
                                                     <option value="-">None</option>
                                                     {unavailableEnPassant && <option value={setup.enPassant}>{setup.enPassant} (invalid)</option>}
                                                     {enPassantTargets.map(square => <option key={square} value={square}>{square}</option>)}

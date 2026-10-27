@@ -16710,6 +16710,7 @@ async function checkUnavailableCastlingRepair(browser) {
       const dialog = page.locator('.pgn-dialog')
       await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
       const input = dialog.locator('.fen-textarea')
+      const target = dialog.getByRole('combobox', { name: 'En passant target', exact: true })
       const clear = dialog.getByRole('button', { name: 'Clear unavailable castling rights', exact: true })
       const whiteK = dialog.getByRole('checkbox', { name: 'White kingside', exact: true })
       await input.fill(missingRook)
@@ -16734,11 +16735,27 @@ async function checkUnavailableCastlingRepair(browser) {
       await clear.click()
       assert(await input.inputValue() === mixed.replace(' KQkq ', ' Kkq '), 'castling repair changed valid rights, raw EP metadata, pieces or counters')
       assert(!await whiteQ.isChecked() && await whiteQ.isDisabled() && await input.evaluate(element => element === document.activeElement), 'mixed-right repair lost its state or focus')
-      const target = dialog.getByRole('combobox', { name: 'En passant target', exact: true })
       assert(await target.inputValue() === 'd6' && await target.getAttribute('aria-invalid') === 'true'
         && await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).isDisabled(), 'castling repair silently cleared the unrelated invalid EP target')
       await target.selectOption('-')
       assert(await input.inputValue() === mixed.replace(' KQkq d6 ', ' Kkq - '), 'separate EP repair changed the corrected rights')
+      await input.fill(mixed)
+      await target.selectOption('-')
+      assert(await input.inputValue() === mixed.replace(' d6 ', ' - '), 'clearing the EP target silently removed an unrelated declared castling right')
+      assert(await whiteQ.isChecked() && await whiteQ.isDisabled()
+        && await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).isDisabled(), 'EP repair hid the remaining unavailable castling right')
+      await clear.click()
+      assert(await input.inputValue() === mixed.replace(' KQkq d6 ', ' Kkq - '), 'clearing the remaining castling right changed the repaired EP target')
+      const abbreviated = '4k3/8/8/3pP3/8/8/8/4K3 w'
+      await input.fill(abbreviated)
+      await target.selectOption('d6')
+      assert(await input.inputValue() === abbreviated + ' - d6'
+        && await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).isDisabled(), 'choosing an EP target shifted missing FEN fields or silently completed counters')
+      const invalidCounter = mixed.replace('17 23', '17junk 23')
+      await input.fill(invalidCounter)
+      await target.selectOption('-')
+      assert(await input.inputValue() === invalidCounter.replace(' d6 ', ' - '), 'clearing EP silently corrected an unrelated invalid counter or castling flag')
+      await input.fill(mixed.replace(' KQkq d6 ', ' Kkq - '))
       await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).click()
       await dialog.waitFor({ state: 'detached' })
       await page.locator('#chessboard-square-h1 [data-piece="wR"]').waitFor()
@@ -16758,7 +16775,7 @@ async function checkUnavailableCastlingRepair(browser) {
       assert(await clear.count() === 0, 'a valid position still offers unavailable-right repair')
       assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `castling repair errors: ${errors.join('; ')}`)
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'castling repair overflows the viewport')
-      console.log(`  castling repair (${width}px, ${scale}x, ${theme}): declared invalid rights stay checked/unavailable with repair help; keyboard clear preserves draft, valid rights, EP and counters; focus stays in the editor; both retained rights castle real pieces`)
+      console.log(`  castling repair (${width}px, ${scale}x, ${theme}): declared invalid rights stay visible; EP/castling repair in either order preserves independent flags, counters and partial drafts; keyboard/focus recovery works; both retained rights castle real pieces`)
     } finally { await context.close() }
   }
 }

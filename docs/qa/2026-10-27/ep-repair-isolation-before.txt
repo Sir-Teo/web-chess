@@ -1,0 +1,5 @@
+Error: clearing the EP target silently removed an unrelated declared castling right
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkUnavailableCastlingRepair (/workspace/web-chess/scripts/test-ui-browser.cjs:16744:7)
+    at async /tmp/web-chess-castling-repair-check.cjs:10:9
