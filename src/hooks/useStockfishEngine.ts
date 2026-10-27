@@ -918,9 +918,11 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     (request: AnalyzeRequest) => {
       if (!enabled) return
       if (releasedRef.current) {
-        // Navigation and background work respect an explicit release. Analyze
-        // is a new request and carries the exact board/history through boot.
-        if (request.purpose !== 'manual') return
+        // Navigation and background work respect an explicit release. Manual
+        // analysis and a requested threat probe carry their position through boot.
+        if (request.purpose !== 'manual' && request.purpose !== 'threat') return
+        // Retained completion markers cannot finish the new probe before boot.
+        if (request.purpose === 'threat') setLastBestMoveFen(null)
         wakeAnalyzeRef.current = request
         loadEngine()
         return

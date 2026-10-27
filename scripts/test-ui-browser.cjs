@@ -11399,6 +11399,58 @@ async function checkConsoleTools(browser) {
   }
 }
 
+async function checkThreatEngineWake(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+        continuousAnalysis: false, engineProfile: 'lite-single-local', hashMb: 128, theme,
+      })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      const waitStatus = status => page.waitForFunction(status => document.querySelector('.bottom .status')?.textContent === status, status)
+      await waitStatus('ready')
+      await waitForBoardPiece(page, 'e2', 'White pawn')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const board = () => page.locator('[id^="chessboard-square-"]').evaluateAll(els => els.map(el =>
+        el.getAttribute('aria-label') || el.querySelector('button, [role="button"]')?.getAttribute('aria-label')))
+      const beforeBoard = await board()
+      const lab = page.getByRole('button', { name: 'Engine Lab', exact: true })
+      const analyzeTab = page.getByRole('button', { name: 'Analyze', exact: true })
+      const ask = page.getByRole('button', { name: 'Show what the opponent is threatening', exact: true })
+      for (const trigger of ['button', 'keyboard']) {
+        await lab.click()
+        await page.getByRole('button', { name: 'Release engine', exact: true }).click()
+        await waitStatus('unloaded')
+        await analyzeTab.click()
+        const counts = await page.evaluate(() => ({ made: window.__engineCount, commands: window.__uciCommands.length }))
+        await page.evaluate(() => { window.__holdConsoleReady = true; window.__releaseConsoleReady = null })
+        if (trigger === 'button') await ask.click()
+        else await page.keyboard.press('t')
+        await page.waitForFunction(made => window.__engineCount === made + 1 && typeof window.__releaseConsoleReady === 'function', counts.made)
+        await waitStatus('loading')
+        assert(await ask.isDisabled() && await page.locator('.coach-threat-answer').count() === 0, 'old readings completed the threat before the new worker was ready')
+        assert(await page.evaluate(count => !window.__uciCommands.slice(count).some(line => /^go\s/.test(line)), counts.commands), 'the threat search started before startup readiness')
+        await page.evaluate(() => window.__releaseConsoleReady())
+        await page.locator('.coach-threat-answer').waitFor()
+        await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready'
+          && window.__uciCommands.filter(line => line.startsWith('position fen')).at(-1)?.includes(' w '))
+        const sent = await page.evaluate(count => window.__uciCommands.slice(count), counts.commands)
+        assert(sent.filter(line => /^go movetime [1-9]\d*$/.test(line)).length === 1, 'one explicit threat request did not make exactly one bounded probe')
+        assert(sent.some(line => line.startsWith('position fen') && line.includes(' b ')), 'the reloaded threat searched the board side instead of the opponent')
+        assert(sent.includes('setoption name Hash value 128'), 'the threat reload lost saved analysis settings')
+        assert(await page.evaluate(made => window.__engineCount === made + 1, counts.made), 'a threat request loaded more than one worker')
+        assert(!await ask.isDisabled() && JSON.stringify(await board()) === JSON.stringify(beforeBoard), 'a threat answer changed the board or left its action locked')
+      }
+      assert(errors.length === 0, `threat reload errors: ${errors.join('; ')}`)
+      console.log(`  threat reload (${width}×${height}, ${scale}x, ${theme}): button/keyboard explicitly wake one worker, await readiness, retain settings, run one bounded opposite-side probe, restore board analysis and unlock the action`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkEngineRelease(browser) {
   for (const [width, scale] of [[1280, 1], [1280, 2], [375, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -16064,6 +16116,7 @@ async function main() {
       autosave: checkAutosaveFailure,
       resources: checkSingleThreadReviewPool,
       'engine-release': checkEngineRelease,
+      'threat-engine-wake': checkThreatEngineWake,
       lab: checkLabSettingsStayInSync,
       'console-search': checkConsoleSearchOwnership,
       'console-deadlines': checkConsoleSearchDeadlines,
@@ -16877,6 +16930,7 @@ async function main() {
     await checkEngineStartupTimeout(browser)
     await checkLabSettingsStayInSync(browser)
     await checkConsoleSearchOwnership(browser)
+    await checkThreatEngineWake(browser)
     await checkEngineRelease(browser)
     await checkConsoleSearchDeadlines(browser)
     await checkConsoleTools(browser)

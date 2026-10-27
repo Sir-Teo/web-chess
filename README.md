@@ -135,8 +135,9 @@ given, and the app answering the reader who touches it.
   is never left running the machine.
 - **Release idle engine memory**: In Pro's Engine Lab, **Release engine** closes
   the idle engine while keeping the board and its displayed readings. **Load
-  engine**, an explicit **Analyze**, or **Review Game** loads it again. Automatic
-  analysis and navigating moves respect the release. Saved settings remain;
+  engine**, an explicit **Analyze**, **What is threatened?**, or **Review Game**
+  loads it again. Automatic analysis and navigating moves respect the release.
+  Saved settings remain;
   the engine's hash table, console position and session-only UCI options reset
   on reload. Stop a search or review before releasing its workers.
 - **Read live console output**: Engine Lab follows new lines while you are at
