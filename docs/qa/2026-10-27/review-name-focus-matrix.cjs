@@ -1,0 +1,6 @@
+const fs=require('node:fs'),path=require('node:path'),Module=require('node:module')
+const filename=path.resolve('scripts/test-ui-browser.cjs'),loaded=new Module(filename)
+loaded.filename=filename;loaded.paths=Module._nodeModulePaths(path.dirname(filename))
+let source=fs.readFileSync(filename,'utf8');source=source.slice(0,source.lastIndexOf('main().then('))
+loaded._compile(source+'module.exports={checkReviewNameFocusOwnership};',filename)
+;(async()=>{const browser=await require(path.resolve('node_modules/playwright'))[process.env.UI_TEST_BROWSER||'chromium'].launch();try{for(const check of Object.values(loaded.exports))await check(browser)}finally{await browser.close()}})().catch(error=>{console.error(error);process.exitCode=1})

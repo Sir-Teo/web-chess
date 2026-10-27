@@ -2655,6 +2655,124 @@ async function checkSavedReviewRenaming(browser) {
   }
 }
 
+async function checkReviewNameFocusOwnership(browser) {
+  for (const [width, height, scale] of [[1280, 900, 1], [320, 480, 2]]) {
+    for (const scenario of ['saved-board', 'saved-modal', 'failed-board']) {
+      const context = await browser.newContext({ viewport: { width, height }, hasTouch: width < 900, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, engineProfile: 'lite-single-local', reviewMaxWorkers: 1,
+        })))
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.locator('#chessboard-square-e2').click()
+        await page.locator('#chessboard-square-e4').click()
+        await page.getByRole('button', { name: 'Review', exact: true }).click()
+        await page.getByRole('button', { name: 'Review Game', exact: true }).click()
+        await page.getByRole('button', { name: 'Review Game', exact: true }).waitFor()
+        const report = await page.getByTestId('review-run-summary').innerText()
+        await page.getByRole('button', { name: 'Save review', exact: true }).click()
+        await page.getByText('Review saved on this device.', { exact: false }).waitFor()
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${100 * scale}%` }, scale)
+        const panel = page.locator('.saved-reviews'), trigger = panel.getByRole('button', { name: 'Rename saved review', exact: true })
+        const input = panel.getByRole('textbox', { name: 'Saved review name', exact: true })
+        const stored = await page.evaluate(() => new Promise((resolve, reject) => {
+          const request = indexedDB.open('web-chess-reviews', 1)
+          request.onsuccess = () => {
+            const db = request.result, tx = db.transaction('runs', 'readonly'), read = tx.objectStore('runs').getAll()
+            read.onsuccess = () => resolve(read.result[0])
+            tx.oncomplete = () => db.close()
+            tx.onabort = () => reject(tx.error)
+          }
+        }))
+        await trigger.click()
+        const title = 'Study draft — ♞'
+        await input.fill(title)
+        if (scenario === 'failed-board') await page.evaluate(id => new Promise((resolve, reject) => {
+          const request = indexedDB.open('web-chess-reviews', 1)
+          request.onsuccess = () => {
+            const db = request.result, tx = db.transaction('runs', 'readwrite')
+            tx.objectStore('runs').delete(id)
+            tx.oncomplete = () => { db.close(); resolve() }
+            tx.onabort = () => { db.close(); reject(tx.error) }
+          }
+        }), stored.id)
+        // Delay delivery of an actual committed/aborted transaction response.
+        // The database operation itself remains native and runs normally.
+        await page.evaluate(() => {
+          const original = IDBDatabase.prototype.transaction
+          window.__reviewNameReplies = []
+          window.__holdReviewNameReply = true
+          IDBDatabase.prototype.transaction = function (...args) {
+            const tx = original.apply(this, args)
+            if (this.name === 'web-chess-reviews' && args[1] === 'readwrite') {
+              for (const key of ['oncomplete', 'onabort']) {
+                const descriptor = Object.getOwnPropertyDescriptor(IDBTransaction.prototype, key)
+                Object.defineProperty(tx, key, { configurable: true,
+                  get() { return descriptor.get.call(this) },
+                  set(handler) { descriptor.set.call(this, event => {
+                    if (window.__holdReviewNameReply) window.__reviewNameReplies.push(() => handler.call(tx, event))
+                    else handler.call(tx, event)
+                  }) },
+                })
+              }
+            }
+            return tx
+          }
+        })
+        await input.press('Enter')
+        await page.waitForFunction(() => window.__reviewNameReplies.length === 1)
+        const piece = page.getByRole('button', { name: /^e4, White pawn/ })
+        let draft
+        if (scenario === 'saved-modal') {
+          await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+          draft = page.locator('.pgn-dialog textarea')
+          await draft.fill('1. d4 {Unsent draft ♞} *')
+          await draft.evaluate(el => el.setSelectionRange(3, 5))
+        } else await piece.focus()
+        await page.evaluate(() => {
+          window.__holdReviewNameReply = false
+          window.__reviewNameReplies.splice(0).forEach(reply => reply())
+        })
+        if (scenario === 'failed-board') {
+          await panel.getByText(/This saved review is missing or unreadable/).waitFor()
+          assert(await input.inputValue() === title && await piece.evaluate(el => el === document.activeElement), 'rename failure stole the new board focus or lost its draft')
+          await input.focus()
+          await input.press('Escape')
+          await page.waitForFunction(() => document.activeElement?.textContent === 'Rename saved review')
+          // A new edit after an error still focuses and selects the current name.
+          await trigger.click()
+          assert(await input.evaluate(el => el === document.activeElement && el.selectionStart === 0 && el.selectionEnd === el.value.length), 'reopening a failed rename did not focus/select its name')
+          await input.press('Escape')
+        } else {
+          await input.waitFor({ state: 'detached' })
+          if (draft) {
+            assert(await draft.evaluate(el => el === document.activeElement && el.selectionStart === 3 && el.selectionEnd === 5)
+              && await draft.inputValue() === '1. d4 {Unsent draft ♞} *', 'rename completion stole modal focus or changed its unsent draft/selection')
+            await draft.press('Escape')
+            await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+          } else assert(await piece.evaluate(el => el === document.activeElement), 'rename completion stole the new board focus')
+          const changed = await page.evaluate(() => new Promise((resolve, reject) => {
+            const request = indexedDB.open('web-chess-reviews', 1)
+            request.onsuccess = () => {
+              const db = request.result, tx = db.transaction('runs', 'readonly'), read = tx.objectStore('runs').getAll()
+              read.onsuccess = () => resolve(read.result[0])
+              tx.oncomplete = () => db.close()
+              tx.onabort = () => reject(tx.error)
+            }
+          }))
+          assert(changed.title === title && JSON.stringify({ ...changed, title: stored.title }) === JSON.stringify(stored), 'rename changed stored review content beyond its title')
+        }
+        assert(await page.getByTestId('review-run-summary').innerText() === report && await page.locator('.mtree-chip').count() === 1, 'rename response changed the current report or board history')
+        assert(errors.length === 0 && await page.locator('.app-error-shell').count() === 0, `review name focus errors: ${errors.join('; ')}`)
+        console.log(`  review rename focus (${width}×${height}, ${scale}x, ${scenario}): delayed native transaction reply respects newer board/modal focus, retains exact review/draft/selection; ordinary cancel/reopen remain available`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkReviewBranchNames(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 900 } })
@@ -21267,6 +21385,7 @@ async function main() {
       'review-search': checkSavedReviewSearch,
       'review-renaming': checkSavedReviewRenaming,
       'review-branch-names': checkReviewBranchNames,
+      'review-name-focus': checkReviewNameFocusOwnership,
       'saved-endings': checkSavedReviewEndings,
       'repetition': checkRepetitionEndings,
       'repetition-review': checkRepetitionReviewCompatibility,
@@ -22127,6 +22246,7 @@ async function main() {
     await checkSavedReviewDeleteFocus(browser)
     await checkSavedReviewRenaming(browser)
     await checkReviewBranchNames(browser)
+    await checkReviewNameFocusOwnership(browser)
     await checkSavedReviewStorage(browser)
     await checkSavedReviewEndings(browser)
     await checkRepetitionEndings(browser)

@@ -1,0 +1,3 @@
+Based on e68c2f3 plus saved-review name focus guards. Built to a separate temporary output directory and served on port 4338.
+0963a230e2cb9d92d1d355dd047ed8b3a81e1dcc9d809c9b0e026ce82ade01e5  /tmp/web-chess-review-name-focus-dist/assets/index-BUHk8Oqx.js
+The unrelated full browser suite retains dist/assets/index-gdMybw4V.js on its own preview server.

@@ -1,0 +1,7 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  review rename focus (1280×900, 1x, saved-board): delayed native transaction reply respects newer board/modal focus, retains exact review/draft/selection; ordinary cancel/reopen remain available
+  review rename focus (1280×900, 1x, saved-modal): delayed native transaction reply respects newer board/modal focus, retains exact review/draft/selection; ordinary cancel/reopen remain available
+  review rename focus (1280×900, 1x, failed-board): delayed native transaction reply respects newer board/modal focus, retains exact review/draft/selection; ordinary cancel/reopen remain available
+  review rename focus (320×480, 2x, saved-board): delayed native transaction reply respects newer board/modal focus, retains exact review/draft/selection; ordinary cancel/reopen remain available
+  review rename focus (320×480, 2x, saved-modal): delayed native transaction reply respects newer board/modal focus, retains exact review/draft/selection; ordinary cancel/reopen remain available
+  review rename focus (320×480, 2x, failed-board): delayed native transaction reply respects newer board/modal focus, retains exact review/draft/selection; ordinary cancel/reopen remain available
