@@ -1,0 +1,5 @@
+{"active":"<button type=\"button\" class=\"btn-cancel\" aria-label=\"Delete Keep\" title=\"Delete\">✕</button>","name":"Continue typing"}
+Error: Deferred deletion focus steals focus from the save-name field after the user moved there
+    at /tmp/web-chess-library-delete-focus-probe.cjs:19:64
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:502:9)

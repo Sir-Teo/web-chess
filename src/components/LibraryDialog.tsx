@@ -577,11 +577,14 @@ export function LibraryDialog({
                                                 className="btn-cancel library-confirm-delete"
                                                 onKeyDown={event => { if (event.key === 'Enter' && event.repeat) event.preventDefault() }}
                                                 onClick={event => {
-                                                    const row = event.currentTarget.closest('.library-row')
+                                                    const trigger = event.currentTarget
+                                                    const row = trigger.closest('.library-row')
                                                     const neighbor = row?.nextElementSibling ?? row?.previousElementSibling
                                                     const target = neighbor?.querySelector<HTMLElement>('[title="Delete"]')
                                                         ?? panelRef.current?.querySelector<HTMLElement>('input[type="search"], [data-library-done]')
                                                     requestAnimationFrame(() => {
+                                                        // Preserve a reader's later choice of another field.
+                                                        if (document.activeElement !== document.body && document.activeElement !== trigger) return
                                                         // Deleting the final game also removes search.
                                                         const next = target?.isConnected ? target
                                                             : panelRef.current?.querySelector<HTMLElement>('[data-library-done]')

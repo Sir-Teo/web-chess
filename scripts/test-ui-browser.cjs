@@ -7079,9 +7079,14 @@ async function checkLibraryEditing(browser) {
       await page.reload({ waitUntil: 'domcontentloaded' })
       await page.click('#chessboard-square-e2')
       await page.click('#chessboard-square-e4')
-      await page.getByRole('button', { name: 'Open saved games library' }).click()
+      await page.getByTestId('command-palette-btn').click()
+      const commands = page.getByRole('combobox', { name: 'Search commands', exact: true })
+      await commands.fill('save game')
+      assert(await page.locator('[data-command-id="save-library"] button').isEnabled(), 'Save game to Library is unavailable after a move')
+      await commands.press('Enter')
       const dialog = page.locator('.library-dialog')
       const name = dialog.locator('[data-library-name]')
+      await page.waitForFunction(() => document.activeElement?.matches('.library-dialog [data-library-name]'))
       await name.fill('My carefully named game')
       await name.press('Enter')
       await dialog.getByRole('alert').filter({ hasText: 'holds 500 games' }).waitFor()
@@ -7116,7 +7121,23 @@ async function checkLibraryEditing(browser) {
       await rename.press('Enter')
       await dialog.getByRole('button', { name: 'Rename My renamed game', exact: true }).waitFor()
       await dialog.getByRole('button', { name: 'Delete Saved game 498', exact: true }).click()
+      await page.evaluate(() => {
+        const raf = window.requestAnimationFrame
+        window.__libraryDeleteFrames = []
+        window.requestAnimationFrame = callback => {
+          window.__libraryDeleteFrames.push(callback)
+          return raf(() => {})
+        }
+        window.__flushLibraryDeleteFrames = () => {
+          window.requestAnimationFrame = raf
+          for (const callback of window.__libraryDeleteFrames.splice(0)) callback(performance.now())
+        }
+      })
       await dialog.getByRole('button', { name: 'Confirm deleting Saved game 498', exact: true }).click()
+      await dialog.getByRole('button', { name: 'Load Saved game 498', exact: true }).waitFor({ state: 'detached' })
+      await name.focus()
+      await page.evaluate(() => window.__flushLibraryDeleteFrames())
+      assert(await name.evaluate(el => el === document.activeElement), 'deferred row focus interrupted the reader returning to the save-name field')
       await name.press('Enter')
       await dialog.getByRole('button', { name: 'Load My carefully named game', exact: true }).waitFor()
       await page.waitForFunction(() => !document.querySelector('.library-status')?.textContent.includes('Saving library changes'))
@@ -7136,7 +7157,7 @@ async function checkLibraryEditing(browser) {
       await dialog.getByRole('button', { name: 'Confirm deleting A different title', exact: true }).click()
       await dialog.getByText('No saved game matches “A different title”.', { exact: true }).waitFor()
       await page.waitForFunction(() => document.querySelector('.library-toolbar input[type="search"]') === document.activeElement)
-      console.log(`  library (${width}px): rejected save preserves its name; inline rename selects, cancels, commits and persists`)
+      console.log(`  library (${width}px): Save game command opens the focused naming form after a real move; rejected save preserves its name and retries after freeing capacity; inline rename selects, cancels, commits and persists`)
     } finally { await context.close() }
   }
 }
@@ -7442,6 +7463,9 @@ async function checkPositionStudyNotes(browser) {
         return page.locator('[data-command-id="copy-pgn"] button')
       }
       assert(await (await copyCommand()).isDisabled(), 'the untouched standard board offers an empty game copy')
+      await page.getByRole('combobox', { name: 'Search commands', exact: true }).fill('save game')
+      const saveCommand = page.locator('[data-command-id="save-library"] button')
+      assert(await saveCommand.isDisabled() && (await page.locator('[data-command-id="save-library"]').innerText()).includes('before saving'), 'an untouched board offers a save without a reason')
       await page.keyboard.press('Escape')
       const importText = async text => {
         await page.locator('.pgn-dialog textarea').fill(text)
@@ -7476,12 +7500,22 @@ async function checkPositionStudyNotes(browser) {
       await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
       await importText(copiedStudy)
       assert(await note.inputValue() === edited, 'the copied standalone PGN could not restore its note')
-      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      await page.getByTestId('command-palette-btn').click()
+      const commandSearch = page.getByRole('combobox', { name: 'Search commands', exact: true })
+      await commandSearch.fill('save game')
+      assert(await saveCommand.isEnabled(), 'Save game to Library is unavailable for a zero-move position study')
+      await saveCommand.scrollIntoViewIfNeeded()
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'Save game command overflows')
+      await page.screenshot({ path: `/tmp/web-chess-save-library-${width}-${height}.png` })
+      await commandSearch.press('Enter')
       const library = page.locator('.library-dialog')
+      await library.waitFor()
+      await page.waitForFunction(() => document.activeElement?.matches('.library-dialog [data-library-name]'))
       await library.getByRole('textbox', { name: 'Save the current position study', exact: true }).fill('Saved position study')
       await library.getByRole('button', { name: 'Save', exact: true }).click()
       await library.getByRole('button', { name: 'Load Saved position study', exact: true }).waitFor()
       await library.getByRole('button', { name: 'Done', exact: true }).click()
+      await page.waitForFunction(() => document.activeElement?.getAttribute('data-testid') === 'command-palette-btn')
       await savedStudy(edited)
       await page.reload({ waitUntil: 'domcontentloaded' })
       await enlarge()
@@ -7528,7 +7562,7 @@ async function checkPositionStudyNotes(browser) {
       })
       assert(errors.length === 0, `position note errors: ${errors.join('; ')}`)
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'position notes overflow')
-      console.log(`  position notes (${width}×${height}, ${scale}x): zero-move study retains/edits notes, copies through Commands with exact FEN/no invented moves, saves to Library and recovers after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata`)
+      console.log(`  position notes (${width}×${height}, ${scale}x): zero-move study retains/edits notes, copies through Commands with exact FEN/no invented moves; Save game command checks empty-board eligibility, opens the focused Library form for the study and returns opener focus; saved notes recover after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata`)
     } finally { await context.close() }
   }
 }

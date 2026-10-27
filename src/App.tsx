@@ -6293,6 +6293,12 @@ function App() {
     },
     { id: 'library', label: 'Library', hint: 'Saved games', keywords: ['save', 'open', 'backup'],
       run: openLibraryDialog },
+    { id: 'save-library', label: 'Save game to Library',
+      hint: mainLineNodes.length <= 1 && !isPositionStudy ? 'Make a move or load a position study before saving'
+        : isPositionStudy ? 'Name and save this position study' : 'Name and save this game with its notes and variations',
+      keywords: ['keep', 'store', 'position', 'study', 'notes', 'variations'],
+      disabled: mainLineNodes.length <= 1 && !isPositionStudy,
+      run: openLibraryDialog },
     { id: 'mode-play', label: 'Play mode', keywords: ['workspace'], run: () => handleWorkspaceModeChange('play') },
     { id: 'mode-analysis', label: 'Analysis mode', keywords: ['workspace', 'engine'],
       run: () => handleWorkspaceModeChange('analysis') },
