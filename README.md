@@ -148,7 +148,8 @@ given, and the app answering the reader who touches it.
   Saved settings remain;
   the engine's hash table, console position and session-only UCI options reset
   on reload. Stop a search or review before releasing its workers.
-- **Retry a failed engine**: Analysis offers **Retry engine** after a startup
+- **Retry a failed engine**: Analysis offers **Retry engine**, also available as
+  **Retry analysis engine** in Commands, after a startup
   or runtime failure. It keeps the board, readings, saved settings and unsent console
   draft while replacing the worker. Automatic analysis resumes for the current
   position when enabled; otherwise the ready engine waits for an explicit

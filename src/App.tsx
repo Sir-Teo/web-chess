@@ -6284,6 +6284,11 @@ function App() {
     return scheduleRevealRetries(reveal, [120, 320])
   }, [analysisPanelRevealTick, backgroundUiHidden, boardRevealTick, moveEntryFocusTick])
 
+  const analysisRetryReason = !engineEnabled ? 'Switch to Analysis to retry its engine.'
+    : status === 'error' ? null
+      : status === 'unloaded' ? 'The analysis engine is released. Load it first.'
+        : status === 'loading' ? 'The analysis engine is starting.'
+          : 'The analysis engine is already available.'
   const opponentRetryReason = !aiEnabled ? 'Start an AI game to use an opponent.'
     : aiPlayerStatus === 'error' ? null
       : aiPlayer.retrying ? 'The opponent is restarting.'
@@ -6379,6 +6384,14 @@ function App() {
       keywords: ['undo', 'takeback', 'revert', 'oops'],
       disabled: Boolean(takebackReason),
       run: takebackMove,
+    },
+    {
+      id: 'retry-analysis-engine',
+      label: 'Retry analysis engine',
+      hint: analysisRetryReason ?? 'Keep this position and restart the unavailable analysis engine',
+      keywords: ['recover', 'failed', 'unavailable', 'restart', 'stockfish'],
+      disabled: Boolean(analysisRetryReason),
+      run: handleRetryEngine,
     },
     {
       id: 'retry-opponent',
@@ -6576,7 +6589,7 @@ function App() {
     goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, moveEntryCommandReason, requestMoveEntry,
       goSiblingVariation, hintReason, isProbingThreat, isPositionStudy, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
       previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay, drillRevealReason, revealDrillMove, drillReturnReason, returnToDrill, practiceRevealReason, revealPracticeMove,
-      openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger, opponentRetryReason, retryAiPlayer,
+      openNewGameDialog, openPgnDialog, playFromCurrentPosition, playFromHereDisabledReason, rememberModalTrigger, opponentRetryReason, retryAiPlayer, analysisRetryReason, handleRetryEngine,
       reviewFaultCount, reviewGameDisabledReason, soundEnabled, startBatchReview, takebackMove, takebackReason, workspaceMode])
 
   /*

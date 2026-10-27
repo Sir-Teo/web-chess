@@ -1085,8 +1085,8 @@ async function checkEngineProfileAutomaticAnalysis(browser) {
   }
 }
 
-async function checkEngineRetry(browser) {
-  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+async function checkEngineRetry(browser, { viaCommand = false, layouts = [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']] } = {}) {
+  for (const [width, height, scale, theme] of layouts) {
     for (const [kind, autoAnalyze] of [['boot', false], ['runtime', false], ['runtime', true], ['hidden', true]]) {
       const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
       const page = await context.newPage(), errors = []
@@ -1108,6 +1108,8 @@ async function checkEngineRetry(browser) {
         const waitStatus = status => page.waitForFunction(status => document.querySelector('.bottom .status')?.textContent === status, status)
         await waitStatus(kind === 'boot' ? 'error' : 'ready')
         await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true'
+          && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
         for (const [from, to, piece] of [['e2', 'e4', 'wP'], ['e7', 'e5', 'bP'], ['g1', 'f3', 'wN']]) {
           await page.locator(`#chessboard-square-${from}`).click()
           await page.locator(`#chessboard-square-${to}`).click()
@@ -1142,12 +1144,35 @@ async function checkEngineRetry(browser) {
         })))
         const beforeBoard = await board()
         const retry = page.getByRole('button', { name: 'Retry engine', exact: true })
+        const paletteOpener = page.getByTestId('command-palette-btn')
+        const activateRetry = async () => {
+          if (!viaCommand) { await retry.focus(); await retry.press(kind === 'runtime' && !autoAnalyze ? 'Space' : 'Enter'); return }
+          await paletteOpener.click()
+          const input = page.getByRole('combobox', { name: 'Search commands', exact: true })
+          await input.fill('Retry analysis engine')
+          const command = page.locator('[data-command-id="retry-analysis-engine"] button')
+          assert(await command.isEnabled(), 'failed analysis engine cannot be retried from Commands')
+          if (kind === 'runtime') await command.click()
+          else await input.press('Enter')
+          await input.waitFor({ state: 'detached' })
+        }
+        const expectUnavailableRetry = async reason => {
+          await paletteOpener.click()
+          const input = page.getByRole('combobox', { name: 'Search commands', exact: true })
+          await input.fill('Retry analysis engine')
+          const command = page.locator('[data-command-id="retry-analysis-engine"] button')
+          assert(await command.isDisabled() && (await command.innerText()).includes(reason), `analysis retry lacks unavailable reason: ${reason}`)
+          await input.press('Enter')
+          assert(await input.count() === 1, 'unavailable analysis retry closed Commands')
+          await page.keyboard.press('Escape')
+        }
         await retry.waitFor()
         const target = await retry.boundingBox()
         assert(target?.height >= 43.95 && target.width >= 43.95, `Retry engine is smaller than a touch target: ${JSON.stringify(target)}`)
         if (kind === 'boot') {
           const made = await page.evaluate(() => { window.__failConsoleBoot = true; return window.__engineCount })
-          await retry.click()
+          if (viaCommand) await activateRetry()
+          else await retry.click()
           await page.waitForFunction(made => window.__engineCount === made + 1, made)
           await waitStatus('error')
           assert(await retry.isEnabled(), 'a second boot failure removed the retry action')
@@ -1162,24 +1187,25 @@ async function checkEngineRetry(browser) {
           window.__retryVisibility = 'hidden'
           document.dispatchEvent(new Event('visibilitychange'))
         })
-        await retry.focus()
-        await retry.press(kind === 'runtime' && !autoAnalyze ? 'Space' : 'Enter')
+        await activateRetry()
         await page.waitForFunction(made => window.__engineCount === made + 1 && typeof window.__releaseConsoleReady === 'function', before.made)
         await waitStatus('loading')
+        if (viaCommand) await expectUnavailableRetry('starting')
         const status = page.locator('.analysis-context-row')
-        await page.waitForFunction(() => document.activeElement === document.querySelector('.analysis-context-row'))
-        await page.waitForFunction(() => {
-          const rect = document.querySelector('.analysis-context-row')?.getBoundingClientRect()
+        await page.waitForFunction(viaCommand => document.activeElement === document.querySelector(viaCommand ? '[data-testid="command-palette-btn"]' : '.analysis-context-row'), viaCommand)
+        await page.waitForFunction(viaCommand => {
+          const rect = document.querySelector(viaCommand ? '[data-testid="command-palette-btn"]' : '.analysis-context-row')?.getBoundingClientRect()
           return rect && rect.top >= -1 && rect.bottom <= innerHeight + 1
-        })
-        assert(await status.evaluate(el => Number.parseFloat(getComputedStyle(el).outlineWidth) >= 2), 'retry has no visible keyboard focus destination')
+        }, viaCommand)
+        if (!viaCommand || kind !== 'runtime') assert(await (viaCommand ? paletteOpener : status).evaluate(el => Number.parseFloat(getComputedStyle(el).outlineWidth) >= 2), 'retry has no visible keyboard focus destination')
         assert(await retry.count() === 0 && await page.locator('.engine-error-copy').count() === 0, 'loading retained an obsolete failure action')
         assert(await page.evaluate(count => !window.__uciCommands.slice(count).some(line => /^go\s/.test(line)), before.commands), 'retry searched before startup was ready')
         assert(JSON.stringify(await board()) === JSON.stringify(beforeBoard), 'retry loading changed the board')
         if (retainedReading !== null && autoAnalyze) assert(await reading.textContent() === retainedReading, 'retry erased the last board reading while loading')
         await page.evaluate(() => window.__releaseConsoleReady())
         await waitStatus('ready')
-        assert(await status.evaluate(el => document.activeElement === el), 'retry completion dropped keyboard focus')
+        if (viaCommand) await expectUnavailableRetry('already available')
+        assert(await (viaCommand ? paletteOpener : status).evaluate(el => document.activeElement === el), 'retry completion dropped keyboard focus')
         if (kind === 'hidden') {
           assert(await page.evaluate(count => !window.__uciCommands.slice(count).some(line => /^go\s/.test(line)), before.commands), 'retry ran infinite automatic analysis while hidden')
           await page.evaluate(() => {
@@ -1206,9 +1232,45 @@ async function checkEngineRetry(browser) {
         for (const command of ['setoption name Hash value 96', 'setoption name MultiPV value 3', 'setoption name UCI_ShowWDL value true']) assert(sent.includes(command), `retry lost ${command}`)
         assert(await page.evaluate(made => window.__engineCount === made + 1, before.made), 'one retry created multiple replacement workers')
         assert(JSON.stringify(await board()) === JSON.stringify(beforeBoard) && errors.length === 0, `engine retry changed the board or errored: ${errors.join('; ')}`)
-        console.log(`  engine retry (${width}×${height}, ${scale}x, ${theme}, ${kind}, auto ${autoAnalyze}): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search${kind === 'boot' ? '; repeated failure recovers' : kind === 'hidden' ? '; infinite analysis waits for visibility' : ''}`)
+        console.log(`  engine retry${viaCommand ? ' via Commands' : ''} (${width}×${height}, ${scale}x, ${theme}, ${kind}, auto ${autoAnalyze}): one held replacement, ${viaCommand ? 'opener focus' : 'visible status focus'}, retained board/readings/draft, exact history/settings and one intended search${kind === 'boot' ? '; repeated failure recovers' : kind === 'hidden' ? '; infinite analysis waits for visibility' : ''}`)
       } finally { await context.close() }
     }
+  }
+}
+
+async function checkAnalysisRetryCommand(browser) {
+  await checkEngineRetry(browser, { viaCommand: true, layouts: [[1280, 900, 1, 'dark'], [320, 480, 2, 'light']] })
+  for (const [width, height, scale] of [[1280, 900, 1], [320, 480, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height }, hasTouch: width < 900, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', analysisExperience: 'pro', autoAnalyze: false, engineProfile: 'lite-single-local' })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true'
+        && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
+      const expectUnavailable = async reason => {
+        const before = await page.evaluate(() => window.__engineCount)
+        await page.getByTestId('command-palette-btn').click()
+        const input = page.getByRole('combobox', { name: 'Search commands', exact: true })
+        await input.fill('Retry analysis engine')
+        const command = page.locator('[data-command-id="retry-analysis-engine"] button')
+        assert(await command.isDisabled() && (await command.innerText()).includes(reason), `analysis retry lacks ${reason}`)
+        await input.press('Enter')
+        assert(await input.count() === 1 && await page.evaluate(before => window.__engineCount === before && !window.__uciCommands.some(command => command.startsWith('go ')), before), 'unavailable retry woke an engine or closed Commands')
+        await page.keyboard.press('Escape')
+      }
+      await expectUnavailable('Switch to Analysis')
+      assert(await page.evaluate(() => window.__engineCount) === 0, 'Play retry query woke analysis')
+      await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await page.locator('.analysis-tab-btn', { hasText: 'Engine Lab' }).first().click()
+      await page.getByRole('button', { name: 'Release engine', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'unloaded')
+      await expectUnavailable('Load it first')
+      console.log(`  analysis retry command ${width}×${height} text ${scale * 100}%: Play and released states explain unavailability; Enter keeps Commands open and starts no worker/search`)
+    } finally { await context.close() }
   }
 }
 
@@ -20981,6 +21043,7 @@ async function main() {
       'step-progress': checkHumanStepClockControls,
       'step-boot-queue': checkQueuedStepWaitsForReady,
       'opponent-retry': checkOpponentRetry,
+      'analysis-retry-command': checkAnalysisRetryCommand,
       'move-list-pointer': checkMoveListPointerActivation,
       'move-list-fit': checkMoveListFitting,
       'drill-restart': checkDrillRestartKeepsItsLine,
@@ -21702,6 +21765,7 @@ async function main() {
     await checkTypedMoveEntry(browser)
     await checkBishopEntryGuidance(browser)
     await checkAutosaveFailure(browser)
+    await checkAnalysisRetryCommand(browser)
     await checkEngineStartupTimeout(browser)
     await checkLabSettingsStayInSync(browser)
     await checkConsoleSearchOwnership(browser)
