@@ -140,6 +140,11 @@ given, and the app answering the reader who touches it.
   Saved settings remain;
   the engine's hash table, console position and session-only UCI options reset
   on reload. Stop a search or review before releasing its workers.
+- **Retry a failed engine**: Analysis offers **Retry engine** after a startup
+  or runtime failure. It keeps the board, readings, saved settings and unsent console
+  draft while replacing the worker. Automatic analysis resumes for the current
+  position when enabled; otherwise the ready engine waits for an explicit
+  analysis request. Its console position and session-only UCI options reset.
 - **Read live console output**: Engine Lab follows new lines while you are at
   the end. Scroll back to read earlier output without being pulled down, then
   choose **Jump to latest output** or press End in the focused output to follow

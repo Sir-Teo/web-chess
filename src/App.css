@@ -237,6 +237,7 @@ input[type="checkbox"] {
   [role="button"],
   [role="slider"],
   [role="separator"],
+  .analysis-context-row,
   .tablebase-card > [role="status"],
   .cloud-eval-card > [role="status"],
   .opening-intel-card > [role="status"]):focus-visible {
@@ -5541,6 +5542,18 @@ button.critical-moment-row {
     min-height: 0;
     max-height: none;
   }
+}
+
+.engine-error-notice {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.engine-error-notice button {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
 }
 
 /* Two classes so it outranks `.panel-copy.error-copy`. The tinted background

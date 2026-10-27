@@ -542,6 +542,7 @@ function App() {
   const boardStageRef = useRef<HTMLElement>(null)
   const analysisPanelRef = useRef<HTMLElement>(null)
   const analysisHeaderRef = useRef<HTMLElement>(null)
+  const analysisStatusRef = useRef<HTMLDivElement>(null)
   const revealOpeningIntelRef = useRef(false)
   const [viewport, setViewport] = useState(readViewport)
   /**
@@ -1613,6 +1614,8 @@ function App() {
     profileMessage,
     releaseEngine,
     loadEngine,
+    retryEngine,
+    retryCount: engineRetryCount,
     analyze,
     sendCommand,
     newGame,
@@ -1739,13 +1742,13 @@ function App() {
   useLayoutEffect(() => {
     // Retry hands focus to a persistent status. Its text changes height as the
     // request settles; keep it exposed only while the reader is still on it.
-    for (const ref of [tablebaseStatusRef, cloudEvalStatusRef, openingExplorerStatusRef]) {
+    for (const ref of [analysisStatusRef, tablebaseStatusRef, cloudEvalStatusRef, openingExplorerStatusRef]) {
       const target = ref.current
       if (target && document.activeElement === target) {
         target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
       }
     }
-  }, [cloudEvalStatus, currentCloudEval, openingExplorer.data, openingExplorer.error, openingExplorer.loading, tablebase.result, tablebase.status])
+  }, [cloudEvalStatus, currentCloudEval, engineName, openingExplorer.data, openingExplorer.error, openingExplorer.loading, status, tablebase.result, tablebase.status])
 
   const finishBatchReview = useCallback(() => {
     flushReviewResults()
@@ -1788,6 +1791,15 @@ function App() {
     if (hadBatchReview) clearBatchReview()
     if (hadImportSweep || hadBatchReview) stop()
   }, [clearBatchReview, clearImportSweep, importSweepProgress.total, isBatchReviewing, stop])
+
+  const handleRetryEngine = useCallback(() => {
+    if (!retryEngine()) return
+    cancelStaleBackgroundAnalysis()
+    skipFullAnalyzeFenRef.current = null
+    // Hand focus over before this action disappears. A delayed handoff could
+    // lose a race with the board's own move-focus restoration.
+    analysisStatusRef.current?.focus()
+  }, [cancelStaleBackgroundAnalysis, retryEngine])
 
   const startBatchReview = useCallback((options?: { fresh?: boolean; depth?: number }) => {
     if (!engineEnabled || reviewLineNodesRef.current.length <= 1) return
@@ -2284,6 +2296,8 @@ function App() {
   }, [])
 
   // ── Auto-analyze ─────────────────────────────────────
+  // A fresh retry requeues automatic work once. Ordinary status changes do not
+  // restart a search, and the Auto toggle still decides whether to run one.
   const keepSearching = continuousAnalysis && analysisExperience === 'pro'
   const automaticPositionRef = useRef<AnalysisTarget | null>(null)
   useEffect(() => {
@@ -2369,6 +2383,7 @@ function App() {
     currentPathMovesKey,
     currentRootFen,
     engineEnabled,
+    engineRetryCount,
     fen,
     hashMb,
     isBatchReviewing,
@@ -2651,7 +2666,7 @@ function App() {
   useEffect(() => {
     if (status !== 'error' || !threatRequest) return
     setThreatRequest(null)
-    setThreatError('The engine could not finish reading the threat. Reload the page to try again.')
+    setThreatError('The engine could not finish reading the threat. Retry the engine, then ask again.')
   }, [status, threatRequest])
 
   const activeThreat = threatResult && threatResult.boardFen === fen ? threatResult : null
@@ -8385,6 +8400,8 @@ function App() {
               {workspaceMode === 'analysis' && (
                 <div
                   className="analysis-context-row"
+                  ref={analysisStatusRef}
+                  tabIndex={-1}
                   role="status"
                   aria-live="polite"
                   aria-atomic="true"
@@ -8400,9 +8417,12 @@ function App() {
                 /* An engine that fails to boot takes every analysis tab with it.
                    The reason was only in Settings and Engine Lab, two clicks from
                    where the failure is felt. */
-                <p className="panel-copy small error-copy engine-error-copy" role="alert">
-                  {profileMessage || 'The engine failed to start. Reload the page to try again.'}
-                </p>
+                <div className="engine-error-notice">
+                  <p className="panel-copy small error-copy engine-error-copy" role="alert">
+                    {profileMessage || 'The engine failed to start.'}
+                  </p>
+                  <div className="inline-actions"><button type="button" onClick={handleRetryEngine}>Retry engine</button></div>
+                </div>
               )}
             </header>
             <div className="panel-content">

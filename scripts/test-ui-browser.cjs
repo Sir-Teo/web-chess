@@ -892,6 +892,133 @@ async function checkMoveEntryAvailability(browser) {
   }
 }
 
+async function checkEngineRetry(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    for (const [kind, autoAnalyze] of [['boot', false], ['runtime', false], ['runtime', true], ['hidden', true]]) {
+      const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript('console-search'))
+        await page.addInitScript(({ kind, autoAnalyze, theme }) => {
+          window.__failConsoleBoot = kind === 'boot'
+          window.__retryVisibility = 'visible'
+          Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => window.__retryVisibility })
+          Object.defineProperty(document, 'hidden', { configurable: true, get: () => window.__retryVisibility === 'hidden' })
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+            workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze', autoAnalyze,
+            continuousAnalysis: kind === 'hidden', engineProfile: 'lite-single-local', analyzeMode: 'deep',
+            searchDepth: 6, hashMb: 96, multiPv: 3, showWdl: true, theme,
+          }))
+        }, { kind, autoAnalyze, theme })
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        const waitStatus = status => page.waitForFunction(status => document.querySelector('.bottom .status')?.textContent === status, status)
+        await waitStatus(kind === 'boot' ? 'error' : 'ready')
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        for (const [from, to, piece] of [['e2', 'e4', 'wP'], ['e7', 'e5', 'bP'], ['g1', 'f3', 'wN']]) {
+          await page.locator(`#chessboard-square-${from}`).click()
+          await page.locator(`#chessboard-square-${to}`).click()
+          await page.waitForFunction(({ from, to, piece }) => !document.querySelector(`#chessboard-square-${from} [data-piece]`)
+            && document.querySelector(`#chessboard-square-${to} [data-piece="${piece}"]`), { from, to, piece })
+        }
+        const analyzeTab = page.getByRole('button', { name: 'Analyze', exact: true })
+        const lab = page.getByRole('button', { name: 'Engine Lab', exact: true })
+        const run = page.getByRole('button', { name: 'Run analysis', exact: true })
+        const reading = page.locator('.coach-grid > div').first().locator('strong')
+        let retainedReading = null
+        if (kind !== 'boot') {
+          if (!autoAnalyze) await run.click()
+          await page.waitForFunction(() => window.__uciCommands.filter(line => line.startsWith('position fen')).at(-1)?.endsWith('moves e2e4 e7e5 g1f3'))
+          await waitStatus('ready')
+          retainedReading = await reading.textContent()
+          if (!autoAnalyze) {
+            await lab.click()
+            const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+            await command.fill('position startpos'); await command.press('Enter')
+            await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+            await page.evaluate(() => { window.__withholdEngineInfo = true })
+            await command.fill('go depth 12'); await command.press('Enter')
+            await waitStatus('analyzing')
+            await command.fill('position startpos')
+          }
+          await page.evaluate(() => window.__consoleEngine.onerror({ message: 'QA engine retry runtime failure' }))
+          await waitStatus('error')
+        }
+        const board = () => page.locator('[id^="chessboard-square-"]').evaluateAll(els => els.map(el => ({
+          square: el.id, piece: el.querySelector('[data-piece]')?.getAttribute('data-piece') ?? null,
+        })))
+        const beforeBoard = await board()
+        const retry = page.getByRole('button', { name: 'Retry engine', exact: true })
+        await retry.waitFor()
+        const target = await retry.boundingBox()
+        assert(target?.height >= 43.95 && target.width >= 43.95, `Retry engine is smaller than a touch target: ${JSON.stringify(target)}`)
+        if (kind === 'boot') {
+          const made = await page.evaluate(() => { window.__failConsoleBoot = true; return window.__engineCount })
+          await retry.click()
+          await page.waitForFunction(made => window.__engineCount === made + 1, made)
+          await waitStatus('error')
+          assert(await retry.isEnabled(), 'a second boot failure removed the retry action')
+        }
+        const before = await page.evaluate(() => {
+          window.__withholdEngineInfo = false
+          window.__holdConsoleReady = true
+          window.__releaseConsoleReady = null
+          return { made: window.__engineCount, commands: window.__uciCommands.length }
+        })
+        if (kind === 'hidden') await page.evaluate(() => {
+          window.__retryVisibility = 'hidden'
+          document.dispatchEvent(new Event('visibilitychange'))
+        })
+        await retry.focus()
+        await retry.press(kind === 'runtime' && !autoAnalyze ? 'Space' : 'Enter')
+        await page.waitForFunction(made => window.__engineCount === made + 1 && typeof window.__releaseConsoleReady === 'function', before.made)
+        await waitStatus('loading')
+        const status = page.locator('.analysis-context-row')
+        await page.waitForFunction(() => document.activeElement === document.querySelector('.analysis-context-row'))
+        await page.waitForFunction(() => {
+          const rect = document.querySelector('.analysis-context-row')?.getBoundingClientRect()
+          return rect && rect.top >= -1 && rect.bottom <= innerHeight + 1
+        })
+        assert(await status.evaluate(el => Number.parseFloat(getComputedStyle(el).outlineWidth) >= 2), 'retry has no visible keyboard focus destination')
+        assert(await retry.count() === 0 && await page.locator('.engine-error-copy').count() === 0, 'loading retained an obsolete failure action')
+        assert(await page.evaluate(count => !window.__uciCommands.slice(count).some(line => /^go\s/.test(line)), before.commands), 'retry searched before startup was ready')
+        assert(JSON.stringify(await board()) === JSON.stringify(beforeBoard), 'retry loading changed the board')
+        if (retainedReading !== null && autoAnalyze) assert(await reading.textContent() === retainedReading, 'retry erased the last board reading while loading')
+        await page.evaluate(() => window.__releaseConsoleReady())
+        await waitStatus('ready')
+        assert(await status.evaluate(el => document.activeElement === el), 'retry completion dropped keyboard focus')
+        if (kind === 'hidden') {
+          assert(await page.evaluate(count => !window.__uciCommands.slice(count).some(line => /^go\s/.test(line)), before.commands), 'retry ran infinite automatic analysis while hidden')
+          await page.evaluate(() => {
+            window.__retryVisibility = 'visible'
+            document.dispatchEvent(new Event('visibilitychange'))
+          })
+          await page.waitForFunction(count => window.__uciCommands.slice(count).includes('go infinite'), before.commands)
+          await waitStatus('ready')
+        }
+        if (!autoAnalyze) {
+          assert(await page.evaluate(count => !window.__uciCommands.slice(count).some(line => /^go\s/.test(line)), before.commands), 'retry ignored disabled automatic analysis')
+          if (kind === 'runtime') {
+            assert(await page.getByRole('textbox', { name: 'UCI command', exact: true }).inputValue() === 'position startpos', 'retry discarded the unsent console draft')
+          }
+          await analyzeTab.click()
+          if (retainedReading !== null) assert(await reading.textContent() === retainedReading, 'retry erased the retained reading before an explicit search')
+          await run.click()
+          await page.waitForFunction(count => window.__uciCommands.slice(count).some(line => /^go\s/.test(line)), before.commands)
+          await waitStatus('ready')
+        }
+        const sent = await page.evaluate(count => window.__uciCommands.slice(count), before.commands)
+        assert(sent.filter(line => /^go\s/.test(line)).length === 1 && sent.includes(kind === 'hidden' ? 'go infinite' : 'go depth 6'), 'retry did not run exactly one intended search')
+        assert(sent.some(line => line.startsWith('position fen') && line.endsWith('moves e2e4 e7e5 g1f3')), 'retry lost the current position history')
+        for (const command of ['setoption name Hash value 96', 'setoption name MultiPV value 3', 'setoption name UCI_ShowWDL value true']) assert(sent.includes(command), `retry lost ${command}`)
+        assert(await page.evaluate(made => window.__engineCount === made + 1, before.made), 'one retry created multiple replacement workers')
+        assert(JSON.stringify(await board()) === JSON.stringify(beforeBoard) && errors.length === 0, `engine retry changed the board or errored: ${errors.join('; ')}`)
+        console.log(`  engine retry (${width}×${height}, ${scale}x, ${theme}, ${kind}, auto ${autoAnalyze}): one held replacement, visible status focus, retained board/readings/draft, exact history/settings and one intended search${kind === 'boot' ? '; repeated failure recovers' : kind === 'hidden' ? '; infinite analysis waits for visibility' : ''}`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkEngineStartupTimeout(browser) {
   for (const mode of ['analysis', 'play']) {
     for (const scenario of ['silent-first', 'silent-all']) {
@@ -11582,7 +11709,7 @@ async function checkThreatInterruptionRecovery(browser) {
         } else {
           await page.evaluate(() => window.__consoleEngine.onerror({ message: 'QA interrupted threat worker' }))
           await waitStatus('error')
-          await page.locator('.coach-threat-answer.error-copy').filter({ hasText: 'Reload the page to try again.' }).waitFor()
+          await page.locator('.coach-threat-answer.error-copy').filter({ hasText: 'Retry the engine, then ask again.' }).waitFor()
         }
         await page.waitForFunction(() => document.querySelector('.coach-threat-btn')?.disabled === false)
         assert(await page.locator('.coach-threat-answer:not(.error-copy)').count() === 0, 'an interrupted search produced a threat answer')
@@ -11597,7 +11724,8 @@ async function checkThreatInterruptionRecovery(browser) {
         assert(await page.locator('.coach-threat-answer:not(.error-copy)').count() === 0
           && await page.evaluate(sent => window.__uciCommands.length === sent, sent), 'a late terminated-worker reply revived the cancelled threat')
         if (reason === 'worker-error') {
-          await page.reload({ waitUntil: 'domcontentloaded' })
+          await page.evaluate(() => { window.__withholdEngineInfo = false })
+          await page.getByRole('button', { name: 'Retry engine', exact: true }).click()
           await waitStatus('ready')
           await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
         }
@@ -16277,6 +16405,7 @@ async function main() {
       autosave: checkAutosaveFailure,
       resources: checkSingleThreadReviewPool,
       'engine-release': checkEngineRelease,
+      'engine-retry': checkEngineRetry,
       'threat-engine-wake': checkThreatEngineWake,
       'threat-recovery': checkThreatInterruptionRecovery,
       'threat-shortcut': checkThreatShortcutDoesNotRestart,
@@ -17098,6 +17227,7 @@ async function main() {
     await checkThreatInterruptionRecovery(browser)
     await checkThreatShortcutDoesNotRestart(browser)
     await checkEngineRelease(browser)
+    await checkEngineRetry(browser)
     await checkConsoleSearchDeadlines(browser)
     await checkConsoleTools(browser)
     await checkConsoleLimitParsing(browser)

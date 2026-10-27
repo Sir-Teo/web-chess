@@ -402,6 +402,7 @@ export function parseOptionLine(line: string): EngineOption | null {
 export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', enabled = true) {
   const workerRef = useRef<Worker | null>(null)
   const [released, setReleased] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
   const releasedRef = useRef(false)
   const wakeAnalyzeRef = useRef<AnalyzeRequest | null>(null)
   const preserveReadingsOnBootRef = useRef(false)
@@ -470,6 +471,18 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     setReleased(false)
     setStatus('loading')
   }, [enabled])
+
+  const retryEngine = useCallback(() => {
+    if (!enabled || status !== 'error') return false
+    // A retry replaces the failed worker, without replaying its console work
+    // or a discarded threat/review request. The caller can requeue auto analysis.
+    wakeAnalyzeRef.current = null
+    visibilityResumeRequestRef.current = null
+    preserveReadingsOnBootRef.current = true
+    setStatus('loading')
+    setRetryCount(value => value + 1)
+    return true
+  }, [enabled, status])
 
   const releaseEngine = useCallback(() => {
     if (!enabled || !workerRef.current || !isReadyRef.current
@@ -1349,7 +1362,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     const startupTimer = setTimeout(() => {
       if (currentSession !== bootSessionRef.current || workerRef.current !== worker) return
       failWorker(
-        `${profile.name} did not finish starting. Check your connection or reload to retry.`,
+        `${profile.name} did not finish starting. Check your connection, then retry the engine.`,
         'Engine startup timed out.',
       )
     }, engineStartupTimeoutMs(profile))
@@ -1387,6 +1400,7 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     flushPendingAnalyze,
     rejectQueuedCommands,
     released,
+    retryCount,
     resumeConsoleSearch,
     resetLinesMap,
     resolvedProfile,
@@ -1423,6 +1437,8 @@ export function useStockfishEngine(selectedProfile: EngineProfileId = 'auto', en
     profileMessage,
     releaseEngine,
     loadEngine,
+    retryEngine,
+    retryCount,
     analyze,
     sendRaw,
     sendCommand,
