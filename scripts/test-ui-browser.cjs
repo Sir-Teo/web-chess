@@ -16694,6 +16694,79 @@ async function checkPgnDownloadRecovery(browser) {
   }
 }
 
+async function checkCounterRawFeedback(browser) {
+  const root = '4k3/8/8/8/8/8/8/4K3 w - -'
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light'], [320, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      const dialog = page.locator('.pgn-dialog')
+      await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+      const input = dialog.locator('.fen-textarea')
+      const half = dialog.getByRole('spinbutton', { name: 'Halfmove', exact: true })
+      const full = dialog.getByRole('spinbutton', { name: 'Fullmove', exact: true })
+      const load = dialog.getByRole('button', { name: 'Load & Analyze', exact: true })
+      for (const [rawHalf, rawFull] of [['17junk', '23junk'], ['9007199254740993', '0']]) {
+        const original = `${root} ${rawHalf} ${rawFull}`
+        await input.fill(original)
+        const invalid = await half.getAttribute('aria-invalid')
+        const description = await half.getAttribute('aria-describedby')
+        const help = description ? await dialog.locator(`[id="${description}"]`).textContent() : null
+        await half.focus()
+        await page.keyboard.press('Tab')
+        assert(await input.inputValue() === original, 'merely reading a bad counter silently changed its raw FEN')
+        await half.focus()
+        await page.keyboard.press('Enter')
+        assert(await input.inputValue() === `${root} 0 ${rawFull}`, 'Enter did not explicitly repair the malformed counter using its displayed safe value')
+        assert(invalid === 'true' && help?.includes(rawHalf) && help.includes('Enter') && help.includes('0'), 'bad counter lacks associated original-value/correction guidance')
+        assert(await half.inputValue() === '0' && await half.getAttribute('aria-invalid') !== 'true'
+          && await half.evaluate(element => element === document.activeElement), 'counter repair lost its value, error state or focus')
+        assert(await full.getAttribute('aria-invalid') === 'true' && await load.isDisabled(), 'repairing one counter hid the other error')
+        const fullDescription = await full.getAttribute('aria-describedby')
+        assert(fullDescription && (await dialog.locator(`[id="${fullDescription}"]`).textContent()).includes(rawFull), 'Fullmove does not expose its invalid raw token')
+        await full.focus()
+        await page.keyboard.press('Enter')
+        assert(await input.inputValue() === `${root} 0 1` && await load.isEnabled()
+          && await dialog.isVisible() && await full.evaluate(element => element === document.activeElement), 'explicit default counter repair loaded the position or left it invalid')
+      }
+      await input.fill(`${root} 17junk 23junk`)
+      await half.fill('0')
+      assert(await input.inputValue() === `${root} 0 23junk`, 'replacing the shown Halfmove with the same number did not repair its raw token')
+      await full.fill('1')
+      assert(await input.inputValue() === `${root} 0 1` && await load.isEnabled(), 'replacing the shown Fullmove with the same number did not repair its raw token')
+      await input.fill(`${root} 000 001`)
+      await half.focus(); await page.keyboard.press('Tab')
+      assert(await input.inputValue() === `${root} 000 001` && await half.getAttribute('aria-invalid') !== 'true'
+        && await full.getAttribute('aria-invalid') !== 'true' && await load.isEnabled(), 'valid leading-zero counters are being treated as invalid or rewritten on read')
+      await input.fill(root)
+      const missing = await half.getAttribute('aria-describedby')
+      assert(await half.getAttribute('aria-invalid') === 'true' && missing
+        && (await dialog.locator(`[id="${missing}"]`).textContent()).includes('Missing'), 'missing counters have no explicit field guidance')
+      await half.focus(); await page.keyboard.press('Enter')
+      assert(await input.inputValue() === `${root} 0 1` && await load.isEnabled(), 'Enter cannot accept the shown defaults for missing counters')
+      await input.fill(`${root} ${'9'.repeat(100)} 1`)
+      const bounded = await half.getAttribute('aria-describedby')
+      const guidance = bounded && dialog.locator(`[id="${bounded}"]`)
+      assert(guidance && (await guidance.textContent()).length < 120 && (await guidance.textContent()).includes('…'), 'a long invalid counter creates unbounded field feedback')
+      await guidance.scrollIntoViewIfNeeded()
+      const contrast = await page.evaluate(contrastProbe, '.fen-counter-error')
+      assert(contrast.checked === 1 && contrast.failures.length === 0, `counter guidance contrast (${theme}): ${JSON.stringify(contrast)}`)
+      await page.screenshot({ path: `/tmp/web-chess-counter-feedback-${width}.png` })
+      assert(await input.inputValue() === `${root} ${'9'.repeat(100)} 1`, 'bounded counter guidance changed the original raw token')
+      assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1 && await page.locator('.mtree-chip').count() === 0, 'counter correction loaded the draft without being asked')
+      assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `counter feedback errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'counter feedback overflows')
+      console.log(`  raw counter feedback (${width}px, ${scale}x, ${theme}): exact bad/missing/unsafe FEN values have associated bounded guidance; focus/blur preserves raw data; Enter explicitly accepts safe defaults without loading; sibling errors and valid leading zeros survive`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkSetupMetadataControls(browser) {
   const mixed = 'r3k2r/8/8/8/8/8/8/4K2R w KQkq d6 17 23'
   for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light'], [320, 2, 'dark']]) {
@@ -18456,7 +18529,7 @@ async function checkCrossOriginIsolationIsRestored(browser) {
  *     So the stops are parsed and the worst of them is the reading, which is
  *     the same thing a reader's eye does with the least legible part of it.
  */
-function contrastProbe() {
+function contrastProbe(scope = 'body *') {
   function parse(value) {
     const match = value.match(/rgba?\(([^)]+)\)/)
     if (!match) return null
@@ -18552,7 +18625,7 @@ function contrastProbe() {
   const failures = []
   let unverified = 0
   let checked = 0
-  for (const element of document.querySelectorAll('body *')) {
+  for (const element of document.querySelectorAll(scope)) {
     const text = (element.textContent || '').trim()
     if (!text || element.children.length > 0) continue
     const box = element.getBoundingClientRect()
@@ -19443,6 +19516,7 @@ async function main() {
       'castling-rights': checkCastlingRightInputs,
       'castling-repair': checkUnavailableCastlingRepair,
       'setup-metadata': checkSetupMetadataControls,
+      'counter-feedback': checkCounterRawFeedback,
       'pgn-download': checkPgnDownloadRecovery,
       'pgn-export': checkPgnDownloadRecovery,
       'recovery-download': checkRecoveryDownloadFallback,
@@ -20303,6 +20377,7 @@ async function main() {
     await checkCastlingRightInputs(browser)
     await checkUnavailableCastlingRepair(browser)
     await checkSetupMetadataControls(browser)
+    await checkCounterRawFeedback(browser)
     await checkPgnDownloadRecovery(browser)
     await checkRecoveryDownloadFallback(browser)
     await checkLibraryDownloadRecovery(browser)

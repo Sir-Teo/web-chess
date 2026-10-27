@@ -163,14 +163,22 @@ export function opponentIsInCheck(fen: string): boolean {
   }
 }
 
+export function parseFenCounterValue(value: string | undefined): number | null {
+  if (value === undefined || !/^\d+$/.test(value)) return null
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) ? parsed : null
+}
+
 /** Check counters before a parser can truncate or round them. Missing trailing
  * fields retain the caller's existing syntax/default rules. */
 export function fenCounterInputError(fenText: string): string | null {
   const fields = fenText.trim().split(/\s+/)
   for (const [name, value] of [['halfmove clock', fields[4]], ['fullmove number', fields[5]]]) {
     if (value === undefined) continue
-    if (!/^\d+$/.test(value)) return `Invalid FEN: ${name} must be a whole decimal number.`
-    if (!Number.isSafeInteger(Number(value))) return `Invalid FEN: ${name} is too large to read accurately.`
+    if (parseFenCounterValue(value) !== null) continue
+    return /^\d+$/.test(value)
+      ? `Invalid FEN: ${name} is too large to read accurately.`
+      : `Invalid FEN: ${name} must be a whole decimal number.`
   }
   return null
 }

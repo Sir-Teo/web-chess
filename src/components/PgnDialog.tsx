@@ -452,6 +452,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
         () => fenText.trim() ? validateFenForAnalysis(fenText) : null,
         [fenText],
     )
+    const rawSetupFields = useMemo(() => fenText.trim().split(/\s+/), [fenText])
     const fenValidationError = fenValidation && !fenValidation.ok ? fenValidation.error : null
     const fenShareValidation = useMemo(
         () => validateFenForAnalysis(fenTextForShareLink(fenText, currentFen)),
@@ -959,26 +960,28 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                         <div className="fen-setup-control-block">
                                             <span className="dialog-label">Counters</span>
                                             <div className="fen-counter-grid">
-                                                <label className="fen-counter-field" htmlFor={halfmoveId}>
-                                                    <span>Halfmove</span>
+                                                <div className="fen-counter-field">
+                                                    <label htmlFor={halfmoveId}>Halfmove</label>
                                                     <PositionCounterInput
                                                         id={halfmoveId}
                                                         min={0}
                                                         value={setup.halfmove}
+                                                        rawValue={rawSetupFields[4]}
                                                         position={setup}
                                                         onValueChange={value => updateRawSetupFields([[4, String(updateSetupHalfmove(setup, value).halfmove)]], true)}
                                                     />
-                                                </label>
-                                                <label className="fen-counter-field" htmlFor={fullmoveId}>
-                                                    <span>Fullmove</span>
+                                                </div>
+                                                <div className="fen-counter-field">
+                                                    <label htmlFor={fullmoveId}>Fullmove</label>
                                                     <PositionCounterInput
                                                         id={fullmoveId}
                                                         min={1}
                                                         value={setup.fullmove}
+                                                        rawValue={rawSetupFields[5]}
                                                         position={setup}
                                                         onValueChange={value => updateRawSetupFields([[5, String(updateSetupFullmove(setup, value).fullmove)]], true)}
                                                     />
-                                                </label>
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="fen-setup-control-block">
