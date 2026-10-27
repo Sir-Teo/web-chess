@@ -16015,6 +16015,114 @@ async function checkDrawModeEndsWithItsPurpose(browser) {
   } finally { await context.close() }
 }
 
+async function checkReturnToDrill(browser) {
+  const pgn = '1. e4 (1. d4 d5 2. c4) e5 2. Nf3 Nc6 3. Bb5 a6 *'
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    for (const side of ['White', 'Black']) {
+      const touch = width === 375 && side === 'White' && browser.browserType().name() !== 'firefox'
+      const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', ...(touch ? { hasTouch: true } : {}) })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(async scale => {
+          document.documentElement.style.fontSize = `${scale * 100}%`
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        }, scale)
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await page.locator('.pgn-dialog textarea').fill(pgn)
+        await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+        const ids = () => page.locator('.mtree-chip').evaluateAll(chips => chips.map(chip => chip.dataset.nodeId))
+        const originalIds = await ids()
+        const play = async (from, to) => {
+          await page.locator(`#chessboard-square-${from}`).click()
+          await page.locator(`#chessboard-square-${to}`).click()
+        }
+        const card = page.getByRole('region', { name: 'Line drill', exact: true })
+        const branch = page.getByRole('button', { name: /^Go to variation move 1\. d4/ })
+        const returnButton = card.getByRole('button', { name: 'Return to drill', exact: true })
+        await page.getByRole('button', { name: `Drill this line as ${side}`, exact: true }).click()
+        if (width === 1280 || width === 320) {
+          const openingIds = await page.locator('.mtree-chip-active').evaluateAll(chips => chips.map(chip => chip.dataset.nodeId))
+          await branch.click()
+          await card.getByRole('status').filter({ hasText: 'Paused at move 1 of 3' }).waitFor()
+          await returnButton.click()
+          await card.getByRole('status').filter({ hasText: `Playing ${side} · move 1 of 3` }).waitFor()
+          assert(JSON.stringify(await page.locator('.mtree-chip-active').evaluateAll(chips => chips.map(chip => chip.dataset.nodeId))) === JSON.stringify(openingIds), 'Return lost the initial root/opponent-opening question')
+        }
+        await play(...(side === 'White' ? ['e2', 'e4'] : ['e7', 'e5']))
+        await card.getByRole('status').filter({ hasText: `Playing ${side} · move 2 of 3` }).waitFor()
+        const questionId = await page.locator('.mtree-chip-active').getAttribute('data-node-id')
+        await play(...(side === 'White' ? ['d2', 'd4'] : ['d7', 'd6']))
+        await card.getByText('Not the line. Try again.', { exact: true }).waitFor()
+        await branch.click()
+        await card.getByRole('status').filter({ hasText: 'Paused at move 2 of 3' }).waitFor()
+        await returnButton.waitFor({ timeout: 3000 })
+        await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).click()
+        await page.getByRole('button', { name: 'Set autoplay speed to Slow', exact: true }).click()
+        await page.getByRole('button', { name: 'Stop autoplay', exact: true }).waitFor()
+        if (touch) {
+          await page.getByRole('button', { name: 'Arrows', exact: true }).click()
+          await page.getByRole('button', { name: 'Marking', exact: true }).waitFor()
+        }
+        await returnButton.focus()
+        const target = await returnButton.elementHandle()
+        await page.waitForFunction(el => {
+          const r = el.getBoundingClientRect()
+          return document.activeElement === el && r.top >= 0 && r.bottom <= innerHeight + 1
+            && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2))
+        }, target, { timeout: 3000 })
+        await target.dispose()
+        const control = await returnButton.evaluate(el => ({ height: el.getBoundingClientRect().height, content: el.scrollWidth, available: el.clientWidth }))
+        assert(control.content <= control.available + 1 && (width > 900 || meetsTouchTarget(control.height)), 'Return clips its text or loses its phone touch target')
+        if (width === 320 && side === 'White') await page.screenshot({ path: `/tmp/web-chess-drill-return-${browser.browserType().name()}.png` })
+        await returnButton.press('Enter')
+        await card.getByRole('status').filter({ hasText: `Playing ${side} · move 2 of 3` }).waitFor()
+        await page.waitForFunction(() => document.activeElement?.classList.contains('board-stage'))
+        assert(await page.locator('.mtree-chip-active').getAttribute('data-node-id') === questionId, 'Return selected a different question node')
+        assert(await page.getByRole('button', { name: 'Stop autoplay', exact: true }).count() === 0, 'Return left autoplay moving the board')
+        if (touch) assert(await page.getByRole('button', { name: 'Arrows', exact: true }).getAttribute('aria-pressed') === 'false', 'Return left touch marking intercepting the board')
+        await play(...(side === 'White' ? ['f1', 'c4'] : ['g8', 'f6']))
+        const answer = side === 'White' ? 'Nf3' : 'Nc6'
+        await card.getByText(`Not the line. It plays ${answer}.`, { exact: true }).waitFor()
+        await branch.click()
+        await returnButton.click()
+        await card.getByText(`Not the line. It plays ${answer}.`, { exact: true }).waitFor()
+        await page.waitForFunction(() => document.activeElement?.classList.contains('board-stage'))
+        await play(...(side === 'White' ? ['g1', 'f3'] : ['b8', 'c6']))
+        await card.getByRole('status').filter({ hasText: `Playing ${side} · move 3 of 3` }).waitFor()
+        await play(...(side === 'White' ? ['f1', 'b5'] : ['a7', 'a6']))
+        await card.getByRole('status').filter({ hasText: 'Line complete' }).waitFor()
+        assert(await returnButton.count() === 0, 'a completed drill still offers Return')
+        assert(JSON.stringify(await ids()) === JSON.stringify(originalIds), 'Return or a rejected answer changed the study')
+        await card.getByRole('button', { name: 'Done', exact: true }).click()
+        if (side === 'White' && (width === 1280 || width === 320)) {
+          await branch.click()
+          await page.getByRole('button', { name: 'Drill this line as White', exact: true }).click()
+          await play('d2', 'd4')
+          await card.getByRole('status').filter({ hasText: 'move 2 of 2' }).waitFor()
+          await branch.click()
+          await page.getByRole('button', { name: 'Discard the line through d4', exact: true }).click()
+          await page.getByRole('button', { name: /^Confirm discarding the line through d4/ }).click()
+          await card.getByText('That question is no longer in this study. Restart to practise the line again.', { exact: true }).waitFor()
+          assert(await returnButton.isDisabled(), 'a removed question can return to an unrelated node')
+          await card.getByRole('button', { name: 'Restart', exact: true }).click()
+          await play('d2', 'd4')
+          await card.getByRole('status').filter({ hasText: 'move 2 of 2' }).waitFor()
+          await play('c2', 'c4')
+          await card.getByRole('status').filter({ hasText: 'Line complete' }).waitFor()
+        }
+        assert(errors.length === 0, `return to drill errors: ${errors.join('; ')}`)
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'Return to drill overflows')
+        console.log(`  return to drill (${width}×${height}, ${scale}x, ${theme}, ${side}): keyboard/pointer return preserves exact question, progress, misses and revealed answer; stops replay and focuses the board; correct moves complete without changing the study${side === 'White' && (width === 1280 || width === 320) ? '; removed question disables Return and Restart rebuilds the line' : ''}`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkDrillHiddenHints(browser) {
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
@@ -17401,6 +17509,7 @@ async function main() {
       'move-list-fit': checkMoveListFitting,
       'drill-restart': checkDrillRestartKeepsItsLine,
       'drill-hints': checkDrillHiddenHints,
+      'drill-return': checkReturnToDrill,
       'viewport-gesture': checkViewportResizePreservesGesture,
       'library-sorting': checkLibrarySorting,
       'library-lock-fallback': checkLibraryLockFallback,
@@ -18184,6 +18293,7 @@ async function main() {
     await checkBlunderIsPointedOut(browser)
     await checkReviewReportHoldsStill(browser)
     await checkTheReviewOfferFollowsTheGame(browser)
+    await checkReturnToDrill(browser)
     await checkDrillHiddenHints(browser)
     await checkDrillRestartKeepsItsLine(browser)
     await checkDrillLeavesTheLineAlone(browser)

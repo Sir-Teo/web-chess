@@ -975,7 +975,7 @@ function App() {
    * to the question being asked; browsing elsewhere pauses the drill.
    */
   const [drill, setDrill] = useState<
-    { line: DrillLine; rootFen: string; expectedFen: string; ply: number; misses: number; revealed: boolean } | null
+    { line: DrillLine; rootFen: string; expectedFen: string; expectedNodeId?: string; ply: number; misses: number; revealed: boolean } | null
   >(null)
   const [importSweepProgress, setImportSweepProgress] = useState<ImportSweepProgress>({ done: 0, total: 0 })
   const skipFullAnalyzeFenRef = useRef<string | null>(null)
@@ -4437,6 +4437,7 @@ function App() {
       line,
       rootFen: source.rootFen,
       expectedFen: game.fen(),
+      expectedNodeId: gameTree.currentPath().at(-1)?.id,
       ply: opening.length,
       misses: 0,
       revealed: false,
@@ -4452,6 +4453,23 @@ function App() {
     // `requestBoardReveal`, which is declared further down.
     setBoardRevealTick(tick => tick + 1)
   }, [cancelStaleBackgroundAnalysis, clearBoardSelection, drillableLine, game, gameTree, playDrillMoves, stop])
+
+  const returnToDrill = useCallback(() => {
+    const question = drill?.expectedNodeId ? gameTree.getNode(drill.expectedNodeId) : undefined
+    if (!drill || !question || question.fen !== drill.expectedFen || gameTree.root.fen !== drill.rootFen
+      || !isDrillTurn(drill.line, drill.ply)) return
+    setAutoplay(false)
+    cancelStaleBackgroundAnalysis()
+    stop()
+    setReviewPractice(null)
+    endTouchDrawing()
+    setOrientation(drill.line.side)
+    navigateAndPause(gameTree.navigateTo(question.id))
+    setBoardRevealTick(tick => tick + 1)
+    // The Return button disappears. Give keyboard users the board immediately,
+    // including on desktop where the mobile reveal does not move focus.
+    boardStageRef.current?.focus({ preventScroll: true })
+  }, [cancelStaleBackgroundAnalysis, drill, endTouchDrawing, gameTree, navigateAndPause, stop])
 
   const endDrill = useCallback(() => {
     setDrill(null)
@@ -4570,8 +4588,10 @@ function App() {
         // than their opponent's reply.
         const reply = opponentMovesFrom(activeDrill.line, activeDrill.ply + 1)
         if (reply.length) playDrillMoves(reply)
+        const expectedFen = game.fen()
+        const expectedNodeId = gameTree.currentPath().at(-1)?.id
         setDrill(previous => (previous
-          ? { ...previous, ply: judged.ply, expectedFen: game.fen(), misses: 0, revealed: false }
+          ? { ...previous, ply: judged.ply, expectedFen, expectedNodeId, misses: 0, revealed: false }
           : previous))
       }
       clearBoardSelection()
@@ -6755,6 +6775,8 @@ function App() {
     // reading "move 1 of 3" over a board that is not being asked anything is
     // the app claiming to wait for something it is not.
     const awayFromLine = !finished && drill.expectedFen !== fen
+    const question = drill.expectedNodeId ? gameTree.getNode(drill.expectedNodeId) : undefined
+    const canReturn = question?.fen === drill.expectedFen && gameTree.root.fen === drill.rootFen
     return (
       <section className="panel-card drill-card" aria-label="Line drill">
         <h3><span className="section-icon"><IconSwords /></span> Drill</h3>
@@ -6767,7 +6789,9 @@ function App() {
         </p>
         {awayFromLine && (
           <p className="drill-miss panel-copy small">
-            Go back to where you left it, or restart.
+            {canReturn
+              ? 'Return to the question you left, or restart from the beginning.'
+              : 'That question is no longer in this study. Restart to practise the line again.'}
           </p>
         )}
         {!finished && !awayFromLine && drill.misses > 0 && (
@@ -6778,6 +6802,22 @@ function App() {
           </p>
         )}
         <div className="inline-actions">
+          {awayFromLine && <button type="button" className="btn-cancel" onClick={returnToDrill}
+            onFocus={event => {
+              const button = event.currentTarget
+              requestAnimationFrame(() => {
+                // Nested native focus scrolling can leave part of this action
+                // above the viewport. Correct only the control still focused.
+                if (document.activeElement !== button) return
+                const bounds = button.getBoundingClientRect()
+                if (bounds.top < 0 || bounds.bottom > window.innerHeight) {
+                  button.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+                }
+              })
+            }}
+            disabled={!canReturn} title={canReturn ? 'Continue without resetting your progress.' : 'Restart to practise this line again.'}>
+            Return to drill
+          </button>}
           <button type="button" className="btn-cancel" onClick={() => startDrill(drill.line.side, drill)}>
             Restart
           </button>

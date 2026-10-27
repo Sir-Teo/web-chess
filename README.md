@@ -287,7 +287,8 @@ given, and the app answering the reader who touches it.
   the command palette too, each saying why it is unavailable rather than
   greying out in silence. Restart stops any replay and keeps the line you
   began drilling, even after browsing another branch; choose Drill this line
-  to practise a new one.
+  to practise a new one. Return to drill brings back the question you left,
+  keeping your progress and previous attempts.
 - **Practice critical moments**: In Coach mode, a critical mistake becomes a
   playable retry. Engine answers and candidate arrows are hidden, wrong moves
   snap back without adding junk variations, and the answer appears after two

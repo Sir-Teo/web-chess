@@ -1,0 +1,12 @@
+  return to drill (1280×900, 1x, dark, White): keyboard/pointer return preserves exact question, progress, misses and revealed answer; stops replay and focuses the board; correct moves complete without changing the study; removed question disables Return and Restart rebuilds the line
+  return to drill (1280×900, 1x, dark, Black): keyboard/pointer return preserves exact question, progress, misses and revealed answer; stops replay and focuses the board; correct moves complete without changing the study
+  return to drill (375×812, 1x, light, White): keyboard/pointer return preserves exact question, progress, misses and revealed answer; stops replay and focuses the board; correct moves complete without changing the study
+  return to drill (375×812, 1x, light, Black): keyboard/pointer return preserves exact question, progress, misses and revealed answer; stops replay and focuses the board; correct moves complete without changing the study
+  return to drill (320×812, 2x, light, White): keyboard/pointer return preserves exact question, progress, misses and revealed answer; stops replay and focuses the board; correct moves complete without changing the study; removed question disables Return and Restart rebuilds the line
+  return to drill (320×812, 2x, light, Black): keyboard/pointer return preserves exact question, progress, misses and revealed answer; stops replay and focuses the board; correct moves complete without changing the study
+page.waitForFunction: Timeout 3000ms exceeded.
+    at Object.checkReturnToDrill (/workspace/web-chess/scripts/test-ui-browser.cjs:16065:20)
+    at async /tmp/web-chess-drill-return-check.cjs:10:9 {
+  log: [],
+  name: 'TimeoutError'
+}
