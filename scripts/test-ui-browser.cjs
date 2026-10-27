@@ -7783,6 +7783,65 @@ async function checkOneGestureSavesOneGame(browser) {
  * twelve games in the library, the whole file imported once per press, and a
  * real database file is hundreds.
  */
+async function checkRecoveryOwnershipIncludesSessionState(browser) {
+  const key = 'webchess:auto-saved-game:v1'
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    for (const changed of ['cursor', 'clock']) {
+      const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce', hasTouch: width < 900 })
+      const owner = await context.newPage(), other = await context.newPage(), errors = []
+      for (const page of [owner, other]) page.on('pageerror', error => errors.push(error.message))
+      try {
+        await context.addInitScript(fakeEngineScript())
+        await context.addInitScript(theme => {
+          if (location.protocol === 'about:') return
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, timeControlId: '3+2', theme }))
+        }, theme)
+        await owner.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await other.goto(BASE, { waitUntil: 'domcontentloaded' })
+        for (const page of [owner, other]) await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        await owner.getByRole('button', { name: 'Pass and play', exact: true }).click()
+        await owner.locator('.move-entry summary').click()
+        const input = owner.locator('.move-entry input')
+        for (const move of ['e4', 'e5', 'Nf3']) { await input.fill(move); await input.press('Enter') }
+        await owner.getByRole('button', { name: 'Pause clock', exact: true }).click()
+        await owner.getByRole('button', { name: 'Resume clock', exact: true }).waitFor()
+        const original = await owner.evaluate(key => {
+          window.dispatchEvent(new Event('pagehide'))
+          return JSON.parse(localStorage.getItem(key))
+        }, key)
+        // Model a second writer committing in the same millisecond. No PGN
+        // edit is involved: only selected position or live clock bank changes.
+        const incoming = changed === 'cursor' ? { ...original, cursor: [] }
+          : { ...original, clock: { ...original.clock, whiteMs: original.clock.whiteMs - 11000 } }
+        const serialized = JSON.stringify(incoming)
+        await other.evaluate(({ key, serialized }) => localStorage.setItem(key, serialized), { key, serialized })
+        await startGameMode(owner, 'Human vs Human')
+        await owner.evaluate(() => window.dispatchEvent(new Event('pagehide')))
+        assert(await other.evaluate(key => localStorage.getItem(key), key) === serialized, `an empty stale owner erased the other tab's same-time ${changed} revision`)
+        await owner.goto('about:blank')
+        assert(await other.evaluate(key => localStorage.getItem(key), key) === serialized, `empty-tab exit changed the other tab's ${changed} revision`)
+        await other.reload({ waitUntil: 'domcontentloaded' })
+        await other.getByRole('button', { name: /^restore$/i }).click()
+        await other.locator('.clock-paused').waitFor({ state: 'attached' })
+        await other.locator(changed === 'cursor' ? '#chessboard-square-g1 [data-piece="wN"]' : '#chessboard-square-f3 [data-piece="wN"]').waitFor()
+        const recovered = await other.evaluate(key => {
+          window.dispatchEvent(new Event('pagehide'))
+          return JSON.parse(localStorage.getItem(key))
+        }, key)
+        assert(recovered.pgn === incoming.pgn && JSON.stringify(recovered.cursor) === JSON.stringify(incoming.cursor)
+          && JSON.stringify(recovered.clock) === JSON.stringify(incoming.clock) && await other.locator('.mtree-chip').count() === 3
+          && await other.locator('.clock-face.running').count() === 0, `the surviving ${changed} revision did not restore its exact complete game, selected position and clock`)
+        // The matching restored owner must still be able to clear its own save.
+        await startGameMode(other, 'Human vs Human')
+        await other.evaluate(() => window.dispatchEvent(new Event('pagehide')))
+        assert(await other.evaluate(key => localStorage.getItem(key), key) === null, 'matching restored metadata prevented own-save cleanup')
+        assert(await other.locator('.app-error-shell').count() === 0 && errors.length === 0, `recovery ownership errors: ${errors.join('; ')}`)
+        console.log(`  recovery ownership (${width}px, ${scale}x, ${theme}, ${changed}): same PGN/timestamp with different metadata survives stale-owner reset/exit; actual restore retains all moves, exact cursor/clock and pause; matching restored owner can still clear its save`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkEmptyTabPreservesRecovery(browser) {
   const key = 'webchess:auto-saved-game:v1'
   for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
@@ -20375,6 +20434,7 @@ async function main() {
       'paused-clock-navigation': checkPausedClockNavigation,
       'clock-controls': checkPassAndPlayClockControls,
       'clock-transition-time': checkClockTransitionTimesSurviveQueuedWork,
+      'recovery-ownership': checkRecoveryOwnershipIncludesSessionState,
       'move-list-pointer': checkMoveListPointerActivation,
       'move-list-fit': checkMoveListFitting,
       'drill-restart': checkDrillRestartKeepsItsLine,
@@ -21169,6 +21229,7 @@ async function main() {
     await checkPausedClockNavigation(browser)
     await checkPassAndPlayClockControls(browser)
     await checkClockTransitionTimesSurviveQueuedWork(browser)
+    await checkRecoveryOwnershipIncludesSessionState(browser)
     await checkNavigationKeepsTheClockHonest(browser)
     await checkKeepSearchingIsUnbounded(browser)
     await checkAutoplayWalksTheLine(browser)

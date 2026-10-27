@@ -10,6 +10,7 @@ import {
   normalizeAutoSavedClock,
   normalizeAutoSavedPlay,
   normalizeAutoSavedCursor,
+  type AutoSavedGame,
 } from './autoSave'
 
 const PGN = '[Event "Casual"]\n\n1. e4 e5 2. Nf3 *'
@@ -47,6 +48,56 @@ function stubStorage(overrides: Partial<Storage> = {}) {
 }
 
 describe('writing and reading back', () => {
+  const ownershipBase: AutoSavedGame = { version: 1, savedAt: 1234, pgn: PGN, moveCount: 3 }
+  const ownershipClock = { control: { initialMs: 180000, incrementMs: 2000 }, whiteMs: 120000, blackMs: 130000, flagged: null }
+  const ownershipPlay = { gameMode: 'human-vs-human' as const, playerColor: 'white' as const, difficulty: 4 }
+  it.each([
+    { label: 'root instead of last move', previous: { cursor: [0, 0, 0] }, next: { cursor: [] } },
+    { label: 'another variation', previous: { cursor: [0, 0] }, next: { cursor: [1, 0] } },
+    { label: 'clock bank', previous: { clock: ownershipClock }, next: { clock: { ...ownershipClock, whiteMs: 119000 } } },
+    { label: 'added clock', previous: {}, next: { clock: ownershipClock } },
+    { label: 'player colour', previous: { play: ownershipPlay }, next: { play: { ...ownershipPlay, playerColor: 'black' as const } } },
+    { label: 'opponent', previous: { play: ownershipPlay }, next: { play: { ...ownershipPlay, gameMode: 'human-vs-ai' as const } } },
+  ])('keeps another tab’s $label even with the same PGN and timestamp', ({ previous, next }) => {
+    const { storage } = stubStorage()
+    const owned = { ...ownershipBase, ...previous }
+    const incoming = { ...ownershipBase, ...next }
+    storage.setItem(AUTO_SAVED_GAME_KEY, JSON.stringify(incoming))
+    clearAutoSavedGame(storage, owned)
+    expect(readAutoSavedGame(storage)).toEqual(incoming)
+  })
+
+  it.each([
+    { cursor: [] },
+    { clock: ownershipClock },
+    { play: ownershipPlay },
+    { moveCount: 0, positionStudy: true },
+  ])('clears an owned snapshot with matching context %j', context => {
+    const { storage } = stubStorage()
+    const owned = { ...ownershipBase, ...context }
+    storage.setItem(AUTO_SAVED_GAME_KEY, JSON.stringify(owned))
+    clearAutoSavedGame(storage, owned)
+    expect(readAutoSavedGame(storage)).toBeNull()
+  })
+
+  it('compares validated clock/play values rather than object key order', () => {
+    const { storage } = stubStorage()
+    writeAutoSavedGame(PGN, 3, storage, 1234, ownershipClock, ownershipPlay, false, [])
+    clearAutoSavedGame(storage, { savedAt: 1234, pgn: PGN, cursor: [],
+      clock: { blackMs: 130000, whiteMs: 120000.8, flagged: null, control: { incrementMs: 2000, initialMs: 180000 } },
+      play: { difficulty: 4, playerColor: 'white', gameMode: 'human-vs-human' } })
+    expect(readAutoSavedGame(storage)).toBeNull()
+  })
+
+  it('keeps a changed study declaration at the same PGN and timestamp', () => {
+    const { storage } = stubStorage()
+    const owned = { ...ownershipBase, moveCount: 0 }
+    const incoming = { ...owned, positionStudy: true }
+    storage.setItem(AUTO_SAVED_GAME_KEY, JSON.stringify(incoming))
+    clearAutoSavedGame(storage, owned)
+    expect(readAutoSavedGame(storage)).toEqual(incoming)
+  })
+
   it('keeps another tab’s recovery when this empty tab never saved a game', () => {
     const { storage } = stubStorage()
     writeAutoSavedGame(PGN, 3, storage, 1234)

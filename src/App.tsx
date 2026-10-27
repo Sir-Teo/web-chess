@@ -5589,6 +5589,16 @@ function App() {
         return
       }
       const pgn = exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
+      // Keep the exact metadata this write owns; another tab can save the same
+      // PGN in the same millisecond at a different position or clock reading.
+      const savedClock = clockRef.current ? {
+        control: clockRef.current.control,
+        whiteMs: remainingMs(clockRef.current, 'w', savedAt),
+        blackMs: remainingMs(clockRef.current, 'b', savedAt),
+        flagged: clockRef.current.flagged,
+      } : undefined
+      const savedPlay = playSessionRef.current
+      const savedCursor = gameTreeCursor(gameTreeRef.current.currentPath()) ?? undefined
       const result = writeAutoSavedGame(
         pgn,
         plies,
@@ -5596,22 +5606,18 @@ function App() {
         savedAt,
         // Banked times, read at the moment of writing, so a clock that is
         // running is stored as what it would show if it stopped now.
-        clockRef.current
-          ? {
-            control: clockRef.current.control,
-            whiteMs: remainingMs(clockRef.current, 'w', Date.now()),
-            blackMs: remainingMs(clockRef.current, 'b', Date.now()),
-            flagged: clockRef.current.flagged,
-          }
-          : undefined,
+        savedClock,
         // Only for a game being played. An imported PGN under analysis has no
         // side to take, and restoring one into Play mode would invent one.
-        playSessionRef.current,
+        savedPlay,
         isPositionStudy,
-        gameTreeCursor(gameTreeRef.current.currentPath()) ?? undefined,
+        savedCursor,
       )
       if (result === 'saved') {
-        autoSaveOwnedRevisionRef.current = { savedAt, pgn }
+        autoSaveOwnedRevisionRef.current = {
+          savedAt, pgn, clock: savedClock, play: savedPlay, cursor: savedCursor,
+          positionStudy: isPositionStudy || undefined,
+        }
         recordSharedRecovery(savedAt, window.location.hash)
       }
       setAutoSaveResult(result)
@@ -5680,7 +5686,7 @@ function App() {
       setAutoSaveRestoreError(result.error ?? 'The saved moves could not be read.')
       return
     }
-    autoSaveOwnedRevisionRef.current = { savedAt: autoSaveRecovery.savedAt, pgn: autoSaveRecovery.pgn }
+    autoSaveOwnedRevisionRef.current = autoSaveRecovery
     setAutoSaveRestoreError(null)
     setAutoSaveRecovery(null)
     // Everything below runs after the import, which resets the board and the

@@ -1,0 +1,5 @@
+Error: recovery ownership errors: Failed to read the 'localStorage' property from 'Window': Access is denied for this document.
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkRecoveryOwnershipIncludesSessionState (/workspace/web-chess/scripts/test-ui-browser.cjs:7835:9)
+    at async /tmp/web-chess-recovery-ownership-check.cjs:10:9

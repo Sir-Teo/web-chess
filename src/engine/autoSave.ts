@@ -240,7 +240,19 @@ export function writeAutoSavedGame(
 }
 
 /** The last successful write owned by a page, without retaining a second tree. */
-export type AutoSaveRevision = Pick<AutoSavedGame, 'savedAt' | 'pgn'>
+export type AutoSaveRevision = Pick<AutoSavedGame, 'savedAt' | 'pgn' | 'clock' | 'play' | 'cursor' | 'positionStudy'>
+
+function recoveryContext(revision: AutoSaveRevision): string {
+  // PGN carries the whole tree, but not the selected node or live clock/session.
+  // Normalize both sides so property order and omitted defaults do not invent
+  // differences between a successful write and its validated readback.
+  return JSON.stringify({
+    clock: normalizeAutoSavedClock(revision.clock),
+    play: normalizeAutoSavedPlay(revision.play),
+    cursor: normalizeAutoSavedCursor(revision.cursor),
+    positionStudy: revision.positionStudy === true,
+  })
+}
 
 /** Explicit discard omits the revision; an empty page can only clear its own save. */
 export function clearAutoSavedGame(
@@ -250,7 +262,8 @@ export function clearAutoSavedGame(
   if (revision === null) return
   if (revision) {
     const current = readAutoSavedGame(storage)
-    if (current?.savedAt !== revision.savedAt || current.pgn !== revision.pgn) return
+    if (current?.savedAt !== revision.savedAt || current.pgn !== revision.pgn
+      || recoveryContext(current) !== recoveryContext(revision)) return
   }
   removeStorage(AUTO_SAVED_GAME_KEY, storage)
 }

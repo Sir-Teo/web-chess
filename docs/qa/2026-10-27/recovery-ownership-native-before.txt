@@ -1,0 +1,5 @@
+Error: an empty stale owner erased the other tab's same-time cursor revision
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkRecoveryOwnershipIncludesSessionState (/workspace/web-chess/scripts/test-ui-browser.cjs:7817:9)
+    at async /tmp/web-chess-recovery-ownership-check.cjs:10:9
