@@ -101,6 +101,7 @@ export function LibraryDialog({
 }: Props) {
     const [name, setName] = useState('')
     const [query, setQuery] = useState('')
+    const [starredOnly, setStarredOnly] = useState(false)
     const [sort, setSort] = useState<LibrarySort>('recent')
     const [error, setError] = useState<string | null>(null)
     const [status, setStatus] = useState<string | null>(null)
@@ -110,6 +111,7 @@ export function LibraryDialog({
     const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
     const renameInputRef = useRef<HTMLInputElement>(null)
     const searchInputRef = useRef<HTMLInputElement>(null)
+    const starredFilterRef = useRef<HTMLButtonElement>(null)
     const renameButtonRef = useRef<HTMLButtonElement | null>(null)
     const renameReturnFocusRef = useRef<HTMLElement | null>(null)
     const disarmDelete = useCallback(() => setConfirmingDelete(null), [])
@@ -168,15 +170,18 @@ export function LibraryDialog({
     }, [open, renamingId])
 
     const visible = useMemo(() => {
-        const matched = games.filter(game => libraryGameMatchesQuery(game, query))
+        const matched = games.filter(game => (!starredOnly || game.favorite) && libraryGameMatchesQuery(game, query))
         const sorted = sortLibraryGames(matched, sort)
         // Favourites first, order within each group preserved.
         return [...sorted.filter(g => g.favorite), ...sorted.filter(g => !g.favorite)]
-    }, [games, query, sort])
+    }, [games, query, sort, starredOnly])
 
     const shown = useMemo(() => visible.slice(0, visibleLimit), [visible, visibleLimit])
     const hiddenCount = visible.length - shown.length
     const stats = useMemo(() => getLibraryStats(games), [games])
+    const emptyResultsMessage = starredOnly && !query.trim()
+        ? 'No starred games yet.'
+        : `No ${starredOnly ? 'starred' : 'saved'} game matches “${query}”.`
 
     // Continue through the newly revealed rows, including when the last page
     // removes Show more. Consume the request before later filtering or sorting.
@@ -386,6 +391,24 @@ export function LibraryDialog({
                                     onClick={() => { changeQuery(''); searchInputRef.current?.focus() }}>
                                     <IconClose aria-hidden="true" />
                                 </button>}
+                                <button
+                                    ref={starredFilterRef}
+                                    type="button"
+                                    className="btn-cancel library-starred-filter"
+                                    aria-pressed={starredOnly}
+                                    aria-label="Starred only"
+                                    title={starredOnly ? 'Show all saved games' : 'Show only starred games'}
+                                    aria-controls={`${searchId}-list`}
+                                    onClick={() => {
+                                        setStarredOnly(value => !value)
+                                        setVisibleLimit(PAGE_SIZE)
+                                        setRenaming(null)
+                                        setConfirmingDelete(null)
+                                    }}
+                                >
+                                    <span aria-hidden="true">{starredOnly ? '★' : '☆'}</span>
+                                    <span className="library-starred-label">Starred only</span>
+                                </button>
                             </div>
                             <select className="library-sort" aria-label="Sort saved games"
                                 value={sort} onChange={event => changeSort(event.target.value as LibrarySort)}>
@@ -416,7 +439,15 @@ export function LibraryDialog({
                                             aria-pressed={game.favorite}
                                             aria-label={game.favorite ? `Unstar ${game.name}` : `Star ${game.name}`}
                                             title={game.favorite ? 'Starred' : 'Not starred'}
-                                            onClick={() => onToggleFavorite(game.id)}
+                                            onClick={event => {
+                                                if (starredOnly && game.favorite) {
+                                                    const row = event.currentTarget.closest('li')
+                                                    const neighbor = row?.nextElementSibling ?? row?.previousElementSibling
+                                                    const target = neighbor?.querySelector<HTMLButtonElement>('.library-favorite') ?? starredFilterRef.current
+                                                    requestAnimationFrame(() => { if (target?.isConnected) target.focus() })
+                                                }
+                                                onToggleFavorite(game.id)
+                                            }}
                                         >
                                             {game.favorite ? '★' : '☆'}
                                         </button>
@@ -528,7 +559,7 @@ export function LibraryDialog({
                             back once the search is cleared. */}
                         <div id={`${searchId}-results`} aria-live="polite" aria-atomic="true">
                             {loaded && games.length > 0 && <p className="library-hint">
-                                {visible.length === 0 ? <>No saved game matches “{query}”.</> : <>
+                                {visible.length === 0 ? <>{emptyResultsMessage}</> : <>
                                     {visible.length === games.length
                                         ? <>{stats.count} {stats.count === 1 ? 'game' : 'games'} · {stats.moves} ply · {formatLibrarySize(stats.size)}</>
                                         : <>{visible.length} of {stats.count} games match</>}

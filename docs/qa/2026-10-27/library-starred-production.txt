@@ -1,0 +1,4 @@
+  starred library (1280px, 1x, dark): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload
+  starred library (901px, 2x, light): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload
+  starred library (375px, 1x, dark): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload
+  starred library (320px, 2x, light): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload

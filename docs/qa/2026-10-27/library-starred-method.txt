@@ -1,0 +1,11 @@
+Starred library filter verification, 27 October 2026
+
+Add an optional Starred only toggle that composes with the existing search and sort, resets pagination and cancels unfinished row actions when changed. Unstarring under the filter focuses the neighboring star control, then the persistent filter when the last match disappears. The live region distinguishes no starred games from a failed starred search. The filter is temporary to the open dialog; star edits remain persistent.
+
+Initial enlarged-phone inspection showed a third toolbar row taking too much reading space. Put the toggle beside search, with a full desktop label and compact mobile star button retaining its accessible name, pressed state and explanatory title. The existing native sort target and under-155px enlarged-phone toolbar checks still pass; Chromium measured 148.19px. Inspect 320px/200% and 901px/200% screenshots; no binary screenshots are committed.
+
+The new library-starred browser regression covers Chromium and Firefox at 1280px normal dark, 901px/200% light, 375px normal dark and 320px/200% light. Each workflow restores two starred and one unstarred game, exercises pointer and Space/Enter filtering, preserves query/sort, removes focused rows, checks both empty messages, cancels unsubmitted rename/delete state, adds 103 starred games, verifies pagination expansion/reset and live counts, checks target/hit geometry/no overflow, loads the actual game and verifies persisted star edits after reload.
+
+The initial Firefox run reached the autosaved-game recovery dialog after reload, which hid the underlying Library opener. Correct the fixture to await the actual autosave and choose Restore before inspecting the persisted library; retain its initial failure. The first development fixture also needed to search for a saved game beyond the first 100 rows before inspecting it. Final eight new production cases pass. Existing Chromium browsing/sorting/editing and Firefox browsing cases pass, including updated keyboard order and the unchanged compact-toolbar budget.
+
+Full application verification passes: typecheck, lint, 123 files, 1,965 tests, one existing skip and production build. The later script-only recovery/row-action assertions also pass ESLint and the production browser checks. No new model test duplicates the component filter.

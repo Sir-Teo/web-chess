@@ -6372,6 +6372,99 @@ async function checkLibrarySorting(browser) {
   }
 }
 
+async function checkLibraryStarredFilter(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [901, 2, 'light'], [375, 1, 'dark'], [320, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      const dialog = page.locator('.library-dialog'), rows = dialog.locator('.library-row')
+      const search = dialog.getByRole('searchbox', { name: 'Search saved games', exact: true })
+      const sort = dialog.getByRole('combobox', { name: 'Sort saved games', exact: true })
+      const filter = dialog.getByRole('button', { name: 'Starred only', exact: true })
+      const results = dialog.locator('[aria-live="polite"][aria-atomic="true"]')
+      const importBackup = async games => {
+        await dialog.locator('input[type="file"]').setInputFiles({ name: 'starred.json', mimeType: 'application/json',
+          buffer: Buffer.from(JSON.stringify({ format: 'web-chess-library', version: 1, games })) })
+        await dialog.locator('.library-status').filter({ hasText: 'Backup imported.' }).waitFor()
+      }
+      const record = (id, name, favorite) => ({ id, name, favorite, pgn: '1. e4 e5 *', createdAt: 1, updatedAt: 1 })
+      await importBackup([record('a', 'Study A', true), record('b', 'Study B', true), record('c', 'Study C', false)])
+      await sort.selectOption('name')
+      await search.fill('Study')
+      await filter.focus()
+      await filter.press('Space')
+      assert(await filter.getAttribute('aria-pressed') === 'true' && await rows.count() === 2, 'starred filter did not exclude an unstarred game')
+      assert(await search.inputValue() === 'Study' && await sort.inputValue() === 'name', 'starred filter reset search or sorting')
+      assert((await results.innerText()).includes('2 of 3 games match'), 'starred count does not describe the filtered list')
+      assert(await filter.getAttribute('aria-controls') === await dialog.locator('.library-list').getAttribute('id'), 'starred filter does not identify its list')
+      const first = dialog.getByRole('button', { name: 'Unstar Study A', exact: true })
+      await first.focus()
+      await first.press('Space')
+      const second = dialog.getByRole('button', { name: 'Unstar Study B', exact: true })
+      await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Unstar Study B')
+      assert(await rows.count() === 1, 'unstarred game remained in the filtered list')
+      await second.press('Enter')
+      await page.waitForFunction(() => document.activeElement?.classList.contains('library-starred-filter'))
+      assert(await rows.count() === 0 && (await results.innerText()).includes('No starred game matches “Study”.'), 'empty starred search is misleading')
+      await dialog.getByRole('button', { name: 'Clear saved-game search', exact: true }).click()
+      assert((await results.innerText()).includes('No starred games yet.'), 'an empty starred shelf looks like an empty library')
+      await filter.click()
+      assert(await rows.count() === 3, 'clearing starred filter did not restore the library')
+      await dialog.getByRole('button', { name: 'Star Study C', exact: true }).click()
+      await search.fill('Study C')
+      await filter.click()
+      assert(await rows.count() === 1 && (await rows.innerText()).includes('Study C'), 'search and starred filter do not compose')
+      await dialog.getByRole('button', { name: 'Rename Study C', exact: true }).click()
+      await dialog.locator('.library-rename input').fill('Unsubmitted name')
+      await filter.click()
+      assert(await dialog.locator('.library-rename').count() === 0 && (await rows.innerText()).includes('Study C'), 'filter change committed or retained an unfinished rename')
+      await filter.click()
+      await dialog.getByRole('button', { name: 'Delete Study C', exact: true }).click()
+      await filter.click()
+      assert(await dialog.getByRole('button', { name: 'Confirm deleting Study C', exact: true }).count() === 0 && await rows.count() === 1, 'filter change retained a destructive confirmation')
+      await filter.click()
+      await importBackup(Array.from({ length: 103 }, (_, index) => record(`added-${index}`, `Added ${String(index).padStart(3, '0')}`, true)))
+      await search.fill('')
+      await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 100)
+      await dialog.getByRole('button', { name: 'Show 4 more', exact: true }).click()
+      assert(await rows.count() === 104, 'starred pagination omitted games or included unstarred entries')
+      await filter.click()
+      assert(await rows.count() === 100 && (await results.innerText()).includes('106 games'), 'turning off the filter did not reset pagination')
+      await filter.click()
+      assert(await rows.count() === 100 && (await results.innerText()).includes('104 of 106 games match'), 'turning the filter back on reused an expanded page')
+      await filter.scrollIntoViewIfNeeded()
+      assert(await filter.evaluate(element => {
+        const rect = element.getBoundingClientRect()
+        return rect.height >= 43.95 && rect.width >= 43.95 && element.scrollWidth <= element.clientWidth + 1
+          && element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2))
+      }), 'starred filter is too small, clipped or covered')
+      if (width === 320 && scale === 2) assert(await dialog.locator('.library-toolbar').evaluate(element => element.getBoundingClientRect().height < 155), 'starred filter consumes too much enlarged phone reading space')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'starred library overflows the viewport')
+      await page.screenshot({ path: `/tmp/web-chess-library-starred-${browser.browserType().name()}-${width}-${scale}x.png` })
+      await search.fill('Study C')
+      await dialog.getByRole('button', { name: 'Load Study C', exact: true }).click()
+      await dialog.waitFor({ state: 'detached' })
+      await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+      await page.waitForFunction(() => Boolean(localStorage.getItem('webchess:auto-saved-game:v1')))
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Restore', exact: true }).click()
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      await search.fill('Study C')
+      await dialog.getByRole('button', { name: 'Unstar Study C', exact: true }).waitFor()
+      await search.fill('Study A')
+      await dialog.getByRole('button', { name: 'Star Study A', exact: true }).waitFor()
+      assert(errors.length === 0, `starred library errors: ${errors.join('; ')}`)
+      console.log(`  starred library (${width}px, ${scale}x, ${theme}): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkLibraryBrowsing(browser) {
   for (const [width, scale] of [[1280, 1], [375, 1], [375, 2], [320, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -6440,6 +6533,8 @@ async function checkLibraryBrowsing(browser) {
       assert(await clear.evaluate(el => el === document.activeElement), 'clear search is missing from keyboard order')
       await page.keyboard.press('Enter')
       assert(await search.inputValue() === '' && await search.evaluate(el => el === document.activeElement), 'keyboard clear lost input focus or kept the query')
+      await page.keyboard.press('Tab')
+      assert(await dialog.getByRole('button', { name: 'Starred only', exact: true }).evaluate(el => el === document.activeElement), 'starred filter is missing from keyboard order')
       await page.keyboard.press('Tab')
       assert(await dialog.getByRole('combobox', { name: 'Sort saved games', exact: true }).evaluate(el => el === document.activeElement), 'cleared search left a hidden control in keyboard order')
       await search.fill('  ')
@@ -16734,6 +16829,7 @@ async function main() {
       'library-editing': checkLibraryEditing,
       'international-search': checkInternationalLibrarySearch,
       'library-browsing': checkLibraryBrowsing,
+      'library-starred': checkLibraryStarredFilter,
       'library-sorting': checkLibrarySorting,
       'library-lock-fallback': checkLibraryLockFallback,
       'library-capacity': checkAFullLibraryStopsReadingTheFile,
@@ -17576,6 +17672,7 @@ async function main() {
     await checkLibraryEditing(browser)
     await checkInternationalLibrarySearch(browser)
     await checkLibraryBrowsing(browser)
+    await checkLibraryStarredFilter(browser)
     await checkLibrarySorting(browser)
     await checkLibraryLockFallback(browser)
     await checkImportDraftOwnership(browser)
