@@ -8,6 +8,7 @@ import { looksLikeFen, looksLikeGameUrl } from './pastedText'
 import { decodeEvaluationEngine, encodeEvaluationEngine } from './evaluationSource'
 import { APP_PLACEHOLDER_HEADERS } from './pgnPlaceholders'
 import { formatLocalDate } from './localDate'
+import { pgnTagEnd } from './pgnHeaders'
 
 const INITIAL_FEN = new Chess().fen()
 const PGN_TAG_NAME_PATTERN = /^[A-Za-z0-9_]+$/
@@ -105,19 +106,6 @@ function sanitizePgnHeaderValue(value: string): string {
     return value
         .replace(/[\r\n]+/g, ' ')
         .replace(/"/g, "'")
-}
-
-/** End of one tag pair, with quoted brackets and escaped quotes kept literal. */
-function pgnTagEnd(text: string, open: number): number | null {
-    let cursor = open + 1
-    let quoted = false
-    while (cursor < text.length) {
-        const character = text[cursor++]
-        if (quoted && character === '\\') cursor++
-        else if (character === '"') quoted = !quoted
-        else if (character === ']' && !quoted) return cursor
-    }
-    return null
 }
 
 type PgnTextToken = { kind: 'tag' | 'text'; start: number; end: number }

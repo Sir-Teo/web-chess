@@ -69,6 +69,28 @@ describe('pgn header reading', () => {
     })
   })
 
+  it('reads inline tag pairs and stops at the first move', () => {
+    expect(parsePgnHeaders('[Event "Club"] [White "Ada"] [Black "Grace"] 1. e4 [White "Prose"]')).toEqual({
+      Event: 'Club', White: 'Ada', Black: 'Grace',
+    })
+    expect(extractLibraryMetadata('[White "Ada"] [Black "Grace"] [Date "2026.10.27"] 1. e4 *')).toMatchObject({
+      white: 'Ada', black: 'Grace', date: '2026.10.27',
+    })
+  })
+
+  it('reads CR-only and CRLF header sections', () => {
+    for (const ending of ['\r', '\r\n']) {
+      expect(parsePgnHeaders(`[Event "Club"]${ending}[White "Ada"]${ending}${ending}1. e4 *`)).toEqual({ Event: 'Club', White: 'Ada' })
+    }
+  })
+
+  it('keeps quoted brackets, escapes and tag-looking value text literal', () => {
+    expect(parsePgnHeaders(String.raw`[Event "The \"Final\" [White \"Guest\"]"] [White "Ada"] 1. e4 *`)).toEqual({
+      Event: 'The "Final" [White "Guest"]', White: 'Ada',
+    })
+    expect(parsePgnHeaders('[Event "unfinished] [White "Ada"]')).toEqual({})
+  })
+
   it('treats the placeholder tag values as absent', () => {
     const metadata = extractLibraryMetadata('[Round "?"]\n[Site "-"]\n[White "  "]\n\n1. e4 *')
     expect(metadata.round).toBeUndefined()
@@ -107,6 +129,10 @@ describe('counting moves', () => {
     expect(countPgnMoves('1. e4 e5 (1... c5 2. Nf3 d6) 2. Nf3 *')).toBe(3)
     expect(countPgnMoves('1. e4 e5 (1... c5 (1... e6 2. d4) 2. Nf3) 2. Nf3 *')).toBe(3)
     expect(countPgnMoves('1. e4 ; a trailing comment\ne5 *')).toBe(2)
+  })
+
+  it('does not count SAN-looking words inside inline headers', () => {
+    expect(countPgnMoves('[Event "e4 Nf3 Nc6"] [White "Ada"] 1. e4 e5 2. Nf3 *')).toBe(3)
   })
 
   it('counts castling, promotion, and decorated moves', () => {
@@ -638,6 +664,11 @@ describe('exporting the library as a PGN database', () => {
 })
 
 describe('pgnVariantName', () => {
+  it('recognizes unsupported variants in inline and CR-only headers', () => {
+    expect(pgnVariantName('[Event "Club"] [Variant "Chess960"] 1. e4 *')).toBe('Chess960')
+    expect(pgnVariantName('[Event "Club"]\r[Variant "Crazyhouse"]\r\r1. e4 *')).toBe('Crazyhouse')
+  })
+
   it('names a variant this board does not play', () => {
     expect(pgnVariantName('[Variant "Chess960"]\n[SetUp "1"]\n\n1. e4 *')).toBe('Chess960')
     expect(pgnVariantName('[Variant "Crazyhouse"]\n\n1. e4 *')).toBe('Crazyhouse')

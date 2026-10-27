@@ -6,6 +6,7 @@
 import { withoutAppPlaceholder } from './pgnPlaceholders'
 import { matchesSearchTerms, toSearchTerms } from './searchTerms'
 import { truncateUtf16 } from './textLength'
+import { readPgnHeaderSection } from './pgnHeaders'
 
 export const MAX_LIBRARY_GAMES = 500
 export const MAX_LIBRARY_PGN_LENGTH = 512_000
@@ -47,13 +48,8 @@ export type LibraryGame = {
 
 export type LibrarySort = 'recent' | 'oldest' | 'name' | 'moves'
 
-const HEADER_LINE = /^\s*\[\s*([A-Za-z0-9_]+)\s+"((?:[^"\\]|\\.)*)"\s*\]\s*$/
 const SAN_TOKEN = /^(?:O-O-O|O-O|0-0-0|0-0|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=?[QRBN])?)[+#]?[!?]*$/
 const RESULT_TOKEN = /^(?:1-0|0-1|1\/2-1\/2|\*)$/
-
-function unescapePgnHeaderValue(value: string): string {
-  return value.replace(/\\(["\\])/g, '$1')
-}
 
 function trimmedOrUndefined(value: string | undefined): string | undefined {
   const trimmed = value?.trim()
@@ -67,17 +63,7 @@ function positiveIntOrUndefined(value: string | undefined): number | undefined {
 }
 
 export function parsePgnHeaders(pgn: string): Record<string, string> {
-  const headers: Record<string, string> = {}
-  for (const line of String(pgn ?? '').split(/\r?\n/)) {
-    const match = HEADER_LINE.exec(line)
-    if (match) {
-      headers[match[1]] = unescapePgnHeaderValue(match[2])
-      continue
-    }
-    // Header block ends at the first non-header, non-blank line.
-    if (line.trim()) break
-  }
-  return headers
+  return readPgnHeaderSection(String(pgn ?? '')).headers
 }
 
 /**
@@ -134,10 +120,8 @@ function resultOrUndefined(value: string | undefined): string | undefined {
 }
 
 function stripPgnHeaders(pgn: string): string {
-  const lines = String(pgn ?? '').split(/\r?\n/)
-  let index = 0
-  while (index < lines.length && (HEADER_LINE.test(lines[index]) || !lines[index].trim())) index += 1
-  return lines.slice(index).join('\n')
+  const text = String(pgn ?? '')
+  return text.slice(readPgnHeaderSection(text).end)
 }
 
 /**
