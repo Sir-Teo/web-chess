@@ -372,7 +372,9 @@ given, and the app answering the reader who touches it.
 - **Export the library as PGN**: Alongside the JSON backup, which only this app
   reads, the whole library saves as one PGN database that Lichess, chess.com,
   SCID and ChessBase all open. It round-trips: the file it writes is one the
-  database import above reads straight back.
+  database import above reads straight back. Missing result markers are added
+  to the download so unfinished headerless games stay separate; saved originals
+  keep their text. Setup-only studies also survive the roundtrip.
 - **Fetch your own games by username**: Type a Lichess or chess.com name on the
   Import tab and the last ten games — or up to fifty — arrive in the paste box,
   newest first, with no sign-in and no file to find. Both sites publish a

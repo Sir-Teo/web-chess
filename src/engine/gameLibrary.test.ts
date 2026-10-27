@@ -27,7 +27,7 @@ import {
   suggestGameName,
   sameGameKey,
 } from './gameLibrary'
-import { pgnImportContentError, splitPgnGames } from './pgn'
+import { parsePgnMoveTree, pgnImportContentError, splitPgnGames } from './pgn'
 
 const PGN = `[Event "Casual Game"]
 [Site "Berlin GER"]
@@ -710,6 +710,39 @@ describe('exporting the library as a PGN database', () => {
     for (const part of splitPgnGames(createLibraryPgn(games))) {
       expect(pgnImportContentError(part), part).toBeNull()
     }
+  })
+
+  it.each([
+    '1. e4 e5',
+    '1. e4 {the note quotes 0-1} e5 ; the last note says 1-0',
+    '1. e4 e5 (1... c5)',
+  ])('keeps an unfinished headerless game separate from the next one: %s', first => {
+    const games = [createLibraryGame('one', first, 1, 'a'), createLibraryGame('two', '1. d4 d5 *', 1, 'b')]
+    const parts = splitPgnGames(createLibraryPgn(games))
+    expect(parts).toHaveLength(2)
+    expect(parts[0]).toContain(first)
+    expect(parts[0]).toMatch(/\n\*$/)
+    expect(parts.map(part => parsePgnMoveTree(part).moves[0].move.san)).toEqual(['e4', 'd4'])
+    expect(games[0].pgn).toBe(first)
+  })
+
+  it('uses the declared result when its termination marker is missing', () => {
+    const first = '[Result "0-1"]\n[Site "A quoted ] bracket and 1-0"]\n\n1. e4 e5'
+    const games = [createLibraryGame('one', first, 1, 'a'), createLibraryGame('two', '1. d4 d5 *', 1, 'b')]
+    const parts = splitPgnGames(createLibraryPgn(games))
+    expect(parts).toHaveLength(2)
+    expect(parts[0]).toBe(`${first}\n0-1`)
+    expect(parsePgnMoveTree(parts[0]).result).toBe('0-1')
+  })
+
+  it('keeps a setup-only study separate from a following headerless game', () => {
+    const fen = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1'
+    const first = `[SetUp "1"]\n[FEN "${fen}"]`
+    const games = [createLibraryGame('position', first, 1, 'a'), createLibraryGame('game', '1. d4 d5 *', 1, 'b')]
+    const parts = splitPgnGames(createLibraryPgn(games))
+    expect(parts).toHaveLength(2)
+    expect(parsePgnMoveTree(parts[0]).rootFen).toBe(fen)
+    expect(parsePgnMoveTree(parts[1]).moves[0].move.san).toBe('d4')
   })
 })
 

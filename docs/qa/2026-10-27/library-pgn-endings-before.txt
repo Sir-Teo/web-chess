@@ -1,0 +1,113 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/gameLibrary.test.ts (122 tests | 5 failed) 371ms
+     × keeps an unfinished headerless game separate from the next one: 1. e4 e5 8ms
+     × keeps an unfinished headerless game separate from the next one: 1. e4 {the note quotes 0-1} e5 ; the last note says 1-0 1ms
+     × keeps an unfinished headerless game separate from the next one: 1. e4 e5 (1... c5) 0ms
+     × uses the declared result when its termination marker is missing 1ms
+     × keeps a setup-only study separate from a following headerless game 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > exporting the library as a PGN database > keeps an unfinished headerless game separate from the next one: 1. e4 e5
+AssertionError: expected [ '1. e4 e5\n\n1. d4 d5 *' ] to have a length of 2 but got 1
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ src/engine/gameLibrary.test.ts:722:19
+    720|     const games = [createLibraryGame('one', first, 1, 'a'), createLibr…
+    721|     const parts = splitPgnGames(createLibraryPgn(games))
+    722|     expect(parts).toHaveLength(2)
+       |                   ^
+    723|     expect(parts[0]).toContain(first)
+    724|     expect(parts[0]).toMatch(/\n\*$/)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > exporting the library as a PGN database > keeps an unfinished headerless game separate from the next one: 1. e4 {the note quotes 0-1} e5 ; the last note says 1-0
+AssertionError: expected [ Array(1) ] to have a length of 2 but got 1
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ src/engine/gameLibrary.test.ts:722:19
+    720|     const games = [createLibraryGame('one', first, 1, 'a'), createLibr…
+    721|     const parts = splitPgnGames(createLibraryPgn(games))
+    722|     expect(parts).toHaveLength(2)
+       |                   ^
+    723|     expect(parts[0]).toContain(first)
+    724|     expect(parts[0]).toMatch(/\n\*$/)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > exporting the library as a PGN database > keeps an unfinished headerless game separate from the next one: 1. e4 e5 (1... c5)
+AssertionError: expected [ '1. e4 e5 (1... c5)\n\n1. d4 d5 *' ] to have a length of 2 but got 1
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ src/engine/gameLibrary.test.ts:722:19
+    720|     const games = [createLibraryGame('one', first, 1, 'a'), createLibr…
+    721|     const parts = splitPgnGames(createLibraryPgn(games))
+    722|     expect(parts).toHaveLength(2)
+       |                   ^
+    723|     expect(parts[0]).toContain(first)
+    724|     expect(parts[0]).toMatch(/\n\*$/)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > exporting the library as a PGN database > uses the declared result when its termination marker is missing
+AssertionError: expected [ Array(1) ] to have a length of 2 but got 1
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ src/engine/gameLibrary.test.ts:733:19
+    731|     const games = [createLibraryGame('one', first, 1, 'a'), createLibr…
+    732|     const parts = splitPgnGames(createLibraryPgn(games))
+    733|     expect(parts).toHaveLength(2)
+       |                   ^
+    734|     expect(parts[0]).toBe(`${first}\n0-1`)
+    735|     expect(parsePgnMoveTree(parts[0]).result).toBe('0-1')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/engine/gameLibrary.test.ts > exporting the library as a PGN database > keeps a setup-only study separate from a following headerless game
+AssertionError: expected [ Array(1) ] to have a length of 2 but got 1
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ src/engine/gameLibrary.test.ts:743:19
+    741|     const games = [createLibraryGame('position', first, 1, 'a'), creat…
+    742|     const parts = splitPgnGames(createLibraryPgn(games))
+    743|     expect(parts).toHaveLength(2)
+       |                   ^
+    744|     expect(parsePgnMoveTree(parts[0]).rootFen).toBe(fen)
+    745|     expect(parsePgnMoveTree(parts[1]).moves[0].move.san).toBe('d4')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 117 passed (122)
+   Start at  09:41:49
+   Duration  753ms (transform 215ms, setup 0ms, import 260ms, tests 371ms, environment 0ms)
+

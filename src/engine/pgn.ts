@@ -9,13 +9,13 @@ import { decodeEvaluationEngine, encodeEvaluationEngine } from './evaluationSour
 import { APP_PLACEHOLDER_HEADERS } from './pgnPlaceholders'
 import { formatLocalDate } from './localDate'
 import { pgnTagEnd, readPgnHeaderSection } from './pgnHeaders'
+import { isPgnResult, pgnTokensOutsideComments } from './pgnText'
 
 const INITIAL_FEN = new Chess().fen()
 const PGN_TAG_NAME_PATTERN = /^[A-Za-z0-9_]+$/
 const PGN_EVENT_TAG_PATTERN = /^\[Event\s+"(?:[^"\\]|\\.)*"\]$/i
 const PGN_RESULT_TAG_PATTERN = /^\[Result\s+"(?:[^"\\]|\\.)*"\]$/i
 const PGN_HEADER_TAG_PATTERN = /^\[\s*[A-Za-z0-9_]+\s+"(?:[^"\\]|\\.)*"\s*\]$/
-const VALID_PGN_RESULTS = new Set(['1-0', '0-1', '1/2-1/2', '*'])
 /**
  * Any `[%name ...]` command inside a comment. The PGN standard reserves this
  * shape for machine annotations, so none of them is prose: `[%clk]` from a
@@ -108,40 +108,6 @@ function sanitizePgnHeaderValue(value: string): string {
         .replace(/[\\"]/g, '\\$&')
 }
 
-type PgnTextToken = { kind: 'tag' | 'text'; start: number; end: number }
-
-/** Actual tag/text spans; block comments end at their first closing brace. */
-function* pgnTokensOutsideComments(text: string): Generator<PgnTextToken> {
-    const starts = /[;[{]/g
-    const lineEnding = /[\r\n]/g
-    let cursor = 0
-    for (;;) {
-        starts.lastIndex = cursor
-        const start = starts.exec(text)
-        if (!start) {
-            if (cursor < text.length) yield { kind: 'text', start: cursor, end: text.length }
-            return
-        }
-        const open = start.index
-        if (open > cursor) yield { kind: 'text', start: cursor, end: open }
-        if (start[0] === '[') {
-            const end = pgnTagEnd(text, open)
-            if (end === null) {
-                yield { kind: 'text', start: open, end: text.length }
-                return
-            }
-            yield { kind: 'tag', start: open, end }
-            cursor = end
-        } else if (start[0] === ';') {
-            lineEnding.lastIndex = open + 1
-            cursor = lineEnding.exec(text)?.index ?? text.length
-        } else {
-            const close = text.indexOf('}', open + 1)
-            cursor = close < 0 ? text.length : close + 1
-        }
-    }
-}
-
 /** Starts of subsequent games, with comments and recursive variations intact. */
 function* pgnGameBoundaries(text: string): Generator<number> {
     let sawMoves = false
@@ -165,7 +131,7 @@ function* pgnGameBoundaries(text: string): Generator<number> {
             if (variationDepth > 0) continue
             if (ended) yield token.start + word.index
             sawMoves = true
-            ended = VALID_PGN_RESULTS.has(word[0])
+            ended = isPgnResult(word[0])
         }
     }
 }
@@ -248,7 +214,7 @@ export function pgnImportUserErrorMessage(error: unknown): string | null {
 
 function normalizePgnResult(result: string | undefined): string {
     const normalized = result?.trim()
-    return normalized && VALID_PGN_RESULTS.has(normalized) ? normalized : '*'
+    return normalized && isPgnResult(normalized) ? normalized : '*'
 }
 
 export function formatPgnDate(date = new Date()): string {

@@ -7241,6 +7241,73 @@ async function checkOneGestureSavesOneGame(browser) {
  * twelve games in the library, the whole file imported once per press, and a
  * real database file is hundreds.
  */
+async function checkLibraryPgnEndings(browser) {
+  const fen = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1'
+  const parts = [
+    '1. e4 {Keep the quoted result 0-1.} e5 (1... c5)',
+    '1. d4 d5 ; last note says 1-0',
+    '1. c4 e5 1/2-1/2',
+    '[White "Ada"]\n[Result "0-1"]\n\n1. c4 e5',
+    `[SetUp "1"]\n[FEN "${fen}"]`,
+  ]
+  const expected = parts.map((part, index) => index === 2 ? part : part + '\n' + (index === 3 ? '0-1' : '*'))
+  const games = parts.map((pgn, index) => ({ id: `ending-${index}`, name: `Ending ${index}`, pgn, createdAt: index + 1, updatedAt: index + 1, favorite: false }))
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', acceptDownloads: true })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const open = () => page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      await open()
+      const library = page.locator('.library-dialog')
+      await library.locator('input[type="file"]').setInputFiles({ name: 'endings.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ format: 'web-chess-library', version: 1, games })) })
+      await library.getByRole('status').filter({ hasText: 'Backup imported.' }).waitFor()
+      assert(await library.locator('.library-row').count() === 5, 'the fixture did not restore all five original records')
+      const [download] = await Promise.all([page.waitForEvent('download'), library.getByRole('button', { name: 'Export PGN', exact: true }).click()])
+      const exported = fs.readFileSync(await download.path(), 'utf8')
+      assert(exported === expected.join('\n\n') + '\n', 'the PGN export did not add only the missing main-line endings')
+      await library.getByRole('button', { name: 'Done', exact: true }).click()
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog input[type="file"]').setInputFiles({ name: 'roundtrip.pgn', mimeType: 'application/x-chess-pgn', buffer: Buffer.from(exported) })
+      await page.getByRole('button', { name: 'Add 5 games to the library', exact: true }).click()
+      await page.locator('.pgn-dialog .library-status').filter({ hasText: 'Added 5 games' }).waitFor()
+      await page.waitForFunction(() => new Promise(resolve => {
+        const request = indexedDB.open('web-chess-library', 1)
+        request.onerror = () => resolve(false)
+        request.onsuccess = () => {
+          const db = request.result, read = db.transaction('games').objectStore('games').getAll()
+          read.onsuccess = () => { window.__endingGames = read.result; db.close(); resolve(read.result.length === 10) }
+          read.onerror = () => { db.close(); resolve(false) }
+        }
+      }))
+      const stored = await page.evaluate(() => window.__endingGames)
+      for (const original of games) assert(stored.find(game => game.id === original.id)?.pgn === original.pgn, 'export modified a stored original')
+      const restored = stored.filter(game => !game.id.startsWith('ending-'))
+      for (const part of expected) assert(restored.some(game => game.pgn === part), 'reimport lost a game, a setup-only study, or its preserved text')
+      await page.locator('.pgn-dialog').getByRole('button', { name: 'Cancel', exact: true }).click()
+      const load = async part => {
+        await open()
+        const record = restored.find(game => game.pgn === part)
+        await library.locator(`[data-library-game-id="${record.id}"]`).getByRole('button', { name: /^Load / }).click()
+        await library.waitFor({ state: 'detached' })
+      }
+      await load(expected[4])
+      await page.waitForFunction(() => document.querySelectorAll('.board-surface [data-piece]').length === 3)
+      assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'the restored setup study lost its pawn')
+      await load(expected[0])
+      await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+      assert(await page.getByRole('button', { name: /^Go to variation move 1\.\.\. c5/ }).count() === 1, 'the roundtrip lost the annotated variation')
+      assert(errors.length === 0, `library PGN ending errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'library PGN roundtrip overflows')
+      console.log(`  library PGN endings (${width}×${height}, ${scale}x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkDatabaseGameBoundaries(browser) {
   const { Chess } = require('chess.js')
   const setup = new Chess(); setup.move('Nf3')
@@ -17863,6 +17930,7 @@ async function main() {
       'dialog-resize': checkDialogResizeFocus,
       'database-once': checkADatabaseIsAddedOnce,
       'database-boundaries': checkDatabaseGameBoundaries,
+      'library-pgn-endings': checkLibraryPgnEndings,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
       'promotion-keys': checkPromotionShortcutScope,
       'promotion-targets': checkThePromotionChooserCanBeHit,
@@ -18715,6 +18783,7 @@ async function main() {
     await checkReviewExportRecovery(browser)
     await checkReviewListFollowsPosition(browser)
     await checkDialogResizeFocus(browser)
+    await checkLibraryPgnEndings(browser)
     await checkDatabaseGameBoundaries(browser)
     await checkADatabaseIsAddedOnce(browser)
     await checkAnExportedGameComesBack(browser)

@@ -7,6 +7,7 @@ import { withoutAppPlaceholder } from './pgnPlaceholders'
 import { matchesSearchTerms, toSearchTerms } from './searchTerms'
 import { truncateUtf16 } from './textLength'
 import { readPgnHeaderSection } from './pgnHeaders'
+import { isPgnResult, readPgnMainlineResult } from './pgnText'
 
 export const MAX_LIBRARY_GAMES = 500
 export const MAX_LIBRARY_PGN_LENGTH = 512_000
@@ -483,7 +484,9 @@ export function getLibraryStats(games: LibraryGame[]): { count: number; moves: n
  * in Lichess, chess.com, SCID, ChessBase and everything else.
  *
  * Games are separated by a blank line, which is what the standard asks for and
- * what `splitPgnGames` reads back. Names are not written: a library name is
+ * what `splitPgnGames` reads back. Missing termination markers are supplied
+ * so headerless games and setup-only studies keep their own boundaries.
+ * Names are not written: a library name is
  * this app's label for a game, and a PGN already carries the headers every
  * other program uses to identify one.
  */
@@ -491,6 +494,12 @@ export function createLibraryPgn(games: LibraryGame[]): string {
   const text = games
     .map(game => game.pgn.trim())
     .filter(Boolean)
+    .map(pgn => {
+      if (readPgnMainlineResult(pgn)) return pgn
+      const declared = readPgnHeaderSection(pgn).headers.Result?.trim()
+      // A fresh line keeps the marker outside a trailing semicolon comment.
+      return `${pgn}\n${isPgnResult(declared) ? declared : '*'}`
+    })
     .join('\n\n')
   return text ? `${text}\n` : ''
 }

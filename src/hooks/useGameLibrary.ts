@@ -156,7 +156,8 @@ export function useGameLibrary() {
         continue
       }
       try {
-        if (!parsePgnMoveTree(text).moves.length) { unreadable++; continue }
+        // The parser rejects empty standard games, but accepts valid setup-only studies.
+        parsePgnMoveTree(text)
       } catch {
         unreadable++
         continue
