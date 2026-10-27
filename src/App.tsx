@@ -419,7 +419,7 @@ const KEYBOARD_SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['↑', '↓'], action: 'Previous / next variation at this move' },
   { keys: ['Home', 'End'], action: 'First / last position' },
   { keys: ['F'], action: 'Flip the board' },
-  { keys: ['Esc'], action: 'Put a piece back or leave marking mode' },
+  { keys: ['Esc'], action: 'Cancel selection or premove; leave marking mode' },
   { keys: ['T'], action: 'Show what the opponent threatens (Analysis mode)' },
   { keys: ['Z'], action: 'Take back your last move (Play mode)' },
   { keys: ['H'], action: 'Ask the engine for a hint (Play mode)' },
@@ -1508,12 +1508,12 @@ function App() {
       // same rule for an app with six shortcuts.
       if (!isPlainShortcut(e)) return
 
-      // Escape puts a picked-up piece back, as on every other board. Dialogs
-      // claim the key first and mark it handled, so this never closes one
-      // and deselects in the same press.
+      // Dialogs claim Escape first, so dismissing one does not also discard
+      // a selected piece or a queued premove underneath it.
       if (e.key === 'Escape') {
         setSelectedSquare(null)
         setLegalTargets([])
+        setPremove(null)
         if (touchDrawing) {
           e.preventDefault()
           endTouchDrawing()

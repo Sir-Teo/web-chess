@@ -379,6 +379,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
         if (SCENARIO === 'review-source' && this.reviewProducer === 'full') window.__fullReviewSearches = (window.__fullReviewSearches || 0) + 1;
         this.goCommand = text;
         this.searching = true;
+        if (SCENARIO === 'blunder-nudge' && window.__holdPremoveReply) window.__premoveReplyEngine = this;
         this.searches += 1;
         if (window.__withholdEngineInfo) return;
         if (SCENARIO === 'review-source' && this.ordinal === window.__failReviewWorker && this.searches === 2) {
@@ -390,6 +391,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
         // A search ends on its own, or early when the app says stop. Both
         // finish with a bestmove, which is what the app waits for.
         if (SCENARIO !== 'hold-search' && !(SCENARIO === 'hold-infinite' && text === 'go infinite')
+          && !(SCENARIO === 'blunder-nudge' && window.__holdPremoveReply)
           && !(SCENARIO === 'console-search' && this.fen.includes('rnb1kbnr'))) {
           this.finishTimer = setTimeout(() => this.finishSearch(), 15);
         }
@@ -6463,65 +6465,74 @@ async function checkADatabaseIsAddedOnce(browser) {
  * abandoned, one turn later, with nothing on screen to say why.
  */
 async function checkAPremoveWaitsForItsTurn(browser) {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
-  const page = await context.newPage()
-  try {
-    await page.addInitScript(fakeEngineScript('blunder-nudge'))
-    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-    const startFresh = page.getByRole('button', { name: /start fresh/i })
-    if (await startFresh.count()) await startFresh.first().click()
-    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
-    await startGameMode(page, 'Human vs AI')
-    // The engine has to be ready before any of this means anything: played
-    // too early, the request goes out against a board the reply no longer
-    // matches and the move never lands.
-    await page.waitForFunction(() => /ready to play/.test(document.body.innerText), null, { timeout: 20000 })
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      // Hold the actual reply. Slowing the AI's pacing does not guarantee a
+      // first-response window, and a normal d4 after e5 would prove nothing.
+      await page.addInitScript(fakeEngineScript('blunder-nudge'))
+      await page.addInitScript(theme => {
+        window.__holdPremoveReply = true
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', gameMode: 'human-vs-human',
+          autoAnalyze: false, engineProfile: 'lite-single-local', lastSideChoice: 'white', theme }))
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await startGameMode(page, 'Human vs AI')
+      await page.waitForFunction(() => /ready to play/.test(document.body.innerText))
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const moves = () => page.locator('.mtree-chip').allTextContents()
+      const pending = () => page.locator('[id^="chessboard-square-"]').evaluateAll(els => els
+        .filter(el => [...el.children].some(child => / 4px(?: |$)/.test(getComputedStyle(child).boxShadow))).map(el => el.id.slice(-2)).sort())
+      const queue = async (from, to) => {
+        await page.locator(`#chessboard-square-${from}`).click()
+        await page.locator(`#chessboard-square-${to}`).click()
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        assert(JSON.stringify(await pending()) === JSON.stringify([from, to].sort()), `premove was not actually queued: ${JSON.stringify(await pending())}`)
+      }
+      const reply = async () => {
+        await page.waitForFunction(() => window.__premoveReplyEngine?.searching)
+        await page.evaluate(() => window.__premoveReplyEngine.finishSearch())
+      }
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.waitForFunction(() => window.__premoveReplyEngine?.searching)
+      await queue('d2', 'd4')
+      assert(JSON.stringify(await moves()) === JSON.stringify(['e4']), 'the engine replied before the premove was queued')
+      const searches = await page.evaluate(() => window.__uciCommands.filter(line => /^go\b/.test(line)).length)
+      await page.keyboard.press('Escape')
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      assert((await pending()).length === 0, 'Escape left the queued premove active')
+      assert(await page.evaluate(() => window.__premoveReplyEngine.searching && window.__uciCommands.filter(line => /^go\b/.test(line)).length) === searches,
+        'canceling a premove interrupted or restarted the opponent search')
+      await reply()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-e5 [data-piece="bP"]'))
+      assert(JSON.stringify(await moves()) === JSON.stringify(['e4', 'e5']), `a canceled premove still played: ${JSON.stringify(await moves())}`)
 
-    // Slow, so there is a window to queue one in at all.
-    const slow = page.getByRole('button', { name: 'Set AI speed to Slow' })
-    assert(await slow.count() === 1, 'the AI speed control is missing, so there is no window to premove in')
-    await slow.click()
-    await page.waitForTimeout(200)
+      await page.locator('#chessboard-square-g1').click()
+      await page.locator('#chessboard-square-f3').click()
+      await page.waitForFunction(() => window.__premoveReplyEngine?.searching)
+      await queue('f1', 'c4')
+      // A dialog owns its first Escape; closing it must keep the queued move.
+      await openSettings(page)
+      await page.keyboard.press('Escape')
+      await page.getByRole('dialog', { name: 'Settings', exact: true }).waitFor({ state: 'detached' })
+      assert(JSON.stringify(await pending()) === JSON.stringify(['c4', 'f1']), 'closing a dialog also canceled the premove')
+      await reply()
+      await page.waitForFunction(() => document.querySelector('#chessboard-square-c4 [data-piece="wB"]'))
+      const played = await moves()
+      assert(played.indexOf('Bc4') === played.indexOf('Nc6') + 1, `a legal premove played out of order: ${JSON.stringify(played)}`)
 
-    const moves = () => page.evaluate(() => [...document.querySelectorAll('.mtree-chip')].map(chip => chip.textContent.trim()))
-    const queue = async (from, to) => {
-      await page.click(`#chessboard-square-${from}`)
-      await page.waitForTimeout(60)
-      await page.click(`#chessboard-square-${to}`)
-      await page.waitForTimeout(80)
-    }
-
-    await page.click('#chessboard-square-e2')
-    await page.click('#chessboard-square-e4')
-    await page.waitForTimeout(100)
-    await queue('d2', 'd4')
-
-    await page.waitForFunction(() => /e5/.test(document.querySelector('.mtree-scroll')?.textContent || ''),
-                               null, { timeout: 15000 })
-    await page.waitForTimeout(1500)
-    const played = await moves()
-    assert(played.includes('d4'),
-      `the premove should have played itself when the reply landed: ${JSON.stringify(played)}`)
-    assert(played.indexOf('d4') === played.indexOf('e5') + 1,
-      `the premove played out of order: ${JSON.stringify(played)}`)
-
-    // Now queue one and take the game back underneath it.
-    await page.waitForFunction(() => /Nc6/.test(document.querySelector('.mtree-scroll')?.textContent || ''),
-                               null, { timeout: 15000 })
-    await page.waitForTimeout(400)
-    await page.click('#chessboard-square-g1')
-    await page.click('#chessboard-square-f3')
-    await page.waitForTimeout(100)
-    await queue('f1', 'c4')
-    const beforeTakeback = await moves()
-    await page.getByRole('button', { name: /^Take back/ }).click()
-    await page.waitForTimeout(3000)
-    const afterTakeback = await moves()
-    assert(!afterTakeback.includes('Bc4'),
-      `a premove survived a takeback and played anyway: ${JSON.stringify({ beforeTakeback, afterTakeback })}`)
-    console.log(`  premove: played in turn as ${played.slice(0, 4).join(' ')}, and dropped by a takeback`)
-  } finally {
-    await context.close()
+      await page.waitForFunction(() => window.__premoveReplyEngine?.searching)
+      await queue('a2', 'a3')
+      await page.getByRole('button', { name: /^Take back/ }).click()
+      await page.waitForFunction(() => !document.querySelector('#chessboard-square-c4 [data-piece="wB"]'))
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      assert((await pending()).length === 0 && !(await moves()).includes('a3'), 'a queued premove survived takeback')
+      assert(errors.length === 0, `premove errors: ${errors.join('; ')}`)
+      console.log(`  premove (${width}×${height}, ${scale}x, ${theme}): held replies prove queuing; Escape cancels without changing the opponent search; modal Escape preserves the queue; legal reply executes in order; takeback clears it`)
+    } finally { await context.close() }
   }
 }
 

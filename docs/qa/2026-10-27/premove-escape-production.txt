@@ -1,0 +1,16 @@
+  premove (1280×900, 1x, dark): held replies prove queuing; Escape cancels without changing the opponent search; modal Escape preserves the queue; legal reply executes in order; takeback clears it
+  premove (375×812, 1x, light): held replies prove queuing; Escape cancels without changing the opponent search; modal Escape preserves the queue; legal reply executes in order; takeback clears it
+  premove (320×812, 2x, light): held replies prove queuing; Escape cancels without changing the opponent search; modal Escape preserves the queue; legal reply executes in order; takeback clears it
+  premove (844×390, 2x, dark): held replies prove queuing; Escape cancels without changing the opponent search; modal Escape preserves the queue; legal reply executes in order; takeback clears it
+  drawing cancellation (375×812, 1x): Escape cancels a stroke and leaves completed marks; dialog/modifier/composition scope; native pointer-capability change hides controls and releases the board; e2-e4 and e7-e5 play
+  drawing cancellation (375×812, 2x): Escape cancels a stroke and leaves completed marks; dialog/modifier/composition scope; native pointer-capability change hides controls and releases the board; e2-e4 and e7-e5 play
+  drawing cancellation (844×390, 1x): Escape cancels a stroke and leaves completed marks; dialog/modifier/composition scope; native pointer-capability change hides controls and releases the board; e2-e4 and e7-e5 play
+  draw mode: ends at the move into Play, can still be turned on there, and draws a finger stroke
+  settings dialog: all 26 focusable controls are inside the trap, disclosure included
+  backdrop: clicking away closes the dialog and returns focus to its opener
+  New game: 11 focusable controls, all inside the trap
+  PGN and FEN: 10 focusable controls, all inside the trap
+  Library: 2 focusable controls, all inside the trap
+  Command palette: 24 focusable controls, all inside the trap
+  Promotion chooser: 5 focusable controls, all inside the trap
+  shortcuts: six chords left to the browser, and f and ArrowLeft still the app's

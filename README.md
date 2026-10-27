@@ -51,7 +51,8 @@ given, and the app answering the reader who touches it.
   `Space` pauses the clock as well as the AI, and stepping out to Analysis stops
   it rather than letting it run while you consult the engine.
 - **Premoves**: While the engine is thinking, drag or tap your reply and it is
-  held, both squares ringed, then played the instant the position arrives. A
+  held, both squares ringed, then played the instant the position arrives.
+  **Escape** cancels a queued premove before the reply. A
   premove the engine's reply made illegal is dropped without comment, a pawn
   reaching the last rank promotes to a queen without asking, and clicking
   anywhere else cancels — the same rules every other board uses, because they
@@ -351,8 +352,8 @@ given, and the app answering the reader who touches it.
   Escape while their code downloads. The board is available again immediately;
   reopening can continue the same download.
 - **Keyboard**: arrows walk the game, Home and End jump to its ends, F flips,
-  N starts a new game, Escape puts a piece back or leaves marking mode, and `?` opens the
-  full list at the top of Settings.
+  N starts a new game. Escape clears a selection or queued premove, or leaves
+  marking mode. `?` opens the full list at the top of Settings.
 
 - **Export the library as PGN**: Alongside the JSON backup, which only this app
   reads, the whole library saves as one PGN database that Lichess, chess.com,
