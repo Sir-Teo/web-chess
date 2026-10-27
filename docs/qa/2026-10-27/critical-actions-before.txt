@@ -1,0 +1,6 @@
+  practice ownership (1280×900, 1x, dark): active f3 drill, Slow replay yield to e4 practice; board focus, legal wrong-answer reset and correct solution work; Done restores the question; a new drill accepts f3; original line and one solution variation remain
+Error: critical moment action is smaller than its touch target: 106.765625×32
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkPracticeOwnsTheBoard (/workspace/web-chess/scripts/test-ui-browser.cjs:16071:11)
+    at async /tmp/web-chess-practice-ownership-check.cjs:10:9

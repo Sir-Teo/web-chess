@@ -3253,6 +3253,7 @@ button.pv-move:focus-visible {
 }
 
 .critical-moments-card {
+  container: critical-moments / inline-size;
   margin-top: var(--space-md);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -3277,7 +3278,7 @@ button.pv-move:focus-visible {
   gap: 0.34rem;
 }
 
-button.critical-moment-row {
+.critical-moment-row {
   width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -3347,6 +3348,7 @@ button.critical-moment-row {
   display: grid;
   gap: 0.12rem;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .critical-moment-move strong {
@@ -3374,6 +3376,49 @@ button.critical-moment-row {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@container critical-moments (max-width: 15rem) {
+  .critical-moment-row,
+  .panel .critical-moment-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .panel .critical-moment-best-action {
+    justify-self: start;
+    max-width: 100%;
+    flex-wrap: wrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+  }
+
+  .critical-moment-impact {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (pointer: coarse) {
+  .panel .critical-moment-main,
+  .panel .critical-moment-best-action {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+@container critical-moments (max-width: 5rem) {
+  .critical-moment-row {
+    padding: 0.35rem 0.1rem;
+  }
+
+  .panel .critical-moment-best-action {
+    padding: 0.25rem 0.15rem;
+  }
+
+  .critical-moment-best-action svg {
+    display: none;
+  }
 }
 
 .review-book-list {
