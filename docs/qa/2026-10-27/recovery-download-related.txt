@@ -1,0 +1,28 @@
+  failed recovery (1280×812, 1x, dark, missing clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (1280×812, 1x, dark, denied clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (1280×812, 1x, dark, throw clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (1280×812, 1x, dark, deferred clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (375×812, 1x, light, missing clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (375×812, 1x, light, denied clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (375×812, 1x, light, throw clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (375×812, 1x, light, deferred clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (320×812, 2x, light, missing clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (320×812, 2x, light, denied clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (320×812, 2x, light, throw clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (320×812, 2x, light, deferred clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (844×390, 2x, dark, missing clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (844×390, 2x, dark, denied clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (844×390, 2x, dark, throw clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  failed recovery (844×390, 2x, dark, deferred clipboard): clear failure/retry or owned delayed feedback; original Unicode/CRLF PGN download; retained snapshot; usable actions, incidental-dismiss protection and explicit discard
+  contrast (Dark / recovery warning / 1280px): 162 measured, 0 under the floor (144 on a gradient, measured against its worst stop)
+  autosave (1280px, Dark): denied storage is visible, PGN downloads, retry recovers
+  contrast (Dark / recovery warning / 375px): 159 measured, 0 under the floor (137 on a gradient, measured against its worst stop)
+  autosave (375px, Dark): denied storage is visible, PGN downloads, retry recovers
+  contrast (Light / recovery warning / 1280px): 162 measured, 0 under the floor (144 on a gradient, measured against its worst stop)
+  autosave (1280px, Light): denied storage is visible, PGN downloads, retry recovers
+  contrast (Light / recovery warning / 375px): 159 measured, 0 under the floor (137 on a gradient, measured against its worst stop)
+  autosave (375px, Light): denied storage is visible, PGN downloads, retry recovers
+  PGN download recovery (1280px, 1x, dark, game): URL failure/missing API/blocked click retain study, exact text and focused retry; manual selection works; older clipboard success/failure cannot replace guidance; URL/anchor cleanup; retry downloads named UTF-8 PGN with root/notes/variations and reimports it
+  PGN download recovery (1280px, 1x, dark, position): URL failure/missing API/blocked click retain study, exact text and focused retry; manual selection works; older clipboard success/failure cannot replace guidance; URL/anchor cleanup; retry downloads named UTF-8 PGN with root/notes/variations and reimports it
+  PGN download recovery (375px, 2x, light, game): URL failure/missing API/blocked click retain study, exact text and focused retry; manual selection works; older clipboard success/failure cannot replace guidance; URL/anchor cleanup; retry downloads named UTF-8 PGN with root/notes/variations and reimports it
+  PGN download recovery (375px, 2x, light, position): URL failure/missing API/blocked click retain study, exact text and focused retry; manual selection works; older clipboard success/failure cannot replace guidance; URL/anchor cleanup; retry downloads named UTF-8 PGN with root/notes/variations and reimports it

@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useModalFocus } from '../hooks/useModalFocus'
 import { IconRefresh } from './icons'
 import { describeElapsed } from './elapsedLabel'
@@ -24,7 +24,9 @@ type Props = {
     error?: string | null
     /** Hands the unreadable PGN to the clipboard, so it is not simply lost. */
     onCopyPgn?: () => void
-    onDownloadPgn?: () => void
+    onDownloadPgn?: () => boolean
+    /** Preserve unreadable text for manual retrieval when browser APIs fail. */
+    pgn?: string
     copyLabel?: string
     copying?: boolean
     copyError?: string
@@ -46,10 +48,15 @@ function describeSavedOutcome(result: string | undefined): string | null {
     return null
 }
 
-export function AutoSaveRecoveryDialog({ savedAt, plyCount, positionStudy = false, onRestore, onDismiss, error, onCopyPgn, onDownloadPgn, copyLabel, copying, copyError, result }: Props) {
+export function AutoSaveRecoveryDialog({ savedAt, plyCount, positionStudy = false, onRestore, onDismiss, error, onCopyPgn, onDownloadPgn, pgn, copyLabel, copying, copyError, result }: Props) {
     const moveCount = Math.ceil(Math.max(0, plyCount) / 2)
     const outcome = describeSavedOutcome(result)
     const panelRef = useRef<HTMLDivElement>(null)
+    const pgnRef = useRef<HTMLTextAreaElement>(null)
+    const pgnId = useId()
+    const copyErrorId = useId()
+    const downloadErrorId = useId()
+    const [downloadFailed, setDownloadFailed] = useState(false)
     // Dismissing clears the only recovery slot. An incidental Escape or tap
     // outside the panel must not make the same choice as Start fresh/Discard.
     useModalFocus(true, panelRef, onDismiss, { initialFocus: '[data-restore]', closeOnEscape: false })
@@ -92,7 +99,17 @@ export function AutoSaveRecoveryDialog({ savedAt, plyCount, positionStudy = fals
                                 Copy or download the PGN first. Discarding cannot be undone.
                             </p>
                         )}
-                        {copyError && <p className="dialog-error" role="alert">{copyError}</p>}
+                        {copyError && <p id={copyErrorId} className="dialog-error" role="alert">{copyError}</p>}
+                        {downloadFailed && <p id={downloadErrorId} className="dialog-error" role="alert">
+                            The browser could not start the recovery download. Try again, or select the saved PGN text and copy it manually.
+                        </p>}
+                        {error && pgn && (copyError || downloadFailed) && <>
+                            <label className="dialog-label" htmlFor={pgnId}>Saved PGN</label>
+                            <textarea id={pgnId} ref={pgnRef} className="input-textarea" readOnly value={pgn} spellCheck={false} />
+                            <button type="button" className="btn-cancel" onClick={() => { pgnRef.current?.focus(); pgnRef.current?.select() }}>
+                                Select saved PGN text
+                            </button>
+                        </>}
                     </div>
                 </div>
 
@@ -101,8 +118,11 @@ export function AutoSaveRecoveryDialog({ savedAt, plyCount, positionStudy = fals
                         ? (
                             <>
                                 <button type="button" className="btn-cancel" onClick={onDismiss}>Discard it</button>
-                                {onDownloadPgn && <button type="button" className="btn-cancel" onClick={onDownloadPgn}>Download PGN</button>}
-                                <button type="button" className="btn-start" data-restore aria-busy={copying || undefined} onClick={onCopyPgn}>
+                                {onDownloadPgn && <button type="button" className="btn-cancel"
+                                    aria-describedby={downloadFailed ? downloadErrorId : undefined}
+                                    onClick={() => setDownloadFailed(!onDownloadPgn())}>Download PGN</button>}
+                                <button type="button" className="btn-start" data-restore aria-busy={copying || undefined}
+                                    aria-describedby={copyError ? copyErrorId : undefined} onClick={onCopyPgn}>
                                     {copyLabel ?? 'Copy PGN'}
                                 </button>
                             </>

@@ -5621,15 +5621,26 @@ function App() {
   }, [autoSaveReady, autoSaveRecovery, autoSaveRetry, mainLineNodes, isPositionStudy, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
 
   const downloadRecoveryPgn = useCallback(() => {
-    const pgn = autoSaveRecovery?.pgn ?? exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
-    const url = URL.createObjectURL(new Blob([pgn], { type: 'application/x-chess-pgn;charset=utf-8' }))
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `web-chess-recovery-${formatLocalDate()}.pgn`
-    document.body.append(link)
-    link.click()
-    link.remove()
-    window.setTimeout(() => URL.revokeObjectURL(url), 0)
+    let url: string | undefined
+    let link: HTMLAnchorElement | undefined
+    try {
+      const pgn = autoSaveRecovery?.pgn ?? exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
+      url = URL.createObjectURL(new Blob([pgn], { type: 'application/x-chess-pgn;charset=utf-8' }))
+      link = document.createElement('a')
+      link.href = url
+      link.download = `web-chess-recovery-${formatLocalDate()}.pgn`
+      document.body.append(link)
+      link.click()
+      return true
+    } catch {
+      return false
+    } finally {
+      link?.remove()
+      if (url) {
+        const downloadUrl = url
+        window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0)
+      }
+    }
   }, [autoSaveRecovery, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
 
   const dismissAutoSaveRecovery = useCallback(() => {
@@ -7928,6 +7939,7 @@ function App() {
 
       <div inert={backgroundUiHidden ? true : undefined} aria-hidden={backgroundUiHidden ? true : undefined}>
         <AutoSaveStatus result={autoSaveResult} onDownload={downloadRecoveryPgn}
+          onOpenPgn={openPgnDialog}
           onRetry={() => setAutoSaveRetry(value => value + 1)} />
       </div>
 
@@ -8479,11 +8491,12 @@ function App() {
               onRestore={restoreAutoSavedGame}
               onDismiss={dismissAutoSaveRecovery}
               error={autoSaveRestoreError}
+              pgn={autoSaveRecovery.pgn}
               onCopyPgn={copyAutoSavedPgn}
               onDownloadPgn={downloadRecoveryPgn}
               copyLabel={autoSaveCopyState === 'copied' ? 'Copied' : autoSaveCopyState === 'copying' ? 'Copying…' : 'Copy PGN'}
               copying={autoSaveCopyState === 'copying'}
-              copyError={autoSaveCopyState === 'failed' ? 'Copy failed. Download the PGN to keep the saved text.' : undefined}
+              copyError={autoSaveCopyState === 'failed' ? 'Copy failed. Select the saved PGN text and copy it manually, or try again.' : undefined}
             />
           )}
 

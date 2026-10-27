@@ -15819,7 +15819,7 @@ async function checkFailedRecoveryExport(browser) {
           await page.waitForFunction(() => document.querySelector('[data-restore]')?.getAttribute('aria-busy') === 'true')
           assert(await copy.evaluate(el => el === document.activeElement), 'a pending recovery copy lost button focus')
         } else {
-          await dialog.getByRole('alert').filter({ hasText: 'Copy failed. Download the PGN' }).waitFor()
+          await dialog.getByRole('alert').filter({ hasText: 'Copy failed. Select the saved PGN text' }).waitFor()
           assert(await copy.innerText() === 'Copy PGN', 'failed recovery copy does not offer a clear retry')
         }
         const downloaded = page.waitForEvent('download')
@@ -16281,6 +16281,126 @@ async function checkCastlingRightInputs(browser) {
         assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `castling input errors: ${errors.join('; ')}`)
         assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'castling input validation overflows')
         console.log(`  castling inputs (${width}px, ${scale}x, ${theme}, ${scenario}): missing-rook/away-king rights rejected with prior work retained; ${white ? 'White kingside' : 'Black queenside'} castle moves both correct pieces after repair${scenario === 'fen' ? '; setup and raw validation agree' : ''}`)
+      } finally { await context.close() }
+    }
+  }
+}
+
+async function checkRecoveryDownloadFallback(browser) {
+  const key = 'webchess:auto-saved-game:v1'
+  const original = '  [Event "Łódź recovery"]\r\n\r\n1. e4 { Keep café ♞ — exactly } Qh9 *\r\n'
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    for (const source of ['saved', 'live']) {
+      const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce', acceptDownloads: true })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(({ key, original, source, theme }) => {
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme }))
+          if (source === 'saved') localStorage.setItem(key, JSON.stringify({ version: 1, savedAt: Date.now() - 60000, pgn: original, moveCount: 2 }))
+          window.__denyRecoverySave = source === 'live'
+          const set = Storage.prototype.setItem
+          Storage.prototype.setItem = function (name, value) {
+            if (window.__denyRecoverySave && name === key) throw new DOMException('QA storage full', 'QuotaExceededError')
+            return set.call(this, name, value)
+          }
+          Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
+        }, { key, original, source, theme })
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        const panel = page.locator(source === 'saved' ? '.auto-save-recovery' : '.autosave-warning')
+        let expected = original
+        if (source === 'saved') {
+          await panel.getByRole('button', { name: 'Restore', exact: true }).click()
+          await panel.getByRole('button', { name: 'Copy PGN', exact: true }).click()
+          await panel.getByRole('alert').filter({ hasText: 'Copy failed.' }).waitFor()
+        } else {
+          await page.locator('#chessboard-square-e2').click()
+          await page.locator('#chessboard-square-e4').click()
+          await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+          await page.getByRole('textbox', { name: 'Move note', exact: true }).fill('Keep live café ♞')
+          await panel.waitFor()
+        }
+        await page.evaluate(() => {
+          window.__recoveryCreated = []; window.__recoveryRevoked = []
+          const create = URL.createObjectURL, revoke = URL.revokeObjectURL, click = HTMLAnchorElement.prototype.click
+          window.__setRecoveryDownloadMode = mode => {
+            window.__recoveryDownloadMode = mode
+            URL.createObjectURL = mode === 'missing' ? undefined : function (...args) {
+              if (window.__recoveryDownloadMode === 'url') throw new DOMException('QA recovery URL denied', 'NotAllowedError')
+              const url = create.apply(this, args); window.__recoveryCreated.push(url); return url
+            }
+          }
+          URL.revokeObjectURL = function (url) { window.__recoveryRevoked.push(url); return revoke.call(this, url) }
+          HTMLAnchorElement.prototype.click = function (...args) {
+            if (window.__recoveryDownloadMode === 'click' && this.download.startsWith('web-chess-recovery-')) throw new DOMException('QA recovery download blocked', 'NotAllowedError')
+            return click.apply(this, args)
+          }
+        })
+        const downloadButton = panel.getByRole('button', { name: source === 'saved' ? 'Download PGN' : 'Download recovery PGN', exact: true })
+        const downloadError = panel.getByRole('alert').filter({ hasText: 'The browser could not start the recovery download.' })
+        for (const mode of ['url', 'missing', 'click']) {
+          await page.evaluate(mode => window.__setRecoveryDownloadMode(mode), mode)
+          await downloadButton.focus()
+          await page.keyboard.press('Enter')
+          await downloadError.waitFor({ timeout: 3000 })
+          assert(await downloadButton.getAttribute('aria-describedby') === await downloadError.getAttribute('id')
+            && await downloadButton.evaluate(element => element === document.activeElement), 'recovery download error lost its associated, focused retry')
+          await page.waitForFunction(() => window.__recoveryCreated.length === window.__recoveryRevoked.length && !document.querySelector('a[download]'))
+          if (source === 'saved') {
+            const raw = panel.getByRole('textbox', { name: 'Saved PGN', exact: true })
+            assert(await raw.inputValue() === original.replace(/\r\n?/g, '\n') && await raw.getAttribute('readonly') !== null, 'manual recovery lost whitespace, Unicode or the invalid move')
+            await panel.getByRole('button', { name: 'Select saved PGN text', exact: true }).focus()
+            await page.keyboard.press('Enter')
+            assert(await raw.evaluate(element => element === document.activeElement && element.selectionStart === 0 && element.selectionEnd === element.value.length), 'manual recovery did not select all the saved text')
+            assert(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).pgn, key) === original, 'failed download/manual selection changed the exact saved slot')
+          } else {
+            assert(await page.locator('#chessboard-square-e4 [data-piece="wP"]').count() === 1, 'failed live recovery download changed the board')
+            assert(await panel.getByRole('button', { name: 'Open PGN and FEN', exact: true }).isEnabled(), 'failed live recovery has no path to manual export')
+          }
+          assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'recovery download fallback overflows')
+        }
+        await downloadError.scrollIntoViewIfNeeded()
+        await page.screenshot({ path: `/tmp/web-chess-recovery-download-${width}-${source}.png` })
+        if (source === 'live') {
+          await panel.getByRole('button', { name: 'Open PGN and FEN', exact: true }).click()
+          const dialog = page.locator('.pgn-dialog')
+          await dialog.getByRole('button', { name: 'Export', exact: true }).click()
+          const output = dialog.getByRole('textbox', { name: 'Annotated Output', exact: true })
+          expected = await output.inputValue()
+          assert(expected.includes('1. e4') && expected.includes('Keep live café ♞'), 'manual export omitted unsaved live work')
+          await dialog.getByRole('button', { name: 'Copy PGN', exact: true }).click()
+          await dialog.getByRole('button', { name: 'Select PGN text', exact: true }).click()
+          assert(await output.evaluate(element => element === document.activeElement && element.selectionStart === 0 && element.selectionEnd === element.value.length), 'manual live recovery export did not select all text')
+          await dialog.getByRole('button', { name: 'Close', exact: true }).click()
+          await dialog.waitFor({ state: 'detached' })
+        }
+        await page.evaluate(() => window.__setRecoveryDownloadMode('success'))
+        const [download] = await Promise.all([page.waitForEvent('download'), downloadButton.click()])
+        assert(!await download.failure() && /^web-chess-recovery-\d{4}-\d{2}-\d{2}\.pgn$/.test(download.suggestedFilename())
+          && fs.readFileSync(await download.path(), 'utf8') === expected, 'recovery retry did not download the exact original/latest UTF-8 PGN')
+        await downloadError.waitFor({ state: 'detached' })
+        await page.waitForFunction(() => window.__recoveryCreated.length === window.__recoveryRevoked.length && !document.querySelector('a[download]'))
+        if (source === 'saved') {
+          await page.keyboard.press('Escape')
+          assert(await panel.isVisible() && await page.evaluate(key => JSON.parse(localStorage.getItem(key)).pgn, key) === original, 'download or incidental dismissal discarded recovery')
+          await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: text => { window.__recoveredPgn = text; return Promise.resolve() } } }))
+          await panel.getByRole('button', { name: 'Copy PGN', exact: true }).click()
+          await panel.getByRole('button', { name: 'Copied', exact: true }).waitFor()
+          assert(await page.evaluate(() => window.__recoveredPgn) === original && await panel.getByRole('alert').count() === 0, 'copy retry changed raw text or retained obsolete recovery errors')
+          await panel.getByRole('button', { name: 'Discard it', exact: true }).click()
+          await panel.waitFor({ state: 'detached' })
+          assert(await page.evaluate(key => localStorage.getItem(key), key) === null, 'explicit recovery discard did not clear its slot')
+        } else {
+          assert(await panel.isVisible(), 'successful download falsely cleared the storage warning')
+          await page.evaluate(() => { window.__denyRecoverySave = false })
+          await panel.getByRole('button', { name: 'Retry autosave', exact: true }).click()
+          await panel.waitFor({ state: 'detached' })
+          assert(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).pgn.includes('Keep live café ♞'), key), 'autosave retry lost live work after download failure')
+        }
+        assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `recovery download page errors: ${errors.join('; ')}`)
+        console.log(`  recovery download (${width}px, ${scale}x, ${theme}, ${source}): missing/throwing URL and blocked click retain work with focused retry, manual text retrieval and cleanup; real retry exports exact raw/latest PGN; copy/storage retry and explicit discard remain usable`)
       } finally { await context.close() }
     }
   }
@@ -19040,6 +19160,7 @@ async function main() {
       'castling-rights': checkCastlingRightInputs,
       'castling-repair': checkUnavailableCastlingRepair,
       'pgn-download': checkPgnDownloadRecovery,
+      'recovery-download': checkRecoveryDownloadFallback,
       'en-passant-rights': checkEnPassantRightInputs,
       'recovery-export': checkFailedRecoveryExport,
       'saved-game-roundtrip': checkASavedGameComesBack,
@@ -19896,6 +20017,7 @@ async function main() {
     await checkCastlingRightInputs(browser)
     await checkUnavailableCastlingRepair(browser)
     await checkPgnDownloadRecovery(browser)
+    await checkRecoveryDownloadFallback(browser)
     await checkEnPassantRightInputs(browser)
     await checkSettingsSurviveAReload(browser)
     await checkSettingsSayWhenTheyCannotBeKept(browser)
