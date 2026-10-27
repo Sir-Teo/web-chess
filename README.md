@@ -274,7 +274,7 @@ given, and the app answering the reader who touches it.
   in and asks you to produce it. The line answers back, so you are asked your
   next move rather than your opponent's reply; a wrong move snaps back and is
   never recorded, so a drill cannot fill the tree with the moves you were trying
-  not to play; and the answer appears after two misses, as it does in review
+  not to play; and the board's status shows the answer after two misses, as in review
   practice. Until then nothing on screen gives it away: the candidate arrows,
   the Coach's best move, its traits and line, the Pro lines, the cloud eval's
   lines, the tablebase's moves and the opening explorer's book moves are held

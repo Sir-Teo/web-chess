@@ -6747,43 +6747,41 @@ function App() {
     </label>
   )
 
-  const drillCard = drill && (() => {
+  const drillFeedback = drill && (() => {
     const { done, total } = drillProgress(drill.line, drill.ply)
+    const finished = done >= total
+    const awayFromLine = !finished && drill.expectedFen !== fen
     const expected = expectedDrillMove(drill.line, drill.ply)
     const answerSan = drill.revealed && expected ? uciToSan(drill.expectedFen, expected) ?? expected : null
-    const finished = done >= total
-    // The drill stays armed while the reader looks somewhere else -- a move
-    // played there is an ordinary move and coming back resumes -- but a card
-    // reading "move 1 of 3" over a board that is not being asked anything is
-    // the app claiming to wait for something it is not.
-    const awayFromLine = !finished && drill.expectedFen !== fen
     const question = drill.expectedNodeId ? gameTree.getNode(drill.expectedNodeId) : undefined
     const canReturn = question?.fen === drill.expectedFen && gameTree.root.fen === drill.rootFen
+    const progress = finished
+      ? `Line complete — ${total} ${total === 1 ? 'move' : 'moves'} practised.`
+      : awayFromLine
+        ? `Paused at move ${done + 1} of ${total} — the board has moved off the line.`
+        : `Playing ${drill.line.side === 'white' ? 'White' : 'Black'} · move ${done + 1} of ${total}`
+    const detail = awayFromLine
+      ? canReturn
+        ? 'Return to the question you left, or restart from the beginning.'
+        : 'That question is no longer in this study. Restart to practise the line again.'
+      : !finished && drill.misses > 0
+        ? answerSan ? `Not the line. It plays ${answerSan}.` : 'Not the line. Try again.'
+        : null
+    const spoken = `Drill. ${[progress, ...(detail ? [detail] : [])]
+      .map(text => text.endsWith('.') ? text : `${text}.`).join(' ')}`
+    return { done, total, finished, awayFromLine, answerSan, canReturn, progress, detail, spoken }
+  })()
+
+  const drillCard = drill && drillFeedback && (() => {
+    const { finished, awayFromLine, canReturn, progress, detail } = drillFeedback
     return (
       <section className="panel-card drill-card" aria-label="Line drill">
         <h3><span className="section-icon"><IconSwords /></span> Drill</h3>
-        <div className="drill-feedback" role="status" aria-live="polite" aria-atomic="true">
-          <p className="drill-progress">
-            {finished
-              ? `Line complete — ${total} ${total === 1 ? 'move' : 'moves'} practised.`
-              : awayFromLine
-                ? `Paused at move ${done + 1} of ${total} — the board has moved off the line.`
-                : `Playing ${drill.line.side === 'white' ? 'White' : 'Black'} · move ${done + 1} of ${total}`}
-          </p>
-          {awayFromLine && (
-            <p className="drill-miss panel-copy small">
-              {canReturn
-                ? 'Return to the question you left, or restart from the beginning.'
-                : 'That question is no longer in this study. Restart to practise the line again.'}
-            </p>
-          )}
-          {!finished && !awayFromLine && drill.misses > 0 && (
-            <p className="drill-miss panel-copy small">
-              {answerSan
-                ? `Not the line. It plays ${answerSan}.`
-                : 'Not the line. Try again.'}
-            </p>
-          )}
+        {/* The board strip owns automatic announcements. Keep this detail
+            readable without repeating the same live result from two places. */}
+        <div className="drill-feedback" role="status" aria-live="off" aria-atomic="true">
+          <p className="drill-progress">{progress}</p>
+          {detail && <p className="drill-miss panel-copy small">{detail}</p>}
         </div>
         <div className="inline-actions">
           {awayFromLine && <button type="button" className="btn-cancel" onClick={returnToDrill}
@@ -6820,16 +6818,14 @@ function App() {
    * the buttons.
    */
   const drillStripStatus = (() => {
-    if (!drill) return null
-    const { done, total } = drillProgress(drill.line, drill.ply)
-    if (done >= total) return { tone: 'correct', label: 'Drill · done', spoken: `Drill complete, ${total} ${total === 1 ? 'move' : 'moves'} from memory.` }
-    if (drill.expectedFen !== fen) {
-      return { tone: 'away', label: `Drill · paused ${done + 1}/${total}`, spoken: `Drill paused at move ${done + 1} of ${total}. The board has moved off the line.` }
-    }
+    if (!drill || !drillFeedback) return null
+    const { done, total, finished, awayFromLine, answerSan, spoken } = drillFeedback
+    if (finished) return { tone: 'correct', label: 'Drill · done', spoken }
+    if (awayFromLine) return { tone: 'away', label: `Drill · paused ${done + 1}/${total}`, spoken }
     if (drill.misses > 0) {
-      return { tone: 'retry', label: `Not the line · ${done + 1}/${total}`, spoken: `Not the line. Try again: move ${done + 1} of ${total}.` }
+      return { tone: 'retry', label: answerSan ? `Answer ${answerSan} · ${done + 1}/${total}` : `Not the line · ${done + 1}/${total}`, spoken }
     }
-    return { tone: 'ready', label: `Drill · ${done + 1}/${total}`, spoken: `Drilling move ${done + 1} of ${total}.` }
+    return { tone: 'ready', label: `Drill · ${done + 1}/${total}`, spoken }
   })()
 
   const playFromHereRow = (
@@ -8063,6 +8059,7 @@ function App() {
                   className={`board-meta-drill ${drillStripStatus.tone}`}
                   role="status"
                   aria-live="polite"
+                  aria-atomic="true"
                   aria-label={drillStripStatus.spoken}
                 >
                   {drillStripStatus.label}

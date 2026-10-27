@@ -1,0 +1,9 @@
+Follow up the preceding card-feedback change: the board strip already had its own polite status, so both surfaces could automatically announce the same drill result. Its independent completion copy also still claimed from memory. The native before regression reports both actual surfaces as polite.
+
+Use one shared feedback calculation for progress, pause guidance, misses, reveal and completion. The board status owns polite atomic announcements; the card remains an exposed, readable status with automatic live updates explicitly off. The board also shows the prepared-line answer after two misses. Both visible detail and spoken status now use the accurate practised completion wording. Keeping the board as owner also covers a collapsed or different sidebar tab.
+
+Twelve Chromium/Firefox/desktop Linux WebKit production workflows pass across normal desktop/phone, narrow 200% text and enlarged short landscape. Verify one automatic drill surface, explicit non-live card semantics, same-node spoken-status mutations for first miss/reveal/completion, visible board Answer e4 after two misses, both completion surfaces without unaided-recall claims, and all existing Coach/Pro/hover/64-square hint guards. Eight related Firefox Return-to-drill workflows pass, including first questions, retained attempts and removed-question recovery.
+
+A Chromium native accessibility-protocol read confirms both surfaces remain exposed: the board status is polite and atomic with the full wrong-answer name; the card has no automatic live property under explicit aria-live=off. This verifies browser semantics, not physical screen-reader speech. Linux desktop WebKit is not physical iOS.
+
+Full npm run verify passes on the application changes: typecheck, lint, 123 files, 1,969 passes, one existing intentional skip and production build. The final explicit non-live-card regression guard passes focused script lint and all production cases.
