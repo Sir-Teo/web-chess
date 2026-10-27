@@ -1,0 +1,4 @@
+  hint shortcut (1280×900, 1x, dark): first press answers once; held H retains the hint without searching; release and press asks again without moving
+  hint shortcut (375×812, 1x, light): first press answers once; held H retains the hint without searching; release and press asks again without moving
+  hint shortcut (320×812, 2x, light): first press answers once; held H retains the hint without searching; release and press asks again without moving
+  hint shortcut (844×390, 2x, dark): first press answers once; held H retains the hint without searching; release and press asks again without moving

@@ -6789,6 +6789,45 @@ async function checkABlindfoldHidesThePieces(browser) {
   }
 }
 
+async function checkHintShortcutDoesNotRepeat(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'play', autoAnalyze: false, theme, timeControlId: 'unlimited',
+      })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await startGameMode(page, 'Human vs AI')
+      await page.waitForFunction(() => /ready to play/.test(document.body.innerText))
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Play', exact: true }).first().focus()
+      const searches = () => page.evaluate(() => window.__uciCommands.filter(line => line.startsWith('go ')).length)
+      const before = await searches()
+      await page.keyboard.down('h')
+      await page.locator('.hint-answer').waitFor()
+      const hint = page.getByRole('button', { name: 'Ask the engine for a hint', exact: true })
+      await hint.waitFor()
+      const answer = await page.locator('.hint-answer').textContent()
+      assert(await searches() === before + 1, 'one hint shortcut did not make one search')
+      for (let repeat = 0; repeat < 3; repeat++) await page.keyboard.down('h')
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      assert(await searches() === before + 1 && await hint.count() === 1, 'a held H key launched another hint search')
+      assert(await page.locator('.hint-answer').textContent() === answer, 'a held H key removed or changed the completed hint')
+      await page.keyboard.up('h')
+      await page.keyboard.press('h')
+      await page.waitForFunction(count => window.__uciCommands.filter(line => line.startsWith('go ')).length === count, before + 2)
+      await page.locator('.hint-answer').waitFor()
+      await hint.waitFor()
+      await waitForBoardPiece(page, 'e2', 'White pawn')
+      assert(await page.locator('.mtree-chip').count() === 0 && errors.length === 0, `hint shortcut changed the game or errored: ${errors.join('; ')}`)
+      console.log(`  hint shortcut (${width}×${height}, ${scale}x, ${theme}): first press answers once; held H retains the hint without searching; release and press asks again without moving`)
+    } finally { await context.close() }
+  }
+}
+
 /**
  * A hint answers about the position it was asked about, and only that one.
  *
@@ -16353,6 +16392,7 @@ async function main() {
       'board-semantics': checkBoardSquareSemantics,
       'blindfold': checkABlindfoldHidesThePieces,
       'hint': checkAHintBelongsToItsPosition,
+      'hint-shortcut': checkHintShortcutDoesNotRepeat,
       'drill-exit': checkADrillStaysInAnalysis,
       'chords': checkAChordBelongsToTheBrowser,
       'eval-bar': checkTheEvaluationBarSurvivesTheWdlSwitch,
@@ -17131,6 +17171,7 @@ async function main() {
     await checkBoardSquareSemantics(browser)
     await checkABlindfoldHidesThePieces(browser)
     await checkAHintBelongsToItsPosition(browser)
+    await checkHintShortcutDoesNotRepeat(browser)
     await checkAHintSaysWhereToLookOnlyIfItIsDrawn(browser)
     await checkAnImportSweepRunsToTheEnd(browser)
     await checkBlunderIsPointedOut(browser)

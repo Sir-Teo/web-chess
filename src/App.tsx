@@ -1554,7 +1554,7 @@ function App() {
       }
       if (e.key.toLowerCase() === 'h' && workspaceMode === 'play') {
         e.preventDefault()
-        requestHintRef.current()
+        if (!e.repeat) requestHintRef.current()
       }
       if (e.key === ' ') {
         if (tag === 'BUTTON' || tag === 'SUMMARY') return
