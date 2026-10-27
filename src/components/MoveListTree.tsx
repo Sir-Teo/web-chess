@@ -377,7 +377,8 @@ function MoveChip({ node, isCurrent, onClick, compact, prefix }: ChipProps) {
     const annotation = [glyph ? glyphName(glyph) : '', ...positionGlyphs.map(glyphName)].filter(Boolean).join(', ')
     // Always numbered for a screen reader, whatever the row shows: the button
     // is read on its own, and "e6" with nothing to place it is not a move.
-    const numbered = `${moveNumberPrefix(node.fen) ?? ''} ${displaySan}`.trim()
+    const movePrefix = moveNumberPrefix(node.fen) ?? ''
+    const numbered = `${movePrefix} ${displaySan}`.trim()
     const labelParts = [
         `Go to ${compact ? 'variation move' : 'move'} ${numbered}`,
         annotation,
@@ -395,6 +396,7 @@ function MoveChip({ node, isCurrent, onClick, compact, prefix }: ChipProps) {
     return (
         <button
             data-node-id={node.id}
+            data-move-prefix={compact ? undefined : movePrefix}
             type="button"
             aria-label={labelParts.join(', ')}
             aria-current={isCurrent ? 'step' : undefined}

@@ -1,0 +1,2 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  confirmation keys (844×390, 2x, dark): native repeated Enter preserves the library, variation and live game; a separate press confirms each action

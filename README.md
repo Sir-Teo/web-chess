@@ -333,6 +333,8 @@ given, and the app answering the reader who touches it.
 - **Every variation, however deep, and the glyphs on it**: The move list
   draws a variation inside a variation in brackets within its row, numbered
   the way a PGN is, so an annotated game reads on screen as it does on paper.
+  Narrow panels put each main-line move on its own numbered row and reduce
+  branch indentation so enlarged notation stays readable and clickable.
   A `$1` in the file shows as `!` and a `$16` as `±`, and the current move can
   be judged from the list — `!!`, `!`, `!?`, `?!`, `?`, `??` — which is written
   as the move's suffix and exported with it.

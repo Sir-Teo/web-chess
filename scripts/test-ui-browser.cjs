@@ -6511,6 +6511,59 @@ async function checkViewportResizePreservesGesture(browser) {
   }
 }
 
+async function checkMoveListFitting(browser) {
+  const samples = [
+    ['nested study', '1. e4 e5 (1... c5 2. Nf3 (2. Nc3) d6) 2. Nf3 *'],
+    ['castling', '[SetUp "1"]\n[FEN "r3k2r/ppp2ppp/8/8/8/8/PPP2PPP/R3K2R w KQkq - 0 123"]\n\n123. O-O-O (123. O-O) O-O *'],
+    ['promotion', '[SetUp "1"]\n[FEN "5r1k/4P3/8/8/8/8/8/K7 w - - 0 123"]\n\n123. exf8=Q+ $3 $16 {A promotion study note.} (123. exf8=N) Kh7 124. Qg7+ *'],
+  ]
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [901, 812, 2, 'light'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(async scale => {
+        document.documentElement.style.fontSize = `${scale * 100}%`
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      }, scale)
+      for (const [name, pgn] of samples) {
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await page.locator('.pgn-dialog textarea').fill(pgn)
+        await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+        const list = page.locator('.analyze-move-card .mtree-scroll')
+        await list.locator('.mtree-chip').first().waitFor()
+        const ids = await list.locator('.mtree-chip').evaluateAll(chips => chips.map(chip => chip.dataset.nodeId))
+        assert(ids.length >= 3 && await list.locator('.mtree-chip-compact').count() > 0, `${name}: the fixture has no main line/variation to inspect`)
+        for (const id of ids) {
+          const chip = list.locator(`[data-node-id="${id}"]`)
+          await chip.scrollIntoViewIfNeeded()
+          const fit = await chip.evaluate(el => {
+            const r = el.getBoundingClientRect(), row = el.closest('.mtree-row, .mtree-variation').getBoundingClientRect()
+            const list = el.closest('.mtree-scroll').getBoundingClientRect()
+            return { label: el.getAttribute('aria-label'), left: r.left, right: r.right,
+              clipLeft: Math.max(row.left, list.left), clipRight: Math.min(row.right, list.right),
+              content: el.scrollWidth, available: el.clientWidth }
+          })
+          assert(fit.left >= fit.clipLeft - 1 && fit.right <= fit.clipRight + 1 && fit.content <= fit.available + 1,
+            `${name}: a move is clipped inside its transcript: ${JSON.stringify(fit)}`)
+          await chip.click({ timeout: 5000 })
+          await page.waitForFunction(id => document.querySelector(`.mtree-chip[data-node-id="${id}"]`)?.getAttribute('aria-current') === 'step', id)
+        }
+        const fitting = await list.evaluate(el => ({ content: el.scrollWidth, available: el.clientWidth }))
+        assert(fitting.content <= fitting.available + 1, `${name}: move list requires horizontal scrolling: ${JSON.stringify(fitting)}`)
+        if (width === 844 && name === 'nested study') await page.screenshot({ path: `/tmp/web-chess-move-list-fit-${browser.browserType().name()}.png` })
+        console.log(`  move list fit (${width}×${height}, ${scale}x, ${theme}, ${name}): all ${ids.length} main/variation moves fit their paint bounds and respond to native pointer clicks; no horizontal scrolling`)
+      }
+      assert(errors.length === 0, `move list fitting errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'move transcript overflows the page')
+    } finally { await context.close() }
+  }
+}
+
 async function checkConfirmationKeys(browser) {
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
@@ -17201,6 +17254,7 @@ async function main() {
       'library-keyboard': checkLibraryKeyboardNavigation,
       'library-empty-focus': checkLibraryEmptyFocus,
       'confirmation-keys': checkConfirmationKeys,
+      'move-list-fit': checkMoveListFitting,
       'viewport-gesture': checkViewportResizePreservesGesture,
       'library-sorting': checkLibrarySorting,
       'library-lock-fallback': checkLibraryLockFallback,
@@ -17969,6 +18023,7 @@ async function main() {
     await checkReplaySpeedAfterStep(browser)
     await checkTypedMoveLands(browser)
     await checkMoveTimesAreGraphed(browser)
+    await checkMoveListFitting(browser)
     await checkConfirmationKeys(browser)
     await checkResignationEndsTakeback(browser)
     await checkQuickStartRemembersTheLastGame(browser)

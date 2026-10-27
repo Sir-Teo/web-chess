@@ -5804,6 +5804,7 @@ button.wc-speed-pill {
    nothing moves at 100% and the window keeps its rows at every size. */
 .mtree-scroll {
   height: 16.25rem;
+  container: move-list / inline-size;
   overflow-y: auto;
   outline: none;
   padding: 0.1rem 0;
@@ -6131,6 +6132,41 @@ button.mtree-chip-compact {
   font-family: var(--font-mono);
   font-size: 0.64rem;
   font-weight: 500;
+}
+
+/* At large text sizes a narrow panel cannot hold a number plus two moves.
+   Keep every move inside its paint boundary, with its own visible number
+   instead of relying on White/Black columns. The accessible name already
+   includes that number. Branch markers still distinguish variations. */
+@container move-list (max-width: 12rem) {
+  .mtree-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mtree-num,
+  .mtree-spacer {
+    display: none;
+  }
+
+  .mtree-variation {
+    padding-left: 0;
+    margin-left: 0;
+  }
+
+  .panel button.mtree-chip {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+  }
+
+  button.mtree-chip[data-move-prefix]::before {
+    content: attr(data-move-prefix);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.64rem;
+    font-weight: 500;
+  }
 }
 
 /* What the NAGs say about the position, after the move: "Bb5 ±". The move's
