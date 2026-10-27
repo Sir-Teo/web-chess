@@ -2641,6 +2641,19 @@ function App() {
     setThreatRequest(null)
   }, [fen])
 
+  // A worker replacement discards its pending search. Returning to Analysis
+  // or selecting another engine must leave the question available to ask again.
+  useEffect(() => {
+    setThreatRequest(null)
+    setThreatError(null)
+  }, [engineEnabled, engineProfile])
+
+  useEffect(() => {
+    if (status !== 'error' || !threatRequest) return
+    setThreatRequest(null)
+    setThreatError('The engine could not finish reading the threat. Reload the page to try again.')
+  }, [status, threatRequest])
+
   const activeThreat = threatResult && threatResult.boardFen === fen ? threatResult : null
   const isProbingThreat = threatRequest !== null
 

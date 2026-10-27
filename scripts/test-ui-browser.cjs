@@ -11451,6 +11451,72 @@ async function checkThreatEngineWake(browser) {
   }
 }
 
+async function checkThreatInterruptionRecovery(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    for (const reason of ['leave-analysis', 'engine-profile', 'worker-error']) {
+      const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript('console-search'))
+        await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze', autoAnalyze: false,
+          continuousAnalysis: false, engineProfile: 'lite-single-local', theme,
+        })), theme)
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        const waitStatus = status => page.waitForFunction(status => document.querySelector('.bottom .status')?.textContent === status, status)
+        await waitStatus('ready')
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        const ask = page.getByRole('button', { name: 'Show what the opponent is threatening', exact: true })
+        await page.evaluate(() => { window.__withholdEngineInfo = true })
+        await ask.click()
+        await waitStatus('analyzing')
+        assert(await ask.isDisabled(), 'the threat request was not held before interruption')
+        await page.evaluate(() => { window.__interruptedThreatEngine = window.__consoleEngine })
+        if (reason === 'leave-analysis') {
+          await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+          await page.evaluate(() => { window.__withholdEngineInfo = false })
+          await page.getByRole('button', { name: 'Analysis', exact: true }).first().click()
+          await waitStatus('ready')
+        } else if (reason === 'engine-profile') {
+          await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+          await page.evaluate(() => { window.__withholdEngineInfo = false })
+          await page.getByLabel('Engine profile in Engine Lab').selectOption('full-single-cdn')
+          await waitStatus('ready')
+          await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+        } else {
+          await page.evaluate(() => window.__consoleEngine.onerror({ message: 'QA interrupted threat worker' }))
+          await waitStatus('error')
+          await page.locator('.coach-threat-answer.error-copy').filter({ hasText: 'Reload the page to try again.' }).waitFor()
+        }
+        await page.waitForFunction(() => document.querySelector('.coach-threat-btn')?.disabled === false)
+        assert(await page.locator('.coach-threat-answer:not(.error-copy)').count() === 0, 'an interrupted search produced a threat answer')
+        // A terminated worker may already have queued a message. Its completion
+        // cannot answer the cancelled question or start a board search.
+        const sent = await page.evaluate(() => window.__uciCommands.length)
+        await page.evaluate(() => {
+          window.__interruptedThreatEngine.send('info depth 40 score cp 900 pv d2d4')
+          window.__interruptedThreatEngine.send('bestmove d2d4')
+          return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        })
+        assert(await page.locator('.coach-threat-answer:not(.error-copy)').count() === 0
+          && await page.evaluate(sent => window.__uciCommands.length === sent, sent), 'a late terminated-worker reply revived the cancelled threat')
+        if (reason === 'worker-error') {
+          await page.reload({ waitUntil: 'domcontentloaded' })
+          await waitStatus('ready')
+          await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        }
+        await ask.click()
+        await page.locator('.coach-threat-answer:not(.error-copy)').waitFor()
+        await page.waitForFunction(() => document.querySelector('.coach-threat-btn')?.disabled === false)
+        assert(await page.locator('.coach-threat-answer.error-copy').count() === 0, 'a successful retry retained an obsolete threat error')
+        assert(errors.length === 0, `threat recovery errors: ${errors.join('; ')}`)
+        console.log(`  threat recovery (${width}×${height}, ${scale}x, ${theme}, ${reason}): held search cancels, action unlocks, late reply stays ignored and a fresh request succeeds`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkEngineRelease(browser) {
   for (const [width, scale] of [[1280, 1], [1280, 2], [375, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -16117,6 +16183,7 @@ async function main() {
       resources: checkSingleThreadReviewPool,
       'engine-release': checkEngineRelease,
       'threat-engine-wake': checkThreatEngineWake,
+      'threat-recovery': checkThreatInterruptionRecovery,
       lab: checkLabSettingsStayInSync,
       'console-search': checkConsoleSearchOwnership,
       'console-deadlines': checkConsoleSearchDeadlines,
@@ -16931,6 +16998,7 @@ async function main() {
     await checkLabSettingsStayInSync(browser)
     await checkConsoleSearchOwnership(browser)
     await checkThreatEngineWake(browser)
+    await checkThreatInterruptionRecovery(browser)
     await checkEngineRelease(browser)
     await checkConsoleSearchDeadlines(browser)
     await checkConsoleTools(browser)

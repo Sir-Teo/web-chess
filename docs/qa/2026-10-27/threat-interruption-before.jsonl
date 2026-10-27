@@ -1,0 +1,6 @@
+{"browser":"chromium","reason":"worker-error","status":"error","button":" Reading the threat…","disabled":true}
+{"browser":"chromium","reason":"leave-analysis","status":"ready","button":" Reading the threat…","disabled":true}
+{"browser":"chromium","reason":"engine-profile","status":"ready","button":" Reading the threat…","disabled":true}
+{"browser":"firefox","reason":"worker-error","status":"error","button":" Reading the threat…","disabled":true}
+{"browser":"firefox","reason":"leave-analysis","status":"ready","button":" Reading the threat…","disabled":true}
+{"browser":"firefox","reason":"engine-profile","status":"ready","button":" Reading the threat…","disabled":true}
