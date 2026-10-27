@@ -1,0 +1,5 @@
+Error: queued resignation charged time or changed its result: {"resigned":{"control":{"initialMs":180000,"incrementMs":2000},"whiteMs":165171,"blackMs":176075,"flagged":null,"pgn":"[Event \"Web Chess Game\"]\n[Site \"Web Chess\"]\n[Date \"2026.10.27\"]\n[Round \"1\"]\n[White \"Player 1\"]\n[Black \"Player 2\"]\n[Result \"*\"]\n[TimeControl \"180+2\"]\n\n1. e4 { [%clk 0:03:01] } 1... e5 { [%clk 0:03:01] } *\n"},"afterResignation":{"control":{"initialMs":180000,"incrementMs":2000},"whiteMs":165171,"blackMs":176075,"flagged":null,"pgn":"[Event \"Web Chess Game\"]\n[Site \"Web Chess\"]\n[Date \"2026.10.27\"]\n[Round \"1\"]\n[White \"Player 1\"]\n[Black \"Player 2\"]\n[Result \"1-0\"]\n[TimeControl \"180+2\"]\n\n1. e4 { [%clk 0:03:01] } 1... e5 { [%clk 0:03:01] } 1-0\n"}}
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at Object.checkClockTransitionTimesSurviveQueuedWork (/workspace/web-chess/scripts/test-ui-browser.cjs:3671:7)
+    at async /tmp/web-chess-clock-transition-time-check.cjs:10:9

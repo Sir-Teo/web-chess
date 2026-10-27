@@ -1,0 +1,2 @@
+  clock transition time (1280×900, 1x, dark): three delayed pause/resume cycles preserve exact stopped banks and original start times; >bank waits cannot retroactively flag; takeback charges only the new turn; resignation retains banks, complete game and result (8 held callbacks)
+  clock transition time (375×812, 2x, light): three delayed pause/resume cycles preserve exact stopped banks and original start times; >bank waits cannot retroactively flag; takeback charges only the new turn; resignation retains banks, complete game and result (8 held callbacks)

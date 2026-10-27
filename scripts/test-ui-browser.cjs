@@ -3585,6 +3585,101 @@ async function checkAFinishedGameKeepsItsStoppedClock(browser) {
  * held too; it used to drain whoever was on move, sometimes the engine,
  * behind a pause the badge could not even show.
  */
+async function checkClockTransitionTimesSurviveQueuedWork(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height }, hasTouch: width < 900, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.clock.install({ time: new Date('2026-10-27T12:00:00Z') })
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, timeControlId: '3+2', theme }))
+        // Hold background port callbacks while discrete button actions commit.
+        // Cached handlers must keep forwarding after the fixture is released.
+        const descriptor = Object.getOwnPropertyDescriptor(MessagePort.prototype, 'onmessage')
+        window.__heldClockWork = []
+        Object.defineProperty(MessagePort.prototype, 'onmessage', { ...descriptor, set(callback) {
+          descriptor.set.call(this, typeof callback === 'function' ? event => {
+            if (window.__holdClockWork) window.__heldClockWork.push(() => callback.call(this, event))
+            else callback.call(this, event)
+          } : callback)
+        } })
+        window.__releaseClockWork = () => {
+          window.__holdClockWork = false
+          for (const callback of window.__heldClockWork.splice(0)) callback()
+        }
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Pass and play', exact: true }).click()
+      await page.locator('.move-entry summary').click()
+      const input = page.locator('.move-entry input')
+      for (const move of ['e4', 'e5']) { await input.fill(move); await input.press('Enter') }
+      await page.locator('.clock-white.running').waitFor()
+      const exact = () => page.evaluate(() => {
+        // Read the real lifecycle snapshot, including subsecond bank changes.
+        window.dispatchEvent(new Event('pagehide'))
+        const saved = JSON.parse(localStorage.getItem('webchess:auto-saved-game:v1'))
+        return { ...saved.clock, pgn: saved.pgn }
+      })
+      const hold = async () => {
+        await page.clock.runFor(260) // let the normal no-op flag check queue
+        await page.evaluate(() => { window.__holdClockWork = true })
+      }
+      let heldCallbacks = 0
+      const release = async elapsed => {
+        await page.clock.fastForward(elapsed)
+        heldCallbacks += await page.evaluate(() => window.__heldClockWork.length)
+        await page.evaluate(async () => {
+          window.__releaseClockWork()
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        })
+      }
+      for (let trial = 0; trial < 3; trial++) {
+        await hold()
+        await page.getByRole('button', { name: 'Pause clock', exact: true }).press('Enter')
+        await page.getByRole('button', { name: 'Resume clock', exact: true }).waitFor()
+        const stopped = await exact()
+        await release(200000) // exceeds a bank; cannot retroactively flag
+        const later = await exact()
+        assert(later.whiteMs === stopped.whiteMs && later.blackMs === stopped.blackMs && later.flagged === null
+          && await page.locator('.clock-face.running').count() === 0, `queued work charged a paused clock: ${JSON.stringify({ stopped, later })}`)
+        await hold()
+        await page.getByRole('button', { name: 'Resume clock', exact: true }).press('Enter')
+        await page.locator('.clock-white.running').waitFor()
+        await release(5000)
+        const resumed = await exact()
+        assert(stopped.whiteMs - resumed.whiteMs >= 5000 && resumed.blackMs === stopped.blackMs && resumed.flagged === null,
+          `queued resume changed its start time: ${JSON.stringify({ stopped, resumed })}`)
+      }
+      await hold()
+      await page.getByRole('button', { name: 'Take back your move', exact: true }).press('Enter')
+      await page.locator('.clock-black.running').waitFor()
+      const handedOver = await exact()
+      await release(5000)
+      const afterTakeback = await exact()
+      assert(afterTakeback.whiteMs === handedOver.whiteMs && handedOver.blackMs - afterTakeback.blackMs >= 5000
+        && await page.locator('.mtree-chip').count() === 2, `queued takeback moved its handover: ${JSON.stringify({ handedOver, afterTakeback })}`)
+      await page.getByRole('button', { name: 'Resign the game', exact: true }).click()
+      await hold()
+      await page.getByRole('button', { name: 'Confirm resignation', exact: true }).press('Enter')
+      await page.waitForFunction(() => /resigned/.test(document.querySelector('.turn-pill')?.textContent || ''))
+      const resigned = await exact()
+      await release(200000)
+      const afterResignation = await exact()
+      // The result header is written by an effect, held with background work.
+      // Keep the complete movetext/notes while allowing that intended update.
+      const withoutResult = pgn => pgn.replace(/^\[Result "[^"]*"\]\n/m, '').replace(/\s(?:\*|1-0)\s*$/, '')
+      assert(afterResignation.whiteMs === resigned.whiteMs && afterResignation.blackMs === resigned.blackMs && afterResignation.flagged === null
+        && /\[Result "1-0"\]/.test(afterResignation.pgn) && withoutResult(resigned.pgn) === withoutResult(afterResignation.pgn), `queued resignation charged time or changed its game: ${JSON.stringify({ resigned, afterResignation })}`)
+      assert(heldCallbacks > 0, 'clock fixture did not delay any asynchronous MessagePort work')
+      assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `queued clock errors: ${errors.join('; ')}`)
+      console.log(`  clock transition time (${width}×${height}, ${scale}x, ${theme}): three delayed pause/resume cycles preserve exact stopped banks and original start times; >bank waits cannot retroactively flag; takeback charges only the new turn; resignation retains banks, complete game and result (${heldCallbacks} held callbacks)`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkPassAndPlayClockControls(browser) {
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
     const touch = width < 900
@@ -20279,6 +20374,7 @@ async function main() {
       'confirmation-keys': checkConfirmationKeys,
       'paused-clock-navigation': checkPausedClockNavigation,
       'clock-controls': checkPassAndPlayClockControls,
+      'clock-transition-time': checkClockTransitionTimesSurviveQueuedWork,
       'move-list-pointer': checkMoveListPointerActivation,
       'move-list-fit': checkMoveListFitting,
       'drill-restart': checkDrillRestartKeepsItsLine,
@@ -21072,6 +21168,7 @@ async function main() {
     await checkAFinishedGameKeepsItsStoppedClock(browser)
     await checkPausedClockNavigation(browser)
     await checkPassAndPlayClockControls(browser)
+    await checkClockTransitionTimesSurviveQueuedWork(browser)
     await checkNavigationKeepsTheClockHonest(browser)
     await checkKeepSearchingIsUnbounded(browser)
     await checkAutoplayWalksTheLine(browser)

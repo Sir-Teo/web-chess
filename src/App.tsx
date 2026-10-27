@@ -1224,7 +1224,8 @@ function App() {
     }
     pausedRef.current = true
     setPaused(true)
-    setClock(previous => (previous ? pauseClock(previous, Date.now()) : previous))
+    const now = Date.now()
+    setClock(previous => (previous ? pauseClock(previous, now) : previous))
   }, [gameMode, readBoardEnding, syncGameToNode])
 
   const navigateAndPonder = useCallback((chess: Chess | null) => {
@@ -1255,10 +1256,13 @@ function App() {
    * remembered, because navigating the move list while paused can move it.
    */
   const pause = useCallback(() => {
+    // A queued updater can run again after a later tick. Keep the instant the
+    // player paused, so a replay cannot charge time spent with the game held.
+    const now = Date.now()
     pausedRef.current = true
     setPaused(true)
     setIsAiThinking(false)
-    setClock(previous => (previous ? pauseClock(previous, Date.now()) : previous))
+    setClock(previous => (previous ? pauseClock(previous, now) : previous))
   }, [])
 
   /**
@@ -1283,8 +1287,9 @@ function App() {
     setPaused(false)
     aiMoveScheduledRef.current = false
     const over = Boolean(readBoardEnding()) || Boolean(endedOffBoardRef.current)
+    const now = Date.now(), turn = game.turn()
     setClock(previous => (
-      previous && !previous.flagged && !over ? startSide(previous, game.turn(), Date.now()) : previous
+      previous && !previous.flagged && !over ? startSide(previous, turn, now) : previous
     ))
     // `setPaused(false)` is what re-enters the AI loop: `paused` is one of that
     // effect's dependencies. This used to also call `setFen(f => f)`, commented
@@ -2095,7 +2100,8 @@ function App() {
     // down. Same handover `resume` makes, and no refund -- the think that was
     // spent stays spent, the way a takeback works everywhere else.
     if (!endedOffBoardRef.current) {
-      setClock(previous => (previous && !previous.flagged ? startSide(previous, chess.turn(), Date.now()) : previous))
+      const now = Date.now(), turn = chess.turn()
+      setClock(previous => (previous && !previous.flagged ? startSide(previous, turn, now) : previous))
     }
   }, [autoFlipBoard, cancelPendingAiMove, game, gameMode, playerColor, syncGameToNode])
   takebackMoveRef.current = takebackMove
@@ -3904,7 +3910,8 @@ function App() {
   useEffect(() => {
     if (!clock || clock.flagged || clock.running === null) return
     const id = window.setInterval(() => {
-      setClock(previous => (previous ? settleFlag(previous, Date.now()) : previous))
+      const now = Date.now()
+      setClock(previous => (previous ? settleFlag(previous, now) : previous))
     }, 250)
     return () => window.clearInterval(id)
   }, [clock])
@@ -3961,7 +3968,8 @@ function App() {
     setResignedBy(side)
     // Everything a finished game stops doing. The clock is paused for the same
     // reason a checkmate pauses it: the game is over, so nobody is on move.
-    setClock(previous => (previous ? pauseClock(previous, Date.now()) : previous))
+    const now = Date.now()
+    setClock(previous => (previous ? pauseClock(previous, now) : previous))
     cancelPendingAiMove()
     setPremove(null)
     setHintMove(null)
@@ -4245,7 +4253,8 @@ function App() {
      * release; the engine has more than one way to be let go, and they all
      * arrive here.
      */
-    setClock(previous => (previous && !previous.flagged ? startSide(previous, currentTurn, Date.now()) : previous))
+    const searchStartedAt = Date.now()
+    setClock(previous => (previous && !previous.flagged ? startSide(previous, currentTurn, searchStartedAt) : previous))
 
     const stepModeMove = aiSpeedRef.current === 'step'
     const delayMs = AI_SPEED_MS[aiSpeedRef.current]
@@ -6642,7 +6651,8 @@ function App() {
     // The clock was held while the engine waited to be let go; give the time
     // back before it searches, so the search is on its own clock and the move
     // it makes still earns its increment.
-    setClock(previous => (previous && !previous.flagged ? startSide(previous, currentTurn, Date.now()) : previous))
+    const now = Date.now()
+    setClock(previous => (previous && !previous.flagged ? startSide(previous, currentTurn, now) : previous))
     setStepRequestTick(tick => tick + 1)
   }, [game, gameMode, playerColor, readBoardEnding])
 
@@ -7170,7 +7180,8 @@ function App() {
      * `stepPendingRef` alone changed nothing at all.
      */
     if (stepPendingRef.current || aiMoveScheduledRef.current) return
-    setClock(previous => (previous && previous.running !== null ? pauseClock(previous, Date.now()) : previous))
+    const now = Date.now()
+    setClock(previous => (previous && previous.running !== null ? pauseClock(previous, now) : previous))
   }, [awaitingAiStep, clock])
   /**
    * Sideways on a phone, height is the scarce axis, and this pair made the
