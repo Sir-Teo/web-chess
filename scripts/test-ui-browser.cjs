@@ -17721,8 +17721,15 @@ async function checkCommandCopyFailures(browser) {
       }, theme)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.evaluate(() => { window.__commandCopyMode = 'success' })
+      await page.getByTestId('command-palette-btn').click()
+      await page.getByRole('combobox', { name: 'Search commands', exact: true }).fill('copy position link')
+      await page.locator('[data-command-id="copy-position-link"] button').click()
+      await page.locator('[data-command-palette="true"]').waitFor({ state: 'detached' })
+      const initialLink = await page.evaluate(() => window.__commandCopies.at(-1))
+      assert(new URLSearchParams(new URL(initialLink).hash.slice(1)).get('fen') === new (require('chess.js').Chess)().fen(), 'the untouched board cannot share an exact starting-position link')
       await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
-      await page.locator('.pgn-dialog textarea').fill('[White "José"]\n[Event "Łódź"]\n\n1. e4 e5 *')
+      await page.locator('.pgn-dialog textarea').fill('[White "José"]\n[Event "Łódź"]\n\n1. e4 e5 (1... c5) *')
       await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
       await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
       const run = async (id, query) => {
@@ -17731,26 +17738,29 @@ async function checkCommandCopyFailures(browser) {
         await page.locator(`[data-command-id="${id}"] button`).click()
         await page.locator('[data-command-palette="true"]').waitFor({ state: 'detached' })
       }
-      const commands = [['copy-fen', 'copy fen', 'FEN'], ['copy-pgn', 'copy pgn', 'PGN'], ['copy-game-link', 'copy game link', 'Game link']]
+      const commands = [['copy-fen', 'copy fen', 'FEN'], ['copy-pgn', 'copy pgn', 'PGN'], ['copy-game-link', 'copy game link', 'Game link'], ['copy-position-link', 'copy position link', 'Position link']]
       const notice = page.locator('.app-notice-region')
       for (const mode of ['missing', 'method-missing', 'getter', 'throw', 'deny', 'success']) {
         await page.evaluate(mode => { window.__commandCopyMode = mode }, mode)
         for (const [id, query, label] of commands) {
           await run(id, query)
+          const fallback = label === 'Position link' ? 'position link from the PGN dialog’s FEN tab'
+            : `${label === 'Game link' ? 'link' : label} from the PGN dialog`
           const expected = mode === 'success' ? `${label} copied`
-            : `Clipboard ${mode === 'missing' || mode === 'method-missing' ? 'unavailable' : 'blocked'} — copy the ${label === 'Game link' ? 'link' : label} from the PGN dialog`
+            : `Clipboard ${mode === 'missing' || mode === 'method-missing' ? 'unavailable' : 'blocked'} — copy the ${fallback}`
           await page.waitForFunction(text => document.querySelector('.app-notice-region')?.textContent === text, expected)
           await page.waitForFunction(() => document.activeElement?.getAttribute('data-testid') === 'command-palette-btn', null, { timeout: 5000 })
           assert(await page.locator('#chessboard-square-e5 [data-piece="bP"]').count() === 1, 'copying changed the current position')
         }
-        console.log(`  command copy (${width}px, ${scale}x, ${theme}, ${mode}): FEN/PGN/game link give current feedback; dialog closes, opener focus and board preserved`)
+        console.log(`  command copy (${width}px, ${scale}x, ${theme}, ${mode}): FEN/PGN/game/position links give current feedback; dialog closes, opener focus and board preserved`)
       }
-      const copied = await page.evaluate(() => window.__commandCopies.slice(-3))
+      const copied = await page.evaluate(() => window.__commandCopies.slice(-4))
       const chess = new (require('chess.js').Chess)()
       chess.move('e4'); chess.move('e5')
       assert(copied[0] === chess.fen(), 'Commands copied a different FEN')
       const parsed = new (require('chess.js').Chess)(); parsed.loadPgn(copied[1])
       assert(parsed.history().join(' ') === 'e4 e5' && copied[1].includes('José') && copied[1].includes('Łódź'), 'Commands PGN lost moves or Unicode headers')
+      assert(new URLSearchParams(new URL(copied[3]).hash.slice(1)).get('fen') === chess.fen(), 'Commands position link lost the exact current FEN')
       await page.evaluate(() => { window.__commandCopyMode = 'deferred' })
       await run('copy-fen', 'copy fen')
       await run('copy-pgn', 'copy pgn')
@@ -17766,15 +17776,39 @@ async function checkCommandCopyFailures(browser) {
       await page.evaluate(() => window.__commandCopyPending[2].resolve())
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
       assert(await notice.innerText() === 'FEN copied', 'an older successful copy replaced the newest command feedback')
+      await run('copy-position-link', 'copy position link')
+      await run('copy-fen', 'copy fen')
+      await page.evaluate(() => window.__commandCopyPending[5].resolve())
+      await page.waitForFunction(() => document.querySelector('.app-notice-region')?.textContent === 'FEN copied')
+      await page.evaluate(() => window.__commandCopyPending[4].reject(new Error('Older position link denied')))
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      assert(await notice.innerText() === 'FEN copied', 'an older position-link failure replaced the newest feedback')
       const shared = await context.newPage()
       shared.on('pageerror', error => errors.push(error.message))
       await shared.addInitScript(fakeEngineScript())
       await shared.goto(copied[2], { waitUntil: 'domcontentloaded' })
       await shared.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
       await shared.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+      await page.evaluate(() => { window.__commandCopyMode = 'success' })
+      await page.getByRole('button', { name: /^Go to variation move 1\.\.\. c5/ }).click()
+      await run('copy-position-link', 'copy position link')
+      const variationLink = await page.evaluate(() => window.__commandCopies.at(-1))
+      const variation = new (require('chess.js').Chess)(); variation.move('e4'); variation.move('c5')
+      assert(new URLSearchParams(new URL(variationLink).hash.slice(1)).get('fen') === variation.fen(), 'a variation position link copied the main line')
+      await shared.goto('about:blank')
+      await shared.goto(variationLink, { waitUntil: 'domcontentloaded' })
+      await shared.locator('#chessboard-square-c5 [data-piece="bP"]').waitFor()
+      assert(await shared.locator('.mtree-chip').count() === 0, 'a position-only link invented a move history')
+      await shared.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await shared.locator('.pgn-dialog').getByRole('button', { name: 'FEN', exact: true }).click()
+      assert((await shared.locator('.fen-textarea').inputValue()).trim() === variation.fen(), 'opening the position link changed its counters or board')
+      await shared.keyboard.press('Escape')
+      await shared.getByTestId('command-palette-btn').click()
+      await shared.getByRole('combobox', { name: 'Search commands', exact: true }).fill('copy position link')
+      assert(await shared.locator('[data-command-id="copy-position-link"] button').isEnabled(), 'a standalone position cannot share its own link')
       assert(errors.length === 0, `Commands clipboard errors: ${errors.join('; ')}`)
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'Commands clipboard feedback overflows')
-      console.log(`  command copy (${width}px, ${scale}x): successful payloads include exact FEN, parsed Unicode PGN and an actual replayable game link; old rejected/successful replies cannot replace newer feedback`)
+      console.log(`  command copy (${width}px, ${scale}x): exact FEN, Unicode PGN, replayable game link and an actual variation-position link; zero-move recipient can share; old rejected/successful replies cannot replace newer feedback`)
     } finally { await context.close() }
   }
 }

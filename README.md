@@ -451,14 +451,13 @@ given, and the app answering the reader who touches it.
   dark ones: a deuteranope keeps lightness and blue-yellow and little else,
   so on white the bad grades are a lightness ladder rather than a hue ladder.
 - **Command palette**: `Ctrl`/`Cmd`+`K` opens a searchable list of every
-  toolbar and mode action, with recently used commands first. Ported in shape
-  from web-katrain, sized for this app's twenty-odd commands. `Copy FEN`,
-  `Copy PGN`, `Open in Lichess` and `Open in chess.com` live there too, so the
-  position or the line you are looking at can leave without a trip through the
-  PGN dialog — the chess.com route takes the position, and was checked in a
-  real browser rather than believed, since nobody documents it; each
-  says what it did in a one-line notice, since a copy that finishes in silence
-  leaves you checking the clipboard.
+  toolbar and mode action, with recently used commands first. `Copy FEN`,
+  `Copy PGN`, `Copy position link` and `Copy game link` work without opening
+  the PGN dialog. Position links open the exact board, including a variation
+  or a study with no moves; game links share the main line. Copy PGN includes
+  standalone position notes. `Open in Lichess` takes the current line, while
+  `Open in chess.com` takes the current position. Copies report success or
+  explain how to copy manually when clipboard access is unavailable.
 - **Installable app metadata**: PWA manifest and app icon are configured for hosted releases.
 
 ## Technology Stack

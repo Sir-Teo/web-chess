@@ -1,0 +1,13 @@
+Direct position links from Commands — 27 October 2026
+
+Add Copy position link using the existing buildFenShareUrl helper and the current live FEN. It is available before any move, on standalone studies and on side variations. Reuse clipboard capability checks, exception handling and newest-copy ownership. Position-link errors point to the PGN dialog’s FEN tab; game-link hint describes sharing the main line. README documents the distinction.
+
+Extended existing native alias command-copy in Chromium, Firefox and Linux WebKit: desktop 1280x812 dark and phone 375x812 with 200% root text light. Begin by copying the untouched standard board. Then exercise FEN, PGN, game-link and position-link commands through missing API, missing method, inaccessible getter, synchronous exception, denied promise and success. Require truthful feedback, unchanged board and restored opener focus. Independently decode exact FEN and parse Unicode PGN; actually open the game link. Copy a side variation’s position, actually open that link, read exact FEN/counters from the recipient’s FEN editor and verify zero invented moves. The zero-move recipient offers position-link copying too. Resolve/reject older copies after newer ones, including a position-link rejection, and require the latest feedback to remain.
+
+Related Chromium keyboard, reading and layout workflows pass across desktop, phone, short landscape and enlarged root text. The 375px/200% new-command screenshot was visually inspected: complete wrapped label and hint, full title and reachable search. Screenshot stays outside the repository. Root text enlargement is not native zoom; Linux WebKit is not physical iOS.
+
+All checks in npm run typecheck && npm run lint && npm test && npm run build -- --outDir /tmp/web-chess-autosave-lifecycle-dist pass (2,018 tests and the existing intentional skip). Final focused lint passes after error-guidance/fixture edits. Native production checks use isolated preview 4337. The ordinary npm run build also passes after the broad baseline completes; its main bundle matches the tested candidate byte for byte.
+
+Broad Chromium regression: UI_TEST_BROWSER=chromium npm run test:ui:browser started from 5de3973 before the autosave flush and clipboard improvements. Its default dist stayed unchanged throughout the run; later candidate builds used a separate outDir. The completed 739-line log ends Browser UI checks passed, including offline/cache/service-worker checks. This validates the 5de3973 integrated baseline; subsequent autosave/clipboard changes are validated by their focused native cross-browser checks, not by claiming they ran in that earlier broad build.
+
+Main bundle SHA-256: 4ad9ccbfc337620dadb1be52210149e28a2a7f874bd680c59185a57c51d00339

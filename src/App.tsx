@@ -112,7 +112,7 @@ import { exportReviewPgn } from './engine/reviewPgn'
 import { restoreSavedReview, reviewLineKey, type SavedReview } from './engine/savedReviews'
 import { SavedReviews } from './components/SavedReviews'
 import { fetchSamplePgn } from './engine/samplePgn'
-import { hashCarriesShare, parseFenShareHash } from './engine/shareLink'
+import { buildFenShareUrl, hashCarriesShare, parseFenShareHash } from './engine/shareLink'
 import { MAX_SHARED_GAME_CHARS, buildGameShareUrl, parseGameShareHash, replaySharedGame } from './engine/shareGame'
 import { nullMoveProbe } from './engine/threats'
 import {
@@ -6050,29 +6050,31 @@ function App() {
     setPgnHeaders,
   ])
 
-  /**
-   * The three things a reader with a position wants to do with it somewhere
-   * else, and had to open the PGN dialog for: put the FEN or the PGN on the
-   * clipboard, or take the line to Lichess for a second opinion.
-   */
+  // A permission prompt can resolve after another copy. Only the latest
+  // command owns the feedback, regardless of which payload it copied.
   const commandCopyVersion = useRef(0)
-  const copyCommandText = useCallback(async (text: string, label: 'FEN' | 'PGN' | 'Game link') => {
+  const copyCommandText = useCallback(async (text: string, label: 'FEN' | 'PGN' | 'Game link' | 'Position link') => {
     const version = ++commandCopyVersion.current
-    const source = label === 'Game link' ? 'link' : label
+    const fallback = label === 'Position link'
+      ? 'position link from the PGN dialog’s FEN tab'
+      : `${label === 'Game link' ? 'link' : label} from the PGN dialog`
     try {
       const clipboard = navigator.clipboard
       if (!clipboard?.writeText) {
-        announce(`Clipboard unavailable — copy the ${source} from the PGN dialog`)
+        announce(`Clipboard unavailable — copy the ${fallback}`)
         return
       }
       await clipboard.writeText(text)
       if (commandCopyVersion.current === version) announce(`${label} copied`)
     } catch {
-      if (commandCopyVersion.current === version) announce(`Clipboard blocked — copy the ${source} from the PGN dialog`)
+      if (commandCopyVersion.current === version) announce(`Clipboard blocked — copy the ${fallback}`)
     }
   }, [announce])
   const copyFen = useCallback(() => {
     void copyCommandText(fen, 'FEN')
+  }, [copyCommandText, fen])
+  const copyPositionLink = useCallback(() => {
+    void copyCommandText(buildFenShareUrl(fen, window.location.href), 'Position link')
   }, [copyCommandText, fen])
   const copyPgn = useCallback(() => {
     if (mainLineNodes.length <= 1 && !isPositionStudy) return
@@ -6187,6 +6189,8 @@ function App() {
       run: openPgnDialog },
     { id: 'copy-fen', label: 'Copy FEN', hint: 'The position on the board', keywords: ['clipboard', 'position', 'share'],
       run: copyFen },
+    { id: 'copy-position-link', label: 'Copy position link', hint: 'A link to the exact position on the board',
+      keywords: ['clipboard', 'fen', 'share', 'url', 'send', 'board'], run: copyPositionLink },
     {
       id: 'copy-pgn',
       label: 'Copy PGN',
@@ -6199,7 +6203,7 @@ function App() {
     {
       id: 'copy-game-link',
       label: 'Copy game link',
-      hint: mainLineNodes.length > 1 ? 'A link that replays this game, from this move' : 'No moves to share yet',
+      hint: mainLineNodes.length > 1 ? 'A link to this game’s main line' : 'No moves to share yet',
       keywords: ['clipboard', 'share', 'url', 'send', 'link'],
       disabled: mainLineNodes.length <= 1,
       run: copyGameLink,
@@ -6426,7 +6430,7 @@ function App() {
     },
     { id: 'settings', label: 'Settings', keywords: ['preferences', 'engine', 'options'],
       run: () => { rememberModalTrigger(); setSettingsOpen(true) } },
-  ], [analysisExperience, atVariationFork, autoFlipBoard, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyGameLink, copyPgn, drill, reviewFinishedGame, reviewFromPlay, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
+  ], [analysisExperience, atVariationFork, autoFlipBoard, autoplay, autoplayReason, bottomPanelOpen, continuousAnalysis, copyFen, copyGameLink, copyPgn, copyPositionLink, drill, reviewFinishedGame, reviewFromPlay, drillBlackReason, drillWhiteReason, endDrill, isMobileLayout, startDrill, topPanelOpen,
     goToReviewFault, handleAnalysisTabChange, handleWorkspaceModeChange, goFirst, goLast, moveEntryCommandReason, requestMoveEntry,
       goSiblingVariation, hintReason, isProbingThreat, isPositionStudy, mainLineNodes.length, nextReviewFaultRow, openInChessCom, openInLichess,
       previousReviewFaultRow, requestHint, openLibraryDialog, toggleAutoplay, drillRevealReason, revealDrillMove, drillReturnReason, returnToDrill,
