@@ -272,10 +272,11 @@ export function useGameTree(startFen?: string) {
         return currentId
     }, [publishTree])
 
-    const loadTree = useCallback((entries: GameTreeImportEntry[], startFen?: string, rootCommands?: string[]): string => {
+    const loadTree = useCallback((entries: GameTreeImportEntry[], startFen?: string, rootCommands?: string[], rootComment?: string): string => {
         const nextTree = makeTree(startFen)
         const root = nextTree.nodes.get(nextTree.rootId)!
         root.pgnCommands = rootCommands
+        root.comment = rootComment
 
         const appendEntries = (parent: GameNode, childEntries: GameTreeImportEntry[]): GameNode | null => {
             let firstLineLeaf: GameNode | null = null
@@ -359,7 +360,7 @@ export function useGameTree(startFen?: string) {
     const setNodeComment = useCallback((id: string, comment: string) => {
         const tree = treeRef.current
         const node = tree.nodes.get(id)
-        if (!node || !node.move) return
+        if (!node) return
 
         const normalized = comment.trim() ? comment : ''
         if ((node.comment ?? '') === normalized) return

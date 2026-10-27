@@ -348,6 +348,9 @@ given, and the app answering the reader who touches it.
   as the move's suffix and exported with it. Notes and glyphs after a variation
   stay with their owning move, including inside nested variations. Closing game
   comments keep the final move's existing notes too.
+- **Position studies with notes**: Annotate a setup position in **Position note**,
+  save it to Library, or recover it after reload. The position and each played
+  move keep separate notes through PGN export and reimport.
 - **Interactive analysis visuals**: Clickable winrate/WDL graphs, move transcript navigation, and board arrows for the played move, best move, and candidate lines. Point at either graph and it reads the ply under the pointer — "12. Nf3 · 61.2% White", or the win/draw/loss split — with a hairline marking it; a click still goes there.
 - **Your own arrows and marks**: Right-drag on the board to draw an arrow,
   right-click a square to mark it, `Shift` or `Ctrl` for the other two colours.

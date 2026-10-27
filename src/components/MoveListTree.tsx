@@ -1,4 +1,5 @@
-import React, { memo, useCallback, useEffect, useId, useRef, useState } from 'react'
+import React, { memo, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { DEFAULT_POSITION } from 'chess.js'
 import { useDisarmAfter } from '../hooks/useDisarmAfter'
 import type { GameTreeHandle, GameNode } from '../hooks/useGameTree'
 import { IconPawn, IconBranch } from './icons'
@@ -61,6 +62,8 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
     // whether the line the reader is standing in hangs off one of its moves.
     const currentPathIds = new Set(currentPath().map(node => node.id))
     const currentComment = current.comment?.trim() ?? ''
+    const showCurrentComment = Boolean((current.move || currentComment || (allowCommentEditing && current.fen !== DEFAULT_POSITION))
+        && (allowCommentEditing || currentComment))
     const currentGlyph = moveGlyphFor(current)
     // A variation is a footnote until it is promoted: mainLine() is what the
     // review pass, the accuracy summary, the graphs and PGN export all read.
@@ -73,9 +76,9 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
         setDeleteArmed(false)
     }, [current.id])
 
-    // Deliberately keyed on the move, not on its comment: re-reading the stored
-    // value on every keystroke is what swallowed the space to begin with.
-    useEffect(() => {
+    // Follow the selected node before its new label is painted. Keep the draft
+    // independent of stored comments so typing leading spaces stays intact.
+    useLayoutEffect(() => {
         setCommentDraft(tree.getNode(current.id)?.comment ?? '')
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [current.id])
@@ -87,7 +90,7 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
         scrollWithinContainer(container, el)
     }, [current.id])
 
-    if (line.length <= 1) {
+    if (line.length <= 1 && !showCurrentComment) {
         return (
             <div className="empty-state">
                 <span className="empty-state-icon"><IconPawn /></span>
@@ -296,13 +299,13 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
                     </button>
                 </div>
             )}
-            {current.move && (allowCommentEditing || currentComment) && (
-                <aside className="mtree-current-comment" aria-label="Current move comment">
+            {showCurrentComment && (
+                <aside className="mtree-current-comment" aria-label={current.move ? 'Current move comment' : 'Starting position comment'}>
                     {allowCommentEditing ? (
                         <>
                             {/* The six judgements, on the move under the cursor.
                                 Pressing the one it already has takes it off. */}
-                            <div className="mtree-glyph-row" role="group" aria-label="Move judgement">
+                            {current.move && <div className="mtree-glyph-row" role="group" aria-label="Move judgement">
                                 {MOVE_GLYPHS.map(glyph => {
                                     const active = currentGlyph === glyph
                                     return (
@@ -319,8 +322,8 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
                                         </button>
                                     )
                                 })}
-                            </div>
-                            <label htmlFor={commentId}>Move note</label>
+                            </div>}
+                            <label htmlFor={commentId}>{current.move ? 'Move note' : 'Position note'}</label>
                             <textarea
                                 id={commentId}
                                 className="mtree-comment-input"
@@ -335,7 +338,7 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
                         </>
                     ) : (
                         <>
-                            <span className="mtree-current-comment-label">Move note</span>
+                            <span className="mtree-current-comment-label">{current.move ? 'Move note' : 'Position note'}</span>
                             <p>{currentComment}</p>
                         </>
                     )}

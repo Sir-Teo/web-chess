@@ -13,6 +13,7 @@ type Props = {
      * player as a game twice as long as the one they left.
      */
     plyCount: number
+    positionStudy?: boolean
     onRestore: () => void
     onDismiss: () => void
     /**
@@ -45,7 +46,7 @@ function describeSavedOutcome(result: string | undefined): string | null {
     return null
 }
 
-export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss, error, onCopyPgn, onDownloadPgn, copyLabel, copying, copyError, result }: Props) {
+export function AutoSaveRecoveryDialog({ savedAt, plyCount, positionStudy = false, onRestore, onDismiss, error, onCopyPgn, onDownloadPgn, copyLabel, copying, copyError, result }: Props) {
     const moveCount = Math.ceil(Math.max(0, plyCount) / 2)
     const outcome = describeSavedOutcome(result)
     const panelRef = useRef<HTMLDivElement>(null)
@@ -66,7 +67,7 @@ export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss
             >
                 <header className="dialog-header">
                     <span className="dialog-icon"><IconRefresh /></span>
-                    <h2 id="auto-save-title">{outcome ? 'Finished game' : 'Unfinished game'}</h2>
+                    <h2 id="auto-save-title">{positionStudy ? 'Position study' : outcome ? 'Finished game' : 'Unfinished game'}</h2>
                 </header>
 
                 {/* Inside a section like every other dialog's copy: the body
@@ -77,9 +78,13 @@ export function AutoSaveRecoveryDialog({ savedAt, plyCount, onRestore, onDismiss
                     <div className="dialog-section">
                         <p id="auto-save-body">
                             {error
-                                ? `That saved game could not be read back: ${error}`
+                                ? `That saved ${positionStudy ? 'position study' : 'game'} could not be read back: ${error}`
+                                : positionStudy
+                                    ? `A position study was open ${describeElapsed(savedAt)}. Pick up where you left off?`
                                 : outcome
                                     ? `${outcome} in ${moveCount} ${moveCount === 1 ? 'move' : 'moves'}, ${describeElapsed(savedAt)}. Open it again?`
+                                    : moveCount === 0
+                                      ? `The starting position was ready ${describeElapsed(savedAt)}. Pick up where you left off?`
                                     : `${moveCount} ${moveCount === 1 ? 'move was' : 'moves were'} in progress ${describeElapsed(savedAt)}. Pick up where you left off?`}
                         </p>
                         {error && (

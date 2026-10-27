@@ -30,6 +30,7 @@ type Props = {
     saving?: boolean
     /** Empty when there is no game worth saving yet. */
     currentPgn: string
+    positionStudy?: boolean
     suggestedName: string
     onClose: () => void
     onSave: (name: string, pgn: string) => LibraryWriteResult
@@ -89,6 +90,7 @@ export function LibraryDialog({
     writeError,
     saving = false,
     currentPgn,
+    positionStudy = false,
     suggestedName,
     onClose,
     onSave,
@@ -370,7 +372,7 @@ export function LibraryDialog({
                 <div className="dialog-body">
                     <div className="dialog-section">
                         {currentPgn ? <>
-                            <label className="dialog-label" htmlFor={nameId}>Save the current game</label>
+                            <label className="dialog-label" htmlFor={nameId}>{positionStudy ? 'Save the current position study' : 'Save the current game'}</label>
                             <form className="library-save-row" onSubmit={event => {
                                 event.preventDefault()
                                 handleSave()

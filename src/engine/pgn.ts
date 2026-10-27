@@ -804,6 +804,7 @@ export function parsePgnMoveTree(pgnText: string): {
     headers: Record<string, string>
     rootFen: string
     rootCommands?: string[]
+    rootComment?: string
     moves: GameTreeImportEntry[]
     evaluations: Map<string, EvalSnapshot>
     result?: string
@@ -839,7 +840,7 @@ export function parsePgnMoveTree(pgnText: string): {
         parsed.root.variations,
         rootPosition,
         evaluations,
-        humanCommentFromPgnComment(parsed.root.comment),
+        rootFen === INITIAL_FEN ? humanCommentFromPgnComment(parsed.root.comment) : undefined,
     )
     // A game with no moves is nothing -- unless its headers set up a position,
     // in which case the position is what was pasted and refusing it throws away
@@ -857,6 +858,7 @@ export function parsePgnMoveTree(pgnText: string): {
         headers,
         rootFen,
         rootCommands: preservedPgnCommands(parsed.root.comment),
+        rootComment: rootFen !== INITIAL_FEN ? humanCommentFromPgnComment(parsed.root.comment) : undefined,
         moves,
         evaluations,
         result: parsed.result,

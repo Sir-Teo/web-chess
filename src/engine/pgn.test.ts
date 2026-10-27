@@ -1621,6 +1621,34 @@ describe('splitting a database file into its games', () => {
 })
 
 
+describe('starting-position notes', () => {
+  const fen = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1'
+  const headers = `[SetUp "1"]\n[FEN "${fen}"]\n\n`
+
+  it('keeps introductory and closing notes on a standalone position', () => {
+    const parsed = parsePgnMoveTree(headers + '{position introduction} * {closing study note}')
+    expect(parsed.moves).toEqual([])
+    expect(parsed.rootComment).toBe('position introduction closing study note')
+  })
+
+  it('keeps setup-position notes separate from the first move note', () => {
+    const parsed = parsePgnMoveTree(headers + '{position note} 1. e4 {move note} *')
+    expect(parsed.rootComment).toBe('position note')
+    expect(parsed.moves[0].comment).toBe('move note')
+  })
+
+  it('retains the existing opening-note placement for ordinary games', () => {
+    const parsed = parsePgnMoveTree('{opening introduction} 1. e4 {move note} *')
+    expect(parsed.rootComment).toBeUndefined()
+    expect(parsed.moves[0].comment).toContain('opening introduction')
+    expect(parsed.moves[0].comment).toContain('move note')
+  })
+
+  it('does not invent a position note when there is none', () => {
+    expect(parsePgnMoveTree(headers + '*').rootComment).toBeUndefined()
+  })
+})
+
 describe('lossless study directives', () => {
   it('retains drawings and unknown commands across repeated exports and variations', () => {
     let text = '{ [%csl Ra1] } 1. e4 { [%cal Ge2e4] [%csl Ge4] [%vendor opaque] My plan } (1. d4 { [%cal Rd2d4] Alternative }) e5 *'

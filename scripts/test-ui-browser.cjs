@@ -7241,6 +7241,98 @@ async function checkOneGestureSavesOneGame(browser) {
  * twelve games in the library, the whole file imported once per press, and a
  * real database file is hundreds.
  */
+async function checkPositionStudyNotes(browser) {
+  const fen = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1'
+  const pgn = `[Event "Position notes QA"]\n[SetUp "1"]\n[FEN "${fen}"]\n\n{position introduction} * {closing study note}`
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', acceptDownloads: true })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      const enlarge = () => page.evaluate(async scale => {
+        document.documentElement.style.fontSize = `${scale * 100}%`
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      }, scale)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await enlarge()
+      const importText = async text => {
+        await page.locator('.pgn-dialog textarea').fill(text)
+        await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      }
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await importText(pgn)
+      const note = page.getByRole('textbox', { name: 'Position note', exact: true })
+      await note.waitFor({ timeout: 5000 })
+      assert(await note.inputValue() === 'position introduction closing study note', 'the standalone study lost its introductory or closing note')
+      assert(await page.getByRole('group', { name: 'Move judgement', exact: true }).count() === 0, 'the starting position is being judged as a played move')
+      const edited = 'Annotated position ♞'
+      await note.fill(edited)
+      const savedStudy = text => page.waitForFunction(text => {
+        const raw = localStorage.getItem('webchess:auto-saved-game:v1')
+        const value = raw && JSON.parse(raw)
+        return value?.positionStudy === true && value.moveCount === 0 && value.pgn.includes(text)
+      }, text)
+      await savedStudy(edited)
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      const library = page.locator('.library-dialog')
+      await library.getByRole('textbox', { name: 'Save the current position study', exact: true }).fill('Saved position study')
+      await library.getByRole('button', { name: 'Save', exact: true }).click()
+      await library.getByRole('button', { name: 'Load Saved position study', exact: true }).waitFor()
+      await library.getByRole('button', { name: 'Done', exact: true }).click()
+      await savedStudy(edited)
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await enlarge()
+      const recovery = page.getByRole('dialog', { name: 'Position study', exact: true })
+      await recovery.waitFor()
+      assert((await recovery.innerText()).includes('A position study was open') && !(await recovery.innerText()).includes('0 moves'), 'recovery invents played moves for a position study')
+      await recovery.locator('[data-restore]').click()
+      await recovery.waitFor({ state: 'detached' })
+      await note.waitFor()
+      assert(await note.inputValue() === edited, 'reload recovery lost the position note')
+      await note.fill('Temporary unsaved edit')
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      await library.getByRole('button', { name: 'Load Saved position study', exact: true }).click()
+      await library.waitFor({ state: 'detached' })
+      assert(await note.inputValue() === edited, 'library loading lost the standalone position note')
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      const moveNote = page.getByRole('textbox', { name: 'Move note', exact: true })
+      await moveNote.waitFor()
+      assert(await moveNote.inputValue() === '', 'the position note became the first move note')
+      await moveNote.fill('Move-specific note')
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      assert(await note.inputValue() === edited, 'adding a move lost its starting-position note')
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog').getByRole('button', { name: 'Export', exact: true }).click()
+      const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PGN', exact: true }).click()])
+      const exported = fs.readFileSync(await download.path(), 'utf8')
+      assert(exported.includes(edited) && exported.includes('Move-specific note') && exported.includes(fen), 'PGN export lost a note or the starting position')
+      await page.locator('.pgn-dialog').getByRole('button', { name: 'Import', exact: true }).click()
+      await importText(exported)
+      assert(await moveNote.inputValue() === 'Move-specific note', 'reimport merged starting-position and move notes')
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      assert(await note.inputValue() === edited, 'reimport lost the distinct starting-position note')
+      await note.fill('')
+      assert(await note.isVisible() && await note.evaluate(el => document.activeElement === el), 'clearing a position note removed its editor or focus')
+      await note.press('Space')
+      assert(await note.inputValue() === ' ', 'the position note discarded a typed leading space')
+      await note.press('r')
+      assert(await note.inputValue() === ' r', 'synchronizing the note draft replaced a typed character')
+      await note.fill('Revised position note')
+      await page.waitForFunction(() => {
+        const raw = localStorage.getItem('webchess:auto-saved-game:v1'), value = raw && JSON.parse(raw)
+        return value?.moveCount === 1 && value.positionStudy !== true && value.pgn.includes('Revised position note')
+      })
+      assert(errors.length === 0, `position note errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'position notes overflow')
+      console.log(`  position notes (${width}×${height}, ${scale}x): zero-move study retains/edits notes, saves to Library and recovers after reload; first-move note stays separate through export/reimport; clearing keeps focus; real moves replace zero-move recovery metadata`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkPostVariationNotes(browser) {
   const pgn = '[Event "Quoted ) {header} $1"]\n\n1. e4 e5 {before} (1... c5 2. Nf3 (2. Nc3) {inner note} d6) (1... e6) ; after literal {brace} $1\n$2 2. Nf3 Nc6 {last move note} * {closing note}'
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
@@ -18017,6 +18109,7 @@ async function main() {
       'database-boundaries': checkDatabaseGameBoundaries,
       'library-pgn-endings': checkLibraryPgnEndings,
       'pgn-after-variation': checkPostVariationNotes,
+      'position-notes': checkPositionStudyNotes,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
       'promotion-keys': checkPromotionShortcutScope,
       'promotion-targets': checkThePromotionChooserCanBeHit,
@@ -18869,6 +18962,7 @@ async function main() {
     await checkReviewExportRecovery(browser)
     await checkReviewListFollowsPosition(browser)
     await checkDialogResizeFocus(browser)
+    await checkPositionStudyNotes(browser)
     await checkPostVariationNotes(browser)
     await checkLibraryPgnEndings(browser)
     await checkDatabaseGameBoundaries(browser)

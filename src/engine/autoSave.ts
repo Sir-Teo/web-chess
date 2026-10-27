@@ -58,6 +58,8 @@ export type AutoSavedGame = {
   pgn: string
   /** Plies at the time of writing, so the prompt can say how much is at stake. */
   moveCount: number
+  /** Explicitly saved starting-position study, without fabricated plies. */
+  positionStudy?: boolean
   /** Absent for an untimed game, which is most of them. */
   clock?: AutoSavedClock
   /** Absent when the board was being analysed rather than played. */
@@ -174,6 +176,7 @@ export function readAutoSavedGame(
       savedAt: parsed.savedAt,
       pgn: parsed.pgn,
       moveCount,
+      ...(parsed.positionStudy === true && moveCount === 0 ? { positionStudy: true } : {}),
       ...(clock ? { clock } : {}),
       ...(play ? { play } : {}),
     }
@@ -189,9 +192,11 @@ export function writeAutoSavedGame(
   savedAt = Date.now(),
   clock?: AutoSavedClock,
   play?: AutoSavedPlay,
+  positionStudy = false,
 ): AutoSaveWriteResult {
   if (!storage) return 'failed'
-  if (!pgn.trim() || moveCount <= 0) {
+  const savePosition = positionStudy && moveCount === 0
+  if (!pgn.trim() || (moveCount <= 0 && !savePosition)) {
     // An untouched board should not offer to restore nothing.
     clearAutoSavedGame(storage)
     return 'empty'
@@ -203,6 +208,7 @@ export function writeAutoSavedGame(
       savedAt,
       pgn,
       moveCount: Math.max(0, Math.trunc(moveCount)),
+      ...(savePosition ? { positionStudy: true } : {}),
       ...(clock ? { clock } : {}),
       ...(play ? { play } : {}),
     }

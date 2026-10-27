@@ -1,0 +1,53 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/pgn.test.ts (148 tests | 2 failed) 157ms
+     × keeps introductory and closing notes on a standalone position 8ms
+     × keeps setup-position notes separate from the first move note 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/pgn.test.ts > starting-position notes > keeps introductory and closing notes on a standalone position
+AssertionError: expected undefined to be 'position introduction closing study n…' // Object.is equality
+
+- Expected:
+"position introduction closing study note"
+
++ Received:
+undefined
+
+ ❯ src/engine/pgn.test.ts:1631:32
+    1629|     const parsed = parsePgnMoveTree(headers + '{position introduction}…
+    1630|     expect(parsed.moves).toEqual([])
+    1631|     expect(parsed.rootComment).toBe('position introduction closing stu…
+       |                                ^
+    1632|   })
+    1633|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/engine/pgn.test.ts > starting-position notes > keeps setup-position notes separate from the first move note
+AssertionError: expected undefined to be 'position note' // Object.is equality
+
+- Expected:
+"position note"
+
++ Received:
+undefined
+
+ ❯ src/engine/pgn.test.ts:1636:32
+    1634|   it('keeps setup-position notes separate from the first move note', (…
+    1635|     const parsed = parsePgnMoveTree(headers + '{position note} 1. e4 {…
+    1636|     expect(parsed.rootComment).toBe('position note')
+       |                                ^
+    1637|     expect(parsed.moves[0].comment).toBe('move note')
+    1638|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 146 passed (148)
+   Start at  10:28:59
+   Duration  562ms (transform 213ms, setup 0ms, import 263ms, tests 157ms, environment 0ms)
+

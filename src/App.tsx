@@ -1,4 +1,4 @@
-import { Chess, type Move, type Square } from 'chess.js'
+import { Chess, DEFAULT_POSITION, type Move, type Square } from 'chess.js'
 import { Suspense, lazy, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type SyntheticEvent } from 'react'
 import { flushSync } from 'react-dom'
 import type { PieceDropHandlerArgs } from 'react-chessboard'
@@ -494,7 +494,7 @@ const SHARED_LINK_UNREADABLE = 'That shared link could not be read — showing t
  */
 const sharedLinkTruncated = (shown: number) =>
   `That shared link was cut short — showing the ${shown} ${shown === 1 ? 'move' : 'moves'} that survived it.`
-const PGN_POSITION_ONLY_NOTICE = 'That game has no moves — its position is on the board.'
+const PGN_POSITION_ONLY_NOTICE = 'Position study loaded.'
 
 function loadSharedFenFromUrl(): string | null {
   if (typeof window === 'undefined') return null
@@ -5178,16 +5178,17 @@ function App() {
     restoreModalTriggerFocus()
   }, [restoreModalTriggerFocus])
   const library = useGameLibrary()
+  const isPositionStudy = mainLineNodes.length === 1 && currentRootFen !== DEFAULT_POSITION
   // Built only while the dialog is open; exportAnnotatedPgn walks the whole tree.
   const libraryPgn = useMemo(
-    () => (showLibraryDialog && mainLineNodes.length > 1
+    () => (showLibraryDialog && (mainLineNodes.length > 1 || isPositionStudy)
       ? exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
       : ''),
-    [showLibraryDialog, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot],
+    [showLibraryDialog, mainLineNodes, isPositionStudy, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot],
   )
   const librarySuggestedName = useMemo(
-    () => (libraryPgn ? suggestGameName(libraryPgn, gameOpening?.name) : ''),
-    [gameOpening?.name, libraryPgn],
+    () => (libraryPgn ? suggestGameName(libraryPgn, gameOpening?.name ?? (isPositionStudy ? 'Position study' : undefined)) : ''),
+    [gameOpening?.name, isPositionStudy, libraryPgn],
   )
   const closeLibraryDialog = useCallback(() => {
     setShowLibraryDialog(false)
@@ -5417,7 +5418,7 @@ function App() {
       setPgnHeaders(importedGame.headers)
 
       const mainLineEntries = flattenPgnMainLine(importedGame.moves)
-      gameTree.loadTree(importedGame.moves, rootFen, importedGame.rootCommands)
+      gameTree.loadTree(importedGame.moves, rootFen, importedGame.rootCommands, importedGame.rootComment)
 
       const finalFen = mainLineEntries.at(-1)?.fen ?? rootFen
       game.load(finalFen)
@@ -5511,7 +5512,7 @@ function App() {
     autoSaveCheckedRef.current = true
     const snapshot = readAutoSavedGame()
     if (!snapshot) return
-    if (mainLineNodes.length > 1) {
+    if (mainLineNodes.length > 1 || currentRootFen !== DEFAULT_POSITION) {
       // A share link already put a game on the board, so the snapshot is stale.
       clearAutoSavedGame()
       return
@@ -5539,7 +5540,7 @@ function App() {
     const timeout = window.setTimeout(() => {
       autoSaveLastWriteAtRef.current = Date.now()
       const plies = mainLineNodes.length - 1
-      if (plies <= 0) {
+      if (plies <= 0 && !isPositionStudy) {
         clearAutoSavedGame()
         setAutoSaveResult('empty')
         return
@@ -5562,10 +5563,11 @@ function App() {
         // Only for a game being played. An imported PGN under analysis has no
         // side to take, and restoring one into Play mode would invent one.
         playSessionRef.current,
+        isPositionStudy,
       ))
     }, delay)
     return () => window.clearTimeout(timeout)
-  }, [autoSaveRecovery, autoSaveRetry, mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
+  }, [autoSaveRecovery, autoSaveRetry, mainLineNodes, isPositionStudy, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot])
 
   const downloadRecoveryPgn = useCallback(() => {
     const pgn = autoSaveRecovery?.pgn ?? exportAnnotatedPgn(mainLineNodes, evaluationsByFen, pgnHeaders, gameTree.nodesSnapshot)
@@ -8404,6 +8406,7 @@ function App() {
             <AutoSaveRecoveryDialog
               savedAt={autoSaveRecovery.savedAt}
               plyCount={autoSaveRecovery.moveCount}
+              positionStudy={autoSaveRecovery.positionStudy && !autoSaveRecovery.play}
               result={extractLibraryMetadata(autoSaveRecovery.pgn).result}
               onRestore={restoreAutoSavedGame}
               onDismiss={dismissAutoSaveRecovery}
@@ -8424,6 +8427,7 @@ function App() {
               writeError={library.writeError}
               saving={library.saving}
               currentPgn={libraryPgn}
+              positionStudy={isPositionStudy}
               suggestedName={librarySuggestedName}
               onClose={closeLibraryDialog}
               onSave={library.saveGame}
@@ -8945,7 +8949,7 @@ function App() {
                   {/* An empty analysis board is a board waiting for a game. The
                       PGN icon in the top bar is one way in; a reader who has
                       just arrived should not have to find it. */}
-                  {mainLineNodes.length <= 1 && (
+                  {mainLineNodes.length <= 1 && !isPositionStudy && (
                     <div className="right-section analyze-move-card">
                       <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
                       <p className="panel-copy small">
@@ -8958,9 +8962,9 @@ function App() {
                       </div>
                     </div>
                   )}
-                  {mainLineNodes.length > 1 && (
+                  {(mainLineNodes.length > 1 || isPositionStudy) && (
                     <div className="right-section analyze-move-card">
-                      <h3><span className="section-icon"><IconSwords /></span> Moves</h3>
+                      <h3><span className="section-icon"><IconSwords /></span> {isPositionStudy ? 'Position study' : 'Moves'}</h3>
                       <MoveListTree
                         tree={gameTree}
                         onNavigate={navigateMoveListAndPonder}

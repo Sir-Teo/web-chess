@@ -1,0 +1,30 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/autoSave.test.ts (33 tests | 1 failed) 29ms
+     × round-trips a standalone position with no invented moves 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/autoSave.test.ts > writing and reading back > round-trips a standalone position with no invented moves
+AssertionError: expected 'empty' to be 'saved' // Object.is equality
+
+Expected: "saved"
+Received: "empty"
+
+ ❯ src/engine/autoSave.test.ts:32:83
+     30|     const { storage } = stubStorage()
+     31|     const pgn = '[SetUp "1"]\n[FEN "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1"]\…
+     32|     expect(writeAutoSavedGame(pgn, 0, storage, 1234, undefined, undefi…
+       |                                                                                   ^
+     33|     expect(readAutoSavedGame(storage)).toEqual({ version: 1, savedAt: …
+     34|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 32 passed (33)
+   Start at  10:33:52
+   Duration  248ms (transform 62ms, setup 0ms, import 77ms, tests 29ms, environment 0ms)
+
