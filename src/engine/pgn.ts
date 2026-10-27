@@ -14,7 +14,7 @@ const INITIAL_FEN = new Chess().fen()
 const PGN_TAG_NAME_PATTERN = /^[A-Za-z0-9_]+$/
 const PGN_EVENT_TAG_PATTERN = /^\[Event\s+"(?:[^"\\]|\\.)*"\]$/i
 const PGN_RESULT_TAG_PATTERN = /^\[Result\s+"(?:[^"\\]|\\.)*"\]$/i
-const PGN_MOVETEXT_RESULT_PATTERN = /(?:^|\s)(?:1-0|0-1|1\/2-1\/2|\*)(?=\s|$)/g
+const PGN_HEADER_TAG_PATTERN = /^\[\s*[A-Za-z0-9_]+\s+"(?:[^"\\]|\\.)*"\s*\]$/
 const VALID_PGN_RESULTS = new Set(['1-0', '0-1', '1/2-1/2', '*'])
 /**
  * Any `[%name ...]` command inside a comment. The PGN standard reserves this
@@ -142,20 +142,46 @@ function* pgnTokensOutsideComments(text: string): Generator<PgnTextToken> {
     }
 }
 
+/** Starts of subsequent games, with comments and recursive variations intact. */
+function* pgnGameBoundaries(text: string): Generator<number> {
+    let sawMoves = false
+    let ended = false
+    let variationDepth = 0
+    for (const token of pgnTokensOutsideComments(text)) {
+        const value = text.slice(token.start, token.end)
+        if (token.kind === 'tag') {
+            // Header blocks stay together; any real header after movetext can
+            // begin another game, even when the exporter omits Event.
+            if (variationDepth === 0 && sawMoves && PGN_HEADER_TAG_PATTERN.test(value)) {
+                yield token.start
+                sawMoves = false
+                ended = false
+            }
+            continue
+        }
+        for (const word of value.matchAll(/[()]|[^\s()]+/g)) {
+            if (word[0] === '(') { variationDepth++; continue }
+            if (word[0] === ')') { variationDepth = Math.max(0, variationDepth - 1); continue }
+            if (variationDepth > 0) continue
+            if (ended) yield token.start + word.index
+            sawMoves = true
+            ended = VALID_PGN_RESULTS.has(word[0])
+        }
+    }
+}
+
 export function hasMultiplePgnGames(pgnText: string): boolean {
     let eventTags = 0
     let resultTags = 0
-    let movetext = ''
     for (const token of pgnTokensOutsideComments(pgnText)) {
         const value = pgnText.slice(token.start, token.end)
         if (token.kind === 'tag') {
             if (PGN_EVENT_TAG_PATTERN.test(value)) eventTags++
             if (PGN_RESULT_TAG_PATTERN.test(value)) resultTags++
             if (eventTags > 1 || resultTags > 1) return true
-        } else movetext += value + ' '
+        }
     }
-    const terminationMarkers = movetext.match(PGN_MOVETEXT_RESULT_PATTERN)
-    return (terminationMarkers?.length ?? 0) > 1
+    return !pgnGameBoundaries(pgnText).next().done
 }
 
 /**
@@ -182,9 +208,8 @@ export function stripPgnByteOrderMark(pgnText: string): string {
  * forms keep their own punctuation, and a brace comment never nests. Slice
  * the original game text at actual boundaries so notes are not rewritten.
  *
- * A new game begins at an Event tag that follows movetext. Header blocks
- * run together at the top of a game, so the rule is "a header after moves",
- * not "a header".
+ * A new game begins at a header after movetext, or at new movetext after a
+ * main-line termination marker. Header blocks and variations stay together.
  */
 export function splitPgnGames(pgnText: string): string[] {
     const text = stripPgnByteOrderMark(pgnText).replace(/\r\n?/g, '\n')
@@ -192,17 +217,9 @@ export function splitPgnGames(pgnText: string): string[] {
 
     const games: string[] = []
     let start = 0
-    let sawMoves = false
-
-    for (const token of pgnTokensOutsideComments(text)) {
-        const value = text.slice(token.start, token.end)
-        if (token.kind === 'text') {
-            if (value.trim()) sawMoves = true
-        } else if (sawMoves && PGN_EVENT_TAG_PATTERN.test(value)) {
-            games.push(text.slice(start, token.start).trim())
-            start = token.start
-            sawMoves = false
-        }
+    for (const boundary of pgnGameBoundaries(text)) {
+        games.push(text.slice(start, boundary).trim())
+        start = boundary
     }
 
     const last = text.slice(start).trim()

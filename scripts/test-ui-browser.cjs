@@ -7241,6 +7241,75 @@ async function checkOneGestureSavesOneGame(browser) {
  * twelve games in the library, the whole file imported once per press, and a
  * real database file is hundreds.
  */
+async function checkDatabaseGameBoundaries(browser) {
+  const { Chess } = require('chess.js')
+  const setup = new Chess(); setup.move('Nf3')
+  const parts = [
+    '1. e4 {Keep [Event "Not a game"] and 0-1 in this note.} e5 (1... c5) 1-0',
+    '1. d4 d5 1/2-1/2',
+    '[White "Ada"]\n[Black "Max"]\n[Result "0-1"]\n\n1. c4 e5 0-1',
+    `[SetUp "1"]\n[FEN "${setup.fen()}"]\n\n1... d5 2. g3`,
+  ]
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const file = scale === 2
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const openImport = page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true })
+      await openImport.click()
+      await page.locator('.pgn-dialog textarea').fill('1. a3 a6 *')
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('#chessboard-square-a3 [data-piece="wP"]').waitFor()
+      await openImport.click()
+      const database = '\ufeff' + parts.join(file ? '\r\n\r\n' : '\n\n')
+      if (file) {
+        await page.locator('.pgn-dialog input[type="file"]').setInputFiles({ name: 'without-events.pgn', mimeType: 'application/x-chess-pgn', buffer: Buffer.from(database) })
+      } else await page.locator('.pgn-dialog textarea').fill(database)
+      const offer = page.getByRole('button', { name: 'Add 4 games to the library', exact: true })
+      await offer.waitFor({ timeout: 5000 })
+      await offer.click()
+      await page.locator('.pgn-dialog .library-status').filter({ hasText: 'Added 4 games' }).waitFor()
+      await page.waitForFunction(() => new Promise(resolve => {
+        const request = indexedDB.open('web-chess-library', 1)
+        request.onerror = () => resolve(false)
+        request.onsuccess = () => {
+          const db = request.result, read = db.transaction('games').objectStore('games').getAll()
+          read.onsuccess = () => { window.__boundaryGames = read.result; db.close(); resolve(read.result.length === 4) }
+          read.onerror = () => { db.close(); resolve(false) }
+        }
+      }))
+      const saved = await page.evaluate(() => window.__boundaryGames)
+      assert(saved.length === 4 && new Set(saved.map(game => game.id)).size === 4, 'the database did not preserve four individual games')
+      for (const part of parts) assert(saved.some(game => game.pgn === part), 'a split game lost its original headers, notes, variation or moves')
+      assert(saved.find(game => game.pgn === parts[2]).metadata.white === 'Ada', 'Event-less headers did not become library metadata')
+      await page.locator('.pgn-dialog').getByRole('button', { name: 'Cancel', exact: true }).click()
+      assert(await page.locator('#chessboard-square-a3 [data-piece="wP"]').count() === 1
+        && await page.locator('#chessboard-square-a6 [data-piece="bP"]').count() === 1, 'bulk import replaced the current board')
+      const load = async part => {
+        await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+        const record = saved.find(game => game.pgn === part)
+        await page.locator(`[data-library-game-id="${record.id}"]`).getByRole('button', { name: /^Load / }).click()
+        await page.locator('.library-dialog').waitFor({ state: 'detached' })
+      }
+      await load(parts[3])
+      await page.locator('#chessboard-square-g3 [data-piece="wP"]').waitFor()
+      assert(await page.locator('#chessboard-square-f3 [data-piece="wN"]').count() === 1
+        && await page.locator('#chessboard-square-d5 [data-piece="bP"]').count() === 1, 'the SetUp game did not load from its own FEN')
+      await load(parts[0])
+      await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+      assert(await page.getByRole('button', { name: /^Go to variation move 1\.\.\. c5/ }).count() === 1, 'the imported game lost its Sicilian variation')
+      assert(errors.length === 0, `database boundary errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'the database import overflows')
+      console.log(`  database boundaries (${width}×${height}, ${scale}x, ${file ? 'BOM/CRLF file' : 'BOM paste'}): four headerless/Event-less games offered and saved intact; current board retained; FEN game and annotated variation load individually`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkADatabaseIsAddedOnce(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -17666,6 +17735,7 @@ async function main() {
       'reveal-interaction': checkRevealRetriesYieldToInteraction,
       'dialog-resize': checkDialogResizeFocus,
       'database-once': checkADatabaseIsAddedOnce,
+      'database-boundaries': checkDatabaseGameBoundaries,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
       'promotion-keys': checkPromotionShortcutScope,
       'promotion-targets': checkThePromotionChooserCanBeHit,
@@ -18517,6 +18587,7 @@ async function main() {
     await checkReviewExportRecovery(browser)
     await checkReviewListFollowsPosition(browser)
     await checkDialogResizeFocus(browser)
+    await checkDatabaseGameBoundaries(browser)
     await checkADatabaseIsAddedOnce(browser)
     await checkAnExportedGameComesBack(browser)
     await checkAnInterruptedGameComesBack(browser)

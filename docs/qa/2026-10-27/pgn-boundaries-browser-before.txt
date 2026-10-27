@@ -1,0 +1,11 @@
+locator.waitFor: Timeout 5000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('button', { name: 'Add 4 games to the library', exact: true }) to be visible[22m
+
+    at Object.checkDatabaseGameBoundaries (/workspace/web-chess/scripts/test-ui-browser.cjs:7274:19)
+    at async /tmp/web-chess-pgn-boundaries-check.cjs:10:9 {
+  log: [
+    "  - waiting for getByRole('button', { name: 'Add 4 games to the library', exact: true }) to be visible"
+  ],
+  name: 'TimeoutError'
+}

@@ -1485,6 +1485,55 @@ describe('splitting a database file into its games', () => {
     expect(splitPgnGames('1. e4 e5 2. Nf3 *')).toEqual(['1. e4 e5 2. Nf3 *'])
   })
 
+  it.each(['\n\n', ' ', '\r\n', '\r'])('splits headerless games separated by %j', separator => {
+    const first = '1. e4 e5 1-0', second = '1. d4 d5 0-1'
+    const text = first + separator + second
+    expect(hasMultiplePgnGames(text)).toBe(true)
+    expect(splitPgnGames(text)).toEqual([first, second])
+    const trees = splitPgnGames(text).map(part => parsePgnMoveTree(part))
+    expect(trees.map(tree => tree.moves[0].move.san)).toEqual(['e4', 'd4'])
+    expect(trees.map(tree => tree.moves[0].children?.[0].move.san)).toEqual(['e5', 'd5'])
+  })
+
+  it('recognizes a second headerless game whose final result was not copied', () => {
+    const first = '1. e4 e5 1/2-1/2', second = '1. d4 d5'
+    expect(hasMultiplePgnGames(`${first}\n\n${second}`)).toBe(true)
+    expect(splitPgnGames(`${first}\n\n${second}`)).toEqual([first, second])
+  })
+
+  it.each(['1-0', '0-1', '1/2-1/2', '*'])('recognizes %s before another headerless game', result => {
+    const first = `1. e4 e5 ${result}`, second = '1. d4 d5 *'
+    expect(splitPgnGames(`${first}\n${second}`)).toEqual([first, second])
+  })
+
+  it('recognizes new header blocks even when both results and Event were omitted', () => {
+    const first = '[White "First"]\n\n1. e4 e5', second = '[White "Second"]\n\n1. d4 d5'
+    expect(hasMultiplePgnGames(`${first}\n\n${second}`)).toBe(true)
+    expect(splitPgnGames(`${first}\n\n${second}`)).toEqual([first, second])
+  })
+
+  it('keeps header blocks together when entries have no Event tag', () => {
+    const first = '[White "Ada"]\n[Black "Max"]\n[Result "1-0"]\n\n1. e4 e5 1-0'
+    const second = '[White "Lee"]\n[Black "Noor"]\n[Result "0-1"]\n\n1. d4 d5 0-1'
+    expect(splitPgnGames(`${first}\n\n${second}`)).toEqual([first, second])
+    expect(splitPgnGames(`${first}\n\n${second}`).map(part => parsePgnMoveTree(part).headers.White)).toEqual(['Ada', 'Lee'])
+  })
+
+  it('mixes headerless and tagged games without cutting notes or variations', () => {
+    const first = '1. e4 {the note says 0-1 and [White "Elsewhere"]} (1. d4 d5) e5 * ; after the result: 1-0'
+    const second = '[Site "An escaped \\"quote\\" and ] bracket"]\n\n1. d4 d5 1/2-1/2'
+    const third = '1. c4 e5 *'
+    expect(splitPgnGames(`${first}\n${second}\n\n${third}`)).toEqual([first, second, third])
+    expect(splitPgnGames(`${first}\n${second}\n\n${third}`).map(part => parsePgnMoveTree(part).moves[0].move.san)).toEqual(['e4', 'd4', 'c4'])
+  })
+
+  it('does not split on a termination marker inside a variation', () => {
+    // Even malformed variation results must not become separate database games.
+    const text = '1. e4 (1. d4 1-0 2. c4) e5 *'
+    expect(hasMultiplePgnGames(text)).toBe(false)
+    expect(splitPgnGames(text)).toEqual([text])
+  })
+
   it('reads back as many games as it was given', () => {
     const many = Array.from({ length: 12 }, (_, i) => game(`Game ${i}`, '1. e4 e5 *')).join('\n\n')
     expect(splitPgnGames(many)).toHaveLength(12)

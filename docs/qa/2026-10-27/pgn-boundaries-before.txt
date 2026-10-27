@@ -1,0 +1,190 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/pgn.test.ts (123 tests | 8 failed) 139ms
+     × splits headerless games separated by "\n\n" 7ms
+     × splits headerless games separated by " " 1ms
+     × splits headerless games separated by "\r\n" 1ms
+     × splits headerless games separated by "\r" 0ms
+     × recognizes a second headerless game whose final result was not copied 2ms
+     × keeps header blocks together when entries have no Event tag 1ms
+     × mixes headerless and tagged games without cutting notes or variations 1ms
+     × does not split on a termination marker inside a variation 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/pgn.test.ts > splitting a database file into its games > splits headerless games separated by "\n\n"
+AssertionError: expected [ '1. e4 e5 1-0\n\n1. d4 d5 0-1' ] to deeply equal [ '1. e4 e5 1-0', '1. d4 d5 0-1' ]
+
+- Expected
++ Received
+
+  [
+-   "1. e4 e5 1-0",
+-   "1. d4 d5 0-1",
++   "1. e4 e5 1-0
++
++ 1. d4 d5 0-1",
+  ]
+
+ ❯ src/engine/pgn.test.ts:1492:33
+    1490|     const text = first + separator + second
+    1491|     expect(hasMultiplePgnGames(text)).toBe(true)
+    1492|     expect(splitPgnGames(text)).toEqual([first, second])
+       |                                 ^
+    1493|     for (const part of splitPgnGames(text)) expect(parsePgnMoveTree(pa…
+    1494|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  src/engine/pgn.test.ts > splitting a database file into its games > splits headerless games separated by " "
+AssertionError: expected [ '1. e4 e5 1-0 1. d4 d5 0-1' ] to deeply equal [ '1. e4 e5 1-0', '1. d4 d5 0-1' ]
+
+- Expected
++ Received
+
+  [
+-   "1. e4 e5 1-0",
+-   "1. d4 d5 0-1",
++   "1. e4 e5 1-0 1. d4 d5 0-1",
+  ]
+
+ ❯ src/engine/pgn.test.ts:1492:33
+    1490|     const text = first + separator + second
+    1491|     expect(hasMultiplePgnGames(text)).toBe(true)
+    1492|     expect(splitPgnGames(text)).toEqual([first, second])
+       |                                 ^
+    1493|     for (const part of splitPgnGames(text)) expect(parsePgnMoveTree(pa…
+    1494|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  src/engine/pgn.test.ts > splitting a database file into its games > splits headerless games separated by "\r\n"
+ FAIL  src/engine/pgn.test.ts > splitting a database file into its games > splits headerless games separated by "\r"
+AssertionError: expected [ '1. e4 e5 1-0\n1. d4 d5 0-1' ] to deeply equal [ '1. e4 e5 1-0', '1. d4 d5 0-1' ]
+
+- Expected
++ Received
+
+  [
+-   "1. e4 e5 1-0",
+-   "1. d4 d5 0-1",
++   "1. e4 e5 1-0
++ 1. d4 d5 0-1",
+  ]
+
+ ❯ src/engine/pgn.test.ts:1492:33
+    1490|     const text = first + separator + second
+    1491|     expect(hasMultiplePgnGames(text)).toBe(true)
+    1492|     expect(splitPgnGames(text)).toEqual([first, second])
+       |                                 ^
+    1493|     for (const part of splitPgnGames(text)) expect(parsePgnMoveTree(pa…
+    1494|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  src/engine/pgn.test.ts > splitting a database file into its games > recognizes a second headerless game whose final result was not copied
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/engine/pgn.test.ts:1498:58
+    1496|   it('recognizes a second headerless game whose final result was not c…
+    1497|     const first = '1. e4 e5 1/2-1/2', second = '1. d4 d5'
+    1498|     expect(hasMultiplePgnGames(`${first}\n\n${second}`)).toBe(true)
+       |                                                          ^
+    1499|     expect(splitPgnGames(`${first}\n\n${second}`)).toEqual([first, sec…
+    1500|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  src/engine/pgn.test.ts > splitting a database file into its games > keeps header blocks together when entries have no Event tag
+AssertionError: expected [ Array(1) ] to deeply equal [ …(2) ]
+
+- Expected
++ Received
+
+  [
+    "[White \"Ada\"]
+  [Black \"Max\"]
+  [Result \"1-0\"]
+
+- 1. e4 e5 1-0",
+-   "[White \"Lee\"]
++ 1. e4 e5 1-0
++
++ [White \"Lee\"]
+  [Black \"Noor\"]
+  [Result \"0-1\"]
+
+  1. d4 d5 0-1",
+  ]
+
+ ❯ src/engine/pgn.test.ts:1505:52
+    1503|     const first = '[White "Ada"]\n[Black "Max"]\n[Result "1-0"]\n\n1. …
+    1504|     const second = '[White "Lee"]\n[Black "Noor"]\n[Result "0-1"]\n\n1…
+    1505|     expect(splitPgnGames(`${first}\n\n${second}`)).toEqual([first, sec…
+       |                                                    ^
+    1506|     expect(splitPgnGames(`${first}\n\n${second}`).map(part => parsePgn…
+    1507|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  src/engine/pgn.test.ts > splitting a database file into its games > mixes headerless and tagged games without cutting notes or variations
+AssertionError: expected [ Array(1) ] to deeply equal [ …(3) ]
+
+- Expected
++ Received
+
+  [
+-   "1. e4 {the note says 0-1 and [White \"Elsewhere\"]} (1. d4 d5) e5 * ; after the result: 1-0",
+-   "[Site \"An escaped \\\"quote\\\" and ] bracket\"]
++   "1. e4 {the note says 0-1 and [White \"Elsewhere\"]} (1. d4 d5) e5 * ; after the result: 1-0
++ [Site \"An escaped \\\"quote\\\" and ] bracket\"]
++
++ 1. d4 d5 1/2-1/2
+
+- 1. d4 d5 1/2-1/2",
+-   "1. c4 e5 *",
++ 1. c4 e5 *",
+  ]
+
+ ❯ src/engine/pgn.test.ts:1513:62
+    1511|     const second = '[Site "An escaped \\"quote\\" and ] bracket"]\n\n1…
+    1512|     const third = '1. c4 e5 *'
+    1513|     expect(splitPgnGames(`${first}\n${second}\n\n${third}`)).toEqual([…
+       |                                                              ^
+    1514|     expect(splitPgnGames(`${first}\n${second}\n\n${third}`).map(part =…
+    1515|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  src/engine/pgn.test.ts > splitting a database file into its games > does not split on a termination marker inside a variation
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/engine/pgn.test.ts:1520:39
+    1518|     // Even malformed variation results must not become separate datab…
+    1519|     const text = '1. e4 (1. d4 1-0 2. c4) e5 *'
+    1520|     expect(hasMultiplePgnGames(text)).toBe(false)
+       |                                       ^
+    1521|     expect(splitPgnGames(text)).toEqual([text])
+    1522|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  8 failed | 115 passed (123)
+   Start at  08:19:31
+   Duration  616ms (transform 262ms, setup 0ms, import 316ms, tests 139ms, environment 0ms)
+

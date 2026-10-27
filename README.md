@@ -389,7 +389,8 @@ given, and the app answering the reader who touches it.
   which is what Lichess and chess.com hand you — and add the lot to the library
   in one go, each named from its own headers. A game in the file that will not
   parse is skipped and counted rather than silently dropped, and a file that
-  would overflow the library says how many were left out.
+  would overflow the library says how many were left out. Collections without
+  headers or Event tags work too; main-line results separate headerless games.
 - **Saved games**: Keep games in a library stored in IndexedDB, search them by player, event or opening (including “jose” for “José” and “lodz” for “Łódź”), star and rename them, and export or import the whole shelf as JSON. Use **Starred only** to focus on saved favorites while keeping your search and sort order. **Game date** orders recorded dates newest first; partial dates stay with their known year or month, and unknown dates come last. Down from search enters the results; Up/Down moves the same action between games, and Home/End jumps to the first/last shown game. Up from the first row returns to search; Down from the last row reaches Show more when available. Rename inline with Enter to save or Escape to cancel. A rejected save keeps the name you typed so you can retry. The game in progress is auto-saved separately, so a reload offers to pick up where you left off — and for a game that was being *played*, that now includes the opponent, the side you had and the clock, stopped where it stood.
 - **Unreadable game recovery**: If restoring an auto-saved game fails, copy or
   download its original PGN before discarding it. Clipboard failures leave a

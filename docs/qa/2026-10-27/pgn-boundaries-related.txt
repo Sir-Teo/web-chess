@@ -1,0 +1,3 @@
+  database import: 4 games in the file, three presses, 4 in the library
+  database: 560 games, 500 kept, the other 60 never parsed (2989ms, and the button said "Adding…" first)
+  export: a game comes back byte for byte, and its report with it (116/116, 117 points)
