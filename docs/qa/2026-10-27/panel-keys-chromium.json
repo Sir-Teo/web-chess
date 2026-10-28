@@ -1,0 +1,188 @@
+{
+  "before": {
+    "browser": "chromium",
+    "results": [
+      {
+        "label": "top",
+        "initial": "true",
+        "held": [
+          {
+            "key": "Enter",
+            "first": "false",
+            "repeated": "true"
+          },
+          {
+            "key": "Space",
+            "first": "false",
+            "repeated": "true"
+          }
+        ],
+        "chord": {
+          "key": "Enter",
+          "ctrlKey": true,
+          "prevented": true,
+          "state": "false"
+        }
+      },
+      {
+        "label": "bottom",
+        "initial": "true",
+        "held": [
+          {
+            "key": "Enter",
+            "first": "false",
+            "repeated": "true"
+          },
+          {
+            "key": "Space",
+            "first": "false",
+            "repeated": "true"
+          }
+        ],
+        "chord": {
+          "key": " ",
+          "metaKey": true,
+          "prevented": true,
+          "state": "false"
+        }
+      },
+      {
+        "label": "left",
+        "initial": "320",
+        "held": [
+          {
+            "key": "Enter",
+            "first": "0",
+            "repeated": "320"
+          },
+          {
+            "key": "Space",
+            "first": "0",
+            "repeated": "320"
+          }
+        ],
+        "chord": {
+          "key": "ArrowLeft",
+          "altKey": true,
+          "prevented": true,
+          "state": "280"
+        }
+      },
+      {
+        "label": "right",
+        "initial": "320",
+        "held": [
+          {
+            "key": "Enter",
+            "first": "0",
+            "repeated": "320"
+          },
+          {
+            "key": "Space",
+            "first": "0",
+            "repeated": "320"
+          }
+        ],
+        "chord": {
+          "key": "Home",
+          "ctrlKey": true,
+          "prevented": true,
+          "state": "0"
+        }
+      }
+    ]
+  },
+  "after": {
+    "browser": "chromium",
+    "results": [
+      {
+        "label": "top",
+        "initial": "true",
+        "held": [
+          {
+            "key": "Enter",
+            "first": "false",
+            "repeated": "false"
+          },
+          {
+            "key": "Space",
+            "first": "false",
+            "repeated": "false"
+          }
+        ],
+        "chord": {
+          "key": "Enter",
+          "ctrlKey": true,
+          "prevented": false,
+          "state": "true"
+        }
+      },
+      {
+        "label": "bottom",
+        "initial": "true",
+        "held": [
+          {
+            "key": "Enter",
+            "first": "false",
+            "repeated": "false"
+          },
+          {
+            "key": "Space",
+            "first": "false",
+            "repeated": "false"
+          }
+        ],
+        "chord": {
+          "key": " ",
+          "metaKey": true,
+          "prevented": false,
+          "state": "true"
+        }
+      },
+      {
+        "label": "left",
+        "initial": "320",
+        "held": [
+          {
+            "key": "Enter",
+            "first": "0",
+            "repeated": "0"
+          },
+          {
+            "key": "Space",
+            "first": "0",
+            "repeated": "0"
+          }
+        ],
+        "chord": {
+          "key": "ArrowLeft",
+          "altKey": true,
+          "prevented": false,
+          "state": "320"
+        }
+      },
+      {
+        "label": "right",
+        "initial": "320",
+        "held": [
+          {
+            "key": "Enter",
+            "first": "0",
+            "repeated": "0"
+          },
+          {
+            "key": "Space",
+            "first": "0",
+            "repeated": "0"
+          }
+        ],
+        "chord": {
+          "key": "Home",
+          "ctrlKey": true,
+          "prevented": false,
+          "state": "320"
+        }
+      }
+    ]
+  }
+}

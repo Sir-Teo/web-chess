@@ -1,0 +1,6 @@
+{"browser":"chromium","port":"4324","commit":"f210e9e82451dd5c265709d73c00fbb0cbd4af84","build":"Vite development source","dirty":true,"checks":["checkObservedLayout"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkObservedLayout
+  panel keyboard: all four handles toggle once for held Enter/Space and again on fresh presses; browser/composition chords pass through; held side arrows still resize twice, with no game/autoplay change
+  observed layout: late graphs, keyboard panel resize, collapse/reopen, phone rotation and a new e7-e5 remain correct
+Development focused checks passed.

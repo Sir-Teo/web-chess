@@ -6887,9 +6887,10 @@ function App() {
   const keyboardResizeStep = 40
 
   const activateOnKeyboard = (event: ReactKeyboardEvent<HTMLElement>, action: () => void) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return
+    if (event.defaultPrevented || !isPlainShortcut(event.nativeEvent) || isCompositionKey(event.nativeEvent)
+      || (event.key !== 'Enter' && event.key !== ' ')) return
     event.preventDefault()
-    action()
+    if (!event.repeat) action()
   }
 
   const applyPanelResize = (side: keyof PanelWidths, width: number) => {
@@ -6904,9 +6905,9 @@ function App() {
   const toggleRightPanel = () => setRightWidth(value => (value === 0 ? preferredRightWidthRef.current : 0))
 
   const handleLeftResizeKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented || !isPlainShortcut(event.nativeEvent) || isCompositionKey(event.nativeEvent)) return
     if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      toggleLeftPanel()
+      activateOnKeyboard(event, toggleLeftPanel)
       return
     }
     if (event.key === 'Home') {
@@ -6931,9 +6932,9 @@ function App() {
   }
 
   const handleRightResizeKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented || !isPlainShortcut(event.nativeEvent) || isCompositionKey(event.nativeEvent)) return
     if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      toggleRightPanel()
+      activateOnKeyboard(event, toggleRightPanel)
       return
     }
     if (event.key === 'Home') {

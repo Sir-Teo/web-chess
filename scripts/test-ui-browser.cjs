@@ -17484,6 +17484,44 @@ async function checkObservedLayout(browser) {
       }))
       return page.locator('.winrate-graph').first().evaluate(el => Number(el.getAttribute('width')))
     }
+    for (const [selector, attribute] of [
+      ['.panel.top > .resize-handle', 'aria-expanded'], ['.panel.bottom > .resize-handle', 'aria-expanded'],
+      ['[aria-label="Resize left panel"]', 'aria-valuenow'], ['[aria-label="Resize right panel"]', 'aria-valuenow'],
+    ]) {
+      const handle = page.locator(selector)
+      const initial = await handle.getAttribute(attribute)
+      await handle.focus()
+      const ignored = await handle.evaluate(el => [
+        { key: 'ArrowLeft', altKey: true }, { key: 'ArrowRight', metaKey: true }, { key: 'Home', ctrlKey: true },
+        { key: 'End', shiftKey: true }, { key: 'Enter', ctrlKey: true }, { key: ' ', metaKey: true },
+        { key: 'Enter', isComposing: true }, { key: 'End', keyCode: 229 },
+      ].map(init => {
+        const event = new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true })
+        el.dispatchEvent(event)
+        return event.defaultPrevented
+      }))
+      assert(ignored.every(value => !value) && await handle.getAttribute(attribute) === initial, `${selector} captured a browser/composition chord or changed a panel`)
+      for (const key of ['Enter', 'Space']) {
+        await page.keyboard.down(key)
+        const first = await handle.getAttribute(attribute)
+        assert(first !== initial, `${selector} did not toggle on a fresh ${key}`)
+        await page.keyboard.down(key); await page.keyboard.up(key)
+        assert(await handle.getAttribute(attribute) === first && await handle.evaluate(el => el === document.activeElement), `${selector} toggled again or lost focus on held ${key}`)
+        await handle.press(key)
+        assert(await handle.getAttribute(attribute) === initial, `${selector} did not restore on a fresh ${key}`)
+      }
+    }
+    for (const [name, key] of [['Resize left panel', 'ArrowRight'], ['Resize right panel', 'ArrowLeft']]) {
+      const handle = page.getByRole('separator', { name, exact: true })
+      await handle.focus()
+      const before = Number(await handle.getAttribute('aria-valuenow'))
+      await page.keyboard.down(key); await page.keyboard.down(key); await page.keyboard.up(key)
+      assert(Number(await handle.getAttribute('aria-valuenow')) === before + 80, `${name} stopped repeating its 40px keyboard resize step`)
+      await handle.press('End')
+    }
+    assert(await page.locator('.mtree-chip').count() === 1 && await page.getByRole('button', { name: 'Stop autoplay', exact: true }).count() === 0,
+      'panel keyboard controls moved the game or started autoplay')
+    console.log('  panel keyboard: all four handles toggle once for held Enter/Space and again on fresh presses; browser/composition chords pass through; held side arrows still resize twice, with no game/autoplay change')
     const initialWidth = await graphFits()
     const resize = page.getByRole('separator', { name: 'Resize left panel' })
     await resize.focus()
@@ -17513,10 +17551,10 @@ async function checkObservedLayout(browser) {
         `board exceeded the resized viewport: ${JSON.stringify(geometry)}`)
     }
     await graphFits()
-    await page.locator('#chessboard-square-e2').click()
-    await page.locator('#chessboard-square-e4').click()
-    await waitForBoardPiece(page, 'e4', 'White pawn')
-    console.log('  observed layout: late graphs, keyboard panel resize, collapse/reopen, phone rotation and e2-e4 remain correct')
+    await page.locator('#chessboard-square-e7').click()
+    await page.locator('#chessboard-square-e5').click()
+    await waitForBoardPiece(page, 'e5', 'Black pawn')
+    console.log('  observed layout: late graphs, keyboard panel resize, collapse/reopen, phone rotation and a new e7-e5 remain correct')
   } finally { await context.close() }
 }
 
