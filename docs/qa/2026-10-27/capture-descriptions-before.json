@@ -1,0 +1,12 @@
+[
+  {
+    "fen": "8/P6k/8/8/8/8/7K/8 w - - 0 1",
+    "moves": "1. a8=Q",
+    "tooltip": "White is up 9. White has taken nothing; Black has taken a pawn."
+  },
+  {
+    "fen": "1rk5/P7/8/8/8/8/7P/7K w - - 0 1",
+    "moves": "1. axb8=Q+ Kxb8",
+    "tooltip": "White is up 1. White has taken a rook; Black has taken a pawn."
+  }
+]

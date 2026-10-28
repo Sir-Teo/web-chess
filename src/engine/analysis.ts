@@ -119,6 +119,8 @@ export type PvMove = Readonly<{
   index: number
   uci: string
   san: string
+  color: Move['color']
+  captured?: Move['captured']
   /** "12." or "12..." — printed only where a reader needs it. */
   prefix: string | null
   /**
@@ -144,6 +146,7 @@ type PvStep = Readonly<{
   fenAfter: string
   moveNumber: number
   sideToMove: 'w' | 'b'
+  captured?: Move['captured']
 }>
 // Changing PVs often share their first moves, and Coach displays a shorter
 // prefix of the same line as Pro. Reuse each legal transition as well as whole
@@ -194,6 +197,7 @@ export function pvLineMoves(fen: string, pv: string[], maxMoves = 8): readonly P
         step = Object.freeze({
           uci: `${move.from}${move.to}${move.promotion ?? ''}`,
           san: move.san,
+          captured: move.captured,
           fenAfter: replay.fen(),
           moveNumber,
           sideToMove,
@@ -211,6 +215,8 @@ export function pvLineMoves(fen: string, pv: string[], maxMoves = 8): readonly P
       index,
       uci: step.uci,
       san: step.san,
+      color: sideToMove,
+      captured: step.captured,
       prefix: sideToMove === 'w' ? `${moveNumber}.` : index === 0 ? `${moveNumber}...` : null,
       numbered: `${moveNumber}${sideToMove === 'w' ? '.' : '...'} ${step.san}`,
       fenAfter: step.fenAfter,

@@ -156,7 +156,7 @@ import {
   type ClockState,
 } from './engine/chessClock'
 import { describeGameEnd, describeGameEndFromPath, gameResultScore } from './engine/gameEnd'
-import { describeCaptures, materialAdvantageLabel, materialBalance } from './engine/material'
+import { describeCaptures, materialAdvantageLabel, materialBalance, type MaterialMove } from './engine/material'
 import { hasMatingMaterial } from './engine/matingMaterial'
 import {
   resignDisabledReason,
@@ -1116,7 +1116,7 @@ function App() {
    * the position being analysed, which is what this is. Nothing else moves --
    * not the evaluation, not the move list, not the engine.
    */
-  const [linePreview, setLinePreview] = useState<{ fen: string; uci: string; label: string } | null>(null)
+  const [linePreview, setLinePreview] = useState<{ fen: string; uci: string; label: string; moves: readonly MaterialMove[] } | null>(null)
   const rightClickAnchorRef = useRef<string | null>(null)
   const promotionDialogRef = useRef<HTMLDivElement>(null)
 
@@ -4734,8 +4734,16 @@ function App() {
    * build the SAN, so the position after each move is a by-product rather than
    * work this repeats.
    */
-  const showLinePreview = useCallback((step: PvMove) => {
-    setLinePreview({ fen: step.fenAfter, uci: step.uci, label: step.numbered })
+  const showLinePreview = useCallback((step: PvMove, steps: readonly PvMove[]) => {
+    setLinePreview({
+      fen: step.fenAfter, uci: step.uci, label: step.numbered,
+      // Keep the complete preview path. Committing changes the current tree
+      // before the preview disappears, so appending to that tree would count twice.
+      moves: [
+        ...gameTreeRef.current.currentPath().flatMap(node => node.move ? [node.move] : []),
+        ...steps.slice(0, step.index + 1),
+      ],
+    })
   }, [])
   const clearLinePreview = useCallback(() => setLinePreview(null), [])
 
@@ -6989,8 +6997,9 @@ function App() {
   // Counted from the game's own root rather than the standard array, so a
   // position pasted in as a FEN does not open fourteen captures down.
   const material = useMemo(
-    () => materialBalance(mainLineNodes[0]?.fen ?? '', displayedFen),
-    [displayedFen, mainLineNodes],
+    () => materialBalance(mainLineNodes[0]?.fen ?? '', displayedFen,
+      linePreview?.moves ?? currentPathNodes.flatMap(node => node.move ? [node.move] : [])),
+    [currentPathNodes, displayedFen, linePreview, mainLineNodes],
   )
   const materialLeader: 'w' | 'b' | null = material.delta > 0 ? 'w' : material.delta < 0 ? 'b' : null
   const materialDetail = useMemo(() => {
@@ -9156,9 +9165,9 @@ function App() {
                               type="button"
                               className="pv-move"
                               onClick={() => playPvLine(lineFen, source!.pv, step.index)}
-                              onMouseEnter={() => showLinePreview(step)}
+                              onMouseEnter={() => showLinePreview(step, steps)}
                               onMouseLeave={clearLinePreview}
-                              onFocus={() => showLinePreview(step)}
+                              onFocus={() => showLinePreview(step, steps)}
                               onBlur={clearLinePreview}
                               title={`Point at ${step.san} to see the position; click to play the line here`}
                               aria-label={`Play this line up to ${step.numbered}`}
@@ -9549,9 +9558,9 @@ function App() {
                                     type="button"
                                     className="pv-move"
                                     onClick={() => playPvLine(lineFen, line.pv, step.index)}
-                                    onMouseEnter={() => showLinePreview(step)}
+                                    onMouseEnter={() => showLinePreview(step, steps)}
                                     onMouseLeave={clearLinePreview}
-                                    onFocus={() => showLinePreview(step)}
+                                    onFocus={() => showLinePreview(step, steps)}
                                     onBlur={clearLinePreview}
                                     title={`Point at ${step.san} to see the position; click to play the line here`}
                                     aria-label={`Play this line up to ${step.numbered}`}

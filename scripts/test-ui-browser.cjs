@@ -10734,6 +10734,76 @@ async function checkPreviewMaterial(browser) {
   }
 }
 
+async function checkCaptureDescriptions(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const load = async (fen, moves = '') => {
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await page.locator('.pgn-dialog textarea').fill(`[SetUp "1"]\n[FEN "${fen}"]\n\n${moves} *`)
+        await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      }
+      const detail = () => page.locator('.board-meta-material').getAttribute('title')
+      const whiteRoot = '8/P6k/8/8/8/8/7K/8 w - - 0 1'
+      await load(whiteRoot, '1. a8=Q (1. a8=N)')
+      assert(await detail() === 'White is up 9.', 'quiet promotion invents a captured pawn')
+      await page.getByRole('button', { name: /^Go to variation move 1\. a8=N/ }).click()
+      assert(await detail() === 'White is up 3.', 'underpromotion variation invents a capture or uses main-line material')
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      assert(await detail() === 'White is up 1.', 'returning to the root retained variation captures')
+      await load('7k/8/8/8/8/8/p6K/8 b - - 0 1', '1... a1=N')
+      assert(await detail() === 'Black is up 3.', 'Black underpromotion invents a captured pawn')
+
+      const root = '1rk5/P7/8/8/8/8/7P/7K w - - 0 1'
+      const promoted = 'White is up 10. White has taken a rook; Black has taken nothing.'
+      const captured = 'White is up 1. White has taken a rook; Black has taken a queen.'
+      await load(root, '1. axb8=Q+ Kxb8')
+      assert(await detail() === captured, 'a captured promoted queen is reported as a pawn')
+      await page.getByRole('button', { name: 'Go to previous move', exact: true }).click()
+      assert(await detail() === promoted, 'navigating back retained a future capture')
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      assert(await detail() === 'Black is up 3.', 'a custom starting position inherits future captures')
+      await load('7k/8/8/3pP3/8/8/8/7K w - d6 0 1', '1. exd6')
+      assert(await detail() === 'White is up 1. White has taken a pawn; Black has taken nothing.', 'en passant is not recorded as a pawn capture')
+
+      const analyze = page.getByRole('button', { name: 'Run analysis', exact: true })
+      const preview = page.locator('.coach-line-moves .pv-move')
+      for (const [fen, moves, pv, before, after, count] of [
+        [whiteRoot, '', 'a7a8q', 'White is up 1.', 'White is up 9.', 0],
+        [root, '', 'a7b8q c8b8', 'Black is up 3.', captured, 0],
+        [root, '1. axb8=Q+', 'c8b8', promoted, captured, 1],
+      ]) {
+        await page.evaluate(pv => { window.__previewEndingPv = pv }, pv)
+        await load(fen, moves)
+        assert(await detail() === before, 'the preview fixture has incorrect starting captures')
+        await analyze.click()
+        await page.waitForFunction(count => document.querySelectorAll('.coach-line-moves .pv-move').length === count, pv.split(' ').length)
+        await page.mouse.move(1, 1)
+        await preview.last().focus()
+        await page.locator('.board-meta-preview').waitFor()
+        assert(await detail() === after, `preview capture description is incorrect for ${pv}: ${await detail()}`)
+        assert(await page.locator('.mtree-chip').count() === count, 'capture inspection changed the game tree')
+        await analyze.focus()
+        await page.waitForFunction(() => !document.querySelector('.board-meta-preview'))
+        assert(await detail() === before, 'leaving the preview retained its captures')
+        await preview.last().click()
+        await page.waitForFunction(() => !document.querySelector('.board-meta-preview'))
+        assert(await detail() === after, 'committing a promotion preview counted captures twice or lost earlier captures')
+      }
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'capture descriptions overflow the document')
+      assert(errors.length === 0, `capture description errors: ${errors.join('; ')}`)
+      console.log(`  capture descriptions (${width}×${height}, ${scale}x, ${theme}): quiet White/Black promotions, underpromotion branch, captured promoted queen, root/back navigation, en passant and complete preview prefixes retain the actual captures through blur/commit`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkPreviewEndingFeedback(browser) {
   for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
     for (const [fen, pv, ending, moveNumber, result] of [
@@ -21787,6 +21857,7 @@ async function main() {
       'watch-title': checkWatchTabTitle,
       'preview-endings': checkPreviewEndingFeedback,
       'preview-material': checkPreviewMaterial,
+      'capture-descriptions': checkCaptureDescriptions,
       'dialog-handoff': checkDialogFocusHandoff,
       'palette-dialog-return': checkPaletteDialogReturn,
       'settings-toggle': checkSettingsGearToggle,
@@ -22712,6 +22783,7 @@ async function main() {
     await checkWatchTabTitle(browser)
     await checkPreviewEndingFeedback(browser)
     await checkPreviewMaterial(browser)
+    await checkCaptureDescriptions(browser)
     await checkDialogFocusHandoff(browser)
     await checkPaletteDialogReturn(browser)
     await checkSettingsGearToggle(browser)

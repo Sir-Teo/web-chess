@@ -1225,7 +1225,7 @@ describe('pvLineMoves', () => {
           const side = expected.turn()
           const played = expected.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })
           expect(moves[index]).toEqual({
-            index, uci, san: played.san, fenAfter: expected.fen(),
+            index, uci, san: played.san, fenAfter: expected.fen(), color: played.color, captured: played.captured,
             prefix: side === 'w' ? `${moveNumber}.` : index === 0 ? `${moveNumber}...` : null,
             numbered: `${moveNumber}${side === 'w' ? '.' : '...'} ${played.san}`,
           })
@@ -1277,6 +1277,16 @@ describe('pvLineMoves', () => {
     expect(queen[1].numbered).toBe('42... Kg6')
     expect(new Chess(queen[1].fenAfter).get('a8')?.type).toBe('q')
     expect(new Chess(knight[1].fenAfter).get('a8')?.type).toBe('n')
+  })
+
+  it('retains actual captures and colours when a cached line is extended', () => {
+    const pv = ['e2e4', 'd7d5', 'e4d5', 'd8d5']
+    pvLineMoves(START, pv.slice(0, 3))
+    const extended = pvLineMoves(START, pv)
+    expect(extended.map(move => ({ color: move.color, captured: move.captured }))).toEqual([
+      { color: 'w', captured: undefined }, { color: 'b', captured: undefined },
+      { color: 'w', captured: 'p' }, { color: 'b', captured: 'p' },
+    ])
   })
 
   it('reuses matching displayed moves across new engine lines and both renderers', () => {

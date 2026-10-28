@@ -83,10 +83,11 @@ given, and the app answering the reader who touches it.
   sat over Black's clock counting down.
 - **Who is up material**: A pill in the strip above the board reads "White +3"
   whenever the material is uneven, with what each side has taken spelled out in
-  words for the tooltip and the screen reader. Counted from the position the
-  game started from, so a FEN pasted in does not open fourteen captures down,
-  and read from the board rather than the moves, so it is right in a variation
-  and at any position you navigate to.
+  words for the tooltip and the screen reader. Material value follows the
+  displayed board, including engine-line previews. Captures follow the selected
+  line from its own starting position, so a FEN begins without invented captures,
+  a promoted pawn is not reported as taken, and a captured promoted queen is
+  named as a queen. Navigating back removes captures that have not happened yet.
 - **Resign**: Concede the game rather than playing a lost position out to mate
   or waiting for the clock. Two clicks — Resign, then Confirm? — and never a
   keyboard shortcut, because one keystroke should not end a game. Against the
