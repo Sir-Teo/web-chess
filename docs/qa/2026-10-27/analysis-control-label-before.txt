@@ -1,0 +1,31 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 197 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DqYiTm0h.js   67.87 kB
+dist/assets/LibraryDialog-CzCaaBRU.css        5.21 kB │ gzip:   1.35 kB
+dist/assets/index-DQ3HyB4k.css              135.39 kB │ gzip:  25.16 kB
+dist/assets/NewGameDialog-CApAFCmP.js         4.36 kB │ gzip:   1.57 kB
+dist/assets/LibraryDialog-ClCgVmid.js        15.21 kB │ gzip:   5.23 kB
+dist/assets/PgnDialog-STWJDVpj.js            33.34 kB │ gzip:  11.13 kB
+dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-COG1O57T.js               418.63 kB │ gzip: 135.31 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.32s
+Error: on the board with every section open, voice control cannot reach: reads "analyze position" but is named "Run analysis" | reads "play from here" but is named "Play from this position against the engine" | reads "what is threatened" but is named "Show what the opponent is threatening"
+    at fail (/workspace/web-chess/scripts/test-ui-browser.cjs:34:9)
+    at assert (/workspace/web-chess/scripts/test-ui-browser.cjs:38:19)
+    at surface (/workspace/web-chess/scripts/test-ui-browser.cjs:17604:7)
+    at async Object.checkEveryControlAnswersToWhatItSays [as control-names] (/workspace/web-chess/scripts/test-ui-browser.cjs:17668:16)
+    at async main (/workspace/web-chess/scripts/test-ui-browser.cjs:22106:36)

@@ -499,7 +499,7 @@ async function checkHiddenAnalysisPausesAndResumes(browser) {
     // and a click on it waits for a visibility that never comes. Escape closes
     // every overlay in the app at every breakpoint.
     await page.keyboard.press('Escape')
-    await page.getByRole('button', { name: 'Run analysis' }).click()
+    await page.getByRole('button', { name: 'Analyze position' }).click()
     // Replacing the held auto search costs one stop of its own; the infinite
     // search is the second go.
     await page.waitForFunction(() => (window.__uciCommands || []).filter(c => c.startsWith('go')).length === 2,
@@ -994,7 +994,7 @@ async function checkQueuedAnalysisSurvivesFallback(browser) {
           await page.waitForFunction(({ from, to, piece }) => !document.querySelector(`#chessboard-square-${from} [data-piece]`)
             && document.querySelector(`#chessboard-square-${to} [data-piece="${piece}"]`), { from, to, piece })
         }
-        const run = page.getByRole('button', { name: 'Run analysis', exact: true })
+        const run = page.getByRole('button', { name: 'Analyze position', exact: true })
         if (manual) {
           await play('e2', 'e4', 'wP'); await play('e7', 'e5', 'bP'); await play('g1', 'f3', 'wN')
           await run.click()
@@ -1177,7 +1177,7 @@ async function checkEngineRetry(browser, { viaCommand = false, layouts = [[1280,
         }
         const analyzeTab = page.getByRole('button', { name: 'Analyze', exact: true })
         const lab = page.getByRole('button', { name: 'Engine Lab', exact: true })
-        const run = page.getByRole('button', { name: 'Run analysis', exact: true })
+        const run = page.getByRole('button', { name: 'Analyze position', exact: true })
         const reading = page.locator('.coach-grid > div').first().locator('strong')
         let retainedReading = null
         if (kind !== 'boot') {
@@ -1442,7 +1442,7 @@ async function checkLabSettingsStayInSync(browser) {
         return settings.hashMb === 72 && settings.multiPv === 3 && settings.showWdl === false
       })
       await page.getByRole('button', { name: 'Analyze', exact: true }).first().click()
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => window.__uciCommands.some(command => command.startsWith('go ')))
       const commands = await page.evaluate(() => window.__uciCommands)
       for (const [name, value] of [['Hash', '72'], ['MultiPV', '3'], ['UCI_ShowWDL', 'false']]) {
@@ -1566,7 +1566,7 @@ async function checkCandidateSearchKeepsPositionScore(browser) {
       })))
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       if (knownPosition) {
-        await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+        await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
         await page.waitForFunction(() => document.querySelector('.eval-bar-label')?.textContent.includes('+0.4'))
       }
       const original = await page.locator('.coach-grid > div').first().locator('strong').innerText()
@@ -1574,7 +1574,7 @@ async function checkCandidateSearchKeepsPositionScore(browser) {
       await page.locator('.advanced-settings > summary').filter({ hasText: 'Advanced engine options' }).click()
       await page.getByLabel('Candidate moves', { exact: true }).fill('f3')
       await closeSettings(page)
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => window.__uciCommands.some(c => c.includes('searchmoves f2f3')))
       await page.waitForFunction(() => document.querySelector('.coach-line-source')?.textContent.includes('D30'))
       assert(await page.locator('.coach-grid > div').first().locator('strong').innerText() === original,
@@ -1591,7 +1591,7 @@ async function checkCandidateSearchKeepsPositionScore(browser) {
       await page.locator('.advanced-settings > summary').filter({ hasText: 'Advanced engine options' }).click()
       await page.getByLabel('Candidate moves', { exact: true }).fill('')
       await closeSettings(page)
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.coach-line-source')?.textContent.includes('D22'))
       assert(await page.getByTestId('candidate-search-notice').count() === 0, 'an unrestricted search inherited the last candidate restriction')
       assert((await page.locator('.coach-grid > div').first().locator('strong').innerText()) === '+0.35',
@@ -1612,7 +1612,7 @@ async function checkEvaluationEngineProvenance(browser) {
         engineProfile: 'lite-single-local', analyzeMode: 'deep',
       })))
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.coach-line-source')?.textContent.includes('D30'))
       const source = page.getByTestId('position-engine-source')
       assert((await source.innerText()).includes('QA Lite · Lite Single (Local) · build '), 'live analysis lost its actual worker identity')
@@ -1620,7 +1620,7 @@ async function checkEvaluationEngineProvenance(browser) {
       await page.getByLabel('Engine profile in Engine Lab').selectOption('full-single-cdn')
       await page.waitForFunction(() => window.__engineCount === 2)
       await page.getByRole('button', { name: 'Analyze', exact: true }).click()
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.coach-line-source')?.textContent.includes('D22'))
       assert((await source.innerText()).includes('QA Lite') && (await source.innerText()).includes('different engine profile'),
         'switching engines relabelled the retained reading as the current engine')
@@ -1629,7 +1629,7 @@ async function checkEvaluationEngineProvenance(browser) {
       await page.getByRole('button', { name: 'Review', exact: true }).click()
       assert((await page.getByTestId('review-engine-source').innerText()).includes('QA Lite'), 'review labels the source from the engine selector')
       await page.getByRole('button', { name: 'Analyze', exact: true }).click()
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.coach-line-source')?.textContent.includes('D34'))
       /*
        * Wait for the label this asserts about, not for a different element
@@ -1673,14 +1673,14 @@ async function checkPvPreviewAndCommit(browser) {
         workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, analyzeMode: 'deep',
       })))
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       const second = page.locator('.coach-line-moves .pv-move').nth(1)
       await second.waitFor()
       await second.focus()
       await page.waitForFunction(() => document.querySelector('#chessboard-square-e5 [data-piece="bP"]'))
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).focus()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).focus()
       await page.waitForFunction(() => document.querySelector('#chessboard-square-e7 [data-piece="bP"]'))
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => window.__uciBestmoves >= 2)
       await second.click()
       await page.waitForFunction(() => document.querySelector('#chessboard-square-e5 [data-piece="bP"]'))
@@ -3509,7 +3509,7 @@ async function checkFinishedAutomaticAnalysis(browser) {
       assert(!await page.evaluate(start => window.__uciCommands.slice(start).includes('go infinite'), beforeEnd), 'navigation restarted infinite analysis on a finished game')
       assert(await page.locator('.eval-bar-label').innerText() === '½-½', 'automatic search guard lost the board result')
       const manualStart = await page.evaluate(() => window.__uciCommands.length)
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(start => window.__uciCommands.slice(start).includes('go infinite'), manualStart)
       const manualRunning = await page.evaluate(() => window.__uciCommands.length)
       await page.getByTestId('keep-searching').uncheck()
@@ -5566,7 +5566,7 @@ async function checkTheArrowCountSaysWhatItCanDraw(browser) {
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
 
-    await page.getByRole('button', { name: 'Run analysis' }).click()
+    await page.getByRole('button', { name: 'Analyze position' }).click()
     await page.waitForFunction(
       () => document.querySelectorAll('.board-surface path[marker-end]').length > 0,
       null, { timeout: 20000 })
@@ -5765,7 +5765,7 @@ async function checkTheAdvancedLimitsReachTheEngine(browser) {
     await closeSettings(page)
 
     await page.evaluate(() => { window.__mark = (window.__uciCommands || []).length })
-    await page.getByRole('button', { name: 'Run analysis' }).click()
+    await page.getByRole('button', { name: 'Analyze position' }).click()
     await page.waitForFunction(
       () => (window.__uciCommands || []).slice(window.__mark).some(c => c.startsWith('go ')),
       null, { timeout: 20000 })
@@ -6593,7 +6593,7 @@ async function checkLiveExportCopy(browser) {
       }, theme)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await page.locator('#chessboard-square-e2').click(); await page.locator('#chessboard-square-e4').click()
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => window.__liveExportEngine.searching)
       const opener = page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true })
       await opener.click()
@@ -9808,7 +9808,7 @@ async function checkTheThreatProbeAsksTheOtherSide(browser) {
                                null, { timeout: 20000 })
     await page.waitForTimeout(800)
 
-    const ask = page.getByRole('button', { name: 'Show what the opponent is threatening' })
+    const ask = page.getByRole('button', { name: /^(What is threatened\?|Reading the threat…)$/ })
     assert(await ask.count() === 1, 'the Coach card offers no way to ask what is threatened')
 
     const boardFen = await page.evaluate(() => {
@@ -10571,7 +10571,7 @@ async function checkPaletteDialogReturn(browser) {
           await page.locator('.move-entry input').fill('e4')
         }
         if (via === 'graph') {
-          const run = page.getByRole('button', { name: 'Run analysis', exact: true })
+          const run = page.getByRole('button', { name: 'Analyze position', exact: true })
           await run.click()
           await page.waitForFunction(() => window.__uciBestmoves >= 1)
           await page.locator('#chessboard-square-e2').click(); await page.locator('#chessboard-square-e4').click()
@@ -10634,7 +10634,7 @@ async function checkDialogFocusHandoff(browser) {
       await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false })))
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       const preview = page.locator('.coach-line-moves .pv-move').first()
       const opener = page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true })
       await preview.waitFor(); await preview.focus()
@@ -10696,7 +10696,7 @@ async function checkPreviewMaterial(browser) {
             `${stage}: material does not describe the displayed board (expected ${label}, found ${(await material.allTextContents()).join(' ') || 'none'})`)
         }
         await assertMaterial(original, 'initial position')
-        const analyze = page.getByRole('button', { name: 'Run analysis', exact: true })
+        const analyze = page.getByRole('button', { name: 'Analyze position', exact: true })
         await analyze.click()
         const moves = page.locator('.coach-line-moves .pv-move')
         await moves.first().waitFor()
@@ -10773,7 +10773,7 @@ async function checkCaptureDescriptions(browser) {
       await load('7k/8/8/3pP3/8/8/8/7K w - d6 0 1', '1. exd6')
       assert(await detail() === 'White is up 1. White has taken a pawn; Black has taken nothing.', 'en passant is not recorded as a pawn capture')
 
-      const analyze = page.getByRole('button', { name: 'Run analysis', exact: true })
+      const analyze = page.getByRole('button', { name: 'Analyze position', exact: true })
       const preview = page.locator('.coach-line-moves .pv-move')
       for (const [fen, moves, pv, before, after, count] of [
         [whiteRoot, '', 'a7a8q', 'White is up 1.', 'White is up 9.', 0],
@@ -10825,7 +10825,7 @@ async function checkPreviewEndingFeedback(browser) {
         await page.locator('#chessboard-square-a1').waitFor()
         await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
         const originalLabel = await page.locator('.turn-pill').textContent()
-        const analyze = page.getByRole('button', { name: 'Run analysis', exact: true })
+        const analyze = page.getByRole('button', { name: 'Analyze position', exact: true })
         await analyze.click()
         const preview = page.locator('.coach-line-moves .pv-move').first()
         await preview.waitFor()
@@ -13122,18 +13122,18 @@ async function checkBoardCanvas(browser) {
         showBoardArrows: true, showTopMoveArrows: true, multiPv: 2,
       })))
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       const secondArrow = page.locator('.board-surface path[marker-end*="-g1-f3"]')
       await secondArrow.waitFor()
       const firstColor = await secondArrow.getAttribute('stroke')
       await page.evaluate(() => { window.__boardArrowPhase = 1 })
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(color => {
         const arrow = document.querySelector('.board-surface path[marker-end*="-g1-f3"]')
         return arrow && arrow.getAttribute('stroke') !== color
       }, firstColor)
       await page.evaluate(() => { window.__boardArrowPhase = 2 })
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       // A vertical SVG path has a zero-width geometric bounding box even
       // though its stroke is visible, so wait for the painted path's presence.
       const bestArrow = page.locator('.board-surface path[marker-end*="-d2-d4"]')
@@ -13556,7 +13556,7 @@ async function checkConsoleVisibility(browser) {
       await visibility('hidden')
       await waitStatus('paused')
       await page.getByRole('button', { name: 'Analyze', exact: true }).click()
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await waitStatus('ready')
       await visibility('visible')
       assert(await count(rawCommand) === 4, 'board analysis left a console resume pending')
@@ -15060,7 +15060,7 @@ async function checkThreatEngineWake(browser) {
       const beforeBoard = await board()
       const lab = page.getByRole('button', { name: 'Engine Lab', exact: true })
       const analyzeTab = page.getByRole('button', { name: 'Analyze', exact: true })
-      const ask = page.getByRole('button', { name: 'Show what the opponent is threatening', exact: true })
+      const ask = page.getByRole('button', { name: /^(What is threatened\?|Reading the threat…)$/, exact: true })
       for (const trigger of ['button', 'keyboard']) {
         await lab.click()
         await page.getByRole('button', { name: 'Release engine', exact: true }).click()
@@ -15114,7 +15114,7 @@ async function checkThreatShortcutDoesNotRestart(browser) {
       await page.keyboard.down('t')
       await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
       const sent = await page.evaluate(() => window.__uciCommands.length)
-      const ask = page.getByRole('button', { name: 'Show what the opponent is threatening', exact: true })
+      const ask = page.getByRole('button', { name: /^(What is threatened\?|Reading the threat…)$/, exact: true })
       assert(await ask.isDisabled(), 'the first keyboard threat did not hold its action')
       for (let repeat = 0; repeat < 2; repeat++) await page.keyboard.down('t')
       await settle()
@@ -15165,7 +15165,7 @@ async function checkThreatInterruptionRecovery(browser) {
         await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
         if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true'
           && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
-        const ask = page.getByRole('button', { name: 'Show what the opponent is threatening', exact: true })
+        const ask = page.getByRole('button', { name: /^(What is threatened\?|Reading the threat…)$/, exact: true })
         await page.evaluate(() => { window.__withholdEngineInfo = true })
         await ask.click()
         await waitStatus('analyzing')
@@ -15235,7 +15235,7 @@ async function checkEngineRelease(browser) {
       const load = page.getByRole('button', { name: 'Load engine', exact: true })
       const lab = page.getByRole('button', { name: 'Engine Lab', exact: true })
       const analyzeTab = page.getByRole('button', { name: 'Analyze', exact: true })
-      const run = page.getByRole('button', { name: 'Run analysis', exact: true })
+      const run = page.getByRole('button', { name: 'Analyze position', exact: true })
       await waitStatus('ready')
       await openSettings(page)
       await chooseTheme(page, scale === 2 ? 'Light' : 'Dark')
@@ -15388,7 +15388,7 @@ async function checkEngineRelease(browser) {
       let retained
       if (scenario === 'fallback-load') {
         await page.getByRole('button', { name: 'Analyze', exact: true }).click()
-        await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+        await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
         await page.waitForFunction(() => document.querySelector('.pv-list')?.textContent.includes('+0.35')
           && document.querySelector('.bottom .status')?.textContent === 'ready')
         retained = await page.locator('.pv-list').textContent()
@@ -15399,7 +15399,7 @@ async function checkEngineRelease(browser) {
       await page.getByRole('button', { name: 'Analyze', exact: true }).click()
       if (scenario === 'fallback') {
         await page.evaluate(() => { window.__failConsoleBoot = true })
-        await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+        await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
         await page.waitForFunction(() => window.__engineCount === 3 && document.querySelector('.bottom .status')?.textContent === 'ready'
           && document.querySelector('.pv-list')?.textContent.includes('+0.35'))
         assert(await page.evaluate(() => window.__uciCommands.filter(c => c === 'go depth 12').length === 1), 'fallback lost or duplicated the explicit Analyze request')
@@ -15416,7 +15416,7 @@ async function checkEngineRelease(browser) {
         assert(await page.evaluate(() => window.__uciCommands.filter(c => c === 'go depth 12').length === 1), 'Load started an unsolicited fallback search')
       } else {
         await page.evaluate(() => { window.__holdConsoleReady = true; window.__releaseConsoleReady = null; window.__withholdEngineInfo = true; window.__setReleaseVisibility('hidden') })
-        await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+        await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
         await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
         await page.evaluate(() => window.__releaseConsoleReady())
         await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
@@ -15430,7 +15430,7 @@ async function checkEngineRelease(browser) {
         await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'unloaded')
         await page.getByRole('button', { name: 'Analyze', exact: true }).click()
         await page.evaluate(() => { window.__holdConsoleReady = true; window.__releaseConsoleReady = null })
-        await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+        await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
         await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
         await page.getByRole('button', { name: 'Stop analysis', exact: true }).click()
         await page.evaluate(() => window.__releaseConsoleReady())
@@ -15571,7 +15571,7 @@ async function checkConsoleSearchOwnership(browser) {
           if (document.querySelector('.pv-list')?.textContent.includes('+9.00')) window.__consoleScoreLeaked = true
         }).observe(document.querySelector('.pv-list'), { childList: true, subtree: true, characterData: true })
       })
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.pv-list article')?.textContent.includes('+0.35')
         && document.querySelector('.bottom .status')?.textContent === 'ready')
       const handoff = await page.evaluate(() => {
@@ -15914,7 +15914,7 @@ async function checkShortDesktopDialogs(browser) {
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await page.locator('#chessboard-square-e2').click()
       await page.locator('#chessboard-square-e4').click()
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.bottom-status-row')?.textContent.includes('nps'))
       await page.setViewportSize({ width: 901, height })
       await page.evaluate(rem => { document.documentElement.style.fontSize = `${rem}px` }, rem)
@@ -15996,7 +15996,7 @@ async function checkCompactToolbar(browser) {
         workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, theme: width === 901 ? 'light' : 'dark',
       })), width)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.bottom')?.textContent.includes('nps'))
       for (const scale of [1, 2, 1]) {
         await page.evaluate(scale => { document.documentElement.style.fontSize = `${16 * scale}px` }, scale)
@@ -16064,7 +16064,7 @@ async function checkCompactFooter(browser) {
         theme: experience === 'pro' ? 'dark' : 'light',
       })), experience)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.bottom-status-row .status')?.textContent === 'analyzing')
       if (experience === 'pro') await page.waitForFunction(() => document.querySelector('.bottom-status-row')?.textContent.includes('nps'))
       const readings = await page.locator('.bottom-status-row').innerText()
@@ -16174,7 +16174,7 @@ async function checkCompactFooter(browser) {
       localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false }))
     })
     await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-    await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+    await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
     await page.waitForFunction(() => document.querySelector('.bottom .engine-telemetry-inline')?.textContent.includes('nps'))
     await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
     await page.waitForTimeout(350)
@@ -16200,11 +16200,11 @@ async function checkNarrowDesktopLayout(browser) {
       })), experience)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       // One reading is a summary, not a plot; the graph needs a second position.
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.locator('.analytics-card .graph-summary strong').first().waitFor()
       await page.locator('#chessboard-square-d2').click()
       await page.locator('#chessboard-square-d4').click()
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.locator('.winrate-graph').first().waitFor()
       // Back to the start, so the e2-e4 this check ends on is White's move.
       await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
@@ -16332,11 +16332,11 @@ async function checkObservedLayout(browser) {
     await page.goto(BASE, { waitUntil: 'domcontentloaded' })
     assert(await page.locator('.winrate-graph').count() === 0, 'layout check requires an initially empty graph')
     // One reading is a summary, not a plot; the graph needs a second position.
-    await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+    await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
     await page.locator('.analytics-card .graph-summary strong').first().waitFor()
     await page.locator('#chessboard-square-e2').click()
     await page.locator('#chessboard-square-e4').click()
-    await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+    await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
     await page.locator('.winrate-graph').first().waitFor()
     const graphFits = async () => {
       await page.waitForFunction(() => [...document.querySelectorAll('.graph-scroll')].every(el => {
@@ -17558,6 +17558,10 @@ async function checkEveryControlAnswersToWhatItSays(browser) {
   const page = await context.newPage()
   try {
     await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => {
+      localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ autoAnalyze: false }))
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.resolve() } })
+    })
     await page.goto(BASE, { waitUntil: 'domcontentloaded' })
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
@@ -17616,6 +17620,27 @@ async function checkEveryControlAnswersToWhatItSays(browser) {
       await page.getByRole('button', { name: new RegExp(`^${tab}$`) }).click()
       counted += await surface(`the PGN dialog, ${tab}`)
     }
+    // The empty board only exercises the unavailable share button. A valid
+    // game and its copied state must retain their printed label too.
+    await page.getByRole('button', { name: 'Import', exact: true }).click()
+    await page.locator('.pgn-dialog textarea').fill('1. e4 e5 2. Nf3 Nc6 *')
+    await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+    await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+    await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+    const openExport = async () => {
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.getByRole('button', { name: 'Export', exact: true }).click()
+    }
+    await openExport()
+    counted += await surface('the PGN dialog, a valid midgame link')
+    await page.getByRole('button', { name: /^Copy Game Link/ }).click()
+    await page.getByRole('button', { name: 'Copied Link', exact: true }).waitFor()
+    counted += await surface('the PGN dialog, a copied game link')
+    await page.keyboard.press('Escape')
+    await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+    await page.getByRole('button', { name: 'Go to last position', exact: true }).click()
+    await openExport()
+    counted += await surface('the PGN dialog, a valid end-of-game link')
     await page.keyboard.press('Escape')
     await page.waitForTimeout(300)
 
@@ -17642,7 +17667,7 @@ async function checkEveryControlAnswersToWhatItSays(browser) {
     await page.evaluate(() => document.querySelectorAll('details:not(.settings-menu)').forEach(d => { d.open = true }))
     counted += await surface('the board with every section open')
 
-    console.log(`  names: ${counted} controls over nine surfaces, every one named and every name keeping its own printed word`)
+    console.log(`  names: ${counted} controls over twelve surfaces, every one named and every name keeping its own printed word`)
   } finally { await context.close() }
 }
 
@@ -19741,14 +19766,14 @@ async function checkASharedLinkCarriesTheGame(browser) {
       await page.waitForTimeout(300)
       return fen
     }
-    // By visible text: these buttons' accessible names are their aria-labels
-    // ("Copy a link to this whole game"), so a role query on the text misses.
+    // Link buttons can be reached by their printed names, including after
+    // switching between whole-game and position sharing.
     const copyFrom = async (tab, text) => {
       await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
       await page.locator('.dialog-panel').waitFor({ timeout: 15000 })
       await page.getByRole('button', { name: tab }).click()
       await page.waitForTimeout(400)
-      const button = page.locator('.dialog-panel button', { hasText: text }).first()
+      const button = page.locator('.dialog-panel').getByRole('button', { name: text }).first()
       await button.waitFor({ timeout: 10000 })
       await button.click()
       await page.waitForTimeout(600)
@@ -20442,7 +20467,7 @@ async function checkDrillHiddenHints(browser) {
       await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
       await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
       await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       const values = page.locator('.coach-grid > div strong')
       const best = values.nth(1), reply = values.nth(2)
       await page.waitForFunction(() => {
@@ -21875,6 +21900,7 @@ async function main() {
       'command-copy': checkCommandCopyFailures,
       'palette-layout': checkCommandPaletteLayout,
       'palette-reading': checkPaletteReading,
+      'control-names': checkEveryControlAnswersToWhatItSays,
       'big-text': checkLabelsSurviveBigText,
       targets: checkEveryControlIsFingerSized,
       offline: checkCrossOriginIsolationIsRestored,

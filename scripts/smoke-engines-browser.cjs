@@ -264,7 +264,7 @@ async function main() {
             }
           })
           await page.goto(base, { waitUntil: 'domcontentloaded' })
-          await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+          await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
           await page.waitForFunction(() => window.__smokeBestmoves >= 1)
           // The Worker event precedes React's committed position snapshot.
           // Capture the completed depth, not a still-painted shallower score.
@@ -280,7 +280,7 @@ async function main() {
           await page.locator('.advanced-settings > summary').filter({ hasText: 'Advanced engine options' }).click()
           await page.getByLabel('Candidate moves', { exact: true }).fill('f3')
           await page.keyboard.press('Escape')
-          await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+          await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
           await page.waitForFunction(() => window.__smokeBestmoves >= 2)
           assert.equal(await position.innerText(), before)
           assert.equal(await page.getByTestId('candidate-search-notice').isVisible(), true)

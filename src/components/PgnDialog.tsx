@@ -1263,10 +1263,8 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                 ? 'A link to this whole game that opens at the move on the board'
                                 : 'A link that opens this whole game, not just the position')}
                             aria-label={gameShareDisabledReason
-                                ? `Copy game link unavailable. ${gameShareDisabledReason}`
-                                : gameShareOpensMidGame
-                                    ? 'Copy a link to this whole game, opening at this move'
-                                    : 'Copy a link to this whole game'}
+                                ? `Copy Game Link unavailable. ${gameShareDisabledReason}`
+                                : undefined}
                         >
                             <IconClipboard /> {copyStatus === 'game-link-copied' && copiedText === gameShareUrl ? 'Copied Link' : 'Copy Game Link'}
                         </button>

@@ -7166,8 +7166,8 @@ function App() {
         disabled={Boolean(playFromHereDisabledReason)}
         title={playFromHereDisabledReason ?? 'Take the move against the engine from this position'}
         aria-label={playFromHereDisabledReason
-          ? `Play from this position unavailable. ${playFromHereDisabledReason}`
-          : 'Play from this position against the engine'}
+          ? `Play from here unavailable. ${playFromHereDisabledReason}`
+          : 'Play from here against the engine'}
       >
         <IconSwords /> Play from here
       </button>
@@ -9052,7 +9052,7 @@ function App() {
                       engine. Stop joins it while there is a search to stop,
                       including one waiting for that engine to load. */}
                   <div className="inline-actions analysis-actions">
-                    <button type="button" className="btn-primary" aria-label="Run analysis" onClick={runAnalyze}>
+                    <button type="button" className="btn-primary" aria-label="Analyze position" onClick={runAnalyze}>
                       <IconPlay /> Analyze position
                     </button>
                     {(status === 'analyzing' || status === 'loading') && (
@@ -9193,7 +9193,6 @@ function App() {
                         className="coach-threat-btn"
                         onClick={requestThreat}
                         disabled={isProbingThreat}
-                        aria-label="Show what the opponent is threatening"
                       >
                         <IconAlert /> {isProbingThreat ? 'Reading the threat…' : 'What is threatened?'}
                       </button>
