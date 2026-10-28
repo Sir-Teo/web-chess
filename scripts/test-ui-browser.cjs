@@ -11477,6 +11477,88 @@ async function checkTheTablebaseAnswersForThisPosition(browser) {
  * difference is where a wire gets crossed: Lichess answers one request with
  * the games, and chess.com answers two -- a list of months, then a month.
  */
+async function checkArchiveKeyboardFetch(browser) {
+  const pgn = '[Event "Archive keyboard QA"]\n[White "Reader"]\n[Black "Opponent"]\n[Result "*"]\n\n1. e4 e5 *'
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [320, 2, 'dark']]) {
+    for (const source of ['Lichess', 'Chess.com']) {
+      const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(({ pgn, theme }) => {
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, theme }))
+          window.__archiveKeyRequests = []
+          const native = window.fetch
+          window.fetch = (input, init) => {
+            const url = new URL(typeof input === 'string' ? input : input.url, location.href)
+            const lichess = url.hostname === 'lichess.org' && url.pathname.startsWith('/api/games/user/')
+            const chesscom = url.hostname === 'api.chess.com' && url.pathname.endsWith('/games/archives')
+            if (lichess || chesscom) return new Promise((resolve, reject) => {
+              const entry = { url: url.href, aborted: false, release: () => resolve(new Response(chesscom
+                ? JSON.stringify({ archives: ['https://api.chess.com/pub/player/reader/games/2026/10'] }) : pgn,
+                { headers: { 'Content-Type': chesscom ? 'application/json' : 'application/x-chess-pgn' } })) }
+              window.__archiveKeyRequests.push(entry)
+              init?.signal?.addEventListener('abort', () => { entry.aborted = true; reject(new DOMException('Aborted', 'AbortError')) }, { once: true })
+            })
+            if (url.hostname === 'api.chess.com' && url.pathname.endsWith('/pgn')) return Promise.resolve(new Response(pgn))
+            return native(input, init)
+          }
+        }, { pgn, theme })
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        for (const square of ['e2', 'e4']) await page.locator(`#chessboard-square-${square}`).click()
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await page.locator('.archive-source-row').getByRole('button', { name: source, exact: true }).click()
+        const user = page.getByRole('textbox', { name: `Your ${source} username`, exact: true })
+        const count = page.getByRole('spinbutton', { name: 'Games', exact: true })
+        const text = page.locator('.pgn-dialog textarea')
+        await text.fill('1. d4 *')
+        await user.fill('reader')
+        await count.fill('20')
+        const ignored = await count.evaluate(el => [
+          { isComposing: true }, { keyCode: 229 }, { repeat: true },
+        ].map(init => { const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true, ...init }); el.dispatchEvent(event); return event.defaultPrevented }))
+        assert(!ignored[0] && !ignored[1] && ignored[2], 'composing/repeated count Enter is not handled correctly')
+        assert(await page.evaluate(() => window.__archiveKeyRequests.length) === 0, 'composing or held Enter fetched games')
+        await count.press('Enter')
+        await page.waitForFunction(() => window.__archiveKeyRequests.length === 1)
+        await page.getByRole('button', { name: 'Cancel fetch', exact: true }).waitFor()
+        for (const field of [user, user, count]) await field.press('Enter')
+        assert(await page.evaluate(() => window.__archiveKeyRequests.length === 1 && !window.__archiveKeyRequests[0].aborted), 'busy Enter canceled or restarted the request')
+        assert(await text.inputValue() === '1. d4 *', 'a pending request changed the import draft')
+        const cancel = page.getByRole('button', { name: 'Cancel fetch', exact: true })
+        const held = await cancel.evaluate(el => { const event = new KeyboardEvent('keydown', { key: 'Enter', repeat: true, bubbles: true, cancelable: true }); el.dispatchEvent(event); return event.defaultPrevented })
+        assert(held && await page.evaluate(() => !window.__archiveKeyRequests[0].aborted), 'held Enter activated Cancel fetch')
+        await page.evaluate(() => window.__archiveKeyRequests[0].release())
+        await page.locator('.pgn-import-status').filter({ hasText: 'Fetched 1 game for reader.' }).waitFor()
+        assert(await text.inputValue() === pgn && await count.inputValue() === '20', 'count Enter fetched the wrong game or changed its count')
+        assert(await count.evaluate(el => el === document.activeElement), 'fetch completion stole the count field focus')
+        assert(await page.locator('#chessboard-square-e7 [data-piece="bP"]').count() === 1, 'fetching replaced the current game before Import')
+        await user.press('Enter')
+        await page.waitForFunction(() => window.__archiveKeyRequests.length === 2)
+        await cancel.click()
+        assert(await page.evaluate(() => window.__archiveKeyRequests[1].aborted) && await text.inputValue() === pgn, 'explicit cancellation stopped working or changed the import text')
+        await count.fill('99')
+        await count.press('Enter')
+        await page.waitForFunction(() => window.__archiveKeyRequests.length === 3)
+        assert(await count.inputValue() === '50', 'count Enter bypassed normalization')
+        if (source === 'Lichess') assert(await page.evaluate(() => new URL(window.__archiveKeyRequests[2].url).searchParams.get('max')) === '50', 'normalized count did not reach the request')
+        await page.evaluate(() => window.__archiveKeyRequests[2].release())
+        await page.locator('.pgn-import-status').filter({ hasText: 'Fetched 1 game for reader.' }).waitFor()
+        await count.dispatchEvent('keydown', { key: 'Enter', repeat: true })
+        assert(await page.evaluate(() => window.__archiveKeyRequests.length) === 3, 'held Enter started a fresh fetch after completion')
+        await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+        await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'archive keyboard workflow overflows')
+        assert(errors.length === 0, `archive keyboard errors: ${errors.join('; ')}`)
+        console.log(`  archive keyboard (${width}px, ${scale}x, ${theme}, ${source}): count/username Enter fetch once; IME and repeats preserved; busy Enter retains request/draft/focus; explicit cancel and normalized retry work; board changes only on Import`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkAnArchiveFetchBringsBackTheGames(browser) {
   const game = (event, white, black) =>
     `[Event "${event}"]\n[White "${white}"]\n[Black "${black}"]\n[Result "1-0"]\n\n1. e4 e5 2. Nf3 1-0`
@@ -21836,6 +21918,7 @@ async function main() {
       'opening-numbers': checkOpeningNumbersBelongToTheirPosition,
       'tablebase': checkTheTablebaseAnswersForThisPosition,
       'archive-fetch': checkAnArchiveFetchBringsBackTheGames,
+      'archive-keyboard': checkArchiveKeyboardFetch,
       'historical': checkTheHistoricalLibraryLoadsAGame,
       'lookup-failures': checkAFailedLookupSaysSoPlainly,
       'graph-guide': checkGraphEstimateGuide,
@@ -22805,6 +22888,7 @@ async function main() {
     await checkLabelsSurviveBigText(browser)
     await checkADeadFetchButtonSaysWhy(browser)
     await checkAnArchiveFetchBringsBackTheGames(browser)
+    await checkArchiveKeyboardFetch(browser)
     await checkTheHistoricalLibraryLoadsAGame(browser)
     await checkAFailedLookupSaysSoPlainly(browser)
     await checkTheLibrarySurvivesABackup(browser)

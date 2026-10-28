@@ -424,6 +424,8 @@ given, and the app answering the reader who touches it.
   as damaged.
   A slow fetch can be canceled in place. Pasting text, choosing another file,
   or changing the archive request keeps late replies from replacing your newer draft.
+  Press Enter in either the username or Games field to fetch. Repeated or held
+  Enter keeps the current request running; **Cancel fetch** stops it explicitly.
 - **Import a whole database**: Paste or open a PGN file with many games in it —
   which is what Lichess and chess.com hand you — and add the lot to the library
   in one go, each named from its own headers. A game in the file that will not

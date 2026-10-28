@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { Square } from 'chess.js'
 import { useModalFocus } from '../hooks/useModalFocus'
 import type { GameNode } from '../hooks/useGameTree'
@@ -229,6 +229,9 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
      * for a paste. Nothing here knows what a library is.
      */
     const handleFetchArchive = useCallback(async () => {
+        // Repeated submissions belong to the request already in flight. Read
+        // the controller before React paints Cancel fetch for the first press.
+        if (archiveAbortRef.current) return
         const username = normalizeArchiveUsername(archiveUsername)
         if (!username) {
             setStatus(null)
@@ -268,6 +271,12 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
             }
         }
     }, [archiveGameCount, archiveSource, archiveSourceInfo.label, archiveUsername, cancelPendingImport, resetFeedback])
+
+    const fetchArchiveOnEnter = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+        if (event.key !== 'Enter' || isCompositionKey(event.nativeEvent)) return
+        event.preventDefault()
+        if (!event.repeat) void handleFetchArchive()
+    }
 
     // A fetch outlives the dialog otherwise, and finishes into a component that
     // is no longer on screen.
@@ -756,6 +765,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                         className="archive-input"
                                         type="text"
                                         inputMode="text"
+                                        enterKeyHint="go"
                                         autoComplete="off"
                                         autoCapitalize="off"
                                         autoCorrect="off"
@@ -775,11 +785,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                             setArchiveUsernameBlurred(false)
                                         }}
                                         onBlur={() => setArchiveUsernameBlurred(true)}
-                                        onKeyDown={event => {
-                                            if (event.key !== 'Enter' || isCompositionKey(event.nativeEvent)) return
-                                            event.preventDefault()
-                                            void handleFetchArchive()
-                                        }}
+                                        onKeyDown={fetchArchiveOnEnter}
                                     />
                                     <div className="archive-count">
                                         <label htmlFor={archiveCountId}>Games</label>
@@ -788,6 +794,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                             type="number"
                                             min={1}
                                             max={MAX_ARCHIVE_GAMES}
+                                            enterKeyHint="go"
                                             value={archiveCount}
                                             onChange={event => {
                                                 cancelPendingImport()
@@ -795,11 +802,13 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                                 setArchiveCount(event.target.value)
                                             }}
                                             onBlur={() => setArchiveCount(String(archiveGameCount))}
+                                            onKeyDown={fetchArchiveOnEnter}
                                         />
                                     </div>
                                     <button
                                         type="button"
                                         className={`${archiveBusy ? 'btn-cancel' : 'btn-start'} archive-fetch-btn`}
+                                        onKeyDown={event => { if (event.key === 'Enter' && event.repeat) event.preventDefault() }}
                                         onClick={() => {
                                             if (archiveBusy) {
                                                 cancelPendingImport()
