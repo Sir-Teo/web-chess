@@ -1,0 +1,7 @@
+{"browser":"chromium","port":"4324","commit":"1557100b4694f8e54dae9b445982dc8113b1e09f","build":"Vite development source","dirty":true,"checks":["checkDialogCloseRepeats"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkDialogCloseRepeats
+  dialog close repeats (1280px, 1x, dark): held Cancel/Done/Close leaves four dialogs closed and their openers focused; Settings summary also requires a fresh press; fresh Enter reopens each dialog and held Next still advances two positions
+  dialog close repeats (375px, 1x, light): held Cancel/Done/Close leaves four dialogs closed and their openers focused; Settings summary also requires a fresh press; fresh Enter reopens each dialog and held Next still advances two positions
+  dialog close repeats (320px, 2x, dark): held Cancel/Done/Close leaves four dialogs closed and their openers focused; Settings summary also requires a fresh press; fresh Enter reopens each dialog and held Next still advances two positions
+Development focused checks passed.

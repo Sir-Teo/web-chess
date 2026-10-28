@@ -1,0 +1,58 @@
+[
+  {
+    "width": 1280,
+    "scale": 1,
+    "name": "Start new game",
+    "close": "Cancel",
+    "reopenedByHeldEnter": true
+  },
+  {
+    "width": 1280,
+    "scale": 1,
+    "name": "Open PGN and FEN dialog",
+    "close": "Cancel",
+    "reopenedByHeldEnter": true
+  },
+  {
+    "width": 1280,
+    "scale": 1,
+    "name": "Open saved games library",
+    "close": "Done",
+    "reopenedByHeldEnter": true
+  },
+  {
+    "width": 1280,
+    "scale": 1,
+    "name": "Open the Commands palette",
+    "close": "Close Commands",
+    "reopenedByHeldEnter": true
+  },
+  {
+    "width": 375,
+    "scale": 2,
+    "name": "Start new game",
+    "close": "Cancel",
+    "reopenedByHeldEnter": true
+  },
+  {
+    "width": 375,
+    "scale": 2,
+    "name": "Open PGN and FEN dialog",
+    "close": "Cancel",
+    "reopenedByHeldEnter": true
+  },
+  {
+    "width": 375,
+    "scale": 2,
+    "name": "Open saved games library",
+    "close": "Done",
+    "reopenedByHeldEnter": true
+  },
+  {
+    "width": 375,
+    "scale": 2,
+    "name": "Open the Commands palette",
+    "close": "Close Commands",
+    "reopenedByHeldEnter": true
+  }
+]

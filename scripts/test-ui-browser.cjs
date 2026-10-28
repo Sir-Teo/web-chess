@@ -11374,6 +11374,66 @@ async function checkPaletteDialogReturn(browser) {
   }
 }
 
+async function checkDialogCloseRepeats(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [320, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const frames = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      const overlays = [
+        ['Start new game', '.new-game-dialog', 'Cancel'],
+        ['Open PGN and FEN dialog', '.pgn-dialog', 'Cancel'],
+        ['Open saved games library', '.library-dialog', 'Done'],
+        ['Open the Commands palette', '.command-palette', 'Close Commands'],
+      ]
+      for (const [name, selector, close] of overlays) {
+        const opener = page.getByRole('button', { name, exact: true }), panel = page.locator(selector)
+        await opener.focus(); await page.keyboard.press('Enter'); await panel.waitFor()
+        await page.waitForFunction(selector => document.querySelector(selector)?.contains(document.activeElement), selector)
+        await panel.getByRole('button', { name: close, exact: true }).focus()
+        await page.keyboard.down('Enter'); await panel.waitFor({ state: 'detached' })
+        await page.waitForFunction(name => document.activeElement?.getAttribute('aria-label') === name, name)
+        await page.keyboard.down('Enter'); await page.keyboard.down('Enter'); await frames()
+        assert(await panel.count() === 0 && await opener.evaluate(el => el === document.activeElement), `${name}: holding its close action reopened the dialog or lost opener focus`)
+        await page.keyboard.up('Enter')
+        await page.keyboard.press('Enter'); await panel.waitFor()
+        await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' })
+        await page.waitForFunction(name => document.activeElement?.getAttribute('aria-label') === name, name)
+      }
+      const settings = page.getByRole('button', { name: 'Open settings', exact: true }), body = page.locator('.settings-body')
+      await settings.focus(); await page.keyboard.down('Enter'); await body.waitFor()
+      const done = body.getByRole('button', { name: 'Done', exact: true })
+      if (await done.isVisible()) {
+        await page.keyboard.up('Enter'); await done.focus(); await page.keyboard.down('Enter')
+      } else await page.keyboard.press('Escape')
+      await body.waitFor({ state: 'detached' })
+      await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Open settings')
+      await page.keyboard.down('Enter'); await frames()
+      assert(await body.count() === 0 && await settings.evaluate(el => el === document.activeElement), 'held Enter reopened Settings after it returned to the native summary')
+      await page.keyboard.up('Enter')
+      await page.keyboard.press('Enter'); await body.waitFor()
+      await page.keyboard.press('Escape'); await body.waitFor({ state: 'detached' })
+      assert(await page.locator('.mtree-chip').count() === 0 && await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'closing dialogs changed the board')
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog textarea').fill('1. e4 e5 2. Nf3 Nc6 *')
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      await page.getByRole('button', { name: 'Go to next move', exact: true }).focus()
+      await page.keyboard.down('Enter'); await waitForBoardPiece(page, 'e4', 'White pawn')
+      await page.keyboard.down('Enter'); await waitForBoardPiece(page, 'e5', 'Black pawn')
+      await page.keyboard.up('Enter')
+      assert(errors.length === 0 && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `dialog close repeat errors or overflow: ${errors.join('; ')}`)
+      console.log(`  dialog close repeats (${width}px, ${scale}x, ${theme}): held Cancel/Done/Close leaves four dialogs closed and their openers focused; Settings summary also requires a fresh press; fresh Enter reopens each dialog and held Next still advances two positions`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkDialogFocusHandoff(browser) {
   for (const [width, scale] of [[1280, 1], [375, 1], [375, 2], [320, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -23573,6 +23633,7 @@ async function main() {
       'preview-endings': checkPreviewEndingFeedback,
       'preview-material': checkPreviewMaterial,
       'capture-descriptions': checkCaptureDescriptions,
+      'dialog-held-close': checkDialogCloseRepeats,
       'dialog-handoff': checkDialogFocusHandoff,
       'palette-dialog-return': checkPaletteDialogReturn,
       'settings-toggle': checkSettingsGearToggle,
@@ -24510,6 +24571,7 @@ async function main() {
     await checkPreviewEndingFeedback(browser)
     await checkPreviewMaterial(browser)
     await checkCaptureDescriptions(browser)
+    await checkDialogCloseRepeats(browser)
     await checkDialogFocusHandoff(browser)
     await checkPaletteDialogReturn(browser)
     await checkSettingsGearToggle(browser)
