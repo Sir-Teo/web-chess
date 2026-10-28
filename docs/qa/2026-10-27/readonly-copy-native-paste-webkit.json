@@ -1,0 +1,32 @@
+{
+  "browser": "webkit",
+  "build": "Vite development source",
+  "clipboardApi": "denied",
+  "commands": [
+    {
+      "command": "copy",
+      "result": true
+    },
+    {
+      "command": "copy",
+      "result": true
+    }
+  ],
+  "readings": [
+    {
+      "shortcut": "Control",
+      "partial": false,
+      "expectedLength": 130,
+      "pastedLength": 130,
+      "exact": true
+    },
+    {
+      "shortcut": "Meta",
+      "partial": true,
+      "expectedLength": 24,
+      "pastedLength": 24,
+      "exact": true
+    }
+  ],
+  "sourceCommit": "305166757d58047812b16a4428323301e65db613"
+}
