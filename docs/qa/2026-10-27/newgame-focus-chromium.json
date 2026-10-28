@@ -1,0 +1,246 @@
+{
+  "before": {
+    "browser": "chromium",
+    "stage": "before",
+    "results": [
+      {
+        "width": 1280,
+        "height": 900,
+        "scale": 1,
+        "focus": {
+          "tag": "BODY",
+          "id": "",
+          "boardStage": false
+        },
+        "board": {
+          "top": 184.34375,
+          "bottom": 814.34375,
+          "left": 165,
+          "right": 795
+        },
+        "frame": {
+          "top": 70.78125,
+          "bottom": 846.03125
+        },
+        "wholeBoard": true,
+        "moves": 0,
+        "runningClocks": 1,
+        "dialogOpen": false,
+        "nextTab": {
+          "tag": "DIV",
+          "label": "Resize right panel",
+          "insideBoard": false
+        }
+      },
+      {
+        "width": 375,
+        "height": 812,
+        "scale": 1,
+        "focus": {
+          "tag": "SECTION",
+          "id": "chessboard-stage",
+          "boardStage": true
+        },
+        "board": {
+          "top": 174.71875,
+          "bottom": 523.71875,
+          "left": 13,
+          "right": 362
+        },
+        "frame": {
+          "top": 129.734375,
+          "bottom": 710.765625
+        },
+        "wholeBoard": true,
+        "moves": 0,
+        "runningClocks": 1,
+        "dialogOpen": false,
+        "nextTab": {
+          "tag": "DIV",
+          "label": "a8, Black rook",
+          "insideBoard": true
+        }
+      },
+      {
+        "width": 320,
+        "height": 812,
+        "scale": 2,
+        "focus": {
+          "tag": "SECTION",
+          "id": "chessboard-stage",
+          "boardStage": true
+        },
+        "board": {
+          "top": 373.359375,
+          "bottom": 565.359375,
+          "left": 64,
+          "right": 256
+        },
+        "frame": {
+          "top": 284.390625,
+          "bottom": 491
+        },
+        "wholeBoard": false,
+        "moves": 0,
+        "runningClocks": 1,
+        "dialogOpen": false,
+        "nextTab": {
+          "tag": "DIV",
+          "label": "White to moveMove 1B3:00W2:59Human ",
+          "insideBoard": true
+        }
+      },
+      {
+        "width": 844,
+        "height": 390,
+        "scale": 2,
+        "focus": {
+          "tag": "SECTION",
+          "id": "chessboard-stage",
+          "boardStage": true
+        },
+        "board": {
+          "top": 58.9375,
+          "bottom": 330.9375,
+          "left": 25,
+          "right": 297
+        },
+        "frame": {
+          "top": -33.84375,
+          "bottom": 356.15625
+        },
+        "wholeBoard": true,
+        "moves": 0,
+        "runningClocks": 1,
+        "dialogOpen": false,
+        "nextTab": {
+          "tag": "DIV",
+          "label": "White to moveMove 1B3:00W2:59Human ",
+          "insideBoard": true
+        }
+      }
+    ]
+  },
+  "after": {
+    "browser": "chromium",
+    "stage": "after",
+    "results": [
+      {
+        "width": 1280,
+        "height": 900,
+        "scale": 1,
+        "focus": {
+          "tag": "SECTION",
+          "id": "chessboard-stage",
+          "boardStage": true
+        },
+        "board": {
+          "top": 184.34375,
+          "bottom": 814.34375,
+          "left": 165,
+          "right": 795
+        },
+        "frame": {
+          "top": 70.78125,
+          "bottom": 846.03125
+        },
+        "wholeBoard": true,
+        "moves": 0,
+        "runningClocks": 1,
+        "dialogOpen": false,
+        "nextTab": {
+          "tag": "DIV",
+          "label": "a8, Black rook",
+          "insideBoard": true
+        }
+      },
+      {
+        "width": 375,
+        "height": 812,
+        "scale": 1,
+        "focus": {
+          "tag": "SECTION",
+          "id": "chessboard-stage",
+          "boardStage": true
+        },
+        "board": {
+          "top": 174.71875,
+          "bottom": 523.71875,
+          "left": 13,
+          "right": 362
+        },
+        "frame": {
+          "top": 129.734375,
+          "bottom": 710.765625
+        },
+        "wholeBoard": true,
+        "moves": 0,
+        "runningClocks": 1,
+        "dialogOpen": false,
+        "nextTab": {
+          "tag": "DIV",
+          "label": "a8, Black rook",
+          "insideBoard": true
+        }
+      },
+      {
+        "width": 320,
+        "height": 812,
+        "scale": 2,
+        "focus": {
+          "tag": "SECTION",
+          "id": "chessboard-stage",
+          "boardStage": true
+        },
+        "board": {
+          "top": 299.359375,
+          "bottom": 491.359375,
+          "left": 64,
+          "right": 256
+        },
+        "frame": {
+          "top": 284.390625,
+          "bottom": 491
+        },
+        "wholeBoard": true,
+        "moves": 0,
+        "runningClocks": 1,
+        "dialogOpen": false,
+        "nextTab": {
+          "tag": "DIV",
+          "label": "White to moveMove 1B3:00W2:59Human ",
+          "insideBoard": true
+        }
+      },
+      {
+        "width": 844,
+        "height": 390,
+        "scale": 2,
+        "focus": {
+          "tag": "SECTION",
+          "id": "chessboard-stage",
+          "boardStage": true
+        },
+        "board": {
+          "top": 58.9375,
+          "bottom": 330.9375,
+          "left": 25,
+          "right": 297
+        },
+        "frame": {
+          "top": -33.84375,
+          "bottom": 356.15625
+        },
+        "wholeBoard": true,
+        "moves": 0,
+        "runningClocks": 1,
+        "dialogOpen": false,
+        "nextTab": {
+          "tag": "DIV",
+          "label": "White to moveMove 1B3:00W2:59Human ",
+          "insideBoard": true
+        }
+      }
+    ]
+  }
+}

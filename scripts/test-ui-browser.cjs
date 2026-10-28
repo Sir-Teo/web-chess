@@ -11252,7 +11252,7 @@ async function checkPaletteDialogReturn(browser) {
 }
 
 async function checkDialogFocusHandoff(browser) {
-  for (const [width, scale] of [[1280, 1], [375, 1], [375, 2]]) {
+  for (const [width, scale] of [[1280, 1], [375, 1], [375, 2], [320, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
     const page = await context.newPage()
     const frames = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
@@ -11304,7 +11304,27 @@ async function checkDialogFocusHandoff(browser) {
       assert(await page.locator('.new-game-dialog').evaluate(el => el.contains(document.activeElement)), 'old dialog restoration moved focus out of the newer modal')
       await page.keyboard.press('Escape')
       await page.locator('.dialog-panel').waitFor({ state: 'detached' })
-      console.log(`  dialog focus handoff (${width}px, ${scale}x): explicit opener restored; held callbacks yield to a newer preview and modal`)
+      const newGame = page.getByRole('button', { name: 'Start new game', exact: true })
+      await newGame.focus(); await newGame.press('Enter')
+      const dialog = page.locator('.new-game-dialog')
+      await dialog.waitFor()
+      await dialog.locator('.mode-card').filter({ hasText: 'Human vs Human' }).click()
+      await dialog.locator('.time-control-card').filter({ hasText: '3 + 2' }).click()
+      await dialog.locator('.btn-start').focus(); await page.keyboard.down('Enter')
+      await dialog.waitFor({ state: 'detached' })
+      await page.waitForFunction(() => document.activeElement?.matches('.board-stage'))
+      await page.waitForFunction(() => {
+        const board = document.querySelector('.board-surface').getBoundingClientRect()
+        const frame = document.querySelector('.main-container').getBoundingClientRect()
+        return board.top >= Math.max(0, frame.top) - 1 && board.bottom <= Math.min(innerHeight, frame.bottom) + 1
+          && board.left >= 0 && board.right <= innerWidth + 1
+      })
+      await page.keyboard.down('Enter'); await page.keyboard.up('Enter'); await frames()
+      assert(await page.locator('.mtree-chip').count() === 0 && await page.locator('[role="dialog"]').count() === 0
+        && await page.locator('.clock-face.running').count() === 1, 'held game confirmation moved a piece, reopened a dialog or stopped the starting clock')
+      await page.keyboard.press('Tab')
+      assert(await page.locator('.board-stage').evaluate(el => el.contains(document.activeElement)), 'Tab after starting a game returned to the top of the page')
+      console.log(`  dialog focus handoff (${width}px, ${scale}x): explicit opener restored; held callbacks yield to newer preview/modal; keyboard game start focuses the whole visible board, Tab stays with its controls and held confirmation preserves the game/clock`)
     } finally { await context.close() }
   }
 }

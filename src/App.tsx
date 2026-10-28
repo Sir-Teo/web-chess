@@ -897,6 +897,7 @@ function App() {
   const [isImportingGame, setIsImportingGame] = useState(false)
   const [boardRevealTick, setBoardRevealTick] = useState(0)
   const boardRevealTargetRef = useRef<'stage' | 'board'>('stage')
+  const newGameBoardFocusRef = useRef(false)
   const [analysisPanelRevealTick, setAnalysisPanelRevealTick] = useState(0)
   const handledBoardRevealRef = useRef(0)
   const handledAnalysisRevealRef = useRef(0)
@@ -5493,6 +5494,14 @@ function App() {
     boardStageRef.current?.focus({ preventScroll: true })
   }, [backgroundUiHidden, drill, fen, reviewPractice])
 
+  useLayoutEffect(() => {
+    if (!newGameBoardFocusRef.current) return
+    newGameBoardFocusRef.current = false
+    // Wait for the new game to remove the dialog's background inertness.
+    // A newer modal owns focus if it has already replaced that dialog.
+    if (!backgroundUiHidden) boardStageRef.current?.focus({ preventScroll: true })
+  }, [backgroundUiHidden, boardRevealTick])
+
   // Each reveal owns its settle timers. New input, a modal, or the other
   // reveal supersedes them. Consumed requests never replay after cleanup.
   useEffect(() => {
@@ -6171,7 +6180,8 @@ function App() {
       if (control) setPgnHeaders({ TimeControl: timeControlTag(control) })
 
       setOrientation(defaultOrientationForGameMode(mode, color))
-      requestBoardReveal()
+      newGameBoardFocusRef.current = true
+      requestBoardReveal('board')
     },
     [cancelPendingAiMove, cancelSampleLoad, clearBatchReview, clearBoardSelection, clearImportSweep, game, gameTree, newGame, requestBoardReveal, retryAiPlayer, setAiPlayerDifficulty, setPgnHeaders],
   )
