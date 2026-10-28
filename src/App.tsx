@@ -549,6 +549,7 @@ function App() {
   const analysisPanelRef = useRef<HTMLElement>(null)
   const analysisHeaderRef = useRef<HTMLElement>(null)
   const analysisStatusRef = useRef<HTMLDivElement>(null)
+  const revealCandidateAnalysisRef = useRef(false)
   const revealOpeningIntelRef = useRef<{ source: Element | null } | null>(null)
   const [viewport, setViewport] = useState(readViewport)
   /**
@@ -2768,15 +2769,6 @@ function App() {
     })
   }, [])
 
-  const applyBookMovesToSearch = useCallback(() => {
-    const topMoves = openingTopMoves.slice(0, 3).map(move => move.uci)
-    if (!topMoves.length) return
-    setShowAdvancedAnalyze(true)
-    setSearchMovesInput(topMoves.join(' '))
-    setActivePreset(null)
-    setAnalysisTab('analyze')
-  }, [openingTopMoves])
-
   const openOpeningIntel = useCallback(() => {
     revealOpeningIntelRef.current = { source: document.activeElement }
     setAnalysisExperience('pro')
@@ -2944,7 +2936,7 @@ function App() {
     setMultiPv(1)
   }, [])
 
-  const runAnalyze = useCallback(() => {
+  const runAnalyze = useCallback((candidateMoves?: string[]) => {
     if (!engineEnabled) return
     cancelStaleBackgroundAnalysis()
     const limits: UciGoLimits = {}
@@ -2958,10 +2950,11 @@ function App() {
     if (analyzeMode === 'infinite') limits.infinite = true
 
     const normalizedLimitNodes = normalizeOptionalIntegerInput(limitNodes, LIMIT_NODES_BOUNDS)
-    if (showAdvancedAnalyze && typeof normalizedLimitNodes === 'number') {
+    const useAdvancedLimits = showAdvancedAnalyze || candidateMoves !== undefined
+    if (useAdvancedLimits && typeof normalizedLimitNodes === 'number') {
       limits.nodes = normalizedLimitNodes
     }
-    if (showAdvancedAnalyze && useClockLimits) {
+    if (useAdvancedLimits && useClockLimits) {
       limits.wtime = normalizeRequiredIntegerInput(whiteTimeMs, CLOCK_TIME_BOUNDS)
       limits.btime = normalizeRequiredIntegerInput(blackTimeMs, CLOCK_TIME_BOUNDS)
       limits.winc = normalizeRequiredIntegerInput(whiteIncMs, CLOCK_INCREMENT_BOUNDS)
@@ -2979,7 +2972,7 @@ function App() {
       hashMb,
       showWdl,
       rootFen: currentRootFen,
-      searchMoves: showAdvancedAnalyze ? parsedSearchMoves : [],
+      searchMoves: candidateMoves ?? (showAdvancedAnalyze ? parsedSearchMoves : []),
       historyMoves: currentPathMovesKey ? currentPathMovesKey.split(' ') : [],
     })
   }, [
@@ -3093,6 +3086,22 @@ function App() {
     setRightWidth(width => width || preferredRightWidthRef.current)
     setAnalysisPanelRevealTick(tick => tick + 1)
   }, [handleWorkspaceModeChange, pause, workspaceMode])
+
+  const analyzeCandidateMoves = useCallback((moves: string[]) => {
+    if (!moves.length) return
+    setShowAdvancedAnalyze(true)
+    setSearchMovesInput(moves.join(' '))
+    setActivePreset(null)
+    revealCandidateAnalysisRef.current = true
+    handleAnalysisTabChange('analyze')
+    // Pass the selection directly: the field's state still holds the previous
+    // candidates until React commits, and Auto-analyze only follows board moves.
+    runAnalyze(moves)
+  }, [handleAnalysisTabChange, runAnalyze])
+
+  const analyzeTopBookMoves = useCallback(() => {
+    analyzeCandidateMoves(openingTopMoves.slice(0, 3).map(move => move.uci))
+  }, [analyzeCandidateMoves, openingTopMoves])
 
   const runLabCommand = useCallback(
     async (command: string) => {
@@ -5493,9 +5502,27 @@ function App() {
   }, [analysisPanelRevealTick, backgroundUiHidden, boardRevealTick, isMobileLayout, moveEntryFocusTick, scrollWorkspaceChrome])
 
   useEffect(() => {
-    if (analysisPanelRevealTick === 0 || backgroundUiHidden || handledAnalysisRevealRef.current === analysisPanelRevealTick) return
+    if (backgroundUiHidden) {
+      revealCandidateAnalysisRef.current = false
+      return
+    }
+    if (analysisPanelRevealTick === 0 || handledAnalysisRevealRef.current === analysisPanelRevealTick) return
     handledAnalysisRevealRef.current = analysisPanelRevealTick
+    const revealCandidate = revealCandidateAnalysisRef.current
+    revealCandidateAnalysisRef.current = false
     if (workspaceMode !== 'analysis') return
+    if (revealCandidate) {
+      // The header can fill the viewport with enlarged text. Land beside Stop
+      // and the results, rather than leaving the new search below the fold.
+      const target = analysisPanelRef.current?.querySelector<HTMLButtonElement>('.analysis-actions .btn-primary')
+      if (!target) return
+      target.focus({ preventScroll: true })
+      const reveal = () => {
+        if (document.activeElement === target) target.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' })
+      }
+      reveal()
+      return scheduleRevealRetries(reveal, [120, 320])
+    }
     if (!isMobileLayout) {
       // Review offers disappear when they open this panel. Recover that lost
       // focus on desktop too; an existing tab or a newer control keeps it.
@@ -9076,7 +9103,7 @@ function App() {
                       engine. Stop joins it while there is a search to stop,
                       including one waiting for that engine to load. */}
                   <div className="inline-actions analysis-actions">
-                    <button type="button" className="btn-primary" aria-label="Analyze position" onClick={runAnalyze}>
+                    <button type="button" className="btn-primary" aria-label="Analyze position" onClick={() => runAnalyze()}>
                       <IconPlay /> Analyze position
                     </button>
                     {(status === 'analyzing' || status === 'loading') && (
@@ -9111,7 +9138,7 @@ function App() {
                   {drillCard}
                   {experienceToggle}
                   {keepSearchingSwitch}
-                  {isCandidateSearch && (
+                  {isCandidateSearch && !drillAwaitingAnswer && (
                     <p className="panel-copy small" role="status" data-testid="candidate-search-notice">
                       Searching only {candidateSearchMoves.map(move => bestMoveLabel(fen, move)).join(', ')}.
                       {' '}Candidate results do not change the position score or game review.
@@ -9318,11 +9345,7 @@ function App() {
                               className="tablebase-move-row"
                               aria-label={tablebaseMoveActionLabel(move)}
                               title={tablebaseMoveActionLabel(move)}
-                              onClick={() => {
-                                setShowAdvancedAnalyze(true)
-                                setActivePreset(null)
-                                setSearchMovesInput(move.uci)
-                              }}
+                              onClick={() => analyzeCandidateMoves([move.uci])}
                             >
                               <strong>{move.san}</strong>
                               <span>{tablebaseMoveSummary(move)}</span>
@@ -9487,7 +9510,7 @@ function App() {
                           Draw {percentage(openingTotals?.draws ?? 0, openingTotalGames).toFixed(1)}% ·
                           Black {percentage(openingTotals?.black ?? 0, openingTotalGames).toFixed(1)}%
                         </p>
-                        {engineBookAgreement !== null && (
+                        {engineBookAgreement !== null && !drillAwaitingAnswer && (
                           <p className="panel-copy small">
                             Engine/book agreement: {engineBookAgreement ? 'yes' : 'no'}{currentEngineBestUci ? ` (${currentEngineBestUci})` : ''}
                           </p>
@@ -9516,11 +9539,7 @@ function App() {
                                     games,
                                     percentage(games, openingTotalGames),
                                   )}
-                                  onClick={() => {
-                                    setShowAdvancedAnalyze(true)
-                                    setActivePreset(null)
-                                    setSearchMovesInput(move.uci)
-                                  }}
+                                  onClick={() => analyzeCandidateMoves([move.uci])}
                                 >
                                   <strong>{move.san}</strong>
                                   <span>{percentage(games, openingTotalGames).toFixed(1)}%</span>
@@ -9530,8 +9549,8 @@ function App() {
                             })}
                           </div>
                         )}
-                        {openingTopMoves.length > 0 && (
-                          <button type="button" onClick={applyBookMovesToSearch}>
+                        {openingTopMoves.length > 0 && !drillAwaitingAnswer && (
+                          <button type="button" onClick={analyzeTopBookMoves}>
                             Analyze top book moves
                           </button>
                         )}
@@ -10080,18 +10099,18 @@ function App() {
                       Searches run until their UCI limit or Stop. Unbounded console searches pause while this tab is hidden and resume when you return. Stop cancels them.
                     </p>
                     {consoleSearchPaused && <p className="panel-copy small" role="status">Console search paused while this tab is hidden.</p>}
-                    {openingExplorer.data && (
+                    {openingExplorer.data && !drillAwaitingAnswer && (
                       <div className="engine-lab-inline">
                         <p className="panel-copy small">
                           Book moves available: {openingExplorer.data.moves.length} · games {openingTotalGames.toLocaleString()}
                         </p>
                         <button
                           type="button"
-                          onClick={applyBookMovesToSearch}
+                          onClick={analyzeTopBookMoves}
                           disabled={openingTopMoves.length === 0}
                           title={openingTopMoves.length === 0 ? 'No book moves are ranked at this position.' : undefined}
                         >
-                          Use top book moves in Analyze
+                          Analyze top book moves
                         </button>
                       </div>
                     )}

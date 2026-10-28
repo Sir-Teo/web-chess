@@ -1,0 +1,55 @@
+[
+  {
+    "geometry": {
+      "active": "",
+      "button": {
+        "x": 42.59375,
+        "y": 284.765625,
+        "width": 234.8125,
+        "height": 108.84375,
+        "scrollTop": 0,
+        "clientHeight": 107
+      },
+      "panel": {
+        "x": 0,
+        "y": -140.453125,
+        "width": 320,
+        "height": 5516.03125,
+        "scrollTop": 0,
+        "clientHeight": 5516
+      },
+      "inner": {
+        "x": 16,
+        "y": -140.453125,
+        "width": 288,
+        "height": 5372.03125,
+        "scrollTop": 0,
+        "clientHeight": 5370
+      },
+      "main": {
+        "x": 0,
+        "y": 284.390625,
+        "width": 320,
+        "height": 411.609375,
+        "scrollTop": 736,
+        "clientHeight": 412
+      },
+      "header": {
+        "x": 17,
+        "y": -139.453125,
+        "width": 286,
+        "height": 265.84375,
+        "scrollTop": 0,
+        "clientHeight": 265
+      },
+      "scrollY": 0
+    },
+    "service": "opening",
+    "label": "Analyze only e4: 150 games, 100.0% of this position",
+    "searchesBefore": 0,
+    "searchesAfter": [
+      "go depth 16 searchmoves e2e4"
+    ],
+    "visibleSearchNotice": 1
+  }
+]

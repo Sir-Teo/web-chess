@@ -219,6 +219,11 @@ given, and the app answering the reader who touches it.
   options with Enter or by leaving the field. Enter keeps you in that field
   after the engine acknowledges the change.
 - **Search diagnostics for pros**: Pro mode reports ordinary and selective depth, nodes, NPS, transposition-table occupancy, tablebase hits, and elapsed time from Stockfish's live UCI output, so Hash and Syzygy settings can be judged from evidence rather than guesswork.
+- **Analyze book and tablebase moves**: Choose a ranked move to start a search
+  restricted to that candidate, or analyze the top three book moves together.
+  These actions work with Auto-analyze off and reload a released engine. The
+  board stays in place; candidate scores leave the position score and review
+  intact. Book suggestions stay hidden while a drill waits for your answer.
 - **Understand the percentages**: A collapsed guide beside the charts explains
   human-game Winrate estimates and Stockfish's win/draw/loss model, including
   why a neutral 50% on one graph can accompany a high draw probability. It is

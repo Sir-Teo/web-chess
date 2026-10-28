@@ -1546,15 +1546,85 @@ async function checkCoachUsesPositionScore(browser) {
 }
 
 /**
- * The engine's last word before a stop is a bound, not a value.
- *
- * `score cp 900 lowerbound` means "at least 900", and it arrives from an
- * aspiration re-search with more nodes behind it than the exact line it
- * follows. The app used to compare the two on node count and keep the bound,
- * so a position evaluated at +3 was displayed at +9. This drives that exact
- * sequence through the real UI, which is the thing a unit test on the
- * comparison function cannot do.
+ * "Analyze" in a book control is an action, including with Auto-analyze off
+ * or the engine released. The candidate field alone cannot demonstrate it:
+ * assert the search dispatched to the worker and the visible result instead.
  */
+async function checkBookMoveAnalysisActions(browser) {
+  for (const [width, height, scale] of [[1280, 900, 1], [375, 812, 1], [320, 812, 2], [844, 390, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(lichessServiceScript({
+        host: 'explorer.lichess.org',
+        body: JSON.stringify({ white: 100, draws: 20, black: 30, moves: [
+          { uci: 'e2e4', san: 'e4', white: 60, draws: 10, black: 10 },
+          { uci: 'd2d4', san: 'd4', white: 30, draws: 5, black: 10 },
+          { uci: 'g1f3', san: 'Nf3', white: 10, draws: 5, black: 10 },
+        ] }),
+      }))
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze', autoAnalyze: false,
+        engineProfile: 'lite-single-local', showAdvancedAnalyze: false,
+        analyzeMode: 'deep', searchDepth: 18, limitNodes: 750000,
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.locator('#chessboard-square-e2 [data-piece="wP"]').waitFor()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await openSettings(page)
+      await page.locator('.advanced-settings > summary').filter({ hasText: 'Advanced engine options' }).click()
+      const advanced = page.getByLabel('Advanced search limits', { exact: true })
+      await advanced.check()
+      await page.getByLabel('Candidate moves', { exact: true }).fill('f3')
+      await advanced.uncheck()
+      await closeSettings(page)
+      await page.getByLabel('Lichess API token', { exact: true }).fill('book-action-fixture')
+      const row = page.locator('.opening-move-row').first()
+      await row.waitFor()
+      const board = await page.locator('#chessboard-square-e2').evaluate(readBoardSquareLabel)
+      const evaluateSelection = async (button, moves) => {
+        const before = await page.evaluate(() => window.__uciCommands.filter(c => c.startsWith('go ')).length)
+        await button.focus()
+        await button.press('Enter')
+        await page.waitForFunction(({ moves, before }) => {
+          const sent = window.__uciCommands.filter(c => c.startsWith('go '))
+          return sent.length > before && sent.at(-1).endsWith(`searchmoves ${moves}`)
+        }, { moves, before })
+        await page.getByTestId('candidate-search-notice').waitFor()
+        await page.waitForFunction(() => !document.querySelector('.analysis-stop'))
+        const sent = await page.evaluate(() => window.__uciCommands.filter(c => c.startsWith('go ')))
+        assert(sent.length === before + 1 && sent.at(-1).includes('depth 18') && sent.at(-1).includes('nodes 750000') && sent.at(-1).endsWith(`searchmoves ${moves}`),
+          `book selection did not start exactly one search with the current limits and selected candidates: ${JSON.stringify(sent)}`)
+        assert(await page.locator('#chessboard-square-e2').evaluate(readBoardSquareLabel) === board, 'analyzing a book move played it')
+        assert((await page.getByRole('button', { name: 'Analyze', exact: true }).getAttribute('class')).includes('active'), 'book analysis did not reveal Analyze')
+        assert((await page.getByTestId('candidate-search-notice').innerText()).includes('e4'), 'book analysis did not disclose the restriction')
+        await page.waitForFunction(() => {
+          const button = document.querySelector('.analysis-actions .btn-primary')
+          const r = button.getBoundingClientRect()
+          return [r.top + 2, r.bottom - 2].every(y => button.contains(document.elementFromPoint(r.x + r.width / 2, y)))
+        })
+        assert(await page.getByRole('button', { name: 'Analyze position', exact: true }).evaluate(el => el === document.activeElement), 'book analysis left keyboard focus behind its results')
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'book analysis overflows the page')
+      }
+      await evaluateSelection(row, 'e2e4')
+      await evaluateSelection(page.getByRole('button', { name: 'Analyze top book moves', exact: true }), 'e2e4 d2d4 g1f3')
+      await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      const draft = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      await draft.fill('isready')
+      await page.getByRole('button', { name: 'Release engine', exact: true }).click()
+      await page.getByRole('button', { name: 'Load engine', exact: true }).waitFor()
+      await evaluateSelection(page.getByRole('button', { name: 'Analyze top book moves', exact: true }), 'e2e4 d2d4 g1f3')
+      await openSettings(page)
+      assert(await page.getByLabel('Candidate moves', { exact: true }).inputValue() === 'e2e4 d2d4 g1f3', 'book selection left a stale candidate draft')
+      await closeSettings(page)
+      await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      assert(await draft.inputValue() === 'isready', 'book analysis erased an unsent console command')
+      console.log(`  book analysis (${width}x${height}, ${scale}x): row/top moves search once, replace stale candidates, retain limits/board/draft, wake a released engine and reveal results`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkCandidateSearchKeepsPositionScore(browser) {
   for (const [width, knownPosition] of [[1280, true], [375, true], [375, false]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 } })
@@ -11515,10 +11585,12 @@ async function checkTablebaseMoveReading(browser) {
         if (width === 320) await assertContrast(page, `tablebase moves / ${experience} / 200% text`, 5)
         if (width === 320) await page.screenshot({ path: path.join(os.tmpdir(), `web-chess-tablebase-moves-${experience}-200.png`) })
         await rows.first().press('Enter')
+        await page.waitForFunction(() => window.__uciCommands.some(c => c.startsWith('go ') && c.endsWith('searchmoves a7b8q')))
+        await page.getByTestId('candidate-search-notice').waitFor()
         assert(await page.locator('#chessboard-square-a7 [data-piece="wP"]').count() === 1, 'selecting a tablebase move unexpectedly played it')
         await openSettings(page)
         assert(await page.getByLabel('Candidate moves', { exact: true }).inputValue() === 'a7b8q', 'tablebase move did not restrict engine analysis')
-        console.log(`  tablebase move reading (${width}px, ${scale}x, ${experience}): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis`)
+        console.log(`  tablebase move reading (${width}px, ${scale}x, ${experience}): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis`)
       } finally { await context.close() }
     }
   }
@@ -20885,6 +20957,12 @@ async function checkDrillHiddenHints(browser) {
     page.on('pageerror', error => errors.push(error.message))
     try {
       await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(lichessServiceScript({
+        host: 'explorer.lichess.org',
+        body: JSON.stringify({ white: 100, draws: 20, black: 30, moves: [
+          { uci: 'e2e4', san: 'e4', white: 100, draws: 20, black: 30 },
+        ] }),
+      }))
       await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, engineProfile: 'lite-single-local', theme })), theme)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await page.evaluate(async scale => {
@@ -20940,6 +21018,14 @@ async function checkDrillHiddenHints(browser) {
       assert(squareLabels.every(square => !/e2e4|e7e5/.test([square.label, ...square.titles].join(' '))), 'a square label or hover title exposes an engine answer')
       await page.locator('.analysis-experience-toggle').getByRole('button', { name: 'Pro', exact: true }).click()
       await hidden()
+      await page.getByLabel('Lichess API token', { exact: true }).fill('drill-book-fixture')
+      await page.waitForFunction(() => document.querySelector('.opening-intel-card')?.textContent.includes('Games 150'))
+      assert(await page.locator('.opening-move-row').count() === 0 && await page.getByRole('button', { name: 'Analyze top book moves', exact: true }).count() === 0,
+        'opening controls can reveal a hidden drill answer')
+      assert(!(await page.locator('.opening-intel-card').innerText()).includes('Engine/book agreement'), 'opening agreement exposes the hidden best move')
+      await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      assert(await page.getByRole('button', { name: 'Analyze top book moves', exact: true }).count() === 0, 'Engine Lab can analyze hidden drill answers')
+      await page.getByRole('button', { name: 'Analyze', exact: true }).click()
       await page.locator('.analysis-experience-toggle').getByRole('button', { name: 'Coach', exact: true }).click()
       await play('d2', 'd4')
       await hidden()
@@ -22337,6 +22423,7 @@ async function main() {
       'dialog-download': checkDialogDownloadFailure,
       'slow-dialog': checkSlowDialogDismissal,
       'candidate-score': checkCandidateSearchKeepsPositionScore,
+      'book-actions': checkBookMoveAnalysisActions,
       'evaluation-source': checkEvaluationEngineProvenance,
       'pv-reuse': checkPvPreviewAndCommit,
       'review-source': checkReviewUsesSelectedEngine,
@@ -23214,6 +23301,7 @@ async function main() {
     await checkSingleThreadReviewPool(browser)
     await checkCoachUsesPositionScore(browser)
     await checkBoundedScoreIsIgnored(browser)
+    await checkBookMoveAnalysisActions(browser)
     await checkCandidateSearchKeepsPositionScore(browser)
     await checkEvaluationEngineProvenance(browser)
     await checkPvPreviewAndCommit(browser)
