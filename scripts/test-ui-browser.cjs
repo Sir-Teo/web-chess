@@ -7643,6 +7643,55 @@ async function checkPgnImportStatusIsolation(browser) {
   }
 }
 
+async function checkImportValidation(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      const dialog = page.locator('.pgn-dialog'), text = dialog.locator('textarea.input-textarea')
+      const importButton = dialog.getByRole('button', { name: 'Import & Analyze', exact: true })
+      let edit = 0
+      const database = '1. e4 *\n\n1. d4 *'
+      for (const value of ['4k3/8/8/8/8/8/8/4K3 w - - 0 1', 'https://lichess.org/abcd1234', database]) {
+        await text.fill(''); await text.fill(value)
+        const description = () => text.evaluate(el => document.getElementById(el.getAttribute('aria-describedby'))?.textContent)
+        const explanation = await description()
+        assert(explanation && await importButton.isDisabled(), 'the preflight fixture does not explain why Import is unavailable')
+        const retained = async action => {
+          assert(await text.inputValue() === value && await text.getAttribute('aria-invalid') === 'true'
+            && await description() === explanation && await importButton.isDisabled(), `${action} erased the retained PGN draft’s validation guidance`)
+        }
+        await dialog.locator('.archive-input').fill(`Reader${edit++}`); await retained('typing an archive username')
+        await dialog.getByRole('button', { name: 'Chess.com', exact: true }).click(); await retained('choosing an archive provider')
+        await dialog.getByRole('spinbutton', { name: 'Games', exact: true }).fill(String(11 + edit++)); await retained('editing the archive count')
+        const chooser = page.waitForEvent('filechooser')
+        await dialog.getByRole('button', { name: 'Open PGN File', exact: true }).click()
+        await (await chooser).setFiles([]); await retained('canceling the file picker')
+        await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+        assert(await dialog.getByRole('alert').count() === 0, 'PGN guidance leaked into the valid FEN tab')
+        await dialog.getByRole('button', { name: 'Import', exact: true }).click(); await retained('returning from the FEN tab')
+        await text.fill('1. e4 *')
+        assert(await text.getAttribute('aria-invalid') !== 'true' && !await text.getAttribute('aria-describedby')
+          && await importButton.isEnabled() && await dialog.getByRole('alert').count() === 0, 'correcting the PGN retained obsolete guidance or disabled Import')
+      }
+      await text.fill(database)
+      await dialog.getByRole('button', { name: 'Add 2 games to the library', exact: true }).click()
+      await dialog.getByRole('status').filter({ hasText: 'Added 2 games' }).waitFor()
+      assert(await text.inputValue() === '' && await text.getAttribute('aria-invalid') !== 'true'
+        && await dialog.getByRole('alert').count() === 0, 'completed database import kept obsolete preflight guidance')
+      assert(await page.locator('.mtree-chip').count() === 0 && await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'preflight guidance changed the board')
+      assert(errors.length === 0 && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `import validation errors or overflow: ${errors.join('; ')}`)
+      console.log(`  import validation (${width}px, ${scale}x, ${theme}): FEN/game-link/database guidance stays associated through archive username/provider/count edits, canceled file picker and tab return; no leakage into FEN; corrected PGN and completed database import clear guidance without changing the board`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkPgnFileReading(browser) {
   const fresh = '[Event "File read ♞"]\n\n1. d4 {José’s note} (1. e4 {Side note} e5) d5 2. c4 {Fresh read ♞} *'
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 2, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
@@ -23755,6 +23804,7 @@ async function main() {
       'clock-controls': checkPassAndPlayClockControls,
       'clock-transition-time': checkClockTransitionTimesSurviveQueuedWork,
       'recovery-ownership': checkRecoveryOwnershipIncludesSessionState,
+      'import-validation': checkImportValidation,
       'pgn-file-reading': checkPgnFileReading,
       'pgn-import-status': checkPgnImportStatusIsolation,
       'human-step-clock': checkHumanStepClockControls,
@@ -24572,6 +24622,7 @@ async function main() {
     await checkPassAndPlayClockControls(browser)
     await checkClockTransitionTimesSurviveQueuedWork(browser)
     await checkRecoveryOwnershipIncludesSessionState(browser)
+    await checkImportValidation(browser)
     await checkPgnFileReading(browser)
     await checkPgnImportStatusIsolation(browser)
     await checkHumanStepClockControls(browser)

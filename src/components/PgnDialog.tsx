@@ -516,6 +516,9 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
         () => importText.trim() ? pgnImportContentError(importText) : null,
         [importText],
     )
+    // Preflight guidance belongs to the draft, even after another control
+    // resets transient feedback.
+    const importTextError = error ?? importContentError
     const canLoadFen = Boolean(fenText.trim()) && !fenValidationError
     const canCopyShareLink = fenShareValidation.ok
     const canImportPgn = Boolean(importText.trim()) && !importContentError
@@ -935,12 +938,12 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                         setImportFileName(null)
                                         setError(nextText.trim() ? pgnImportContentError(nextText) : null)
                                     }}
-                                    aria-invalid={Boolean(error)}
+                                    aria-invalid={Boolean(importTextError)}
                                     aria-busy={readingFile || undefined}
-                                    aria-describedby={[error ? `${importTextId}-error` : '', readingFile ? fileReadStatusId : ''].filter(Boolean).join(' ') || undefined}
+                                    aria-describedby={[importTextError ? `${importTextId}-error` : '', readingFile ? fileReadStatusId : ''].filter(Boolean).join(' ') || undefined}
                                 />
                             )}
-                            {error && <p id={`${importTextId}-error`} className="dialog-error" role="alert">{error}</p>}
+                            {importTextError && <p id={`${importTextId}-error`} className="dialog-error" role="alert">{importTextError}</p>}
                             {databaseGames && databaseGames.length > 1 && (
                                 <div className="dialog-database-offer">
                                     <button

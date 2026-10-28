@@ -1,0 +1,11 @@
+{"browser":"chromium","port":"4324","commit":"39e04121618c19a2d17d11df5cb8a83752898bd6","build":"Vite development source","dirty":true,"checks":["checkImportValidation","checkPgnFileReading"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkImportValidation
+  import validation (1280px, 1x, dark): FEN/game-link/database guidance stays associated through archive username/provider/count edits, canceled file picker and tab return; no leakage into FEN; corrected PGN and completed database import clear guidance without changing the board
+  import validation (375px, 2x, light): FEN/game-link/database guidance stays associated through archive username/provider/count edits, canceled file picker and tab return; no leakage into FEN; corrected PGN and completed database import clear guidance without changing the board
+checkPgnFileReading
+  PGN file reading (1280×900, 1x, dark): associated progress/Cancel and readable file errors; failed reads preserve the valid PGN/filename and import availability; focused retry, stale resolve/reject ownership, paste/tab/close cancellation and exact Unicode/variation import pass without changing the board before explicit import
+  PGN file reading (375×812, 2x, light): associated progress/Cancel and readable file errors; failed reads preserve the valid PGN/filename and import availability; focused retry, stale resolve/reject ownership, paste/tab/close cancellation and exact Unicode/variation import pass without changing the board before explicit import
+  PGN file reading (320×812, 2x, dark): associated progress/Cancel and readable file errors; failed reads preserve the valid PGN/filename and import availability; focused retry, stale resolve/reject ownership, paste/tab/close cancellation and exact Unicode/variation import pass without changing the board before explicit import
+  PGN file reading (844×390, 2x, light): associated progress/Cancel and readable file errors; failed reads preserve the valid PGN/filename and import availability; focused retry, stale resolve/reject ownership, paste/tab/close cancellation and exact Unicode/variation import pass without changing the board before explicit import
+Development focused checks passed.
