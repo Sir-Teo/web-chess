@@ -5548,6 +5548,7 @@ function App() {
       if (shouldAnalyzeAfterLoad) {
         setWorkspaceMode('analysis')
         setAnalysisTab('analyze')
+        setRightWidth(width => width || preferredRightWidthRef.current)
       }
 
       setIsImportingGame(true)
@@ -5873,6 +5874,7 @@ function App() {
       if (options?.forceAnalysis) {
         setWorkspaceMode('analysis')
         setAnalysisTab('analyze')
+        setRightWidth(width => width || preferredRightWidthRef.current)
       }
 
       cancelPendingAiMove()

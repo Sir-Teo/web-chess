@@ -1,0 +1,20 @@
+[
+  {
+    "mode": "play",
+    "input": "FEN",
+    "study": true,
+    "title": "Analysis",
+    "tab": "Analyze",
+    "inert": false,
+    "width": 320
+  },
+  {
+    "mode": "analysis",
+    "input": "FEN",
+    "study": true,
+    "title": "Analysis",
+    "tab": "Analyze",
+    "inert": false,
+    "width": 320
+  }
+]

@@ -7112,6 +7112,11 @@ async function checkPositionSetupEnPassant(browser) {
     try {
       await page.addInitScript(fakeEngineScript())
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      if (width >= 900) {
+        const handle = page.getByRole('separator', { name: 'Resize right panel', exact: true })
+        await handle.focus(); await handle.press('Home')
+        await page.waitForFunction(() => document.querySelector('.right .panel-inner')?.inert)
+      }
       await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
       const dialog = page.locator('.pgn-dialog')
       await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
@@ -7162,6 +7167,7 @@ async function checkPositionSetupEnPassant(browser) {
       await page.evaluate(() => { document.documentElement.style.fontSize = '' })
       await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).click()
       await dialog.waitFor({ state: 'detached' })
+      assert(await page.locator('.right .panel-inner').evaluate(el => !el.inert), 'Load & Analyze kept the analysis panel collapsed')
       await page.click(`#chessboard-square-${from}`)
       await page.click(`#chessboard-square-${target}`)
       await page.waitForFunction(square => document.querySelector(`#chessboard-square-${square}`)?.getAttribute('aria-label')?.includes('empty'), captured)
@@ -7250,6 +7256,14 @@ async function checkPgnFileReading(browser) {
         && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
       await page.locator('.move-entry summary').click()
       await page.locator('.move-entry input').fill('e4'); await page.locator('.move-entry input').press('Enter')
+      let expandedRightWidth = 0
+      if (width >= 900) {
+        const handle = page.getByRole('separator', { name: 'Resize right panel', exact: true })
+        await handle.focus(); await handle.press('ArrowLeft')
+        expandedRightWidth = Number(await handle.getAttribute('aria-valuenow'))
+        await handle.press('Home')
+        await page.waitForFunction(() => document.querySelector('.right .panel-inner')?.inert)
+      }
       const opener = page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true })
       const dialog = page.locator('.pgn-dialog'), draft = dialog.locator('textarea.input-textarea'), file = dialog.locator('input[type=file]')
       const reading = dialog.getByRole('status').filter({ hasText: 'Reading PGN file…' })
@@ -7328,6 +7342,8 @@ async function checkPgnFileReading(browser) {
       const final = await start(); await finish(final, fresh)
       await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
       await dialog.waitFor({ state: 'detached' }); await page.locator('#chessboard-square-c4 [data-piece="wP"]').waitFor()
+      assert(await page.locator('.right .panel-inner').evaluate(el => !el.inert), 'Import & Analyze kept its result in a collapsed panel')
+      if (expandedRightWidth) await page.waitForFunction(width => Math.abs(document.querySelector('.right').getBoundingClientRect().width - width) < 1, expandedRightWidth)
       assert(await page.locator('.mtree-chip').count() === 5 && await page.getByRole('textbox', { name: 'Move note', exact: true }).inputValue() === 'Fresh read ♞', 'the final file lost its variation or note during actual import')
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'PGN read controls overflow')
       assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `PGN file-read errors: ${errors.join('; ')}`)
@@ -18761,11 +18777,15 @@ async function checkASavedGameComesBack(browser) {
     const other = await exportPgn()
     assert(other !== saved, 'the board did not change, so loading proves nothing')
 
+    const handle = page.getByRole('separator', { name: 'Resize right panel', exact: true })
+    await handle.focus(); await handle.press('Home')
+    await page.waitForFunction(() => document.querySelector('.right .panel-inner')?.inert)
     await openLibrary()
     const load = page.locator('li.library-row button[aria-label^="Load "]').first()
     await load.waitFor({ timeout: 10000 })
     await load.click()
     await page.waitForTimeout(1800)
+    assert(await page.locator('.right .panel-inner').evaluate(el => !el.inert), 'loading a saved game kept its analysis panel collapsed')
     const back = await exportPgn()
     assert(back === saved,
       'the saved game came back changed:\n' +
