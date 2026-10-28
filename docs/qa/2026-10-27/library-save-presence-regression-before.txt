@@ -1,0 +1,10 @@
+{"browser":"chromium","port":"4324","commit":"e9c094058ec0f554c0db208967085a6ccc65bf02","build":"Vite development source","dirty":true,"checks":["checkLibrarySavedCopyPresence"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkLibrarySavedCopyPresence
+Error: another tab deleted the saved copy, but Save still claims it exists
+    at fail (eval at <anonymous> (/tmp/web-chess-library-save-presence-dev.cjs:11:14), <anonymous>:36:9)
+    at assert (eval at <anonymous> (/tmp/web-chess-library-save-presence-dev.cjs:11:14), <anonymous>:40:19)
+    at Object.checkLibrarySavedCopyPresence (eval at <anonymous> (/tmp/web-chess-library-save-presence-dev.cjs:11:14), <anonymous>:24873:7)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:502:9)
+    at async /tmp/web-chess-library-save-presence-dev.cjs:16:48

@@ -9402,6 +9402,72 @@ async function checkLibraryEditing(browser) {
   }
 }
 
+async function checkLibrarySavedCopyPresence(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, serviceWorkers: 'block', reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.locator('.move-entry summary').click()
+      await page.locator('.move-entry input').fill('e4'); await page.locator('.move-entry input').press('Enter')
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      const dialog = page.locator('.library-dialog'), input = dialog.locator('[data-library-name]')
+      const save = dialog.getByRole('button', { name: 'Save', exact: true })
+      const settled = () => dialog.locator('.library-status').filter({ hasText: 'Saving library changes…' }).waitFor({ state: 'detached' })
+      for (const name of ['Older copy', 'Latest copy']) { await input.fill(name); await save.click() }
+      await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 2)
+      await settled()
+      const savedId = await dialog.locator('.library-row').filter({ has: page.getByRole('button', { name: 'Load Latest copy', exact: true }) }).getAttribute('data-library-game-id')
+      const other = await context.newPage()
+      await other.route('**/qa-library-tab.html', route => route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>Other Library tab</title>' }))
+      await other.goto(`${BASE}qa-library-tab.html`)
+      const deleteFromOtherTab = name => other.evaluate(name => new Promise((resolve, reject) => {
+        const request = indexedDB.open('web-chess-library', 1)
+        request.onerror = () => reject(request.error)
+        request.onsuccess = () => {
+          const db = request.result, tx = db.transaction('games', 'readwrite'), store = tx.objectStore('games')
+          const read = store.getAll()
+          read.onsuccess = () => read.result.filter(game => game.name === name).forEach(game => store.delete(game.id))
+          tx.oncomplete = () => { db.close(); resolve() }
+          tx.onabort = () => { db.close(); reject(tx.error) }
+        }
+      }), name)
+      await deleteFromOtherTab('Older copy')
+      await page.bringToFront()
+      await dialog.getByRole('button', { name: 'Star Latest copy', exact: true }).click()
+      await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 1)
+      await settled()
+      assert(await save.isDisabled() && /already in the library/i.test(await save.getAttribute('title')), 'refreshing an unrelated deletion reset the saved-copy guard')
+      await deleteFromOtherTab('Latest copy')
+      await dialog.getByRole('button', { name: 'Unstar Latest copy', exact: true }).click()
+      await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 0)
+      await settled()
+      assert(await save.isEnabled() && !await save.getAttribute('title'), 'another tab deleted the saved copy, but Save still claims it exists')
+      await save.evaluate(button => { button.click(); button.click(); button.click() })
+      await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 1)
+      await settled()
+      const stored = await other.evaluate(() => new Promise((resolve, reject) => {
+        const request = indexedDB.open('web-chess-library', 1)
+        request.onerror = () => reject(request.error)
+        request.onsuccess = () => {
+          const db = request.result, read = db.transaction('games', 'readonly').objectStore('games').getAll()
+          read.onsuccess = () => { db.close(); resolve(read.result) }
+          read.onerror = () => { db.close(); reject(read.error) }
+        }
+      }))
+      assert(stored.length === 1 && stored[0].id !== savedId && !['Older copy', 'Latest copy'].includes(stored[0].name)
+        && await save.isDisabled(), 'resaving after another tab’s deletion duplicated or resurrected a saved record')
+      assert(await page.locator('.mtree-chip').count() === 1 && await page.locator('#chessboard-square-e4 [data-piece="wP"]').count() === 1
+        && errors.length === 0, `Library refresh changed the board or errored: ${errors.join('; ')}`)
+      console.log(`  Library saved-copy presence (${width}px, ${scale}x, ${theme}): an unrelated cross-tab deletion preserves the guard; refreshing the latest copy’s deletion enables Save, clears its stale explanation and permits exactly one new record without resurrection`)
+    } finally { await context.close() }
+  }
+}
+
 /**
  * One gesture saves one game.
  *
@@ -23805,6 +23871,7 @@ async function main() {
       'chords': checkAChordBelongsToTheBrowser,
       'eval-bar': checkTheEvaluationBarSurvivesTheWdlSwitch,
       'library-double-save': checkOneGestureSavesOneGame,
+      'library-save-presence': checkLibrarySavedCopyPresence,
       'library-row-focus': checkLibraryRowFocusOwnership,
       'library-backup-reading': checkLibraryBackupReading,
       'library-editing': checkLibraryEditing,
@@ -24743,6 +24810,7 @@ async function main() {
     await checkLibraryBackupReading(browser)
     await checkPartialLibraryBackup(browser)
     await checkOneGestureSavesOneGame(browser)
+    await checkLibrarySavedCopyPresence(browser)
     await checkLibraryEditing(browser)
     await checkInternationalLibrarySearch(browser)
     await checkLibraryBrowsing(browser)

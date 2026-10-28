@@ -162,6 +162,18 @@ export function LibraryDialog({
     const savedPgnRef = useRef<string | null>(null)
     const savedNameRef = useRef<string | null>(null)
     const savedGameIdRef = useRef<string | null>(null)
+    const forgetSavedGame = useCallback(() => {
+        savedGameIdRef.current = null
+        savedPgnRef.current = null
+        savedNameRef.current = null
+        setSavedPgn(null)
+    }, [])
+    useLayoutEffect(() => {
+        // A completed write refreshes records deleted by another tab. Keep
+        // the immediate duplicate guard while a save is still pending.
+        const id = savedGameIdRef.current
+        if (loaded && !saving && id && !games.some(game => game.id === id)) forgetSavedGame()
+    }, [games, loaded, saving, forgetSavedGame])
     const panelRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const titleId = useId()
@@ -634,10 +646,7 @@ export function LibraryDialog({
                                                     })
                                                     onDelete(game.id)
                                                     if (savedGameIdRef.current === game.id) {
-                                                        savedGameIdRef.current = null
-                                                        savedPgnRef.current = null
-                                                        savedNameRef.current = null
-                                                        setSavedPgn(null)
+                                                        forgetSavedGame()
                                                     }
                                                     setConfirmingDelete(null)
                                                     if (renaming?.id === game.id) setRenaming(null)

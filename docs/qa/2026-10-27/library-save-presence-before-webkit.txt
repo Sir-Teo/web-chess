@@ -1,0 +1,20 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+{
+  "browser": "webkit",
+  "results": [
+    {
+      "width": 1280,
+      "scale": 1,
+      "rows": 0,
+      "saveDisabled": true,
+      "title": "This game is already in the library. Type a name to save another copy."
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "rows": 0,
+      "saveDisabled": true,
+      "title": "This game is already in the library. Type a name to save another copy."
+    }
+  ]
+}
