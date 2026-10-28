@@ -1,0 +1,39 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 198 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DqYiTm0h.js   67.87 kB
+dist/assets/LibraryDialog-BXloarg5.css        5.37 kB │ gzip:   1.37 kB
+dist/assets/index-CJ3KvK4I.css              135.42 kB │ gzip:  25.17 kB
+dist/assets/NewGameDialog-BlkOqgt9.js         4.36 kB │ gzip:   1.57 kB
+dist/assets/LibraryDialog-C9N41Iej.js        16.08 kB │ gzip:   5.46 kB
+dist/assets/PgnDialog-Dmj93NNx.js            33.34 kB │ gzip:  11.13 kB
+dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-a7iLEbyD.js               421.79 kB │ gzip: 136.30 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.46s
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  library matching export (1280×900, 1x, dark): all 106 paginated matches in starred/name order; combined and starred-only filters, one/zero matches; Unicode notes/variation/setup/endings; complete exports/backups and originals preserved; denied-download keyboard retry; visible 44px target
+  library matching export (375×812, 1x, light): all 106 paginated matches in starred/name order; combined and starred-only filters, one/zero matches; Unicode notes/variation/setup/endings; complete exports/backups and originals preserved; denied-download keyboard retry; visible 44px target
+  library matching export (320×812, 2x, light): all 106 paginated matches in starred/name order; combined and starred-only filters, one/zero matches; Unicode notes/variation/setup/endings; complete exports/backups and originals preserved; denied-download keyboard retry; visible 44px target
+  library matching export (844×390, 2x, dark): all 106 paginated matches in starred/name order; combined and starred-only filters, one/zero matches; Unicode notes/variation/setup/endings; complete exports/backups and originals preserved; denied-download keyboard retry; visible 44px target
+  Library download recovery (1280px, 1x, dark, PGN and single backup): URL failures/missing API/blocked clicks retain focused retry, all records and truthful part counts; real UTF-8 downloads retain complete exact PGN/metadata with cleanup; repeated parts do not double-count
+  Library download recovery (1280px, 1x, dark, two parts / 18 large games): URL failures/missing API/blocked clicks retain focused retry, all records and truthful part counts; real UTF-8 downloads retain complete exact PGN/metadata with cleanup; repeated parts do not double-count
+  Library download recovery (375px, 2x, light, PGN and single backup): URL failures/missing API/blocked clicks retain focused retry, all records and truthful part counts; real UTF-8 downloads retain complete exact PGN/metadata with cleanup; repeated parts do not double-count
+  Library download recovery (375px, 2x, light, two parts / 18 large games): URL failures/missing API/blocked clicks retain focused retry, all records and truthful part counts; real UTF-8 downloads retain complete exact PGN/metadata with cleanup; repeated parts do not double-count
+  library PGN endings (1280×900, 1x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  library PGN endings (375×812, 1x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  library PGN endings (320×812, 2x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+  library PGN endings (844×390, 2x): missing endings added outside notes; declared/completed results preserved; originals unchanged; all five exported games/studies reimport and load with notes, variation and setup intact
+Focused browser UI checks passed.
