@@ -1,0 +1,14 @@
+{
+  "finished": {
+    "text": "Review this game",
+    "name": "Review this finished game"
+  },
+  "running": {
+    "text": "Reviewing 0%",
+    "name": "Stop game review. 0 of 4 positions reviewed."
+  },
+  "afterHeldEnter": {
+    "text": "Review Game",
+    "name": "Review Game"
+  }
+}

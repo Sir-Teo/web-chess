@@ -1695,6 +1695,90 @@ async function checkPvPreviewAndCommit(browser) {
   }
 }
 
+async function checkReviewActionNames(browser) {
+  for (const [width, height, scale, experience, theme] of [
+    [1280, 900, 1, 'pro', 'dark'], [375, 812, 1, 'beginner', 'light'],
+    [320, 812, 2, 'pro', 'light'], [844, 390, 2, 'beginner', 'dark'],
+  ]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(({ experience, theme }) => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: experience, engineProfile: 'lite-single-local',
+          autoAnalyze: false, reviewMaxWorkers: 1, theme,
+        }))
+      }, { experience, theme })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog textarea').fill('1. f3 e5 2. g4 Qh4# 0-1')
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const boardBefore = await page.locator('#chessboard-square-h4').evaluate(readBoardSquareLabel)
+      await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+      const offer = page.getByRole('button', { name: 'Review this game', exact: true })
+      assert((await offer.textContent()).trim() === 'Review this game', 'the finished-game action does not answer to its printed name')
+      await page.evaluate(() => { window.__withholdEngineInfo = true })
+      await offer.click()
+      const stop = page.getByRole('button', { name: /^Stop review \(\d+%\)/ })
+      const start = page.getByRole('button', { name: 'Review Game', exact: true })
+      await stop.waitFor()
+      await page.waitForFunction(() => window.__consoleEngine?.searching)
+      const checkName = async () => {
+        const text = (await stop.textContent()).trim()
+        assert((await stop.getAttribute('aria-label')).startsWith(text + '.'), 'the running review action omits its printed label or percentage')
+        assert((await stop.getAttribute('aria-label')).includes('positions reviewed'), 'the running review lost its detailed progress')
+        await stop.focus()
+        const fit = await stop.evaluate(el => {
+          const rect = el.getBoundingClientRect()
+          const range = document.createRange()
+          range.selectNodeContents(el)
+          return rect.width >= 44 && rect.height >= 32 && rect.left >= -1 && rect.right <= innerWidth + 1
+            && [...range.getClientRects()].every(r => r.left >= rect.left - 1 && r.right <= rect.right + 1)
+            && document.documentElement.scrollWidth <= innerWidth + 1
+        })
+        assert(fit, 'the running review action clips its label or overflows the viewport')
+        return text
+      }
+      const firstLabel = await checkName()
+      await page.evaluate(() => { window.__consoleEngine.emitInfo(); window.__consoleEngine.finishSearch() })
+      await page.waitForFunction(text => document.querySelector('.batch-review-btn')?.textContent.trim() !== text, firstLabel)
+      await page.waitForFunction(() => window.__consoleEngine?.searching)
+      await checkName()
+
+      // Holding one key must neither cancel the review just started nor start
+      // a new review immediately after stopping it.
+      await page.keyboard.down('Enter')
+      await start.waitFor()
+      const countAfterStop = await page.evaluate(() => window.__uciCommands.filter(text => /^go\b/.test(text)).length)
+      await page.keyboard.down('Enter')
+      await page.keyboard.down('Enter')
+      assert(await start.isVisible() && await page.evaluate(() => window.__uciCommands.filter(text => /^go\b/.test(text)).length) === countAfterStop,
+        'a held stop key restarted the review')
+      await page.keyboard.up('Enter')
+      await start.focus()
+      await page.keyboard.down('Enter')
+      await stop.waitFor()
+      await page.waitForFunction(count => window.__uciCommands.filter(text => /^go\b/.test(text)).length > count, countAfterStop)
+      await page.keyboard.down('Enter')
+      assert(await stop.isVisible(), 'a held start key canceled the new review')
+      await page.keyboard.up('Enter')
+      await stop.click()
+      await start.waitFor()
+
+      await page.evaluate(() => { window.__withholdEngineInfo = false })
+      await start.click()
+      await start.waitFor()
+      await page.getByTestId('review-run-summary').filter({ hasText: 'Completed review' }).waitFor()
+      assert(await page.locator('#chessboard-square-h4').evaluate(readBoardSquareLabel) === boardBefore, 'review actions changed the selected board position')
+      console.log(`  review actions (${width}×${height}, ${scale}x, ${experience}, ${theme}): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkReviewUsesSelectedEngine(browser, controls = false) {
   for (const [width, workers, failPool] of [[1280, 4, false], [375, 1, false], [1280, 4, true]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 } })
@@ -15452,13 +15536,13 @@ async function checkEngineRelease(browser) {
       await page.evaluate(() => { window.__withholdEngineInfo = true })
       await page.getByRole('button', { name: 'Review', exact: true }).click()
       await page.getByRole('button', { name: 'Review Game', exact: true }).click()
-      await page.getByRole('button', { name: /Stop game review/ }).waitFor()
+      await page.getByRole('button', { name: /^Stop review/ }).waitFor()
       await lab.click()
       assert(await release.isDisabled(), 'Release remained available during game review')
       assert(/review|import/.test(await release.getAttribute('title')), 'busy release control did not explain the review')
       await page.getByRole('button', { name: 'Review', exact: true }).click()
       await page.evaluate(() => { window.__withholdEngineInfo = false })
-      await page.getByRole('button', { name: /Stop game review/ }).click()
+      await page.getByRole('button', { name: /^Stop review/ }).click()
       await waitStatus('ready')
       await lab.click()
       await release.click()
@@ -15504,7 +15588,7 @@ async function checkEngineRelease(browser) {
     assert(await page.evaluate(() => window.__terminatedEngines === 1), 'requesting review lost a pool worker')
     await page.getByRole('button', { name: 'Review', exact: true }).click()
     await page.evaluate(() => { window.__withholdEngineInfo = false })
-    await page.getByRole('button', { name: /Stop game review/ }).click()
+    await page.getByRole('button', { name: /^Stop review/ }).click()
     await page.waitForFunction(() => window.__terminatedEngines === 3)
     await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
     await page.getByRole('button', { name: 'Release engine', exact: true }).click()
@@ -22062,6 +22146,7 @@ async function main() {
       'pv-reuse': checkPvPreviewAndCommit,
       'review-source': checkReviewUsesSelectedEngine,
       'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
+      'review-actions': checkReviewActionNames,
       'review-export-recovery': checkReviewExportRecovery,
       'review-phase-accessibility': checkReviewPhaseAccessibility,
       'review-list-scroll': checkReviewListFollowsPosition,
@@ -22936,6 +23021,7 @@ async function main() {
     await checkCandidateSearchKeepsPositionScore(browser)
     await checkEvaluationEngineProvenance(browser)
     await checkPvPreviewAndCommit(browser)
+    await checkReviewActionNames(browser)
     await checkReviewUsesSelectedEngine(browser, true)
     await checkSavedReviewSearch(browser)
     await checkSavedReviews(browser)

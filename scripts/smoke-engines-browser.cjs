@@ -469,7 +469,7 @@ async function main() {
             bestmoves: window.__smokeBestmoves,
             review: document.querySelector('[data-testid="review-run-summary"]')?.textContent,
             reviewControls: [...document.querySelectorAll('button')]
-              .filter(button => /^(Fresh review|Review Game|Reviewing)/.test(button.textContent.trim()))
+              .filter(button => /^(Fresh review|Review Game|Stop review)/.test(button.textContent.trim()))
               .map(button => ({ text: button.textContent.trim(), disabled: button.disabled })),
             notices: [...document.querySelectorAll('[role="alert"], [role="status"]')]
               .map(node => node.textContent.trim().slice(0, 250)).filter(Boolean).slice(-8),

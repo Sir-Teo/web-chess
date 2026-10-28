@@ -3595,8 +3595,9 @@ function App() {
   const expertCommandDisabledReason = expertModeEnabled
     ? engineBusyDisabledReason
     : 'Expert mode only: these commands take the engine over for a while.'
+  const reviewGameButtonText = isBatchReviewing ? `Stop review (${batchReviewPercent}%)` : 'Review Game'
   const reviewGameButtonLabel = isBatchReviewing
-    ? `Stop game review. ${batchReviewProgress.done} of ${batchReviewProgress.total} positions reviewed.`
+    ? `${reviewGameButtonText}. ${batchReviewProgress.done} of ${batchReviewProgress.total} positions reviewed.`
     : reviewGameDisabledReason
       ? `Review Game unavailable. ${reviewGameDisabledReason}`
       : 'Review Game'
@@ -8871,7 +8872,6 @@ function App() {
                             className="btn-primary game-over-review-btn"
                             onClick={reviewFinishedGame}
                             disabled={pendingGameReview}
-                            aria-label="Review this finished game"
                           >
                             <IconBarChart /> {pendingGameReview ? 'Starting review…' : 'Review this game'}
                           </button>
@@ -9599,12 +9599,9 @@ function App() {
                       disabled={Boolean(reviewGameDisabledReason)}
                       title={reviewGameDisabledReason ?? undefined}
                       aria-label={reviewGameButtonLabel}
+                      onKeyDown={event => { if (event.key === 'Enter' && event.repeat) event.preventDefault() }}
                     >
-                      {isBatchReviewing ? (
-                        <><IconStop /> Reviewing {batchReviewPercent}%</>
-                      ) : (
-                        <><IconSearch /> Review Game</>
-                      )}
+                      {isBatchReviewing ? <IconStop /> : <IconSearch />} {reviewGameButtonText}
                     </button>
                   </div>
                   {!isMobileLayout && playFromHereRow}
