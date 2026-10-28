@@ -22851,7 +22851,15 @@ async function checkCommandPaletteKeyboard(browser) {
       await page.locator('#chessboard-square-e4').click()
       await page.waitForFunction(() => document.querySelector('#chessboard-square-e4 [data-piece="wP"]'))
       const opener = page.getByTestId('command-palette-btn')
-      await opener.click()
+      await page.mouse.move(0, 0)
+      await opener.focus()
+      await page.keyboard.down('Enter')
+      await page.waitForFunction(() => document.activeElement?.matches('[data-command-input]'))
+      await page.keyboard.down('Enter'); await page.keyboard.up('Enter')
+      assert(await page.locator('.command-palette').isVisible()
+        && await page.locator('[data-command-input]').inputValue() === ''
+        && await page.evaluate(() => JSON.parse(localStorage.getItem('webchess:recent-commands:v1') || '[]').length === 0),
+      'holding Enter to open Commands ran its highlighted command')
       const square = page.locator('#chessboard-square-a1')
       const before = await square.boundingBox()
       /*
@@ -22930,6 +22938,12 @@ async function checkCommandPaletteKeyboard(browser) {
       assert(await input.getAttribute('aria-activedescendant') !== initial, 'ArrowDown did not select another command')
       await input.press('ArrowUp')
       assert(await input.getAttribute('aria-activedescendant') === initial, 'ArrowUp did not restore the selection')
+      await page.keyboard.down('ArrowDown')
+      const firstDown = await input.getAttribute('aria-activedescendant')
+      await page.keyboard.down('ArrowDown'); await page.keyboard.up('ArrowDown')
+      assert(await input.getAttribute('aria-activedescendant') !== firstDown, 'held Down did not continue selecting commands')
+      await input.press('ArrowUp'); await input.press('ArrowUp')
+      assert(await input.getAttribute('aria-activedescendant') === initial, 'held-arrow navigation did not return to its original selection')
       await input.fill('board')
       const selected = await input.getAttribute('aria-activedescendant')
       await input.evaluate(el => {
@@ -23004,7 +23018,7 @@ async function checkCommandPaletteKeyboard(browser) {
         await page.keyboard.press('Escape')
       }
       console.log(`  command reopen (${width}px): query and selection reset before the first key, across three reopen cycles`)
-      console.log(`  command keyboard (${width}px): Tab activates the focused button; native Shift+Down and modified/composing keys preserve search editing and command selection; plain arrows and Enter work`)
+      console.log(`  command keyboard (${width}px): held Enter opens Commands without running a command; held arrows navigate, fresh Enter and Tab activation work; native Shift+Down and modified/composing keys preserve search editing and command selection`)
     } finally { await context.close() }
   }
 }

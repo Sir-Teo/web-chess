@@ -1,0 +1,8 @@
+{"browser":"chromium","port":"4324","commit":"ce204ea38b703ce44b8b4ad3f0320af1c368d327","build":"Vite development source","dirty":true,"checks":["checkCommandPaletteKeyboard"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkCommandPaletteKeyboard
+  command reopen (1280px): query and selection reset before the first key, across three reopen cycles
+  command keyboard (1280px): held Enter opens Commands without running a command; held arrows navigate, fresh Enter and Tab activation work; native Shift+Down and modified/composing keys preserve search editing and command selection
+  command reopen (375px): query and selection reset before the first key, across three reopen cycles
+  command keyboard (375px): held Enter opens Commands without running a command; held arrows navigate, fresh Enter and Tab activation work; native Shift+Down and modified/composing keys preserve search editing and command selection
+Development focused checks passed.

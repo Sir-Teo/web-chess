@@ -77,6 +77,7 @@ export function CommandPaletteDialog({ open, commands, onClose }: Props) {
         }
         if (event.key === 'Enter') {
             event.preventDefault()
+            if (event.repeat) return
             runCommand(ranked[activeIndex])
         }
     }
