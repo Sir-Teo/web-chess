@@ -1,0 +1,143 @@
+[
+  {
+    "browser": "chromium",
+    "errors": [],
+    "options": [
+      {
+        "name": "Hash",
+        "value": "128",
+        "events": [
+          {
+            "kind": "sent",
+            "line": "setoption name Hash value 128"
+          },
+          {
+            "kind": "sent",
+            "line": "isready"
+          },
+          {
+            "kind": "received",
+            "line": "readyok"
+          }
+        ],
+        "focused": "Hash"
+      },
+      {
+        "name": "Move Overhead",
+        "value": "23",
+        "events": [
+          {
+            "kind": "sent",
+            "line": "setoption name Move Overhead value 23"
+          },
+          {
+            "kind": "sent",
+            "line": "isready"
+          },
+          {
+            "kind": "received",
+            "line": "readyok"
+          }
+        ],
+        "focused": "Move Overhead"
+      }
+    ],
+    "engine": "id name Stockfish 18 Lite WASM",
+    "search": "> go depth 6\ninfo string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))\ninfo string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback.\ninfo depth 1 seldepth 2 multipv 1 score cp 7 nodes 20 nps 2857 hashfull 0 time 7 pv d2d4\ninfo depth 2 seldepth 3 multipv 1 score cp 34 nodes 48 nps 6857 hashfull 0 time 7 pv d2d4\ninfo depth 3 seldepth 4 multipv 1 score cp 47 nodes 119 nps 14875 hashfull 0 time 8 pv d2d4\ninfo depth 4 seldepth 9 multipv 1 score cp 22 nodes 1375 nps 137500 hashfull 0 time 10 pv d2d4 d7d5 g2g3\ninfo depth 5 seldepth 7 multipv 1 score cp 20 nodes 2020 nps 168333 hashfull 0 time 12 pv e2e4 d7d5 e4d5 d8d5\ninfo depth 6 seldepth 9 multipv 1 score cp 21 nodes 2739 nps 195642 hashfull 0 time 14 pv e2e4 e7e6 d2d4 d7d5 e4d5 e6d5 d1e2 f8e7\nbestmove e2e4 ponder e7e6",
+    "passed": true
+  },
+  {
+    "browser": "firefox",
+    "errors": [],
+    "options": [
+      {
+        "name": "Hash",
+        "value": "128",
+        "events": [
+          {
+            "kind": "sent",
+            "line": "setoption name Hash value 128"
+          },
+          {
+            "kind": "sent",
+            "line": "isready"
+          },
+          {
+            "kind": "received",
+            "line": "readyok"
+          }
+        ],
+        "focused": "Hash"
+      },
+      {
+        "name": "Move Overhead",
+        "value": "23",
+        "events": [
+          {
+            "kind": "sent",
+            "line": "setoption name Move Overhead value 23"
+          },
+          {
+            "kind": "sent",
+            "line": "isready"
+          },
+          {
+            "kind": "received",
+            "line": "readyok"
+          }
+        ],
+        "focused": "Move Overhead"
+      }
+    ],
+    "engine": "id name Stockfish 18 Lite WASM",
+    "search": "> go depth 6\ninfo string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))\ninfo string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback.\ninfo depth 1 seldepth 2 multipv 1 score cp 7 nodes 20 nps 6666 hashfull 0 time 3 pv d2d4\ninfo depth 2 seldepth 3 multipv 1 score cp 34 nodes 48 nps 12000 hashfull 0 time 4 pv d2d4\ninfo depth 3 seldepth 4 multipv 1 score cp 47 nodes 119 nps 23800 hashfull 0 time 5 pv d2d4\ninfo depth 4 seldepth 9 multipv 1 score cp 22 nodes 1375 nps 76388 hashfull 0 time 18 pv d2d4 d7d5 g2g3\ninfo depth 5 seldepth 7 multipv 1 score cp 20 nodes 2020 nps 84166 hashfull 0 time 24 pv e2e4 d7d5 e4d5 d8d5\ninfo depth 6 seldepth 9 multipv 1 score cp 21 nodes 2739 nps 80558 hashfull 0 time 34 pv e2e4 e7e6 d2d4 d7d5 e4d5 e6d5 d1e2 f8e7\nbestmove e2e4 ponder e7e6",
+    "passed": true
+  },
+  {
+    "browser": "webkit",
+    "errors": [],
+    "options": [
+      {
+        "name": "Hash",
+        "value": "128",
+        "events": [
+          {
+            "kind": "sent",
+            "line": "setoption name Hash value 128"
+          },
+          {
+            "kind": "sent",
+            "line": "isready"
+          },
+          {
+            "kind": "received",
+            "line": "readyok"
+          }
+        ],
+        "focused": "Hash"
+      },
+      {
+        "name": "Move Overhead",
+        "value": "23",
+        "events": [
+          {
+            "kind": "sent",
+            "line": "setoption name Move Overhead value 23"
+          },
+          {
+            "kind": "sent",
+            "line": "isready"
+          },
+          {
+            "kind": "received",
+            "line": "readyok"
+          }
+        ],
+        "focused": "Move Overhead"
+      }
+    ],
+    "engine": "id name Stockfish 18 Lite WASM",
+    "search": "> go depth 6\ninfo string NNUE evaluation using nn-9067e33176e8.nnue (11MiB, (22528, 256, 15, 32, 1))\ninfo string Network replica 1: Local memory. Shared memory not supported by the OS. Local allocation fallback.\ninfo depth 1 seldepth 2 multipv 1 score cp 7 nodes 20 nps 1818 hashfull 0 time 11 pv d2d4\ninfo depth 2 seldepth 3 multipv 1 score cp 34 nodes 48 nps 4000 hashfull 0 time 12 pv d2d4\ninfo depth 3 seldepth 4 multipv 1 score cp 47 nodes 119 nps 7000 hashfull 0 time 17 pv d2d4\ninfo depth 4 seldepth 9 multipv 1 score cp 22 nodes 1375 nps 42968 hashfull 0 time 32 pv d2d4 d7d5 g2g3\ninfo depth 5 seldepth 7 multipv 1 score cp 20 nodes 2020 nps 59411 hashfull 0 time 34 pv e2e4 d7d5 e4d5 d8d5\ninfo depth 6 seldepth 9 multipv 1 score cp 21 nodes 2739 nps 78257 hashfull 0 time 35 pv e2e4 e7e6 d2d4 d7d5 e4d5 e6d5 d1e2 f8e7\nbestmove e2e4 ponder e7e6",
+    "passed": true
+  }
+]

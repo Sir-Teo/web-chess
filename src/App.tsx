@@ -10214,7 +10214,7 @@ function App() {
                       ))}
                     </div>
                     <p className="panel-copy small">
-                      Hash (16–512 MB), MultiPV (1–5), and UCI_ShowWDL share your saved analysis settings. Other options apply to this engine session.
+                      Press Enter or leave a field to apply its value. Hash (16–512 MB), MultiPV (1–5), and UCI_ShowWDL share your saved analysis settings. Other options apply to this engine session.
                       {status === 'analyzing' && ' Locked while a search is running.'}
                     </p>
                   </div>

@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { normalizeSpinOptionInput } from '../engine/options'
+import { isCompositionKey } from './shortcutKeys'
 
 type EngineOptionControlProps = {
   option: {
@@ -29,7 +30,10 @@ export function EngineOptionControl({ option, onSetOption, disabled = false }: E
     if (!target) return
     restoreTarget.current = target
     const events = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const
-    const cancel = () => {
+    const cancel = (event?: Event) => {
+      // A held apply key is still the same action, including while disabling
+      // the field has temporarily moved native focus onto the document.
+      if (event instanceof KeyboardEvent && event.key === 'Enter' && event.repeat) return
       restoreTarget.current = null
       for (const name of events) window.removeEventListener(name, cancel, true)
     }
@@ -54,6 +58,23 @@ export function EngineOptionControl({ option, onSetOption, disabled = false }: E
   if (previousOptionValue !== optionValue) {
     setPreviousOptionValue(optionValue)
     setValue(optionValue)
+  }
+
+  const applyInputValue = (focusTarget: HTMLElement | null) => {
+    if (disabled) return
+    const next = option.type === 'spin' ? normalizeSpinOptionInput(option, value) : value
+    setValue(String(next))
+    if (String(next) === appliedValue) return
+    rememberApplyFocus(focusTarget)
+    onSetOption(option.name, next)
+  }
+  const applyOnEnter = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter' || isCompositionKey(event.nativeEvent)) return
+    event.preventDefault()
+    if (event.repeat) return
+    // Applying temporarily disables the field while Stockfish acknowledges it.
+    // Return here unless the reader chooses another control in the meantime.
+    applyInputValue(event.currentTarget)
   }
 
   if (option.type === 'button') {
@@ -100,15 +121,10 @@ export function EngineOptionControl({ option, onSetOption, disabled = false }: E
           max={option.max}
           value={value}
           disabled={disabled}
+          enterKeyHint="done"
           onChange={e => setValue(e.target.value)}
-          onBlur={event => {
-            const normalized = normalizeSpinOptionInput(option, value)
-            setValue(String(normalized))
-            if (String(normalized) === appliedValue) return
-            // Keep the Tab destination while applying, yielding to new input.
-            rememberApplyFocus(event.relatedTarget instanceof HTMLElement ? event.relatedTarget : null)
-            onSetOption(option.name, normalized)
-          }} />
+          onKeyDown={applyOnEnter}
+          onBlur={event => applyInputValue(event.relatedTarget instanceof HTMLElement ? event.relatedTarget : null)} />
       </label>
     )
   }
@@ -143,12 +159,10 @@ export function EngineOptionControl({ option, onSetOption, disabled = false }: E
         aria-label={option.name}
         value={value}
         disabled={disabled}
+        enterKeyHint="done"
         onChange={e => setValue(e.target.value)}
-        onBlur={event => {
-          if (value === optionValue) return
-          rememberApplyFocus(event.relatedTarget instanceof HTMLElement ? event.relatedTarget : null)
-          onSetOption(option.name, value)
-        }} />
+        onKeyDown={applyOnEnter}
+        onBlur={event => applyInputValue(event.relatedTarget instanceof HTMLElement ? event.relatedTarget : null)} />
     </label>
   )
 }

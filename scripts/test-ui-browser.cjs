@@ -350,6 +350,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
         this.send('option name UCI_ShowWDL type check default false');
         if (SCENARIO === 'console-search' && window.__testSpinOptions) this.send('option name Move Overhead type spin default 10 min 0 max 5000');
         if (SCENARIO === 'console-search' && window.__testConfigurationOptions) this.send('option name Clear Hash type button');
+        if (SCENARIO === 'console-search' && window.__testTextOptions) this.send('option name EvalFile type string default default.nnue');
         this.send('uciok');
         return;
       }
@@ -13772,6 +13773,93 @@ async function checkThreadConfigurationOwnership(browser) {
   } finally { await context.close() }
 }
 
+async function checkEngineOptionEntry(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [320, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(theme => {
+        window.__testTextOptions = true
+        window.__testSpinOptions = true
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+          continuousAnalysis: false, engineProfile: 'lite-single-local', hashMb: 64, multiPv: 1, showWdl: false, theme,
+        }))
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const boardBefore = await page.locator('#chessboard-square-e2').evaluate(readBoardSquareLabel)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      await command.fill('go depth 4')
+      const hash = page.getByRole('spinbutton', { name: 'Hash', exact: true })
+      const file = page.getByRole('textbox', { name: 'EvalFile', exact: true })
+      const count = text => page.evaluate(text => window.__uciCommands.filter(item => item === text).length, text)
+      const hold = () => page.evaluate(() => { window.__holdConsoleReady = true; window.__releaseConsoleReady = null })
+      const release = async () => {
+        await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
+        await page.evaluate(() => window.__releaseConsoleReady())
+        await page.waitForFunction(() => !document.querySelector('input[aria-label="Hash"]').disabled)
+      }
+      const apply = async (control, value, text, shown = value) => {
+        const before = await count(text)
+        await hold()
+        await control.fill(value)
+        await control.press('Enter')
+        await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
+        assert(await control.isDisabled(), 'an Enter-applied setting allowed an overlapping mutation before readiness')
+        assert(await count(text) === before + 1, `Enter did not apply exactly one ${text}: ${JSON.stringify(await page.evaluate(() => window.__uciCommands))}`)
+        await control.evaluate(el => el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', repeat: true, bubbles: true })))
+        await release()
+        await page.waitForFunction(name => document.activeElement?.getAttribute('aria-label') === name, await control.getAttribute('aria-label'))
+        assert(await control.inputValue() === shown, 'Enter did not retain the applied value')
+        await control.press('Tab')
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        assert(await count(text) === before + 1, 'blur or a held Enter re-applied the accepted setting')
+      }
+      await apply(hash, '128', 'setoption name Hash value 128')
+      assert(await page.evaluate(() => JSON.parse(localStorage.getItem('webchess:analysis-settings:v1')).hashMb) === 128,
+        'the Enter-applied Hash value did not reach the saved analysis setting')
+      await apply(hash, '999', 'setoption name Hash value 512', '512')
+      await apply(page.getByRole('spinbutton', { name: 'Move Overhead', exact: true }), '12.6', 'setoption name Move Overhead value 13', '13')
+
+      await file.fill('my network.nnue')
+      const textCommand = 'setoption name EvalFile value my network.nnue'
+      const beforeComposition = await count(textCommand)
+      for (const options of [{ isComposing: true }, { keyCode: 229 }, { repeat: true }]) {
+        await file.evaluate((el, options) => el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, ...options })), options)
+      }
+      assert(await count(textCommand) === beforeComposition && !await file.isDisabled(), 'composing or repeated Enter applied an unfinished text option')
+      await apply(file, 'my network.nnue', textCommand)
+
+      await hold()
+      await file.fill('other.nnue')
+      await file.press('Enter')
+      await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
+      await command.click()
+      await release()
+      assert(await command.evaluate(el => el === document.activeElement), 'option acknowledgement stole focus from the newer command draft')
+      assert(await command.inputValue() === 'go depth 4', 'applying an option erased the command draft')
+
+      const threads = page.getByRole('spinbutton', { name: 'Threads', exact: true })
+      const nextThreads = await threads.inputValue() === '2' ? '3' : '2'
+      await page.evaluate(() => { window.__holdThreadConfiguration = true; window.__ackThreadConfiguration = null })
+      await threads.fill(nextThreads)
+      await threads.press('Enter')
+      await page.waitForFunction(() => typeof window.__ackThreadConfiguration === 'function')
+      assert(await threads.isDisabled(), 'Enter skipped thread-configuration acknowledgement')
+      await page.evaluate(() => window.__ackThreadConfiguration())
+      await page.waitForFunction(() => !document.querySelector('input[aria-label="Threads"]').disabled
+        && document.activeElement === document.querySelector('input[aria-label="Threads"]'))
+      assert(await count(`setoption name Threads value ${nextThreads}`) === 1, 'Enter resized threads more than once')
+      assert(await page.locator('#chessboard-square-e2').evaluate(readBoardSquareLabel) === boardBefore, 'option entry changed the board')
+      assert(await page.evaluate(() => !window.__uciCommands.some(text => /^go\b/.test(text))), 'applying options unexpectedly started a search')
+      console.log(`  option entry (${width}px, ${scale}x, ${theme}): Enter applies numeric/text values once, normalizes bounds, persists Hash, awaits readiness and restores focus; IME/repeats, newer focus, draft and board retained`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkRawSpinOptionValues(browser) {
   for (const [width, scale] of [[1280, 1], [375, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -21944,6 +22032,7 @@ async function main() {
       'console-whitespace': checkConsoleWhitespace,
       'perft-stop': checkPerftStopReleasesWorker,
       'spin-options': checkRawSpinOptionValues,
+      'option-entry': checkEngineOptionEntry,
       'thread-configuration': checkThreadConfigurationOwnership,
       'console-drafts': checkConsoleDraftOwnership,
       'console-history': checkConsoleHistoryAndErrors,
@@ -22827,6 +22916,7 @@ async function main() {
     await checkConsoleWhitespace(browser)
     await checkPerftStopReleasesWorker(browser)
     await checkRawSpinOptionValues(browser)
+    await checkEngineOptionEntry(browser)
     await checkThreadConfigurationOwnership(browser)
     await checkConsoleDraftOwnership(browser)
     await checkConsoleHistoryAndErrors(browser)

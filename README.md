@@ -215,7 +215,9 @@ given, and the app answering the reader who touches it.
   Engine Lab on a 16-core machine, import a game, and the engine was quietly
   back on 8 with nothing on screen saying so, because `ucinewgame` produces a
   handshake and the handshake re-sent the recommendation. It is applied once
-  per engine now, so what you set is what searches.
+  per engine now, so what you set is what searches. Apply numeric or text
+  options with Enter or by leaving the field. Enter keeps you in that field
+  after the engine acknowledges the change.
 - **Search diagnostics for pros**: Pro mode reports ordinary and selective depth, nodes, NPS, transposition-table occupancy, tablebase hits, and elapsed time from Stockfish's live UCI output, so Hash and Syzygy settings can be judged from evidence rather than guesswork.
 - **Understand the percentages**: A collapsed guide beside the charts explains
   human-game Winrate estimates and Stockfish's win/draw/loss model, including
