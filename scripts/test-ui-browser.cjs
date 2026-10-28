@@ -12511,6 +12511,7 @@ async function checkArchivePreferences(browser) {
               // Deliberately ignore abort to exercise ownership of a late response.
               window.__releaseArchivePreferences = () => resolve(new Response(pgn))
             })
+            if (lichess && url.pathname.endsWith('/Network_Reader')) return Promise.reject(new TypeError('Fetch failed'))
             if (lichess) return Promise.resolve(new Response(url.pathname.endsWith('/Missing_Reader') ? '' : pgn))
             if (url.pathname.endsWith('/archives')) return Promise.resolve(new Response(JSON.stringify({ archives: [
               `https://api.chess.com/pub/player/${url.pathname.split('/')[3]}/games/2026/10`,
@@ -12575,6 +12576,25 @@ async function checkArchivePreferences(browser) {
       await dialog.getByRole('button', { name: 'Fetch', exact: true }).click()
       await dialog.getByRole('alert').filter({ hasText: 'has no public games' }).waitFor()
       assert(await stored() === remembered, 'an empty fetch replaced successful preferences')
+      const fetch = dialog.getByRole('button', { name: 'Fetch', exact: true })
+      const assertFetchError = async message => {
+        const alert = dialog.locator('.archive-fetch-error')
+        await alert.filter({ hasText: message }).waitFor()
+        assert(await fetch.getAttribute('aria-describedby') === await alert.getAttribute('id')
+          && await text.getAttribute('aria-invalid') !== 'true' && !await text.getAttribute('aria-describedby')
+          && await text.inputValue() === '1. d4 {Keep this draft ♞} *'
+          && await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).isEnabled(), 'a failed archive request is unassociated with Fetch or marks/changes the valid PGN draft')
+        const contrast = await page.evaluate(contrastProbe, '.archive-fetch-error')
+        assert(contrast.checked === 1 && contrast.failures.length === 0 && await alert.evaluate(el => el.scrollWidth <= el.clientWidth + 1), `archive fetch feedback is unreadable: ${JSON.stringify(contrast)}`)
+      }
+      await assertFetchError('has no public games')
+      await user.fill('Network_Reader')
+      assert(await dialog.locator('.archive-fetch-error').count() === 0 && !await fetch.getAttribute('aria-describedby'), 'editing an archive request retained its previous result error')
+      await fetch.click(); await assertFetchError('could not be reached')
+      assert(await stored() === remembered, 'a failed request replaced successful preferences')
+      await fetchFor('Chess.com', 'Chess_Two', 7)
+      assert(await dialog.locator('.archive-fetch-error').count() === 0 && !await fetch.getAttribute('aria-describedby')
+        && await text.inputValue() === pgn, 'a successful retry kept stale fetch feedback or did not supply the requested games')
       const beforeReopen = await requests()
       await close(); await open()
       await expectFields(blocked ? 'Lichess' : 'Chess.com', blocked ? '' : 'Chess_Two', blocked ? 10 : 7)
@@ -12585,7 +12605,7 @@ async function checkArchivePreferences(browser) {
       await open()
       await expectFields(blocked ? 'Lichess' : 'Chess.com', blocked ? '' : 'Chess_Two', blocked ? 10 : 7)
       assert(await requests() === 0 && errors.length === 0 && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `archive preference reload fetched automatically, overflowed or raised errors: ${errors.join('; ')}`)
-      console.log(`  archive preferences (${width}px, ${scale}x, ${theme}, ${blocked ? 'blocked storage' : seed}): separate provider drafts; two successful canonical handles and count; truthful storage feedback; canceled late/empty fetches preserve choices and PGN; reopen/reload restore without requests`)
+      console.log(`  archive preferences (${width}px, ${scale}x, ${theme}, ${blocked ? 'blocked storage' : seed}): separate provider drafts; successful canonical handles/count; truthful storage feedback; canceled late/empty/failed fetches preserve choices and PGN; request errors belong to Fetch and clear on edit/retry; reopen/reload restore without requests`)
     } finally { await context.close() }
   }
 }

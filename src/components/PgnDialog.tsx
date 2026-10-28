@@ -164,6 +164,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const [archiveCount, setArchiveCount] = useState(String(archiveDefaults.count))
     const [archivePreferencesStored, setArchivePreferencesStored] = useState<boolean | null>(null)
     const [archiveBusy, setArchiveBusy] = useState(false)
+    const [archiveError, setArchiveError] = useState<string | null>(null)
     const [readingFile, setReadingFile] = useState(false)
     const [archiveUsernameFeedback, setArchiveUsernameFeedback] = useState<'blurred' | 'submitted' | null>(null)
     const [databaseBusy, setDatabaseBusy] = useState(false)
@@ -187,6 +188,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const fullmoveId = useId()
     const archiveUserId = useId()
     const archiveCountId = useId()
+    const archiveErrorId = useId()
     const enPassantId = useId()
     const sideHelpId = useId()
     const castlingHelpId = useId()
@@ -203,6 +205,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
         setExportTextSnapshot(null)
         setShareLinkFallback('')
         setArchivePreferencesStored(null)
+        setArchiveError(null)
     }, [])
 
     // A newer paste, file, or archive choice owns the import box. Cancel the
@@ -275,13 +278,13 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
             const games = await fetchArchiveGames(archiveSource, username, archiveGameCount, { signal: controller.signal })
             if (controller.signal.aborted) return
             if (games.length === 0) {
-                setError(`${archiveSourceInfo.label} has no public games for “${username}”.`)
+                setArchiveError(`${archiveSourceInfo.label} has no public games for “${username}”.`)
                 return
             }
             const text = games.join('\n\n')
             const limitError = pgnImportLengthError(text)
             if (limitError) {
-                setError(limitError)
+                setArchiveError(limitError)
                 return
             }
             setImportText(text)
@@ -292,7 +295,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
             setStatus(`Fetched ${games.length} ${games.length === 1 ? 'game' : 'games'} for ${username}.`)
         } catch (fetchError) {
             if (controller.signal.aborted) return
-            setError(fetchError instanceof Error ? fetchError.message : 'Those games could not be fetched.')
+            setArchiveError(fetchError instanceof Error ? fetchError.message : 'Those games could not be fetched.')
         } finally {
             if (archiveAbortRef.current === controller) {
                 archiveAbortRef.current = null
@@ -842,6 +845,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                     <button
                                         type="button"
                                         className={`${archiveBusy ? 'btn-cancel' : 'btn-start'} archive-fetch-btn`}
+                                        aria-describedby={archiveError ? archiveErrorId : undefined}
                                         onKeyDown={event => { if (event.key === 'Enter' && event.repeat) event.preventDefault() }}
                                         onClick={() => {
                                             if (archiveBusy) {
@@ -868,6 +872,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                 {archivePreferencesStored !== null && <p className="archive-hint archive-preferences-note">
                                     {archivePreferencesStored ? 'Fetch choices remembered on this device.' : 'These choices apply while this dialog is open.'}
                                 </p>}
+                                {archiveError && <p id={archiveErrorId} className="dialog-error archive-fetch-error" role="alert">{archiveError}</p>}
                             </div>
                             <label className="dialog-label archive-paste-label" htmlFor={importTextId}>Or paste Portable Game Notation</label>
                             <div className="dialog-quick-actions">

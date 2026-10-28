@@ -1,0 +1,46 @@
+[
+  {
+    "width": 1280,
+    "scale": 1,
+    "username": "Missing_reader",
+    "text": "1. d4 {Keep this valid draft \u265e} *",
+    "pgnInvalid": "false",
+    "pgnDescription": null,
+    "fetchDescription": "_r_u_",
+    "message": "Lichess has no public games for \u201cMissing_reader\u201d.",
+    "canImport": true
+  },
+  {
+    "width": 1280,
+    "scale": 1,
+    "username": "Network_reader",
+    "text": "1. d4 {Keep this valid draft \u265e} *",
+    "pgnInvalid": "false",
+    "pgnDescription": null,
+    "fetchDescription": "_r_u_",
+    "message": "Lichess could not be reached. Check your connection \u2014 the board and the local engine keep working without it.",
+    "canImport": true
+  },
+  {
+    "width": 375,
+    "scale": 2,
+    "username": "Missing_reader",
+    "text": "1. d4 {Keep this valid draft \u265e} *",
+    "pgnInvalid": "false",
+    "pgnDescription": null,
+    "fetchDescription": "_r_u_",
+    "message": "Lichess has no public games for \u201cMissing_reader\u201d.",
+    "canImport": true
+  },
+  {
+    "width": 375,
+    "scale": 2,
+    "username": "Network_reader",
+    "text": "1. d4 {Keep this valid draft \u265e} *",
+    "pgnInvalid": "false",
+    "pgnDescription": null,
+    "fetchDescription": "_r_u_",
+    "message": "Lichess could not be reached. Check your connection \u2014 the board and the local engine keep working without it.",
+    "canImport": true
+  }
+]
