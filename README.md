@@ -235,6 +235,7 @@ given, and the app answering the reader who touches it.
   human-game Winrate estimates and Stockfish's win/draw/loss model, including
   why a neutral 50% on one graph can accompany a high draw probability. It is
   available in Coach and Pro, including Review, with links to both models.
+  Partial charts show reading coverage and explain when curves cross gaps.
 - **Game review, of the line you are on**: Import a PGN, run a review pass, filter critical moments by side, inspect accuracy, and jump from a review row back to the board. The review follows the branch the board is standing in, so a variation can be reviewed like the game — and when that is not the main line it says so. Accuracy and move labels are scored on winning chances rather than raw centipawns, so an imprecision in a decided game is not called a blunder. The labels are the ones readers arrive knowing: *Book* while a sound move stays in the opening table, *Best* for the engine's own move and nothing else, *Excellent* for one that gave up almost nothing, then Good, Inaccuracy, Mistake and Blunder — so a row never reads "Best e4" beside a move it also calls Best. A best-move hint appears only once a search deep enough to grade the move has run; the 70 ms import sweep's choice is not one.
 - **Stop a running review**: The review button shows **Stop review** and its
   progress percentage while it works. Press it to stop; a held Enter cannot

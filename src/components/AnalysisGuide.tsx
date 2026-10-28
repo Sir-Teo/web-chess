@@ -11,6 +11,8 @@ export const GraphEstimateGuide = memo(function GraphEstimateGuide() {
           It uses Stockfish's win/draw/loss estimate when available and a score-based estimate otherwise.</p>
         <p><strong>Win / draw / loss</strong> shows Stockfish's separate outcome estimates
           for games between strong engines. Your rating, opponent and clock affect the practical outcome.</p>
+        <p><strong>Partial charts.</strong> Coverage counts show how many positions have readings.
+          The curves connect available readings, including across positions without a reading.</p>
         <div className="graph-guide-links">
           <a href="https://lichess.org/page/accuracy" target="_blank" rel="noreferrer">Score estimate ↗</a>
           <a href="https://official-stockfish.github.io/docs/stockfish-wiki/UCI-Protocol-and-Stockfish-Commands.html#uci-showwdl"

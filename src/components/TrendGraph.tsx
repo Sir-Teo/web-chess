@@ -1,4 +1,4 @@
-import { memo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { memo, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { WdlPoint, WinratePoint } from '../engine/analysis'
 import { formatMoveTime, type MoveTimePoint } from '../engine/moveTimes'
 import { useElementWidth } from '../hooks/useElementWidth'
@@ -17,6 +17,14 @@ import {
   graphWidthForIndex,
 } from './graphLayout'
 import { IconBarChart, IconTrendingUp, IconClock } from './icons'
+import { isCompositionKey, isPlainShortcut } from './shortcutKeys'
+
+function graphCoverageText(points: readonly { index: number }[], maxIndex: number): string | undefined {
+  if (points.length >= maxIndex + 1) return undefined
+  const count = `${points.length} of ${maxIndex + 1} positions have readings.`
+  const gaps = points.some((point, index) => index > 0 && point.index > points[index - 1]!.index + 1)
+  return gaps ? `${count} Lines connect across gaps.` : count
+}
 
 type WinrateGraphProps = {
   points: WinratePoint[]
@@ -89,7 +97,8 @@ function trendGraphGeometry(
   }
 
   const handleKeyDown = (e: ReactKeyboardEvent<SVGSVGElement>) => {
-    if (!isNavigable || !onNavigate) return
+    if (!isNavigable || !onNavigate || e.defaultPrevented
+      || !isPlainShortcut(e.nativeEvent) || isCompositionKey(e.nativeEvent)) return
 
     const targetIdx = graphKeyboardTarget(e.key, selectedIndex, maxIndex)
     if (targetIdx === null) return
@@ -140,6 +149,7 @@ function GraphReadout({ x, padLeft, padTop, height, padBottom, text }: {
 
 export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, lastPlyIndex, onNavigate }: WinrateGraphProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const coverageId = useId()
   const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   // The readout follows the pointer, and failing that the keyboard: a reader
@@ -159,6 +169,8 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
     maxIndex, width, height, padLeft, padRight, padTop, padBottom,
     toX, toY, lastPointIndex, markers, xTickStep, isNavigable, selectedIndex, handleClick, handleKeyDown, indexAtClientX,
   } = trendGraphGeometry(points, available, currentIndex, onNavigate, lastPlyIndex)
+
+  const coverage = graphCoverageText(points, maxIndex)
 
   const path = points
     .map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(p.index).toFixed(2)} ${toY(p.whiteWinrate).toFixed(2)}`)
@@ -183,6 +195,7 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
           role={isNavigable ? 'slider' : 'img'}
           tabIndex={isNavigable ? 0 : undefined}
           aria-label={isNavigable ? 'White expected score move navigator' : 'White expected score graph'}
+          aria-describedby={coverage ? coverageId : undefined}
           aria-valuemin={isNavigable ? 0 : undefined}
           aria-valuemax={isNavigable ? maxIndex : undefined}
           aria-valuenow={isNavigable ? selectedIndex : undefined}
@@ -256,6 +269,7 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
           )}
         </svg>
       </div>
+      {coverage && <p id={coverageId} className="graph-coverage">{coverage}</p>}
     </div>
   )
 })
@@ -270,6 +284,7 @@ type WdlProgressGraphProps = {
 
 export const WdlProgressGraph = memo(function WdlProgressGraph({ points, currentIndex, lastPlyIndex, onNavigate }: WdlProgressGraphProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const coverageId = useId()
   const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   const [focused, setFocused] = useState(false)
@@ -286,6 +301,8 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
     maxIndex, width, height, padLeft, padRight, padTop, padBottom,
     toX, toY, markers, xTickStep, isNavigable, selectedIndex, handleClick, handleKeyDown, indexAtClientX,
   } = trendGraphGeometry(points, available, currentIndex, onNavigate, lastPlyIndex)
+
+  const coverage = graphCoverageText(points, maxIndex)
 
   const buildPath = (selector: (point: WdlPoint) => number): string =>
     points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(p.index).toFixed(2)} ${toY(selector(p)).toFixed(2)}`).join(' ')
@@ -311,6 +328,7 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
           role={isNavigable ? 'slider' : 'img'}
           tabIndex={isNavigable ? 0 : undefined}
           aria-label={isNavigable ? 'WDL trend move navigator' : 'WDL progression graph'}
+          aria-describedby={coverage ? coverageId : undefined}
           aria-valuemin={isNavigable ? 0 : undefined}
           aria-valuemax={isNavigable ? maxIndex : undefined}
           aria-valuenow={isNavigable ? selectedIndex : undefined}
@@ -378,6 +396,7 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
           )}
         </svg>
       </div>
+      {coverage && <p id={coverageId} className="graph-coverage">{coverage}</p>}
     </div>
   )
 })

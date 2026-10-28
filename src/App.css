@@ -4114,6 +4114,14 @@ button.pv-move:focus-visible {
   scrollbar-width: thin;
 }
 
+.graph-coverage {
+  margin: 0.5rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .winrate-graph {
   width: max-content;
   min-width: 100%;

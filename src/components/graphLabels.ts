@@ -42,7 +42,7 @@ export function describeWinratePosition(
   index: number,
 ): string {
   const where = formatGraphPositionLabel(point, index)
-  return point ? `${where}, White expected score ${point.whiteWinrate.toFixed(1)}%` : where
+  return point ? `${where}, White expected score ${point.whiteWinrate.toFixed(1)}%` : `${where}, no reading`
 }
 
 export function describeWdlPosition(
@@ -52,7 +52,7 @@ export function describeWdlPosition(
   const where = formatGraphPositionLabel(point, index)
   return point
     ? `${where}, White ${point.white.toFixed(0)}%, draw ${point.draw.toFixed(0)}%, Black ${point.black.toFixed(0)}%`
-    : where
+    : `${where}, no reading`
 }
 
 /**

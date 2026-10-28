@@ -13820,6 +13820,99 @@ async function checkTheWinrateCardFollowsTheBoard(browser) {
   } finally { await context.close() }
 }
 
+async function checkGraphCoverage(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      // Navigation may ask for a reading; finish those requests without data.
+      // Explicit Analyze below alone supplies the fixture's selected samples.
+      await page.addInitScript(fakeEngineScript().replace('if (window.__withholdEngineInfo) return;',
+        'if (window.__withholdEngineInfo) { this.finishTimer = setTimeout(() => this.finishSearch(), 15); return; }'))
+      await page.addInitScript(theme => {
+        window.__withholdEngineInfo = true
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, showWdl: true, engineProfile: 'lite-single-local', theme }))
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.locator('.move-entry summary').click()
+      const input = page.locator('.move-entry input')
+      for (const [move, square, piece] of [['e4', 'e4', 'wP'], ['e5', 'e5', 'bP'], ['Nf3', 'f3', 'wN'], ['Nc6', 'c6', 'bN'], ['Bb5', 'b5', 'wB'], ['a6', 'a6', 'bP'], ['Ba4', 'a4', 'wB'], ['Nf6', 'f6', 'bN']]) {
+        await input.fill(move); await input.press('Enter')
+        await page.locator(`#chessboard-square-${square} [data-piece="${piece}"]`).waitFor()
+      }
+      const goCount = () => page.evaluate(() => window.__uciCommands.filter(command => command.startsWith('go ')).length)
+      let current = 8
+      const analyzeAt = async index => {
+        if (index !== current) {
+          if (index === 0) await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+          else await page.locator('.mtree-chip').nth(index - 1).click()
+          current = index
+        }
+        const before = await goCount()
+        await page.evaluate(() => { window.__withholdEngineInfo = false })
+        await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
+        await page.waitForFunction(before => window.__uciCommands.filter(command => command.startsWith('go ')).length > before
+          && document.querySelector('.bottom .status')?.textContent === 'ready', before)
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        await page.evaluate(() => { window.__withholdEngineInfo = true })
+      }
+      const graphs = [page.getByRole('slider', { name: 'White expected score move navigator', exact: true }), page.getByRole('slider', { name: 'WDL trend move navigator', exact: true })]
+      const coverage = page.locator('.graph-coverage')
+      const expectCoverage = async (count, gaps) => {
+        await page.waitForFunction(({ count, gaps }) => {
+          const notes = [...document.querySelectorAll('.graph-coverage')]
+          return notes.length === 2 && notes.every(el => el.textContent === `${count} of 9 positions have readings.${gaps ? ' Lines connect across gaps.' : ''}`)
+        }, { count, gaps })
+        for (const graph of graphs) {
+          assert(await graph.getAttribute('aria-valuemax') === '8', 'coverage changed the nine-position navigation range')
+          assert(await graph.evaluate(el => {
+            const note = document.getElementById(el.getAttribute('aria-describedby'))
+            return note?.classList.contains('graph-coverage') && !note.hasAttribute('aria-live') && !note.hasAttribute('role')
+              && note.scrollWidth <= note.clientWidth + 1
+          }), 'coverage is missing from the slider description, clips, or creates another live announcement')
+        }
+      }
+      await analyzeAt(0); await analyzeAt(1); await expectCoverage(2, false)
+      for (const index of [4, 5, 8]) await analyzeAt(index)
+      await expectCoverage(5, true)
+      assert(await graphs[0].locator('circle.graph-point').count() === 5, 'coverage fixture did not retain five actual samples')
+      const contrast = await page.evaluate(contrastProbe, '.graph-coverage')
+      assert(contrast.checked === 2 && contrast.failures.length === 0, `coverage contrast: ${JSON.stringify(contrast)}`)
+      await coverage.first().scrollIntoViewIfNeeded()
+      await page.screenshot({ path: `/tmp/web-chess-graph-coverage-${browser.browserType().name()}-${width}-${scale}x.png` })
+      for (const graph of graphs) {
+        await page.mouse.move(0, 0)
+        await graph.focus()
+        const before = await goCount()
+        const prevented = await graph.evaluate(el => [
+          { key: 'ArrowLeft', altKey: true }, { key: 'Home', ctrlKey: true }, { key: 'End', metaKey: true },
+          { key: 'PageUp', shiftKey: true }, { key: 'ArrowLeft', isComposing: true }, { key: 'End', keyCode: 229 },
+        ].map(init => { const event = new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true }); el.dispatchEvent(event); return event.defaultPrevented }))
+        assert(prevented.every(value => !value) && await graph.getAttribute('aria-valuenow') === '8'
+          && await goCount() === before, 'a graph captured a browser/composing chord or started another search')
+        await page.keyboard.down('ArrowLeft')
+        await page.waitForFunction(() => document.querySelector('[aria-label="White expected score move navigator"]')?.getAttribute('aria-valuenow') === '7')
+        await page.keyboard.down('ArrowLeft'); await page.keyboard.up('ArrowLeft')
+        await page.waitForFunction(() => document.querySelector('[aria-label="White expected score move navigator"]')?.getAttribute('aria-valuenow') === '6')
+        assert((await graph.getAttribute('aria-valuetext')).includes('no reading')
+          && (await graph.locator('.graph-readout').textContent()).includes('no reading'), 'an unscored position lacks visible or spoken missing-data feedback')
+        await graph.press('End')
+        await page.waitForFunction(() => document.querySelector('[aria-label="White expected score move navigator"]')?.getAttribute('aria-valuenow') === '8')
+      }
+      current = 8
+      await expectCoverage(5, true)
+      for (const index of [2, 3, 6, 7]) await analyzeAt(index)
+      await page.waitForFunction(() => !document.querySelector('.graph-coverage') && document.querySelectorAll('[aria-label="White expected score move navigator"] circle.graph-point').length === 9)
+      for (const graph of graphs) assert(!await graph.getAttribute('aria-describedby') && await graph.getAttribute('aria-valuemax') === '8', 'complete readings retained obsolete coverage or changed the range')
+      assert(await page.locator('.mtree-chip').count() === 8 && errors.length === 0, `coverage changed the line or raised errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'graph coverage overflows the viewport')
+      console.log(`  graph coverage (${width}×${height}, ${scale}x, ${theme}): 2/9 contiguous then 5/9 scattered readings, associated non-live descriptions and gap context; browser/IME chords untouched, bare held arrows repeat, visible/spoken missing data; all 9 readings remove the note without changing navigation or moves`)
+    } finally { await context.close() }
+  }
+}
+
 /** Board visuals and input stay current across engine and navigation changes. */
 async function checkBoardCanvas(browser) {
   for (const width of [1280, 375]) {
@@ -22868,6 +22961,8 @@ async function main() {
       'review-backup-import': checkReviewBackupImport,
       'review-depth': checkReviewAtRequestedDepth,
       'graph-readings': checkTheWinrateCardFollowsTheBoard,
+      'graph-coverage': checkGraphCoverage,
+      'move-times': checkMoveTimesAreGraphed,
       'observed-layout': checkObservedLayout,
       'narrow-desktop': checkNarrowDesktopLayout,
       'compact-toolbar': checkCompactToolbar,
@@ -23816,6 +23911,7 @@ async function main() {
     await checkTheBoardIsNotADeadZone(browser)
     await checkEveryControlIsFingerSized(browser)
     await checkTheWinrateCardFollowsTheBoard(browser)
+    await checkGraphCoverage(browser)
     await checkObservedLayout(browser)
     await checkNarrowDesktopLayout(browser)
     await checkCompactToolbar(browser)

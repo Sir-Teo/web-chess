@@ -33,9 +33,9 @@ describe('what the slider announces', () => {
       .toBe('After 12. Nf3, White 40%, draw 50%, Black 10%')
   })
 
-  it('names the position alone where nothing has been read', () => {
-    expect(describeWinratePosition(undefined, 7)).toBe('After move 7')
-    expect(describeWdlPosition(undefined, 0)).toBe('Start position')
+  it('says when the selected position has no reading', () => {
+    expect(describeWinratePosition(undefined, 7)).toBe('After move 7, no reading')
+    expect(describeWdlPosition(undefined, 0)).toBe('Start position, no reading')
   })
 })
 
