@@ -47,6 +47,7 @@ import { fetchArchiveGames } from '../engine/archiveFetch'
 import { IconDownload, IconClipboard, IconUpload, IconFlip, IconClose } from './icons'
 import { fenTextForShareLink } from './pgnDialogHelpers'
 import { isCompositionKey } from './shortcutKeys'
+import { readStorage, writeStorage } from '../engine/storage'
 import { PositionCounterInput } from './PositionCounterInput'
 import { PositionSetupBoard } from './PositionSetupBoard'
 import { PositionSetupPalette } from './PositionSetupPalette'
@@ -99,6 +100,24 @@ const DEFAULT_EXPORT_OPTIONS: Required<PgnExportOptions> = {
     includeEngineAnnotations: true,
     includeGlyphs: true,
 }
+const EXPORT_OPTIONS_STORAGE_KEY = 'webchess:pgn-export-options:v1'
+
+function readExportOptions(): Required<PgnExportOptions> {
+    const raw = readStorage(EXPORT_OPTIONS_STORAGE_KEY)
+    if (!raw || raw.length > 1024) return DEFAULT_EXPORT_OPTIONS
+    try {
+        const saved: unknown = JSON.parse(raw)
+        if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return DEFAULT_EXPORT_OPTIONS
+        const options = { ...DEFAULT_EXPORT_OPTIONS }
+        for (const key of Object.keys(options) as Array<keyof PgnExportOptions>) {
+            const value = (saved as Record<string, unknown>)[key]
+            if (typeof value === 'boolean') options[key] = value
+        }
+        return options
+    } catch {
+        return DEFAULT_EXPORT_OPTIONS
+    }
+}
 
 /**
  * What an unusable username is told, whether it is typed at or pressed at.
@@ -130,7 +149,8 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const [downloadFailure, setDownloadFailure] = useState<{ message: string } | null>(null)
     const [copiedText, setCopiedText] = useState<string | null>(null)
     const [exportTextSnapshot, setExportTextSnapshot] = useState<string | null>(null)
-    const [exportOptions, setExportOptions] = useState(DEFAULT_EXPORT_OPTIONS)
+    const [exportOptions, setExportOptions] = useState(readExportOptions)
+    const [exportOptionsStored, setExportOptionsStored] = useState<boolean | null>(null)
     const [setup, setSetup] = useState<PositionSetup>(() => parsePositionSetupFen(currentFen) ?? createStartingPositionSetup())
     const [selectedSetupPiece, setSelectedSetupPiece] = useState<SetupPiece | null>('P')
     const [setupFlipped, setSetupFlipped] = useState(false)
@@ -407,6 +427,10 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
         setExportOptions(options => ({ ...options, [key]: value }))
         resetFeedback()
     }
+
+    useEffect(() => {
+        setExportOptionsStored(writeStorage(EXPORT_OPTIONS_STORAGE_KEY, JSON.stringify(exportOptions)))
+    }, [exportOptions])
 
     const syncFenTextAndSetup = useCallback((nextFen: string) => {
         setFenText(nextFen)
@@ -1165,6 +1189,9 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                             />
                             <p id={`${exportTextId}-help`} className="dialog-export-help">
                                 Text stays still while focused; updates resume when you leave this field.
+                                {' '}{exportOptionsStored === false
+                                    ? 'Export choices apply while this dialog is open.'
+                                    : 'Export choices are remembered on this device.'}
                             </p>
                             {downloadFailure && (
                                 <div ref={downloadFailureRef} id={downloadErrorId} className="dialog-share-fallback" role="alert">

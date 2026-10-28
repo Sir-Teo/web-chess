@@ -6984,6 +6984,100 @@ async function checkLiveExportCopy(browser) {
   }
 }
 
+async function checkPgnExportPreferences(browser) {
+  const key = 'webchess:pgn-export-options:v1'
+  const labels = ['Variations', 'Comments', 'Engine evals', 'Glyphs']
+  const optionKeys = ['includeVariations', 'includeComments', 'includeEngineAnnotations', 'includeGlyphs']
+  const all = [true, true, true, true], mixed = [true, false, true, false]
+  const cases = [
+    [1280, 900, 1, 'dark', null, all, false],
+    [320, 812, 2, 'light', '{"includeComments":false,"includeGlyphs":false}', mixed, false],
+    [844, 390, 2, 'dark', '{"includeVariations":"false","includeComments":0,"includeEngineAnnotations":null,"extra":false}', all, false],
+    [375, 812, 1, 'light', '{broken', all, false],
+    [375, 812, 2, 'light', null, all, true],
+  ]
+  for (const [width, height, scale, theme, raw, initial, blocked] of cases) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', acceptDownloads: true })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(({ key, raw, theme, blocked }) => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme }))
+        if (!sessionStorage.getItem('qa-export-options-seeded')) {
+          if (raw !== null) localStorage.setItem(key, raw)
+          sessionStorage.setItem('qa-export-options-seeded', 'true')
+        }
+        if (blocked) {
+          for (const method of ['getItem', 'setItem']) {
+            const native = Storage.prototype[method]
+            Storage.prototype[method] = function (name, ...args) {
+              if (name === key) throw new DOMException('QA export preference storage blocked', 'SecurityError')
+              return native.call(this, name, ...args)
+            }
+          }
+        }
+      }, { key, raw, theme, blocked })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const dialog = page.locator('.pgn-dialog')
+      const open = async () => {
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await dialog.getByRole('button', { name: 'Export', exact: true }).click()
+      }
+      const states = () => dialog.getByRole('checkbox').evaluateAll(els => els.map(el => el.checked))
+      const choose = async values => {
+        for (const [index, label] of labels.entries()) {
+          const box = dialog.getByRole('checkbox', { name: label, exact: true })
+          if (await box.isChecked() !== values[index]) { await box.focus(); await box.press('Space') }
+        }
+      }
+      const expectStored = async values => {
+        if (blocked) return
+        await page.waitForFunction(({ key, optionKeys, values }) => {
+          const saved = JSON.parse(localStorage.getItem(key) || '{}')
+          return optionKeys.every((name, index) => saved[name] === values[index])
+        }, { key, optionKeys, values })
+      }
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await dialog.locator('textarea').fill('[Event "Preferences José"]\n\n1. e4 {Personal note ♞} $1 e5 (1... c5 {Branch note}) 2. Nf3 *')
+      await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await dialog.waitFor({ state: 'detached' }); await waitForBoardPiece(page, 'f3', 'White knight')
+      await open()
+      assert(JSON.stringify(await states()) === JSON.stringify(initial), 'stored export choices were not validated/defaulted correctly')
+      const output = dialog.getByRole('textbox', { name: 'Annotated Output', exact: true })
+      await choose([false, false, false, false]); await expectStored([false, false, false, false])
+      const plain = await output.inputValue()
+      assert(!/Personal note|Branch note|c5|\$\d+|\[%eval/.test(plain) && plain.includes('Nf3'), 'disabling export choices lost moves or retained excluded annotations')
+      const [file] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Download PGN', exact: true }).click()])
+      assert(fs.readFileSync(await file.path(), 'utf8') === await output.inputValue(), 'remembered export settings did not reach the downloaded PGN')
+      await dialog.getByRole('button', { name: 'Close', exact: true }).click(); await open()
+      assert(JSON.stringify(await states()) === JSON.stringify(blocked ? initial : [false, false, false, false]), 'closing the dialog lost saved choices or claimed to persist blocked ones')
+      await choose(mixed); await expectStored(mixed)
+      await dialog.getByRole('button', { name: 'Close', exact: true }).click()
+      await page.waitForFunction(() => {
+        const saved = JSON.parse(localStorage.getItem('webchess:auto-saved-game:v1') || 'null')
+        return saved?.pgn.includes('Personal note') && saved.pgn.includes('c5') && saved.moveCount === 3
+      })
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Restore', exact: true }).click(); await waitForBoardPiece(page, 'f3', 'White knight')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await open()
+      assert(JSON.stringify(await states()) === JSON.stringify(blocked ? initial : mixed), 'export choices did not survive reload')
+      const help = dialog.locator('.dialog-export-help')
+      assert((await help.innerText()).includes(blocked ? 'apply while this dialog is open' : 'remembered on this device'), 'export preference guidance promises persistence when storage is blocked')
+      await choose(all); await expectStored(all)
+      assert((await output.inputValue()).includes('Personal note') && (await output.inputValue()).includes('c5'), 'export preferences discarded the original notes or variation')
+      await help.scrollIntoViewIfNeeded()
+      assert(await help.evaluate(el => el.scrollWidth <= el.clientWidth + 1)
+        && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'export preference guidance overflows enlarged text')
+      assert(errors.length === 0, `export preference errors: ${errors.join('; ')}`)
+      await page.screenshot({ path: `/tmp/web-chess-export-preferences-${browser.browserType().name()}-${width}-${scale}x-${blocked ? 'blocked' : 'saved'}.png` })
+      console.log(`  PGN export preferences (${width}×${height}, ${scale}x, ${theme}, ${blocked ? 'blocked storage' : raw === null ? 'defaults' : 'stored validation'}): four keyboard choices, close/reopen and reload; exact plain download, restored original notes/variation, truthful persistence guidance and enlarged layout`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkManualClipboardFallback(browser) {
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [375, 812, 2, 'dark'], [320, 568, 2, 'light'], [844, 390, 2, 'dark']]) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
@@ -22856,6 +22950,7 @@ async function main() {
       'draw-mode': checkDrawModeEndsWithItsPurpose,
       'manual-copy': checkManualClipboardFallback,
       'live-export-copy': checkLiveExportCopy,
+      'pgn-export-settings': checkPgnExportPreferences,
       'live-share-copy': checkLiveShareFeedback,
       'text-composition': checkTextCompositionKeys,
       'reveal-dialogs': checkRevealTimersRespectDialogs,
@@ -23760,6 +23855,7 @@ async function main() {
     await checkFenCopyPreservesDraft(browser)
     await checkManualClipboardFallback(browser)
     await checkLiveExportCopy(browser)
+    await checkPgnExportPreferences(browser)
     await checkLiveShareFeedback(browser)
     await checkTextCompositionKeys(browser)
     await checkRevealTimersRespectDialogs(browser)

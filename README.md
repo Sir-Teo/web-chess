@@ -465,6 +465,8 @@ given, and the app answering the reader who touches it.
   saved width, including when loading saved games or position studies.
   Invalid starting positions are rejected without replacing the current study;
   the import stays open for correction.
+  PGN export choices for variations, comments, engine evaluations and glyphs
+  are remembered on this device when browser storage is available.
   PGN file reads show progress; **Cancel file read** keeps the import text you
   already have, and you can choose another file or paste instead.
   Declared castling rights require that side’s king and rook on their home squares.
