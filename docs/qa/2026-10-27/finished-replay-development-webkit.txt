@@ -1,0 +1,15 @@
+{"browser":"webkit","port":"4324","commit":"13a67d4cb406100edffd7050e3201af422ebd7f9","build":"Vite development source","dirty":true,"checks":["checkFinishedGameReplay","checkAutoplayWalksTheLine","checkReviewActionNames"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkFinishedGameReplay
+  finished replay (1280×900, 1x, Human vs AI): starts at root with board focus and visible Stop, held Enter stops/starts once, finishes, preserves all moves/mode and charges no clock time
+  finished replay (375×812, 1x, Human vs Human): starts at root with board focus and visible Stop, held Enter stops/starts once, finishes, preserves all moves/mode and charges no clock time
+  finished replay (320×812, 2x, Human vs AI): starts at root with board focus and visible Stop, held Enter stops/starts once, finishes, preserves all moves/mode and charges no clock time
+  finished replay (844×390, 2x, Human vs Human): starts at root with board focus and visible Stop, held Enter stops/starts once, finishes, preserves all moves/mode and charges no clock time
+checkAutoplayWalksTheLine
+  autoplay: walked to the end of the line and stopped
+checkReviewActionNames
+  review actions (1280×900, 1x, pro, dark): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+  review actions (375×812, 1x, beginner, light): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+  review actions (320×812, 2x, pro, light): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+  review actions (844×390, 2x, beginner, dark): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+Development focused checks passed.

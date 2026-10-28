@@ -12487,6 +12487,99 @@ async function checkReplaySpeedAfterStep(browser) {
  * back to the start, and autoplay is expected to walk to the end of the line
  * on its own and then switch itself off.
  */
+async function checkFinishedGameReplay(browser) {
+  for (const [width, height, scale, mode] of [
+    [1280, 900, 1, 'Human vs AI'], [375, 812, 1, 'Human vs Human'],
+    [320, 812, 2, 'Human vs AI'], [844, 390, 2, 'Human vs Human'],
+  ]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'play', autoAnalyze: false, engineProfile: 'lite-single-local',
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Start new game', exact: true }).first().click()
+      await page.locator('.mode-card', { hasText: mode }).click()
+      await page.locator('.time-control-card', { hasText: '3 + 2' }).click()
+      await page.locator('.btn-start').click()
+      await page.locator('.new-game-dialog').waitFor({ state: 'detached' })
+      if (mode === 'Human vs AI') await page.waitForFunction(() => /ready to play/.test(document.body.innerText))
+      const play = async (from, to) => {
+        await page.locator(`#chessboard-square-${from}`).click()
+        await page.locator(`#chessboard-square-${to}`).click()
+      }
+      await page.evaluate(() => { window.__previewEndingPv = 'e7e5' })
+      await play('f2', 'f3')
+      if (mode === 'Human vs Human') await play('e7', 'e5')
+      await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+      await page.evaluate(() => { window.__previewEndingPv = 'd8h4' })
+      await play('g2', 'g4')
+      if (mode === 'Human vs Human') await play('d8', 'h4')
+      await page.locator('.game-over-card h3').filter({ hasText: 'Checkmate' }).waitFor()
+      const moves = await page.locator('.mtree-chip').allTextContents()
+      const clockBefore = await page.locator('.clock-face').allTextContents()
+      assert(moves.join(' ') === 'f3 e5 g4 Qh4#' && clockBefore.length === 2, 'replay fixture did not finish its timed game')
+      await page.evaluate(async scale => {
+        document.documentElement.style.fontSize = `${scale * 100}%`
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      }, scale)
+      const replay = page.getByRole('button', { name: 'Replay game', exact: true })
+      await replay.focus()
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      const replayFit = await replay.evaluate(el => {
+        const r = el.getBoundingClientRect()
+        return { height: r.height, top: r.top, bottom: r.bottom, clipped: el.scrollWidth > el.clientWidth + 1,
+          hit: [r.top + 2, r.bottom - 2].every(y => el.contains(document.elementFromPoint(r.x + r.width / 2, y))) }
+      })
+      if (!replayFit.hit) await page.screenshot({ path: `/tmp/web-chess-finished-replay-hidden-${width}.png` })
+      assert(meetsTouchTarget(replayFit.height) && !replayFit.clipped && replayFit.hit,
+        `Replay game clips its label, target or visibility: ${JSON.stringify(replayFit)}`)
+      await page.screenshot({ path: `/tmp/web-chess-finished-replay-${width}.png` })
+      // Desktop allows hiding these controls; phone layouts keep the bar open.
+      if (width > 900) {
+        await page.getByRole('button', { name: 'Collapse bottom bar', exact: true }).click()
+      }
+      await replay.focus()
+      await replay.press('Enter')
+      await waitForBoardPiece(page, 'f2', 'White pawn')
+      const stop = page.getByRole('button', { name: 'Stop autoplay', exact: true })
+      await stop.waitFor()
+      assert(await page.locator('#chessboard-stage').evaluate(el => el === document.activeElement), 'starting a replay lost board focus')
+      assert(await page.getByRole('button', { name: 'Analysis', exact: true }).first().getAttribute('aria-pressed') === 'true', 'replay did not enter Analysis')
+      assert(await page.locator('.bottom').evaluate(el => !el.classList.contains('hidden')), 'replay kept its Stop control collapsed')
+      await stop.focus()
+      await page.keyboard.down('Enter')
+      await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).waitFor()
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
+      assert(await stop.count() === 0, 'held Enter restarted a stopped replay')
+      const selected = () => page.locator('.mtree-chip-active').allTextContents()
+      const stopped = await selected()
+      await page.waitForTimeout(1400)
+      assert(JSON.stringify(await selected()) === JSON.stringify(stopped), 'stopped replay continued moving')
+      await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).focus()
+      await page.keyboard.down('Enter')
+      await stop.waitFor()
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
+      assert(await stop.isVisible(), 'held Enter stopped a replay just started')
+      await page.getByRole('button', { name: 'Set autoplay speed to Fast', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.mtree-chip-active')?.textContent.includes('Qh4#'))
+      await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).waitFor()
+      assert(JSON.stringify(await page.locator('.mtree-chip').allTextContents()) === JSON.stringify(moves), 'replay changed the saved move tree')
+      await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+      await page.locator('.game-over-card h3').filter({ hasText: 'Checkmate' }).waitFor()
+      assert(JSON.stringify(await page.locator('.clock-face').allTextContents()) === JSON.stringify(clockBefore), 'replay charged time to the completed game')
+      assert((await page.locator('[data-mode-group="game"] .gc-pill-active').innerText()).trim() === mode, 'replay changed the opponent mode')
+      assert(errors.length === 0 && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `replay errors or horizontal overflow: ${errors.join('; ')}`)
+      console.log(`  finished replay (${width}×${height}, ${scale}x, ${mode}): starts at root with board focus and visible Stop, held Enter stops/starts once, finishes, preserves all moves/mode and charges no clock time`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkAutoplayWalksTheLine(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -22531,6 +22624,7 @@ async function main() {
       'move-entry-availability': checkMoveEntryAvailability,
       'command-move-entry': checkCommandMoveEntry,
       'autoplay': checkAutoplayWalksTheLine,
+      'finished-replay': checkFinishedGameReplay,
       'autoplay-speed': checkReplaySpeedAfterStep,
       'remote-retry': checkRemoteAnalysisRetry,
       'tablebase-reading': checkTablebaseMoveReading,
@@ -23410,6 +23504,7 @@ async function main() {
     await checkQueuedStepWaitsForReady(browser)
     await checkNavigationKeepsTheClockHonest(browser)
     await checkKeepSearchingIsUnbounded(browser)
+    await checkFinishedGameReplay(browser)
     await checkAutoplayWalksTheLine(browser)
     await checkReplaySpeedAfterStep(browser)
     await checkTypedMoveLands(browser)

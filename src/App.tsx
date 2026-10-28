@@ -5,6 +5,7 @@ import type { PieceDropHandlerArgs } from 'react-chessboard'
 import { BoardCanvas } from './components/BoardCanvas'
 import { EngineDetails } from './components/EngineDetails'
 import { EngineConsoleOutput } from './components/EngineConsoleOutput'
+import { keepFocusedControlVisible } from './components/keepFocusedControlVisible'
 import {
   buildWdlSeries,
   buildWinrateSeries,
@@ -5437,6 +5438,19 @@ function App() {
     setBoardRevealTick(tick => tick + 1)
   }, [])
 
+  const replayFinishedGame = useCallback(() => {
+    cancelPendingAiMove()
+    pause()
+    setSettingsOpen(false)
+    setWorkspaceMode('analysis')
+    setAnalysisTab('analyze')
+    setBottomPanelOpen(true)
+    goFirst()
+    setAutoplay(true)
+    boardStageRef.current?.focus({ preventScroll: true })
+    requestBoardReveal()
+  }, [cancelPendingAiMove, goFirst, pause, requestBoardReveal])
+
   const revealDrillMove = useCallback(() => {
     if (drillRevealReason || !drill) return
     setDrill(previous => previous && previous === drill ? { ...previous, revealed: true } : previous)
@@ -8916,16 +8930,26 @@ function App() {
                           ? 'Run a review to see the accuracy for both sides and the moves that turned it.'
                           : 'Start a new game to play again.'}
                       </p>
-                      <div className="inline-actions game-over-actions">
+                      <div className="inline-actions game-over-actions" onFocus={event => keepFocusedControlVisible(event.target)}>
                         {mainLineNodes.length > 1 && (
-                          <button
-                            type="button"
-                            className="btn-primary game-over-review-btn"
-                            onClick={reviewFinishedGame}
-                            disabled={pendingGameReview}
-                          >
-                            <IconBarChart /> {pendingGameReview ? 'Starting review…' : 'Review this game'}
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              className="btn-primary game-over-review-btn"
+                              onClick={reviewFinishedGame}
+                              disabled={pendingGameReview}
+                            >
+                              <IconBarChart /> {pendingGameReview ? 'Starting review…' : 'Review this game'}
+                            </button>
+                            <button
+                              type="button"
+                              className="game-over-replay-btn"
+                              onClick={replayFinishedGame}
+                              title="Watch the moves from the first position in Analysis"
+                            >
+                              <IconPlay /> Replay game
+                            </button>
+                          </>
                         )}
                         <button
                           type="button"

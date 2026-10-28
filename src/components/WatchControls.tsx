@@ -169,6 +169,7 @@ export function WatchControls({
                     <button
                         type="button"
                         className={`wc-btn ${autoplay ? 'wc-btn-pause' : 'wc-btn-resume'}`}
+                        onKeyDown={event => { if (event.key === 'Enter' && event.repeat) event.preventDefault() }}
                         onClick={onAutoplayToggle}
                         disabled={!autoplay && !canGoForward}
                         title={autoplay ? 'Stop autoplay (Space)' : 'Play through the moves (Space)'}

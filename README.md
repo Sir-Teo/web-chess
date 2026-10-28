@@ -210,6 +210,9 @@ given, and the app answering the reader who touches it.
   imported game, a finished one, a pass-and-play game looked back over. It
   stops at the end of the line or the moment you take over. `Space` toggles it
   in Analysis; in Play mode `Space` still pauses the game.
+- **Replay a completed game**: Choose **Replay game** on the result card to
+  start watching from the first position in Analysis. Playback controls reopen
+  so you can stop or change speed; the game clock stays paused.
 - **Engine settings that stay set**: `Threads` is the setting that decides how
   much of the machine a search gets, and the app picks a default for the
   device. That default used to reassert itself: raise Threads to 12 in the

@@ -6986,10 +6986,12 @@ button.hint-btn {
 
 .game-over-card .game-over-actions > button {
   width: 100%;
+  min-height: 44px;
   margin: 0;
 }
 
-.game-over-again-btn {
+.game-over-again-btn,
+.game-over-replay-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;

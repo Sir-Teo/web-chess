@@ -1,0 +1,32 @@
+{
+  "before": {
+    "result": "Checkmate · Black wins",
+    "actions": [
+      " Review this game",
+      " Replay game",
+      " Play again"
+    ],
+    "moves": [
+      "f3",
+      "e5",
+      "g4",
+      "Qh4#"
+    ]
+  },
+  "root": {
+    "pawnOnF2": true,
+    "focus": "chessboard-stage",
+    "stopVisible": true
+  },
+  "after": {
+    "selected": "Qh4#",
+    "moves": [
+      "f3",
+      "e5",
+      "g4",
+      "Qh4#"
+    ],
+    "analysis": "true",
+    "opponentMode": "Human vs AI"
+  }
+}

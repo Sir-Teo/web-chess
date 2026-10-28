@@ -1,0 +1,28 @@
+{
+  "before": {
+    "result": "White resigned · Black wins",
+    "actions": [
+      " Review this game",
+      " Replay game",
+      " Play again"
+    ],
+    "moves": [
+      "f3",
+      "e5"
+    ]
+  },
+  "root": {
+    "pawnOnF2": true,
+    "focus": "chessboard-stage",
+    "stopVisible": true
+  },
+  "after": {
+    "selected": "e5",
+    "moves": [
+      "f3",
+      "e5"
+    ],
+    "analysis": "true",
+    "opponentMode": "Human vs AI"
+  }
+}
