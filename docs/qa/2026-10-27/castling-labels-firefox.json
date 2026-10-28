@@ -1,0 +1,928 @@
+{
+  "before": {
+    "browser": "firefox",
+    "stage": "before",
+    "baselineStylesRestored": true,
+    "results": [
+      {
+        "width": 1280,
+        "height": 900,
+        "scale": 1,
+        "theme": "dark",
+        "position": "available",
+        "columns": "126.4px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "White kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "White queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Black kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Black queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 1280,
+        "height": 900,
+        "scale": 1,
+        "theme": "dark",
+        "position": "unavailable",
+        "columns": "126.4px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 1280,
+        "height": 900,
+        "scale": 1,
+        "theme": "dark",
+        "position": "mixed",
+        "columns": "126.4px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "White kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Black kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Black queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 375,
+        "height": 812,
+        "scale": 1,
+        "theme": "light",
+        "position": "available",
+        "columns": "159.7px 159.7px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "White kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "White queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Black kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Black queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 375,
+        "height": 812,
+        "scale": 1,
+        "theme": "light",
+        "position": "unavailable",
+        "columns": "159.7px 159.7px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": true
+          },
+          {
+            "label": "White queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": true
+          },
+          {
+            "label": "Black kingside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": true
+          },
+          {
+            "label": "Black queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": true
+          }
+        ]
+      },
+      {
+        "width": 375,
+        "height": 812,
+        "scale": 1,
+        "theme": "light",
+        "position": "mixed",
+        "columns": "159.7px 159.7px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "White kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": true,
+            "clipped": true
+          },
+          {
+            "label": "Black kingside",
+            "text": "Black kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Black queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 320,
+        "height": 812,
+        "scale": 2,
+        "theme": "dark",
+        "position": "available",
+        "columns": "190px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "White kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": true
+          },
+          {
+            "label": "White queenside",
+            "text": "White queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": true
+          },
+          {
+            "label": "Black kingside",
+            "text": "Black kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": true
+          },
+          {
+            "label": "Black queenside",
+            "text": "Black queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": true
+          }
+        ]
+      },
+      {
+        "width": 320,
+        "height": 812,
+        "scale": 2,
+        "theme": "dark",
+        "position": "unavailable",
+        "columns": "190px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 320,
+        "height": 812,
+        "scale": 2,
+        "theme": "dark",
+        "position": "mixed",
+        "columns": "199.133px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "White kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": true
+          },
+          {
+            "label": "White queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Black kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": true
+          },
+          {
+            "label": "Black queenside",
+            "text": "Black queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": true
+          }
+        ]
+      },
+      {
+        "width": 844,
+        "height": 390,
+        "scale": 2,
+        "theme": "light",
+        "position": "available",
+        "columns": "204.8px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "White kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "White queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": true
+          },
+          {
+            "label": "Black kingside",
+            "text": "Black kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Black queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": true
+          }
+        ]
+      },
+      {
+        "width": 844,
+        "height": 390,
+        "scale": 2,
+        "theme": "light",
+        "position": "unavailable",
+        "columns": "204.8px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 844,
+        "height": 390,
+        "scale": 2,
+        "theme": "light",
+        "position": "mixed",
+        "columns": "204.8px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "White kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Black kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Black queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": true
+          }
+        ]
+      }
+    ]
+  },
+  "after": {
+    "browser": "firefox",
+    "stage": "after",
+    "baselineStylesRestored": false,
+    "results": [
+      {
+        "width": 1280,
+        "height": 900,
+        "scale": 1,
+        "theme": "dark",
+        "position": "available",
+        "columns": "126.4px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "White kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "White queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Black kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Black queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 1280,
+        "height": 900,
+        "scale": 1,
+        "theme": "dark",
+        "position": "unavailable",
+        "columns": "126.4px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 1280,
+        "height": 900,
+        "scale": 1,
+        "theme": "dark",
+        "position": "mixed",
+        "columns": "126.4px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "White kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Black kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Black queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 375,
+        "height": 812,
+        "scale": 1,
+        "theme": "light",
+        "position": "available",
+        "columns": "159.7px 159.7px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "White kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "White queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Black kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Black queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 375,
+        "height": 812,
+        "scale": 1,
+        "theme": "light",
+        "position": "unavailable",
+        "columns": "159.7px 159.7px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 375,
+        "height": 812,
+        "scale": 1,
+        "theme": "light",
+        "position": "mixed",
+        "columns": "159.7px 159.7px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "White kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Black kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Black queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 320,
+        "height": 812,
+        "scale": 2,
+        "theme": "dark",
+        "position": "available",
+        "columns": "190px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "White kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "White queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Black kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Black queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 320,
+        "height": 812,
+        "scale": 2,
+        "theme": "dark",
+        "position": "unavailable",
+        "columns": "190px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 320,
+        "height": 812,
+        "scale": 2,
+        "theme": "dark",
+        "position": "mixed",
+        "columns": "199.133px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "White kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Black kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Black queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 844,
+        "height": 390,
+        "scale": 2,
+        "theme": "light",
+        "position": "available",
+        "columns": "204.8px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "White kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "White queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Black kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Black queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 844,
+        "height": 390,
+        "scale": 2,
+        "theme": "light",
+        "position": "unavailable",
+        "columns": "204.8px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": false,
+            "clipped": false
+          }
+        ]
+      },
+      {
+        "width": 844,
+        "height": 390,
+        "scale": 2,
+        "theme": "light",
+        "position": "mixed",
+        "columns": "204.8px",
+        "cards": [
+          {
+            "label": "White kingside",
+            "text": "White kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "White queenside",
+            "text": "Needs home king + rook",
+            "disabled": true,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black kingside",
+            "text": "Black kingside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          },
+          {
+            "label": "Black queenside",
+            "text": "Black queenside",
+            "disabled": false,
+            "checked": true,
+            "clipped": false
+          }
+        ]
+      }
+    ]
+  }
+}
