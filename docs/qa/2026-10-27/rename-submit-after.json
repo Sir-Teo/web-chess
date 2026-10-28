@@ -1,0 +1,10 @@
+{
+  "browser": "chromium",
+  "afterFirst": 0,
+  "afterRepeat": 0,
+  "focused": "<button type=\"button\" class=\"btn-cancel\" aria-expanded=\"false\" aria-label=\"Rename Renamed Alpha\" title=\"Rename\"><svg width=\"1em\" height=\"1em\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoi",
+  "rows": [
+    "Renamed Alpha",
+    "Beta"
+  ]
+}

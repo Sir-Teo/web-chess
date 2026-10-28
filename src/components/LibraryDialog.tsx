@@ -596,6 +596,9 @@ export function LibraryDialog({
                                                 setRenaming({ id: game.id, name: game.name })
                                             }}
                                             aria-expanded={renaming?.id === game.id}
+                                            onKeyDown={event => {
+                                                if (event.key === 'Enter' && (event.repeat || isCompositionKey(event.nativeEvent))) event.preventDefault()
+                                            }}
                                             aria-controls={renaming?.id === game.id ? renameId : undefined}
                                             aria-label={`Rename ${game.name}`}
                                             title="Rename"
@@ -644,7 +647,9 @@ export function LibraryDialog({
                                         )}
                                     </div>
                                     {renaming?.id === game.id && (
-                                        <form id={renameId} className="library-rename" onSubmit={event => {
+                                        <form id={renameId} className="library-rename" onKeyDown={event => {
+                                            if (event.key === 'Enter' && (event.repeat || isCompositionKey(event.nativeEvent))) event.preventDefault()
+                                        }} onSubmit={event => {
                                             event.preventDefault()
                                             if (!renaming.name.trim()) return
                                             onRename(game.id, renaming.name.trim())

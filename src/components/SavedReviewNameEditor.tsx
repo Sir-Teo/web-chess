@@ -46,14 +46,18 @@ export function SavedReviewNameEditor({ title, disabled, onRename }: {
 
   return <div ref={editor} className="saved-review-name-editor">
     <div className="review-report-actions">
-      <button ref={trigger} type="button" disabled={disabled || editing} onClick={() => {
+      <button ref={trigger} type="button" disabled={disabled || editing} onKeyDown={event => {
+        if (event.key === 'Enter' && (event.repeat || isCompositionKey(event.nativeEvent))) event.preventDefault()
+      }} onClick={() => {
         setDraft(title)
         setError('')
         setFocusRequest(0)
         setEditing(true)
       }}>Rename saved review</button>
     </div>
-    {editing && <form onSubmit={event => { event.preventDefault(); void save() }}>
+    {editing && <form onKeyDown={event => {
+      if (event.key === 'Enter' && (event.repeat || isCompositionKey(event.nativeEvent))) event.preventDefault()
+    }} onSubmit={event => { event.preventDefault(); void save() }}>
       <label htmlFor={id}>Saved review name</label>
       <input ref={input} id={id} className="saved-review-name-input" value={draft}
         maxLength={MAX_SAVED_REVIEW_TITLE_LENGTH} readOnly={disabled}

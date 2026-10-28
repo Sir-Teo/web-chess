@@ -2817,7 +2817,11 @@ async function checkSavedReviewRenaming(browser) {
       await choice.selectOption(original.id)
       const trigger = panel.getByRole('button', { name: 'Rename saved review', exact: true })
       const input = panel.getByRole('textbox', { name: 'Saved review name', exact: true })
-      await trigger.click()
+      await trigger.focus()
+      await page.keyboard.down('Enter')
+      await input.waitFor()
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
       assert(await input.evaluate(el => el === document.activeElement && el.selectionStart === 0 && el.selectionEnd === el.value.length),
         'renaming did not select the current review title')
       await input.fill('   ')
@@ -2841,9 +2845,22 @@ async function checkSavedReviewRenaming(browser) {
       await input.scrollIntoViewIfNeeded()
       await page.screenshot({ path: `/tmp/web-chess-review-name-${width}.png` })
       await page.evaluate(() => { document.documentElement.style.fontSize = '' })
-      await input.press('Enter')
+      const composingEnter = await input.evaluate(el => {
+        const event = new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true, cancelable: true })
+        el.dispatchEvent(event)
+        return event.defaultPrevented
+      })
+      assert(composingEnter && await input.inputValue() === title, 'composing Enter can save a review name')
+      await input.focus()
+      await page.keyboard.down('Enter')
       await panel.getByText('Saved review renamed.', { exact: true }).waitFor()
       await page.waitForFunction(() => document.activeElement?.textContent === 'Rename saved review')
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
+      assert(await input.count() === 0 && await trigger.evaluate(el => el === document.activeElement), 'held Enter reopened the saved-review name editor')
+      await trigger.press('Enter')
+      assert(await input.inputValue() === title, 'a fresh Enter did not reopen the renamed review')
+      await input.press('Escape')
       assert((await choice.locator('option:checked').innerText()).includes(title), 'the renamed run is not selected')
       const stored = await page.evaluate(() => new Promise((resolve, reject) => {
         const request = indexedDB.open('web-chess-reviews', 1)
@@ -2922,7 +2939,7 @@ async function checkSavedReviewRenaming(browser) {
       await panel.locator('summary').click()
       await panel.locator('summary').click()
       await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 49)
-      console.log(`  review naming (${width}px): selected draft/cancel, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery`)
+      console.log(`  review naming (${width}px): selected draft/cancel, held/composing Enter, fresh reopen, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery`)
     } finally { await context.close() }
   }
 }
@@ -8808,9 +8825,12 @@ async function checkLibraryEditing(browser) {
 
       const firstRow = dialog.locator('.library-row').first()
       const original = await firstRow.locator('strong').innerText()
-      await firstRow.getByRole('button', { name: `Rename ${original}`, exact: true }).click()
+      await firstRow.getByRole('button', { name: `Rename ${original}`, exact: true }).focus()
+      await page.keyboard.down('Enter')
       const rename = dialog.getByRole('textbox', { name: 'New game name', exact: true })
       await rename.waitFor()
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
       assert(await rename.evaluate(el => el === document.activeElement && el.selectionStart === 0 && el.selectionEnd === el.value.length),
         'rename should focus and select the current name')
       await rename.fill('   ')
@@ -8832,8 +8852,22 @@ async function checkLibraryEditing(browser) {
         })
       }), 'rename controls clip at 200% text')
       await page.evaluate(() => { document.documentElement.style.fontSize = '' })
-      await rename.press('Enter')
+      const composingEnter = await rename.evaluate(el => {
+        const event = new KeyboardEvent('keydown', { key: 'Enter', keyCode: 229, bubbles: true, cancelable: true })
+        el.dispatchEvent(event)
+        return event.defaultPrevented
+      })
+      assert(composingEnter && await rename.inputValue() === 'My renamed game', 'composing Enter can save a game name')
+      await rename.focus()
+      await page.keyboard.down('Enter')
       await dialog.getByRole('button', { name: 'Rename My renamed game', exact: true }).waitFor()
+      await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Rename My renamed game')
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
+      assert(await rename.count() === 0, 'held Enter reopened the saved-game name editor')
+      await dialog.getByRole('button', { name: 'Rename My renamed game', exact: true }).press('Enter')
+      assert(await rename.inputValue() === 'My renamed game', 'a fresh Enter did not reopen the renamed game')
+      await rename.press('Escape')
       await dialog.getByRole('button', { name: 'Delete Saved game 498', exact: true }).click()
       await page.evaluate(() => {
         const raf = window.requestAnimationFrame
@@ -8871,7 +8905,7 @@ async function checkLibraryEditing(browser) {
       await dialog.getByRole('button', { name: 'Confirm deleting A different title', exact: true }).click()
       await dialog.getByText('No saved game matches “A different title”.', { exact: true }).waitFor()
       await page.waitForFunction(() => document.querySelector('.library-toolbar input[type="search"]') === document.activeElement)
-      console.log(`  library (${width}px): Save game command opens the focused naming form after a real move; rejected save preserves its name and retries after freeing capacity; inline rename selects, cancels, commits and persists`)
+      console.log(`  library (${width}px): Save game command opens the focused naming form after a real move; rejected save preserves its name and retries after freeing capacity; inline rename selects, cancels, commits and persists; held/composing Enter stays in the current step and a fresh Enter reopens editing`)
     } finally { await context.close() }
   }
 }
