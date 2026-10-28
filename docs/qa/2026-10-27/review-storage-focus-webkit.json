@@ -1,0 +1,61 @@
+{
+  "browser": "webkit",
+  "results": [
+    {
+      "width": 1280,
+      "scale": 1,
+      "afterSave": {
+        "tag": "SELECT",
+        "label": null,
+        "text": "King's Pawn Game \u00b7 Fake Stockfish \u00b7 D16 \u00b7 10/28/2026, 3:31:38 PM",
+        "id": "saved-review-choice"
+      },
+      "afterExport": {
+        "tag": "BUTTON",
+        "label": null,
+        "text": "Export review backup",
+        "id": ""
+      },
+      "afterImport": {
+        "tag": "BUTTON",
+        "label": null,
+        "text": "Import review backup",
+        "id": ""
+      },
+      "afterFailedExport": {
+        "tag": "BUTTON",
+        "label": null,
+        "text": "Export review backup",
+        "id": ""
+      }
+    },
+    {
+      "width": 320,
+      "scale": 2,
+      "afterSave": {
+        "tag": "SELECT",
+        "label": null,
+        "text": "King's Pawn Game \u00b7 Fake Stockfish \u00b7 D16 \u00b7 10/28/2026, 3:31:43 PM",
+        "id": "saved-review-choice"
+      },
+      "afterExport": {
+        "tag": "BUTTON",
+        "label": null,
+        "text": "Export review backup",
+        "id": ""
+      },
+      "afterImport": {
+        "tag": "BUTTON",
+        "label": null,
+        "text": "Import review backup",
+        "id": ""
+      },
+      "afterFailedExport": {
+        "tag": "BUTTON",
+        "label": null,
+        "text": "Export review backup",
+        "id": ""
+      }
+    }
+  ]
+}

@@ -3247,6 +3247,129 @@ async function checkReviewBranchNames(browser) {
   }
 }
 
+async function checkReviewStorageFocus(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [320, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'review', autoAnalyze: false,
+          engineProfile: 'lite-single-local', reviewMaxWorkers: 1, theme,
+        }))
+        const open = IDBFactory.prototype.open
+        IDBFactory.prototype.open = function (name, ...args) {
+          if (name === 'web-chess-reviews' && window.__failReviewFocusSave) {
+            window.__failReviewFocusSave = false
+            throw new Error('QA review save failed. Try again.')
+          }
+          const request = open.call(this, name, ...args)
+          if (name === 'web-chess-reviews' && window.__holdReviewFocusSave) {
+            window.__holdReviewFocusSave = false
+            Object.defineProperty(request, 'onsuccess', { set(handler) {
+              request.addEventListener('success', event => { window.__releaseReviewFocusSave = () => handler.call(request, event) })
+            } })
+          }
+          return request
+        }
+        const Worker = window.Worker
+        window.Worker = function (url, options) {
+          const worker = new Worker(url, options)
+          if (String(url).includes('reviewBackupWorker')) Object.defineProperty(worker, 'onmessage', { set(handler) {
+            worker.addEventListener('message', event => {
+              if (window.__holdReviewFocusBackup) {
+                window.__holdReviewFocusBackup = false
+                window.__releaseReviewFocusBackup = () => { window.__releaseReviewFocusBackup = null; handler.call(worker, event) }
+              } else handler.call(worker, event)
+            })
+          } })
+          return worker
+        }
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.locator('#chessboard-square-e2').click(); await page.locator('#chessboard-square-e4').click()
+      const review = page.getByRole('button', { name: 'Review Game', exact: true })
+      await review.click(); await review.waitFor()
+      const report = await page.getByTestId('review-run-summary').innerText()
+      const cursor = await page.locator('.mtree-chip-active').getAttribute('data-node-id')
+      const panel = page.locator('.saved-reviews'), notice = panel.locator('.saved-review-notice')
+      const save = panel.getByRole('button', { name: 'Save review', exact: true })
+      const backup = panel.getByRole('button', { name: 'Export review backup', exact: true })
+      const restore = panel.getByRole('button', { name: 'Import review backup', exact: true })
+      const choice = panel.getByLabel('Choose a saved review')
+      const board = page.locator('.board-stage')
+      const ready = async button => {
+        const handle = await button.elementHandle()
+        try { await page.waitForFunction(el => !el.disabled, handle) } finally { await handle.dispose() }
+      }
+      const focused = control => control.evaluate(el => el === document.activeElement)
+      const press = async button => { await button.focus(); await page.keyboard.press('Enter') }
+      const upload = async buffer => {
+        const chooser = page.waitForEvent('filechooser')
+        await press(restore)
+        await (await chooser).setFiles({ name: 'review-focus.json', mimeType: 'application/json', buffer })
+      }
+      await page.evaluate(() => { window.__failReviewFocusSave = true })
+      await press(save)
+      await notice.filter({ hasText: 'QA review save failed. Try again.' }).waitFor(); await ready(save)
+      assert(await focused(save), 'a failed save lost its focused retry')
+      await press(save)
+      await notice.filter({ hasText: 'Review saved on this device.' }).waitFor(); await ready(choice)
+      assert(await focused(choice) && await save.isDisabled() && await choice.locator('option').count() === 1, 'saving did not focus its one committed saved review')
+      const download = page.waitForEvent('download')
+      await press(backup)
+      const file = await download, buffer = fs.readFileSync(await file.path()), stored = JSON.parse(buffer).reviews[0]
+      await notice.filter({ hasText: 'Backup download started for 1 saved review' }).waitFor(); await ready(backup)
+      assert(await focused(backup) && stored.id === await choice.inputValue(), 'export lost focus or backed up a different review')
+      await page.evaluate(() => {
+        window.__reviewFocusCreateUrl = URL.createObjectURL
+        URL.createObjectURL = () => { throw new DOMException('QA download unavailable', 'NotAllowedError') }
+      })
+      await press(backup)
+      await notice.filter({ hasText: 'The browser could not export the review backup.' }).waitFor(); await ready(backup)
+      assert(await focused(backup), 'a failed backup export lost its focused retry')
+      await page.evaluate(() => { URL.createObjectURL = window.__reviewFocusCreateUrl })
+      await upload(Buffer.from('{}'))
+      await notice.filter({ hasText: 'This is not a Web Chess review backup.' }).waitFor(); await ready(restore)
+      assert(await focused(restore), 'an invalid backup lost its focused import retry')
+      await upload(buffer)
+      await notice.filter({ hasText: 'Imported 0 reviews; 1 identical review skipped.' }).waitFor(); await ready(restore)
+      assert(await focused(restore) && await choice.locator('option').count() === 1, 'import lost focus or duplicated the existing saved review')
+      assert(await page.getByTestId('review-run-summary').innerText() === report, 'saving or backing up changed the open report')
+
+      // A storage/worker response must yield to a newer destination chosen while pending.
+      await review.click(); await review.waitFor(); await ready(save)
+      await page.evaluate(() => { window.__holdReviewFocusSave = true })
+      await press(save)
+      await page.waitForFunction(() => typeof window.__releaseReviewFocusSave === 'function')
+      await board.focus(); await page.evaluate(() => window.__releaseReviewFocusSave())
+      await notice.filter({ hasText: 'Review saved on this device.' }).waitFor(); await ready(choice)
+      assert(await focused(board) && await choice.locator('option').count() === 2, 'a late successful save stole the newer board focus or failed to commit')
+      await page.evaluate(() => { window.__holdReviewFocusBackup = true })
+      const laterDownload = page.waitForEvent('download')
+      await press(backup)
+      await page.waitForFunction(() => typeof window.__releaseReviewFocusBackup === 'function')
+      await board.focus(); await page.evaluate(() => window.__releaseReviewFocusBackup())
+      const laterFile = await laterDownload
+      await notice.filter({ hasText: 'Backup download started for 2 saved reviews' }).waitFor(); await ready(backup)
+      const laterBackup = JSON.parse(fs.readFileSync(await laterFile.path(), 'utf8'))
+      assert(await focused(board) && laterBackup.reviews.length === 2
+        && JSON.stringify(laterBackup.reviews.find(run => run.id === stored.id)) === JSON.stringify(stored), 'late export stole focus or changed stored scores/settings')
+      await page.evaluate(() => { window.__holdReviewFocusBackup = true })
+      await upload(buffer)
+      await page.waitForFunction(() => typeof window.__releaseReviewFocusBackup === 'function')
+      await board.focus(); await page.evaluate(() => window.__releaseReviewFocusBackup())
+      await notice.filter({ hasText: 'Imported 0 reviews; 1 identical review skipped.' }).waitFor(); await ready(restore)
+      assert(await focused(board) && await page.locator('.mtree-chip-active').getAttribute('data-node-id') === cursor, 'a late import stole focus or navigated the board')
+      assert(errors.length === 0 && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `review storage focus errors or overflow: ${errors.join('; ')}`)
+      console.log(`  review storage focus (${width}px, ${scale}x, ${theme}): Save selects its committed review; save/export/import failures retain focused retries; real native-worker backups preserve exact records without duplicates; delayed writes/export/import respect newer board focus and preserve the report/cursor`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkReviewBackupExport(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 812 } })
@@ -23402,6 +23525,7 @@ async function main() {
       'repetition': checkRepetitionEndings,
       'repetition-review': checkRepetitionReviewCompatibility,
       'finished-auto': checkFinishedAutomaticAnalysis,
+      'review-storage-focus': checkReviewStorageFocus,
       'review-backup-export': checkReviewBackupExport,
       'review-backup-import': checkReviewBackupImport,
       'review-depth': checkReviewAtRequestedDepth,
@@ -24284,6 +24408,7 @@ async function main() {
     await checkRepetitionEndings(browser)
     await checkRepetitionReviewCompatibility(browser)
     await checkFinishedAutomaticAnalysis(browser)
+    await checkReviewStorageFocus(browser)
     await checkReviewBackupExport(browser)
     await checkReviewBackupImport(browser)
     await checkReviewAtRequestedDepth(browser)
