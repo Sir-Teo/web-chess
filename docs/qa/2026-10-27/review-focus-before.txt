@@ -1,0 +1,38 @@
+[
+  {
+    width: 1280,
+    source: 'import offer',
+    review: ' Review Game',
+    status: 'analyzing',
+    focus: { tag: 'BODY', id: '', text: 'body' }
+  },
+  {
+    width: 1280,
+    source: 'finished game',
+    review: ' Review Game',
+    status: 'ready',
+    focus: { tag: 'BODY', id: '', text: 'body' }
+  },
+  {
+    width: 375,
+    source: 'import offer',
+    review: ' Review Game',
+    status: 'analyzing',
+    focus: {
+      tag: 'ASIDE',
+      id: 'analysis-panel',
+      text: 'AnalysisAnalyzeReviewEngine LabFake StockfishanalyzingEnter '
+    }
+  },
+  {
+    width: 375,
+    source: 'finished game',
+    review: ' Review Game',
+    status: 'ready',
+    focus: {
+      tag: 'ASIDE',
+      id: 'analysis-panel',
+      text: 'AnalysisAnalyzeReviewEngine LabFake Stockfishready Stop revi'
+    }
+  }
+]

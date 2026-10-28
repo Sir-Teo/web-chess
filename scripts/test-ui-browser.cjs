@@ -1722,10 +1722,12 @@ async function checkReviewActionNames(browser) {
       const offer = page.getByRole('button', { name: 'Review this game', exact: true })
       assert((await offer.textContent()).trim() === 'Review this game', 'the finished-game action does not answer to its printed name')
       await page.evaluate(() => { window.__withholdEngineInfo = true })
-      await offer.click()
+      await offer.focus()
+      await offer.press('Enter')
       const stop = page.getByRole('button', { name: /^Stop review \(\d+%\)/ })
       const start = page.getByRole('button', { name: 'Review Game', exact: true })
       await stop.waitFor()
+      await page.waitForFunction(() => document.activeElement === document.getElementById('analysis-panel'))
       await page.waitForFunction(() => window.__consoleEngine?.searching)
       const checkName = async () => {
         const text = (await stop.textContent()).trim()
@@ -1774,6 +1776,12 @@ async function checkReviewActionNames(browser) {
       await start.waitFor()
       await page.getByTestId('review-run-summary').filter({ hasText: 'Completed review' }).waitFor()
       assert(await page.locator('#chessboard-square-h4').evaluate(readBoardSquareLabel) === boardBefore, 'review actions changed the selected board position')
+      if (width > 900) {
+        const analyzeTab = page.getByRole('button', { name: 'Analyze', exact: true })
+        await analyzeTab.focus()
+        await analyzeTab.press('Enter')
+        assert(await analyzeTab.evaluate(el => el === document.activeElement), 'a desktop analysis reveal moved focus away from the chosen tab')
+      }
       console.log(`  review actions (${width}×${height}, ${scale}x, ${experience}, ${theme}): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board`)
     } finally { await context.close() }
   }

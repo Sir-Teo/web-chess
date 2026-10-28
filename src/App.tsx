@@ -5481,8 +5481,13 @@ function App() {
   useEffect(() => {
     if (analysisPanelRevealTick === 0 || backgroundUiHidden || handledAnalysisRevealRef.current === analysisPanelRevealTick) return
     handledAnalysisRevealRef.current = analysisPanelRevealTick
-    if (!isMobileLayout) return
     if (workspaceMode !== 'analysis') return
+    if (!isMobileLayout) {
+      // Review offers disappear when they open this panel. Recover that lost
+      // focus on desktop too; an existing tab or a newer control keeps it.
+      if (document.activeElement === document.body) analysisPanelRef.current?.focus({ preventScroll: true })
+      return
+    }
 
     const scrollAnalysisPanelToTop = (focus = false) => {
       const mainContainer = mainContainerRef.current
