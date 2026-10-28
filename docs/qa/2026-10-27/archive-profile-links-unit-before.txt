@@ -1,0 +1,49 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/gameArchives.test.ts (36 tests | 9 failed) 23ms
+     × refuses a similar Lichess hostname 6ms
+     × refuses a similar Chess.com hostname 1ms
+     × refuses a Lichess path inside another site 0ms
+     × refuses a Chess.com path inside another site 2ms
+     × refuses a profile link inside a query 0ms
+     × refuses prose before a profile link 0ms
+     × refuses prose after a profile link 0ms
+     × refuses a non-web protocol 0ms
+     × refuses an unsupported profile subdomain 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/gameArchives.test.ts > normalizeArchiveUsername > refuses a similar Lichess hostname
+ FAIL  src/engine/gameArchives.test.ts > normalizeArchiveUsername > refuses a similar Chess.com hostname
+ FAIL  src/engine/gameArchives.test.ts > normalizeArchiveUsername > refuses a Lichess path inside another site
+ FAIL  src/engine/gameArchives.test.ts > normalizeArchiveUsername > refuses a Chess.com path inside another site
+ FAIL  src/engine/gameArchives.test.ts > normalizeArchiveUsername > refuses a profile link inside a query
+ FAIL  src/engine/gameArchives.test.ts > normalizeArchiveUsername > refuses prose before a profile link
+ FAIL  src/engine/gameArchives.test.ts > normalizeArchiveUsername > refuses prose after a profile link
+ FAIL  src/engine/gameArchives.test.ts > normalizeArchiveUsername > refuses a non-web protocol
+ FAIL  src/engine/gameArchives.test.ts > normalizeArchiveUsername > refuses an unsupported profile subdomain
+AssertionError: expected 'Reader' to be null
+
+- Expected:
+null
+
++ Received:
+"Reader"
+
+ ❯ src/engine/gameArchives.test.ts:54:45
+     52|     ['an unsupported profile subdomain', 'https://other.lichess.org/@/…
+     53|   ])('refuses %s', (_label, input) => {
+     54|     expect(normalizeArchiveUsername(input)).toBeNull()
+       |                                             ^
+     55|   })
+     56| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  9 failed | 27 passed (36)
+   Start at  15:59:06
+   Duration  235ms (transform 51ms, setup 0ms, import 69ms, tests 23ms, environment 0ms)
+

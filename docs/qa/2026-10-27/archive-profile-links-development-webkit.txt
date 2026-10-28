@@ -1,0 +1,17 @@
+{"browser":"webkit","port":"4324","commit":"78df0a35d8700337099dafc591d519a123bf4e63","build":"Vite development source","dirty":true,"checks":["checkArchiveKeyboardFetch","checkArchivePreferences","checkADeadFetchButtonSaysWhy"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkArchiveKeyboardFetch
+  archive keyboard (1280px, 1x, dark, Lichess): similar-host/embedded links are refused without requests or draft changes; real profile links normalize; count/username Enter fetch once; IME and repeats preserved; busy Enter retains request/draft/focus; explicit cancel and normalized retry work; board changes only on Import
+  archive keyboard (1280px, 1x, dark, Chess.com): similar-host/embedded links are refused without requests or draft changes; real profile links normalize; count/username Enter fetch once; IME and repeats preserved; busy Enter retains request/draft/focus; explicit cancel and normalized retry work; board changes only on Import
+  archive keyboard (375px, 1x, light, Lichess): similar-host/embedded links are refused without requests or draft changes; real profile links normalize; count/username Enter fetch once; IME and repeats preserved; busy Enter retains request/draft/focus; explicit cancel and normalized retry work; board changes only on Import
+  archive keyboard (375px, 1x, light, Chess.com): similar-host/embedded links are refused without requests or draft changes; real profile links normalize; count/username Enter fetch once; IME and repeats preserved; busy Enter retains request/draft/focus; explicit cancel and normalized retry work; board changes only on Import
+  archive keyboard (320px, 2x, dark, Lichess): similar-host/embedded links are refused without requests or draft changes; real profile links normalize; count/username Enter fetch once; IME and repeats preserved; busy Enter retains request/draft/focus; explicit cancel and normalized retry work; board changes only on Import
+  archive keyboard (320px, 2x, dark, Chess.com): similar-host/embedded links are refused without requests or draft changes; real profile links normalize; count/username Enter fetch once; IME and repeats preserved; busy Enter retains request/draft/focus; explicit cancel and normalized retry work; board changes only on Import
+checkArchivePreferences
+  archive preferences (1280px, 1x, dark, malformed): separate provider drafts; two successful canonical handles and count; truthful storage feedback; canceled late/empty fetches preserve choices and PGN; reopen/reload restore without requests
+  archive preferences (375px, 1x, light, empty): separate provider drafts; two successful canonical handles and count; truthful storage feedback; canceled late/empty fetches preserve choices and PGN; reopen/reload restore without requests
+  archive preferences (320px, 2x, dark, saved): separate provider drafts; two successful canonical handles and count; truthful storage feedback; canceled late/empty fetches preserve choices and PGN; reopen/reload restore without requests
+  archive preferences (375px, 2x, light, blocked storage): separate provider drafts; two successful canonical handles and count; truthful storage feedback; canceled late/empty fetches preserve choices and PGN; reopen/reload restore without requests
+checkADeadFetchButtonSaysWhy
+  archive: an unusable username says so once the field is left, and stops when it is fixed
+Development focused checks passed.

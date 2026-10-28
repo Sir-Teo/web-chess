@@ -165,7 +165,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const [archivePreferencesStored, setArchivePreferencesStored] = useState<boolean | null>(null)
     const [archiveBusy, setArchiveBusy] = useState(false)
     const [readingFile, setReadingFile] = useState(false)
-    const [archiveUsernameBlurred, setArchiveUsernameBlurred] = useState(false)
+    const [archiveUsernameFeedback, setArchiveUsernameFeedback] = useState<'blurred' | 'submitted' | null>(null)
     const [databaseBusy, setDatabaseBusy] = useState(false)
     /** What `handleImportDatabase` asks; the state is what the button shows. */
     const databaseBusyRef = useRef(false)
@@ -241,9 +241,9 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const archiveSourceInfo = ARCHIVE_SOURCES.find(source => source.id === archiveSource) ?? ARCHIVE_SOURCES[0]
     const archiveGameCount = clampArchiveGameCount(archiveCount.trim() ? Number(archiveCount) : DEFAULT_ARCHIVE_GAMES)
     const archiveUsernameValid = normalizeArchiveUsername(archiveUsername) !== null
-    /** Something is typed, it cannot be used, and the reader has moved on from it. */
-    const archiveUsernameUnusable = archiveUsernameBlurred
-        && archiveUsername.trim().length > 0
+    /** Report an invalid edit after blur, or any explicitly submitted invalid name. */
+    const archiveUsernameUnusable = archiveUsernameFeedback !== null
+        && (archiveUsernameFeedback === 'submitted' || archiveUsername.trim().length > 0)
         && !archiveUsernameValid
 
     /**
@@ -260,8 +260,8 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
         if (archiveAbortRef.current) return
         const username = normalizeArchiveUsername(archiveUsername)
         if (!username) {
+            setArchiveUsernameFeedback('submitted')
             setStatus(null)
-            setError(ARCHIVE_USERNAME_ERROR)
             return
         }
 
@@ -786,7 +786,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                                 cancelPendingImport()
                                                 resetFeedback()
                                                 setArchiveSource(source.id)
-                                                setArchiveUsernameBlurred(false)
+                                                setArchiveUsernameFeedback(null)
                                             }}
                                         >
                                             {source.label}
@@ -807,9 +807,8 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                         placeholder={archiveSourceInfo.placeholder}
                                         aria-label={`Your ${archiveSourceInfo.label} username`}
                                         value={archiveUsername}
-                                        // Only after the reader has left it: saying "that is not a
-                                        // username" after the first letter of one is worse than saying
-                                        // nothing.
+                                        // Validate after blur or an explicit fetch. Keep initial
+                                        // typing quiet rather than reject a name's first letter.
                                         aria-invalid={archiveUsernameUnusable || undefined}
                                         aria-describedby={archiveUsernameUnusable ? `${archiveUserId}-error` : undefined}
                                         onChange={event => {
@@ -817,9 +816,9 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                             resetFeedback()
                                             const value = event.target.value
                                             setArchiveUsernames(previous => ({ ...previous, [archiveSource]: value }))
-                                            setArchiveUsernameBlurred(false)
+                                            setArchiveUsernameFeedback(null)
                                         }}
-                                        onBlur={() => setArchiveUsernameBlurred(true)}
+                                        onBlur={() => setArchiveUsernameFeedback(previous => previous === 'submitted' ? previous : 'blurred')}
                                         onKeyDown={fetchArchiveOnEnter}
                                     />
                                     <div className="archive-count">

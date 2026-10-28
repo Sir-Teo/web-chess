@@ -12409,7 +12409,25 @@ async function checkArchiveKeyboardFetch(browser) {
         const count = page.getByRole('spinbutton', { name: 'Games', exact: true })
         const text = page.locator('.pgn-dialog textarea')
         await text.fill('1. d4 *')
-        await user.fill('reader')
+        await user.fill(''); await count.focus()
+        assert(await user.getAttribute('aria-invalid') !== 'true', 'an unused optional archive field is marked invalid on blur')
+        await user.press('Enter')
+        assert(await user.getAttribute('aria-invalid') === 'true'
+          && await user.evaluate(el => Boolean(document.getElementById(el.getAttribute('aria-describedby'))?.textContent))
+          && await text.getAttribute('aria-invalid') !== 'true', 'an empty submitted username lacks associated guidance or incorrectly marks the PGN draft invalid')
+        const profile = source === 'Lichess' ? 'lichess.org/@/reader' : 'chess.com/member/reader'
+        for (const invalid of [`https://not${profile}`, `https://example.org/${profile}`, `https://example.org/?profile=https://${profile}`]) {
+          await user.fill(invalid); await user.press('Enter')
+          assert(await user.inputValue() === invalid && await user.getAttribute('aria-invalid') === 'true'
+            && await page.getByRole('button', { name: 'Fetch', exact: true }).isDisabled()
+            && await page.evaluate(() => window.__archiveKeyRequests.length) === 0
+            && await text.inputValue() === '1. d4 *' && await text.getAttribute('aria-invalid') !== 'true', 'an unrelated profile-looking link fetched an invented username or changed/invalidated the PGN draft')
+        }
+        await text.fill('4k3/8/8/8/8/8/8/4K3 w - - 0 1'); await user.press('Enter')
+        assert(await text.getAttribute('aria-invalid') === 'true'
+          && await page.getByRole('button', { name: 'Import & Analyze', exact: true }).isDisabled(), 'an invalid archive submission erased the separate PGN validation error')
+        await text.fill('1. d4 *')
+        await user.fill(`https://www.${profile}/games?view=all#latest`)
         await count.fill('20')
         const ignored = await count.evaluate(el => [
           { isComposing: true }, { keyCode: 229 }, { repeat: true },
@@ -12448,7 +12466,7 @@ async function checkArchiveKeyboardFetch(browser) {
         await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
         assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'archive keyboard workflow overflows')
         assert(errors.length === 0, `archive keyboard errors: ${errors.join('; ')}`)
-        console.log(`  archive keyboard (${width}px, ${scale}x, ${theme}, ${source}): count/username Enter fetch once; IME and repeats preserved; busy Enter retains request/draft/focus; explicit cancel and normalized retry work; board changes only on Import`)
+        console.log(`  archive keyboard (${width}px, ${scale}x, ${theme}, ${source}): similar-host/embedded links are refused without requests or draft changes; real profile links normalize; count/username Enter fetch once; IME and repeats preserved; busy Enter retains request/draft/focus; explicit cancel and normalized retry work; board changes only on Import`)
       } finally { await context.close() }
     }
   }

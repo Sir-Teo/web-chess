@@ -23,6 +23,9 @@ describe('normalizeArchiveUsername', () => {
     expect(normalizeArchiveUsername('lichess.org/@/penguingm1')).toBe('penguingm1')
     expect(normalizeArchiveUsername('https://www.chess.com/member/Hikaru')).toBe('Hikaru')
     expect(normalizeArchiveUsername('https://www.chess.com/members/Hikaru')).toBe('Hikaru')
+    expect(normalizeArchiveUsername('  HTTP://WWW.LICHESS.ORG/@/Reader/perf/blitz?color=white#games  ')).toBe('Reader')
+    expect(normalizeArchiveUsername('www.chess.com/member/Reader/')).toBe('Reader')
+    expect(normalizeArchiveUsername('//lichess.org/@/Reader')).toBe('Reader')
     expect(normalizeArchiveUsername('@erik')).toBe('erik')
   })
 
@@ -38,6 +41,15 @@ describe('normalizeArchiveUsername', () => {
     ['over thirty characters', 'a'.repeat(31)],
     ['a leading dash', '-foo'],
     ['a colon', 'http://evil'],
+    ['a similar Lichess hostname', 'https://notlichess.org/@/Reader'],
+    ['a similar Chess.com hostname', 'https://notchess.com/member/Reader'],
+    ['a Lichess path inside another site', 'https://example.org/lichess.org/@/Reader'],
+    ['a Chess.com path inside another site', 'https://example.org/chess.com/member/Reader'],
+    ['a profile link inside a query', 'https://example.org/?profile=https://lichess.org/@/Reader'],
+    ['prose before a profile link', 'My profile: https://chess.com/member/Reader'],
+    ['prose after a profile link', 'https://lichess.org/@/Reader is my profile'],
+    ['a non-web protocol', 'ftp://chess.com/member/Reader'],
+    ['an unsupported profile subdomain', 'https://other.lichess.org/@/Reader'],
   ])('refuses %s', (_label, input) => {
     expect(normalizeArchiveUsername(input)).toBeNull()
   })
