@@ -69,7 +69,7 @@ given, and the app answering the reader who touches it.
   reaching the last rank promotes to a queen without asking, and clicking
   anywhere else cancels — the same rules every other board uses, because they
   are the ones a premove has to follow to be worth having.
-- **Hint**: `H`, or the button in Play mode, asks the engine what it would play
+- **Hint**: When playing the computer, `H` or **Hint** asks what it would play
   and draws it on the board in the green the analysis side already uses for
   "the engine likes this". Asked at *full* strength rather than the opponent's,
   because the question is what the best move is — the engine is back at its own

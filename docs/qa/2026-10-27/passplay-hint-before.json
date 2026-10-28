@@ -1,0 +1,182 @@
+[
+  {
+    "browser": "chromium",
+    "width": 1280,
+    "state": "pass-and-play",
+    "mode": "Human vs Human",
+    "hint": [
+      {
+        "text": "Hint",
+        "disabled": true,
+        "title": "Hints need an engine — start a game against the computer."
+      }
+    ],
+    "takeback": true,
+    "board": true
+  },
+  {
+    "browser": "chromium",
+    "width": 1280,
+    "state": "against-engine",
+    "mode": "Human vs AI",
+    "hint": [
+      {
+        "text": "Hint",
+        "disabled": false,
+        "title": "Ask the engine what it would play"
+      }
+    ],
+    "takeback": true,
+    "board": true
+  },
+  {
+    "browser": "chromium",
+    "width": 375,
+    "state": "pass-and-play",
+    "mode": "Human vs Human",
+    "hint": [
+      {
+        "text": "Hint",
+        "disabled": true,
+        "title": "Hints need an engine — start a game against the computer."
+      }
+    ],
+    "takeback": true,
+    "board": true
+  },
+  {
+    "browser": "chromium",
+    "width": 375,
+    "state": "against-engine",
+    "mode": "Human vs AI",
+    "hint": [
+      {
+        "text": "Hint",
+        "disabled": false,
+        "title": "Ask the engine what it would play"
+      }
+    ],
+    "takeback": true,
+    "board": true
+  },
+  {
+    "browser": "firefox",
+    "width": 1280,
+    "state": "pass-and-play",
+    "mode": "Human vs Human",
+    "hint": [
+      {
+        "text": "Hint",
+        "disabled": true,
+        "title": "Hints need an engine — start a game against the computer."
+      }
+    ],
+    "takeback": true,
+    "board": true
+  },
+  {
+    "browser": "firefox",
+    "width": 1280,
+    "state": "against-engine",
+    "mode": "Human vs AI",
+    "hint": [
+      {
+        "text": "Hint",
+        "disabled": false,
+        "title": "Ask the engine what it would play"
+      }
+    ],
+    "takeback": true,
+    "board": true
+  },
+  {
+    "browser": "firefox",
+    "width": 375,
+    "state": "pass-and-play",
+    "mode": "Human vs Human",
+    "hint": [
+      {
+        "text": "Hint",
+        "disabled": true,
+        "title": "Hints need an engine — start a game against the computer."
+      }
+    ],
+    "takeback": true,
+    "board": true
+  },
+  {
+    "browser": "firefox",
+    "width": 375,
+    "state": "against-engine",
+    "mode": "Human vs AI",
+    "hint": [
+      {
+        "text": "Hint",
+        "disabled": false,
+        "title": "Ask the engine what it would play"
+      }
+    ],
+    "takeback": true,
+    "board": true
+  },
+  {
+    "browser": "webkit",
+    "width": 1280,
+    "state": "pass-and-play",
+    "mode": "Human vs Human",
+    "hint": [
+      {
+        "text": "Hint",
+        "disabled": true,
+        "title": "Hints need an engine — start a game against the computer."
+      }
+    ],
+    "takeback": true,
+    "board": true
+  },
+  {
+    "browser": "webkit",
+    "width": 1280,
+    "state": "against-engine",
+    "mode": "Human vs AI",
+    "hint": [
+      {
+        "text": "Hint",
+        "disabled": false,
+        "title": "Ask the engine what it would play"
+      }
+    ],
+    "takeback": true,
+    "board": true
+  },
+  {
+    "browser": "webkit",
+    "width": 375,
+    "state": "pass-and-play",
+    "mode": "Human vs Human",
+    "hint": [
+      {
+        "text": "Hint",
+        "disabled": true,
+        "title": "Hints need an engine — start a game against the computer."
+      }
+    ],
+    "takeback": true,
+    "board": true
+  },
+  {
+    "browser": "webkit",
+    "width": 375,
+    "state": "against-engine",
+    "mode": "Human vs AI",
+    "hint": [
+      {
+        "text": "Hint",
+        "disabled": false,
+        "title": "Ask the engine what it would play"
+      }
+    ],
+    "takeback": true,
+    "board": true
+  }
+]

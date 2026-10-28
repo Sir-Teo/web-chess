@@ -9024,11 +9024,9 @@ function App() {
                       />
                       <span>Show board arrow overlays</span>
                     </label>
-                    {/* Hint, Take back and Resign all answer "yours": in a
-                        game between two engines each is disabled for good, and
-                        three dead buttons under a game being watched read as
-                        something that failed to load. */}
-                    {gameMode !== 'ai-vs-ai' && (
+                    {/* Hints use the opponent's engine, which pass-and-play
+                        does not start. Offer the action in the mode that can use it. */}
+                    {gameMode === 'human-vs-ai' && (
                     <div className="inline-actions hint-row">
                       <button
                         type="button"
