@@ -7728,10 +7728,24 @@ async function checkPgnFileReading(browser) {
       await finish(newest, fresh); await open().waitFor()
       assert(await draft.inputValue() === fresh && await dialog.locator('.dialog-file-name').innerText() === `slow-${newest}.pgn`, 'a current file did not fill its exact Unicode PGN and filename')
       const failure = await start(); await finish(failure, '', true)
-      await dialog.getByRole('alert').filter({ hasText: 'Could not read that PGN file.' }).waitFor()
-      assert(await open().isEnabled() && await draft.inputValue() === fresh && await reading.count() === 0, 'a failed read lost the draft or blocked retry')
+      const assertFileError = async message => {
+        const fileError = dialog.locator('.pgn-file-error')
+        await fileError.filter({ hasText: message }).waitFor()
+        assert(await open().isEnabled() && await draft.inputValue() === fresh && await reading.count() === 0
+          && await open().getAttribute('aria-describedby') === await fileError.getAttribute('id')
+          && await draft.getAttribute('aria-invalid') !== 'true' && !await draft.getAttribute('aria-describedby')
+          && await dialog.locator('.dialog-file-name').innerText() === `slow-${newest}.pgn`
+          && await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).isEnabled(), 'a failed read lost/invalidated the valid draft or its filename, lacks associated file retry feedback or blocked import')
+        const errorContrast = await page.evaluate(contrastProbe, '.pgn-file-error')
+        assert(errorContrast.checked === 1 && errorContrast.failures.length === 0 && await fileError.evaluate(el => el.scrollWidth <= el.clientWidth + 1), `file error feedback is unreadable: ${JSON.stringify(errorContrast)}`)
+      }
+      await assertFileError('Could not read that PGN file.')
+      await open().focus()
+      await file.setInputFiles({ name: 'oversized.pgn', mimeType: 'application/x-chess-pgn', buffer: Buffer.alloc(5 * 1024 * 1024 + 1) })
+      await assertFileError('up to 5 MB')
       const paste = await start(); await draft.fill('1. c4 {New paste} e5 *'); await finish(paste, fresh)
-      assert(await draft.inputValue() === '1. c4 {New paste} e5 *' && await cancel().count() === 0 && await reading.count() === 0, 'a later paste did not take ownership of file progress and content')
+      assert(await draft.inputValue() === '1. c4 {New paste} e5 *' && await cancel().count() === 0 && await reading.count() === 0
+        && await dialog.locator('.pgn-file-error').count() === 0, 'a later paste did not take ownership of file progress, error feedback and content')
       const tab = await start(); await dialog.getByRole('button', { name: 'FEN', exact: true }).click(); await finish(tab, fresh)
       await dialog.getByRole('button', { name: 'Import', exact: true }).click()
       assert(await draft.inputValue() === '1. c4 {New paste} e5 *' && await reading.count() === 0, 'an old-tab file completion restored progress or changed the draft')
@@ -7757,7 +7771,7 @@ async function checkPgnFileReading(browser) {
       assert(await page.locator('.mtree-chip').count() === 5 && await page.getByRole('textbox', { name: 'Move note', exact: true }).inputValue() === 'Fresh read ♞', 'the final file lost its variation or note during actual import')
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'PGN read controls overflow')
       assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `PGN file-read errors: ${errors.join('; ')}`)
-      console.log(`  PGN file reading (${width}×${height}, ${scale}x, ${theme}): associated progress/Cancel, fitting/coarse target/contrast, focused retry, stale resolve/reject ownership, own failure, paste/tab/close cancellation and exact Unicode/variation import pass without changing the board before explicit import`)
+      console.log(`  PGN file reading (${width}×${height}, ${scale}x, ${theme}): associated progress/Cancel and readable file errors; failed reads preserve the valid PGN/filename and import availability; focused retry, stale resolve/reject ownership, paste/tab/close cancellation and exact Unicode/variation import pass without changing the board before explicit import`)
     } finally { await context.close() }
   }
 }

@@ -166,6 +166,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const [archiveBusy, setArchiveBusy] = useState(false)
     const [archiveError, setArchiveError] = useState<string | null>(null)
     const [readingFile, setReadingFile] = useState(false)
+    const [importFileError, setImportFileError] = useState<string | null>(null)
     const [archiveUsernameFeedback, setArchiveUsernameFeedback] = useState<'blurred' | 'submitted' | null>(null)
     const [databaseBusy, setDatabaseBusy] = useState(false)
     /** What `handleImportDatabase` asks; the state is what the button shows. */
@@ -182,6 +183,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const titleId = useId()
     const importTextId = useId()
     const fileReadStatusId = useId()
+    const importFileErrorId = useId()
     const fenTextId = useId()
     const exportTextId = useId()
     const halfmoveId = useId()
@@ -206,6 +208,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
         setShareLinkFallback('')
         setArchivePreferencesStored(null)
         setArchiveError(null)
+        setImportFileError(null)
     }, [])
 
     // A newer paste, file, or archive choice owns the import box. Cancel the
@@ -385,9 +388,9 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
         cancelPendingImport()
         const request = importRequestRef.current
         resetFeedback()
+        // Keep the visible draft and its filename until a replacement is read.
         if (file.size > MAX_PGN_IMPORT_BYTES) {
-            setImportFileName(null)
-            setError(PGN_IMPORT_LIMIT_MESSAGE)
+            setImportFileError(PGN_IMPORT_LIMIT_MESSAGE)
             return
         }
 
@@ -397,8 +400,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
             if (request !== importRequestRef.current) return
             const limitError = pgnImportLengthError(text)
             if (limitError) {
-                setImportFileName(null)
-                setError(limitError)
+                setImportFileError(limitError)
                 return
             }
             setImportText(text)
@@ -406,8 +408,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
             setError(pgnImportContentError(text))
         } catch {
             if (request !== importRequestRef.current) return
-            setImportFileName(null)
-            setError('Could not read that PGN file.')
+            setImportFileError('Could not read that PGN file.')
         } finally {
             if (request === importRequestRef.current) setReadingFile(false)
         }
@@ -884,7 +885,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                     onChange={event => void handleImportFileChange(event)}
                                 />
                                 <button type="button" className="btn-cancel"
-                                    aria-describedby={readingFile ? fileReadStatusId : undefined}
+                                    aria-describedby={readingFile ? fileReadStatusId : importFileError ? importFileErrorId : undefined}
                                     onClick={() => {
                                         if (readingFile) {
                                             cancelPendingImport()
@@ -899,6 +900,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                 )}
                             </div>
                             {readingFile && <p id={fileReadStatusId} className="dialog-file-reading" role="status">Reading PGN file…</p>}
+                            {importFileError && <p id={importFileErrorId} className="dialog-error pgn-file-error" role="alert">{importFileError}</p>}
                             {loadedFileIsTooBigToShow ? (
                                 <div className="dialog-file-summary">
                                     <p>

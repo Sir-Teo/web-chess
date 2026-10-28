@@ -1,0 +1,20 @@
+[
+  {
+    "width": 1280,
+    "scale": 1,
+    "text": "1. d4 {Keep this valid draft \u265e} *",
+    "pgnInvalid": "true",
+    "pgnDescription": "_r_8_-error",
+    "fileDescription": null,
+    "canImport": true
+  },
+  {
+    "width": 375,
+    "scale": 2,
+    "text": "1. d4 {Keep this valid draft \u265e} *",
+    "pgnInvalid": "true",
+    "pgnDescription": "_r_m_-error",
+    "fileDescription": null,
+    "canImport": true
+  }
+]
