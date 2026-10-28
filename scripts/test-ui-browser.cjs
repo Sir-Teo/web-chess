@@ -682,6 +682,63 @@ async function checkBishopEntryGuidance(browser) {
   }
 }
 
+async function checkBishopRankEntry(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const input = page.locator('.move-entry input')
+      const load = async fen => {
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await page.locator('.pgn-dialog textarea').fill(`[SetUp "1"]\n[FEN "${fen}"]\n\n*`)
+        await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+        if (!await page.locator('.move-entry').evaluate(e => e.open)) await page.locator('.move-entry summary').click()
+      }
+      const white = '8/7k/8/8/8/2B5/8/1NB4K w - - 0 1'
+      for (const [fen, san, source, destination, knight, piece] of [
+        [white, 'B1d2', 'c1', 'd2', 'b1', 'w'],
+        ['1nb4k/8/2b5/8/8/8/7K/8 b - - 0 1', 'B8d7', 'c8', 'd7', 'b8', 'b'],
+      ]) {
+        await load(fen)
+        await input.fill(san)
+        await input.press('Enter')
+        await page.locator(`#chessboard-square-${destination} [data-piece="${piece}B"]`).waitFor()
+        assert(await page.locator(`#chessboard-square-${knight} [data-piece="${piece}N"]`).count() === 1, `${san} moved the knight instead of the bishop`)
+        assert(await page.locator(`#chessboard-square-${source} [data-piece]`).count() === 0, `${san} left its bishop on the source square`)
+        assert((await page.locator('.mtree-chip[aria-current]').getAttribute('aria-label')).includes(san), 'the transcript recorded the wrong piece move')
+        assert(await input.inputValue() === '' && await input.evaluate(e => e === document.activeElement), 'a valid bishop move did not clear the draft and retain focus')
+      }
+      for (const coordinate of ['b1d2', 'B1D2', 'B1-d2']) {
+        await load(white)
+        await input.fill(coordinate)
+        await input.press('Enter')
+        await page.locator('#chessboard-square-d2 [data-piece="wN"]').waitFor()
+        assert(await page.locator('#chessboard-square-c1 [data-piece="wB"]').count() === 1, `${coordinate} no longer uses explicit coordinates`)
+      }
+      await load('8/7k/8/8/8/2B5/8/1N5K w - - 0 1')
+      await input.fill('B1d2')
+      await input.press('Enter')
+      await page.locator('.move-entry [role="alert"]').waitFor()
+      assert(await input.inputValue() === 'B1d2' && await input.evaluate(e => e === document.activeElement), 'illegal bishop notation lost its editable draft or focus')
+      assert(await page.locator('.mtree-chip').count() === 0 && await page.locator('#chessboard-square-b1 [data-piece="wN"]').count() === 1, 'illegal bishop notation played a different legal move')
+      await page.screenshot({ path: `/tmp/web-chess-bishop-rank-${browser.browserType().name()}-${width}.png`, fullPage: true })
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'the move-entry error overflows the document')
+      await input.fill('b1d2')
+      await input.press('Enter')
+      await page.locator('#chessboard-square-d2 [data-piece="wN"]').waitFor()
+      assert(await page.locator('.move-entry [role="alert"]').count() === 0, 'the corrected coordinate move retained an obsolete error')
+      assert(errors.length === 0, `bishop rank entry errors: ${errors.join('; ')}`)
+      console.log(`  bishop rank entry (${width}×${height}, ${scale}x, ${theme}): White/Black SAN moves the named bishop and retains the knight; explicit coordinates still move the knight; illegal SAN keeps the board, draft and focus for correction`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkTypedMoveEntry(browser) {
   for (const [width, theme] of [[1280, 'Dark'], [375, 'Dark'], [1280, 'Light'], [375, 'Light']]) {
     const context = await browser.newContext({ viewport: { width, height: 812 } })
@@ -21651,6 +21708,7 @@ async function main() {
       'board-canvas': checkBoardCanvas,
       'typed-moves': checkTypedMoveEntry,
       'bishop-guidance': checkBishopEntryGuidance,
+      'bishop-rank-entry': checkBishopRankEntry,
       'move-entry-availability': checkMoveEntryAvailability,
       'command-move-entry': checkCommandMoveEntry,
       'autoplay': checkAutoplayWalksTheLine,
@@ -22441,6 +22499,7 @@ async function main() {
     await checkDialogDownloadFailure(browser)
     await checkSlowDialogDismissal(browser)
     await checkTypedMoveEntry(browser)
+    await checkBishopRankEntry(browser)
     await checkBishopEntryGuidance(browser)
     await checkAutosaveFailure(browser)
     await checkAnalysisRetryCommand(browser)

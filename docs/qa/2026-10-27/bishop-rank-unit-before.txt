@@ -1,0 +1,103 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/moveEntry.test.ts (54 tests | 3 failed) 62ms
+     × plays the named bishop rather than the piece on the b-file: 8/7k/8/8/8/2B5/8/1NB4K w - - 0 1 B1d2 7ms
+     × plays the named bishop rather than the piece on the b-file: 1nb4k/8/2b5/8/8/8/7K/8 b - - 0 1 B8d7 1ms
+     × refuses illegal bishop notation even when its coordinates would move a knight 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/moveEntry.test.ts > bishop rank notation and b-file coordinates > plays the named bishop rather than the piece on the b-file: 8/7k/8/8/8/2B5/8/1NB4K w - - 0 1 B1d2
+AssertionError: expected Move{ color: 'w', from: 'b1', …(9) } to match object { from: 'c1', to: 'd2', …(2) }
+(7 matching properties omitted from actual)
+
+- Expected
++ Received
+
+- {
+-   "from": "c1",
+-   "piece": "b",
+-   "san": "B1d2",
++ Move {
++   "from": "b1",
++   "piece": "n",
++   "san": "Nd2",
+    "to": "d2",
+  }
+
+ ❯ src/engine/moveEntry.test.ts:113:40
+    111|     [black, 'B8d7', 'c8', 'd7'],
+    112|   ])('plays the named bishop rather than the piece on the b-file: %s %…
+    113|     expect(parseMoveEntry(fen, input)).toMatchObject({ from, to, piece…
+       |                                        ^
+    114|   })
+    115|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/engine/moveEntry.test.ts > bishop rank notation and b-file coordinates > plays the named bishop rather than the piece on the b-file: 1nb4k/8/2b5/8/8/8/7K/8 b - - 0 1 B8d7
+AssertionError: expected Move{ color: 'b', from: 'b8', …(9) } to match object { from: 'c8', to: 'd7', …(2) }
+(7 matching properties omitted from actual)
+
+- Expected
++ Received
+
+- {
+-   "from": "c8",
+-   "piece": "b",
+-   "san": "B8d7",
++ Move {
++   "from": "b8",
++   "piece": "n",
++   "san": "Nd7",
+    "to": "d7",
+  }
+
+ ❯ src/engine/moveEntry.test.ts:113:40
+    111|     [black, 'B8d7', 'c8', 'd7'],
+    112|   ])('plays the named bishop rather than the piece on the b-file: %s %…
+    113|     expect(parseMoveEntry(fen, input)).toMatchObject({ from, to, piece…
+       |                                        ^
+    114|   })
+    115|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/engine/moveEntry.test.ts > bishop rank notation and b-file coordinates > refuses illegal bishop notation even when its coordinates would move a knight
+AssertionError: expected Move{ color: 'w', from: 'b1', …(9) } to be null
+
+- Expected:
+null
+
++ Received:
+Move {
+  "after": "8/7k/8/8/8/2B5/3N4/7K b - - 1 1",
+  "before": "8/7k/8/8/8/2B5/8/1N5K w - - 0 1",
+  "captured": undefined,
+  "color": "w",
+  "flags": "n",
+  "from": "b1",
+  "lan": "b1d2",
+  "piece": "n",
+  "promotion": undefined,
+  "san": "Nd2",
+  "to": "d2",
+}
+
+ ❯ src/engine/moveEntry.test.ts:118:41
+    116|   it('refuses illegal bishop notation even when its coordinates would …
+    117|     const fen = '8/7k/8/8/8/2B5/8/1N5K w - - 0 1'
+    118|     expect(parseMoveEntry(fen, 'B1d2')).toBeNull()
+       |                                         ^
+    119|     expect(parseMoveEntry(fen, 'b1d2')).toMatchObject({ from: 'b1', to…
+    120|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 51 passed (54)
+   Start at  03:51:44
+   Duration  263ms (transform 51ms, setup 0ms, import 73ms, tests 62ms, environment 0ms)
+
