@@ -1,0 +1,21 @@
+{"browser":"webkit","port":"4324","commit":"f8d54ba00ab39e866cf1b98876cf4355456fe857","build":"Vite development source","dirty":true,"checks":["checkDrillHiddenHints","checkTypedMoveEntry"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkDrillHiddenHints
+  drill hidden hints (1280×900, 1x, dark): known best/reply titles disappear in Coach/Pro and through one miss, advance and restart; two misses/exit restore titles; native hover and all 64 useful square labels retain no answer coordinates; one persistent board status announces both misses and truthful completion; the readable card stays non-live and the revealed answer reaches the board
+  drill hidden hints (375×812, 1x, light): known best/reply titles disappear in Coach/Pro and through one miss, advance and restart; two misses/exit restore titles; native hover and all 64 useful square labels retain no answer coordinates; one persistent board status announces both misses and truthful completion; the readable card stays non-live and the revealed answer reaches the board
+  drill hidden hints (320×812, 2x, dark): known best/reply titles disappear in Coach/Pro and through one miss, advance and restart; two misses/exit restore titles; native hover and all 64 useful square labels retain no answer coordinates; one persistent board status announces both misses and truthful completion; the readable card stays non-live and the revealed answer reaches the board
+  drill hidden hints (844×390, 2x, light): known best/reply titles disappear in Coach/Pro and through one miss, advance and restart; two misses/exit restore titles; native hover and all 64 useful square labels retain no answer coordinates; one persistent board status announces both misses and truthful completion; the readable card stays non-live and the revealed answer reaches the board
+checkTypedMoveEntry
+  contrast (Dark / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 1280px): 163 measured, 0 under the floor (146 on a gradient, measured against its worst stop)
+  typed moves (1280px, Dark): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  contrast (Dark / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 375px): 160 measured, 0 under the floor (142 on a gradient, measured against its worst stop)
+  typed moves (375px, Dark): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 1280px): 163 measured, 0 under the floor (146 on a gradient, measured against its worst stop)
+  typed moves (1280px, Light): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+  contrast (Light / analysis guide / 375px): 137 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 375px): 160 measured, 0 under the floor (142 on a gradient, measured against its worst stop)
+  typed moves (375px, Light): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK
+Development focused checks passed.

@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import type { Move } from 'chess.js'
 import { moveEntryExplanation, parseMoveEntry } from '../engine/moveEntry'
+import { isCompositionKey } from './shortcutKeys'
 import './MoveEntry.css'
 
 export function MoveEntry({ fen, onMove, disabled = false, disabledReason = 'The board is not taking moves right now.' }: {
@@ -18,7 +19,10 @@ export function MoveEntry({ fen, onMove, disabled = false, disabledReason = 'The
   return (
     <details className="move-entry">
       <summary>Enter a move by name</summary>
-      <form onSubmit={event => {
+      <form onKeyDown={event => {
+        // A repeated submission of a refused draft must not spend another drill attempt.
+        if (event.key === 'Enter' && (event.repeat || isCompositionKey(event.nativeEvent))) event.preventDefault()
+      }} onSubmit={event => {
         event.preventDefault()
         if (disabled || !text.trim()) return
         const move = parseMoveEntry(fen, text)

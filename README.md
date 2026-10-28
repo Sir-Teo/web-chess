@@ -139,7 +139,8 @@ given, and the app answering the reader who touches it.
   focus while the opponent moves and explains loading, waiting and Step mode.
   Find it in **Commands** (`Ctrl/Cmd+K`) to open the panel and focus the field;
   reopening an existing field keeps its draft and selection. It is omitted
-  while watching two engines.
+  while watching two engines. A held Enter submits once, so a wrong drill move
+  counts as one attempt; Enter used to compose text does not play a move.
 - **Move with the keyboard**: Focus a piece and press Enter or Space, use arrow
   keys or Tab to a legal destination, then Enter or Space to play. Arrows follow
   the current board orientation; Home/End move along the rank, and Escape
