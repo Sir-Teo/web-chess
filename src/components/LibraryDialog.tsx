@@ -4,6 +4,7 @@ import { useModalFocus } from '../hooks/useModalFocus'
 import {
     type LibraryGame,
     type LibrarySort,
+    createLibraryPgn,
     MAX_LIBRARY_NAME_LENGTH,
     MAX_LIBRARY_BACKUP_BYTES,
     MAX_LIBRARY_BACKUP_LENGTH,
@@ -64,6 +65,7 @@ type Props = {
  */
 const PAGE_SIZE = 100
 const PGN_DOWNLOAD_ERROR = 'The browser could not start the PGN download. Try Export PGN again.'
+const MATCHES_DOWNLOAD_ERROR = 'The browser could not start the selection download. Try Export matches again.'
 const BACKUP_DOWNLOAD_ERROR = 'The browser could not start the backup download. Try Export backup again.'
 const backupPartDownloadError = (index: number) => `The browser could not start backup part ${index + 1}. Try that part again.`
 const ROW_BUTTONS = '.library-favorite, .library-row-actions > button'
@@ -326,20 +328,21 @@ export function LibraryDialog({
 
     const today = () => formatLocalDate()
 
-    const handleExportPgn = () => {
+    const handleExportPgn = (matchesOnly = false) => {
         try {
-            const text = onExportPgn()
+            const text = matchesOnly ? createLibraryPgn(visible) : onExportPgn()
             if (!text) {
                 setStatus(null)
-                setError('There is nothing in the library to export yet.')
+                setError(matchesOnly ? 'There are no matching games to export.' : 'There is nothing in the library to export yet.')
                 return
             }
-            download(text, `web-chess-library-${today()}.pgn`, 'application/x-chess-pgn')
+            download(text, `web-chess-library-${matchesOnly ? 'matches-' : ''}${today()}.pgn`, 'application/x-chess-pgn')
             setError(null)
-            setStatus(`Exported ${stats.count} ${stats.count === 1 ? 'game' : 'games'} as PGN.`)
+            const count = matchesOnly ? visible.length : stats.count
+            setStatus(`Exported ${count}${matchesOnly ? ' matching' : ''} ${count === 1 ? 'game' : 'games'} as PGN.`)
         } catch {
             setStatus(null)
-            setError(PGN_DOWNLOAD_ERROR)
+            setError(matchesOnly ? MATCHES_DOWNLOAD_ERROR : PGN_DOWNLOAD_ERROR)
         }
     }
 
@@ -705,6 +708,17 @@ export function LibraryDialog({
                                 </>}
                             </p>}
                         </div>
+                        {loaded && games.length > 0 && (starredOnly || query.trim()) && (
+                            <button type="button" className="btn-cancel library-export-matches"
+                                disabled={visible.length === 0}
+                                title={visible.length
+                                    ? `Download all ${visible.length} matching ${visible.length === 1 ? 'game' : 'games'} as a PGN database`
+                                    : 'No matching games to export.'}
+                                aria-describedby={error === MATCHES_DOWNLOAD_ERROR ? errorId : `${searchId}-results`}
+                                onClick={() => handleExportPgn(true)}>
+                                <IconDownload /> Export matches ({visible.length})
+                            </button>
+                        )}
                     </div>
 
                     {!storageIsDurable && (
@@ -767,7 +781,7 @@ export function LibraryDialog({
                     <button
                         type="button"
                         className="btn-cancel"
-                        onClick={handleExportPgn}
+                        onClick={() => handleExportPgn()}
                         aria-describedby={error === PGN_DOWNLOAD_ERROR ? errorId : undefined}
                         disabled={!games.length}
                         title={games.length

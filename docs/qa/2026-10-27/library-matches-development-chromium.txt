@@ -1,0 +1,8 @@
+{"browser":"chromium","port":"4324","commit":"c593e87623083c4204b57eb0fdaa3c4b340bee06","build":"Vite development source","dirty":true,"checks":["checkLibraryMatchingExport"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkLibraryMatchingExport
+  library matching export (1280×900, 1x, dark): all 106 paginated matches in starred/name order; combined and starred-only filters, one/zero matches; Unicode notes/variation/setup/endings; complete exports/backups and originals preserved; denied-download keyboard retry; visible 44px target
+  library matching export (375×812, 1x, light): all 106 paginated matches in starred/name order; combined and starred-only filters, one/zero matches; Unicode notes/variation/setup/endings; complete exports/backups and originals preserved; denied-download keyboard retry; visible 44px target
+  library matching export (320×812, 2x, light): all 106 paginated matches in starred/name order; combined and starred-only filters, one/zero matches; Unicode notes/variation/setup/endings; complete exports/backups and originals preserved; denied-download keyboard retry; visible 44px target
+  library matching export (844×390, 2x, dark): all 106 paginated matches in starred/name order; combined and starred-only filters, one/zero matches; Unicode notes/variation/setup/endings; complete exports/backups and originals preserved; denied-download keyboard retry; visible 44px target
+Development focused checks passed.

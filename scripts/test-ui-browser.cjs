@@ -8531,6 +8531,91 @@ async function checkLibraryRowFocusOwnership(browser) {
   }
 }
 
+async function checkLibraryMatchingExport(browser) {
+  const fen = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1'
+  const games = Array.from({ length: 108 }, (_, index) => {
+    const body = index === 0 ? '1. e4 {Keep José ♞} e5 (1... c5) ; trailing 0-1'
+      : index === 1 ? `[SetUp "1"]\n[FEN "${fen}"]\n\n{A position study ♞}` : '1. d4 d5 *'
+    return { id: `collection-${index}`, name: `${index < 106 ? 'Collection' : 'Other'} ${String(index).padStart(3, '0')}`,
+      pgn: `[Event "${index < 106 ? 'Collection' : 'Other'} ${index}"]\n\n${body}`, favorite: [0, 2, 105].includes(index), createdAt: index + 1, updatedAt: index + 1 }
+  })
+  const ordered = [...games.slice(0, 106).filter(game => game.favorite), ...games.slice(0, 106).filter(game => !game.favorite)]
+  const expected = records => records.map(game => game.pgn + (games.indexOf(game) < 2 ? '\n*' : '')).join('\n\n') + '\n'
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', acceptDownloads: true })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      const dialog = page.locator('.library-dialog'), search = dialog.getByRole('searchbox', { name: 'Search saved games', exact: true })
+      const matches = dialog.getByRole('button', { name: /^Export matches \(/ })
+      await dialog.locator('input[type="file"]').setInputFiles({ name: 'collection.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ format: 'web-chess-library', version: 1, games })) })
+      await dialog.getByRole('status').filter({ hasText: 'Backup imported.' }).waitFor()
+      assert(await matches.count() === 0, 'an unfiltered shelf offers a redundant selection export')
+      const downloadText = async (button, name, text, keyboard = false) => {
+        await button.focus()
+        const [file] = await Promise.all([page.waitForEvent('download'), keyboard ? page.keyboard.press('Enter') : button.click()])
+        assert(!await file.failure() && new RegExp(`^web-chess-library-${name}\\d{4}-\\d{2}-\\d{2}\\.pgn$`).test(file.suggestedFilename()), 'collection export did not start a named PGN download')
+        assert(fs.readFileSync(await file.path(), 'utf8') === text, 'collection export lost matches, order, notes, variation, setup or game endings')
+        assert(await dialog.getByRole('alert').count() === 0, 'a successful export kept an obsolete error')
+      }
+      await dialog.getByRole('combobox', { name: 'Sort saved games', exact: true }).selectOption('name')
+      await search.fill('Collection')
+      assert(await dialog.locator('.library-row').count() === 100, 'the export fixture is not paginated')
+      await dialog.getByRole('button', { name: 'Show 6 more', exact: true }).waitFor()
+      assert(await matches.innerText() === 'Export matches (106)', 'the export count reports only the mounted page')
+      await downloadText(matches, 'matches-', expected(ordered), true)
+      await dialog.getByRole('status').filter({ hasText: 'Exported 106 matching games as PGN.' }).waitFor()
+      assert(await dialog.locator('.library-row').count() === 100, 'exporting unnecessarily expanded the result list')
+      await dialog.getByRole('button', { name: 'Starred only', exact: true }).click()
+      await downloadText(matches, 'matches-', expected(ordered.filter(game => game.favorite)))
+      await search.fill('Collection 105')
+      await downloadText(matches, 'matches-', expected([games[105]]))
+      await dialog.getByRole('status').filter({ hasText: 'Exported 1 matching game as PGN.' }).waitFor()
+      await search.fill('No matching collection')
+      assert(await matches.isDisabled() && await matches.innerText() === 'Export matches (0)', 'an empty filtered shelf still offers an export')
+      await search.fill('')
+      await downloadText(matches, 'matches-', expected(ordered.filter(game => game.favorite)))
+      // Full exports and backups keep every record, even while favorites filter the list.
+      await downloadText(dialog.getByRole('button', { name: 'Export PGN', exact: true }), '', expected(games))
+      const [backup] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Export backup', exact: true }).click()])
+      const originals = JSON.parse(fs.readFileSync(await backup.path(), 'utf8')).games
+      assert(originals.length === games.length && originals.every(record => {
+        const source = games.find(game => game.id === record.id)
+        return source && source.pgn === record.pgn && source.name === record.name && source.favorite === record.favorite
+          && source.createdAt === record.createdAt && source.updatedAt === record.updatedAt
+      }), 'exporting matches altered or omitted saved originals')
+      await page.evaluate(() => {
+        const create = URL.createObjectURL
+        URL.createObjectURL = function () { URL.createObjectURL = create; throw new DOMException('QA selection denied', 'NotAllowedError') }
+      })
+      await matches.focus(); await page.keyboard.press('Enter')
+      const failure = dialog.getByRole('alert').filter({ hasText: 'Try Export matches again.' })
+      await failure.waitFor()
+      assert(await matches.getAttribute('aria-describedby') === await failure.getAttribute('id')
+        && await matches.evaluate(el => el === document.activeElement), 'a failed selection download lost its focused, described retry')
+      await downloadText(matches, 'matches-', expected(ordered.filter(game => game.favorite)), true)
+      await matches.focus()
+      const target = await matches.evaluate(element => {
+        const rect = element.getBoundingClientRect()
+        return { width: rect.width, height: rect.height, visible: rect.top >= 0 && rect.bottom <= innerHeight
+          && element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)) }
+      })
+      assert(target.width >= 44 && target.height >= 44 && target.visible, 'selection export is not a reachable 44px target')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'collection export overflows the viewport')
+      assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1
+        && await page.evaluate(() => window.__uciCommands.every(command => !command.startsWith('go '))), 'collection export moved the board or searched')
+      assert(errors.length === 0, `collection export errors: ${errors.join('; ')}`)
+      await page.screenshot({ path: `/tmp/web-chess-library-matches-${browser.browserType().name()}-${width}-${scale}x.png` })
+      console.log(`  library matching export (${width}×${height}, ${scale}x, ${theme}): all 106 paginated matches in starred/name order; combined and starred-only filters, one/zero matches; Unicode notes/variation/setup/endings; complete exports/backups and originals preserved; denied-download keyboard retry; visible 44px target`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkLibraryStarredFilter(browser) {
   for (const [width, scale, theme] of [[1280, 1, 'dark'], [901, 2, 'light'], [375, 1, 'dark'], [320, 2, 'light']]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -22705,6 +22790,7 @@ async function main() {
       'international-search': checkInternationalLibrarySearch,
       'library-browsing': checkLibraryBrowsing,
       'library-starred': checkLibraryStarredFilter,
+      'library-matches': checkLibraryMatchingExport,
       'library-keyboard': checkLibraryKeyboardNavigation,
       'library-empty-focus': checkLibraryEmptyFocus,
       'confirmation-keys': checkConfirmationKeys,
@@ -23633,6 +23719,7 @@ async function main() {
     await checkLibraryBrowsing(browser)
     await checkLibraryRowFocusOwnership(browser)
     await checkLibraryStarredFilter(browser)
+    await checkLibraryMatchingExport(browser)
     await checkLibraryKeyboardNavigation(browser)
     await checkLibraryEmptyFocus(browser)
     await checkViewportResizePreservesGesture(browser)

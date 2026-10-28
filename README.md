@@ -424,6 +424,9 @@ given, and the app answering the reader who touches it.
   database import above reads straight back. Missing result markers are added
   to the download so unfinished headerless games stay separate; saved originals
   keep their text. Setup-only studies also survive the roundtrip.
+  Search or turn on **Starred only**, then **Export matches** to download that
+  collection in the displayed sort order, including matches beyond the first
+  page. **Export PGN** and **Export backup** still save the whole library.
 - **Fetch your own games by username**: Type a Lichess or chess.com name on the
   Import tab and the last ten games — or up to fifty — arrive in the paste box,
   newest first, with no sign-in and no file to find. Both sites publish a
