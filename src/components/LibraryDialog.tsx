@@ -20,6 +20,7 @@ import './NewGameDialog.css'
 import './LibraryDialog.css'
 import { MAX_SEARCH_QUERY_LENGTH } from '../engine/searchTerms'
 import { formatLocalDate } from '../engine/localDate'
+import { readStorage, writeStorage } from '../engine/storage'
 import { isCompositionKey, isPlainShortcut, isTypingTarget } from './shortcutKeys'
 
 type Props = {
@@ -67,6 +68,7 @@ const BACKUP_DOWNLOAD_ERROR = 'The browser could not start the backup download. 
 const backupPartDownloadError = (index: number) => `The browser could not start backup part ${index + 1}. Try that part again.`
 const ROW_BUTTONS = '.library-favorite, .library-row-actions > button'
 const BACKUP_TOO_LARGE_MESSAGE = 'That backup is too large. Import one exported backup part at a time.'
+const LIBRARY_SORT_STORAGE_KEY = 'webchess:library-sort:v1'
 
 const SORT_OPTIONS: { value: LibrarySort; label: string }[] = [
     { value: 'recent', label: 'Recent first' },
@@ -109,7 +111,10 @@ export function LibraryDialog({
     const [name, setName] = useState('')
     const [query, setQuery] = useState('')
     const [starredOnly, setStarredOnly] = useState(false)
-    const [sort, setSort] = useState<LibrarySort>('recent')
+    const [sort, setSort] = useState<LibrarySort>(() => {
+        const saved = readStorage(LIBRARY_SORT_STORAGE_KEY)
+        return SORT_OPTIONS.find(option => option.value === saved)?.value ?? 'recent'
+    })
     const [error, setError] = useState<string | null>(null)
     const [status, setStatus] = useState<string | null>(null)
     const [readingBackup, setReadingBackup] = useState(false)
@@ -226,6 +231,7 @@ export function LibraryDialog({
         setRenaming(null)
         setSort(next)
         setVisibleLimit(PAGE_SIZE)
+        writeStorage(LIBRARY_SORT_STORAGE_KEY, next)
     }
 
     const focusRowAction = (row: Element | undefined, actionIndex: number) => {

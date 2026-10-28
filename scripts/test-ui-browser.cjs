@@ -7743,12 +7743,22 @@ async function checkLibrarySorting(browser) {
       assert(geometry.height >= 44 && geometry.fits && geometry.exposed, `native sort control clips its full label or target: ${JSON.stringify(geometry)}`)
       if (width === 320 && scale === 2) assert(geometry.toolbar < 155, 'compact sorting still consumes too much enlarged phone reading space')
       assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'sorting played or loaded a game')
+      await dialog.getByText('Saving library changes…', { exact: true }).waitFor({ state: 'hidden' })
+      await page.keyboard.press('Escape')
+      await dialog.waitFor({ state: 'detached' })
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      assert(await sort.inputValue() === 'moves' && JSON.stringify(await rows()) === JSON.stringify(orders.moves), 'reopening Library lost the selected sort')
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      await sort.waitFor()
+      assert(await sort.inputValue() === 'moves' && JSON.stringify(await rows()) === JSON.stringify(orders.moves), 'reloading lost the saved sort, records or favorite priority')
       await dialog.getByRole('button', { name: 'Load Mike study', exact: true }).click()
       await dialog.waitFor({ state: 'detached' })
       await page.locator('#chessboard-square-c6 [data-piece="bN"]').waitFor()
       assert(errors.length === 0, `library sorting errors: ${errors.join('; ')}`)
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'library sorting overflows')
-      console.log(`  library sort (${width}px, ${scale}x, ${theme}): native keyboard and all five orders; recorded/partial/missing game dates, starred priority, filter/clear, star toggles and focus retained; full longest label, ${geometry.height}px target, ${geometry.toolbar}px toolbar; actual game load`)
+      console.log(`  library sort (${width}px, ${scale}x, ${theme}): native keyboard and all five orders; recorded/partial/missing game dates, starred priority, filter/clear, star toggles and focus retained; full longest label, ${geometry.height}px target, ${geometry.toolbar}px toolbar; chosen sort and records survive close/reload; actual game load`)
     } finally { await context.close() }
   }
 }
