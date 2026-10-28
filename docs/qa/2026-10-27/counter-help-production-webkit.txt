@@ -1,0 +1,32 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 198 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DqYiTm0h.js   67.87 kB
+dist/assets/LibraryDialog-BXloarg5.css        5.37 kB │ gzip:   1.37 kB
+dist/assets/index-Cf7WsL0w.css              135.69 kB │ gzip:  25.23 kB
+dist/assets/NewGameDialog-C6F3acgU.js         4.51 kB │ gzip:   1.63 kB
+dist/assets/LibraryDialog-Bcfu7Sjs.js        16.10 kB │ gzip:   5.46 kB
+dist/assets/PgnDialog-BjkdBOTc.js            34.33 kB │ gzip:  11.47 kB
+dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-DfzoeppA.js               423.89 kB │ gzip: 137.02 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.46s
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  FEN counters (1280px, 1x): malformed/rounded values refused with associated errors; draft/board retained; corrected decimal counters round-trip
+  FEN counters (375px, 2x): malformed/rounded values refused with associated errors; draft/board retained; corrected decimal counters round-trip
+  raw counter feedback (1280px, 1x, dark): exact bad/missing/unsafe FEN values have associated bounded guidance; focus/blur preserves raw data; Enter explicitly accepts safe defaults without loading; sibling errors and valid leading zeros survive
+  raw counter feedback (375px, 2x, light): exact bad/missing/unsafe FEN values have associated bounded guidance; focus/blur preserves raw data; Enter explicitly accepts safe defaults without loading; sibling errors and valid leading zeros survive
+  raw counter feedback (320px, 2x, dark): exact bad/missing/unsafe FEN values have associated bounded guidance; focus/blur preserves raw data; Enter explicitly accepts safe defaults without loading; sibling errors and valid leading zeros survive
+Focused browser UI checks passed.
