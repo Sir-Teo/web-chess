@@ -17,6 +17,7 @@ type ReviewMoveListProps = {
 
 export const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, currentNodeId, showEngineDetail, hideBestMoves = false, onSelectNode }: ReviewMoveListProps) {
   const listRef = useRef<HTMLOListElement>(null)
+  const visibleNodeIds = rows.map(row => nodes[row.ply]?.id ?? `ply-${row.ply}`).join('|')
   useEffect(() => {
     const list = listRef.current
     if (!list) return
@@ -26,8 +27,9 @@ export const ReviewMoveList = memo(function ReviewMoveList({ rows, nodes, curren
       return
     }
     scrollWithinContainer(list, selected)
-    // New engine readings must not undo the reader's manual list scrolling.
-  }, [currentNodeId])
+    // A changed filter reveals the selected move or starts at the first result.
+    // New readings for the same moves must retain manual list scrolling.
+  }, [currentNodeId, visibleNodeIds])
 
   return (
     <ol className="moves-list review-move-list" ref={listRef}>

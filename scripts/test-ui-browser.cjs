@@ -2042,6 +2042,58 @@ async function checkReviewListFollowsPosition(browser) {
   }
 }
 
+async function checkReviewFilterScroll(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [320, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, engineProfile: 'lite-single-local', reviewMaxWorkers: 1, theme,
+      })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog textarea').fill(SAMPLE_PGN)
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.getByRole('button', { name: /^review game$/i }).click()
+      await page.waitForFunction(() => /Pending 0/.test(document.querySelector('.review-chips')?.textContent || ''))
+      const list = page.locator('.review-move-list')
+      const first = await list.getByRole('button').first().getAttribute('aria-label')
+      const selected = await list.locator('[aria-current="true"]').getAttribute('aria-label')
+      const board = () => page.locator('[id^="chessboard-square-"]').evaluateAll(squares => squares.map(square =>
+        `${square.id}:${square.querySelector('[data-piece]')?.getAttribute('data-piece') || ''}`).join('|'))
+      const originalBoard = await board()
+      const selectedVisible = () => page.waitForFunction(() => {
+        const list = document.querySelector('.review-move-list'), selected = list?.querySelector('[aria-current="true"]')
+        if (!selected) return false
+        const a = list.getBoundingClientRect(), b = selected.getBoundingClientRect()
+        return b.top >= a.top - 1 && b.bottom <= a.bottom + 1
+      })
+      await list.evaluate(el => { el.scrollTop = el.scrollHeight })
+      const opening = page.getByRole('button', { name: /^Opening\./ })
+      await opening.focus(); await opening.press('Enter')
+      await page.waitForFunction(() => document.querySelector('.review-move-list')?.scrollTop === 0)
+      assert(await list.locator('[aria-current]').count() === 0 && await list.getByRole('button').first().getAttribute('aria-label') === first, 'the Opening filter did not show its first move')
+      assert(await opening.evaluate(el => el === document.activeElement) && await board() === originalBoard, 'filtering moved focus or changed the board')
+      const endgame = page.getByRole('button', { name: /^Endgame\./ })
+      await endgame.focus(); await endgame.press('Enter')
+      await selectedVisible()
+      assert(await list.locator('[aria-current="true"]').getAttribute('aria-label') === selected, 'the Endgame filter lost the selected move')
+      assert(await endgame.evaluate(el => el === document.activeElement), 'revealing a filtered review move stole focus')
+      await endgame.press('Enter')
+      await selectedVisible()
+      assert(await endgame.getAttribute('aria-pressed') === 'false' && await board() === originalBoard, 'returning to the whole line changed the board or filter state')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'review filters overflow the document')
+      assert(errors.length === 0, `review filter errors: ${errors.join('; ')}`)
+      console.log(`  review filter scroll (${width}px, ${scale}x, ${theme}): Opening starts at its first result when the board move is excluded; Endgame and the whole line reveal the same selected move without moving focus or changing the board`)
+    } finally { await context.close() }
+  }
+}
+
 /** Search saved runs without filtering backup contents or changing the open report. */
 async function checkSavedReviewSearch(browser) {
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
@@ -21914,6 +21966,7 @@ async function main() {
       'review-export-recovery': checkReviewExportRecovery,
       'review-phase-accessibility': checkReviewPhaseAccessibility,
       'review-list-scroll': checkReviewListFollowsPosition,
+      'review-filter-scroll': checkReviewFilterScroll,
       'review-comparison': checkSavedReviews,
       'review-delete-focus': checkSavedReviewDeleteFocus,
       'saved-reviews': async browser => { await checkSavedReviews(browser); await checkSavedReviewStorage(browser); await checkSavedReviewEndings(browser) },
@@ -22947,6 +23000,7 @@ async function main() {
     await checkReviewPhaseAccessibility(browser)
     await checkReviewExportRecovery(browser)
     await checkReviewListFollowsPosition(browser)
+    await checkReviewFilterScroll(browser)
     await checkDialogResizeFocus(browser)
     await checkAutoSaveCursor(browser)
     await checkPositionStudyNotes(browser)
