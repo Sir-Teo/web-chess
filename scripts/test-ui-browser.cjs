@@ -20608,6 +20608,27 @@ async function checkCounterRawFeedback(browser) {
       await half.focus(); await page.keyboard.press('Tab')
       assert(await input.inputValue() === `${root} 000 001` && await half.getAttribute('aria-invalid') !== 'true'
         && await full.getAttribute('aria-invalid') !== 'true' && await load.isEnabled(), 'valid leading-zero counters are being treated as invalid or rewritten on read')
+      for (const [field, previous] of [[half, '17'], [full, '23']]) {
+        for (const raw of ['9007199254740993', '1e30']) {
+          for (const key of ['Enter', 'Tab']) {
+            const original = `${root} 17 23`
+            await input.fill(original)
+            await field.fill(raw)
+            const rangeDescription = await field.evaluate(el => (el.getAttribute('aria-describedby') || '').split(/\s+/)
+              .map(id => document.getElementById(id)?.textContent || '').find(text => text.includes('Too large')))
+            assert(await input.inputValue() === original && await field.inputValue() === raw
+              && await field.getAttribute('aria-invalid') === 'true' && rangeDescription?.includes(`keep ${previous}`), 'an unsafe counter edit rounded or replaced the FEN instead of explaining how to keep the previous value')
+            await page.keyboard.press(key)
+            assert(await input.inputValue() === original && await field.inputValue() === previous
+              && await field.getAttribute('aria-invalid') !== 'true' && await load.isEnabled(), `${key} did not restore the previous safe counter`)
+            if (key === 'Enter') assert(await field.evaluate(el => el === document.activeElement), 'rejecting an unsafe counter lost input focus')
+          }
+        }
+      }
+      await half.fill('9007199254740993')
+      await half.fill('42')
+      assert(await input.inputValue() === `${root} 42 23` && await half.getAttribute('aria-invalid') !== 'true'
+        && !await half.evaluate(el => el.getAttribute('aria-describedby')?.includes('range-error')), 'correcting an unsafe counter did not update the FEN and remove range feedback')
       await input.fill(root)
       const missing = await errorDescriptionId(half)
       assert(await half.getAttribute('aria-invalid') === 'true' && missing
@@ -20626,7 +20647,7 @@ async function checkCounterRawFeedback(browser) {
       assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1 && await page.locator('.mtree-chip').count() === 0, 'counter correction loaded the draft without being asked')
       assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `counter feedback errors: ${errors.join('; ')}`)
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'counter feedback overflows')
-      console.log(`  raw counter feedback (${width}px, ${scale}x, ${theme}): exact bad/missing/unsafe FEN values have associated bounded guidance; focus/blur preserves raw data; Enter explicitly accepts safe defaults without loading; sibling errors and valid leading zeros survive`)
+      console.log(`  raw counter feedback (${width}px, ${scale}x, ${theme}): exact bad/missing/unsafe FEN values have associated bounded guidance; unsafe field edits preserve the last valid FEN and restore its counters on Enter/blur; correction clears range feedback; Enter explicitly accepts safe defaults without loading; sibling errors and valid leading zeros survive`)
     } finally { await context.close() }
   }
 }
