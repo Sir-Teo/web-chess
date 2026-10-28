@@ -5947,12 +5947,20 @@ async function checkAPaletteTabCommandGoesThere(browser) {
   const page = await context.newPage()
   try {
     await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+      workspaceMode: 'play', analysisExperience: 'pro', autoAnalyze: false,
+      engineProfile: 'lite-single-local', reviewMaxWorkers: 1,
+    })))
     await page.goto(BASE, { waitUntil: 'domcontentloaded' })
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
     await page.getByRole('button', { name: 'Play', exact: true }).first().click()
     await startGameMode(page, 'Human vs Human')
     await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+    await page.locator('#chessboard-square-e2').click()
+    await page.locator('#chessboard-square-e4').click()
+    await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+    const boardBefore = await page.locator('#chessboard-square-e4').evaluate(readBoardSquareLabel)
 
     const state = () => page.evaluate(() => ({
       title: (document.querySelector('#analysis-panel-title')?.textContent || '').trim(),
@@ -5975,6 +5983,56 @@ async function checkAPaletteTabCommandGoesThere(browser) {
     assert(after.tabs.some(tab => /^Engine Lab:true$/.test(tab)),
       `Engine Lab was chosen and the active tab is ${JSON.stringify(after.tabs)}`)
     console.log(`  palette tabs: Engine Lab from Play mode lands on ${JSON.stringify(after.tabs)}`)
+    const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+    await command.fill('isready')
+    const collapse = async () => {
+      const handle = page.getByRole('separator', { name: 'Resize right panel', exact: true })
+      await handle.focus()
+      await handle.press('Home')
+      await page.waitForFunction(() => document.querySelector('.panel.right > .panel-inner')?.inert)
+    }
+    const choose = async id => {
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k')
+      await page.locator('.command-palette').waitFor()
+      await page.locator(`[data-command-id="${id}"] button`).click()
+      await page.locator('.command-palette').waitFor({ state: 'detached' })
+    }
+    const preference = () => page.evaluate(() => JSON.parse(localStorage.getItem('webchess:analysis-settings:v1')).rightPanelWidth)
+    let revealed = 0
+    for (const [width, scale] of [[1280, 1], [901, 2]]) {
+      await page.setViewportSize({ width, height: 900 })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      for (const mode of ['Play', 'Analysis']) {
+        for (const [id, tab] of [['tab-analyze', 'Analyze'], ['tab-review', 'Review'], ['tab-lab', 'Engine Lab']]) {
+          await page.getByRole('button', { name: mode, exact: true }).first().click()
+          await collapse()
+          const preferredWidth = await preference()
+          await choose(id)
+          const selected = page.getByRole('button', { name: tab, exact: true })
+          await selected.waitFor()
+          assert((await selected.getAttribute('class')).includes('active'), 'the tab command did not select its requested destination')
+          assert(await page.locator('.panel.right > .panel-inner').evaluate(el => !el.inert && el.getAttribute('aria-hidden') !== 'true'),
+            'the requested analysis tab remains inaccessible inside a collapsed panel')
+          await page.waitForFunction(() => {
+            const panel = document.querySelector('.panel.right')
+            const actual = panel.getBoundingClientRect().width
+            return actual > 0 && Math.abs(actual - Number.parseFloat(panel.style.width)) < 1
+          })
+          assert(await preference() === preferredWidth, 'opening a collapsed tab replaced the saved panel width')
+          assert(await page.locator('#chessboard-square-e4').evaluate(readBoardSquareLabel) === boardBefore, 'opening a collapsed tab changed the board')
+          revealed++
+        }
+      }
+    }
+    assert(await command.inputValue() === 'isready', 'opening the panel erased the unsent Engine Lab command')
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await collapse()
+    await choose('review-game')
+    await page.getByRole('button', { name: 'Review', exact: true }).waitFor()
+    await page.getByTestId('review-run-summary').filter({ hasText: 'Completed review' }).waitFor()
+    assert(await page.locator('.panel.right > .panel-inner').evaluate(el => !el.inert), 'reviewing from Play left the result in a collapsed panel')
+    assert(await page.locator('#chessboard-square-e4').evaluate(readBoardSquareLabel) === boardBefore, 'reviewing from a collapsed panel changed the selected position')
+    console.log(`  palette tab reveal: ${revealed} collapsed-panel destinations reopen from Play/Analysis at desktop and 901px/200% text; saved width, board and command draft survive; Review game from Play opens and completes`)
   } finally {
     await context.close()
   }

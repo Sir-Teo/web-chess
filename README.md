@@ -502,6 +502,8 @@ given, and the app answering the reader who touches it.
   standalone position notes. `Export PGN` opens the export options directly
   for a download or manual copy of the game or position study.
   `Set up position` opens the current board in the piece editor.
+  Analyze, Review and Engine Lab reopen a collapsed analysis panel at its
+  saved width. Review game from Play also opens the panel before reviewing.
   `Open in Lichess` takes the current line, while
   `Open in chess.com` takes the current position. Copies report success or
   explain how to copy manually when clipboard access is unavailable.

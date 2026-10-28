@@ -1,0 +1,6 @@
+{"browser":"chromium","port":"4324","commit":"a925af322782ad04c143959ad32c88e016d93931","build":"Vite development source","dirty":true,"checks":["checkAPaletteTabCommandGoesThere"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkAPaletteTabCommandGoesThere
+  palette tabs: Engine Lab from Play mode lands on ["Analyze:false","Review:false","Engine Lab:true"]
+  palette tab reveal: 12 collapsed-panel destinations reopen from Play/Analysis at desktop and 901px/200% text; saved width, board and command draft survive; Review game from Play opens and completes
+Development palette checks passed.

@@ -2217,6 +2217,7 @@ function App() {
     setSettingsOpen(false)
     setWorkspaceMode('analysis')
     setAnalysisTab('review')
+    setRightWidth(width => width || preferredRightWidthRef.current)
     setAnalysisPanelRevealTick(tick => tick + 1)
     pendingReviewOptionsRef.current = undefined
     setPendingGameReview(true)
@@ -3077,6 +3078,7 @@ function App() {
     if (workspaceMode !== 'analysis') handleWorkspaceModeChange('analysis')
     pause()
     setAnalysisTab(tab)
+    setRightWidth(width => width || preferredRightWidthRef.current)
     setAnalysisPanelRevealTick(tick => tick + 1)
   }, [handleWorkspaceModeChange, pause, workspaceMode])
 
