@@ -1,0 +1,50 @@
+{
+  "before": {
+    "browser": "chromium",
+    "results": [
+      {
+        "kind": "console",
+        "initial": 1,
+        "first": 2,
+        "afterRepeat": 2,
+        "whilePending": [
+          "Stop the active search or wait for the pending command before sending another command."
+        ],
+        "afterReady": [
+          "Stop the active search or wait for the pending command before sending another command."
+        ],
+        "status": "ready"
+      },
+      {
+        "kind": "option",
+        "initial": 0,
+        "first": 1,
+        "afterRepeat": 2,
+        "afterFresh": 3,
+        "focused": true
+      }
+    ]
+  },
+  "after": {
+    "browser": "chromium",
+    "results": [
+      {
+        "kind": "console",
+        "initial": 1,
+        "first": 2,
+        "afterRepeat": 2,
+        "whilePending": [],
+        "afterReady": [],
+        "status": "ready"
+      },
+      {
+        "kind": "option",
+        "initial": 0,
+        "first": 1,
+        "afterRepeat": 1,
+        "afterFresh": 2,
+        "focused": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{"browser":"chromium","port":"4324","commit":"286f15ced5857cda3e6e3896e615775ebbd930ec","build":"Vite development source","dirty":true,"checks":["checkConsoleDraftOwnership","checkThreadConfigurationOwnership","checkEngineOptionEntry"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkConsoleDraftOwnership
+  console drafts (1280px, 1x): held/composing Enter preserves pending commands without busy errors and fresh presses work; new drafts survive completion and Stop, typed Stop retains terminal output/history, unchanged submissions clear, and reset discards late output
+  console drafts (375px, 2x): held/composing Enter preserves pending commands without busy errors and fresh presses work; new drafts survive completion and Stop, typed Stop retains terminal output/history, unchanged submissions clear, and reset discards late output
+checkThreadConfigurationOwnership
+  thread configuration: startup readiness, console/direct-control acknowledgements, managed-command guards, newer drafts and subsequent search; engine button Enter ignores held/composing events after focus restoration and accepts fresh presses
+checkEngineOptionEntry
+  option entry (1280px, 1x, dark): Enter applies numeric/text values once, normalizes bounds, persists Hash, awaits readiness and restores focus; IME/repeats, newer focus, draft and board retained
+  option entry (375px, 1x, light): Enter applies numeric/text values once, normalizes bounds, persists Hash, awaits readiness and restores focus; IME/repeats, newer focus, draft and board retained
+  option entry (320px, 2x, dark): Enter applies numeric/text values once, normalizes bounds, persists Hash, awaits readiness and restores focus; IME/repeats, newer focus, draft and board retained
+Development focused checks passed.

@@ -14758,7 +14758,27 @@ async function checkThreadConfigurationOwnership(browser) {
     await clear.click()
     await releaseOption()
     assert(await clear.evaluate(el => el === document.activeElement), 'button option acknowledgement stranded focus')
-    console.log('  thread configuration: startup readiness, console/direct-control acknowledgements, managed-command guards, newer drafts and subsequent search')
+    const clearCount = () => page.evaluate(() => window.__uciCommands.filter(text => text === 'setoption name Clear Hash').length)
+    const beforeClear = await clearCount()
+    const composingClear = await clear.evaluate(el => [{ isComposing: true }, { keyCode: 229 }].map(init => {
+      const event = new KeyboardEvent('keydown', { ...init, key: 'Enter', bubbles: true, cancelable: true })
+      el.dispatchEvent(event)
+      return event.defaultPrevented
+    }))
+    assert(composingClear.every(Boolean) && await clearCount() === beforeClear, 'composing Enter activated an engine button option')
+    await holdOption()
+    await page.keyboard.down('Enter')
+    await releaseOption()
+    await page.waitForFunction(() => document.activeElement?.textContent.trim() === 'Clear Hash' && !document.activeElement.disabled)
+    await page.keyboard.down('Enter'); await page.keyboard.up('Enter')
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    assert(await clearCount() === beforeClear + 1 && await clear.isEnabled() && await clear.evaluate(el => el === document.activeElement),
+      'held Enter reactivated the button option after its acknowledgement restored focus')
+    await holdOption()
+    await clear.press('Enter')
+    await releaseOption()
+    assert(await clearCount() === beforeClear + 2, 'a fresh Enter did not activate the engine button option')
+    console.log('  thread configuration: startup readiness, console/direct-control acknowledgements, managed-command guards, newer drafts and subsequent search; engine button Enter ignores held/composing events after focus restoration and accepts fresh presses')
   } finally { await context.close() }
 }
 
@@ -15860,6 +15880,29 @@ async function checkConsoleDraftOwnership(browser) {
       const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
       const output = page.getByLabel('UCI console output', { exact: true })
       const submit = async text => { await command.fill(text); await command.press('Enter') }
+      await command.fill('isready')
+      const readyCount = () => page.evaluate(() => window.__uciCommands.filter(text => text === 'isready').length)
+      const beforeReady = await readyCount()
+      const composing = await command.evaluate(el => [{ isComposing: true }, { keyCode: 229 }].map(init => {
+        const event = new KeyboardEvent('keydown', { ...init, key: 'Enter', bubbles: true, cancelable: true })
+        el.dispatchEvent(event)
+        return event.defaultPrevented
+      }))
+      assert(composing.every(Boolean) && await command.inputValue() === 'isready' && await readyCount() === beforeReady,
+        'composing Enter submitted or changed the console draft')
+      await page.evaluate(() => { window.__holdConsoleReady = true; window.__releaseConsoleReady = null })
+      await page.keyboard.down('Enter')
+      await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
+      await page.keyboard.down('Enter'); await page.keyboard.up('Enter')
+      assert(await command.inputValue() === 'isready' && await page.locator('.engine-lab-card .error-copy').count() === 0,
+        'held Enter resubmitted a pending console command or raised an unrelated busy error')
+      await page.evaluate(() => window.__releaseConsoleReady())
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      assert(await readyCount() === beforeReady + 1 && await page.locator('.engine-lab-card .error-copy').count() === 0
+        && await command.evaluate(el => el === document.activeElement), 'one console press did not finish cleanly with its input focused')
+      await submit('isready')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      assert(await readyCount() === beforeReady + 2, 'a fresh console Enter was ignored')
       await submit('position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
       await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
       const search = 'go depth 12'
@@ -15922,7 +15965,7 @@ async function checkConsoleDraftOwnership(browser) {
       assert(await output.textContent() === 'No command output yet.', 'old output returned after Reset saved workspace')
       assert(await command.inputValue() === '' && await page.locator('.lab-history-list button').count() === 0, 'reset restored an old command draft/history')
       assert(await page.locator('.command-summary').filter({ hasText: 'Last run:' }).count() === 0, 'old completion restored the reset run summary')
-      console.log(`  console drafts (${width}px, ${scale}x): new drafts survive completion and Stop, typed Stop retains terminal output/history, unchanged submissions clear, and reset discards late output`)
+      console.log(`  console drafts (${width}px, ${scale}x): held/composing Enter preserves pending commands without busy errors and fresh presses work; new drafts survive completion and Stop, typed Stop retains terminal output/history, unchanged submissions clear, and reset discards late output`)
     } catch (error) {
       const state = await page.evaluate(() => ({ status: document.querySelector('.bottom .status')?.textContent,
         input: document.querySelector('[aria-label="UCI command"]')?.value,

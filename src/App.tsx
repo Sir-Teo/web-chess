@@ -10180,6 +10180,9 @@ function App() {
                     {engineLabError && <p id={engineLabErrorId} className="panel-copy small error-copy" role="alert">{engineLabError}</p>}
                     <form
                       className="engine-lab-console"
+                      onKeyDown={event => {
+                        if (event.key === 'Enter' && (event.repeat || isCompositionKey(event.nativeEvent))) event.preventDefault()
+                      }}
                       onSubmit={(e) => {
                         e.preventDefault()
                         void runLabCommand(engineLabCommand)

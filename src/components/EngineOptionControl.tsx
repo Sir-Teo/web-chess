@@ -80,7 +80,9 @@ export function EngineOptionControl({ option, onSetOption, disabled = false }: E
   if (option.type === 'button') {
     return (
       <div className="engine-option-row">
-        <button type="button" disabled={disabled} onClick={event => {
+        <button type="button" disabled={disabled} onKeyDown={event => {
+          if (event.key === 'Enter' && (event.repeat || isCompositionKey(event.nativeEvent))) event.preventDefault()
+        }} onClick={event => {
           rememberApplyFocus(event.currentTarget)
           onSetOption(option.name)
         }}>
