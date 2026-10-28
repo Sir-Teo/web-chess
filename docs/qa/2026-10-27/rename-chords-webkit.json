@@ -1,0 +1,30 @@
+{
+  "before": [
+    {
+      "browser": "webkit",
+      "editor": "saved review",
+      "open": 0,
+      "draft": null
+    },
+    {
+      "browser": "webkit",
+      "editor": "library",
+      "open": 0,
+      "draft": null
+    }
+  ],
+  "after": [
+    {
+      "browser": "webkit",
+      "editor": "saved review",
+      "open": 1,
+      "draft": "Cancel this draft"
+    },
+    {
+      "browser": "webkit",
+      "editor": "library",
+      "open": 1,
+      "draft": "A draft in progress"
+    }
+  ]
+}

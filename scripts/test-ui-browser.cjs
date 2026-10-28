@@ -2780,6 +2780,23 @@ async function checkSavedReviewDeleteFocus(browser) {
   }
 }
 
+async function assertRenameBrowserChords(input, draft) {
+  await input.press('Shift+Escape')
+  assert(await input.isVisible() && await input.inputValue() === draft, 'native Shift+Escape discarded a rename draft')
+  const ignored = await input.evaluate(el => {
+    const value = el.value, start = el.selectionStart, end = el.selectionEnd
+    return [
+      { ctrlKey: true }, { metaKey: true }, { altKey: true }, { shiftKey: true }, { isComposing: true }, { keyCode: 229 },
+    ].map(init => {
+      const event = new KeyboardEvent('keydown', { ...init, key: 'Escape', bubbles: true, cancelable: true })
+      el.dispatchEvent(event)
+      return !event.defaultPrevented && document.activeElement === el && el.value === value
+        && el.selectionStart === start && el.selectionEnd === end
+    })
+  })
+  assert(ignored.every(Boolean), 'modified/composing Escape changed the rename draft, focus or selection')
+}
+
 async function checkSavedReviewRenaming(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 900 } })
@@ -2830,6 +2847,7 @@ async function checkSavedReviewRenaming(browser) {
       await input.fill('   ')
       assert(await panel.getByRole('button', { name: 'Save name', exact: true }).isDisabled(), 'a blank review title can be saved')
       await input.fill('Cancel this draft')
+      await assertRenameBrowserChords(input, 'Cancel this draft')
       await input.dispatchEvent('keydown', { key: 'Escape', code: 'Escape', isComposing: true })
       assert(await input.isVisible(), 'composing Escape discarded a review-name draft')
       await input.press('Escape')
@@ -2942,7 +2960,7 @@ async function checkSavedReviewRenaming(browser) {
       await panel.locator('summary').click()
       await panel.locator('summary').click()
       await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 49)
-      console.log(`  review naming (${width}px): selected draft/cancel, held/composing Enter, fresh reopen, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery`)
+      console.log(`  review naming (${width}px): selected draft/plain Escape cancel, browser/composing Escape preserved, held/composing Enter, fresh reopen, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery`)
     } finally { await context.close() }
   }
 }
@@ -4531,6 +4549,49 @@ function reachInPanel(selector) {
   return { trapped: trapped.length, native: native.length, past: past.map(describe) }
 }
 
+async function assertDialogBrowserChords(page, selector) {
+  const panel = page.locator(selector)
+  await panel.evaluate(panel => {
+    const controls = [...panel.querySelectorAll('button, input, select, textarea, summary, a[href], [tabindex]')]
+      .filter(el => el.tabIndex >= 0 && !el.matches(':disabled') && getComputedStyle(el).visibility !== 'hidden'
+        && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0)
+    controls.at(-1).focus()
+  })
+  for (const [chord, key] of [['Shift+Escape', 'Escape'], ['Control+Tab', 'Tab']]) {
+    await page.evaluate(key => {
+      window.__modalChordPrevented = null
+      const record = event => {
+        if (event.key !== key) return
+        window.__modalChordPrevented = event.defaultPrevented
+        window.removeEventListener('keydown', record)
+      }
+      window.addEventListener('keydown', record)
+    }, key)
+    await page.keyboard.press(chord)
+    assert(await panel.isVisible() && await page.evaluate(() => window.__modalChordPrevented === false), `${selector} captured native ${chord}`)
+  }
+  const ignored = await panel.evaluate(panel => {
+    const controls = [...panel.querySelectorAll('button, input, select, textarea, summary, a[href], [tabindex]')]
+      .filter(el => el.tabIndex >= 0 && !el.matches(':disabled') && getComputedStyle(el).visibility !== 'hidden'
+        && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0)
+    return [controls[0], controls.at(-1)].flatMap(target => {
+      target.focus()
+      return [
+        { key: 'Escape', ctrlKey: true }, { key: 'Escape', metaKey: true }, { key: 'Escape', altKey: true }, { key: 'Escape', shiftKey: true },
+        { key: 'Escape', isComposing: true }, { key: 'Escape', keyCode: 229 },
+        { key: 'Tab', ctrlKey: true }, { key: 'Tab', metaKey: true }, { key: 'Tab', altKey: true },
+        { key: 'Tab', ctrlKey: true, shiftKey: true }, { key: 'Tab', metaKey: true, shiftKey: true }, { key: 'Tab', altKey: true, shiftKey: true },
+      ].map(init => {
+        const event = new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true })
+        target.dispatchEvent(event)
+        return !event.defaultPrevented && document.activeElement === target && panel.isConnected
+      })
+    })
+  })
+  assert(ignored.every(Boolean), `${selector} changed focus or closed on a modified/composing Escape or browser Tab chord`)
+  console.log(`  dialog browser chords (${selector}): native Shift+Escape/Ctrl+Tab pass through; modified/composing Escape and browser Tab chords preserve both focus edges`)
+}
+
 async function checkADialogKeepsTheKeyboard(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -4545,6 +4606,7 @@ async function checkADialogKeepsTheKeyboard(browser) {
     await page.getByRole('button', { name: /Open settings/ }).click()
     await page.locator('.settings-body').waitFor({ timeout: 10000 })
     await page.waitForTimeout(400)
+    await assertDialogBrowserChords(page, '.settings-body')
 
     const focusState = () => page.evaluate(() => {
       const active = document.activeElement
@@ -4629,12 +4691,14 @@ async function checkADialogKeepsTheKeyboard(browser) {
       await overlay.open()
       await page.locator(overlay.panel).waitFor({ timeout: 15000 })
       await page.waitForTimeout(500)
+      await assertDialogBrowserChords(page, overlay.panel)
       const found = await page.evaluate(reachInPanel, overlay.panel)
       assert(found.past.length === 0,
         `${overlay.name}: the browser will tab to ${found.past.length} control(s) past the end of the trap: ${found.past.join(', ')}`)
       assert(found.native === found.trapped,
         `${overlay.name}: the panel holds ${found.native} focusable controls and the trap knows of ${found.trapped}`)
       await page.keyboard.press('Escape')
+      await page.locator(overlay.panel).waitFor({ state: 'detached' })
       await page.waitForTimeout(400)
       console.log(`  ${overlay.name}: ${found.native} focusable controls, all inside the trap`)
     }
@@ -4655,12 +4719,17 @@ async function checkADialogKeepsTheKeyboard(browser) {
     await page.locator('#chessboard-square-b8').click()
     await page.locator('.promotion-chooser').waitFor({ timeout: 15000 })
     await page.waitForTimeout(500)
+    await assertDialogBrowserChords(page, '.promotion-overlay')
     const promotion = await page.evaluate(reachInPanel, '.promotion-overlay')
     assert(promotion.past.length === 0,
       `Promotion chooser: the browser will tab to ${promotion.past.length} control(s) past the end of the trap: ${promotion.past.join(', ')}`)
     assert(promotion.native === promotion.trapped,
       `Promotion chooser: the panel holds ${promotion.native} focusable controls and the trap knows of ${promotion.trapped}`)
     console.log(`  Promotion chooser: ${promotion.native} focusable controls, all inside the trap`)
+    await page.keyboard.press('Escape')
+    await page.locator('.promotion-chooser').waitFor({ state: 'detached' })
+    await waitForBoardPiece(page, 'b7', 'White pawn')
+    assert(await page.locator('#chessboard-square-b8 [data-piece]').count() === 0, 'ordinary Escape committed a promotion instead of canceling it')
   } finally {
     await context.close()
   }
@@ -6514,11 +6583,12 @@ async function checkTextCompositionKeys(browser) {
     await dialog.getByRole('button', { name: 'Rename Composition game', exact: true }).click()
     const rename = dialog.getByRole('textbox', { name: 'New game name', exact: true })
     await rename.fill('A draft in progress')
+    await assertRenameBrowserChords(rename, 'A draft in progress')
     await rename.dispatchEvent('keydown', { key: 'Escape', bubbles: true, isComposing: true })
     assert(await rename.inputValue() === 'A draft in progress', 'composing Escape discarded the rename draft')
     await rename.press('Escape')
     assert(await dialog.isVisible() && await rename.count() === 0, 'ordinary Escape no longer cancels rename')
-    console.log('  text composition: Enter/Escape and legacy 229 preserve Commands, archive and rename drafts; ordinary keys still work')
+    console.log('  text composition: Enter/Escape and legacy 229 preserve Commands, archive and rename drafts; native Shift+Escape and modified Escape retain the Library rename draft; ordinary keys still work')
   } finally { await context.close() }
 }
 
@@ -19289,6 +19359,7 @@ async function checkAnInterruptedGameComesBack(browser) {
     // Closing a normal dialog is harmless. Here it deletes the only saved
     // game, so accidental Escape/backdrop gestures need to leave the choice
     // and the snapshot intact until Restore or Start fresh is pressed.
+    await assertDialogBrowserChords(page, '.auto-save-recovery')
     await page.keyboard.press('Escape')
     assert(await restore.isVisible(), 'Escape dismissed the recovery choice')
     assert(await savedMoves() === 3, 'Escape deleted the recoverable game')
@@ -23135,6 +23206,7 @@ async function main() {
       'analysis-reuse': checkAutomaticAnalysisIsReused,
       'review-drift': checkReviewReportHoldsStill,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
+      'autosave-restore': checkAnInterruptedGameComesBack,
       'markup': checkTheMarkupSaysWhatItShows,
       'premove': checkAPremoveWaitsForItsTurn,
       'threat': checkTheThreatProbeAsksTheOtherSide,

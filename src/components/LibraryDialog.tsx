@@ -542,7 +542,7 @@ export function LibraryDialog({
                                     data-library-game-id={game.id}
                                     onKeyDown={event => {
                                         if (isCompositionKey(event.nativeEvent)) return
-                                        if (event.key === 'Escape' && renaming?.id === game.id) {
+                                        if (event.key === 'Escape' && isPlainShortcut(event.nativeEvent) && renaming?.id === game.id) {
                                             event.preventDefault()
                                             event.stopPropagation()
                                             finishRenaming()

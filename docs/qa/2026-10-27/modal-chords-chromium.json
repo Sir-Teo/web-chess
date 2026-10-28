@@ -1,0 +1,62 @@
+{
+  "before": {
+    "browser": "chromium",
+    "shiftEscape": {
+      "dialogOpen": 0
+    },
+    "controlTab": {
+      "before": {
+        "label": "Start Game",
+        "inside": true
+      },
+      "after": {
+        "label": "Human vs HumanPass & play on the same device",
+        "inside": true
+      }
+    },
+    "events": [
+      {
+        "key": "Escape",
+        "ctrl": false,
+        "shift": true,
+        "prevented": true
+      },
+      {
+        "key": "Tab",
+        "ctrl": true,
+        "shift": false,
+        "prevented": true
+      }
+    ]
+  },
+  "after": {
+    "browser": "chromium",
+    "shiftEscape": {
+      "dialogOpen": 1
+    },
+    "controlTab": {
+      "before": {
+        "label": "Start Game",
+        "inside": true
+      },
+      "after": {
+        "label": "Start Game",
+        "inside": true
+      }
+    },
+    "events": [
+      {
+        "key": "Escape",
+        "ctrl": false,
+        "shift": true,
+        "prevented": false
+      },
+      {
+        "key": "Tab",
+        "ctrl": true,
+        "shift": false,
+        "prevented": false
+      }
+    ]
+  }
+}
