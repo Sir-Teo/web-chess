@@ -1,0 +1,34 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 199 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DqYiTm0h.js   67.87 kB
+dist/assets/LibraryDialog-BXloarg5.css        5.37 kB │ gzip:   1.37 kB
+dist/assets/index-DID8ivA7.css              135.68 kB │ gzip:  25.23 kB
+dist/assets/NewGameDialog-BOkA5GpZ.js         4.51 kB │ gzip:   1.63 kB
+dist/assets/LibraryDialog-DXiXBRjK.js        16.10 kB │ gzip:   5.46 kB
+dist/assets/PgnDialog-KHdv7OLb.js            35.67 kB │ gzip:  11.93 kB
+dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-CiyOqRav.js               424.98 kB │ gzip: 137.16 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 3.04s
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  review storage focus (1280px, 1x, dark): Save selects its committed review; save/export/import failures retain focused retries; real native-worker backups preserve exact records without duplicates; delayed writes/export/import respect newer board focus and preserve the report/cursor
+  review storage focus (375px, 1x, light): Save selects its committed review; save/export/import failures retain focused retries; real native-worker backups preserve exact records without duplicates; delayed writes/export/import respect newer board focus and preserve the report/cursor
+  review storage focus (320px, 2x, light): Save selects its committed review; save/export/import failures retain focused retries; real native-worker backups preserve exact records without duplicates; delayed writes/export/import respect newer board focus and preserve the report/cursor
+  review backup export (1280px): a native worker exports complete/partial runs with exact WDL, settings and timestamps; 200% text and download failure preserve the open report
+  review backup export (375px): a native worker exports complete/partial runs with exact WDL, settings and timestamps; 200% text and download failure preserve the open report
+  review backup import (1280px): a clean browser restores exact complete/partial runs, preserves ID collisions, deduplicates retries, keeps the current board and rejects corrupt data; post-insert abort, capacity and concurrent imports are atomic
+  review backup import (375px): a clean browser restores exact complete/partial runs, preserves ID collisions, deduplicates retries, keeps the current board and rejects corrupt data; the cached worker imports and exports offline
+Focused browser UI checks passed.
