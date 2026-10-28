@@ -9414,6 +9414,26 @@ async function checkOneGestureSavesOneGame(browser) {
     await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 3)
     await page.getByRole('button', { name: 'Load Second copy (2)', exact: true }).waitFor()
 
+    const discard = async (name, remaining) => {
+      await page.getByRole('button', { name: `Delete ${name}`, exact: true }).click()
+      await page.getByRole('button', { name: `Confirm deleting ${name}`, exact: true }).click()
+      await page.waitForFunction(count => document.querySelectorAll('.library-row').length === count, remaining)
+    }
+    const save = page.locator('.library-dialog').getByRole('button', { name: 'Save', exact: true })
+    await discard(afterTriple[0], 2)
+    assert(await save.isDisabled(), 'deleting an unrelated copy reset the duplicate-save guard')
+    await page.getByRole('button', { name: 'Rename Second copy (2)', exact: true }).click()
+    await page.getByRole('textbox', { name: 'New game name', exact: true }).fill('Latest copy renamed ♞')
+    await page.getByRole('button', { name: 'Save name', exact: true }).click()
+    await discard('Latest copy renamed ♞', 1)
+    assert(await save.isEnabled() && !await save.getAttribute('title'), 'deleting the last saved copy left Save disabled or claimed that copy still exists')
+    assert(await clickSaveThrice(), 'the current game cannot be saved again after deleting its latest saved copy')
+    await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 2)
+    await page.locator('.library-status').filter({ hasText: 'Saving library changes…' }).waitFor({ state: 'detached' })
+    const resaved = await names()
+    assert(resaved.length === 2 && resaved.includes('Second copy') && !resaved.includes('Latest copy renamed ♞') && await save.isDisabled(),
+      `resaving after deletion duplicated or resurrected entries: ${JSON.stringify(resaved)}`)
+
     // So is playing on.
     await page.keyboard.press('Escape')
     await page.waitForTimeout(400)
@@ -9422,7 +9442,7 @@ async function checkOneGestureSavesOneGame(browser) {
     await page.waitForTimeout(300)
     assert(await page.evaluate(() => !document.querySelector('.library-save-row .btn-start').disabled),
       'a further move should make the game saveable again')
-    console.log(`  library: three clicks saved one copy, a named copy and a further move both saved again`)
+    console.log(`  library: three clicks save one copy; named copies and a further move can save again; deleting unrelated games retains the guard, deleting the latest saved copy after rename permits exactly one new save`)
   } finally {
     await context.close()
   }

@@ -160,6 +160,7 @@ export function LibraryDialog({
     const [savedPgn, setSavedPgn] = useState<string | null>(null)
     const savedPgnRef = useRef<string | null>(null)
     const savedNameRef = useRef<string | null>(null)
+    const savedGameIdRef = useRef<string | null>(null)
     const panelRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const titleId = useId()
@@ -293,6 +294,7 @@ export function LibraryDialog({
         if (result.ok) {
             savedPgnRef.current = currentKey
             savedNameRef.current = typedName
+            savedGameIdRef.current = result.game?.id ?? null
             setSavedPgn(currentKey)
             setName('')
         }
@@ -628,6 +630,12 @@ export function LibraryDialog({
                                                         next?.focus()
                                                     })
                                                     onDelete(game.id)
+                                                    if (savedGameIdRef.current === game.id) {
+                                                        savedGameIdRef.current = null
+                                                        savedPgnRef.current = null
+                                                        savedNameRef.current = null
+                                                        setSavedPgn(null)
+                                                    }
                                                     setConfirmingDelete(null)
                                                     if (renaming?.id === game.id) setRenaming(null)
                                                 }}

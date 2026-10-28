@@ -1,0 +1,5 @@
+{"browser":"chromium","port":"4324","commit":"87e5ee5d04e2e618f7273d378c9bdecb37c45ca2","build":"Vite development source","dirty":true,"checks":["checkOneGestureSavesOneGame"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkOneGestureSavesOneGame
+  library: three clicks save one copy; named copies and a further move can save again; deleting unrelated games retains the guard, deleting the latest saved copy after rename permits exactly one new save
+Development focused checks passed.
