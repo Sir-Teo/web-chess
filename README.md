@@ -44,7 +44,8 @@ given, and the app answering the reader who touches it.
   is worse than none, because re-picking it every time is the thing you wanted
   automated.
 - **A clock**: Pick a time control when you start a game — bullet through
-  classical, or none, which stays the default. Both clocks sit in the strip
+  rapid, or none, which stays the default. The numbers mean minutes per side
+  plus seconds added after each move. Both clocks sit in the strip
   above the board, the side to move is highlighted, tenths appear under ten
   seconds, and running out ends the game and records it in the PGN result. The
   engine plays to the clock rather than to a stopwatch: it takes a share of what

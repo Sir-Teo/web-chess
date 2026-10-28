@@ -53,7 +53,7 @@ export const TIME_CONTROL_PRESETS: TimeControlPreset[] = [
   { id: '3+2', label: '3 + 2', control: { initialMs: 180_000, incrementMs: 2_000 }, blurb: 'Blitz' },
   { id: '5+0', label: '5 + 0', control: { initialMs: 300_000, incrementMs: 0 }, blurb: 'Blitz' },
   { id: '10+0', label: '10 + 0', control: { initialMs: 600_000, incrementMs: 0 }, blurb: 'Rapid' },
-  { id: '15+10', label: '15 + 10', control: { initialMs: 900_000, incrementMs: 10_000 }, blurb: 'Classical' },
+  { id: '15+10', label: '15 + 10', control: { initialMs: 900_000, incrementMs: 10_000 }, blurb: 'Rapid' },
 ]
 
 export function timeControlPresetById(id: string): TimeControlPreset | undefined {

@@ -1014,6 +1014,11 @@
     gap: 0.4rem;
 }
 
+.time-control-help {
+    margin: 0 0 0.65rem;
+    color: var(--text-secondary);
+}
+
 .time-control-card {
     display: flex;
     flex-direction: column;
